@@ -1,10 +1,10 @@
 ---
 id: WRK-007
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-12
+reviewed: 2026-07-31
 review-due: 2026-09-12
 expires: 2026-09-12
 landed-into: "references/backend/domains/search.md"
@@ -12,6 +12,9 @@ audience: [human, ai]
 ---
 
 # 统一搜索服务（BM25 + RAG）—— 现状与完整技术方案
+
+> **冻结历史快照。** 搜索实现已继续演进；当前合同只以
+> [`domains/search.md`](../../references/backend/domains/search.md) 为准。
 
 > **状态：已实施落地（2026-06-12，M1+M2+M3 全量）。** 权威源已迁移：设计结论在 [`domains/search.md`](../../references/backend/domains/search.md) + `concepts/architecture.md` §3.5/§6/§8 + api/database/error-codes 四索引；本文档仅存档设计过程。
 

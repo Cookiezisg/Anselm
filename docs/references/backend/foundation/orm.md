@@ -4,53 +4,92 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# orm —— 自研泛型数据访问地基
+# ORM
 
 ## 1. 定位
 
-`pkg/orm` 是后端**唯一**的数据访问层——自研、泛型、去 GORM、纯 Go（配 `glebarez/go-sqlite`，无 CGO）。所有 `infra/store/*` 经它读写 SQLite。它把多租户隔离 / 软删 / 时间戳 / 冲突翻译收进地基，业务层一律不手写。
+`pkg/orm` 是 SQLite 的泛型数据访问地基。`infra/store/*` 通过它统一获得
+workspace 隔离、软删、时间戳、constraint 翻译、事务与 keyset pagination。
+FTS/embedding 等无法用 row mapper 表达的查询使用 ORM DB 的 raw read escape。
 
-## 2. 心智模型
+## 2. Model metadata
 
-`Repo[T]`（一张表的类型化句柄）→ `Query[T]`（链式构建器，**惰性**）。
+`For[T](db,table)` 从 `db` tags 建立类型化 Repo；T 必须是 struct 且恰有一个
+`,pk`。常用 roles：
 
-- `For[T](db, table)` 建 Repo；`T` 是带 `db:"col,role"` tag 的 struct（含且仅含一个 `,pk`）。
-- 链式累积条件（`Where`/`Order`/`Limit`/…），**直到终结方法才碰 DB**：读 `First`/`Find`/`Count`/`Exists`/`Pluck`/`Page`，写 `Create`/`Save`/`Update`/`Updates`/`Delete`。
-- 表结构靠 tag **一次反射 + sync.Map 缓存**（`metaOf`）；配错（无 pk、未知选项、非 struct）直接 **panic**——编程错误，必须启动期暴露、而非查询期。
+```text
+pk
+ws
+created / updated
+deleted
+json
+```
 
-## 3. 五条自动行为（地基统一，取代每个 store 的样板）
+Metadata 反射一次并缓存。缺 pk、未知 role 等属于编程错误，在首次建 Repo 时
+panic，使错误在启动/测试暴露。
 
-| 行为 | 机制 | 规则 / 逃生 |
-|---|---|---|
-| **workspace 隔离** | 读 `whereClause` 自动加 `ws = ?`（从 ctx `RequireWorkspaceID`）；写 `applyWorkspace` 自动填 | D2；逃生 `CrossWorkspace()`（仅系统级查询） |
-| **软删** | 有 `deleted` 列且非 `Unscoped` → `Delete` 设 `deleted_at`、查询自动 `deleted_at IS NULL`；否则物理删 | D1；逃生 `Unscoped()` |
-| **时间戳** | `stamp`：`created`（首次/零值）+ `updated`（每次）自动设 | — |
-| **UNIQUE 冲突 → `ErrConflict`** | `writeErr` 翻译 SQLite 约束错 | 业务层不手搓（强化地基，CLAUDE 原则 #8） |
-| **keyset 分页** | `Page`（时间键、降序）/ `PageAsc`（字符串键、升序、`COLLATE NOCASE`）/ `PageTimeAsc`（时间键、**升序**——窗口式历史读的向前续翻）三条路径：`(keyset, pk)` 元组游标、`limit+1` 探下页；keyset 列默认 `created`、`PageKeyset(col)` 可改（`Page` 用 `time.Time` 列如 conversation 的 `last_message_at`；`PageAsc` 用字符串列如 `?sort=name` 的 `title`） | N4；两者都给**默认**序、**可被先前 `.Order()` 覆盖**（如 conversation 置顶优先）；`PageKeyset` 让游标列与 `.Order()` 排序列对齐；游标编码 `Cursor`（time）/ `StringCursor`（string），同紧凑线缆形状 `{c,i}` |
+## 3. Query
 
-## 4. API 面
+Query 是惰性 builder：
 
-- **链式入口**（Repo 简写 / `Query()` 起链）：`Where(raw, args…)` · `WhereEq` · `WhereIn`（空 vals → `1=0` 永假守卫）· `WhereNull` · `WhereNotNull` · `WhereLike`（`col LIKE '%term%'` 大小写不敏感子串；转义 `%`/`_` + `ESCAPE '\'` 使用户字面通配符不生效；空/纯空白 term = no-op，故调用方可直接传原始 search 输入）· `Order` · `Limit` · `Offset` · `Unscoped` · `CrossWorkspace`。
-- **终结**：读 `First`(无则 `ErrNotFound`)/`Find`/`Count`/`Exists`/`Pluck`(单列入 `*[]T`)/`Page`；写 `Create`/`Save`(按 pk upsert，保留 created)/`Update`(单列)/`Updates`(多列)/`Delete`；by-pk `Get`/`Delete`。
-- **`DB`**：`Open(pool)` · `Transaction`（**扁平嵌套**——已在 tx 内则复用、无 savepoint，故 store 方法可自由组合；**panic 安全**——fn 的任何未提交退出路径经 defer 回滚、panic 照常上抛，Commit 成功后该 defer 是 `sql.ErrTxDone` no-op。没有它，panic 被上层在不可取消 ctx（`reqctx.Detached`）上 recover 后，事务永久占住 `SetMaxOpenConns(1)` 的唯一连接 = 整库砖化，WRK-070 T7；守卫 `tx_test.go` 单连接真库 panic 穿透测）· `Exec`（裸 SQL 写逃生口：DDL / PRAGMA / 一次性维护）· `Query`/`QueryRow`（裸读逃生口：行映射表达不了的 FTS5 虚表 / MATCH 排序 / snippet）· `Close`。
-- **json 列**：`db:"…,json"` 经 `[]byte` 暂存自动 marshal/unmarshal。
+- conditions：Where、WhereEq、WhereIn、WhereNull/NotNull、WhereLike；
+- shape：Order、Limit、Offset；
+- scope：Unscoped、CrossWorkspace；
+- reads：First、Find、Count、Exists、Pluck；
+- writes：Create、Save、Update、Updates、Delete。
 
-## 5. 关键设计决策 / 边界
+空 `WhereIn` 变为永假条件。WhereLike 转义 `%`、`_`，用户输入不成为 SQL
+wildcard；空白 term 为 no-op。
 
-- **泛型** = 类型安全、无 `interface{}` 转换（对比 GORM 的反射式无类型）。
-- **tag 驱动 meta** = 声明式、缓存一次；**panic-on-misconfig** = 启动期 fail-fast。
-- **ctx 驱动隔离** = 多租户**安全网**：取代每处手写 `WHERE workspace_id`，杜绝跨 workspace 误读/误写。
-- **扁平事务**（无 savepoint）= 组合多个事务型 store 方法安全。
-- **边界（可接受取舍）**：`Where`/`Order`/`Pluck`/`WhereEq` 的列名是**裸字符串**、不对 meta 校验——拼错是运行时错而非编译期。精简换灵活的取舍（要编译期列名安全得上重得多的 API，单用户本地不值）。
-- `Page` 给**默认** `(created, pk)` DESC 序，但**可被先前 `.Order()` 覆盖**（conversation 置顶优先列表 `pinned DESC, last_message_at DESC` 即如此）。游标默认键 `created`；当排序列不是 created 时用 **`PageKeyset(col)`** 把游标列对齐到该列（conversation 用 `last_message_at`），否则游标 WHERE 与 ORDER BY 不一致会跨页漏/重行。前导 `pinned DESC` 分区靠「置顶少、都在首页」成立（单用户）——是这个假设、而非默认序，让置顶优先安全。
-- **`PageAsc`** 是 `Page` 的**字符串键、升序**对应物（`?sort=name` 按 `title` A–Z）：keyset 列按 **`COLLATE NOCASE`** 比较（「A–Z」符合人类直觉、大小写不敏感），pk tiebreaker 升序；游标用 `StringCursor`（`c` 是普通字符串而非 RFC3339 时间）。**`Page` 逐字不动**——纯 additive 的第二条 keyset 路径，每个既有 `(time, DESC)` List 端点零回归（原则 #8：强化地基、别在 store 手搓 title 游标）。调用方 `.Order()` 必须为 `<keyset> COLLATE NOCASE ASC, <pk> ASC`、**覆盖索引也须同 `COLLATE NOCASE`**（如 `idx_conversations_ws_title`），否则跨页漏/重（keyset 不变量，此处对 collation 敏感）。
-- **`PageTimeAsc`** 是 `Page` 的**时间键、升序**镜像（第三条 keyset 路径）：游标元组是下界（`(keyset, pk) > (?, ?)`）、页沿时间向前走——为窗口式历史读而生（messages `?around=` 的新半 / `?dir=newer` 续翻：同一枚支点游标喂 `Page` 得严格更旧、喂 `PageTimeAsc` 得严格更新，支点行不落任何一半）。游标同 `Cursor`（time）；`Page` 逐字不动、纯 additive（原则 #8）。
+Workspace model 的查询自动增加 context 中的 workspace predicate，写入自动填
+workspace ID。CrossWorkspace 只用于系统级扫描。带 deleted role 的 model 默认
+排除软删，Delete 写 `deleted_at`；Unscoped 才能包含它。
 
-## 6. 集成
+Create/Save 自动维护 created/updated。SQLite unique violation 统一翻为
+`orm.ErrConflict`，由 domain service 转成实体错误码。
 
-**19 个 `infra/store/*`** 经 `Repo[T]`/`Query[T]` 全类型化访问（无裸 SQL、无手搓 workspace_id）；另有非-store 消费者 `infra/search` 持 `*orm.DB`、经 `Query`/`QueryRow` 裸逃生口跑 FTS5/embeddings SQL——"无裸 SQL" 仅就 store 层而言。错误经 [`pkg/errors`](../error-codes.md)（`ORM_NOT_FOUND` / `ORM_CONFLICT` 兜底码，domain `errors.Is` 后翻成具体码）。游标用 `pkg/pagination`；workspace ctx 用 `pkg/reqctx`。`infra/db` 负责 `Open` + migrate（`Exec` DDL）。
+## 4. Pagination
+
+三条 keyset：
+
+| API | Key | Direction | 用途 |
+|---|---|---|---|
+| `Page` | time + PK | DESC | 常规 newest-first |
+| `PageTimeAsc` | time + PK | ASC | history 向新侧续翻 |
+| `PageAsc` | string COLLATE NOCASE + PK | ASC | name/title A–Z |
+
+都使用 limit+1 探测下一页。`PageKeyset(col)` 必须与自定义 Order 的主要游标列
+一致，否则跨页会漏/重。String ASC 的覆盖索引也必须使用相同 collation。
+
+Page 可尊重调用方附加的前导排序，例如 pinned partition；这依赖置顶集合小且
+位于首窗的产品假设，游标本身仍只编码主 keyset + PK。
+
+## 5. Transactions 与 raw escape
+
+`DB.Transaction`：
+
+- 外层开启 transaction；
+- 内层复用当前 transaction，不创建 savepoint；
+- callback error 或 panic 都 rollback；
+- panic 继续向上抛。
+
+Panic-safe rollback 对单连接 SQLite 必不可少：否则被 recover 的 callback 可
+永久占住唯一连接。
+
+`Exec` 服务 DDL/PRAGMA/维护写；`Query`/`QueryRow` 服务 FTS、snippet 与复杂
+aggregate read。业务 store 不应因为 API 方便而绕过 Repo 的 workspace/soft
+delete 保护。
+
+## 6. 边界
+
+列名仍是字符串，拼写错误在运行时暴露；这是轻量 query builder 的明确取舍。
+JSON role 自动 marshal/unmarshal。
+
+错误码见 [`error-codes.md`](../error-codes.md)，workspace context 见
+[`reqctx.md`](reqctx.md)，SQLite open/migrate 见
+[`platform-pkgs.md`](platform-pkgs.md)。

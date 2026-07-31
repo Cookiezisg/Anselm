@@ -4,8 +4,8 @@ type: concept
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
@@ -18,11 +18,11 @@ audience: [human, ai]
 
 ## 0. 强制性与执行设计（先读这条）
 
-文档规范若不被执行，等于不存在。本规范用**三层冗余**确保 Claude（及人）完整遵循——任一层兜住，三层叠加几乎不漏：
+文档规范若不被执行，等于不存在。本规范用**三层冗余**确保编码代理与人完整遵循：
 
 | 层 | 机制 | 作用 |
 |---|---|---|
-| **① 常驻** | `CLAUDE.md`（每次会话**自动加载**、工程纪律唯一事实源）内嵌「文档纪律」节：核心条款 + §7 触发表精要 + §12 收尾清单 | 使 Claude **每次会话都已读到**这些规则——**无「不知道」借口** |
+| **① 常驻** | `CLAUDE.md`（工程纪律唯一事实源）内嵌「文档纪律」节：核心条款 + §7 触发表精要 + §12 收尾清单 | 所有代理从同一入口获得规则 |
 | **② 规范** | 本文件：具体到 **if-then** 的触发表（§7）、可逐条勾的收尾清单（§12）、机械可判的门禁项（§11） | 把「文档要同步」从空泛原则变成**可机械执行**的指令 |
 | **③ 门禁** | `make -C docs verify`（§11，`backend/cmd/docs`、并入根 `make verify`）机械校验 frontmatter / 必填 / 类型·状态 / INDEX≤50 / 孤儿链接 | 捕捉人或 AI 的疏漏，**让违规无法静默通过** |
 
@@ -38,7 +38,7 @@ audience: [human, ai]
 
 1. **文档-代码物理同步（doc-code parity）**：`reference` 类文档必须与代码**逐字**对得上。代码是事实，文档是其精确投影。
 2. **单一事实源**：每个事实只在**一处**权威记录（见 §10 权威层级）；他处引用、不复制。
-3. **零历史包袱**：项目未上线。文档**只描述当前物理事实**，禁止「曾经如何、后来改成」的演化叙述（历史在 git 与 `archive/`）。
+3. **零历史包袱**：没有已承诺的兼容面时不维护兼容叙事。current 文档**只描述当前物理事实**，演化过程进入 git、ADR 与 `archive/`。
 4. **写 Why 不写 What**：What 看代码/结构即知；文档的价值在解释**为什么这样设计**、有哪些取舍与边界。
 5. **高密度**：表格优先、要点优先、删一切 fluff（「本节将介绍…」之类）。本规范自身即范例。
 6. **中文**：所有文档正文用**中文**；代码标识符、路径、wire code、frontmatter 字段名保持原文。
@@ -67,7 +67,7 @@ audience: [human, ai]
 
 ```yaml
 ---
-id: DOC-NNN          # 唯一编号，创建时分配（见 §4）
+id: DOC-NNN          # 稳定文档；working 用 WRK-NNN（见 §4）
 type: concept        # §2 六类之一
 status: active       # draft | active | superseded | deprecated | archived
 owner: @weilin
@@ -76,17 +76,20 @@ reviewed: YYYY-MM-DD  # 最近一次人工审阅
 review-due: YYYY-MM-DD # 下次到期审阅（= reviewed + 该类型周期）
 audience: [human, ai]  # 读者：human / ai / 二者
 superseded-by:        # status→superseded 时填，指向取代它的 DOC-id/路径
-landed-into:          # 仅 working：结论提取进哪篇 concepts/references 后填
+landed-into:          # working 必须存在；落地前空，结论提取后填目标路径
 ---
 ```
 
-`status` 缺失或非法值、`type` 非六类之一、必填字段为空 → `make -C docs verify` 失败（§11）。
+`status` 缺失或非法值、`type` 非六类之一、日期非 `YYYY-MM-DD`、必填字段为空，或 working 缺 `landed-into` 键 → `make -C docs verify` 失败（§11）。
 
 ---
 
 ## 4. 命名与 ID
 
-- **ID**：`DOC-NNN`，三位递增、全仓唯一、创建即分配、**永不复用**。`DOC-000` = 本规范。
+- **ID**：
+  - 稳定文档用 `DOC-NNN`；`DOC-000` = 本规范。
+  - working 战役用 `WRK-NNN`；同一战役的辅助文件可用 `WRK-NNN-SLUG`（如 `WRK-086-LOG`）。
+  - `NNN` 三位递增；ID 在所有**非 archive** 文档中全局唯一、创建即分配、**永不复用**。archive 保留历史原貌，不参与唯一性门禁。
 - **文件名**：`kebab-case.md`。
   - `reference` 域文档名 = 其对应代码资源域（如 `domains/function.md` 对应 function 模块），便于 1:1 对照。
   - `decision` 文档：`NNNN-简短标题.md`（如 `0021-durable-vs-eventsourcing.md`），`NNNN` 为 ADR 序号、与 `DOC-NNN` 独立。
@@ -105,7 +108,7 @@ docs/
 │   ├── backend/          ← api.md · database.md · events.md · error-codes.md · changelog.md
 │   │   ├── domains/      ← 每个后端域一篇 <domain>.md
 │   │   └── foundation/   ← 地基/引擎/infra 一篇（orm · cel · reqctx · loop · tool · …）
-│   └── frontend/         ← architecture.md · contract.md · sse-gateway.md（Flutter，ADR 0004）
+│   └── frontend/         ← overview · architecture · contract · design-system · platform
 │       └── features/     ← 每个 feature 一篇 <feature>.md
 ├── decisions/            ← ADR，仅追加、不可变（decision）
 ├── how-to/               ← 操作手册（how-to）
@@ -114,6 +117,8 @@ docs/
 ```
 
 - 每个文件夹放且仅放其声明类型的文档；空文件夹用 `.gitkeep`（内含一行职责说明）占位。
+- `working/` 内禁止再建 `archive` / `archived` / `legacy` / `old` 私有墓地；历史材料只能进入顶层 `docs/archive/`。
+- `status: archived` 只能住顶层 `archive/`；迁移时可保留 frontmatter 供追溯，但 archive 整体仍豁免 lint。
 - 新增类别 = 先在本 §5 + §2 登记，再建目录。
 
 ---
@@ -135,7 +140,9 @@ draft → active → superseded → archived
 
 `decision` 不走「superseded→改」——ADR 不可变，被推翻时**新建**一篇 ADR 并把旧篇 `status` 置 `superseded`、`superseded-by` 指向新篇。
 
-**部分取代**(0725 补:ADR 0012 只推翻了 0011 的上游那半,入站那半仍是现行法):旧篇 `status` **保持 `active`**——把仍在生效的法条标成 superseded 是让文档撒谎,而 `superseded-by` 会诱导读者整篇跳过。做法是在旧篇标题下加一段**前向指针**,写明**哪一半被谁取代、哪一半仍然有效**;新篇同样写明它 supersede 的是哪一半。加前向指针是**补元数据**、不是改决定,不违反 ADR 不可变——不可变禁的是「回头把当初的判断改成后来的判断」。
+**部分取代**：若新 ADR 只取代旧 ADR 的一部分，旧篇继续保持 `active`。
+允许在旧篇标题下补一条前向元数据，精确说明被取代范围并链接新 ADR；不得
+改写原判断。整篇取代时才使用 `status: superseded` 和 `superseded-by`。
 
 ---
 
@@ -153,7 +160,7 @@ draft → active → superseded → archived
 | 架构 / 分层 / 实体 / 引擎 / 路线状态变更 | **整体重述** `concepts/architecture.md` 相关节（§1.7，非追加） |
 | 工程规则 / 设计原则 / 契约宪法（N·D·E·S·T）变更 | **整体重述** `CLAUDE.md` 相关节（§1.7，非追加） |
 | 前端契约层（DTO / envelope / 错误码映射）变更 | `references/frontend/contract.md` + 对应 `domains/<域>.md` |
-| 前端架构 / 分层 / SSE gateway 规则变更 | `references/frontend/{architecture,sse-gateway}.md` + `CLAUDE.md` 前端节 + [`ADR 0004`](decisions/0004-frontend-flutter-architecture.md) |
+| 前端架构 / 分层 / SSE gateway 规则变更 | `references/frontend/architecture.md` + 必要时 `contract.md` + `CLAUDE.md` 前端节；产生新取舍时新建 ADR |
 
 **两种更新 mode 不混（§1.1 vs §1.7）**：`reference` 文档行 = **精确同步**（增量改到逐字吻合代码）；`architecture.md` / `CLAUDE.md` 行 = **整体重述**（把相关节重写到当前状态、删尽旧状态，绝不在旁追加）。表为高频清单、非穷举——「代码改了而某文档因此失真」一律适用。
 
@@ -199,20 +206,22 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 
 `make -C docs verify`（跑 `backend/cmd/docs`）已是根 `make verify` 的一环，机械强制：
 
-1. 所有非 `archive/`、非 `INDEX.md` 的 `.md` 都有合法 frontmatter，且必填字段齐。
-2. `type` ∈ §2 六类；`status` ∈ §6 五态。
-3. `review-due` 已过期 → **警告**（不阻断）。
-4. `working/` 文档 >90 天且 `landed-into` 空 → **失败**。
-5. `decisions/` 文档创建后被改（git blame）→ **失败**（ADR 不可变）。
-6. `INDEX.md` ≤ 50 行。
-7. 无孤儿链接（文档内相对链接指向的文件都存在）。
-8. **契约漂移检测**（`cmd/docs/drift.go`，§1.7 同步纪律的机械半）：从后端源码提取四类契约事实并与四索引 diff——**错误码**（`errorspkg.New`/裸 `New`/transport 合成码 ↔ `error-codes.md` 表格行，**双向**严格）· **通知事件**（emit 家族的点写字面量 ↔ `events.md`，代码→文档严格〔直写/族/行级配对〕，文档→代码仅反查直写形态且豁免 helper 拼接域〔`"<域>."+action`〕与表列散文引用）· **端点**（`/api/v1` 路由字面量的具名资源词必须出现在 `api.md`，单向）· **表名**（`CREATE TABLE` 字面量 ↔ `database.md` 表格行，**双向**；地基表回落 `references/backend/` 全域）。匹配哲学=**宁漏报不误报**；文档自称非穷举的词表（node.type）不查。**前端 DTO 镜像**（#9 第三条腿）：`core/contract/` 下 doc 注释携带镜像锚（`<file>.go:<line>`，契约层既有惯例）的 freezed 类，与该文件里**同名** Go struct 逐字段 diff（Go 侧=json tag 首段〔`-`/无 tag 不上线缆跳过〕，Dart 侧=工厂参数名〔`@JsonKey(name)` 覆盖〕）——漏镜像与幽灵字段皆红；**锚 + 同名 = 双钥匙 opt-in**（无锚或类名带前缀〔如 `FunctionEntity`〕= 静默跳过并在汇总 warn 报数，刻意投影零误报）。任何漂移 → **失败**并打印精确清单。
+1. 所有非 `archive/`、非 `INDEX.md` 的 `.md` 都有合法 frontmatter，必填字段齐，三个日期为 `YYYY-MM-DD`。
+2. ID 符合 §4 的 `DOC-NNN` / `WRK-NNN[-SLUG]` 语法，且在受治理文档中唯一。
+3. `type` ∈ §2 六类、`status` ∈ §6 五态；顶层目录与 type 对齐。
+4. `status: archived` 不得留在 current 树；`working/` 不得包含私有 archive/legacy/old 子树。
+5. `review-due` 已过期 → **警告**（不阻断）。
+6. working 必须声明 `landed-into`；创建 >90 天仍为空 → **失败**。
+7. `INDEX.md` ≤ 50 行。
+8. 无孤儿链接（文档内相对链接指向的文件都存在）。
+9. **契约漂移检测**（`cmd/docs/drift.go`，§1.7 同步纪律的机械半）：从后端源码提取四类契约事实并与四索引 diff——**错误码**（`errorspkg.New`/裸 `New`/transport 合成码 ↔ `error-codes.md` 表格行，**双向**严格）· **通知事件**（emit 家族的点写字面量 ↔ `events.md`，代码→文档严格〔直写/族/行级配对〕，文档→代码仅反查直写形态且豁免 helper 拼接域〔`"<域>."+action`〕与表列散文引用）· **端点**（`/api/v1` 路由字面量的具名资源词必须出现在 `api.md`，单向）· **表名**（`CREATE TABLE` 字面量 ↔ `database.md` 表格行，**双向**；地基表回落 `references/backend/` 全域）。匹配哲学=**宁漏报不误报**；文档自称非穷举的词表（node.type）不查。**前端 DTO 镜像**（#9 第三条腿）：`core/contract/` 下 doc 注释携带镜像锚（`<file>.go:<line>`，契约层既有惯例）的 freezed 类，与该文件里**同名** Go struct 逐字段 diff（Go 侧=json tag 首段〔`-`/无 tag 不上线缆跳过〕，Dart 侧=工厂参数名〔`@JsonKey(name)` 覆盖〕）——漏镜像与幽灵字段皆红；**锚 + 同名 = 双钥匙 opt-in**（无锚或类名带前缀〔如 `FunctionEntity`〕= 静默跳过并在汇总 warn 报数，刻意投影零误报）。任何漂移 → **失败**并打印精确清单。
+10. ADR 不可变仍由 §12 清单 + `decisions/` review 执行；当前 checker **尚未**机械比对 git 历史，不得声称已覆盖。
 
-> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–4、6–8；唯 #5（ADR 不可变，需比对 git 历史）暂未纳入门禁，靠 §12 收尾清单 #6 + `decisions/` 目录纪律守。§12 收尾清单是 Claude 的人肉前置层，与门禁并行——#8 使「新增/删改 错误码/事件/端点资源/表 而不动四索引」物理上无法通过门禁。
+> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–9。§12 收尾清单是人肉前置层，与门禁并行——#9 使「新增/删改错误码/事件/端点资源/表而不动四索引」物理上无法通过门禁。
 
 ---
 
-## 12. Claude 收尾清单（★★ 每次代码改动「完成」前逐条勾）
+## 12. Agent 收尾清单（★★ 每次代码改动「完成」前逐条勾）
 
 声明任何代码改动**完成**之前，逐条自检——任一项未过 = 改动**未完成**，回去补：
 
@@ -221,7 +230,7 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 3. ☐ 改的是**状态文档**（`architecture.md` / `CLAUDE.md` / 本规范）吗？→ 是**整体重述到当前状态**吗（没在旧内容旁追加、没留旧状态痕迹，§1.7）？
 4. ☐ 新建文档有合法 frontmatter（§3）吗？`type`/`status`/`id` 对吗？放对目录（§5）了吗？
 5. ☐ 删/移过文档吗？→ 所有指向它的链接（`INDEX.md` 及他处）都修了吗（无孤儿链接）？
-6. ☐ 动过 `decisions/` 里的 ADR 吗？→ **禁止**（只能新建 supersede）。
+6. ☐ 动过 `decisions/` 里的 ADR 吗？→ 原决定正文不可改；只允许新建 superseding ADR，以及按 §6 更新生命周期或前向元数据。
 7. ☐ working 文档落地了吗（提取进 concepts/references + 填 `landed-into` + 移 `archive/`）？
 
 ---

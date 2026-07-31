@@ -4,27 +4,93 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# messages —— 回合内容模型（中立、被 chat/agent/subagent 共享）
+# Messages
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-一个对话回合的**内容模型**：`Message`（回合：user 发言 / assistant 生成）拥有一棵 `Block` 树。刻意与 stream 分离——**stream 是传输（帧怎么到前端），messages 是内容（回合由什么组成）**；共享 ReAct 引擎（loop）产 Block 并依赖本包而非 chat，故 chat/agent/subagent 共享一个中立模型。无 app 层（store 直接被 host 消费）。
+Messages 是 Chat、Agent loop 与 Subagent 共用的中立内容模型。Stream 描述节点
+怎样传到客户端；Message/Block 描述一个回合由什么组成。
 
-**Block 六型**：text / reasoning / tool_call / tool_result / compaction（压缩摘要标记）/ **progress**（工具中间过程——一等持久块：实时流在 tool_call 下 + 随回合落盘供刷新重放，但 **LLM 历史投影是类型白名单**、progress 永不回喂模型）。更深层级（subagent 子树）走 stream 的 `Open.ParentID`，不加块型。
+Message 是 `user|assistant` 回合，拥有一棵 Block。Loop 只在内存中生成 Block，
+持久化由 Host 的 `CreateMessage` / `FinalizeMessage` 边界负责。
 
-**工具执行时序**：`tool_call` 的 Close 只表示模型已写完参数，**不是**工具执行结束；loop 在真正进入 dispatch 前 Open 同一调用之下的 `tool_result`（空 content），Execute 期间可再挂 `progress`，最后以带完整 `content` 快照的 `tool_result` Close 作为执行完成/失败真相。故前端侧幕必须以 `tool_result` Close 谢幕，首次 runtime / venv 安装等慢准备过程不会因参数流结束而消失；该复用保留六型与断线回放语义。
+## 2. Block
 
-**两段式写**（对应 loop.Host 契约）：`CreateMessage`（开回合，先 mint id 供流锚点；user 回合连 text block）→ `FinalizeMessage`（终态 + token/provider/model 溯源 + blocks，单事务、seq 落盘时分配）。两表 append-only（D1 内容日志永不删）。
+封闭类型：
 
-**关键字段语义**：`SubagentID`（≠"" 的回合是 subagent 产出——LoadHistory 排除使父历史不被污染、ListMessages 保留使 reload 能重建子树；LLM 读路径见下）；**`SupersededBy`**（版本指针，WRK-077 CH-c：`''` = **现行版**，否则是取代本回合的那条新回合 id；反向指针在**新**行的 `Attrs[AttrRetryOf]`，两者声明在同一处使这一对只有一个家）——它是**指针、绝非删除**：行仍在、仍可读、三种 REST 读形态照常返回它，只有 `LoadThreadForLLM` 按它过滤（与 `subagent_id` 过滤、压缩水位**同族的第三个条件**），故被重生成掉的回答绝不二次喂给模型。唯一写者 `MarkSuperseded` = **单列部分 UPDATE**（不改内容/状态/created_at），也是本包**唯一会碰已终态回合**的写；`ContextRole`（hot/warm/cold/archived——压缩器对块的**投影**变更，落库 Content 永不改写）；`InputTokens/OutputTokens` 是整次 ReAct run 多次模型调用的**累计计费量**，绝不能当单次 prompt size；assistant `Attrs.contextUsage` 另存最后成功 sampling 的真实 input/budget/route、request 各组件 bytes 与 edit/compaction/recovery 次数。`StopReason=max_steps` 是步数耗尽的诚实非成功终态；上下文则先透明恢复，只有不可再分输入仍超限才以 `error/CONTEXT_INPUT_TOO_LARGE` 终态。
+| Type | 语义 | 进入 LLM history |
+|---|---|---|
+| `text` | 用户或 assistant 文本 | 是 |
+| `reasoning` | 模型推理内容 | 是 |
+| `tool_call` | 工具名、参数与框架字段 | 是 |
+| `tool_result` | 工具终态结果 | 是 |
+| `progress` | 工具中间输出 | 否 |
+| `compaction` | 压缩边界标记 | 否 |
+| `marker` | 线程配置变化的行内标记 | 否 |
 
-## 2. 契约（引用）
+`tool_call` Close 只代表参数写完；工具执行在其下 Open `tool_result`，期间可挂
+多个 progress，最终 `tool_result` Close 才是执行完成/失败真相。
 
-表 `messages` / `message_blocks`（CHECK type/status/role/context_role）→ [database.md](../database.md) · 码 `MESSAGE_NOT_FOUND` → [error-codes.md](../error-codes.md) · ID：`msg_`/块 `blk_`。读面：`ListMessages`（keyset 分页，最新在前）/ `ListMessagesNewer`（沿时间**向前**的 keyset 续翻——`?dir=newer`，orm `PageTimeAsc`，store 返最旧在前、app 层反转为线缆 newest-first）/ `ListMessagesAround`（深跳窗——目标 (created_at,id) 元组作支点游标，旧半 `Page` + 新半 `PageTimeAsc`，limit 摊两半钳 ≥2、目标额外恒返回、一次 hydrate；目标缺失或不属本对话 → `MESSAGE_NOT_FOUND`）/ `ListAnchorSource`（anchors 构建器的 lean 扫描：回合行不 hydrate + 仅 tool_call/compaction/user-text 块按 seq 归并——tool_result/progress/assistant 散文永不读盘）/ `LoadThread`（整线程，单用户内存可装）/ `LoadThreadForLLM`（LLM 装配专用的读最小化兄弟：`subagent_id=''` + `superseded_by=''` + `seq > 水位` **同族三谓词全下推 SQL**）/ `SumTokens`（usage）。压缩器唯一写入口 = `UpdateBlocksContextRole`；版本指针唯一写入口 = `MarkSuperseded`；boot 对账入口 = `SweepNonTerminal`（pending/streaming → cancelled，硬崩溃孤儿清扫）。
+Marker content 为空，客户端按 attrs 本地化渲染。目前 `kind=workdir` 保存 from/to。
+增加新的 marker kind 不需要扩展 Block type。
 
-**LLM 读 subagent trace**：`get_subagent_trace`（lazy system tool，`app/tool/subagent`）经 `LoadThread` 拉本对话（ctx 取 `conversationId`）、按 `SubagentID != ""` 内存过滤——无参列出本对话各 subagent run（subagentRunId / status / finalText / blockCount / 派它的 tool_call 锚），带 `subagentRunId` 导出该 run 全 trace（块按 Seq 排;每块投影 `{type,status,content,error,tool?,blockId,parentBlockId}`——`tool` 是 tool_call 块的工具名[取自 `Attrs["tool"]`],使读者能标注跑了哪个工具、而非空行）。只读、不加表/列/码：无对话 / 未知 id 降级为 tool-result 串（正常工具结局、非 HTTP 错）。补 Subagent 工具只回最终答案的盲区——subagent 内部回合（reasoning/tool_call/tool_result）落 sub-message 但不进父 LLM 历史，靠此读回。**从 subagent 自身工具集剔除**（F149，与 Subagent 工具一同被 `filterTools` 总是 strip）：它读的是**父**对话的 subagent trace，留给 subagent 会泄漏父的其它 subagent trace（隔离），且 subagent 自己没兄弟可读。
+Block 通过 `parent_block_id` 形成树，`seq` 在事务落盘时分配。Context role
+`hot|warm|cold|archived` 只改变 LLM 投影，不改写 durable content。
+
+## 3. Message 生命周期
+
+状态为：
+
+```text
+pending → streaming → completed | error | cancelled
+```
+
+User 回合通常在 Create 时连 text block 一起落盘。Assistant 先落空 streaming
+行以获得流锚点，Finalize 再以单事务写终态、token/provider/model 溯源、attrs
+和完整 blocks。Boot 的 `SweepNonTerminal` 将硬崩溃遗留行收为 cancelled。
+
+`input_tokens` / `output_tokens` 是整次 ReAct 多轮 sampling 的累计计费量。
+Assistant `attrs.contextUsage` 另存最后成功 prompt 的输入预算、route、组件字节
+和压缩/恢复计数，二者不可混用。
+
+## 4. 两类嵌套指针
+
+### Subagent
+
+`subagent_id` 非空表示父对话内的子运行。`attrs.parentBlockId` 指向派生它的
+tool_call。REST history 保留这些行以重建树；父 LLM history 必须排除它们，
+父模型只读取派生 tool_call 的最终 tool_result。
+
+### Retry version
+
+旧 Message 的 `superseded_by` 指向替代行，新行的 `attrs.retryOf` 反指旧行。
+这是一组版本指针，不是删除：
+
+- 所有行继续存在并可从 REST 读取；
+- UI 将它们组成版本页；
+- LLM history 只读取 `superseded_by=''` 的现行行；
+- `MarkSuperseded` 是对终态 Message 唯一允许的单列更新。
+
+## 5. 读取
+
+- `ListMessages`：newest-first keyset；
+- `ListMessagesNewer`：从已有窗口向新侧续翻；
+- `ListMessagesAround`：以 Message ID 为中心返回双向窗口；
+- `ListAnchorSource`：只读锚点需要的 lean blocks；
+- `LoadThread`：完整 durable thread；
+- `LoadThreadForLLM`：SQL 下推 top-level、current-version、watermark 三谓词；
+- `SumTokens`：真实花费，不因 retry/compaction 过滤。
+
+`get_subagent_trace` 在完整 thread 上按 subagent ID 投影内部 blocks。该工具不
+提供给 Subagent 自身，避免读取父对话的其它子运行。
+
+## 6. 契约
+
+表见 [`database.md`](../database.md)，错误见
+[`error-codes.md`](../error-codes.md)，流事件见
+[`events.md`](../events.md)。ID：`msg_`、`blk_`。

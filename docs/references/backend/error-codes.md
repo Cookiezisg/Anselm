@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
@@ -43,12 +43,11 @@ audience: [human, ai]
 
 ---
 
-## 全量登记（336 码，按域）
+## 全量登记（按域）
 
-> `errorspkg.New` 机械抽取（325，不含 `*_test.go` 测试 sentinel 如 DUP/THING_NOT_FOUND）+ `pkg/errors` 自身 bare `New` 的跨域 sentinel（7）+ transport 合成码（4）= 336。每条：code · HTTP（Kind 映射）· message。`(dynamic)` = 消息含运行时格式化。
+> 每条登记 code、HTTP（Kind 映射）与 message；`(dynamic)` 表示消息含运行时内容。`errorspkg.New`、`pkg/errors` 跨域 sentinel 与 transport 合成码共同构成完整 wire 集。
 >
-> **机械守卫**：本表与代码的**逐码对齐**由 `make -C docs verify` 的契约漂移检测强制（GOVERNANCE §11.8，`cmd/docs/drift.go`——代码构造了而表没登记、或表登记了而代码没构造，门禁即红并点名）。故「漏登/幽灵」不可能安静发生；**唯汇总计数**（下三数）仍是手工陈述，改码时顺手重算（数错不影响守卫,守卫按码 diff 不数总数）。复核命令：
-> `grep -rn "errorspkg.New(" --include="*.go" backend | grep -v _test.go | wc -l` = 322 · `backend/internal/pkg/errors/sentinel.go` 的 bare `New` = 7 · transport 合成 = 4 · 登记表行数应恒等于总数（本次重算实测：抽取 322 = 322 个唯一 code，全部在表；表 333 行 = 322 + 7 + 4，三数对齐；含 WRK-076 B1 `SKILL_FILE_*` 3 码 + B3 `SKILL_SCRIPT_*` 3 码 + B4 `SKILL_INSTALL_*` 4 码与 `SKILL_NOT_INSTALLED`/`SKILL_LOCALLY_MODIFIED`）。
+> **机械守卫**：本表与代码的逐码双向对齐由 `make -C docs verify` 的契约漂移检测强制（`backend/cmd/docs/drift.go`）。代码新增未登记码或文档保留幽灵码都会直接失败；因此不在标题维护易漂移的手工总数。
 
 ### `pkg/errors`（跨域 sentinel）
 
@@ -70,8 +69,8 @@ audience: [human, ai]
 |---|---|---|---|
 | `CLIENT_CLOSED` | 499 | client closed request | `errors.Is(err, context.Canceled)`（客户端断连 / 取消） |
 | `REQUEST_TIMEOUT` | 504 | request timed out | `errors.Is(err, context.DeadlineExceeded)`（请求超时） |
-| `ROUTE_NOT_FOUND` | 404 | no route matches this path | `/api/v1/*` 无路由匹配（`envelopeMuxErrors` 改写 ServeMux 纯文本 404，F172） |
-| `METHOD_NOT_ALLOWED` | 405 | this method is not allowed for this path | `/api/v1/*` 路径方法不允许（同上改写 405、保留 mux 的 `Allow` header，F172） |
+| `ROUTE_NOT_FOUND` | 404 | no route matches this path | `/api/v1/*` 无路由匹配；`envelopeMuxErrors` 将 ServeMux 404 改为统一信封 |
+| `METHOD_NOT_ALLOWED` | 405 | this method is not allowed for this path | `/api/v1/*` 路径方法不允许；统一信封并保留 `Allow` header |
 
 ### `app/aispawn`
 
@@ -112,16 +111,16 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `SETTINGS_LIMITS_INVALID` | 400 | limits values out of range |
-| `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days（scheduler 工单⑬——**唯一的物理约束**：线不能倒着走；未知字段/畸形 JSON 同码。UI 的 30/90/180/永久 值集是产品可供性、后端不强制，60 照收——拒它是校验剧场，设计原则 #6） |
-| `VOICE_NOT_FOUND` | 404 | voice not found（WRK-082 H9） |
-| `VOICE_NAME_TAKEN` | 409 | a voice with this name already exists — delete it first（H9——**不是**「换个名字重试」:覆盖会让第一个登记在上游变成孤儿，故消息点明**先删**） |
-| `VOICE_INVENTORY_FULL` | 409 | voice inventory is full — delete a voice to make room（H9——**库存**非配额：明天不会腾出位置，故消息必须说「删一个」而非「过会儿再来」） |
-| `VOICE_NAME_REQUIRED` | 400 | voice name is required（H9——名字**就是**此后合成用的把手，空名产出的音色永远点不到） |
-| `VOICE_CLONE_FAILED` | 503 | voice enrollment failed（H9——上游拒绝登记的中立 sentinel；**原因走 `details.upstream`**：`errorspkg.Surface`（LLM 与运维日志共读的那一个）渲染 Message 加 Details 而**丢掉 `%w` 尾巴**，故用 `fmt.Errorf` 缀上的原因谁也到不了——第一次真钱失败的日志逐字只有「voice enrollment failed」，弄清为什么又花了一个真钱来回） |
-| `VOICE_NO_CLONE_ROUTE` | 422 | no configured key can clone voices（H9——**只在受管档**［H11］：`voice-enrollment` 只收一个**它能取的地址**，而直连用户的音频住在这个回环 sidecar 的 bearer 之后，**根本没有地址可给**；这个能力在直连侧不是「没实现」，是**够不着**） |
-| `IMAGE_SOURCE_REQUIRED` | 400 | attachmentId of the image to edit is required（H9——**没有源图的「改图」就是「出图」**，模型本该去调那个工具；说出来比静默画一张新的有用） |
-| `IMAGE_SOURCE_NOT_IMAGE` | 400 | the referenced attachment is not an image（H9——**花钱之前**拦；也承载「源图超 10MB 上游上限」那一支） |
-| `IMAGE_NO_EDIT_ROUTE` | 422 | the configured image provider cannot edit images（H9——**刻意与 `IMAGE_NO_ROUTE` 分开**：「你没有出图 key」与「你的出图 key 那家不会改图」是两个事实，合并会让用户去找一把他已经有了的 key） |
+| `SETTINGS_RETENTION_INVALID` | 400 | runRetentionDays must be 0 (keep forever) or a positive number of days；未知字段或畸形 JSON 同码；后端接受任意正天数 |
+| `VOICE_NOT_FOUND` | 404 | voice not found |
+| `VOICE_NAME_TAKEN` | 409 | a voice with this name already exists — delete it first；覆盖会孤儿化旧上游资源，必须先删 |
+| `VOICE_INVENTORY_FULL` | 409 | voice inventory is full — delete a voice to make room；库存不会随时间重置 |
+| `VOICE_NAME_REQUIRED` | 400 | voice name is required；名称是后续合成引用音色的句柄 |
+| `VOICE_CLONE_FAILED` | 503 | voice enrollment failed；上游原因放在 `details.upstream`，不依赖 `%w` 文本上线缆 |
+| `VOICE_NO_CLONE_ROUTE` | 422 | no configured key can clone voices；voice enrollment 只随受管 capability 提供 |
+| `IMAGE_SOURCE_REQUIRED` | 400 | attachmentId of the image to edit is required |
+| `IMAGE_SOURCE_NOT_IMAGE` | 400 | the referenced attachment is not an image；也覆盖源图超过上游大小限制 |
+| `IMAGE_NO_EDIT_ROUTE` | 422 | the configured image provider cannot edit images；与没有任何 image route 的 `IMAGE_NO_ROUTE` 分码 |
 
 ### `app/speech`
 
@@ -136,7 +135,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
-| `STORAGE_COMPACT_FAILED` | 500 | database compaction failed (VACUUM needs free scratch space roughly the size of the database)（T4/WRK-070——`POST /storage:compact` 的全量 `VACUUM` 跑不完，主因磁盘满、放不下约等于库大小的临时副本；库不动、可安全重试；底层 cause 记日志不上线缆） |
+| `STORAGE_COMPACT_FAILED` | 500 | database compaction failed (VACUUM needs free scratch space roughly the size of the database)；库保持不变、可重试，底层 cause 只记日志 |
 
 ### `app/tool/agent`
 
@@ -188,7 +187,7 @@ audience: [human, ai]
 | `DOCUMENT_NAME_REQUIRED` | 400 | name is required |
 | `DOCUMENT_QUERY_REQUIRED` | 400 | query is required |
 
-### `app/tool/generate`（+ `infra/llm` 生成方言,WRK-082 批B/批C）
+### `app/tool/generate`（含 `infra/llm` 生成适配）
 
 | code | HTTP | message |
 |---|---|---|
@@ -202,7 +201,7 @@ audience: [human, ai]
 | `VIDEO_PROMPT_REQUIRED` | 400 | prompt is required |
 | `VIDEO_GEN_FAILED` | 503 | video generation failed (dynamic;含上游拒绝、轮询超时〔连同「上游任务可能仍会完成」的诚实话〕) |
 
-### `app/readaloud`（朗读,WRK-082 批C/P10）
+### `app/readaloud`
 
 | code | HTTP | message |
 |---|---|---|
@@ -338,14 +337,14 @@ audience: [human, ai]
 |---|---|---|
 | `AGENT_EXECUTION_NOT_FOUND` | 404 | agent execution not found |
 | `AGENT_INVALID_MODEL_OVERRIDE` | 422 | invalid modelOverride (apiKeyId and modelId both required) |
-| `AGENT_KNOWLEDGE_NOT_FOUND` | 422 | agent mounts a knowledge document that does not exist（create/edit eager 校验 + invoke 期 BuildKnowledgePrefix 大声失败，details.missing；此前 dangling knowledge ref 静默丢弃、run 仍报 ok，F98） |
+| `AGENT_KNOWLEDGE_NOT_FOUND` | 422 | agent mounts a knowledge document that does not exist；create/edit 与 invoke 均校验，`details.missing` |
 | `AGENT_OUTPUT_NOT_STRUCTURED` | 422 | agent declared multiple structured outputs but its final answer was not a JSON object |
 | `AGENT_MOUNT_INVALID` | 422 | agent mounted tool ref is invalid or unresolvable |
 | `AGENT_NAME_CONFLICT` | 409 | agent name already exists |
-| `AGENT_EXECUTION_INVALID_STATUS` | 422 | agent execution status filter must be one of: ok, failed, cancelled, timeout (F168-M2; `details.allowed`) |
+| `AGENT_EXECUTION_INVALID_STATUS` | 422 | agent execution status filter must be one of: ok, failed, cancelled, timeout；`details.allowed` |
 | `AGENT_NOT_FOUND` | 404 | agent not found |
 | `AGENT_NO_ACTIVE_VERSION` | 422 | agent has no active version to invoke |
-| `AGENT_SKILL_NOT_FOUND` | 422 | agent mounts a skill that does not exist（create/edit 期 eager 校验，details.skill；此前 dangling skill 名只在首次 invoke 才报，F96） |
+| `AGENT_SKILL_NOT_FOUND` | 422 | agent mounts a skill that does not exist；create/edit 期校验，`details.skill` |
 | `AGENT_TOOLS_AGENT_REF` | 422 | agent tools cannot reference another agent (ag_ forbidden) |
 | `AGENT_TOOL_REF_BLANK` | 422 | agent tool ref must not be blank |
 | `AGENT_VERSION_NOT_FOUND` | 404 | agent version not found |
@@ -363,7 +362,7 @@ audience: [human, ai]
 | `API_KEY_IN_USE` | 422 | api key is referenced and cannot be deleted（details.references: `[{kind,id,name}]`，kind=scenario_default/search_default/agent_override） |
 | `API_KEY_IMMUTABLE` | 422 | managed api key cannot be edited or deleted（内置受管 provider，如免费档 `anselm`——PATCH 与 DELETE 对称守卫，S-1） |
 | `API_KEY_TEST_FAILED` | 422 | api key probe failed（details: latencyMs + reason） |
-| `API_KEY_NOT_FOUND` | 404 | api key not found（也由写时校验发出：agent/conversation modelOverride + workspace scenario default 引用不存在 apiKeyId 时即拒，非只 invoke 时，F153） |
+| `API_KEY_NOT_FOUND` | 404 | api key not found；agent/conversation modelOverride 与 workspace scenario default 写入时也校验 |
 | `API_KEY_VALUE_REQUIRED` | 400 | key value is required |
 
 ### `domain/approval`
@@ -413,7 +412,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
-| `CONVERSATION_ATTACHED_DOC_NOT_FOUND` | 422 | conversation attaches a document that does not exist (F168-M5; `details.missing`) |
+| `CONVERSATION_ATTACHED_DOC_NOT_FOUND` | 422 | conversation attaches a document that does not exist；`details.missing` |
 | `CONVERSATION_BRANCH_EXISTS` | 409 | a branch by that name already exists（WD2 `workdir:create-branch`——**冲突、不静默切过去**:「新建分支」与「切到恰好叫这名字的分支」是两种意图，静默执行后者正是用户落到别人的活上面的方式） |
 | `CONVERSATION_BRANCH_NOT_FOUND` | 404 | no local branch by that name（WD2 `workdir:switch-branch`;在 checkout **之前**问，故也封掉了 `git checkout` 的 DWIM——一个拼错永不会悄悄变成一条远端跟踪分支） |
 | `CONVERSATION_GIT_FAILED` | 422 | git refused the operation（WD2/WD3 兜底;**`details.git` 带 git 的逐字 stderr**——为每条 git 消息铸一个 sentinel 是一张永远不全的表，而把理由吞掉更糟） |
@@ -443,17 +442,17 @@ audience: [human, ai]
 |---|---|---|
 | `FLOWRUN_APPROVAL_NOT_PARKED` | 422 | approval node is not awaiting a decision |
 | `FLOWRUN_INVALID_DECISION` | 422 | approval decision must be 'yes' or 'no' |
-| `FLOWRUN_INVALID_STATUS` | 422 | flowrun status filter must be one of: running, completed, failed, cancelled (F168-M2; `details.allowed`) |
-| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid flowrun list filter value（工单⑥＋⑮：`?origin` 越出 RunOrigins，或 `?startedAfter`/`?startedBefore`/`?completedAfter`/`?completedBefore` 非 RFC3339，或 `?offset` 非非负整数〔WRK-070 B4 页码分页——offset 只是又一个列表过滤参数,坏值与坏 `?origin` 同类,复用此码、`details.param=offset`,不另铸码〕；`details.param`/`got`，枚举再带 `allowed`——F168-M2 同立场，绝不静默空页） |
-| `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT` | 422 | flowrun list accepts either ?cursor (keyset) or ?offset (page number), not both（WRK-070 B4：`GET /flowruns` 同时给 `?cursor` 与 `?offset` 两种互斥分页模式——大声拒而非静默择一） |
+| `FLOWRUN_INVALID_STATUS` | 422 | flowrun status filter must be one of: running, completed, failed, cancelled；`details.allowed` |
+| `FLOWRUN_LIST_INVALID_FILTER` | 422 | invalid `origin`、RFC3339 时间窗或非负 `offset`；`details.param`/`got`，枚举另带 `allowed` |
+| `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT` | 422 | flowrun list accepts either `cursor` (keyset) or `offset` (page number), not both |
 | `FLOWRUN_INVALID_ENTRY` | 422 | invalid or ambiguous trigger entry node |
-| `FLOWRUN_NOT_CANCELLABLE` | 422 | flowrun is not in a cancellable (running) state（工单② `:cancel`；含输给自然终态的 first-wins 竞态输家——已记录终态为准） |
+| `FLOWRUN_NOT_CANCELLABLE` | 422 | flowrun is not in a cancellable (running) state；终态竞态以已记录状态为准 |
 | `FLOWRUN_NOT_FOUND` | 404 | flowrun not found |
 | `FLOWRUN_NOT_REPLAYABLE` | 422 | flowrun is not in a replayable (failed) state |
-| `FLOWRUN_STATS_TOO_MANY_IDS` | 422 | flowrun-stats accepts at most 50 workflowIds per request (工单③ 有界批查上限；`details.allowed`/`details.got`) |
-| `FLOWRUN_MATRIX_TOO_MANY_IDS` | 422 | flowrun-matrix accepts at most 50 flowrunIds per request (工单⑩ 有界批查上限；`details.allowed`/`details.got`) |
+| `FLOWRUN_STATS_TOO_MANY_IDS` | 422 | flowrun-stats accepts at most 50 workflowIds per request；`details.allowed`/`details.got` |
+| `FLOWRUN_MATRIX_TOO_MANY_IDS` | 422 | flowrun-matrix accepts at most 50 flowrunIds per request；`details.allowed`/`details.got` |
 | `FLOWRUN_STATS_INVALID_SINCE` | 422 | since must be an RFC3339 timestamp or a look-back duration like 24h or 7d (`details.got`) |
-| `FLOWRUN_STATS_INVALID_UNTIL` | 422 | until must be an RFC3339 timestamp (工单③ 窗口不含上界——刻意只收绝对时刻、不收 since 的时长文法；`details.param`/`details.got`/`details.want`) |
+| `FLOWRUN_STATS_INVALID_UNTIL` | 422 | until must be an RFC3339 timestamp；只接受绝对时刻，`details.param`/`details.got`/`details.want` |
 
 ### `domain/function`
 
@@ -464,7 +463,7 @@ audience: [human, ai]
 | `FUNCTION_INVALID_CODE` | 422 | function code invalid |
 | `FUNCTION_INVALID_NAME` | 400 | invalid function name (lowercase alphanumeric + dashes/underscores, 1-64 chars) |
 | `FUNCTION_NAME_DUPLICATE` | 409 | function name already exists |
-| `FUNCTION_EXECUTION_INVALID_STATUS` | 422 | function execution status filter must be one of: ok, failed, cancelled, timeout (F168-M2; `details.allowed`) |
+| `FUNCTION_EXECUTION_INVALID_STATUS` | 422 | function execution status filter must be one of: ok, failed, cancelled, timeout；`details.allowed` |
 | `FUNCTION_NOT_FOUND` | 404 | function not found |
 | `FUNCTION_NO_ACTIVE_VERSION` | 422 | function has no active version |
 | `FUNCTION_OP_INVALID` | 422 | invalid build op |
@@ -487,7 +486,7 @@ audience: [human, ai]
 | `HANDLER_INVALID_NAME` | 400 | invalid handler name (lowercase alphanumeric + dashes/underscores, 1-64 chars) |
 | `HANDLER_METHOD_NOT_FOUND` | 404 | handler method not found |
 | `HANDLER_NAME_DUPLICATE` | 409 | handler name already exists |
-| `HANDLER_CALL_INVALID_STATUS` | 422 | handler call status filter must be one of: ok, failed, cancelled, timeout (F168-M2; `details.allowed`) |
+| `HANDLER_CALL_INVALID_STATUS` | 422 | handler call status filter must be one of: ok, failed, cancelled, timeout；`details.allowed` |
 | `HANDLER_NOT_FOUND` | 404 | handler not found |
 | `HANDLER_NO_ACTIVE_VERSION` | 422 | handler has no active version |
 | `HANDLER_OP_INVALID` | 422 | invalid build op |
@@ -514,7 +513,7 @@ audience: [human, ai]
 | `MCP_REGISTRY_NOT_FOUND` | 404 | mcp registry entry not found |
 | `MCP_RPC_ERROR` | 502 | mcp tool call failed |
 | `MCP_SERVER_DOWN` | 503 | mcp server not connected |
-| `MCP_CALL_INVALID_STATUS` | 422 | mcp call status filter must be one of: ok, failed, cancelled, timeout (F168-M2; `details.allowed`) |
+| `MCP_CALL_INVALID_STATUS` | 422 | mcp call status filter must be one of: ok, failed, cancelled, timeout；`details.allowed` |
 | `MCP_SERVER_NOT_FOUND` | 404 | mcp server not found |
 | `MCP_TOOL_NOT_FOUND` | 404 | mcp tool not found on server |
 | `MCP_TOOL_TIMEOUT` | 504 | mcp tool call timed out |
@@ -539,6 +538,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `MODEL_NOT_CONFIGURED` | 422 | no model configured for scenario |
+| `MODEL_NOT_AGENT_CAPABLE` | 422 | selected model cannot call tools and cannot run as an agent |
 | `MODEL_OPTION_UNSUPPORTED` | 422 | native model option is not supported by the selected model |
 | `MODEL_OPTION_VALUE_INVALID` | 400 | native model option value is invalid |
 | `MODEL_REF_INVALID` | 400 | model selection requires both apiKeyId and modelId |
@@ -643,7 +643,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `TRIGGER_ACTIVATION_NOT_FOUND` | 404 | activation not found |
-| `TRIGGER_FIRING_INVALID_FILTER` | 422 | invalid firing list filter value（工单⑭：`GET /firings` 的 `?createdAfter`/`?createdBefore` 非 RFC3339；`details.param`/`got`——与 `FLOWRUN_LIST_INVALID_FILTER` 同构但**刻意分码**：码必须点名调用方实际在列的资源，拿 flowrun 列表的码答 firings 就是撒谎） |
+| `TRIGGER_FIRING_INVALID_FILTER` | 422 | firing list 的 `createdAfter`/`createdBefore` 非 RFC3339；`details.param`/`got` |
 | `TRIGGER_FIRING_INVALID_STATUS` | 422 | firing status filter must be one of: pending, claimed, started, skipped, superseded, shed, missed |
 | `TRIGGER_FIRING_NOT_PENDING` | 409 | firing already claimed |
 | `TRIGGER_INVALID_CEL` | 422 | invalid CEL expression |
@@ -651,12 +651,12 @@ audience: [human, ai]
 | `TRIGGER_INVALID_CRON` | 422 | invalid cron expression — use a 5-field expression (minute granularity); @every and seconds are not supported |
 | `TRIGGER_INVALID_INTERVAL` | 422 | sensor interval below minimum |
 | `TRIGGER_INVALID_KIND` | 422 | unknown trigger kind |
-| `TRIGGER_INVALID_MISFIRE_POLICY` | 422 | misfirePolicy must be one of: skip, catchup_one（工单⑨：cron `config.misfirePolicy` 的封闭词表，create/edit 校验——写错的词绝不静默按默认 skip 走） |
+| `TRIGGER_INVALID_MISFIRE_POLICY` | 422 | misfirePolicy must be one of: skip, catchup_one；create/edit 时校验 |
 | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | trigger listener not available |
 | `TRIGGER_NAME_DUPLICATE` | 409 | trigger name already exists |
 | `TRIGGER_NOT_FOUND` | 404 | trigger not found |
-| `TRIGGER_PAUSED` | 422 | trigger is paused — resume it before firing（工单⑦：`:fire`/fire_trigger 打在已暂停 trigger 上的大声拒——暂停 = 不再产生新 firing，手动催也不例外） |
-| `TRIGGER_SCHEDULE_INVALID_QUERY` | 422 | trigger-schedule query invalid — within must be a positive Go duration (e.g. 168h) and limit a positive integer（工单⑧：details 带 `param`/`got`；超上限的合法值**钳制**不报错，只有不可解析/非正才拒） |
+| `TRIGGER_PAUSED` | 422 | trigger is paused — resume it before firing；暂停时手动 fire 也拒绝 |
+| `TRIGGER_SCHEDULE_INVALID_QUERY` | 422 | trigger-schedule query invalid — within must be a positive Go duration (e.g. 168h) and limit a positive integer；`details.param`/`got`，合法超限值钳制 |
 | `TRIGGER_SENSOR_TARGET_REQUIRED` | 422 | sensor requires a function or handler target |
 | `TRIGGER_SENSOR_TARGET_NOT_FOUND` | 422 | sensor target does not exist (dynamic — details carry targetKind/targetId) |
 | `TRIGGER_WEBHOOK_SECRET_MISMATCH` | 401 | webhook secret mismatch |

@@ -4,109 +4,148 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# 事件 —— SSE 流挂载 / 通知类型登记
+# 事件 —— SSE 与通知登记
 
-> 流式产出的单一事实源。
-> 通则（E 系列）：全系统**仅三条 SSE 流**（messages / entities / notifications，E1 永不再加）；workspace 级、后端不过滤；delta/tick 标 `seq=0` ephemeral（E2）；messages 流 `parentBlockId` 嵌套（E3）。任何实体**不开新流**——只把内容挂上三条流。
+> 流式输出和通知事件的当前 wire contract。系统只使用 `messages`、
+> `entities`、`notifications` 三条 workspace 级 SSE；任何新能力都挂到
+> 其中之一。
 
-## Frame 协议与 node.type 词表（非穷举）
+## 1. Frame 协议
 
-三流共用统一帧 envelope `{seq, scope:{kind,id}, id, frame}`，`frame` 是四动词封闭联合。`durable` 报告该帧是否进 replay 环（重连可重建）；`seq=0` = ephemeral、不入 buffer、不产生背压。**durable 帧入订阅者 buffer（`bufSize+256`）；buffer 满 = 客户端卡死（durable 低频、满即真卡）→ 发布方断开该订阅者（关 `done`、幂等）、它重连并从环重放（缺口超环走 REST 重取）——绝不让一个卡死客户端永久卡住整工作区扇出 + 堆积所有 producer（R5）。**
+三条流共用：
 
-| 动词 | durable | 说明 |
+```text
+Envelope {
+  seq,
+  scope: {kind, id},
+  id,
+  frame
+}
+```
+
+`frame` 是四动词封闭联合：
+
+| 动词 | 耐久性 | 语义 |
 |---|---|---|
-| `Open` | 恒 durable | 建节点（`parentId` 空=顶层，非空=嵌套挂载点，E3） |
-| `Delta` | 恒 ephemeral | 给开着的节点追加流式 chunk（token 文本 / 终端输出） |
-| `Close` | 恒 durable | 结束节点；`result` 携最终快照——流式节点的重连真相（delta 可丢） |
-| `Signal` | **由 `Ephemeral` 字段定** | 不建树的点状广播；`Ephemeral` 不上线缆，仅定投递语义 |
+| `Open` | durable | 创建节点；`parentId` 表示嵌套挂载点 |
+| `Delta` | ephemeral | 向已打开节点追加文本或终端输出 |
+| `Close` | durable | 关闭节点；`result` 是重连后的最终快照 |
+| `Signal` | 由 `Ephemeral` 决定 | 不创建树节点的点状广播 |
 
-**Signal 的 durable/ephemeral 硬规则**："DB 行才是真相、流只为实时呈现"的点状广播 MUST 置 `Ephemeral:true`：**flowrun 节点 tick**（`run`，flowrun_nodes 行是真相）、**trigger fire**（`fire`，Activation/Firing 行是真相）、**chat interaction**（broker pending 表是真相、重连走 REST 重同步）。**notifications 流上的全部信号**置 `Ephemeral:false`（durable——必达、reconnect 经 replay 环补回）。
+ephemeral 帧使用 `seq=0`，不进入 replay ring。durable 帧使用正 seq；订阅者
+buffer 满时断开该订阅者，由客户端重连重放，游标越过 ring 时以 REST 快照
+恢复。
 
-`Node.Type` 词表由 **producer 定**（domain 不枚举类型），下表登记**当前全集**、非穷举：
+“数据库行是真相、流用于实时呈现”的点状事件必须 ephemeral，包括 flowrun
+节点 tick、trigger fire、trigger/MCP 状态和 chat interaction。notifications
+流上的信号均为 durable。
 
-| 流 | node.type 当前全集 |
+## 2. `node.type`
+
+`Node.Type` 由 producer 定义，协议保持开放；下表登记当前生产者：
+
+| 流 | 当前类型 |
 |---|---|
-| entities | `build`（create/edit 内容镜像）· `run`（执行中间产出 / flowrun tick，路由节点带 `port`）· `run_started`（**durable**：flowrun 出生，`{flowrunId, origin}`）· `run_terminal`（**durable**：flowrun 终态 completed/failed/cancelled）· `fire`（trigger 扇出）· `status`（ephemeral：mcp 连接态转移 / trigger 暂停态转移 `{paused}`） |
-| messages | `message`（start/stop，durable 带快照）· `text` · `reasoning` · `tool_call` · `tool_result` · `progress`（块级 open/delta/close）· `interaction`（ephemeral 信号：create + resolve 两态，resolve 帧带 `resolved:true`）· `todo`（信号）· `touchpoint`（信号）。**注意：这里是 5 个块型，而 `message_blocks` 有 7 个** ——差的两个（`compaction` / `marker`）**从不上流**，见下方「不上流的两个块型」 |
-| notifications | node.type = 事件类型字符串 `<domain>.<action>`（见下方各域登记） |
+| entities | `build` · `run` · `run_started` · `run_terminal` · `fire` · `status` |
+| messages | `message` · `text` · `reasoning` · `tool_call` · `tool_result` · `progress` · `interaction` · `todo` · `touchpoint` |
+| notifications | `<domain>.<action>`，见 §3 |
 
-**不上流的两个块型（登记为何 `node.type` 不变）**：`message_blocks` 的 CHECK 是 **7 型**，而 messages 流的块级 `node.type` 只有 **5 个**。差额不是遗漏，是两条**刻意**的呈现路径——两者都由**别的子系统**在回合之间追加，而不是由 loop 在回合**内**流式产出，故它们没有 open/delta/close 生命周期可推：
+`message_blocks` 中的 `compaction` 与 `marker` 不产生流式节点：它们由其他
+子系统在回合之间落库，随消息 REST 快照读回。`marker` 的 attrs 为
+`{kind:"workdir", from, to}`。
 
-- **`compaction`**（contextmgr 的 `writeAnchor`）——压缩标记块，随 `GET /{id}/messages` 读回。
-- **`marker`**（chat 的 `MarkWorkDirSwitch`，WRK-077 WD1）——驻地在线程中途切换的行内标记，`attrs {kind:'workdir', from, to}`，**同一条路径**：`CreateMessage` 落一个合成 assistant 回合 + 一个块，客户端从普通消息读里拿到它。
+## 3. Notifications
 
-两者都**不新增 SSE 流、不新增帧型**（E1/E2 成立）。**为何不发帧也够**：切换驻地是一次 REST `PATCH`，而它本就广播 `conversation.work_dir` 生命周期回声（notifications 流，⤳ 仅帧档），正看着线程的客户端收到它即重读——一条为「已经有回声在飞」的事件再铸一个 messages 帧型，是给同一件事发两遍。**施工时已核对呈现路径**：块经 `hydrateBlockContent` 的默认分支（`{...attrs, content}`）进 `BlockNode.content`，前端 transcript 按 `BlockKind.marker` 渲一条带标发丝线，与 compaction 低语同族。
+`notificationapp.Emitter` 提供两种 durable 投递：
 
-## notifications 流（生命周期事件，`<domain>.<action>`）
+- **Emit（⊞）**：写通知收件箱并推帧；payload 额外带 `inbox:true`。
+- **Broadcast（⤳）**：只推帧，不写收件箱；消费者收到后重取实体真相，
+  payload 不带 `inbox`。
 
-**两档 durable 信号**（`notificationapp.Emitter` 分径，全部 `Ephemeral:false`）：
+未读数不根据帧本地累加，客户端重取 `GET /notifications/unread-count`。
+实体生命周期 payload 带显示 `name`；document 使用 `path`；删除事件在删除
+前捕获显示信息，取不到时允许空回退。
 
-- **Emit = 落收件箱行 + 推帧**——值得用户事后在通知中心找到的事件（失败、AI 可能干的实体生命周期 created/edited/deleted）。行是真相、REST `GET /notifications` 兜回。
-- **Broadcast = 只推帧、不落行**——高频对账回声：驱动实时 UI（rail 重排、documents 树刷新）但进收件箱即噪音（改名、pin 翻转、树保存、env 装配开始）。其真相是**实体自身状态**（消费者收帧后重取实体的 REST 行/整树，见下方各流挂载），非通知行；临时 `noti_` id 锚定线缆帧，通知中心不留痕、`GET /notifications` 里查不到。**两档帧形唯一差异 = `inbox` 标**（WRK-062 S-8）：Emit 帧的 payload 带 `inbox:true`（落行、用户相关——客户端「全部」通知档的诚实分母），Broadcast 帧**永不带**——对账回声绝不能成为 toast 候选。标只在线缆上（push 时复制 payload 加入），落库的通知行 payload 不带。N0 裁决不变：未读徽标仍绝不据帧 +1、靠权威 `unread-count` refetch。
-
-下表 **⊞** = Emit（落行）· **⤳** = Broadcast（仅帧）。`Node.Type` 词表由 producer 定，登记当前全集、非穷举。
-
-**payload 带实体名**：所有实体生命周期通知（function/handler/agent/workflow/control/approval 的 created/edited/reverted/updated/deleted/env_rebuilt/config_* + skill/mcp/memory 的 name + workflow 的 run_failed/attention_changed/approval_pending/lifecycle_changed）payload 都携 **`name`**（实体显示名，删除类在删前捕获、best-effort 空回退），使通知中心能渲「Agent『triager』已创建」而非仅「Agent 已创建」；sandbox env 无实体名不带；document 用 `path`。前端不产文案、按 `type → 模板` + `payload.name` 渲染。
+### 事件登记
 
 | 域 | 事件 |
 |---|---|
 | function | ⊞ `function.{created, edited, reverted, updated, deleted, env_rebuilt}` |
-| handler | ⊞ `handler.{created, edited, reverted, updated, deleted, env_rebuilt, config_updated, config_cleared, crashed}` · `restarted` 分径：⊞ 失败（`{ok:false}`，值得进收件箱）/ ⤳ 成功（`{ok:true}`，纯按钮回执） |
-
-> `crashed` = 常驻进程在某次 `:call` 时被发现已死（manager 下次调用回收+重启）——让 handler 行此刻亮红点，而非等下个 :call 才暴露。payload `{handlerId, name}`。
+| handler | ⊞ `handler.{created, edited, reverted, updated, deleted, env_rebuilt, config_updated, config_cleared, crashed}`；`handler.restarted` 失败 ⊞、成功 ⤳ |
 | agent | ⊞ `agent.{created, edited, reverted, updated, deleted}` |
+| workflow | ⊞ `workflow.{created, edited, reverted, updated, deleted, lifecycle_changed, attention_changed, run_failed, approval_pending}` |
+| control | ⊞ `control.{created, edited, reverted, updated, deleted}` |
+| approval | ⊞ `approval.{created, edited, reverted, updated, deleted}` |
+| skill | ⊞ `skill.{created, updated, deleted}`；文件写删的 `updated` 另带 `path` |
+| mcp | ⊞ `mcp.{installed, updated, removed, reconnected}` |
+| document | ⤳ `document.{created, updated, moved}`；⊞ `document.deleted` |
+| conversation | ⤳ `conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, work_dir, compacted}` |
+| memory | ⊞ `memory.{created, deleted}`；内容写的 `memory.updated` 为 ⊞，pin 状态回声为 ⤳ |
+| sandbox | ⤳ `sandbox.env_status_changed` 的 `installing`，⊞ `ready`/`failed`；⤳ `sandbox.env_deleted` |
+| relation | ⊞ `relation.dependency_broken` |
 
-> `updated` = meta 变更（不升版本）；`edited` = 新版本生效。`env_rebuilt`（空 ops 的 edit 重建了 active env）只在 **function / handler** 发，agent 不发。
+补充 payload：
 
-## entities 流挂载（实体面板实时呈现，SSE-C）
+- `handler.crashed`：`{handlerId,name}`。
+- `handler.restarted`：`{name,ok}`，失败可带错误信息。
+- `workflow.lifecycle_changed`：`{name,lifecycleState,active}`。
+- `workflow.attention_changed`：`{name,needsAttention,attentionReason}`。
+- `workflow.run_failed`：`{workflowId,name,flowrunId,error}`。
+- `workflow.approval_pending`：`{workflowId,name,flowrunId,nodeId}`。
+- `mcp.reconnected`：`{name,status,lastError?}`。
+- `conversation.compacted`：`{coversUpToSeq,summaryBytes}`。
+- `relation.dependency_broken`：
+  `{deletedKind,deletedId,dependents:[{kind,id,name,edge}]}`；删除前快照入向
+  `equip`/`link` 依赖，删除后发送一条聚合通知。
 
-| 域 | 挂载 |
+Trigger 生命周期不发 notifications；其活动由 activation/firing 记录与
+entities 流呈现。
+
+## 4. Entities 流挂载
+
+| Scope | 类型与 payload |
 |---|---|
-| function | **run 终端**：每次执行的实时 stderr（= 函数自己的 `print()`，driver 引流）→ function scope；**build 镜像**：create/edit_function 的流式 code args → 面板实时填充；**env 物化终端**：每次 ensureEnv 的尝试/修复行（不分入口——HTTP 编辑器/chat 构建/run 重建）→ build 节点 |
-| handler | **run 终端**：流式 method 的每个 yield → handler scope（不论谁触发）；**build 镜像**：create/edit_handler 的类代码；**env 物化终端**：同 function |
-| agent | **run 轨迹**：invoke 的完整 ReAct block 流（text/reasoning/tool_call/tool_result）→ agent scope（不论 chat/REST/workflow 触发）；**build 镜像**：create/edit_agent 的 config |
+| function | `build`：create/edit 参数与 env 物化输出；`run`：执行 stderr |
+| handler | `build`：create/edit 参数与 env 物化输出；`run`：method yield |
+| agent | `build`：create/edit config；`run`：invoke 的 ReAct block |
+| workflow | `build`：图 ops；`run`：节点终态 `{flowrunId,nodeId,iteration,status,port?}` |
+| workflow | durable `run_started`：`{flowrunId,origin?}` |
+| workflow | durable `run_terminal`：`{flowrunId,status,error?}` |
+| trigger | ephemeral `fire`：`{activationId,kind,fired,firingCount,error}` |
+| trigger | ephemeral `status`：`{paused}`，只在 pause/resume 真转移时发 |
+| control / approval | `build`：branches 或 template |
+| mcp | `run`：CallTool progress；ephemeral `status`：`{status,prevStatus,lastError}` |
+| skill / document | `build`：create/edit 内容镜像 |
 
-## messages 流挂载（对话内呈现）
+Workflow `run` 的 `port` 只在 control 与 approval 节点携带。flowrun
+节点 tick 以 `flowrun_nodes` 为真相；`run_started` 与 `run_terminal` 必须
+durable，使调度面可跨重连观察 run 生命周期。终态竞态只由数据库头状态守卫
+的赢家发 terminal。
 
-| 域 | 挂载 |
+MCP status 只在连接态真实变化时发；`mcp_servers` 行是重连真相。
+
+## 5. Messages 流挂载
+
+| 生产者 | 挂载 |
 |---|---|
-| function | `run_function` tool_call 下的 progress 块 = 执行的实时 stderr；create/edit 的 env-fix 尝试逐步流出 |
-| handler | `call_handler` tool_call 下的 progress 块 = 流式 method 的 yield |
-| agent | `invoke_agent` tool_call 下**嵌套** agent 的全部流式 block（E3 `parentBlockId`）——仅流式呈现，耐久记录是 Execution.transcript |
+| Chat | durable message start/stop；stop 的 close result 是完整回合快照 |
+| LLM loop | `text`、`reasoning`、`tool_call`、`tool_result`、`progress` |
+| Function | `run_function` 下的 stderr progress；构建时 env-fix progress |
+| Handler | `call_handler` 下的 method yield progress |
+| Agent / Subagent | `invoke_agent` 或父工具下的嵌套 ReAct blocks，使用 `parentBlockId` |
+| MCP | 动态 MCP tool call 下的 progress |
+| Human loop | ephemeral `interaction`，创建与解决对称；解决帧带 `resolved:true` |
+| Todo | `todo` signal |
+| Touchpoint | durable `touchpoint` signal，id 为 `tp_` 行 id，payload 是聚合行快照 |
 
-## P3 五域挂载
+message close 快照必须自足；例如 retry 回合的 `retryOf` 同时存在于 start 和
+stop，重连客户端只凭 durable close 也能恢复版本组。Interaction 的 pending
+状态由 broker 持有，重连通过 REST 重同步。
 
-**notifications**（全 ⊞ 落行）：workflow/control/approval 的 `<域>.{created, edited, reverted, updated, deleted}` 生命周期族；workflow 另有 `workflow.lifecycle_changed`（activate/deactivate/kill 的状态流转，payload {lifecycleState, active}）、`workflow.attention_changed`（payload {needsAttention, attentionReason}——调度器自愈语义：run 失败点亮、completed 熄灭，无 acknowledge 端点）、`workflow.run_failed`（payload {workflowId, name, flowrunId, error}）与 `workflow.approval_pending`（payload {workflowId, name, flowrunId, nodeId}，at-least-once——唤人决策）。trigger **无**生命周期通知（其活动经 activations 行 + entities 流 fire 信号呈现）。
-
-**entities 流**：
-| 域 | 挂载 |
-|---|---|
-| workflow | **flowrun 节点进度**：advance 每节点终态发一条 **ephemeral** Signal（`{flowrunId, nodeId, iteration, status, port?}`——`port` 仅路由节点携：control 取 result 保留键 `__port`、approval 取 `decision`[yes/no 即其 port]，客户端实时渲选中分支免逐 tick 惰性 GET）→ workflow scope；approval 越过 parked 的「已决」tick 由 DecideApproval/timeout 落定径**专发**（Advance 重入时已决行既存、computeReady 跳过、不再 tick）；flowrun_nodes 行是真相、tick 不占 replay 环（E2）。**flowrun 出生**：新 run 创建即发一条 **durable** Signal（`node.type="run_started"`，`{flowrunId, origin?}`——origin=溯源章 manual/chat/cron/webhook/fsnotify/sensor；**NULL 时省略该键**，与 REST 的 `origin` omitempty 逐字同形，故客户端只需一种「未知」拼法：按缺席渲 unknown、绝不认空串。可达——claimFiring 查 TriggerKind 是 best-effort，软删的 trigger 留 NULL）→ workflow scope——追踪「现在有什么在跑」的调度面不能漏掉断连期间出生的 run（无人看面板时的 cron 触发是常态），发点 = 两个创建咽喉（StartRun 手动径 + claimFiring 提交后）；`:replay` 重开既有 run、非出生、不发。**flowrun 终态**：run 到 completed/failed/cancelled 发一条 **durable** Signal（`node.type="run_terminal"`，`{flowrunId, status, error?}`，error 仅 failed）→ workflow scope——「run 结束了」必须活过重连（入 seq+replay 环），发点 = markRunTerminal（completed/failed/approval 超时 fail）+ kill/replace/`:cancel` 的 cancelled 写（工单②单 run 取消；**只有头守卫赢家发**——与自然终态同瞬竞态的输家不发第二帧）。build 镜像（create/edit_workflow 的图 ops） |
-| trigger | **fire 信号**：每次扇出（全 4 源 + manual）发 **ephemeral** Signal `{activationId, kind, fired, firingCount, error}` → trigger scope；durable 记录 = Activation/Firing 行（信号丢弃无妨）。**status 信号**（工单⑦）：`:pause`/`:resume` 每次**真转移**（幂等重复不发）发 **ephemeral** Signal `node.type="status"` `{paused}` → trigger scope——实时 ⏸ 徽章推送，照 mcp status 先例；`triggers.paused` 行（GET /triggers）是重连真相 |
-| control / approval | build 镜像（create/edit 的 branches/template） |
-
-## P4 三域挂载
-
-**notifications**：⊞ `skill.{created,updated,deleted}`（files 面的文件写/删发 `skill.updated` 且 payload 另携 **`path`**〔被触文件的相对路径，清单整替 = `SKILL.md`〕——同事件名更富 payload，按 `skill.` 前缀刷新的消费者零改动即覆盖）· ⊞ `mcp.{installed,updated,removed,reconnected}` 族（`reconnected` payload `{name, status, lastError?}`——成败都发，status 载 reconnect 后真实态 ready/degraded/failed，使通知中心分清恢复与仍坏）· `document`：⤳ `{created, updated, moved}`（树刷新回声，documents 消费者整树重取）/ ⊞ `deleted`（破坏性、AI 可删用户文档，值得进收件箱）。
-
-**entities 流**：mcp = CallTool 的进度通知 tee 到 server scope 的 run 终端（per-call token 关联）+ **`status` 信号**（**ephemeral**：连接态转移 connecting→ready / ready↔degraded / →failed，发 `{status, prevStatus, lastError}` → server scope，使 MCP 行状态点实时变色；mcp_servers 行是重连真相、信号丢弃无妨，只在真变化时发，不入 buffer E2）；skill/document = build 镜像（create/edit 的 body/content）。
-
-**messages 流**：mcp 动态工具（`mcp__*__*`）的进度作为 tool_call 下 progress 块。
-
-## P5 对话运行时族挂载
-
-**messages 流（主战场）**：message_start/stop（durable，close 带快照——**该快照必须自足**：客户端从它整体覆写 content，故凡「这个回合是什么」的字段都要在里面重复一遍，`retryOf` 版本指针即因此 start/stop 两处都带，见 [domains/chat.md](domains/chat.md)）· 块级 open/delta/close（text/reasoning/tool_call/tool_result/progress 实时流，E2 delta=ephemeral）· **interaction 信号**（ephemeral，**create + resolve 两态**——pending 时发 `humanloop.Request`，resolve 时发对称帧带 `resolved:true`[使前端清提示 + 会话 `awaitingInput`「等你」点而不靠 tool_result 反推]；broker pending 表是真相、重连走 REST 重同步）· todo 信号 · **touchpoint 信号**（durable，`node.type="touchpoint"`，scope=conversation，事件 ID=行 id `tp_`，payload=**单条聚合行视图**[幂等 upsert，重放安全]——对话触点台账的实时推送，写侧=chat Send[mentioned/attached] + loop 工具咽喉[created/edited/viewed/executed/deleted]，best-effort、漏推由 REST 兜回）· subagent 子树经 `Open.ParentID` 嵌套（E3）。
-
-**notifications**：⤳ `conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, **work_dir**, compacted}`（**全族仅帧**——对话生命周期都是 rail 对账回声，rail 收信号后重读对话自身的行；`updated` = 仅改 title/systemPrompt/attachedDocuments 的默认动作；**`work_dir`** = 驻地挂/切/退（WRK-077 WD1；**只在值真变时发**，重复 PATCH 同一路径是 no-op，故它绝不会为「什么都没改」刷 rail）；archived/unarchived·pinned/unpinned 为 toggle 动作；`compacted` payload {coversUpToSeq, summaryBytes}——压缩器写）· `memory`：⊞ `{created, updated[内容写], deleted}` / ⤳ `updated[pin 回声]`（与内容写共用 "memory.updated" 词，档位在 setPinned 调用点选）· `sandbox.env_status_changed`：⤳ `installing`（构建开始瞬时回声）/ ⊞ `ready`·`failed`（终态）· ⤳ `sandbox.env_deleted`（env 回收内务回声）。
-
-## P6 支撑域挂载
-
-**notifications 流本体**：`notificationapp.Emitter` 分两档 durable 信号——**Emit** = DB 行 + 帧（scope=notification:<行 id>，node.type=事件类型；行是真相、`GET /notifications` 兜回）；**Broadcast** = 只推帧、不落行（临时 `noti_` id 锚定帧，供 rail/树对账回声，其真相是实体自身状态）。见本文「notifications 流」节两档表（⊞/⤳）。
-**relation**：`relation.dependency_broken`（payload `{deletedKind, deletedId, dependents:[{kind,id,name,edge}]}`）——删一个被依赖的实体时，`PurgeEntity` 在 purge 抹边**前**快照其入向 equip/link 依赖、purge 后发 **ONE 聚合**通知点名（hydrate + 去重）这些被留下悬空挂载的实体。是 F160 瞬时 delete-tool 提示的**持久**对应物：经通知中心在任意删除路径（HTTP 或 LLM 工具）触达、跨重启留存（F161）。刻意用通知、非实体 attention 标志（agent 无 attention 列、workflow run-attention 仅在 run 完成时清会永久点亮）。无依赖 / nil emitter → 不发；hydrate/emit 失败只记录、绝不让删除失败。
-**entities 流本体**：entitystream 是全部实体面板活动的唯一生产原语（open→delta*→close / Signal）。
-**messages 流**：humanloop 的 interaction ephemeral 信号（chat 注入 Surface）。
+Touchpoint 写入是幂等聚合；实时帧丢失时，`GET
+/conversations/{conversationId}/touchpoints` 仍可恢复完整台账。

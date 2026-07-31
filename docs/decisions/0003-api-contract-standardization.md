@@ -11,6 +11,10 @@ audience: [human, ai]
 
 # 0003 — 后端 API 契约标准化（S1-S9）
 
+> **历史路径提示**：正文中的 `working/standardization-review/` 是施工时路径；
+> 完整台账现位于 [`archive/standardization-review/`](../archive/standardization-review/)。
+> 决策正文保持原样。
+
 ## 背景
 
 后端由 AI 分阶段写成，同类面在不同实体上长得不一样：Create 有的返 `{entity, version}`、有的返 `{trigger: …}`、有的裸返；异步动作返新 id 的键名五花八门（`messageId`/`flowrunId`/`conversationId`/`fired+triggerId+activationId`）；List 有的 `Paged`、有的裸数组、有的把聚合塞顶层；tool/执行结果有的裹 `{result}`/`{output}`、有的裸返；错误有的走 N1 envelope、有的裸 `http.NotFound`；SSE 点状广播该 ephemeral 的当 durable 占 replay 环；内部构造器/投影/分页签名各写各的。**前端要为每个端点单独建心智** —— 这是该消灭的偶然复杂度，不是要改地基。

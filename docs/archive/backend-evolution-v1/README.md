@@ -1,13 +1,13 @@
 ---
 id: WRK-026
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-18
 reviewed: 2026-07-28
 review-due: 2026-10-26
 audience: [human, ai]
-landed-into:
+landed-into: docs/working/backend-evolution/README.md
 ---
 
 # Iteration Loop —— AI 操作手册（START HERE）

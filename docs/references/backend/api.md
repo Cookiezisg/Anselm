@@ -4,218 +4,370 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# HTTP API —— 端点登记
+# HTTP API
 
-> 全部端点的单一事实源（method · path · 语义一行）。
-> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills 及其 files 列表 / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities / tools 目录）与**有界批查**（flowrun-stats，workflowIds ≤50 封顶 · flowrun-matrix，flowrunIds ≤50 封顶——两者均去重后计数、越界 422 大声拒）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；**有界投影**另立一类——它们**不是已存集合**、而是现算的派生视图，故同样无 `nextCursor`；本类内部**两种形状,登记时必须分清**：①**带真参数的窗**（trigger-schedule）——`within`/`limit` 是**真参数**：超上限**钳制**、不可解析或非正 → **422**（不是忽略），响应经 `truncated` 诚实报告窗内还有更多；窗头恒为 now、无游标，故超出 `limit` 的点本次请求不可达（抬 `limit` ≤1000 即可，1000 之外无从翻页——前瞻预览、非可翻集合）；②**零参数**（storage-stat · **conversation workdir** 皆为单对象 · **conversation workdir-groups** 为有界集合）——按需现算、**不收任何参数**，故没有什么可钳制、没有什么可 422、也从不上报截断；分页参数按标准 HTTP 忽略。**单对象与有界集合同属②形**：本类形状的判据是「收不收真参数」、**不是**「返一个还是返一批」。**conversation workdir 那个单对象内部还嵌两个有界列表**（`branches[]` / `worktrees[]`，WD2/WD3）——它**仍属②形**，因为端点**依旧不收任何参数**：判据是「收不收真参数」，**也不是**「返回结构有多深」。两个列表的有界性各来自`refs/heads` 的条数与 checkout 的份数（皆人类尺度；**不含 `refs/remotes`**——那才是会上千的集合），故同样无游标、无 `truncated`、无从 422。`workdir-groups` 的有界性来自「一个人会挂多少个目录」（人类尺度集合，同 workspaces 那一类），**不是**来自有多少条对话；它把 active/archived **两个计数分列**上报，正是为了保持零参数（若改用一个 `?archived=` 范围参，它就既不属①也不属②——那才是混登）。**把这两种形状混登是让宪法替代码撒谎**：一个 422 非法参数的端点不属于「忽略参数」那一格，一个不收参数的端点也不属于「超限钳制 + 自报截断」那一格；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
-> **响应形状铁律**：`data` 内层一律**裸实体**——`POST`(Create) / `GET` 单读 / `PATCH` 同形,前端一套解构到底;**绝不**裹 `{"<entity>": ..., "version": ...}` 外层 key。版本实体(function/handler/agent/workflow/control/approval)的当前版本经实体内嵌 `activeVersion` 字段透出(Create 即附新版本,与 GET 单读完全同形)。复合读(一次返多个并列实体,如 `GET /flowruns/{id}` → `{flowrun, nodes, nextCursor}`,nodes 为 N4 keyset 一页)才用具名多 key。
-> **异步动作返 id 铁律**：返回新建资源 id 的异步动作(`POST /{id}:trigger`→flowrun、chat `POST /{id}/messages`→message、`:iterate`/`:triage`→conversation、`:fire`→activation)一律 `202 {data:{"id": <newId>}}`——前端一条规则取新资源 id。**同步执行**(`:run`/`:invoke`/`:call`,阻塞返完整结果)不在此列、返**裸结果**——**「裸」指载荷不再被 `{result}`/`{output}` 这类****外壳套一层,不是说没有信封**:N1 照常,线上是 `{"data": <结果本身>}`。(WRK-083 L14 实证这句话被读成过「连 `{data}` 也不裹」,于是三个同步执行器全部裸读、每一次成功都被渲成「失败」;此处写死以免重演。)
-> **状态变更动作铁律**：改实体状态的动作(`:stage`/`:kill`/`:activate`/`:deactivate`/`:restart`/`:edit`/`:revert`)一律返**动作后实体完整快照**(`{data:<entity>}`),不发 `{staged:true}`/`{killed:N}` 等临时裸键(附加计数等并入实体字段或由相关列表端点查)。**无新产物的变更**(resolve-interaction、search `:reindex`、DELETE)一律 `204 No Content`,绝不返 `{data:null}`。
+本文登记 `/api/v1` 的公开 method、path 与关键 wire 语义。路由代码是物理事实，
+`make -C docs verify` 检查路由资源词覆盖。
 
-## function（`/api/v1/functions`）
+## 1. 通则
+
+- 成功：`{"data": ...}`；错误：
+  `{"error":{"code","message","details"}}`。
+- Wire 字段使用 camelCase；Path variable 也使用 camelCase。
+- 无界集合使用 keyset `cursor` + `limit`，返回顶层 `nextCursor`、`hasMore`。
+- 明确有界批查、静态枚举和单对象派生投影不使用 cursor。
+- Create/单读/Patch 的 `data` 是实体；复合响应使用具名 keys。
+- 创建新资源的异步动作返回 `202 {"data":{"id":"..."}}`。
+- 同步 `:run`、`:call`、`:invoke` 的 `data` 直接是结果，不增加同义外壳。
+- 状态变更动作返回动作后的实体/运行快照；无返回值的 mutation 与 DELETE
+  返回 `204 No Content`。
+- 非 CRUD 动作使用 `:action`。
+
+详细字段、封闭词表与错误码分别以域 reference、[`database.md`](database.md)
+和 [`error-codes.md`](error-codes.md) 为准。
+
+## 2. Streams
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /functions` | 创建（扁平 payload → 反推 ops 走构建管线），201 |
-| `GET /functions` | 分页列表（`?search`：`name` 大小写不敏感子串过滤） |
-| `GET /functions/{id}` | 单读（附 activeVersion：代码+env 状态一趟拿全） |
-| `PATCH /functions/{id}` | 改 meta（name/description/tags，不升版本） |
-| `DELETE /functions/{id}` | 软删 + 销毁 env + 清边，204 |
-| `POST /functions/{id}:run` | 执行（TriggeredBy=manual），body `{args, version?}` |
-| `POST /functions/{id}:revert` | active 指针移到指定版本号 |
-| `POST /functions/{id}:edit` | ops 构建新版本（空 ops = 仅重建 env） |
-| `POST /functions/{id}:iterate` | 开 AI 编辑对话，返 `conversationId` |
+| `GET /messages/stream` | Conversation message/block 流 |
+| `GET /entities/stream` | Entity build/run/status 流 |
+| `GET /notifications/stream` | Notification durable/ephemeral 流 |
+
+三条都是 workspace 常驻 SSE，frame 契约见 [`events.md`](events.md)。
+
+## 3. Callable entities
+
+### Function
+
+| Method · Path | 语义 |
+|---|---|
+| `POST /functions` | 创建 v1，201 |
+| `GET /functions` | 分页；`search` 按 name 子串 |
+| `GET /functions/{id}` | 单读，含 activeVersion |
+| `PATCH /functions/{id}` | 更新 metadata，不铸版本 |
+| `DELETE /functions/{id}` | 删除 |
+| `POST /functions/{id}:run` | `{args,version?}`，manual run |
+| `POST /functions/{id}:edit` | ops；空 ops 重建 active env |
+| `POST /functions/{id}:revert` | 移 active pointer |
+| `POST /functions/{id}:iterate` | 打开 AI 构建 Conversation |
 | `GET /functions/{id}/versions` | 版本分页 |
-| `GET /functions/{id}/versions/{version}` | 单版本（接受版本号或 fnv_ id） |
-| `GET /functions/{id}/executions` | 执行日志分页（`?status&triggeredBy&conversationId&flowrunId`）；返 `{data:{executions, aggregates}, nextCursor, hasMore}`——分页坐标顶层、聚合在 data 子对象(与 handler/agent/mcp 执行·调用日志同形) |
-| `GET /function-executions/{id}` | 单执行详情（含 `logs`——print/调试输出；列表端点不带） |
+| `GET /functions/{id}/versions/{version}` | 按号或 ID 单读版本 |
+| `GET /functions/{id}/executions` | Execution 分页与 aggregates |
+| `GET /function-executions/{id}` | 单条 Execution，含 logs |
 
-## handler（`/api/v1/handlers`）
-
-| Method · Path | 语义 |
-|---|---|
-| `POST /handlers` | 创建（扁平 → ops），201；**不 spawn 实例**（等 config 配齐/Boot/首调） |
-| `GET /handlers` | 分页列表（`?search`：`name` 大小写不敏感子串过滤） |
-| `GET /handlers/{id}` | 单读（附 activeVersion + configState + missingConfig + runtimeState） |
-| `PATCH /handlers/{id}` | 改 meta |
-| `DELETE /handlers/{id}` | 停实例 + 软删 + 销毁 env + 清边，204 |
-| `POST /handlers/{id}:call` | 调方法（manual），body `{method, args}` |
-| `POST /handlers/{id}:restart` | 手动重启常驻实例，返新 runtimeState |
-| `POST /handlers/{id}:revert` | 移 active 指针 + 重启实例 |
-| `POST /handlers/{id}:edit` | ops 构建新版本 + 重启实例（空 ops = 重建 env + 重启） |
-| `POST /handlers/{id}:iterate` | 开 AI 编辑对话 |
-| `GET /handlers/{id}/versions` · `GET /handlers/{id}/versions/{version}` | 版本（号或 hdv_ id） |
-| `GET /handlers/{id}/config` | 读 config（sensitive 字段掩码 `********`） |
-| `PUT /handlers/{id}/config` | JSON Merge Patch 更新（null 删 key）→ 整 blob 重加密 → **重启实例重跑 `__init__`** |
-| `DELETE /handlers/{id}/config` | 清空 config + 停实例 |
-| `GET /handlers/{id}/calls` | 调用日志分页（`?method&status&triggeredBy&conversationId&flowrunId`）；返 `{data:{calls, aggregates}, nextCursor, hasMore}`(同 function/agent/mcp 同形) |
-| `GET /handler-calls/{id}` | 单调用详情（含 `logs`——yield + 调用窗口 stderr；列表端点不带） |
-
-## agent（`/api/v1/agents`）
+### Handler
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /agents` | 创建（identity + 全量 Config 快照 = v1），201 |
-| `GET /agents` | 分页列表（`?search`：`name` 大小写不敏感子串过滤） |
-| `GET /agents/{id}` | 单读（附 activeVersion） |
-| `PATCH /agents/{id}` | 改 meta |
-| `DELETE /agents/{id}` | 软删 + 清边，204 |
-| `POST /agents/{id}:invoke` | 跑 ReAct loop（manual），body `{input, version?}` |
-| `POST /agents/{id}:revert` | 移 active 指针 |
-| `POST /agents/{id}:edit` | 全量 Config 替换 → 新版本（**非** ops、非合并） |
-| `POST /agents/{id}:iterate` | 开 AI 编辑对话 |
-| `GET /agents/{id}/versions` · `/versions/{version}` | 版本分页 · 单版本（接受版本号或 agv_ id） |
-| `GET /agents/{id}/mount-health` | 按需预检 active 版本各挂载（fn/hd/mcp）是否仍可解析（被删/离线/坏 ref），返 `{data:{mounts:[{ref,name?,healthy,error?}], allHealthy}}`——与 invoke 同解析路径、不 fail-fast。供 invoke 前红点预警（无 active 版本/无挂载 = 平凡健康） |
-| `GET /agents/{id}/executions` | 执行日志分页（同款过滤）；返 `{data:{executions, aggregates}, nextCursor, hasMore}`(同 function/handler/mcp 同形) |
-| `GET /agent-executions/{id}` | 单执行详情（含完整 transcript） |
+| `POST /handlers` | 创建 v1，不立即 spawn |
+| `GET /handlers` | 分页；`search` 按 name 子串 |
+| `GET /handlers/{id}` | 含 activeVersion、config/runtime state |
+| `PATCH /handlers/{id}` | metadata；不重启 |
+| `DELETE /handlers/{id}` | 停实例并删除 |
+| `POST /handlers/{id}:call` | `{method,args}`，manual call |
+| `POST /handlers/{id}:restart` | 重启常驻实例 |
+| `POST /handlers/{id}:edit` | ops；代码/schema 变化后重启 |
+| `POST /handlers/{id}:revert` | 移 pointer 并重启 |
+| `POST /handlers/{id}:iterate` | 打开 AI 构建 Conversation |
+| `GET /handlers/{id}/versions[/{version}]` | 版本分页/单读 |
+| `GET /handlers/{id}/config` | masked config |
+| `PUT /handlers/{id}/config` | JSON Merge Patch 并重启 |
+| `DELETE /handlers/{id}/config` | 清 config 并停实例 |
+| `GET /handlers/{id}/calls` | Call 分页与 aggregates |
+| `GET /handler-calls/{id}` | 单条 Call，含 logs |
 
-## workflow（`/api/v1/workflows`）
-
-| Method · Path | 语义 |
-|---|---|
-| `POST /workflows` · `GET /workflows` · `GET /workflows/{id}` · `PATCH /workflows/{id}` · `DELETE /workflows/{id}` | CRUD（PATCH=meta 不升版本；列表 `?search`：`name` 大小写不敏感子串过滤）（含 `concurrency`: serial\|skip\|buffer_one\|replace\|allow_all——overlap 政策，下一次 drain 生效） |
-| `POST /workflows/{id}:trigger` | 立即跑一次（任何 lifecycle 下可跑），body `{payload?}`（只读 payload），返 flowrun id |
-| `POST /workflows/{id}:stage` | 待命恰一次真实触发后自动撤防（已 active → 409） |
-| `POST /workflows/{id}:activate` / `:deactivate` | 上线（挂监听+active）/ 优雅下线（摘监听+inactive 或 draining） |
-| `POST /workflows/{id}:kill` | 硬停：摘监听 + 取消全部在途 run + inactive，返动作后 workflow 实体快照（状态变更动作铁律，非裸计数） |
-| `POST /workflows/{id}:edit` / `:revert` | 图 ops 构建新版本 / 移 active 指针 |
-| `POST /workflows/{id}:capability-check` | ref 解析体检（实体在吗/kind 对吗/port·method 在吗）；返 `problems`（阻断）+ `warnings`（建议——含 F156 未声明输出读：读 `producer.field` 而 producer 声明输出不含 field） |
-| `POST /workflows/{id}:iterate` | 开 AI 编辑对话 |
-| `GET /workflows/{id}/versions[/{version}]` | 版本 |
-
-## flowrun（`/api/v1/flowruns`）
+### Agent
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /flowruns` | 运行历史分页——**两种互斥分页模式**（WRK-070 B4）：默认 **keyset** `?cursor&limit`（最新在前、不透明续翻，所有 List 端点通用，信封 `{data, nextCursor?, hasMore}`）；或 **offset/页码** `?offset=<非负整数>&limit`（前端标准翻页器：页码 + 跳页，信封在 keyset 形状上**额外带 `total`**＝同过滤条件下的总行数〔SQLite COUNT，供渲页数〕，形如 `{data, total, hasMore}`、**无 `nextCursor`**）。**两者同给即 422 `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`**（两种分页模式并存、大声拒不静默择一）；`?offset` 非非负整数（负/非数字）→ 422 `FLOWRUN_LIST_INVALID_FILTER`（`details.param=offset`——offset 只是又一个列表过滤参数，坏值复用该码、不另铸）。**cursor 模式信封逐字不变**（永不带 `total`），故两形状互不相交、任一 client 解码不漂移。offset 模式与 cursor 模式**共享全部过滤与排序**〔正典 `started_at DESC, id DESC`〕。过滤全 AND 组合（scheduler 工单⑥＋⑮）：`?workflowId&triggerId`（等值）`&status=running\|completed\|failed\|cancelled&origin=manual\|chat\|cron\|webhook\|fsnotify\|sensor`（封闭集——status 越集 422 `FLOWRUN_INVALID_STATUS`、origin 越集 422 `FLOWRUN_LIST_INVALID_FILTER`，details 均带 `allowed`）`&startedAfter&startedBefore`（started_at 半开窗）`&completedAfter&completedBefore`（**工单⑮**：completed_at 上的另一个**半开窗** `[after, before)`——问「run 在此段**落定**」而非「开始」；未落定的 run（running/parked）`completed_at` 为 NULL、`NULL >= ?` 永不为真故任一界都**剔除**它，刻意如此）。两组时间界均 RFC3339、归一 UTC；非 RFC3339 一律 422 `FLOWRUN_LIST_INVALID_FILTER`，details 带 `param`/`got`。**`completedAfter` 是 Overview「24h 失败」牌的深链谓词**——牌数的 `flowrun-stats.totals.failedSince` 按 `completed_at` 开窗，故只有本窗（非 `startedAfter`）建得出「牌数着的**正是**这些 run」的列表；两者谓词**逐字节相同**（`completed_at >= ?` 裸比较），牌上的数 == 列表长度。origin 为 NULL 的旧行不匹配任何 origin 过滤；`startedAfter` 窗走既有 `idx_fr_ws_created`/`idx_fr_ws_workflow`，`?status&completedAfter` 深链走新增 `idx_fr_ws_status_completed`（工单⑮，见 database.md）|
-| `POST /flowruns` | 手动起 run（= workflow `:trigger` 的等价入口），body `{workflowId, entryNode?, payload?}`（`entryNode` 消歧多 trigger 图——唯一接受 entryNode 的端点） |
-| `GET /flowruns/{id}` | run 头 + **一页节点行**（N4 分页 `?cursor&limit`、最新在前、返 `nextCursor`；长 loop run 数千行不再一次倾倒，F168-M7。完整记忆化全集是解释器内部的、非线缆的） |
-| `GET /flowruns/{id}/activity` | **按 run 聚合活动时长**（scheduler 工单⑤，喂 S4 甘特+台账）：四张执行日志表（`function_executions`/`handler_calls`/`agent_executions`/`mcp_calls`）按 flowrun_id UNION 的纯读投影，行 `{nodeId, iteration, kind, execId, status, startedAt, endedAt, elapsedMs, readyAt?}`——`kind`∈function\|handler\|agent\|mcp（审计表族、非图节点 kind：action 按 ref 前缀散入三族；control/approval 内联求值无审计行）、`execId`=审计行 id（fne_/hcl_/agx_/mcl_）、`status`=审计词表（ok\|failed\|cancelled\|timeout）、执行段=审计行自己的 startedAt/endedAt/elapsedMs、`readyAt?`=排队起点（工单⑫，join 自 `flowrun_nodes` 真相行的 `ready_at`，键 (flowrun_id,node_id,iteration)=idx_frn_once；⑫ 前旧行/无对应真相行**键缺席**）。**行序 startedAt 升序**（甘特天然序，id tiebreak——四表 id 前缀各异全局唯一）+ N4 keyset `?cursor&limit`；每支 UNION 走既有 `idx_*_ws_flowrun` 偏索引、零 schema 变更。run 不存在 404 `FLOWRUN_NOT_FOUND`（投影分不清「还没活动」与「无此 run」，先 GetRun 守卫）。at-least-once/:replay 下旧审计尝试行仍在（Log 不删）、可早于存活真相行的 readyAt——呈现端把排队段钳制 ≥0 |
-| `POST /flowruns/{id}:replay` | 修复失败 run：清 failed 行 + 重走（completed 复用）；**仅 failed 可重放**——cancelled 是终局终态、不可 :replay（422 `FLOWRUN_NOT_REPLAYABLE`） |
-| `POST /flowruns/{id}:cancel` | **取消单个 running run**（scheduler 工单②）：先守卫标头 running→cancelled（first-wins——与自然终态的竞态由 DB 守卫裁决，输家 422）再 cancel 该 run 在飞 ctx（打断卡在 LLM 流式/工具里的节点；**被打断节点不落行、不误写 failed**）+ 收回 parked 审批（收件箱不留死项）+ 发 durable `run_terminal`；取消 draining workflow 最后在途 run 触发 draining→inactive 结算。202 返 `{flowrun, nodes 首页, nextCursor}`（与 :replay 同信封形）；非 running 422 `FLOWRUN_NOT_CANCELLABLE`。cancelled 不点 attention、不发通知（手动终止非故障） |
-| `GET /flowrun-inbox` | 审批收件箱（= 全部 parked 节点行），**每行带 workflow 上下文 enrich**（scheduler 工单④）：`workflowId` + `workflowName`（join 自 run 头；workflow 已软删名**回落裸 id**——relation Namer 先例）+ `deadline?`（绝对期限 = parkedAt + 钉死 approval 版本的 timeout，与 `CheckTimeouts` 扫描同一解析语义〔domain `DeadlineFrom` 单源〕；表无 timeout / 解析不出**键缺席**、绝不发零值；approval 版本 resolve 失败仅该行缺 deadline，行本身保持可见可决策）。有界批读（run 头一条 `GetRunsByIDs` + workflow 名一条 `NamesByIDs`、approval 版本按 (ref,钉死版本) 记忆化），绝不逐行 N+1；enrich 住 app `ListInbox` |
-| `GET /flowrun-stats` | **运营统计批查**（scheduler 工单③＋⑭，只读投影、零新表零新列）：`?workflowIds=<csv>&recentN&since&until` → `{totals, byWorkflow}`（详见下段）。**Overview 统计单源**——五张 KPI 牌全读它，含 `totals.missed`（工单⑭，数 `trigger_firings`、经 FiringInbox 端口缝入） |
-| `GET /flowrun-matrix` | **节点×run 状态格阵批查**（scheduler 工单⑩，纯读投影、零新表零新列）：`?flowrunIds=<csv，去重后 ≤50>` → `{cols, rows, cells}`（详见下段） |
-| `POST /flowruns/{id}/approvals/{node}:decide` | 人工审批决策 `{decision: yes|no, reason?}`（first-wins，输家 422） |
+| `POST /agents` | identity + Config snapshot 创建 v1 |
+| `GET /agents` | 分页；`search` 按 name 子串 |
+| `GET /agents/{id}` | 含 activeVersion |
+| `PATCH /agents/{id}` | metadata |
+| `DELETE /agents/{id}` | 删除 |
+| `POST /agents/{id}:invoke` | `{input,version?}`，manual invoke |
+| `POST /agents/{id}:edit` | 全量 Config snapshot 替换 |
+| `POST /agents/{id}:revert` | 移 active pointer |
+| `POST /agents/{id}:iterate` | 打开 AI 构建 Conversation |
+| `GET /agents/{id}/versions[/{version}]` | 版本分页/单读 |
+| `GET /agents/{id}/mount-health` | 全部 tool/knowledge 挂载健康 |
+| `GET /agents/{id}/executions` | Execution 分页与 aggregates |
+| `GET /agent-executions/{id}` | 单条 Execution，含 transcript |
 
-flowrun 行 DTO 带创建时溯源两字段（camelCase、omitempty）：`origin`（manual|chat|cron|webhook|fsnotify|sensor——HTTP 手动=manual、对话 trigger_workflow=chat、firing 按 trigger kind 逐字盖）+ `conversationId`（仅 origin=chat：发起 run 的 cv_）。两列诞生前的旧行为 NULL、**线缆不发键**——客户端按缺席渲 unknown，不认空串。
+## 4. Workflow execution
 
-flowrun **节点行** DTO 带排队戳两字段（scheduler 工单⑫，camelCase、omitempty）：`readyAt`（该 (节点,轮次) 在某轮 walk 首次被算出 ready 的时刻=排队起点）+ `startedAt`（引擎开始处理该节点的时刻——input CEL 求值+派发；执行实体自身的起点在其审计行）。排队段 = readyAt→startedAt。两列可空：⑫ 前旧行与 seed trigger 行（从不排队）为 NULL、**线缆不发键**。replay/恢复下的落戳立法见 [database.md](database.md) flowrun 节。
-
-**`GET /flowrun-stats` 契约**（喂 scheduler 海洋 rail/Overview 的一次有界批查；有界故 **N4 分页豁免**——`workflowIds` 去重后 ≤50 封顶、超限 422 `FLOWRUN_STATS_TOO_MANY_IDS`（details 带 `allowed`），绝不静默截断）：
-- 参数：`workflowIds`=csv（去重保序；缺席/空 → `byWorkflow: []` 只回 totals）；`recentN` 珠串窗（默认 10、钳到 20；非数字或 <1 → 400 `INVALID_REQUEST`，同 page limit 语义）；`since` 开窗起点（RFC3339 绝对起点 或 正回看时长 `24h`/`7d`，默认 7d；解析不了 422 `FLOWRUN_STATS_INVALID_SINCE`）；**`until`**=可选不含上界（**只**收 RFC3339 时间戳——归一 UTC；缺席 → **不设界**〔今日行为、零变化〕；解析不了 422 `FLOWRUN_STATS_INVALID_UNTIL`，details 带 `param`/`got`/`want`——与 flowruns 的 `?startedBefore` 同一份 `parseListTime` 解析）。`since`＋`until` 配成**半开窗 `[since, until)`**、是 `completedSince`/`failedSince`/`successRate`/`avgElapsedMs`/`missed` 的**唯一统一窗口**。**倒挂窗（`until` ≤ `since`）不是错误**——静默给出空窗结果，与 `GET /flowruns?startedBefore=` 同立场。**为何 `until` 刻意不收时长文法**：末端的回看时长有歧义（「从何时起回看」不明），且自定义绝对范围的**结尾**光靠 `since` 表达不了——故 `until` 只认绝对时刻。**不受 `until` 约束**（说清楚）：`running`/`parkedNodes`/`recent`/`lastRunAt`/`consecutiveFailures` 皆非窗口量，`until` 碰都不碰它们。
-- `totals`（**全 workspace**，刻意不限请求 ids）：`running`（在跑 run 数）+ `completedSince`/`failedSince`（**`[since, until)` 半开窗**内**落定**的终态数——按 `completed_at` 开窗，跑很久刚失败的算新鲜失败；谓词是**裸** `completed_at >= ?`〔`until` 设了再拼一个同样**裸**的 `AND completed_at < ?`；缺席则单界、逐字节是从前的查询〕，与 `GET /flowruns?completedAfter=` 的下界**逐字节相同**故 `failedSince` 与它点开的失败列表是**同一个事实**，工单⑮）+ `parkedNodes`（**等人处理的 run 数**：仍 running 且持 ≥1 parked 节点的 DISTINCT run——一个 run park 多个审批只计 1，遗留在已终态 run 上的 parked 行不可决策不计；键名按工单定形、语义是 run 数）+ **`missed`**（工单⑭：窗口内 `created_at` 落入的 `missed` firing 数——app 睡着时到期、被记账且**绝不补跑**的 cron 刻度，判决⑥）。
-  - **`missed` 是唯一不数 flowrun 的 total**——它数的是**本该存在却不存在**的 run，故本端点是 **Overview 的统计单源**、而非「仅 flowrun 两表的投影」：Overview 问的是**一个**问题（「我的自动化在这个窗口里过得怎么样」），一个从未成为 run 的刻度正是答案的一部分。数据源是 `trigger_firings`（跨域），由 app 层经 scheduler 既有的 **FiringInbox 端口**缝入（domain 只拥有形状、不伸手够 store）。
-  - 三条诚实性：①**与 `completedSince`/`failedSince` 同一个 `[since, until)`**——`since` 在 app 服务里只默认一次，`until` 经 firing 计数的 `CreatedBefore` 缝入（缺席即不设界），故第五张牌**物理上**不可能与另外四张在**任一端**漂移；**绝不做 all-time**（只增的「有史以来错过多少」是虚荣数字，规范禁）。②按 `created_at` 开窗，而 missed 行的 `created_at` **就是那个调度刻度**（工单⑨ 回拨盖戳）——故整夜停机摊在**那一夜**、而非全堆在睡醒那一秒。③与 `GET /firings` **同一组谓词**计数，故牌与它点击深链过去的列表不可能互相矛盾。
-  - 无 firing 存储的部署（纯手动）读 0——那时根本不存在 firing，0 是**真相**；而计数**失败**不静默吞成 0（「你什么都没错过」与「我查不出来」是两句话），整个批查报错。
-- `byWorkflow`：**每个请求 id 恒一行、按请求顺序**——无 run 的 id（从未跑/不存在/宿主已软删）回**零值行**、绝不缺席（纯 flowruns 投影、不校验 workflow 存在性；孤儿 run 一等公民）。行 = `workflowId` + `running` + `parkedNodes`（该 workflow 等人处理的 run 数——语义与 totals 桶逐字一致、按 workflow 分桶；rail 琥珀点的数据源）+ `lastRunAt?`（从未跑缺席）+ `recent`（最近 recentN 个 run 状态、新→旧、**含 running** 的诚实珠串）+ `successRate?`（窗口内 completed/(completed+failed)，0..1；cancelled 中性不参与；窗口无终态 run 键缺席——「无数据」≠「0%」）+ `avgElapsedMs?`（窗口内 **completed 且 `replayCount=0`** 的 run 的平均 `completedAt−startedAt`；无此类 run 键缺席）+ `consecutiveFailures`（按 run 序列 `(started_at, id)` 新→旧的连续 failed 数：**running 与 cancelled 均跳过**［前者未定局——连败徽章不因新 run 起跑/park 闪灭；后者中性——见下方 cancelled 立法］、**只有 completed 停**［自愈=证明跑通］；不受 recentN/since 约束）。
-
-> **`cancelled` 在本端点的唯一立法**（三个字段逐字同款）：cancelled 是**中性处置**——「未执行」桶，既非错误亦非功劳。被手动停掉 / 被 replace 顶替的 run 对 workflow 健康**什么都没说**，故**两边都不算**：永不算失败，也永不算健康的证据；运行上与 running 同待遇（**透明**）。反例即代价：算失败 → 用户主动按的 ⏹ 读成故障；算健康 → 一次 ⏹ 就把正在进行的 3 连败整个从失败榜（前端按 `consecutiveFailures > 0` 过滤）抹掉，且用 `replace` 策略的 workflow（每个被顶替的 run 都**自动**取消）连败**永久钉在 ~1**、零用户动作。
->
-> **`avgElapsedMs` 的两条排除、一个理由**：耗时要答「这要跑多久」，而头上的 `completedAt−startedAt` 只在「一次跑完」时才答得上。failed 的耗时是「多久才死」；**被 replay 的** run 其头跨着**人类的修复窗口**——`:replay` 重开同一个头且**绝不移动 `startedAt`**（它是所有 run 列表 / 矩阵列 / 连败游走的排序键，移它即改写历史），故一个 30 秒的 run 三天后 replay 成功会报**三天**（比 failed 的扭曲大好几个数量级，一边滤 failed 一边放它进来是自相矛盾）。无干净样本时**键缺席**——诚实缺席胜过编造数字，与 `successRate` 同立场。**已知且刻意**：**审批等待计入**（审批 workflow 的墙钟本就是人的时间；扣掉 parked 段须 join 工单⑤ activity，超出本有界批查射程）——本字段是**墙钟 触发→完成**。对比 `flowrun-matrix` 的 `cols[].elapsedMs`：那是**一个 run 的真实跨度**（事实，故含 replay 间隔与审批等待），而本字段是**统计**（宣称代表「这要跑多久」，故剔除不可知样本）——两者立场不同、刻意不同源。
-
-**`GET /flowrun-matrix` 契约**（喂 scheduler 运营主页页顶格阵 `AnRunMatrix`；**有界批查 → N4 分页豁免**——一次按**显式 run id 集**答完格阵，哪些 run 在屏上是客户端的事［它按时间窗文法翻 `GET /flowruns`、逐页拿 id 批取格阵，故本端点自身**不带任何窗口/近期参数**］；**两条**查询：请求的 run 头一条 orm `WhereIn`（重排回正典序）+ 这批 run 的全部节点行一条 `flowrun_id IN (…)`（走 `idx_frn_run`），**绝不逐 run 拉详情**；零 schema 变更）：
-
-- 参数：`flowrunIds`=csv（**必填**——它**就是**格阵的内容：按请求序去重、空串跳过，去重后空集 400 `INVALID_REQUEST`（无 run 即无格阵，绝不铸一个无意义的空答案）、去重后 >50 → 422 `FLOWRUN_MATRIX_TOO_MANY_IDS`（details 带 `allowed`/`got`）——**逐字**沿用 flowrun-stats 的 ids 纪律：静默截断请求 id **会**撒谎，客户端拿屏上那页与答案对拉、会把短答案读成完整。**不校验 run 存在性**：未知/异 workspace 的 id **静默缺席**（cols 自带 `flowrunId` 键、缺席可发现——不同于 stats 的 1:1 零值行对拉；全未知返三个空列表）——孤儿 run 一等公民）。
-- `cols`：一个 run = 一列，**新→旧**（正典 `started_at DESC, id DESC`——与所有 run 列表同序、**与请求里的 id 顺序无关**［客户端打乱的顺序不许左右行轴：rows 的首次出现扫描走的正是这些列］，故一列与它在大表里的行是同位的同一个 run）。列 = `flowrunId` + `startedAt` + `status`（flowrun 头 4 值）+ `elapsedMs?`（**run** 的墙钟时长 `completed_at−started_at`，喂列顶时长微条；仍在跑的 run 无 completed_at → **键缺席**，绝不发会被读成「瞬时」的 0）。**已知且刻意**：这是**墙钟**，含审批等待与 `:replay` 间隔（`:replay` 重开同一个头、不移 `startedAt`，故三天后重放成功的 run 其列真的跨三天）——一列是**一个 run 的真实跨度**，那是**事实**；与 `flowrun-stats` 的 `avgElapsedMs`（**统计**，宣称代表「这要跑多久」故剔除 replay 过的样本）**刻意不同源、立场不同**。前端若要可比的时长微条，读工单⑤ `/activity` 的执行段。
-- `rows`：一个节点 = 一行。行集 = 这批 run 里出现过的 `nodeId` **并集**，序 = **首次出现序**（扫列新→旧、每个 run 内按该节点自身执行序 `COALESCE(started_at, ready_at, created_at)` 升序、id tiebreak）。**为何不是「图拓扑序」**：每个 run 钉死**自己**的 `version_id`（冻结拓扑），跨版本的一批**没有**单一的图可供拓扑——硬解一个即对其余撒谎；而首次出现序在要紧处天然**就是**拓扑序（一个 run 的执行顺序即该 run 冻结图的一个拓扑序，限于跑过的节点），故行读作**最新 run 的拓扑**、只有更老 run 才有的节点（后改名/删除）追加在下方。行 = `nodeId` + `kind`（取该 node id **最新一次出现**的行——跨版本 kind 可漂移，最新 run 是当前真相；本端点是行轴 kind 的唯一诚实来源，跨版本的一批没有单一版本图覆盖得了）。
-- `cells`：一个 (run, 节点) = 一格，**稀疏**——某 run 没跑到的节点**无格**（前端渲「未及」；正因稀疏才以格列表下发、非 rows×cols 稠密阵）。格 = `flowrunId` + `nodeId` + `status`（flowrun_nodes CHECK **4 值**）+ `iteration` + `iterations`。**多迭代聚合**（loop 的一个节点在一个 run 里有多行，而格阵每 (run,节点) 只有一格）：`status` = 各迭代中**最坏**处置（`failed` > `parked` > `cancelled` > `completed`）——**不是**「最后一轮」：第 3 轮失败的 loop **就是**在这次 run 里失败过的节点，后来的绿轮不能抹掉它。**档排的是「注意力」、不是「与 run 头一致」**：cancelled run **可以**带一条真 `failed` 行（`failNode` 先写了它、随后输掉头守卫给了取消），那个格在灰色的列上诚实地渲红；而被收割的审批（`cancelled`）压过 `completed`——宣称一个被切断的轮次「干净跑完了」是撒谎——却排在 `failed` 之下（它没失败，只是没人回答）。同档相持取**最新**迭代；`iteration` = 胜出行的迭代号（这格在展示哪一轮）；`iterations` = 该 (run,节点) 的行数（≥1，前端仅 >1 时渲「×N」，与 run 台账折叠同律）。格序 = 按 cols 序、每 run 内按行序。
-- **刻意无逐格 `elapsedMs`**：`flowrun_nodes` 无 `ended_at`，此处派生的任何单节点时长都是编的；执行段的真相在审计行——`GET /flowruns/{id}/activity`（工单⑤），而格阵视觉只需列顶的 run 时长。
-
-## trigger（`/api/v1/triggers`）
+### Workflow
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /triggers` · `GET /triggers` · `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | CRUD（PATCH=Edit，热更监听中的 listener；**已暂停的不热更**——新 config 在 :resume 时生效）。List/Get 每条带持久 **`paused`**（恒在 bool，scheduler 工单⑦）+ 派生 `refCount`/`listening` + **`lastFiredAt`**（最近一次 fire 的时间，nil=从未；行可显示「N 前 fire」，读时从 activation 日志投影）；暂停时 `listening=false`、`nextFireAt` **缺席**（无排程、给时间戳即撒谎）。cron 的 `config.misfirePolicy`（`skip`\|`catchup_one`，缺席=skip，scheduler 工单⑨）在 create/edit 走封闭词表校验，越集 422 `TRIGGER_INVALID_MISFIRE_POLICY`（写错的词绝不静默按 skip 走） |
-| `POST /triggers/{id}:fire` | 手动催一次（扇给当前监听者），202 返 `{data:{id}}`——新产物 activation 的单 id（triggerId 在 URL、fired 被 202 蕴含）；拿 id 直查 activation 闭环。**已暂停 422 `TRIGGER_PAUSED`**——暂停 = 一个新 firing 都不许，agent 绕不过用户的暂停 |
-| `POST /triggers/{id}:pause` · `POST /triggers/{id}:resume` | **运行时调度开关**（scheduler 工单⑦，止血阀）：pause 持久化 `paused=true` 并**在源头注销** source listener（cron 摘 entry / webhook 路径 404 / fs watch 停 / sensor 探测停），引用集保留、在途 run 与已 pending firing 不受影响；resume 持久化翻回并（仍有 active workflow 引用时）用**当前** config 重注册。两者**幂等**（重复无害 no-op）、同步 200 返动作后**裸 trigger**（与 PATCH 同形）；暂停跨重启持久（boot 重挂跳过 Register）。每次真转移发 entities 流 ephemeral `status` 信号 `{paused}` |
-| `POST /triggers/{id}:iterate` | 开 AI 编辑对话 |
-| `GET /triggers/{id}/activations` · `GET /trigger-activations/{id}` | 活动审计（触没触发都有记录） |
-| `GET /firings`（**workspace 级**，工单⑭）· `GET /triggers/{id}/firings`（逐 trigger） | **firing 收件箱分页**——「触发了为什么没跑」的处置面。**一个 handler、两个 URL**（路径 id 只是替 `?triggerId` 把 filter 填上；不是两套文法）：前者 workspace 级、`?triggerId` **缺席 = 跨所有 trigger**（firing 是 (trigger × workflow × activation) 的 workspace 级日志行，故「近 24h 的所有 firing」是一等问题——Overview 调度轨道即问它，逐 trigger 翻答不了它除非把每本账拖干）；后者 trigger 取自路径（entities 海洋 trigger 观测 tab 的现役消费者），`?triggerId` 在其上忽略。过滤全 AND 组合：`?triggerId`（等值）`&status=pending\|claimed\|started\|skipped\|superseded\|shed\|missed`（封闭集，越集 422 `TRIGGER_FIRING_INVALID_STATUS`、details 带 `allowed`）`&createdAfter&createdBefore`（RFC3339、归一 UTC，created_at 上的**半开窗** `[after, before)`——相邻窗无缝拼接不重叠；非 RFC3339 一律 422 `TRIGGER_FIRING_INVALID_FILTER`，details 带 `param`/`got`）。**`missed`**（工单⑨）= app 停机/睡眠期间到期、醒来记账而**不补跑**的 cron 刻度，行 `createdAt` = 错过的**调度刻度**（非睡醒时刻，故 24h 窗读到的正是那 24h 的刻度）、`flowrunId` 恒空。**N4 分页**（cursor+limit）——firing 是**无界** Log（每分钟 cron 一天写 1,440 条），**非**有界投影豁免。窗/status/trigger 三查询各走 `idx_trf_ws_created`/`idx_trf_ws_status`（计数为覆盖索引）/`idx_trf_ws_trigger`（工单⑭ 新增三索引；此前无任何索引带 `workspace_id`＝每次读全表扫）|
-| `GET /trigger-schedule` | **前瞻调度时间线**（scheduler 工单⑧）：`?within=`（Go duration，默认 `168h`、上限 `30d`）内每个 cron 刻度，`?limit=`（默认 200、上限 1000）封顶，返 `{data:{points:[{at, triggerId, triggerName, workflowIds}], truncated}}`——`at` 升序（同刻按 triggerId 定序）、`workflowIds` 从**内存监听表**反查（= `refCount` 同源引用集，故点绝不承诺不会发生的运行）。**cap 跨 trigger 全局**：并集排序后才截断，故最早 N 个点是真正最早的 N 个；`truncated=true` 诚实报告窗内还有更多（**N4「有界投影」豁免**：派生时间线、非已存集合，故无游标；窗头恒 now，超出 `limit` 的点本次不可达——抬 `limit`〔≤1000〕即可，1000 之外无从翻页）。只有**正在监听且未暂停**的 cron 贡献点——暂停的、无 active workflow 引用的、以及 webhook/fsnotify/sensor（下次 fire 不可知）一律缺席。`within`/`limit` 不可解析或非正 → 422 `TRIGGER_SCHEDULE_INVALID_QUERY`（details 带 `param`/`got`） |
+| `POST /workflows` · `GET /workflows` | 创建 / 分页 |
+| `GET /workflows/{id}` · `PATCH /workflows/{id}` · `DELETE /workflows/{id}` | 单读 / metadata / 删除 |
+| `POST /workflows/{id}:edit` · `:revert` | Graph ops / 移 pointer |
+| `POST /workflows/{id}:capability-check` | 返回阻断 problems 与 advisory warnings |
+| `POST /workflows/{id}:trigger` | 显式 run-now，返 flowrun ID |
+| `POST /workflows/{id}:stage` | 一次性待命 |
+| `POST /workflows/{id}:activate` · `:deactivate` · `:kill` | 上线 / 排空下线 / 硬停 |
+| `POST /workflows/{id}:iterate` | 打开 AI 构建 Conversation |
+| `GET /workflows/{id}/versions[/{version}]` | 版本分页/单读 |
 
-## control / approval（`/api/v1/controls` · `/api/v1/approvals`）
-
-两域同构：CRUD + `POST {id}:edit / :revert / :iterate` + `GET {id}/versions[/{version}]`。approval 的运行时决策端点在 flowrun 侧（见上）。
-
-## skill（`/api/v1/skills`，name 即 id，目录即真相）
-
-CRUD（`GET {name}` 附 `provenance`〔installed〕与 `dir`〔目录绝对路径，List 皆省〕；`POST` 严格冲突、**新建 name 须符 Agent Skills 规范形态**〔小写字母数字 + 单连字符，允数字开头〕→ 否则 400 `SKILL_INVALID_NAME` / `PUT {name}` 结构化覆盖〔底层保真读-改-写：typed 视图之外的 frontmatter 键与键序不丢；守卫正则从宽，存量下划线名照常可编〕/ `DELETE {name}` 删整目录含捆绑文件）+ `POST /skills/{name}:activate`（inline 渲染注入 / fork 派 subagent）+ **files 子资源（文件即真相面，`{path...}` 尾随通配路由）**：
-
-- `GET /skills/{name}/files`：全文件元数据列表 `[{path,size,updatedAt}]`（**含 SKILL.md**，slash 相对路径、按路径升序；有界不分页，N4 豁免①）。
-- `GET /skills/{name}/files/{path...}`：单文件**裸字节**（Content-Type 按扩展名推断〔内置 md/py/sh 等补充表〕，缺省 octet-stream；读护栏统一 1MB——超限清单也可读，用户才能修坏件）。
-- `PUT /skills/{name}/files/{path...}`：裸字节体写入 → 204（父目录按需建）；**path=SKILL.md 时为带校验的清单整替**（≤32KB + 围栏可解析 + frontmatter 带 name 时必须==目录名；description 刻意不必填——导入件可缺省；成功后 equip 边重同步）。附属文件护栏 1MB。
-- `DELETE /skills/{name}/files/{path...}`：204；**清单拒删**（400 `SKILL_FILE_PATH_INVALID`——删 skill 走 `DELETE /skills/{name}`）。
-
-路径守卫三重：`filepath.IsLocal` 词法早拒（`..`/绝对路径/反斜杠 → 400 `SKILL_FILE_PATH_INVALID`）→ Clean 复核 → 一切 I/O 经 `os.Root` 句柄（symlink 逃逸 / TOCTOU 内核级阻断）。
-
-**安装面（B4，同步阻塞——前端 spinner，202 进度记 backlog）**：
-
-- `POST /skills:inspect-source`：`{source}`（GitHub 简写 `owner/repo[@ref][#subdir]` / github.com URL / 任意 http(s) tarball URL）→ `{data:[{name,description,allowedTools,fileCount,totalBytes,installable,reason?,alreadyExists}]}`——预览不落盘，**allowed-tools 前置亮相**（信任门从挑选步开始）。
-- `POST /skills:install`：`{source, names?, force?}` → `{data:{installed:[], skipped:{name:reason}}}`。names 空 = 全部可装；同名已存在非 force 跳过。落盘 = 清单经校验原文路径 + 附属文件经守卫写 + **provenance sidecar**（`.anselm-install.json`：来源/装机时间/文件 sha256 基线/`toolsApproved=false` 起步）+ equip 边同步；`source=installed` 由 sidecar **推导**（frontmatter 零改写，`git pull` 不冲突）。
-- `POST /skills/{name}:update`：`{force?}`——按 provenance 来源重拉；本地改动（对安装基线 hash 漂移）非 force → 409 `SKILL_LOCALLY_MODIFIED`（details 列漂移文件）；**allowed-tools 变更重置信任门**（未变则授权延续）。
-- `POST /skills/{name}:approve-tools`：打开信任门（`toolsApproved=true`）。非安装来源 → 422 `SKILL_NOT_INSTALLED`。
-
-**信任门语义**：`source=installed` 且未授权时，`:activate` 照常注入正文、active skill 照常记名，但 **allowed-tools 预授权不装**——危险调用照走逐次确认。
-
-## mcp（`/api/v1/mcp-servers` · `/api/v1/mcp-registry`）
-
-servers（name 即键，workspace 唯一）：`GET /mcp-servers`（实时状态列表）· `PUT /mcp-servers/{name}`（手动装/同名替换：stdio `{command, args, env, runtime?, timeoutSec?}`（runtime 缺省按 command 推断：npx→node、uvx→python…）或 remote `{url, transport?, headers}`；**连接失败仍落盘 `status=failed`+`lastError`**，reconnect 可救）· `GET /mcp-servers/{name}`（状态+tools 缓存）· `DELETE /mcp-servers/{name}`（204）· `POST /mcp-servers/{name}:reconnect`（重置按钮）· `GET /mcp-servers/{name}/stderr`（stdio stderr ring 尾，返 `{name, stderr, size}`）· `POST /mcp-servers/{name}/tools/{tool}:invoke`（`{args}` 直接试调、绕过 chat/LLM，返**裸结果**——与 L17 同步执行铁律一致、不裹 `{result}`）· `POST /mcp-servers:import?overwrite=`（Claude Desktop mcp.json 片段，返 `{imported, skipped}`）。
-调用台账：`GET /mcp-servers/{name}/calls`（`?tool&status&triggeredBy&conversationId&flowrunId`；返 `{data:{calls, aggregates:{okCount,failedCount}}, nextCursor, hasMore}`——分页坐标顶层、聚合在 data 子对象，与 handler/function/agent 执行日志同形）+ `GET /mcp-calls/{id}`（含 `logs`——progress 通知 + 失败附 server stderr 尾；列表端点不带）。
-市场：`GET /mcp-registry`（curated 全列）· `POST /mcp-registry:plan`（`{name}` → `{transport, runtime?, oauth, envVars:[{name,description,isSecret,required?}], prerequisite?}`——安装表单的数据源:后端 `Plan()` 选包结果的线上投影,选包逻辑绝不复刻到客户端;不安装、零副作用;未知条目 404 `MCP_REGISTRY_NOT_FOUND`、无可跑 package 422 `MCP_NO_RUNNABLE_PACKAGE`;WRK-062 工单⑨）· `POST /mcp-registry:install`（`{name, env}`——完整 slug 在 body 因含 `/`，无 per-name 详情端点（列表即全量）；缺必填 env 422 `MCP_ENV_MISSING`、无可跑 package 422 `MCP_NO_RUNNABLE_PACKAGE`）。
-
-## document（`/api/v1/documents`）
-
-CRUD + `POST {id}:move`（防环；nil parent=根）+ `POST {id}:duplicate`（深拷整子树，可选 body `{parentId}`：nil/缺省=落为源的兄弟；新根名自动去重；201 返新根裸实体）+ `POST {id}:iterate`（开 AI 编辑对话）+ `GET /documents?parentId=`（直接子节点；空=根级）+ `GET /documents/tree`（整树 metadata，无 content 正文，侧栏一趟拿全；每行带 `hasContent` bool＝正文非空［≡ `sizeBytes>0`，显式浮出让侧栏免拉正文即可选空页/已写页 icon］）。全文检索走统一 `/search` 与 `search_documents` 工具，无独立 HTTP 端点。
-
-## conversation / chat（`/api/v1/conversations`）
+### Flowrun
 
 | Method · Path | 语义 |
 |---|---|
-| conversation CRUD | `POST` · `GET`(list：`?search&archived&sort&workDir&pinned`) · `GET/{id}` · `PATCH/{id}`（含 ModelOverride 三态 + **`workDir`**）· `DELETE/{id}`。**`?workDir`（驻地过滤，WD1.5）** = 三态、按**键是否出现**读：缺席 = 完全不按驻地过滤（每条对话，WD1.5 之前的默认）\| **出现且为空**（`?workDir=`）= **仅未挂**的线程（rail「最近」段——不住在任何目录里的那些）\| 有值 = 仅该驻地（一个 rail 组，自行 keyset 翻页；值须逐字等于行上存的绝对路径，即 `GET /workdir-groups` 回的那个）。前两者用裸 `Get()` 分不清，故必须读 presence——否则「最近」段会静默列出整个 workspace。**`?pinned`（置顶过滤，WD1.5）** = 缺席(两者皆返,默认) \| `true`·`1`(仅置顶——rail「置顶」段,跨驻地) \| `false`·`0`(仅未置顶——驻地组与「最近」两段)。它存在只为一件事：分组后的 rail 里每条线程必须**恰好出现一次**，而「所有置顶线程」在其余各轴都按驻地过滤之后**再也**不能靠「置顶都落首页」的假定复原（住在**收起**的组里的置顶线程根本不会被取回来）。**`?sort`** = `activity`(默认，置顶优先再 `last_message_at` 降序——最近聊过) \| `created`(置顶优先再创建序) \| `name`(置顶优先再 `title` A–Z，大小写不敏感 `COLLATE NOCASE`)；切换 sort 须重置分页（游标随排序列走、跨 sort 无意义）。**`?archived`** = 缺省/其余(仅活跃,默认) \| `true`·`1`·`archived`(仅归档) \| `all`(活跃+归档同列,归档行带 `archived=true`——rail「显示已归档」灰点)。List/Get 每条带 `lastMessageAt` + **`isGenerating`** / **`awaitingInput`** / **`hasUnread`**（前两个派生只读：chat 是否有在途回合 / 是否有待决人在环 interaction[等你批准·回答]；`hasUnread` 是**持久**只读：有完成的 assistant 回复未看[绿点]——用户发送 / `:seen` / 创建时清，assistant 完成终态时置；供冷启动活动圆点·「等你」点·「答完未读」点；均不入 PATCH）。**`workDir`（驻地，WD1）** = 对话可选的工作目录，**朴素字符串、非三态**（该列的空值已表示「未挂」，故 `""` **就是**清除；缺键=不动，与其余 PATCH 字段一致）：写时经 `fspath.Expand` **归一化**（展开 `~`、`Clean`），故存下并回显的恒是真绝对路径；非绝对（展开后仍相对）→ **422 `CONVERSATION_INVALID_WORK_DIR`**；**刻意不校验存在性**（目录日后被移走/删掉是合法可渲染状态，见 `GET /{id}/workdir` 的 `exists`）。挂上后后端做三件事：相对路径以它为根解析（`Read/Write/Edit/LS/Glob/Grep`）· `Bash` 的 `cmd.Dir` 设为它 · 每轮 system prompt 带一段 `work_dir`（见 [domains/chat.md](domains/chat.md) §3.6）。**它不是沙箱**——往外**读**分毫不受影响（用户裁定：「想看外面什么的，都可以」），只有往外**写**（`Write`/`Edit` 目标 canonical 路径在子树外）会**无视 LLM 自报 danger、强制走既有人闸**（见 [foundation/loop.md](foundation/loop.md) 人闸两触发）。线程中途切换会给对话追加一条 `marker` 块（`GET /{id}/messages` 读回，**不加新 SSE 帧型**，见 [database.md](database.md) `message_blocks`）；`:fork` **复制**本列（分叉继承驻地） |
-| `POST /{id}/messages` | **Send**：落 user 回合 + 开 assistant 回合 + 入队，返 assistant msg id |
-| `GET /{id}/messages` | 回合历史 keyset 分页（含 blocks，最新在前）。同路由三种读形态、**互斥**（同给 → `400 INVALID_REQUEST`）：①`?cursor&limit` 向旧翻页（默认）②**`?around=<messageId>&limit`** 深跳开窗——以目标为中心（limit 摊前后两半、目标额外恒返回、钳 ≥2），返**窗 envelope** `{data, targetId, olderCursor?, newerCursor?, hasOlder, hasNewer}`（坐标顶层绝不进 data；olderCursor 喂回 `?cursor=`、newerCursor 喂 `?cursor=&dir=newer`——续翻不自铸协议）；目标不存在/不属本对话 → `404 MESSAGE_NOT_FOUND`（身份锚点）③**`?dir=newer&cursor`** 沿时间**向前**续翻（必须带 cursor、否则 400；`dir` ∈ 缺省/`older`/`newer`，其余 400）。所有形态 data 恒 newest-first——单一排序规则 |
-| `GET /{id}/anchors` | **场次条导航锚点** keyset 分页（`?cursor&limit`，最新在前）：行 = `{kind, messageId?, blockId?, title?, count?, at}`，kind ∈ `user`(回合首行节选 ≤120 rune) \| `tools`(锚点间连续非危险工具**折叠簇**，count 计数、钉簇首块；人类内容是硬边界) \| `danger`(危险工具调用，title=工具名·entityName) \| `compaction`(压缩标记) \| `abnormal`(status error/cancelled 回合，title=stopReason/errorCode) \| `gate`(待决人闸——broker 活状态无日志行，**只骑首页顶、不占 limit、keyset 之外**，blockId=toolCallId)。未知对话 → `404 CONVERSATION_NOT_FOUND` |
-| `GET /{id}/workdir` | **驻地投影（WD1→WD3）**：返 `{path, exists, isGitRepo, branch?, dirty, branches?[], worktrees?[]}`——已挂路径 + **此刻**关于它为真的东西。**逐请求现算、零缓存**：文件系统与 git **就是**真相，故用户刚删掉的目录、或刚在自己终端里切的分支，读作它**现在的样子**（缓存进对话行的生命周期会让菜单撒谎）。`path` 回显该列使客户端一次读服务整个菜单；`exists` 为 false 而 `path` 非空 = **警示态**（挂过、然后被移走或删了，UI 真要渲的一格，非错误）；路径上是普通**文件**同样 `exists=false`（`exists` 意为「可作工作目录用」）；`branch`/`dirty` 仅在 `isGitRepo` 时有意义（`branch` 空则省略，detached HEAD 归一为 `"HEAD"`），经**一次** `git status --porcelain=v2 --branch` 得出、2s 超时、无 `git` 二进制或非仓库皆答 `isGitRepo=false`（**缺席从不是错误**）。**`branches[]`（WD2）** = 仓库的**本地**分支、最近提交在前（`for-each-ref --sort=-committerdate refs/heads`）——菜单提议切过去的那些；**`refs/remotes` 刻意排除**，而正是这个排除让它保持有界无游标（`refs/heads` 是这个人自己建的那一集［人类尺度］，会跑到上千条的是 fetch 来的远端）。**`worktrees[]`（WD3）** = `[{path, branch?, current}]`，本仓库的每一份 checkout、**含主树并标出 `current`**（「有哪些 worktree」的诚实答案包含你正站着的那一份；`current` 是拿工作树的**根**比的，故挂在**子目录**上的驻地依然知道自己站在哪一份里）。两者**仅在 `isGitRepo` 时出现**（对普通目录它们会是两个必然空手而归的进程），故客户端分得清「这里没有 git」与「一个没有分支的仓库」［后者不可能存在］。付费阶梯：未挂/已消失 = 一次 `os.Stat`；普通目录 = 再加一次 `git status`；**只有真仓库**才付那个可操作菜单所需的四次读。**未挂**对话返 **200 + 零投影**（`path=""`、`exists=false`）、**不是** 404——「这条线程没有驻地」是对该问题的一个**成功**回答，且驻地按钮也得渲染那一态；只有对话本身不存在才 404 `CONVERSATION_NOT_FOUND`。**N4 豁免——有界投影之「零参数单对象」形**：一个按需现算的对象，无游标、无 `nextCursor`、**不收任何参数**（故无从钳制、无从 422、从不上报截断），与 `GET /storage-stat` 同形、与 trigger-schedule **不**同形 |
-| `POST /{id}/workdir:switch-branch` · `POST /{id}/workdir:create-branch` | **驻地的分支两动作（WD2，N5 `:action`，骑在 `workdir` 子资源上）**。body `{branch}`；各返 **200 + 重探后的整个 `WorkDirInfo`**（一次切换同时改它好几个字段，让客户端再 GET 一次就等于让它画出一帧旧分支）。**为何挂在子资源上而不是 `{id}:switch-branch`**：Go ServeMux 每个模式只许**一个**处理器，而 `POST /api/v1/conversations/{idAction}` 已被 chat 的 `:cancel`/`:seen`/`:fork`/`:retry` 派发器占了，故对话级 `:action` 会被迫从**别人**的文件里 switch；挂子资源后各是自己的字面段、自己的路由（与 `POST /{id}/sandbox-envs:reset-all` 同形），且读得更真——它们作用于**驻地**。<br>**`:switch-branch` 的护栏（本批唯一真正的决定）**：**工作区脏 → 拒 422 `CONVERSATION_WORK_DIR_DIRTY`**，message 自带下一步（先提交或贮藏，再切分支）。**绝不 `--force`、绝不静默 stash、也不「让 git 自己判」**——git 自己的行为是能带过去就带、冲突才拒，于是那个**令人意外**的结局（活现在待在一条你以为不是的分支上）成了**静默的成功**路径；对一个 agent 正在其中干活的驻地，那比一个错误更糟。拒绝是唯一一个连一行都丢不了的选项。脏态在**服务端此刻现读**、不信客户端上次看到的投影（菜单打开之后用户可能刚在自己编辑器里改了文件）。目标必须是**已存在的本地分支**（先 `rev-parse --verify` 问一次 → 404 `CONVERSATION_BRANCH_NOT_FOUND`；这一问同时封掉 `git checkout` 的 DWIM，故一个拼错永不会悄悄变成一条远端跟踪分支）。<br>**`:create-branch` 刻意不受脏区门**（`checkout -b`，从当前 HEAD 起）：新分支起点就是已 checkout 的那个 commit，故工作树一个字节都不变、冲突不可能存在——未提交的活只是变成了新分支上的未提交的活，而那是最常见的开分支流程（「先动手，然后意识到这该有自己的分支」）；给它上门等于守一道什么都不守的护栏。名字已存在 → 409 `CONVERSATION_BRANCH_EXISTS`（新建与切换是两种意图，静默执行后者正是用户落到别人的活上面的方式）。<br>**分支名校验交给 git**：`check-ref-format refs/heads/<n>`（原则 #8，不手搓），另拒空与前导 `-`（以 `-` 开头的 ref 对 git **合法**却会被下一条命令读成选项）→ 422 `CONVERSATION_INVALID_BRANCH`。**所有 git 调用传参数数组、绝不拼 shell 字符串**。驻地不是仓库（含未挂/已消失/无 `git` 二进制）→ 422 `CONVERSATION_WORK_DIR_NOT_GIT_REPO`；git 拒的其余一切 → 422 `CONVERSATION_GIT_FAILED`，**git 逐字 stderr 在 `details.git`**。**本批不做也永不做** commit / push / pull / merge / rebase / reset |
-| `POST /{id}/workdir:add-worktree` | **「为此对话开一个 worktree」一条龙（WD3，N5 `:action`）**。body **`{name}`——是名字、绝不是路径**；返 200 + **新**目录的 `WorkDirInfo`。一次请求做完四件事：建目录 → 建（或**复用**）分支 → **该对话的驻地自动切过去** → 线程上落一条 WD1 已有的 **`marker`** 块（复用、不新增块型；走的正是文件夹按钮那条 PATCH 路径，故 `conversation.work_dir` 回声也白得——E1/E2 不加流不加帧型）。<br>**路径与分支约定与 `make worktree` 逐字对齐**：`make worktree NAME=<x>` → `../Anselm-<x>` 分支 `wt/<x>`，即**主**工作树根的**兄弟**位置、名为 `<根的 basename>-<name>`、分支 `wt/<name>`（Makefile 里写死 `../Anselm-` 是因为 Anselm **就是**它那个根的名字）。从**主**树派生、不是当前那棵——否则约定会嵌套（在 `Anselm-a` 里开一份会得到 `Anselm-a-b`、再一份 `Anselm-a-b-c`），而纪律是主仓库旁边**一排平的**兄弟、一个并发会话一个。<br>**收名字而不收路径就是那条安全性质**：目标由约定**派生**，故只可能落在仓库旁边；名字须是**单个路径段**（拒 `..`／`/`／`\`／绝对写法／前导 `-`）且 `wt/<name>` 过 `check-ref-format` → 否则 422 `CONVERSATION_INVALID_WORKTREE_NAME`（比分支名**更严**，因为这个名字**也会**成为一个目录段）。<br>**两种撞车各有答案**：**目录**已存在 → 409 `CONVERSATION_WORKTREE_EXISTS`，**`details.path` 带挡路的那个目录**（它装着某人的活、可能是另一个会话的，静默接管正是两个 agent 编辑同一棵树的方式——而那正是 worktree 纪律所要防的事故）；**分支**已存在 → **复用**，与 Makefile 完全一致（`make worktree-rm` **刻意**保留分支，故在它之上重开一份 worktree 正是被写进文档的回头路）。若那条分支已在**别处**被 checkout，只有 git 知道 → 422 `CONVERSATION_GIT_FAILED`，而 git 自己那句话**点出**占着它的目录，那正是下一步。**建成之后驻地切换失败**（对话不存在等）会留下一份完好的worktree 与仍在原处的线程——那是可以停在的诚实半状态：什么都没被毁，用户手动挂上即可 |
-| `GET /conversations/workdir-groups` | **驻地分组投影（WD1.5）**：返 `[{workDir, activeCount, archivedCount, lastMessageAt}]`——每个住着**未置顶**线程的非空 `work_dir` 一行，**按组内最近活跃降序**（`MAX(last_message_at) DESC`，`work_dir ASC` 作 tiebreaker 使顺序全序）。**它是本批后端存在的唯一理由**：rail 无限翻页，若在一窗内做客户端分组，组成员与计数会随滚动**漂移**——组头会报出一个在 workspace 什么都没变时自己会变的数。故分组对整个 workspace **一次 GROUP BY** 算出（走新索引 `idx_conversations_ws_workdir`）。**被计数的集合是「未置顶」**：置顶线程被提到 rail 自己的置顶段、必须恰好出现一次，故在此计入它会让组头的数与它下面的行**不一致**；`:archive-workdir`/`:delete-workdir` 遵守**同一条**规则，正是这一点让**一个**数既作组头、又作确认框盘点。**已软删的行不算**；**未挂线程不构成组**（`work_dir = ''` 不出现在结果里——它们没有文件夹头、没有 ⋯ 菜单）；一个驻地的未置顶线程全部离开（归档不算、退出驻地/删除算）后组**自行消失**——**组是投影、不是实体**：无表、无 id、无生命周期、**不做空组管理**。`activeCount`/`archivedCount` **分列**（一趟 `COUNT … FILTER` 扫出）使 rail 的「显示已归档」开关自行取其一或求和、批量动作盘点二者之和，**而端点保持零参数**；`lastMessageAt` **跨两种归档态**，故切换视图绝不重排组序。**N4 豁免——有界投影之「零参数」形**：无游标、无 `nextCursor`、**不收任何参数**（分页参数按标准 HTTP 忽略，非 422），有界性来自「一个人会挂多少个目录」而非有多少条对话 |
-| `POST /conversations:archive-workdir` · `POST /conversations:delete-workdir` | **驻地组批量动作（WD1.5，集合级 N5 `:action`，与 `POST /notifications:mark-all-read` 同族）**。body `{workDir}`；各返 `{workDir, archived}` / `{workDir, deleted}` = **真正改变**了几条对话。**为何是端点而非前端循环 N 次 PATCH**：循环可能半途被打断（把用户要收起的一个文件夹留在既非收起也非未收起的状态），且循环的第 N 次失败没有任何诚实的话可报；这里是**一个事务里的一条语句**，恰好只有两种结局（id 集在**同一**事务内读出并与写入行数**交叉核对**，故一次静默的半个动作会变成一次回滚的错误）。**两者共同的范围**：该驻地下的**未置顶**对话（置顶存活——置顶是用户在说「这条我在意」，一次目录级清扫不该把它带走；其范围与组头计数逐字相同，故确认框的盘点诚实）。**`:archive-workdir`** 只动 `archived = 0` 的行，故计数说的是**改变了什么**、重跑答 0 且不发回声。**`:delete-workdir`** **跨归档态**（破坏性动作不该静默取决于哪个视图开关开着），**它到底删了什么**：那些 `conversations` 行上的 `deleted_at` 戳 + 每条线程的 relation 边与触点台账（与单条 `DELETE` 完全相同的级联，事务提交后逐行 best-effort）；**它没有删什么**：**任何消息行**（`messages`/`message_blocks` 是 D1 Log 表——无 `deleted_at`、绝不物理删，逐字记录逐字节留在盘上），以及**文件系统上的任何东西**（驻地是行上的一个字符串，此处只当分组键读；它点出的那个目录**绝不被碰**——正因如此 UI 的用词是「删除全部对话」而**绝不是**「删除目录」）。逐行发**既有**的 `conversation.archived` / `conversation.deleted` 回声（E1/E2：不加流、不加帧型；rail 的对账方式正是重读信号点出的那一行，一条聚合帧点不出任何行）。**两种点不出组的拼法被拒**：**空** `workDir` → `400 INVALID_REQUEST`（`work_dir = ''` 是正当的列表**过滤**、但**不是一个组**；接受它会让一个请求归档/删除本 workspace 里每一条从未选过目录的线程，那是没有任何界面提供、也从未被任何确认框盘点过的动作）· 非绝对路径 → `422 CONVERSATION_INVALID_WORK_DIR`（WD1 已立的法：相对的根扎不住任何东西）。**不引入新错误码** |
-| `POST /{id}:cancel` · `POST /{id}:seen` | **Cancel** 在途生成 / **Seen** 清 `hasUnread`（用户打开线程，幂等 204；与 `:cancel` 共 `{idAction}` 派发器）；动作语法,非删子资源，均 204 |
-| `POST /{id}:fork` | **Fork**：把线程分叉成一条**新对话**，承载直到 `atMessageId`（**含它**）的前缀，源对话**分毫不动**。body `{atMessageId?}`——**可选**，缺省/空 = 从**最新**消息处分叉（左岛 rail 的「分叉对话」手上没有 message id）；`atMessageId` 不属本对话 → `404 MESSAGE_NOT_FOUND`（身份锚点，同 `?around=`）；无消息的源 → 纯配置副本。与 `:cancel`/`:seen` 共 `{idAction}` 派发器。**复制**：对话头 `system_prompt` / `attached_documents` / `model_override` + 前缀窗内**全部**消息行（**含 subagent 行**——LLM 装配按 `subagent_id` 自然排除）+ 其 blocks（`seq` **从 1 重排**、`parent_block_id` **remap 进分叉自己的 block id**、`context_role` 重置为 hot）。**summary 两分支**：前缀**到达**水位（前缀内最大源 seq ≥ `summary_covers_up_to_seq`）→ summary 随行 + 水位**重定基**到分叉的 1..N 编号；前缀**止于水位之前** → summary 与水位**都不带**（水位 0）——摘要概括了超出前缀的内容，带走即撒谎。标题 = 「原标题 (fork)」（源无标题则分叉亦无标题、留给自动命名）、`auto_titled=false`、`archived`/`pinned` **不复制**（分叉以活跃未置顶起步）。**不复制**：touchpoint / relation（除下述血缘边）/ 通知 / flowrun / todos——那是**源**的历史；人闸 always-allow 白名单按对话 id 键、故分叉重新授权（同 Claude Code `--fork-session`）。**附件零拷贝**：内容寻址（`att_` 行 + sha256 blob，无 conversation_id），引用共享、GC 按 workspace 活跃 sha 保活。血缘落 `forked_from_conversation_id` / `forked_from_message_id` 两列 + 一条 relation `create` 边（源 → 分叉，按分叉**入向**侧 diff-sync）。**201** + 新 Conversation 全行（分叉是客户端要导航过去的资源、无异步回合可等，故非 202 `{id}`）；纯追加、零删除（D1）；不加新 SSE 流/帧型（E1/E2），rail 靠既有 `conversation.created` 长出新行 |
-| `POST /{id}:retry` | **Retry**：把对话的**末回合**换成一个**新版本**，**只追加**。body `{content?, modelOverride?}`（两键皆可选，空 body 合法）；与 `:cancel`/`:seen`/`:fork` 共 `{idAction}` 派发器。**两分支**：无 `content` = **重生成**——supersede 末 assistant 回合、入**既有**对话串行队列重跑、**不写新 user 回合**（那个问题从未被重新问过）；有 `content` = **编辑重发**——supersede 末 user **与**其 assistant **两条**，落一条带编辑后文本的新 user 回合（**保留原附件引用**——附件内容寻址、零拷贝共享；**@ 提及快照刻意不带**：它是冻结**内容**而非引用，而编辑后的文本完全可能已删掉那个 `@`，注入它等于把消息已不再说的话喂给模型——body 无 `mentions` 键，故也不重新解析）+ 一条新 assistant 回合。`modelOverride`（`{apiKeyId, modelId}`，**朴素指针、非 PATCH 三态**——重试没有「清除」这一格可表达，缺席即「用这条线程现有的设置」）**只作用于本回合**、**不回写对话头**（换线程默认仍走 `PATCH`）；该版本行的 `provider`/`model_id` 溯源随即记下究竟哪个模型产出了它。**「替换」= 指针**：旧行写 `superseded_by` = 新行 id、新行 `attrs.retryOf` = 旧行 id，旧行**留在盘上并照常从三种读形态返回**（版本翻页据此逐版回看、`?around=` 仍可寻址）；**只有** `LoadThreadForLLM` 按 `superseded_by = ''` 过滤，故模型恰好看到该回合的**一个**版本。**门**：末回合须已终态，否则 **409 `STREAM_IN_PROGRESS`**（读两处，因为它们答两个不同问题：内存队列 `IsGenerating` 答「此刻是否有回合在跑/在排」+ 末行耐久状态答「线程自己的尾巴是否终态」［硬崩溃留下的 pending/streaming 行不是可叠着重试的东西］。**不引入新码**——一条非终态的尾巴**就是**一个［就耐久真相而言］仍在跑的回合）；无回合可重试 → **404 `MESSAGE_NOT_FOUND`**（身份锚点，同 `?around=`/`:fork`）；未知对话 → `CONVERSATION_NOT_FOUND`。归档线程自动解档（同 Send）。**202** + `{id}` = 新 assistant message id（与 Send 同形——同一种行为：一次经 messages SSE 流式的生成）；回合走**既有帧型**（新回合正常 message_start / delta / message_stop，`retryOf` 搭在 message 节点的 content 上、**start 与 stop 两处都带**［stop 的 close 快照是 replay 客户端唯一拿得到的东西，缺了它重连方会把被取代的版本渲成多出来的一轮］，使**不是发起方**的客户端也能把版本组起来），**不加新流、不加新帧型**（E1/E2）；纯追加、零删除（D1——为何合宪见 [database.md](database.md) 的 `messages.superseded_by`）|
-| `GET /{id}/interactions` · `POST /{id}/interactions/{toolCallId}` | 待决人机交互重同步 / 决议（body `{action, answer?}`：action ∈ approve\|approve_always\|deny\|accept\|decline，枚举外 → `422 INTERACTION_INVALID_ACTION`（先于 broker 查找就拒，不静默当 deny）；answer 仅 ask accept 用），成功 204 |
-| `GET /{id}/system-prompt-preview` · `GET /{id}/usage` | 调试预览 / token 用量 |
-| `GET /{conversationId}/todos` | 对话工作清单 |
-| `GET /{conversationId}/touchpoints` | **对话触点台账**（上下文台账，右岛数据源）：keyset 分页（`?cursor&limit`，`last_at DESC`）+ 可选 `?kind=`（relation 11 kind + `attachment`）/ `?verb=`（mentioned/created/edited/viewed/executed/attached/deleted）过滤（枚举校验，`TP_INVALID_KIND`/`TP_INVALID_VERB`）；行 = `{id,itemKind,itemId,itemName,verb,lastActor,count,firstAt,lastAt,lastMessageId}`。只读——写入仅后端水龙头（chat Send + loop 工具咽喉） |
+| `GET /flowruns` | 过滤列表；keyset 或 offset 二选一 |
+| `POST /flowruns` | `{workflowId,entryNode?,payload?}` 手动起 run |
+| `GET /flowruns/{id}` | run + newest-first 节点首页；节点可翻页 |
+| `GET /flowruns/{id}/activity` | Function/Handler/Agent/MCP 执行活动分页 |
+| `POST /flowruns/{id}:replay` | 仅 failed run 从断点重放，202 |
+| `POST /flowruns/{id}:cancel` | 仅 running，first-wins，202 |
+| `POST /flowruns/{id}/approvals/{node}:decide` | `{decision,reason?}`，202 |
+| `GET /flowrun-inbox` | parked approval inbox |
+| `GET /flowrun-stats` | 有界 workflow 批查 + workspace totals |
+| `GET /flowrun-matrix` | 有界 flowrun IDs 稀疏格阵 |
 
-## attachment / memory（`/api/v1/...`）
+List filters：`workflowId`、`triggerId`、`status`、`origin` 与 started/completed
+RFC3339 半开窗口。Cursor/offset 同时出现或非法 filter 大声失败。
 
-attachment：`POST /attachments`（上传）· `GET /{id}` · `GET /{id}/content` · `POST /{id}/playback-lease` · `GET /attachment-playback/{token}` · `DELETE /{id}`。上传与 metadata GET 返回附件行字段外，另带可选 `preparation`：`{status,phase?,target?,width?,height?,mimeType?,sizeBytes?,errorCode?,canCancel?,canRetry?,updatedAt?}`，其中 image 会认领/暴露 `model-default` 代理准备态（`pending|running|ready|failed|cancelled`），`phase` 是 UI 分组（queued/processing/ready/failed/cancelled/not_required/unavailable），非 image 为 `not_required`，状态侧车失败为 `unavailable` 且不影响附件元数据可用性。`playback-lease` 仅对 audio 附件签发短期 loopback URL（body 空，返 `{url,expiresAt}`），签发仍走 bearer + workspace；`attachment-playback/{token}` 是给原生播放器使用的 bearerless 短租约 fetch 路由，token 绑定 workspace/attachment、仅内存保存、过期 404，支持 Range/seek，非 audio 签发返回 `ATTACHMENT_PLAYBACK_UNSUPPORTED`。
-memory：`GET /memories` · `GET/PUT/DELETE /memories/{name}` · `POST /{name}/pin|unpin`（name 即 id）。
+Stats 的 `workflowIds` 去重后最多 50，时间窗为 `[since,until)`；
+`totals.missed` 来自 Firing。Matrix 的 `flowrunIds` 必填且去重后最多 50；
+unknown IDs 缺席，cells 按 `(flowrun,node)` 聚合 iterations。
 
-## search（`/api/v1/search`，统一搜索）
+### Trigger
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /search` | 综搜/垂搜同端点：`?q`(必填) `&types`(csv，空=综搜) `&tags`(csv) `&updatedAfter/Before`(RFC3339) `&includeArchived`(默认 true) `&cursor&limit`(默认 20 上限 50,走 ParsePageBounded;非数字/<1 → 400)。返 `{data:{hits, total}, nextCursor, hasMore}`——分页坐标顶层、total 在 data 子对象;hit 含 entityType/entityId/name/snippet(`<mark>`)/anchor/tags/archived/score/matchedChunks/refHint（仅积木六类） |
-| `POST /search:reindex` | **就地**重建 ctx workspace 索引，204（fire-and-forget、无可轮询产物；force-reconcile 覆盖每个实体词法行、**不** purge-then-rebuild——词法索引从不清空，故并发 Search 返完整结果而非不全/空且无信号，F168-M8/F175-M2；向量缓存仍 invalidate + 重嵌，词法主检索保持完整；**同一 workspace** 运行中再调 409 `SEARCH_REINDEX_RUNNING`——单飞锁 per-workspace、不阻塞别的 workspace 的 reindex，F175-M3） |
-| `GET /search/settings` | 机器级搜索设置 + 引擎实时状态 `{embedder, ollamaBaseUrl, ollamaModel, engine:{status: ready\|downloading\|absent\|error\|off, model, lastError}}`（Ollama 字段恒回显生效值） |
-| `PATCH /search/settings` | 修补设置：`{embedder?: builtin\|ollama\|off, ollamaBaseUrl?, ollamaModel?}`（缺省字段不动；Ollama 参数空串重置默认）；非法 embedder 400 `SEARCH_EMBEDDER_INVALID`；改 model 即旧模型向量按 model 列失效、后台重嵌 |
+| `POST /triggers` · `GET /triggers` | 创建 / 分页 |
+| `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | 单读 / 热编辑 / 删除 |
+| `POST /triggers/{id}:fire` | 手动 fan-out |
+| `POST /triggers/{id}:pause` · `:resume` | 持久暂停 / 恢复 |
+| `POST /triggers/{id}:iterate` | 打开 AI 构建 Conversation |
+| `GET /triggers/{id}/activations` | Activation 分页 |
+| `GET /trigger-activations/{id}` | 单 Activation |
+| `GET /firings` · `GET /triggers/{id}/firings` | workspace / trigger Firing 分页 |
+| `GET /trigger-schedule` | 有界 schedule window，截断时 `truncated=true` |
 
-LLM 工具面（非 HTTP）：`search_blocks`（积木面板：六类可接线单元，返 ref 直填 workflow 节点）；8 个 `search_<entity>` 垂搜工具保 schema 换引擎（非空 query 走内容引擎、引擎错误回退原子串路径）。
+## 5. Graph authoring entities
 
-## P6 支撑域
+### Control / Approval
 
-workspace：CRUD（守最后一个；PATCH 含 `webFetchMode`: local|jina）+ `GET {id}/stats`（删除确认的内容盘点,WRK-062 S-11——`{conversations,functions,handlers,agents,workflows,documents,runningFlowruns,generatingConversations,blobBytes}`;计数滤软删、flowruns 数 `status='running'`、generating=chat 内存在飞快照与本 ws 活行求交;`blobBytes` 500ms 预算内 walk 文件树、超时/未接线返 **-1**=诚实未知;路由在 workspaces 豁免前缀、path id 铸 ctx;未知 id 404）+ `PUT/DELETE {id}/default-models/{scenario}`（dialogue|utility|agent 三聊天场景 + image|speech|video 三生成场景(WRK-082 §3.2,生成**工具**的路由 key、与聊天解耦;**受管开通播种全部六个、含视频**——免费档六个全供〔H1:用户把视频放进免费档、10 条/天/install,推翻了原先「视频不进免费档」那条我自己的决定〕,故已不存在「播进去会显示一个永远路由不通的『已配置』」的槽)；DELETE 清该场景默认回未配；**写时校 apiKeyId 存在性**——引用不存在的 key 即 404 `API_KEY_NOT_FOUND`，非只 invoke 时失败，与「删被引用 key 挡 `API_KEY_IN_USE`」对称，F153；modelId 拼写不校、留 invoke 时 fail-loud）+ `PUT/DELETE {id}/default-search`（搜索 key）+ `POST {id}:activate`（刷 lastUsedAt）。apikey（路径字面 `/api-keys`：`GET/POST /api-keys` · `PATCH/DELETE /api-keys/{id}` · `POST /api-keys/{id}:test`）：CRUD（受管 provider 行 **PATCH 与 DELETE 均返 422 `API_KEY_IMMUTABLE`**——受管 install id 行由后端拥有，删除会割裂安装身份与配额历史，删除与编辑对称守卫，WRK-062 S-1）+ `:test`（probe）+ `GET /providers`（provider 目录——**8 条本地条目 + models.dev 目录里我们说得了方言的全部家**，逐项 `{name, displayName, defaultBaseUrl?, baseUrlRequired, baseUrlHint?, managed, category, curated, dialect, credential, models}`。`managed`=内置免费档 `anselm`;`curated`=本 app 手写过 spec〔约 160 家为 false:靠机械 `npm` → 方言映射抵达、我们没试过,UI 据此把「你的 key 不对」与「这家我们没试过」分开〕;`dialect`=要说的那条线缆〔**说不了的方言整家不下发**——摆出来等于邀请一次我们早就知道的失败〕;`credential`=`api_key` | `service_account_json`〔Vertex 收的是服务账号 JSON **文件**〕;`baseUrlHint`=**模板形状**、刻意不预填〔`https://{resource}.openai.azure.com` 之类,地址里有一样只有这个用户知道的东西〕;`models`=目录为这家收录的模型数,**本地条目为 0 意为「没有目录清单」而非「零个模型」**,故 UI 不渲那一行。**`mock` 仅 `ANSELM_DEV=1` 时下发**——T6 测试设施不进产品下拉，但建 key 白名单恒接受它，S-5）。freetier：`GET /freetier/quota`（免费档本月配额代理——后端解出受管 anselm key 的公开 install id、由设备 proof transport 签名调用网关 `GET /v1/quota`，返 `{limit,used,remaining,resetAt,available}`；客户端无法直读——Ed25519 私钥加密留在 Go sidecar、永不出本机；无受管行 404 `FREETIER_NOT_PROVISIONED`，网关自身失败原样冒泡 `LLM_AUTH_FAILED`/`LLM_RATE_LIMITED`/`LLM_PROVIDER_ERROR`）+ `POST /freetier:provision`（手动重开通,S-7——幂等:无行则建;**已有行则探测,仅当网关答 `INVALID_INSTALL` 时自愈**——重新登记设备并**就地**换受管行的 install id(行 id 不变,scenario 默认无需重接;瞬时失败[离线/限流/网关重启]绝不轮换);返 `{provisioned:bool}`,true=事后存在受管行,false=开通降级(离线/网关挂/无指纹,状态非错误);boot/OnCreated 钩子仍是主路径,此为用户侧重试与**修复**口。设置页免费档卡的空态「启用」与错态「修复」两个按钮都打它）。speech：`GET /speech/asr`（本机 WebSocket sidecar，浏览器/桌面只发 16k PCM binary + `{type:commit|finish|cancel}` 控制帧；sidecar 用 device proof 代理 managed Anselm 网关 `/v1/speech/asr`，不拿用户 BYOK 做语音适配；client/gateway 两条 WebSocket leg 都由 sidecar 发送 ping，收到 message/pong 后滚动 30s 读 deadline，单会话仍受 2min 绝对上限；无 managed 行或网关不可用 → `SPEECH_UNAVAILABLE`）。**read-aloud**(朗读,WRK-082 批C/P10——与 asr **反方向**,故不共用路径段):`GET /read-aloud/availability`(返 `{available}`——没有 key 能说话就不给按钮,诚实缺席同工具注入闸)+ `POST /read-aloud:read`(body `{text,voice?}`,`text` 非空 ≤4000 rune;**`voice` 可以是一个克隆音色的名字**——与合成走同一条路由,故名字在此被解析成网关句柄、再由网关按 install 解析成供应商 id(两跳,H9);未匹配上的名字**原样透传**(预置音色不是我们表里的行);返 `{attachmentId,filename,mimeType,sizeBytes,cached}`——交回**附件**而非字节,故播放复用既有 `playback-lease` 一等路径;`cached=true` 表示本次按下**零上游花费**。**不经 LLM、零 token**;缓存键=(文本+音色+provider+model),命中在**合成之前**就判定,故重听根本不走 provider;码 `READALOUD_TEXT_REQUIRED`/`READALOUD_TEXT_TOO_LONG`/`SPEECH_NO_ROUTE`/`SPEECH_GEN_FAILED`)。model：`GET /model-capabilities` · `GET /scenarios`。sandbox：`GET/POST /sandbox/runtimes` + `GET /sandbox/runtimes/available`（用户可装语言运行时 + 默认/钉死版本，UI 据此渲染、免硬编 pin map；引擎产物 llamasrv/embedmodel 与 docker 不列）+ `DELETE /sandbox/runtimes/{id}` · `GET /sandbox/envs[/{id}]` + `DELETE /sandbox/envs/{id}` · `GET /sandbox/disk-usage` · `GET /sandbox/bootstrap-status` · `POST /sandbox:gc` · `POST /sandbox:retry-bootstrap`；对话级 scratch env：`GET /conversations/{id}/sandbox-envs` · `POST .../sandbox-envs/{kind}:reset` · `POST .../sandbox-envs:reset-all`。relation：list / `GET /relations/neighborhood` / `GET /relgraph`。catalog：`GET /catalog`。tools：`GET /tools`（**可授权工具目录**——每项 `{name, summary}`（summary=工具 Description 首行、截断 200 符），全部内置工具按 name 排序；skill `allowed-tools` 选择器的**内置候选源**（实体 id fn_/hd_ 从实体 list 挑、MCP 工具从 `GET /mcp-servers` 挑，皆不在此静态集）；**有界系统固定集**——无 `nextCursor`、分页参数忽略（N4 豁免①）；**不含 danger/execution_group**——那是 LLM 逐次自报（S18）、非静态工具属性，目录只答「有哪些工具可预授权」）。limits（**机器级全局单设置**——落 `<dataDir>/settings.json`、与 workspace 无关；统一 auth 门要求 workspace header 仅作身份、对 limits 值无隔离作用，任一 workspace 改的都是这台机器的同一份上限。本地单用户语义下「全局」即正确，非 per-workspace bug）：`GET /limits`（活动运行上限）+ `GET /limits/schema`（逐字段 default/min/max/unit/desc 元数据，UI 据此渲染范围、免复刻 Go 常量）+ `PATCH /limits`（部分 JSON 合并、校验后持久化 `<dataDir>/settings.json` 并热换——消费方下次读取即生效；越界 400 `SETTINGS_LIMITS_INVALID`）+ `POST /limits:reset`（无 body，恢复 `Default()`、持久化并热换——默认由服务端持有，客户端不硬编）。network（机器级同 limits——`<dataDir>/settings.json` 的 `network` 段）：`GET /network` + `PATCH /network`（**整体替换**、非合并;`{httpProxy?,httpsProxy?,noProxy?}` 出站代理;boot 与 PATCH 时应用到进程环境[Go `http.ProxyFromEnvironment` 读之],完整生效须重启 sidecar[既有 HTTP 客户端缓存代理];空=直连;WRK-062 工单⑩）。retention（**机器级**同 limits/network——落 `<dataDir>/settings.json` 的 `retention` 段，无 workspace 维度；scheduler 工单⑬、判决④）：`GET /retention`（返 `{runRetentionDays}`，恒具体值——全新安装读回服务端自持的默认 **90**、绝不 null，故客户端不硬编）+ `PATCH /retention`（**部分合并**、非替换；body `{runRetentionDays?}`——缺省字段不动，故 `{}` 是忠实 no-op 而非意外的「永久」；落盘并**踢一趟清理**［收紧的线立刻回收 run，而非等 ticker 的 6h］。**`0` = 永久保留**［清理绝不跑，碰都不碰 DB］，且往返存活——段在文件里用指针形，「段缺席」与显式 0 可区分；**唯一校验是物理的**：负天数 400 `SETTINGS_RETENTION_INVALID`，UI 的 30/90/180/永久 值集是**产品**可供性、后端不强制［60 照收，拒它是校验剧场，设计原则 #6］；未知字段严格拒 400）。**清理语义**：按**终态 run 的 `completed_at`** 往回数［与 flowrun-stats 的 `completedSince` 同窗口语义——跑了很久刚失败的 run 是**新鲜**的］，只删终态（completed/failed/cancelled）、**running/parked 永不删**（不管多老）；boot 起、每 6h、及每次 PATCH 各跑一趟，逐 workspace 分批物理删。**无 `:sweep` 端点**（裁量：清理是后台卫生、非用户动作；PATCH 已给出「改配置即见效」的即时通路，另开端点是多余 API 面）。**无 `/retention/schema`**（单字段、值集是前端产品决策，无范围可渲）。**D1 归档线例外立法见 [database.md](database.md) flowrun 节**。notification：list / `POST /notifications/{id}:mark-read` / `POST /notifications:mark-all-read` / `POST /notifications:mark-all-unread`（mark-all-read 的镜像：清全部 read_at → 全变未读，204、不发帧、幂等；未读徽标靠 unread-count 重取对账，N0）/ `GET /notifications/unread-count`。**两个 mark-all 端点带可选 body** `{after?,before?}`（RFC3339）——`created_at` 上的半开窗 `[after, before)`，托盘用它把某时间组的「全部已读/未读」限在该组行（清「今天」不动「更早」的积压）；缺省字段=该界不设，故**无 body 调用标整本账（向后兼容）**；非 RFC3339 界 422 `NOTIFICATION_INVALID_WINDOW`、绝不静默标一切。aispawn：`POST /<entity>/{id}:iterate` 分布于各实体 + `POST /executions/{id}:triage`（按 execId 前缀 function/handler/agent/flowrun 分发）。
+两类均提供：
 
-**模型默认的 native options 合同**：所有 `PUT {id}/default-models/{scenario}` 的非空 `options` 必须精确匹配该已探测 `apiKeyId`/`modelId` 在 `GET /model-capabilities` 公开的 native knob 与值；未知字段返回 422 `MODEL_OPTION_UNSUPPORTED`，非法值返回 400 `MODEL_OPTION_VALUE_INVALID`。因此 adapter 不会静默丢弃一个用户已保存的设置。空 `options` 不要求模型目录命中，仍保留自定义/未探测模型的 fail-loud-at-invoke 路径。
+```text
+POST /controls|approvals
+GET /controls|approvals
+GET|PATCH|DELETE /controls|approvals/{id}
+POST /controls|approvals/{id}:edit
+POST /controls|approvals/{id}:revert
+POST /controls|approvals/{id}:iterate
+GET /controls|approvals/{id}/versions[/{version}]
+```
 
-## 系统 / 可观测性
+### Skill
 
-`GET /api/v1/health`（liveness，N1 envelope，免 workspace；**但不免 bearer**——见下 loopback 加固）· `GET /api/v1/version`（返 `{version}`——构建期 `-ldflags "-X main.version=$(VERSION)"` 盖章,裸 go run 为 `"dev"`;免 workspace 同 /health、bearer 照过,onboarding 前可读,关于页消费）· `GET /api/v1/system/data-dir`（返 `{dataDir}`——解析后的数据目录 = 本地优先存储位置，供桌面端「显示 / 在文件管理器打开」；guarded，与 `/limits` 同走 workspace 门——同为**机器级**端点，header 仅作身份、非隔离轴）。 · `GET /api/v1/network` + `PATCH /api/v1/network`（出站代理配置,工单⑩——机器级同 limits;PATCH 整体替换 `{httpProxy?,httpsProxy?,noProxy?}` 并应用代理 env,重启 sidecar 完整生效）。 · `GET /api/v1/storage-stat`（T4/WRK-070 + WRK-082 H5.9——返 `{dbBytes,deadBytes,attachmentBytes,attachmentDeadBytes}`：**两个存储并排**。前两项是 SQLite 库文件的逻辑大小 + 其中 DELETE 腾出却未还给 OS 的死空间[`page_count·freelist_count × page_size`，先 `wal_checkpoint(TRUNCATE)` 才读 freelist 否则 WAL 中的删除不计入]；存储面板据此诚实显示「X MB,其中 Y MB 可回收」。后两项是**附件字节**——blob 是 `workspaces/<ws>/blobs` 下按内容寻址的**文件**、**根本不在 .db 里**,故只报 dbBytes 在视频出现之前就已经少报了一半以上（实测:轻度使用的开发机 blobs 6.8MB vs 库 4.9MB;一段 3MB 的片子只让 dbBytes 动几百字节元数据）;`attachmentDeadBytes` 是已软删、孤儿 blob GC 仍可回收的那一半,与 `deadBytes` 对位,使面板对两个存储读法一致。**附件求和刻意跨全部 workspace**——`dbBytes` 本就是（一个 .db 装所有 workspace 的行）,在「整个安装的数据库」旁边报「本 workspace 的附件」会把两种口径塞进同一个面板；此处用不带 workspace 谓词的原始查询是诚实形状,换任何别处都是 bug。表缺席时**报错而非返 0**——静默的 0 恰好会藏住这个数字存在的理由所指的那种故障。**机器级**同 data-dir/limits，header 仅身份；**N4 豁免**：单一系统资源、单对象、无游标=有界资源[非集合、非已存投影]，分页参数按标准 HTTP 忽略）。 · **voices**(WRK-082 H9——克隆音色的**管理面**;登记**不在这里**,它是 `enroll_voice` 工具调用,因为要源附件与 LLM 对「用哪段」的判断):`GET /api/v1/voices` 返 `{items:[{id,name,provider,upstreamId,sourceAttachmentId,createdAt}], capacity, remaining}`——**`capacity`/`remaining` 随响应走**,因为**上限正是用户来这里的理由**:一个列出两行却不说「就这些了」的列表,会让下一次登记的失败无从解释;空库存序列化成 `[]` 而非 `null`(让客户端先判 null 才数得了数,那个分支是我们逼它写的)。**N4 豁免①**:有界可枚举资源(上限**就是**那个界)、返全集无游标。· `DELETE /api/v1/voices/{id}` **先删上游登记、再删行**——行是唯一持有 `upstream_id` 的东西,先删行会让一个已付费的登记在别人服务器上**永远不可见**地活着,同时继续占着用户正想腾出的那个库存位;**上游失败即中止**(行留着、可重试、库存计数继续说真话),绝不以一条 warn 日志糊过去。204;未知 id → 404 `VOICE_NOT_FOUND`) · `ANSELM_MASTER_KEY`（静态加密主密钥种子，WRK-062 拍板 #14——设则优先于机器指纹派生（`bootstrap.Config.Fingerprint` 既有缝），桌面端经 OS 钥匙串铸存注入；⚠️ 换种子=既有密文（api_keys/mcp config）全部解不开，key 须重录）· `ANSELM_PARENT_WATCH`（WRK-070 T2 侧车死人开关，`cmd/server` 薄壳级：设则 goroutine 读 stdin 至 EOF 即视父进程已死，汇入与 SIGINT/SIGTERM **同一个** `signal.NotifyContext` 取消 → 同一有序关停（SSE 流 → HTTP 排空 → 后台 → DB，子进程 kill-set 一并收割）；桌面端 spawn 恒设 `1` 且终生握子进程 stdin——父亲以**任何**形态退出（⌘Q/SIGTERM/SIGKILL/崩溃）管道必 EOF；macOS 无 `Pdeathsig` 故此为可移植做法。dev `make -C backend run`/testend 不设 = 连 goroutine 都不起、零行为变化）· **`ANSELM_GATEWAY_URL`**（受管免费档网关 origin,空=生产 `https://api.anselm.website/v1`。**建 workspace 会触发异步免费档开通**,故任何会建 workspace 的进程都会在此处解析出的那个网关上登记**真** install——写死常量时那永远是生产:一次完整 `make -C backend testend` 约 50 个 install,且只要某个场景的生成路由回落到受管家就**真花掉配额**;受管行还是**异步**落地的、而兜底顺序偏好 `anselm`,于是相隔一秒的两个相同请求会解析到**不同的供应商**。testend harness 因此把它指向一个**关闭的**回环端口,让开通快速失败、workspace 里只剩场景自己建的 key。dev 亦可用它挂 staging 网关）。
+| Method · Path | 语义 |
+|---|---|
+| `GET /skills` · `POST /skills` | 列表 / 创建 |
+| `GET /skills/{name}` · `PUT /skills/{name}` · `DELETE /skills/{name}` | 单读 / replace / 删除 |
+| `POST /skills/{name}:activate` | 激活到 Conversation |
+| `POST /skills/{name}:update` | 更新已安装 Skill |
+| `POST /skills/{name}:approve-tools` | 更新授权工具 |
+| `POST /skills:inspect-source` | 检查安装源 |
+| `POST /skills:install` | 安装 |
+| `GET /skills/{name}/files` | 文件树 |
+| `GET|PUT|DELETE /skills/{name}/files/{path...}` | Skill 文件单读/写/删 |
+
+### MCP
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /mcp-servers` | Server 状态列表 |
+| `GET|PUT|DELETE /mcp-servers/{name}` | 单读 / upsert / 删除 |
+| `POST /mcp-servers/{name}:reconnect` | 重连 |
+| `GET /mcp-servers/{name}/stderr` | 有界 stderr tail |
+| `GET /mcp-servers/{name}/calls` | Call 分页 |
+| `POST /mcp-servers/{name}/tools/{tool}:invoke` | manual smoke call |
+| `POST /mcp-servers:import` | 导入配置；可选择覆盖 |
+| `GET /mcp-calls/{id}` | 单 Call |
+| `GET /mcp-registry` | Registry 列表 |
+| `POST /mcp-registry:install` | 安装 registry item |
+| `POST /mcp-registry:plan` | 无副作用预检 |
+
+## 6. Knowledge and conversations
+
+### Document
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /documents` · `GET /documents/tree` | 分页列表 / 树投影 |
+| `POST /documents` | 创建 |
+| `GET|PATCH|DELETE /documents/{id}` | 单读 / 更新 / 删除 |
+| `POST /documents/{id}:iterate` | 打开 AI 编辑 Conversation |
+| `POST /documents/{id}:move` | 移动 |
+| `POST /documents/{id}:duplicate` | 复制 |
+
+### Conversation / Chat
+
+| Method · Path | 语义 |
+|---|---|
+| `POST /conversations` · `GET /conversations` | 创建 / 分页 |
+| `GET|PATCH|DELETE /conversations/{id}` | 单读 / 配置更新 / 删除 |
+| `POST /conversations/{id}/messages` | Send |
+| `GET /conversations/{id}/messages` | older/newer keyset 或 `around` 窗 |
+| `POST /conversations/{id}:cancel` | 取消 running/queued turns |
+| `POST /conversations/{id}:seen` | 清 unread |
+| `POST /conversations/{id}:fork` | 复制 durable prefix 创建 thread |
+| `POST /conversations/{id}:retry` | regenerate 或 edit-resend |
+| `GET /conversations/{id}/anchors` | Scene anchors 分页 |
+| `GET /conversations/{id}/usage` | token 汇总 |
+| `GET /conversations/{id}/system-prompt-preview` | 真实 prompt builder 预览 |
+| `GET /conversations/{id}/interactions` | pending HumanLoop |
+| `POST /conversations/{id}/interactions/{toolCallId}` | resolve interaction |
+| `GET /conversations/{conversationId}/todos` | live Todo |
+| `GET /conversations/{conversationId}/touchpoints` | Conversation touch ledger |
+
+### Workdir
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /conversations/{id}/workdir` | 文件系统/git 活投影 |
+| `GET /conversations/workdir-groups` | workspace 全量有界分组 |
+| `POST /conversations:archive-workdir` | 批量归档未置顶 threads |
+| `POST /conversations:delete-workdir` | 批量删除未置顶 threads |
+| `POST /conversations/{id}/workdir:switch-branch` | 切已有本地 branch |
+| `POST /conversations/{id}/workdir:create-branch` | 从 HEAD 建 branch |
+| `POST /conversations/{id}/workdir:add-worktree` | 派生 sibling worktree 并迁移 residency |
+
+## 7. Media and memory
+
+### Attachment
+
+| Method · Path | 语义 |
+|---|---|
+| `POST /attachments` | multipart upload |
+| `GET /attachments/{id}` | metadata |
+| `GET /attachments/{id}/content` | 受权原始内容 |
+| `POST /attachments/{id}/playback-lease` | 创建短期播放 lease |
+| `GET /attachment-playback/{token}` | lease 内容 |
+| `POST /attachments/{id}/preparation/cancel` | 取消派生准备 |
+| `POST /attachments/{id}/preparation/retry` | 重试派生准备 |
+| `DELETE /attachments/{id}` | 删除 |
+
+### Speech / Voice
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /speech/asr` | ASR streaming transport |
+| `GET /read-aloud/availability` | 当前朗读可用性 |
+| `POST /read-aloud:read` | 文本朗读 |
+| `GET /voices` | 可用 voice 列表 |
+| `DELETE /voices/{id}` | 删除用户 voice |
+
+### Memory
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /memories` · `GET /memories/{name}` | 列表 / 单读 |
+| `PUT /memories/{name}` · `DELETE /memories/{name}` | upsert / 删除 |
+| `POST /memories/{name}/pin` · `/unpin` | pin 状态 |
+
+## 8. Discovery, search and relations
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /catalog` | Entity/capability 概览 |
+| `GET /tools` | 可授权内建工具目录；不含逐请求 capability tools |
+| `GET /search` | 统一搜索；keyset 分页 |
+| `POST /search:reindex` | 异步 force reconcile，就地覆盖并清孤儿；无可轮询产物，204 |
+| `GET /search/settings` · `PATCH /search/settings` | 搜索设置 |
+| `GET /relations` | 边分页 |
+| `GET /relations/neighborhood` | 邻域有界投影 |
+| `GET /relgraph` | 关系图投影 |
+| `POST /executions/{id}:triage` | 为执行记录打开诊断 Conversation |
+
+## 9. Workspace, models and managed service
+
+### Workspace
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /workspaces` · `POST /workspaces` | 列表 / 创建 |
+| `GET|PATCH|DELETE /workspaces/{id}` | 单读 / 更新 / 删除 |
+| `GET /workspaces/{id}/stats` | workspace 统计 |
+| `POST /workspaces/{id}:activate` | 更新最近使用并返回实体 |
+| `PUT|DELETE /workspaces/{id}/default-models/{scenario}` | 设置/清除 scenario ModelRef |
+| `PUT|DELETE /workspaces/{id}/default-search` | 设置/清除 WebSearch key |
+
+### API key and model catalog
+
+| Method · Path | 语义 |
+|---|---|
+| `POST /api-keys` · `GET /api-keys` | 创建 / 列表 |
+| `PATCH|DELETE /api-keys/{id}` | 更新 / 删除；引用中 key 拒删 |
+| `POST /api-keys/{id}:test` | probe |
+| `GET /providers` | Provider metadata |
+| `GET /model-capabilities` | Model catalog/capabilities |
+| `GET /scenarios` | Scenario metadata |
+
+### Managed free tier
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /freetier/quota` | 受管配额投影 |
+| `POST /freetier:provision` | install/device-proof provision |
+
+默认受管路径与部署责任边界见
+[`managed-gateway.md`](managed-gateway.md)。
+
+## 10. Sandbox
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /sandbox/runtimes` | 已安装 runtime |
+| `GET /sandbox/runtimes/available` | 可安装 runtime |
+| `POST /sandbox/runtimes` · `DELETE /sandbox/runtimes/{id}` | 安装 / 删除 |
+| `GET /sandbox/envs` · `GET /sandbox/envs/{id}` | Env 列表 / 单读 |
+| `DELETE /sandbox/envs/{id}` | 销毁 env |
+| `GET /sandbox/disk-usage` | disk audit |
+| `GET /sandbox/bootstrap-status` | bootstrap 状态 |
+| `POST /sandbox:gc` | 回收派生 env/runtime 文件 |
+| `POST /sandbox:retry-bootstrap` | 重试 bootstrap |
+| `GET /conversations/{id}/sandbox-envs` | Conversation scratch envs |
+| `POST /conversations/{id}/sandbox-envs/{kind}:reset` | 重置一种 scratch env |
+| `POST /conversations/{id}/sandbox-envs:reset-all` | 重置全部 scratch env |
+
+## 11. Notifications and runtime settings
+
+### Notifications
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /notifications` | newest-first 分页 |
+| `GET /notifications/unread-count` | badge count |
+| `POST /notifications/{id}:mark-read` | 单条已读 |
+| `POST /notifications:mark-all-read` | 可选 `[after,before)` 窗 |
+| `POST /notifications:mark-all-unread` | 同窗语义 |
+
+### Limits, network and retention
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /limits` · `GET /limits/schema` | 当前 limits / 可编辑 schema |
+| `PATCH /limits` · `POST /limits:reset` | 热更新 / 重置 |
+| `GET /network` · `PATCH /network` | 网络设置 |
+| `GET /retention` · `PATCH /retention` | terminal Flowrun retention |
+
+## 12. System and storage
+
+| Method · Path | 语义 |
+|---|---|
+| `GET /health` | liveness；不要求 workspace header |
+| `GET /version` | build/version metadata |
+| `GET /system/data-dir` | 本地数据根投影 |
+| `GET /storage-stat` | 数据库与派生存储统计 |
+| `POST /storage:compact` | 执行 SQLite compact |

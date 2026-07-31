@@ -1,16 +1,19 @@
 ---
 id: WRK-030
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-19
-reviewed: 2026-06-19
+reviewed: 2026-07-31
 review-due: 2026-09-17
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/backend/managed-gateway.md
 ---
 
 # Anselm Free-Tier Gateway —— 免费档模型网关设计蓝图（START HERE）
+
+> **冻结历史快照。** 本文描述的是旧 free-tier 网关方案；当前受管服务边界只以
+> [`managed-gateway.md`](../../references/backend/managed-gateway.md) 为准。
 
 > **本文件是自包含、可搬运的独立项目蓝图**。它描述的网关是一个**独立于 Anselm 主仓库**的小服务（建议仓库名 `anselm-gateway`）；把这个文件夹整体拷进新仓库，它就是那个项目的 README + 设计文档，无需回看 Anselm 任何上下文即可实现。
 >

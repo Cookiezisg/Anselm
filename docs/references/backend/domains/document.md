@@ -4,27 +4,72 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# document —— Notion-style 树状文档库
+# Document
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-按 workspace 的 **markdown 树**：父子有序（`position`）、**path 寻址**（`/a/b/c`，物化列）、可被 @ 引用、挂载到对话/workflow、wikilink 互链。单实体单表（软删——删除的子树留墓碑）；上限：单篇 1MB（**超出硬拒 `DOCUMENT_CONTENT_TOO_LARGE` 413、非自动拆分**——须手动拆子文档）、标题 256 字符（不含 `/`——path 分隔符）。
+Document 是 workspace 内有序、可寻址的 Markdown 树。每个 `doc_` 节点持 parent、
+position、物化 path、正文、描述与 tags，可被：
 
-## 2. 关键行为（树不变式都在 app 层）
+- Library 直接编辑；
+- Chat/Workflow 显式挂载；
+- Agent knowledge 引用；
+- `@` mention 与 catalog 发现；
+- Search 索引；
+- `[[wikilink]]` 接入 Relation 图。
 
-- **Create 自动加后缀 + position 原子赋**（"foo"→"foo 2"…重试 cap 100）：POST 不该因重名失败；**`position`（同级序）在单事务内 `max(兄弟)+1` 赋值并插入（`InsertAtNextPosition`）**，故并发同父创建不会读到同一 max 而 position 撞车（无 position 唯一索引——Move 重排 + Duplicate 原样复制 position 会瞬时违反）；显式改名（PATCH）保留严格 `DOCUMENT_NAME_CONFLICT`——同一约束两种出口对应两种用户意图。
-- **改名 → 子树 path 级联**（批量重写后裔 path）；**Move 防环**（`IsAncestor` 拒把节点挂到自己后裔下，`DOCUMENT_INVALID_PARENT`）、nil parent=移根、nil position=追加末尾。
-- **Delete = 软删整子树**（`SoftDeleteSubtree`）+ 清全部后裔的 relation 边（`ListSubtreeIDs` BFS）。
-- **attach 单篇不拖子树**（`AttachedDocument`）：挂载必须显式有界——子树自动注入刻意不做（防"挂一篇拖出一整棵树"炸 context）。
-- **缺失附件可见警告、非静默丢**（F167）：`RenderAttachedAsXML(docs, missing)` 把对话挂载里已删/缺失的 doc id 渲成 `<document id=… missing="true">` 警告行（chat renderer 比对所请求 atts vs resolve 出的 docs 算 missing）——使模型知道 grounding 已丢，而非在静默空 `<documents>` 块上跑却以为附件还在。对位 agent 知识 `BuildKnowledgePrefix` 的大声失败（F98），但对话附件降级为 prompt 内警告而非让整个回合失败（太激进）。
-- **wikilink 出边**：body 每次写入后解析 `[[...]]`（`pkg/wikilink`）重 sync `link` 出边——文档间引用进 relation 图。
-- **`Service.Search` 走 DB LIKE**（name/description，updated_at DESC limit 50）是 `search_documents` 工具的**回退**路径——主路径走统一全文内容引擎（覆盖 name + markdown 正文、带 heading snippet）；DB LIKE 这条与 fn/hd/agent 的内存子串过滤不同：文档行数可能大、且有 content 大列，DB 侧过滤是对的（有意分化）。
+单篇最大 1 MB，名称最大 256 字符且不能含 `/`。Attach 永远只注入点名的单篇，
+不自动拖入子树，避免一次挂载无界扩大上下文。
 
-## 3. 契约（引用）
+## 2. 树不变量
 
-端点（CRUD + `POST {id}:move` 防环 + `POST {id}:duplicate` 深拷子树（BFS 自顶向下铸新 id、重映射 parent/path、复制 content、新根名去重、逐节点 Insert 非原子；可选 `{parentId}` 默认落为兄弟）+ `POST {id}:iterate` AI 编辑 + `GET ?parentId=` 直接子节点 + `GET /tree` 整树 metadata（每行带 `hasContent` bool＝正文非空 ≡ `sizeBytes>0`，驱动侧栏空页/已写页 icon，免拉正文））→ [api.md](../api.md) · 表 `documents`（path/position/size_bytes 物化列）→ [database.md](../database.md) · 码 `DOCUMENT_*` 6+3 → [error-codes.md](../error-codes.md) · ID：`doc_` · 通知 `document.*`。LLM 工具 7 个（薄适配、domain 错误转软失败串供自纠）。消费方：@ 提及（快照内容）、agent knowledge 挂载（注入正文）、workflow 节点 attach、catalog。
+Create 对同父重名自动尝试 `name 2` 等后缀；显式 Rename 则严格返回 name conflict。
+新节点的 sibling position 在同一事务中计算并插入，避免并发创建拿到相同位置。
+
+Move 支持：
+
+- `parentId = nil` 移到根；
+- `position = nil` 追加到目标 sibling 尾部；
+- 拒绝移到自身或自身后裔；
+- 把目标 sibling 重排为连续 position；
+- 级联重写整棵子树的物化 path。
+
+Duplicate 深拷整棵子树，为每个节点铸新 ID 并重映射 parent/path；新根名称按 Create
+规则去重。复制逐节点执行，不宣称跨整棵树原子。
+
+Delete 软删整棵子树，并在删除前枚举所有后裔 ID 清理 Relation 边。墓碑保留；
+正常 List/Get/Search 不返回已删节点。
+
+## 3. 内容与挂载
+
+正文写入后解析 wikilink，并以 diff-sync 重建该文档的 link 出边。Document 自身不
+解析引用目标的内容，也不把名称当身份。
+
+Conversation 挂载按发送时的 Attachment/Document ID 快照解析。已删或缺失文档会在
+prompt 内渲染显式 missing 标记，不静默生成空 grounding；Agent knowledge 的缺失策略
+更严格，见 [`agent.md`](agent.md)。
+
+Tree metadata 投影用 `hasContent ≡ sizeBytes > 0`，允许侧栏判断空页而不拉取正文。
+
+## 4. 发现与 AI 操作
+
+统一 Search 引擎索引名称、描述和 Markdown 正文，并提供 heading-aware snippet。
+Document 自带的 DB LIKE Search 只查名称/描述，作为 `search_documents` 工具在统一
+索引不可用时的回退。
+
+LLM 工具覆盖 create/read/list/search/edit/move/delete。工具把可修复的 domain 错误转为
+软失败文本，允许模型修正参数。HTTP 还提供 iterate，以当前文档为目标启动 AI 编辑。
+
+## 5. 契约
+
+CRUD、tree、move、duplicate、iterate 端点见 [`api.md`](../api.md)；`documents` 表见
+[`database.md`](../database.md)；`DOCUMENT_*` 错误见
+[`error-codes.md`](../error-codes.md)。变更通过 `document.*` 通知投影。
+
+Relation 负责当前 wikilink/挂载拓扑，Search 负责可再生内容索引；Document 行和正文
+仍是 durable truth。

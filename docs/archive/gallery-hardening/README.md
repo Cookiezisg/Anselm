@@ -1,16 +1,19 @@
 ---
 id: WRK-036
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-21
-reviewed: 2026-06-21
+reviewed: 2026-07-31
 review-due: 2026-09-19
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/design-system.md
 ---
 
 # demo 组件库硬化 —— web 建设事实源
+
+> **冻结历史快照。** 本轮 hardening 已完成；当前组件合同与门禁见
+> [`design-system.md`](../../references/frontend/design-system.md)。
 
 > 来源：7 路并行审计 + 反核验（1 内化审 + 6 组件健壮性/覆盖 → 综合 master 计划，含自我勘误）。完整 synth 见 workflow 输出 `wlclvulq4`。
 > 目标：每件**模块化**（在册原语、无散落 bespoke）+ **任意数据填充不破** + **画廊全覆盖** + **Playwright 逐件验**。达标后据此直接推 web 端。

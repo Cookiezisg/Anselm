@@ -4,59 +4,84 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-07-24
-review-due: 2026-10-19
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# 支撑服务十二域 —— workspace · apikey · freetier · model · websearch · catalog · mention · notification · aispawn · humanloop · contextmgr · entitystream
+# 支撑服务——十二个横切微域
 
-> 十二个微域合篇（各 100-900 行）。每节：定位 + 关键设计 + 契约引用。
+> 本篇登记没有独立长篇的支撑域。HTTP 形状见 [`api.md`](../api.md)，表与索引见 [`database.md`](../database.md)，事件见 [`events.md`](../events.md)。
 
-## workspace —— 隔离根
+## Workspace
 
-唯一**没有** workspace_id 列的表（它就是 workspace 本身，全局表——这正是后台 `forEachWorkspace` 播种能在裸 ctx 列它的原因）。CRUD + 守"最后一个不能删"（`CANNOT_DELETE_LAST_WORKSPACE`）+ 语言校验 + auth 中间件的 `WorkspaceResolver` 端口（`Resolve`——校验 id 并返其 UI locale，使 **workspace.language 权威于 Accept-Language**：识别到 workspace 即覆盖头默认，assistant 按用户显式持久化语言回复，头仅作 onboarding 兜底；**单列读**——每请求都走此路,repo `Language` 只 Pluck language 列〔空结果即 ErrNotFound,存在性检查含在内〕,不再为一个字符串付整行 13 列反射 + 3 次 ModelRef JSON 反序列化,R3）。**Delete 级联销毁**（Reaper 端口、bootstrap 后注入）：杀全部 workflow 自动化（摘监听+取消在途 run，连手动 run 一并）→ 停常驻 handler 实例 + 断开 mcp → 清搜索索引 → 删盘上文件树（skills/memories）→ 删 ws 行（行消失即数据不可达+后台播种跳过；DB 实体行留作不可达遗留）。全程 Detached(目标 ws) ctx——删除请求可来自另一 workspace；best-effort。携带 per-workspace 模型默认（dialogue/utility/agent 三场景 ModelRef 列 + 默认搜索 key + `webFetchMode`——WebFetch 工具抓取方式，local=本机直 GET（默认，URL 不出本机）| jina=公共 reader（提取更好但 URL 发第三方）；PATCH 设置、Service 经 `WebFetchMode(ctx)` 供 tool/web 读、读不到一律收敛 local）。**Stats**（`GET {id}/stats`,WRK-062 S-11）：删除确认的内容盘点——store 一批相关标量子查询数 conversations/functions/handlers/agents/workflows/documents（滤软删）+ `runningFlowruns`（Log 表无软删、走 partial 索引数 running）；`generatingConversations` = chatapp `GeneratingIDs()` 内存在飞快照与本 ws 活行求交（`SetStatsPorts` 后注入,同 Reaper 模式）；`blobBytes` = blobfs `TotalBytes` 在 500ms ctx 预算内 walk `workspaces/<id>/blobs`,超时/未接线返 **-1**（诚实未知,绝不假 0）。路由属 workspaces 豁免前缀,handler 不依赖 header、app 层把 path id 铸进 ctx。码 7（`WORKSPACE_*` 6 + `CANNOT_DELETE_LAST_WORKSPACE`）；ID `ws_`。
+Workspace 是所有业务隔离的根，也是唯一不带 `workspace_id` 的业务实体。HTTP middleware 解析 workspace 并把 id/locale 放入 ctx；store 通过 reqctx 自动过滤。异步任务必须用 `reqctx.Detached(wsID)` 重新播种。
 
-## apikey —— 加密凭据管理
+- CRUD，最后一个 workspace 不可删除；
+- 保存语言、三类聊天 scenario 默认、三类生成 scenario 默认、默认搜索与 web fetch mode；
+- 删除先停止 workflow/handler/MCP/search 等活资源，再移除 workspace；
+- stats 为删除确认提供内容计数、在飞状态与 blob bytes；无法在预算内统计磁盘时返回诚实未知。
 
-凭据自身生命周期：存（AES-GCM 整密文）、probe 连通性测试、按 id 发放（`KeyProvider`/`ProbeReader` 端口）。**刻意零 provider 语义**——选哪个 key、key 隐含什么模型，是 model/websearch 的事。**删除守卫**：`RefScanner` 端口（boot 注册，返 `[]apikeydomain.APIKeyRef`），Delete **聚合每个 scanner 的引用、非空即拒**（`API_KEY_IN_USE` 422，**`details.references` 带每个引用方 `{kind,id,name}`**——kind ∈ `scenario_default`/`search_default`/`agent_override`，前端据此指明去哪解引用，G4）；真实引用来源二——workspace 的三 scenario 默认模型 / 默认搜索 key（`workspace.ReferencesAPIKey`）+ agent active 版本的 modelOverride（`agent.ReferencesAPIKey`），均结构满足端口（仅为 ref 类型 import `domain/apikey`，不依赖 apikey app）、build_services 注入。probe 归档供 model 聚合解析。**旋转 key**（`PATCH` 带新 `key`）重置探测档案为 pending 后**自动重探一次**（有 tester 时，复用 `:test` 路径），200 带回解析后的 `testStatus`，免去「ok 但模型从选择器消失」的静默 pending；重探失败**不让 PATCH 失败**（旋转已成功，同 `CreateManaged` 脑裂取舍，G7）。**内置受管 provider（免费档网关 `anselm`）**：`ProviderMeta.Managed=true` 标记（`GET /providers` 暴露 `managed`，前端据此排除手动「添加 key」列表）；`CreateManaged` 直接播种探测档案（`test_status=ok` + 合成 `/models` body，**跳 live 探针**——否则「ok 但选择器无模型」死状态，且避开配额耗尽探针翻 key 的脑裂），受管行的 `key` 字段保存公开 `installId`（非凭证）、provider=`anselm`、base=`api.anselm.website/v1`；真实认证由 `infra/deviceproof.Transport` 用安装 Ed25519 私钥逐请求完成；`Update` **与 `Delete`** 对受管行均返 `API_KEY_IMMUTABLE`（422——DELETE 与 PATCH 对称守卫，WRK-062 S-1：受管 install id 行由后端拥有，删除会割裂安装身份与配额历史，零引用也不放行；Delete 先 Get 行判 Managed，再跑 `RefScanner`）。**custom provider 的 `apiFormat`** 在 `validateCreate` 经白名单校验（`openai-compatible`/`anthropic-compatible` 二选一，非法 → `API_KEY_API_FORMAT_INVALID` 400）——堵掉任意串静默落 OpenAI-compat 默认、走错方言（G9）。码 `API_KEY_*` 10；ID `aki_`。
+## API Key
 
-## freetier —— 内置免费档凭证 + 配额代理
+API key 以 AES-GCM 加密存储，普通读形态只返回掩码元数据。Create/Patch 后 probe 能力；删除前扫描 scenario、Agent override 等引用。
 
-把每 workspace 接入 Anselm 网关（按内容能力自动分流的 OpenAI-wire gateway，`api.anselm.website/v1`）的内置免费档。**provisioner**（boot 的 `forEachWorkspace` + `workspace.SetOnCreated` 钩子覆盖 boot 后新建 ws，幂等 best-effort）首启加载/创建机器级 Ed25519 signer（seed 经 Encryptor 写 `$ANSELM_DATA_DIR/device-proof.key`，`0600`），签名 POST 网关 `/install` 登记 public key（另发**机器指纹 SHA-256**、绝不传裸序列号），同 key 幂等取得公开 `installId`，落一条受管 `anselm` api_key 行（经 apikey `CreateManaged`，跳 live 探针），**并把受管模型（`AnselmModelID`=`anselm-auto`）播成 workspace 三 scenario（dialogue/utility/agent）默认**（`workspace.SeedDefaultsIfUnset`——只填仍未设的 scenario、绝不覆盖用户显式选择；已开通路径也补播，故 key 早于播种的 ws 下次 boot 自愈其 NULL 默认），使一切开箱即解析。其 `/v1/models` 能力扩展按 route 明示：纯文本 DeepSeek 与原生图片/MP4 的 Qwen3.7 Plus 均为 1M input，产品 output cap 16,384，并动态给 availability；旧网关才回退同值静态档。音频协议已预留但当前不宣传。降级铁律：每个失败路径 log 并返 nil（无指纹 / install 失败 / 持久化冲突 / 播种失败），免费档缺席绝不挂 boot/onboarding。**手动重试与修复口** `POST /freetier:provision`（S-7，`Provisioner.ProvisionNow`）：先按有无受管行分流——**无行**走同一幂等 ensure(建行+能力刷新)；**有行**则探测该 key,**仅当**网关答结构化码 `INVALID_INSTALL`(其库被清/install 被吊销)时自愈:重新登记设备、经 `apikey.RotateManagedCredential` **就地**换行内 install id(行 id 不变——scenario 默认引用的正是它,无需重接;同时重播能力档案占位并跟一次 live 刷新)。**触发刻意收窄**:瞬时失败(离线/限流/网关重启)绝不轮换——在那些状态上换凭证等于因网络眨眼毁掉好 install。自愈 best-effort:失败留日志、行保持原样,下次显式 provision 再试。事后存在受管行返 `{provisioned:true}`、开通降级返 false（状态非错误、不抛）；设置页免费档卡的空态「启用」与错态「修复」按钮都消费它(后者是 E 真机验收 0725 实地发现的死结的出口:受管行对用户不可变+ensure 见行空操作,install 在网关侧消失后产品内原本无任何恢复路径)。`RotateManagedCredential` 为 app 内部修复缝,**不**暴露 HTTP,拒非受管行(用户 key 走 Update,不可变守卫原样生效)。**配额代理**（`QuotaReader`，`GET /freetier/quota`）：List 定位受管 anselm 行 → `ResolveCredentialsByID` 读其公开 `installId` → `QuotaClient` 由同一 proof transport 签名调用网关 `GET /v1/quota`（与 chat/models 同一设备私钥），返 `{limit,used,remaining,resetAt,available}`。客户端**无法直读**——Ed25519 私钥只在 Go sidecar 内、加密落盘且不进 Flutter/DB/header；proof 绑定 install、时间、server nonce、一次性 jti、method、authority+target 与 exact body hash，复制 id/抓包不可复用。无受管行 → `FREETIER_NOT_PROVISIONED`（404）；网关失败映射为对应 `LLM_*` 分类。码 `FREETIER_NOT_PROVISIONED` 1；无自有表无 ID（骑 apikey 的 `aki_` 受管行）。
+- managed `anselm` 行由后端创建，用户不可编辑或删除；
+- managed 行存公开 install id，认证由 device proof 完成；
+- custom provider 必须声明受支持 api format；
+- secret 不进入 provider 目录、日志、Dump、诊断或前端 state。
 
-## model —— 模型选择与能力
+## Free Tier
 
-无存储：默认在 workspace 列、覆盖在实体字段。定义 `ModelRef` 值 + 三场景白名单（dialogue/utility/agent）+ **覆盖优先默认兜底**规则；`CapabilityService` 读 apikey 的 probe 归档、经各 provider 自描述的 `DescribeModels` 聚合模型目录（`vision/video/audio/nativeDocs` 与可选的单回合 `maxMediaParts/maxMediaBytes` 一起供 chat 附件门控和前端诚实展示；六个贫 `/models` 直连家的数字与模态自 WRK-082 批A 起出自 models.dev 目录——vendored 快照 + 运行时刷新,见 [stream-llm.md](../foundation/stream-llm.md) llm 节）。每条持久化 ModelRef 的非空 `options` 都必须精确匹配该已探测 key/model 公开的 native knob 与值：未知字段→`MODEL_OPTION_UNSUPPORTED`，非法值→`MODEL_OPTION_VALUE_INVALID`；空 options 不要求目录命中，因此未探测/custom 模型仍可运行、却不会假装支持未知配置。**LLM 工具**：只读 `get_model_config`（`tool/model`，无参；投影三场景默认 ModelRef + 已配 key 的**脱敏**形（`KeyMasked`、绝不出明文）+ CapabilityService 可用模型的 context/output、text/multimodal route budget、模态位、media envelope 与 `nativeOptions` knobs）——使 agent 从真 workspace 配置答「我在用什么 / 这模型支持什么配置」、不必 grep 主机 FS（后者会泄露 `.env` 明文 key 并臆造假审计，F68）。码 `MODEL_*` 5。
+Provisioner 在 boot 与 workspace 创建后 best-effort 确保 managed 行和未配置 scenario 默认。机器级 Ed25519 私钥加密落盘，只由 sidecar 使用。
 
-## websearch —— 搜索配置词汇
+- 没有 managed 行时登记 install 并创建；
+- 已有行只在网关明确 `INVALID_INSTALL` 时原位修复；
+- 瞬时网络/限流/5xx 不轮换身份；
+- quota 由 sidecar 带 proof 代理；
+- 失败不阻塞本地启动/onboarding。
 
-最小 domain：provider 词汇（brave/serper/tavily/bocha）+ `SearchKeyPicker` 端口（workspace 选的搜索 key）。执行在 `tool/web`（BYOK 单 key 直连，无 provider 遍历）。
+公开接缝和 API Serve 责任边界见 [`managed-gateway.md`](../managed-gateway.md)。
 
-## catalog —— 能力总览（派生、不存）
+## Model
 
-按需聚合注册 source（function/handler/agent/skill/mcp/document/attachment…各自实现 `ListItems`）：`Summary`=注入 system prompt 的分组菜单文本；`Coverage`=结构化 source→ids 供 HTTP。**永不持久化、永不缓存**——每次现扫当前真相。容器实体（handler/mcp）带 `Members` 子单元列表。码 `CATALOG_ALL_SOURCES_FAILED`。
+`ModelRef` = apiKeyId + modelId + native options。解析遵循 override 优先、workspace scenario 默认兜底；options 必须匹配该 key/model 已探测的 knob 与值。
 
-## mention —— @ 引用契约
+CapabilityService 从 probe 与目录聚合上下文、输出、工具、多模态、文档与 media envelope 能力。模型存在、能聊天、能当 Agent、能读某模态分别表达，不相互推导。
 
-纯契约包：`MentionType` 集（9 类：Quadrinity + document + trigger/control/approval + **skill**）+ `Resolver` 接口 + `Reference` 快照形状。**freeze-on-send**：发送时快照被 @ 实体内容进 user 回合 Attrs，实体后续变更不影响已发送语境。**@ 语义按类型分岔**：多数是**引用**（注入内容快照），**`@skill` 是激活**（WRK-076）——resolver 渲染 skill body 作快照（内容半），chat 在回合运行时经 `SkillPreauthorizer.PreauthorizeActiveSkill` 预授权其 allowed-tools（副作用半；fork skill 跳过、信任门照 B4）。各实体的 mention_resolver.go 实现并 boot 注册。
+## Web Search
 
-## notification —— 通知中心
+Websearch domain 只定义 provider 词汇与 key picker。执行在 web tool；每次使用 workspace 默认搜索 key，不遍历 provider 猜可用性。
 
-任何模块经 `Emitter` 端口发 `<domain>.<action>`，**两档**（都是 notifications 流上的 durable 信号，SSE 推送 best-effort）：**`Emit`** 落 DB 行 **并**推帧（DB 行是真相、`GET /notifications` 兜回——失败 / AI 可能干的实体生命周期，值得用户事后在收件箱找到）；**`Broadcast`** 只推帧、**不落行**（高频对账回声：rail 重排 / documents 树刷新 / env 装配开始等，进收件箱即噪音；临时 `noti_` id 锚定帧、通知中心不留痕，其真相是实体自身状态、消费者收帧后重取实体 REST 行/整树）。逐事件的档位登记见 [`events.md`](../events.md)「notifications 流」节（⊞ Emit / ⤳ Broadcast）。前端列表 + 未读徽标（`WhereNull(read_at).Count`）——只数落行的档。集合级读态：`mark-all-read`（`WhereNull(read_at).Update(now)`）与其镜像 `mark-all-unread`（`WhereNotNull(read_at).Update(nil)`——清全部 read_at 回未读）皆纯 repo 委派、**不发帧**、204、幂等，徽标靠 unread-count 重取对账。两端点带**可选窗口 body** `{after?,before?}`（RFC3339）——`created_at` 上的半开窗 `[after, before)`（`windowed` 追加裸列谓词 `created_at >= ?` / `< ?`，flowrun `started_at` 窗的逐字翻版、界值 UTC、走 `idx_noti_ws_created`）；托盘据此把某时间组的「全部已读/未读」限在该组行，缺省字段=该界不设、**无 body 即整本账（向后兼容）**；非 RFC3339 界 422 `NOTIFICATION_INVALID_WINDOW`。码 `NOTIFICATION_*` 3；ID `noti_`。
+## Catalog
 
-## aispawn —— AI 工作对话引擎（:iterate / :triage）
+Catalog 按请求聚合 Function、Handler、Agent、Skill、MCP、Document、Attachment 等 source，生成 system prompt 摘要与结构化 coverage。它不持久化、不缓存；当前实体真相是唯一来源。
 
-两个动词都归结为"开一个预 seed 上下文的对话，让正常 chat loop 接管"：`iterate` seed 实体（function/handler/agent/workflow/document 经 mention 快照注入）+ 编辑指引；`triage` seed 一次失败执行的诊断上下文。返回 `conversationId`（N5）。码 `EMPTY_ITERATE_REQUEST`/`UNTRIAGEABLE_EXECUTION`。
+## Mention
 
-## humanloop —— 人在环 broker
+Mention 是发送时冻结的引用快照。多数类型注入只读内容；`@skill` 额外激活 skill 并预授权其 allowed-tools。实体后续变化不改写历史消息的快照。
 
-进程内 broker：`Request(ctx, req)` **阻塞**挂起 waiter（按 toolCallID 键）直到 `Resolve` 送达人的决定或 ctx 取消；`Surface` 回调（chat 注入）把待决请求推成 ephemeral 流信号；**内存 pending 表是重连重同步的真相源**；`Allow/IsAllowed` = approve_always 的会话级白名单（与 active skill 的 allowed-tools 同为预授权来源）。经 ctx（`WithBroker/From`）流进嵌套 agent 运行。无表无码（纯运行时）。
+## Notification
 
-## contextmgr —— 对话压缩引擎
+Emitter 有两档：
 
-contextmgr 是 durable **回合边界**生产侧，和 loop 的**每次 sampling 前**即时治理互补。回合收尾读取 assistant `Attrs.contextUsage.lastPromptInputTokens/inputBudgetTokens`（绝不读整轮累计 `Message.InputTokens`）；最后一次 prompt 达 80%，或本轮发生过 prompt edit/checkpoint/recovery 时，执行：① **demote**（免 LLM）——全线程 tool_result 按新旧降 hot→warm（预览）→cold（占位），即使最新单个 assistant 回合内有很长工具链也能老化旧结果；② 仍超预算才 **summarize**——utility 模型摘最旧 span、增量并入 conversation.summary、推水位。最近 2 条 message 是 durable 摘要的逐字底线；loop 仍可在其 prompt-only 投影内清旧工具结果/做 checkpoint。**水位（summary_covers_up_to_seq）是幂等键**：崩溃在写 summary 与翻 archived 标记之间也不重复计数。写面最小：conversation 的 summary+水位 + blocks 的 ContextRole（投影、不改 Content）。**demote 只动 tool_result 是刻意的**：用户原话不截断，大粘贴交给诚实摘要，明确全文已不在上下文且需重发/重取。
+- Emit：写 durable notification 行并广播；
+- Broadcast：只广播对账信号，真相留在实体自身。
 
-## entitystream —— entities 流生产原语
+feed、mark read/all 与 unread count 只针对 durable 行；逐事件档位见 [`events.md`](../events.md)。
 
-SSE-C 的唯一生产 helper：向 Bridge 发实体锚定的节点（open→delta*→close 或点 Signal），scope = 实体（function/handler/agent/workflow/mcp/…）。所有实体面板的实时活动（run 终端/build 镜像/fire 信号/节点进度）都经它——**一个原语、十处复用**。nil Bridge 全程容忍（无流不影响业务）。ctx 注入（WithBridge/WithRunScope）供 loop 镜像 build 工具。
+## AI Spawn
+
+`:iterate` 与 `:triage` 都创建一条预置上下文的普通对话，再交给标准 chat loop。前者携实体快照与修改目标，后者携失败执行证据；不另建第二套 AI 执行引擎。
+
+## Human Loop
+
+进程内 broker 按 toolCallId 阻塞等待 danger/ask/approval 决议，并把 pending request 经 ephemeral 信号表面化。`approve_always` 与 active skill 预授权只作用于当前对话运行时；重连同步通过专用 pending read。
+
+## Context Manager
+
+回合边界读取最后一次 prompt 的真实 budget 使用率，先把旧 tool result 从 hot 降到 warm/cold，仍超预算才增量摘要。summary 水位是幂等键；最近用户/assistant 回合与原始用户文字保持诚实边界。被 supersede 的消息不得重新流入摘要。
+
+## Entity Stream
+
+`entitystream` 是 entities SSE 的生产 helper：open/delta/close 或 signal，scope 锚定实体。Function/Handler/Agent/Workflow/MCP 等实时执行与 build 镜像共用它；没有 Bridge 时业务仍正常落 durable 真相。

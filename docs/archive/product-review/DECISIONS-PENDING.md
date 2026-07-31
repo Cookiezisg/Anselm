@@ -4,10 +4,10 @@ type: working
 status: archived
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-12
+reviewed: 2026-07-31
 review-due: 2026-09-12
 expires: 2026-09-12
-landed-into: ""
+landed-into: docs/archive/product-review/REPORT.md
 audience: [human, ai]
 ---
 
@@ -23,4 +23,3 @@ audience: [human, ai]
 | PD-D | 跨机迁移密文不可解、无文档 | **B 先行：文档声明，export/import 进 roadmap** | ✅ 已落地（PR-6 doc-fix） |
 | PD-E | 对话历史对 LLM 不可检索（PR-11）——人有综搜、LLM 只能靠 memory 萃取 | **批：加 `search_conversations`**（只返指针不返全文） | ✅ 已落地（PR-11 fixed） |
 | PD-F | relation 图对 LLM 不可查（PR-12）——删除/改造前无法答「谁在用它」 | **批：加 `get_relations`** | ✅ 已落地（PR-12 fixed） |
-

@@ -1,13 +1,13 @@
 ---
 id: WRK-070
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-17
 reviewed: 2026-07-17
 review-due: 2026-10-15
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/testend/overview.md
 ---
 
 # 泄漏猎战役 0717 —— 进程/内存/磁盘/CPU 资源正确性(实测定罪)

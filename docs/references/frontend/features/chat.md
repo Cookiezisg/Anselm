@@ -1,0 +1,57 @@
+---
+id: DOC-068
+type: reference
+status: active
+owner: @weilin
+created: 2026-07-31
+reviewed: 2026-07-31
+review-due: 2026-10-29
+audience: [human, ai]
+---
+
+# Feature：Chat（对话海洋）—— 当前形态
+
+> 本篇只描述 `frontend/lib/features/chat/` 的当前产品面。后端线缆见 [`conversation.md`](../../backend/domains/conversation.md)、[`chat.md`](../../backend/domains/chat.md)、[`messages.md`](../../backend/domains/messages.md) 与 [`attachment.md`](../../backend/domains/attachment.md)；右岛侧幕见 [`chat-sidestage.md`](chat-sidestage.md)。
+
+## 1. 产品面
+
+| 面 | 当前事实 |
+|---|---|
+| 左岛 rail | 新对话与搜索、置顶、按驻地分组、最近对话；服务端分页、搜索、驻地计数和批量归档/删除；行级重命名、置顶、归档、删除 |
+| 中心 transcript | REST 水化 + `messages` SSE 增量合并；终态、在飞、乐观回声三层；老页向上加载不跳位；流式跟随可脱离和归队 |
+| Composer | 文本、`@` 提及、文件选择/粘贴/拖放附件、模型选择；发送与停止；生成中 Enter 入队，队列可编辑、删除和取回 |
+| 回合操作 | 复制整回合、分叉、重试换模型、编辑重发、同一逻辑回合的版本翻页；历史版本仍可读，不把 `superseded_by` 当软删 |
+| 驻地 | 对话可挂工作目录；三态入口；在访达/终端打开、切换/退出驻地、切分支、新建分支、创建 worktree；脏区切分支直接拒绝 |
+| 工具与人在环 | 工具卡按工具族渲染，默认收起；失败与交互门自动展开；危险调用、提问与审批都走同一 interaction broker |
+| 右岛 | 触点台账 + 流式侧幕；只在存在 Activity 时可揭示，详见 [`chat-sidestage.md`](chat-sidestage.md) |
+
+## 2. 数据与状态边界
+
+- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。
+- 对话列表、当前选区、transcript、草稿、附件准备、队列、interaction、驻地与侧幕分别持有最小状态；跨面只经 provider 或路由意图，不让 widget 互相持有。
+- **DB 行是真相、流只为实时**：`seq>0` 的 durable 帧可推进水位；`seq=0` 的 delta/tick/interaction 只改瞬时态。410 后重取 REST，再从新水位续流。
+- transcript 以服务端行保留全部版本；LLM 装配和压缩读过滤被替代版本，前端读形态不过滤，故版本翻页与模型上下文都成立。
+- 附件上传、生成、MCP/function/handler 产物最终都以 attachment / `MediaRef` 投影进入同一媒体卡族；渲染按附件行 `mime`，不按 URL 或 receipt 自称猜类型。
+
+## 3. 路由与生命周期
+
+- Chat 无选中时显示 landing；`/chat/:id` 是线程路由。首次发送才创建对话，并在发首条消息前写入 landing 选择的模型。
+- 对话切换不重挂 `AppShell`；当前线程的列表、transcript 与侧幕各自按 id 换代，workspace 热切换先离开旧深链再翻鉴权轴。
+- 发送失败保留草稿；停止只取消当前在飞回合，不清后续队列；后台完成后 rail、标题、未读与侧幕以 durable 信号重取真相。
+- sidecar 或 SSE 重连不能恢复 ephemeral interaction，因此重连后必须补拉 pending interactions。
+
+## 4. 关键不变量
+
+1. 用户消息、工具参数、模型输出的复制取自完整 model，不取自懒列表当前选区。
+2. 分叉复制的是选定水位之前的自洽前缀；summary 越界时不得带入新分支。
+3. retry/edit 只追加新版本并建立指针；旧行永远可读。
+4. 驻地是 AI 的聚焦点，不是读取牢笼；越界写仍必须经过强制人闸。
+5. 工具结果只把本次调用自己铸造的附件回喂模型；用户主动附加的附件走未收窄入口。
+6. 生成工具是否存在由当前受管路由决定；BYOK 负责文本与多模态读取，不承载生成方言。
+
+## 5. 验证入口
+
+- feature 测试：`frontend/test/features/chat/`
+- 流式与契约公共测试：`frontend/test/core/messages/`、`frontend/test/core/sse/`
+- 产品黑盒：`testend/scenarios/` 中 conversation/chat/attachment/interaction 与多模态场景
+- 人眼验收：`make -C frontend demo` 或 `make -C frontend app`

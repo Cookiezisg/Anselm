@@ -4,17 +4,53 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# todo —— 对话工作清单（LLM 自管 + 实时呈现）
+# Todo
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-每执行作用域一份 LLM 自管的工作清单（对话级；subagent run 内另起独立一份。≤64 项——超出是规划异味；上限同时给 reminder 注入设界）。**整表替换写**（TodoWrite 语义：LLM 每次重写全清单，状态机在 LLM 脑中、存储只管快照）。两条呈现路径：**reminder**（chat host 每步前注入 live 清单为临时 `<system-reminder>`——清单顶在模型眼前、不污染持久历史）+ **messages 流**（写入即推 todo 信号，前端实时渲染面板）。
+Todo 是 Agent 的短期工作清单，不是业务任务实体或审计日志。每个执行 scope 只有一张：
 
-## 2. 契约（引用）
+- 主 Agent：scope ID = Conversation ID；
+- Subagent：scope ID = Subagent run ID，同时保留父 Conversation ID。
 
-表 `todos`（每执行作用域一行——PK `scope_id` = subagent run 内取 subagent id、否则对话 id；列含 conversation_id + subagent_id + items json）→ [database.md](../database.md) · 码 `TODO_*` 4 → [error-codes.md](../error-codes.md)。LLM 工具：todo_write + todo_read（均 resident）——todo_read 无参、读回当前作用域整张清单**含已完成项**（复用 `Service.ReadRendered`=`Get`+`render`，空清单软返 cleared 串、无新码）。它补的缺口：**reminder 抑制全完成清单**（`reminder()` 在 0-open 时 return false——刻意不让完成清单每轮注入），故没 todo_read 时 agent 完成后被问列清单凭记忆**编造**；常驻（非懒）使读回无需 search_tools 跳转。被消费：chat host（实现 loop 的 `ReminderProvider` 端口）+ messages 流 + 只读看板 `GET /conversations/{id}/todos`（`?subagentId=` 可选）→ [api.md](../api.md)。
+每项没有 ID，只包含 content、activeForm 与状态：
+
+```text
+pending | in_progress | completed
+```
+
+一次 Write 整体替换当前清单；空数组明确表示清空。单张最多 64 项，content 必填，
+activeForm 缺席时回退到 content，status 缺席时默认为 pending。
+
+## 2. 模型可见性
+
+Loop 每一步前读取当前 scope，把有未完成项的清单注入临时 system reminder。Reminder：
+
+- 显示全部项和 open/done 计数；
+- 要求保持一个 in_progress；
+- 不写入 Message 历史；
+- 清单为空或全部 completed 时不注入。
+
+`todo_read` 始终可读完整持久清单，包括 completed 项。它解决 reminder 在全部完成后
+主动消失、模型却仍需诚实回顾清单的问题。`todo_write` 回显刚写入的完整 Markdown。
+
+## 3. 持久化与实时投影
+
+`todos` 每 scope 一行，items 作为 JSON value 整体覆盖。无行和空清单对读取者语义相同，
+不是错误。
+
+每次 Write 后在 messages 流发送 durable `node.type = "todo"` Signal，scope 锚父
+Conversation；Subagent ID 放在 payload，允许 UI 嵌入正确运行树。DB 是事实源，漏掉实时
+推送时由 REST 重新读取。
+
+## 4. 契约
+
+Conversation Todo 读端点见 [`api.md`](../api.md)，表见
+[`database.md`](../database.md)，Signal 见 [`events.md`](../events.md)，错误见
+[`error-codes.md`](../error-codes.md)。Todo 由 Loop 的 ReminderProvider 消费，不进入
+Relation 或 Touchpoint。

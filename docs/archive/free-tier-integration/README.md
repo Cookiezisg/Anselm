@@ -1,16 +1,20 @@
 ---
 id: WRK-032
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-20
-reviewed: 2026-06-20
+reviewed: 2026-07-31
 review-due: 2026-09-18
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/backend/managed-gateway.md, docs/references/backend/api.md
 ---
 
 # Anselm 免费档网关 —— 后端集成实施计划（START HERE）
+
+> **冻结历史快照。** 实施已结束，正文中的模型、端点与代码锚点可能过期；当前事实见
+> [`managed-gateway.md`](../../references/backend/managed-gateway.md) 与
+> [`api.md`](../../references/backend/api.md)。
 
 > **本文 = 把已上线的免费网关接进 Anselm 后端作为「内置 provider/model」的代码级实施计划。** 自包含、可据以施工。
 >

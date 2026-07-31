@@ -11,6 +11,10 @@ audience: [human, ai]
 
 # 0005 — 工具链 devbox/nix → mise（supersede ADR 0004 §工具链）
 
+> **部分取代**：mise 与 Xcode 的决策仍有效；正文中“macOS 需要 CocoaPods”
+> 已由 [ADR 0019](0019-vendor-media-kit-video-linux-only.md) 取代。当前 macOS
+> 宿主使用 Swift Package Manager。
+
 ## 背景
 
 [ADR 0004](0004-frontend-flutter-architecture.md) 落地时把 Flutter 加入 devbox（nix）管理（与 `go`/`gnumake` 同管）。随后真跑桌面 app 时发现 **nixpkgs flutter 对 macOS 桌面构建结构性不兼容**,经验证如下:

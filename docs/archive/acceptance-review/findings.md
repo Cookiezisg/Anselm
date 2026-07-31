@@ -4,10 +4,10 @@ type: working
 status: archived
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-12
+reviewed: 2026-07-31
 review-due: 2026-09-12
 expires: 2026-09-12
-landed-into: ""
+landed-into: docs/archive/acceptance-review/TERMINAL-REPORT.md
 audience: [human, ai]
 ---
 
@@ -219,4 +219,3 @@ llmmock 的 PromptDump 把每个视角的 system prompt / 工具 schema / 请求
 - **Subagent 嵌套树**：general-purpose 子运行结果同步回喂；sub-message 以 `subagentId` 落父对话（重水合源）；**子集物理剔除 Subagent 工具**（深度 1 守卫实证）。
 - **SSE 重连 replay**：live 流带 ephemeral delta；`fromSeq=<durable seq>` 重连重放其后 durable 帧（close 带全文快照）、**delta 绝不重放**（E2）。线缆事实：fromSeq=0 是「仅实时」哨兵、重放语义 = seq > fromSeq。
 - **utility 缺席静默降级**：未命名不起标题、压缩越线不压缩、主链三回合零错误。
-

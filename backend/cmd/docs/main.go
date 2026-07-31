@@ -1,9 +1,10 @@
 // Command docs is the documentation gate (GOVERNANCE.md §11): it lints docs/ for frontmatter
-// validity, lifecycle rules, freshness, the INDEX line cap, and orphan links. Errors exit 1
-// (fail the gate); warnings print but do not fail. Run from backend/: `go run ./cmd/docs --root=..`.
+// validity, ID uniqueness, directory placement, lifecycle rules, freshness, the INDEX line cap,
+// and orphan links. Errors exit 1 (fail the gate); warnings print but do not fail. Run from
+// backend/: `go run ./cmd/docs --root=..`.
 //
-// Command docs 是文档门禁（GOVERNANCE §11）：lint docs/ 的 frontmatter 合法性、生命周期规则、新鲜度、
-// INDEX 行数上限、孤儿链接。错误 → exit 1（门禁失败）；警告只打印不失败。
+// Command docs 是文档门禁（GOVERNANCE §11）：lint docs/ 的 frontmatter 合法性、ID 唯一性、目录归属、
+// 生命周期、新鲜度、INDEX 行数与孤儿链接。错误 → exit 1（门禁失败）；警告只打印不失败。
 package main
 
 import (
@@ -30,6 +31,7 @@ var (
 	linkRe          = regexp.MustCompile(`\[[^\]]*\]\(([^)]+)\)`)
 	fencedRe        = regexp.MustCompile("(?s)```.*?```")
 	inlineCodeRe    = regexp.MustCompile("`[^`]*`")
+	docIDRe         = regexp.MustCompile(`^(?:DOC|WRK)-[0-9]{3}(?:-[A-Z0-9][A-Z0-9-]*)?$`)
 	frontmatterDate = "2006-01-02"
 )
 
@@ -64,6 +66,7 @@ type linter struct {
 	now     time.Time
 	errs    []string
 	warns   []string
+	ids     map[string]string
 }
 
 func (l *linter) errf(format string, a ...any) { l.errs = append(l.errs, fmt.Sprintf(format, a...)) }
@@ -75,6 +78,7 @@ func (l *linter) warnf(format string, a ...any) {
 //
 // run 遍历 docs/ 下每个 .md 应用逐文件检查，再跑孤儿链接 pass。
 func (l *linter) run() {
+	l.ids = make(map[string]string)
 	var files []string
 	_ = filepath.WalkDir(l.docsDir, func(path string, d os.DirEntry, err error) error {
 		if err != nil || d.IsDir() || !strings.HasSuffix(path, ".md") {
@@ -126,6 +130,16 @@ func (l *linter) checkFile(path string) {
 		l.errf("%s: missing frontmatter (GOVERNANCE §3)", rel)
 		return
 	}
+	if id := strings.TrimSpace(fm["id"]); id != "" {
+		if !docIDRe.MatchString(id) {
+			l.errf("%s: invalid id %q (GOVERNANCE §4)", rel, id)
+		}
+		if previous, exists := l.ids[id]; exists {
+			l.errf("%s: duplicate id %q (already used by %s; GOVERNANCE §4)", rel, id, previous)
+		} else {
+			l.ids[id] = rel
+		}
+	}
 	for _, f := range requiredFields {
 		if strings.TrimSpace(fm[f]) == "" {
 			l.errf("%s: frontmatter missing required field %q", rel, f)
@@ -137,19 +151,83 @@ func (l *linter) checkFile(path string) {
 	if s := fm["status"]; s != "" && !validStatuses[s] {
 		l.errf("%s: invalid status %q (GOVERNANCE §6)", rel, s)
 	}
+	if want := expectedType(rel); want != "" && fm["type"] != "" && fm["type"] != want {
+		l.errf("%s: type %q does not match canonical directory type %q (GOVERNANCE §5)", rel, fm["type"], want)
+	}
+	if fm["status"] == "archived" {
+		l.errf("%s: status archived belongs under top-level archive/ (GOVERNANCE §5/§6)", rel)
+	}
+	if archiveLikeWorkingPath(rel) {
+		l.errf("%s: working/ cannot contain a private archive/legacy/old subtree; use top-level archive/ (GOVERNANCE §5/§9)", rel)
+	}
 
+	for _, field := range []string{"created", "reviewed", "review-due"} {
+		if value := strings.TrimSpace(fm[field]); value != "" {
+			if _, err := time.Parse(frontmatterDate, value); err != nil {
+				l.errf("%s: frontmatter field %q must be YYYY-MM-DD, got %q (GOVERNANCE §3)", rel, field, value)
+			}
+		}
+	}
 	// review-due past → warn (not fail).
 	if due, err := time.Parse(frontmatterDate, fm["review-due"]); err == nil && due.Before(l.now) {
 		l.warnf("%s: review-due %s is past (re-review)", rel, fm["review-due"])
 	}
 	// working doc > 90 days with empty landed-into → fail.
 	if fm["type"] == "working" {
+		if _, exists := fm["landed-into"]; !exists {
+			l.errf("%s: working frontmatter missing field %q (GOVERNANCE §3/§9)", rel, "landed-into")
+		}
 		if created, err := time.Parse(frontmatterDate, fm["created"]); err == nil {
 			if l.now.Sub(created) > time.Duration(workingMaxDays)*24*time.Hour && strings.TrimSpace(fm["landed-into"]) == "" {
 				l.errf("%s: working doc older than %dd with empty landed-into (GOVERNANCE §9)", rel, workingMaxDays)
 			}
 		}
 	}
+}
+
+// expectedType maps canonical top-level directories to their only legal document type. Log
+// documents are intentionally placed by their owning system (for example a working campaign log
+// remains type=working); introducing a standalone log home requires a GOVERNANCE §2/§5 change.
+//
+// expectedType 把 canonical 顶层目录映射到唯一合法类型。日志随所属系统归类（例如 working 战役日志
+// 仍是 type=working）；若要新增独立 log 目录，必须先改 GOVERNANCE §2/§5。
+func expectedType(rel string) string {
+	if rel == "GOVERNANCE.md" {
+		return "concept"
+	}
+	switch strings.SplitN(rel, "/", 2)[0] {
+	case "concepts":
+		return "concept"
+	case "references":
+		return "reference"
+	case "how-to":
+		return "how-to"
+	case "decisions":
+		return "decision"
+	case "working":
+		return "working"
+	default:
+		return ""
+	}
+}
+
+// archiveLikeWorkingPath rejects the historical anti-pattern working/<campaign>/archived/. There is
+// exactly one graveyard: docs/archive/. Segment matching avoids false positives in prose filenames.
+//
+// archiveLikeWorkingPath 拒绝历史反模式 working/<战役>/archived/。墓地只有 docs/archive/ 一个；
+// 按路径段匹配，避免普通文件名误报。
+func archiveLikeWorkingPath(rel string) bool {
+	if !strings.HasPrefix(rel, "working/") {
+		return false
+	}
+	parts := strings.Split(filepath.ToSlash(rel), "/")
+	for _, part := range parts[1 : len(parts)-1] {
+		switch strings.ToLower(part) {
+		case "archive", "archived", "legacy", "old":
+			return true
+		}
+	}
+	return false
 }
 
 // checkLinks flags orphan relative links: a markdown link to a local path (not http/anchor) whose

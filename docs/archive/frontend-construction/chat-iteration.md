@@ -1,7 +1,7 @@
 ---
 id: WRK-077
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-23
 reviewed: 2026-07-25

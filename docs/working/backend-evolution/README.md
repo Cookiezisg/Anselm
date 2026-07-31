@@ -4,91 +4,80 @@ type: working
 status: active
 owner: @weilin
 created: 2026-06-18
-reviewed: 2026-07-29
-review-due: 2026-10-27
+reviewed: 2026-07-31
+review-due: 2026-08-14
 audience: [human, ai]
 landed-into:
 ---
 
-# Backend Evolution · 动态真实场景迭代
+# Backend Evolution
 
-> 这里不是一次性测试计划，而是后端持续自我校正的工作面。每一轮都让真实用户路径、后端真相和可复现证据共同决定下一轮该测什么、该修什么、该永久锁住什么。
+Backend Evolution 是后端长期自我校正循环。它用真实用户路径发现静态测试看不见的
+断裂，再把稳定结论沉淀为代码、回归测试和 current reference。
 
-## 从这里开始
+## 文件职责
 
-先读本页，再读 [`CURRENT.md`](CURRENT.md) 的当前边界与战役；选场景时读 [`FRONTIER.md`](FRONTIER.md)；确认发现后只向 [`LOG.md`](LOG.md) 追加证据。已收口工作和旧体系只在 [`HISTORY.md`](HISTORY.md) 与 [`archived/`](archived/) 中追溯，不能拿来替代当前结论。
+| 文件 | 只承担 |
+|---|---|
+| [`CURRENT.md`](CURRENT.md) | 当前产品边界、优先面与运行准入 |
+| [`FRONTIER.md`](FRONTIER.md) | 尚未闭合的下一批路径与 reprobe 触发器 |
+| [`LOG.md`](LOG.md) | 只追加的已确认 finding、证据、守卫与提交 |
+| [`HISTORY.md`](HISTORY.md) | 已收口战役和历史材料的短索引 |
 
-本体系保持原有八拍，不另起 v2：
+完成证据不能堆回 FRONTIER，当前契约不能埋进 LOG，历史快照不能冒充现状。
+
+## 循环
 
 ```text
-REVIEW → EXPLORE → CONFIRM → GENERALIZE → FIX → VERIFY → LOG → COMMIT → REVIEW
+REVIEW
+→ EXPLORE
+→ CONFIRM
+→ GENERALIZE
+→ FIX
+→ VERIFY
+→ LOG
+→ COMMIT
+→ REVIEW
 ```
 
-## 工作原则
+1. **Review**：确认当前源、workspace、路由类别、上游条件和费用边界。
+2. **Explore**：选择高频且证据缺口大的路径，观察真实 API、持久状态和媒体字节。
+3. **Confirm**：换样本或同类实现复现，区分模型波动、外部窗口与确定性缺陷。
+4. **Generalize**：定位共享咽喉和全部同类调用方。
+5. **Fix**：做最小完整修复，不靠隐藏错误、删能力或放宽断言换绿。
+6. **Verify**：重跑最小复现、受影响回归及必要的真实验收。
+7. **Log/Commit**：确认后只向 LOG 追加证据，以一个原子提交落地。
 
-1. **真实路径优先。** 静态测试是基线与回归，不是用户体验的替身。涉及模型、网关、媒体、异步上游或费用的结论，必须有相应的真实路径证据。
-2. **后端状态裁决。** 模型说“完成”不算完成；必须核对实体、执行记录、附件、交互、人闸、配额或线缆记录中的实际终态。
-3. **先泛化，后修复。** 先确认缺陷是在某个工具、共享协议层、执行面，还是能力投影层；同类问题一次修到共同咽喉。
-4. **一项事实，一份合适的守卫。** 能转为零 token 结构断言的立即锁入常规回归；必须花真钱才能成立的事实，进入明确门控的 live acceptance，不假装它是普通单测。
-5. **能力应诚实。** 工具或输入不支持时必须诚实缺席或信息化降级；不能靠“调用后失败”制造假可用性，也不能静默丢媒体。
-6. **日志是事实索引，不是日报。** 只记录已确认的发现、范围、证据、守卫和提交；探索中的猜测留在当前对话或 frontier，不进入 LOG。
+## 证据规则
 
-## 当前产品模型：写留给受管，读交给目录
+- 模型自然语言不是后端终态；以实体、Message Blocks、Execution、Flowrun、
+  Attachment、Interaction、quota 或 wire recorder 裁决。
+- Mock/单测证明确定性契约，不证明真实 provider、公开媒体 URL、费用和异步上游。
+- 真实媒体必须同时验证引用、附件原件或派生字节、进入下游的 wire，以及调用次数。
+- 费用型操作先确认 danger/approval 与最大调用数；不允许模型无界重调。
+- 可以转成零 token 断言的结论进入普通回归；必须依赖真钱的结论留在显式
+  `EVALS_*` acceptance。
+- 失败或 skip 必须保留原始分类；上游 rate window 不能伪造成产品绿灯或产品缺陷。
 
-iteration 的路由维度以 [WRK-085](../../archive/byok-governance/README.md)（已 landed，当前事实在 `references/backend/foundation/stream-llm.md`）为治理依据：
+## 产品边界
 
-| 路径 | 产品职责 | 本体系中的验证重点 |
-|---|---|---|
-| `managed-read/default` | Anselm 默认聊天与多模态输入 | 开箱即用、gateway/device proof、能力投影、配额与降级 |
-| `byok-read` | BYOK 文本、看图、看视频、听音频 | 目录能力、方言、用户可改配置、真实输入投影 |
-| `managed-write` | 出图、改图、语音、朗读、视频、音色 | 受管路由、二进制、异步状态、缓存、配额与危险操作 |
-| `hybrid` | BYOK 模型理解/调度，Anselm 执行生成 | 两侧职责正确接合；这是真实产品路径，不是诊断例外 |
+| 路径 | 职责 |
+|---|---|
+| managed-read/default | 默认对话、多模态输入、device proof 与受管能力投影 |
+| byok-read | 用户选择的文本/图片/视频/音频/原生文档读取 |
+| managed-write | 图像、语音、视频、音色等生成与资源操作 |
+| hybrid | BYOK 模型理解/调度，受管 Anselm 执行生成 |
 
-因此，`anselm-auto` 是默认体验与所有写入能力的主路径；但 BYOK 的读取能力是正式产品面，不能降格为“仅根因诊断”。相反，已删除的直连生成方言不应被重新作为可用路径测试。
+默认与 managed acceptance 走已部署 Anselm API，不索取本地 provider secret。
+BYOK acceptance 只在用户明确提供测试 key 时启用，并验证的是用户选择的直连读路径。
+历史直连生成测试缝只在 [`HISTORY.md`](HISTORY.md) 登记，不是当前产品入口。
 
-## 一轮如何执行
+## 停止边界
 
-### 1. REVIEW
+本循环没有“全部测完”。一次运行可以因用户要求、费用预算、部署不可用或外部窗口暂停，
+但暂停前必须：
 
-核对当前源、当前 workspace、当前网关路由和本轮可花费的真实验收额度；读 CURRENT 与 FRONTIER。旧绿格若依赖的承重面改变，按 `reprobe` 对待，不能自动豁免。
-
-### 2. EXPLORE
-
-从 frontier 选择高频、信息量高的路径。优先寻找“承诺与现实不一致”、跨执行面断裂、能力误投影、恢复失败、隐形重复消费、模型能走但用户无法理解或修复的情形。多模态是横切值流：来源、存储、传递、能力门控、下游消费、渲染和费用都要是一份事实。
-
-### 3. CONFIRM
-
-换输入、换角色或换同类实现复现；区分模型偶发现象、上游不稳定和后端确定性缺陷。费用型操作要先确认审批、人闸和调用次数，再继续扩大样本。
-
-### 4. GENERALIZE → FIX
-
-先找共享层和所有同类调用点，再做最小且完整的修复。修复不得通过放宽断言、隐藏错误、把一个真实能力从目录中删掉来取得绿灯。
-
-### 5. VERIFY
-
-重跑最小复现、受影响回归和所需的 live acceptance；比较修复前后真实状态与线缆。若实际体验没有改善，回到 GENERALIZE 或 FIX。
-
-### 6. LOG → COMMIT
-
-确认后向 LOG 追加一行，连同代码、回归和文档真相源以一个原子提交落地。一个确认的修复对应一个提交。
-
-## 证据层级
-
-| 层 | 用途 | 不能证明什么 |
-|---|---|---|
-| 静态/单元/集成 | 契约、边界、廉价回归 | 真上游协议、真实模型行为、真实付费副作用 |
-| 结构化 testend | API、持久化、执行面组合 | 生产网关或供应商实际线缆 |
-| 录制型真钱验收 | 请求线缆、真实二进制、调用次数、异步上游 | 人眼渲染与交互质量 |
-| 人眼/真机复核 | 渲染、进度、播放、交互与可理解性 | 后端字节是否真的到达模型 |
-
-真实受管验收的前提是**已部署的 Anselm API Serve**，不是本地 provider secret。主仓通过 device-proof install 使用网关的公开产品能力；DeepSeek/Qwen 等上游凭证、媒体公开主机、费用账本和配额均留在 API Serve。现存以 `DASHSCOPE_API_KEY` / `ANSELM_DASHSCOPE_BASE` 驱动的 `EVALS_MEDIA`、`EVALS_VOICE` 是迁移前的直连测试缝，不能作为本体系的启动条件；它们须被收敛为不接触 provider secret 的受管端到端验收。
-
-## 文档边界
-
-- `README.md`：制度、术语、证据标准与循环。
-- `CURRENT.md`：当前产品边界、活动战役和准入条件。
-- `FRONTIER.md`：下一批高频场景、抽样原则和 reprobe 队列。
-- `LOG.md`：只追加的已确认发现。
-- `HISTORY.md`：已收口战役与旧材料入口。
-
-本体系没有“全测完”的状态。停止只由外部条件决定（例如额度、部署或用户要求暂停）；停止前仍需把已开始的改动收至可验证的干净状态。
+- 收敛正在编辑的改动；
+- 记录已确认事实和未确认边界；
+- 运行与改动相称的门禁；
+- 留下干净、可继续的工作树。

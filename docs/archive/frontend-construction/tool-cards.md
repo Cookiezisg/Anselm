@@ -1,12 +1,13 @@
 ---
 id: WRK-053
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-03
 reviewed: 2026-07-03
 review-due: 2026-10-01
 audience: [human, ai]
+landed-into: docs/references/frontend/features/chat.md
 ---
 
 # V3 tool_call 卡片 —— 建造规范(在建)

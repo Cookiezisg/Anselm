@@ -1,13 +1,13 @@
 ---
 id: WRK-064
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-10
 reviewed: 2026-07-10
 review-due: 2026-10-08
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/design-system.md
 ---
 
 # 右岛重构 —— 统一头 + 左岛行语言 + chat 侧幕手风琴

@@ -1,141 +1,43 @@
-# Anselm demo — 能力清单（Capability Manifest）
+# Web Demo 覆盖边界
 
-> **覆盖闸**：demo 要“完整展示产品所有能力”，靠这张清单变成**可勾选**、而非口号。
-> 每行 = 一个**用户面能力** → 它在 demo 的归属面 → 后端契约出处 → 状态。
-> 投影自后端契约事实源：[`api.md`](../docs/references/backend/api.md) · [`database.md`](../docs/references/backend/database.md) · [`events.md`](../docs/references/backend/events.md)。
->
-> **UI 范式归宿**见 [`PATTERNS.md`](PATTERNS.md)（原语/Pattern 覆盖登记——每个范式标 covered/compose/pattern/escape-hatch + 归宿，杜绝造轮子）。本清单管"做哪些面"，PATTERNS 管"用什么件拼"。
->
-> **范围**（已定）：以**用户心智面**为主——默认隐藏 raw ID / endpoint / SSE scope / 执行行等内部细节（藏进 developer mode，排后）。
-> 遇到“后端小改即可满足”的，标 🔧 并记一行给后端（真 Flutter 前后端一起开工，demo 可反向提需求）。
+本页只登记 `demo/` **实际可浏览和被 Playwright 覆盖的静态 surface**。它不是
+Anselm 产品能力清单；当前产品能力见
+[`frontend overview`](../docs/references/frontend/overview.md) 和各 feature reference。
 
-**状态**：✅ 已落 · 🔨 进行中 · ▢ 规划 · 🔧 需后端小改 · 🅓 developer mode（排后）
+## 已装配 surface
 
----
+| Surface | 静态入口 | 数据与交互边界 |
+|---|---|---|
+| Chat | `features/chat/` | mock transcript、composer、右岛样本 |
+| Entities | `features/entities/` | mock 实体登记、详情、动作与版本样本 |
+| Scheduler | `features/scheduler/` | mock run board、图与节点调试样本 |
+| Documents | `features/documents/` | 旧文档原型；当前 Flutter 对应 Library |
+| Settings | `features/settings/` | mock 设置分类与 provider 样本 |
+| Notifications | `features/notifications/rail.js` | 只有 rail / inbox 原型，没有独立 sea |
+| Onboarding | `features/onboarding/onboarding.html` | 独立静态流程 |
+| Graph editor | `features/graph-editor/` | mock workflow 图编辑交互 |
+| Component reference | `features/reference/` | specimen catalog 与 stress cases |
 
-## 0. 地基（跨所有海洋）
+所有数据都是固定 fixture。即使页面可操作，也不代表真实 HTTP、SSE、持久化、
+错误恢复、权限或 provider 行为已经在此验证。
 
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 设计令牌 / 原语层（Web Components） | `core/tokens.css` · `core/primitives/` · `reference.html` | SPEC 数系 | ✅ |
-| L1 机械门禁 | `tools/lint.mjs` | — | ✅ |
-| 三岛外壳（左岛侧栏 / 海洋 / 右岛） | `core/shell.js` `core/sidebar.js` | — | ✅ |
-| 装配根 + feature 懒加载 loader | `core/app.js`（manifest→features/<id>/{rail,sea}.js 懒加载 + 优雅占位） | — | ✅ |
-| 选中 / 实时契约 | `core/{manifest,intent,live}.js` | 3 条 SSE 流（E1） | 🔨 契约就位、随海洋接 |
-| 状态翻译单源 / 实体类型单源 | `core/schema/{state-model,entity-kinds}.js` | events `node.type` · 9 kind | ✅ |
-| 三流实时（messages/entities/notifications） | `core/live.js`（mock→真 SseGateway 同契约） | events E1/E2/E3 | 🔨 |
+## 自动门禁覆盖
 
----
+`make -C demo verify` 当前检查：
 
-## 1. Entities 海洋（Quadrinity + 图节点 + 挂载实体）
+1. demo 源码规则与 token 使用；
+2. `reference.html` catalog 非空；
+3. 每个 specimen 的 console error、视口/格内溢出和危险注入；
+4. `app.html` 壳加载与横向溢出；
+5. settings 与 onboarding 活页 smoke；
+6. disabled keyboard、dialog 内容转义等命令式专项。
 
-> 默认呈现**用户能力面**（名称/说明/标签/当前版本状态/可执行能力），不裸露 id/endpoint/执行行。
+该门禁只保护 web demo 自己。Flutter 当前门禁是 `make -C frontend verify`，后端
+黑盒验收是 `make -C backend testend`。
 
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 实体侧栏（4 大组→kind→实体行 + New/过滤/排序 + 行尾 …） | `features/entities/rail`（an-sidebar-list；9 kind 归四项全能/图部件/连接/技能 4 可折叠大组） | `GET /{functions,handlers,agents,workflows,...}` | ✅ mock |
-| 改名 / 改说明（就地编辑 metadata） | 页头标题 hover 铅笔 → input + 保存/取消（an-title-change）；说明字段 hover 铅笔就地改（an-field-change） | `PATCH /{kind}/{id}`（name/description） | ✅ mock |
-| **Function**：代码 / 输入输出字段 / 依赖 / env 状态 / 运行历史 | entities sea（schema 渲染）+ 右岛试运行终端 | `function` 域；`:run` | ✅ |
-| **Handler**：methods / init 配置完整度 / 常驻状态 / 调用 | 同上 | `handler` 域；`:call` `/config` | ✅ |
-| **Agent**：prompt / skill / knowledge / tools 挂载健康 / 运行 | 同上 | `agent` 域；`:invoke` `/mount-health` | ✅ |
-| **Workflow**：图 / 生命周期 / 并发 / 关注 / 运行历史 | 实体页内嵌**定义图**框（`an-graph-canvas[mode=edit framed]` 定义态预览 + 缩放 + 进入编辑器；运行态归 scheduler）；编辑走**图编辑器海洋**（`features/graph-editor`：拖拽增删改连线 + 规范化 + 方向切 + 右岛检查器，**纯编辑无运行态**，编辑动作抛 `:edit` ops） | `workflow` 域；`:trigger` `:edit` 等 | ✅ |
-| **Control**：CEL 分支编辑（when→port + emit） | entities sea | `control` 域 | ✅ 展示（branch-editor 排后） |
-| **Approval**：模板（{{CEL}}）+ 决策规则编辑 | entities sea | `approval` 域 | ✅ 展示 |
-| **Trigger / MCP / Skill**：源配置·activations / 连接态·tools / frontmatter·激活 | entities sea | `trigger`·`mcp`·`skill` 域 | ✅ |
-| 版本 + diff（非 git 版本模型） | 实体页**版本 tab**（左 an-row 版本轨 + 右 `an-version-diff` 单框红绿 unified diff，逐版本对比）；function/handler/agent/workflow/control/approval 各按其 diff 字段 | `*/versions`；方案 A | ✅ |
-| 试运行终端（输入表单→状态→输出→日志） | 右岛 Terminal（可执行 kind 自动挂） | `:run/:call/:invoke` 同步执行 | ✅ |
-| AI 编辑实体（`:iterate` 开对话） | 实体 … 动作「AI 编辑」(sparkles) → 切 chat | `:iterate`→conversationId | 🔨 动作已挂、对话待 chat 海洋 |
-| 执行/调用记录 + 详情展开（点行下方展开 溯源/耗时/错误 kv） | 实体页运行历史/调用记录（`an-row` + `detail` → `an-kv` 展开面板）；全可执行 kind 通用（function/handler/agent/workflow/trigger/mcp） | `/executions` `/calls` `/flowruns` 等 | ✅ |
+## 变更纪律
 
----
-
-## 2. Scheduler 海洋（Workflow 运行驾驶舱）
-
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 运行图（2D DAG + 回边 + 节点态） | scheduler sea：运行看板选 run → `an-graph-canvas[mode=run]` 切该 run 的运行图（节点态着色、parked 高亮、回边 dashed） | flowrun tick（entities 流 ephemeral） | ✅ |
-| 单 workflow 运行看板 + 节点甘特（每次 run / 逐节点时段 · 循环 ×N · parked 等待） | `an-run-board`（左 = 该 workflow 每次 run 列表[多次 trigger]，右 = 选中 run 的节点甘特；点行同步切图+调试）+ `an-node-gantt`（逐节点条 + iters 多条 + parked 框 + future 占位） | `GET /flowruns?workflowId` · `flowrun_nodes` record-once（D3） | ✅ |
-| 节点调试详情（记忆化 result / 状态 / iteration / 耗时 / 错误） | 点图节点 / 甘特行 → 右岛（an-kv + code-editor + json-tree + approval-gate） | `GET /flowruns/{id}`（头 + 全节点行） | ✅ |
-| 审批收件箱 + 决策（yes/no，倒计时，first-wins） | parked 节点 → 右岛 `an-approval-gate[durable]` | `flowrun-inbox` · `:decide` | ✅ 展示（决策接装配层） |
-| replay 修复失败 run | 右岛 run 动作 `:replay` | `:replay` | ✅ 展示 |
-| 生命周期（stage/activate/deactivate/kill） | workflow 头动作 | `workflow :stage/:activate/...` | ▢ |
-| 并发策略（serial/skip/buffer/allow_all） | workflow 设置 | `concurrency` 字段 | ▢ |
-| 关注态（run 失败点亮 / completed 熄灭，自愈） | 侧栏/通知红点 | `workflow.attention_changed` | ▢ |
-
----
-
-## 3. Triggers（信号源，挂 Entities/Scheduler）
-
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 4 源配置（cron/webhook/fsnotify/sensor） | trigger 实体页 | `trigger` 域；`config` 自由 map | ▢ |
-| 引用计数 / 监听态 / 最近 fire | 实体头 meta | 派生 refCount/listening/lastFiredAt | ▢ |
-| 手动 fire | 实体动作 | `:fire`→activation | ▢ |
-| activations 日志（“为什么没触发”可查） | trigger tab | `/activations` | ▢ |
-| firings 收件箱（“触发了为什么没跑”处置） | trigger tab | `/firings`（pending/skipped/...） | 🅓 |
-
----
-
-## 4. Chat 海洋（对话运行时，主战场）
-
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 会话侧栏（置顶/今天/昨天/归档 + 搜索 + New + 每行 ⋯） | `features/chat/rail`（复用 `an-sidebar-list` 可折叠大组，dot=活态） | `conversations`（?sort/?archived） | ✅ mock |
-| 块流 transcript：text/reasoning/tool_call/tool_result/progress/compaction/turnEnd/todo + 逐 token 流式 | chat sea（`an-block-tree` 喂 blocks；reasoning/tool_call 默认折叠；pokeText/pokeLog 逐帧 Delta 流式） | messages 6 持久块型 + 8 流 node.type（E2，Open→Delta*→Close） | ✅ mock |
-| tool_result 多形态 + 失败态 | `an-block-tree` 结果分派：终端文本(Bash) / 搜索列表(WebSearch) / JSON 树(get_*/run_*) / **error 标红**(status=error) | 各 tool 族 result 形态 + StatusError | ✅ mock |
-| 回合终态变体（end_turn/max_tokens/max_steps/cancelled/error + errorCode） | `an-block-tree[turnEnd]` 按 stopReason 分态（max_steps warn+继续 / max_tokens ok / cancelled muted / error danger+code） | StopReason 五态 + errorCode 四种（MAX_STEPS_REACHED/TOOL_ERROR_STORM/…） | ✅ mock |
-| subagent 子树 + invoke_agent 嵌套（E3） | `an-block-tree[subtree]` 左导轨缩进 + 递归（subagent 深度 ≤1；invoke_agent 轨迹耐久在 Execution.transcript） | E3 `parentBlockId` | ✅ mock |
-| 并行工具批（同 executionGroup 多项 running → 一并 settle） | tool_call items[] 多项逐项 running 脉冲 → settle | `execution_group` 注入字段 · runTools 批并发 | ✅ mock |
-| 工具危险确认（danger 三级自报，逐次确认） | tool_call 行内嵌 `an-approval-gate[chat]`（批准/始终批准/拒绝 + danger 徽） | humanloop interaction（ephemeral 信号；决议靠 tool_result 闭合） | ✅ mock |
-| agent 反问 ask_user（accept{answer}/decline + options 单选） | tool_call 行内嵌 `an-approval-gate[ask]`（提交/跳过 + 选项 chip；区别于 danger 门） | `/interactions`（ask kind；broker pending 真相，重连 REST 重取） | ✅ mock |
-| 一次 Send = 202 + SSE 流式回合（每对话单在途回合 → 生成中切「停止」） | `an-composer` generating 态 + 脚本回放（an-send/an-stop → cancelled 终态条） | `:send` 202 · `STREAM_IN_PROGRESS` 409 · `:cancel` | ✅ mock |
-| 附件（多模态）/ @提及（冻结快照） | `an-composer`（附件 chip 可删 + @ 内联药丸，复用 `AnMention`） | `attachments` · mention freeze-on-send | ✅ mock |
-| 构建实体镜像（:iterate edit/create → 右岛实时填充【新 active 版本】，立即生效可 revert） | 右岛 `an-right-island` + `an-code-editor`（build 流逐字注入 + revert；**无草稿/采用门**） | entities 流 build 镜像（scope=tool_call id）；edit 写完即 active、revert 移指针 | ✅ mock |
-| Todo 实时清单看板（3 态 pending/in_progress/completed，整表替换写） | `an-block-tree[todo]` 折叠看板（恰一项 in_progress 流光） | todo 信号（durable）`/conversations/{id}/todos` | ✅ mock |
-| :triage 完整闭环（诊断→invoke_agent 深诊→edit 修复→**手动 retry**） | cv_triage：get_flowrun → invoke_agent 子树 → edit_workflow（立即生效）→ 手动 retry 文案（不自动重跑） | triageSteer · `:triage`→conversationId | ✅ mock |
-| 对话模型/时间 meta | ocean-header meta（modelOverride ?? workspace 默认） | conversation.modelOverride · GET /usage（用量/systemPrompt 详情面待补） | ✅ 部分 |
-| 压缩标记（compaction 水位 summaryCoversUpToSeq + 已压缩条数） | `an-block-tree[compaction]` 信息态耳语 | `conversation.summaryCoversUpToSeq`（压缩器自动写，无人工门控） | ✅ mock |
-
----
-
-## 5. Documents 海洋
-
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 文档树（嵌套折叠 + New + 搜索 + 每行 ⋯[含加子文档]；拖拽待补） | `features/documents/rail`（复用 `an-sidebar-list` 嵌套行扩展，非另造） | `/documents/tree` `?parentId` | ✅ |
-| 无标记 WYSIWYG 编辑（slash + @提及 + 块手柄＋ + 悬卡；选区工具待补） | documents sea（**逃生舱**：编辑器画布） | `documents` content | ✅ |
-| move / duplicate（深拷子树） | 文档动作 | `:move` `:duplicate` | ▢ |
-| 反链 / wikilink（relation 入边） | 右岛 | relation 边 | ▢ |
-| @引用跳实体 | inline | Intent.select | ▢ |
-
----
-
-## 6. 检索 / 记忆 / MCP / Skill
-
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 综搜 / 垂搜（混合 BM25+语义） | 全局搜索面 | `GET /search` | ▢ |
-| 搜索设置（embedder 引擎态：ready/downloading/...） | settings | `/search/settings` | ▢ |
-| Memory（pinned 常驻 + 列表 + pin/unpin） | memory 面 | `/memories` `:pin` | ▢ |
-| MCP 服务器（列表+连接态 / 安装市场 / tools / reconnect） | mcp 面（连接态实时变色） | `mcp` 域；`status` 信号 | ▢ |
-| Skill（文件编辑 + activate inline/fork + allowed-tools 预授权） | skill 面 | `skill` 域；`:activate` | ▢ |
-| MCP 调用日志 / stderr | dev mode | `/calls` `/stderr` | 🅓 |
-
----
-
-## 7. Notifications / Settings / Onboarding
-
-| 能力 | demo 面 | 后端出处 | 状态 |
-|---|---|---|---|
-| 通知 inbox（“需要你”可操作 + FYI + 已读） | 铃铛轴 inbox | notifications 流；`workflow.approval_pending` 等 | ▢ |
-| 设置：模型（3 场景）/ APIKey 保险箱(BYOK) / 工作区 / 搜索 / MCP / 运行时 | 头像轴 settings | workspace/apikey/model/sandbox 域 | ▢ |
-| Onboarding（外观+语言 → API key → 搜索 provider） | 独立页 | `/providers` model-capabilities | ▢ |
-| sandbox 运行时/磁盘/GC / 限额 | dev mode | `/sandbox/*` `/limits` | 🅓 |
-
----
-
-## 待提后端的小改（🔧，随设计推进登记）
-
-> 真 Flutter 前后端一起开工，此处记“demo 形态需要、后端小改即可满足”的项，避免凭空发明产品能力。
-
-- _（暂无；逐海洋设计时增补）_
+- `core/manifest.js` 是 surface 装配清单；新增/删除 surface 时同步本页。
+- `features/reference/catalog.js` 与 `catalog-stress.js` 是 specimen 清单；变更
+  primitive 覆盖时同步 [`PATTERNS.md`](PATTERNS.md)。
+- 规划项不进入本页。尚未实现的想法放 issue 或真正 active working 文档。

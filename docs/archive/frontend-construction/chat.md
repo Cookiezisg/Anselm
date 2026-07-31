@@ -1,12 +1,13 @@
 ---
 id: WRK-050
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-30
 reviewed: 2026-06-30
 review-due: 2026-09-28
 audience: [human, ai]
+landed-into: docs/references/frontend/features/chat.md
 ---
 
 # Feature:Chat(对话海洋)—— 建造文档(在建)
@@ -62,7 +63,7 @@ audience: [human, ai]
 
 ### B.2 端到端实证(2026-07-02,真后端 + 免费模型,cliclick 亲测)
 
-`make -C backend run`(:8742)+ 真 app(`ANSELM_BACKEND_URL`):workspace 冷启动自建 + **免费档自动开通**(managed key `anselm`/`deepseek-v4-flash`)→ landing 首发懒建 → **无默认模型时诚实错误横幅**(`LLM_RESOLVE_ERROR · no model configured for scenario`)→ 设 dialogue 默认后**真流式全程**(thinking 流光→流窗→thought 收起;正文 token 级贴底跟随;未闭合 markdown 乐观渲)→ **自动命名走 utility scenario**(只设 dialogue 不够——rail+head 完成瞬间活着双落)→ 流中 Stop 落 `cancelled` + 半截保留 + Stopped 横幅 → 杀 app 重启 transcript/标题/横幅全量恢复。**E2E 揪出并同切片修复 2 真 bug**:未满屏首行被浮层头盖(dock-to-min 修)· rail 空标题空白行(New chat 回落修)。
+`make -C backend run`(:8742)+ 真 app(`ANSELM_BACKEND_URL`):workspace 冷启动自建 + **免费档自动开通**(managed key `anselm`/`deepseek-v4-flash`)→ landing 首发懒建 → **无默认模型时诚实错误横幅**(`LLM_RESOLVE_ERROR · no model configured for scenario`)→ 设 dialogue 默认后**真流式全程**(thinking 流光→流窗→thought 收起;正文 token 级贴底跟随;未闭合 markdown 乐观渲)→ **自动命名走 utility scenario**(只设 dialogue 不够——rail+head 完成瞬间活着双落)→ 流中 Stop 落 `cancelled` + 半截保留 + Stopped 横幅；当前账号无法生成但目录仍列出的模型落 `LLM_MODEL_NOT_FOUND`，失败横幅同样提供重选模型入口 → 杀 app 重启 transcript/标题/横幅全量恢复。**E2E 揪出并同切片修复 2 真 bug**:未满屏首行被浮层头盖(dock-to-min 修)· rail 空标题空白行(New chat 回落修)。
 
 ### B.3 后端契约要点(后续 V3–V8 建前仍必读)
 

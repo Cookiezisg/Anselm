@@ -4,31 +4,72 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-07-21
-review-due: 2026-10-19
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# stream + llm —— SSE 总线与 LLM 端口
+# stream + llm——实时总线与模型端口
 
-## stream（domain 协议 + infra Bus）
+## 1. Stream
 
-**domain/stream 是传输协议**（与 messages 的内容模型刻意分离）：`Frame` 四型 open/delta/close/signal；`Scope{Kind, ID}` 实体锚定；**durable/ephemeral 双轨**（E2）——durable 帧（open/close/非 ephemeral signal）分 seq 入 replay 环，ephemeral 帧（delta/tick）seq=0 实时扇出、不入环、订阅者满则丢（token 级 delta 永不撑爆窗口/卡生产者）。close 带快照供 replay。
+`domain/stream` 定义与消息内容解耦的实时协议：
 
-**infra/stream 是进程内 Bus**：一个类型实例化三次（messages/entities/notifications，E1）；per-workspace seq + replay 环；重连从续传游标重放（`Last-Event-ID` 头优先、否则 `?fromSeq` 查询参，缺/坏 → 0 仅实时），环已淘汰 → `SEQ_TOO_OLD`（410 Gone，前端全量重拉）。v1 按 workspace 全量推、前端自滤（E1 约定）。
+- `Frame`：open / delta / close / signal；
+- `Scope{Kind, ID}`：实体锚点；
+- durable 帧分配 `seq>0` 并进入 replay ring；
+- ephemeral delta/tick 使用 `seq=0`，订阅者拥塞时可丢，不阻塞生产者；
+- close 携带完整快照，支持重放客户端收口。
 
-## llm（provider 端口）
+`infra/stream.Bus` 只实例化三次：messages、entities、notifications。每个 workspace 独立维护序号和 replay ring。续传优先读 `Last-Event-ID`，再读 `fromSeq`；游标早于 ring 返回 `SEQ_TOO_OLD` 410，消费方重取 REST 真相。
 
-`Client` 单方法 `Stream(ctx, Request) iter.Seq[StreamEvent]`——全部 provider（anthropic/openai/google/deepseek/qwen/zhipu/moonshot/openrouter/ollama/custom/anselm，共 11 家）适配到同一事件流（text/reasoning delta、tool start/delta、finish 带 token 计数）。要点：
-- **能力目录 follow models.dev（WRK-082 批A；H12-c 起装下整个上游注册表）**：**173 家 / 5585 模型**的能力数字与**模态数组**出自 `modelcatalog.json`（models.dev 裁剪快照,vendored 入库,`make update-model-catalog` 刷新;裁剪谓词 = 输出含 text ∧ id 不含 realtime ∧ `limit.context` > 0——三条都是**「这场聊天能不能发生」**;**`tool_call` 不再是过滤器、而是随行的一个事实 `tools`**(H12-b,用户 0728 拍板):没有工具的模型是个**完全合格的聊天模型**、一个**没用的 agent**,那是同一行上的两个事实,故它带着 `tools:false` 活下来、由选择器标「仅聊天 · 不能当 agent」。此前直接丢掉它 = **替一个从没这么要求过的用户**扔掉一整类可用模型,且扔得**看不见**。`limit.context > 0` 是放宽的**当场**冒出来的:`gpt-image-1.5` 声明输出含文本却没有 context,而没有窗口就没有信封可量、压缩与附件预算都会对着 0 算。放宽后 123 → 131 个模型,其中 8 个是仅聊天;H12-c 再把裁剪从「六家」放到**全部 173 家**、5585 个模型、1.38MB vendored,并多带两个 provider 级事实:**`npm`**(SDK 包名,**方言线索**——173 家里 137 家发 `@ai-sdk/openai-compatible`,其余各自发包却说同一条线缆,当协议名读会凭空发明二十几条不存在的方言)与 **`api`**(base URL,**149/173 才有**——openai/anthropic/google/azure/bedrock/cohere/xai/groq 这些一方家的 SDK 把它写死在包里、目录无从记录,故预填是「目录值 ?? 已知常量 ?? 空(则要求用户填、鉴权失败报错指向那一栏)」;另有 4 家的 `api` 是 `${ENV}` 模板、只能当形状提示不能当值)）+ 运行时刷新（boot 后 30s 一次、24h TTL、失败静默留旧,缓存 `<dataDir>/modelcatalog/catalog.json` 优先于 vendored）。投影公式 **目录模态 ∧ 方言 partMask**（模型会读 PDF 但方言渲不了 file part 则不宣称——能力描述整条路）;**旋钮 = 目录 × 方言拼法**(H12-c):**有哪些控件**出自 models.dev 的 `reasoning_options`(3744 个模型声明了它,三种形状——`effort` 枚举 / `toggle` 开关 / `budget_tokens` 整数),**控件在线缆上叫什么**留在方言里(`knobs.go` 的 `knobSpelling`:`reasoning_effort` / `thinking` / `enable_thinking` 三家三种拼法 + 默认值)。**这取代了五张按 model-id 前缀猜的手写表**——那些表列的是「哪些模型有旋钮」、厂商每发一个模型就要改一次,且会过度声明:`{"deepseek", …}` 匹配所有 deepseek id、把思考控件也发给了**根本不是推理模型**的 `deepseek-chat`。**拼法缺席即沉默**(qwen 没有 effort 拼法就不渲 effort)——发一个我们发明的参数名,换来的是读起来像「这个模型坏了」的 400。两处例外各有理由:**anthropic** 的 `thinking` 值集逐模型不同而目录只声明 effort,故保留手表(`byPrefix` 逃生口);**openai** 的 `verbosity` 不是推理控件,故只随「有 effort 的模型」出现(无条件挂会把它挂到 gpt-4o 上——能力测试逮到的)。长尾约 160 家拿到 `reasoning_effort`,因为那是它们自己声明会讲的**OpenAI 兼容协议本身**的参数名、不是对某一家的猜测;开关与预算在那个协议里没有标准名,故留空不拼。豆包（doubao）随 follow 整家撤除（P2）;ollama/custom/mock/anselm 与四个搜索家不经目录——**它们不在 models.dev 里,而每一条缺席都有理由**(搜索家不是 LLM 供应商;ollama 是**本地** daemon、没有可收录的托管服务;custom 是用户随手指名的端点;mock 与 anselm 是我们自己的)。`app/apikey` 的 provider 白名单因此只剩这八条本地条目,LLM 家全部由目录喂(DisplayName/DefaultBaseURL/BaseURLRequired/TestMethod 逐条派生);**说不了的方言在建 key 时就拒**,绝不先收下再在最后一跳失败。**Azure 已实现**(H12-d):它逐字讲 OpenAI 的 **body**,而两处不同恰是任何目录都表达不了的——**deployment 在路径里**(`/openai/deployments/{model}/chat/completions`,我们的 `ModelID` **就是** deployment 名;resource 名骑在用户填的 base URL 里,故一行 key 仍装得下全部,不需要第二个凭证字段)与 **`api-key` 头**(当 bearer 发会换来一个读起来和「key 填错了」一模一样的 401);`api-version` 是第三个事实、**会过期**,故常量 + 逐 key `api_version` 覆盖。deployment 名是**用户自己取的**,故路径段转义。**Bedrock 不需要新方言**(H12-d 调研推翻了原判):`@ai-sdk/amazon-bedrock` 讲的是 Converse + SigV4,但 Bedrock **同时**在 `https://bedrock-runtime.{region}.amazonaws.com/openai/v1` 上提供 OpenAI 兼容 chat completions、鉴权是**普通 bearer**(`AWS_BEARER_TOKEN_BEDROCK`,正因如此它才出现在目录自己的 env 里)——116 个模型零新代码,base URL 因区域而异故用户填。**反向的教训同时出现**:`@ai-sdk/google-vertex` 看着像 Gemini 的表亲,但目录的 `env` 直说它要 `GOOGLE_APPLICATION_CREDENTIALS`(**服务账号文件**、不是 key),故 vertex 两家(51 模型)另立 `DialectVertex`——路由到 Gemini provider 会永远 401、而消息去怪用户的 key。**`npm` 说的是「存在哪个 SDK」、不是「这家能说什么」,两个方向都会误导。** **Vertex 已实现**(H12-d 下半):**线缆是普通的**——Vertex 在 `…/endpoints/openapi` 下提供 OpenAI 兼容 chat completions,故 URL 与 token 之上的一切都是 `compatProvider` 逐字复用;不同的只有两处,**凭证**与 **URL**。凭证是一份 Google 服务账号 JSON 文件,要用它签 JWT 换一个只活一小时的 OAuth2 token(签名与续期走 `golang.org/x/oauth2/google`、**不手搓**,原则 #8;逐凭证缓存一个 TokenSource,否则每条消息前面多一次 HTTP 往返和一种新的失败方式)。**它仍然装得进一行 key 且不是取巧**——服务账号文件**本身就是**一个字符串、一份 JSON 文档,整份存进同一个加密列零 schema 变更,而且它**自带 `project_id`**,故项目名永远不必问第二遍。URL 是 `{base}/v1/projects/{project}/locations/{location}/endpoints/openapi/chat/completions`,`location` 默认**从 base URL 主机名读出来**(`us-central1-aiplatform.googleapis.com`;无区域主机答 `global`——那是 Google 自己给那个端点起的名字),可经逐 key `location` 覆盖。凭证形状经 `Credential`(`api_key` / `service_account_json`)出现在 `ProviderMeta` 上,前端据此把「一个文本框」换成「粘 JSON + 选文件」并在**存下之前**验形(`type`/`project_id`/`private_key`);key 探测走 `TestMethodVertexToken`(解析→签→换 token),错误经 `ProbeMessage` 抹掉 `-----BEGIN` 之后的一切——**服务账号文件本身就是那个秘密**。Vertex 没有 OpenAI 形的 `/models` 列举,故清单**只出自目录**。当前分布:openai-compatible **159 家 / 5293 模型**、anthropic 9、azure 2、google 1、vertex 2。**派发按目录 id 寻址,而手写 spec 必须够得着**:`lookupProvider` 在跌向合成 provider **之前**先查 `registryKeyForCatalogID`(= `catalogProviderMap` 反读 + `moonshotai-cn` 一行——同一个产品 Kimi 的第二个目录条目,十个模型逐字相同、只是 `.cn` 主机,故同线缆同旋钮拼法)。少这一跳,`alibaba` / `zhipuai` / `moonshotai` 三家会**静默地**落到合成的通用 provider 上:base URL 对、模型列得出来、卡上写着「已验证」,而**旋钮拼法、编码器、线缆掩码全是通用的那一套**——qwen 模型会收到一个它从没声明过的 `reasoning_effort`,换来一个读起来像「这个模型坏了」的 400。守卫 `TestCurated_EveryVouchedProviderReachesItsHandWrittenSpec` 逐条比指针钉住它(删掉那一跳即红三条)。base URL 的兜底分三层(H12-f):**目录 `api`(149 家) → `knownBaseURLs` 预填 → `knownBaseURLHints` 形状**,最后才是「空着、要用户填」。`knownBaseURLs` 的每一行都是**从已发布的 SDK 包源码里读出来的**(`cdn.jsdelivr.net/npm/<pkg>/dist/index.mjs` 里那句 `baseURL = … ?? "…"`),不是凭记忆写的——凭记忆写下的 URL 会以「你的 key 无效」的形态失败,而那句话是**假的**,用户会跑去重抄一把没错的 key。读出来的两个反直觉事实:**perplexity 没有 `/v1`**(包里拿裸主机名直接拼 `/chat/completions`),**deepinfra 的 OpenAI 兼容面是子路径 `/v1/openai`**(包里就是 `baseUrl.replace("/inference","/openai")`;光一个 `/v1` 是它的原生 inference API、讲另一种 body)。另有四家经**读官方文档**补进并带出处:cohere 的 OpenAI 兼容端点与其原生 `/v2/chat` **不是同一个 base**、venice 的 `api/v1`、ollama 的 `http://localhost:11434/v1`(它自己文档里每个例子都印着的**标准端口**,不是逐用户的事实)。`knownBaseURLHints` 是**地址真的没法预填**的那些家——URL 里有一样只有这个用户知道的东西(azure 的 resource、bedrock 的 region、cloudflare gateway 的 account+gateway、vertex 的 region),它们拿到**形状**、仍然必填;光一句「必填」没法照着做,而模板把「该填的是你自己的 resource 名」说出来了。收口后 **166 家预填 / 10 家给形状 / 5 家纯空**(custom、mock 与 gitlab、sap-ai-core 三类:前两个按定义无址可填,后两个的 base 在客户自己的实例里——sap 的「key」还是一份自带 URL 与 OAuth client credentials 的 service key,故它与 gitlab **留在未验证**)。
-- **工具参数的两种线缆形（WRK-082 H9，真线缆抓取实证 2026-07-28）**：OpenAI 兼容流式把工具调用参数发成 `delta.tool_calls[].function.arguments`，而这个字段有**两种互不兼容的约定**——**真增量**（`{"aspect": "` → `square` → `"`）与**每片完整累积值**（`{"aspect": "` → `{"aspect": "square` → `{"aspect": "square"`）。**同一家供应商两种都发**：DashScope 旧共用新加坡域 `dashscope-intl.aliyuncs.com` 发增量，其**工作区专属**域 `<ws>.ap-southeast-1.maas.aliyuncs.com`（厂商迁移公告让你搬过去的那个）发累积值，同一个模型、同一个请求、只差一个线缆约定。把累积流拼接会得到 `{"aspect": "{"aspect": "square…`，于是**每一次**工具调用都 JSON 解析失败——损害是**全量而非局部**，agent 循环连续三轮全败后以 tool-error storm 中止，能力不是降级而是**死掉**。故 `toolargs.go` 的 `toolArgs.delta` 是这条方言**唯一**解析器里的归一层（H12-a 合并后只有一个 `toolCallState` 持它）：**前缀判别**——分片以已累积内容开头即视为累积值、只取新增后缀，否则按增量追加。两个方向都安全，因为对合法 JSON 而言真增量不可能把已累积的一切重述一遍（那会拼出 `{"a{"a…`，没有解析器收）。**地基化而非逐方言修**：八家原本各抄同一行，只修有复现的那一家等于留七把上了膛的枪——而**当时确实漏了一把**：`openai.go` 从没拿到这个修复，直到 H12-a 合并才随整份解析器一起补上。**仓库里每一份 fixture 都发增量**，故门禁全绿与真钱验收全绿时这里仍是坏的——守卫在 `toolargs_test.go` 把**两种形状**都钉死。
-- **生成方言（WRK-082 批B/批C）**：`imagegen.go` 五方言(anselm/openai/google/qwen/zhipu)出图,`speechgen.go` **四条路只有三种 wire**——OpenAI 与智谱共用 `/audio/speech` 形(字段名逐字相同、响应裸字节)、DashScope 只有原生 `multimodal-generation` 形(嵌套 `input`、JSON + OSS URL,**无** OpenAI 兼容 TTS 端点)、Gemini 返 base64 **无头 PCM** 由本层自封 WAV。一切收敛到**一个**中间表示 **24kHz/16bit/mono PCM(WAV 容器)**:这不是偏好而是「切块再拼」的前提——各家单请求上限都远低于一条长消息(qwen3-tts ~500 字符、智谱 1024),故长文本必须切开再拼,而 PCM 靠字节拼接即重合、MP3 帧拼接会留听得见的缝;四家原生输出恰好全是此规格,整条流水线零重采样。`ParseWAV` **遍历 chunk 表**而非假定 44 字节头(真实编码器会夹带 LIST/fact,按固定偏移读会把元数据当样本);`ConcatAudio` 在 **PCM 层**重接(按字节追加两个 WAV 会在流中间留下第二个 RIFF 头,多数播放器就停在那儿),格式不一致**大声拒绝**而非静默变调。切块上限与默认音色**按家手写**(`SpeechChunkLimit`/`defaultVoiceFor`)——能力目录的 chat 谓词把纯 TTS 模型整个滤出了目录,**发现不了**;音色名不跨家通用(Cherry 只在 DashScope、coral 只在 OpenAI、Kore 只在 Gemini),故未设音色**按路由**解析。 **视频(批D)** 是本族唯一的**异步**模态:`videogen.go` 给**三个动词**(Submit/Poll/Fetch)而非一个,轮询循环共用、三动词各家不同。**两个方言而非三个**——OpenAI Videos API 已公告 2026-09-24 下线(代拍 D2),一个只剩八周寿命的 driver 会被建、被复审、被删掉却从没挣回成本。**产物是「可取回的引用」而不是 URL**:DashScope 返裸预签名 OSS URL(带 Authorization 反而**可能被拒**),Google 的文件 URI **必须**带 api key——「拿到 URL 就能下」对两家都不成立且方向相反,故 `VideoArtifact{URL, Headers}`。**不给进度百分比**:两家都只给状态字,而用「已耗时÷预估」合成会让进度条在 99% 停几分钟(Veo 官方区间 11s–6min),诚实的状态行胜过一个可被验证为假的进度条。轮询**爬**向厂商节奏(2s 起、×1.5 到上限):厂商文档给的间隔是**上限**、其限流建议说的正是上限,而固定首轮等待会让上游校验就失败的任务白付一整个周期的沉默。**生成 origin 从凭证派生、绝不硬编码**(2026-07-27 真机 401 教训):DashScope 有北京、新加坡与逐 workspace 三种域,一把 key 只在**其中一个**上有效而 key 本身不说是哪个;原生 API 与 compatible-mode 在**同一台主机**上、只差路径,故 `dashScopeNative` 把凭证聊天 base 的 `/compatible-mode/v1` 剥掉即得生成 origin——用户在哪个区,生成就在哪个区。硬编码会把新加坡的 key 送去北京、换回一个读作「你的 key 不对」的 401(回归守卫钉五种域形 + 空值回落**国际**域〔大陆账号到得了它,反之对国际 key 不成立〕)。同家两形按模型分支(wan2.7 用 resolution+ratio、2.6 及更早用 size);不可能的组合(向 Veo 要 15 秒)**在客户端钳**到该路由做得到的长度、receipt 报**真正做出来**的那个。
-- **一条方言一份实现(H12-a)**:八家 OpenAI 兼容 provider(openai/deepseek/qwen/zhipu/moonshot/openrouter/ollama/custom)此前各持一份近乎相同的拷贝(约 3800 行),现在共用 `compat.go` 的 `compatProvider`,真实差异写进 `compatSpec` 五个字段——`baseURL` / `prepare`(仅 DeepSeek 的 reasoning_content round-trip 规则)/ `parts`(Ollama **根本不用** content part,图走消息级 `images` 裸 base64;Qwen 多 video+audio;OpenAI 多 file)/ `encode`(本家原生旋钮与 token 上限拼法)/ `toolChoice`(智谱不给 `"auto"` 就**根本不调工具**)。**旧注释的论证是真的、代价没人在数**:「重复是故意的,某家特性永不逼共享代码加分支」——但一处线缆修复要修 N 遍,而**漏掉一遍的那天是看不见的**(见上条 `openai.go`)。合并的代价用**两个守卫**买回来:①请求体是**超集** struct,故逐家 marshal 真请求、读**真实 JSON key**,断言没有哪一家把别家的旋钮带上线缆(反向验过:给智谱偷加 `verbosity` 立刻红);②`partMask` 与 part 编码器是**两处独立声明**,断言二者逐家一致——承诺 video 而编码器不写 = **静默丢弃**,抵达用户时是一个「没去看」一段从没发给它的视频的模型。
-- **sanitizer**：发送前守 `assistant.tool_calls ↔ tool` 配对——孤儿 tool_call 合成 stub 回复（LLM 看见被打断、严格 provider 不 400）。被取消的回合重续就靠它。
-- **deepseek 全文本 parts 坍缩**：user 回合的 `Parts` 中无 image/video/audio 存活时（如附件被模型能力或媒体额度降级成文本占位）以 `\n\n` join **坍缩回字符串 `content`**——纯文本端点拒收数组形 `content`，且冻结附件逐回合重放，数组形会让该对话每一回合永远 400。任一原生媒体仍走 OpenAI-compatible 数组多模态形。
-- **factory**：按 provider+key 构造 Client，返回 `(Client, 解析后 baseURL, error)`；`DescribeModels` 各 provider 自描述模型目录（model 域消费）。
-- **anselm（内置免费档）**：`anselm.go` embed `compatProvider`（以 DeepSeek 那份 spec 构造）复用 OpenAI-compatible streaming/tools/reasoning wire，仅覆盖 identity/header 与模型描述。公开模型仅 `anselm-auto`；`/v1/models` 的 `anselm_capabilities` 明示两条 content route：纯文本 DeepSeek 与含原生图片/MP4 的 Qwen3.7 Plus 均为 1,000,000 input，产品输出 cap 16,384，并分别给 availability。主后端 probe 动态读取该扩展，旧网关无扩展时才用同值 fallback；当前 audio=false。`Request.ActiveInputBudgetTokens` 每次按实际 prompt 是否仍含 native media 选预算。`infra/deviceproof` 持一把加密落盘的 Ed25519 安装私钥；`Transport` 给 install/chat/quota/models probe 逐请求签 method + authority/target + exact body hash + server nonce/jti。网关 402 / 流内 `BUDGET_EXHAUSTED` → `ErrQuotaExhausted`；HTTP 或 SSE 内的结构化 `UPSTREAM_REJECTED.details.reason=context_length` → typed `RequestRejectedError`，供 loop 压缩重试，provider 原文不外泄。
-- **mock**：`fake_llm` 脚本队列（T6——默认测试 0 token）。
-- 码 `LLM_*` 6 + `MOCK_QUEUE_EMPTY` → [error-codes.md](../error-codes.md)。
+## 2. LLM 端口
 
-**`app/modelclient` 是唯一的 model→client 解析链**：`Resolve(ctx, scenario, override, picker, keys, factory) → (Client, 预填 Request{ModelID/Key/BaseURL/Options}, provider)`。chat loop 之外的全部 LLM 消费方走它——bootstrap 四 resolver 核、search 精度链 sifter、envfix 依赖自愈、WebFetch 摘要器。**禁止手抄该链**：factory 第二返回值是解析后的 baseURL，若误接进 `Request.ModelID`，线缆 model 字段就变成 base url、静默杀死该 LLM 功能——故所有非 chat-loop 消费方一律走此函数，不各自拼解析。
+`llm.Client` 把所有模型适配为同一 `Stream(ctx, Request)` 事件序列：文本/推理 delta、工具调用参数、结束原因与 token usage。Factory 负责 provider、credential、base URL 与方言选择；`app/modelclient` 是 chat 之外解析 scenario/override/key/client 的唯一编排链。
+
+关键纪律：
+
+- 业务层不分支 provider wire；
+- tool call、reasoning 与多模态 part 在 adapter 归一；
+- sanitizer 修复被取消历史中的孤儿 tool-call/tool-result 配对；
+- provider 错误先分类再进入统一 `LLM_*` 错误，不透传可能带 secret 的原始 header/body；
+- client cancel、请求拒绝、限流与 provider 故障保持不同语义；
+- 模型是否能聊天、能用工具、能读某模态是不同能力位。
+
+## 3. Provider 目录与能力
+
+`modelcatalog.json` 是 models.dev 的 vendored 裁剪快照；运行时可刷新到 data dir，失败保留上次可用版本。目录提供 provider/model 身份、上下文/输出限制、模态与 reasoning options；方言代码只负责这些能力怎样编码到 wire。
+
+- OpenAI-compatible 长尾共用 `compatProvider`，真实差异通过 spec/part encoder/knob spelling 注入。
+- Anthropic、Google、Azure、Vertex 等非同形认证或 wire 使用专用适配。
+- Ollama/custom/mock/anselm 是本地或产品自有入口，不由 models.dev 决定存在性。
+- 目录声明有能力但 adapter 无对应 part/knob 拼法时，投影必须收窄，不能过度承诺。
+- chat-only 模型可用于普通对话，但 Agent 解析必须拒绝 tools=false 的模型。
+
+完整 provider 数量和模型数量是快照数据，不在文档硬编码；以当前 `modelcatalog.json` 与 `/providers`、`/model-capabilities` 投影为准。
+
+## 4. Managed Anselm
+
+`anselm` 是内置受管 provider，公开逻辑模型 `anselm-auto`。主仓用 OpenAI-compatible chat wire 与 device-proof transport 接已部署网关；上游 provider 选择、密钥、费率和成本账本不属于本仓。
+
+- base 默认指向生产 Anselm API；`ANSELM_GATEWAY_URL` 仅用于显式覆盖。
+- managed api-key 行保存公开 install id，不保存网关 provider secret。
+- `/models` 的 `anselm_capabilities` 是当前 route budget/模态可用性的权威投影。
+- quota、install、media staging、ASR 与生成请求复用同一 device-proof 身份。
+- 详细责任边界见 [`managed-gateway.md`](../managed-gateway.md)。
+
+## 5. 生成边界
+
+`generate_image`、`edit_image`、`animate_image`、`generate_speech`、`generate_video` 与 `enroll_voice` 是逐请求注入的 capability tools，只在受管 route 对相应谓词可用时存在。
+
+BYOK 负责文本与受支持多模态输入读取，不提供本仓维护的生成方言。没有 managed route 时工具整族诚实缺席，而不是展示一个必然失败的按钮/工具。
+
+所有生成结果收敛为本地 attachment + `MediaRef`；是否回喂当前模型由模型输入能力和媒体 envelope 决定，不由产地决定。
+
+## 6. 验证
+
+- Bus/replay/410：`backend/internal/infra/stream/`
+- provider/compat/parts/knobs：`backend/internal/infra/llm/`
+- model 解析：`backend/internal/app/modelclient/`
+- managed device proof：`backend/internal/infra/deviceproof/`
+- 默认产品与 BYOK 对照：`testend/scenarios/` 的 managed、BYOK、hybrid 与 multimodal 场景

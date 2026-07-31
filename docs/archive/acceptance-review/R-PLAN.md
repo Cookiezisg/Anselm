@@ -4,10 +4,10 @@ type: working
 status: archived
 owner: @weilin
 created: 2026-06-13
-reviewed: 2026-06-13
+reviewed: 2026-07-31
 review-due: 2026-09-13
 expires: 2026-09-13
-landed-into: ""
+landed-into: docs/archive/acceptance-review/TERMINAL-REPORT.md
 audience: [human, ai]
 ---
 

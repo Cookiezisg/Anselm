@@ -4,23 +4,56 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# approval —— 审批表单实体（图节点的"人在环闸"）
+# Approval
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-命名、版本化的**审批表**：markdown prompt 模板（`{{ CEL }}` 插值读 `input.*`）+ 决策规则（`allowReason` / `timeout` / `timeoutBehavior`）。方案 A 版本模型；无 sandbox/env。图把 approval 节点**固定的 yes/no 两出口**连下游。
+Approval 是 `apf_` 命名实体及其不可变 `apfv_` 版本线。版本定义：
 
-**前缀注意**：实体是 `apf_`/`apfv_`——审批的**运行时**记录不是独立表，而是 flowrun_nodes 的 **parked 行**（parked 行即收件箱；见[引擎文档](../foundation/scheduler-flowrun.md) §4）。表（配置）与运行时（等待中的审批）是两回事，对位 trigger 实体 vs trigger_firings。
+- 声明式 inputs；
+- Markdown prompt template；
+- `{{ CEL }}` 插值；
+- 是否允许填写 reason；
+- timeout 与 timeout behavior。
 
-## 2. 行为 / 求值
+Workflow approval 节点使用固定 yes/no 出口。Approval 表只保存配置；一次运行中的
+待审批事项不是独立实体表，而是 `flowrun_nodes` 的 parked 行。
 
-create/edit 时：模板非空 + `{{ CEL }}` 全部可编译（`APPROVAL_INVALID_TEMPLATE`）；timeout 解析（`ParseTimeout` 扩展 `d`/`w` 粗粒度，`""`=永不超时；**显式零时长如 `0s` 被拒**——会永 park 却不触发，用 `""` 表永不）+ 非空 timeout 必须配 behavior（reject/approve/fail，`APPROVAL_INVALID_TIMEOUT`）。运行时：scheduler 解析钉死版本 → 渲染模板 → 写 **parked** 行（result 带 `rendered` 供收件箱 UI + `allowReason`）→ run 保持 running；决策（人工 first-wins vs 超时）见引擎文档——落定后由 decide/timeout 径专发「已决」tick（`port`=decision yes/no）到 entities 流（Advance 不会再 tick 已存在的行），见 [events.md](../events.md)。**期限投影（工单④）**：收件箱行（`GET /flowrun-inbox`）带 `deadline?` = parkedAt + 钉死版本 timeout——派生单源是 domain 的 `DeadlineFrom(parkedAt)`，与 `CheckTimeouts` 超时扫描同一语义（倒计时不对扫描撒谎）；`""`=永不超时则键缺席。
+## 2. Author-time 校验
 
-## 3. 契约（引用）
+Template 必须非空，所有插值只在 `input` 根下编译。Timeout 支持 Go duration 及 `d`、
+`w` 后缀：
 
-端点（CRUD + `:edit`/`:revert`/`:iterate` + versions；决策端点在 flowrun 侧 `POST /flowruns/{id}/approvals/{node}:decide`）→ [api.md](../api.md) · 表 `approval_forms`/`approval_form_versions` → [database.md](../database.md) · 码 `APPROVAL_*` 8+4 → [error-codes.md](../error-codes.md) · ID：`apf_`/`apfv_`。三适配器同构；版本 cap 50 放过 active。
+- 空字符串表示永不超时；
+- 非空 timeout 必须为正；
+- 非空 timeout 必须选择 `reject | approve | fail`；
+- 显式 `0s` 被拒，不能伪装成有策略却永久 parked。
+
+Create 产生 v1；Edit 追加版本；Revert 移动 active pointer。Workflow activation pin
+具体版本，运行不会漂移到后来编辑。
+
+## 3. Runtime
+
+Interpreter 解析 pinned version、用节点 input 渲染模板，然后写 parked node result。
+Result 包含 rendered Markdown 与 allowReason，供 inbox 展示；Flowrun 继续保持 running。
+
+人工决定与 timeout sweep 竞争同一条 first-wins 状态变更。决策后使用 yes/no port 继续
+Advance；`fail` timeout 使 run 失败。已落定的审批不会被迟到的第二个决定覆盖。
+
+Inbox 的 `deadline` 由 `parkedAt + pinnedVersion.timeout` 派生，并与 timeout scanner
+共用同一 domain 函数。无 timeout 时不返回 deadline，避免 UI 倒计时与真实扫描语义分叉。
+
+## 4. 集成与契约
+
+Approval 参与 catalog、mention、relation、search 与 AI iterate。CRUD、versions、
+edit/revert/iterate 及 Flowrun decide 端点见 [`api.md`](../api.md)；表见
+[`database.md`](../database.md)；错误见 [`error-codes.md`](../error-codes.md)。
+
+Park、timeout、decision 与 replay 细节见
+[`scheduler-flowrun.md`](../foundation/scheduler-flowrun.md)，图出口见
+[`workflow.md`](workflow.md)，运行事件见 [`events.md`](../events.md)。

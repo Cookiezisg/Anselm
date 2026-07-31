@@ -4,111 +4,84 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-26
-reviewed: 2026-07-21
-review-due: 2026-10-19
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# 前端契约层 —— 后端线缆的 Dart 投影（`core/contract/`）
+# 前端契约层——后端线缆的 Dart 投影
 
-> 契约层 = **后端契约的逐字镜像**，非独立设计。所有 DTO 是 `references/backend/{api,database,events,error-codes}.md` + `domains/` 的 1:1 投影；后端改字段 → **同提交**改这里的 Dart DTO + golden（文档纪律延伸到前端契约，见 [`CLAUDE.md`](../../../CLAUDE.md) 前端节）。
-> 分层位置见 [`architecture.md`](architecture.md) §2；envelope/paging/错误码契约依据 [`api.md`](../backend/api.md)（N 系列）+ [`error-codes.md`](../backend/error-codes.md)。
+> `frontend/lib/core/contract/` 只做编解码，不是第二套业务模型。后端权威见 [`api.md`](../backend/api.md)、[`events.md`](../backend/events.md)、[`error-codes.md`](../backend/error-codes.md) 与各 domain reference。
 
-## 1. 一句话
+## 1. 边界
 
-后端是事实源，前端零业务规则。契约层只做**编解码**：freezed 不可变值类型 + json_serializable（`explicit_to_json: true`，嵌套对象序列化为对象而非 `toString`）。**线缆 camelCase**（N3）、**无 rename map**（唯一例外：`default` 保留字 → `defaultValue`）。
+- 后端 JSON 使用 camelCase；Dart 以 `freezed` + `json_serializable` 生成不可变 DTO。
+- 后端字段变化必须在同一提交更新 Dart 源 DTO、生成物与 golden。
+- `ApiClient` 统一处理 N1 `{data: ...}` 信封与标准错误；feature repository 不重复解包逻辑。
+- DTO 只表达 wire 形状。状态折叠、文案、颜色、按钮可用性等属于 feature/core model。
 
-## 2. 物理结构
+## 2. 物理地图
 
-```
-core/contract/
-  api_error.dart           # N1 信封 + ApiException + AnselmErr（前端分支用的精选码常量）
-  page.dart                # N4 keyset 分页:Page<T>（data 列表）+ PageWithAggregate<T,A>（data 对象:列表 + 聚合 sidecar）
-  workspace.dart           # Workspace(+ ModelRef{apiKeyId,modelId,options}) —— 唯一鉴权轴实体
-  model_capability.dart    # ModelCapability(+ ModelKnob) —— GET /model-capabilities 行,镜像 model.CapabilityView
-  entities/                # Quadrinity 实体 DTO(Phase 4.1 STEP 0,~22 类型)
-    values.dart            # 跨域共享值类型 + NodeKind 封闭枚举
-    function.dart          # FunctionEntity/Version/Execution + FunctionRunResult(bare)
-    handler.dart           # HandlerEntity/Version/Call
-    agent.dart             # AgentEntity/Version/Execution + InvokeResult(bare) + MountHealth(Report)
-    workflow.dart          # WorkflowEntity/Version + Flowrun/FlowrunNode/FlowrunComposite
-    approval.dart          # ApprovalForm/Version(非 Quadrinity 支撑 rail kind;template + 决策规则)
-    control.dart           # ControlLogic/Version + Branch(非 Quadrinity 支撑 rail kind;+ 图编辑器边端口下拉)
-    trigger.dart           # TriggerEntity(无版本)+ Activation/Firing + TriggerSource/FiringStatus 封闭枚举(支撑 rail kind;观测面)
-    document.dart          # DocumentNode(Notion 树节点,一 DTO 兼服 /tree[省 content]与 /{id};file-like 用户可编,无版本)+ 护栏常量
-    skill.dart             # Skill + Frontmatter(SKILL.md:name slug 即身份、body+YAML frontmatter;file-like)+ 护栏常量(body≤32KB/desc≤1024/name 正则)
-    relation.dart          # EntityRelation(关系图一条边,镜像 relation.go RelationView:kind 4 动词封闭集 + from/to {kind,id,name},名读时 hydrate;文档 backlinks = GET /relations?toKind=document&toId=…&kind=link)· EntityNode(镜像 relation.go Node:{kind,id,name} 去重端点节点,kind=11 种线缆值含 skill/mcp/document/conversation)· EntityRelGraph(镜像 Snapshot:{nodes,edges},GET /relgraph 全景快照,无参无分页,总览关系图数据源)
-    common.dart            # ExecutionAggregates + CapabilityReport(跨域)
-  conversation.dart        # Conversation(rail 行 + isGenerating/awaitingInput/hasUnread 三点 + modelOverride + forkedFrom{ConversationId,MessageId} 分叉血缘两列 + workDir 驻地)+ ModelRef + WorkDirInfo(驻地活投影，含 WD2 的 `branches[]` 与 WD3 的 `worktrees[]`) + **WorkTreeInfo**(一份平行 checkout，WD3) + **WorkDirGroup**(驻地分组投影一行，WD1.5)
-  notification.dart        # NotificationItem(通知中心行:id/type[开放 <域>.<动作>]/payload map/readAt?[null=未读]/createdAt;domain·action·isUnread 读派生)——只投影 Emit 落行档,Broadcast 仅帧回声不现于此(events.md ⊞/⤳)
-  interaction.dart         # Interaction(人在环 humanloop.Request 投影:danger 门{summary,args}/ask 提问{message,options}判别联合 + resolved 对称信号[kind/tool 空串在场、判 resolved 位])+ InteractionKind(danger/ask/unknown 前向兼容)+ InteractionAction(approve/approve_always/deny/accept/decline 封闭集,.wire)——信号 content 与 GET interactions 一行同形双源解析
-  messages/                # 消息 / run-轨迹块契约(STEP 5;Chat 4.2 共用)
-    block_content.dart     # BlockKind(7 sealed)+ Text/ToolCall/ToolResult/Message Content(SSE 帧载荷)
-    chat_message.dart      # ChatMessage/ChatBlock —— REST 回合历史投影(GET /{id}/messages,含 blocks)
-```
+| 路径 | 主要投影 |
+|---|---|
+| `api_error.dart` | `ApiException`、标准错误 envelope、前端确需分支的精选错误码 |
+| `page.dart` | keyset `Page<T>`、带聚合的 `PageWithAggregate<T,A>` |
+| `workspace.dart` | Workspace、ModelRef 与 workspace 设置轴 |
+| `conversation.dart` | 对话 rail 行、模型覆盖、分叉血缘、驻地/分支/worktree 投影 |
+| `attachment.dart` | 附件元数据与 preparation 状态 |
+| `interaction.dart` | danger/ask/approval 人在环请求与 resolved 投影 |
+| `notification.dart` | durable notification 行；Broadcast 不在此出现 |
+| `messages/` | REST ChatMessage/ChatBlock、流式 block content、transcript window/anchor |
+| `entities/` | Function、Handler、Agent、Workflow、Control、Approval、Trigger、Document、Skill、Relation、Scheduler/Flowrun |
+| `api_key.dart`、`model_capability.dart` | provider credential 元数据与模型能力/knob |
+| `mcp.dart`、`memory.dart`、`sandbox.dart` | Settings 资源面 |
+| `limits.dart`、`network.dart`、`retention.dart` | schema/系统设置 |
+| `todo.dart`、`touchpoint.dart` | Chat 右岛与任务投影 |
 
-## 3. 信封 + 分页 + 错误（`api_error` · `page`）
+生成的 `*.freezed.dart` / `*.g.dart` 与源文件一起入库，但不可手改。
 
-- **N1 信封**：成功 `{data:...}`；失败 `{error:{code,message,details}}`。`ApiException.fromEnvelope(body, status)` 解错误体 → 持 `code`/`message`/`details`/`httpStatus` + 状态谓词（`isConflict`/`isGone`/`isUnauthorized`/`isNotFound`/`isTransport`）。`AnselmErr` 只登记**前端实际分支用的**精选码常量（客户端 `transport`/`unknown`；后端 `unauthNoWorkspace`/`unauthBadToken`/`streamInProgress`/`searchReindexRunning`/`workspaceNameConflict`/`approvalAlreadyDecided`/`seqTooOld`）——~350 错误码全集**保持开放**，不在前端枚举（见契约开放性铁律）。
-- **N4 分页**：分页坐标（`nextCursor`/`hasMore`）**永在 envelope 顶层、绝不进 `data`**。`Page<T>.fromBody` 解 `data` 为列表；`PageWithAggregate<T,A>.fromBody` 解 `data` 为对象（`{<listKey>:[...], <aggregate>}`），用于日志页（列表 + ok/failed 聚合）。`isLastPage` = `nextCursor` 缺失 ∨ `hasMore` false（防御性兼容两者不一致）。
-- **offset/页码分页（WRK-070 B4，仅 `GET /flowruns`）**：`GET /flowruns` 除默认 keyset `?cursor&limit` 外，另支持 **offset 页码** `?offset=<非负整数>&limit`（前端标准翻页器：页码 + 跳页），其信封在顶层**额外带 `total`**＝同过滤条件下的总行数（渲页数用），形如 `{data, total, hasMore}`、**无 `nextCursor`**。两模式**互斥**——同给 `?cursor` 与 `?offset` → 422 `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`；坏 `?offset`（负/非数字）→ 422 `FLOWRUN_LIST_INVALID_FILTER`（`details.param=offset`）。**cursor 模式信封逐字不变、永不带 `total`**（两形状互不相交，`Page<T>` 现役解码零回归）。
+## 3. 信封与分页
 
-## 4. 实体 DTO（`entities/`，Quadrinity 投影）
+- 标准成功响应经 N1 `{data: ...}`；同步 run/call/invoke 也不例外。
+- 列表默认使用 N4 keyset：`data`、`nextCursor`、`hasMore`。
+- 带统计的列表把 rows 与 aggregate 放在 data 对象内，使用 `PageWithAggregate`。
+- `GET /flowruns` 另有与 cursor 互斥的 offset/total 模式；两种 envelope 不混解。
+- `FlowrunComposite` 是明确登记的复合投影：flowrun、nodes、分页坐标，以及工具封顶形态可能携带的 node summary。
+- transcript around window 的坐标与 `data` 并列，必须用专用 envelope 解码，不能经只取 `data` 的 helper。
 
-### 4.1 共享值类型（`values.dart`）
+## 4. 开放与封闭
 
-`Field`（typed I/O，`type` 粗粒度开放 String，后端不强校）· `ToolRef`（agent 工具挂载 `fn_…`/`hd_….method`/`mcp:…`）· `MethodSpec`（handler 方法）· `InitArgSpec`（handler `__init__` 配置项，带 required/sensitive/`default`）· `NodePosition`/`RetryConfig`/`Edge`/`Node`/`Graph`（workflow 图）。
+只把协议明确封闭且有 unknown fallback 的集合做 Dart enum，例如 node kind、trigger source、firing status。以下保持开放 String：
 
-**`NodeKind` 封闭枚举**（`trigger`/`action`/`agent`/`control`/`approval` + `unknown` 兜底）—— 5 图节点 kind 是真封闭集（合 CLAUDE.md「仅 seal 真封闭集」），`Node.kind` 用 `@JsonKey(unknownEnumValue: NodeKind.unknown)`，后端若扩集前端不崩。
+- 错误码全集；
+- notification type；
+- lifecycle/runtime/config/status 字段；
+- Chat block 的未来类型与 marker kind；
+- provider、模型与 MCP 扩展词表。
 
-### 4.2 四实体（function/handler/agent/workflow）
+UI 通过纯映射把开放值折叠为已知语义；未知值必须可降级显示或安全缺席，不能因客户端枚举过期而解码失败。
 
-每实体三件套：**Entity**（公共头 `id`/`name`/`description`/`tags`/`activeVersionId`/时间戳 + 嵌入 `activeVersion`，bare-entity 规则）· **Version**（append-only 版本体）· **Execution/Call/Flowrun**（日志行）。差异：
+## 5. 消息、版本与实时
 
-| 实体 | Version 特有 | 日志行 | 实体头特有 |
-|---|---|---|---|
-| Function | `code` + I/O Fields + env mirror | `FunctionExecution`（`logs` 仅单 GET） | — |
-| Handler | imports/init/shutdown/`methods`/`initArgsSchema` + env mirror | `HandlerCall`（+ `method`/`instanceId`） | `configState`/`missingConfig`/`runtimeState`（计算态） |
-| Agent | `prompt`/`skill`/`knowledge`/`tools`/I/O/`modelOverride`(复用 `ModelRef`) | `AgentExecution`（+ `modelId`/`apiKeyId`/`provider`/`transcript`，**无 logs**） | — |
-| Workflow | `graph`(raw JSON,真相) + `graphParsed`(解析 `Graph`) | `Flowrun`（+ 溯源 `origin?`/`conversationId?`）/`FlowrunNode`（record-once 记忆化行） | `active`/`lifecycleState`/`concurrency`/`needsAttention` |
+- REST `ChatMessage`/`ChatBlock` 与 SSE block content 是同一持久真相的两种读形态。
+- `tool_call` close 代表参数完整；`tool_result` close 才代表 Execute 结束。
+- `compaction` 与 `marker` 是持久行，不一定经 live block 流到达。
+- retry/edit 追加新消息并以 `attrs.retryOf`/`supersededBy` 建版本链；旧消息仍可读取。
+- `messages`、`entities`、`notifications` 三条 SSE 的帧形在 `core/sse`，不在每个 DTO 重复定义。
+- `seq>0` 才能推进 durable 水位；`seq=0` 只用于 delta/tick/interaction 等瞬时投影。
 
-- **Flowrun 溯源两键**（scheduler 工单①,`origin`/`conversationId` 皆 **`omitempty` 可空**）:`origin` ∈ `manual`/`chat`/`cron`/`webhook`/`fsnotify`/`sensor`(创建时盖章、永不变;**开放 String 非 seal**——线缆缺席=溯源之前的旧行,前端渲「未知来源」、绝不零值撒谎);`conversationId` **仅 `origin=chat`** 在场(调 `trigger_workflow` 的那个 `cv_`)。消费:scheduler 大表行身份=来源短语 + `?origin=` 过滤(工单⑥)。
-- **FlowrunNode 排队两戳**（scheduler 工单⑫,`readyAt`/`startedAt` 皆 **`omitempty` 可空**）:随该行**唯一一次 record-once INSERT** 落盘(行仍只写一次、只写终态/parked,绝无先插后终化);因果序 **`readyAt` ≤ `startedAt` ≤ `completedAt`**——`readyAt`=某轮 walk 首次算出该 (节点,轮次) ready 的时刻(排队起点)、`startedAt`=引擎开始处理它的时刻(input CEL 求值+派发;**执行实体自身的起点在其审计行**、非此处)。**两键缺席=旧行或 seed trigger 行(从不排队)→ 无排队段,绝不渲 0**。**`createdAt` 是行的写入时刻=终态/停车时刻,绝非节点起点**(拿它当起点即是 ⑫ 之前的假象);`completedAt` 停车期间为 nil、决断时盖章,故「approval 的 createdAt→completedAt」正是人等区间。消费:甘特三段条(排队灰/执行/停车琥珀)+ 台账与卷宗头「排队 x · 执行 y」双数同源。
-- **FlowrunActivityRow**（scheduler 工单⑤,`GET /flowruns/{id}/activity`,N4 分页,**行序 `startedAt` 升序**）= `{nodeId, iteration, kind, execId, status, readyAt?, startedAt, endedAt, elapsedMs}`——四张执行日志表 UNION 的纯读投影。**`kind` 是审计表族**(`function`/`handler`/`agent`/`mcp`)**而非图节点 kind**:`action` 节点按 ref 前缀散入三族,而 **control/approval 内联求值、根本没有审计行**——某节点无活动行是正常事实、不是缺口(呈现端此时回落到该行自身的两戳)。`execId`=审计行 id(`fne_`/`hcl_`/`agx_`/`mcl_`,执行日志深链坐标);`status`=**审计词表**(`ok`/`failed`/`cancelled`/`timeout`)、非节点行三态;`readyAt?` join 自真相行的 ⑫ 排队戳(⑫ 前旧行/无对应存活真相行时**键缺席**;`:replay` 下旧审计尝试行仍在[Log 不删]、可早于存活真相行的戳 → **排队段须钳制 ≥0**)。
-- **SchedulerStats / SchedulerTotals / WorkflowRunStats**（scheduler 工单③＋⑭,`GET /flowrun-stats?workflowIds=<csv≤50>&recentN=&since=&until=`,**有界批查 → N4 豁免**、无 `nextCursor`）= `{totals, byWorkflow}`。**`since` 统一窗口收两种文法:RFC3339 绝对起点 或 正回看时长(`24h`/`7d`)**,默认 7d,解析不了 422 `FLOWRUN_STATS_INVALID_SINCE`;**`until`(需求② 0717-晚)=窗**终点**,仅 RFC3339(终点回看时长有歧义,刻意不收)、缺席=不设上界(原行为),坏值 422 `FLOWRUN_STATS_INVALID_UNTIL`——与 since 成对半开 `[since, until)`,封 completedSince/failedSince/successRate/avgElapsedMs/missed 五个窗口量(running/parkedNodes/recent/lastRunAt/连败**不受窗**);倒置窗静默空(flowruns startedBefore 同立场)。前端映射单源 `statsWindowOf`(预设=活时长文法/今天与绝对对=RFC3339/「全部」=epoch 绝对界[stats 无「无界」拼法]),运营主页统计句经 `schedulerRangeStatsProvider` 按页级范围逐 (workflow,范围) 1-id 批查——句子的窗口词=胶囊之词,句囊永不打架;`workflowIds` 去重后 >50 → 422 `FLOWRUN_STATS_TOO_MANY_IDS`。**totals(恒全 workspace,刻意不受请求 ids 限制)** = `{running, completedSince, failedSince, parkedNodes, missed}` 五键**全无 omitempty、恒在**;`parkedNodes` **键名叫 nodes、语义是 run 数**(仍 running 且持 ≥1 parked 节点的 DISTINCT run——按工单定形的键名,勿按字面读成节点数)。**`missed`(工单⑭)是唯一不数 flowrun 的 total**——它数的是**本该存在却不存在**的 run:窗内 `created_at` 落入的 `missed` firing 数(跨域数 `trigger_firings`,后端 app 层经 FiringInbox 端口缝入,故本端点是 **Overview 的统计单源**、而非仅 flowrun 两表的投影)。**三条消费端必须知道的性质**:①它与 `completedSince`/`failedSince` **同一个 `since`**(后端只默认一次,故第五张牌物理上不可能与另外四张漂移;**绝不 all-time**——只增的「有史以来错过多少」是虚荣数字,规范禁)②按 `created_at` 开窗,而 missed 行的 `createdAt` **就是那个调度刻度**(工单⑨ 回拨盖戳),故整夜停机摊在**那一夜**、非睡醒那一秒 ③它与 `GET /firings` **同一组谓词**计数(后端 `firingQuery` 单点,`SearchFirings` 与 `CountFirings` 共用)→ **消费端要深链它数的那个列表,就必须把同一个绝对时刻同时发给两个端点**:发相对词 `'24h'` 会让后端按**它的** now 解锚、客户端只能为列表再猜第二个,两份谓词在窗口边缘静默打架=「牌上写 3、点开列表显示 4」。计数**失败绝不吞成 0**(整个批查报错冒上去——「你什么都没错过」与「我查不出来」是两句话)。**byWorkflow**=`{workflowId, running, parkedNodes, lastRunAt?, recent[], successRate?, avgElapsedMs?, consecutiveFailures}`,每个请求 id **恒一行、按请求序**(无 run 的 id 回零值行、绝不缺席;不校验 workflow 存在性——孤儿 run 一等公民);`successRate`/`avgElapsedMs` **窗口无数据即键缺席**(「无数据」≠「0%」,渲 em-dash);`consecutiveFailures` **跳过 running 与 cancelled、只有 completed 停**(cancelled 中性:既不算失败也不算健康的证据)、**不受 recentN/since 约束**。**`failedSince` 是 `missed` 的孪生案例(工单⑮):它同样按 `completed_at` 开窗,故「24h 失败」牌深链到 `GET /flowruns?status=failed&completedAfter=` 时,必须把牌所数的**同一个绝对时刻**发给列表的 `completedAfter`(与发给 stats `since` 的逐字节相同)——同上「牌上写 3、点开列表显示 4」之禁**;不同于 `missed` 深链场次条,`failedSince` 深链的是一个**按 run 的失败列表**(`SchedulerFailedZone`,`failedRuns.length` 即牌数、拉全 `listFailedSince`),绝非 7d 失败聚合(那按 workflow 连败聚合、窗与轴皆不同)。消费:Overview 五张 KPI 牌(全可深链)+ rail 状态点 + 失败聚合连败徽。
-- **Firing 检索**(scheduler 工单⑭,`GET /firings`[**workspace 级**] · `GET /triggers/{id}/firings`[逐 trigger],**一个 handler 两个 URL**,N4 **cursor+limit 分页**——firing 是**无界** Log[每分钟的 cron 一天写 1,440 条],**不是**有界投影豁免那一类)= `Page<Firing>` = 顶层 `{data:[Firing], nextCursor?, hasMore}`。过滤**全 AND 组合、每项皆可选**:`?triggerId`(等值;**缺席 = 跨所有 trigger**——firing 是 (trigger × workflow × activation) 的 workspace 级日志行,故「近 24h 的所有 firing」是一等问题;嵌套 URL 上此参被路径 id 覆盖;**不校验存在性**,未知 id → 空页 200 而非 404)· `?status`(**封闭 7 值**,越集 422 `TRIGGER_FIRING_INVALID_STATUS` + details `allowed`,**绝不静默空页**;`unknown` 是入站兜底、**永不可作过滤发出**)· `?createdAfter`/`?createdBefore`(**RFC3339**,归一 UTC,`created_at` 上的**半开窗** `[after, before)`——相邻窗无缝拼接不重叠;非 RFC3339 → 422 `TRIGGER_FIRING_INVALID_FILTER` + details `param`/`got`/`want`;**倒置窗不报错、静默空页**)· `limit`(默认 50、**上限 200 静默钳制**;非数字或 <1 → 400 `INVALID_REQUEST`)。**行序 `created_at DESC, id DESC`(新→旧)**——故**撞帽的一页是「最新那一片」,窗口更老那端是「未知」而非「空」**:把一页当整窗画就是画出一个看起来完整、却藏着隐形空洞的时间轴,消费端必须改为**明说**。`missed` 行的 `flowrunId` **恒缺席**(从未建 run)、`activationId` **恒空串**(记账不是一次动作;键仍在场)。**时区**:`createdAt` 归一 UTC,而同轴的 `SchedulePoint.at` 带后端本地偏移——`fmtDateTime` 内建 `.toLocal()`、`foldEvents` 比的是绝对时刻,故同轴混两种偏移安全,**但绝不比字符串**。消费:Overview 调度轨的**过去半**(真开过的火=实心状态色点 / `missed`=灰 ✕)+「错过 N」KPI 牌的钻取目标(与牌**同一个绝对锚点**,见上条)。
-- **TriggerSchedule / SchedulePoint**（scheduler 工单⑧,`GET /trigger-schedule?within=&limit=`,**有界 → N4 免游标**）= `{points:[{at, triggerId, triggerName, workflowIds}], truncated}`——四字段**全无 omitempty、恒在**;`points` 恒非 nil(空即 `[]`)、按 `at` 升序(同刻按 `triggerId` 定序,可依赖)。**只有正在监听且未暂停的 cron 贡献点**——暂停的、无 active workflow 引用的、以及 webhook/fsnotify/sensor(下次 fire 不可知)**一律缺席**,故消费端**泳道行集须取自 `GET /triggers`**(它带 `paused`)、点只是挂件:**从点反推泳道会让暂停的泳道静默消失,直接违反判决①**。`workflowIds` 取自**内存监听表**(与 `refCount` 同源),故点绝不承诺不会发生的运行。`truncated=true`=窗内还有更多(cap 跨 trigger 全局:并集排序后才截,故最早 N 个点是真正最早的 N 个)。**`within` 走 Go duration 文法**(`168h`;**与 flowrun-stats 的 `?since` 不同**——那边额外吃 `7d`,这里传 `7d` 是 422)。**时区注记**:`at` 带后端**本地偏移**(cron `Next()` 保留入参 location)而 flowrun 系戳一律归一 UTC → 同轴混两种偏移,一律 `.toLocal()` 后再比,绝不比字符串。消费:Overview `AnScheduleTrack` 未来点。
-- **FlowrunMatrix / MatrixCol / MatrixRow / MatrixCell**（scheduler 工单⑩,`GET /flowrun-matrix?flowrunIds=<csv,去重后 ≤50>`,**有界批查 → N4 豁免**,主页重建 0717）= `{cols, rows, cells}`,三列表恒在(空而非 null)。**`flowrunIds` 必填**——按请求序去重、空串跳过,去重后空集 400 `INVALID_REQUEST`、>50 → 422 `FLOWRUN_MATRIX_TOO_MANY_IDS`(details `allowed`/`got`,逐字沿用 flowrun-stats ids 纪律);**未知/异 workspace id 静默缺席**(cols 自带键、缺席可发现;全未知=三空列表,孤儿 run 一等公民)。**哪些 run 在屏上归客户端**:矩阵窗按页级时间范围翻 `GET /flowruns`(`startedAfter/Before` + cursor,页尺 50=批帽,一页一批)、逐页批取并**归并**(列相接/行首见并集/格相接——`SchedulerMatrixWindowController`)。**col**=`{flowrunId, startedAt, status, elapsedMs?}`,恒正典新→旧(`started_at DESC, id DESC`,**与请求顺序无关**——乱序请求不许左右行轴;呈现层反转成时间轴旧在左、锚最新端);`elapsedMs` 是 **run** 墙钟,**在跑时键缺席**(绝不发会被读成「瞬时」的 0)——**直接判 null,别拿 status 反推**。**row**=`{nodeId, kind}`,序=**首次出现序**(**刻意不用图拓扑序**:每 run 钉死自己的 version,跨版本没有单一的图,硬解一个即对其余撒谎;而首次出现序在要紧处天然就是拓扑序)→ 读作最新 run 的拓扑、更老 run 独有节点追加在后;`kind` 取该 node **最新一次出现**(跨版本会漂移,**本端点是行轴 kind 的唯一诚实来源**,别去版本图里查)。**cell**=`{flowrunId, nodeId, status, iteration, iterations}`,**稀疏**——没跑到即**无格**(前端渲「未及」;**正因稀疏才以扁平格列表下发、每格自带复合键**,绝不假设 `cells.length == rows×cols`)。多迭代=一格聚合:`status` 取各轮**最坏**处置(`failed`>`parked`>`cancelled`>`completed`,**不是最后一轮**——第 3 轮失败的 loop 就是在这次 run 里失败过,run 头也是 failed、格与它一致;cancelled 压 completed[被切断的轮不许自称跑完]、居 failed 之下[没失败,只是没人回答])、同档取最新;`iterations>1` 才渲「×N」。**刻意无逐格 `elapsedMs`**(节点行无 `ended_at`,凑出来的是谎;执行段真相在工单⑤ activity)——绝不拿格算时长。消费:运营主页页顶矩阵区 `AnRunMatrix`(点列/点格=导航进 run 旗舰,`?node=` 预选)。
-- **RetentionConfig**（scheduler 工单⑬/判决④,`GET`+`PATCH /retention`,**机器级**——settings.json `retention` 段,与 limits/network 并列,**无 workspace 维度**）= `{runRetentionDays}`(`int`,**无 omitempty、恒具体值**)。**`0` = 永久保留**(清理绝不跑)。**GET 恒返具体值**——全新安装读回**服务端自持**的默认(90)、绝不 null → **客户端永不硬编默认**(故保留面板无 modified/onReset:「是否已修改」需要一个客户端默认来比对,而 `/retention/schema` 并不存在)。**PATCH=部分合并**(基底=当前值,故 `{}` 是忠实 no-op 而非「永久」;**与 network 的整体替换不同**)、返合并后的全量 → 拿返回值回写;落盘即**踢一趟清理**(收紧的线立刻生效,故面板**不需要**「重启生效」提示——别照抄 network 的 restartNote)。**唯一校验是物理的**:负数 400 `SETTINGS_RETENTION_INVALID`;**30/90/180/永久 值集是前端产品可供性、后端不强制**(传 60 照收——拒它是校验剧场,设计原则 #6)。**两个消费者一份真相**:设置存储面板编辑它(`SettingsRepository.getRetention`/`patchRetention`),scheduler 大表读它渲保留墓碑行(`SchedulerRepository.retention()`,只读)——**墓碑是呈现决策,后端零特殊字段**(list 端点不加 `retentionDays`),两 feature 各自解同一条线缆(features 互不依赖)。
-- **SpendRow**（WRK-082 H10,`GET /spend?days=`,**freezed DTO**,`estPUSD` 走 `@JsonKey(name:'estPUSD')`）= `{date, category(image|speech|video), provider, model, units, estPUSD}`。**直连侧生成支出投影**——受管调用**结构上不在其中**(网关权威记账、免费档配额卡已展示,再渲即数两遍)。**`units` 恒真、`estPUSD` 恒为估算**:用量是数出来的(张/字符 rune/秒),价出自后端手写价目表,**`estPUSD == 0` = 表里没有该模型 = 诚实的未知,绝不是「免费」**。消费方 `SettingsRepository.spend({days})` → `SpendCard`(挂在模型与密钥面板、**紧挨免费档配额卡**:一张管受管额度、一张管自带 key,钱在本页只有一处)。**渲染契约三条,守卫钉死**:①未定价 → 破折号,**永不 `$0.00`**;②某品类内混有未定价行 → 总额标 `≥`(真数只可能更高),否则标 `≈`;③免责句恒在(「金额是估算,权威以供应商账单为准」)——它不是可跳过的小字,而是上面那些数字被允许存在的理由。**无刷新钮**:provider 是 autoDispose、每次开面板重取,而相邻卡已有一个「刷新」,两个同名按钮对读的人就是歧义。
-- **Storage 磁盘回收**（T4/WRK-070,**机器级**——整个安装一个 `.db` 文件,无 workspace 维度;**无 freezed DTO**,轻量 Dart record 直解，同 `sandboxDiskUsage`）：`SettingsRepository.storageStat()`（`GET /storage-stat`）→ `({int dbBytes, int deadBytes})`（库逻辑大小 + 其中可回收死空间;存储面板显示「X MB,其中 Y MB 可回收」）· `SettingsRepository.compactStorage()`（`POST /storage:compact`,同步全量 `VACUUM`）→ `({int reclaimedBytes, bool migrated})`（还给 OS 的字节 + 是否顺带升级 mode=0 库）。**非危险动作**（VACUUM 不删任何行）→ 不设 `AnTypeToConfirm`,但按钮**忙态**（锁库几秒,「压缩中…」+ 转圈、期间禁用）+ 完成 toast「已回收 Y」+ `storageStatProvider` 失效重取。失败 → `ApiException('STORAGE_COMPACT_FAILED')` 原样上 toast（磁盘满、可重试）。
-- **ModelCapability / ModelKnob**（`model_capability.dart`,`GET /model-capabilities`,**有界可枚举 → N4 豁免**返全集;镜像后端 `model.CapabilityView` + `llm.Knob`,0719 补全）= `{apiKeyId, keyName, provider, modelId, displayName, contextWindow, maxOutput, vision, video, audio, nativeDocs, maxMediaParts?, maxMediaBytes?, knobs[]}`；video/audio 是**真实原生可用位**，零值媒体额度表示 provider 未发布 app 侧上限，前端不得据协议预留把未启用能力点亮。`ModelKnob` = `{key, label, type[enum|int|bool], values[], default→defaultValue}` **渲染描述符**——key/取值全原生(各家自己的 wire 词表,绝不翻译归一),前端据 `type` 通用渲染(enum 下拉/bool 开关/int 数字,default 预填)。消费:设置三段模型面板 `ModelPickerPanel` + chat 选择器(读 display 字段)。**默认模型写回**:`PUT /workspaces/{id}/default-models/{scenario}` body=`ModelRef`(`options` 非空才发,map<string,string> 原生值);`SettingsRepository.putDefaultModel(..., options:)` 相应带可选参。
-- **同步执行结果**（`:run`/`:call`/`:invoke` 皆走 **N1 `{data:…}` 信封**,客户端经 `postData` 解包——WRK-083 L14 修正,旧「bare 不裹信封」之说是当年的缺陷本身）：`FunctionRunResult`（`:run`）· `InvokeResult`（`:invoke`，带 token/step 计数）为 data 内实体形。[doc-fix 2026-07-27:本行曾残留 L14 修复前的错误契约描述]
-- **复合解码**（非标准 bare-entity）：`FlowrunComposite` = `{flowrun, nodes, nextCursor?, nodeSummary?}`——**一份解码吃两形**：REST GET /flowruns/{id} 经 `nextCursor` 分页节点；`get_flowrun`/`replay_flowrun` 工具结果经 `nodeSummary` 做 **F173 80 节点封顶**（`FlowrunNodeSummary`=`{totalNodes, shownNodes, byStatus:Map<String,int>, note}`，仅截断时在场；缺席＝`nodes` 即全量）。**真节点数取 `nodeSummary.totalNodes`、绝不数 `nodes.length`**（截断时恒 80）。
-- **非 Quadrinity 支撑 DTO**（`control.dart`/`approval.dart`/`trigger.dart`，P1）：`ControlLogic`/`ControlVersion`（`inputs` + `branches` Branch[]`{port,when,emit?}`）· `ApprovalForm`/`ApprovalVersion`（`inputs` + `template` markdown + `allowReason`/`timeout`/`timeoutBehavior`）· **`TriggerEntity`（**无版本**配置信号源:`kind` `TriggerSource` 封闭枚举 + 自由 `config` map + `outputs` + 读派生 `refCount`/`listening`/`lastFiredAt`/`nextFireAt?` + **持久化 `paused`**[scheduler 工单⑦ 运行时止血开关,`:pause`/`:resume` 翻转;**paused=true 时线缆三键同动**——`listening=false` 且 `nextFireAt` 缺席,故「暂停即无下次」是契约不是渲染判断]）+ `Activation`（触发面审计:`fired`/`returnValue`/`payload`/`firingCount`）+ `Firing`（运行面收件箱:`status` `FiringStatus` **7 值**封闭枚举 + `flowrunId?`;**第 7 值 `missed`**=scheduler 工单⑨ misfire 记账——app 停机/睡眠期间到期、醒来记账而**不补跑**,其 `createdAt` 是**错过的调度刻度本身**［后端回拨过］故天然坐落在时间轴的诚实位置、`flowrunId` 恒空［从未建 run］;与 skipped/superseded/shed 同族=中性「未执行」处置,`AnStatus` 折 idle **灰不染红**）**,皆 **无 `tags`**。——**现作 entities rail 的支撑 kind**（control 第 5、approval 第 6、**trigger 第 7**；扩 `EntityKind`[`verb`→nullable + `executable` 位]、`ControlOverview`/`ApprovalOverview`/`TriggerOverview` 概览；支撑 kind＝无执行/run 终端，动词 CTA 由 `executable` 门控）。control 另由图编辑器经 `getControl` 喂边 branch-port 下拉（`controlPortsProvider`）+ 节点分支 peek。approval 运行时=flowrun parked 行（`:decide`）+ 跨 run 铃托盘收件箱（`listFlowrunInbox`）。**trigger 无版本、有两条观测面**——活动（`listActivations`,`?firedOnly`）+ 派发（`listFirings`,`?status`）作首级 tab、复用日志 tab 分页壳；`Fire` CTA 经 `fireTrigger`（`:fire` 合成 `{manual:true}` → 新 activation id）。
+## 6. 高风险投影
 
-### 4.3 跨域（`common.dart`）
+- `Conversation.modelOverride` 的 PATCH 是三态：缺键不改、对象设值、显式 null 清除；`workDir` 则用空字符串表示卸载。
+- `WorkDirInfo` 是逐请求活投影；路径存在性、git branch、dirty、branches/worktrees 不能从 Conversation 行猜。
+- `AttachmentPreparation` 只说明模型代理准备度，不是“附件是否允许发送”的门。
+- workflow 历史图必须读 flowrun 钉住的 version id；当前 active version 不能替代。
+- Trigger 无版本；paused 时 listening/nextFireAt 的线缆含义由后端裁决。
+- Relation kind 与端点 kind 是开放产品图词表，前端不得假设只含 rail 七类。
+- provider secret 只写不回；DTO 只能携带掩码元数据，不能把密钥留在普通 state。
 
-`ExecutionAggregates`（日志页 ok/failed 计数，随 `PageWithAggregate` 同行）· `CapabilityReport`（结构可运行性：`problems` 阻塞执行 / `warnings` 仅告知）。
+## 7. 门禁
 
-### 4.4 消息块内容（`messages/block_content.dart`，run 轨迹 / Chat 共用）
-
-agent `:invoke` 的 ReAct 轨迹经 **entities 流**（scope `agent:<id>`）以 messages-block 词汇推送（`text`/`reasoning`/`tool_call`/`tool_result`/`progress`，open→delta→close，E3 `parentId` 嵌套）；run 终端（STEP 5）用 `BlockTreeReducer`（`core/messages/`，**唯一框架无关纯模型层**，脱 widget 单测）折成嵌套树、用这批 typed content 渲染，未来 Chat（4.2）在 messages 流复用同一批 DTO（投影自 backend `messages.go`/`loop/{stream,tools}.go` + `chat/emit.go`）。
-
-- **`BlockKind` 封闭枚举**（`text`/`reasoning`/`tool_call`/`tool_result`/`progress`/`compaction`/**`marker`** **7** 持久块型 + `message` 元包装 + `unknown` 兜底）—— 7 block 型是真封闭集（合 CLAUDE.md「仅 seal 真封闭集」）；**`marker` 从不经流到达**（WRK-077 WD1）：它是别的子系统在回合**之间**追加到线程上的持久行内标记，与 `compaction` 一样只从 `GET /{id}/messages` 读回（故 messages 流的块级 `node.type` 仍是 5 个，见 backend `events.md` 的「不上流的两个块型」）。今天恰有一种 kind：`attrs {kind:'workdir', from, to}` = 驻地在线程中途被切换；`content` **按契约为空**，标签由客户端据 attrs 本地化渲染（`ChatWorkDirMark`），因为 Go 侧写一句话等于把某一种语言硬编码进一条持久行。未知的将来 kind **渲空**、不倒 attrs——这一行是回合之间的 chrome，一条没人读得懂的标记比一条没人看见的更糟。线缆 `node.type` 仍是开放 String（`StreamNode.type`），`BlockKind` 只是消费方归类（`blockKindFromWire` 未知→`unknown`、不抛）。
-- **typed content**：`TextContent`（text/reasoning，reasoning 带 `signature?`）· `ToolCallContent`（`name`/`arguments?`/`summary?`/`danger?`/`entityName?`；`danger` 开放 String 三级 safe/cautious/dangerous；`entityName` = 后端关帧经 touchpoint Namer 从 arg id 解析的**主目标实体显示名**，使卡头 chip 显名而非裸 id[Run Function «sync_inventory»]，无可命名目标时缺席、前端退回 id）· `ToolResultContent`（`content`；挂 tool_call 下 E3，**Open=真实 Execute 开始，Close=含完整快照的真实终态；tool_call Close 仅参数流结束**）· `MessageContent`（`role`/`subagent?` + 终态 `status`/`stopReason`/token 计数；仅 messages 流的 chat 包装，agent 的 entities 镜像无此包装、顶层块即根）。
-- **REST 回合历史（`messages/chat_message.dart`，Chat transcript 水化）**：`ChatMessage`（`msg_`；`role`/`status`/`stopReason?`/`errorCode?`/`errorMessage?`/token 计数/`provider?`/`modelId?`/`subagentId?`[≠'' 不入顶层 transcript]/**`supersededBy`**[`@Default('')`;版本指针,''=现行版]/`attrs?`[user 回合冻结:`attachments` id 数组 + `mentions` 快照 `{type,id,name,content?}`——坏引用降级 `name:"(unavailable)"` 且无 `content` 键;**`type:"skill"` 是激活语义**（@ 一个 inline skill = 激活它:后端渲染 body 作快照注入 + 预授权 allowed-tools;fork skill 不入 @ 候选,WRK-076）]/`blocks[]`）+ `ChatBlock`（`blk_`;`type` 开放 String/`seq`/`parentBlockId?`/`attrs?`[持久分型附加:tool 名/summary/danger/entityName 等——live 帧里内联在 content,水化两处都读]/`content`/`status`/`error?`/`createdAt?`[P1-e:后端一直序列化,块生锚点(危险工具/压缩标记)以此计时;live 帧 close 快照前无行时刻故可空]）。线缆序 keyset 新→旧,水化反转;投影自 backend `messages.go` json tag,与 SSE 载荷(`block_content.dart`)是同一真相的两面。`Conversation` 增 `modelOverride: ModelRef?`（PATCH 三态:ref=设/显式 null=清/缺键=不动）+ **`forkedFromConversationId` / `forkedFromMessageId`**（分叉血缘,`@Default('')`;服务端一次写定、线缆只读、不入 PATCH。**是溯源、非活链接**:源日后可被删,届时 id 悬空、头部血缘行降级为泛称一行而非空白/崩,故前端不做级联也不做存在性预检）+ **`workDir`**（**驻地**,`@Default('')`;WRK-077 WD1——对话可选的工作目录,空=未挂。不同于上面那些标志它**用户可改**、与 `modelOverride` 并列走 PATCH 面,但是**朴素字符串、非三态**:该列的空值已表示「未挂」,故 `''` **就是**清除。路径由**服务端**归一化（展开 `~`、`Clean`）,故要渲的权威值恒是**返回的行**、不是发出去的那个字符串。目录**是否还在**不在这一行上——那是活投影 `WorkDirInfo`,因为那个答案会在行不变的情况下改变）。**版本对（WRK-077 CH-c）**:`supersededBy` + `attrs.retryOf` 是重试 / 编辑重发的两个指针——旧行指向取代它的新行、新行指回它替换的那一版,**零删除**(旧版照常从三种读形态返回,版本翻页据此逐版回看)。**UI 侧组版本走 `attrs.retryOf`(向后指针)、刻意不走 `supersededBy`**:一份在自己被 supersede **之前**就加载过的旧版副本,它的 `supersededBy` 在本进程里仍读作空(过期),而一条向后指针的链永不会过期——纯模型件 `ConversationTranscript.groupVersions` 据此把一条链折成一个 `TurnVersions`(最旧→最新,`current`=链的**最后一环**=线程后续所基于的那一版),故 `supersededBy` 在前端只是线缆投影的忠实镜像、不承载判定。两处降级刻意:前驱未加载的版本自成单成员组(那正是关于「已加载了什么」的事实)、指针成环会终止;**不变量=每个输入回合恰好出现在一个组里**(单测钉住)。repo 缝 `retryTurn(id, {content, modelOverride})` → `POST /{id}:retry` 取 **202** `{id}`=新 assistant message id(**空 content 省略该键**=重生成;`modelOverride` 缺席即「用线程现有设置」,**不是** PATCH 三态——重试没有「清除」可表达);新回合与新 user 回声经**既有** messages 帧型抵达(`retryOf` 内联在 message 节点 content),故发起方与旁观客户端都靠同一条 SSE 组版本、无需回取。**驻地（WRK-077 WD1）两件**:①**`WorkDirInfo`**（`conversation.dart`,镜像 `conversation.WorkDirInfo`）= `GET /{id}/workdir` 的**活投影**——`path`/`exists`/`isGitRepo`/`branch`/`dirty`,服务端逐请求现算、零缓存,故文件夹按钮的三态保持诚实（未挂 / 已挂 / **已挂但目录不在了**=`path` 非空而 `exists` 为 false,即警示态）。**未挂线程以零投影成功作答、绝非 404**（那个按钮也得渲那一态）。②repo 两缝:`setWorkDir(id, workDir)` → `PATCH {workDir}`（`''` 卸载;非绝对路径 422 `CONVERSATION_INVALID_WORK_DIR`）· `workDirInfo(id)` → 上述投影。**行的写归 `conversationHeaderProvider`**（与 rename/setModel 同一条「权威响应即 patch state」规则,故面包屑当场重新贴标签、不等通知回声）;**投影**归 `workDirProvider`（读**刻意不重试**、错误吞成未挂投影——面包屑上的装饰绝不该渲成错误态或一个指数退避的轮询）;`WorkDirController.set` 是唯一编排点（写行 → 记最近目录 → 重探投影）。**最近目录是机器级、零后端**（`SettingsPrefs` 的 `an.chat.recentWorkDirs`）:这个人在哪些文件夹里干活是他机器的属性、不是某个工作区的属性,而对话本就存着它真正挂上的那一个。 **驻地的 git 段可操作（WRK-077 WD2 + WD3）四件**:①**投影两个新字段**——`WorkDirInfo.branches`（`List<String>`，本地 `refs/heads`、最近提交在前）+ `WorkDirInfo.worktrees`（`List<WorkTreeInfo>`，各 `{path, branch, current}`，**含**当前那一份并标出它）。两者**仅在 `isGitRepo` 时非空**，且都是有界的、无游标——`refs/remotes` **刻意不含**（会跑到上千条的是它），`current` 由**服务端**拿工作树的**根**判定（挂在子目录上的驻地依然知道自己站在哪一份里）。没有这两个列表，git 段只能是一段读数:**没列出来的分支无从提议切过去**。②**repo 三缝**:`switchBranch(id, branch)` → `POST /{id}/workdir:switch-branch` · `createBranch(id, branch)` → `:create-branch` · `addWorktree(id, name)` → `:add-worktree`，**三者都返回重探后的整个投影**（一次切换同时改它好几个字段，让客户端再 GET 一次就等于让它画出一帧旧分支）。`addWorktree` 收**名字**、绝不收路径——目标由服务端按 `make worktree` 约定派生（仓库兄弟位 `<repo>-<name>`、分支 `wt/<name>`），正是这一点让它无法往磁盘别处写出一份 checkout。③**state**:`WorkDirController` 三个方法同名转发并采用动作自己的投影;**它们刻意不吞错误**（与那次读相反——读是面包屑上的装饰，而这是用户要求的一次改动，且护栏的全部价值就在它拒绝时说的那句话）;`addWorktree` 另 invalidate `conversationHeaderProvider`，因为**行**在服务端动了（面包屑的标签读自那一行）。④**UI 落点**:菜单 git 段 = WD1 的两行状态 + 其余每条本地分支各一行（一键切换）+ 「新建分支…」+ 「为此对话开一个 worktree…」+ 其余 worktree 各一行（移进一份 worktree 只是一次普通驻地变更、走既有 PATCH，**不需要**自己的端点）。**脏时那些分支行被一行「先提交或贮藏改动，再切换分支」顶替**——服务端反正会拒（那道护栏），而一个必定失败的行比不提供更糟;新建分支与开 worktree 仍提供，两者都不可能冲突。两个需要**起名字**的动作共用一个模态（`chat_git_actions.dart` 的 `ChatGitNameDialog`），因为菜单没法听写，而模态也是唯一放得下**失败**的地方:一次拒绝**保持面板打开**、名字还在框里，因为「那个文件夹已存在」是一句用户靠改名来回答的话。**失败文案按 wire 码分支、逐条点出下一步**（`gitActionFailure`），唯一例外是 `CONVERSATION_GIT_FAILED`——它把 `details.git` 里 git **自己**的第一行逐字转发（git 会点出正占着某条分支的那个 worktree，那是所有人手上最可行动的一行）。 **驻地分组（WRK-077 WD1.5）三件**:①**`WorkDirGroup`**（`conversation.dart`,镜像 `conversation.WorkDirGroup`）= `GET /conversations/workdir-groups` 的一行——`workDir`/`activeCount`/`archivedCount`/`lastMessageAt`。它是**投影、不是实体**（无表、无 id、无生命周期:组只在还有**未置顶**线程带着那个 `workDir` 时存在,最后一个离开它自行消失,故没有「空组」要管理）。**为何是服务端读而非对已加载行 `groupBy`**:rail **无限**翻页,对一窗分组会让成员与计数随滚动**漂移**——组头会报出一个在 workspace 什么都没变时自己会变的数。**置顶线程两个计数都不含**（它们渲在 rail 自己的置顶段、必须恰好出现一次,而两个批量动作同样跳过它们——正因如此**一个**数既能作组头、又能作确认框盘点）。两个计数**分列**使端点**零参数**（rail 的「显示已归档」开关自行取其一或求和,批量动作盘点**和**）;`lastMessageAt` 跨两种归档态故切换视图不重排组序。②**List 两个新过滤**:`ConvWorkDir`（**三态、按线缆上键是否出现读**——`any` 省略该键=不过滤 · `unmounted` 发**空值**=仅未挂［rail「最近」段］ · `of(path)` = 仅该驻地［一个组］;它之所以不是可空裸字符串,正因 `''` 在此是一个**有意义的值**）+ `ConvPin`（`any`/`pinnedOnly`/`unpinnedOnly` → `?pinned=`;它的必要性:分组后每条线程必须恰好渲一次,而「所有置顶线程」在其余各轴都按驻地过滤后**再也**不能靠「置顶都落首页」的假定复原——住在**收起**的组里的置顶线程根本不会被取回来）。故 rail 的四段 = 四条服务端查询、**零客户端重分桶**。③repo 两缝:`archiveWorkDir(path)` / `deleteWorkDir(path)` → `POST /conversations:archive-workdir` / `:delete-workdir`,各返**真正改变**了几条。**它们删/归档的是对话**——不是那个文件夹、不是盘上任何一个文件、也不是任何一条消息行,故 UI 的用词是「删除全部对话」而**绝不是**「删除目录」（`conversation_rail.dart` 的组头菜单 + 两个确认框,守卫测试断言那两个字在**两种语言**下都不出现）。state 侧:`ConversationListState` 是**四段**多轴态（`pinned` / `groups` + `groupAxes` / `recents`,各是一个 `ConvAxis` 分页轴;`rows` 等历史名保留为「最近」轴的 getter）,组轴以「未加载 + `hasMore`」起步故它的**第一页**由 rail 既有的尾哨兵在该段被展开**且**滚进视野时才取——惰性是构造出来的、没有「展开时取数」回调。 **搜索是替换结构、不是过滤结构**（`ConversationListState.searching`）:有查询词时 rail 变成对整个 workspace 的**一条平的、无头的结果列表**（对驻地盲、对置顶盲,由「最近」轴承载）。理由是**收起的文件夹什么都不取**——一个只把四段各自收窄的 rail 会对每一条用户尚未滚进视野的匹配答「没有匹配」,那比根本没有搜索更糟;而它也是这个问题的诚实读法:哪些**对话**匹配、不是哪些文件夹匹配。
-
-repo 缝 `forkConversation(id, {atMessageId})` → `POST /{id}:fork` 取 **201** 权威新行(`atMessageId` 为 null 时**省略该键**、不发空串——左岛入口手上没有 message id,而后端对缺键即解作「从最新处」);发起方立刻 `applyUpdate` 折入列表、不等自己的 SSE 回声。
-- **附件元数据（`attachment.dart`）**：`AttachmentMeta` 投影 `POST /attachments` 与 `GET /attachments/{id}`，字段为 `id/sha256/filename/mimeType/sizeBytes/kind/createdAt`，另有可选 `preparation`。`AttachmentPreparation.status` 开放 String：当前后端发布 `not_required|pending|running|ready|failed|cancelled|unavailable`；`phase` 是 UI 分组（queued/processing/ready/failed/cancelled/not_required/unavailable）；image 的 `target` 当前为 `model-default`，ready 时可带 `width/height/mimeType/sizeBytes/updatedAt`。`canCancel`/`canRetry` 是服务端动作提示，前端可用旧 status fallback。前端不得把 preparation 当发送门：它只是“AI 代理图是否准备好”的诚实状态，原始附件仍已上传可发送。
-- **W6 导航契约（`messages/transcript_nav.dart`）**：`MessagesWindow`（`?around=` 窗 envelope 投影——`messages`[线缆键 `data`,newest-first]/`targetId`/`olderCursor`[''=已尽,喂回 `?cursor=`]/`newerCursor`[喂 `?cursor=&dir=newer`]/`hasOlder`/`hasNewer`;transcript 跳转径**整窗替换**[re-anchor],绝不缝进连续分页）+ `TranscriptAnchor`（`GET /{id}/anchors` 行——`kind` 开放 String[当前词表 user|tools|danger|compaction|abnormal|gate,unknown 兜底不渲不谎]/`messageId?`[''=无跳,gate 常态]/`blockId?`/`title?`/`count?`[tools 簇折叠数]/`at`）。repo 缝:`messagesAround`(经 `ApiClient.getEnvelope` 取**整** envelope——坐标顶层与 data 并列,`getData` 会丢)/`listMessagesNewer`(dir=newer)/`listAnchors`。
-
-## 5. 契约开放性铁律（seal 谁、不 seal 谁）
-
-**仅 seal 真封闭集**（NodeKind 5 + unknown；BlockKind **7** + `message` + unknown；**TriggerSource 4 源 `cron`/`webhook`/`fsnotify`/`sensor` + unknown**；**FiringStatus 7 `pending`/`claimed`/`started`/`skipped`/`superseded`/`shed`/`missed` + unknown**——皆 `@JsonKey(unknownEnumValue:)` 兜底,firing `?status` 过滤只发真七种[后端非法值 422 `TRIGGER_FIRING_INVALID_STATUS`,details 带 `allowed`]）。协议级**保持开放 + 字符串兜底**：错误码（~350，前端只精选常量）· `lifecycleState`/`concurrency`/`configState`/`runtimeState`/`envStatus`/`status` 等状态串（开放 String，不枚举）。理由：后端是唯一事实源，前端枚举状态串 = 给自己埋未来不兼容；开放 String + UI 层 `status_state` 折叠语义即可。
-
-## 6. 纪律
-
-- 改后端 DTO 字段/端点 → **同提交**改对应 Dart DTO + `entities_test.dart` golden（fromJson↔toJson key-equal）。
-- codegen 产物（`*.freezed.dart`/`*.g.dart`）**入库**（源等价、deterministic，fresh checkout 直接 analyze）；`build.yaml` 把 freezed/json scope 限到 `contract/**` + `features/**/data/**`，`explicit_to_json: true`。
-- 门禁 `make -C frontend verify`：codegen + `flutter analyze` 净 + `flutter test` 绿（含契约 golden）。
+- contract golden 校验 `fromJson → toJson` 的 key/形状对齐。
+- `make -C frontend verify` 运行 codegen、analyze 与全部契约/feature 测试。
+- 文档漂移门禁只检查显式锚定且能与同名 Go struct 配对的 DTO；未锚定项仍需人工按本篇地图复核，不能把 warning 当全覆盖证明。

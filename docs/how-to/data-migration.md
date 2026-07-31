@@ -4,8 +4,8 @@ type: how-to
 status: active
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2027-01-27
 audience: [human, ai]
 ---
 
@@ -27,14 +27,26 @@ audience: [human, ai]
 
 直接拷贝整个数据目录（建议先停 app，让 SQLite WAL checkpoint 干净落盘）。同一台机器上的恢复 = 拷回去，完整无损。
 
-## 跨机迁移：三类密文需要重填
+## 跨机迁移：密文配置需要重填
 
-落盘加密密钥从**机器指纹**（macOS `IOPlatformSerialNumber` / Windows `MachineGuid` / Linux `/etc/machine-id`）经 AES-256-GCM 派生（防「拷库即解」）——换机器后密钥不同，下列三类**密文**不可解，迁移后需在新机重新填写：
+全新桌面安装会在 OS keychain 铸随机主密钥，并通过 `ANSELM_MASTER_KEY` 注入
+sidecar；既有安装没有 keychain 条目或 keychain 不可用时，后端退回机器指纹
+（macOS `IOPlatformSerialNumber` / Windows `MachineGuid` / Linux
+`/etc/machine-id`）派生 AES-256-GCM 密钥。两条路径都刻意不让“只拷数据目录”
+携带解密能力。
+
+因此，直接把数据目录复制到另一台机器后，以下密文需要重新建立：
 
 1. **API keys**（模型密钥）——重新录入 + `:test`
 2. **Handler init-config**（init 参数，含密钥类）——重新 `PUT /handlers/{id}/config`
-3. **MCP server 的 env/headers**——重新配置或重 import
+3. **MCP server 的 env/headers/OAuth token**——重新配置、重新授权或重 import
+4. **受管 API 的 device proof seed**——由新安装重新 provision，不复制旧身份
 
-**其余一切数据完整可用**：实体与版本、对话与消息、执行日志、workflow/flowrun、文档、记忆、技能、blob 附件——密文只覆盖上述三类配置。`sandbox/` 不必迁移，新机首用按需重装（directInstaller）。
+**其余一切数据完整可用**：实体与版本、对话与消息、执行日志、workflow/flowrun、
+文档、记忆、技能、blob 附件。`sandbox/` 不必迁移，新机首用按需重装
+（directInstaller）。
+
+不要手工复制 keychain 条目或设置旧机器的 `ANSELM_MASTER_KEY` 来绕过重填；当前没有
+受支持的密钥导出协议，错误处理会让旧密文或 device identity 处于不可诊断状态。
 
 > 完整 export/import（用户口令重加密密文）在 roadmap，未排期。

@@ -4,57 +4,67 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# reqctx —— 请求作用域 ctx 载体（地基）
+# Request Context
 
 ## 1. 定位
 
-`pkg/reqctx` 通过 `context.Context` 携带请求作用域的值——纯 stdlib、无上层依赖、私有 empty-struct key 防冲突。它是**横切接线层**：workspace id 由 HTTP 中间件在任何业务包存在前写入 ctx（放进 workspace 业务模块会倒置层级）。S9：每个跨层调用强制传 `ctx`。
+`pkg/reqctx` 用标准 `context.Context` 携带横切身份和本次执行配置。它只依赖
+stdlib，使用私有 key，避免把 workspace/chat/workflow 概念倒置到 infra API
+参数中。
 
-## 2. 携带的值
+## 2. 值
 
-| 值 | API | 注入者 | 读取者 |
-|---|---|---|---|
-| workspace id | `Set`/`Get`/`RequireWorkspaceID` | `IdentifyWorkspace` 中间件（HTTP 请求入口的源，读 header `X-Anselm-Workspace-ID`）+ scheduler 从实体行重埋 + 23 detached 站点（18 文件）重埋 | **orm 自动隔离** + 17 包 |
-| conversation id | `Set`/`Get`/`RequireConversationID` | chat / subagent | loop + 多 app |
-| subagent / message / toolCall id | `Set`/`Get*` | loop（toolCall）/ chat·agent·subagent（message）/ subagent（subagent） | 流式嵌套（E3）/ 归属 |
-| flowrun / flowrunNode id | `Set`/`Get*`（只 Get、无 Require——缺席=非 workflow 派发，非错误） | **workflow 调度器**（`dispatch.go` 节点派发前） | function/handler/agent/mcp 执行记账填 flowrun 审计列 |
-| locale | `Set`/`GetLocale`（总返可用值，默认 zh-CN） | `InjectLocale`（Accept-Language，pre-workspace 兜底）→ `IdentifyWorkspace`（**workspace.language 权威**，识别到 workspace 即覆盖）+ chat detached 重埋 | AI 生成内容语言 |
-| agentState | `WithAgentState`/`GetAgentState` | chat / subagent runner | loop / tool / skill |
+| 值 | 主要注入者 | 主要消费者 |
+|---|---|---|
+| workspace ID | HTTP middleware、background workspace seeding | ORM、所有 workspace services |
+| conversation ID | Chat/Subagent | Loop、审计、stream |
+| message/tool-call/subagent ID | Chat/Loop/Subagent | 嵌套 stream 与执行溯源 |
+| flowrun/node/iteration | Scheduler dispatch | callable Execution/Call audit |
+| locale | middleware，workspace language 覆盖 | AI 生成内容 |
+| AgentState | Chat/Subagent runner | lazy tools、Skill |
+| workdir | Chat turn | filesystem tools、Subagent、write gate |
 
-## 3. 横切链路（单看包看不见，必须全项目看）
+Workflow fields 只有 Get，无 Require；缺席表示不是 Workflow 调用。Locale 总有
+可用默认值。
 
-```
-入口注入：IdentifyWorkspace 中间件 SetWorkspaceID（读 header X-Anselm-Workspace-ID / SSE 用 ?workspaceID=）—— HTTP 请求入口的"源"
-   ↓ ctx 一路下传（S9：每跨层调用带 ctx）
-读取：orm.whereClause 自动 ws 过滤（隔离安全网）+ Get/RequireWorkspaceID（17 包，其中 RequireWorkspaceID 10 包）
-   ↓ 工作脱离请求（异步 / 比请求活得久）时
-detached 重播种：reqctx.Detached(wsID)[+SetConversationID]（23 站点 / 18 文件，trigger 报告/扇出即从此起）；scheduler 另在已有 ctx 上 SetWorkspaceID 从 firing/run 行重埋
-```
+Stream bridge、HumanLoop broker 与 ToolProgress 由各自 package 的 context key
+管理，不并入 reqctx，保持依赖方向。
 
-## 4. workspace 隔离的两个错误（别混 —— 同 §[error-codes](../error-codes.md)）
+## 3. Workspace 隔离
 
-| 错误 | Kind/HTTP | 谁的错 | 何时 |
-|---|---|---|---|
-| `UNAUTH_NO_WORKSPACE`（`pkg/errors/sentinel.go`） | Unauthorized / **401** | **客户端** | 未带有效 workspace 命中隔离路由 → `RequireWorkspace` 中间件在边界拒、前端清 workspace 重选 |
-| `MISSING_WORKSPACE_ID`（本包） | Internal / **500** | **接线 bug** | 中间件已过 / detached 已埋的前提下 `RequireWorkspaceID` 仍空 = 中间件被跳过或 detached 忘重埋 |
+HTTP `IdentifyWorkspace` 从 header（SSE 可用 query）识别 workspace，随后
+`RequireWorkspace` 在受保护边界拒绝缺失身份。ORM 从 context 自动写/过滤
+workspace。
 
-> 401 是客户端的事、500 是我们的。`ErrMissingConversationID` 同理 500（对称）。
+两个错误不可混用：
 
-## 5. Detached Context 惯例（S9）
+| 错误 | HTTP | 含义 |
+|---|---:|---|
+| `UNAUTH_NO_WORKSPACE` | 401 | 客户端没有有效 workspace 身份 |
+| `MISSING_WORKSPACE_ID` | 500 | 已越过边界的内部接线漏埋 workspace |
 
-异步工作（finalize / best-effort 后台写 / 自动标题）必须**比派生它的请求活得久** → 用 `reqctx.Detached(wsID)`：从 `context.Background()` 起、重埋 workspace（orm 隔离最低要求），按需链 `SetConversationID`。23 站点（18 文件）统一走它。
+`MISSING_CONVERSATION_ID` 同样表示内部前置条件失败。
 
-- **为何 `Background()` 而非 `WithoutCancel(ctx)`**：要的就是脱离**已取消**的请求——回合取消正是 finalize 触发时机（被取消的 subagent 仍须落终态，防孤儿）。
-- **为何重埋而非沿用 ctx**：trigger / scheduler 起的异步**无请求 ctx**；workspace 来自实体行，不取已死的请求 ctx。
-- 每站点只重埋它需要的子集（finalize 类 ws-only；对话延续类 ws+conv）——精确、不多埋。
+## 4. Detached
 
-## 6. 边界 / 集成
+需要比请求活得久的 finalize、audit 与后台工作使用
+`reqctx.Detached(workspaceID)`：
 
-- **其它 ctx 能力**（stream bridge / humanloop broker / progress sink）各自包持私有 key 经 ctx 注入（DIP——reqctx 不依赖 `streamdomain` 等上层），**不并入 reqctx**：正确分层、非 bypass。
-- 错误经 [`pkg/errors`](../error-codes.md)：`MISSING_WORKSPACE_ID`(500) · `MISSING_CONVERSATION_ID`(500)，见 §4。
-- 隔离的下游消费者是 [`orm`](orm.md)（`whereClause` 读 workspace id 自动过滤）。
+- 从 `context.Background()` 开始，真正脱离已取消请求；
+- 重新播种 workspace，保证 ORM 隔离；
+- 只按需追加 conversation 等身份。
+
+Trigger/Scheduler 等无原始请求的工作从 durable row 获得 workspace。可取消的
+后台循环不能把 loop context 换成 Background；应在调用方 context 上为每个
+workspace 派生 seeded context，使 Shutdown 信号继续传播。
+
+## 5. 契约
+
+所有跨层调用继续传 context。ORM 隔离见 [`orm.md`](orm.md)，后台播种见
+[`bootstrap.md`](bootstrap.md)，错误见
+[`error-codes.md`](../error-codes.md)。

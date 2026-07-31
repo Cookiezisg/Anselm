@@ -7,6 +7,7 @@ created: 2026-07-13
 reviewed: 2026-07-13
 review-due: 2026-10-01
 audience: [human, ai]
+landed-into: docs/archive/convergence/README.md
 ---
 
 # WRK-066 P5 — 性能相位记录（C 轨 42/42 全落定）

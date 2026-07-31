@@ -7,6 +7,7 @@ created: 2026-07-11
 reviewed: 2026-07-11
 review-due: 2026-10-01
 audience: [human, ai]
+landed-into: docs/references/frontend/design-system.md
 ---
 
 # WRK-068 「同轨」法典 —— 六族当家件 API + 版式文法(2026-07-11 拍板修订版)
