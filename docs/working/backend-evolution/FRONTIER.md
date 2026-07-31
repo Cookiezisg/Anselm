@@ -62,10 +62,13 @@ landed-into:
 
 - 路由：managed-read / managed-write / hybrid
 - 已知事实：本地 receipt、Attachment 字节、quota 与下游 BYOK recorder 已闭合；公开部署面
-  不暴露原始上游 provider wire。
+  不暴露原始上游 provider wire。主仓编译 base 的 `/healthz` 当前为 200，但同级
+  API Serve `main` 明确自述尚未上线，故 health 不能证明仓库 HEAD 与线上 deployment 同版。
 - 缺口：需要证明“网关转发给 provider 的字节/调用次数”时，证据必须在 API Serve 的受控
-  integration/recorder 中产生，不能从主仓外推。
-- 最小证据：API Serve 自身脱敏 recorder 或 integration fixture，与本地主键/lease 对齐。
+  integration/recorder 中产生，不能从主仓外推；每次候选上线还需确认部署 SHA/版本与
+  主仓 managed contract 的兼容性。
+- 最小证据：部署记录或不可伪造的版本标识 + API Serve 自身脱敏 recorder /
+  integration fixture，与本地主键/lease 对齐。
 - 停止：不得为取证把 provider secret 或公开调试端点拉进主仓。
 
 ### FRT-E · 跨产地 MediaRef 变更哨兵

@@ -236,3 +236,14 @@ landed-into:
 - scheduler 与 managed gateway current reference 分别补到 ADR 0007、0010、0015 的反向入口；demo primitive inventory 删除手工数量。
 - 代码注释 finding（本战役不改产品代码）：`frontend/lib/core/process/master_key.dart` 仍两次误写“ADR 0006”，实际应为 ADR 0008；其“WRK-043 落 Developer ID 后”表述仍指向同 ID 的 active platform working，语义有效但应在实现该发行步时同步收口。
 - 验证：`make -C docs verify` 与 `git diff --check` 通过；唯一 warning 仍是 DTO mirror 12 checked / 21 skipped。
+
+## 2026-07-31 · G5-001 · 全量对抗验收与线上/源码 lineage 订正
+
+- 结构账本重跑：tracked Markdown 169；归档前 current 92、archive 77；current docs 为 77 active + 3 superseded，INDEX 33 行。archive 77/77 均为 `status: archived` 且 `landed-into` 非空；working 只剩 Backend Evolution、Platform Foundation 与本战役自身。
+- 九个高风险词排除治理规范、ADR 历史正文、archive 与 append-only log 后只剩三类有效语义：Chat/Subagent 的“loop 下一步”、错误码解释中的“用户下一步”、Scheduler 的“不要用占位冒充事实”；没有施工状态残留。
+- secret-shaped token 扫描在 current 文档为零；本地绝对路径只存在于冻结 archive 和 Backend Evolution 的 append-only 证据日志。起点至当前 127 个变更路径全部是 Markdown 或 `backend/cmd/docs/**` 文档执行层，没有未授权产品代码。
+- `make -C docs verify` 通过；`mise exec -- go test ./cmd/docs` 通过。warning 维持 12 对同名、双 opt-in DTO mirror 已检查 / 21 个有文件锚但无同名 Go struct 的投影跳过；这是现有门禁明确设计的低误报边界，不是把失败降级成 warning。
+- 根 `make verify` 完整执行 backend、frontend、docs、web demo 四路。第一次等待器过早返回后误启第二轮；发现同 build 目录双 frontend 后，精确终止较早一组，只保留第二组。第二组 backend/docs/demo 日志全绿，frontend 完成 format/codegen/analyze/四组测试，根临时日志目录按 Makefile 的“全门通过才删除”分支被删除，工作树无生成 diff。
+- G5 末次只读复核同级 `Anselm-API-Serve` clean `main`（HEAD `8d97e4e`）发现新 lineage 边界：该仓最高法明确写当前候选实现尚未上线；与此同时，主仓编译默认 `https://api.anselm.website/v1`，联网探针 `GET https://api.anselm.website/healthz` 返回 HTTP 200 与 `{"status":"ok"}`。故“线上服务存在”成立，但仓库 HEAD 不能自动冒充线上版本。
+- `managed-gateway.md`、Backend Evolution CURRENT/FRONTIER 据此区分 live wire 与源码候选：health 只证 liveness；provider、费率、能力和部署 SHA 需 live eval / deployment record。主仓继续不复制 API Serve secret 或内部 provider 事实。
+- 本战役结束后唯一真实 working 为两个工作面：Backend Evolution（持续真实体验循环）与 Platform Foundation（single-instance、宿主生命周期、外部意图、发行/更新、三平台验收）。

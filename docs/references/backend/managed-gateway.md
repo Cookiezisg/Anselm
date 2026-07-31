@@ -45,13 +45,23 @@ Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接�
 - 公网 TLS、部署、回滚、监控、管理后台与 secret 管理；
 - 其公开 API、配置、数据库、不变量和错误码文档。
 
-这些事实以 `Anselm-API-Serve` 当前代码和 reference 为准。主仓只依赖公开 wire，不复制上游 provider 名单、模型数量、价格或部署 secret。
+这些责任以 `Anselm-API-Serve` 代码和 reference 为准。主仓只依赖公开 wire，
+不复制上游 provider 名单、模型数量、价格或部署 secret。
+
+**源码 HEAD 不等于线上版本。** 主仓默认 base 当前指向
+`https://api.anselm.website/v1`，其公开 `/healthz` 已证实在线；但同级
+`Anselm-API-Serve` 当前 `main` 明确标记为尚未上线的候选实现。因此：
+
+- 线上能力只能由 live wire / managed eval 与明确部署记录证明；
+- API Serve `main` 用于核对下一版公开契约和责任归属，不能自动冒充线上实现；
+- health 200 只证明进程在线，不证明 provider、费率、模型能力或部署 SHA；
+- 部署切换后必须在 Backend Evolution 重新跑受影响 managed lane，再把交集写回本页。
 
 ## 4. 运行时配置
 
 | 配置 | 语义 |
 |---|---|
-| 无配置 | 使用编译进代码的生产 Anselm API base |
+| 无配置 | 使用编译进代码的线上 Anselm API base |
 | `ANSELM_GATEWAY_URL` | 显式覆盖受管网关 origin，供隔离测试/本地网关；不是 provider base URL |
 | `ANSELM_GATEWAY_INTEGRATION_URL` | 只启用独立 gateway integration test |
 

@@ -25,7 +25,8 @@ landed-into:
 3. 原生媒体还受单回合 parts、bytes、distinct-kind 组合额度约束。
 4. 图像、语音、视频和音色等写入能力只走 managed route。
 5. BYOK 读取与 hybrid 调度是正式产品路径，不是诊断后门。
-6. 默认路径只依赖已部署 Anselm API 与 device proof，不依赖本地 provider secret。
+6. 默认路径只依赖线上 Anselm API 与 device proof，不依赖本地 provider secret；
+   同级 API Serve 仓库 HEAD 未经部署证据不得冒充线上版本。
 7. 费用、缓存、审批和资源释放以真实调用及持久状态裁决。
 8. Durable 恢复必须复用已完成节点，不能重复外部副作用。
 
