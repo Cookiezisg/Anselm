@@ -416,6 +416,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补上 contract 取消终态对照：`SubagentCancelTerminal` 双跑均在父 `:cancel` 204 后观察到父消息与 child sub-message 的 durable terminal，child 的 `run_function` 以 `context canceled` 收口，未留 streaming/pending。两轮均在 `LLMMock` 的 30s 故意 stall 连接上看到 `httptest.Server.Close` 等待约 5s，随后随 graceful shutdown 收口；这是 fake handler 不监听 request context 的 teardown 噪声，不是 backend ledger、孤儿或终态缺陷（包 77.469s），不改生产代码。
 
+随后执行本轮收尾的 backend 全量黑盒总闸：`testend/scenarios` 用时 354.459s 全绿，覆盖 focused 复探触及的 chat/agent/subagent、workflow/trigger、附件/文档与多模态、MCP/function/handler、provider wire、取消/恢复、会话 lineage、quota 与资源卫生；没有把 managed 模型时序哨兵、provider rate window 或 harness teardown 噪声误判为稳定产品回归。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
@@ -545,6 +547,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮把对话 lineage 四条高频路径再做当前双跑：普通 `:fork`、`:retry` 版本链、retry 后 latest fork，以及显式旧版本切点 fork 均 2/2 完成（包 70.896s；单项 11.88/7.46/8.13/8.40s 与 7.06/8.32/9.05/9.94s）。源线程保持 append-only，retry 的版本指针与 fork 后 `retryOf`/`supersededBy` 只指向分支内新 ID，分支 follow-up 均完成且没有旧工具复活或跨线程消息；未形成会话生命周期回归。
 
 本轮 contract 取消终态双跑补齐 chat 子代理的底座对照：父 `:cancel` 204 后，父/child 历史均进入 durable terminal，取消中的 function execution 不会留下可继续的 streaming/pending 或迟到产物。两轮均通过（45.66s、31.21s）；fake LLM stall 的连接关闭等待属于测试桩 teardown 语义，不改变 FRT-13 的产品终态结论。
+
+本轮总闸复核了取消/恢复、子代理、workflow、附件、多模态与 provider wire 的交叉面：全量 `testend/scenarios` 354.459s 通过，未见 focused lane 引入稳定的 durable 状态、execution ledger、媒体归属或资源卫生回归；这只是当前代码基线门禁，不替代各真实 provider/managed 证据。
 
 ### FRT-14 最新证据
 

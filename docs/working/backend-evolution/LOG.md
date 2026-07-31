@@ -1331,6 +1331,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-834 | 子代理取消终态 contract 双跑全绿（2/2，45.66s/31.21s；包 77.469s）：父 `:cancel` 均返回 204，父消息与 child sub-message 都落 durable terminal，未留下 streaming/pending；`run_function` 的取消由 `context canceled` 诚实回传。两轮都看到 fake LLM stall 连接在 `httptest.Server.Close` 时等待约 5s 后才随测试 server graceful shutdown 收口，这是 `LLMMock` 的故意 `StallMS` handler 不监听 request context 造成的 teardown 噪声，不是 backend ledger/孤儿/终态缺陷；不改生产代码 | FRT-05 + FRT-13 / contract / subagent cancellation terminal + harness teardown classification | `cd testend; env -u GOROOT -u GOTOOLCHAIN GOCACHE=$(mktemp -d /tmp/anselm-evo834-go-cache.XXXXXX) PATH=/Users/SP14921/.local/share/mise/installs/go/1.25.11/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin go test ./scenarios -run '^TestContractChat_SubagentCancelTerminal$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo834-contract-subagent-cancel-double.jsonl` → PASS；未输出 provider secret |
 
+| 2026-07-31 | EVO-835 | EVO-822～834 focused 复探后的 backend 全量黑盒总闸通过：`testend/scenarios` 覆盖 chat/agent/subagent、workflow/trigger、附件/文档与多模态、MCP/function/handler、provider wire、取消/恢复、会话 lineage、quota/资源卫生；没有把 managed 模型时序哨兵、provider rate window 或 harness teardown 噪声误判为稳定产品回归 | full backend testend regression / post-EVO-822~834 gate | `set -o pipefail; env -u GOROOT -u GOTOOLCHAIN PATH=/Users/SP14921/.local/share/mise/installs/go/1.25.11/bin:/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin MISE=/opt/homebrew/bin/mise make -C backend testend 2>&1 | tee /tmp/anselm-evo835-backend-testend-full.log | tail -n 180` → `ok github.com/sunweilin/anselm/testend/scenarios 354.459s`；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
