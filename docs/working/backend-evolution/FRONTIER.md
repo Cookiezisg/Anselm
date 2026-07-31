@@ -78,6 +78,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再次复探跨 provider 模型切换：Qwen `qwen3.7-plus` 首回合把 image+video 的 exact bytes 送入 recorder；切到 OpenAI `gpt-4.1-mini` 后，历史只保留 image native，video 变成明确 capability note 且不发送其字节，两个附件仍可逐字节回读。两次独立进程通过（12.527s、11.959s），未形成历史语义回填、能力门控或 provider 路由回归。
 
+本轮补做 BYOK 文档/音视频读侧当前双跑：OpenAI `gpt-4.1-mini` 原生 PDF、Qwen `qwen3.7-plus` 原生 MP4、同模型 image+video native fusion，以及 Qwen Omni image+audio 的单异构模态降级均 2/2 完成；PDF/MP4/PNG/WAV 源件分别 540、2,969,360、98、96,044 bytes 逐字节回读，未发生 managed fallback、provider 400、文本占位或历史丢媒体。8/8 通过（PDF 7.36s/2.95s；video 6.31s/6.95s；image+video 6.66s/5.56s；image+audio 2.01s/2.02s；包 40.790s）；BYOK install skip 与 search/embedding teardown 噪声均属隔离/收尾预期。
+
 本轮独立复探 OpenAI 图片历史交互：无内容 `retry` 连续保留单一 user 行、assistant 版本指针与 exact-byte native `image_url`；编辑文字的 resend 继续从附件历史重投影同一原图，未重复 user、丢失附件或退化成 text-only。两条路径当前进程均通过（6.340s、4.810s；包 11.445s），未形成历史装配或 part encoder 回归。
 
 本轮再做能力降级与跨模型历史切换：OpenAI 图片+不支持音频（6.32s）与图片+不支持视频（4.84s）均只发送 native image、明确写 capability note，PNG/WAV/2,969,360-byte MP4 源件逐字节可回读；Qwen image+video 首轮后切 OpenAI `gpt-4.1-mini` 继续同一会话（9.31s），第二轮保留 image native、完全不带 video 字节并诚实降级。未形成 provider 400、managed fallback、历史媒体泄漏或能力门控回归。
