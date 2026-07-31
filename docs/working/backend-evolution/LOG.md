@@ -1223,6 +1223,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-780 | managed 取消子代理树 fork 当前双跑全绿：两轮真实 `:cancel` 后 source 的 child/函数 `cancelled` 证据均被 fork 保留并 remap 到 fork 内部 `parentBlockId`，fork execution ledger 仍恰一条，分支 follow-up 完成且不复活取消工具，source history 不被追加。两轮 57.36s/52.38s，包 110.752s；第二轮一次 schema warning 未改变 durable 结果 | FRT-05 + FRT-13 / managed / cancelled subagent tree fork + continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ForkPreservesCancelledSubagentTree$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo780-managed-fork-cancelled-subagent-tree-double.jsonl` → PASS：57.36s、52.38s；未输出 provider secret |
 
+| 2026-07-31 | EVO-781 | managed 并行子代理跨回合上下文当前 clean 双跑：每轮首回合均只保留两个 child，各自 function execution 恰一条；下一轮父回合不再调用工具而逐字恢复两个 marker，`parentBlockId` 与 `agent/ok` ledger 一一闭合。两轮 92.82s/65.53s，包 158.660s，未复现重复 child、跨树串线、历史丢 marker 或终态缺失 | FRT-05 + FRT-13 / managed / parallel subagent context continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ParallelSubagentContextContinues$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo781-managed-parallel-subagent-context-double.jsonl` → PASS：92.82s、65.53s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
