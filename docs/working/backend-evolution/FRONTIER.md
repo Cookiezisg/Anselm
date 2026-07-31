@@ -254,6 +254,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮对同一 managed 写入资源链做当前窗口双跑：`generate_image` 29.00s/25.12s 各只铸一份 PNG，`edit_image` 78.45s/81.48s 保留 source sibling 并产出不同 edited sibling，文字-only `animate_image` 115.72s/118.49s 经 danger approval 进入异步 job 并最终只生成一份 MP4。六次 flowrun/receipt/MediaRef/content/terminal 全部闭合，没有迟到重复、receipt-only 或孤儿附件。
 
+随后把动画写入从 text-only 对照推进到真实图像首帧：`TestLiveManaged_AnimateImageArtifact` 两个独立进程均把上传 PNG 作为 `animate_image` source attachment，经过 danger approval 后各只铸一份可回读 MP4，receipt 保留 `provider=anselm` 与 `sourceAttachmentId`（118.90s、115.40s；包 235s）。图像→视频的多模态装配、异步 terminal 与 source lineage 当前均闭合，没有重复提交或附件孤儿。
+
 紧接着复探高风险控制矩阵时，语音拒绝出现可重复但非每轮一致的 danger-gate 红灯：组合双跑中 `GenerateSpeechDeniedNoSpend` 为 0/2（64.71s、61.78s），视频拒绝、视频批准后取消与 quota 分别为 2/2；将语音场景隔离后为 1/2（13.53s 通过、61.42s 在 60s 内未出现 interaction）。轮询期间 interaction 始终是空列表，失败停在模型没有发起 `generate_speech` danger 请求，未进入合成、receipt 或 quota 断言。正常 `GenerateSpeechArtifact` 紧接着 2/2 通过（11.46s、8.31s），真实 WAV、`provider=anselm` receipt 与附件路径闭合，因此当前结论仍是 managed 模型工具遵循/上游 stream 时序稳定性哨兵，而非 gateway danger、reservation 或 artifact ledger 缺陷；不改生产代码。
 
 ### FRT-01 最新证据
@@ -263,6 +265,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日再复探支持/不支持模态交叉：默认 managed 同一回合携带 PNG 与 WAV，能力面继续只宣称 vision、不宣称 chat audio；两次独立进程均完成，PNG（98 bytes）与 WAV（96,044 bytes）原样回读，音频以诚实降级留在产品边界，没有把整回合变成 gateway 400 或伪造 native audio。关停阶段的 embedder `context canceled` 仍为已知噪声。
 
 随后复探 managed 附件历史生命周期：一条路径在第二轮省略 `attachmentIds` 仍通过历史 re-projection 继续使用首轮图片，另一条路径删除首轮图片后 content 端点正确 404，后续对话仍 completed 且没有把已删媒体冒充为可读内容。两轮独立组合均通过（包 21.646s、16.020s），源 PNG 保持字节一致，未形成附件归属、lease、删除或历史装配缺陷。
+
+本轮把 FRT-01 的多模态写入侧补到真实图像首帧动画：上传 PNG 先作为 `animate_image` source attachment 进入同一 managed 回合，danger approval 后异步产出单一 MP4，source attachment lineage 和可读 content 均保留；两轮（118.90s、115.40s）均完成，没有把图像退化成文本提示或产生第二份产物。
 
 同日补做附件生命周期哨兵：同回合两张独立图片均可回读；首轮消费图片后删除附件，后续回合面对 404 仍把历史媒体明确降级为 missing attachment 而完成；另一条会话在首轮带图后省略 `attachmentIds` 继续追问，历史媒体重新投影后仍完成且源字节不变。三条场景在两个独立 managed 进程中均通过（包总计 30.287s、29.376s），没有 400、孤儿媒体或跨回合丢失；关停阶段偶见 search embedder `context canceled` 仍归类为已知 shutdown 噪声。
 
@@ -473,6 +477,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮收口 workflow 剩余 contract：iterate/lifecycle verbs、manual trigger 与 overlap 策略边界、fire ledger/cursor、ref-count listener、soft-delete log、unknown/config/secret carrier、versions cursor 与 workspace isolation 双跑通过（11 个场景 22 次顶层运行，包 77.238s）。与 EVO-749/757 合并后，trigger ledger、listener 投影、版本 pin、删除/重绑、跨租户动作拒绝均有当前窗口双跑证据。
 
 本轮对失败 subagent 树 fork 的当前窗口复探补入 FRT-13：一轮 fork 后继续对话时保留唯一 failed child、父子终态与单条 `triggeredBy=agent` execution，另一轮因非法 `subagent_type` 后重复派遣，在 durable child/fork 后续断言前即因 child 数量为 2 失败。红跑仍有 `FORK_FAILED_SUBAGENT_6D21`、父锚点与 completed child 证据，没有稳定的取消/恢复、execution ledger、孤儿或终态复活缺陷；继续作为 managed schema recovery/duplicate-dispatch 哨兵。
+
+本轮对 FRT-13 的异步媒体终态再加一条真实多模态证据：图像首帧 `animate_image` 两次都在 danger approval 后只提交一次任务，父回合等待 MP4 durable completion 后才收口，receipt/MediaRef/source attachment lineage 与 content endpoint 一一对应；未观察到提前 completed、迟到产物、重复提交或终态后写入。
 
 本轮再做系统级交叉链：trigger→workflow→notification 的 firing/flowrun/notification 关联双跑通过（EVO-759），fsnotify 事件 payload/filter 与 pause→SIGKILL→resume 的 durable 投影也双跑通过（EVO-760）；两条路径均未见跨层丢失、重复消费或恢复后的幽灵执行。
 

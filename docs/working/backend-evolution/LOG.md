@@ -1277,6 +1277,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-807 | managed fresh-install quota seam 当前双跑全绿：两个新 workspace 都完成 managed key/default model provision，产品 API `/freetier/quota` 返回自洽的 `limit/used/remaining`、`available=true` 与 RFC3339 `resetAt`；该探针不触发模型或生成消费，未见配额代理、workspace 隔离或初始化竞态 | FRT-08 / managed control-plane / fresh quota projection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_Quota$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo807-managed-quota-double.jsonl` → PASS：5.00s、1.51s（包 7.244s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-808 | managed 图像首帧→异步视频当前双跑全绿：两轮都把真实上传 PNG 作为 `animate_image` 的 source attachment，先停在 danger approval，批准后只提交一次异步任务并产出可回读 MP4；receipt 均保留 `provider=anselm` 与 `sourceAttachmentId`，没有重复生成、迟到产物或附件孤儿 | FRT-01 + FRT-09 + FRT-13 / managed-write / multimodal image→video animation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_AnimateImageArtifact$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo808-managed-animate-image-double.jsonl` → PASS：118.90s、115.40s（包 235s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
