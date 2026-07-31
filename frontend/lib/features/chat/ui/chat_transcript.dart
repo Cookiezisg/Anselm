@@ -1126,10 +1126,10 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
   }
 
   /// The honest turn-end line for non-clean terminals (cancelled / error / limits). end_turn = nothing.
-  /// LLM_RESOLVE_ERROR grows a「重选模型」CTA (拍板 #16): a deleted key's session override must stay
-  /// sacred, so the fix is offered where the failure shows — the same model menu the head carries.
-  /// 非干净终态的诚实一行;end_turn 无横幅。LLM_RESOLVE_ERROR 长出「重选模型」CTA(拍板 #16):删 key 后
-  /// 会话覆写神圣不动,修复入口就长在失败处——与头部同一份模型菜单。
+  /// Resolution and account-ineligible model failures grow a「重选模型」CTA: the session override
+  /// stays sacred, so the fix is offered where the failure shows — the same model menu the head carries.
+  /// 非干净终态的诚实一行;end_turn 无横幅。解析失败与当前账号不可用模型失败都长出「重选模型」CTA：
+  /// 会话覆写神圣不动，修复入口就长在失败处——与头部同一份模型菜单。
   Widget? _stopBanner(BuildContext context, WidgetRef ref) {
     if (widget.streaming) return null;
     final t = Translations.of(context);
@@ -1152,7 +1152,9 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
       detail.isEmpty ? label : '$label · $detail',
       style: AnText.label.copyWith(color: color),
     );
-    if (code != 'LLM_RESOLVE_ERROR') return line;
+    final canRepickModel =
+        code == 'LLM_RESOLVE_ERROR' || code == 'LLM_MODEL_NOT_FOUND';
+    if (!canRepickModel) return line;
     final caps = ref.watch(modelCapabilitiesProvider).value ?? const [];
     final override = ref
         .watch(conversationHeaderProvider(widget.conversationId))

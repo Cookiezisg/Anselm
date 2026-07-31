@@ -197,7 +197,7 @@ class _ForkLineage extends ConsumerWidget {
 }
 
 /// The one model menu every chat surface shares — the head's landing/thread pickers, the
-/// LLM_RESOLVE_ERROR banner's「重选模型」CTA (拍板 #16), AND the action row's retry-with-another-model
+/// model-resolution/model-eligibility banner's「重选模型」CTA, AND the action row's retry-with-another-model
 /// (WRK-077 CH-c): Auto (clear) + one entry per capability. [anchorBuilder] swaps the anchor face
 /// (default: a button labeled with the current choice).
 ///
@@ -207,7 +207,7 @@ class _ForkLineage extends ConsumerWidget {
 /// "use the thread's", not "use the workspace default". Showing Auto there would make the row lie about what
 /// picking it does.
 ///
-/// 各 chat 面共用的模型菜单(头部两态、解析失败横幅 CTA、**以及**动作排的「换模型重试」,WRK-077 CH-c):
+/// 各 chat 面共用的模型菜单(头部两态、解析/模型资格失败横幅 CTA、**以及**动作排的「换模型重试」,WRK-077 CH-c):
 /// Auto+每能力一项;anchorBuilder 换锚脸。
 ///
 /// [leadingEntries] 骑在模型列表**上方**、[includeAuto] 去掉 Auto 行。两者为重试菜单而存在,它的文法有一处诚实的

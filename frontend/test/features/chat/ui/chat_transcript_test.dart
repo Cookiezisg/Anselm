@@ -1291,6 +1291,40 @@ void main() {
     expect(find.text(t.chat.repickModel), findsNothing);
   });
 
+  testWidgets('LLM_MODEL_NOT_FOUND banner offers the same repick CTA', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {
+        'cv_1': [
+          ChatMessage(
+            id: 'msg_model_missing',
+            conversationId: 'cv_1',
+            role: 'assistant',
+            status: 'error',
+            stopReason: 'error',
+            errorCode: 'LLM_MODEL_NOT_FOUND',
+            errorMessage: 'llm: model not found (404)',
+            blocks: const [],
+            createdAt: DateTime.utc(2026, 7, 2, 10),
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+    expect(find.textContaining('LLM_MODEL_NOT_FOUND'), findsOneWidget);
+    expect(
+      find.text(t.chat.repickModel),
+      findsOneWidget,
+      reason: '当前账号不可用的模型也必须有可操作的重选入口',
+    );
+  });
+
   // ── the message-level fork entry + the user-turn prefill variant (CH-b) ──
 
   testWidgets(
