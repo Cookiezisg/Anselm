@@ -1,13 +1,14 @@
 ---
 id: WRK-086-LOG
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-31
 reviewed: 2026-07-31
 review-due: 2026-10-29
 audience: [human, ai]
 landed-into:
+  - docs/archive/document-governance/CHARTER.md
 ---
 
 # WRK-086 · 文档治理日志
@@ -247,3 +248,14 @@ landed-into:
 - G5 末次只读复核同级 `Anselm-API-Serve` clean `main`（HEAD `8d97e4e`）发现新 lineage 边界：该仓最高法明确写当前候选实现尚未上线；与此同时，主仓编译默认 `https://api.anselm.website/v1`，联网探针 `GET https://api.anselm.website/healthz` 返回 HTTP 200 与 `{"status":"ok"}`。故“线上服务存在”成立，但仓库 HEAD 不能自动冒充线上版本。
 - `managed-gateway.md`、Backend Evolution CURRENT/FRONTIER 据此区分 live wire 与源码候选：health 只证 liveness；provider、费率、能力和部署 SHA 需 live eval / deployment record。主仓继续不复制 API Serve secret 或内部 provider 事实。
 - 本战役结束后唯一真实 working 为两个工作面：Backend Evolution（持续真实体验循环）与 Platform Foundation（single-instance、宿主生命周期、外部意图、发行/更新、三平台验收）。
+
+## 2026-07-31 · G5-002 · 提交账本与冻结
+
+- 基线之后、归档提交之前的原子提交：
+  `0017ceb0`、`9d94a26d`、`ff568bb9`、`3b192421`、`3769a02a`、`7d13fc63`、
+  `736cf43d`、`66c5a85c`、`c29cbf79`、`f6da72f0`、`38bda0fe`、`b677a421`、
+  `943da426`、`363f8eba`、`6803066a`、`13e6040b`、`3bbe96ac`、`c72b7497`、
+  `ed658f2f`、`047560ad`、`a5f2f901`、`310b78d9`、`2d73e381`。
+- G0–G5 的可复用规则已经落入 `CLAUDE.md`、`docs/GOVERNANCE.md`、`docs/INDEX.md`
+  与 `backend/cmd/docs/**`；本章程和日志不再承担 current 事实，冻结到顶层 archive。
+- 最终归档提交因不能自引用，其 hash 由交付报告和 git history 给出。

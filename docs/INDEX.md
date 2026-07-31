@@ -26,7 +26,6 @@
 | 不可变架构取舍及 supersede 关系 | [`decisions/`](decisions/) |
 | 后端持续真实体验迭代 | [`working/backend-evolution/README.md`](working/backend-evolution/README.md) |
 | 桌面发行与平台未完成面 | [`working/platform-foundation/README.md`](working/platform-foundation/README.md) |
-| 当前文档治理战役 | [`working/document-governance/CHARTER.md`](working/document-governance/CHARTER.md) |
 | 已完成、终止或被取代的施工证据 | [`archive/`](archive/) |
 
 权威顺序：`CLAUDE.md` → current `references/` → `concepts/` → `working/` →

@@ -1,13 +1,17 @@
 ---
 id: WRK-086
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-31
 reviewed: 2026-07-31
 review-due: 2026-10-29
 audience: [human, ai]
 landed-into:
+  - CLAUDE.md
+  - docs/GOVERNANCE.md
+  - docs/INDEX.md
+  - backend/cmd/docs/main.go
 ---
 
 # WRK-086 · 全仓文档治理战役
@@ -188,42 +192,42 @@ INVENTORY
 
 ### 6.1 结构
 
-- [ ] 所有受治理 current Markdown 分类正确、frontmatter 合法、ID 在受治理区唯一。
-- [ ] `working/` 只剩真实未完成工作；不存在 `working/**/archived` 或同义私设墓地。
-- [ ] 已完成 working 均有 current 落点、`landed-into` 和顶层 archive。
-- [ ] INDEX ≤50 行，入口不把已完成施工日志当 current source。
-- [ ] 所有 active 文档本地链接存在；迁移后无旧路径引用。
+- [x] 所有受治理 current Markdown 分类正确、frontmatter 合法、ID 在受治理区唯一。
+- [x] `working/` 只剩真实未完成工作；不存在 `working/**/archived` 或同义私设墓地。
+- [x] 已完成 working 均有 current 落点、`landed-into` 和顶层 archive。
+- [x] INDEX ≤50 行，入口不把已完成施工日志当 current source。
+- [x] 所有 active 文档本地链接存在；迁移后无旧路径引用。
 
 ### 6.2 前端
 
-- [ ] overview、architecture、contract、design-system、platform 与 feature reference 互不冲突。
-- [ ] `chat`、`entities`、`library`、`notifications`、`scheduler`、`settings` 六个真实 feature 均有 current 入口。
-- [ ] 路由、目录、命令、sidecar、SSE、媒体和平台宿主描述与代码一致。
-- [ ] 前端已完成施工材料全部退出 working。
+- [x] overview、architecture、contract、design-system、platform 与 feature reference 互不冲突。
+- [x] `chat`、`entities`、`library`、`notifications`、`scheduler`、`settings` 六个真实 feature 均有 current 入口。
+- [x] 路由、目录、命令、sidecar、SSE、媒体和平台宿主描述与代码一致。
+- [x] 前端已完成施工材料全部退出 working。
 
 ### 6.3 后端与网关
 
-- [ ] 四索引与代码机械/人工复核通过。
-- [ ] 每个 backend domain/foundation 文档有真实代码归属且无已删除实现。
-- [ ] architecture、CLAUDE 与 backend overview 的当前状态一致。
-- [ ] 主仓与 API Serve 的公开责任边界准确，主仓文档不要求本地 provider secret 来证明默认产品路径。
-- [ ] backend-evolution 当前面与历史面物理分开，CURRENT/FRONTIER/LOG/HISTORY 职责不混。
+- [x] 四索引与代码机械/人工复核通过。
+- [x] 每个 backend domain/foundation 文档有真实代码归属且无已删除实现。
+- [x] architecture、CLAUDE 与 backend overview 的当前状态一致。
+- [x] 主仓与 API Serve 的公开责任边界准确，主仓文档不要求本地 provider secret 来证明默认产品路径。
+- [x] backend-evolution 当前面与历史面物理分开，CURRENT/FRONTIER/LOG/HISTORY 职责不混。
 
 ### 6.4 质量与防复发
 
-- [ ] 对高风险词完成逐条人工裁决：`在建|待拍板|下一步|重建中|未建|旧版|legacy|已废|占位|future`。
-- [ ] 没有同一事实在 CLAUDE/reference/concept/README 被多份展开复制；非权威处只做短链接。
-- [ ] 新增门禁有测试或明确可复现的失败样例，且 GOVERNANCE/CLAUDE 同步。
-- [ ] `make -C docs verify` 通过，warning 均有书面裁决。
-- [ ] 相关局部门禁通过，最终 `make verify` 通过或只有被证实的外部环境阻塞。
-- [ ] `git diff` 无无关产品代码、secret、生成垃圾或用户原有改动。
+- [x] 对高风险词完成逐条人工裁决：`在建|待拍板|下一步|重建中|未建|旧版|legacy|已废|占位|future`。
+- [x] 没有同一事实在 CLAUDE/reference/concept/README 被多份展开复制；非权威处只做短链接。
+- [x] 新增门禁有测试或明确可复现的失败样例，且 GOVERNANCE/CLAUDE 同步。
+- [x] `make -C docs verify` 通过，warning 均有书面裁决。
+- [x] 相关局部门禁通过，最终 `make verify` 通过或只有被证实的外部环境阻塞。
+- [x] `git diff` 无无关产品代码、secret、生成垃圾或用户原有改动。
 
 ### 6.5 收尾
 
-- [ ] LOG 含基线、批次、验证、commit 与剩余边界。
-- [ ] 本战役可复用规则已进入 GOVERNANCE/CLAUDE/门禁。
-- [ ] 本文与 LOG 填 `landed-into` 并移入 `docs/archive/document-governance/`。
-- [ ] 最终工作树干净；向用户报告完整 commit 列表、当前文档地图和唯一剩余 working。
+- [x] LOG 含基线、批次、验证、commit 与剩余边界。
+- [x] 本战役可复用规则已进入 GOVERNANCE/CLAUDE/门禁。
+- [x] 本文与 LOG 填 `landed-into` 并移入 `docs/archive/document-governance/`。
+- [x] 最终工作树干净；向用户报告完整 commit 列表、当前文档地图和唯一剩余 working。
 
 ## 7. 停止、暂停与阻塞
 
