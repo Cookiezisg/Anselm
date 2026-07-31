@@ -238,6 +238,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮成本/资源控制面当前组合再次全绿：`generate_speech` deny 14.09s、`generate_video` deny 9.88s 均在 interaction→deny 后 completed 且无 receipt、附件或 quota 消费；video approve→submit→cancel 13.92s 返回 204，父回合 durable `cancelled` 且无迟到 MP4/孤儿；空闲 workspace quota 1.26s 返回自洽快照。未形成 danger gate、reservation rollback、异步取消或 quota projection 回归。
 
+本轮对同一视频成本/资源闸做双跑复核：`generate_video` danger deny 两轮均在提交前完成，历史没有 receipt/附件且 quota 没有额外 generation reservation；approve 后观察到真实 gateway submission，再发 `:cancel` 的两轮均返回 204，父回合 durable `cancelled`，延迟查询仍无 MP4、迟到 receipt 或孤儿附件。取消时出现的底层 tool failed WARN 是任务进程关停噪声，不改变 durable 终态；未形成 denial rollback、提交后取消或资源卫生回归。
+
 本轮再做高风险控制面三件套：语音与视频 danger deny 分别 16.36s、11.16s 完成，拒绝后无 receipt/quota；视频批准后提交再取消 10.86s 完成，父回合落 durable `cancelled` 且无迟到 MP4/附件。三条均未形成成本闸、broker 或异步资源孤儿。
 
 随后对同一 managed 图像写入链做当前窗口复探：独立 `generate_image` 回读 1,101,958-byte PNG；`edit_image` 保留 1,083,251-byte source sibling 并产出 1,677,425-byte 不同 edited sibling；文字-only `animate_image` 经 danger approval 进入异步路由，源 lineage 保留且唯一 7,026,354-byte MP4 可回读。三项分别 28.85s、77.03s、131.39s 通过，未出现重复 receipt、迟到产物或孤儿附件；动画中段的高频 messages 轮询最终正常收口，不构成 durable 卡死。
@@ -441,6 +443,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮再做核心用户生命周期 sanity gate：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立运行两次，6/6 完成。源历史保持 append-only，fork 分支可继续，retry 版本链没有跨线程指针或旧终态复活；包总计 50.126s，未形成当前窗口的消息投影或会话血缘回归。
 
 本轮取消子代理终态做独立双跑：两轮均在客户端真实调用 `:cancel` 后返回 204，durable history 同时观察到父/child `cancelled`，child 的 agent function execution 恰一条并落取消，后续 follow-up 完成且不复活旧工具。单轮 52.82s/50.50s、包 103.956s；取消路径中出现的非法 `subagent_type` 与 `spawn process failed` WARN 未改变台账和终态，归类为模型 schema recovery/进程组关停噪声，不构成 FRT-13 后端回归。
+
+视频异步取消的同窗口双跑也保持资源卫生：danger deny 两轮均在提交前完成且无 receipt/附件/额外 reservation；approve 后观察到 gateway submission 再 `:cancel` 的两轮均返回 204，父回合 durable `cancelled`，延迟历史与附件查询没有迟到 MP4 或孤儿 receipt。底层 `generate_video` tool failed WARN 只反映取消时任务进程被杀，未改变本地终态或后续可继续性。
 
 聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
 

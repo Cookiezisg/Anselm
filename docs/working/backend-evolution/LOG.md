@@ -1255,6 +1255,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-796 | 用户多模态 workflow 三入口当前独立组合全绿：manual trigger、真实 webhook、chat→`trigger_workflow` 均把 PDF+PNG+MP4 穿过 trigger/CEL→managed agent；PDF sandbox token、PNG/MP4 MediaRef、入口 provenance 与源字节全部闭合，未出现入口特有 payload/CEL 或媒体映射漂移 | FRT-01 + FRT-04 / managed / manual + webhook + chat multimodal workflow fan-in | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo796-managed-workflow-attachment-fusion-triple-entry.jsonl` → PASS：Manual 67.54s、Webhook 26.44s、Chat 43.16s（包 137.69s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-797 | managed 视频成本/资源边界当前双跑稳定闭合：danger deny 两轮均在提交前完成且无 `generate_video` receipt、附件或额外 generation reservation；approve 后观察到真实 gateway submission 再 `:cancel` 两轮均返回 204，父回合 durable `cancelled`，历史/附件端点没有迟到 MP4 或孤儿 receipt。取消时偶见底层 tool failed WARN 仅是任务进程关停噪声，不改变终态 | FRT-09 + FRT-13 / managed-write / video danger denial + submitted async cancellation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideo(DeniedNoSpend|CancelAfterSubmitLeavesNoOrphan)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo797-managed-video-danger-cancel-double.jsonl` → PASS：deny 15.43s/9.77s、cancel 10.63s/10.66s（包 47.309s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
