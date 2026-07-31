@@ -1217,6 +1217,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-777 | sibling `Anselm-API-Serve` 当前完整网关契约门禁全绿：`go vet`、trimpath build、全仓 race/unit、真实 HTTP+SQLite integration e2e、golangci-lint 与 docs lint 均通过；integration e2e 6.866s、lint 0 issues、docs 35 files clean，且 sibling 工作树保持 clean。确认本轮 managed/BYOK live 证据依赖的 router/middleware/upstream、stream settle、quota、拒绝 rollback、异步媒体与 voice/ASR 公共服务底座未漂移 | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-evo777-api-serve-verify.log | tail -n 160` → PASS：integration 6.866s；golangci-lint 0 issues；docs 35 files clean；未输出 provider secret |
 
+| 2026-07-31 | EVO-778 | managed 子代理失败续接严格哨兵本轮 0/2：两轮父回合均保留故意失败 marker、没有父层直接 `run_function`，可见 block 序列均在 child 内完成一次故意失败并将完整错误带回；但模型先发非法或不完整 `subagent_type`，随后再次发 corrected `Subagent`，使 `parentSubagentCalls=2` 在后续 durable execution/tree 断言前失败（52.13s、62.50s；包 115.238s）。当前证据是 schema recovery/重复派发时序，不是已证实的 function ledger、child tree、孤儿或终态后端缺陷；不改生产代码 | FRT-05 + FRT-13 / managed / subagent failure continuation + schema recovery | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentFunctionFailureContinues$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo778-managed-subagent-failure-continues-double.jsonl` → FAIL：0/2，严格派发次数断言；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
