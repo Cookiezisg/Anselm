@@ -81,3 +81,11 @@ landed-into:
 - 同步重述 GOVERNANCE 的常驻执行层措辞、前端 canonical 文档地图与同步触发表；ADR 规则现在区分“不可改原决定正文”和“允许生命周期/前向元数据”，消除 §6 与收尾清单互相冲突。
 - 验证：`make -C docs verify` 与 `git diff --check` 通过；warning 仍仅为 DTO mirror 12 checked / 21 skipped。
 - G2 仍未完成：`concepts/architecture.md` 及 backend 四索引、domains、foundation 仍需逐篇清除建造史并复核当前代码。
+
+## 2026-07-31 · G2-003 · 架构总览恢复为纯当前心智
+
+- 整体重述 `concepts/architecture.md`，从“愿景 + 当前架构 + WRK 施工说明 + 战役溢出 TODO + 历史路线”混合体收敛为产品边界、系统边界、后端分层、实体模型、durable execution、主要端到端路径、实时协议与非目标。
+- 删除来源战役表、旧版快照提示、已立项待做和一次性实现/性能数字；未完成工作只允许进入有生命周期的 `working/`。
+- 多模态提升为独立系统级数据流：MediaRef 单一引用、Attachment 单一存储、能力门控的统一消费、前端统一呈现，并明确贯穿 Chat、Agent、Subagent、Workflow、approval、文档和实体调试面。
+- 架构图明确本地 sidecar、BYOK、已部署 Anselm API 与 provider 的边界；默认受管路径不要求本机 provider key。
+- 验证：`make -C docs verify`、`git diff --check` 和 architecture/CLAUDE 高风险施工词扫描通过；DTO warning 未变化。
