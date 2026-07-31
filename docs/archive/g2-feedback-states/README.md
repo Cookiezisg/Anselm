@@ -1,16 +1,19 @@
 ---
 id: WRK-037
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-23
-reviewed: 2026-06-23
+reviewed: 2026-07-31
 review-due: 2026-09-21
 audience: [human, ai]
 landed-into: references/frontend/design-system.md
 ---
 
 # G2 反馈态套件 —— 联网调研已确认的建造规范（开工前对齐用）
+
+> **冻结历史快照。** G2 已落地；当前组件与设计纪律只以
+> [`design-system.md`](../../references/frontend/design-system.md) 为准。
 
 > **来源**:开工前的完整联网 best-practice 扇出(6 组件 agent + 2 跨切面 agent + 综合,见会话 workflow `research-g2-feedback-states`)。
 > **用法**:这是 G2(Skeleton/State/Callout/Stepper/Tags/Typewriter)的**建造事实源**——逐件按本篇做。**§1 通用标准是 kit-wide 绑定规则**(落地时提取进 [`design-system.md`](../../references/frontend/design-system.md) §2);§3 逐组件方案随各件提交落地。

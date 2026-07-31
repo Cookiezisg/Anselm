@@ -1,16 +1,19 @@
 ---
 id: WRK-080
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-25
-reviewed: 2026-07-25
+reviewed: 2026-07-31
 review-due: 2026-10-23
 audience: [human, ai]
-landed-into:
+landed-into: docs/archive/multimodal-agent/README.md
 ---
 
 # WRK-078 收口 · 进度台账
+
+> **冻结历史快照。** 这是建造期进度记录，不是当前状态；最终结论与现行参考入口见
+> 本目录 [`README.md`](README.md)。
 
 > **这一页是收口战役的唯一进度真相。** 每完成一批更新一次。用户起床只读这一页即可知道:
 > 哪批完了、发现了什么、修了什么、还剩什么、哪些必须用户本人来做。

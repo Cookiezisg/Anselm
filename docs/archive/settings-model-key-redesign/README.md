@@ -1,16 +1,20 @@
 ---
 id: WRK-034
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-21
-reviewed: 2026-06-21
+reviewed: 2026-07-31
 review-due: 2026-09-19
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/features/settings.md, docs/references/backend/foundation/stream-llm.md
 ---
 
 # 「模型与 Key」设置页重做 —— 后端对齐 + 三段式设计
+
+> **冻结历史快照。** 页面和供应商能力已经继续演进；当前事实见
+> [`settings.md`](../../references/frontend/features/settings.md) 与
+> [`stream-llm.md`](../../references/backend/foundation/stream-llm.md)。
 
 > 来源：3 路并行后端调研 + 逐路反核验（API Key 域 / 默认模型选择 / 搜索供应商），全部对到 `backend/internal/…:行`。
 > 用法：demo「模型与 Key」页（`demo/features/settings/{data,sea}.js`）重做的设计依据 + 真前端对接契约。

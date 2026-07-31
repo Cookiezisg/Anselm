@@ -4,10 +4,10 @@ type: working
 status: archived
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-12
+reviewed: 2026-07-31
 review-due: 2026-09-12
 expires: 2026-09-12
-landed-into: ""
+landed-into: docs/archive/product-review/REPORT.md
 audience: [human, ai]
 ---
 
@@ -144,4 +144,3 @@ audience: [human, ai]
 
 - **PR-24 🟢 实体列表页无执行聚合摘要**（wontfix）：卡片想显示 ok/failed 徽标需逐实体查 executions 聚合——本地 app N 请求廉价 + 前端可懒加载可见区；列表带聚合是 N+1 JOIN 复杂度，不值。
 - **PR-25 🟢 无全局活动总览端点**（wontfix）：「dashboard 首页」可由通知中心+各 list 组合；后端聚合首页是前端形态定型前的过早抽象。
-

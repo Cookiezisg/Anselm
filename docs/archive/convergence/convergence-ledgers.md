@@ -7,6 +7,7 @@ created: 2026-07-11
 reviewed: 2026-07-11
 review-due: 2026-10-01
 audience: [human, ai]
+landed-into: docs/archive/convergence/README.md
 ---
 
 # WRK-067 「同轨」P1 普查台账 —— 四轨全量清单

@@ -1,16 +1,19 @@
 ---
 id: WRK-079
 type: working
-status: active
+status: archived
 owner: "@weilin"
 created: 2026-07-25
-reviewed: 2026-07-25
+reviewed: 2026-07-31
 review-due: 2026-10-23
 audience: [human, ai]
-landed-into:
+landed-into: docs/archive/multimodal-agent/README.md
 ---
 
 # WRK-078 交接 · audio playback lease 片
+
+> **冻结历史快照。** 本交接片已经结束；当前能力与最终落点从本目录
+> [`README.md`](README.md) 继续追踪。
 
 日期：2026-07-25  
 仓库：`/Users/SP14921/Documents/Personal/PersonalCodeBase/Anselm`  

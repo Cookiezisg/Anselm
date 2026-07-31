@@ -1,16 +1,20 @@
 ---
 id: WRK-035
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-21
-reviewed: 2026-06-21
+reviewed: 2026-07-31
 review-due: 2026-09-19
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/features/settings.md, docs/references/backend/domains/mcp.md
 ---
 
 # MCP 设置页重做 —— 后端对齐 + 市场/已装设计
+
+> **冻结历史快照。** 页面和后端能力已继续演进；当前产品事实见
+> [`settings.md`](../../references/frontend/features/settings.md) 与
+> [`domains/mcp.md`](../../references/backend/domains/mcp.md)。
 
 > 来源：3 路并行后端调研 + 逐路反核验（catalog/市场 · install 流程 · 已装运行态），全部对到 `backend/internal/…:行`。
 > 用法：demo「MCP」页（`demo/features/settings/{data,sea}.js`）重做的设计依据 + 真前端对接契约。

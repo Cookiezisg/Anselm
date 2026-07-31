@@ -1,16 +1,20 @@
 ---
 id: WRK-031
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-20
-reviewed: 2026-06-20
+reviewed: 2026-07-31
 review-due: 2026-09-18
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/backend/domains/mcp.md, docs/decisions/0006-mcp-curated-whitelist.md
 ---
 
 # 完整支持每一个 MCP（含 OAuth）—— 后端要做什么（需求清单，待核）
+
+> **冻结历史快照。** OAuth 建造结论已落地；当前 MCP 行为以
+> [`domains/mcp.md`](../../references/backend/domains/mcp.md) 与
+> [`ADR 0006`](../../decisions/0006-mcp-curated-whitelist.md) 为准。
 
 > **本文件是给「另一个人/agent 去核实」的需求清单**，不是已定方案。目标：让 MCP 市场里**每一个**服务器都能真正连上用——包括当前装上去就坏的 OAuth-only 远程服务器。
 > 现状与结论的代码/规范依据见文末「核实清单 + 来源」，核实者请逐条对着仓库与 MCP 规范打勾。

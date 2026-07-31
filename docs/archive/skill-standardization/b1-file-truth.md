@@ -1,15 +1,19 @@
 ---
 id: WRK-076
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-22
-reviewed: 2026-07-22
+reviewed: 2026-07-31
 review-due: 2026-10-20
 audience: [human, ai]
+landed-into: docs/references/backend/domains/skill.md
 ---
 
 # B1「文件即真相」— 后端规范（拍板稿）
+
+> **冻结历史快照。** B1 已实现；当前 Skill 文件合同只以
+> [`domains/skill.md`](../../references/backend/domains/skill.md) 为准。
 
 > 战役总纲见 [README.md](README.md)。本篇 = B1 的精确契约 + 实现分解 + 回归清单。调研三源（后端读码 / yaml.Node 最佳实践 / Agent Skills 规范）已交叉对抗验证，版本前提全部成立：Go 1.25（`os.Root` 需 1.24+）、`go.yaml.in/yaml/v3 v3.0.4` 已在依赖（全仓唯一使用点即 skill frontmatter）。
 

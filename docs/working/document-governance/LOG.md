@@ -210,3 +210,10 @@ landed-into:
 - Release playbook 改为无时效数字的执行合同：版本单源、artifact 内容、信任链、CI、clean-machine acceptance、更新恢复与逐次官方重新验证清单；不再把 2026-06 的证书费用、平台政策或 action 版本冒充当前操作步骤。
 - 前端 platform reference 同步当前事实：launch-at-login 已有；GitHub Releases 只做检查提示；签名、公证、安装器、sidecar bundling 与安装型自动更新仍未验证。
 - 验证：`make -C docs verify` 与 `git diff --check` 通过；working Markdown 从 4,472 行降至 2,292 行，其中 1,537 行是两个仍需只追加的 active LOG，完成证据和历史研究均保留在正确层。
+
+## 2026-07-31 · G3-003 · Archive 生命周期与落点全量审计
+
+- 全量审计 `docs/archive/` 77 份 Markdown。纠正 12 份“物理位于 archive、frontmatter 仍写 active”的状态漂移；它们均是已经落地或已被当前参考取代的研究、实施册、handoff 与进度账，没有把真实未完成工作伪装成完成。
+- 给旧 free-tier、MCP、Settings、Search、G2/Gallery、Skill 与多模态施工材料补冻结提示和 current landing，避免标题中的“START HERE”“事实源”“待核”继续抢夺当前事实权。
+- acceptance-review、product-review 与 backend-review 的历史子册落到各自终报，再由终报落到当前 backend/testend reference；Convergence 三份子账补齐 parent/current landing。
+- 审计后 archive 内 `status` 全为 `archived`，所有 77 份 Markdown 均有非空 `landed-into`，且 landing 链最终指向 current reference、ADR 或明确的历史总账。

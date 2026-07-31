@@ -1,16 +1,20 @@
 ---
 id: WRK-033
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-20
-reviewed: 2026-06-20
+reviewed: 2026-07-31
 review-due: 2026-09-18
 audience: [human, ai]
-landed-into:
+landed-into: docs/references/frontend/features/settings.md, docs/references/backend/api.md
 ---
 
 # 设置 UI 需要、但后端现在没有的 —— 后端补缺清单（交接用）
+
+> **冻结历史快照。** 这份 2026-06 缺口清单已被后续迭代取代；当前事实见
+> [`settings.md`](../../references/frontend/features/settings.md) 与
+> [`api.md`](../../references/backend/api.md)。
 
 > 来源：对整个设置面的代码级深读（workspace / apikey+model / skill+search / sandbox+limits / MCP / free-tier，全部带 `文件:行` 锚点）。
 > 用法：这是**给后端实现者的待办清单**，不是设计。每条给【缺什么 · 设置为啥要 · 大致补什么 · 代码锚点】。按 P0/P1/P2 优先级分档——P0 不补，设置页会明显残缺或误导用户。
