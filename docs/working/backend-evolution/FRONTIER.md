@@ -510,6 +510,8 @@ EVO-790 的同批次 stale-model 资格探针被 Google 当前 429 窗口覆盖�
 
 本轮所有 live 探针与文档变更后执行一次全量后端黑盒回归：`testend/scenarios` 用时 328.040s 全绿，未引入新的稳定产品缺陷；该门禁只证明当前已落地行为没有被本轮工作回归，不替代各 provider/managed 场景的独立真线缆证据。
 
+本轮 EVO-806～811（失败 subagent fork、fresh quota、图像首帧动画、默认 chat、workflow replay/approval）之后再次执行全量 backend 黑盒总闸：`testend/scenarios` 304.815s 全绿。该门禁确认 focused live 证据没有回归 contract、chat、workflow/trigger、附件、MCP/function/handler、取消/恢复或资源卫生基线；provider rate window 与 managed 模型时序仍按各自独立哨兵解释。
+
 ### FRT-15 最新证据
 
 同日补上真实 managed workspace 的大图扇出/AND-join 闭环：一个 manual flowrun 展开 8 条 action 分支，两个四输入 join 在所有上游完成后各执行一次，finish 汇总 12 条 durable node rows；function ledger 同时证明 8 次 branch、2 次 join、1 次 finish 均绑定同一 `flowrunId`、`flowrunNodeId` 唯一且成功。两次真实复跑通过（总计 9.109s、9.867s），未形成后端缺陷；关停阶段 search embedder `context canceled` 仍归类为服务 shutdown 噪声。

@@ -1285,6 +1285,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-811 | 聊天入口 workflow human approval 当前双跑全绿：两轮 `trigger_workflow` 都在 `human` 节点 durable park，停泊观察期没有下游 publish；随后 `decide_approval(yes)` 只恢复一次下游 action，decision、flowrun/interaction、function/handler ledger 与父回合 completed 均闭合，未见提前执行或重复恢复 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / flowrun human approval park and resume | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunApprovalDecision$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo811-managed-chat-flowrun-approval-double.jsonl` → PASS：48.79s、43.29s（包 92.546s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-812 | 当前 focused live 探针之后完成 backend 全量黑盒总闸：contract、chat、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生全部通过；没有发现本轮图像首帧动画、quota、默认 chat、workflow replay/approval 或 failed-fork 记录造成的稳定基础回归 | full backend testend regression / post-EVO-806~811 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo812-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 304.815s`；未启用 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
