@@ -7,6 +7,7 @@ created: 2026-06-25
 reviewed: 2026-06-25
 review-due: 2026-09-23
 audience: [human, ai]
+landed-into:
 ---
 
 # WRK-042 — 生产级桌面 app「平台地基」调研总账

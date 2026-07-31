@@ -7,6 +7,7 @@ created: 2026-07-03
 reviewed: 2026-07-03
 review-due: 2026-10-01
 audience: [human, ai]
+landed-into:
 ---
 
 # 实体页雕琢 — 逐实体 ideal 形态(function 首站)

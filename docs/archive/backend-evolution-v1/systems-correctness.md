@@ -1,13 +1,13 @@
 ---
 id: WRK-030
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-19
 reviewed: 2026-06-19
 review-due: 2026-09-17
 audience: [human, ai]
-landed-into:
+landed-into: docs/working/backend-evolution/README.md
 ---
 
 # 系统级正确性维度 —— hunt 发现登记（resource/runtime correctness）

@@ -7,6 +7,7 @@ created: 2026-07-19
 reviewed: 2026-07-19
 review-due: 2026-10-17
 audience: [human, ai]
+landed-into:
 ---
 
 # 右岛三段式文法 —— 全右岛收敛战役（台账 · 收官）

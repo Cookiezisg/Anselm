@@ -7,6 +7,7 @@ created: 2026-07-16
 reviewed: 2026-07-16
 review-due: 2026-10-14
 audience: [human, ai]
+landed-into:
 ---
 
 # Scheduler 第四海洋 —— 产品形态与建造规范(已拍板)

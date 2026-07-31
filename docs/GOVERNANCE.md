@@ -4,8 +4,8 @@ type: concept
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
@@ -67,7 +67,7 @@ audience: [human, ai]
 
 ```yaml
 ---
-id: DOC-NNN          # 唯一编号，创建时分配（见 §4）
+id: DOC-NNN          # 稳定文档；working 用 WRK-NNN（见 §4）
 type: concept        # §2 六类之一
 status: active       # draft | active | superseded | deprecated | archived
 owner: @weilin
@@ -76,17 +76,20 @@ reviewed: YYYY-MM-DD  # 最近一次人工审阅
 review-due: YYYY-MM-DD # 下次到期审阅（= reviewed + 该类型周期）
 audience: [human, ai]  # 读者：human / ai / 二者
 superseded-by:        # status→superseded 时填，指向取代它的 DOC-id/路径
-landed-into:          # 仅 working：结论提取进哪篇 concepts/references 后填
+landed-into:          # working 必须存在；落地前空，结论提取后填目标路径
 ---
 ```
 
-`status` 缺失或非法值、`type` 非六类之一、必填字段为空 → `make -C docs verify` 失败（§11）。
+`status` 缺失或非法值、`type` 非六类之一、日期非 `YYYY-MM-DD`、必填字段为空，或 working 缺 `landed-into` 键 → `make -C docs verify` 失败（§11）。
 
 ---
 
 ## 4. 命名与 ID
 
-- **ID**：`DOC-NNN`，三位递增、全仓唯一、创建即分配、**永不复用**。`DOC-000` = 本规范。
+- **ID**：
+  - 稳定文档用 `DOC-NNN`；`DOC-000` = 本规范。
+  - working 战役用 `WRK-NNN`；同一战役的辅助文件可用 `WRK-NNN-SLUG`（如 `WRK-086-LOG`）。
+  - `NNN` 三位递增；ID 在所有**非 archive** 文档中全局唯一、创建即分配、**永不复用**。archive 保留历史原貌，不参与唯一性门禁。
 - **文件名**：`kebab-case.md`。
   - `reference` 域文档名 = 其对应代码资源域（如 `domains/function.md` 对应 function 模块），便于 1:1 对照。
   - `decision` 文档：`NNNN-简短标题.md`（如 `0021-durable-vs-eventsourcing.md`），`NNNN` 为 ADR 序号、与 `DOC-NNN` 独立。
@@ -114,6 +117,8 @@ docs/
 ```
 
 - 每个文件夹放且仅放其声明类型的文档；空文件夹用 `.gitkeep`（内含一行职责说明）占位。
+- `working/` 内禁止再建 `archive` / `archived` / `legacy` / `old` 私有墓地；历史材料只能进入顶层 `docs/archive/`。
+- `status: archived` 只能住顶层 `archive/`；迁移时可保留 frontmatter 供追溯，但 archive 整体仍豁免 lint。
 - 新增类别 = 先在本 §5 + §2 登记，再建目录。
 
 ---
@@ -199,16 +204,18 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 
 `make -C docs verify`（跑 `backend/cmd/docs`）已是根 `make verify` 的一环，机械强制：
 
-1. 所有非 `archive/`、非 `INDEX.md` 的 `.md` 都有合法 frontmatter，且必填字段齐。
-2. `type` ∈ §2 六类；`status` ∈ §6 五态。
-3. `review-due` 已过期 → **警告**（不阻断）。
-4. `working/` 文档 >90 天且 `landed-into` 空 → **失败**。
-5. `decisions/` 文档创建后被改（git blame）→ **失败**（ADR 不可变）。
-6. `INDEX.md` ≤ 50 行。
-7. 无孤儿链接（文档内相对链接指向的文件都存在）。
-8. **契约漂移检测**（`cmd/docs/drift.go`，§1.7 同步纪律的机械半）：从后端源码提取四类契约事实并与四索引 diff——**错误码**（`errorspkg.New`/裸 `New`/transport 合成码 ↔ `error-codes.md` 表格行，**双向**严格）· **通知事件**（emit 家族的点写字面量 ↔ `events.md`，代码→文档严格〔直写/族/行级配对〕，文档→代码仅反查直写形态且豁免 helper 拼接域〔`"<域>."+action`〕与表列散文引用）· **端点**（`/api/v1` 路由字面量的具名资源词必须出现在 `api.md`，单向）· **表名**（`CREATE TABLE` 字面量 ↔ `database.md` 表格行，**双向**；地基表回落 `references/backend/` 全域）。匹配哲学=**宁漏报不误报**；文档自称非穷举的词表（node.type）不查。**前端 DTO 镜像**（#9 第三条腿）：`core/contract/` 下 doc 注释携带镜像锚（`<file>.go:<line>`，契约层既有惯例）的 freezed 类，与该文件里**同名** Go struct 逐字段 diff（Go 侧=json tag 首段〔`-`/无 tag 不上线缆跳过〕，Dart 侧=工厂参数名〔`@JsonKey(name)` 覆盖〕）——漏镜像与幽灵字段皆红；**锚 + 同名 = 双钥匙 opt-in**（无锚或类名带前缀〔如 `FunctionEntity`〕= 静默跳过并在汇总 warn 报数，刻意投影零误报）。任何漂移 → **失败**并打印精确清单。
+1. 所有非 `archive/`、非 `INDEX.md` 的 `.md` 都有合法 frontmatter，必填字段齐，三个日期为 `YYYY-MM-DD`。
+2. ID 符合 §4 的 `DOC-NNN` / `WRK-NNN[-SLUG]` 语法，且在受治理文档中唯一。
+3. `type` ∈ §2 六类、`status` ∈ §6 五态；顶层目录与 type 对齐。
+4. `status: archived` 不得留在 current 树；`working/` 不得包含私有 archive/legacy/old 子树。
+5. `review-due` 已过期 → **警告**（不阻断）。
+6. working 必须声明 `landed-into`；创建 >90 天仍为空 → **失败**。
+7. `INDEX.md` ≤ 50 行。
+8. 无孤儿链接（文档内相对链接指向的文件都存在）。
+9. **契约漂移检测**（`cmd/docs/drift.go`，§1.7 同步纪律的机械半）：从后端源码提取四类契约事实并与四索引 diff——**错误码**（`errorspkg.New`/裸 `New`/transport 合成码 ↔ `error-codes.md` 表格行，**双向**严格）· **通知事件**（emit 家族的点写字面量 ↔ `events.md`，代码→文档严格〔直写/族/行级配对〕，文档→代码仅反查直写形态且豁免 helper 拼接域〔`"<域>."+action`〕与表列散文引用）· **端点**（`/api/v1` 路由字面量的具名资源词必须出现在 `api.md`，单向）· **表名**（`CREATE TABLE` 字面量 ↔ `database.md` 表格行，**双向**；地基表回落 `references/backend/` 全域）。匹配哲学=**宁漏报不误报**；文档自称非穷举的词表（node.type）不查。**前端 DTO 镜像**（#9 第三条腿）：`core/contract/` 下 doc 注释携带镜像锚（`<file>.go:<line>`，契约层既有惯例）的 freezed 类，与该文件里**同名** Go struct 逐字段 diff（Go 侧=json tag 首段〔`-`/无 tag 不上线缆跳过〕，Dart 侧=工厂参数名〔`@JsonKey(name)` 覆盖〕）——漏镜像与幽灵字段皆红；**锚 + 同名 = 双钥匙 opt-in**（无锚或类名带前缀〔如 `FunctionEntity`〕= 静默跳过并在汇总 warn 报数，刻意投影零误报）。任何漂移 → **失败**并打印精确清单。
+10. ADR 不可变仍由 §12 清单 + `decisions/` review 执行；当前 checker **尚未**机械比对 git 历史，不得声称已覆盖。
 
-> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–4、6–8；唯 #5（ADR 不可变，需比对 git 历史）暂未纳入门禁，靠 §12 收尾清单 #6 + `decisions/` 目录纪律守。§12 收尾清单是 Claude 的人肉前置层，与门禁并行——#8 使「新增/删改 错误码/事件/端点资源/表 而不动四索引」物理上无法通过门禁。
+> **覆盖**：门禁实现为 `backend/cmd/docs`（`make -C docs verify`，并入根 `make verify`），机械强制上列 1–9。§12 收尾清单是人肉前置层，与门禁并行——#9 使「新增/删改错误码/事件/端点资源/表而不动四索引」物理上无法通过门禁。
 
 ---
 

@@ -1,13 +1,13 @@
 ---
 id: WRK-052
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-07-02
 reviewed: 2026-07-28
 review-due: 2026-10-26
 audience: [human, ai]
-landed-into:
+landed-into: docs/working/backend-evolution/HISTORY.md
 ---
 
 # COVERAGE — 全量重测战役场景覆盖矩阵

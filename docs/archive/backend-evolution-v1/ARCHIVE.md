@@ -1,13 +1,13 @@
 ---
 id: WRK-029
 type: working
-status: active
+status: archived
 owner: @weilin
 created: 2026-06-18
 reviewed: 2026-07-28
 review-due: 2026-10-26
 audience: [human, ai]
-landed-into:
+landed-into: docs/working/backend-evolution/HISTORY.md
 ---
 
 # Iteration Loop —— 覆盖归档（看测了什么 + 想还有什么）

@@ -7,6 +7,7 @@ created: 2026-07-06
 reviewed: 2026-07-06
 review-due: 2026-10-04
 audience: [human, ai]
+landed-into:
 ---
 
 # 工具卡完美态蓝图 —— 114 工具逐个设计(2026-07-06 已拍板，2026-07-24 增补 inspect_media)

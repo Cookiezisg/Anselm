@@ -16,7 +16,7 @@ landed-into:
 
 ## 从这里开始
 
-先读本页，再读 [`CURRENT.md`](CURRENT.md) 的当前边界与战役；选场景时读 [`FRONTIER.md`](FRONTIER.md)；确认发现后只向 [`LOG.md`](LOG.md) 追加证据。已收口工作和旧体系只在 [`HISTORY.md`](HISTORY.md) 与 [`archived/`](archived/) 中追溯，不能拿来替代当前结论。
+先读本页，再读 [`CURRENT.md`](CURRENT.md) 的当前边界与战役；选场景时读 [`FRONTIER.md`](FRONTIER.md)；确认发现后只向 [`LOG.md`](LOG.md) 追加证据。已收口工作和旧体系只在 [`HISTORY.md`](HISTORY.md) 与 [`archive/backend-evolution-v1/`](../../archive/backend-evolution-v1/) 中追溯，不能拿来替代当前结论。
 
 本体系保持原有八拍，不另起 v2：
 
