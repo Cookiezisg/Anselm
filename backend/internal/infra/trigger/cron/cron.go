@@ -205,11 +205,13 @@ func (l *Listener) Register(triggerID string, _ string, config map[string]any) e
 				zap.String("triggerID", triggerID), zap.Time("firedAt", now))
 			return
 		}
-		l.report(triggerID, triggerinfra.Activity{
+		if err := l.report(triggerID, triggerinfra.Activity{
 			Fired:    true,
 			Payload:  map[string]any{"firedAt": now},
 			DedupKey: DedupKey(triggerID, tick),
-		})
+		}); err != nil {
+			l.log.Error("cron report failed", zap.String("triggerID", triggerID), zap.Error(err))
+		}
 	}))
 	l.entries[triggerID] = id
 	return nil

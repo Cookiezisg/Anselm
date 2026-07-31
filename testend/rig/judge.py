@@ -77,6 +77,26 @@ def law_exists(law: str) -> bool:
     return bool(re.search(rf"^\| {law_id} \|", CODEX.read_text(), re.M))
 
 
+def judgment_already_recorded(family: str, item: str, level: int, verdict: str, law: str, evidence: str) -> bool:
+    """Make a retried command a no-op instead of inflating the ledger or alarm curves."""
+    if not JOURNAL.exists():
+        return False
+    try:
+        rows = (json.loads(line) for line in JOURNAL.read_text().splitlines() if line.strip())
+        return any(
+            row.get("family") == family
+            and row.get("item") == item
+            and row.get("level") == level
+            and row.get("verdict") == verdict
+            and row.get("law") == law
+            and row.get("evidence") == evidence
+            for row in rows
+        )
+    except (OSError, ValueError):
+        fail("judgments.jsonl is unreadable")
+    return False
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("item", help="coverage item name (row key, e.g. 'Read' or '生图迭代到满意')")
@@ -87,12 +107,6 @@ def main():
     ap.add_argument("--evidence", required=True, help="file path under evidence dir, or 'note:<text>' for na")
     ap.add_argument("--session", default="", help="rig session dir (required for level-2 verdicts)")
     args = ap.parse_args()
-
-    if args.verdict == "pass":
-        if problem := calibration_problem():
-            fail(f"{problem} — run anchors.py quiz, answer it, then anchors.py check")
-        if alarms := open_alarms():
-            fail(f"{len(alarms)} open alarm(s) — resolve/ack them before any new pass: {[a['id'] for a in alarms]}")
 
     if args.verdict in ("pass", "fail"):
         if not args.law or not law_exists(args.law):
@@ -134,6 +148,17 @@ def main():
         if missing:
             fail(f"SSE witness never connected streams: {sorted(missing)}")
 
+    pointer = f"L{args.level}:{args.law or 'na'}→{args.evidence}"
+    if judgment_already_recorded(args.family, args.item, args.level, args.verdict, args.law, args.evidence):
+        print(f"judge: {args.family}|{args.item} L{args.level} already recorded; no-op")
+        return
+
+    if args.verdict == "pass":
+        if problem := calibration_problem():
+            fail(f"{problem} — run anchors.py quiz, answer it, then anchors.py check")
+        if alarms := open_alarms():
+            fail(f"{len(alarms)} open alarm(s) — resolve/ack them before any new pass: {[a['id'] for a in alarms]}")
+
     text = COVERAGE.read_text()
     pat = re.compile(rf"^(\| {args.family}-\d+ \| {re.escape(args.item)} \| .*\| )([·✓✗~]{{5}})( \| )(.*?)( \|)$", re.M)
     m = pat.search(text)
@@ -142,8 +167,8 @@ def main():
     cells = list(m.group(2))
     cells[args.level - 1] = SYM[args.verdict]
     ev_field = m.group(4)
-    pointer = f"L{args.level}:{args.law or 'na'}→{args.evidence}"
-    ev_field = f"{ev_field}; {pointer}" if ev_field.strip() else pointer
+    if pointer not in ev_field.split("; "):
+        ev_field = f"{ev_field}; {pointer}" if ev_field.strip() else pointer
     text = text[: m.start()] + m.group(1) + "".join(cells) + m.group(3) + ev_field + m.group(5) + text[m.end():]
     COVERAGE.write_text(text)
 

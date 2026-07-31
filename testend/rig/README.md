@@ -89,6 +89,7 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
 - L2(数据真相)pass 还须 `--session <会话目录>`；必须先 `rig-down`，六件证据非空、MOV 可读且
   SSE witness 曾连接三条流。
 - 每次裁决盖时戳追加 `~/.anselm-rig/judgments.jsonl`——只经脚本、不手写。
+- 同一 `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针；更换证据或裁决则会留下新的审计行。
 - 法不够用 → **先立法再判**:按 CODEX.md 末的立法协议加新法条(只收紧、带回灌横扫),再引用它。
 
 ## 警报(漂移检测,gate 强制联动)

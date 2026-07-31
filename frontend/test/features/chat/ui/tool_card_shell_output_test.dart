@@ -105,41 +105,58 @@ void main() {
     },
   );
 
-  testWidgets(
-    'KillShell three states: killed (no receipt) / finished (muted) / not-found (warn)',
-    (tester) async {
-      // killed → verb self-sufficient, no receipt text beyond the verb. killed 动词自足。
-      await tester.pumpWidget(
-        _host(
-          ChatToolCard(
-            node: _node(
-              'KillShell',
-              '{"bash_id":"bsh_1"}',
-              'Killed background shell bsh_1.',
-            ),
+  testWidgets('KillShell three states use honest primary verbs', (
+    tester,
+  ) async {
+    // killed → the primary verb states the action. killed 主行动词直接说清事实。
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'KillShell',
+            '{"bash_id":"bsh_1"}',
+            'Killed background shell bsh_1.',
           ),
         ),
-      );
-      await tester.pump();
-      expect(
-        find.textContaining(t.chat.tool.killed3),
-        findsOneWidget,
-      ); // 已终止 verb
+      ),
+    );
+    await tester.pump();
+    expect(
+      find.textContaining(t.chat.tool.killed3),
+      findsOneWidget,
+    ); // 已终止 verb
 
-      // finished → muted receipt. 已自行结束。
-      await tester.pumpWidget(
-        _host(
-          ChatToolCard(
-            node: _node(
-              'KillShell',
-              '{"bash_id":"bsh_9"}',
-              'Background shell bsh_9 already finished; removed from registry.',
-            ),
+    // finished → the primary verb states that no kill was needed. 已自行结束。
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'KillShell',
+            '{"bash_id":"bsh_9"}',
+            'Background shell bsh_9 already finished; removed from registry.',
           ),
         ),
-      );
-      await tester.pump();
-      expect(find.textContaining(t.chat.tool.killFinished), findsOneWidget);
-    },
-  );
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining(t.chat.tool.killFinished), findsOneWidget);
+
+    // not-found → an idempotent no-op, not a contradictory success verb or orange warning.
+    // 未找到 → 幂等无操作,不能同时显示矛盾的成功动词或橙色警告。
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'KillShell',
+            '{"bash_id":"bsh_ghost"}',
+            'Background shell process not found: bsh_ghost',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(find.textContaining(t.chat.tool.killNotFound), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.killed3), findsNothing);
+    expect(find.textContaining(t.chat.tool.statusNotFound), findsNothing);
+  });
 }

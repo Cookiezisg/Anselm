@@ -176,8 +176,13 @@ void main() {
   testWidgets('Grep: count receipt + hit window; honest no-match', (
     tester,
   ) async {
-    final grep = _call('Grep', extra: {'arguments': '{"pattern":"amount"}'})
-      ..children.add(_result('a.py:1: amount\nb.py:2: amount\n'));
+    final grep = _call(
+      'Grep',
+      extra: {
+        'arguments':
+            '{"pattern":"amount","path":"/ws","output_mode":"content"}',
+      },
+    )..children.add(_result('a.py:1: amount\nb.py:2: amount\n'));
     await tester.pumpWidget(
       _host(ChatToolCard(node: grep, key: const ValueKey('grep'))),
     );
@@ -188,8 +193,12 @@ void main() {
     ); // quoted query chip 引号包 query
     expect(find.textContaining('2 处匹配'), findsOneWidget);
 
-    final none = _call('Grep', extra: {'arguments': '{"pattern":"xyzzy"}'})
-      ..children.add(_result('No matches for "xyzzy" in /ws.'));
+    final none = _call(
+      'Grep',
+      extra: {
+        'arguments': '{"pattern":"xyzzy","path":"/ws","output_mode":"content"}',
+      },
+    )..children.add(_result('No matches for "xyzzy" in /ws.'));
     await tester.pumpWidget(
       _host(ChatToolCard(node: none, key: const ValueKey('none'))),
     );

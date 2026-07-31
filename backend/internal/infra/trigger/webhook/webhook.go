@@ -224,17 +224,18 @@ func (l *Listener) handleWebhook(w http.ResponseWriter, r *http.Request) {
 	sum := sha256.Sum256(body)
 	dedup := hex.EncodeToString(sum[:8]) + "|" + time.Now().UTC().Format("200601021504")
 
-	// Fire async + recover so the handler stays responsive on a slow/panicking onFire.
-	// 异步 fire + recover，handler 不被慢/panic 拖累。
+	// Persist the accepted event before acknowledging it. The scheduler drain remains asynchronous,
+	// but a 202 now means the Activation/Firing inbox has survived the request. Returning before this
+	// callback completes would let a process crash lose an event that the sender reasonably believes
+	// was accepted.
+	// 先持久化已接受事件再应答。scheduler 排空仍是异步的，但 202 现在明确表示 Activation/Firing 收件箱
+	// 已经写完；若 callback 尚未完成就返回，进程崩溃会丢掉发送方合理认为已被接受的事件。
 	triggerID := reg.TriggerID
-	go func() {
-		defer func() {
-			if rec := recover(); rec != nil {
-				l.log.Error("webhook report panic", zap.String("triggerID", triggerID), zap.Any("recover", rec))
-			}
-		}()
-		l.report(triggerID, triggerinfra.Activity{Fired: true, Payload: payload, DedupKey: dedup})
-	}()
+	if err := l.report(triggerID, triggerinfra.Activity{Fired: true, Payload: payload, DedupKey: dedup}); err != nil {
+		l.log.Error("webhook report failed", zap.String("triggerID", triggerID), zap.Error(err))
+		http.Error(w, "webhook event was not accepted", http.StatusServiceUnavailable)
+		return
+	}
 	w.WriteHeader(http.StatusAccepted)
 	_, _ = w.Write([]byte(`{"accepted":true}`))
 }

@@ -31,6 +31,18 @@ func TestGlob_ValidateInput(t *testing.T) {
 	}
 }
 
+func TestGlob_DescriptionDocumentsNoiseDirectoryPolicy(t *testing.T) {
+	d := newGlob().Description()
+	for _, name := range []string{".git", "node_modules", ".venv", "venv", "__pycache__", ".anselm"} {
+		if !strings.Contains(d, name) {
+			t.Fatalf("description must explain that %s is skipped", name)
+		}
+	}
+	if !strings.Contains(d, "explicit root inside one is still allowed") {
+		t.Fatal("description must explain the explicit-root exception")
+	}
+}
+
 func writeFile(t *testing.T, path string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

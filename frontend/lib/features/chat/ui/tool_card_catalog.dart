@@ -266,8 +266,12 @@ ToolCardSpec _search({
   Widget Function(BuildContext, ToolCardState)? body,
   // A custom receipt (LS/Glob parse a structured total instead of counting lines). 自定义回执。
   ToolReceipt? Function(Translations, ToolCardState)? receipt,
+  String Function(Translations)? failedVerb,
+  bool Function(ToolCardState)? resultFailed,
 }) => ToolCardSpec(
   verb: (t, {required bool live}) => live ? liveVerb(t) : doneVerb(t),
+  failedVerb: failedVerb,
+  resultFailed: resultFailed,
   target: (s) {
     final v = argString(s.argsText, argKey);
     if (v == null) return null;
@@ -683,10 +687,12 @@ final Map<String, ToolCardSpec> _catalog = {
   'Glob': _search(
     liveVerb: (t) => t.chat.tool.globbing,
     doneVerb: (t) => t.chat.tool.globbed,
+    failedVerb: (t) => t.chat.tool.globFailed,
     argKey: 'pattern',
     countLabel: (t, n) => t.chat.tool.items(
       n: n,
     ), // items, not files (matches include dir/link) 含目录/链接
+    resultFailed: (s) => globResultFailed(s.resultText),
     // The count comes from the JSON `total` (truncated → N+); a non-JSON result → the error/timeout string
     // is handled by the body. 计数取 JSON total(截断→N+);非 JSON=错误/超时。
     receipt: (t, s) {
@@ -705,17 +711,22 @@ final Map<String, ToolCardSpec> _catalog = {
   'Grep': _search(
     liveVerb: (t) => t.chat.tool.grepping,
     doneVerb: (t) => t.chat.tool.grepped,
+    failedVerb: (t) => t.chat.tool.grepFailed,
     argKey: 'pattern',
     countLabel: (t, n) => t.chat.tool.matches(n: n),
+    resultFailed: (s) => grepResultFailed(s.resultText, s.argsText),
+    receipt: (t, s) => grepReceipt(t, s),
     body:
         grepToolBody, // content view / count heat / files list by output_mode. 按 output_mode 分派。
   ),
   'LS': _search(
     liveVerb: (t) => t.chat.tool.listing,
     doneVerb: (t) => t.chat.tool.listed,
+    failedVerb: (t) => t.chat.tool.listFailed,
     argKey: 'path',
     quote: false,
     countLabel: (t, n) => t.chat.tool.items(n: n),
+    resultFailed: (s) => lsResultFailed(s.resultText),
     // The count is the header's `(T entries)` total (truncated → N+). 计数=头部 entries 总数。
     receipt: (t, s) {
       final ls = parseLsListing(s.resultText);
@@ -1735,15 +1746,11 @@ final Map<String, ToolCardSpec> _catalog = {
   'KillShell': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.killing : t.chat.tool.killed3,
+    terminalVerb: (t, s) => killShellTerminalVerb(t, s.resultText),
     target: (s) {
       final id = s.arg('bash_id');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
-    receipt: (t, s) => killShellReceipt(
-      s.resultText,
-      finished: t.chat.tool.killFinished,
-      notFound: t.chat.tool.killNotFound,
-    ),
     body: killShellBody,
   ),
 

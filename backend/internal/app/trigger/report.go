@@ -2,6 +2,7 @@ package trigger
 
 import (
 	"context"
+	"fmt"
 	"strconv"
 	"time"
 
@@ -25,12 +26,12 @@ import (
 // 的 workspace + 监听 workflow，把报告变成 Activation（总是）+ Fired 时每 workflow 一条 Firing（扇出）。
 // Detach 后（entry 已删）或 Pause 后（entry 已标暂停——unregister 可能慢半拍落地，scheduler 工单⑦）
 // 抢进来的报告一律丢弃。
-func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
+func (s *Service) onReport(triggerID string, act triggerinfra.Activity) error {
 	s.mu.RLock()
 	e, ok := s.listeners[triggerID]
 	if !ok || e.paused {
 		s.mu.RUnlock()
-		return // detached / paused mid-flight — drop. 半途被摘 / 被暂停——丢弃。
+		return nil // detached / paused mid-flight — drop. 半途被摘 / 被暂停——丢弃。
 	}
 	gate := e.reportGate
 	s.mu.RUnlock()
@@ -46,7 +47,7 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 	if !ok || e.paused {
 		s.mu.RUnlock()
 		gate.RUnlock()
-		return // detached / paused while acquiring the gate — drop.
+		return nil // detached / paused while acquiring the gate — drop.
 	}
 	wsID, kind := e.workspaceID, e.kind
 	workflows := make([]string, 0, len(e.workflows))
@@ -59,7 +60,9 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 	// Detached context seeded with the trigger's workspace — the listener fired off-request.
 	// Detached ctx 种入 trigger 的 workspace——listener 在请求之外触发。
 	ctx := reqctxpkg.Detached(wsID)
-	_ = s.fanOut(ctx, triggerID, kind, workflows, act)
+	if _, err := s.fanOut(ctx, triggerID, kind, workflows, act); err != nil {
+		return fmt.Errorf("triggerapp.onReport: %w", err)
+	}
 
 	// A delivered cron tick is ACCOUNTED — advance the misfire watermark past it (scheduler 工单⑨)
 	// so the sweep never re-books a tick that really fired. Done after the fan-out: the firing rows
@@ -74,6 +77,7 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 			s.log.Warn("triggerapp: advance misfire watermark", zapTrigger(triggerID), zapErr(err))
 		}
 	}
+	return nil
 }
 
 // fanOut writes one Activation (always) and, when the activity fired, one Firing per listening
@@ -105,9 +109,10 @@ func (s *Service) onReport(triggerID string, act triggerinfra.Activity) {
 //     那正是本处所修的谎——firingCount 说 1、台账说「从未跑」、而 workflow 永远不跑（工单⑨）。
 //   - 任一终态（claimed/started/skipped/superseded/shed）—— 该刻度已有处置；重复材化的 fire 不产生
 //     任何 run，故也绝不许把 firingCount 撑大。
-func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows []string, act triggerinfra.Activity) string {
+func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows []string, act triggerinfra.Activity) (string, error) {
 	actID := idgenpkg.New("tra")
 	fired := 0
+	var firstErr error
 	if act.Fired {
 		// Claim staged workflows BEFORE the durable append. Two source reports can carry the same
 		// listener snapshot; claiming first gives exactly one of them the one-shot budget. The
@@ -129,11 +134,17 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 			})
 			if err != nil {
 				s.log.Warn("triggerapp: append firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
+				if firstErr == nil {
+					firstErr = err
+				}
 				continue
 			}
 			if f.Status == triggerdomain.FiringMissed {
 				if err := s.repo.RequeueMissedFiring(ctx, f.ID, actID); err != nil {
 					s.log.Warn("triggerapp: requeue missed firing failed", zapTrigger(triggerID), zap.String("workflowId", wfID), zapErr(err))
+					if firstErr == nil {
+						firstErr = err
+					}
 					continue
 				}
 				s.log.Info("triggerapp: a fire landed on a tick booked missed — requeued it as the run",
@@ -158,6 +169,9 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 		FiringCount: fired,
 	}); err != nil {
 		s.log.Warn("triggerapp: append activation failed", zapTrigger(triggerID), zapErr(err))
+		if firstErr == nil {
+			firstErr = err
+		}
 	}
 
 	// SSE-C: every fan-out (all sources — cron/webhook/fsnotify/sensor/manual — pass through
@@ -175,7 +189,7 @@ func (s *Service) fanOut(ctx context.Context, triggerID, kind string, workflows 
 			"firingCount":  fired,
 			"error":        act.Error,
 		}), true)
-	return actID
+	return actID, firstErr
 }
 
 // FireManual fires a trigger by hand (the fire_trigger tool / a test "ping it now"): it
@@ -201,11 +215,14 @@ func (s *Service) FireManual(ctx context.Context, triggerID string) (string, err
 	// NOTE: a manual :fire deliberately does NOT advance the misfire watermark — it is not a
 	// scheduled tick, so it accounts for nothing on the cron timeline (工单⑨).
 	// 注：手动 :fire 刻意**不**推水位——它不是调度刻度，在 cron 时间线上什么都没入账（工单⑨）。
-	actID := s.fanOut(ctx, triggerID, t.Kind, workflows, triggerinfra.Activity{
+	actID, err := s.fanOut(ctx, triggerID, t.Kind, workflows, triggerinfra.Activity{
 		Fired:    true,
 		Payload:  map[string]any{"manual": true},
 		DedupKey: triggerID + "|manual|" + strconv.FormatInt(time.Now().UnixNano(), 10),
 	})
+	if err != nil {
+		return "", err
+	}
 	return actID, nil
 }
 

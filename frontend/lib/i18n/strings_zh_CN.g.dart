@@ -851,10 +851,13 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get editFailed => '编辑失败';
 	@override String get globbing => '正在检索';
 	@override String get globbed => '已检索';
+	@override String get globFailed => '检索失败';
 	@override String get grepping => '正在搜索';
 	@override String get grepped => '已搜索';
+	@override String get grepFailed => '搜索失败';
 	@override String get listing => '正在列出';
 	@override String get listed => '已列出';
+	@override String get listFailed => '列出失败';
 	@override String get runningCmd => '正在执行命令';
 	@override String get ranCmd => '已执行';
 	@override String lines({required Object n}) => '${n} 行';
@@ -1091,7 +1094,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get statusErrored => '出错';
 	@override String get statusNotFound => '会话不存在';
 	@override String get killFinished => '已自行结束';
-	@override String get killNotFound => '会话不存在';
+	@override String get killNotFound => '已停止';
 	@override String get polling => '正在读取输出';
 	@override String get polled => '已读取输出';
 	@override String get killing => '正在终止';
@@ -3119,10 +3122,13 @@ extension on TranslationsZhCn {
 			'chat.tool.editFailed' => '编辑失败',
 			'chat.tool.globbing' => '正在检索',
 			'chat.tool.globbed' => '已检索',
+			'chat.tool.globFailed' => '检索失败',
 			'chat.tool.grepping' => '正在搜索',
 			'chat.tool.grepped' => '已搜索',
+			'chat.tool.grepFailed' => '搜索失败',
 			'chat.tool.listing' => '正在列出',
 			'chat.tool.listed' => '已列出',
+			'chat.tool.listFailed' => '列出失败',
 			'chat.tool.runningCmd' => '正在执行命令',
 			'chat.tool.ranCmd' => '已执行',
 			'chat.tool.lines' => ({required Object n}) => '${n} 行',
@@ -3370,7 +3376,7 @@ extension on TranslationsZhCn {
 			'chat.tool.statusErrored' => '出错',
 			'chat.tool.statusNotFound' => '会话不存在',
 			'chat.tool.killFinished' => '已自行结束',
-			'chat.tool.killNotFound' => '会话不存在',
+			'chat.tool.killNotFound' => '已停止',
 			'chat.tool.polling' => '正在读取输出',
 			'chat.tool.polled' => '已读取输出',
 			'chat.tool.killing' => '正在终止',
@@ -3471,11 +3477,11 @@ extension on TranslationsZhCn {
 			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
 			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
 			'chat.tool.fireYes' => '已 fire',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.fireNo' => '未 fire',
 			'chat.tool.gettingFlowrun' => '正在调阅运行',
 			'chat.tool.gotFlowrun' => '已调阅运行',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.gettingAgentExec' => '正在调阅智能体执行',
 			'chat.tool.gotAgentExec' => '已调阅智能体执行',
 			'chat.tool.transcriptSteps' => ({required Object n}) => '轨迹 · ${n} 步',
@@ -3985,11 +3991,11 @@ extension on TranslationsZhCn {
 			'feedback.cast.verb.executed' => '执行',
 			'feedback.cast.verb.attached' => '附上',
 			'feedback.cast.verb.deleted' => '删除',
+			_ => null,
+		} ?? switch (path) {
 			'feedback.cast.verb.unknown' => '触碰',
 			'feedback.codeTruncated' => ({required Object total, required Object shown}) => '共 ${total} 行·已显示前 ${shown} 行——完整文件请在外部打开',
 			'shell.collapseSidebar' => '收起侧栏',
-			_ => null,
-		} ?? switch (path) {
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
 			'shell.ocean.chat' => '对话',
@@ -4499,11 +4505,11 @@ extension on TranslationsZhCn {
 			'library.slash.divider' => '分隔线',
 			'library.slash.todo' => '待办',
 			'library.linkHint' => '输入或粘贴链接,回车确定',
+			_ => null,
+		} ?? switch (path) {
 			'library.table.insertRowAbove' => '在上方插入行',
 			'library.table.insertRowBelow' => '在下方插入行',
 			'library.table.deleteRow' => '删除行',
-			_ => null,
-		} ?? switch (path) {
 			'library.table.insertColLeft' => '在左侧插入列',
 			'library.table.insertColRight' => '在右侧插入列',
 			'library.table.deleteCol' => '删除列',

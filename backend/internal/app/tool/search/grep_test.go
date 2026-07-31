@@ -54,6 +54,18 @@ func TestGrep_ValidateInput(t *testing.T) {
 	}
 }
 
+func TestGrep_DescriptionDocumentsNoiseDirectoryPolicy(t *testing.T) {
+	d := newStdlibGrep().Description()
+	for _, name := range []string{".git", "node_modules", ".venv", "venv", "__pycache__", ".anselm"} {
+		if !strings.Contains(d, name) {
+			t.Fatalf("description must explain that %s is skipped", name)
+		}
+	}
+	if !strings.Contains(d, "explicit root inside one is still allowed") {
+		t.Fatal("description must explain the explicit-root exception")
+	}
+}
+
 func TestGrep_Stdlib_FilesWithMatches(t *testing.T) {
 	dir := t.TempDir()
 	hit := grepFile(t, dir, "hit.txt", "alpha\nbeta\n")
@@ -214,6 +226,19 @@ func TestBuildRgArgs(t *testing.T) {
 			t.Fatalf("buildRgArgs missing %q in %v", want, got)
 		}
 	}
+	for _, dir := range []string{".git", "node_modules", ".venv", "venv", "__pycache__", ".anselm"} {
+		want := "!**/" + dir + "/**"
+		found := false
+		for i := 0; i+1 < len(got); i++ {
+			if got[i] == "--glob" && got[i+1] == want {
+				found = true
+				break
+			}
+		}
+		if !found {
+			t.Fatalf("buildRgArgs missing noise exclusion %q in %v", want, got)
+		}
+	}
 }
 
 // TestGrep_Rg_Integration runs the real ripgrep backend if rg is installed,
@@ -235,5 +260,38 @@ func TestGrep_Rg_Integration(t *testing.T) {
 	}
 	if !strings.Contains(out, hit) {
 		t.Fatalf("rg backend should find hit.txt, got:\n%s", out)
+	}
+}
+
+func TestGrep_Rg_InvalidRegexIsNormalResult(t *testing.T) {
+	rg, err := exec.LookPath("rg")
+	if err != nil {
+		t.Skip("rg not installed")
+	}
+	g := &Grep{pathGuard: pathguardpkg.New(nil), rgPath: rg, log: zap.NewNop()}
+	out, err := g.Execute(context.Background(), `{"pattern":"[","path":"`+t.TempDir()+`"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.HasPrefix(out, "Invalid regex pattern:") {
+		t.Fatalf("invalid regex should be a normal result, got %q", out)
+	}
+}
+
+func TestGrep_Rg_SkipsNoiseDirs(t *testing.T) {
+	rg, err := exec.LookPath("rg")
+	if err != nil {
+		t.Skip("rg not installed")
+	}
+	dir := t.TempDir()
+	real := grepFile(t, dir, "real.txt", "needle\n")
+	grepFile(t, dir, "node_modules/pkg/index.js", "needle\n")
+	g := &Grep{pathGuard: pathguardpkg.New(nil), rgPath: rg, log: zap.NewNop()}
+	out, err := g.Execute(context.Background(), `{"pattern":"needle","path":"`+dir+`"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !strings.Contains(out, real) || strings.Contains(out, "node_modules") {
+		t.Fatalf("rg noise policy mismatch:\n%s", out)
 	}
 }

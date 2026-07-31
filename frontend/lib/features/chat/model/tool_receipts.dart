@@ -9,6 +9,8 @@ library;
 
 import 'dart:convert';
 
+import '../../../i18n/strings.g.dart';
+
 /// The receipt tone — the collapsed row's dimmed suffix carries one of three voices:
 ///   none   — neutral proof (line/match counts, exit 0): inkFaint;
 ///   warn   — a soft half-state (env building, draining, not-activated, truncated): amber;
@@ -106,25 +108,18 @@ ToolReceipt? statusReceipt(
   ); // exited (code N)
 }
 
-/// KillShell (verified …/shell/kill.go) — three positive (err==nil) strings: `Killed background shell
-/// id.` (verb self-sufficient → no receipt) / `… already finished; removed …` (已自行结束, muted) /
-/// `Background shell process not found: id` (会话不存在, warn). KillShell 三态。
-ToolReceipt? killShellReceipt(
-  String output, {
-  required String finished,
-  required String notFound,
-}) {
-  final t = output.trimRight();
-  if (t.startsWith('Killed background shell')) {
-    return null; // the verb «已终止» IS the proof 动词自足
+/// KillShell's result is the verb, not a second receipt. The backend is deliberately idempotent:
+/// a live process is killed, an already-finished process is a no-op, and an unknown id is harmless.
+/// Keep those three facts in the primary line so it never says «Terminated» beside «session not found».
+/// KillShell 的结果本身就是动词,不再叠加第二条回执。后端刻意幂等:运行中=终止,已结束=无操作,
+/// 未知 id=无害。三种事实直接进入主行,避免「已终止」旁边又写「会话不存在」的语义冲突。
+String killShellTerminalVerb(Translations t, String output) {
+  final value = output.trimRight();
+  if (value.contains('already finished')) return t.chat.tool.killFinished;
+  if (value.startsWith('Background shell process not found')) {
+    return t.chat.tool.killNotFound;
   }
-  if (t.contains('already finished')) {
-    return (text: finished, tone: ToolReceiptTone.none);
-  }
-  if (t.startsWith('Background shell process not found')) {
-    return (text: notFound, tone: ToolReceiptTone.warn);
-  }
-  return null;
+  return t.chat.tool.killed3;
 }
 
 /// The fs error KIND — every Read/Write/Edit error (and the shared PathGuard / fspath prefixes) is a

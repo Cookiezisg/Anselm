@@ -1920,17 +1920,26 @@ class Translations$chat$tool$en {
 	/// en: 'Globbed'
 	String get globbed => 'Globbed';
 
+	/// en: 'Glob failed'
+	String get globFailed => 'Glob failed';
+
 	/// en: 'Searching'
 	String get grepping => 'Searching';
 
 	/// en: 'Searched'
 	String get grepped => 'Searched';
 
+	/// en: 'Search failed'
+	String get grepFailed => 'Search failed';
+
 	/// en: 'Listing'
 	String get listing => 'Listing';
 
 	/// en: 'Listed'
 	String get listed => 'Listed';
+
+	/// en: 'List failed'
+	String get listFailed => 'List failed';
 
 	/// en: 'Running command'
 	String get runningCmd => 'Running command';
@@ -2639,8 +2648,8 @@ class Translations$chat$tool$en {
 	/// en: 'already finished'
 	String get killFinished => 'already finished';
 
-	/// en: 'session not found'
-	String get killNotFound => 'session not found';
+	/// en: 'already stopped'
+	String get killNotFound => 'already stopped';
 
 	/// en: 'Reading output'
 	String get polling => 'Reading output';
@@ -7232,10 +7241,13 @@ extension on Translations {
 			'chat.tool.editFailed' => 'Edit failed',
 			'chat.tool.globbing' => 'Globbing',
 			'chat.tool.globbed' => 'Globbed',
+			'chat.tool.globFailed' => 'Glob failed',
 			'chat.tool.grepping' => 'Searching',
 			'chat.tool.grepped' => 'Searched',
+			'chat.tool.grepFailed' => 'Search failed',
 			'chat.tool.listing' => 'Listing',
 			'chat.tool.listed' => 'Listed',
+			'chat.tool.listFailed' => 'List failed',
 			'chat.tool.runningCmd' => 'Running command',
 			'chat.tool.ranCmd' => 'Ran',
 			'chat.tool.lines' => ({required Object n}) => '${n} lines',
@@ -7483,7 +7495,7 @@ extension on Translations {
 			'chat.tool.statusErrored' => 'errored',
 			'chat.tool.statusNotFound' => 'session not found',
 			'chat.tool.killFinished' => 'already finished',
-			'chat.tool.killNotFound' => 'session not found',
+			'chat.tool.killNotFound' => 'already stopped',
 			'chat.tool.polling' => 'Reading output',
 			'chat.tool.polled' => 'Read output',
 			'chat.tool.killing' => 'Terminating',
@@ -7584,11 +7596,11 @@ extension on Translations {
 			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
 			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
 			'chat.tool.fireYes' => 'fired',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.fireNo' => 'not fired',
 			'chat.tool.gettingFlowrun' => 'Opening run',
 			'chat.tool.gotFlowrun' => 'Opened run',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.gettingAgentExec' => 'Opening agent run',
 			'chat.tool.gotAgentExec' => 'Opened agent run',
 			'chat.tool.transcriptSteps' => ({required Object n}) => 'Trajectory · ${n} steps',
@@ -8098,11 +8110,11 @@ extension on Translations {
 			'feedback.cast.verb.executed' => 'Ran',
 			'feedback.cast.verb.attached' => 'Attached',
 			'feedback.cast.verb.deleted' => 'Deleted',
+			_ => null,
+		} ?? switch (path) {
 			'feedback.cast.verb.unknown' => 'Touched',
 			'feedback.codeTruncated' => ({required Object shown, required Object total}) => 'Showing the first ${shown} of ${total} lines - open the full file externally',
 			'shell.collapseSidebar' => 'Collapse sidebar',
-			_ => null,
-		} ?? switch (path) {
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
 			'shell.ocean.chat' => 'Chat',
@@ -8612,11 +8624,11 @@ extension on Translations {
 			'library.slash.divider' => 'Divider',
 			'library.slash.todo' => 'To-do',
 			'library.linkHint' => 'Type or paste a link, Enter to apply',
+			_ => null,
+		} ?? switch (path) {
 			'library.table.insertRowAbove' => 'Insert row above',
 			'library.table.insertRowBelow' => 'Insert row below',
 			'library.table.deleteRow' => 'Delete row',
-			_ => null,
-		} ?? switch (path) {
 			'library.table.insertColLeft' => 'Insert column left',
 			'library.table.insertColRight' => 'Insert column right',
 			'library.table.deleteCol' => 'Delete column',

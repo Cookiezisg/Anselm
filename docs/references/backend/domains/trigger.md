@@ -19,7 +19,7 @@ Trigger 是无版本的信号源配置实体。cron、webhook、fsnotify、senso
 
 ```text
 infra listener
-→ ReportFunc(triggerID, Activity)
+→ ReportFunc(triggerID, Activity) error
 → app onReport with detached workspace ctx
 → Activation audit
 → zero or more durable Firings
@@ -27,7 +27,9 @@ infra listener
 ```
 
 Activation 记录 source 活动，sensor 未触发的 probe 也记录原因。Firing 是
-persist-before-act 收件箱；只有 Fired activity 才为监听 workflow 创建。
+persist-before-act 收件箱；只有 Fired activity 才为监听 workflow 创建。Webhook 的 `202`
+只有在这条 durable audit/inbox 写入完成后才返回；scheduler 排空仍然异步。若持久化失败，
+入口返回失败而不是给发送方一个会在崩溃中丢失的假确认。
 
 ## 2. Firing 状态
 

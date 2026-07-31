@@ -50,6 +50,14 @@ void main() {
     test('an error string is not a listing → null', () {
       expect(parseLsListing('Directory not found: /nope'), isNull);
     });
+    test('every non-listing payload is a failed result', () {
+      expect(lsResultFailed('Directory not found: /nope'), isTrue);
+      expect(
+        lsResultFailed('Not a directory (use Read for a file): /tmp/a.txt'),
+        isTrue,
+      );
+      expect(lsResultFailed('/tmp (0 entries)\n  (empty)'), isFalse);
+    });
   });
 
   group('parseGlobResult', () {
@@ -66,6 +74,39 @@ void main() {
     test('a non-JSON (error/timeout) string → null', () {
       expect(parseGlobResult('Search root not found: /x'), isNull);
       expect(parseGlobResult('Glob search exceeded the time budget…'), isNull);
+    });
+    test('every non-JSON payload is a failed result', () {
+      expect(globResultFailed('Search root not found: /x'), isTrue);
+      expect(
+        globResultFailed('Search root must be a directory: /tmp/a.txt'),
+        isTrue,
+      );
+      expect(
+        globResultFailed(
+          '{"root":"/ws","total":0,"truncated":false,"matches":[]}',
+        ),
+        isFalse,
+      );
+    });
+  });
+
+  group('Grep semantic parsing', () {
+    const args = '{"pattern":"needle","path":"/ws","output_mode":"content"}';
+
+    test('error payloads fail while no-match and text results stay valid', () {
+      expect(grepResultFailed('Search root not found: /missing', args), isTrue);
+      expect(
+        grepResultFailed('path is denied by safety guard: /etc/', args),
+        isTrue,
+      );
+      expect(
+        grepResultFailed('No matches for "needle" in /ws.', args),
+        isFalse,
+      );
+      expect(
+        grepResultFailed('/ws/a.txt:2:needle\n/ws/a.txt-3-context', args),
+        isFalse,
+      );
     });
   });
 
@@ -91,6 +132,29 @@ void main() {
       expect(find.text('a.py'), findsOneWidget);
     },
   );
+
+  testWidgets('LS failure uses a failure verb and shows the error body', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'LS',
+            '{"path":"/missing"}',
+            'Directory not found: /missing',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining(t.chat.tool.listFailed), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.listed), findsNothing);
+    expect(
+      find.textContaining('Directory not found: /missing'),
+      findsOneWidget,
+    );
+  });
 
   testWidgets(
     'Glob body: a matches ToolHitList (basename + full path subtitle)',
@@ -137,5 +201,87 @@ void main() {
       find.textContaining(t.chat.tool.items(n: '47+')),
       findsOneWidget,
     ); // truncated → N+
+  });
+
+  testWidgets('Glob failure uses a failure verb and shows the error body', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'Glob',
+            '{"pattern":"**/*.go","path":"/missing"}',
+            'Search root not found: /missing',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining(t.chat.tool.globFailed), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.globbed), findsNothing);
+    expect(
+      find.textContaining('Search root not found: /missing'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('Grep content receipt counts matches, not context lines', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'Grep',
+            '{"pattern":"needle","path":"/ws","output_mode":"content","-n":true,"-C":1}',
+            '/ws/a.txt-1-before\n/ws/a.txt:2:needle one\n/ws/a.txt-3-after\n/ws/a.txt:5:needle two',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining(t.chat.tool.matches(n: '2')), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.matches(n: '4')), findsNothing);
+  });
+
+  testWidgets('Grep files mode receipt counts files', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'Grep',
+            '{"pattern":"needle","path":"/ws"}',
+            '/ws/a.txt\n/ws/b.txt\n',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining(t.chat.tool.files(n: '2')), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.matches(n: '2')), findsNothing);
+  });
+
+  testWidgets('Grep failure uses a failure verb and shows the error body', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'Grep',
+            '{"pattern":"needle","path":"/missing"}',
+            'Search root not found: /missing',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining(t.chat.tool.grepFailed), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.grepped), findsNothing);
+    expect(
+      find.textContaining('Search root not found: /missing'),
+      findsOneWidget,
+    );
   });
 }

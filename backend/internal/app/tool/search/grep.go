@@ -46,7 +46,7 @@ const (
 	OutputModeCount            = "count"
 )
 
-const grepDescription = `Regex content search across files (ripgrep). Never call grep/rg via Bash. Root path required (absolute, ~, or relative to the mounted working directory); narrow it first (LS to look around) rather than grepping all of ~. Filter by glob or type; output_mode files_with_matches (default) | content | count.`
+const grepDescription = `Regex content search across files (ripgrep). Never call grep/rg via Bash. Root path required (absolute, ~, or relative to the mounted working directory); narrow it first (LS to look around) rather than grepping all of ~. Recursive searches skip standard noise directories (.git, node_modules, .venv, venv, __pycache__, .anselm); an explicit root inside one is still allowed. Filter by glob or type; output_mode files_with_matches (default) | content | count.`
 
 var grepSchema = json.RawMessage(`{
 	"type": "object",
@@ -58,7 +58,7 @@ var grepSchema = json.RawMessage(`{
 		},
 		"path": {
 			"type": "string",
-			"description": "File or directory to search in: absolute path, ~, or relative to the conversation's working directory when one is mounted. Required. Keep it narrow."
+			"description": "File or directory to search in: absolute path, ~, or relative to the conversation's working directory when one is mounted. Required. Keep it narrow. Recursive searches skip standard noise directories (.git, node_modules, .venv, venv, __pycache__, .anselm)."
 		},
 		"glob": {
 			"type": "string",
@@ -97,7 +97,7 @@ var grepSchema = json.RawMessage(`{
 		"multiline": {
 			"type": "boolean",
 			"default": false,
-			"description": "Allow patterns to match across line boundaries. Required for patterns containing \\n or [\\s\\S]."
+			"description": "Boolean argument on this Grep call (not a separate tool): allow patterns to match across line boundaries. Required for patterns containing \\n or [\\s\\S]."
 		},
 		"head_limit": {
 			"type": "number",

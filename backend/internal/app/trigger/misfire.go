@@ -327,7 +327,7 @@ func (s *Service) catchupOne(ctx context.Context, t *triggerdomain.Trigger, tick
 	}
 	s.log.Info("triggerapp: misfire catchup_one — firing the most recent missed tick",
 		zapTrigger(t.ID), zap.Time("tick", tick))
-	s.fanOut(ctx, t.ID, t.Kind, workflows, triggerinfra.Activity{
+	if _, err := s.fanOut(ctx, t.ID, t.Kind, workflows, triggerinfra.Activity{
 		Fired: true,
 		// The payload keeps the SCHEDULED tick as firedAt (the canonical cron output field): the
 		// workflow is running for that tick, and telling it the wake-up time would misdate the work.
@@ -335,5 +335,7 @@ func (s *Service) catchupOne(ctx context.Context, t *triggerdomain.Trigger, tick
 		// 告诉它睡醒时间会让这次工作的日期错位。
 		Payload:  map[string]any{"firedAt": tick},
 		DedupKey: croninfra.DedupKey(t.ID, tick),
-	})
+	}); err != nil {
+		s.log.Warn("triggerapp: misfire catchup fan-out failed", zapTrigger(t.ID), zapErr(err))
+	}
 }

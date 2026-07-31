@@ -1,4 +1,5 @@
 import 'package:anselm/features/chat/model/tool_receipts.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // Receipt parsers are pinned to the backend's EXACT output formats — these tests are the
@@ -116,23 +117,25 @@ void main() {
     );
   });
 
-  group('killShellReceipt', () {
-    ToolReceipt? kl(String out) =>
-        killShellReceipt(out, finished: '已自行结束', notFound: '会话不存在');
-    test(
-      'killed → null (verb self-sufficient); finished → muted; not-found → warn',
-      () {
-        expect(kl('Killed background shell bsh_1.'), isNull);
-        expect(
-          kl('Background shell bsh_1 already finished; removed from registry.'),
-          (text: '已自行结束', tone: ToolReceiptTone.none),
-        );
-        expect(kl('Background shell process not found: bsh_1'), (
-          text: '会话不存在',
-          tone: ToolReceiptTone.warn,
-        ));
-      },
-    );
+  group('killShellTerminalVerb', () {
+    final t = Translations();
+    test('killed / finished / not-found each use an honest primary verb', () {
+      expect(
+        killShellTerminalVerb(t, 'Killed background shell bsh_1.'),
+        'Terminated',
+      );
+      expect(
+        killShellTerminalVerb(
+          t,
+          'Background shell bsh_1 already finished; removed from registry.',
+        ),
+        'already finished',
+      );
+      expect(
+        killShellTerminalVerb(t, 'Background shell process not found: bsh_1'),
+        'already stopped',
+      );
+    });
   });
 
   group('readReceipt — four quadrants (F × truncated)', () {

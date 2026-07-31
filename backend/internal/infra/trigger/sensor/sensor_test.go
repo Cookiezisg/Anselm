@@ -34,7 +34,10 @@ func probeOnce(t *testing.T, inv SensorInvoker) triggerinfra.Activity {
 		t.Fatalf("compile output: %v", err)
 	}
 	var got []triggerinfra.Activity
-	l := New(inv, zap.NewNop(), func(_ string, a triggerinfra.Activity) { got = append(got, a) })
+	l := New(inv, zap.NewNop(), func(_ string, a triggerinfra.Activity) error {
+		got = append(got, a)
+		return nil
+	})
 	l.probe(context.Background(), "trg_1", triggerdomain.SensorConfig{TargetKind: "function", TargetID: "fn_1"}, cond, out)
 	if len(got) != 1 {
 		t.Fatalf("expected exactly 1 activity report, got %d", len(got))
@@ -102,7 +105,7 @@ func (s *slowInvoker) Invoke(_ context.Context, _, _, _ string) (map[string]any,
 // 否则与 db.Close 竞争（R19）。
 func TestSensor_Stop_WaitsForInflightProbe(t *testing.T) {
 	inv := &slowInvoker{entered: make(chan struct{}), release: make(chan struct{}), returned: make(chan struct{})}
-	l := New(inv, zap.NewNop(), func(string, triggerinfra.Activity) {})
+	l := New(inv, zap.NewNop(), func(string, triggerinfra.Activity) error { return nil })
 	if err := l.Register("trg_1", "ws_1", map[string]any{
 		"targetKind": "function", "targetId": "fn_1",
 		"condition": "payload.count > 5.0", "output": `{"n": payload.count}`,

@@ -46,6 +46,12 @@ func (b *cappedBuffer) Write(p []byte) (int, error) {
 //
 // execRg 跑 ripgrep 返其输出（有界）；无匹配返友好的 "No matches" 消息，err == nil。
 func (t *Grep) execRg(ctx context.Context, args grepArgs) (string, error) {
+	// Validate once before spawning rg so a user-facing malformed regex is a normal tool result,
+	// not an avoidable WARN followed by a fallback. The stdlib backend uses the same compiler.
+	// 先校验再起 rg：用户输错正则是正常工具结果，不应先打 WARN 再回退；stdlib 共用同一编译器。
+	if _, err := compileGrepRegex(args); err != nil {
+		return fmt.Sprintf("Invalid regex pattern: %v", err), nil
+	}
 	cmdArgs := buildRgArgs(args)
 
 	cmd := exec.CommandContext(ctx, t.rgPath, cmdArgs...) //nolint:gosec // rgPath came from exec.LookPath; args are constructed from validated grepArgs.
@@ -108,6 +114,13 @@ func buildRgArgs(args grepArgs) []string {
 	}
 	if args.Multiline {
 		out = append(out, "--multiline", "--multiline-dotall")
+	}
+	// Keep the rg backend aligned with the stdlib walker and Glob: package caches and VCS internals
+	// are not part of a recursive product search. The patterns are relative to the search root, so an
+	// explicit root inside one of these directories remains searchable.
+	// rg 与 stdlib walker、Glob 共用噪音目录策略；排除模式相对搜索根，故显式把噪音目录本身作为根仍可查。
+	for _, dir := range []string{".git", "node_modules", ".venv", "venv", "__pycache__", ".anselm"} {
+		out = append(out, "--glob", "!**/"+dir+"/**")
 	}
 	if args.Glob != "" {
 		out = append(out, "--glob", args.Glob)

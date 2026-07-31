@@ -17,8 +17,10 @@ landed-into:
 > 优雅收台的真机闭环。清册为 848 行 × 5 级 = 4240 格;锚点校准已冻结并接入 gate。
 > 操作手册 [`testend/rig/README.md`](../../../testend/rig/README.md) 使任何 agent 不带对话记忆也能
 > 操作全套台架。400+ 旅程扩写按 P12 推迟二期,一期直接按 COVERAGE 驻停清扫。Goal 已配置为
-> active，Loop 执行协议见 [`LOOP.md`](LOOP.md)；主循环已启动，当前首批完成 50/50 个单格，
-> `TOOL-002 Write` 已收尾；统一长门禁、完整 testend 与最终 workspace verify 均已通过，现进入提交前审计。**
+> active，Loop 执行协议见 [`LOOP.md`](LOOP.md)；首批 50/50 已通过统一长门禁、完整 testend、真实回放、
+> 告警复核和工作树审计，并已提交 `b26f623e`；第二批已完成 50/50 个单格，`TOOL-003 Edit` 至
+> `TOOL-012 todo_read` 已按真实五通道收尾；统一长门禁已全绿并完成审计，下一前线为
+> `TOOL-013 search_tools`。**
 >
 > **开工前提已满足**:另一团队的后端大改(BYOK 全目录 / 生成收归受管 / 音色 / 媒体子域 …)已并入
 > `main`;本仓与隔壁 `Anselm-API-Serve` 均已对齐到各自最新 `main`。
@@ -187,11 +189,11 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 | 锚点自校 | ✅ [WRK-091](ANCHORS.md) 冻结 10 个正反锚点；无答案答卷通过才签发绑定题集哈希的四小时凭证，题集变化或凭证过期自动锁 gate |
 | 统计警报 | ✅ `alarms.py` 监控裁决过快、速率暴冲、发现率塌方；ack 必须写复审结论，且在出现新裁决前不会拿同一批历史原地复活；新证据到达后重新评估 |
 | 操作手册 | ✅ `testend/rig/README.md` 自足描述起、检、停、校准、测量、裁决和警报，任何 agent 无需旧对话即可使用 |
-| 产品主循环 | ✅ 已从第一条未裁决格启动；真实会话 `/tmp/anselm-rig-formal-20260801-3/sessions/20260801-012108` 完成 onboarding→聊天首轮切片；`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011` 各五格均由 `judge.py` 独立落账。后续真实会话 `/tmp/anselm-rig-formal-20260801-4/sessions/20260801-015325` 修复了真实发现的菜单→模态焦点覆盖缺陷；共享菜单现已改为先发起退场、在同一事件循环执行命令，并仅在仍持有浮层焦点时归还触发器，widget 回归与真实 Computer Use 复验通过。并完成 composer 的流式输入、附件预览/读取、实体 mention 候选/药丸/上下文注入、工作目录、git 分支和工作目录聊天连续性。`SURF-012` 与 `SURF-013` 五格均已由 `judge.py` 独立落账；`SURF-013` 会话 `/tmp/anselm-rig-formal-20260801-5/sessions/20260801-021909` 真实构造 51 个用户回合，REST 证明 anchors 分页为 50+2，Computer Use 逐帧复验全量场次条、任意深度深跳与 `Jump to present`。`SURF-014` 首次真实会话发现长失败日志被错误摘要覆盖并触发 AXTree 红行，已冻结；`tool_card_exec.dart`/`tool_card_catalog.dart` 已将工具层错误与执行结果统一到单一 20 行 head+tail 摘要，防止底盘重复追加无界原文，并补齐 21 项 widget 守卫。修复后会话 `/tmp/anselm-rig-formal-20260801-8/sessions/20260801-030652` 真实复验成功函数、长失败函数、MCP 失败 dossier、stderr 抽屉与 Copy→Copied；前端无 Flutter/AXTree/RenderFlex/Dart 错误，后端无 WARN/ERROR/panic，LLM 28 个 HTTP 响应全 200，三路 SSE durable seq 各自单调。`TOOL-001 Read` 会话 `/tmp/anselm-rig-formal-20260801-9/sessions/20260801-032022` 真实覆盖默认整读、offset/limit 分页、缺失文件和越界安全拒绝；`TOOL-002 Write` 会话 `/tmp/anselm-rig-formal-20260801-12/sessions/20260801-033935` 首轮真实发现 completed 拒绝结果仍显示成功动词，已冻结；修复 `resultFailed` 重分类后真实复验显示 `Write failed existing.txt · read first`，SSE 仅 1 次 Write/0 次 Read、磁盘保持 `ORIGINAL_CONTENT`，五通道无红线。证据在 `/tmp/anselm-rig-formal-20260801-8/evidence/`、`/tmp/anselm-rig-formal-20260801-9/evidence/` 与 `/tmp/anselm-rig-formal-20260801-12/evidence/`，`SURF-014`、`TOOL-001`、`TOOL-002` 五格均已由 `judge.py` 独立落账，当前首批 **50 / 50**；`make verify`、`make -C backend testend`、`cd testend && go test -count=1 ./...` 与 `alarms.py check` 均已通过，现进入工作树审计和提交前检查 |
+| 产品主循环 | ✅ 已从第一条未裁决格启动；真实会话持续覆盖 onboarding、chat、composer、toc、log drawer、Read、Write、Edit、LS、Glob、Grep、Bash、BashOutput、KillShell、ask_user、todo_write 和 todo_read。此前各工具切片中的产品语义、错误态和视觉问题均按 stop-and-fix 冻结、修复并真实重跑；最近 todo_write/todo_read 会话 `/tmp/anselm-rig-formal-20260801-28/sessions/20260801-064406` 覆盖部分清单读回、全部完成和零开放项提醒抑制，screen.mov `176.260000s`，backend 无 WARN/ERROR/panic/fatal，frontend 仅已知平台噪声，LLM 26 个响应全 200，messages durable seq 1..64、notifications durable seq 1..2 连续，三流保持连接。本批次 10 个工具格均由 `judge.py` 独立落账，`RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 的警报复审后 clean(100 judgments)；首批 `50 / 50` 已通过统一长门禁、完整 testend、真实回放、告警复核和工作树审计并提交 `b26f623e`；第二批已达到 `50 / 50`，统一长门禁、完整 `make verify`、完整 `testend`、修复场景回归、锚点复核和工作树审计均已通过，下一前线为 `TOOL-013 search_tools` |
 
 **Day 0 已完成。** 主循环配置为从 COVERAGE 第一条未裁决格开始，遵守“台架先绿 → 锚点解锁 → 旅程走线
 → 到站清完整列 → 发现即冻结前线并修复 → 同类横扫 → judge 落账”的固定节拍；当前已完成
-`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011`、`SURF-012`、`SURF-013`、`SURF-014`、`TOOL-001`、`TOOL-002` 的五级裁决，批次计数为 **50 / 50**。统一 `alarms.py check` 已完成并销账历史两条统计警报，`make verify` 已全绿；当前继续执行完整 testend、修复场景回归、工作树审计和提交前检查，未完成前不提交。
+`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011`、`SURF-012`、`SURF-013`、`SURF-014`、`TOOL-001`、`TOOL-002`、`TOOL-003`、`TOOL-004`、`TOOL-005`、`TOOL-006`、`TOOL-007`、`TOOL-008`、`TOOL-009`、`TOOL-010`、`TOOL-011`、`TOOL-012` 的五级裁决。首批 50/50 已完成统一 `alarms.py check`、完整 testend、修复场景回归、工作树审计并提交 `b26f623e`；第二批已达到 **50 / 50**，`TOOL-011 todo_write` 与 `TOOL-012 todo_read` 已由真实 App + 五通道证据收尾，统一长门禁、完整 `make verify`、完整 `testend`、修复场景回归、锚点复核和工作树审计均已通过，下一前线为 `TOOL-013 search_tools`。
 
 ## §6 施工中代拍台账(依据注明,用户可随时翻案)
 

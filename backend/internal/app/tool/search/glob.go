@@ -25,7 +25,7 @@ const (
 	maxGlobLimit     = 1000
 )
 
-const globDescription = `Find files by glob pattern (supports ** recursion) under a root, sorted by mtime desc; returns JSON {root,matches:[{path,type,size,mtime}],total,truncated}. Root is required (absolute, ~, or relative to the mounted working directory). Narrow the root first (LS to look around) rather than globbing all of ~ — that scans huge trees. Use Grep for content.`
+const globDescription = `Find files by glob pattern (supports ** recursion) under a root, sorted by mtime desc; returns JSON {root,matches:[{path,type,size,mtime}],total,truncated}. Root is required (absolute, ~, or relative to the mounted working directory). Narrow the root first (LS to look around) rather than globbing all of ~ — that scans huge trees. Recursive matches skip standard noise directories (.git, node_modules, .venv, venv, __pycache__, .anselm); an explicit root inside one is still allowed. Use Grep for content.`
 
 var globSchema = json.RawMessage(`{
 	"type": "object",
@@ -37,7 +37,7 @@ var globSchema = json.RawMessage(`{
 		},
 		"path": {
 			"type": "string",
-			"description": "Search root: absolute path, ~, or relative to the conversation's working directory when one is mounted. Required. Keep this narrow; do not glob the whole home dir."
+			"description": "Search root: absolute path, ~, or relative to the conversation's working directory when one is mounted. Required. Keep this narrow; do not glob the whole home dir. Recursive matches skip standard noise directories (.git, node_modules, .venv, venv, __pycache__, .anselm)."
 		},
 		"limit": {
 			"type": "number",

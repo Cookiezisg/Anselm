@@ -88,6 +88,12 @@ LsListing? parseLsListing(String output) {
   );
 }
 
+/// LS emits a listing header for every successful result; any other payload is an honest tool
+/// failure (missing path, non-directory, permission, or path guard refusal). Keep this contract
+/// structural so new backend error wording cannot silently reuse the success verb.
+/// LS 成功结果必有清单头；其他 payload 都是失败，按结构判定而不是枚举错误文案。
+bool lsResultFailed(String output) => parseLsListing(output) == null;
+
 IconData _fsGlyph(String type) => switch (type) {
   'dir' => AnIcons.folder,
   'link' => AnIcons.web,
@@ -174,6 +180,12 @@ parseGlobResult(String output) {
   );
 }
 
+/// Glob succeeds only with its structured JSON result; a non-JSON payload is an honest search
+/// failure (missing root, non-directory root, invalid pattern, or time budget). Keep the classifier
+/// structural so new backend error wording cannot retain the success verb.
+/// Glob 成功必有结构化 JSON；非 JSON 都是失败，按结构判定而不枚举错误文案。
+bool globResultFailed(String output) => parseGlobResult(output) == null;
+
 String _basename(String path) {
   final trimmed = path.endsWith('/')
       ? path.substring(0, path.length - 1)
@@ -255,6 +267,34 @@ List<String> parseGrepFiles(String output) => [
   for (final l in output.trimRight().split('\n'))
     if (!_grepNoise(l)) l,
 ];
+
+const _grepFailurePrefixes = [
+  'Invalid regex pattern:',
+  'Search root not found:',
+  'Cannot access ',
+  'path is denied by safety guard:',
+  'path must be absolute ',
+  'path is required',
+  'cannot expand ~:',
+];
+
+/// Grep's successful wire is text, so classify failures by the backend's explicit error prefixes
+/// before parsing the mode-specific result. A failure must never become a one-row "matched file".
+/// Grep 成功线缆是文本，先识别后端明确错误前缀再按模式解析，失败绝不能伪装成一个命中文件。
+bool grepResultFailed(String output, String argsText) {
+  final trimmed = output.trimLeft();
+  if (trimmed.isEmpty || _grepFailurePrefixes.any(trimmed.startsWith)) {
+    return true;
+  }
+  if (trimmed.startsWith('No matches for')) return false;
+  final mode = argString(argsText, 'output_mode') ?? 'files_with_matches';
+  final argPath = argString(argsText, 'path') ?? '';
+  return switch (mode) {
+    'content' => parseGrepContent(output, argPath).isEmpty,
+    'count' => parseGrepCount(output, argPath).isEmpty,
+    _ => parseGrepFiles(output).isEmpty,
+  };
+}
 
 /// count mode: `path:N` per line (rg single-file target → bare `N`, path = the arg path). count 模式。
 typedef GrepCount = ({String path, int count});
@@ -495,6 +535,14 @@ class GrepContentView extends StatelessWidget {
 Widget grepToolBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final result = state.resultText;
+  if (grepResultFailed(result, state.argsText)) {
+    return rawMonoWindow(
+      context,
+      result.trim(),
+      maxLines: AnCap.monoCompactLines,
+      color: c.danger,
+    );
+  }
   if (result.trimLeft().startsWith('No matches') ||
       result.startsWith('Invalid regex')) {
     return rawMonoWindow(
@@ -551,6 +599,54 @@ Widget grepToolBody(BuildContext context, ToolCardState state) {
     cap: 30,
     rawJson: result,
   );
+}
+
+/// The collapsed receipt counts the semantic unit for the selected mode, not physical output lines:
+/// content counts match rows (context/path headers excluded), files counts files, and count sums the
+/// per-file match counts. Truncation keeps the backend marker as a lower-bound `N+`.
+/// 收起回执按模式计语义单位而非物理行：content 计匹配行、files 计文件、count 汇总各文件命中数。
+ToolReceipt? grepReceipt(Translations t, ToolCardState state) {
+  final result = state.resultText;
+  if (grepResultFailed(result, state.argsText)) return null;
+  if (result.trimLeft().startsWith('No matches for')) {
+    return (text: t.chat.tool.noMatches, tone: ToolReceiptTone.none);
+  }
+  final mode = argString(state.argsText, 'output_mode') ?? 'files_with_matches';
+  final argPath = argString(state.argsText, 'path') ?? '';
+  final cap = RegExp(
+    r'\[truncated at (\d+) (?:lines|files|matches)',
+  ).firstMatch(result);
+  switch (mode) {
+    case 'content':
+      final matches = parseGrepContent(
+        result,
+        argPath,
+      ).expand((g) => g.lines).where((line) => line.isMatch).length;
+      if (matches == 0) return null;
+      return (
+        text: t.chat.tool.matches(
+          n: cap == null ? '$matches' : '${cap.group(1)}+',
+        ),
+        tone: ToolReceiptTone.none,
+      );
+    case 'count':
+      final total = parseGrepCount(
+        result,
+        argPath,
+      ).fold<int>(0, (sum, row) => sum + row.count);
+      if (total == 0) return null;
+      return (
+        text: t.chat.tool.matches(n: cap == null ? '$total' : '$total+'),
+        tone: ToolReceiptTone.none,
+      );
+    default:
+      final files = parseGrepFiles(result).length;
+      if (files == 0) return null;
+      return (
+        text: t.chat.tool.files(n: cap == null ? '$files' : '${cap.group(1)}+'),
+        tone: ToolReceiptTone.none,
+      );
+  }
 }
 
 // A relative-heat sliver, deliberately NOT AnMeter (that is the full-width quota meter with

@@ -27,10 +27,13 @@ type Activity struct {
 
 // ReportFunc is called by a listener on EVERY action. The app turns it into an Activation
 // (+ Firings when Fired). A listener never knows about workflows — fan-out is the app's job.
+// The error is meaningful to request-backed sources such as webhooks: a successful response may
+// only be sent after the durable audit/inbox write has completed.
 //
 // ReportFunc 在每次动作时被 listener 调用。app 把它变成 Activation（Fired 时加 Firing）。
-// listener 永远不知道 workflow——扇出是 app 的事。
-type ReportFunc func(triggerID string, act Activity)
+// listener 永远不知道 workflow——扇出是 app 的事。返回错误供 webhook 这类请求驱动 source 使用：只有
+// durable 审计/收件箱写完才允许给请求成功响应。
+type ReportFunc func(triggerID string, act Activity) error
 
 // Listener is one source kind's runtime, keyed by triggerID (reference-counted by the app:
 // registered while ≥1 active workflow listens, unregistered when the count hits 0). Start is

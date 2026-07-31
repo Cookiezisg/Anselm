@@ -151,7 +151,7 @@ unknown IDs 缺席，cells 按 `(flowrun,node)` 聚合 iterations。
 | `GET /trigger-activations/{id}` | 单 Activation |
 | `GET /firings` · `GET /triggers/{id}/firings` | workspace / trigger Firing 分页 |
 | `GET /trigger-schedule` | 有界 schedule window，截断时 `truncated=true` |
-| `ANY /webhooks/{triggerId}/{path...}` | webhook source 入口（catch-all 前缀挂载一次、registry 派发；可选 secret/HMAC、10MB body 上限；bearer 豁免）——完整形状见 [`domains/trigger.md`](domains/trigger.md) |
+| `ANY /webhooks/{triggerId}/{path...}` | webhook source 入口（catch-all 前缀挂载一次、registry 派发；可选 secret/HMAC、10MB body 上限；bearer 豁免）；成功 `202` 表示 Activation/Firing 已耐久写入，scheduler 排空异步——完整形状见 [`domains/trigger.md`](domains/trigger.md) |
 
 ## 5. Graph authoring entities
 

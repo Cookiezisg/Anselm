@@ -205,7 +205,9 @@ func (l *Listener) fire(triggerID string, payload map[string]any, dedup string) 
 			l.log.Error("fsnotify report panic", zap.String("triggerID", triggerID), zap.Any("recover", r))
 		}
 	}()
-	l.report(triggerID, triggerinfra.Activity{Fired: true, Payload: payload, DedupKey: dedup})
+	if err := l.report(triggerID, triggerinfra.Activity{Fired: true, Payload: payload, DedupKey: dedup}); err != nil {
+		l.log.Error("fsnotify report failed", zap.String("triggerID", triggerID), zap.Error(err))
+	}
 }
 
 // parseEvents normalizes a config "events" array into fsnotify Op masks; empty = all.
