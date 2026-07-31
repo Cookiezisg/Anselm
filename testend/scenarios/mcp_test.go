@@ -6,6 +6,7 @@
 package scenarios
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -96,6 +97,64 @@ func writeScriptedMCP(t *testing.T) string {
 		t.Fatalf("write scripted mcp: %v", err)
 	}
 	return p
+}
+
+// TestMCP_ArtifactReachesVisionModel closes the product-side MCP media chain without provider
+// spend: a real stdio server emits PNG bytes, the backend mints an mcp_media receipt, and the next
+// chat request must carry those exact bytes as an image part. The model's reply is deliberately not
+// trusted; the llmmock request capture is the wire-level evidence.
+//
+// TestMCP_ArtifactReachesVisionModel 在不花供应商费用的产品黑盒中闭合 MCP 媒体链：真实 stdio server 产出
+// PNG，后端铸造 mcp_media receipt，下一次 chat 请求必须带着同一批字节的 image part。刻意不采信模型文案，
+// llmmock 抓到的请求才是线缆证据。
+func TestMCP_ArtifactReachesVisionModel(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+	wc.PUT("/api/v1/mcp-servers/wire-shots", map[string]any{
+		"description": "wire media probe", "command": "python3", "args": []string{writeScriptedMCP(t)},
+	}).OK(t, nil)
+
+	// Lazy discovery is part of the product route: search_tools makes the namespaced snapshot tool
+	// resident before the model invokes it.
+	// 懒发现是产品路径的一部分：search_tools 先把命名空间 snapshot 工具装进本回合。
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "search_tools", Args: fw(map[string]any{"query": "snapshot"})}}},
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "mcp__wire-shots__snapshot", Args: fw(map[string]any{})}}},
+		harness.LLMTurn{Text: "收到图片"},
+	)
+	convID := convCreate(t, wc, "MCP media wire")
+	mid := sendMsg(t, wc, convID, "搜索 snapshot 工具，调用一次并把返回的图片交给我。")
+	turn := waitTurn(t, wc, convID, mid, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("mcp media chat must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	attID := attachmentFrom(t, turn, "mcp_media")
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes2IsImage(content.Raw) {
+		t.Fatalf("mcp image must land as a real PNG: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+
+	// The exact bytes must appear in a native image part on a subsequent request. A receipt string or
+	// a model's claim that it saw a picture is insufficient evidence of the expansion branch.
+	// 下一次请求必须在原生 image part 中出现同一批字节；receipt 字符串或模型自述都不足以证明展开分支。
+	b64 := base64.StdEncoding.EncodeToString(content.Raw)
+	dumps := mock.WaitDumps(t, dlgModel, 3, 10000)
+	seen := false
+	for _, dump := range dumps {
+		if dump.HasImagePart(b64) {
+			seen = true
+			break
+		}
+	}
+	if !seen {
+		t.Fatalf("mcp image bytes never reached the vision model as an image part (att=%s)\nwire dumps: %+v", attID, dumps)
+	}
+
+	var page mcpCallsPage
+	wc.GET("/api/v1/mcp-servers/wire-shots/calls").OK(t, &page)
+	if len(page.Calls) != 1 || page.Calls[0].Tool != "snapshot" || page.Calls[0].TriggeredBy != "chat" {
+		t.Fatalf("mcp media call ledger wrong: %+v", page)
+	}
 }
 
 // mcpStatus is the ServerStatus wire shape the scenarios assert on.

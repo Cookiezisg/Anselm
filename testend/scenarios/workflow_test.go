@@ -337,21 +337,73 @@ func TestWorkflow_CrashRecovery(t *testing.T) {
 	// Recover must finish the run (slow node re-executed — at-least-once).
 	// Recover 必须把 run 跑完（slow 节点重跑——at-least-once）。
 	harness.Eventually(t, 40000, "crashed run recovers to completed", func() bool {
-		var page struct {
-			Items []struct {
-				ID     string `json:"id"`
-				Status string `json:"status"`
-			} `json:"items"`
-		}
 		r := wc2.GET("/api/v1/flowruns?workflowId=" + wfID)
 		if r.Status != 200 {
 			return false
 		}
-		_ = json.Unmarshal(r.Data, &page)
-		raw := string(r.Data)
-		_ = page
-		return strings.Contains(raw, `"status":"completed"`)
+		var rows []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+		}
+		if json.Unmarshal(r.Data, &rows) != nil || len(rows) != 1 {
+			return false
+		}
+		return rows[0].Status == "completed"
 	})
+
+	// Boot recovery must leave one durable row per graph node, and the re-executed function's
+	// audit row must join the recovered run instead of becoming an orphan or a phantom duplicate.
+	// boot recovery 必须每个图节点恰一行；重跑 function 的审计行要挂回 recovered run，不能孤儿或重影。
+	var runs []struct {
+		ID     string `json:"id"`
+		Status string `json:"status"`
+	}
+	wc2.GET("/api/v1/flowruns?workflowId="+wfID).OK(t, &runs)
+	if len(runs) != 1 || runs[0].Status != "completed" {
+		t.Fatalf("recovered workflow list must contain one completed run: %+v", runs)
+	}
+	runID := runs[0].ID
+	var detail struct {
+		Flowrun struct {
+			Status      string `json:"status"`
+			ReplayCount int    `json:"replayCount"`
+		} `json:"flowrun"`
+		Nodes []struct {
+			NodeID    string         `json:"nodeId"`
+			Status    string         `json:"status"`
+			Iteration int            `json:"iteration"`
+			Result    map[string]any `json:"result"`
+		} `json:"nodes"`
+	}
+	wc2.GET("/api/v1/flowruns/"+runID).OK(t, &detail)
+	if detail.Flowrun.Status != "completed" || detail.Flowrun.ReplayCount != 0 || len(detail.Nodes) != 2 {
+		t.Fatalf("recovered run header/nodes wrong: %+v", detail)
+	}
+	seenNodes := map[string]bool{}
+	for _, node := range detail.Nodes {
+		if seenNodes[node.NodeID] || node.Status != "completed" || node.Iteration != 0 {
+			t.Fatalf("recovered node rows must be unique completed iteration 0: %+v", detail.Nodes)
+		}
+		seenNodes[node.NodeID] = true
+		if node.NodeID == "slow" && node.Result["survived"] != true {
+			t.Fatalf("recovered slow node lost its result: %+v", node)
+		}
+	}
+	if !seenNodes["start"] || !seenNodes["slow"] {
+		t.Fatalf("recovered run lost a graph node: %+v", detail.Nodes)
+	}
+	var executions struct {
+		Executions []struct {
+			Status           string `json:"status"`
+			FlowrunID        string `json:"flowrunId"`
+			FlowrunNodeID    string `json:"flowrunNodeId"`
+			FlowrunIteration int    `json:"flowrunIteration"`
+		} `json:"executions"`
+	}
+	wc2.GET("/api/v1/functions/"+slowFn+"/executions?flowrunId="+runID).OK(t, &executions)
+	if len(executions.Executions) != 1 || executions.Executions[0].Status != "ok" || executions.Executions[0].FlowrunID != runID || executions.Executions[0].FlowrunNodeID != "slow" || executions.Executions[0].FlowrunIteration != 0 {
+		t.Fatalf("recovered function execution provenance wrong: %+v", executions.Executions)
+	}
 }
 
 // TestWorkflow_RunProvenanceOriginManual — scheduler 工单① black-box: a manual "Run now"

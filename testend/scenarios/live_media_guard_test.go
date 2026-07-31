@@ -1,3 +1,5 @@
+// These are archived direct-provider relapse guards. The current managed write acceptance lives in
+// live_managed_test.go; EVALS_MEDIA is intentionally not a product setup path after H11.
 package scenarios
 
 import (

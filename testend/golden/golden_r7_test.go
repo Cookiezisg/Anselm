@@ -1,4 +1,4 @@
-// golden_r7_test.go — R7（柱 C 金标补全：计划 12 旅程的后 5 条，真模型 deepseek-v4-flash）。
+// golden_r7_test.go — R7（柱 C 金标补全：计划 12 旅程的后 5 条，默认走真实 managed anselm-auto）。
 //
 // J4 搓 workflow 真触发到 parked / J6 MCP 工具真发现真调 / J8 跨对话回忆（search_conversations）
 // / J10 激活 skill 干活 / J11 跨压缩边界长任务。与首批 7 条同范式：结果状态断言
@@ -181,14 +181,14 @@ func TestGolden_J10_SkillActivation(t *testing.T) {
 	wc := evalWS(t)
 
 	wc.POST("/api/v1/skills", map[string]any{
-		"name": "release_checklist", "description": "the team's release checklist routine",
+		"name": "release-checklist", "description": "the team's release checklist routine",
 		"body": "When asked about releasing, ALWAYS begin your final answer with the word SKILLSTAMP " +
 			"followed by a three-step checklist.",
 	}).OK(t, nil)
 
 	conv := newConv(t, wc, "use the skill")
 	answer := say(t, wc, conv,
-		"Activate my release_checklist skill and follow it to tell me how to release.", 240000)
+		"Activate my release-checklist skill and follow it to tell me how to release.", 240000)
 	if !strings.Contains(answer, "SKILLSTAMP") {
 		t.Fatalf("the model must activate and FOLLOW the skill instruction, got: %s", answer)
 	}
@@ -200,9 +200,10 @@ func TestGolden_J12b_CrossCompactionTask(t *testing.T) {
 	wc := evalWS(t)
 	wc.PATCH("/api/v1/limits", map[string]any{"context": map[string]any{"triggerRatio": 0.01}}).OK(t, nil)
 
-	// deepseek-v4-flash 窗口 1M → 0.01 触发线 = 1 万 input token；短回合不越线，
-	// 用户侧粘长资料把真实 input 推过线（跨压缩长任务的本来面目）。
-	pad := strings.Repeat("Background notes line for the long task, keep for reference. ", 200)
+	// Anselm managed text window 1M → 0.01 触发线 = 1 万 input token；短回合不越线，
+	// 用户侧粘长资料把真实 input 推过线（跨压缩长任务的本来面目）。实跑发现 200 次重复
+	// 受 tokenizer 影响会贴着阈值漂移，故留出稳定余量但仍保持有界的小型上下文样本。
+	pad := strings.Repeat("Background notes line for the long task, keep for reference. ", 400)
 	conv := newConv(t, wc, "long task")
 	say(t, wc, conv, "Remember: the project codename is GOLDCOMPACT-11. Acknowledge briefly. Context dump:\n"+pad, 120000)
 	say(t, wc, conv, "More notes to keep:\n"+pad+"\nNow list three colors, briefly.", 120000)

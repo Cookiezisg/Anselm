@@ -111,7 +111,7 @@ func requireLongDialogue(t *testing.T) longDialogueConfig {
 		t.Skip("set EVALS_NATURAL_OVERFLOW=1 to run the billable natural-overflow golden")
 	}
 	return longDialogueConfig{
-		// Five non-repeating ~560KB turns calibrated to cross the real 1M DeepSeek
+		// Five non-repeating ~560KB turns calibrated to cross the managed 1M
 		// route. This is a deliberately explicit spend; callers can tune either
 		// knob for another provider, but no default suite ever enables it.
 		turns:              positiveEnvInt(t, "EVALS_NATURAL_OVERFLOW_TURNS", 5),

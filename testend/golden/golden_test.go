@@ -1,12 +1,12 @@
 // Package golden holds the real-model LLM journeys (make evals): the same black-box harness,
-// but the model is REAL (deepseek-v4-flash) — gated behind EVALS=1 so the suite never burns
-// tokens by accident. These are 柱C of the acceptance program: prove the product's tool surface
+// but the model is REAL (Anselm's managed anselm-auto route by default) — gated behind EVALS=1 so
+// the suite never burns tokens by accident. These are 柱C of the acceptance program: prove the product's tool surface
 // really drives a real model end to end. Assertions check OUTCOMES (entity created, function ran,
 // memory recalled) not exact text — a real model is non-deterministic, so we judge "did it reach
 // the goal state", never "did it say these words".
 //
-// Package golden 放真模型 LLM 旅程（make evals）：同一套黑盒 harness，但模型是真的
-// （deepseek-v4-flash）——EVALS=1 门控，绝不意外烧钱。验收计划柱C：证明产品工具面真能端到端驱动真
+// Package golden 放真模型 LLM 旅程（make evals）：同一套黑盒 harness，但默认走真实受管
+// Anselm/anselm-auto——EVALS=1 门控，绝不意外烧钱。验收计划柱C：证明产品工具面真能端到端驱动真
 // 模型。断言只看**结果状态**（实体建了、function 跑了、memory 记住了），不看逐字文本——真模型非
 // 确定，只判"是否到达目标态"。
 package golden
@@ -32,22 +32,47 @@ func TestMain(m *testing.M) {
 	harness.RunTests(m)
 }
 
-// realModel resolves the real-model wire config from the environment. EVALS_* win; otherwise
-// fall back to DeepSeek (key from DEEPSEEK_API_KEY, the repo-root .env name). EVALS_PROVIDER
-// selects the wire dialect; it defaults to deepseek so existing golden commands do not change.
+// realModel resolves the real-model wire config from the environment. The product path is the
+// managed Anselm gateway by default; an explicit EVALS_PROVIDER opts into a BYOK/provider
+// comparison run. This keeps the ordinary golden suite aligned with what a user actually gets,
+// while preserving direct DeepSeek/Qwen probes without making them the product conclusion.
 //
-// realModel 从环境解析真模型线缆配置。EVALS_* 优先；否则落 DeepSeek（key 取 DEEPSEEK_API_KEY，
-// 仓库根 .env 的名字）。EVALS_PROVIDER 选 wire dialect，默认 deepseek 保持既有命令行为。key 空 → skip。
+// realModel 从环境解析真模型线缆配置。未显式指定 EVALS_PROVIDER 时走受管 Anselm；显式 provider
+// 才是 BYOK 对照，key 空则跳过该对照。
 func realModel(t *testing.T) (provider, baseURL, model, key string) {
 	t.Helper()
-	key = firstNonEmpty(os.Getenv("EVALS_KEY"), os.Getenv("DEEPSEEK_API_KEY"))
-	if key == "" {
-		t.Skip("no real-model key (set DEEPSEEK_API_KEY or EVALS_KEY); make evals loads repo-root .env")
+	provider = strings.TrimSpace(os.Getenv("EVALS_PROVIDER"))
+	if provider == "" || provider == "anselm" {
+		return "anselm", firstNonEmpty(os.Getenv("ANSELM_GATEWAY_URL"), "https://api.anselm.website/v1"),
+			firstNonEmpty(os.Getenv("EVALS_MODEL"), "anselm-auto"), ""
 	}
-	provider = firstNonEmpty(os.Getenv("EVALS_PROVIDER"), "deepseek")
-	baseURL = firstNonEmpty(os.Getenv("EVALS_BASE_URL"), "https://api.deepseek.com")
-	model = firstNonEmpty(os.Getenv("EVALS_MODEL"), "deepseek-v4-flash")
+	key = firstNonEmpty(os.Getenv("EVALS_KEY"), os.Getenv(strings.ToUpper(provider)+"_API_KEY"))
+	if key == "" {
+		t.Skip("no real-model key (set EVALS_KEY or the provider API key); make evals loads repo-root .env")
+	}
+	baseURL = firstNonEmpty(os.Getenv("EVALS_BASE_URL"), providerDefaultBaseURL(provider))
+	model = firstNonEmpty(os.Getenv("EVALS_MODEL"), providerDefaultModel(provider))
 	return provider, baseURL, model, key
+}
+
+func providerDefaultBaseURL(provider string) string {
+	switch provider {
+	case "deepseek":
+		return "https://api.deepseek.com"
+	case "qwen":
+		return "https://dashscope-intl.aliyuncs.com/compatible-mode/v1"
+	default:
+		return ""
+	}
+}
+
+func providerDefaultModel(provider string) string {
+	switch provider {
+	case "deepseek":
+		return "deepseek-v4-flash"
+	default:
+		return ""
+	}
 }
 
 func firstNonEmpty(vs ...string) string {
@@ -67,10 +92,47 @@ func firstNonEmpty(vs ...string) string {
 func evalWS(t *testing.T, scenarios ...string) *harness.Client {
 	t.Helper()
 	provider, baseURL, model, key := realModel(t)
-	srv := harness.Start(t)
+	var srv *harness.Server
+	if provider == "anselm" {
+		// The ordinary golden lane is the product's deployed managed gateway. The harness closes
+		// that origin by default to keep zero-token scenarios offline, so opt into production only
+		// for this explicitly EVALS-gated lane.
+		srv = harness.Start(t, "ANSELM_GATEWAY_URL="+baseURL)
+	} else {
+		srv = harness.Start(t)
+	}
 	c := srv.Client(t)
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "eval-ws", "language": "en"}).Field(t, "id")
 	wc := c.WS(wsID)
+	if provider == "anselm" {
+		// Workspace creation provisions the managed install asynchronously. Waiting for both the
+		// key and the dialogue default prevents a first-turn resolve race from masquerading as a
+		// model failure, and gives contextmgr the gateway-published input window it needs for the
+		// compaction golden.
+		harness.Eventually(t, 30000, "the managed free-tier key lands", func() bool {
+			var keys []struct {
+				Provider string `json:"provider"`
+			}
+			wc.GET("/api/v1/api-keys").OK(t, &keys)
+			for _, k := range keys {
+				if k.Provider == "anselm" {
+					return true
+				}
+			}
+			return false
+		})
+		var ws struct {
+			DefaultDialogue *struct {
+				APIKeyID string `json:"apiKeyId"`
+				ModelID  string `json:"modelId"`
+			} `json:"defaultDialogue"`
+		}
+		wc.GET("/api/v1/workspaces/"+wsID).OK(t, &ws)
+		if ws.DefaultDialogue == nil || ws.DefaultDialogue.APIKeyID == "" || ws.DefaultDialogue.ModelID == "" {
+			t.Fatalf("managed key became visible before the dialogue default was ready: %+v", ws)
+		}
+		return wc
+	}
 	// 外部模型的静态目录只辅助能力渲染，绝不作为上下文预算权威；长对话金标会让它自然撞真实上游
 	// 窗口，再验证透明恢复与运行时学习。C2 Qwen 金标必须经 qwen provider，不能借 OpenAI renderer。
 	keyID := wc.POST("/api/v1/api-keys", map[string]any{

@@ -17,13 +17,16 @@ import (
 	"github.com/sunweilin/anselm/testend/harness"
 )
 
-// tinyPNG 是 1x1 透明 PNG（合法最小图——vision 路线的载荷）。
+// tinyPNG is a decoder-valid 1×1 RGB PNG for static wire coverage. Real visual providers can have
+// a larger pixel floor, so managed real-money acceptance uses its own 32×32 fixture.
+// tinyPNG 是静态线缆覆盖用、可被解码器接受的 1×1 RGB PNG；真实视觉供应商可能有更高像素下限，
+// 故受管真钱验收另用 32×32 夹具。
 var tinyPNG = []byte{
 	0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x48, 0x44, 0x52,
-	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x06, 0x00, 0x00, 0x00, 0x1F, 0x15, 0xC4,
-	0x89, 0x00, 0x00, 0x00, 0x0D, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0x00, 0x01, 0x00, 0x00,
-	0x05, 0x00, 0x01, 0x0D, 0x0A, 0x2D, 0xB4, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E, 0x44, 0xAE,
-	0x42, 0x60, 0x82,
+	0x00, 0x00, 0x00, 0x01, 0x00, 0x00, 0x00, 0x01, 0x08, 0x02, 0x00, 0x00, 0x00, 0x90, 0x77, 0x53,
+	0xDE, 0x00, 0x00, 0x00, 0x0C, 0x49, 0x44, 0x41, 0x54, 0x78, 0x9C, 0x63, 0xF8, 0xCF, 0xC0, 0x00,
+	0x00, 0x03, 0x01, 0x01, 0x00, 0xC9, 0xFE, 0x92, 0xEF, 0x00, 0x00, 0x00, 0x00, 0x49, 0x45, 0x4E,
+	0x44, 0xAE, 0x42, 0x60, 0x82,
 }
 
 // buildPDF 构造一个结构合法（带 xref 偏移）的单页文本 PDF——pdfplumber 能真抽出
@@ -496,6 +499,218 @@ func TestChatR3_SubagentNestedTree(t *testing.T) {
 	}
 	if !hasSub {
 		t.Fatal("subagent turns must persist as sub-messages for tree rehydration")
+	}
+}
+
+// TestChatR3_SubagentFailureFeedsParent proves that a failed child is a tool-level, inspectable
+// result rather than a falsely successful answer or a parent-request failure. The parent must see
+// the explicit non-authoritative annotation, finish its own turn, and leave the failed sub-message
+// in the durable trace so a user can understand what happened and decide whether to retry.
+func TestChatR3_SubagentFailureFeedsParent(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+
+	// Keep the parent → child request order deterministic: the first frame asks for the child,
+	// the next provider frame fails the child (the streaming loop deliberately does not retry a
+	// partially observable turn), and the final frame is the parent's recovery response.
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "Subagent",
+			Args: fw(map[string]any{"subagent_type": "general-purpose", "prompt": "child will fail"})}}},
+		harness.LLMTurn{Status: 500},
+		harness.LLMTurn{Text: "parent recovered after the child failure"},
+	)
+
+	convID := convCreate(t, wc, "subagent failure")
+	mid := sendMsg(t, wc, convID, "delegate this, then continue even if the child fails")
+	turn := waitTurn(t, wc, convID, mid, 60000)
+	if turn.Status != "completed" {
+		t.Fatalf("parent turn must complete after a child failure: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	parentSawAnnotation := false
+	for _, block := range turn.Blocks {
+		if block.Type == "tool_result" && strings.Contains(block.Content, "did not finish cleanly") && strings.Contains(block.Content, "partial") {
+			parentSawAnnotation = true
+			break
+		}
+	}
+	if !parentSawAnnotation {
+		t.Fatalf("parent tool result must identify the child answer as non-authoritative: %+v", turn.Blocks)
+	}
+	parentText := false
+	for _, block := range turn.Blocks {
+		if block.Type == "text" && strings.Contains(block.Content, "parent recovered") {
+			parentText = true
+			break
+		}
+	}
+	if !parentText {
+		t.Fatalf("parent must be able to continue after child failure: %+v", turn.Blocks)
+	}
+
+	var msgs []struct {
+		SubagentID string `json:"subagentId"`
+		Status     string `json:"status"`
+	}
+	wc.GET("/api/v1/conversations/"+convID+"/messages?limit=50").OK(t, &msgs)
+	failedChild := false
+	for _, msg := range msgs {
+		if msg.SubagentID != "" && msg.Status == "error" {
+			failedChild = true
+			break
+		}
+	}
+	if !failedChild {
+		t.Fatalf("failed subagent must remain a durable error sub-message: %+v", msgs)
+	}
+
+	dumps := mock.DumpsFor(dlgModel)
+	if len(dumps) < 3 || !dumps[len(dumps)-1].HasMessage("tool", "did not finish cleanly") {
+		t.Fatalf("parent retry request must carry the child failure annotation, dumps=%d", len(dumps))
+	}
+}
+
+// TestChatR3_ConcurrentSubagentsKeepTheirOwnTrees proves the harder E1-sub-1 shape: two
+// Subagent calls in one execution group really run at once, both results return to the same
+// parent turn, and each durable child stays anchored to its own spawning tool_call. The child
+// provider responses are intentionally not mapped to prompts — concurrent request arrival is
+// allowed to race — so the invariant is set membership plus tree ownership, not scheduling.
+func TestChatR3_ConcurrentSubagentsKeepTheirOwnTrees(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{
+			{ID: "sub_a", Name: "Subagent", Args: fw(map[string]any{
+				"subagent_type": "general-purpose", "prompt": "child prompt ALPHA",
+				"execution_group": 1,
+			})},
+			{ID: "sub_b", Name: "Subagent", Args: fw(map[string]any{
+				"subagent_type": "general-purpose", "prompt": "child prompt BETA",
+				"execution_group": 1,
+			})},
+		}},
+		// Both child requests race, so either answer may belong to either prompt. The parent
+		// request is issued only after both Spawn calls return and therefore consumes the fourth
+		// queued turn, never one of the child answers.
+		harness.LLMTurn{Text: "SUB-ANSWER-ALPHA"},
+		harness.LLMTurn{Text: "SUB-ANSWER-BETA"},
+		harness.LLMTurn{Text: "parent combined both child answers"},
+	)
+
+	convID := convCreate(t, wc, "concurrent subagents")
+	mid := sendMsg(t, wc, convID, "delegate two independent children")
+	turn := waitTurn(t, wc, convID, mid, 60000)
+	if turn.Status != "completed" {
+		t.Fatalf("parent turn must complete after concurrent children: status=%s code=%s message=%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+
+	toolResults := make([]string, 0, 2)
+	parentCalls := map[string]bool{}
+	parentSawFinal := false
+	for _, b := range turn.Blocks {
+		switch b.Type {
+		case "tool_call":
+			// The REST id is the E3 anchor used by the child message attrs.
+			parentCalls[b.ID] = true
+		case "tool_result":
+			toolResults = append(toolResults, b.Content)
+		case "text":
+			if strings.Contains(b.Content, "parent combined both child answers") {
+				parentSawFinal = true
+			}
+		}
+	}
+	if len(parentCalls) != 2 {
+		t.Fatalf("parent must persist two distinct Subagent tool_call blocks, got %d: %+v", len(parentCalls), turn.Blocks)
+	}
+	if len(toolResults) != 2 || !strings.Contains(toolResults[0]+toolResults[1], "SUB-ANSWER-ALPHA") ||
+		!strings.Contains(toolResults[0]+toolResults[1], "SUB-ANSWER-BETA") {
+		t.Fatalf("both child answers must feed back as tool results, got %+v", toolResults)
+	}
+	if !parentSawFinal {
+		t.Fatalf("parent must continue after the parallel batch, blocks=%+v", turn.Blocks)
+	}
+
+	// Read the durable tree, including message-level attrs (the REST projection of the E3
+	// parentBlockId anchor). A child is valid only when its anchor resolves to one of this
+	// parent's two tool_call blocks; two children pointing at one anchor would be tree mixing.
+	var msgs []struct {
+		ID         string         `json:"id"`
+		SubagentID string         `json:"subagentId"`
+		Role       string         `json:"role"`
+		Status     string         `json:"status"`
+		Attrs      map[string]any `json:"attrs"`
+		Blocks     []struct {
+			Type    string `json:"type"`
+			Content string `json:"content"`
+		} `json:"blocks"`
+	}
+	wc.GET("/api/v1/conversations/"+convID+"/messages?limit=50").OK(t, &msgs)
+
+	children := make([]struct {
+		id, answer, anchor string
+	}, 0, 2)
+	for _, m := range msgs {
+		if m.SubagentID == "" {
+			continue
+		}
+		answer := ""
+		for _, b := range m.Blocks {
+			if b.Type == "text" {
+				answer += b.Content
+			}
+		}
+		anchor, _ := m.Attrs["parentBlockId"].(string)
+		children = append(children, struct {
+			id, answer, anchor string
+		}{m.SubagentID, answer, anchor})
+		if m.Status != "completed" {
+			t.Fatalf("child %s must reach completed durable status, got %s", m.SubagentID, m.Status)
+		}
+	}
+	if len(children) != 2 {
+		t.Fatalf("exactly two durable child messages required, got %d: %+v", len(children), msgs)
+	}
+	seenAnchors := map[string]bool{}
+	seenAnswers := map[string]bool{}
+	for _, child := range children {
+		if !parentCalls[child.anchor] {
+			t.Fatalf("child %s anchor %q must resolve to one of the parent's tool_call blocks %v", child.id, child.anchor, parentCalls)
+		}
+		if seenAnchors[child.anchor] {
+			t.Fatalf("two children were attached to the same parent tool_call %q: %+v", child.anchor, children)
+		}
+		seenAnchors[child.anchor] = true
+		for _, answer := range []string{"SUB-ANSWER-ALPHA", "SUB-ANSWER-BETA"} {
+			if strings.Contains(child.answer, answer) {
+				seenAnswers[answer] = true
+			}
+		}
+	}
+	if len(seenAnswers) != 2 {
+		t.Fatalf("the two durable children must preserve both answers, got %+v", children)
+	}
+
+	// Provider-level evidence: there are exactly two isolated child requests, each carrying its
+	// own prompt and neither leaking the parent's user message; the parent gets one final request.
+	dumps := mock.DumpsFor(dlgModel)
+	if len(dumps) != 4 {
+		t.Fatalf("parent + two children + parent continuation must be four provider requests, got %d", len(dumps))
+	}
+	childPrompts := 0
+	for _, d := range dumps {
+		isChild := d.HasMessage("user", "child prompt ALPHA") || d.HasMessage("user", "child prompt BETA")
+		if !isChild {
+			continue
+		}
+		childPrompts++
+		if strings.Contains(string(d.Raw), "delegate two independent children") {
+			t.Fatal("child provider request must not leak the parent user message")
+		}
+	}
+	if childPrompts != 2 {
+		t.Fatalf("exactly two provider requests must be subagent views, got %d", childPrompts)
 	}
 }
 

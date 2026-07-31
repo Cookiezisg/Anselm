@@ -11,6 +11,7 @@ package scenarios
 
 import (
 	"bytes"
+	"encoding/base64"
 	"regexp"
 	"testing"
 
@@ -19,6 +20,72 @@ import (
 
 // attIDShape 是 MediaRef 文法的 id 形(与后端 pkg/mediaref 同款),黑盒侧只认这个形。
 var attIDShape = regexp.MustCompile(`att_[0-9a-f]{16}`)
+
+// TestWorkflowMedia_FunctionArtifactToVisionAgent exercises the current zero-cost product path:
+// a real function writes a PNG, an upstream agent returns its MediaRef receipt verbatim, and a
+// downstream agent receives the exact attachment bytes as an image part. This complements the
+// legacy live-generation workflow without trusting either agent's natural-language description.
+//
+// TestWorkflowMedia_FunctionArtifactToVisionAgent 覆盖当前零成本产品路径：真实 function 写 PNG，上游
+// agent 原样交出 MediaRef receipt，下游 agent 收到同一附件字节的 image part。它补上 legacy 真生成 workflow，
+// 但不采信任一 agent 的自然语言描述。
+func TestWorkflowMedia_FunctionArtifactToVisionAgent(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+	var keys []struct {
+		ID string `json:"id"`
+	}
+	wc.GET("/api/v1/api-keys?limit=1").OK(t, &keys)
+	if len(keys) != 1 || keys[0].ID == "" {
+		t.Fatalf("chat setup must expose its mock key for workflow agent default")
+	}
+	wc.PUT("/api/v1/workspaces/"+wc.WorkspaceID()+"/default-models/agent",
+		map[string]any{"apiKeyId": keys[0].ID, "modelId": dlgModel}).OK(t, nil)
+
+	pngB64 := base64.StdEncoding.EncodeToString(tinyPNG)
+	fnID := fnCreate(t, wc, "render_wire_png", "import base64, os\nPNG = '"+pngB64+"'\ndef render() -> dict:\n    open(os.path.join(os.environ['ANSELM_OUT'], 'plot.png'), 'wb').write(base64.b64decode(PNG))\n    return {'chart': {'$media': 'plot.png'}}\n")
+	painter := agCreate(t, wc, map[string]any{
+		"name": "Wire Painter", "description": "returns a function artifact receipt",
+		"prompt": "Call render_wire_png once and reply with the tool result verbatim.",
+		"tools":  []map[string]any{{"ref": fnID, "name": "render_wire_png"}},
+	})
+	viewer := agCreate(t, wc, map[string]any{
+		"name": "Wire Viewer", "description": "receives the upstream picture", "prompt": "Describe the picture briefly.",
+	})
+	wfID := wfCreate(t, wc, "function_media_pipe", []map[string]any{
+		{"op": "add_node", "node": map[string]any{"id": "start", "kind": "trigger", "ref": "trg_manual"}},
+		{"op": "add_node", "node": map[string]any{"id": "paint", "kind": "agent", "ref": painter,
+			"input": map[string]any{"task": "start.topic"}}},
+		{"op": "add_node", "node": map[string]any{"id": "look", "kind": "agent", "ref": viewer,
+			"input": map[string]any{"picture": "paint.text"}}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e1", "from": "start", "to": "paint"}},
+		{"op": "add_edge", "edge": map[string]any{"id": "e2", "from": "paint", "to": "look"}},
+	})
+
+	mock.Enqueue(dlgModel,
+		harness.LLMTurn{ToolCalls: []harness.MockToolCall{{Name: "render_wire_png", Args: fw(map[string]any{})}}},
+		harness.LLMTurn{EchoLastToolResult: true},
+		harness.LLMTurn{Text: "收到图像"},
+	)
+	_, status, nodes := runAndWait(t, wc, wfID, map[string]any{"topic": "a simple chart"}, 90000)
+	if status != "completed" {
+		t.Fatalf("function media workflow must complete, got %s nodes=%s", status, nodes)
+	}
+	attID := attIDShape.FindString(string(nodes))
+	if attID == "" {
+		t.Fatalf("workflow node result must carry a MediaRef attachment id: %s", nodes)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+	if content.Status != 200 || !bytes.Equal(content.Raw, tinyPNG) {
+		t.Fatalf("function artifact must round-trip through workflow (HTTP %d, %d bytes)", content.Status, len(content.Raw))
+	}
+
+	dumps := mock.WaitDumps(t, dlgModel, 3, 10000)
+	b64 := base64.StdEncoding.EncodeToString(tinyPNG)
+	if !dumps[2].HasImagePart(b64) {
+		t.Fatalf("downstream workflow agent did not receive exact function pixels; dumps=%+v", dumps)
+	}
+}
 
 // TestWorkflowMedia_AgentNodeToAgentNode: A 画 → A 把 receipt 交出 → B 看见。
 func TestWorkflowMedia_AgentNodeToAgentNode(t *testing.T) {

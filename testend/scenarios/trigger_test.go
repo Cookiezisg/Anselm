@@ -147,3 +147,59 @@ func TestTrigger_SensorPollsCEL(t *testing.T) {
 		t.Fatalf("activation must carry probe return: %.400s", r.Data)
 	}
 }
+
+// TestTrigger_SensorValidationFailsEarly proves sensor authoring errors are product-level 422s,
+// not delayed runtime activations: malformed condition/output CEL and a dangling target are all
+// rejected before a trigger can be persisted or attached to a workflow.
+//
+// TestTrigger_SensorValidationFailsEarly 证明 sensor 编写错误在产品面即时返回 422，而非延迟到运行时 activation：
+// condition/output 的坏 CEL 与悬空 target 都在 trigger 持久化或挂 workflow 前被拒绝。
+func TestTrigger_SensorValidationFailsEarly(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "sensor-validation"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+	probeFn := fnCreate(t, wc, "validation_probe", "def f() -> dict:\n    return {'level': 1}\n")
+
+	base := map[string]any{
+		"targetKind": "function", "targetId": probeFn, "intervalSec": 5,
+		"condition": "payload.level > 0", "output": "{'level': payload.level}",
+	}
+	badCondition := cloneMap(base)
+	badCondition["condition"] = "payload.level >"
+	r := wc.POST("/api/v1/triggers", map[string]any{"name": "bad_condition", "kind": "sensor", "config": badCondition})
+	r.Fail(t, 422, "TRIGGER_INVALID_CEL")
+	if !strings.Contains(string(r.Raw), `"field":"condition"`) {
+		t.Fatalf("invalid condition error must identify condition field: %s", r.Raw)
+	}
+
+	badOutput := cloneMap(base)
+	badOutput["output"] = "{'level': payload.level"
+	r = wc.POST("/api/v1/triggers", map[string]any{"name": "bad_output", "kind": "sensor", "config": badOutput})
+	r.Fail(t, 422, "TRIGGER_INVALID_CEL")
+	if !strings.Contains(string(r.Raw), `"field":"output"`) {
+		t.Fatalf("invalid output error must identify output field: %s", r.Raw)
+	}
+
+	dangling := cloneMap(base)
+	dangling["targetId"] = "fn_missing_sensor_target"
+	r = wc.POST("/api/v1/triggers", map[string]any{"name": "dangling_sensor", "kind": "sensor", "config": dangling})
+	r.Fail(t, 422, "TRIGGER_SENSOR_TARGET_NOT_FOUND")
+
+	var triggers []struct {
+		Name string `json:"name"`
+	}
+	wc.GET("/api/v1/triggers").OK(t, &triggers)
+	if len(triggers) != 0 {
+		t.Fatalf("rejected sensor definitions must not persist: %+v", triggers)
+	}
+}
+
+func cloneMap(in map[string]any) map[string]any {
+	out := make(map[string]any, len(in))
+	for k, v := range in {
+		out[k] = v
+	}
+	return out
+}

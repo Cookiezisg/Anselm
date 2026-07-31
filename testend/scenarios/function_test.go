@@ -1,6 +1,7 @@
 package scenarios
 
 import (
+	"encoding/base64"
 	"encoding/json"
 	"strings"
 	"sync"
@@ -18,6 +19,56 @@ func fnCreate(t *testing.T, wc *harness.Client, name, code string) string {
 	return wc.POST("/api/v1/functions", map[string]any{
 		"name": name, "description": "验收用", "code": code,
 	}).Field(t, "id")
+}
+
+// TestFunction_ArtifactProduct exercises function → mediaartifact → attachment store through the
+// normal HTTP surface, with no provider key or model call. The producer writes real PNG bytes into
+// the per-run ANSELM_OUT directory; the receipt and downloaded content prove the binary path rather
+// than merely trusting the returned JSON shape.
+//
+// TestFunction_ArtifactProduct 经正常 HTTP 面验证 function → mediaartifact → 附件库，不需要供应商 key 或
+// 模型调用。产出函数把真实 PNG 字节写入每次运行独立的 ANSELM_OUT；receipt 与下载字节共同证明二进制
+// 路径，而不是只相信返回 JSON 的形状。
+func TestFunction_ArtifactProduct(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-artifact-product"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	pngB64 := base64.StdEncoding.EncodeToString(tinyPNG)
+	fnID := fnCreate(t, wc, "artifact_fn", "import base64, os\nPNG = '"+pngB64+"'\ndef render(n: int) -> dict:\n    raw = base64.b64decode(PNG) + bytes([n])\n    open(os.path.join(os.environ['ANSELM_OUT'], 'plot.png'), 'wb').write(raw)\n    return {'chart': {'$media': 'plot.png'}, 'run': n}\n")
+
+	run := func(n int) string {
+		t.Helper()
+		var out struct {
+			OK     bool           `json:"ok"`
+			Output map[string]any `json:"output"`
+		}
+		wc.POST("/api/v1/functions/"+fnID+":run", map[string]any{"args": map[string]any{"n": n}}).OK(t, &out)
+		if !out.OK {
+			t.Fatalf("function artifact run %d failed: %+v", n, out)
+		}
+		chart, ok := out.Output["chart"].(map[string]any)
+		if !ok {
+			t.Fatalf("function artifact run %d returned no chart receipt: %+v", n, out.Output)
+		}
+		attID, _ := chart["attachmentId"].(string)
+		if attID == "" || chart["mime"] != "image/png" || chart["source"] != "function_artifact" {
+			t.Fatalf("function artifact run %d returned an invalid receipt: %+v", n, chart)
+		}
+		content := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil)
+		if content.Status != 200 || len(content.Raw) != len(tinyPNG)+1 || string(content.Raw[:len(tinyPNG)]) != string(tinyPNG) || content.Raw[len(content.Raw)-1] != byte(n) {
+			t.Fatalf("function artifact run %d bytes were not preserved: HTTP %d, %d bytes", n, content.Status, len(content.Raw))
+		}
+		return attID
+	}
+
+	first := run(1)
+	second := run(2)
+	if first == second {
+		t.Fatalf("two function runs returned the same receipt %s despite different bytes", first)
+	}
 }
 
 // TestFunction_CreateRejections: A1 创建情况矩阵的出错列——无 def 的坏代码、重名。
