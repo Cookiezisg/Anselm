@@ -316,6 +316,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮继续复探同一 direct-reader 多模态读侧的高频交叉：`image+unsupported-audio` 两轮均完成，vision 保持 native 路由、audio 只留下明确 capability 降级；`text+image+video` 两轮均在单一 durable turn 完成，text/PNG/MP4 源件 80/98/2,969,360 bytes 经 content 端点逐字节回读。4/4 通过（Image+audio 10.03s/6.63s；text+image+video 41.97s/42.26s；包 101.837s），未见非法 native audio、400、拆回合、占位文本或媒体丢失；关停阶段 embedding `context canceled` 仍是已知 shutdown lexical fallback 噪声。
 
+本轮补做 managed 默认文档主路径当前双跑：单 PDF 两轮均确认 `anselm-auto` 保持 `nativeDocs=false`，sandbox 抽取唯一 token 后 durable completed；PDF+PNG 融合两轮同时保留 PDF token 与 vision 输入，PDF/PNG content 分别 540/548、98 bytes 均逐字节一致。4/4 通过（PDF 13.37s/8.04s；PDF+image 11.27s/10.37s；包 43.779s），未见原生文档误投、400、占位文本、附件变形或错误回合。
+
 随后做 direct-reader 与 subagent-reader 的对照双跑：TXT 与 PDF 各两次均由 `general-purpose` child 真实读取，PDF 路径明确使用 sandbox `read_attachment`；父层没有偷调，唯一 token 通过 child→parent 回传，74-byte TXT 与 544-byte PDF 源件保持逐字节不变。4/4 通过（Text 37.84/23.67s、PDF 21.25/28.10s；包 111.653s），未形成代理上下文投影、PDF 抽取或父回合终态缺陷。
 
 ### FRT-05 最新证据

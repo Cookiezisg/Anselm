@@ -1307,6 +1307,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-822 | managed 默认 chat 多模态读侧当前双跑全绿（4/4）：`image+unsupported-audio` 两轮均完成，vision 保持可用且 audio 只形成明确降级，不向上游发送非法 native audio；`text+image+video` 两轮均在单一 durable turn 完成，text/PNG/MP4 源件分别 80/98/2,969,360 bytes 且 content 端点逐字节一致。未见拆回合、400、占位文本、媒体丢失或路由漂移；收尾的 embedding `context canceled` 仍是 shutdown lexical fallback 噪声 | FRT-01 + FRT-13 / managed-read / direct multimodal attachment reprobe | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWith(TextImageAndVideoAttachments|ImageAndUnsupportedAudio)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo822-managed-multimodal-read-double.jsonl` → PASS：Image+unsupported audio 10.03s/6.63s；text+image+video 41.97s/42.26s；包 101.837s；未输出 provider secret |
 
+| 2026-07-31 | EVO-823 | managed 默认文档输入当前双跑全绿（4/4）：单 PDF 两轮均确认 `anselm-auto` 的 `nativeDocs=false`，sandbox 抽取唯一 token 后 durable completed；PDF+PNG 融合两轮同时保留 PDF token 与 vision 输入，PDF/PNG content 分别 540/548、98 bytes 逐字节一致。未见原生文档误投、400、文本占位、附件变形或错误回合；单 PDF 13.37s/8.04s，融合 11.27s/10.37s，包 43.779s | FRT-01 + FRT-13 / managed-read / PDF sandbox extraction and document-vision fusion | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWith(PDFAttachment|PDFAndImageAttachments)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo823-managed-pdf-read-fusion-double.jsonl` → PASS：PDF 13.37s/8.04s；PDF+image 11.27s/10.37s；包 43.779s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
