@@ -1279,6 +1279,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-808 | managed 图像首帧→异步视频当前双跑全绿：两轮都把真实上传 PNG 作为 `animate_image` 的 source attachment，先停在 danger approval，批准后只提交一次异步任务并产出可回读 MP4；receipt 均保留 `provider=anselm` 与 `sourceAttachmentId`，没有重复生成、迟到产物或附件孤儿 | FRT-01 + FRT-09 + FRT-13 / managed-write / multimodal image→video animation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_AnimateImageArtifact$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo808-managed-animate-image-double.jsonl` → PASS：118.90s、115.40s（包 235s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-809 | 默认 managed chat 当前三跑全绿：每个新 workspace 都完成 managed key/default model provision，普通中文问候在单一 durable turn 内完成，无工具、无错误回合、无多模态/异步路径残留；作为复杂 live lane 后的基本入口 sanity 未见回归 | FRT-13 + FRT-16 / managed-read / default chat post-multimodal sanity | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChat$' -count=3 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo809-managed-default-chat-triple.jsonl` → PASS：7.41s、9.82s、4.16s（包 22.213s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

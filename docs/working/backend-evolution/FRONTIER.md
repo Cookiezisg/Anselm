@@ -480,6 +480,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 
 本轮对 FRT-13 的异步媒体终态再加一条真实多模态证据：图像首帧 `animate_image` 两次都在 danger approval 后只提交一次任务，父回合等待 MP4 durable completion 后才收口，receipt/MediaRef/source attachment lineage 与 content endpoint 一一对应；未观察到提前 completed、迟到产物、重复提交或终态后写入。
 
+随后做复杂 live lane 后的默认聊天 sanity triple：三个新 workspace 的 managed provision 与普通无工具中文回合均完成（7.41s、9.82s、4.16s），durable turn 没有错误、残留工具或异步多模态状态，确认本轮媒体/子代理/取消复探没有污染基础 chat loop。
+
 本轮再做系统级交叉链：trigger→workflow→notification 的 firing/flowrun/notification 关联双跑通过（EVO-759），fsnotify 事件 payload/filter 与 pause→SIGKILL→resume 的 durable 投影也双跑通过（EVO-760）；两条路径均未见跨层丢失、重复消费或恢复后的幽灵执行。
 
 随后补做实时协议耐久双跑：SSE replay 环挤出后返回 `SEQ_TOO_OLD` 并要求 REST 全量重取，再从新 seq 连续接收；messages/entities/notifications 三流不串线，三个订阅者看到同一 durable 顺序；interaction 的 danger pending/resolved 仍是 seq=0 的对称 ephemeral signal；cron dedup 在重启后仍折叠同一分钟 firing；webhook 明文 secret 与 SSE bearer 鉴权门的错误/成功状态均按合同落地。7 个场景两轮共 14/14 通过（包 139.603s），未见协议帧缺口、重复、跨流污染或重启重复执行。
