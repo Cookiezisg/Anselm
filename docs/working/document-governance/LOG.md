@@ -105,3 +105,11 @@ landed-into:
 - 多模态数据库契约保留 Attachment 来源/归属、MediaRef 消费边界、derivative/perception 收敛键、voice 上游指针和先上游后本地删除次序。
 - `error-codes.md` 保留全量 code 表与当前 details/触发语义，去掉 WRK、工单、事故编号和真钱调试叙事；未改任何 code、HTTP status 或稳定 message。
 - 验证：`make -C docs verify`、`mise exec -- go test ./cmd/docs`、`git diff --check` 通过；表名与错误码继续由 drift checker 双向核对，DTO warning 未变化。
+
+## 2026-07-31 · G2-006 · API 核心契约精炼
+
+- 精炼 API 通则、SSE 入口、workflow capability check、flowrun 列表/详情/activity/cancel/inbox/stats/matrix、trigger/firing/schedule、MCP plan 与 search reindex；保留 method/path、分页、query、response、错误码和并发语义，删除来源工单与事故编号。
+- `GET /flowruns` 现在直接并列 keyset/offset 两种互斥形状和完整过滤词表；stats/matrix 保留 cancelled、replay、wall-clock 与稀疏格阵的当前语义，不再用施工故事解释。
+- API 通则精炼后 drift gate 立即发现 `entities` 资源词只存在于被删旧句；新增显式三条 SSE 端点登记后门禁恢复通过，证明本批使用机械反馈修复真实覆盖缺口。
+- 验证：`make -C docs verify` 与 `git diff --check` 通过，DTO warning 未变化。
+- API 支撑域与系统/可观测性仍是两个超长混合段，保留为下一批明确 frontier；本批不宣称 api.md 完成。
