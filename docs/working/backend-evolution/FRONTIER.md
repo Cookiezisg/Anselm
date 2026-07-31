@@ -390,6 +390,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮视觉 provider 对照继续支持同一结论：managed workflow image→OpenAI BYOK viewer 34.93s 完成，flowrun/PNG/recorder exact-byte 证据闭合；Google 原生 image-input 仅遇当前 429 并结构化 skip。Google 的 rate window 没有扩散到 managed 产物或 OpenAI viewer，不改共享 MediaRef/renderer。
 
+本轮对聊天入口 workflow 控制面做当前窗口双跑：`search_tools→trigger_workflow→get_flowrun` 两轮均读取 `origin=chat` 的 completed run 与唯一 function marker；失败诊断两轮均经 `search_flowruns(status=failed)→get_flowrun` 暴露 durable 节点错误；approval 两轮均先 park 在 `human` 节点、仅观察回合不提前决定，再由 `decide_approval(yes)` 恢复下游 publish；replay 两轮均保留已完成 stable 前缀，只重跑 flaky handler，finish 与 marker 完成。8/8 通过（42.70/33.50、45.93/40.26、48.74/64.59、49.49/56.66s），flowrun/节点/执行台账与 assistant 回答闭合，未出现重复已完成节点、孤儿 run 或旧终态复活。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。
@@ -407,6 +409,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 本轮再做聊天侧 workflow 状态机交叉复探：`search_tools → trigger_workflow → get_flowrun` 可观测读取、失败 run 的 `search_flowruns → get_flowrun` 诊断、human approval durable park→`decide_approval`→下游 publish，以及失败后的 `replay_flowrun` 都在首个独立组合中完成（包 180.391s）。第二个组合出现一次单场景红灯，但其余三项通过；将疑似失败的 `ChatFlowrunFailureDiagnosis` 隔离后连续两次通过（42.362s、58.943s），没有稳定错误、孤儿 run 或错误恢复缺陷，因此只保留为 managed 模型/工具序列波动哨兵，不改生产代码。
 
 本轮对同一聊天 workflow 控制面做真实双跑：可观测读取、失败诊断、human approval 停泊/决定与失败 replay 共 8/8 通过。前两轮分别为 Observability 38.72s/34.80s、FailureDiagnosis 45.71s/47.27s、ApprovalDecision 44.71s/56.51s、Replay 60.79s/48.94s；durable flowrun、节点错误、审批决定、下游 marker 与 replay 的完成节点均闭合，没有把中间消息或模型自述当作状态证据。
+
+本轮 EVO-784 在同一聊天 workflow 控制面上再次双跑并收口为 8/8：可观测读取、失败诊断、approval park→decide、失败 replay 分别为 42.70/33.50s、45.93/40.26s、48.74/64.59s、49.49/56.66s。每条路径都由公开 flowrun、节点状态、marker 与 function/handler execution ledger 证明；replay 的 stable 前缀与 finish 各恰一次、flaky handler 恰一次 failed + 一次 ok，未把中间 assistant 文本当作终态依据。
 
 本轮图像写入复探同时补足异步终态证据：动画回合在长轮询期间始终读取同一 durable conversation，最终明确完成并只出现一份真实 MP4，随后附件 content 端点可回读；没有用中途的空消息响应替代最终状态，也没有在异步完成后重复铸造 artifact。
 
