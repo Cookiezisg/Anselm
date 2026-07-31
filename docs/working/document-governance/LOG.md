@@ -97,3 +97,11 @@ landed-into:
 - `api.md` 的通则从超长施工说明收敛为 envelope、分页/投影、实体/复合响应、同步/异步动作和状态变更的稳定规则；同步更新 review 日期。
 - 验证：`make -C docs verify` 通过，证明事件代码登记与端点资源覆盖未因精炼丢失；DTO warning 未变化。
 - API 各域正文及 database/error-code 索引仍有施工历史，本批不宣称四索引完成。
+
+## 2026-07-31 · G2-005 · 数据库与错误码索引去历史化
+
+- 从现行 store schema 重建 `database.md`：完整保留物理表名、关键列、封闭集、索引不变量、ID 前缀、SQLite rebuild 规则和 durable 删除边界，删除迁移批次、事故编号、一次性 benchmark 与 UI 施工裁决。
+- 修正文档内部的 D1 自相矛盾：durable 业务/日志真相只有 replay failed-node 与 terminal-run retention 两个物理删除例外；search、media derivative/perception、speech cache 明确属于可再生派生数据，其淘汰不新增 durable truth 的第三个例外。
+- 多模态数据库契约保留 Attachment 来源/归属、MediaRef 消费边界、derivative/perception 收敛键、voice 上游指针和先上游后本地删除次序。
+- `error-codes.md` 保留全量 code 表与当前 details/触发语义，去掉 WRK、工单、事故编号和真钱调试叙事；未改任何 code、HTTP status 或稳定 message。
+- 验证：`make -C docs verify`、`mise exec -- go test ./cmd/docs`、`git diff --check` 通过；表名与错误码继续由 drift checker 双向核对，DTO warning 未变化。
