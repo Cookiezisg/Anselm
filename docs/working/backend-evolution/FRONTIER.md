@@ -90,6 +90,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 最新一次把 OpenAI 图片+不支持音频/视频与 Qwen chat-only agent 资格合并双跑：6/6 通过（包 24.797s）。两条 OpenAI 路径仍只发送 98-byte PNG native image，WAV 96,044 bytes 与 MP4 2,969,360 bytes 仅留明确 capability note 且源件逐字节可回读；Qwen chat-only 在 0 steps 失败，没有 tool call、execution ledger 或 managed fallback。BYOK harness 的 managed install skip 为预期隔离，不是失败。
 
+本轮再做 BYOK 当前凭证三路双跑：OpenAI 原生 PDF 经 `file_data`、Qwen `qwen3.7-plus` 视频经 `video_url`，两者附件与 durable turn 均闭合；OpenAI `gpt-audio` 则在首发/工具结果回灌两次 `/chat/completions` 中保持 exact `input_audio` 与 tools，最终文本和 function result 落盘。PDF 7.45s/3.46s、Video 6.73s/8.44s、Audio+tool 7.44s/6.57s，包 40.717s；BYOK workspace 的 managed install skip 是隔离预期，未发生 fallback、provider 400 或源附件变化。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
@@ -415,6 +417,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 EVO-790 对当前 BYOK 资格窗口做了分层复探：Kimi `:test` 的上游 401 两轮都安全映射为 422 `API_KEY_TEST_FAILED`；DeepSeek 文本 smoke 通过，但 `deepseek-v4-flash` tool lane 在原 `maxSteps=4` 下分别暴露上游 400 与 `MAX_STEPS_REACHED`。当时的隔离摘要只看到模型连续发现 lazy tools，故先把 400 与三跑波动分流为 provider/model 哨兵；Google 文本/tool/stale 恢复在同一时间窗收到 429，已结构化为 `LLM_RATE_LIMITED`；此前 stale 首发 404→`LLM_MODEL_NOT_FOUND` 的证据仍成立，没有 fallback、伪造 assistant 或无界重试。
 
 EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四个 `/chat/completions` body 到上游，得到明确 400「thinking mode 必须回传 `reasoning_content`」；该 assistant 工具调用回合恰好缺失字段，而非工具名重复、tool pairing 破坏或 durable history 投影错误。对同一 body 只补显式空 `reasoning_content` 即获上游 200，因此兼容层现在只对 DeepSeek、只对缺少推理文本的 assistant tool-call 回合编码空字段，普通 assistant 与其他 compat provider 仍省略。新增 wire regression test 后，真实 BYOK focused lane（workspace `maxSteps=8`，全局默认不变；通用低预算 `MAX_STEPS` 合同仍由静态 loop/agent 门禁覆盖）双跑均完成（15.64s、11.62s）；该项不再归类为“仅 provider 波动”。
+
+本轮 BYOK 音频工具线缆再做独立双跑：`gpt-audio` 两次均保留原生 `input_audio`、tools、`run_function` 结果与最终文本，durable history 的 tool call/result 和附件字节闭合（7.44s、6.57s）；与同批 OpenAI PDF、Qwen video 的 native wire 通过结果一起，未发现兼容层续接或多模态 part 回归。
 
 ### FRT-13 最新证据
 

@@ -1261,6 +1261,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-799 | managed 子代理文档读取当前双跑全绿：text child 回传唯一 token，PDF child 经 sandbox `read_attachment` 回传唯一 token；父层没有直接调用附件工具，父回合均 completed，源 text/PDF（544-byte PDF）逐字节保持不变 | FRT-05 + FRT-13 / managed-read / subagent text+PDF attachment projection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentReads(TextAttachment|PDFAttachment)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo799-managed-subagent-document-read-double.jsonl` → PASS：Text 38.57s/25.54s、PDF 26.39s/22.21s（包 113.319s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-800 | BYOK 多模态/工具续接当前双跑全绿：OpenAI `gpt-4.1-mini` 原生 PDF 以 `file_data` 送达，Qwen `qwen3.7-plus` 原生 MP4 以 `video_url` 送达，OpenAI `gpt-audio` 的 WAV 以 `input_audio` 首发并经 `run_function` 结果回灌第二次 chat；各 workspace 未安装 managed fallback，附件逐字节回读，durable history/tool result 闭合 | FRT-02 + FRT-11 / byok-read / OpenAI PDF + Qwen video + OpenAI audio tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(QwenVideoInput|OpenAIPDFInput|OpenAIAudioToolContinuation))$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo800-byok-video-pdf-audio-double.jsonl` → PASS：PDF 7.45s/3.46s、Video 6.73s/8.44s、Audio+tool 7.44s/6.57s（包 40.717s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
