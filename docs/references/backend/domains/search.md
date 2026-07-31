@@ -4,51 +4,111 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# search —— 统一搜索服务（BM25 + 语义混合）
+# Search
 
-> 一套索引、四个出口：人的综搜/垂搜（HTTP）、LLM 搜积木（`search_blocks`）、8 个 `search_<entity>` 垂搜工具、RAG 取数（`Retrieve`）。本文是代码的精确投影。
+## 1. 定位
 
-## 心智模型
+Search 是实体内容的可重建投影，统一服务：
 
-- **索引 = 实体内容的纯投影**：12 类实体（conversation/function/handler/agent/mcp/skill/document/workflow/trigger/control/approval/memory）各自实现 `Source` 端口，把自己投影成 `search_docs` 行（title/body/anchor/chunk）。投影永远可重建——物理删、无软删、D1 不适用。
-- **词法层**：SQLite FTS5（驱动内置）+ `trigram` 分词（中英文/代码统一子串语义）+ `bm25(title:body=4:1)`。trigram 对 <3 rune 的查询零命中（实测）→ **短词 LIKE 回退**；长短混合 token 时长 token 走 MATCH、短 token 以 LIKE 谓词叠加（隐式 AND）。
-- **同步 = 写后通知 + 单 worker + 对账自愈**：实体 Service 写成功后调 `searchdomain.Notifier.Changed(type, id, anchor)`（非阻塞，队满即丢）；单 worker 在 detached ctx（S9）下重读实体并 diff 投影；boot 对账（stamps 比对 + 孤儿清理）是丢事件/崩溃/schema 重建背后的唯一自愈机制。**`:reindex` 是 force-reconcile**（重新入队**每个** live 实体、就地 OVERWRITE 词法行 + 删孤儿、**不** PurgeWorkspace）——索引从不全局清空，故并发 Search 返完整结果，而非旧 purge-then-rebuild 窗口内的不全/空且无信号（F168-M8/F175-M2；boot 的 schema bump 仍走 DropAll 后增量对账，那是无并发读的启动期）。conversation 走 `DocAt` 单 message 增量（anchor=message_id，chunk_no=块 seq——稳定键），避免长会话 O(n²) 重索。
-- **排序**（§产品手感硬规则）：基底分归一到 [0,1] → exact-name +3.0 > name-prefix +1.5 > 正文命中，积木类对内容类 +0.3；tie → updated_at DESC → entity_id。测试只断言相对序。
-- **分页**：融合分跨查询不稳定 → 物化 top-200 窗口，cursor = base64{queryHash, offset}；异查询 cursor 被 `SEARCH_CURSOR_INVALID` 拒绝而非切错窗口。
-- **折叠**：综搜按实体折叠（最高分 chunk 胜出 + matchedChunks）；积木面板按 (entity, anchor)——每个 handler 方法 / mcp 工具本身就是结果单元。
+- HTTP omni/vertical search；
+- `search_blocks` Workflow 积木发现；
+- 各实体 `search_*` LLM tools；
+- 内部 `Retrieve` RAG 端口。
 
-## 代码层级
+执行日志、Call、Firing 与 Flowrun node 不进入统一索引；它们体量无界，使用各自
+专用查询。
 
-`domain/search`（类型 + `Notifier`/`EmbeddingProvider`/`Repository` 端口 + query 路由/分块纯函数 + 5 sentinel）→ `app/search`（`Service`：Search/SearchBlocks/Reindex/PurgeWorkspace + `Indexer`：队列/worker/对账；只依赖端口，不 import 实体包）→ `infra/search`（raw SQL 物理层——**D2 唯一豁免点**，见 [database.md](../database.md)）→ transport（`GET /search` + `POST /search:reindex` + `GET/PATCH /search/settings`，见 [api.md](../api.md)）+ `app/tool/blocks`（`search_blocks`）。
+## 2. 投影与同步
 
-四个出口：HTTP 综搜/垂搜（人）· `search_blocks`（LLM 积木面板：六类可接线单元、(entity,anchor) 粒度、ref 直填节点、无 ref 命中丢弃）· 8 个 `search_<entity>` 垂搜工具（保 schema 换引擎——渲染 `{count, total, nextCursor?, hasMore?, <复数实体名>}` JSON（count=本次返回数、total=全量匹配数、有更多时带 nextCursor+hasMore，使截断对 LLM 可见、不把 20 条读成「恰 20 条」，F175-M4——经共享 `toolapp.SlimPageResult`）：其中 7 个经 `toolapp.ContentSearch` 渲染共享 `searchdomain.EntitySlim`（`{id,name,description}`；trigger/workflow 内嵌它再加 kind·refCount·listening / lifecycleState·active）；`search_documents` 引擎同源、自有 JSON 渲染器（`{count, total, nextCursor?, hasMore?, documents:[{id,name,path?,description?,snippet?}]}`，多带 path/snippet）。非空 query 走内容引擎、引擎缺席/出错回退原子串路径）· `Retrieve(ctx, q, RetrieveOpts{Types, TopK, MaxChars})` RAG 内部口（chunk 粒度不折叠、补全文 body、MaxChars 预算截断；与 Search 同一条混合管线。**当前零生产消费方**——为未来 agent 上下文注入/知识挂载预留的休眠口，单测覆盖管线、黑盒不可达）。
+各实体通过窄 `Source` 投影为 `search_docs`：
 
-**投影身份键**：各 Source 的 entity_id 用实体的**公开寻址键**——多数实体是行 id；skill 与 **mcp 用 name**（两者 HTTP 即按 name 寻址、挂载解析 `mcp:<name>/<tool>`——投影键须与挂载键一致，refHint 才能直填接线）。
+```text
+workspace + entity type + entity ID + anchor + chunk
+→ title/body/tags/ref hint/timestamps
+```
 
-**search_blocks 三段精度链**（对调用方透明）：①目录序列化 ≤4k token（`pkg/tokencount`，常量非配置）→ **整目录直喂 utility 模型精选**（`Sifter` 端口，bootstrap 的 `llmSifter` 走 utility resolve→credentials→build→Generate 链，严格只回编号 JSON）；②超阈 → 索引检索 top-50 → utility 精选；③sifter 缺席/出错 → 纯索引排序。
+Function、Handler、Agent、MCP、Skill、Document、Workflow、Trigger、Control、
+Approval、Conversation 与 Memory 都有 source。Skill/MCP 的公开 entity key
+使用 name，与 HTTP/挂载寻址一致。
 
-## 语义层（默认混合）
+业务写成功后 `Notifier.Changed` 非阻塞入队。单 worker 在 detached workspace
+context 重读实体并 replace projection；Conversation 可按 message anchor 增量
+更新，避免长 thread 全量重索。
 
-- **EmbeddingProvider 双适配器**（`infra/search/engine`）：`Builtin`（默认）= directInstaller 首用经 sandbox `EnsureTool` 拉钉死的 llama-server 二进制（tag b9601，六平台 sha256 焙进 recipe）+ EmbeddingGemma-300m QAT Q8 GGUF（HF LFS sha256，hf-mirror 备链），常驻子进程出 127.0.0.1 OpenAI 兼容 `/v1/embeddings`——惰性安装、惰性 spawn、crash 重拉、**Close(ctx) 由关停 ctx 限界**（撞上首用下载途中即中止安装 ctx 令 ensureRunning 释放锁、不把 App.Shutdown 及 db.Close 阻塞在 ~600MB 下载上，R14）；**持久化 pid 到 `runtimes/llamasrv/embedder.pid`、下次 spawn best-effort 回收上次非优雅退出（kill-9/崩溃/OOM/IDE 停/断电 绕过 Close）残留的 ~2GB 孤儿**（R2，对标 sandbox boot 扫描）；`Ollama` = 本机 `/api/embed` 复用其模型库。
-- **配置**：机器级 search_meta 三键——`embedder = builtin|ollama|off`（空=builtin）+ `ollama_base_url`/`ollama_model`（空=域默认 `127.0.0.1:11434`/`embeddinggemma`，权威在 `searchdomain.DefaultOllama*`），经 `GET/PATCH /search/settings`；Ollama 适配器由 bootstrap 注入工厂、参数变化即重建（app 不 import engine）；**检索模式无配置**——恒混合、降级自动。
-- **补算**：独立 embed worker（与索引 worker 分离，下载/嵌入绝不阻塞 FTS）；索引写成功与 boot 对账后 kick；缺生效模型向量的行批 ≤32 补嵌（title+body，CapRunes）；provider 出错停本轮等下次 kick；**整批 upsert 全失败（盘满/表损/写卡死）即中止本轮——否则同批行仍缺、下轮重取即无限重嵌热循环（R9）**，下次 kick 重试。
-- **融合**：查询时 provider 在场且向量就绪 → 余弦相似度**过 `cosineFloor`(0.55) 才纳入**（embeddinggemma 基线相似度高——无关文本也 ~0.5-0.63，**无相关性下限则无匹配/乱码 query 会按余弦噪声灌全 workspace**；F80 原设 0.7 经 round-7 在真 8 实体语料读 BLOB 精测被证误标——真相关 paraphrase 命中实测 0.549-0.746（**非**旧注所称 ≥0.81）、乱码 top 0.537，0.7 落在真命中分布内**静默砍掉 ~38% 召回**；无干净绝对分界（真/噪间隙仅 ~0.012），0.55 是务实下限：过乱码 0.537、捞回被旧值砍的明确真命中（0.617/0.677），仅噪声级 0.549 一例落选；下游 RRF+top-100 已对弱语义命中降权，此前置过滤只需做噪声闸非精度门——F80-fix）的 top-100 与词法窗口（≤200=fusionWindow）做 RRF(k=60)，纯向量命中补行后**重过查询过滤器**；任何失败原样返回词法列表。向量 ws 级内存缓存：补算把刚写入的向量**增量 patch 进已加载缓存**（不整体作废——否则每次实体编辑 kick 补算都丢整 ws 项、逼下次搜索在单连接上重扫全部 BLOB，R15），purge/reindex/换 embedder 才整体 invalidate（向量全集确实变了）。
-- **换 embedder**：`search_embeddings.model` 逐行记账——旧模型行对新模型即「缺向量」，自动重嵌，绝不混用。
+Queue 满可丢 notification，但 Boot reconcile 比较 live/index stamps 并删除
+孤儿，是崩溃、丢事件和 schema rebuild 的自愈机制。`:reindex` 使用 force
+reconcile：重新投影所有 live entities、就地覆盖并清孤儿，不先清空整个
+workspace，因此并发搜索不会经过空索引窗口。
 
-## 关键不变量
+## 3. Lexical search
 
-1. `infra/search` 每条查询必须带显式 `workspace_id = ?` 谓词（隔离测试钉死）。
-2. 密文红线：经 Encryptor 落盘的字段（api key 密文、mcp config、trigger config）**永不进投影**——索引明文落盘即泄密通道（红线测试）。
-3. `fts_schema_version` 不匹配 → boot 清空全量重建——索引从不原地迁移。
-4. 索引器永不阻塞业务写：Changed 非阻塞投递，溢出丢弃由对账兜底。
+物理层使用 SQLite FTS5 trigram 与 BM25，title 权重大于 body。短于 trigram
+能力的 token 使用 LIKE fallback；长短混合 query 组合 MATCH 与 LIKE。
 
-## 边界
+结果排序先归一基础分，再应用稳定产品提升：
 
-- 执行日志（executions/calls/firings/flowrun_nodes）不入索——体量无界，是未来独立轴。
-- `search_tools`（工具发现）独立小宇宙，不并入。
-- List `?q=` 的 LIKE 名字过滤保持原样——「边打边滤」与内容检索是两种产品行为。
+```text
+exact name > name prefix > body match
+```
+
+可接线积木相对内容实体有轻微 boost；tie 由 updated time 与 entity ID 稳定
+打破。
+
+融合分物化在有界窗口内。Cursor 包含 query hash 与 offset；不同 query 复用
+cursor 返回 `SEARCH_CURSOR_INVALID`，不能翻到另一结果集。
+
+Omni search 按 entity 折叠，保留最佳 chunk 与 matched chunk 数。Blocks 按
+`(entity,anchor)` 折叠，使 Handler method、MCP tool 等可直接生成 ref hint。
+
+## 4. Semantic search
+
+EmbeddingProvider 有两种实现：
+
+- Builtin：Sandbox direct installer 管理 llama-server 与内置 embedding model；
+- Ollama：调用配置的本机 `/api/embed`。
+
+机器级设置为 `embedder=builtin|ollama|off`，另含 Ollama base URL/model。
+Provider/模型变化通过 `search_embeddings.model` 使不匹配向量自动补算，旧模型
+向量不混用。
+
+Embedding worker 与 lexical index worker 分离，下载/推理不阻塞实体写或 FTS。
+批量补算失败时停止本轮，等待下一次 kick，避免对同一缺失批次形成热循环。
+Workspace vector cache 在增量写后 patch；只有 purge、schema/model 变化才整体
+失效。
+
+查询时 lexical window 与超过相关性下限的 semantic window 使用 RRF 融合。
+Semantic provider 不可用、未 ready 或失败时原样返回 lexical 结果；降级不改变
+HTTP shape。
+
+## 5. Search blocks 与工具
+
+`search_blocks`：
+
+1. 小目录直接交 utility sifter 选；
+2. 大目录先从索引取候选，再交 sifter；
+3. Sifter 缺席/失败则使用索引排序。
+
+没有可直接接线 ref 的 hit 会从 blocks 结果剔除。
+
+实体 `search_*` tools 在 query 非空时使用同一内容引擎，并返回 count、total、
+nextCursor/hasMore；引擎缺席时退回实体原生 substring 搜索。Document 额外返回
+path/snippet。
+
+`Retrieve` 返回未折叠 chunks，可按 types、TopK 与 MaxChars 限制。它是内部
+端口；没有生产调用方时仍不应被文档描述成用户可达能力。
+
+## 6. 安全与契约
+
+- Infra search 每条 SQL 显式带 workspace predicate；
+- API key、MCP config、Trigger config 等加密字段永不进入明文索引；
+- FTS schema version 不匹配时 Boot 重建派生索引；
+- 索引写失败不回滚业务真相。
+
+精确 HTTP 端点见 [`api.md`](../api.md)，表见
+[`database.md`](../database.md)，错误见
+[`error-codes.md`](../error-codes.md)。

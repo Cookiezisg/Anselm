@@ -156,3 +156,12 @@ landed-into:
 - Flowrun 复杂统计从逐字段立法长文收敛为端点、分页/窗口、批查上限与关键聚合语义；完整运行正确性转交 `scheduler-flowrun.md`、`workflow.md` 与 `trigger.md`，API 索引只承担 wire 注册职责。
 - 代码复核修正一次重写误述：`POST /search:reindex` 是无可轮询产物的 fire-and-forget，返回 204，不是 `202 {id}`。
 - 验证：`make -C docs verify`、`git diff --check` 与 API 施工词扫描通过；route resource drift gate 继续通过，DTO warning 未变化。
+
+## 2026-07-31 · G2-012 · MCP、Skill 与 Search 能力发现链重建
+
+- 从 MCP connection/install/OAuth/call、Skill file/install/activation 与 Search indexer/semantic engine 重建三篇 current reference，删除市场条目数量、供应商逐项故事、事故阈值推导、批次标签和实现文件计数。
+- MCP 保留 encrypted config、内存连接状态、stdio/remote、curated plan、Required env、OAuth discovery/DCR/PKCE/refresh、dynamic tools、统一 Call 记账与多模态 MediaRef 边界；供应商纳入取舍继续由 ADR 0006 承担。
+- Skill 保留 file-is-truth、frontmatter 保真、双层 name 规则、`os.Root` 文件守卫、inline/fork/@/Agent Guide 四种消费、tarball 安装护栏、provenance/hash/trust gate 与 script sandbox。
+- Search 保留 source projection、非阻塞通知 + boot reconcile、Conversation anchor 增量、force-reconcile reindex、FTS/短词 fallback、cursor query hash、semantic 自动降级、embedding backfill/cache 与 search_blocks/Retrieve 边界。
+- 代码复核修正 API 对 reindex 的措辞：当前实现重新排队所有 live entities、就地覆盖并清孤儿，不先 purge workspace；同时修正 MCP Call 稳定 ID 为 `mcl_`。
+- 验证：`make -C docs verify`、`git diff --check` 与本批施工词扫描通过；DTO warning 未变化。

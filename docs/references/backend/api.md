@@ -283,7 +283,7 @@ GET /controls|approvals/{id}/versions[/{version}]
 | `GET /catalog` | Entity/capability 概览 |
 | `GET /tools` | 可授权内建工具目录；不含逐请求 capability tools |
 | `GET /search` | 统一搜索；keyset 分页 |
-| `POST /search:reindex` | 异步 purge + rebuild；无可轮询产物，204 |
+| `POST /search:reindex` | 异步 force reconcile，就地覆盖并清孤儿；无可轮询产物，204 |
 | `GET /search/settings` · `PATCH /search/settings` | 搜索设置 |
 | `GET /relations` | 边分页 |
 | `GET /relations/neighborhood` | 邻域有界投影 |
