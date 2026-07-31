@@ -176,6 +176,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 ### FRT-07 最新证据
 
+本轮对 managed 音色全生命周期做当前双跑：参考 WAV 朗读后，`enroll_voice` 均出现 danger interaction 并完成批准，登记可见；克隆音色随后真实朗读并产出第二份 WAV，最后删除后 `/voices` inventory 归零。两轮 43.93s/40.48s（包 84.993s），源/克隆附件可逐字节回读，无句柄、receipt 或媒体孤儿；继续证明 speech denial 的时序红灯不代表公共 voice/TTS 路由回归。
+
 本轮先把语音输入与音色全生命周期放在同一 managed 组中复探：realtime ASR 独立通过（10.01s），但首个 `EnrollSpeakDelete` 进程在等待 60s 内没有得到 `enroll_voice` danger interaction，测试在审批断言前退出，未提交登记任务，不能把该红灯误判成库存、异步状态或删除语义缺陷。随后将生命周期场景隔离并以两个独立进程复跑，均完整通过危险审批→异步登记→克隆音色合成→删除，耗时 44.75s、54.67s；voice inventory/上游句柄和最终本地清理均闭合。当前结论是受管模型/网关时序可靠性哨兵，保留首轮 60s stall 证据，未改生产代码。
 
 随后单独复探 realtime ASR：proof-bound WebSocket 接受 100ms PCM、完成 finish，并从部署网关收到 `session.finished`（1.69s）；未把静音帧误当成转写语义，传输与会话生命周期闭合。

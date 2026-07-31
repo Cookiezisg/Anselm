@@ -1269,6 +1269,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-803 | sibling `Anselm-API-Serve` 当前完整网关门禁全绿：vet/build、全仓 race/unit、真实 HTTP+SQLite integration e2e、golangci-lint 与 docs lint 均通过；确认本轮 managed/BYOK live 证据依赖的 router/middleware/upstream、quota、媒体/语音/视频与错误边界底座没有代码级漂移，sibling 工作树保持 clean | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-evo803-api-serve-verify.log | tail -n 180` → PASS：integration 6.662s；golangci-lint 0 issues；docs 35 files clean；未输出 provider secret |
 
+| 2026-07-31 | EVO-804 | managed 音色生命周期当前双跑闭合：参考 WAV 朗读后，`enroll_voice` 均经 danger approval 完成登记，克隆音色朗读产出第二份真实 WAV，最后删除上游/本地 voice 后 inventory 归零；源/克隆附件分别可逐字节回读，无句柄、receipt 或媒体孤儿 | FRT-07 + FRT-09 / managed voice / enroll→clone speak→delete | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo804-voice-enroll-speak-delete-double.jsonl` → PASS：43.93s/40.48s（包 84.993s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
