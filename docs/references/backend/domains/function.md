@@ -4,70 +4,118 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# function —— 无状态 Python 沙箱函数（Quadrinity 第一元）
+# Function
 
 ## 1. 定位
 
-用户构建的**无状态** Python 代码：每次调用在**全新隔离的沙箱进程**里跑一遍就退出（对比 handler 的常驻进程）。代码层级：`domain/function`（实体+错误+Repository 端口，零外部依赖）→ `app/function`（构建/执行/env 编排 + 三适配器）→ `infra/store/function`（orm 三表）+ `app/tool/function`（10 个 LLM 工具）+ transport。
+Function 是用户构建的无状态 Python callable。每次调用在隔离进程中执行，进程
+结束后不保留内存状态。需要跨调用共享状态时使用 Handler。
 
-## 2. 心智模型（先懂这个，代码就顺了）
+```text
+Function row
+→ immutable Version(code + schema + deps + env mirror)
+→ isolated Run
+→ terminal Execution audit
+```
 
-**三个对象**：`Function`（身份：name/description/tags + 一个 `ActiveVersionID` 指针，**代码不在这**）→ `Version`（**不可变快照**：code + inputs/outputs 声明 + 依赖 + Python 版本 + **env 镜像**）→ `Execution`（一次运行的终态审计行）。
+## 2. 实体与版本
 
-**版本模型 = 线性只增 + 自由指针**（全实体统一，"方案 A"）：
-- 每次 edit = 在 active 基础上套 ops → 写**新** Version（号 = max+1，永不重排）→ 指针移过去，**立即生效**。没有 pending/accept/审批态。
-- revert = **纯指针移动**到旧版本号——不复制、不删"更新的"版本，可以再 revert 回来。
-- 版本数 cap 50，超出硬删最老的，**但绝不删 active**（revert 后 active 可能很老）；trim 同时**回收被删版本的 per-version venv**（`TrimOldestVersions` 返回被删版本 EnvID，`reclaimTrimmedEnvs` 经 `runner.DestroyEnv` 逐个销毁，best-effort）——否则孤儿 venv 泄漏到盘上直到手动 `sandbox:gc`。
+主行只保存身份、标签和 `active_version_id`；代码、inputs、outputs、依赖、
+Python 版本与 env 状态都在不可变 Version 上。
 
-**env 模型**：每个 Version 配独立 venv（`EnvID`，前缀 `fnenv_`——infra 自有前缀，不从 fn_ 派生）。sandbox 的 owner key = `functionID_envID` 复合（每版本的 venv 独立可寻址；Destroy 按 `functionID_` 前缀扫）。Version 行上有 env 的**状态镜像**（pending/syncing/ready/failed + 错误 + 同步时间）——读 Version 即知 env 健康度，不用查 sandbox。
+- Edit 将 ops 应用于 active draft，写 `max(version)+1` 并切 active pointer；
+- Revert 只移动 pointer，不复制或重排版本；
+- 每个版本有独立 `fnenv_` env，owner key 为 `functionID_envID`；
+- Version 镜像 `pending|syncing|ready|failed`、错误与同步时间；
+- 版本保留上限触发 trim 时，active version 不删，被裁版本的 env 最佳努力回收。
 
-## 3. 物理模型
+活实体名称由数据库 partial unique 约束；软删后名称可复用。Name 是代码实体
+使用的受限 slug，不是自由展示文本；实际 Python 入口仍由首个顶层 `def` 决定。
 
-三表 + 索引/约束见 [database.md](../database.md)。设计取舍：
-- name 用 **partial-UNIQUE**（`WHERE deleted_at IS NULL`）：软删后名字立即可复用；唯一性**只**靠这个 DB 约束兜（app 层无预检——TOCTOU 安全且少一次查询），store 把 `orm.ErrConflict` 翻成 `FUNCTION_NAME_DUPLICATE`。
-- 执行表的 5 列溯源（conversation/message/toolCall + flowrun/flowrunNode）全部从 **ctx** 读：chat 身份由 loop 注入，flowrun 身份由 workflow 调度器派发前注入（`reqctx.SetFlowrunID`）——哪条路径跑的就带哪份，执行入口签名不沾这些概念。
+## 3. 构建
 
-## 4. 生命周期 / 关键流程
+Function 的唯一变更词汇是 ops：
 
-**构建（create/edit）**：唯一的变更词汇是 **ops**（JSON 判别式：`set_meta/set_code/set_inputs/set_outputs/set_dependencies/set_python_version`，闭集）。三条入口殊途同归——LLM 工具传 ops、HTTP `:edit` 传 ops、HTTP create 的扁平 payload 由 `buildOpsFromDirect` **反推成 ops**——全走 `ApplyOps`：逐 op 应用到 `VersionDraft` + **每步后** `validateIncremental`（name 正则 + 字段 schema）+ 末尾 `validateFinal`。LLM 的脏 JSON 先过 `jsonrepair` 容错。错误码：op 畸形/中途非法 = `FUNCTION_OP_INVALID`；终校验失败 = `FUNCTION_INVALID_CODE`。
+```text
+set_meta
+set_code
+set_inputs
+set_outputs
+set_dependencies
+set_python_version
+```
 
-**代码校验是刻意的词法检查、非 AST**：要求至少一个顶层 `def `（首个 def 名即执行入口）；黑名单 `import anselm_handler`（**无状态/有状态边界**：function 无状态、handler 持久——function 不许碰 handler SDK）。
+LLM 工具、HTTP `:edit` 与直接 create 最终都进入 `ApplyOps`。每个 op 后做增量
+校验，完成后做终校验。工具输入可经过 JSON repair；非法 op 与非法最终代码
+仍分别大声失败。
 
-**env 物化（`ensureEnv`）**：写 syncing → 委托 `envfix.Provisioner`（带 LLM 改依赖的修复循环，≤3 次——装不上时让 LLM 改依赖列表重试）→ 终态（ready/failed + **修正后的依赖**）写回 Version 行。**修复不丢包**（F148）：拒绝把声明的依赖列表**缩短到原始声明数以下**的"修复"——改拼写/松版本保持包数是修复，静默删掉必需包只是让装错消失、却得到**缺包的绿 env**（假就绪、把失败推迟到运行时 ModuleNotFoundError 且丢用户所声明）；这类丢包建议被拒、env 保持 failed + 真实装错、声明 deps 不丢。create/edit **容忍**失败（env failed 也创建成功，状态可见）；run 时未 ready 才报 `FUNCTION_ENV_NOT_READY`（含依赖装不上的 failed env——`ensureEnv` 不会再靠丢包假装 ready）。`Edit` 空 ops = "重建 active env"路径（重试失败的安装），发 `function.env_rebuilt`。
+代码校验是轻量词法边界：必须存在顶层 `def`，首个顶层函数是入口；禁止导入
+Handler SDK，以保持无状态/有状态执行边界。
 
-**执行（`RunFunction`，所有路径唯一漏斗）**：nil input 在 runner 前归一成 `{}`（driver 做 `f(**input)`，nil→JSON `null`→`f(**None)` TypeError；无参调用方如 sensor/无接线 workflow 节点不该崩）；取版本（空→active）→ env 未 ready 则懒物化 → `runner.Run` → **`ErrEnvNotFound`（env 被 GC 回收）= 重建 env + 重试一次** → `recordExecution`。五个调用方：`run_function` 工具（chat/agent，按 ctx 推）、HTTP `:run`（manual）、workflow 调度器 `dispatch.RunAction`（workflow，fail-fast：`OK=false` 转 error 使节点行写 failed）、sensor 触发器、agent 挂载工具（`mount.go`：`fn_<id>` 挂为 agent 专属工具，TriggeredBy=agent）。
+Env 物化由 envfix 负责，状态与尝试过程写回 Version 并流到 entities build
+终端。依赖修复不能通过减少声明包数量来制造假 ready。构建允许 env failed，
+调用时则必须 ready。空 ops 表示重建 active env，不铸新版本。
 
-**沙箱驱动（精妙处）**：`SandboxAdapter.Run` 写 `main.py` = 用户代码 + driver 模板。driver 在调用期间**把 stdout 重定向到 stderr**、结束后才把 JSON 结果打回真 stdout——既保证 stdout 是可解析的单一 JSON，又让函数自己的 `print()` 变成实时进度（stderr 被**三写**：messages 流 tool_call progress + entities 流 run 终端 + `pkg/logtail` 限长收集器——后者随执行记录落 `logs` 列，run_function 的返回也携带）。
+## 4. 运行
 
-**媒体产物通道（WRK-082 批E，第五个产地的前一半；后一半是 handler，见 `handler.md`）**：采集器共用 `app/mediaartifact`。每次运行**一个空临时目录**,以 `$ANSELM_OUT` 与 **cwd** 两种方式交给代码,运行结束即删——函数用普通相对名写产物(`plt.savefig("chart.png")`)、永不需要绝对路径。刻意**不是**驻地也不是数据目录:那两处是**用户**的真实文件,让函数往里写产物就是让它在工作树里乱丢;run 级临时目录让「哪些文件是**这次**运行产出的」有一个物理上无歧义的答案(代拍 E1)。
-**引用文法**是**显式声明** `{"$media": "<相对路径>"}`,由 `collectArtifacts` **就地替换**成既有 MediaRef receipt(`{attachmentId,filename,mime,sizeBytes,source:"function_artifact"}`)——就地而非追加,故产物**留在它本该在的那个键上**:`node.chart` **就是**那张图,而不是「结果里有个 chart 字段、另有个平级 artifacts 数组要你自己对应」。也正因如此**不变量①③④全部免费继承**:MediaRef 一出现,消费咽喉、一族卡、workflow 的边就都已经认识它(代拍 E2)。
-**为何不扫目录**(代拍 E4):扫目录会把 matplotlib 字体缓存、`__pycache__`、中间文件全变成产物,且**答不出「这张图属于结果里的哪个字段」**——而那恰是显式声明要的东西。
-**四道闸**:路径经 `fspath.Inside(outDir, …)` **fail-closed**(声明来自用户代码,`../../.ssh/id_rsa` 是迟早会说出口的东西,拒在打开任何东西**之前**)· 单件 ≤32MiB · 单次 ≤`mediaref.MaxRefs`(下游本就只展开这么多) · mime 靠 `http.DetectContentType` **嗅内容不信扩展名**(一个叫 `.png` 其实是 shell 脚本的文件不该凭名字变附件),白名单 `image/* · audio/* · video/* · application/pdf`。**逐件失败、写进 logs、绝不致命**:一张超大的图不该让一次数字都算对了的运行作废;采集不了的声明**原样留下**,故结果绝不会声称一件并不存在的产物存在。uploader 未注入(测试/只跑 REST 的装配)时声明原样通过。
+所有入口汇入 `RunFunction`：
 
-**env 物化可见性**：ensureEnv 把每次尝试/模型修复行经 `envfix.WriterSink` tee 到 entities 流 build 终端（不分入口——HTTP 编辑器路径与 chat 构建同等可见）；状态级信号另走 `sandbox.env_status_changed` 通知（installing/ready/failed 带 errorMsg）。
+1. 解析指定 version，未指定则取 active；
+2. 非 ready env 按需物化；
+3. nil input 归一为 `{}`；
+4. 在全局 Function wall-clock 内运行隔离进程；
+5. env 被外部 GC 后，按版本快照重建并重试一次；
+6. 在 detached workspace context 写终态 Execution。
 
-**记账（`recordExecution`）**：best-effort、走 `reqctx.Detached(wsID)`（被取消的运行仍落审计行）；status 按运行 ctx.Err() 区分 timeout/cancelled/failed——**timeout** 来自 `RunFunction` 给运行套的墙钟 deadline `limits.Timeout.FunctionRunSec`（默认 300s，`PATCH /limits` 可调、校验 >0；deadline 下沉到 sandbox exec ctx 触 pgroup-SIGKILL，使失控/死循环 function 不钉死 worker——workflow 函数节点 timeout 即 fail-fast 失败该 run，与 handler/mcp 调用同款墙钟）；`logs` 随行落盘（List 置空、单条 Get 携带）。**超时返回也清洗**（F158）：`RunFunction` 给调用方（HTTP `:run` + `run_function` 工具）返 `FUNCTION_RUN_TIMEOUT`（504，`errorspkg.Wrap(ErrRunTimeout, sandboxErr)`）、而非裸 sandbox "spawn process timeout"——后者暗示进程**启动**失败、误导 agent/:triage 追幻象冷启动（正是 F105 只为耐久记录修的幻象、返回路径曾漏；镜像 handler 的 `ErrInstanceRPCTimeout`）。记录与返回现同义。
+调用来源为 `chat|agent|workflow|manual`。Conversation、message、tool-call、
+flowrun、node 与 iteration 溯源从 request context 写入执行行。状态为
+`ok|failed|cancelled|timeout`；超时向调用方返回 `FUNCTION_RUN_TIMEOUT`，
+与审计记录保持同义。
 
-## 5. 关键设计决策
+Driver 在运行期间把用户 `print()` 导向 stderr，真实 stdout 只承载 JSON
+结果。stderr 同时进入 Chat tool progress、Entities run terminal 与有界日志；
+单条 Get 返回 logs，列表不复制大日志。
 
-- **ops 是唯一变更词汇**：LLM/HTTP/直接创建三口径合一管线，校验只写一处。
-- **无 pending/accept**：本地单用户，编辑立即生效 + revert 兜底，审批态是多余仪式。
-- **env 失败不阻塞创建**：让用户先看到实体 + env 状态，修复（edit 空 ops / 改依赖）是后续动作。
-- **两种搜索**：REST 列表 `GET /functions?search=<term>` 走服务端 `name` 大小写不敏感子串（orm `WhereLike`，转义 `%`/`_`；handler/agent/workflow 的 list 同构）；LLM 工具 `search_*` / `ListAll` 则全表载入内存过滤——本地单用户规模的标准取舍（catalog/relation 同路）。
-- 删除 = 软删 + best-effort 销毁 env/代码目录 + 硬删 relation 边。
+## 5. 媒体产物
 
-## 6. 契约（引用，不重列）
+每次运行获得一个空临时目录，同时作为 cwd 和 `$ANSELM_OUT`，结束后删除。
+代码在返回值中显式声明：
 
-端点 → [api.md](../api.md)#function · 表 → [database.md](../database.md)#function · 码（`FUNCTION_*`，domain 12 + 工具校验 4；含 `FUNCTION_EXECUTION_INVALID_STATUS`——`search_function_executions` 的 status 越出 `{ok,failed,cancelled,timeout}` 即 422、非静默空页，F168-M2）→ [error-codes.md](../error-codes.md) · 事件 → [events.md](../events.md)。LLM 工具 10 个：search/get/create/edit/revert/delete/run + 执行日志两查询 + **`update_function_meta`**（只改 row 的 name/desc/tags、不铸版本/不重建 env——纯改名/改述用它，免 edit set_meta 的冗余同码版本+env 重建）；create/edit 是 **build 工具**（流式 code args 镜像 entities 流，面板实时填充；env-fix 尝试折进结果 + 实时流出）。
+```json
+{"chart": {"$media": "chart.png"}}
+```
 
-## 7. 跨域集成
+采集器在原位置替换为 MediaRef receipt，保留 `chart` 这一业务字段，不扫描目录
+猜测产物。路径必须位于输出目录；单件大小、单次引用数与 MIME 类型均受统一
+限制。拒绝某个产物只写运行日志，声明原样保留，不推翻其余正确计算结果。
 
-- **执行被谁调**：chat loop（`run_function`）/ HTTP / workflow 调度器（窄接口 `FunctionRunner`，bootstrap/dispatch.go）/ sensor。
-- **能力暴露**：catalog（name+desc 名录）· @ 提及（快照 description+active 代码）· relation 图（`NamesByIDs` 读时 hydrate + conversation→function 的 create/edit 边，edit 边在每次 active 变更时重算、origin 对话除外）。
-- **agent 挂载**：`fn_<id>` 可被 agent 挂为专属工具（见 [agent.md](agent.md)#3）。
-- **依赖的端口**：sandbox（Run/Destroy/DestroyEnv/Ready；`DestroyEnv` 回收单个 trim 掉的版本 venv）· envfix.Provisioner（env 物化+LLM 修复）· relation/notification（nil 容忍）。
+Function 与 Handler 共用 `app/mediaartifact`；attachment uploader 未装配时，
+声明原样通过。
+
+## 6. 删除与投影
+
+Delete 软删主行、清 relation，并最佳努力销毁该 Function 的 env 和代码目录。
+Version 与 Execution 的耐久边界见 [`database.md`](../database.md)。
+
+Function 通过以下投影进入产品：
+
+- Catalog：name + description；
+- Mention：description + active code；
+- Relation：构建/编辑来源与调用触碰；
+- Agent mount：`fn_<id>` 合成为以当前 Function 名命名的绑定工具；
+- Workflow action、Chat、HTTP 与 Sensor 都调用同一 `RunFunction`。
+
+## 7. 契约
+
+精确端点见 [`api.md`](../api.md)，表见
+[`database.md`](../database.md)，错误见
+[`error-codes.md`](../error-codes.md)，事件见
+[`events.md`](../events.md)。ID：`fn_`、`fnv_`、`fne_`；env：`fnenv_`。
+
+LLM 工具覆盖搜索、读取、构建、revert、删除、运行和 Execution 查询。
+`update_function_meta` 只改主行，不铸版本或重建 env。

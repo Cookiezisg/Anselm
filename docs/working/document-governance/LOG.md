@@ -128,3 +128,12 @@ landed-into:
 - Workflow 保留五类节点、CEL 可见性、capability problems/warnings、五种 overlap policy、stage/activate 门禁、active graph 入口重绑、pin closure、draining/kill/delete 与 approval inbox 语义；明确 overlap policy 只管真实 firing，显式 run-now 不经过该策略。
 - 两篇文档均从“实现史解释当前行为”收敛为定位、状态、正确性边界、动作、契约与跨域集成；精确端点、表和错误码继续引用四个机械索引，不在域文档复制清单。
 - 验证：`make -C docs verify`、`git diff --check` 与两篇文档施工词扫描通过；DTO warning 未变化。
+
+## 2026-07-31 · G2-009 · Function、Handler 与 Agent current reference 重建
+
+- 按现行 domain/app/infra 执行咽喉重建三个 callable entity reference，删除 Quadrinity 施工口吻、批次标签、事故编号、修复故事和易漂移的文件/工具/错误码数量。
+- Function 现在集中说明不可变版本、per-version env、ops 构建、envfix 诚实失败、隔离运行、墙钟、三路日志、Execution 溯源及显式媒体产物声明；保留 env 被 GC 后按版本快照重建一次的恢复边界。
+- Handler 现在集中说明加密 init config、类装配、单例/单飞实例管理、串行 RPC、管道取消即 crashed、config/code 变更的重启语义、失败 spawn 记账、secret 双面清洗及逐调用媒体目录。
+- Agent 现在集中说明声明式版本、四类 ToolRef、严格绑定工具宇宙、create/edit eager validation、mount-health、knowledge/skill、统一 Invoke、transcript、多模态 input/tool-result 展开、结构化 outputs、HumanLoop 与 Workflow step replay。
+- 交叉核对并修正三类物理 ID：Function execution `fne_`、Handler call `hcl_` / env `hdenv_` / instance `hdi_`、Agent execution `agx_`；mount health 明确为 HTTP 投影，不误列入 LLM 工具。
+- 验证：`make -C docs verify`、`git diff --check` 与三篇文档施工词扫描通过；DTO warning 未变化。
