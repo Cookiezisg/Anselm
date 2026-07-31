@@ -224,6 +224,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮单独复探 managed 配额控制面：两个新 workspace 都等待 managed key 与默认模型完成 provision，再从产品 API 读取 `/freetier/quota`；两轮均返回 `limit/used/remaining` 自洽、`available=true`、RFC3339 `resetAt`，未触发模型或生成消费。该结果补足了 voice/朗读成本证据之外的 fresh-install quota 投影，没有形成配额代理或隔离回归。
 
+本轮把语音写入与成本共同层再做当前双跑：`generate_speech` 两轮各只执行一次并落真实 80,684-byte WAV；顺序朗读首次合成、同文本同音色命中同一附件且 quota 不变、换文本生成新附件；并发同 key 双请求共享一附件且 quota 只增加一次；空闲 workspace quota 快照的 `limit/used/remaining/resetAt` 均自洽。8/8 通过（GenerateSpeech 15.02s/9.36s；ReadAloudCache 7.24s/7.50s；ConcurrentDedup 5.23s/4.95s；Quota 1.31s/1.71s；包 53.228s），未见重复扣费、缓存污染、附件孤儿或 receipt-only；provider raw wire 仍不由部署公网暴露。
+
 ### FRT-09 最新证据
 
 同日复探 managed 高风险消费闸：`generate_speech` 与异步 `generate_video` 均先出现 danger interaction，客户端明确拒绝后回合完成；两轮独立进程均未进入合成、未铸造 provider receipt、未增加 generation reservation/quota。两轮整组通过（28.254s、27.967s；第二轮视频拒绝 11.64s），确认拒绝路径不会因上游窗口或重复点击而产生隐形消费，未形成产品缺陷。
@@ -267,6 +269,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 随后把动画写入从 text-only 对照推进到真实图像首帧：`TestLiveManaged_AnimateImageArtifact` 两个独立进程均把上传 PNG 作为 `animate_image` source attachment，经过 danger approval 后各只铸一份可回读 MP4，receipt 保留 `provider=anselm` 与 `sourceAttachmentId`（118.90s、115.40s；包 235s）。图像→视频的多模态装配、异步 terminal 与 source lineage 当前均闭合，没有重复提交或附件孤儿。
 
 本轮再做 `generate_speech` danger-gate 隔离双跑：一轮 65.01s 内始终没有 interaction，另一轮 10.58s 完成 deny 204 后 completed；绿跑确认无 synthesis receipt/attachment/quota 消费，红跑仍停在模型未发起审批之前。该 1/2 结果与既有 speech writer/voice lifecycle 绿证据一致，继续归类为 managed tool-following/stream timing 哨兵，而非 FRT-09 的成本闸或 ledger 缺陷。
+
+本轮补做 managed 语音 writer 对照：两轮 `generate_speech` 均只调用一次，真实 80,684-byte WAV、`provider=anselm` receipt 与 attachment content 闭合（15.02s、9.36s）；与同批顺序朗读缓存、并发去重和 quota 双跑一起 8/8 通过。该结果继续把此前 danger deny 红绿分叉收窄到模型/stream 时序，不支持 gateway、reservation 或 artifact ledger 缺陷结论。
 
 随后复探直接 managed `generate_video` artifact 双跑：两轮都完成 danger approval、一次异步 gateway submission 与 durable completed，唯一 MP4 分别为 3,010,585 / 4,261,660 bytes，receipt 与 attachment content 一一对应；sandbox 收尾均清空，没有重复提交、迟到产物或孤儿。两轮 139.03s/113.76s 全绿，关停时本地 embedding `context canceled` 仍仅是 lexical fallback 噪声，不改变视频 writer 或资源卫生结论。
 
