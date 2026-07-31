@@ -137,3 +137,13 @@ landed-into:
 - Agent 现在集中说明声明式版本、四类 ToolRef、严格绑定工具宇宙、create/edit eager validation、mount-health、knowledge/skill、统一 Invoke、transcript、多模态 input/tool-result 展开、结构化 outputs、HumanLoop 与 Workflow step replay。
 - 交叉核对并修正三类物理 ID：Function execution `fne_`、Handler call `hcl_` / env `hdenv_` / instance `hdi_`、Agent execution `agx_`；mount health 明确为 HTTP 投影，不误列入 LLM 工具。
 - 验证：`make -C docs verify`、`git diff --check` 与三篇文档施工词扫描通过；DTO warning 未变化。
+
+## 2026-07-31 · G2-010 · Conversation、Messages、Chat 与 Subagent 主链重建
+
+- 从现行 Conversation 主行、Message/Block domain、Chat queue/host/history/retry/fork 与 Subagent host 重建用户体验主链四篇 reference，删除工作包、事故编号、实现演进和重复段落。
+- Messages 统一登记七类 Block、Message/Block 生命周期、tool-call/result 时序、context role、Subagent 嵌套、retry 双向版本指针及六类读面；明确 progress/marker/compaction 不进入 LLM history。
+- Conversation 统一登记 durable 配置、运行投影、未读、auto-title、fork 前缀/ID remap/summary 水位、workdir 活投影与分组，以及 switch/create-branch/add-worktree 三个受限 git 动作。
+- Chat 统一登记 per-conversation queue、detached turn context、SQL 最小化历史、逐步动态工具、runtime-profile 上下文恢复、三路多模态消费、detached finalize/orphan sweep、retry 线缆与 Fork/read projections。
+- Subagent 明确为父对话内的深度 1 运行机制：无独立表，内部 trace 落 sub-message，父历史只见最终 tool result；general-purpose 可继承真实可用的生成能力，Explore/Plan 继续保持只读。
+- 校验门禁发现重写时误用了 MCP 的 `DOC-020`；从提交前版本恢复 Conversation 的稳定 ID `DOC-023` 后通过，证明 ID 唯一检查有效拦截了人工改写错误。
+- 验证：`make -C docs verify`、`git diff --check` 与四篇文档施工词扫描通过；DTO warning 未变化。
