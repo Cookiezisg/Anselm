@@ -27,13 +27,14 @@ AppShell
 └── 顶带：全 app 唯一即时消息舞台
 ```
 
-| 海洋 | 当前入口 | 当前形态 |
+| 产品面 | 当前入口 | 当前形态 |
 |---|---|---|
-| Chat | 无选中 landing；线程 `/chat/:id` | 对话、附件、多模态、工具、人在环、驻地、队列、分叉/重试/版本、侧幕 |
-| Entities | `/`、`/entities/:kind/:id` | 总览、Quadrinity 与支撑实体、版本、执行调试台、workflow 图编辑器 |
-| Library | 无选中草稿；`/library/:id`、`/library/skill/:name` | Documents/Skills 树、原生编辑器、属性/大纲/反链 |
-| Scheduler | `/scheduler`、workflow 与 run 子路由 | Overview、运营页、运行卷宗与节点 inspector |
-| Settings | 壳内 settings 选区 | 13 面板、机器/工作区两轴、密钥/模型/MCP/存储/网络/快捷键 |
+| [Chat](features/chat.md) | 无选中 landing；线程 `/chat/:id` | 对话、附件、多模态、工具、人在环、驻地、队列、分叉/重试/版本、侧幕 |
+| [Entities](features/entities.md) | `/`、`/entities/:kind/:id` | 总览、Quadrinity 与支撑实体、版本、执行调试台、workflow 图编辑器 |
+| [Library](features/library.md) | 无选中草稿；`/library/:id`、`/library/skill/:name` | Documents/Skills 树、原生编辑器、属性/大纲/反链 |
+| [Scheduler](features/scheduler.md) | `/scheduler`、workflow 与 run 子路由 | Overview、运营页、运行卷宗与节点 inspector |
+| [Notifications](features/notifications.md) | 左岛铃轴 + 顶带 + OS 通知 | durable 账本、approval 带、即时反馈与后台通知 |
+| [Settings](features/settings.md) | 壳内 settings 选区 | 机器/工作区两轴、密钥/模型/MCP/存储/网络/快捷键 |
 
 ## 3. 分层与依赖
 

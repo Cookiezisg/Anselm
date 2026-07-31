@@ -15,7 +15,8 @@ audience: [human, ai]
 
 `app/scheduler` 是 durable workflow 解释器；`domain/flowrun` 与
 `flowruns`/`flowrun_nodes` 保存一次执行的状态。引擎使用节点结果记忆化和
-幂等重走，不使用事件溯源。
+幂等重走，不使用事件溯源。Advance 与 drain/timeout 解耦的取舍见
+[`ADR 0007`](../../../decisions/0007-scheduler-async-advance-pool.md)。
 
 一次 run 的两把确定性锁：
 

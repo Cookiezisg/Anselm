@@ -226,3 +226,13 @@ landed-into:
 - 同步 frontend README 的真实启动面，修 demo 品牌副本与 Flutter/native 资产的关系；核对 artwork hash、尺寸、调用点和品牌资产清单，整理来源与许可说明；修正多模态 fixture 的实际执行目录与 mise 命令。
 - 只读复核数据目录、机器指纹密钥、device proof、blob、sandbox 与日志轮转实现后，确认 data migration 正文仍成立，并刷新 how-to 审阅日期。
 - 验证：`make -C docs verify`、`make -C demo verify` 与 `git diff --check` 通过；demo matrix 12 类、385 specimen、0 console error / overflow / XSS escape。
+
+## 2026-07-31 · G4-002 · 长尾 reference、how-to 与 ADR 追溯收口
+
+- 重写 testend overview：删除单次时长、场景数量、超长测试名清单与事故复盘，只保留独立 module 边界、三类命令、contract/managed/BYOK/hybrid 场景、harness 进程收容、runtime cache、多模态 fixture 与证据纪律；具体集合回归代码自述。
+- 前端 overview 补齐 Notifications 为第六个 current 产品面，并给六篇 feature reference 建立直接入口；Settings 删除易漂移的面板数量。
+- 复核 `MasterKey.resolve`、`BackendController` 的 `ANSELM_MASTER_KEY` 注入、后端 machine-fingerprint fallback、三类 secret store 与 device-proof 文件后，修正 data migration：全新安装走 OS keychain，旧安装/失败才走机器指纹；跨机复制需重建 API key、Handler config、MCP/OAuth 与 device identity。
+- ADR 只增加允许的前向元数据：0003 指向迁移后的标准化台账，0004 标明工具链部分由 0005 取代，0005 标明 CocoaPods 句由 0019 取代；0016/0017/0018 补 `superseded-by`，未改写历史判断正文。
+- scheduler 与 managed gateway current reference 分别补到 ADR 0007、0010、0015 的反向入口；demo primitive inventory 删除手工数量。
+- 代码注释 finding（本战役不改产品代码）：`frontend/lib/core/process/master_key.dart` 仍两次误写“ADR 0006”，实际应为 ADR 0008；其“WRK-043 落 Developer ID 后”表述仍指向同 ID 的 active platform working，语义有效但应在实现该发行步时同步收口。
+- 验证：`make -C docs verify` 与 `git diff --check` 通过；唯一 warning 仍是 DTO mirror 12 checked / 21 skipped。

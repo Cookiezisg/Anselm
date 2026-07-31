@@ -4,50 +4,73 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-07-29
-review-due: 2026-10-17
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# testend —— 全功能黑盒验收套件
+# testend 黑盒验收
 
-> 与 `backend/` 平级的独立 Go module。**零 backend import**：编译并拉起真实 `cmd/server` 二进制，只走纯 HTTP/SSE——验的就是用户与前端实际拿到的东西；场景在这里碰到的别扭本身就是前端开发者体验 finding。
+`testend/` 是与 `backend/` 平级的独立 Go module。它编译并拉起真实
+`cmd/server`，只通过 HTTP、SSE 与进程边界观察系统；禁止 import backend
+内部包。包内测试回答“局部实现是否正确”，testend 回答“产品线缆与持久状态是否
+真的走得通”。
 
 ## 入口
 
-- `make -C backend testend` —— 全功能黑盒验收（scenarios/，llmmock 驱动 LLM 面，零 token；**全场景 `t.Parallel()` + `-parallel 16`、`-timeout 15m`，实测 ~4-4.5min(逐场景 -json 实测:合计 2057s、最长单场景 125s cron 门控——长尾即地板)**——每场景本就是隔离宇宙〔独立临时数据目录 + 空闲端口 + 独立进程组〕，并行只是同时开几个宇宙、隔离零损;`saveRuntimeCache` 经进程内互斥 + 拷临时名原子 rename 双保险,并发回存绝不留半写缓存;**不进 `make verify`**）。
-- `make -C backend evals` —— 金标 LLM 旅程（golden/，真模型；`EVALS=1` 门控，**默认走已部署 Anselm API / `anselm-auto` 与受管开通**；只有显式设置 `EVALS_PROVIDER` 才切到 BYOK 对照，并按该 provider 提供 `EVALS_KEY`/`EVALS_BASE_URL`/`EVALS_MODEL`；烧钱手动跑）。
-- `TestGolden_L1_ProviderBackedLongContext` —— C0 的可计量 1M admission 金标；除 `EVALS=1` 外还必须显式设 `EVALS_LONG_CONTEXT=1`，默认发送 2.4MB 高熵 ASCII 记录并要求 provider 实际 usage ≥950K input token（可用 `EVALS_LONG_CONTEXT_BYTES` / `EVALS_LONG_CONTEXT_MIN_INPUT_TOKENS` 覆盖）。它既验随机 sentinel 语义保留，也验 provider 回报的真实 input token，绝不把本地估算当通过条件；长消息轮询降至 2s，避免验收本身反复下载整段 transcript 放大带宽。
-- `TestLiveManaged_*` / `TestLiveVoice_SpeechInputASR` / `TestLiveBYOK_OpenAIImageInput` / `TestLiveBYOK_OpenAIDocumentImageReference` / `TestLiveBYOK_QwenVideoInput` / `TestLiveHybrid_OpenAIPlansManagedImage` —— 产品级真钱验收，刻意不进全套门禁。受管组由 `EVALS_MANAGED=1` 驱动、仅通过已部署 API Serve 的 device-proof 入口；其图片、MP4 与文档 `anselm://media` 引用三种消费入口均有真实回合/附件状态守卫，且 `GenerateImageArtifact` / `EditImageArtifact` / `GenerateSpeechArtifact` / `GenerateVideoArtifact` 分别验证受管出图、receipt 血缘改图、WAV 生成与危险审批后的异步 MP4 生成一次性写路径；`TestLiveManaged_WorkflowGenerateImageToViewer` 进一步验证 managed workflow 上游 agent→receipt→下游 agent 的状态链和图片附件回读（provider wire 仍需 gateway 侧 recorder），`TestLiveManaged_SubagentGenerateImageArtifact` 验证 depth-1 subagent 的 capability tool、receipt 回父回合与图片附件写路径。`AnimateImageArtifact` 与 `AnimateImageArtifactTextOnly` 共同验证“用户图片 + capability tools”的动画融合：前者证明图片与 tools 同回合经过危险审批并完成 `/videos/animations`，后者隔离验证超大生成 MP4 在 3MiB 网关预算下于续接时诚实降级而不杀死整轮。`TestLiveVoice_SpeechInputASR` 通过真实本地 sidecar → device-proof → 部署网关的 WebSocket 发送受界定 PCM 帧并等待 `session.finished`，验证语音输入会话的握手、转发与结束生命周期；它不以静音帧的模型文案冒充转写语义证据。MP4 输入会使用 `fixtures/cmd/materialize` 的 SHA 校验短片（可用 `EVALS_FIXTURE_DIR` 复用已物化目录），并在受管路径送出前锁住网关已发布的 3MiB 解码预算。BYOK 组须显式设 `EVALS_BYOK=1` 与相应本机 key（`OPENAI_API_KEY` / `QWEN_API_KEY`），在临时测试数据库中走正常 key 创建→probe→能力投影→模型选择→附件对话，并保持免费档网关为关闭的 harness 默认，确保不能由受管 fallback 代跑；`TestLiveBYOK_OpenAIDocumentImageReference` 还通过透明 recorder 证明 `anselm://media` 文档引用确实以 exact-byte native image part 送到 OpenAI。混合例须设 `EVALS_HYBRID=1`、`EVALS_MANAGED=1` 与同一 BYOK key：对话默认显式切到 BYOK，而图像默认保持 `anselm`，以一次受限（至多两步、断言恰好一次出图）的真实调用验证两侧接合；该例还通过透明 OpenAI recorder 对 continuation 做 exact-byte image-part 断言，证明 managed 产物确实回到了 BYOK planner。`TestFunction_ArtifactProduct`、`TestHandler_ArtifactPerCallProduct`、`TestHandler_ArtifactReachesVisionModel`、`TestMCP_ArtifactReachesVisionModel`、`TestWorkflowMedia_FunctionArtifactToVisionAgent`、`TestFlowrun_CancelInFlightAgent`、`TestChatCancel_HandlerArtifactLeavesNoOrphan`、`TestChatRetry_HandlerArtifactDoesNotReexecute`、`TestChatCrash_HandlerArtifactLeavesNoOrphan`、`TestAttachmentPreparation_ManagedImageLifecycle`、`TestAttachmentPreparation_MediaBudgetEvictsAndRegenerates`、`TestAttachmentPreparation_CrashRequeuesInterruptedWork`、`TestInspectMedia_AudioVideoMetadataCapsule` 与 `TestInspectMedia_ImageUsesVisionAndReturnsBoundedEvidence` 不需 key，直接经真实 HTTP 验证三类产地 → MediaRef → 附件库、handler/MCP receipt 在下一轮视觉模型请求中的 exact-byte image part、workflow 上游 agent → 下游 agent 的同字节消费、workflow/handler 取消与崩溃中的临时产物不上传、retry 对有副作用媒体调用不重复执行、image preparation 的 ready/failed/cancel/retry 与原件保真、boot budget eviction 后的派生物清理与重建、image preparation running 状态硬崩溃后的 boot requeue 与重建、temporal inspect 的 metadata-only 证据与原始字节隔离，以及 image inspect 的嵌套视觉线缆与 bounded evidence（含来源标记、字节回读与 durable 状态）。key 不得输出、持久化到仓库或写入测试日志。BYOK 例只证明真实 provider 接受产品的视觉附件请求、回合与附件状态成立；像素语义需要有权限的上游 wire recorder，不能凭模型文案断言。
-
-## 布局
-
-| 目录 | 职责 |
-|---|---|
-| `harness/` | 座架：`server.go`（编译+拉起真二进制、临时 dataDir、空闲端口、等 health、**退出收容**——见下节；sandbox 运行时经 `~/.anselm-testend-cache` 预置——首跑下载、后跑搭车）· `scratch.go`（`RunTests` = 各包 `TestMain` 的实现：把整轮临时收进 `$TMPDIR/anselm-testend/<pid>/` 自清根，正常退出自删、超时/被杀由下一轮按 pid 存活性收——见下节④）· `proc_unix.go`（收容原语：进程组 / SIGTERM / 组存活探针 / 单 pid 探针与杀；testend 实际只跑 unix，故无 windows 孪生）· `client.go`（N1 envelope 解包、workspace 头、`OK`/`Fail(状态,码)` 断言、`Eventually` 异步涟漪轮询）· `llmmock.go`（OpenAI 兼容假模型：剧本化回应驱动 chat/agent/utility 全链零 token；**请求抓包即 promptdump**——线缆上的请求体就是模型真实看到的全部。另兼 **`POST /images/generations`**〔WRK-082 批B:返 `MockPNG`、`ImagePrompts()` 取上游真收到的 prompt〕与 **`POST /audio/speech`**〔批C:返 **`MockWAV`**——一段**真** RIFF 流而非随便的字节,因为桌面端在 PCM 层重接块、假载荷会让多块测试因错误的理由通过;`SpeechInputs()` 的**次数**就是朗读缓存的钱断言,命中缓存的一次收听不得在此多出一条〕与 **`LLMTurn.EchoLastToolResult`**〔原样回最后一条 tool 消息:真模型被要求把产物交给下游时会把工具 receipt 抄进终答,而恰是这次抄写让引用抵达下一个 workflow 节点;静态脚本拼不出本次运行刚铸的附件 id,没有它跨节点媒体流水线无法端到端被测〕）· `sse.go`（三流订阅与事件断言） |
-| `scenarios/` | 验收场景 = 普通 go test：每个测试函数是 PLAN 的一个「feature × 情况」单元，函数名即台账行；`-run` 过滤单域 |
-| `golden/` | 真模型金标旅程（12 条端到端，机器可验收终态） |
-
-## 进程收容（harness 硬契约）
-
-> 场景拉起的是**真** sidecar，它自己还派生子进程——最要紧的是搜索的常驻 `llama-server` embedder（任何实体/对话入索引即起、常驻、占端口）。收容它是 **harness 的责任、不是后端的**：后端的孤儿回收器是「下次在**同一** dataDir 上 boot」的安全网，而 testend 给每个测试一个全新临时 dataDir、再无 boot 回访 → 那层安全网对 testend 结构性失效。
-
-`Start`/`Restart` 起的每个进程都进**独立进程组**（`Setpgid`，对标 `infra/sandbox/proc_darwin.go`——复述而非 import），`t.Cleanup` 三层收容：
-
-| 层 | 动作 | 为什么 |
+| 命令 | 范围 | 外部成本 |
 |---|---|---|
-| ① 优雅 | `SIGTERM` → 等至多 `gracefulStop`(20s) | **唯一**能跑起后端有序关停的方式，而只有那条链会杀 embedder（尾部的 `search.Close`）。`os.Process.Kill` 是**不可捕获的 SIGKILL**，用它 = 整条链一步不走。20s = 后端 `shutdownGrace`(6s，全程共享一个截止；定为嵌进 app 侧 8s SIGTERM 宽限，T8 WRK-070) + 不认 ctx 的尾步（池/chat waitgroup、WAL checkpoint）宽裕余量——排空卡死不论预算多少都是缺陷 |
-| ② 兜底 | `kill(-pgid, SIGKILL)` 收整棵子树 | 兜住①够不着的：`Kill9`、卡死的排空、panic。embedder 由裸 `exec.Command` 起、不自设组 → 继承 server 组 → 一个负 pid 信号即收。**macOS 无 `Pdeathsig`**（父死子必孤），此层是 darwin 上唯一防线 |
-| ③ 自检 | 轮询进程组至空；超 `groupReapWait`(10s) 仍有成员 → `t.Errorf` + 列幸存者命令行 | 泄漏必须**红**。旧实现全绿着漏出 31 个 llama-server（用户实机取证，12.23G/16G）——**测试绿不是收容的证据，空进程组才是**。每个测试自带此检，不设单独 leak 测试 |
+| `make -C backend testend` | `testend/scenarios/`；真实 sidecar + llmmock / 本地假上游 | 无模型费用 |
+| `make -C backend evals` | `testend/golden/`；默认经已部署 Anselm API 走 managed 金标 | 消耗受管额度 |
+| `make -C backend qwen-evals` | 显式 Qwen 多模态与工具金标 | 消耗调用者 BYOK 额度 |
 
-- **`Kill9` 保持 SIGKILL、不得软化**：它模拟的正是「崩溃恢复」里的崩溃；软成 SIGTERM 会让优雅链把恢复半场要断言的残骸（非终态消息行、未收尸子进程、未 checkpoint 的 WAL）先删掉 = 什么都没测。它刻意孤儿掉的子进程由②收。
-- **Ctrl-C**：①把 backend 移出了测试二进制的进程组，故 harness 自装 `SIGINT/SIGTERM` 处理器、退出前清扫所有活组（否则 `Setpgid` 会拿「正常退出泄漏」换来「Ctrl-C 泄漏」）。
-- **`-timeout` 超时与测试二进制被 SIGKILL —— 由下一轮收（④）**：这两种死法进程内**确实**没有任何代码有机会跑（超时是 panic、无信号可捕；SIGKILL 不可捕），故 ①②③ 与 `t.Cleanup` 全部跳过，那轮的 backend + 常驻 embedder 当场孤儿给 init。**但下一轮够得着**：每轮的临时全都落在 `$TMPDIR/anselm-testend/<pid>/`（`harness.RunTests` 即各包的 `TestMain`——它把 `TMPDIR` 指向该目录，故 `t.TempDir()` 的 dataDir 与 `binary()` 编出的 server 一并收进来），下一轮开跑时按 **pid 存活性**（非年龄——本机真会两个 agent 并发跑，按年龄清扫会删掉活轮次的 dataDir）挑出已死轮次，**先杀其残留进程、再删目录**。判据是那个已死轮次的 scratch 路径本身（绝对路径 + 已证死亡的 pid），故命中即所有权证明——拿「llama-server」这类**裸进程名**匹配会扫掉并发轮次的健康子进程与开发者自己在跑的 app（真机复验：用户自己的 `anselm.app` sidecar 恰好也叫 `anselm-server`，路径判据准确放过了它）。**先杀再删的顺序是硬要求**：幸存者持着那些文件，其 inode 就还活着，在它脚下删目录只释放名字、不释放一个字节（真机取证 `lsof +L1` 12 个 deleted-but-open）。
-- **缓存只装运行时、不装状态**：`saveRuntimeCache` 回存前剥 `*.pid`。后端把 embedder pid 存在 `runtimes/llamasrv/embedder.pid`，而缓存会预置进**每个**未来测试的 dataDir 且每 kind 只拷一次——搭车的 pidfile 会让后端回收器永远指向操作系统此后回收给**别人**的那个号码。
-- **预置靠 clone、不靠拷贝**：`Start` 用 `clonefile(2)` 把整棵缓存树**写时复制**进 dataDir（`clone_darwin.go`，一次 syscall ~90ms），非 Darwin / 非克隆文件系统回落 `cp -R`（`clone_other.go`）。**不是微优化**：缓存懒填充、随真跑长到 645MB，而 `Start` **每个用例跑一次**（实测每轮 **221** 次）——逐字节拷贝 = 每轮 ~139GB、~7.3s/用例 ≈ 26min，曾独吞 30m 预算的 86%（[R23](../../archive/backend-evolution-v1/systems-correctness.md)）。COW 使隔离**完全等价**：往克隆里写永远碰不到源（已按套件级 checksum 复验）。**回落必打日志**：静默回落 = 套件悄悄变回 30m 超时。
+`make verify` 不包含 testend 或 evals。前者按契约改动显式运行，后两者必须由
+调用者有意识地开启，不能作为普通门禁的隐式副作用。
+
+## 场景类型
+
+- **Contract / local**：真实 sidecar 搭配 llmmock、假 HTTP provider 或本地工具，
+  验证 envelope、状态机、持久化、恢复、并发、失败语义与上游 wire。
+- **Managed**：显式 `EVALS_MANAGED=1`，只经 device proof 调已部署 Anselm API；
+  验受管开通、能力、quota、生成/读取与真实多模态链。
+- **BYOK**：显式 `EVALS_BYOK=1` 并提供对应 provider key；必须走产品的 key
+  创建、probe、能力投影和模型选择，managed fallback 不得代跑。
+- **Hybrid**：同时显式开启 managed 与 BYOK；验证 BYOK planner 消费 managed
+  capability 产物的接缝。
+
+模型文案只能证明回合完成，不能证明 provider 实际收到某种媒体或参数。需要验证
+wire 时使用透明 recorder、exact-byte 断言或 provider usage；无法观察的边界必须
+在结果中诚实注明。
+
+## Harness
+
+| 组件 | 责任 |
+|---|---|
+| `harness/server.go` | 编译、拉起、健康等待、重启与隔离 data dir |
+| `harness/client.go` | N1 envelope、workspace header、分页与最终一致性断言 |
+| `harness/llmmock.go` | 剧本化 LLM、请求抓取及本地图像/语音假上游 |
+| `harness/sse.go` | 三条 SSE 的订阅、续传与事件断言 |
+| `harness/scratch.go`、`proc_*.go` | 临时根、进程组、信号处理、残留轮次回收 |
+
+每个场景拥有独立端口、数据目录和进程组。正常结束先向 sidecar 发 `SIGTERM`，
+再以进程组级 `SIGKILL` 兜底，并断言组内没有幸存者。故意 `Kill9` 的场景保留
+硬崩溃语义；测试二进制被超时或强杀时，由下一轮按已死亡 pid 的 scratch 所有权
+回收残留，不能按裸进程名扫描系统。
+
+Sandbox 运行时缓存只保存可派生 runtime，不保存 pidfile 或业务状态。Darwin
+优先使用 copy-on-write clone 预置，其他环境回落复制并显式记录；隔离语义不能
+因缓存优化改变。
+
+## 多模态素材
+
+固定素材合同见 [`testend/fixtures/README.md`](../../../testend/fixtures/README.md)。
+仓库保存 manifest、生成器、语义断言与 SHA-256，不提交大二进制。真实媒体场景
+可以通过 `EVALS_FIXTURE_DIR` 复用已经物化且 hash 匹配的目录。
 
 ## 纪律
 
-- 黑盒铁律：禁止 import backend 任何包——线缆事实（header 名、payload 形状）从 api.md 复述，对不上即 doc/产品 finding。
-- 场景对 `Eventually` 的依赖即产品的异步语义（索引/通知涟漪）；超时值是体验断言的一部分。
-- 验收程序（acceptance-review）结束后本套件转为常驻回归：改 prompt/工具/契约后跑 `make -C backend testend`，改提示词工程后跑 `make -C backend evals`。
+1. 修改端点、error code、SSE 或持久状态时，按域前缀搜索并同步相关场景。
+2. 默认场景不得依赖公网、真实 key 或随机模型行为。
+3. 真实 eval 记录 provider、模型、开关、运行范围与可复验的物理证据。
+4. key、device-proof 私钥、prompt 原文和 bearer 不得进入日志、fixture 或提交。
+5. 进程组为空、临时目录可回收、无孤儿 durable 行，都是通过条件的一部分。

@@ -2,6 +2,7 @@
 id: DOC-064
 type: decision
 status: superseded
+superseded-by: docs/decisions/0020-capability-decides-model-input.md
 owner: @weilin
 created: 2026-07-27
 reviewed: 2026-07-27

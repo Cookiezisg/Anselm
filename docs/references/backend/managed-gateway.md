@@ -12,6 +12,9 @@ audience: [human, ai]
 # 已部署 Anselm API——主仓接缝与责任边界
 
 > 本篇只登记本仓必须与已部署 Anselm API 保持一致的公开接缝。网关的 provider key、路由、费率、账本、运维与 CI/CD 由同级 `Anselm-API-Serve` 仓库独立治理；主仓不得复制其私密配置或把其内部实现当本地契约。
+> 设备身份取舍见 [`ADR 0010`](../../decisions/0010-device-bound-gateway-proof.md)，
+> 受管视频句柄与计费提交语义见
+> [`ADR 0015`](../../decisions/0015-managed-video-signed-handle.md)。
 
 ## 1. 默认产品路径
 

@@ -2,6 +2,7 @@
 id: DOC-063
 type: decision
 status: superseded
+superseded-by: docs/decisions/0018-playback-video-player-per-platform.md
 owner: @weilin
 created: 2026-07-27
 reviewed: 2026-07-27

@@ -11,6 +11,9 @@ audience: [human, ai]
 
 # 0004 — 前端架构:Flutter 桌面端 + sidecar + Riverpod 三层
 
+> **部分取代**：本篇的 Flutter / sidecar / Riverpod 架构仍有效；工具链的
+> devbox/nix 部分由 [ADR 0005](0005-toolchain-mise.md) 取代。
+
 ## 背景
 
 后端已定型(4 层 Clean、Quadrinity、durable 引擎、32 域全通),契约高度规整(ADR [0003](0003-api-contract-standardization.md):统一 Envelope / 裸实体 / `{data,nextCursor,hasMore}` / `202{id}` / `204` / camelCase / 三条 SSE 流)。前端原计划 FSD + TypeScript(已弃,前版在 `version-0.2` 分支),**改定为 Flutter 桌面端**(macOS/Linux/Windows)。

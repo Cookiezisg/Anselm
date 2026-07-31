@@ -16,7 +16,8 @@
 | 对话与执行 | `block-tree` · `composer` · `approval-gate` · `run-terminal` · `entity-workspace` |
 | 图与调度 | `graph-canvas` · `kind-legend` · `wire-list` · `node-gantt` · `run-board` |
 
-共 50 个 JavaScript 文件。实际加载顺序由 `app.html` 与 `reference.html` 决定；
+实际库存以 `core/primitives/*.js` 为准。加载顺序由 `app.html` 与
+`reference.html` 决定；
 specimen 和压力态由 `features/reference/` 决定。两处 HTML 的集合并不完全相同：
 例如 `model-picker` 当前只由 app 入口加载，因此不要用本表推断 reference 覆盖率。
 
