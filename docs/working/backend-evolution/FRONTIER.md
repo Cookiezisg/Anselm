@@ -282,6 +282,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮继续把附件读取工具面做当前双跑：`list_attachments` 先发现双附件，PDF 经 sandbox `read_attachment` 抽取，136k/116k/157k 级文本分别走 bounded query、显式 compact index、默认 auto-index，78k 级文本走 page window；12/12 通过（第一轮 10.97/11.27/9.08/9.55/21.12/32.51s，第二轮 7.01/16.23/10.51/12.44/12.53/31.70s；包 185.489s）。工具返回保持 bounded，父回合续接完成，源附件可回读，没有正文无界泄漏、schema 漂移或读取结果孤儿。
 
+随后做 direct-reader 与 subagent-reader 的对照双跑：TXT 与 PDF 各两次均由 `general-purpose` child 真实读取，PDF 路径明确使用 sandbox `read_attachment`；父层没有偷调，唯一 token 通过 child→parent 回传，74-byte TXT 与 544-byte PDF 源件保持逐字节不变。4/4 通过（Text 37.84/23.67s、PDF 21.25/28.10s；包 111.653s），未形成代理上下文投影、PDF 抽取或父回合终态缺陷。
+
 ### FRT-05 最新证据
 
 同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。

@@ -1237,6 +1237,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-787 | managed 附件读取工具当前双跑全绿（12/12）：`list_attachments` 发现、PDF sandbox 抽取、大文本 bounded query、显式 compact index、默认 auto-index 与 page 均完成；父回合收到唯一证据后收口，原附件保持可回读，未见正文无界泄漏、参数校验漂移或错误重试残留。包 185.489s | FRT-01 + FRT-05 / managed-read / attachment discovery + PDF extraction + bounded text query/index/page | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ListAttachments|ReadAttachmentPDF|ReadAttachmentLargeTextQuery|ReadAttachmentLargeTextIndex|ReadAttachmentLargeTextAutoIndex|ReadAttachmentTextPage)$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo787-managed-attachment-read-tools-double.jsonl` → PASS：第一轮 10.97/11.27/9.08/9.55/21.12/32.51s；第二轮 7.01/16.23/10.51/12.44/12.53/31.70s；未输出 provider secret |
 
+| 2026-07-31 | EVO-788 | managed 子代理文本/PDF 消费当前双跑全绿（4/4）：普通 TXT 由 `general-purpose` child 找到唯一 token，PDF 由 child 经 sandbox `read_attachment` 抽取唯一 token；父层没有直接读取工具，父回合完成，74-byte TXT 与 544-byte PDF 源件逐字节不变。包 111.653s | FRT-05 + FRT-01 / managed-read / subagent text + PDF attachment projection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentReads(TextAttachment|PDFAttachment)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo788-managed-subagent-text-pdf-double.jsonl` → PASS：Text 37.84s/23.67s、PDF 21.25s/28.10s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
