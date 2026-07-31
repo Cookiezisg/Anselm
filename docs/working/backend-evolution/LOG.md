@@ -1315,6 +1315,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-826 | managed 对话 lineage 四路径当前双跑全绿（8/8）：普通 `:fork`、`:retry` 版本链、retry 后 latest fork、retry 后显式旧版本切点 fork 均完成；源线程始终 append-only，分支内 `retryOf`/`supersededBy` 指针重定基且 follow-up completed，没有跨线程消息、悬空版本指针或旧工具 execution 复活 | FRT-13 + FRT-16 / managed-read / fork-retry lineage and continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(ConversationForkContinues|ChatRetryContinues|ChatRetryThenForkContinues|ChatRetryForkAtOlderVersionContinues)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo826-managed-conversation-lineage-double.jsonl` → PASS：第一轮 11.88/7.46/8.13/8.40s；第二轮 7.06/8.32/9.05/9.94s；包 70.896s；未输出 provider secret |
 
+| 2026-07-31 | EVO-827 | managed workflow fanout/AND-join 当前双跑全绿（4/4）：manual 每轮展开 8 条 branch、双四输入 join 与 finish，chat→`trigger_workflow` 每轮展开 4 条 branch 与双 join；所有 live 入边完成后才 join，`(node,iteration)`、flowrunId、chat `origin/conversationId` 与 function execution ledger 一一闭合。未见早 join、重复节点、孤儿 branch 或入口状态漂移；收尾 search engine context-canceled 为 teardown 噪声 | FRT-04 + FRT-15 / managed / workflow fanout, AND-join and chat trigger | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo827-managed-workflow-fanout-join-double.jsonl` → PASS：manual 7.04s/3.63s；chat 14.14s/13.87s；包 39.633s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

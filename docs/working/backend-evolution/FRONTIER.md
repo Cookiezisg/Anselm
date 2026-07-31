@@ -570,6 +570,8 @@ EVO-790 的同批次 stale-model 资格探针被 Google 当前 429 窗口覆盖�
 
 本轮再做 workflow 并发核心双跑：manual 的 8 branch/双四输入 join/finish 与 chat→`trigger_workflow` 的 4 branch/双 join 均在全部 live 入边完成后只落一次，`(node,iteration)`、flowrunId、function ledger 与 chat provenance 一致；4/4 通过（包 41.716s），未见早 join、重复节点、孤儿 branch 或入口状态漂移。
 
+本轮复探 workflow fanout/AND-join 当前窗口双跑：manual 每轮展开 8 条 branch、双四输入 join 与 finish，chat→`trigger_workflow` 每轮展开 4 条 branch 与双 join；所有 live 入边完成后才 join，`(node,iteration)`、flowrunId、chat `origin/conversationId` 与 function execution ledger 一一闭合。4/4 通过（manual 7.04s/3.63s；chat 14.14s/13.87s；包 39.633s），未见早 join、重复节点、孤儿 branch 或入口状态漂移；收尾 search engine context-canceled 仍是 teardown 噪声。
+
 ### FRT-16 最新证据
 
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。
