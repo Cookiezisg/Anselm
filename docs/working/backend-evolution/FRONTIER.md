@@ -436,6 +436,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮 provider 窗口复探再次把可用性与产品分类分开：DeepSeek 文本与兼容 tool continuation 5.03s/7.76s 通过；Google 文本与原生工具续接各收到 429 并结构化为 `LLM_RATE_LIMITED` skip；stale-model 恢复先保留单次 404→`LLM_MODEL_NOT_FOUND`，恢复发送再遇 429；重复 stale failure 仍每轮只发一次并保持同一错误码。未出现伪造 assistant、managed fallback 或无界重试，不改 parser/重试策略。
 
+本轮 BYOK 文本 smoke 双跑继续验证同一分类：DeepSeek 两轮均完成真实无工具文本；Google 一轮完成、另一轮上游 429，产品回合诚实落 `LLM_RATE_LIMITED` 并结构化 skip。四次 `:test`/能力探针均先返回成功，未发生 managed fallback、伪造 assistant 或无界重试；Google 当前 rate window 仍是外部可用性边界，不是兼容层回归。
+
 本轮视觉 provider 对照继续支持同一结论：managed workflow image→OpenAI BYOK viewer 34.93s 完成，flowrun/PNG/recorder exact-byte 证据闭合；Google 原生 image-input 仅遇当前 429 并结构化 skip。Google 的 rate window 没有扩散到 managed 产物或 OpenAI viewer，不改共享 MediaRef/renderer。
 
 本轮对聊天入口 workflow 控制面做当前窗口双跑：`search_tools→trigger_workflow→get_flowrun` 两轮均读取 `origin=chat` 的 completed run 与唯一 function marker；失败诊断两轮均经 `search_flowruns(status=failed)→get_flowrun` 暴露 durable 节点错误；approval 两轮均先 park 在 `human` 节点、仅观察回合不提前决定，再由 `decide_approval(yes)` 恢复下游 publish；replay 两轮均保留已完成 stable 前缀，只重跑 flaky handler，finish 与 marker 完成。8/8 通过（42.70/33.50、45.93/40.26、48.74/64.59、49.49/56.66s），flowrun/节点/执行台账与 assistant 回答闭合，未出现重复已完成节点、孤儿 run 或旧终态复活。

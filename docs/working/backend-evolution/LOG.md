@@ -1295,6 +1295,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-816 | 聊天入口 workflow completed→观测当前双跑全绿：两轮均由 `search_tools→trigger_workflow` 恰一次启动单一 completed run，`origin=chat`/`conversationId` 正确；下一回合只经 `search_tools→get_flowrun` 各一次读取 completed 节点与 `CHAT_FLOWRUN_OBSERVABILITY_7B2D` marker，助手回答与 durable 结果一致。未见重复 run、跨会话读取、marker 丢失或状态投影污染 | FRT-04 + FRT-13 / managed-read+write / chat flowrun observability | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunObservability$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo816-managed-chat-flowrun-observability-double.jsonl` → PASS：40.19s、32.00s（包 72.969s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-817 | BYOK DeepSeek/Google 文本 smoke 当前双跑：DeepSeek 两轮均完成 `:test→能力目录→显式模型选择→无工具文本`；Google 第一轮完成，第二轮上游 429，产品将回合结构化为 `LLM_RATE_LIMITED` 并跳过，不伪造文本或 fallback。四个 provider probe 均 `ok=true`，包级通过，总 16.408s；测试收尾的 search engine context-canceled 仍是本地 teardown 噪声 | FRT-11 + FRT-14 / byok-read / provider credential, capability and rate-window classification | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_TextProviderSmoke$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo817-byok-text-provider-smoke-double.jsonl` → PASS：DeepSeek 5.54s/3.30s，Google 5.08s/1.49s（第二轮 structured SKIP）；包 16.408s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
