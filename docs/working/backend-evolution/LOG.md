@@ -1201,6 +1201,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-769 | 语音拒绝红灯的正常生成对照双跑全绿：`GenerateSpeechArtifact` 两轮 11.46s/8.31s 完成，真实 WAV、`generate_speech` receipt 与 `provider=anselm` 均闭合。该对照证明当前 speech route、artifact store 与 managed receipt ledger 可用；拒绝场景的缺口仍局限于模型没有稳定发起 danger 请求/stream 时序，不能据此改动网关或成本账本 | FRT-09 + FRT-13 / managed-write / speech generation control | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateSpeechArtifact$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo769-managed-speech-generate-double.jsonl` → PASS：11.46s、8.31s；包 20.16s；未输出 provider secret |
 
+| 2026-07-31 | EVO-770 | 受管音色完整生命周期当前双跑全绿：参考 WAV 经默认朗读产生后，`enroll_voice` 均出现 danger interaction 并完成批准，异步登记可见、克隆音色朗读产出第二份 WAV，最后删除上游/本地 voice 后 inventory 归零；两轮源/克隆音频均为 357,164/337,964 bytes，未见句柄、附件或清理孤儿。包 78.987s（39.83s、38.53s），说明 EVO-767～768 的语音拒绝红灯不是所有 voice danger 写入入口的共性 | FRT-07 + FRT-09 / managed voice / enroll→clone speak→delete | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo770-voice-enroll-speak-delete-double.jsonl` → PASS：39.83s、38.53s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
