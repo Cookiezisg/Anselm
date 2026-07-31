@@ -322,6 +322,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 最新一次把子代理取消终态单独双跑：两轮 `:cancel` 都返回 204，但严格哨兵均未在 30s settle 窗内完成。第一轮最终输出显示父/child `cancelled` 与 `run_function` 的 `context canceled`，更像 REST 历史投影晚于取消动作；第二轮模型先错误选择 `Plan`、再纠正为 `general-purpose`，两个 child 都在取消前拒绝/完成，父回合已取消但没有 child `cancelled`。测试因此未进入 function execution ledger 与 follow-up 复活守卫；当前把它保留为 managed 工具拒绝/重试叠加取消 settle 的可靠性哨兵，不宣称取消后端 ledger 或孤儿缺陷，也不改生产代码。
 
+紧接着做取消树的 fork 对照：两次真实 managed 运行都在 `:cancel` 之后成功 fork；source 的 cancelled child、`parentBlockId` 与单条 `agent/cancelled` function execution 被完整复制并只在 fork 内重定锚，fork follow-up 完成且没有复活工具，source history 长度不变（57.36s、52.38s；包 110.752s）。第二轮先出现一次非法 `subagent_type` warning，但最终分支耐久语义仍闭合；这把 EVO-779 的红灯进一步收窄到取消时 live settle/模型拒绝时序，而非 fork remap、ledger 去重或终态持久化缺陷。
+
 本轮再次复探并行子代理的跨回合上下文：clean `-count=2` 两个独立 managed 回合都在 follow-up 后的 child-tree 数量断言处失败，模型先拒绝或重试 `search_tools`/`subagent_type`，最终 durable history 含 6 个 child 而不是测试要求的 2 个；一轮能同时保留两个 marker，另一轮则出现一个 child 拒绝执行而父层诚实报告。此前只读诊断在 follow-up 前看到各 function 恰一条、另一次隔离运行通过，当前没有稳定的后端重复 execution、孤儿、锚点丢失或终态复活证据；因此继续把它归类为 managed 模型工具发现/安全拒绝/重试遵循哨兵，不改生产代码。
 
 再补 resident handler producer：每次 handler 调用各自铸一份 PNG MediaRef，flowrun/producer source、节点与附件 content 保持闭合，OpenAI BYOK viewer 收到同一 exact-byte image part。两次独立 hybrid 进程通过（20.866s、16.635s），未形成 handler 调用级产物串线、ownership、workflow 或 provider 编码缺陷。

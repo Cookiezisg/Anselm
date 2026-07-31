@@ -1221,6 +1221,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-779 | managed 子代理取消终态严格哨兵本轮 0/2（82.20s、78.69s；包 161.701s）：两轮 `:cancel` 均返回 204。第一轮最终历史可见父/child `cancelled`，child 的 `run_function` 结果为 `context canceled`，但 30s settle 窗内未被测试稳定观察到；第二轮模型先派 `Plan`、再纠正为 `general-purpose`，两个 child 都在取消前正常拒绝/完成，父回合取消但没有可取消 child，因而未满足 child-cancel 断言。两轮都在 execution/follow-up 后续断言前结束，当前证据仍是 REST settle 与 managed 工具拒绝/重试时序，不是已证实的取消 ledger、孤儿或 follow-up 复活缺陷；不改生产代码 | FRT-05 + FRT-13 / managed / subagent cancellation + terminal settle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentCancelTerminal$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo779-managed-subagent-cancel-terminal-double.jsonl` → FAIL：0/2，均为 30s terminal settle/child-cancel 断言；未输出 provider secret |
 
+| 2026-07-31 | EVO-780 | managed 取消子代理树 fork 当前双跑全绿：两轮真实 `:cancel` 后 source 的 child/函数 `cancelled` 证据均被 fork 保留并 remap 到 fork 内部 `parentBlockId`，fork execution ledger 仍恰一条，分支 follow-up 完成且不复活取消工具，source history 不被追加。两轮 57.36s/52.38s，包 110.752s；第二轮一次 schema warning 未改变 durable 结果 | FRT-05 + FRT-13 / managed / cancelled subagent tree fork + continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ForkPreservesCancelledSubagentTree$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo780-managed-fork-cancelled-subagent-tree-double.jsonl` → PASS：57.36s、52.38s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
