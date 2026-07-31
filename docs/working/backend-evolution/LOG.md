@@ -1263,6 +1263,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-800 | BYOK 多模态/工具续接当前双跑全绿：OpenAI `gpt-4.1-mini` 原生 PDF 以 `file_data` 送达，Qwen `qwen3.7-plus` 原生 MP4 以 `video_url` 送达，OpenAI `gpt-audio` 的 WAV 以 `input_audio` 首发并经 `run_function` 结果回灌第二次 chat；各 workspace 未安装 managed fallback，附件逐字节回读，durable history/tool result 闭合 | FRT-02 + FRT-11 / byok-read / OpenAI PDF + Qwen video + OpenAI audio tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(QwenVideoInput|OpenAIPDFInput|OpenAIAudioToolContinuation))$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo800-byok-video-pdf-audio-double.jsonl` → PASS：PDF 7.45s/3.46s、Video 6.73s/8.44s、Audio+tool 7.44s/6.57s（包 40.717s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-801 | 默认 managed 普通 chat 多附件融合当前双跑全绿：text+image+video、PDF+image、video+unsupported-audio、两张独立图片均在单回合完成；原始 text/PDF/PNG/MP4/WAV 逐字节回读，音频只写 capability note，不把整回合打成 400，也没有拆回合或 managed 路由漂移 | FRT-01 + FRT-13 / managed-read / direct chat multimodal fusion + honest downgrade | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWith(TextImageAndVideoAttachments|PDFAndImageAttachments|VideoAndUnsupportedAudio|MultipleImageAttachments)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo801-managed-direct-chat-multimodal-double.jsonl` → PASS：PDF+image 14.07s/10.11s、video+audio 40.26s/45.30s、text+image+video 41.99s/42.45s、multiple image 6.08s/7.71s（包 208.839s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

@@ -290,6 +290,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮继续把附件读取工具面做当前双跑：`list_attachments` 先发现双附件，PDF 经 sandbox `read_attachment` 抽取，136k/116k/157k 级文本分别走 bounded query、显式 compact index、默认 auto-index，78k 级文本走 page window；12/12 通过（第一轮 10.97/11.27/9.08/9.55/21.12/32.51s，第二轮 7.01/16.23/10.51/12.44/12.53/31.70s；包 185.489s）。工具返回保持 bounded，父回合续接完成，源附件可回读，没有正文无界泄漏、schema 漂移或读取结果孤儿。
 
+本轮补做默认 managed 直接 chat 多附件矩阵双跑：text+image+video、PDF+image、video+unsupported-audio、multiple images 共 8/8 通过；PDF/PNG/MP4/WAV 源件均逐字节可回读，WAV 按能力面转为明确注记而非非法 native audio，三模态回合保持单一 durable turn completed。各场景耗时 PDF+image 14.07s/10.11s、video+audio 40.26s/45.30s、text+image+video 41.99s/42.45s、multiple image 6.08s/7.71s，包 208.839s；未见 400、拆回合、媒体丢失或路由漂移。
+
 随后做 direct-reader 与 subagent-reader 的对照双跑：TXT 与 PDF 各两次均由 `general-purpose` child 真实读取，PDF 路径明确使用 sandbox `read_attachment`；父层没有偷调，唯一 token 通过 child→parent 回传，74-byte TXT 与 544-byte PDF 源件保持逐字节不变。4/4 通过（Text 37.84/23.67s、PDF 21.25/28.10s；包 111.653s），未形成代理上下文投影、PDF 抽取或父回合终态缺陷。
 
 ### FRT-05 最新证据
