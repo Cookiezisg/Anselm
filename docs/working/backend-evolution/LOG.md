@@ -1185,6 +1185,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-761 | provider 方言 wire 回归双跑全绿：Anthropic 原生 `/v1/models`→`/v1/messages` block/SSE/usage durable persistence、custom+anthropic-compatible 的原生 header/路由、custom+openai-compatible 的 Bearer `/models`/`chat/completions`/usage/stop normalization 均闭合；3 个场景共 6/6 通过，未见方言串路由或持久化字段漂移。包 9.635s | FRT-11 / contract / Anthropic native + custom provider wire | `cd testend; set -o pipefail; /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestContractProvider_(AnthropicNativeHTTPAndPersistence|CustomAnthropicCompatibleRoutesNativeWire|CustomOpenAICompatibleRoutesCompatWire))$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo761-contract-provider-wire-double.jsonl` → PASS 9.635s；使用测试内本地 upstream，未输出 provider secret |
 
+| 2026-07-31 | EVO-762 | 当前 backend 全量黑盒总闸通过：`testend/scenarios` acceptance suite 在本轮所有 contract/managed 复探后仍全绿，workflow trigger/版本/重启、协议 SSE、chat 物理真相、附件/文档、多模态、MCP/function/handler、provider wire、资源与取消恢复均未出现回归；无 provider secret 注入。 | full backend testend regression / post-EVO-749~761 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo762-backend-testend-full.log` → `ok github.com/sunweilin/anselm/testend/scenarios 352.518s` |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
