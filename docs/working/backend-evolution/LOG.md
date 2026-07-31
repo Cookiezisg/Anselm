@@ -1299,6 +1299,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-818 | DeepSeek `deepseek-v4-flash` thinking/tool continuation 当前双跑全绿：两轮均在 `maxSteps=8` wire lane 内完成工具调用→真实函数 `square=144`→第二次兼容 `/chat/completions` 采样→最终文本，recorder 与 durable history 同时保留 `tools`/`tool_calls`/结果；未再出现缺 `reasoning_content` 的 400、重复 execution 或非终态。该预算只属于 continuation 探针，默认低预算合同未改 | FRT-11 + FRT-13 / byok-read / DeepSeek reasoning-content compatibility and tool continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_DeepSeekToolContinuation$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo818-byok-deepseek-tool-continuation-double.jsonl` → PASS：16.12s、8.14s（包 25.028s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-819 | managed 子代理故意失败续接当前隔离双跑为 1 绿 1 红：绿跑真实单次派遣、`failed + triggeredBy=agent` execution、`SUBAGENT_FUNCTION_FAILURE_8B2D` 经 child/父结果回传且父 completed；红跑先发非法 `subagent_type=general` 被校验拒绝，再发合法 `general-purpose`，严格 `parentSubagentCalls=1` oracle 在 ledger 断言前击穿，但 corrected child 仍完成故意失败、父无直接 function 调用且 marker 保留。没有新的 execution/锚点/孤儿/终态缺陷证据，继续归类 managed schema recovery/重复派发时序哨兵 | FRT-05 + FRT-13 / managed / subagent failed-function continuation reliability sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentFunctionFailureContinues$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo819-managed-subagent-function-failure-double.jsonl` → 包级 FAIL：39.40s PASS、48.29s FAIL（包 88.284s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

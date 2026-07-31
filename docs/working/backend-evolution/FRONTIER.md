@@ -388,6 +388,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补做实体执行面 contract 双跑：agent invoke 的 wall-clock timeout 与 mount health matrix、嵌套 human loop、flowrun entry/decide/error 读写，function 的 cursor/unknown-field/env lifecycle/version-cap trim，以及 handler 的 cursor/soft-delete/resident/config merge-patch/revert/iterate 全部闭合。11 个场景共 22/22（包 86.083s），没有 execution/environment 泄漏、错误版本复用或软删穿透。
 
+本轮隔离复探失败 subagent 续接为一绿一红：绿跑真实只派一次 `general-purpose` child，失败函数留下 `failed + triggeredBy=agent` execution，`SUBAGENT_FUNCTION_FAILURE_8B2D` 同时经 child 与父 `Subagent` result 续接，父回合 completed；红跑先发非法 `subagent_type=general`，网关明确拒绝后模型再发合法 `general-purpose`，严格 `parentSubagentCalls=1` 在后续 ledger/tree 断言前失败。红跑 corrected child 仍执行故意失败、父层无直接 function 调用且 marker 保留；当前没有新的 durable execution、锚点、孤儿或终态证据，继续作为 managed schema-recovery/duplicate-dispatch 哨兵。
+
 本轮对 managed 子代理的多模态消费面做当前双跑：图片 child 真实执行 `inspect_media` 并把 bounded vision evidence 交回父层；视频 child 返回 `kind=video/mode=metadata` 且保留 1000–2000ms 时间窗；音频 child 返回对应 `kind=audio/mode=metadata` 且保留 1200–2600ms 时间窗。6/6 通过（Image 29.87/26.32s、Video 97.09/93.03s、Audio 27.05/26.50s；包 300.627s），每轮均由 `general-purpose` child 执行、父层没有偷调或伪造 transcript，98-byte PNG、2,969,360-byte MP4、96,044-byte WAV 仍逐字节可回读，未形成 nested vision、temporal metadata、parent continuation 或媒体孤儿回归。
 
 本轮把子代理 temporal 读链与文档读链分别做当前窗口双跑：video/audio child 均真实调用 `inspect_media`，保留 1000–2000ms/1200–2600ms bounded metadata，父层无偷调、无伪造 transcript，源 MP4/WAV 字节不变（EVO-798：Video 99.26s/95.21s、Audio 27.02s/26.72s；包 248.836s）；text/PDF child 则分别回传唯一 token，PDF 经 sandbox `read_attachment`，父层没有直接读附件且源文件不变（EVO-799：Text 38.57s/25.54s、PDF 26.39s/22.21s；包 113.319s）。四条路径的 child message、父 `Subagent` result 与 durable completed 终态均闭合，未形成跨模态投影、时间窗、附件归属或 nested continuation 回归。
@@ -483,6 +485,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 视频异步取消的同窗口双跑也保持资源卫生：danger deny 两轮均在提交前完成且无 receipt/附件/额外 reservation；approve 后观察到 gateway submission 再 `:cancel` 的两轮均返回 204，父回合 durable `cancelled`，延迟历史与附件查询没有迟到 MP4 或孤儿 receipt。底层 `generate_video` tool failed WARN 只反映取消时任务进程被杀，未改变本地终态或后续可继续性。
 
 本轮 workflow 失败诊断双跑进一步确认恢复前的 durable 事实可重读：同一失败 run 的列表摘要和 detail 都同时暴露错误 marker，且父聊天回合在诊断回答后正常 completed；未出现模型自述与 flowrun 状态分叉、旧 run 复活或诊断工具重复调用。
+
+同窗口的失败 subagent 复探仍把红灯限定在父层工具遵循：非法 `subagent_type` 的 rejected tool block 后才出现合法 child，因此严格单次派遣 oracle 提前失败；child 的故意失败 marker、父层无越权 function 与 completed 回合均存在，尚未进入 execution-ledger 后续断言。该证据不支持把模型重复派发波动升级为 FRT-13 durable recovery defect。
 
 聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
 
