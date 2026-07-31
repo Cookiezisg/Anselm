@@ -50,3 +50,14 @@ landed-into:
 - 代码核对发现 `frontend/lib/app/app_shell.dart` 仍有把已存在海洋称作“未建/即将推出”的源代码注释。它不改变运行时，但属于产品代码，按 CHARTER 的授权边界只登记、不在文档战役中修改。
 - 验证：`make -C docs verify` 通过；`backend/` 下 `go test ./cmd/docs` 通过；active 文档中已无 `working/frontend`、旧 `/documents/*` 路由或“前端重建中”命中。DTO 镜像覆盖 warning 保持 12 checked / 21 skipped，未被隐藏。
 - 本批只完成 G1 的入口、核心 current 面与归档；contract、design-system、Library、Notifications、Settings、Chat sidestage 的可读性与历史噪音仍需继续做 G1 对抗精炼，不能据此宣称 G1 完成。
+
+## 2026-07-31 · G1-002 · 前端 current reference 全面精炼
+
+- 重新按实际代码边界整体重述 contract、design-system、Library、Notifications、Settings 与 Chat sidestage；删除 current 文档里的施工批次、日期裁决流水、旧方案回顾、一次性测试数量和“全落/收官”陈述。
+- contract 现在只维护 wire 投影地图、信封/分页、开放/封闭词表、消息版本语义和高风险三态；生成文件与完整类型清单由 `core/contract/` 自身承担，不在文档复制易漂移数量。
+- design-system 现在只维护 token/原语/feature 的层级、选择表、三岛语法、焦点/a11y、流式/媒体纪律与验证入口；完整导出清单以 `core/ui/ui.dart` 为机械事实。
+- 六个真实 feature 均有 current 入口：Chat、Entities、Library、Scheduler、Notifications、Settings；Chat 右岛因跨工具/运行/人在环复杂度保留独立 current reference。
+- 高风险词扫描在 active 前端 reference 中只剩 Scheduler 对“占位冒充事实”的否定句，无施工状态命中；旧 `/documents/*`、`features/documents` 与 `working/frontend` 引用为零。
+- 复核所有文档声明的测试目录/文件；修正重写时误换的 DOC ID（Library 保持 DOC-052、Chat sidestage 保持 DOC-051）与不存在的媒体测试目录。
+- 验证：`make -C docs verify` 通过，`git diff --check` 通过；warning 仍为 12 个 DTO mirror pair checked / 21 个无同名 Go struct 的 anchor skipped。
+- G1 完成。仍发现的 `app_shell.dart` 过时产品代码注释继续作为未授权代码 finding 保留，不影响 current 文档事实。
