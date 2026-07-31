@@ -224,6 +224,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着语音 denial 也在隔离进程中完成同一合同：interaction→deny 204→约 17s completed，历史没有 `generate_speech` receipt，quota 没有消费。当前视频/语音两条最新拒绝路径均有绿灯，对此前的长尾红灯只保留为时序哨兵与后续 gateway request-level 观测线索，不再把它们视作稳定后端 defect。
 
+本轮补做当前窗口的直接 managed `generate_video` writer：首轮完整通过 danger approval→一次异步 gateway submission→durable completion，唯一 MP4 为 4,104,553 bytes，receipt 恰一条且标注 `provider=anselm`；双跑第二轮在审批后遇到 `api.anselm.website` DNS 暂时无法解析，回合以 `LLM_STREAM_ERROR` 结束，失败没有触及本地 MP4、receipt 或 attachment 断言。紧接着单独 re-probe 恢复并以 149.90s 通过同一 artifact/receipt 合同，故当前记为 2 次成功 + 1 次可定位上游 DNS 瞬态，不改视频 writer、danger gate 或 durable ledger。
+
 同日复探批准后异步视频取消：danger approve 后观察到 gateway submission，再发 `:cancel` 204；父回合落 `cancelled`，随后等待仍没有本地 video receipt 或迟到附件。底层任务被杀时的 `tool execute failed` WARN 是取消噪声，durable/history/attachment 语义保持正确，未形成资源孤儿或重复消费缺陷。
 
 本轮独立复探 managed 写入面：`generate_image` 铸造 1,100,089-byte PNG，随后 `edit_image` 仅生成一个不同 sibling（1,670,170 bytes）并保留源附件指针；text-only `animate_image` 经 danger approve 进入独立异步动画路由，保留首帧 lineage 并回读 4,961,161-byte MP4。三项同一进程全绿（包 220.230s），未出现重复工具调用、孤儿附件或 receipt-only 结果。
@@ -475,6 +477,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日补上失败树分叉交互：失败 child 的 durable error 证据与 E3 锚和成功 child 使用同一套 fork remap 语义；这条路径两次通过（62.26s、36.45s），补足了 FRT-05 “failure is durable” 与 FRT-16 “fork is self-contained” 的交集。
 
 同日补上取消树分叉交互：取消 child 与失败 child 一样是可读的 durable terminal history，而不是被 fork 丢弃的 transient；两次通过（54.58s、54.88s），补足 FRT-13 取消恢复与 FRT-16 分支自洽的交集。
+
+本轮直接 managed video writer 的失败复核也补足了 FRT-13 的外部故障边界：第一次成功的异步 job 已落真实附件并稳定完成；紧邻第二次由 API Serve 上游 DNS 解析失败，回合诚实落 `LLM_STREAM_ERROR`，没有本地 receipt/MP4 孤儿；上游恢复后的 re-probe 再次完成唯一 MP4。该证据支持“外部网关不可达时不伪造成功、恢复后可重跑”的分类，不能推出本地取消、重放或附件 ledger 缺陷。
 
 同日再做成功/失败/取消三类子代理树的 fork 聚合复探：失败与取消路径继续通过；并行路径一次由托管模型重复派发到 4 个 child，两个 marker、4 个父锚点和父回合完成态都存在，但严格“恰好两个 child”断言未满足。独立复跑在 104.552s 通过，未见 fork 消息/block 铸造、`parentBlockId` 重映射、终态或 function ledger 缺陷，因此保留为 managed 重复派发波动哨兵，不改生产代码。
 
