@@ -262,6 +262,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做 `generate_speech` danger-gate 隔离双跑：一轮 65.01s 内始终没有 interaction，另一轮 10.58s 完成 deny 204 后 completed；绿跑确认无 synthesis receipt/attachment/quota 消费，红跑仍停在模型未发起审批之前。该 1/2 结果与既有 speech writer/voice lifecycle 绿证据一致，继续归类为 managed tool-following/stream timing 哨兵，而非 FRT-09 的成本闸或 ledger 缺陷。
 
+随后复探直接 managed `generate_video` artifact 双跑：两轮都完成 danger approval、一次异步 gateway submission 与 durable completed，唯一 MP4 分别为 3,010,585 / 4,261,660 bytes，receipt 与 attachment content 一一对应；sandbox 收尾均清空，没有重复提交、迟到产物或孤儿。两轮 139.03s/113.76s 全绿，关停时本地 embedding `context canceled` 仍仅是 lexical fallback 噪声，不改变视频 writer 或资源卫生结论。
+
 紧接着复探高风险控制矩阵时，语音拒绝出现可重复但非每轮一致的 danger-gate 红灯：组合双跑中 `GenerateSpeechDeniedNoSpend` 为 0/2（64.71s、61.78s），视频拒绝、视频批准后取消与 quota 分别为 2/2；将语音场景隔离后为 1/2（13.53s 通过、61.42s 在 60s 内未出现 interaction）。轮询期间 interaction 始终是空列表，失败停在模型没有发起 `generate_speech` danger 请求，未进入合成、receipt 或 quota 断言。正常 `GenerateSpeechArtifact` 紧接着 2/2 通过（11.46s、8.31s），真实 WAV、`provider=anselm` receipt 与附件路径闭合，因此当前结论仍是 managed 模型工具遵循/上游 stream 时序稳定性哨兵，而非 gateway danger、reservation 或 artifact ledger 缺陷；不改生产代码。
 
 ### FRT-01 最新证据
@@ -487,6 +489,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮对 FRT-13 的异步媒体终态再加一条真实多模态证据：图像首帧 `animate_image` 两次都在 danger approval 后只提交一次任务，父回合等待 MP4 durable completion 后才收口，receipt/MediaRef/source attachment lineage 与 content endpoint 一一对应；未观察到提前 completed、迟到产物、重复提交或终态后写入。
 
 本轮补入 human approval 的恢复证据：两次 chat flowrun 在 approval 节点保持 durable `waiting`/parked，客户端先只读状态，再发送 `decide_approval(yes)`；下游 publish 恰一次、父回合最终 completed，未见审批窗口内的副作用、重复决定或恢复后的旧节点重跑。
+
+本轮再补一条直接异步视频的恢复/资源证据：两次 `generate_video` 均在批准后只提交一个 gateway job，父回合等到 durable terminal 才完成；MP4 可通过 content endpoint 回读，receipt、MediaRef 与附件各自闭合，sandbox 无残留句柄。该证据与图像首帧动画、批准后取消互补，当前未见提前 completed、迟到写入或重复消费。
 
 同一窗口复探 speech danger denial：一轮没有产生 interaction、另一轮真实完成 deny→completed；只在绿轮的 durable history/quota/receipt 断言中确认无消费，红轮未进入这些后续状态。该失败位置仍是审批请求生成前的 managed 模型时序，不是取消/恢复或媒体资源终态缺陷。
 

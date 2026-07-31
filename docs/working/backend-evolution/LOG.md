@@ -1289,6 +1289,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-813 | managed `generate_speech` danger-gate 当前隔离双跑仍为 1 红 1 绿：红跑 65.01s 内始终没有 interaction，在进入合成/receipt/quota 断言前失败；绿跑 10.58s 完成 `interaction→deny 204→completed`，历史没有 `generate_speech` receipt/附件，quota 不变。红灯仍是模型工具遵循/stream 时序边界，没有新的 durable、reservation、ledger 或资源孤儿证据；继续保留哨兵，不改生产代码 | FRT-09 + FRT-13 / managed / speech danger-gate reliability sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateSpeechDeniedNoSpend$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo813-managed-speech-deny-double.jsonl` → 包级 FAIL：65.01s FAIL、10.58s PASS（包 76.361s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-814 | managed 直接 `generate_video` artifact 当前双跑全绿：两轮均完成 danger approval→单次异步 gateway submission→durable completed，真实 MP4 content 可回读（3,010,585 / 4,261,660 bytes），各自只保留一条 receipt 与对应 attachment；收尾时 sandbox 正常清空，未见重复提交、迟到产物或孤儿。两轮分别 139.03s/113.76s，收尾的本地 embedding `context canceled` 仍是 shutdown lexical fallback 噪声，不是视频链路故障 | FRT-09 + FRT-13 / managed-write / direct async video artifact and resource hygiene | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateVideoArtifact$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo814-managed-video-artifact-double.jsonl` → PASS：139.03s、113.76s（包 253.324s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
