@@ -362,6 +362,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮对 managed 子代理的多模态消费面做当前双跑：图片 child 真实执行 `inspect_media` 并把 bounded vision evidence 交回父层；视频 child 返回 `kind=video/mode=metadata` 且保留 1000–2000ms 时间窗；音频 child 返回对应 `kind=audio/mode=metadata` 且保留 1200–2600ms 时间窗。6/6 通过（Image 29.87/26.32s、Video 97.09/93.03s、Audio 27.05/26.50s；包 300.627s），每轮均由 `general-purpose` child 执行、父层没有偷调或伪造 transcript，98-byte PNG、2,969,360-byte MP4、96,044-byte WAV 仍逐字节可回读，未形成 nested vision、temporal metadata、parent continuation 或媒体孤儿回归。
 
+本轮把子代理 temporal 读链与文档读链分别做当前窗口双跑：video/audio child 均真实调用 `inspect_media`，保留 1000–2000ms/1200–2600ms bounded metadata，父层无偷调、无伪造 transcript，源 MP4/WAV 字节不变（EVO-798：Video 99.26s/95.21s、Audio 27.02s/26.72s；包 248.836s）；text/PDF child 则分别回传唯一 token，PDF 经 sandbox `read_attachment`，父层没有直接读附件且源文件不变（EVO-799：Text 38.57s/25.54s、PDF 26.39s/22.21s；包 113.319s）。四条路径的 child message、父 `Subagent` result 与 durable completed 终态均闭合，未形成跨模态投影、时间窗、附件归属或 nested continuation 回归。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
