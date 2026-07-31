@@ -4,21 +4,135 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-07-24
-review-due: 2026-10-19
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# attachment —— 对话附件（多模态摄取）
+# Attachment
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-用户上传的文件（图/PDF/Office/文本，≤50MB，`limitspkg` 默认值）：元数据行 + blob（`infra/fs/blob` 内容寻址 CAS：字节按 SHA-256 存盘 `<sha[:2]>/<sha>`，相同上传 dedup 成一份、`sha256` 列非唯一、多行可共享一 blob，删行后 blob 由 GC 按活跃 sha 保留集回收——GC 在 **boot 时**逐 workspace 跑（`bootstrap` forEachWorkspace，与其它 boot 对账同族），**非**删除时：删除时扫描会与在飞上传竞态（blob `Put` 先于行 `Create`，其间的并发 GC 会扫掉刚 Put 的 blob）；boot 无并发上传故无竞态。会话内孤儿累积、重启回收——有界，非跨重启无界）。`KindFromMIME` 分 6 桶 image/document/text/audio/video/other（mime 主类型 + 文件扩展名兜底）。`POST /attachments` 与 `GET /attachments/{id}` 返附件元数据时附带 `preparation` 侧车：image 会认领/暴露 `model-default` 代理准备态（`pending|running|ready|failed|cancelled` + `phase`[queued/processing/ready/failed/cancelled/not_required/unavailable] + `canCancel`/`canRetry` + 宽高/mime/大小/错误码/`updatedAt`），非 image 为 `not_required`；侧车查询失败降级 `unavailable`，不影响附件 metadata 本身。**渲染按模型能力和单回合媒体额度门控**（chat 传 `Capabilities{Vision,Video,Audio,NativeDocs,MaxMediaParts,MaxMediaBytes}`）：普通 BYOK 的图 → vision 模型给内联 image_url；MP4 视频 → video 模型给内联 video_url；WAV/MP3 音频 → audio 模型给 input_audio；超能力、格式不符或额度耗尽均按原顺序降成明确文字占位而不丢附件。**内置 Anselm 网关是唯一例外**：resolver 还会传 install-bound `RemoteMedia` 目的地，图片和 MP4 先经 device-proof resumable upload 取得短期 lease，把**相对** fetch 路径（`/v1/media/leases/{id}/content?token=…`，ADR 0011——凡带 scheme/host 网关一律拒）作为 `image_url`/`video_url` 交给网关，由网关校验归属时效后把内容**内联**转发上游（ADR 0012——provider 拉取器拒绝回拉网关公开主机，线上实测）；图片优先取媒体 worker 生成的 `model-default` v2 代理图（EXIF auto-orientation、剥离 metadata；照片按最长边 2048 生成 JPEG；截图/透明图/低色彩多样性图优先保 PNG；长图按 1536×8192 封顶，避免把可读宽度压碎），若代理尚未 ready，则本回合最多短暂等待本地 worker 产出；超时/失败才退回原件上传并让后台任务继续追上，后续 sampling/回合复用代理图。sidecar 仅在内存中按网关/install/规范 MIME/SHA-256 缓存 lease，离过期不足 30 秒自动重传刷新，故同一 ReAct 与后续历史重建都不重复上传同一可用字节（代理或原件），重启不保留 bearer token。上传/回执失败使本回合大声失败，绝不静默丢媒体。**PDF** → `NativeDocs` 模型给 file part（原样递交、原生读，anthropic/openai/gemini）;**Office/ODT 等其余文档 mime 一律走 sandbox 抽取**——`NativeDocs` 是从目录的 `pdf` 输入模态推出的、只断言「原生读 **PDF**」,把它当作整个文档**类**的通行证会让 `.odt`/`.docx` 被 base64 塞给一个从没声称能读它的模型（字节已上线缆,而诚实做法是本地抽文本）;其余情形亦 **sandbox 抽取文本内联**（`SandboxExtractor`：共享 python env 跑一次性抽取脚本、token 截断到 400K char，经 `Extractor` 端口 DIP——不认的 mime 返 `ATTACHMENT_EXTRACTION_UNSUPPORTED` 降级占位）；文本 → 直接内联；other → 文字占位。缺失/不可读 blob 告警跳过、绝不让回合失败。附件 id 快照在 user 回合 Attrs（freeze-on-send 家族）。
+Attachment 是产品内所有上传文件与工具媒体产物的统一入口。它把：
 
-**LLM 工具 3 个**（薄适配、`Toolset.Lazy`，经 search_tools 浮现）：`list_attachments`（无参，列 ctx workspace 全活跃附件 `{id, filename, mime, kind, sizeBytes, createdAt}`，新→旧，另给 `usage`：text/document 走 `read_attachment`，image/audio/video 走 `inspect_media`）发现；`read_attachment(id, offset?, limitChars?, query?, contextChars?, maxMatches?)` 重读——text/document 类经 `ToContentParts`（`Capabilities{Vision:false, NativeDocs:false}`，故 PDF/Office 抽成文本而非递交读不了的 file part）抽文本；默认分页返回，80K 字符、硬上限 120K 字符，截断时尾部给 `nextOffset` 供 LLM 继续取页；传 `query` 时进入大小写不敏感 literal 检索模式，只返回匹配片段、字符 offset、总匹配数（默认 5 条，每侧 800 字符上下文，硬上限 10 条/每侧 2000 字符），避免大文档为找一段内容整体回灌主上下文；image/audio/video/other 二进制返描述符（filename/mime/size + 不可文本抽取的提示，**不倾倒字节**），其中 image 明确引导 `inspect_media` 视觉检查，audio/video 明确引导 `inspect_media` metadata capsule 与可选 `startMs/endMs`，未知 id 转软失败串供 LLM 自纠；`inspect_media(attachmentId, question, crop?, detail?, page?, query?, offset?, limitChars?, startMs?, endMs?, tiles?)` 对 image 附件跑一次内部视觉检查：先生成有界 `model-default` v2 代理/normalized crop，再走默认 dialogue 视觉路由，受管 Anselm 网关优先暂存代理并传短期 HTTPS URL，BYOK/非受管路由退回有界 data URL，工具结果只返回 JSON 文本证据（answer + rendered width/height/mime/crop/detail），不把图像字节写回主对话；对 text/document 复用本地抽取的 query/page/offset 有界证据；对 audio/video 返回本地 `media-probe-v1` metadata capsule（source SHA 前缀、mime、size、可选 time-range intent），不伪造 transcript/OCR/scene/keyframe。另作 **catalog source**（`AsCatalogSource`，组名 `attachment`）：把每个活跃附件报成 name(filename)+description(kind/mime/size) 条目，让 LLM 知道上传文件存在。catalog 靠 `Service.List`（带完整元数据行，区别于 GC 用的 `ListLiveSHAs` 只投影 sha）。
+- workspace 隔离的元数据行；
+- 按 SHA-256 内容寻址的 blob；
+- 文件类型、来源和执行溯源；
+- 模型无关的 LLM content parts；
+- 前端下载、音频播放与媒体准备状态
 
-## 2. 契约（引用）
+收敛到同一个 `att_` 身份。Chat、Agent、Subagent、Workflow 和工具结果都复用这条
+路径，不各自定义图片、音频或文档线缆。
 
-端点（upload / get / download `:id/content` / audio `:id/playback-lease` + bearerless `attachment-playback/{token}` / delete 软删）→ [api.md](../api.md) · 表 `attachments`（软删；blob 在文件系统）与其可再生 `attachment_derivatives` / 任务条件化 `attachment_perceptions` 媒体工作表（均见 [database.md](../database.md)，后两者不持原件）· 码 `ATTACHMENT_*` 5(domain)+1(app extraction)+1(app tool `ATTACHMENT_ID_REQUIRED`) 及媒体工作 `MEDIA_INVALID_REQUEST`/`MEDIA_NOT_FOUND` → [error-codes.md](../error-codes.md) · ID：`att_`/`mdr_`/`mpr_`。被消费：chat（ToContentParts 渲染）、catalog（attachment source）、media worker（代理/感知产物）。
+## 2. 存储与生命周期
 
-**受管路由的可交付格式闭集**：staging 端点只收 `image/jpeg|png|webp`、`video/mp4`、`audio/wav|mpeg`（镜像网关 `supportedMIME`）。桌面端把一切 `image/*` 判为 image（HEIC/AVIF/BMP/TIFF/SVG 皆是），代理本应归一化，但解码器读不了 HEIC/AVIF、代理永不 ready，送出的是**原件**。故在上传**之前**判定：不可交付的格式降级为一句点名文件与格式的注记，**不中断整回合**（真正的 staging 失败仍中断——两者语义不同，见 `attachment.go` 的 `managedStagingAccepts`）。
+上传先写 blob、再写 metadata，保证成功的行不会指向缺失字节。相同内容共享一份
+CAS blob，但可有多条 Attachment 行。文件名只用于显示，落库前取 basename。
+
+文件按 MIME 和扩展名归为：
+
+```text
+image | document | text | audio | video | other
+```
+
+大小上限来自当前 Limits，默认 50 MB。空文件与畸形 multipart 在边界拒绝。
+Delete 只软删 metadata；blob 只有在该 workspace 内不再被任何 live row 引用时才可
+回收。
+
+Blob GC 在 Boot 的逐 workspace 对账阶段执行，而不在 Delete 时执行。原因是上传存在
+`blob Put → metadata Insert` 窗口；删除时并发 sweep 会把尚未落行的新 blob 误判为
+孤儿。Boot 时没有并发上传，这条顺序由 Bootstrap 保证。
+
+## 3. 溯源与 MediaRef
+
+每条 Attachment 可记录：
+
+- `source`：用户上传为空，工具产物使用生成方名称；
+- `originConversationId`；
+- `originFlowrunId`；
+- `originToolCallId`。
+
+`source` 与执行归属用于审计；工具结果的自动媒体展开还强制
+`originToolCallId == 当前 tool call`。因此第三方工具不能仅靠在文本中猜中同 workspace
+的 Attachment ID，就把别的文件注入模型。
+
+工具通过唯一 receipt 传递媒体：
+
+```json
+{"attachmentId":"att_..."}
+```
+
+receipt 的解析规则由 `pkg/mediaref` 承担。工具结果咽喉只展开本次调用自己铸造的
+附件；`read_attachment` 与 `inspect_media` 对既有附件的回显不会再次把原始字节灌回
+主对话。
+
+## 4. 模型输入融合
+
+`ToContentParts(ids, capabilities)` 保持调用方顺序，并按实际模型能力决定原生输入或
+文字降级：
+
+| Kind | 能力满足时 | 能力不足或额度耗尽 |
+|---|---|---|
+| image | `image_url` | 点名文件的文字说明 |
+| video | MP4 → `video_url` | 文字说明 |
+| audio | WAV/MP3 → `input_audio` | 文字说明 |
+| document | PDF 且 NativeDocs → file part | 本地抽取文本 |
+| text | 直接内联文本 | 同左 |
+| other | — | 不透明文件说明 |
+
+单回合还受 `MaxMediaParts`、`MaxMediaBytes` 与 `MaxDistinctMediaKinds` 约束。超过限制
+的项目在原位置变成说明，不让 provider 以 400 拒掉整轮。缺失行或不可读 blob 也会
+留下可见说明，不静默消失。
+
+`NativeDocs` 只授权 PDF 原生输入，不代表 Office/ODT/EPUB 都可直接交给模型。
+非原生文档经共享 Python Sandbox 抽取 PDF、DOCX、XLSX、PPTX 等文本；不支持或损坏
+时降级为说明。抽取结果最多内联 400,000 字符。
+
+## 5. Managed 与 BYOK 媒体传输
+
+BYOK 路由把有界媒体转为 provider adapter 可消费的内联 part。受管 Anselm 路由由
+composition root 注入 `RemoteMedia`，经 device proof 把不可变字节暂存到 API Serve，
+再传短期 HTTPS lease；Attachment 层不依赖具体网关客户端。
+
+受管图片优先使用 Media worker 的 `model-default` 代理。代理尚未 ready 时可短暂等待，
+随后退回原件且让后台继续处理。同一回合的重复 Attachment 只上传一次。
+
+受管 staging 接受的闭集为 JPEG/PNG/WebP、MP4、WAV/MP3。上传被归为 image、但网关不
+接受且本地无法生成代理的格式，会降级为明确说明；真正的 staging/回执失败则使本轮
+大声失败，不能假装模型看到了媒体。
+
+## 6. 媒体准备与播放
+
+Upload/Get 响应可附 `preparation` 侧车。图片对应 `model-default` 任务，状态包含
+pending/running/ready/failed/cancelled、phase、可取消/重试标志、产物尺寸/MIME 和错误码。
+非图片为 `not_required`；媒体服务不可用时 metadata 仍成功返回，侧车标为 unavailable。
+
+前端音频播放先在受 bearer 与 workspace 保护的端点签发短期 lease，再使用高熵 token
+访问 bearerless playback URL。播放 URL 是一次性消费、默认五分钟有效，并绑定签发时的
+workspace 与 Attachment；只有 audio kind 可签发。
+
+## 7. LLM 工具
+
+- `list_attachments`：按新到旧列 metadata，不读 blob；
+- `read_attachment`：文本/文档支持索引、分页和 literal query；二进制只返回描述符；
+- `inspect_media`：
+  - image：有界代理/crop 进入默认视觉路由，或返回 tile map；
+  - text/document：复用本地抽取并返回有界页、窗口或匹配；
+  - audio/video：只返回本地 metadata capsule 与时间范围意图。
+
+`inspect_media` 不伪造 transcript、OCR、scene 或 keyframe，也不把原始媒体写进 tool
+result。图片检查继续使用默认 Anselm 模型解析；受管路由用短期 remote media，BYOK
+使用有界 data URL。
+
+Attachment 同时是 catalog source，使模型能先发现 filename/kind/MIME/size，再按需读取。
+
+## 8. 契约
+
+端点登记见 [`api.md`](../api.md)。Metadata、derivative、perception 与 speech cache
+表见 [`database.md`](../database.md)；错误见 [`error-codes.md`](../error-codes.md)。
+主要 ID 为 `att_`、`mdr_`、`mpr_`。
+
+Attachment 是 durable 原件；derivative/perception/speech cache 是可再生数据。多模态在
+Chat 与工具历史中的消费规则见 [`chat.md`](chat.md) 和
+[`messages.md`](messages.md)，受管服务边界见
+[`managed-gateway.md`](../managed-gateway.md)。

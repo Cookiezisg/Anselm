@@ -4,19 +4,78 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# relation —— 实体拓扑图
+# Relation
 
-## 1. 定位 + 心智模型
+## 1. 定位
 
-全 workspace 的**实体关系图**：11 种 `EntityKind` 节点（Quadrinity + trigger/control/approval/skill/mcp/document/conversation）× 边 kind（4 动词封闭集：create/edit/equip/link）。**动词封闭、端对开放**：kind 只编码动词，两端类型已在 `from_kind`/`to_kind` 列里，故新的端对配法**不需要**新动词——conversation `:fork` 的血缘边就是一条 **conversation → conversation 的 `create` 边**（「源线程产出了本线程的 v1」，同类端对目前的唯一一例；按分叉的**入向**侧 diff-sync，因为一个分叉永远只有一个父，故 replace-all 恰好精确，详见 [conversation.md](conversation.md)）。**写侧是 diff-sync**：实体在 create/edit/revert 时声明"我的某 kind-scope 出/入边应是这个集合"（`SyncOutgoing`/`SyncIncoming`），relation 对照现存做增删——调用方永远声明终态、不做增量管理；`PurgeEntity` 删除时级联清边。**读侧 hydrate 显示名**：`Namers` 注册表（**11 种全注册**，bootstrap）按需批量 id→name——图存 id、名字读时取，实体改名图自动跟随。`CountDependents(kind,id)` / `ListDependents(kind,id)` 报「删了它什么会坏」的诚实信号=**入向 equip/link 边**（挂载/外链它的实体），排除 create/edit 溯源与本实体出边（复用 `ListByToAndKinds` 的 {equip,link} 过滤、无新 repo 方法）；8 个单实体 delete 工具（function/handler/agent/workflow/trigger/control/approval/skill）在删**前**读它、把依赖的 **{kind,id} ref + 计数 + 修复提示**折进结果（经共享 `toolapp.DependentCounter` 端口 + `DependentRefs`/`AnnotateDependents`/`DependentSuffix` helper，nil 容忍），使 agent 知道删后**究竟哪些**引用方可能失效、可逐个 edit 修掉/重指悬挂 ref（F48/F160——`PurgeEntity` 删后边被抹、裸计数无从追是哪些，故返 ref 而非仅计数；delete_document 因递归删 + 字符串结果不纳入）。**持久对应物**（F161）：`PurgeEntity` 是全部 11 种实体删除的唯一汇流点（各实体 `purgeRelations → PurgeEntity`），故在 purge 抹边**前**快照入向 equip/link 依赖、purge 后发 **ONE 聚合** `relation.dependency_broken` 通知（payload `{deletedKind, deletedId, dependents:[{kind,id,name,edge}]}`，hydrate 名 + 去重）——把 F160 仅瞬时 tool-result 的提示升为通知中心**跨重启留存、覆盖任意删除路径（HTTP 亦发）**的主动记录。刻意用通知、非实体 attention 标志：agent 无 attention 列，workflow run-attention 仅在 run 完成时清会永久点亮，可被用户消去的收件箱条目才是对的持久原语。注 emitter nil 容忍（仅 CRUD 装配时不发）、hydrate/emit 失败只记录绝不让删除失败。守卫：自环禁止、ref 校验、邻域深度限制。**分工边界**：relation 是结构**终态**（diff-sync、edit 边随 active 版本覆盖）——「这个对话碰过什么」的**历程**问题归 [touchpoint](touchpoint.md)（对话触点台账：聚合行、只积累、含 viewed/executed 等 relation 没有的动词），两者共享 EntityKind 词表与 Namers。
+Relation 是 workspace 内跨实体的当前拓扑投影。节点 kind 为：
 
-## 2. 契约（引用）
+```text
+function | handler | workflow | agent | document | conversation
+| skill | mcp | trigger | control | approval
+```
 
-LLM 工具：`get_relations`（neighborhood 的工具孪生——kind+id+depth(1-3)，编辑/删除前自查影响面）。
+有向边只使用四个动词：
 
-表 `relations` → [database.md](../database.md) · 码 `REL_*` 5 → [error-codes.md](../error-codes.md)。端点：list / neighborhood / relgraph（全景快照）。事件 `relation.dependency_broken`（删被依赖实体的聚合通知）→ [events.md](../events.md)。写方：每个实体的 relations.go 适配器（nil 容忍——relation 不在场实体照常工作）。消费：notification.Emitter（删除时发依赖断裂通知，bootstrap 注入、nil 容忍）。
+```text
+create | edit | equip | link
+```
+
+端点类型由 `fromKind/toKind` 承担，因此新增端点组合不需要扩展 edge kind。Relation
+展示结构终态，不是操作历史；对话经历由 [`touchpoint.md`](touchpoint.md) 承担。
+
+## 2. 写侧：声明终态
+
+业务域不增量维护边，而是在 Create/Edit/Revert/Activate 后声明一个 scope 的完整目标：
+
+- `SyncOutgoing`：替换某实体指定 kind scope 的全部出边，常用于 equip/link；
+- `SyncIncoming`：替换某实体指定 scope 的全部入边，常用于 conversation create/edit
+  provenance；
+- `PurgeEntity`：实体删除时硬删所有触及它的边。
+
+Sync 以 diff 方式增删并更新 attrs，重复声明同一终态幂等。Conversation fork 使用
+conversation → conversation 的 create 入边表达血缘。
+
+Document wikilink、Agent/Workflow tools/knowledge、Trigger 引用以及版本 provenance 都在
+各自业务域落定后调用 Relation adapter。Relation adapter 缺席时主业务仍可工作，但
+Bootstrap 的完整装配会注入它。
+
+## 3. 读侧与名称
+
+边只持 ID，不复制显示名。读取 List、Neighborhood 或 relgraph 时，通过每个实体域注册的
+Namer 批量 hydrate 当前名称；目标已删时退回原始 ID。孤立实体不出现在 relgraph，因为
+这里是关系图，不是实体 inventory。
+
+读面包括：
+
+- keyset-paginated edge list；
+- 深度 1–3 的 BFS neighborhood；
+- workspace 全量 nodes + edges snapshot；
+- LLM `get_relations` 工具。
+
+Filter 的 kind/id 必须成对提供；self-loop、未知 entity kind、未知 edge kind 和超界
+depth 在 domain 边界拒绝。
+
+## 4. 删除影响
+
+`CountDependents/ListDependents` 只统计指向目标的 equip/link 边，不把 create/edit
+provenance 或目标自己的出边误算为依赖。删除工具必须在 Purge 前读取这份影响面，并把
+依赖方引用附在结果中。
+
+`PurgeEntity` 同样在抹边前快照 dependents。删除确有引用者时，best-effort 发一条聚合的
+`relation.dependency_broken` 持久通知，包含被删目标和去重后的依赖方。通知失败不能反过来
+阻止业务删除。
+
+## 5. 契约
+
+Relation 读端点见 [`api.md`](../api.md)，`relations` 表见
+[`database.md`](../database.md)，错误见 [`error-codes.md`](../error-codes.md)，
+依赖断裂事件见 [`events.md`](../events.md)。
+
+Relation 行是可重建的派生拓扑，实体自身才是 durable truth；因此边随实体删除物理清除，
+不引入新的 durable 业务删除例外。

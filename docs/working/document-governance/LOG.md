@@ -174,3 +174,14 @@ landed-into:
 - HTTP chain 代码反查补回 `RequireLoopbackHost`、`RequireBearerToken` 和最内层 404/405 Envelope；workspace 豁免集补全 version、attachment playback 与 webhook 的不同授权来源。
 - `app/search` 实现确认 reindex 是 force reconcile，而 HTTP handler 注释仍写“purge + rebuild”；这是产品代码注释漂移，按 CHARTER 授权边界只登记，不在文档战役中修改。
 - 验证：`make -C docs verify`、`git diff --check` 与六篇文档施工词扫描通过；扫描仅命中 SQLite schema migration 与“尚未产生 block”的当前机制语义，DTO warning 仍为 12 checked / 21 skipped。
+
+## 2026-07-31 · G2-014 · 后端支撑域与多模态入口重建
+
+- 重建 Attachment、Document、Control、Approval、Relation、Touchpoint、Memory 与 Todo 八篇 current reference；全部稳定 DOC ID 保持不变。
+- Attachment 从单行超长实现史重构为存储生命周期、溯源/MediaRef、能力门控的模型输入、managed/BYOK 传输、preparation/playback、LLM 工具与 durable/derived 边界；明确多模态共用 `att_` 与 receipt，贯穿 Chat、Agent、Subagent、Workflow 和工具结果。
+- Attachment 代码反查确认工具结果只展开 `originToolCallId` 等于当前调用的媒体；受管 staging 格式闭集、模型额度降级、PDF 原生边界、Office sandbox 抽取、图片代理、短期播放 lease 与 inspect_media 的 bounded-evidence 语义均写入 current 文档。
+- Document 重述树、path、position、duplicate、subtree delete、显式单篇挂载、missing grounding、wikilink 与 Search 回退；Control/Approval 重述不可变版本、author-time CEL、pinned runtime、port/timeout/parked inbox。
+- Relation 与 Touchpoint 明确“当前结构终态”与“Conversation 历程聚合”的分工；删除影响、依赖断裂通知、工具目录穷尽性门禁、显示名快照与 messages Signal 均保留。
+- Memory 与 Todo 分别收敛为跨对话文件事实和逐执行 scope 的短期清单，明确 pinned 策展不可被内容 Upsert 覆盖、Todo reminder 不污染历史且 todo_read 可读全完成清单。
+- 发现两处未授权产品代码注释漂移：Attachment domain 顶层仍称 provenance “尚不执行”，但 `originToolCallId` 已强制；另一个映射注释仍称 audio/video 抽取为未来插件，但 `ToContentParts` 已支持能力门控的原生音视频。仅登记，未改代码。
+- 验证：`make -C docs verify`、`git diff --check` 与八篇施工词扫描通过；扫描命中仅是“阶段/尚未”在 Boot/ready 当前机制中的普通语义，DTO warning 未变化。
