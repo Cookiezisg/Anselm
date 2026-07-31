@@ -322,6 +322,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再做子代理失败/取消/媒体写入窗口：故意失败函数两次都真实执行并把错误标记经 child 与父层带回，但严格父层单次派发断言两次都被模型先发非法 `subagent_type` 后纠正击穿；取消一轮在 30s settle 窗内未同时观察父/子 terminal、另一轮完整通过；子代理 image writer 两次都只铸一份真实 PNG。该组包级失败不包含稳定的 ledger、锚点、孤儿或媒体状态异常，继续归类为 managed schema recovery/stream 时序可靠性哨兵。
 
+最新窗口把上述两条红绿边界拆开复探：故意失败续接为 1/2，绿跑保持 child 的 failed execution、错误 marker 与父回合 completed；红跑再次由非法 `subagent_type` 后的 `Plan`/`general-purpose` 重复派发与安全拒绝触发 `parentSubagentCalls=2`，在 durable child 断言前结束。取消终态则 2/2 通过，真实 `:cancel` 204 后父/child 与唯一 agent execution 均落 `cancelled`，follow-up 不复活工具；非法 schema 与取消后的 `spawn process failed` 仅为关停/模型时序 WARN。当前仍没有 function ledger、`parentBlockId`、孤儿或终态后端缺陷证据，继续保留为 managed reliability sentinel。
+
 随后把实际函数名为 `ParallelSubagentTrees` 的并行树单独双跑：两轮均只创建两个 child，各自 function execution 恰一条，两个 `parentBlockId`、marker、父回合续接与 `agent/ok` ledger 一一闭合（64.93s、61.39s；包 126.967s）。未复现此前重复派发或跨树串线。
 
 随后复探 stdio MCP 产物→workflow 下游 viewer：MCP producer 的单一 PNG MediaRef 穿过 agent node，workflow 结果保留 `mcp_media` source 与 attachment id，附件 content 端点回读真实图片，OpenAI BYOK viewer recorder 收到同一原始 image part。两次独立 hybrid 进程通过（18.418s、16.672s），未形成 producer ownership、workflow node 或跨 provider 编码缺陷。
@@ -433,6 +435,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮 EVO-744/EVO-745 对取消与并行树做了当前窗口复核：取消仍是一绿一红（红灯只在 30s settle 窗观察不到父/子同时 terminal），绿灯保持 `:cancel` 204、父/child `cancelled`、单条 `agent/cancelled` execution 且 follow-up 不复活；并行树独立双跑 2/2 通过，未见终态、锚点或重复 execution 回归。失败续接两次虽未满足“只派一次”模型行为断言，但真实 child failure/错误标记与 durable parent continuation 均存在，不能据此宣称后端 ledger 缺陷。
 
 本轮再做核心用户生命周期 sanity gate：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立运行两次，6/6 完成。源历史保持 append-only，fork 分支可继续，retry 版本链没有跨线程指针或旧终态复活；包总计 50.126s，未形成当前窗口的消息投影或会话血缘回归。
+
+本轮取消子代理终态做独立双跑：两轮均在客户端真实调用 `:cancel` 后返回 204，durable history 同时观察到父/child `cancelled`，child 的 agent function execution 恰一条并落取消，后续 follow-up 完成且不复活旧工具。单轮 52.82s/50.50s、包 103.956s；取消路径中出现的非法 `subagent_type` 与 `spawn process failed` WARN 未改变台账和终态，归类为模型 schema recovery/进程组关停噪声，不构成 FRT-13 后端回归。
 
 聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
 
