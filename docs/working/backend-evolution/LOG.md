@@ -1205,6 +1205,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-771 | proof-bound realtime ASR WebSocket 当前双跑全绿：每轮真实连接均接受 100ms PCM16/16k/mono 二进制帧、收到 `session.finished`，没有 error event 或把静音帧误当作转写语义；两轮 4.88s/1.98s，包 7.343s。语音输入 transport/lifecycle 与近期 managed 语音写入路径互不回归 | FRT-07 / voice input / WebSocket session lifecycle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_SpeechInputASR$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo771-voice-asr-double.jsonl` → PASS：4.88s、1.98s；未输出 provider secret |
 
+| 2026-07-31 | EVO-772 | BYOK 跨模型历史媒体重投影当前双跑全绿：Qwen `qwen3.7-plus` 首轮将 98-byte PNG 与 2,969,360-byte MP4 以 exact native `image_url`/`video_url` 送达；切到 OpenAI `gpt-4.1-mini` 后同一会话继续完成，只保留 image native，video 字节不再上游发送而写入明确 capability note；两份附件仍逐字节回读，workspace 未安装 managed fallback。两轮 12.18s/8.93s，包 21.468s | FRT-02 + FRT-11 + FRT-13 / byok-read / model switch + history media reprojection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveBYOK_ModelSwitchReprojectsHistoryMedia$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo772-byok-model-switch-media-double.jsonl` → PASS：12.18s、8.93s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

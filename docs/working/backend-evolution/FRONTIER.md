@@ -84,6 +84,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补齐文档渲染与原生文档媒体对照：managed `anselm://media` 文档图片与 OpenAI BYOK 文档图片均将同一 98-byte PNG 送入真实 native image 路由；OpenAI BYOK 原生 PDF 以 540-byte file wire 完成；Qwen BYOK 原生视频以 exact-byte 2,969,360-byte MP4 完成。四项当前运行均通过，文档 URL 没有退化成 prompt prose，BYOK workspace 没有 managed fallback，源附件保持逐字节不变。
 
+本轮再次做 Qwen→OpenAI 的跨模型历史媒体切换：Qwen 首轮 recorder 同时观察到 98-byte PNG 与 2,969,360-byte MP4 的 exact native parts；切到 OpenAI `gpt-4.1-mini` 后第二轮只保留 image native，视频不带字节而变成明确 `no native video input` capability note。两轮 12.18s/8.93s 完成，两个附件 content 端点仍逐字节一致，BYOK workspace 未安装 managed fallback；未形成历史 backfill 竞态、能力投影或 provider renderer 回归。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
