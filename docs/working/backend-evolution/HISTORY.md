@@ -4,31 +4,24 @@ type: working
 status: active
 owner: @weilin
 created: 2026-07-29
-reviewed: 2026-07-29
-review-due: 2026-10-27
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 landed-into:
 ---
 
-# History · 已收口战役与旧体系
+# History index
 
-## 已收口的相关战役
+本页只提供历史入口，不复制历史结论。当前产品事实以 backend reference 为准，当前待测
+路径以 [`FRONTIER.md`](FRONTIER.md) 为准。
 
-| 工作 | 状态 | 可继承的结论 | 当前入口 |
-|---|---|---|---|
-| WRK-082 · 全模态平台 | archived | `MediaRef` 为跨执行面的值类型；生成是工具；真实媒体验收需保留线缆与字节 | [归档原文](../../archive/multimodal-output/README.md)；ADR 0013–0020 |
-| WRK-085 · BYOK 治理 | landed | 写入受管、读取目录；BYOK 多模态输入开放；目录能力与方言实现分工 | [工作原文](../../archive/byok-governance/README.md) |
-| 旧 Iteration Loop | superseded as structure | 八拍循环、先泛化后修、后端真相裁决仍有效；其场景表不再代表当前覆盖 | [`archive/backend-evolution-v1/`](../../archive/backend-evolution-v1/) |
+| 历史工作 | 可追溯材料 | 当前落点 |
+|---|---|---|
+| Backend Iteration v1 | [`archive/backend-evolution-v1/`](../../archive/backend-evolution-v1/) | 本目录 README/CURRENT/FRONTIER |
+| 全模态平台 | [`archive/multimodal-output/`](../../archive/multimodal-output/) 与 ADR 0013–0020 | [`attachment`](../../references/backend/domains/attachment.md)、[`architecture`](../../concepts/architecture.md) |
+| BYOK 治理 | [`archive/byok-governance/`](../../archive/byok-governance/) | [`stream-llm`](../../references/backend/foundation/stream-llm.md)、[`managed-gateway`](../../references/backend/managed-gateway.md) |
 
-## archived 的地位
+历史直连 `EVALS_MEDIA` 及其 provider-specific recorder 仍存在于 testend，作用是保存旧线缆
+证据；它不代表当前生成产品路径，也不属于默认或 managed acceptance 的配置要求。
 
-[`archive/backend-evolution-v1/`](../../archive/backend-evolution-v1/) 保存重构前的文档原貌，供定位旧 finding、历史覆盖快照和系统正确性线索使用：
-
-- `README.md`：旧操作手册。
-- `TASKS.md`：旧任务索引。
-- `ARCHIVE.md`：旧的已探格与 frontier。
-- `COVERAGE.md`：2026-07-02 冻结产品面的 649 行快照，**不是当前覆盖率**。
-- `LOG.md`：旧 finding 索引。
-- `systems-correctness.md`、`leak-hunt-0717.md`：系统性风险历史。
-
-旧材料可以触发 reprobe，但不能直接宣称“已通过”。要复用其中一个结论时，在当前 `FRONTIER.md` 建立新的路径，按当前路由、媒体与网关边界重新判定。
+完整逐轮证据保留在只追加的 [`LOG.md`](LOG.md)。完成场景不会复制到本页。

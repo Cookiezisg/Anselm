@@ -38,6 +38,8 @@ audience: [human, ai]
 
 - 机器级偏好进入 `SharedPreferences`；workspace 业务设置进入后端。两条轴不混。
 - master key 由系统 keychain 铸造和保存，见 [`ADR 0008`](../../decisions/0008-master-key-keychain.md)。
+- launch-at-login 经平台 adapter 注册，设置偏好与 OS 注册表分别承担 UI/系统事实；
+  close 后后台运行与 tray 尚未形成产品合同。
 - loopback 安全由后端默认 `127.0.0.1`、bearer 与 Host 校验三层完成；前端不复制鉴权规则。
 - 文件选择、剪贴板、拖放、目录打开和终端打开经平台适配层；feature 不直接散落平台判断。
 
@@ -58,4 +60,11 @@ audience: [human, ai]
 | `make -C frontend app` | 真壳 + sidecar |
 | `make doctor` | 原生桌面工具链诊断 |
 
-发行签名、公证、安装器与自动更新尚未形成已验证流水线；相关研究目前只存在于 [`working/platform-foundation/release-distribution-playbook.md`](../../working/platform-foundation/release-distribution-playbook.md)，不是当前操作手册。
+Settings 可查询 GitHub Releases 并提示新版本，但不会下载或安装。发行签名、公证、
+安装器、sidecar bundling 与安装型自动更新尚未形成已验证流水线；未完成合同见
+[`working/platform-foundation/`](../../working/platform-foundation/)，冻结研究见
+[`archive/platform-foundation-research/`](../../archive/platform-foundation-research/)，两者都不是
+当前可照抄的发行操作手册。
+
+当前 macOS 关闭最后一个窗口后会退出，Windows close 同样退出；历史研究中的“关闭后驻留后台”
+尚未落地，也仍需按当前三平台约束复核。

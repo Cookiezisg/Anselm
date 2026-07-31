@@ -4,679 +4,96 @@ type: working
 status: active
 owner: @weilin
 created: 2026-07-29
-reviewed: 2026-07-29
-review-due: 2026-08-12
+reviewed: 2026-07-31
+review-due: 2026-08-14
 audience: [human, ai]
 landed-into:
 ---
 
-# Frontier · 高频动态覆盖与 reprobe 队列
+# Frontier
 
-> 这里记录下一批值得跑的真实路径，不是冻结的“覆盖率百分比”。完成后将结论移入 LOG 或 HISTORY；承重面变化后，历史绿格可以重新回到这里。
+本页只保存尚未闭合或因承重面变化而需要重探的路径。已完成证据进入
+[`LOG.md`](LOG.md)，不会继续堆在状态栏里。
 
 ## 选择规则
 
-优先级 = 高频度 × 用户损失 × 当前变化风险 × 证据缺口。每项至少注明：路由类别、执行面、媒体/资源流、后端真相和最小证据。173 家 provider 不是 173 条手工 lane；以协议/行为类抽样，验证目录解析与路由边界。
-
-## 当前队列
-
-| ID | 路径 | 路由 | 要证明的事实 | 最小证据 | 状态 |
-|---|---|---|---|---|---|
-| FRT-01 | 默认聊天 + 图片/视频/PDF 附件 + 语音输入 | managed-read/default | Anselm 的实际输入路由、lease 与能力降级正确；PDF 在 `nativeDocs=false` 时必须 sandbox 抽取（直投影与 `read_attachment` 工具路径）；附件先经 `list_attachments` 发现，再按类型进入读取/检查路径；大文本 `read_attachment` 与 `inspect_media` 都必须能暴露 query/index/page 参数并保持 bounded；大图 `inspect_media` 必须暴露 tiles/tileRows/tileCols 类型并返回紧凑 tile map；图片可经 `inspect_media` 嵌套视觉请求获得 bounded evidence；音视频 `inspect_media` 只返回诚实的本地元数据 capsule，不伪造转录/场景理解；语音输入另走 proof-bound ASR WebSocket | 请求形状 + 回合/附件真相；ASR `session.finished` | image / MP4 video / image+MP4 same-turn fusion / plain-text attachment direct projection / text+image same-turn direct fusion / text+video same-turn direct fusion / text+image+video three-way same-turn fusion / PDF+image same-turn fusion / text+unsupported-audio same-turn honest degrade / managed multiple-image same-turn fusion / attachment history multi-turn re-projection / deleted attachment → follow-up history honest degrade / `list_attachments` 双附件发现 / 136,890-char text `read_attachment` bounded query / 116,043-byte text `read_attachment` compact index（managed string-bool 首次校验失败后已兼容解码） / 157,248-byte text `read_attachment` 默认省略控制参数自动 compact index（复跑无校验警告） / 78,388-char text `read_attachment` offset=40800 limitChars=128 page（managed string-int 同样由兼容解码处理） / page-marked text `inspect_media` page=2 limitChars=128（managed string-int 首次校验失败后已兼容解码） / text `inspect_media` offset window + limitChars=96（managed string-int 由兼容解码处理） / 91,540-char text `inspect_media` bounded query / 512×512 image `inspect_media` 2×3 tile map / image `inspect_media` crop 0.25,0.25,0.5,0.5 + high detail / PDF sandbox extraction / PDF `read_attachment` tool continuation / image `inspect_media` nested vision / video+audio `inspect_media` metadata / video `inspect_media` 1000–2000ms range / audio `inspect_media` 1200–2600ms range / realtime ASR session 通过；默认 chat 不宣传 audio，但 WAV 附件在单独、“文字+不支持音频”、“图片+不支持音频”及“视频+不支持音频”同一回合中都真实走明确文本降级，支持的图片/视频分支仍完成且附件字节不变 |
-| FRT-02 | BYOK 视觉/音视频/文档输入 | byok-read | 多模态输入是正式 BYOK 能力，不被生成边界误关 | 目录能力、wire part 或明确文本降级 | OpenAI image / OpenAI native PDF (`gpt-4.1-mini`) / OpenAI multiple-image same-turn / OpenAI image+不支持 audio 同轮降级 / OpenAI image+不支持 video 同轮降级 / Google Gemini image / Qwen MP4 video / Qwen WAV audio / Qwen image+MP4 same-turn fusion / 同会话 Qwen→OpenAI 模型切换后的 history media re-projection 真实通过；2026-07-30 当前 Qwen→OpenAI 模型切换两次真实复跑均保持第一轮双 native、第二轮 image native + video 明确降级及附件字节不变；Qwen3 Omni image+WAV 真实探测确认上游只允许 text+单一其它模态，产品现在保留图片原生 wire、将音频明确降级为文本注记而不再把组合转成 400；2026-07-30 当前 Qwen key 的 image+audio 组合两次真实复跑均保持同一 wire/字节边界；本轮 Qwen `qwen3.7-plus` 直接 image+MP4 fusion 两次复跑均观察到同一回合 `image_url`/`video_url` 与 exact-byte wire；本轮 OpenAI `gpt-audio` 音频+`run_function` 两次复跑均保持第二次请求的 `input_audio`、tools、函数结果与最终文本；OpenAI `gpt-audio` 目录滞后由 provider-owned capability bridge 覆盖，真实 WAV `input_audio` 产品路径及 audio+`run_function` continuation 已通过 |
-| FRT-03 | BYOK 模型调用受管出图 | hybrid | 模型调度与受管生成正确接合，生成者不被重复喂像素导致重画 | tool/receipt、调用次数、产物与后续请求 | OpenAI→managed image 通过；真实 OpenAI continuation wire 已逐字节收到生成图片 |
-| FRT-04 | workflow：生成者 → 下游观看者 / 用户附件 → workflow agent | hybrid / managed-read | 下游收到真实媒体而非“产物已生成”文本；用户上传的 MediaRef 也能从 trigger payload 穿过 CEL 接线进入 workflow agent | 录制请求包含原始媒体字节；flowrun trigger/node durable result、附件字节与模型回答 | managed image→BYOK OpenAI、managed speech→BYOK Qwen audio、managed video→BYOK Qwen qwen3.7-plus viewer 的 workflow exact-byte wire through；managed speech→managed viewer 同 run 完成并对默认 chat audio 做诚实降级；managed video→managed viewer 同 run 完成且真实 MP4 可回读；managed provider wire 仍待 gateway 侧 recorder；用户上传 PDF+image+MP4→manual trigger payload→managed workflow agent 两次真实复跑通过（PDF sandbox token + 三份 MediaRef 保留 + 552-byte PDF、98-byte PNG、2,969,360-byte MP4 源字节均不变）；用户上传 PDF+image→webhook body `start.body.*`→managed workflow agent 两次真实复跑通过（`origin=webhook`、PDF sandbox token、两份 MediaRef 保留及 552-byte PDF、98-byte PNG 源字节均不变）；用户在对话中经 `search_tools` 发现 `trigger_workflow`→携带 webhook-shaped PDF+image payload→managed workflow agent 两次真实复跑通过（`origin=chat`、`conversationId` 保留、PDF sandbox token、两份 MediaRef 保留及 560-byte PDF、98-byte PNG 源字节均不变）；Google native image workflow 当前一轮 50.44s 通过并观察到约 1MB inlineData，但紧邻独立复跑及 98-byte image 对照均为 `LLM_RATE_LIMITED (429)`，故保留为 provider rate-window/request-size 外部项而非稳定绿格；纯 managed 下游节点也完成且附件可回读 |
-| FRT-05 | MCP/function/handler 产物 → 下游模型 | byok-read / hybrid | 各产地均能成为 MediaRef；不退化为占位字符串 | 产物字节、MediaRef、下游请求 | 当前受管 + BYOK workflow 的真实 function、resident-handler、stdio MCP producer→OpenAI vision viewer exact-byte wire 均 through；chat/workflow vision through；subagent managed generation→receipt state through；subagent text attachment→token roundtrip through；subagent image attachment→bounded `inspect_media` evidence/父回合续接/源字节守卫通过（真实模型若选择 Explore 则父层诚实 fallback，Explore 白名单边界保持不变）；subagent PDF attachment→`read_attachment` sandbox token roundtrip through（general-purpose 子代理真实调用、父层无偷调、原 PDF 字节不变）；subagent video/audio attachment→`inspect_media` bounded temporal metadata（kind/mode/range）通过，父层无偷调、原媒体字节不变且不伪造 transcript；subagent provider failure is annotated, durable, and parent-continuable；同一 execution group 的双 subagent 并发结果各自挂回独立 tool_call、父回合可继续；其余产地仍按 producer-specific reprobe；reprobe on media/ref encoder changes |
-| FRT-06 | 文档内图像 → 引用/问答 | managed-read/default / byok-read | 编辑器往返和 LLM 消费保真 | 文档、附件与请求三方一致 | managed image-reference 与 BYOK OpenAI exact-byte wire 均通过 |
-| FRT-07 | 音色完整生命周期 | hybrid + managed-write | 预置语音→附件→危险审批→异步登记→克隆合成→库存→删除 | 生产 API Serve、inventory、网关句柄到上游 id 的映射、删除后状态 | 默认 Anselm API managed E2E 通过；网关句柄/default/WAV 修复已被真实链路覆盖 |
-| FRT-08 | 朗读缓存与配额 | managed-write | 同文本同音色不二次调用；换输入才花费 | managed gateway quota delta + attachment cached；provider recorder 仅有 archived 直连证据 | managed sequential and concurrent same-key cache/quota through; API Serve full-stack e2e also confirms its stream/non-stream settle and ledger guardrails; provider-wire count remains a deliberate gateway-side evidence gap because the deployed public surface never exposes raw upstream wire |
-| FRT-09 | 生成工具诚实显隐 | managed-write | 出图/改图/动画/音色各自独立，不能因一个能力存在而全露出 | 工具表 + 具体 route/capability | managed image/speech/edit/video/animation live through; speech and async-video danger denial return completed refusal paths without a synthesis receipt or extra reservation; animation uses the dedicated `/videos/animations` route and caps oversized output before continuation |
-| FRT-10 | 无 tool-call 模型 | byok-read | 可聊天但不作为 agent 可用模型；不被目录裁剪误删 | 模型选择器/API + agent 限制 + chat-only wire | Qwen-MT 真实通过；chat 去工具；产品 agent invoke 以 failed/0 steps 明确拒绝 |
-| FRT-11 | provider 行为类 | byok-read | compat、Anthropic、Azure、Google、Vertex 的凭证/URL/编码边界正确 | 每类最小 probe + 错误分类 | DeepSeek v4 + Google Gemini 3 文本与原生 functionCall/functionResponse 续接真实通过；2026-07-30 当前 DeepSeek/Google key 文本 smoke 与 DeepSeek tool continuation 再次通过；当前 Kimi 凭证在 `:test` 入口按约定返回 422 `API_KEY_TEST_FAILED` 并保留 `details.reason=HTTP 401`；原生 Anthropic 本地黑盒已通过 `/v1/models` 探测、能力目录、`x-api-key`/版本头、`/v1/messages` block body、命名 SSE 与 usage 落盘；`custom + anthropic-compatible` 与 `custom + openai-compatible` 均已双跑：APIFormat 写回、各自探测/auth/chat wire 正确，custom 无目录时能力保持保守空面；Azure/Vertex 仍待真实凭证抽样；本轮 Google 原生 tool continuation 两次均被上游 429，产品稳定归类 `LLM_RATE_LIMITED`，未伪造 assistant 文本 |
-| FRT-12 | 工具参数流 | byok-read / hybrid | 累积式与增量式 `arguments` 都能执行一次正确工具调用 | 两类 fixture + 真线缆样本 | locked; reprobe with parser changes |
-| FRT-13 | 取消、重试与恢复中的媒体 | all applicable | 取消回合不留孤儿、重放不错误复用或重复消费；审批停泊与外部 firing 在崩溃后仍可恢复，网络重试不重复执行；触发源/工作流软删后引用关系必须可审计且只能显式修复或终止 | durable 状态、附件溯源、调用计数、inbox/审计关联、删除/重建/重绑定前后能力与 listener 投影 | handler/workflow cancel/retry/crash no-orphan + image preparation ready/failed/cancel/retry + boot budget eviction/regeneration + crash requeue + parked approval restart/decide + approval v1 pin survives entity edit→v2 short timeout + SIGKILL→Restart + inbox rendered/deadline remains pinned + webhook firing restart-before-drain + deactivate detaches listener, fences in-flight reports already past the listener snapshot, and keeps draining until accepted pending firing is consumed + pending structural shed also reconciles shed-only drain to inactive + same-body minute dedup + fsnotify event payload/filter/hot-swap + sensor false/true transition/handler invoke failure/MCP target/eager validation + fsnotify/sensor pause→SIGKILL→resume through；真实 webhook 双触发下 serial/skip/buffer_one/replace/allow_all 五种 overlap 策略的 firing disposition 与 flowrun 状态均通过；多入口 workflow 的 distinct trigger attach、重复 ref 去重、重复 activate 幂等与全量 detach 通过；多入口 stage 第一火全量撤防、并发 report 的 one-shot 原子消费通过；active workflow 的 trigger 软删→dangling capability→同名重建不隐式换绑→显式 edit rebind→deactivate 全量摘除通过；active workflow 软删→全量摘 listener→取消 parked run→保留审计/版本历史→同名重建无幽灵 listener 通过；deleted workflow 的历史可读但所有 action/iterate 入口拒绝，跨 workspace 不泄漏 workflow/trigger/run；queued firing 在删除后进入 shed 且不铸造幽灵 run；`:kill` 在取消在途 run 前 shed 剩余 pending firing，硬停后不复活新 run；trigger dangling active state survives restart and requires explicit rebind before relistening；accepted firing survives trigger deletion with deleted triggerId and honest origin omission when TriggerKind lookup is unavailable, including SIGKILL→Restart before scheduler drain；accepted firing whose source entry is removed by active workflow edit settles as shed instead of retrying forever；active edit→revert 在 pending firing 与 parked run 并存时恢复当前 listener、保持原 run version pin，且 SIGKILL→Restart 后第二 firing 只 drain 一次；approved managed video cancellation after gateway submission reaches local cancelled terminal without a video receipt or late attachment (provider job/spend intentionally remains gateway-side and may continue); reprobe on worker/recovery/trigger lifecycle changes |
-| FRT-14 | provider 模型资格漂移 | byok-read | `/models` 可见不等于当前账号可生成；选择后 404 应可解释、不可重试且不污染回合 | `/models` 与最小 generate 对照 + 产品选择/失败状态 | Google `gemini-2.5-flash` 真实通过：可见、可保存选择，首发单次 404、error turn 无 assistant 文本；回合级 code 现保留为 `LLM_MODEL_NOT_FOUND`，失败横幅提供重选模型入口；同一会话切换 `gemini-3-flash-preview` 后恢复完成且仅多一次 generate；2026-07-30 当前 GEMINI key 两次真实复跑仍复现同一资格边界；本轮再验证用户不改选择连续发送两次时每回合各自只发一次上游请求、均诚实落 `LLM_MODEL_NOT_FOUND`、无 fallback/assistant 文本；模型失效记忆/目录自动降级仍待产品策略决定 |
-| FRT-15 | workflow 大图扇出与 AND-join | managed-write / hybrid | 多路 live 入边必须全部完成后才 join；节点按 `(node, iteration)` 只落一次，终值不丢；失败/崩溃后可从断点恢复且遵守 run 起跑时的版本 pin | HTTP flowrun、节点 durable rows、终点结果、replay/boot recovery 后的调用台账与 versionId | 12 节点/8 路扇出/两级 join、25 迭代深循环（含 REST 节点分页、function flowrunIteration）、真实 failed replay（已完成节点复用、驻留 handler 第二次成功、二次 replay 拒绝）、function v1→v2 编辑后的原 pin/fresh run 分界及 SIGKILL→boot recovery 的唯一节点/执行审计均通过；reprobe on scheduler/storage changes |
-| FRT-16 | 对话分叉与分支续接 | managed-read/default | 从已完成消息另开分支时，源线程 append-only 不变，新线程保留明确血缘且能继续走默认 Anselm 路由 | fork lineage、源/分支消息集合、分支 follow-up durable terminal | 2026-07-30 简单分叉两次通过；并行 subagent 树分叉两次通过：两 child 行与 marker 随最新分支复制、消息/块 ID 全新、`Attrs.parentBlockId` 锚到分支自己的父 block、源线程不变且分支 follow-up 无工具复活；前缀切点语义与一次真实锚泄漏已修正 |
-
-### FRT-02 最新证据
-
-本轮补做 Qwen 直接多模态融合，而不是只依赖模型切换场景的间接覆盖：BYOK key 经产品 API 探针和能力投影后选择 `qwen3.7-plus`，同一回合上传 98-byte PNG 与 2,969,360-byte MP4。recorder 两次独立进程都捕获了包含原始字节的 `image_url` 与 `video_url` native parts；回合完成，两个附件 HTTP 回读仍逐字节一致，未走 managed fallback 或文本占位。两次通过（12.93s、10.10s），未形成后端缺陷。
-
-同轮复探 OpenAI `gpt-audio` 的音频+agent 交叉边界：两次独立进程都把 WAV 作为原生 `input_audio` 送入首发，完成一次 `run_function` 后将结果回灌第二次 `/chat/completions`；recorder 同时钉住音频原始 base64 与 `tools`，durable history 保留 tool call/result/最终文本，附件字节不变。两次通过（11.18s、9.32s），未复现此前的瞬时 provider stall。
-
-同日复探 BYOK 文档/视频读侧当前配置：OpenAI `gpt-4.1-mini` 原生 PDF 与 Qwen `qwen3.7-plus` 视频连续两轮独立组合全绿（15.923s、15.675s）；PDF 仍经 native `file_data`/document wire，视频仍保留 `video_url` 与源附件字节，workspace 未安装 managed fallback，未形成 provider encoder 或文档/视频投影回归。
-
-模型切换回归哨兵随后再次通过：同一会话先由 Qwen `qwen3.7-plus` 接收 image+video，再切到 OpenAI `gpt-4.1-mini`；第二轮只保留 image native，video 明确降级为 capability 注记，两个源附件仍逐字节回读。两次独立进程通过（12.75s、10.26s），未复现历史 semantic backfill 关闭竞态或 `database is closed`。
-
-同日补做 OpenAI 图片历史与多图高频交互：`retry` 的无内容 regenerate 保留单一 user 行、追加 assistant 版本链，并让首轮与重试都携带 exact-byte `image_url`；编辑文字的 resend 同样重投影原图；同一回合两张图片各自保留附件并同时穿过原生线缆。首轮组合与独立多图补跑全绿（retry/edit 包 16.919s；multiple 7.687s），第二个三场景独立进程也全绿（包 48.955s；retry 37.54s、edit 7.56s、multiple 3.48s），未形成历史、附件或 part encoder 回归。
-
-随后复探 OpenAI 异构附件边界：同一回合的 image+WAV 与 image+MP4 均保持 image 的 exact-byte `image_url`，不支持的音频/视频被写成明确 capability note，原始 PNG/WAV/MP4 均逐字节可回读；两个独立组合进程全绿（16.351s、9.644s）。原生 PDF 路径也在两个独立进程中完成，recorder 观察到 file part/inline file_data，PDF 原件保持 540 bytes（9.593s、5.300s），未形成降级、附件或文档编码缺陷。
-
-同日补做 Qwen 方言三件套：`qwen3.7-plus` 单视频真实 BYOK 回合完成且 2,969,360-byte MP4 保持不变；同模型 image+video 同回合经 recorder 同时捕获 exact-byte `image_url`/`video_url`；`qwen3-omni-flash` image+WAV 遵守 `maxDistinctMediaKinds=1`，保留 image native、把 audio 变成明确约束注记而不发上游非法组合。两轮独立组合均通过（21.755s、16.582s），未形成 Qwen provider 方言或多模态降级缺陷。
-
-本轮 BYOK 多模态组合继续双跑：Qwen image+video 原生 `image_url`/`video_url`、Qwen image+audio 的单异构模态降级、Qwen→OpenAI 历史媒体重投影与 OpenAI `gpt-audio` 原生音频入口均稳定通过。音频+工具续接在组合第二轮出现一次“函数 ID 不存在”的模型选择红灯，但音频 exact bytes、两次请求与 tools 仍已到达；立即隔离同场景三跑全部通过（9.67s、7.48s、7.25s），未形成 provider wire、函数注册或历史投影缺陷。
-
-同日复探 OpenAI 同回合多图：两个独立进程都把两份 98-byte PNG 送入真实视觉回合，durable history 完成且两份附件逐字节回读（6.62s、5.51s）；BYOK workspace 未安装 managed fallback，未形成多 part 编码或附件列表投影回归。
-
-本轮再做 Qwen Omni image+WAV 当前双跑：同回合保留图片 native wire、把音频写成明确能力降级注记，两个附件分别 98 bytes/96,044 bytes 且逐字节可回读；两次通过（5.463s、3.647s），没有发非法组合、400 或 managed fallback。
-
-紧接着复探 Qwen `qwen3.7-plus` image+MP4 native fusion：两次当前回合都同时携带 exact-byte `image_url`/`video_url`（PNG 98 bytes、MP4 2,969,360 bytes），附件回读与 durable turn 闭合（5.463s、10.585s），未退化为文本占位或非法组合。
-
-本轮补做 BYOK 单模态对照：OpenAI `gpt-4.1-mini` native PDF 与 Qwen `qwen3.7-plus` native MP4 当前组合均通过（6.570s、9.230s；包 16.207s），源附件字节与 provider 选择闭合，没有 managed fallback 或文档/视频编码回归。
-
-随后复探 OpenAI multiple-image 当前双跑：同回合两份 98-byte PNG 都被 recorder 验证为原生 image parts，durable turn 与两个附件内容闭合（6.062s、5.632s），没有只发送第一张、文本占位或 managed fallback。
-
-同日复探 OpenAI image 与不支持的音频/视频异构组合：两轮独立组合均通过（13.416s、10.074s）；PNG 继续走 native image，WAV/MP4 被写成明确能力降级而不是发非法组合，三份附件源字节仍可逐字节回读，未触发 provider 400、managed fallback 或历史媒体丢失。
-
-同日补做 managed 读侧与多模态交叉独立进程：subagent 经 sandbox 读取 PDF、直接 `inspect_media` 图片、文本 bounded query、PDF+图片同回合，以及修复后的 PDF `read_attachment` oracle 共 5/5 通过（包总计 83.988s）；源附件均可回读，未出现 durable 读错、工具结果污染或多模态投影回归。
-
-随后复探 OpenAI `gpt-audio` 的交叉边界：单音频回合的 WAV 以 exact-byte `input_audio` 到达 recorder；音频+`run_function` 首轮保留音频与 tools，sandbox 结果回灌后第二次 `/chat/completions` 完成，durable history 同时保留 tool call/result/最终文本。两轮独立组合全绿（15.334s、12.211s），未形成音频 encoder、agent loop 或工具续接回归。
-
-本轮再做 OpenAI `gpt-audio` 当前双跑：AudioInput 6.330s、AudioToolContinuation 7.820s 均通过（包 14.766s），原生 `input_audio`、tools、函数结果回灌与 durable turn 仍闭合。
-
-Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview` 探针能力含 vision，PNG 经 Gemini contents/parts 完成 BYOK 回合，原始 98-byte 附件逐字节可回读；两次通过（7.085s、5.820s），未遇到 rate-limit，也未形成 Google native part 或 capability projection 缺陷。
-
-本轮再次复探跨 provider 模型切换：Qwen `qwen3.7-plus` 首回合把 image+video 的 exact bytes 送入 recorder；切到 OpenAI `gpt-4.1-mini` 后，历史只保留 image native，video 变成明确 capability note 且不发送其字节，两个附件仍可逐字节回读。两次独立进程通过（12.527s、11.959s），未形成历史语义回填、能力门控或 provider 路由回归。
-
-本轮补做 BYOK 文档/音视频读侧当前双跑：OpenAI `gpt-4.1-mini` 原生 PDF、Qwen `qwen3.7-plus` 原生 MP4、同模型 image+video native fusion，以及 Qwen Omni image+audio 的单异构模态降级均 2/2 完成；PDF/MP4/PNG/WAV 源件分别 540、2,969,360、98、96,044 bytes 逐字节回读，未发生 managed fallback、provider 400、文本占位或历史丢媒体。8/8 通过（PDF 7.36s/2.95s；video 6.31s/6.95s；image+video 6.66s/5.56s；image+audio 2.01s/2.02s；包 40.790s）；BYOK install skip 与 search/embedding teardown 噪声均属隔离/收尾预期。
-
-本轮独立复探 OpenAI 图片历史交互：无内容 `retry` 连续保留单一 user 行、assistant 版本指针与 exact-byte native `image_url`；编辑文字的 resend 继续从附件历史重投影同一原图，未重复 user、丢失附件或退化成 text-only。两条路径当前进程均通过（6.340s、4.810s；包 11.445s），未形成历史装配或 part encoder 回归。
-
-本轮再做能力降级与跨模型历史切换：OpenAI 图片+不支持音频（6.32s）与图片+不支持视频（4.84s）均只发送 native image、明确写 capability note，PNG/WAV/2,969,360-byte MP4 源件逐字节可回读；Qwen image+video 首轮后切 OpenAI `gpt-4.1-mini` 继续同一会话（9.31s），第二轮保留 image native、完全不带 video 字节并诚实降级。未形成 provider 400、managed fallback、历史媒体泄漏或能力门控回归。
-
-本轮补齐文档渲染与原生文档媒体对照：managed `anselm://media` 文档图片与 OpenAI BYOK 文档图片均将同一 98-byte PNG 送入真实 native image 路由；OpenAI BYOK 原生 PDF 以 540-byte file wire 完成；Qwen BYOK 原生视频以 exact-byte 2,969,360-byte MP4 完成。四项当前运行均通过，文档 URL 没有退化成 prompt prose，BYOK workspace 没有 managed fallback，源附件保持逐字节不变。
-
-本轮再次做 Qwen→OpenAI 的跨模型历史媒体切换：Qwen 首轮 recorder 同时观察到 98-byte PNG 与 2,969,360-byte MP4 的 exact native parts；切到 OpenAI `gpt-4.1-mini` 后第二轮只保留 image native，视频不带字节而变成明确 `no native video input` capability note。两轮 12.18s/8.93s 完成，两个附件 content 端点仍逐字节一致，BYOK workspace 未安装 managed fallback；未形成历史 backfill 竞态、能力投影或 provider renderer 回归。
-
-本轮继续做同回合与历史交互矩阵：OpenAI 图片 retry、edit-resend、多图与 Qwen image+video、image+audio 共 10/10 通过；retry 保留单一 user 行/assistant 版本链，edit-resend 继续发送同一 native image，多图不丢第二份；Qwen image+video 同时保留 exact native parts，image+audio 遵守能力上限，把音频写成明确降级而不发非法组合。两轮各项均闭合（包 46.670s），没有 managed fallback、provider 400、附件字节变化或历史媒体丢失。
-
-最新一次把 OpenAI 图片+不支持音频/视频与 Qwen chat-only agent 资格合并双跑：6/6 通过（包 24.797s）。两条 OpenAI 路径仍只发送 98-byte PNG native image，WAV 96,044 bytes 与 MP4 2,969,360 bytes 仅留明确 capability note 且源件逐字节可回读；Qwen chat-only 在 0 steps 失败，没有 tool call、execution ledger 或 managed fallback。BYOK harness 的 managed install skip 为预期隔离，不是失败。
-
-本轮再做 BYOK 当前凭证三路双跑：OpenAI 原生 PDF 经 `file_data`、Qwen `qwen3.7-plus` 视频经 `video_url`，两者附件与 durable turn 均闭合；OpenAI `gpt-audio` 则在首发/工具结果回灌两次 `/chat/completions` 中保持 exact `input_audio` 与 tools，最终文本和 function result 落盘。PDF 7.45s/3.46s、Video 6.73s/8.44s、Audio+tool 7.44s/6.57s，包 40.717s；BYOK workspace 的 managed install skip 是隔离预期，未发生 fallback、provider 400 或源附件变化。
-
-### FRT-03 最新证据
-
-本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
-
-本轮单独复探 OpenAI planner→managed writer 混合入口，两次均通过（15.11s、10.17s）：planner 的 tool-call/continuation 线缆保留，Anselm receipt 只铸一份真实 PNG，后续请求携带同一图片字节，managed/BYOK ownership 与附件回读闭合。
-
-同一轮再做 Qwen 原生下游对照：managed speech producer→Qwen `input_audio` 与 managed async video producer→Qwen `video_url` 分别 26.47s、135.89s 通过，真实 WAV/9,393,843-byte MP4 MediaRef、附件 content 与 provider wire 闭合；Google 的 429 窗口没有扩散到 Qwen 方言。
-
-随后把 viewer 方言扩展到 native Gemini 与 Qwen：managed image→Gemini inlineData 两次通过（56.34s、65.18s）；managed speech→Qwen audio viewer 两次通过（17.86s、18.55s）；managed async video→Qwen video viewer 两次通过（122.77s、119.56s，MP4 约 9.7MB/9.2MB）。每条路径都等待真实 MediaRef、回读原始附件并完成下游回合，未形成跨 provider 编码、异步等待或 ownership 回归。
-
-本轮补做 workflow 版本的 managed image→OpenAI BYOK viewer 当前双跑：上游 agent 仅执行一次 `generate_image`，flowrun 节点保留 MediaRef/receipt，附件 content 端点回读真实 PNG，下游 recorder 观察到同一 exact-byte native image part；两次通过（42.049s、35.691s），未形成 workflow 接线、ownership 或跨 provider 编码缺陷。
-
-紧接着复探 workflow 版本的 managed speech→Qwen BYOK audio viewer：上游只执行一次 `generate_speech`，WAV MediaRef 从 flowrun 节点落到附件 content，下游 Qwen recorder 收到同一 exact-byte `input_audio`；两次通过（20.557s、19.261s），未形成异步音频产物、ownership 或 input_audio 编码缺陷。
-
-随后复探 workflow 版本的 managed async video→Qwen BYOK video viewer：每个 flowrun 都等待真实视频 job 的 durable terminal，再把唯一 MP4 MediaRef 交给下游；附件 content 回读 9.19MB/12.71MB，recorder 观察到 exact-byte native `video_url`。两次通过（117.005s、130.147s），未形成长尾等待、重复提交、附件孤儿或跨 provider video 编码缺陷。
-
-本轮补上 workflow 的三类非媒体直写 producer→OpenAI viewer 对照：managed function、resident handler、stdio MCP 各自只铸一份 MediaRef，flowrun 节点与 producer source 闭合，OpenAI recorder 收到同一 exact-byte image part；function/handler 源 PNG 各 98 bytes，MCP 源附件 196 bytes。三条分别 19.35s、14.64s、14.80s 通过，未形成 producer ownership、workflow ledger、MCP/handler/function 接线或跨 provider renderer 回归。
-
-本轮再做 OpenAI BYOK planner→Anselm managed image writer 混合入口两次：planner 只发一次工具请求，managed 只铸造一份真实 PNG receipt/附件，续接请求把同一图片字节送回 BYOK recorder；两轮 13.15s、10.18s 完成，没有重复生成、receipt-only 占位或 ownership 串线。
-
-本轮把 workflow producer→viewer 的跨 provider 组合再做真实双跑：managed image→OpenAI BYOK vision、managed speech→Qwen `input_audio`、managed async video→Qwen `video_url` 均 2/2 完成。两轮耗时分别为 image 39.46s/36.65s、speech 33.41s/22.12s、video 126.28s/200.81s；每条都从 durable flowrun/MediaRef 到附件 content 与 recorder exact-byte native part 闭合，未见重复提交、receipt-only、异步孤儿或 ownership 串线。
-
-### FRT-04 最新证据
-
-2026-07-30 新增聊天可观测闭环：首轮对话经 `search_tools` 发现并调用 `trigger_workflow`，等待真实 run 完成后，下一轮再经 `search_tools` 发现 `get_flowrun`，读取同一 completed `flowrunId`；`origin=chat`、`conversationId`、函数节点 marker 与 assistant 最终回答均保留。两次真实 managed 复跑通过。
-
-同日补充失败诊断闭环：首轮触发故意失败的 workflow，下一轮经 `search_tools` 发现 `search_flowruns` 找到 `status=failed` 的 run，再发现 `get_flowrun` 读取节点错误；`origin=chat`、错误 marker 与 assistant 的 failed/失败回答均保留。初次探索曾因模型偏离精确 `workflowId` 得到一次 `workflow not found`，增加实体读回与逐字 ID 约束后两次规范复跑通过，归类为模型参数遵循观察而非稳定后端缺陷。
-
-同日补充人在环闭环：聊天触发的 webhook workflow 先在 `human` approval 节点 durable park，第二轮只经 `search_tools`→`get_flowrun` 读取 parked 状态，第三轮才经 `search_tools`→`decide_approval(yes)` 恢复并完成下游 publish；两次真实 managed 复跑均保留 `flowrunId`、审批决策、completed 状态与下游 marker。
-
-同日补充失败 run 的聊天 replay 闭环：首轮经 `search_tools`→`trigger_workflow` 启动带稳定前缀与常驻 flaky handler 的 workflow，handler 首次失败后 durable 记录 `origin=chat` 的 failed run；第二轮只经 `search_tools`→`get_flowrun` 读取 failed 节点，第三轮经 `search_tools`→`replay_flowrun` 恢复同一 `flowrunId`。replay 复用已完成的 stable 节点、只重跑失败 handler，随后 finish 节点完成；function execution 与 handler call ledger 均证明稳定前缀/finish 各一次、handler 恰一次 failed + 一次 ok。两次真实 managed 复跑通过（53.730s、50.552s）。首轮断言曾错误假设列表按时间正序，实际公开列表默认最新在前；改为校验 append-only 状态计数后通过，未形成后端缺陷。
-
-同日补做 workflow producer→viewer 的真实 managed 产物链：image producer→managed viewer 与 speech producer→managed viewer 各自只生成一次真实 MediaRef，下游节点在同一 flowrun 中消费并完成；PNG（约 1.07–1.12MB）与 WAV（80,684 bytes）均可从附件端点回读，音频仍按默认模型能力诚实降级。两次独立组合均通过（首轮 101.747s、复跑 81.150s），未出现 receipt 文本冒充媒体、重复生成或附件丢失。
-
-随后复探异步 video producer→managed viewer：两次独立真实 managed flowrun 均完成，下游拿到 producer 的同一 MP4 MediaRef，源视频可回读（7.18–10.94MB），无重复生成、孤儿 receipt 或 viewer 只读到文本。两轮通过（132.522s、119.756s），确认长尾异步等待和同 run 线缆仍闭合。
-
-同日复核 gateway-side 观测边界：`Anselm-API-Serve` 的 tagged full-stack e2e 在真实 `router → middleware → SQLite → upstream` 装配上通过，覆盖 install/chat/quota、Qwen 多模态、tool loop、stream/non-stream settle、额度/预算、拒绝 rollback、异步图像/语音/视频、混合模态与 debug 计费。部署公网面只返回规范化 completion、quota 和 liveness；`/metrics`、`/readyz`、pprof、expvar 均由独立 loopback admin listener 提供，原始 provider body/header/key 按设计不出端。因此 FRT-04 的用户可见媒体/flowrun/附件证据已闭合，但“部署公网可录制原始 provider wire”不能在不改变 API Serve 安全边界的前提下补齐，不能把该缺口伪装成已覆盖。
-
-本轮 workflow 跨 provider 观看链再次双跑通过：image producer 的真实 PNG 进入 OpenAI native image part，speech producer 的 WAV 进入 Qwen native `input_audio`，异步 video producer 的 MP4 进入 Qwen native `video_url`；三个下游回合都建立在同一 flowrun 的 durable completed 与附件 content 上，未把 receipt 文本当媒体。该证据补强 FRT-04 的下游请求/产物一致性，但不改变公网不暴露 raw provider wire 的边界。
-
-同日复跑 workflow 用户附件融合的 manual-trigger 入口：上传 PDF+PNG+MP4 后，payload 经 trigger → CEL → managed agent 完整穿线，flowrun completed；agent 从 PDF sandbox 提取唯一 token，同时保留三份 MediaRef，源字节分别为 552、98、2,969,360 bytes。两个独立 backend 进程通过（63.203s、62.185s），未形成 workflow 或多模态产品缺陷。
-
-同日补做 chat 入口的同形 payload：managed 对话经 `search_tools` 发现 `trigger_workflow`，把 PDF+image 的 webhook-shaped body 交给 workflow agent；两次独立复跑均保留 `origin=chat`、`conversationId`、flowrun completed、PDF token 与两份 MediaRef（560-byte PDF、98-byte PNG），证明从 chat 工具进入不会绕过或削弱 workflow 的多模态接线。
-
-同日补做外部 webhook 入口：真实 `POST /api/v1/webhooks/{triggerId}/{path}` 接收 PDF+image body，flowrun 以 `origin=webhook`、正确 `triggerId` 完成，agent 经 `start.body.*` 读取 PDF token 并保留 555-byte PDF 与 98-byte PNG。两个独立 backend 进程通过（31.469s、24.281s），manual/chat/webhook 三入口均未形成产品缺陷。
-
-同日复跑 producer→viewer 的异步资源方向：managed workflow 先经 `generate_video` 提交并轮询真实 gateway job，再把视频 MediaRef 交给下游 managed viewer；两次独立复跑均 flowrun completed，最终 MP4 可回读（11,165,527 bytes、10,657,043 bytes），viewer 读取的是实际产物而非 receipt-only 占位。单次耗时约两分钟，符合异步视频任务的真实延迟，未形成产品缺陷。
-
-同日补做 speech producer→managed viewer：workflow 生成真实 WAV 后交给下游默认 managed agent；两次独立复跑均 flowrun completed，WAV（80,684 bytes）可回读，viewer 对 chat audio 维持诚实降级而未伪造转录或 native audio 能力，未形成产品缺陷。
-
-同日补做 image producer→managed viewer：workflow 上游只调用一次 `generate_image` 生成真实 PNG MediaRef，下游 managed agent 消费同一产物后 flowrun completed；两次独立进程均能从 attachment content 端点回读完整 PNG（1,115,024 bytes、1,096,630 bytes），viewer 不是只看到 receipt 文本，未发生重复生成或媒体丢失，未形成产品缺陷。
-
-本轮对 workflow 用户多模态融合做三入口当前窗口复探：manual trigger 的 PDF+PNG+MP4 进入 managed agent 并回读 552/98/2,969,360 bytes，webhook 入口保留 `origin=webhook`/`triggerId` 并回读 555/98-byte PDF/PNG，chat→`trigger_workflow` 保留 `origin=chat`/`conversationId` 并回读 560/98-byte PDF/PNG；三条 flowrun 均 completed，PDF token、PNG/MP4 MediaRef 与源字节闭合，未出现入口特有的 payload/CEL 或媒体映射回归。
-
-本轮再补 workflow image producer→OpenAI BYOK viewer：上游 managed image、flowrun node、MediaRef attachment 与下游 OpenAI recorder 的 exact-byte image part 在两个当前独立进程均闭合（42.049s、35.691s）；这条混合 ownership 入口没有把生成 receipt 当作媒体，也没有因跨 provider 重投影而丢图。
-
-紧接着复探正向对照：两轮 `search_tools→trigger_workflow` 各一次只产生一个 completed run，`origin=chat` 与 `conversationId` 可审计；下一回合 `search_tools→get_flowrun` 各一次返回 completed 节点结果和 `CHAT_FLOWRUN_OBSERVABILITY_7B2D`，助手文本与 durable 投影一致。40.19s/32.00s 双跑未见重复 run、跨会话读取或 marker 丢失。
-
-本轮复探聊天入口 workflow 的故意失败→诊断链：两轮均由 `search_tools→trigger_workflow` 恰一次启动单一 failed run，公开 flowrun 保留 `origin=chat`、原始 `conversationId` 与 `CHAT_FLOWRUN_FAILURE_C1A9` 节点错误；下一回合再由 `search_tools→search_flowruns(status=failed)→get_flowrun` 各一次读取同一 run，助手文本复述 failed/marker。该当前窗口双跑（47.63s、42.45s）没有重复 run、错误丢失或跨会话泄漏。
-
-本轮复探同一 flowrun 内的 managed producer→managed viewer：image producer→viewer 两轮 58.44s/56.70s 完成，PNG content 1,095,190/1,098,489 bytes；speech producer→viewer 两轮 31.94s/22.83s 完成，WAV content 73,004/80,684 bytes。四次 flowrun 均 durable completed，下游消费的是同一 MediaRef 而非 receipt 文本，audio viewer 继续诚实降级；未见重复生成、附件孤儿或异步结果丢失。
-
-本轮再做长尾 async video producer→managed viewer 双跑：两轮各只提交一次 `generate_video`，flowrun 分别在 268.05s/171.02s 后才 durable completed，下游回读的同一 MediaRef MP4 为 8,552,829/7,348,559 bytes。没有提前终态、重复提交、receipt-only 占位、迟到附件或 viewer 只读文本；耗时差异归属于真实 gateway job 窗口，未暴露 workflow scheduler、恢复或附件 ledger 缺陷。
-
-本轮再补 workflow speech producer→Qwen BYOK viewer：上游 managed WAV、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `input_audio` 在两个当前独立进程均闭合（20.557s、19.261s）；该音频入口没有把 receipt 当作内容，也没有因跨 provider 重投影而丢失源字节。
-
-本轮再补 workflow async video producer→Qwen BYOK viewer：上游 managed video、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `video_url` 在两个当前独立进程均闭合（117.005s、130.147s）；长尾 job 的等待与清理均收口，没有把 receipt 文本冒充视频，也没有迟到孤儿产物。
-
-当前窗口重新覆盖用户多模态 workflow 的三条入口：manual trigger、真实 webhook 与 chat→`trigger_workflow` 各自把 PDF+PNG+MP4 送入 managed agent。三条 flowrun 分别 67.54s、26.44s、43.16s 完成；PDF token 经 sandbox 抽取，PNG/MP4 MediaRef、`origin`/`triggerId`/`conversationId` 与 552/555/560-byte PDF、98-byte PNG、2,969,360-byte MP4 源字节均可审计回读。未形成入口特有的 payload/CEL 装配、provenance 或多模态映射回归。
-
-同日复探聊天入口的 workflow 生命周期组合：默认 managed chat 先发现并调用 `trigger_workflow`，随后分别通过 `get_flowrun` 读取 completed run、通过 `search_flowruns(status=failed)` 加 `get_flowrun` 诊断 durable 节点错误、再调用 `replay_flowrun` 恢复同一失败 run。三条路径在两个独立进程中全部通过（包总计 134.638s、126.102s）；`origin=chat`、`conversationId`、节点错误、已完成节点不重跑与 function/handler execution ledger 均闭合，未形成后端缺陷。
-
-本轮再做 workflow 控制面独立组合：`ChatFlowrunFailureDiagnosis`、`ChatFlowrunApprovalDecision`、`ChatFlowrunReplay` 各自当前进程通过（47.010s、45.660s、45.430s；包 138.878s）。失败节点的检索、审批停泊/决定/恢复、replay 的已完成前缀复用与 function/handler ledger 均闭合，没有把模型文本当作状态真相，也没有重复执行。
-
-本轮再做纯 managed workflow 产物链当前复探：image producer→managed viewer、speech producer→managed viewer 与异步 video producer→managed viewer 均完成（46.36s、39.01s、109.29s；包 195.530s）。每条 flowrun 的 producer receipt/MediaRef、下游消费与 attachment content 闭合，PNG/WAV/8,944,565-byte MP4 均为真实可回读内容；没有把 receipt 文本冒充媒体、重复生成或让长尾视频停在非终态。
-
-同轮复探聊天 workflow 控制面四件套：observability、failure diagnosis、human approval park→decide、failed replay 分别在 36.04s、45.96s、49.01s、55.46s 完成（包 187.106s）。真实 flowrun/interaction/node error 与 function/handler ledger 均闭合，replay 仅重跑失败节点，未发现模型文本与 durable 状态不一致。
-
-同轮再复探用户附件融合的三入口：manual trigger、外部 webhook、chat→`trigger_workflow` 分别承载同一 PDF+PNG+MP4 payload，均完成真实 managed agent flowrun（56.45s、17.28s、44.67s；包 118.840s）。三路的 origin/provenance、chat `conversationId`、webhook `triggerId`、PDF sandbox token、三份源字节与终态均闭合，没有入口特有的媒体丢失或路由漂移。
-
-同日复探 workflow managed image→Gemini native viewer：上游 painter 已完成并留下 `generate_image` receipt、MediaRef 与真实 PNG，flowrun 的 viewer 节点耐久落 `failed`，错误为 `llm: rate limited (429)`。该次没有暴露 flowrun、MediaRef 或附件装配缺陷；Google 原生视觉仍保留为 provider rate-window 缺口，不能把它计为稳定绿格。
-
-同日的 Qwen 原生 speech/video viewer 对照均 completed：speech 26.47s、video 135.89s，异步视频等待到 durable terminal 后再验证 9,393,843-byte MP4 和 `video_url`；两条路径均无重复提交、receipt-only 或跨方言丢媒体。
-
-本轮用当前部署默认 API 对用户多模态 workflow 三入口做双跑复核：manual、外部 webhook、chat→`trigger_workflow` 各 2/2 完成（manual 57.69s/54.58s、webhook 29.25s/25.19s、chat 35.24s/35.28s；包 237.823s）。PDF sandbox token、PNG/MP4 exact bytes、flowrun terminal 与三路 provenance（origin/triggerId/conversationId）均闭合，没有入口专属媒体丢失、错误拆回合、CEL 漂移或重复产物。
-
-本轮对聊天 workflow replay 单独做当前窗口双跑：两轮均先由 `search_flowruns(status=failed)`/`get_flowrun` 读取 durable 失败节点，再由 `replay_flowrun` 沿同一 `flowrunId` 恢复；stable 前缀与 finish 各一次，flaky handler 恰一次 failed+一次 ok（54.01s、51.35s）。该恢复体验与三入口多模态链互不干扰，没有重复节点、孤儿 run 或旧终态复活。
-
-紧接着复探 human approval：两轮 chat workflow 都在 `human` 节点 durable park，停泊期间下游没有提前 publish；`decide_approval(yes)` 后仅恢复一次下游 action，interaction/decision、flowrun、function/handler ledger 与父回合均 completed（48.79s、43.29s）。审批状态与 replay/多模态入口共享同一耐久控制面，未形成重复恢复或旧终态复活。
-
-本轮单独复探聊天 failure→replay：两轮均先由聊天工具读取 `status=failed` 的 durable run，再调用 `replay_flowrun`；stable prefix 只保留一次，flaky handler 各有一次 failed 与一次 ok，finish/父回合最终 completed，`origin=chat` 与 conversation provenance 保持闭合。两轮 60.93s/43.48s 通过（包 105.092s），未见重复稳定节点、孤儿 run 或旧终态复活。
-
-本轮跨仓复核 `Anselm-API-Serve` 完整网关门禁时，裸命令先因宿主 `go` 1.26.2 与 Go 1.25.11 的 `GOROOT/缓存` 混用，在标准库阶段报版本不匹配；随后用 mise Go 1.25.11、临时 `GOCACHE` 和清理后的环境复跑，vet/build、全仓 race/unit、integration e2e、golangci-lint（0 issues）与 docs lint（35 files/0 warnings）全部通过。该次把“环境工具链漂移”与 gateway 代码回归分开，未形成 FRT-04 的 router/stream/quota/媒体底座缺陷；sibling 工作树保持 clean。
-
-### FRT-07 最新证据
-
-本轮对 managed 音色全生命周期做当前双跑：参考 WAV 朗读后，`enroll_voice` 均出现 danger interaction 并完成批准，登记可见；克隆音色随后真实朗读并产出第二份 WAV，最后删除后 `/voices` inventory 归零。两轮 43.93s/40.48s（包 84.993s），源/克隆附件可逐字节回读，无句柄、receipt 或媒体孤儿；继续证明 speech denial 的时序红灯不代表公共 voice/TTS 路由回归。
-
-同窗口再做 realtime ASR 对照双跑：两次均真实连接 `/speech/asr`，发送 100ms PCM16/16k/mono 二进制帧并收到 `session.finished`，没有 error event 或把静音帧误作转写；4.88s/2.13s（包 8.069s），说明 voice writer/enroll/delete 与输入 transport/session lifecycle 没有共享层回归。
-
-本轮先把语音输入与音色全生命周期放在同一 managed 组中复探：realtime ASR 独立通过（10.01s），但首个 `EnrollSpeakDelete` 进程在等待 60s 内没有得到 `enroll_voice` danger interaction，测试在审批断言前退出，未提交登记任务，不能把该红灯误判成库存、异步状态或删除语义缺陷。随后将生命周期场景隔离并以两个独立进程复跑，均完整通过危险审批→异步登记→克隆音色合成→删除，耗时 44.75s、54.67s；voice inventory/上游句柄和最终本地清理均闭合。当前结论是受管模型/网关时序可靠性哨兵，保留首轮 60s stall 证据，未改生产代码。
-
-随后单独复探 realtime ASR：proof-bound WebSocket 接受 100ms PCM、完成 finish，并从部署网关收到 `session.finished`（1.69s）；未把静音帧误当成转写语义，传输与会话生命周期闭合。
-
-本轮再做 deployed gateway 音色全生命周期单样本：参考朗读 WAV、danger approve、异步登记完成、克隆音色合成与删除后的 inventory 收口均通过（46.397s）；源/克隆音频附件可回读，未形成异步登记、句柄映射、库存或清理孤儿。
-
-本轮语音生命周期再复探全绿：realtime ASR WebSocket 在 4.77s 收到 `session.finished`；音色路径在 39.78s 完成参考/克隆 WAV 回读、danger approval、异步 enroll、删除与 inventory 归零（357,164/337,964 bytes），没有上游句柄或附件孤儿。
-
-本轮再做语音输入与音色生命周期当前窗口复探：`speech/asr` 5.57s 成功收口；voice enroll→cloned speak→delete 40.85s 完成，源/克隆 WAV 357,164/337,964 bytes 可回读，删除后 `/voices` inventory 归零。未形成 proof-bound ASR 会话、句柄映射、音频附件或清理回归。
-
-本轮沿语音 danger 面做音色生命周期双跑：两轮均稳定出现 `enroll_voice` interaction 并完成 approve→异步登记→克隆朗读→删除，源/克隆 WAV 均为 357,164/337,964 bytes，删除后 `/voices` inventory 归零（39.83s、38.53s）。结合正常 `generate_speech` 2/2 通过，这说明当前红灯集中在“生成语音拒绝前模型是否发起 danger 请求”的 managed 工具遵循/stream 时序，而不是 voice broker、上游句柄、附件存储或清理语义的共享故障；不改生产代码。
-
-随后复探 proof-bound realtime ASR：两轮 WebSocket 均接受 100ms PCM16/16k/mono 帧并收到 `session.finished`（4.88s、1.98s），没有 error event；测试只验传输与 session lifecycle，不把静音输入当作转写内容。语音输入面保持闭合，未见与 managed 语音写入或 danger gate 相关的共享层回归。
-
-### FRT-08 最新证据
-
-同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。
-
-本轮再做朗读缓存/并发去重/quota 三项当前组合：顺序缓存、同 key 并发双发与 quota 快照均通过（9.780s、5.700s、1.520s；包 17.635s），共享附件与单次 quota 增量仍闭合，没有因音色生命周期复探引入重复扣费。
-
-同日再次对 managed 朗读做真实双跑：顺序缓存与并发 dedup 两条都通过（组合 18.784s、16.756s），quota 变化、共享附件和换文本新产物均符合预期；没有重复消费或缓存穿透。
-
-本轮再次独立复探朗读与语音入口：顺序缓存、并发相同 key 去重和 realtime ASR 共 3/3 通过（包 18.649s；cache 10.19s、concurrent 5.97s、ASR 1.69s）；quota delta、共享附件与 `session.finished` 均闭合，未出现重复消费或资源孤儿。
-
-本轮在 voice 生命周期之后再做朗读成本闸：顺序缓存、同 key 并发 dedup 与空闲 quota 各自通过（10.48s、5.63s、1.70s；包 18.743s），同文本不重复消费、并发响应共享附件且 quota 只增加一次，未形成缓存穿透或账本漂移。
-
-同日补做 managed quota 设置面 fresh smoke：两个独立新 workspace 都读到自洽的 live `limit/used/remaining`、`available=true` 与 RFC3339 `resetAt`（5.158s、3.667s），没有触发模型或生成消费；配额投影当前没有回归。
-
-本轮控制面双跑补验证 key/quota 相关边界：API key rotation 保留默认模型并能恢复、managed key 的 API format/探针投影、空 capability workspace 隔离、limits reset/patch 与 loopback host/bearer 门均通过；未 provisioning 的 quota 404 通过，而真实 quota 消费子探针在无可用 managed 消费时按合同结构化 skip，不把缺少消费前提伪造成绿灯。
-
-本轮再次独立双跑朗读成本边界：顺序首读真实合成、同文本同音色复用同一 WAV 缓存、换文本产生新附件并可回读；同 key 并发双请求返回同一附件、一个响应标记缓存命中且 quota 只增加一次。`ReadAloudCache` 10.50s/7.07s、`ReadAloudConcurrentDedup` 5.47s/5.06s，包 28.931s；没有重复扣费、缓存穿透或附件孤儿。provider wire 仍以 API Serve 的产品可见 quota/attachment 投影为证，不臆造公网不可见的 raw wire 计数。
-
-本轮单独复探 managed 配额控制面：两个新 workspace 都等待 managed key 与默认模型完成 provision，再从产品 API 读取 `/freetier/quota`；两轮均返回 `limit/used/remaining` 自洽、`available=true`、RFC3339 `resetAt`，未触发模型或生成消费。该结果补足了 voice/朗读成本证据之外的 fresh-install quota 投影，没有形成配额代理或隔离回归。
-
-本轮把语音写入与成本共同层再做当前双跑：`generate_speech` 两轮各只执行一次并落真实 80,684-byte WAV；顺序朗读首次合成、同文本同音色命中同一附件且 quota 不变、换文本生成新附件；并发同 key 双请求共享一附件且 quota 只增加一次；空闲 workspace quota 快照的 `limit/used/remaining/resetAt` 均自洽。8/8 通过（GenerateSpeech 15.02s/9.36s；ReadAloudCache 7.24s/7.50s；ConcurrentDedup 5.23s/4.95s；Quota 1.31s/1.71s；包 53.228s），未见重复扣费、缓存污染、附件孤儿或 receipt-only；provider raw wire 仍不由部署公网暴露。
-
-### FRT-09 最新证据
-
-同日复探 managed 高风险消费闸：`generate_speech` 与异步 `generate_video` 均先出现 danger interaction，客户端明确拒绝后回合完成；两轮独立进程均未进入合成、未铸造 provider receipt、未增加 generation reservation/quota。两轮整组通过（28.254s、27.967s；第二轮视频拒绝 11.64s），确认拒绝路径不会因上游窗口或重复点击而产生隐形消费，未形成产品缺陷。
-
-同日再探批准后取消边界：视频任务在批准并提交后由客户端 `:cancel`，本地回合落 cancelled，历史与附件查询均不出现迟到视频或孤儿 receipt；底层 `generate_video` 的取消 WARN 是任务进程被杀后的可解释噪声。首轮在审批前 60s 未出现 interaction，随后两次隔离复跑完整通过（15.89s、31.58s），将红灯归类为 managed/provider 瞬态而非稳定产品回归。
-
-同日复探直接 managed 生成低成本路径：`generate_image` 与 `generate_speech` 各自只执行一次，receipt 均标注受管 provider，PNG/WAV 真实附件可逐字节回读，回合完成且没有重复工具调用。两轮独立组合均通过（包 42.248s、44.673s；首轮 image 31.46s、speech 10.01s；复跑 speech 9.31s），未形成生成路由或成本闸回归。
-
-同日复探编辑与动画专用写路径：`generate_image → edit_image` 两条 receipt 各恰一条，编辑 receipt 的 `sourceAttachmentId` 指向生成 sibling 且两份图片字节不同；文字-only `animate_image` 经过 danger approval 后走独立异步动画路由，source lineage 保留、单一真实 MP4 可回读。两轮独立组合均通过（包 207.653s、211.655s；动画分别 9,644,957 与 18,423,870 bytes），未形成编辑血缘、审批或异步产物孤儿。
-
-本轮成本/人闸组合首个 managed 进程中，`generate_video` 拒绝、朗读顺序缓存、并发去重与 quota 均通过；`generate_speech` 首次未在 60s 内出现 danger interaction。将语音拒绝场景隔离后得到一绿一红（20.04s、64.62s）：绿色路径确认拒绝不铸造 receipt/不扣 quota，红灯仍停在 interaction 出现前，没有提交上游合成或状态断言。结合既有音色/视频审批复探，当前保留为 managed 模型/网关时序哨兵，不改成本或审批后端。
-
-同日继续复探 denial continuation：语音成本闸再次在 60s 内缺失 danger interaction；视频两次均出现 danger interaction，deny 请求均返回 204，但正式断言各在 180s 内看不到回合终态。一个临时黑盒诊断进程在相同拒绝路径中捕获了完整 durable 序列 `tool_call → tool_result(The user denied...) → reasoning/text`，约 21.45s completed，且没有 generation receipt、附件或提交证据；因此把两类红灯保留为 managed 模型/上游流式续接时序哨兵，下一步应优先取得 gateway/stream request-level 观测再决定是否修产品层，不改成本闸或 broker。
-
-紧接着做批准后的语音生成对照：`generate_speech` 连续两个独立 managed 进程各只调用一次，真实 WAV 可回读、receipt 标注 `provider=anselm` 且回合 completed（13.56s、10.70s）。这证明生成 route、artifact store 与 receipt ledger 没有随 denial 复探发生共享层回归；当前待查仍局限在 danger deny 后的 managed stream continuation 时序。
-
-随后将视频 denial 场景隔离复探一次：danger interaction 正常出现，deny 204 后约 16s 完成，quota projection 可读，历史没有 `generate_video` receipt 或附件。该绿灯与此前两次 180s 非终态并存，继续把红灯归类为 managed/upstream stream continuation 时序波动，不改 broker、reservation 或计费实现。
-
-紧接着语音 denial 也在隔离进程中完成同一合同：interaction→deny 204→约 17s completed，历史没有 `generate_speech` receipt，quota 没有消费。当前视频/语音两条最新拒绝路径均有绿灯，对此前的长尾红灯只保留为时序哨兵与后续 gateway request-level 观测线索，不再把它们视作稳定后端 defect。
-
-当前窗口重新抽样语音 danger-gate：三跑仅 1/3 在 13.03s 进入 interaction 并完成拒绝，另外两轮在 65.38s/61.45s 内始终为空；用正确 `source ../.env` 的独立校准同样在 64.18s 超时。所有红灯都停在模型尚未提出 `generate_speech` 审批，未触达合成、receipt、附件或 quota 断言。紧邻的直接 `GenerateSpeechArtifact` 双跑 2/2 通过（12.18s、11.15s），真实 WAV、`provider=anselm` receipt 与 content 闭合，进一步把问题收窄为 managed 模型工具遵循/stream 时序哨兵，而不是 speech route、danger broker 或 reservation ledger 缺陷。
-
-本轮补做当前窗口的直接 managed `generate_video` writer：首轮完整通过 danger approval→一次异步 gateway submission→durable completion，唯一 MP4 为 4,104,553 bytes，receipt 恰一条且标注 `provider=anselm`；双跑第二轮在审批后遇到 `api.anselm.website` DNS 暂时无法解析，回合以 `LLM_STREAM_ERROR` 结束，失败没有触及本地 MP4、receipt 或 attachment 断言。紧接着单独 re-probe 恢复并以 149.90s 通过同一 artifact/receipt 合同，故当前记为 2 次成功 + 1 次可定位上游 DNS 瞬态，不改视频 writer、danger gate 或 durable ledger。
-
-同日复探批准后异步视频取消：danger approve 后观察到 gateway submission，再发 `:cancel` 204；父回合落 `cancelled`，随后等待仍没有本地 video receipt 或迟到附件。底层任务被杀时的 `tool execute failed` WARN 是取消噪声，durable/history/attachment 语义保持正确，未形成资源孤儿或重复消费缺陷。
-
-本轮独立复探 managed 写入面：`generate_image` 铸造 1,100,089-byte PNG，随后 `edit_image` 仅生成一个不同 sibling（1,670,170 bytes）并保留源附件指针；text-only `animate_image` 经 danger approve 进入独立异步动画路由，保留首帧 lineage 并回读 4,961,161-byte MP4。三项同一进程全绿（包 220.230s），未出现重复工具调用、孤儿附件或 receipt-only 结果。
-
-随后补做批准后的直接 `generate_video`：danger interaction→approve 后只提交一次异步任务，等待 gateway durable terminal，回合 completed，唯一 4,314,423-byte MP4 content 可回读且 receipt 恰一条。当前进程通过（102.77s；包 103.475s），未形成重复生成、迟到附件或取消/异步资源回归。
-
-本轮成本/资源控制面当前组合再次全绿：`generate_speech` deny 14.09s、`generate_video` deny 9.88s 均在 interaction→deny 后 completed 且无 receipt、附件或 quota 消费；video approve→submit→cancel 13.92s 返回 204，父回合 durable `cancelled` 且无迟到 MP4/孤儿；空闲 workspace quota 1.26s 返回自洽快照。未形成 danger gate、reservation rollback、异步取消或 quota projection 回归。
-
-本轮对同一视频成本/资源闸做双跑复核：`generate_video` danger deny 两轮均在提交前完成，历史没有 receipt/附件且 quota 没有额外 generation reservation；approve 后观察到真实 gateway submission，再发 `:cancel` 的两轮均返回 204，父回合 durable `cancelled`，延迟查询仍无 MP4、迟到 receipt 或孤儿附件。取消时出现的底层 tool failed WARN 是任务进程关停噪声，不改变 durable 终态；未形成 denial rollback、提交后取消或资源卫生回归。
-
-本轮再做高风险控制面三件套：语音与视频 danger deny 分别 16.36s、11.16s 完成，拒绝后无 receipt/quota；视频批准后提交再取消 10.86s 完成，父回合落 durable `cancelled` 且无迟到 MP4/附件。三条均未形成成本闸、broker 或异步资源孤儿。
-
-随后对同一 managed 图像写入链做当前窗口复探：独立 `generate_image` 回读 1,101,958-byte PNG；`edit_image` 保留 1,083,251-byte source sibling 并产出 1,677,425-byte 不同 edited sibling；文字-only `animate_image` 经 danger approval 进入异步路由，源 lineage 保留且唯一 7,026,354-byte MP4 可回读。三项分别 28.85s、77.03s、131.39s 通过，未出现重复 receipt、迟到产物或孤儿附件；动画中段的高频 messages 轮询最终正常收口，不构成 durable 卡死。
-
-本轮对同一 managed 写入资源链做当前窗口双跑：`generate_image` 29.00s/25.12s 各只铸一份 PNG，`edit_image` 78.45s/81.48s 保留 source sibling 并产出不同 edited sibling，文字-only `animate_image` 115.72s/118.49s 经 danger approval 进入异步 job 并最终只生成一份 MP4。六次 flowrun/receipt/MediaRef/content/terminal 全部闭合，没有迟到重复、receipt-only 或孤儿附件。
-
-随后把动画写入从 text-only 对照推进到真实图像首帧：`TestLiveManaged_AnimateImageArtifact` 两个独立进程均把上传 PNG 作为 `animate_image` source attachment，经过 danger approval 后各只铸一份可回读 MP4，receipt 保留 `provider=anselm` 与 `sourceAttachmentId`（118.90s、115.40s；包 235s）。图像→视频的多模态装配、异步 terminal 与 source lineage 当前均闭合，没有重复提交或附件孤儿。
-
-本轮再做 `generate_speech` danger-gate 隔离双跑：一轮 65.01s 内始终没有 interaction，另一轮 10.58s 完成 deny 204 后 completed；绿跑确认无 synthesis receipt/attachment/quota 消费，红跑仍停在模型未发起审批之前。该 1/2 结果与既有 speech writer/voice lifecycle 绿证据一致，继续归类为 managed tool-following/stream timing 哨兵，而非 FRT-09 的成本闸或 ledger 缺陷。
-
-本轮补做 managed 语音 writer 对照：两轮 `generate_speech` 均只调用一次，真实 80,684-byte WAV、`provider=anselm` receipt 与 attachment content 闭合（15.02s、9.36s）；与同批顺序朗读缓存、并发去重和 quota 双跑一起 8/8 通过。该结果继续把此前 danger deny 红绿分叉收窄到模型/stream 时序，不支持 gateway、reservation 或 artifact ledger 缺陷结论。
-
-随后复探直接 managed `generate_video` artifact 双跑：两轮都完成 danger approval、一次异步 gateway submission 与 durable completed，唯一 MP4 分别为 3,010,585 / 4,261,660 bytes，receipt 与 attachment content 一一对应；sandbox 收尾均清空，没有重复提交、迟到产物或孤儿。两轮 139.03s/113.76s 全绿，关停时本地 embedding `context canceled` 仍仅是 lexical fallback 噪声，不改变视频 writer 或资源卫生结论。
-
-紧接着复探高风险控制矩阵时，语音拒绝出现可重复但非每轮一致的 danger-gate 红灯：组合双跑中 `GenerateSpeechDeniedNoSpend` 为 0/2（64.71s、61.78s），视频拒绝、视频批准后取消与 quota 分别为 2/2；将语音场景隔离后为 1/2（13.53s 通过、61.42s 在 60s 内未出现 interaction）。轮询期间 interaction 始终是空列表，失败停在模型没有发起 `generate_speech` danger 请求，未进入合成、receipt 或 quota 断言。正常 `GenerateSpeechArtifact` 紧接着 2/2 通过（11.46s、8.31s），真实 WAV、`provider=anselm` receipt 与附件路径闭合，因此当前结论仍是 managed 模型工具遵循/上游 stream 时序稳定性哨兵，而非 gateway danger、reservation 或 artifact ledger 缺陷；不改生产代码。
-
-### FRT-01 最新证据
-
-同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
-
-同日再复探支持/不支持模态交叉：默认 managed 同一回合携带 PNG 与 WAV，能力面继续只宣称 vision、不宣称 chat audio；两次独立进程均完成，PNG（98 bytes）与 WAV（96,044 bytes）原样回读，音频以诚实降级留在产品边界，没有把整回合变成 gateway 400 或伪造 native audio。关停阶段的 embedder `context canceled` 仍为已知噪声。
-
-随后复探 managed 附件历史生命周期：一条路径在第二轮省略 `attachmentIds` 仍通过历史 re-projection 继续使用首轮图片，另一条路径删除首轮图片后 content 端点正确 404，后续对话仍 completed 且没有把已删媒体冒充为可读内容。两轮独立组合均通过（包 21.646s、16.020s），源 PNG 保持字节一致，未形成附件归属、lease、删除或历史装配缺陷。
-
-本轮把 FRT-01 的多模态写入侧补到真实图像首帧动画：上传 PNG 先作为 `animate_image` source attachment 进入同一 managed 回合，danger approval 后异步产出单一 MP4，source attachment lineage 和可读 content 均保留；两轮（118.90s、115.40s）均完成，没有把图像退化成文本提示或产生第二份产物。
-
-同日补做附件生命周期哨兵：同回合两张独立图片均可回读；首轮消费图片后删除附件，后续回合面对 404 仍把历史媒体明确降级为 missing attachment 而完成；另一条会话在首轮带图后省略 `attachmentIds` 继续追问，历史媒体重新投影后仍完成且源字节不变。三条场景在两个独立 managed 进程中均通过（包总计 30.287s、29.376s），没有 400、孤儿媒体或跨回合丢失；关停阶段偶见 search embedder `context canceled` 仍归类为已知 shutdown 噪声。
-
-同日再做附件删除/历史重投影两条最小组合的独立进程复探：删除后的历史回合继续诚实产出 missing-attachment 注记，省略 `attachmentIds` 的后续回合仍从历史投影得到原图语义，源字节守卫均通过。两轮组合均全绿（18.790s、19.490s），未形成生命周期回归。
-
-同日复探 `inspect_media` 的参数下沉：图片 crop+high detail、视频 `startMs=1000/endMs=2000`、音频 `startMs=1200/endMs=2600` 均能返回带范围/模式/usage 的 bounded metadata capsule，PNG/MP4/WAV 源字节均未变。首轮三项组合通过（56.66s/16.15s/16.71s，包 90.245s）；第二个组合在音频项出现一次可区分的模型拒答——lazy 目录卡只暴露了必填参数，模型误以为 `startMs/endMs` 不在 schema。将时间窗能力前移到 `inspect_media` 目录卡首行并加离线断言后，音频时间窗两次独立真实复跑通过（30.93s、17.25s），确认是发现面提示缺口而非执行层不支持。
-
-同日补做大文本读取三件套：对 136,890/116,043/157,248-byte 级别的文本附件，managed 模型分别真实完成 `read_attachment` 的 query、显式 compact index 与省略控制参数的 auto-index；每条返回均保持 bounded，query/index 没有把正文整段泄漏到回合，源附件仍可逐字节回读。两轮独立进程三项全通过（首轮包 42.727s，Query/Index/AutoIndex 为 13.86s/7.88s/20.36s；复跑包 30.145s，Index/AutoIndex 为 7.52s/9.45s，Query 亦通过），没有再出现参数类型校验警告或隐式全文投影。
-
-同日复探文本 `inspect_media` 的两个 bounded 形状时，首轮真实暴露了同一 lazy 目录卡缺口：`read_attachment` page 通过，但模型把 `inspect_media` 误读为只有 `attachmentId/question`，拒绝 page/limitChars，且 offset-window 只能走默认 12,000 字符窗口并找不到位于目标 offset 的 token。执行层 schema 本来已声明这些可选字段；将 `page/offset/limitChars` 与时间窗一起前置到首行后，两个场景连续两轮独立进程完成（首轮 20.59s/17.60s，包 38.479s；复跑包 38.252s），均返回 bounded 证据且源文本不变，确认是发现面提示问题而非 extractor/分页实现缺陷。
-
-同日把直接 `inspect_media` 的图像、音视频证据补成完整组合：图片普通视觉、crop+high detail、2×3 tiles，以及视频普通/`1000–2000ms`、音频普通/`1200–2600ms` 七条路径均在真实 managed 回合完成；参数出现在 tool result 的 bounded evidence/capsule 中，音视频保持 metadata-only 合同，所有 PNG/MP4/WAV 源附件逐字节不变。两次独立进程组合均通过（135.017s、113.666s），未形成媒体检查或参数下沉缺陷。
-
-本轮再做默认入口附件高频组合：单图、文本+图、多图、删除附件后的历史降级、保留附件的跨回合重投影，以及文档内图片引用，首轮与第二个独立进程均 6/6 通过（包 38.941s、48.030s）。PNG/文本源件均可回读，删除只产生诚实的 missing-attachment 注记，历史重投影没有跨回合丢图或占位 receipt；关停阶段的本地 search embed `context canceled` 仍是已知噪声。
-
-随后复探默认 managed 的音视频能力矩阵：纯 WAV、image+WAV、MP4、MP4+WAV、image+MP4、text+MP4、text+WAV、text+image+MP4 八条入口首轮与第二个独立进程均 8/8 通过（包 251.428s、257.708s）。支持的 image/video 分支保持 native/字节保真，不支持的 audio 只形成明确降级注记，三模态同回合不拆回合、不产生 400 或伪造音频理解；源 MP4（2,969,360 bytes）与 WAV（96,044 bytes）均可回读。
-
-本轮再做 managed 音视频与时序边界第二独立组合：视频+不支持音频、文字+图片+视频三路融合、视频/音频时间窗 `inspect_media` 共 4/4 通过（包 119.233s）；PNG、MP4、WAV 源字节均可回读，时间窗结果保持 bounded metadata，未出现 provider 400、错误转录或能力投影退化。
-
-紧接着复探 `inspect_media` 工具面十条路径：图片普通/crop/high-detail/tiles、视频普通与时间窗、音频 metadata 与时间窗、文本 query/page/window，两次独立进程均 10/10 通过（163.419s、189.649s）。工具结果保持 bounded，音视频只返回 metadata capsule；首轮文本 query/page 出现过模型漏填必填 `question` 的校验警告但随后自我修正，复跑无警告，未形成后端执行或参数下沉缺陷。
-
-本轮再做附件/文档读取长尾组合：`list_attachments`、纯文本、PDF、PDF+图片、PDF 工具读取，以及大文本 query/index/auto-index/page 共九条路径中七条首轮通过（129.417s）。PDF 工具路径实际先用 `attachmentId` 触发 `id is required`，随后用正确的 `id` 成功抽取 token；原断言漏看 block 的 `tool` 属性，已在 `4e33cd6a` 修正并由真实 managed 复跑通过（22.94s）。默认大文本 auto-index 在组合中一次触发 `MAX_STEPS_REACHED`，隔离后两次均通过（15.42s、27.17s），因此仍归类为模型参数纠错/步预算窗口信号；query/index/page 与源字节保真均成立。
-
-同组第二个独立组合的七条稳定路径再次 7/7 通过（包 76.492s）：附件发现、纯文本、PDF、PDF+图片与大文本 query/index/page 均完成，PDF/PNG/文本源件逐字节保持；多条测试仍可见模型先传错 `id` 字段后自行修正的校验警告，但没有持久化或读取结果回归。
-
-本轮再做默认入口附件生命周期与多图独立复探：同回合两张 PNG 均被真实消费；删除首轮附件后 content 端点正确 404，后续回合只保留诚实 missing-attachment 注记；省略 `attachmentIds` 的跨回合追问仍从历史投影恢复原图语义，源 PNG 字节不变。两个独立进程三项均通过（包 22.576s、22.677s），未出现 400、孤儿附件、占位 receipt 或历史丢图。
-
-本轮补做附件/文档支撑面的 contract 双跑：CAS 相同内容只保留一份 blob 且 REST content 可回读，文档 attach scope/iterate 与 children duplicate/move 保持父子关系，软删后名称冲突被守住，音频 playback lease 正确续租/释放，聊天对不支持模态维持诚实降级；6 个场景共 12/12 通过（包 16.314s），未见跨 workspace 泄漏、重复 blob、租约孤儿或错误 400。
-
-本轮对普通 managed 聊天附件/融合/历史做当前双跑：纯文本附件直接投影并回答，PDF+PNG 同回合完成 sandbox/视觉消费，text+PNG+MP4 三模态保持同一回合完成，跨回合省略新 `attachmentIds` 仍从历史重投影原 PNG。8/8 通过（Text 9.27/5.19s、PDF+image 10.60/10.14s、三模态 43.93/40.92s、history 8.26/7.20s；包 136.288s），源附件 content、durable turn 与能力降级均闭合，未形成 400、媒体丢失、重复回合或占位文本。
-
-本轮继续把附件读取工具面做当前双跑：`list_attachments` 先发现双附件，PDF 经 sandbox `read_attachment` 抽取，136k/116k/157k 级文本分别走 bounded query、显式 compact index、默认 auto-index，78k 级文本走 page window；12/12 通过（第一轮 10.97/11.27/9.08/9.55/21.12/32.51s，第二轮 7.01/16.23/10.51/12.44/12.53/31.70s；包 185.489s）。工具返回保持 bounded，父回合续接完成，源附件可回读，没有正文无界泄漏、schema 漂移或读取结果孤儿。
-
-本轮补做默认 managed 直接 chat 多附件矩阵双跑：text+image+video、PDF+image、video+unsupported-audio、multiple images 共 8/8 通过；PDF/PNG/MP4/WAV 源件均逐字节可回读，WAV 按能力面转为明确注记而非非法 native audio，三模态回合保持单一 durable turn completed。各场景耗时 PDF+image 14.07s/10.11s、video+audio 40.26s/45.30s、text+image+video 41.99s/42.45s、multiple image 6.08s/7.71s，包 208.839s；未见 400、拆回合、媒体丢失或路由漂移。
-
-本轮继续复探同一 direct-reader 多模态读侧的高频交叉：`image+unsupported-audio` 两轮均完成，vision 保持 native 路由、audio 只留下明确 capability 降级；`text+image+video` 两轮均在单一 durable turn 完成，text/PNG/MP4 源件 80/98/2,969,360 bytes 经 content 端点逐字节回读。4/4 通过（Image+audio 10.03s/6.63s；text+image+video 41.97s/42.26s；包 101.837s），未见非法 native audio、400、拆回合、占位文本或媒体丢失；关停阶段 embedding `context canceled` 仍是已知 shutdown lexical fallback 噪声。
-
-本轮补做 managed 默认文档主路径当前双跑：单 PDF 两轮均确认 `anselm-auto` 保持 `nativeDocs=false`，sandbox 抽取唯一 token 后 durable completed；PDF+PNG 融合两轮同时保留 PDF token 与 vision 输入，PDF/PNG content 分别 540/548、98 bytes 均逐字节一致。4/4 通过（PDF 13.37s/8.04s；PDF+image 11.27s/10.37s；包 43.779s），未见原生文档误投、400、占位文本、附件变形或错误回合。
-
-随后做 direct-reader 与 subagent-reader 的对照双跑：TXT 与 PDF 各两次均由 `general-purpose` child 真实读取，PDF 路径明确使用 sandbox `read_attachment`；父层没有偷调，唯一 token 通过 child→parent 回传，74-byte TXT 与 544-byte PDF 源件保持逐字节不变。4/4 通过（Text 37.84/23.67s、PDF 21.25/28.10s；包 111.653s），未形成代理上下文投影、PDF 抽取或父回合终态缺陷。
-
-### FRT-05 最新证据
-
-同日补充真实并行子代理树闭环：父聊天只派两个独立 `general-purpose` 子代理，两个子任务各自经 `search_tools`→`run_function` 执行不同 function；两个 child message 都以不同 `parentBlockId` 锚回父级 `Subagent` tool_call，父回合同时收到两个 marker 且没有直接调用 `run_function`。两个 function execution 各恰一条 `status=ok`、`triggeredBy=agent` 记录，并绑定同一 conversation 与 child message。探索阶段一次上游 502、两次测试 oracle 校准（模型先纠正缺失 `subagent_type`；执行台账结果字段为 `output` 而非 `result`）均未形成产品缺陷；校准后两次真实 managed 复跑通过（93.71s、76.33s）。关停阶段的本地 search embedder `context canceled` 仍归类为 shutdown 噪声。
-
-同日补上真实嵌套失败证据：父聊天只派一个 `general-purpose` 子代理，子代理经 `search_tools` 发现 `run_function` 并调用一个必然抛错的 function；失败 execution 记录 `status=failed`、`triggeredBy=agent`、同一 `conversationId/messageId`，错误 marker 同时留在子消息树与父 `Subagent` tool result，父回合仍以 completed 结束且没有越权的父级 function 调用。两次真实 managed 复跑通过（49.94s、55.356s），补足 FRT-05 原先仅 mock 的失败续接证据，未形成后端缺陷。
-
-同日补上真实嵌套取消证据：父聊天派出 `general-purpose` 子代理，子代理进入一个 60 秒 function 后，客户端按真实 `:cancel` 动作中止父回合；取消接口返回 204，父消息与带 `SubagentID` 的子消息均落 `cancelled`，function execution 恰一条、`status=cancelled`、`triggeredBy=agent` 且绑定 child `messageId`，同一对话的 follow-up 完成且没有复活旧 tool call。修订后的真实 managed 复跑通过两次（55.39s、53.93s）。初次探索曾等待 REST `/messages` 出现子代理的 streaming tool block，128.65s 后超时；期间历史端点只返回父侧短投影，直到子回合自然终态才批量出现嵌套 blocks。改用与 UI/SSE 等价的定时取消，再从 durable history/ledger 验证终态，证明这是 REST 历史投影的批处理边界而非取消后端缺陷。取消时 `run_function` 的底层进程组被杀并留下 `spawn process failed` WARN，但 durable/wire 语义正确；该日志目前归为可解释的取消噪声，不计稳定产品 bug。
-
-同日补上失败 subagent 树的真实分叉：child 的 function 真实落一条 `failed + triggeredBy=agent` execution，错误 marker 与 completed child row 随 latest fork 携带，消息级 `parentBlockId` 重定基到分支自己的 `Subagent` tool_call；分支 follow-up 不复活失败工具、ledger 仍只有一条 execution，源历史不变。首轮探索只暴露了测试按最新在前历史过早校验 parent anchor 的 oracle 顺序问题，改为先收集全部 block 再验证后，两次真实 managed 复跑通过（62.26s、36.45s），未形成 backend 缺陷。
-
-同日补上取消 subagent 树的真实分叉：父/child 通过真实 `:cancel` 都落 `cancelled` 后，latest fork 保留 child 的 terminal 状态与重定基后的 `parentBlockId`；底层 function ledger 仍恰一条 `cancelled + triggeredBy=agent`，分支 follow-up 不复活在途工具。两次真实 managed 复跑通过（54.58s、54.88s），关停时偶见 search embedder `context canceled`，归类为 shutdown 噪声。
-
-同日补充并行子代理的跨回合上下文续接：首轮两个 child 均完成后，第二轮用户追问只要求复述两个 marker；父回合在不调用任何工具的情况下逐字恢复两份结果，历史仍保留恰两个 completed child、原 `parentBlockId` 锚点和两条唯一 `agent/ok` function execution。两次真实 managed 复跑通过（74.62s、59.65s），未形成后端缺陷。
-
-同日补做单子代理附件消费三件套：文字附件由 child 读取并回传唯一 token，PDF 由 child 经 sandbox `read_attachment` 抽取 token，图片由 child 通过 `inspect_media` 产生 bounded evidence；父层均不偷调、源附件保持字节不变。首轮组合中文字/PDF 通过（32.11s/31.37s），图片链连续两次快速收到 managed `LLM_PROVIDER_ERROR (502)`，随后隔离重跑在长尾约 105.077s 完整通过；直接父层 `inspect_media` 对照也通过（20.394s），故当前把 502 归类为 subagent→nested-vision 的上游瞬态/长尾，不宣称稳定 backend 缺陷。第二个独立组合进程三条均通过（包 124.774s），FRT-05 仍保留该红绿分叉供后续 gateway/模型变更时复探。
-
-同日复探子代理 managed image writer 时，低步预算下出现新的真实可靠性信号：三次独立进程中两次以 `MAX_STEPS_REACHED` 终止（17.901s、60.827s），共同伴随模型先传非法 `subagent_type` 的 schema warning；一次通过（52.834s）并确实只有一条 `generate_image` receipt、真实 PNG 可回读。红灯均发生在 durable image/receipt 断言之前，未观察到附件孤儿或重复生成，因此暂归为「模型参数纠错消耗父层 maxSteps=3」的 managed/tool-schema recovery 边界，而非已证实的存储或媒体后端缺陷；该红绿频率保留为后续提示词/预算/模型升级的回归哨兵。
-
-同日复探子代理音视频时序边界：两个独立 managed 进程中，general-purpose child 均真实调用 `inspect_media`，视频回传 `kind=video/mode=metadata/startMs=1000/endMs=2000`，音频回传对应 `kind=audio/mode=metadata/startMs=1200/endMs=2600`；父层没有偷调，父回合完成，MP4/WAV 源字节均原样回读，未伪造 transcript。两轮组合均通过（包 130.455s、136.764s），未形成产品缺陷。
-
-随后做子代理附件读取的对照复探：同一真实 managed 进程内，`general-purpose` child 分别读取 text 与 PDF，前者回传唯一 token，后者经 sandbox `read_attachment` 回传唯一 token；父层没有直接调用附件工具，两个源附件都逐字节保持不变，父回合均完成。组合包通过（115.530s；PDF 子场景 31.34s），说明前述 image writer 的两红一绿更像媒体写入路径叠加低 `maxSteps` 与模型 schema recovery 的可靠性边界，而不是通用 subagent/attachment read 缺陷。
-
-本轮对失败 subagent 树的 fork 做当前窗口双跑：一轮保留唯一 completed child、`failed + triggeredBy=agent` execution、`FORK_FAILED_SUBAGENT_6D21` marker 与父 `parentBlockId`，fork 后可继续且不复活失败工具；另一轮模型先发非法 `subagent_type`，随后重复派遣，源历史落两个 child，严格“只派一个”断言在 fork/ledger 后续检查前结束。红跑仍可见真实 child failure 与父层错误结果，没有稳定的 execution、锚点、孤儿或终态损坏证据；继续作为 managed schema recovery/duplicate-dispatch 哨兵，不改生产代码。
-
-本轮把同一 workflow producer→viewer 交叉面扩展到三种非 agent 产物：managed function、resident handler 与 stdio MCP 各自生成 MediaRef，再由 OpenAI BYOK vision viewer 接收并验证原始字节。三条路径首轮和第二个独立组合均通过（包 49.855s、48.202s；各单项约 13–20s），没有把产物降成 receipt 文本，也没有跨 workflow 或跨 provider 丢失附件；FRT-03/FRT-05 的 producer 共同层未形成回归。
-
-本轮把并行子代理四项状态机组合拆成独立复测：聚合运行包在 248.957s 结束为 FAIL，其中 `SubagentCancelTerminal` 仍通过，取消 204、父子消息/函数 execution 均落 `cancelled`；`ParallelSubagentTrees` 独立通过（69.80s），两个 child、两个不同 `parentBlockId`、两个 marker 与各自唯一 function execution 均闭合。`SubagentFunctionFailureContinues` 连续两个独立进程均红，但红法不同：一次子代理拒绝调用预期失败函数，另一次没有产生 child execution；父回合都能 completed，却未满足测试要求的“确实执行一次失败函数并把 marker 带回”。`ParallelSubagentContextContinues` 一次独立进程通过（64.57s），另一次在模型先拒绝/重试后生成 4 个 durable child（两个重试 child + 两个最终成功 child）而非测试期望的 2 个，两个 marker 与函数执行本身均正确。当前证据指向 managed 模型的工具可用性判断、提示注入/安全拒绝与重试遵循波动，不是 backend 的孤儿、重复执行或锚点丢失；保留为 FRT-05 可靠性哨兵，不改生产代码，后续在模型/提示词/步预算变更时复探。
-
-最新同一组合独立复跑重新全绿：`SubagentFunctionFailureContinues` 确实产生 `failed + triggeredBy=agent` execution，错误 marker 经 child message 与父 `Subagent` tool result 续接，父回合 completed；`ParallelSubagentContextContinues` 的两个 child 均完成，下一轮无工具 follow-up 逐字恢复两个 marker，历史锚点与各自 function execution 均闭合。该包 110.627s 全部通过，推翻不了前述红绿波动的事实，但进一步支持其为 managed 模型工具遵循/重试时序哨兵，而非已确认的 backend 状态机缺陷；继续保留低频复探，不改生产代码。
-
-本轮重新复探子代理 image writer：两次独立 managed 进程均最终只执行一条 `generate_image`，PNG receipt 与 content 端点闭合，父回合 completed（56.913s、60.863s）。第二次仍出现一次非法 `subagent_type` 的 schema warning 后自我修正，但没有步数耗尽、重复生成或附件孤儿；这降低了当前红灯频率，却继续证明该项应作为模型 schema recovery/步预算哨兵保留，而非宣称后端缺陷已修复。
-
-本轮对同一子代理 image writer 做当前双跑：两轮均在一次非法 `subagent_type` 校验警告后自纠，最终只执行一条 `generate_image`，父层 receipt 标注 `provider=anselm`，PNG content 分别为 1,085,802/1,087,873 bytes，父回合均 completed。没有 `MAX_STEPS_REACHED`、重复 receipt、迟到附件或媒体孤儿；该项继续表现为可恢复的 managed schema-recovery/步预算信号，而不是已证实的 backend writer 缺陷。
-
-本轮再做子代理媒体读侧当前双路径：video 与 audio 附件各由 general-purpose child 真实调用 `inspect_media`，分别回传 bounded temporal metadata，父层无偷调，原始 MP4/WAV 字节可回读，child execution/message 与父回合闭合。两项通过（97.380s、31.740s；包 129.945s），未形成媒体读取或子代理接线缺陷。
-
-随后补图片对照：general-purpose child 真实调用 `inspect_media` 取得 bounded image evidence，父回合续接、源 PNG 字节与 child execution/message/`parentBlockId` 均闭合（30.198s）；本次未复现 nested-vision 502、Explore 越权或媒体孤儿。
-
-本轮再做子代理失败/取消/媒体写入窗口：故意失败函数两次都真实执行并把错误标记经 child 与父层带回，但严格父层单次派发断言两次都被模型先发非法 `subagent_type` 后纠正击穿；取消一轮在 30s settle 窗内未同时观察父/子 terminal、另一轮完整通过；子代理 image writer 两次都只铸一份真实 PNG。该组包级失败不包含稳定的 ledger、锚点、孤儿或媒体状态异常，继续归类为 managed schema recovery/stream 时序可靠性哨兵。
-
-最新窗口把上述两条红绿边界拆开复探：故意失败续接为 1/2，绿跑保持 child 的 failed execution、错误 marker 与父回合 completed；红跑再次由非法 `subagent_type` 后的 `Plan`/`general-purpose` 重复派发与安全拒绝触发 `parentSubagentCalls=2`，在 durable child 断言前结束。取消终态则 2/2 通过，真实 `:cancel` 204 后父/child 与唯一 agent execution 均落 `cancelled`，follow-up 不复活工具；非法 schema 与取消后的 `spawn process failed` 仅为关停/模型时序 WARN。当前仍没有 function ledger、`parentBlockId`、孤儿或终态后端缺陷证据，继续保留为 managed reliability sentinel。
-
-随后把实际函数名为 `ParallelSubagentTrees` 的并行树单独双跑：两轮均只创建两个 child，各自 function execution 恰一条，两个 `parentBlockId`、marker、父回合续接与 `agent/ok` ledger 一一闭合（64.93s、61.39s；包 126.967s）。未复现此前重复派发或跨树串线。
-
-随后复探 stdio MCP 产物→workflow 下游 viewer：MCP producer 的单一 PNG MediaRef 穿过 agent node，workflow 结果保留 `mcp_media` source 与 attachment id，附件 content 端点回读真实图片，OpenAI BYOK viewer recorder 收到同一原始 image part。两次独立 hybrid 进程通过（18.418s、16.672s），未形成 producer ownership、workflow node 或跨 provider 编码缺陷。
-
-紧接着做 function producer 的对称复探：managed function execution 只铸一份 PNG MediaRef，flowrun 节点和 producer source 保持闭合，OpenAI BYOK viewer recorder 收到 exact-byte image part，附件可回读。两次独立 hybrid 进程通过（19.034s、16.626s），未形成 function artifact ownership、workflow 接线或跨 provider 编码缺陷。
-
-本轮把 managed 失败续接单独做 clean `-count=3`：只有 1/3 严格通过。两次红灯的 durable 形状不同，一次父层先发非法 `subagent_type` 后自纠，留下两个 `Subagent` tool call；另一次 child 能找到函数但声称工具集中没有 `run_function`，因此没有 child execution。唯一绿灯确实留下单条 `failed + triggeredBy=agent` execution，错误 marker 同时存在于 child message、父 `Subagent` result 与最终文本。结合此前成功复跑，红灯指向 managed 模型的 schema recovery/工具发现与安全拒绝时序，而非稳定的 execution ledger、父锚点、孤儿或终态后端缺陷；不改生产代码，继续保留为可靠性哨兵。
-
-最新一次把同一失败续接哨兵独立双跑：两轮都在严格 `parentSubagentCalls=1` 断言处失败（52.13s、62.50s）。第一轮父层先发缺失/非法 `subagent_type`，网关返回 schema 校验错误后再发 `general-purpose`；第二轮先发 `Explore` 后再纠正为 `general-purpose`。两轮可见 block 都包含一个 corrected child 的 `run_function` 故意失败结果，`SUBAGENT_FUNCTION_FAILURE_8B2D` 被 child 与父层保留，且 `directFunctionCalls=0`、父回合完成；测试因此尚未进入 execution ledger/tree 的后续断言。当前仍只把它记作 managed 模型 schema recovery/重复派发时序哨兵，不宣称 durable 后端缺陷，也不改生产代码。
-
-最新一次把子代理取消终态单独双跑：两轮 `:cancel` 都返回 204，但严格哨兵均未在 30s settle 窗内完成。第一轮最终输出显示父/child `cancelled` 与 `run_function` 的 `context canceled`，更像 REST 历史投影晚于取消动作；第二轮模型先错误选择 `Plan`、再纠正为 `general-purpose`，两个 child 都在取消前拒绝/完成，父回合已取消但没有 child `cancelled`。测试因此未进入 function execution ledger 与 follow-up 复活守卫；当前把它保留为 managed 工具拒绝/重试叠加取消 settle 的可靠性哨兵，不宣称取消后端 ledger 或孤儿缺陷，也不改生产代码。
-
-紧接着做取消树的 fork 对照：两次真实 managed 运行都在 `:cancel` 之后成功 fork；source 的 cancelled child、`parentBlockId` 与单条 `agent/cancelled` function execution 被完整复制并只在 fork 内重定锚，fork follow-up 完成且没有复活工具，source history 长度不变（57.36s、52.38s；包 110.752s）。第二轮先出现一次非法 `subagent_type` warning，但最终分支耐久语义仍闭合；这把 EVO-779 的红灯进一步收窄到取消时 live settle/模型拒绝时序，而非 fork remap、ledger 去重或终态持久化缺陷。
-
-最新一次把并行子代理跨回合上下文独立双跑重新做 clean：两轮首回合均只产生两个 child，两个 function execution 各一条；follow-up 父回合没有任何工具调用，却逐字恢复两个 marker，原 `parentBlockId`、child message 与 `agent/ok` ledger 均闭合（92.82s、65.53s；包 158.660s）。当前没有复现 EVO-710 的 6-child 重试树，说明 durable context projection 与去重底座仍健康；此前红灯继续保留为 managed 模型工具发现/安全拒绝/重试遵循波动，而非稳定后端缺陷。
-
-本轮再次复探并行子代理的跨回合上下文：clean `-count=2` 两个独立 managed 回合都在 follow-up 后的 child-tree 数量断言处失败，模型先拒绝或重试 `search_tools`/`subagent_type`，最终 durable history 含 6 个 child 而不是测试要求的 2 个；一轮能同时保留两个 marker，另一轮则出现一个 child 拒绝执行而父层诚实报告。此前只读诊断在 follow-up 前看到各 function 恰一条、另一次隔离运行通过，当前没有稳定的后端重复 execution、孤儿、锚点丢失或终态复活证据；因此继续把它归类为 managed 模型工具发现/安全拒绝/重试遵循哨兵，不改生产代码。
-
-再补 resident handler producer：每次 handler 调用各自铸一份 PNG MediaRef，flowrun/producer source、节点与附件 content 保持闭合，OpenAI BYOK viewer 收到同一 exact-byte image part。两次独立 hybrid 进程通过（20.866s、16.635s），未形成 handler 调用级产物串线、ownership、workflow 或 provider 编码缺陷。
-
-三类 producer 复探后执行 backend 常规代码门禁：`make -C backend verify` 全绿，覆盖编译、vet、race/unit 与领域包测试；当前没有证据表明本轮多媒体、会话血缘或资格边界工作引入代码级回归。
-
-本轮做 managed 子代理状态矩阵：失败续接、并行树、取消终态以及成功/失败/取消树 fork 共六项中，取消与三类 fork 全部通过；失败续接一次因模型先发非法 `subagent_type` 后纠正而多派一次，严格 parent-call 计数未满足；并行树一次出现同一 function、conversation 与 child message 的两条 `status=ok` execution。随后并发树隔离 clean `-count=2` 两次通过（64.91s、61.49s），没有复现重复 execution；父/child durable 状态、锚点和终态没有稳定异常。该红灯继续作为 managed schema recovery/重复派发时序哨兵，不改生产代码。
-
-本轮再做子代理媒体/文档消费组合：text 与 PDF child 分别真实读取并回传唯一 token，父层没有偷调，74/544-byte 源附件可回读；子代理 image writer 首轮在父层 `maxSteps=3` 下因非法 `subagent_type` 自我纠错耗尽步数并落 `MAX_STEPS_REACHED`，随后同一测试两次独立运行均各执行一条 managed `generate_image`、PNG content 可回读。该红绿分叉与既有 image writer 证据一致，继续保留为模型 schema recovery/步预算哨兵，不改生产代码。
-
-本轮补做 support 生态的真实双跑：MCP 5 次调用的 cursor 分页保持 3 页、ID 无重复，未知字段在 AddServer 前即落 `INVALID_REQUEST`；将 `mcpCallSec` 热调到 1 秒后，慢工具返回 `MCP_TOOL_TIMEOUT` 且 call ledger 为 timeout。relation read/list 与 diff-sync、notification durable 投影、search settings 校验也全部通过，6 个场景两轮共 12/12（包 42.418s）。关停阶段偶见 search engine `context canceled`/lexical fallback 日志，但没有改变 API 或 durable 断言，归类为测试服务 shutdown 噪声。
-
-本轮补做实体执行面 contract 双跑：agent invoke 的 wall-clock timeout 与 mount health matrix、嵌套 human loop、flowrun entry/decide/error 读写，function 的 cursor/unknown-field/env lifecycle/version-cap trim，以及 handler 的 cursor/soft-delete/resident/config merge-patch/revert/iterate 全部闭合。11 个场景共 22/22（包 86.083s），没有 execution/environment 泄漏、错误版本复用或软删穿透。
-
-本轮隔离复探失败 subagent 续接为一绿一红：绿跑真实只派一次 `general-purpose` child，失败函数留下 `failed + triggeredBy=agent` execution，`SUBAGENT_FUNCTION_FAILURE_8B2D` 同时经 child 与父 `Subagent` result 续接，父回合 completed；红跑先发非法 `subagent_type=general`，网关明确拒绝后模型再发合法 `general-purpose`，严格 `parentSubagentCalls=1` 在后续 ledger/tree 断言前失败。红跑 corrected child 仍执行故意失败、父层无直接 function 调用且 marker 保留；当前没有新的 durable execution、锚点、孤儿或终态证据，继续作为 managed schema-recovery/duplicate-dispatch 哨兵。
-
-随后复探取消终态也呈一红一绿：红跑模型先派 `Plan` 子代理并被工具集拒绝，再派 `general-purpose`；取消 204 后历史出现一个 completed refusal child 与一个 cancelled child，严格 30s parent/child settle 未满足。绿跑则完成父/child `cancelled`、唯一 `agent/cancelled` execution、follow-up 无工具复活。两轮的红灯均停在模型选型/REST settle 观察边界，没有新的 durable ledger、孤儿或终态损坏证据。
-
-本轮对 managed 子代理的多模态消费面做当前双跑：图片 child 真实执行 `inspect_media` 并把 bounded vision evidence 交回父层；视频 child 返回 `kind=video/mode=metadata` 且保留 1000–2000ms 时间窗；音频 child 返回对应 `kind=audio/mode=metadata` 且保留 1200–2600ms 时间窗。6/6 通过（Image 29.87/26.32s、Video 97.09/93.03s、Audio 27.05/26.50s；包 300.627s），每轮均由 `general-purpose` child 执行、父层没有偷调或伪造 transcript，98-byte PNG、2,969,360-byte MP4、96,044-byte WAV 仍逐字节可回读，未形成 nested vision、temporal metadata、parent continuation 或媒体孤儿回归。
-
-本轮把子代理 temporal 读链与文档读链分别做当前窗口双跑：video/audio child 均真实调用 `inspect_media`，保留 1000–2000ms/1200–2600ms bounded metadata，父层无偷调、无伪造 transcript，源 MP4/WAV 字节不变（EVO-798：Video 99.26s/95.21s、Audio 27.02s/26.72s；包 248.836s）；text/PDF child 则分别回传唯一 token，PDF 经 sandbox `read_attachment`，父层没有直接读附件且源文件不变（EVO-799：Text 38.57s/25.54s、PDF 26.39s/22.21s；包 113.319s）。四条路径的 child message、父 `Subagent` result 与 durable completed 终态均闭合，未形成跨模态投影、时间窗、附件归属或 nested continuation 回归。
-
-本轮再次复探并行子代理跨回合上下文：第一次尝试因隔离 PATH 漏掉 macOS `/usr/sbin/ioreg`，managed provision 被 harness 明确跳过，未进入产品断言；补齐系统路径并钉定 Go 1.25.11 后，两次真实 managed 运行均通过（84.70s、75.64s；包 161.089s）。两 child 各执行一次 function，下一轮父回合无工具调用却逐字恢复两个 marker，历史仍只有两个 completed child、原 `parentBlockId` 和两条唯一 `agent/ok` execution。模型偶发非法 `subagent_type` 警告后自纠，但没有形成重复 child、孤儿或终态缺陷；该次把 PATH/onboarding 误报与 managed 工具 schema recovery 分开。
-
-本轮补上子代理 contract 三件套的当前双跑：父模型的下一轮历史排除 child 内部 reasoning、保留 child 最终答案；Explore/Plan/general-purpose 工具白名单与 Explore 30 轮上限的 `max_steps` 终态闭合；conversation override 只改变父回合，subagent 仍落 workspace dialogue 队列并将答案回灌父层。6/6 通过（包 24.289s），未形成 trace 泄漏、递归工具、模型串线或终态缺失；contract harness 的 managed install 失败和 search teardown 日志不影响断言。
-
-本轮补上 contract 取消终态对照：`SubagentCancelTerminal` 双跑均在父 `:cancel` 204 后观察到父消息与 child sub-message 的 durable terminal，child 的 `run_function` 以 `context canceled` 收口，未留 streaming/pending。两轮均在 `LLMMock` 的 30s 故意 stall 连接上看到 `httptest.Server.Close` 等待约 5s，随后随 graceful shutdown 收口；这是 fake handler 不监听 request context 的 teardown 噪声，不是 backend ledger、孤儿或终态缺陷（包 77.469s），不改生产代码。
-
-随后执行本轮收尾的 backend 全量黑盒总闸：`testend/scenarios` 用时 354.459s 全绿，覆盖 focused 复探触及的 chat/agent/subagent、workflow/trigger、附件/文档与多模态、MCP/function/handler、provider wire、取消/恢复、会话 lineage、quota 与资源卫生；没有把 managed 模型时序哨兵、provider rate window 或 harness teardown 噪声误判为稳定产品回归。
-
-### FRT-06 最新证据
-
-同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
-
-本轮在当前 provider 窗口再跑文档图片入口：managed 与 OpenAI BYOK 两侧分别 6.80s、3.52s 完成，`anselm://media` 没有留在 system prompt 作为 URL，98-byte PNG 均以真实 image 语义抵达模型且附件原样可回读；未形成 renderer、lease 或 provider 路由回归。
-
-### FRT-10 最新证据
-
-同日复探 Qwen chat-only 模型的 agent 资格闸：API key 探测与能力投影允许该模型作为对话模型，但把它显式设置到 agent 后，真实 `:invoke` 在 0 steps 直接落 `failed`，错误说明为 `cannot run as an agent`，未产生 tool call、function execution、模型回退或消费。两次独立 BYOK 进程通过（3.656s、3.050s），未形成目录裁剪或路由边界缺陷。
-
-本轮资格边界组合再次通过：Qwen chat-only agent 仍在 0 steps 明确拒绝，未发工具或 provider 请求；该项单场景 1.08s，未形成能力投影回归。
-
-最新一次与 OpenAI 多模态降级一起做双跑：Qwen chat-only 两轮均保持 0-step `cannot run as an agent` 拒绝，OpenAI 图片+不支持音频/视频均保持 native image + capability note，6/6 通过（包 24.797s）；未形成能力目录、BYOK 路由或 managed fallback 回归。
-
-### FRT-11 最新证据
-
-本轮先做 DeepSeek 兼容线缆的真实双跑：`deepseek-v4-flash` 在产品 API 内完成 `run_function`，函数结果回灌后第二次 chat/completions 采样完成；durable history 同时保留 tool call、tool result 和最终 `144`，recorder 观察到至少两次请求且请求携带 `tools`、`tool_calls` 与结果载荷。两次独立进程通过（12.52s、9.52s），未形成产品缺陷；关停阶段的 embedder `context canceled` 仍是已知 shutdown 噪声。
-
-随后换到 Gemini 原生 `functionCall/functionResponse` + `thoughtSignature` 线缆。两次独立进程都在首轮 generate 收到上游 429，产品把回合落为结构化 `LLM_RATE_LIMITED` 并停止，没有重试成 404、没有生成 assistant 文本，也没有进入错误的 parser 断言；这记录为当前 Google provider rate window，而不是后端工具参数缺陷。FRT-12 的累积/增量本地 fixture 仍全绿，真实 parser 组合在 provider 窗口恢复或 parser 承重变更时再复探。
-
-本轮再做 BYOK 文本 smoke：DeepSeek `deepseek-v4-flash` 当前 5.89s 完成，Google `gemini-3-flash-preview` 当前 1.70s 结构化 SKIP `LLM_RATE_LIMITED (429)`；兼容/native 两侧仍把 provider 限流与产品状态分开，没有伪造答案或隐式 fallback。
-
-本轮补做原生 Anthropic 黑盒闭环：本地 Anthropic-shaped upstream 先由真实 backend 以 `GET /v1/models` + `x-api-key` + `anthropic-version: 2023-06-01` 探测，随后同一 key 的能力面保留 `claude-opus-4-8`、image/PDF 与 `thinking`/`effort` 原生旋钮；对话调用严格落到 `/v1/messages`，请求是 block-form `messages` + `stream:true`，没有 Bearer/OpenAI 兼容退路；命名 SSE 的 `message_start`、text delta、`message_delta(end_turn)` 产生的文本、stop reason 与 input/output usage 全部落入 durable turn。两次独立 backend 进程通过（6.47s、4.30s），未形成产品缺陷；测试隔离 free-tier install 失败与 shutdown embedder `context canceled` 仍为已知噪声。Azure/Vertex 仍需真实凭证才能补证，当前不伪造其结果。
-
-紧接着补上 `custom + anthropic-compatible` 的产品入口：同一类本地端点通过 custom key 的闭合 `apiFormat` 白名单进入，`:test` 仍敲 `/v1/models`，model capability 只呈现 live model id、不凭空声称 image/PDF/旋钮，实际对话却通过 `lookupProvider` 切到原生 `/v1/messages`，同样使用 `x-api-key`、Anthropic 版本头、block-form body 与命名 SSE。两次独立 backend 进程通过（6.42s、4.07s），未形成产品缺陷；这证明「未知 custom 能力保守」与「用户明确选择 Anthropic 方言后 wire 正确」可以同时成立。
-
-随后补齐对称的 `custom + openai-compatible` 入口：`:test` 使用 OpenAI 风格 `GET /models` + Bearer，聊天使用 `/chat/completions` + Bearer、`stream_options.include_usage` 与 data-only SSE；同一产品 API 把 wire 上的 `finish_reason=stop` 规范化为 durable history 的 `stopReason=end_turn`，token usage 与回答均落盘，且没有误走 `/v1/messages`/`x-api-key`。两次独立 backend 进程通过（5.31s、3.30s）；第一次 focused 红灯只是测试 oracle 错把 provider wire 的 `stop` 当成 durable 合同，修正为 `end_turn` 后未形成产品缺陷。
-
-随后做当前 DeepSeek BYOK continuation 的稳定性对照：首轮三场景批次通过；第二轮在 `maxSteps=4` 下真实出现 `MAX_STEPS_REACHED`，回合保留诚实 partial 语义而不是伪造最终答案。该场景随后两个独立默认预算进程均通过（13.202s、14.912s），再以临时 `maxSteps=8` 控制实验通过（14.548s），且实验参数已恢复、未进入工作树。四次抽样合并为三绿一红，证据指向模型偶尔消耗额外工具/schema recovery 步数，而非共享 loop 的终态、tool-call/tool-result 投影或 DeepSeek wire 稳定损坏；低预算组合继续保留为 provider/模型升级时的可靠性哨兵。
-
-同日复核 Kimi 凭证边界：当前 `KIMI_API_KEY` 两次独立 `:test` 都收到上游 401，产品稳定返回 422 `API_KEY_TEST_FAILED`，`details.reason` 保留 `HTTP 401` 且没有把失败误报为 model-not-found 或 generic transport；当前凭证仍不可用，未宣称 Kimi chat 绿。
-
-随后 Google 原生工具续接的 provider 窗口恢复：`gemini-3-flash-preview` 两个独立 backend 进程均真实完成 `functionCall → functionResponse → 最终回答`，上游请求继续携带原生 `thoughtSignature`，durable history 保留工具调用、结果与最终文本，没有再出现 429、错误重试或 parser 误报（12.816s、11.452s）。此前的 429 仍作为历史 rate-window 证据保留，当前不再阻断该 lane。
-
-本轮在当前窗口再次抽样 provider 续接：DeepSeek `deepseek-v4-flash` 的兼容 tool loop 通过（10.31s），第二次请求与 durable tool history 均闭合；Gemini 文本 smoke（1.59s）及原生 `functionCall/functionResponse`（3.39s）均收到 429 并结构化为 `LLM_RATE_LIMITED` skip，没有伪造回答或错误降级。该结果与既有 Google rate-window 证据一致，不改后端 parser 或重试策略。
-
-本轮再做资格/续接交叉抽样：DeepSeek 文本与 tool continuation 分别 6.19s、9.24s 通过；Google 文本、原生 tool continuation 与 stale-model 恢复分别 1.64s、3.50s、2.14s 触达当前 429 并结构化 skip；stale model 连续失败两次仍以单次请求/回合落 `LLM_MODEL_NOT_FOUND`（2.19s），没有 fallback 或无界重试。
-
-随后补做当前凭证/资格边界组合：Kimi/Moonshot `:test` 仍把上游 401 安全映射为 422 `API_KEY_TEST_FAILED`（3.71s）；Google stale model 连续失败各只发一次并保持 `LLM_MODEL_NOT_FOUND`（2.14s）。两项均没有伪造 assistant 或 managed fallback；Kimi 当前 key 仍不可用，Google 自动失效/降级仍是显式策略缺口。
-
-本轮对 Anthropic/兼容方言做 contract 双跑复核：原生 `/v1/models` 探测、`x-api-key`/版本头、`/v1/messages` block/SSE/usage durable persistence，以及 custom+anthropic-compatible 与 custom+openai-compatible 的各自 auth/path/stop normalization 均 6/6 通过（包 9.635s）。本地 upstream 只用于 wire 断言，不替代 Azure/Vertex 真实凭证证据，也没有输出 provider secret。
-
-本轮再次验证 DeepSeek thinking/tool continuation：两次 `deepseek-v4-flash` 均在专用 `maxSteps=8` wire lane 内完成 `tool_call→run_function→tool_result→第二次 /chat/completions→144`；recorder 看到 `tools`/`tool_calls` 与包含函数结果的续接 body，durable history 和助手文本一致。16.12s/8.14s 双跑未复现缺失 `reasoning_content` 400；该专用预算不改变默认低预算边界。
-
-本轮 provider 窗口复探再次把可用性与产品分类分开：DeepSeek 文本与兼容 tool continuation 5.03s/7.76s 通过；Google 文本与原生工具续接各收到 429 并结构化为 `LLM_RATE_LIMITED` skip；stale-model 恢复先保留单次 404→`LLM_MODEL_NOT_FOUND`，恢复发送再遇 429；重复 stale failure 仍每轮只发一次并保持同一错误码。未出现伪造 assistant、managed fallback 或无界重试，不改 parser/重试策略。
-
-本轮 BYOK 文本 smoke 双跑继续验证同一分类：DeepSeek 两轮均完成真实无工具文本；Google 一轮完成、另一轮上游 429，产品回合诚实落 `LLM_RATE_LIMITED` 并结构化 skip。四次 `:test`/能力探针均先返回成功，未发生 managed fallback、伪造 assistant 或无界重试；Google 当前 rate window 仍是外部可用性边界，不是兼容层回归。
-
-本轮视觉 provider 对照继续支持同一结论：managed workflow image→OpenAI BYOK viewer 34.93s 完成，flowrun/PNG/recorder exact-byte 证据闭合；Google 原生 image-input 仅遇当前 429 并结构化 skip。Google 的 rate window 没有扩散到 managed 产物或 OpenAI viewer，不改共享 MediaRef/renderer。
-
-本轮对聊天入口 workflow 控制面做当前窗口双跑：`search_tools→trigger_workflow→get_flowrun` 两轮均读取 `origin=chat` 的 completed run 与唯一 function marker；失败诊断两轮均经 `search_flowruns(status=failed)→get_flowrun` 暴露 durable 节点错误；approval 两轮均先 park 在 `human` 节点、仅观察回合不提前决定，再由 `decide_approval(yes)` 恢复下游 publish；replay 两轮均保留已完成 stable 前缀，只重跑 flaky handler，finish 与 marker 完成。8/8 通过（42.70/33.50、45.93/40.26、48.74/64.59、49.49/56.66s），flowrun/节点/执行台账与 assistant 回答闭合，未出现重复已完成节点、孤儿 run 或旧终态复活。
-
-EVO-790 对当前 BYOK 资格窗口做了分层复探：Kimi `:test` 的上游 401 两轮都安全映射为 422 `API_KEY_TEST_FAILED`；DeepSeek 文本 smoke 通过，但 `deepseek-v4-flash` tool lane 在原 `maxSteps=4` 下分别暴露上游 400 与 `MAX_STEPS_REACHED`。当时的隔离摘要只看到模型连续发现 lazy tools，故先把 400 与三跑波动分流为 provider/model 哨兵；Google 文本/tool/stale 恢复在同一时间窗收到 429，已结构化为 `LLM_RATE_LIMITED`；此前 stale 首发 404→`LLM_MODEL_NOT_FOUND` 的证据仍成立，没有 fallback、伪造 assistant 或无界重试。
-
-EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四个 `/chat/completions` body 到上游，得到明确 400「thinking mode 必须回传 `reasoning_content`」；该 assistant 工具调用回合恰好缺失字段，而非工具名重复、tool pairing 破坏或 durable history 投影错误。对同一 body 只补显式空 `reasoning_content` 即获上游 200，因此兼容层现在只对 DeepSeek、只对缺少推理文本的 assistant tool-call 回合编码空字段，普通 assistant 与其他 compat provider 仍省略。新增 wire regression test 后，真实 BYOK focused lane（workspace `maxSteps=8`，全局默认不变；通用低预算 `MAX_STEPS` 合同仍由静态 loop/agent 门禁覆盖）双跑均完成（15.64s、11.62s）；该项不再归类为“仅 provider 波动”。
-
-本轮 BYOK 音频工具线缆再做独立双跑：`gpt-audio` 两次均保留原生 `input_audio`、tools、`run_function` 结果与最终文本，durable history 的 tool call/result 和附件字节闭合（7.44s、6.57s）；与同批 OpenAI PDF、Qwen video 的 native wire 通过结果一起，未发现兼容层续接或多模态 part 回归。
-
-### FRT-13 最新证据
-
-同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。
-
-本轮再做普通 fork 与原地 retry 的最小高频组合，两次独立 managed 进程均通过（包 19.203s、24.079s）：fork 保持源线程 append-only 并可在分支继续，retry 保留旧 assistant、追加版本指针后继续对话；未见跨线程消息、旧工具复活或版本链断裂。
-
-同日补上 retry 与 fork 的交互证据：先在真实 managed chat 生成 assistant，再走无 content `:retry` 形成两版本链，随后走空 body 的 latest `:fork`。分支耐久历史保留 user + 两个 assistant 版本，但 `supersededBy`/`attrs.retryOf` 均重定基到分支自己的新 message ID；分支 follow-up 只使用当前版本并完成，源历史仍保持 3 行。两次真实复跑通过（28.37s、20.98s），未形成后端缺陷。
-
-同日补上显式旧版本切点：在 retry 链上以旧 assistant 的 message id 调 `:fork`，分支只复制 user + 旧 assistant；被切掉的新版本不留下悬空 `supersededBy` 或 `attrs.retryOf`，旧回答在分支内重新成为 current，分支 follow-up 完成且源仍保留三行历史。两次真实 managed 复跑通过（13.70s、12.32s），未形成后端缺陷。
-
-同日复探会话生命周期组合：普通 conversation fork、最新 assistant retry 后继续对话、旧版本 retry→fork 后继续对话三条路径在两个独立 managed 进程中全部通过（包总计 34.598s、27.400s）。源会话保持 append-only，retry 的 `retryOf`/`supersededBy` 与 fork 后的分支指针均落在新分支，旧版本切点没有悬空指针，分支 follow-up 完成且没有复活旧工具调用；未形成后端缺陷。
-
-本轮以 BYOK OpenAI 图片为载荷复核重试语义：`retry` 不复制 user 消息，追加的 assistant 版本仍指向正确历史并携带原生图片；编辑文字的 resend 复用同一附件而非新铸媒体。两条路径均保持 durable history 与附件字节闭合（6.340s、4.810s），未形成重试/重投影回归。
-
-本轮再做聊天侧 workflow 状态机交叉复探：`search_tools → trigger_workflow → get_flowrun` 可观测读取、失败 run 的 `search_flowruns → get_flowrun` 诊断、human approval durable park→`decide_approval`→下游 publish，以及失败后的 `replay_flowrun` 都在首个独立组合中完成（包 180.391s）。第二个组合出现一次单场景红灯，但其余三项通过；将疑似失败的 `ChatFlowrunFailureDiagnosis` 隔离后连续两次通过（42.362s、58.943s），没有稳定错误、孤儿 run 或错误恢复缺陷，因此只保留为 managed 模型/工具序列波动哨兵，不改生产代码。
-
-本轮对同一聊天 workflow 控制面做真实双跑：可观测读取、失败诊断、human approval 停泊/决定与失败 replay 共 8/8 通过。前两轮分别为 Observability 38.72s/34.80s、FailureDiagnosis 45.71s/47.27s、ApprovalDecision 44.71s/56.51s、Replay 60.79s/48.94s；durable flowrun、节点错误、审批决定、下游 marker 与 replay 的完成节点均闭合，没有把中间消息或模型自述当作状态证据。
-
-本轮 EVO-784 在同一聊天 workflow 控制面上再次双跑并收口为 8/8：可观测读取、失败诊断、approval park→decide、失败 replay 分别为 42.70/33.50s、45.93/40.26s、48.74/64.59s、49.49/56.66s。每条路径都由公开 flowrun、节点状态、marker 与 function/handler execution ledger 证明；replay 的 stable 前缀与 finish 各恰一次、flaky handler 恰一次 failed + 一次 ok，未把中间 assistant 文本当作终态依据。
-
-本轮图像写入复探同时补足异步终态证据：动画回合在长轮询期间始终读取同一 durable conversation，最终明确完成并只出现一份真实 MP4，随后附件 content 端点可回读；没有用中途的空消息响应替代最终状态，也没有在异步完成后重复铸造 artifact。
-
-同轮复探 `SubagentCancelTerminal` 的取消时序：组合 `-count=2` 一次通过、一次在取消后 30s settle 窗内未同时观察到父/子终态。绿灯确认 `:cancel` 204、父/child durable `cancelled`、单条 `agent/cancelled` function execution 与 follow-up 不复活；红灯发生在模型仍处于子代理工具发现/执行的长尾窗口，结合既有两次隔离绿跑，没有稳定的取消 ledger、锚点、迟到产物或终态复活证据，继续保留为 managed 模型/stream 时序哨兵而非后端缺陷。
-
-本轮 EVO-744/EVO-745 对取消与并行树做了当前窗口复核：取消仍是一绿一红（红灯只在 30s settle 窗观察不到父/子同时 terminal），绿灯保持 `:cancel` 204、父/child `cancelled`、单条 `agent/cancelled` execution 且 follow-up 不复活；并行树独立双跑 2/2 通过，未见终态、锚点或重复 execution 回归。失败续接两次虽未满足“只派一次”模型行为断言，但真实 child failure/错误标记与 durable parent continuation 均存在，不能据此宣称后端 ledger 缺陷。
-
-本轮再做核心用户生命周期 sanity gate：默认 managed 对话、普通 conversation fork、assistant retry continuation 各独立运行两次，6/6 完成。源历史保持 append-only，fork 分支可继续，retry 版本链没有跨线程指针或旧终态复活；包总计 50.126s，未形成当前窗口的消息投影或会话血缘回归。
-
-本轮取消子代理终态做独立双跑：两轮均在客户端真实调用 `:cancel` 后返回 204，durable history 同时观察到父/child `cancelled`，child 的 agent function execution 恰一条并落取消，后续 follow-up 完成且不复活旧工具。单轮 52.82s/50.50s、包 103.956s；取消路径中出现的非法 `subagent_type` 与 `spawn process failed` WARN 未改变台账和终态，归类为模型 schema recovery/进程组关停噪声，不构成 FRT-13 后端回归。
-
-视频异步取消的同窗口双跑也保持资源卫生：danger deny 两轮均在提交前完成且无 receipt/附件/额外 reservation；approve 后观察到 gateway submission 再 `:cancel` 的两轮均返回 204，父回合 durable `cancelled`，延迟历史与附件查询没有迟到 MP4 或孤儿 receipt。底层 `generate_video` tool failed WARN 只反映取消时任务进程被杀，未改变本地终态或后续可继续性。
-
-本轮 workflow 失败诊断双跑进一步确认恢复前的 durable 事实可重读：同一失败 run 的列表摘要和 detail 都同时暴露错误 marker，且父聊天回合在诊断回答后正常 completed；未出现模型自述与 flowrun 状态分叉、旧 run 复活或诊断工具重复调用。
-
-同窗口的失败 subagent 复探仍把红灯限定在父层工具遵循：非法 `subagent_type` 的 rejected tool block 后才出现合法 child，因此严格单次派遣 oracle 提前失败；child 的故意失败 marker、父层无越权 function 与 completed 回合均存在，尚未进入 execution-ledger 后续断言。该证据不支持把模型重复派发波动升级为 FRT-13 durable recovery defect。
-
-取消复探同样没有升级为 durable recovery defect：一轮因 `Plan` refusal child 与后续合法 child 并存，30s settle oracle 未满足；另一轮在 `:cancel` 204 后父/child 与 agent execution 全部闭合，follow-up 不复活工具。红灯仍限定在模型工具选择和 REST 历史投影时序，而非取消 ledger、孤儿或旧终态复活。
-
-随后执行全量 backend 黑盒总闸：`make -C backend testend` 的 `testend/scenarios` 在 297.802s 全绿，覆盖本轮 focused live 之后的 chat、agent/subagent、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生；没有把任何模型时序哨兵或 provider 限流误判成稳定基础回归。
-
-聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
-
-本轮补做 chat 基础 contract 双跑：消息/块 durable 物理投影、generating/finalize 窗、progress 与 approve-always、crash sweep/graceful shutdown、空板/跨 workspace、model override/activity order、search cursor、todo、touchpoint 和严格 action/unknown-field 面全部通过，13 个场景共 26/26（包 359.539s）。crash 与 graceful 场景各约 61s 是主动验证连接收口的长尾，最终均无 orphan 或终态错序，不构成产品缺陷。
-
-本轮补上 workflow trigger 的耐久边界双跑：13 个 contract 场景共 26/26 通过（包 220.280s），覆盖 deactivate 的 accepted firing drain 与 structural pending shed、deleted workflow/trigger 的 queued/accepted firing 处理、`:kill` shed、删除后跨重启 drain、active edit→revert 与 entry rebind、stage one-shot、多 trigger attach/detach/dedup、webhook edit hot-swap，以及删除在途 run 的取消与审计保留。所有终态均由 durable flowrun/firing/listener 审计确认，没有幽灵 run、重复 firing、旧 listener 复活或删除后审计丢失。
-
-本轮继续补 workflow 版本与软删边界：approval timeout/版本列表与 run 起跑时 version pin 跨 edit→SIGKILL→restart，control branch validation/revert，active listener edit，deleted workflow 的全 mutation action 拒绝，以及 deleted trigger accepted firing 保留、跨重启显式 rebind 均双跑通过（13 个场景 26 次顶层运行，包 158.187s）。结果没有旧版本泄漏、幽灵 listener、隐式换绑或删除后写入，和 EVO-749 的 firing drain/shed 证据互补。
-
-本轮收口 workflow 剩余 contract：iterate/lifecycle verbs、manual trigger 与 overlap 策略边界、fire ledger/cursor、ref-count listener、soft-delete log、unknown/config/secret carrier、versions cursor 与 workspace isolation 双跑通过（11 个场景 22 次顶层运行，包 77.238s）。与 EVO-749/757 合并后，trigger ledger、listener 投影、版本 pin、删除/重绑、跨租户动作拒绝均有当前窗口双跑证据。
-
-本轮对失败 subagent 树 fork 的当前窗口复探补入 FRT-13：一轮 fork 后继续对话时保留唯一 failed child、父子终态与单条 `triggeredBy=agent` execution，另一轮因非法 `subagent_type` 后重复派遣，在 durable child/fork 后续断言前即因 child 数量为 2 失败。红跑仍有 `FORK_FAILED_SUBAGENT_6D21`、父锚点与 completed child 证据，没有稳定的取消/恢复、execution ledger、孤儿或终态复活缺陷；继续作为 managed schema recovery/duplicate-dispatch 哨兵。
-
-本轮对 FRT-13 的异步媒体终态再加一条真实多模态证据：图像首帧 `animate_image` 两次都在 danger approval 后只提交一次任务，父回合等待 MP4 durable completion 后才收口，receipt/MediaRef/source attachment lineage 与 content endpoint 一一对应；未观察到提前 completed、迟到产物、重复提交或终态后写入。
-
-本轮补入 human approval 的恢复证据：两次 chat flowrun 在 approval 节点保持 durable `waiting`/parked，客户端先只读状态，再发送 `decide_approval(yes)`；下游 publish 恰一次、父回合最终 completed，未见审批窗口内的副作用、重复决定或恢复后的旧节点重跑。
-
-本轮再补一条直接异步视频的恢复/资源证据：两次 `generate_video` 均在批准后只提交一个 gateway job，父回合等到 durable terminal 才完成；MP4 可通过 content endpoint 回读，receipt、MediaRef 与附件各自闭合，sandbox 无残留句柄。该证据与图像首帧动画、批准后取消互补，当前未见提前 completed、迟到写入或重复消费。
-
-同窗口的 completed 对照也闭合了聊天侧可观测投影：成功 run 的节点结果、flowrun terminal 与助手回读均指向同一 `flowrunId`，未因紧邻失败诊断路径而产生旧状态复活、跨会话泄漏或额外工具执行。
-
-同一窗口复探 speech danger denial：一轮没有产生 interaction、另一轮真实完成 deny→completed；只在绿轮的 durable history/quota/receipt 断言中确认无消费，红轮未进入这些后续状态。该失败位置仍是审批请求生成前的 managed 模型时序，不是取消/恢复或媒体资源终态缺陷。
-
-随后做复杂 live lane 后的默认聊天 sanity triple：三个新 workspace 的 managed provision 与普通无工具中文回合均完成（7.41s、9.82s、4.16s），durable turn 没有错误、残留工具或异步多模态状态，确认本轮媒体/子代理/取消复探没有污染基础 chat loop。
-
-本轮再做系统级交叉链：trigger→workflow→notification 的 firing/flowrun/notification 关联双跑通过（EVO-759），fsnotify 事件 payload/filter 与 pause→SIGKILL→resume 的 durable 投影也双跑通过（EVO-760）；两条路径均未见跨层丢失、重复消费或恢复后的幽灵执行。
-
-随后补做实时协议耐久双跑：SSE replay 环挤出后返回 `SEQ_TOO_OLD` 并要求 REST 全量重取，再从新 seq 连续接收；messages/entities/notifications 三流不串线，三个订阅者看到同一 durable 顺序；interaction 的 danger pending/resolved 仍是 seq=0 的对称 ephemeral signal；cron dedup 在重启后仍折叠同一分钟 firing；webhook 明文 secret 与 SSE bearer 鉴权门的错误/成功状态均按合同落地。7 个场景两轮共 14/14 通过（包 139.603s），未见协议帧缺口、重复、跨流污染或重启重复执行。
-
-本轮把对话 lineage 四条高频路径再做当前双跑：普通 `:fork`、`:retry` 版本链、retry 后 latest fork，以及显式旧版本切点 fork 均 2/2 完成（包 70.896s；单项 11.88/7.46/8.13/8.40s 与 7.06/8.32/9.05/9.94s）。源线程保持 append-only，retry 的版本指针与 fork 后 `retryOf`/`supersededBy` 只指向分支内新 ID，分支 follow-up 均完成且没有旧工具复活或跨线程消息；未形成会话生命周期回归。
-
-本轮 contract 取消终态双跑补齐 chat 子代理的底座对照：父 `:cancel` 204 后，父/child 历史均进入 durable terminal，取消中的 function execution 不会留下可继续的 streaming/pending 或迟到产物。两轮均通过（45.66s、31.21s）；fake LLM stall 的连接关闭等待属于测试桩 teardown 语义，不改变 FRT-13 的产品终态结论。
-
-本轮总闸复核了取消/恢复、子代理、workflow、附件、多模态与 provider wire 的交叉面：全量 `testend/scenarios` 354.459s 通过，未见 focused lane 引入稳定的 durable 状态、execution ledger、媒体归属或资源卫生回归；这只是当前代码基线门禁，不替代各真实 provider/managed 证据。
-
-### FRT-14 最新证据
-
-同日复探 Google 目录资格漂移：`gemini-2.5-flash` 仍在当前 `/models` 投影，但同一显式选择连续发送两次时，每回合只发一次上游请求并分别落 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本、managed fallback 或无界重试；两次独立进程通过（6.282s、4.212s）。自动失效/降级仍保留为待产品决策的策略缺口。
-
-本轮再次对该重复失败边界做两次独立复跑：同一显式模型连续两轮各自只产生一次非重试 generate，两个 error turn 都是 `LLM_MODEL_NOT_FOUND`，没有 assistant 文本或受管回退；两次包级通过（5.157s、3.934s）。证据继续支持“错误分类与重试上限已闭合”，而不是替产品决定自动失效/降级策略。
-
-随后复探“失效后主动切换恢复”：两次测试均先真实验证旧模型的单次 404→`LLM_MODEL_NOT_FOUND`，但恢复模型的下一次发送均落当前 Google provider 429，按合同结构化 skip；因此恢复成功路径仍未宣称通过，当前缺口是 provider rate window，不是错误回合或隐藏 fallback。
-
-同日补做资格错误后的显式恢复：旧 Gemini 模型首发只调用一次并落 `LLM_MODEL_NOT_FOUND`，用户随后明确切换到 `gemini-3-flash-preview`，同一 conversation 恢复 completed 且总上游调用恰两次；两次独立复跑通过（6.959s、6.412s），没有错误回合污染后续历史。
-
-本轮再次复探 Google stale-model 的重复失败边界（2.14s）：两次显式选择各只触发一次上游请求，均落 `LLM_MODEL_NOT_FOUND`；该行为与 Kimi 401、Qwen chat-only 拒绝组成当前 BYOK 资格三分法，未形成重试、回退或历史污染回归。
-
-当前窗口的重复失败复探延续同一合同（2.10s）：同一 stale model 的两次发送各只产生一次上游请求，均 durable 落 `LLM_MODEL_NOT_FOUND`；恢复 lane 的额外 429 被单独结构化 skip，没有被错误算成自动失效或降级已实现。
-
-EVO-790 的同批次 stale-model 资格探针被 Google 当前 429 窗口覆盖：account-unavailable 首轮仍有一轮先完成单次 404→`LLM_MODEL_NOT_FOUND`，后续恢复发送与另一轮首发均只得到结构化 `LLM_RATE_LIMITED`；重复失败场景两轮首发同样被 429 拦截。因此当前不新增自动失效/降级结论，也不把 provider rate window 误算成 Anselm 重试或目录投影回归。
-
-本轮所有 live 探针与文档变更后执行一次全量后端黑盒回归：`testend/scenarios` 用时 328.040s 全绿，未引入新的稳定产品缺陷；该门禁只证明当前已落地行为没有被本轮工作回归，不替代各 provider/managed 场景的独立真线缆证据。
-
-本轮 EVO-806～811（失败 subagent fork、fresh quota、图像首帧动画、默认 chat、workflow replay/approval）之后再次执行全量 backend 黑盒总闸：`testend/scenarios` 304.815s 全绿。该门禁确认 focused live 证据没有回归 contract、chat、workflow/trigger、附件、MCP/function/handler、取消/恢复或资源卫生基线；provider rate window 与 managed 模型时序仍按各自独立哨兵解释。
-
-### FRT-15 最新证据
-
-同日补上真实 managed workspace 的大图扇出/AND-join 闭环：一个 manual flowrun 展开 8 条 action 分支，两个四输入 join 在所有上游完成后各执行一次，finish 汇总 12 条 durable node rows；function ledger 同时证明 8 次 branch、2 次 join、1 次 finish 均绑定同一 `flowrunId`、`flowrunNodeId` 唯一且成功。两次真实复跑通过（总计 9.109s、9.867s），未形成后端缺陷；关停阶段 search embedder `context canceled` 仍归类为服务 shutdown 噪声。
-
-同日再补用户入口组合：默认 managed chat 先经 `search_tools` 发现 `trigger_workflow`，再以 webhook-shaped payload 启动 4 路 fanout/双 join workflow；`origin=chat`、`conversationId`、8 条 durable node rows 及 branch execution ledger 均闭合。前两次探索分别受 managed gateway 响应头 timeout 与上游 502 阻断，未进入 workflow 断言；随后两次规范复跑通过（总计 30.092s、29.445s），因此红灯归类为外部 provider 窗口而非产品缺陷。
-
-同日复探 workflow 并发核心与聊天入口组合：manual flowrun 的 8 branch/双四输入 join，以及 chat→`search_tools`→`trigger_workflow` 的 4 branch/双 join 均在两轮独立 managed 进程中通过（包总计 26.704s、26.876s）。所有 branch/join/finish execution 绑定同一 `flowrunId` 且各执行一次，chat 路径的 `origin=chat`、`conversationId` 与 durable node rows 保持闭合，未形成后端缺陷。
-
-同日复探 workflow 内用户多模态融合三入口：manual trigger、真实 webhook 与 chat→`trigger_workflow` 均把 PDF+PNG+MP4 MediaRef 送入 managed agent；PDF 继续由 sandbox 抽取 token，PNG/MP4 走原生媒体分支，flowrun origin/`conversationId` 与三份源附件字节均保持可审计。两轮独立进程全绿（包总计 131.513s、177.032s），未形成入口间的媒体映射或 lazy-tool 回归。
-
-本轮对同一三入口组合做当前窗口复探：manual、webhook、chat 三条分别 56.45s、17.28s、44.67s 通过，包 118.840s；较小的 PDF+PNG+MP4 fixture 在三路都保留 origin/trigger/conversation provenance、PDF token 与源字节，未出现入口特有的 payload/CEL 装配回归。
-
-同一聊天入口控制面真实双跑也覆盖了 workflow 的状态分支：成功、失败、approval park/resume 与 failed replay 八次全部闭合（EVO-742）；因此 FRT-15 的节点/执行台账之外，聊天侧对 flowrun 状态的读取、诊断和恢复没有新增缺口。
-
-本轮再做 workflow 并发核心双跑：manual 的 8 branch/双四输入 join/finish 与 chat→`trigger_workflow` 的 4 branch/双 join 均在全部 live 入边完成后只落一次，`(node,iteration)`、flowrunId、function ledger 与 chat provenance 一致；4/4 通过（包 41.716s），未见早 join、重复节点、孤儿 branch 或入口状态漂移。
-
-本轮复探 workflow fanout/AND-join 当前窗口双跑：manual 每轮展开 8 条 branch、双四输入 join 与 finish，chat→`trigger_workflow` 每轮展开 4 条 branch 与双 join；所有 live 入边完成后才 join，`(node,iteration)`、flowrunId、chat `origin/conversationId` 与 function execution ledger 一一闭合。4/4 通过（manual 7.04s/3.63s；chat 14.14s/13.87s；包 39.633s），未见早 join、重复节点、孤儿 branch 或入口状态漂移；收尾 search engine context-canceled 仍是 teardown 噪声。
-
-### FRT-16 最新证据
-
-同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。
-
-同一轮的普通 fork/retry 复探再次确认会话血缘没有被近期媒体与工具路径改变：两轮组合均通过，源历史、分支 follow-up 与 retry 版本链保持前述约束，未形成新的生命周期缺陷。
-
-本轮对话生命周期四路径再次拆开独立复跑：普通 fork、retry continuation、retry→latest fork、retry→older-version fork 各自两轮均通过；REST 记录同时观察到 `:retry`/`:fork` 202/201、源/分支消息集合与后续 202 turn，未见源历史改写、悬空版本指针、跨线程消息或旧 execution 复活。该轮为 EVO-826，继续支持会话 lineage 当前无稳定后端缺陷。
-
-同日再补并行 subagent 树的真实分叉闭环：源对话先由两个 `general-purpose` child 各自发现 `run_function`、执行不同 function 并留下两个 marker；空 body 的最新分叉路径复制完整耐久树，child message 与 block 均铸造新 ID，两个 `Attrs.parentBlockId` 都重定基到分支自己的父 `Subagent` tool_call，源线程保持原集合；分支 follow-up 不调用工具却能恢复两个 marker。探索时显式切在 parent message 的首次断言误把“前缀不含后续 child”当成缺陷，改用 rail 的 latest fork 语义后，真实运行确认了一个后端缺陷：分叉复制了 child 行，却把消息 Attrs 中的 `parentBlockId` 留成源 block ID；`Fork` 现与 `Block.ParentBlockID`、`retryOf` 一起重映射该消息级 E3 锚，并由真实 store 单测锁住。修复后两次独立 managed 复跑通过（67.90s、72.20s）；中间模型未稳定产出双 child 的红灯未进入分叉断言，归类为 managed 波动而非产品缺陷。
-
-同日补上版本链分叉交互：这条路径与上面的并行 subagent 树分叉互补，证明 `Fork` 的同一份预铸 message remap 表同时覆盖 `retryOf`/`supersededBy` 与消息级 E3 锚；真实 retry→latest fork→branch continuation 两次通过（28.37s、20.98s），源分支均未出现跨线程指针。
-
-同日复探 managed 视频提交后取消：批准后确实进入异步 `generate_video`，随后 `:cancel` 返回 204；父回合、durable history、附件与 receipt 均保持 cancelled/无孤儿，后续不会被迟到的上游结果复活。当前窗口首轮 60s 未等到审批 interaction，隔离后两次通过（15.89s、31.58s），与既有取消证据一致。
-
-同日补上失败树分叉交互：失败 child 的 durable error 证据与 E3 锚和成功 child 使用同一套 fork remap 语义；这条路径两次通过（62.26s、36.45s），补足了 FRT-05 “failure is durable” 与 FRT-16 “fork is self-contained” 的交集。
-
-同日补上取消树分叉交互：取消 child 与失败 child 一样是可读的 durable terminal history，而不是被 fork 丢弃的 transient；两次通过（54.58s、54.88s），补足 FRT-13 取消恢复与 FRT-16 分支自洽的交集。
-
-本轮直接 managed video writer 的失败复核也补足了 FRT-13 的外部故障边界：第一次成功的异步 job 已落真实附件并稳定完成；紧邻第二次由 API Serve 上游 DNS 解析失败，回合诚实落 `LLM_STREAM_ERROR`，没有本地 receipt/MP4 孤儿；上游恢复后的 re-probe 再次完成唯一 MP4。该证据支持“外部网关不可达时不伪造成功、恢复后可重跑”的分类，不能推出本地取消、重放或附件 ledger 缺陷。
-
-同日再做成功/失败/取消三类子代理树的 fork 聚合复探：失败与取消路径继续通过；并行路径一次由托管模型重复派发到 4 个 child，两个 marker、4 个父锚点和父回合完成态都存在，但严格“恰好两个 child”断言未满足。独立复跑在 104.552s 通过，未见 fork 消息/block 铸造、`parentBlockId` 重映射、终态或 function ledger 缺陷，因此保留为 managed 重复派发波动哨兵，不改生产代码。
-
-同日复探 BYOK 读取协议的产品入口：DeepSeek OpenAI-compatible 与 Google Gemini 原生文本 smoke 连续两个独立进程均通过，key probe、model-capabilities、显式 default model、真实 conversation turn 与 assistant 文本保持闭合；managed gateway 在 BYOK-only workspace 中未介入，未形成 provider 方言或路由回归。
-
-同日继续沿 DeepSeek 兼容层下钻 tool continuation：两次独立进程都保住 assistant `tool_call`、sandbox function 的 `144` 结果和第二次 assistant sampling；录制请求同时含 `tools`、`tool_calls` 与工具结果，未发现重复执行、managed fallback 或兼容序列回归。
-
-本轮的并行子代理跨回合 clean `-count=2` 复探没有形成新的会话恢复缺陷：两次均因 managed 模型在 `search_tools`/`subagent_type` 纠错与安全拒绝后重复派发，导致 durable child 数量为 6 而非严格哨兵期望的 2；父 follow-up 仍能完成并保留可见 marker，失败发生在 child-count oracle 而非 fork、retry、消息锚或终态恢复。此前诊断与隔离绿跑仍显示各 function 可保持单次 execution，故该结果继续记录为模型/提示词时序信号，不改会话持久化代码。
-
-本轮状态矩阵的并行树一次观测到同一 child message 的两条成功 execution，但随后隔离 clean `-count=2` 均通过；取消终态与成功/失败/取消树 fork 仍分别闭合，未见 fork remap、terminal state、ledger 或孤儿回归。因此与跨回合 child-count 红灯一样，当前只记录为 managed 重复派发/模型 schema recovery 波动，后续在模型或提示词变更时继续复探。
-
-本轮 provider 边界复探保持同一分流：DeepSeek 文本与兼容 tool loop 真实完成；Google 文本、原生 function continuation 与 stale-model 恢复请求均遇当前 provider 429，产品统一归类 `LLM_RATE_LIMITED`；同一 Google stale model 的两次重复发送仍只各发一次并落 `LLM_MODEL_NOT_FOUND`，没有 fallback、伪造 assistant 或无限重试。该窗口不构成后端协议缺陷，继续保留 provider rate-window 证据。
-
-同日复探 Qwen `qwen3.7-plus` 的双原生媒体入口：image+video 同回合融合连续两次通过，能力投影、录制 wire 的 exact-byte `image_url`/`video_url`、附件回读与无上游 400 均闭合，未形成 renderer 或组合契约回归。
-
-同日补测 Qwen Omni 的组合限制：image+audio 连续两次通过，`maxDistinctMediaKinds=1` 能力契约被 renderer 遵守，图片保留原生 wire、音频明确降级而不是把供应商 400 暴露给用户；附件字节与回合终态稳定。
-
-同日补上 OpenAI `gpt-audio` 的音频+agent 交叉面：原生 `input_audio` 的 exact bytes、tools、sandbox function 与第二次采样连续两轮闭合，未出现媒体丢失、工具结果截断或重复执行。
-
-同一窗口的 OpenAI `gpt-audio` 音频+工具续接出现一轮组合红灯：模型在第二次请求中把已注册函数 ID 判为不存在，但 recorder 仍捕获 native `input_audio`、tools 与两次请求。隔离三跑全部完成 `run_function→tool result→最终文本`，因此继续作为 provider/model 选择瞬态哨兵，不改函数路由或 continuation loop。
-
-同日复探 Google Gemini 原生工具线缆：`functionCall`、`functionResponse`、`thoughtSignature` 与第二次 streaming `generateContent` 连续两次闭合，未出现 429、错误回合污染或工具结果丢失。
-
-同日复核 Kimi/Moonshot 凭证错误边界：当前 key 连续两次由 `:test` 稳定落 422 `API_KEY_TEST_FAILED`，结构化保留 `HTTP 401` 原因，没有被误报成模型不存在、网络错误或可用能力。
-
-同日切到 sibling `Anselm-API-Serve` 做一次完整契约门禁：vet、trimpath build、race 测试、integration-tag 真 HTTP+SQLite e2e、golangci-lint 与 docs lint 全绿；其工作树保持 clean，主仓本轮 managed/BYOK 证据与 gateway 公共合同未出现漂移。
-
-同日对 Google Gemini 原生 image-input 做两次真实探针，均触达当前 provider 429；产品稳定归类 `LLM_RATE_LIMITED` 并停止，没有错误回合 assistant 文本、managed fallback 或媒体编码误报。视觉 wire 证据暂留待 provider rate window 恢复后再取，不能把这两次限流当成视觉能力通过。
-
-同日对 Google Gemini 原生 image-input 做第二轮当前窗口复探，两个独立进程仍均收到 provider 429，并由产品结构化归类 `LLM_RATE_LIMITED` 后 skip（5.17s、3.10s）；OpenAI/Qwen 视觉与 Google 原生工具续接仍各自有真实通过证据，但 Google image-input 的 native wire 继续保留为 provider rate-window 缺口，不改 parser 或能力投影。
-
-同日补一条 OpenAI `gpt-4.1-mini` 真实 image-input 对照：连续两次完成，能力投影、回合终态与附件源字节均闭合；这给 FRT-02 保留了当前可用 provider 的视觉用户路径证据，不把 Google 的限流窗口扩大解释成共享后端故障。
-
-同日复探 OpenAI 多模态历史生命周期：image retry 与 edit/resend 连续两轮均保留 native image wire、原附件字节和正确 assistant 版本关系，未重复 user 消息或退化成 text-only retry。
-
-同日复探 managed 会话血缘三件套：普通 fork、retry→fork 与旧版本 retry→fork 连续两轮保持 source append-only、版本指针与分支 continuation 自洽，未复活旧工具或产生跨线程消息。
-
-同日复探聊天入口 workflow 状态机四件套：observability、失败诊断、human approval park→decide 与 replay 连续两轮全绿，durable flowrun/node、interaction、下游恢复与错误分类均闭合，未形成孤儿 run 或错误回合污染。
-
-同日复探 workflow fanout/双 join：manual 8 分支和 chat→`trigger_workflow` 4 分支连续两轮全绿，所有 branch/join execution 绑定同一 `flowrunId` 且各执行一次，chat 路径 `origin=chat`、`conversationId` 与 durable node rows 均闭合。
-
-同日补做聊天多模态 workflow 入口：`search_tools → trigger_workflow` 携带 PDF+PNG+MP4 MediaRef 连续两次完成，PDF 仍由 sandbox 抽取 token，PNG/MP4 与三份源字节、`origin=chat`、`conversationId` 和 flowrun 节点行保持闭合，未出现入口专属媒体映射回归。
-
-同日补做非聊天触发源对照：manual trigger 与 webhook body 的用户附件融合连续两轮全绿，PDF token、`origin`/`triggerId`、flowrun 状态、CEL 接线及 PDF+PNG(+MP4) 源字节均保持闭合，未发现 chat 之外的 MediaRef 丢失。
-
-同日以完整 `make -C backend testend` 收口本轮工作：`testend/scenarios` 342.216s 全绿，未见本轮 live 场景或测试 oracle 变更造成黑盒回归；该门禁继续只作为当前落地行为的基线，不替代各 provider/managed 的独立真实证据。
-
-同日再做会话生命周期组合的独立复探：普通 fork、retry continuation 与旧版本 retry→fork continuation 仍保持同一组 durable lineage 约束，两轮均全绿；两次运行均未观察到源历史改写、跨线程 message/block 指针或旧 tool execution 复活。
-
-同日复探聊天侧人在环 workflow：第一回合让 `trigger_workflow` 在 `human` approval 节点 durable park，第二回合只读 parked 状态，第三回合调用 `decide_approval(yes)` 继续下游 publish action。两次独立 managed 进程通过（53.682s、47.580s），decision、marker、`flowrunId`、`origin=chat` 与下游 execution ledger 均闭合，未形成审批恢复缺陷。
-
-完成 EVO-669~675 后再次执行完整 backend 黑盒门禁：`testend/scenarios` 340.144s 全绿，新增子代理失败续接、文档图片引用、chat-only agent 资格、附件删除/历史投影、跨 provider 媒体切换和普通 fork/retry 均未回归既有 chat、workflow、MCP/function/handler、媒体、取消/重试或资源卫生基线；该门禁仍只作为整体回归证据，不替代各真实 provider/managed 线缆证据。
-
-## 历史高频 reprobe 组
-
-这些不是“已覆盖所以跳过”。当任一承重面改变时，按组抽取代表路径重测：
-
-| 组 | 代表路径 | 触发 reprobe 的承重变化 |
+优先级按以下因素共同决定：
+
+```text
+用户频率 × 失败损失 × 近期变化风险 × 证据缺口
+```
+
+每个 frontier 必须写清路由、执行面、后端真相与停止条件。Provider 以协议/行为类抽样，
+不把目录规模变成逐家手工清单。
+
+## 活动队列
+
+### FRT-A · Managed 子代理的模型遵循与终态可靠性
+
+- 路由：managed-read/default
+- 路径：失败 Function、取消、并行 child、父回合续接、fork/retry
+- 缺口：真实模型偶发重复派发、非法 `subagent_type` 修复循环或在 settle 窗口内不收口；
+  隔离复跑通常通过，尚无稳定持久化缺陷。
+- 要裁决：模型/提示词波动、超时 oracle，还是 queue/terminal/finalize 的确定性问题。
+- 最小证据：父/子 Message 与 Block 树、`parentBlockId`、Execution 数、cancel timeline、
+  follow-up 是否复活旧工具。
+- 停止：先用确定性 fixture 证明后端不变量；只有同一持久状态缺陷跨独立进程稳定复现才修代码。
+
+### FRT-B · Provider 资格与协议行为抽样
+
+- 路由：byok-read
+- 路径：Azure OpenAI、Vertex AI，以及 Google image-input 的 rate-window 后复探。
+- 缺口：Azure/Vertex 尚无当前真实 credential 样本；Google image-input 最近被 provider 429
+  阻断，不能从其它 Gemini 能力推断 native image wire。
+- 最小证据：产品 key test、目录/能力、一次最小 generate、真实 wire 与稳定错误分类。
+- 停止：凭证或 provider window 不可用时记录 external block，不循环消耗。
+
+### FRT-C · 失效模型的产品策略
+
+- 路由：byok-read
+- 已知事实：目录可见但账号不可用的模型会单次失败为 `LLM_MODEL_NOT_FOUND`，不自动 fallback；
+  用户显式切换后可恢复。
+- 待裁决：是否自动标记资格失效、何时重新 probe、UI 如何提示；这是产品策略，不由 iteration
+  擅自实现。
+- 所需证据：同一账号的 list/generate 对照、失败频率、用户恢复路径与候选 UX。
+- 停止：没有产品决定时只保持现有诚实失败，不改自动降级。
+
+### FRT-D · Managed provider wire 的端到端可观测性
+
+- 路由：managed-read / managed-write / hybrid
+- 已知事实：本地 receipt、Attachment 字节、quota 与下游 BYOK recorder 已闭合；公开部署面
+  不暴露原始上游 provider wire。
+- 缺口：需要证明“网关转发给 provider 的字节/调用次数”时，证据必须在 API Serve 的受控
+  integration/recorder 中产生，不能从主仓外推。
+- 最小证据：API Serve 自身脱敏 recorder 或 integration fixture，与本地主键/lease 对齐。
+- 停止：不得为取证把 provider secret 或公开调试端点拉进主仓。
+
+### FRT-E · 跨产地 MediaRef 变更哨兵
+
+- 路由：all applicable
+- 路径：MCP、Function、Handler、managed generator、用户上传、Document URI →
+  Chat/Workflow/Agent/Subagent 下游。
+- 当前状态：代表路径已有真实证据；只有 producer adapter、MediaRef parser、Attachment
+  provenance、content-part renderer 或 provider encoder 变化时进入 reprobe。
+- 最小证据：唯一 receipt、`originToolCallId`、源附件 exact bytes、下游 wire、无重复生成。
+- 停止：未命中承重变化时不为“刷覆盖”重复跑真钱矩阵。
+
+## 承重变化触发器
+
+| 组 | 变化 | 必须抽取的代表路径 |
 |---|---|---|
-| R-A | 对话、模型选择、工具调用、错误恢复 | modelclient、catalog、provider 方言、loop、消息投影 |
-| R-B | agent/subagent、动态工具、持久化 trace | toolset、agent runner、SSE、上下文压缩 |
-| R-C | workflow、触发、暂停/审批、replay | durable engine、节点协议、并发、flowrun 存储 |
-| R-D | 附件、文档、MCP/function/handler 产物 | MediaRef、attachment、renderer、part encoder |
-| R-E | 配额、缓存、危险操作与资源清理 | gateway、managed key、quota、approval、resource store |
+| R-A | model client、catalog、provider adapter、tool parser | 默认 chat、一次 tool continuation、一个资格错误 |
+| R-B | Agent/Subagent host、Toolset、Messages、context recovery | child 成功/失败/取消、父续接、fork |
+| R-C | Scheduler、Flowrun store、Trigger、Approval | fanout/join、park/decide、replay、restart |
+| R-D | Attachment、MediaRef、Media worker、part encoder | 上传 + 工具产物 + workflow 下游 |
+| R-E | Gateway、quota、danger、resource store | deny-no-spend、approve/cancel、cache dedup、delete |
 
-## 不做的伪覆盖
+## 永不作为覆盖
 
-- 不逐家手工验证全部 provider；目录规模下这会制造过期清单而不是保证。
-- 不以模型自然语言自述证明它“看见了”媒体；需要线缆或字节证据。
-- 不用 mock 证明真实供应商的异步状态、URL 可达性、计费或流式分片约定。
-- 不把已删除的 BYOK 直连生成路径作为正常能力回归。
-- 不要求本地测试者持有或注入 API Serve 的 provider secret；那会把运维边界错误地拉回产品端。
+- 模型声称“看见/听见”而没有 wire 或字节证据；
+- 用 mock 推断真实 provider 计费、异步 job 或公网 lease；
+- 逐家重跑全部 provider；
+- 把历史 BYOK 直连生成缝当产品路径；
+- 为测试默认 managed 路径而索取 API Serve provider secret；
+- 把结构化 skip、429 或偶发模型选择直接记成产品通过；
+- 在没有稳定复现时为了让 live test 变绿而修改生产语义。

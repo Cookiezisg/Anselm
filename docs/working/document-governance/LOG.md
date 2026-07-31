@@ -194,3 +194,19 @@ landed-into:
 - 四索引继续由 docs checker 对 error code、event、endpoint resource 与 table 做代码漂移核对；本阶段没有通过减少登记或放松门禁换取通过。
 - 验证：`make -C docs verify`、`mise exec -- go test ./cmd/docs` 与 `git diff --check` 通过；唯一 warning 仍是 DTO mirror 12 checked / 21 skipped，已持续显式保留。
 - G2 完成。G3 开始处理 working/archive 生命周期；`backend-evolution` 的 CURRENT/FRONTIER/LOG/HISTORY 分工将在该阶段单独验收。
+
+## 2026-07-31 · G3-001 · Backend Evolution 工作面去日报化
+
+- 保留长期有效的八拍 iteration loop，但重写 README/CURRENT/HISTORY：README 只讲制度与证据，CURRENT 只讲当前产品边界和优先面，HISTORY 只做 archive/current 落点索引。
+- FRONTIER 从 682 行“16 个场景状态 + 数百段最新证据日报”压缩为 5 个真实未闭合方向和 5 组承重变化触发器；所有已完成证据仍完整存在于只追加的 1,341 行 LOG，不因去重而丢失。
+- 活跃 frontier 现在只保留 managed Subagent 可靠性、Azure/Vertex/Google 行为类证据、失效模型产品策略、API Serve 上游 wire 取证边界及 MediaRef 变更哨兵；历史绿格只有承重面变化才进入 reprobe。
+- 默认/managed acceptance 明确只走已部署 Anselm API 与 device proof，不索取本地 provider secret；历史 `EVALS_MEDIA` 直连生成缝移到 HISTORY 说明，不再占据 CURRENT/README。
+
+## 2026-07-31 · G3-002 · 平台地基研究与当前缺口物理分离
+
+- 只读核对 frontend 当前 host、pubspec、sidecar controller、窗口、launch-at-login、OS notifications、更新检查与三平台原生入口后，确认 2026-06 的 1,800 余行研究把大量已落能力、未拍板路线、外部价格/政策和旧包建议混在 active working。
+- 原两份研究原貌迁入 `docs/archive/platform-foundation-research/`，标记 archived、填写 current working 落点，并在页首声明价格、政策、包版本与命令必须重新查官方来源，不能继续“照敲”。
+- 当前 platform working 重建为六个真实缺口：per-data-dir single-instance、close/background/tray 历史决策复核及落地、外部启动意图、release artifact/sidecar bundling、安装型自动更新、三平台真机验收；已落事实只链接 current platform reference。
+- Release playbook 改为无时效数字的执行合同：版本单源、artifact 内容、信任链、CI、clean-machine acceptance、更新恢复与逐次官方重新验证清单；不再把 2026-06 的证书费用、平台政策或 action 版本冒充当前操作步骤。
+- 前端 platform reference 同步当前事实：launch-at-login 已有；GitHub Releases 只做检查提示；签名、公证、安装器、sidecar bundling 与安装型自动更新仍未验证。
+- 验证：`make -C docs verify` 与 `git diff --check` 通过；working Markdown 从 4,472 行降至 2,292 行，其中 1,537 行是两个仍需只追加的 active LOG，完成证据和历史研究均保留在正确层。
