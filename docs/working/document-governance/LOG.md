@@ -89,3 +89,11 @@ landed-into:
 - 多模态提升为独立系统级数据流：MediaRef 单一引用、Attachment 单一存储、能力门控的统一消费、前端统一呈现，并明确贯穿 Chat、Agent、Subagent、Workflow、approval、文档和实体调试面。
 - 架构图明确本地 sidecar、BYOK、已部署 Anselm API 与 provider 的边界；默认受管路径不要求本机 provider key。
 - 验证：`make -C docs verify`、`git diff --check` 和 architecture/CLAUDE 高风险施工词扫描通过；DTO warning 未变化。
+
+## 2026-07-31 · G2-004 · 事件索引重建与 API 通则收敛
+
+- 从 stream producer、notification emitter 与现有 wire 语义重建 `events.md`：保留三流、四 frame、durable/ephemeral、node.type、Emit/Broadcast、完整事件族及 entities/messages 挂载，删除施工批次、事故编号和阶段复盘。
+- notification 事件仍由 drift checker 逐项核对；重写后没有通过放宽 checker 隐藏缺项。
+- `api.md` 的通则从超长施工说明收敛为 envelope、分页/投影、实体/复合响应、同步/异步动作和状态变更的稳定规则；同步更新 review 日期。
+- 验证：`make -C docs verify` 通过，证明事件代码登记与端点资源覆盖未因精炼丢失；DTO warning 未变化。
+- API 各域正文及 database/error-code 索引仍有施工历史，本批不宣称四索引完成。

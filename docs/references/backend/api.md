@@ -4,18 +4,34 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-14
-review-due: 2026-09-14
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
 # HTTP API —— 端点登记
 
-> 全部端点的单一事实源（method · path · 语义一行）。
-> 通则（N 系列）：统一 Envelope `{"data":...}` / `{"error":{code,message,details}}`；线缆 camelCase；**无界集合** List `?cursor&limit` 分页，**有界可枚举资源**（workspaces / skills 及其 files 列表 / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities / tools 目录）与**有界批查**（flowrun-stats，workflowIds ≤50 封顶 · flowrun-matrix，flowrunIds ≤50 封顶——两者均去重后计数、越界 422 大声拒）豁免——返全集不分页、无 `nextCursor`、分页参数按标准 HTTP 忽略；**有界投影**另立一类——它们**不是已存集合**、而是现算的派生视图，故同样无 `nextCursor`；本类内部**两种形状,登记时必须分清**：①**带真参数的窗**（trigger-schedule）——`within`/`limit` 是**真参数**：超上限**钳制**、不可解析或非正 → **422**（不是忽略），响应经 `truncated` 诚实报告窗内还有更多；窗头恒为 now、无游标，故超出 `limit` 的点本次请求不可达（抬 `limit` ≤1000 即可，1000 之外无从翻页——前瞻预览、非可翻集合）；②**零参数**（storage-stat · **conversation workdir** 皆为单对象 · **conversation workdir-groups** 为有界集合）——按需现算、**不收任何参数**，故没有什么可钳制、没有什么可 422、也从不上报截断；分页参数按标准 HTTP 忽略。**单对象与有界集合同属②形**：本类形状的判据是「收不收真参数」、**不是**「返一个还是返一批」。**conversation workdir 那个单对象内部还嵌两个有界列表**（`branches[]` / `worktrees[]`，WD2/WD3）——它**仍属②形**，因为端点**依旧不收任何参数**：判据是「收不收真参数」，**也不是**「返回结构有多深」。两个列表的有界性各来自`refs/heads` 的条数与 checkout 的份数（皆人类尺度；**不含 `refs/remotes`**——那才是会上千的集合），故同样无游标、无 `truncated`、无从 422。`workdir-groups` 的有界性来自「一个人会挂多少个目录」（人类尺度集合，同 workspaces 那一类），**不是**来自有多少条对话；它把 active/archived **两个计数分列**上报，正是为了保持零参数（若改用一个 `?archived=` 范围参，它就既不属①也不属②——那才是混登）。**把这两种形状混登是让宪法替代码撒谎**：一个 422 非法参数的端点不属于「忽略参数」那一格，一个不收参数的端点也不属于「超限钳制 + 自报截断」那一格；非 CRUD 动作 `:action`；执行动词 `:run`(fn) `:call`(hd) `:invoke`(ag) `:trigger`(wf)；`:iterate` = 开 AI 编辑对话（全实体共享 aispawn）。
-> **响应形状铁律**：`data` 内层一律**裸实体**——`POST`(Create) / `GET` 单读 / `PATCH` 同形,前端一套解构到底;**绝不**裹 `{"<entity>": ..., "version": ...}` 外层 key。版本实体(function/handler/agent/workflow/control/approval)的当前版本经实体内嵌 `activeVersion` 字段透出(Create 即附新版本,与 GET 单读完全同形)。复合读(一次返多个并列实体,如 `GET /flowruns/{id}` → `{flowrun, nodes, nextCursor}`,nodes 为 N4 keyset 一页)才用具名多 key。
-> **异步动作返 id 铁律**：返回新建资源 id 的异步动作(`POST /{id}:trigger`→flowrun、chat `POST /{id}/messages`→message、`:iterate`/`:triage`→conversation、`:fire`→activation)一律 `202 {data:{"id": <newId>}}`——前端一条规则取新资源 id。**同步执行**(`:run`/`:invoke`/`:call`,阻塞返完整结果)不在此列、返**裸结果**——**「裸」指载荷不再被 `{result}`/`{output}` 这类****外壳套一层,不是说没有信封**:N1 照常,线上是 `{"data": <结果本身>}`。(WRK-083 L14 实证这句话被读成过「连 `{data}` 也不裹」,于是三个同步执行器全部裸读、每一次成功都被渲成「失败」;此处写死以免重演。)
-> **状态变更动作铁律**：改实体状态的动作(`:stage`/`:kill`/`:activate`/`:deactivate`/`:restart`/`:edit`/`:revert`)一律返**动作后实体完整快照**(`{data:<entity>}`),不发 `{staged:true}`/`{killed:N}` 等临时裸键(附加计数等并入实体字段或由相关列表端点查)。**无新产物的变更**(resolve-interaction、search `:reindex`、DELETE)一律 `204 No Content`,绝不返 `{data:null}`。
+> 全部 HTTP 端点的 method、path 与 wire 语义登记。路由代码是物理事实，
+> 本文由 `make -C docs verify` 检查资源词覆盖。
+
+### 通用形状
+
+- 成功信封为 `{"data": ...}`，错误信封为
+  `{"error":{"code","message","details"}}`；wire 字段使用 camelCase。
+- 无界集合使用 `cursor` + `limit`。有界枚举资源和有界批查返回全集，无
+  `nextCursor`；批查的输入上限在对应端点明确登记，越界必须报错。
+- 派生投影不使用游标。带窗口参数的 `trigger-schedule` 以 `truncated`
+  报告截断；无参数的 `storage-stat`、conversation workdir 与
+  workdir-groups 不接收窗口或截断参数。
+- Create、单读和 Patch 的 `data` 内层是裸实体；版本实体以内嵌
+  `activeVersion` 表达当前版本。复合读才使用具名多 key。
+- 创建新资源的异步动作返回 `202 {"data":{"id":"..."}}`。同步
+  `:run`、`:call`、`:invoke` 仍保留 N1 信封，但 `data` 内不再增加
+  `result` 或 `output` 外壳。
+- 改变实体状态的动作返回动作后的完整实体快照；无新产物的变更和 DELETE
+  返回 `204 No Content`。
+- 非 CRUD 动作使用 `:action`；标准执行动词为 Function `:run`、Handler
+  `:call`、Agent `:invoke`、Workflow `:trigger`。
 
 ## function（`/api/v1/functions`）
 
