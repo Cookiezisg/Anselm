@@ -1219,6 +1219,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-778 | managed 子代理失败续接严格哨兵本轮 0/2：两轮父回合均保留故意失败 marker、没有父层直接 `run_function`，可见 block 序列均在 child 内完成一次故意失败并将完整错误带回；但模型先发非法或不完整 `subagent_type`，随后再次发 corrected `Subagent`，使 `parentSubagentCalls=2` 在后续 durable execution/tree 断言前失败（52.13s、62.50s；包 115.238s）。当前证据是 schema recovery/重复派发时序，不是已证实的 function ledger、child tree、孤儿或终态后端缺陷；不改生产代码 | FRT-05 + FRT-13 / managed / subagent failure continuation + schema recovery | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentFunctionFailureContinues$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo778-managed-subagent-failure-continues-double.jsonl` → FAIL：0/2，严格派发次数断言；未输出 provider secret |
 
+| 2026-07-31 | EVO-779 | managed 子代理取消终态严格哨兵本轮 0/2（82.20s、78.69s；包 161.701s）：两轮 `:cancel` 均返回 204。第一轮最终历史可见父/child `cancelled`，child 的 `run_function` 结果为 `context canceled`，但 30s settle 窗内未被测试稳定观察到；第二轮模型先派 `Plan`、再纠正为 `general-purpose`，两个 child 都在取消前正常拒绝/完成，父回合取消但没有可取消 child，因而未满足 child-cancel 断言。两轮都在 execution/follow-up 后续断言前结束，当前证据仍是 REST settle 与 managed 工具拒绝/重试时序，不是已证实的取消 ledger、孤儿或 follow-up 复活缺陷；不改生产代码 | FRT-05 + FRT-13 / managed / subagent cancellation + terminal settle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentCancelTerminal$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo779-managed-subagent-cancel-terminal-double.jsonl` → FAIL：0/2，均为 30s terminal settle/child-cancel 断言；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
