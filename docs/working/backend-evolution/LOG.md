@@ -1287,6 +1287,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-812 | 当前 focused live 探针之后完成 backend 全量黑盒总闸：contract、chat、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生全部通过；没有发现本轮图像首帧动画、quota、默认 chat、workflow replay/approval 或 failed-fork 记录造成的稳定基础回归 | full backend testend regression / post-EVO-806~811 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo812-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 304.815s`；未启用 provider secret |
 
+| 2026-07-31 | EVO-813 | managed `generate_speech` danger-gate 当前隔离双跑仍为 1 红 1 绿：红跑 65.01s 内始终没有 interaction，在进入合成/receipt/quota 断言前失败；绿跑 10.58s 完成 `interaction→deny 204→completed`，历史没有 `generate_speech` receipt/附件，quota 不变。红灯仍是模型工具遵循/stream 时序边界，没有新的 durable、reservation、ledger 或资源孤儿证据；继续保留哨兵，不改生产代码 | FRT-09 + FRT-13 / managed / speech danger-gate reliability sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateSpeechDeniedNoSpend$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo813-managed-speech-deny-double.jsonl` → 包级 FAIL：65.01s FAIL、10.58s PASS（包 76.361s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
