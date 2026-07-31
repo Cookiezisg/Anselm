@@ -120,3 +120,11 @@ landed-into:
 - 当前文档分离 record-once、walk、手动/firing 创建、approval、replay/cancel、终态/attention、worker pool、boot context、retention、API 与 dispatch；删除工单编号、事故复盘、benchmark 和重复的整页 API 文法。
 - 保留关键正确性边界：graph/ref 双 pin、handler/MCP 活态例外、节点终态写、first-wins、cancelled parked 行只能出现在 cancelled run、被打断节点不写 failed、replay/retention 两个 durable truth 删除例外、background ctx 逐 workspace 播种。
 - 验证：`make -C docs verify`、`git diff --check` 与该文档施工词扫描通过；DTO warning 未变化。
+
+## 2026-07-31 · G2-008 · Trigger 与 Workflow current reference 重建
+
+- 从现行 listener registry、firing inbox、misfire sweep、workflow graph、capability check、版本与执行生命周期重建 Trigger 和 Workflow 两篇域文档，删除施工工单、事故编号、批次结论与旧实现叙事。
+- Trigger 保留 persist-before-act、listener 引用计数与 fence、pause/resume、misfire 水位/hotSince/容差尾带、live/missed 共键、catchup-one、四类 source payload 与 dedup 契约；明确 missed 等中性终态及其 API 投影。
+- Workflow 保留五类节点、CEL 可见性、capability problems/warnings、五种 overlap policy、stage/activate 门禁、active graph 入口重绑、pin closure、draining/kill/delete 与 approval inbox 语义；明确 overlap policy 只管真实 firing，显式 run-now 不经过该策略。
+- 两篇文档均从“实现史解释当前行为”收敛为定位、状态、正确性边界、动作、契约与跨域集成；精确端点、表和错误码继续引用四个机械索引，不在域文档复制清单。
+- 验证：`make -C docs verify`、`git diff --check` 与两篇文档施工词扫描通过；DTO warning 未变化。
