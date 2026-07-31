@@ -1293,6 +1293,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-815 | 聊天入口 workflow 故意失败→诊断当前双跑全绿：两轮首回合均先发现 `trigger_workflow` 后恰调用一次，单一 failed run 的 `origin=chat`、`conversationId` 与 `CHAT_FLOWRUN_FAILURE_C1A9` durable 错误闭合；第二回合再经 `search_flowruns(status=failed)` 与 `get_flowrun` 各一次读取同一 run，并在助手文本中复述 `failed`/marker。未见重复 run、错误节点丢失、跨会话泄漏或父回合非终态 | FRT-04 + FRT-13 / managed-read+write / chat flowrun failure diagnosis | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunFailureDiagnosis$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo815-managed-chat-flowrun-failure-diagnosis-double.jsonl` → PASS：47.63s、42.45s（包 90.831s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-816 | 聊天入口 workflow completed→观测当前双跑全绿：两轮均由 `search_tools→trigger_workflow` 恰一次启动单一 completed run，`origin=chat`/`conversationId` 正确；下一回合只经 `search_tools→get_flowrun` 各一次读取 completed 节点与 `CHAT_FLOWRUN_OBSERVABILITY_7B2D` marker，助手回答与 durable 结果一致。未见重复 run、跨会话读取、marker 丢失或状态投影污染 | FRT-04 + FRT-13 / managed-read+write / chat flowrun observability | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunObservability$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo816-managed-chat-flowrun-observability-double.jsonl` → PASS：40.19s、32.00s（包 72.969s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

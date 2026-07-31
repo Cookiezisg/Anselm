@@ -148,6 +148,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再补 workflow image producer→OpenAI BYOK viewer：上游 managed image、flowrun node、MediaRef attachment 与下游 OpenAI recorder 的 exact-byte image part 在两个当前独立进程均闭合（42.049s、35.691s）；这条混合 ownership 入口没有把生成 receipt 当作媒体，也没有因跨 provider 重投影而丢图。
 
+紧接着复探正向对照：两轮 `search_tools→trigger_workflow` 各一次只产生一个 completed run，`origin=chat` 与 `conversationId` 可审计；下一回合 `search_tools→get_flowrun` 各一次返回 completed 节点结果和 `CHAT_FLOWRUN_OBSERVABILITY_7B2D`，助手文本与 durable 投影一致。40.19s/32.00s 双跑未见重复 run、跨会话读取或 marker 丢失。
+
 本轮复探聊天入口 workflow 的故意失败→诊断链：两轮均由 `search_tools→trigger_workflow` 恰一次启动单一 failed run，公开 flowrun 保留 `origin=chat`、原始 `conversationId` 与 `CHAT_FLOWRUN_FAILURE_C1A9` 节点错误；下一回合再由 `search_tools→search_flowruns(status=failed)→get_flowrun` 各一次读取同一 run，助手文本复述 failed/marker。该当前窗口双跑（47.63s、42.45s）没有重复 run、错误丢失或跨会话泄漏。
 
 本轮复探同一 flowrun 内的 managed producer→managed viewer：image producer→viewer 两轮 58.44s/56.70s 完成，PNG content 1,095,190/1,098,489 bytes；speech producer→viewer 两轮 31.94s/22.83s 完成，WAV content 73,004/80,684 bytes。四次 flowrun 均 durable completed，下游消费的是同一 MediaRef 而非 receipt 文本，audio viewer 继续诚实降级；未见重复生成、附件孤儿或异步结果丢失。
@@ -495,6 +497,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 本轮补入 human approval 的恢复证据：两次 chat flowrun 在 approval 节点保持 durable `waiting`/parked，客户端先只读状态，再发送 `decide_approval(yes)`；下游 publish 恰一次、父回合最终 completed，未见审批窗口内的副作用、重复决定或恢复后的旧节点重跑。
 
 本轮再补一条直接异步视频的恢复/资源证据：两次 `generate_video` 均在批准后只提交一个 gateway job，父回合等到 durable terminal 才完成；MP4 可通过 content endpoint 回读，receipt、MediaRef 与附件各自闭合，sandbox 无残留句柄。该证据与图像首帧动画、批准后取消互补，当前未见提前 completed、迟到写入或重复消费。
+
+同窗口的 completed 对照也闭合了聊天侧可观测投影：成功 run 的节点结果、flowrun terminal 与助手回读均指向同一 `flowrunId`，未因紧邻失败诊断路径而产生旧状态复活、跨会话泄漏或额外工具执行。
 
 同一窗口复探 speech danger denial：一轮没有产生 interaction、另一轮真实完成 deny→completed；只在绿轮的 durable history/quota/receipt 断言中确认无消费，红轮未进入这些后续状态。该失败位置仍是审批请求生成前的 managed 模型时序，不是取消/恢复或媒体资源终态缺陷。
 
