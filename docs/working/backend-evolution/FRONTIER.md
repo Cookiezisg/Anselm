@@ -212,6 +212,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再次独立双跑朗读成本边界：顺序首读真实合成、同文本同音色复用同一 WAV 缓存、换文本产生新附件并可回读；同 key 并发双请求返回同一附件、一个响应标记缓存命中且 quota 只增加一次。`ReadAloudCache` 10.50s/7.07s、`ReadAloudConcurrentDedup` 5.47s/5.06s，包 28.931s；没有重复扣费、缓存穿透或附件孤儿。provider wire 仍以 API Serve 的产品可见 quota/attachment 投影为证，不臆造公网不可见的 raw wire 计数。
 
+本轮单独复探 managed 配额控制面：两个新 workspace 都等待 managed key 与默认模型完成 provision，再从产品 API 读取 `/freetier/quota`；两轮均返回 `limit/used/remaining` 自洽、`available=true`、RFC3339 `resetAt`，未触发模型或生成消费。该结果补足了 voice/朗读成本证据之外的 fresh-install quota 投影，没有形成配额代理或隔离回归。
+
 ### FRT-09 最新证据
 
 同日复探 managed 高风险消费闸：`generate_speech` 与异步 `generate_video` 均先出现 danger interaction，客户端明确拒绝后回合完成；两轮独立进程均未进入合成、未铸造 provider receipt、未增加 generation reservation/quota。两轮整组通过（28.254s、27.967s；第二轮视频拒绝 11.64s），确认拒绝路径不会因上游窗口或重复点击而产生隐形消费，未形成产品缺陷。
