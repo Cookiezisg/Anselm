@@ -306,6 +306,16 @@ type Message struct {
 // 对有唯一的家。
 const AttrRetryOf = "retryOf"
 
+// AttrParentBlockID is the Message.Attrs key carrying the block id of the tool_call that spawned
+// a subagent message. It is the message-level form of Block.ParentBlockID: the subagent row itself
+// is nested under a parent block, so a durable copy (for example a conversation fork) must rebase
+// this pointer together with the block column.
+//
+// AttrParentBlockID 是 Message.Attrs 里承载派生 subagent 回合的 tool_call block id 的键。它是
+// Block.ParentBlockID 在消息层的对应物：subagent 行本身嵌在父 block 下，因此耐久复制（例如对话分叉）
+// 必须和 block 列一起重定基这个指针。
+const AttrParentBlockID = "parentBlockId"
+
 // Roles a Message carries. There is no system/tool message row — the system prompt is built
 // per-turn by chat (not persisted as a turn) and tool results are tool_result Blocks under an
 // assistant turn, not standalone messages.

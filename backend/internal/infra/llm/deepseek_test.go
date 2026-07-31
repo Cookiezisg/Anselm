@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -11,16 +12,22 @@ import (
 
 func deepseekBody(t *testing.T, req Request) compatRequest {
 	t.Helper()
-	httpReq, err := newDeepSeekProvider().BuildRequest(context.Background(), req)
-	if err != nil {
-		t.Fatal(err)
-	}
-	raw, _ := io.ReadAll(httpReq.Body)
+	raw := deepseekRawBody(t, req)
 	var dr compatRequest
 	if err := json.Unmarshal(raw, &dr); err != nil {
 		t.Fatal(err)
 	}
 	return dr
+}
+
+func deepseekRawBody(t *testing.T, req Request) []byte {
+	t.Helper()
+	httpReq, err := newDeepSeekProvider().BuildRequest(context.Background(), req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, _ := io.ReadAll(httpReq.Body)
+	return raw
 }
 
 func TestDeepSeekBuildRequest(t *testing.T) {
@@ -85,6 +92,28 @@ func TestDeepSeekReasoningRoundTrip(t *testing.T) {
 	}
 	if !found {
 		t.Error("tool-call assistant turn should preserve reasoning_content")
+	}
+
+	// A tool-call turn with no upstream reasoning delta must still carry an explicit empty field;
+	// DeepSeek's thinking mode rejects the same JSON shape when the field is omitted entirely.
+	raw := deepseekRawBody(t, Request{
+		ModelID: "m",
+		Messages: []LLMMessage{
+			{Role: RoleAssistant, ToolCalls: []LLMToolCall{{ID: "t1", Name: "f", Arguments: "{}"}}},
+			{Role: RoleTool, ToolCallID: "t1", Content: "result"},
+		},
+	})
+	if !bytes.Contains(raw, []byte(`"reasoning_content":""`)) {
+		t.Errorf("tool-call assistant turn with missing reasoning must encode an explicit empty field: %s", raw)
+	}
+
+	// Plain assistant turns keep the old omission rule.
+	raw = deepseekRawBody(t, Request{
+		ModelID:  "m",
+		Messages: []LLMMessage{{Role: RoleAssistant, Content: "answer"}},
+	})
+	if bytes.Contains(raw, []byte(`"reasoning_content"`)) {
+		t.Errorf("plain assistant turn should omit reasoning_content: %s", raw)
 	}
 }
 

@@ -53,10 +53,12 @@ func (l ModelInfoLookup) find(ctx context.Context, provider, modelID string) (mo
 //
 // contentCaps 返回 chat 对某 (provider, modelID) 的内容能力；未知 → 零。
 func (l ModelInfoLookup) contentCaps(ctx context.Context, provider, modelID string) chatapp.ContentCapabilities {
-	v, _ := l.find(ctx, provider, modelID)
+	v, ok := l.find(ctx, provider, modelID)
 	return chatapp.ContentCapabilities{
 		Vision: v.Vision, Video: v.Video, Audio: v.Audio, NativeDocs: v.NativeDocs,
+		Tools: v.Tools, ToolsKnown: ok,
 		MaxMediaParts: v.MaxMediaParts, MaxMediaBytes: v.MaxMediaBytes,
+		MaxDistinctMediaKinds: v.MaxDistinctMediaKinds,
 	}
 }
 

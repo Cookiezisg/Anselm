@@ -33,11 +33,17 @@ import "strings"
 //
 // 它住在一个地方,因为七个 OpenAI 兼容方言各抄了同一行 `ArgsDelta: tc.Function.Arguments`。只修那个
 // 有复现的方言,等于留下六把上了膛的枪,每一把都对着下一个改约定的供应商。
-type toolArgs struct {
+// deltaAccumulator is the shared prefix-extension normalizer used by tool arguments and the small
+// set of providers/models that stream text cumulatively.
+// deltaAccumulator 是工具参数与少数以累计方式发文本的 provider/model 共用的前缀延伸归一器。
+type deltaAccumulator struct {
 	seen map[int]string
 }
 
-func newToolArgs() *toolArgs { return &toolArgs{seen: map[int]string{}} }
+type toolArgs = deltaAccumulator
+
+func newDeltaAccumulator() *deltaAccumulator { return &deltaAccumulator{seen: map[int]string{}} }
+func newToolArgs() *toolArgs                 { return newDeltaAccumulator() }
 
 // delta returns the NEW suffix one wire chunk contributes, or "" when it contributes nothing.
 //
@@ -50,7 +56,7 @@ func newToolArgs() *toolArgs { return &toolArgs{seen: map[int]string{}} }
 //
 // 前缀判别就是那个分辨器,且两个方向都安全:对合法 JSON 而言,一个真增量**不可能**把已累积的一切重述
 // 一遍——那会拼出 `{"a{"a…`,没有任何解析器收——故把「延长前缀」的分片读作累积,不会破坏一条真增量流。
-func (t *toolArgs) delta(idx int, chunk string) string {
+func (t *deltaAccumulator) delta(idx int, chunk string) string {
 	if t == nil || chunk == "" {
 		return ""
 	}

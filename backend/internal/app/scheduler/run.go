@@ -177,6 +177,19 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("schedulerapp.DrainFirings: list pending: %w", err)
 	}
+	// Keep a scope set for lifecycle reconciliation after this batch. Some pending rows settle as
+	// skipped/superseded/shed without ever creating a run, so waiting only for markRunTerminal would
+	// leave a draining workflow stuck forever with no run callback left to flip it inactive.
+	// 为本批次记 scope，供末尾 lifecycle 对账。有些 pending 行会 skipped/superseded/shed、根本不造 run；若只等
+	// markRunTerminal，draining workflow 会因没有 run callback 而永久卡住，无法翻 inactive。
+	type workflowScope struct {
+		workspaceID string
+		workflowID  string
+	}
+	scopes := make(map[workflowScope]struct{}, len(firings))
+	for _, f := range firings {
+		scopes[workflowScope{workspaceID: f.WorkspaceID, workflowID: f.WorkflowID}] = struct{}{}
+	}
 	// Two phases so the overlap policy can SEE siblings: phase 1 decides + claims every firing IN ORDER
 	// (each survivor is committed as a running run before the next firing is decided); phase 2 ENQUEUES
 	// each seeded run onto the Advance worker pool. Deciding and advancing a firing together (the old
@@ -215,6 +228,13 @@ func (s *Service) DrainFirings(ctx context.Context) error {
 	}
 	for _, p := range pending {
 		s.enqueueAdvance(p.fctx, p.runID) // pooled (or inline if no pool) — see pool.go
+	}
+	for scope := range scopes {
+		rctx := ctx
+		if scope.workspaceID != "" {
+			rctx = reqctxpkg.SetWorkspaceID(ctx, scope.workspaceID)
+		}
+		s.afterRunSettled(rctx, scope.workflowID)
 	}
 	return nil
 }
@@ -283,6 +303,21 @@ func (s *Service) claimFiring(ctx context.Context, f *triggerdomain.Firing) (str
 		Origin:     origin,
 	})
 	if err != nil {
+		// The active graph may have been hot-edited after this firing entered the inbox. If its
+		// source trigger is no longer an entry node, retrying can never produce a legal run: every
+		// drain would leave the same row pending forever. Shed this structural, non-retryable event
+		// while preserving its audit row; transient active-version/pin failures remain retryable.
+		// firing 入 inbox 后，active 图可能热编辑过：若其 source trigger 已不再是入口节点，重试永远
+		// 不会造出合法 run，行会每次 drain 都 pending 自旋。把这类结构性、不可重试事件中性 shed，
+		// 同时保留审计行；暂时性的 active-version/pin 错误仍可重试。
+		if errors.Is(err, flowrundomain.ErrInvalidEntry) {
+			if serr := s.inbox.MarkFiringOutcome(fctx, f.ID, triggerdomain.FiringShed); serr != nil {
+				return "", fctx, fmt.Errorf("schedulerapp.claimFiring: shed invalid entry: %w", serr)
+			}
+			s.log.Warn("schedulerapp: shed firing with no entry in active graph",
+				zap.String("firing", f.ID), zap.String("workflow", f.WorkflowID), zap.String("trigger", f.TriggerID))
+			return "", fctx, nil
+		}
 		return "", fctx, err
 	}
 

@@ -103,6 +103,11 @@ var (
 	// ErrOptionValueInvalid: a native option's value does not satisfy the model's published contract.
 	// ErrOptionValueInvalid：原生参数的值不满足该模型公开的契约。
 	ErrOptionValueInvalid = errorspkg.New(errorspkg.KindInvalid, "MODEL_OPTION_VALUE_INVALID", "native model option value is invalid")
+
+	// ErrNotAgentCapable: the selected model is known to answer chat completions but cannot call
+	// tools, so it cannot drive an agent or workflow worker.
+	// ErrNotAgentCapable：所选模型已知能完成聊天、但不能调用工具，故不能驱动 agent 或 workflow worker。
+	ErrNotAgentCapable = errorspkg.New(errorspkg.KindUnprocessable, "MODEL_NOT_AGENT_CAPABLE", "selected model cannot call tools and cannot run as an agent")
 )
 
 // ModelPicker resolves a workspace's default ModelRef for a scenario. Implemented by app/workspace

@@ -125,10 +125,13 @@ type Binder interface {
 type Runner interface {
 	StartRun(ctx context.Context, workflowID string, payload map[string]any) (string, error)
 	KillWorkflow(ctx context.Context, workflowID string) (int, error)
-	// CountRunning reports a workflow's in-flight run count — deactivate uses it to pick draining
-	// (runs still finishing) vs inactive (clean stop).
-	// CountRunning 报告 workflow 在途 run 数——deactivate 据此选 draining（还在收尾）vs inactive（干净停）。
+	// CountRunning reports only in-flight flowruns for overlap/diagnostic callers.
+	// CountRunning 只报告 running flowrun，供 overlap/诊断调用者使用。
 	CountRunning(ctx context.Context, workflowID string) (int, error)
+	// CountOutstanding includes running runs and accepted pending firings. Deactivate must keep
+	// `draining` visible until both classes of work have settled.
+	// CountOutstanding 同时包含 running run 与已接受的 pending firing；两类工作都结算前，deactivate 必须保持 `draining`。
+	CountOutstanding(ctx context.Context, workflowID string) (int, error)
 }
 
 // Service orchestrates the workflow graph domain.

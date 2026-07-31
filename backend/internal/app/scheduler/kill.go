@@ -101,6 +101,18 @@ func (s *Service) Shutdown() {
 // agent / function 立即返回），再把头标 cancelled（first-wins；同一瞬间结束的 run 保留其真实终态）。摘 trigger
 // 监听、翻 lifecycle 是 workflow service 的事（它在 Detach 后调本法）。返被杀 run 数。按 workspace 隔离。
 func (s *Service) KillWorkflow(ctx context.Context, workflowID string) (int, error) {
+	// Fence the durable inbox BEFORE listing/cancelling running runs. Otherwise a pending firing
+	// can observe the first run's cancellation on the next drain tick and seed a fresh run after
+	// :kill has already promised a hard stop. The firing remains in the audit log as neutral `shed`.
+	// 先封住 durable inbox，再列举/取消 running run。否则 pending firing 可能在下一 tick 观察到第一条 run
+	// 已取消，并在 :kill 已承诺硬停之后铸造新 run；行仍留审计但中性落为 `shed`。
+	if s.inbox != nil {
+		if n, err := s.inbox.ShedPendingFiringsByWorkflow(ctx, workflowID); err != nil {
+			return 0, fmt.Errorf("schedulerapp.KillWorkflow: shed pending firings: %w", err)
+		} else if n > 0 {
+			s.log.Info("schedulerapp.KillWorkflow: shed pending firings", zap.String("workflow", workflowID), zap.Int64("count", n))
+		}
+	}
 	runs, err := s.runs.ListRunningByWorkflow(ctx, workflowID)
 	if err != nil {
 		return 0, err
@@ -237,6 +249,28 @@ func (s *Service) CountRunning(ctx context.Context, workflowID string) (int, err
 	return s.runs.CountRunningByWorkflow(ctx, workflowID)
 }
 
+// CountOutstanding reports all work that a graceful workflow drain still owes: running flowruns
+// plus durable pending firings that have been accepted but not claimed. A pending firing is not a
+// run yet, but dropping it from this count would let :deactivate flip inactive before the event is
+// consumed, making lifecycle state lie about the remaining drain.
+//
+// CountOutstanding 报告优雅 workflow drain 尚欠的全部工作：running flowrun 加上已接受但尚未 claim 的 durable
+// pending firing。pending 还不是 run，却不能从计数剔除；否则 :deactivate 会在事件消费前翻 inactive，lifecycle 撒谎。
+func (s *Service) CountOutstanding(ctx context.Context, workflowID string) (int, error) {
+	running, err := s.runs.CountRunningByWorkflow(ctx, workflowID)
+	if err != nil {
+		return 0, err
+	}
+	if s.inbox == nil {
+		return running, nil
+	}
+	pending, err := s.inbox.CountPendingFiringsByWorkflow(ctx, workflowID)
+	if err != nil {
+		return 0, fmt.Errorf("schedulerapp.CountOutstanding: pending firings: %w", err)
+	}
+	return running + pending, nil
+}
+
 // markRunTerminal flips a run terminal then reconciles its workflow's drain state — the one
 // chokepoint for a run reaching completed/failed (kill/:cancel write cancelled directly via the
 // store: kill's lifecycle flip is the workflow service's, :cancel reconciles inline in CancelRun).
@@ -289,18 +323,19 @@ func (s *Service) markRunTerminal(ctx context.Context, run *flowrundomain.FlowRu
 	return nil
 }
 
-// afterRunSettled flips a draining workflow to inactive once it has no running runs left. Best-effort
-// + nil-tolerant: a count/reconcile error is logged, never failing the run that just settled.
+// afterRunSettled flips a draining workflow to inactive once it has no running runs AND no pending
+// accepted firings left. Best-effort + nil-tolerant: a count/reconcile error is logged, never
+// failing the run that just settled.
 //
-// afterRunSettled 在某 workflow 无 running run 后把 draining 翻 inactive。best-effort + nil-tolerant：
-// count/reconcile 出错只记日志，绝不连累刚结算的 run。
+// afterRunSettled 在某 workflow 既无 running run **又无 pending accepted firing** 后把 draining 翻 inactive。
+// best-effort + nil-tolerant：count/reconcile 出错只记日志，绝不连累刚结算的 run。
 func (s *Service) afterRunSettled(ctx context.Context, workflowID string) {
 	if s.recon == nil {
 		return
 	}
-	n, err := s.runs.CountRunningByWorkflow(ctx, workflowID)
+	n, err := s.CountOutstanding(ctx, workflowID)
 	if err != nil {
-		s.log.Warn("schedulerapp: count running for drain reconcile", zap.String("workflow", workflowID), zap.Error(err))
+		s.log.Warn("schedulerapp: count outstanding for drain reconcile", zap.String("workflow", workflowID), zap.Error(err))
 		return
 	}
 	if n > 0 {

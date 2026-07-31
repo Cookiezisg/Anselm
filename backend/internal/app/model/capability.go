@@ -44,10 +44,11 @@ type CapabilityView struct {
 	// (H12-b).
 	// Tools:模型会调工具,也就是它能驱动 agent 运行时。false 是**拿来显示**的、绝不用来藏行——
 	// 「能聊天、不能当 agent」是一句描述、不是一次取消资格(H12-b)。
-	Tools         bool          `json:"tools"`
-	MaxMediaParts int           `json:"maxMediaParts,omitempty"`
-	MaxMediaBytes int64         `json:"maxMediaBytes,omitempty"`
-	Knobs         []llmpkg.Knob `json:"knobs"`
+	Tools                 bool          `json:"tools"`
+	MaxMediaParts         int           `json:"maxMediaParts,omitempty"`
+	MaxMediaBytes         int64         `json:"maxMediaBytes,omitempty"`
+	MaxDistinctMediaKinds int           `json:"maxDistinctMediaKinds,omitempty"`
+	Knobs                 []llmpkg.Knob `json:"knobs"`
 }
 
 // CapabilityService aggregates the model catalog across a workspace's probed keys.
@@ -96,23 +97,24 @@ func (s *CapabilityService) List(ctx context.Context) ([]CapabilityView, error) 
 		}
 		for _, m := range models {
 			out = append(out, CapabilityView{
-				APIKeyID:             pk.ID,
-				KeyName:              pk.DisplayName,
-				Provider:             pk.Provider,
-				ModelID:              m.ID,
-				DisplayName:          m.DisplayName,
-				ContextWindow:        m.ContextWindow,
-				MaxOutput:            m.MaxOutput,
-				TextInputLimit:       m.TextInputLimit,
-				MultimodalInputLimit: m.MultimodalInputLimit,
-				Vision:               m.Vision,
-				Video:                m.Video,
-				Audio:                m.Audio,
-				NativeDocs:           m.NativeDocs,
-				Tools:                m.Tools,
-				MaxMediaParts:        m.MaxMediaParts,
-				MaxMediaBytes:        m.MaxMediaBytes,
-				Knobs:                m.Knobs,
+				APIKeyID:              pk.ID,
+				KeyName:               pk.DisplayName,
+				Provider:              pk.Provider,
+				ModelID:               m.ID,
+				DisplayName:           m.DisplayName,
+				ContextWindow:         m.ContextWindow,
+				MaxOutput:             m.MaxOutput,
+				TextInputLimit:        m.TextInputLimit,
+				MultimodalInputLimit:  m.MultimodalInputLimit,
+				Vision:                m.Vision,
+				Video:                 m.Video,
+				Audio:                 m.Audio,
+				NativeDocs:            m.NativeDocs,
+				Tools:                 m.Tools,
+				MaxMediaParts:         m.MaxMediaParts,
+				MaxMediaBytes:         m.MaxMediaBytes,
+				MaxDistinctMediaKinds: m.MaxDistinctMediaKinds,
+				Knobs:                 m.Knobs,
 			})
 		}
 	}

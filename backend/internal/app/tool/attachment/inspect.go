@@ -28,7 +28,14 @@ const (
 	inspectMediaMaxTileCols           = 8
 )
 
-const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId and return concise, bounded text evidence. For images, this uses the default vision-capable Anselm route and sends only one bounded image proxy/crop; it does not dump image bytes into the conversation. For long or dense images, pass tiles:true first to get a compact normalized tile map without calling a model, then inspect a chosen crop. For text/documents, it reuses local extraction plus query/page/offset windows and does not call a model, so large files are returned as evidence slices instead of flooding context. For audio/video, it currently returns a local metadata capsule with optional time-range intent; it does not fake transcript, OCR, scenes, or raw-media understanding.`
+// Keep the first line useful as well as short: lazy-tool overviews intentionally keep only the
+// first 180 characters, so the temporal range knobs must be visible before a model decides to
+// call inspect_media directly (without a preceding search_tools activation).
+//
+// 首行既要短又要有用：lazy 工具目录刻意只保留前 180 个字符，因此时间范围旋钮必须在模型
+// 未先 search_tools、准备直接调用 inspect_media 时就可见。
+const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId with bounded evidence; text/docs accept query/page/offset/limitChars, audio/video accept startMs/endMs, images accept crop/detail/tiles.
+For images, tiles (boolean) with tileRows/tileCols (integers) returns a compact map without vision; crop/detail are optional. Optional query/contextChars/maxMatches search text or documents; optional page/offset/limitChars select bounded slices. Images otherwise use the default vision-capable Anselm route and send only one bounded proxy/crop. Text/documents use local extraction; audio/video return metadata only, never fake transcript/OCR/scenes.`
 
 var inspectMediaSchema = json.RawMessage(`{
 	"type": "object",
@@ -244,6 +251,90 @@ type inspectMediaArgs struct {
 	TileCols     int          `json:"tileCols"`
 	Crop         *inspectCrop `json:"crop"`
 	Detail       string       `json:"detail"`
+}
+
+// UnmarshalJSON tolerates stringified scalar values from managed tool callers while preserving
+// the public schema's integer/boolean declarations. Without this boundary, one malformed retry
+// can consume a small agent step budget before a valid bounded inspection is returned.
+func (a *inspectMediaArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		AttachmentID string          `json:"attachmentId"`
+		Question     string          `json:"question"`
+		Query        string          `json:"query"`
+		Page         json.RawMessage `json:"page"`
+		Offset       json.RawMessage `json:"offset"`
+		LimitChars   json.RawMessage `json:"limitChars"`
+		ContextChars json.RawMessage `json:"contextChars"`
+		MaxMatches   json.RawMessage `json:"maxMatches"`
+		StartMS      json.RawMessage `json:"startMs"`
+		EndMS        json.RawMessage `json:"endMs"`
+		Tiles        json.RawMessage `json:"tiles"`
+		TileRows     json.RawMessage `json:"tileRows"`
+		TileCols     json.RawMessage `json:"tileCols"`
+		Crop         *inspectCrop    `json:"crop"`
+		Detail       string          `json:"detail"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	page, err := decodeLooseInt(raw.Page)
+	if err != nil {
+		return fmt.Errorf("page: %w", err)
+	}
+	offset, err := decodeLooseInt(raw.Offset)
+	if err != nil {
+		return fmt.Errorf("offset: %w", err)
+	}
+	limitChars, err := decodeLooseInt(raw.LimitChars)
+	if err != nil {
+		return fmt.Errorf("limitChars: %w", err)
+	}
+	contextChars, err := decodeLooseInt(raw.ContextChars)
+	if err != nil {
+		return fmt.Errorf("contextChars: %w", err)
+	}
+	maxMatches, err := decodeLooseInt(raw.MaxMatches)
+	if err != nil {
+		return fmt.Errorf("maxMatches: %w", err)
+	}
+	startMS, err := decodeLooseInt(raw.StartMS)
+	if err != nil {
+		return fmt.Errorf("startMs: %w", err)
+	}
+	endMS, err := decodeLooseInt(raw.EndMS)
+	if err != nil {
+		return fmt.Errorf("endMs: %w", err)
+	}
+	tiles, err := decodeLooseBool(raw.Tiles)
+	if err != nil {
+		return fmt.Errorf("tiles: %w", err)
+	}
+	tileRows, err := decodeLooseInt(raw.TileRows)
+	if err != nil {
+		return fmt.Errorf("tileRows: %w", err)
+	}
+	tileCols, err := decodeLooseInt(raw.TileCols)
+	if err != nil {
+		return fmt.Errorf("tileCols: %w", err)
+	}
+	*a = inspectMediaArgs{
+		AttachmentID: raw.AttachmentID,
+		Question:     raw.Question,
+		Query:        raw.Query,
+		Page:         page,
+		Offset:       offset,
+		LimitChars:   limitChars,
+		ContextChars: contextChars,
+		MaxMatches:   maxMatches,
+		StartMS:      int64(startMS),
+		EndMS:        int64(endMS),
+		Tiles:        tiles,
+		TileRows:     tileRows,
+		TileCols:     tileCols,
+		Crop:         raw.Crop,
+		Detail:       raw.Detail,
+	}
+	return nil
 }
 
 type inspectCrop struct {

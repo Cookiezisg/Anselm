@@ -90,20 +90,21 @@ func (t *GetModelConfig) Execute(ctx context.Context, _ string) (string, error) 
 
 func capabilityPayload(c modelapp.CapabilityView) map[string]any {
 	out := map[string]any{
-		"apiKeyId":       c.APIKeyID,
-		"provider":       c.Provider,
-		"modelId":        c.ModelID,
-		"displayName":    c.DisplayName,
-		"contextWindow":  c.ContextWindow,
-		"maxOutput":      c.MaxOutput,
-		"vision":         c.Vision,
-		"video":          c.Video,
-		"audio":          c.Audio,
-		"nativeDocs":     c.NativeDocs,
-		"nativeOptions":  c.Knobs,
-		"maxMediaParts":  c.MaxMediaParts,
-		"maxMediaBytes":  c.MaxMediaBytes,
-		"textInputLimit": c.TextInputLimit,
+		"apiKeyId":              c.APIKeyID,
+		"provider":              c.Provider,
+		"modelId":               c.ModelID,
+		"displayName":           c.DisplayName,
+		"contextWindow":         c.ContextWindow,
+		"maxOutput":             c.MaxOutput,
+		"vision":                c.Vision,
+		"video":                 c.Video,
+		"audio":                 c.Audio,
+		"nativeDocs":            c.NativeDocs,
+		"nativeOptions":         c.Knobs,
+		"maxMediaParts":         c.MaxMediaParts,
+		"maxMediaBytes":         c.MaxMediaBytes,
+		"maxDistinctMediaKinds": c.MaxDistinctMediaKinds,
+		"textInputLimit":        c.TextInputLimit,
 	}
 	if c.MultimodalInputLimit > 0 {
 		out["multimodalInputLimit"] = c.MultimodalInputLimit

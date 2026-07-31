@@ -3,6 +3,7 @@ package chat
 import (
 	"context"
 	"database/sql"
+	"encoding/json"
 	"errors"
 	"iter"
 	"slices"
@@ -15,6 +16,7 @@ import (
 	"go.uber.org/zap"
 
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
@@ -26,6 +28,14 @@ import (
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
+
+type chatHostTestTool struct{}
+
+func (chatHostTestTool) Name() string                                    { return "test_tool" }
+func (chatHostTestTool) Description() string                             { return "test" }
+func (chatHostTestTool) Parameters() json.RawMessage                     { return json.RawMessage(`{"type":"object"}`) }
+func (chatHostTestTool) ValidateInput(json.RawMessage) error             { return nil }
+func (chatHostTestTool) Execute(context.Context, string) (string, error) { return "ok", nil }
 
 // --- fakes -----------------------------------------------------------------
 
@@ -255,6 +265,16 @@ func newSvc(t *testing.T, client llminfra.Client, bridge streamdomain.Bridge) (*
 		Bridge:        bridge,
 	}
 	return NewService(store, deps, zap.NewNop()), store
+}
+
+func TestChatHostTools_OmitsToolsForKnownChatOnlyModel(t *testing.T) {
+	svc := NewService(newStore(t), Deps{
+		Toolset: toolapp.Toolset{Resident: []toolapp.Tool{chatHostTestTool{}}},
+	}, zap.NewNop())
+	h := &chatHost{svc: svc, caps: ContentCapabilities{ToolsKnown: true, Tools: false}}
+	if got := h.Tools(context.Background()); len(got) != 0 {
+		t.Fatalf("chat-only model received %d tool definitions, want none", len(got))
+	}
 }
 
 func TestChatHostRuntimeProfileUsesExactRouteAndRecordsOnlySafeFacts(t *testing.T) {

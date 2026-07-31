@@ -409,6 +409,52 @@ func TestRun_StreamError_EmptyErrFillsActionableMsg(t *testing.T) {
 	}
 }
 
+func TestRun_StreamError_PreservesModelNotFoundCode(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{errorEv(fmt.Errorf("%w (404)", llminfra.ErrModelNotFound))}}}
+	host := &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "hi"}}}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if host.fin.status != messagesdomain.StatusError || host.fin.errCode != "LLM_MODEL_NOT_FOUND" {
+		t.Fatalf("status=%q errCode=%q, want error/LLM_MODEL_NOT_FOUND", host.fin.status, host.fin.errCode)
+	}
+	if !strings.Contains(host.fin.errMsg, "model not found") {
+		t.Fatalf("errMsg=%q, want the classified model-not-found cause", host.fin.errMsg)
+	}
+	if res.ErrCode != "LLM_MODEL_NOT_FOUND" || res.ErrMsg != host.fin.errMsg {
+		t.Fatalf("Result must carry the classified terminal cause; got code=%q msg=%q", res.ErrCode, res.ErrMsg)
+	}
+}
+
+func TestRun_StreamError_PreservesClassifiedProviderCodes(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		code string
+	}{
+		{name: "auth", err: llminfra.ErrAuthFailed, code: "LLM_AUTH_FAILED"},
+		{name: "bad request", err: llminfra.ErrBadRequest, code: "LLM_BAD_REQUEST"},
+		{name: "model not found", err: llminfra.ErrModelNotFound, code: "LLM_MODEL_NOT_FOUND"},
+		{name: "quota exhausted", err: llminfra.ErrQuotaExhausted, code: "LLM_QUOTA_EXHAUSTED"},
+		{name: "rate limited", err: llminfra.ErrRateLimited, code: "LLM_RATE_LIMITED"},
+		{name: "provider", err: llminfra.ErrProviderError, code: "LLM_PROVIDER_ERROR"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			client := &fakeClient{scripts: [][]llminfra.StreamEvent{{errorEv(fmt.Errorf("classified: %w", tc.err))}}}
+			host := &fakeHost{history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "hi"}}}
+
+			res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+			if host.fin.status != messagesdomain.StatusError || host.fin.errCode != tc.code {
+				t.Fatalf("status=%q errCode=%q, want error/%s", host.fin.status, host.fin.errCode, tc.code)
+			}
+			if res.ErrCode != tc.code || res.ErrMsg == "" {
+				t.Fatalf("result code=%q message=%q, want %s with a cause", res.ErrCode, res.ErrMsg, tc.code)
+			}
+		})
+	}
+}
+
 func TestRun_LoadHistoryError(t *testing.T) {
 	host := &errHistoryHost{}
 	client := &fakeClient{}
@@ -590,7 +636,7 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
 		llminfra.StreamEvent{Type: llminfra.EventReasoning, Delta: "thinking"},
 		textEv("answer"),
-		toolStartEv(0, "tc_1", "writer"),
+		llminfra.StreamEvent{Type: llminfra.EventToolStart, ToolIndex: 0, ToolID: "tc_1", ToolName: "writer", Signature: "sig-call"},
 		toolDeltaEv(0, `{"summary":"writing","danger":"dangerous","path":"/x"}`),
 		finishEv(),
 	}}}
@@ -618,7 +664,7 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 			toolCallBlk = &blocks[i]
 		}
 	}
-	if toolCallBlk == nil || toolCallBlk.Attrs["danger"] != "dangerous" {
+	if toolCallBlk == nil || toolCallBlk.Attrs["danger"] != "dangerous" || toolCallBlk.Attrs["signature"] != "sig-call" {
 		t.Fatalf("tool_call block missing danger attr: %+v", blocks)
 	}
 }
@@ -629,7 +675,7 @@ func TestBlocksToAssistantLLM(t *testing.T) {
 	blocks := []messagesdomain.Block{
 		{Type: messagesdomain.BlockTypeReasoning, Content: "hmm", Attrs: map[string]any{"signature": "sig1"}},
 		{Type: messagesdomain.BlockTypeText, Content: "hi"},
-		{ID: "tc_1", Type: messagesdomain.BlockTypeToolCall, Content: `{"x":1}`, Attrs: map[string]any{"tool": "echo"}},
+		{ID: "tc_1", Type: messagesdomain.BlockTypeToolCall, Content: `{"x":1}`, Attrs: map[string]any{"tool": "echo", "signature": "sig-call"}},
 		{Type: messagesdomain.BlockTypeToolResult, Content: "out", ParentBlockID: "tc_1"},
 		{Type: messagesdomain.BlockTypeCompaction, Content: "dropme"},
 	}
@@ -641,7 +687,7 @@ func TestBlocksToAssistantLLM(t *testing.T) {
 	if a.Role != llminfra.RoleAssistant || a.Content != "hi" || a.ReasoningContent != "hmm" || a.ReasoningSignature != "sig1" {
 		t.Fatalf("assistant msg wrong: %+v", a)
 	}
-	if len(a.ToolCalls) != 1 || a.ToolCalls[0].Name != "echo" || a.ToolCalls[0].ID != "tc_1" {
+	if len(a.ToolCalls) != 1 || a.ToolCalls[0].Name != "echo" || a.ToolCalls[0].ID != "tc_1" || a.ToolCalls[0].Signature != "sig-call" {
 		t.Fatalf("assistant tool calls wrong: %+v", a.ToolCalls)
 	}
 	if msgs[1].Role != llminfra.RoleTool || msgs[1].Content != "out" || msgs[1].ToolCallID != "tc_1" {

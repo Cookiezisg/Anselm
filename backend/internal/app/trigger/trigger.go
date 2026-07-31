@@ -43,6 +43,12 @@ import (
 type listenEntry struct {
 	workspaceID string
 	kind        string
+	// reportGate admits reports before a detach can remove this entry. Detach takes the write side
+	// after removing the registry reference and waits for every admitted report to finish, so a
+	// firing that already crossed the listener boundary is visible to lifecycle drain counting.
+	// reportGate 在 detach 摘掉 registry 引用前先接纳 report；Detach 移除引用后拿写侧，等待所有已接纳
+	// report 结算，使已经跨过 listener 边界的 firing 能被 lifecycle drain 计数看到。
+	reportGate *sync.RWMutex
 	// workflows maps each listening workflowID to its ATTACH EPOCH — zero for a boot-replayed
 	// reference ("listening since before this process"), the attach instant for a post-boot one.
 	// The misfire sweep (scheduler 工单⑨) uses the epoch as a per-workflow lower bound so a
@@ -82,6 +88,11 @@ type Service struct {
 
 	mu        sync.RWMutex
 	listeners map[string]*listenEntry // key: triggerID
+	// reportGates survive an entry's removal (including one-shot auto-detach), allowing a later
+	// explicit Detach to wait for an in-flight report even when the registry row is already gone.
+	// reportGates 跨 entry 删除存活（包括 one-shot 自动摘除），即使 registry 行已没，后续显式 Detach
+	// 仍能等待已经在飞的 report。
+	reportGates map[string]*sync.RWMutex
 	// switchMu serialises :pause against :resume (scheduler 工单⑦). Each is a read-modify-write
 	// spanning a DB write and a registry write; run concurrently they interleave into a row and a
 	// registry that disagree about whether the trigger is paused. Held for the whole flip, outside
@@ -130,9 +141,10 @@ func NewService(repo triggerdomain.Repository, mux *http.ServeMux, invoker senso
 		log = zap.NewNop()
 	}
 	s := &Service{
-		repo:      repo,
-		listeners: make(map[string]*listenEntry),
-		log:       log.Named("triggerapp"),
+		repo:        repo,
+		listeners:   make(map[string]*listenEntry),
+		reportGates: make(map[string]*sync.RWMutex),
+		log:         log.Named("triggerapp"),
 	}
 	s.cron = croninfra.New(log, s.onReport)
 	s.webhook = webhookinfra.New(mux, log, s.onReport)

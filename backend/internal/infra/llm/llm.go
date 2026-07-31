@@ -105,11 +105,13 @@ type StreamEvent struct {
 	Type StreamEventType
 
 	Delta string
-	// Signature carries the Anthropic-issued opaque signature for a completed thinking
-	// block. Set on the final EventReasoning event so the round-trip can echo it verbatim.
+	// Signature carries a provider-issued opaque signature. It is set on the final
+	// EventReasoning event for a thinking block, or on EventToolStart when a provider
+	// attaches the signature to a function call (Gemini 3).
 	//
-	// Signature 是 Anthropic 颁发的不透明签名，随最后一个 thinking block 的
-	// EventReasoning 事件到达，多轮对话时必须原样回传。
+	// Signature 是 provider 颁发的不透明签名。thinking block 随最后一个
+	// EventReasoning 到达；Gemini 3 的 function call 签名随 EventToolStart 到达，
+	// 多轮对话时都必须原样回传。
 	Signature string
 
 	ToolIndex int
@@ -200,6 +202,12 @@ type LLMToolCall struct {
 	ID        string
 	Name      string
 	Arguments string
+	// Signature is an opaque provider-issued signature attached to this call. Gemini 3
+	// requires it to be echoed on the exact functionCall part in the next turn.
+	//
+	// Signature 是 provider 随本次调用颁发的不透明签名。Gemini 3 要求下一回合在
+	// 同一个 functionCall part 上原样回传。
+	Signature string
 }
 
 // ToolDef is the tool description sent to the LLM; Parameters must be a JSON Schema object.

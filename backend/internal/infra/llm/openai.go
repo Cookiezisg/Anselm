@@ -30,17 +30,17 @@ func newOpenAIProvider() *compatProvider {
 			}
 		},
 		describe: func(raw string) ([]ModelInfo, error) {
-			return describeFromSpecs(catalogSpecs("openai", openaiKnobs), raw, openaiWire), nil
+			return describeFromSpecs(openaiCatalogSpecs(), raw, openaiWire), nil
 		},
 	}}
 }
 
-// openaiParts renders text / image_url / file. The `file` part is the one thing this family adds to
+// openaiParts renders text / image_url / input_audio / file. The `file` part is the one thing this family adds to
 // the floor, and it is why an unknown part type is an ERROR here rather than a skip: OpenAI is the
 // family whose part vocabulary we actually know completely, so a part we cannot name is a bug in
 // the caller, not a degradation we should paper over.
 //
-// openaiParts 渲 text / image_url / file。`file` 是本家在地板之上多出的那一样,也正是这里对未知 part
+// openaiParts 渲 text / image_url / input_audio / file。`file` 是本家在地板之上多出的那一样,也正是这里对未知 part
 // **报错**而非跳过的理由:OpenAI 是我们**真正完整知道**其 part 词汇表的那一家,故一个叫不出名字的
 // part 是调用方的 bug、不是我们该糊过去的降级。
 func openaiParts(m LLMMessage) (compatMessage, error) {
@@ -56,6 +56,12 @@ func openaiParts(m LLMMessage) (compatMessage, error) {
 				Filename: part.Filename,
 				FileData: "data:" + part.MediaType + ";base64," + part.Data,
 			}})
+		case PartInputAudio:
+			if format := openAICompatibleAudioFormat(part.MediaType); format != "" && part.Data != "" {
+				parts = append(parts, compatContentPart{Type: PartInputAudio, InputAudio: &compatInputAudio{
+					Data: part.Data, Format: format,
+				}})
+			}
 		default:
 			return compatMessage{}, fmt.Errorf("llm.openai: unknown part type %q: %w", part.Type, ErrBadRequest)
 		}
@@ -65,10 +71,34 @@ func openaiParts(m LLMMessage) (compatMessage, error) {
 
 // ── model catalog (static; OpenAI /v1/models returns ids only) ──────────────────
 
-// openaiWire: the OpenAI dialect renders text / image_url / file parts (see buildParts cases).
+// openaiWire: the OpenAI dialect renders text / image_url / input_audio / file parts (see buildParts cases).
 //
-// openaiWire:OpenAI 方言渲 text / image_url / file 三种 part(见 buildParts 的 case)。
-var openaiWire = partMask{image: true, file: true}
+// openaiWire:OpenAI 方言渲 text / image_url / input_audio / file 四种 part(见 buildParts 的 case)。
+var openaiWire = partMask{image: true, audio: true, file: true}
+
+// openaiAudioFallback is the provider-owned bridge for a live OpenAI model family that is
+// temporarily absent from models.dev. The official OpenAI contract gives this family its own
+// stable 128K/16K envelope, text+audio input/output and function calling; keeping that fact here
+// prevents a catalog lag from making a real, supported account look as though it cannot send
+// input_audio. The fallback is appended only while the exact family is absent, so a later catalog
+// refresh remains authoritative and naturally retires this bridge.
+//
+// openaiAudioFallback 是 models.dev 暂时缺席的一整个 OpenAI live model family 的 provider-owned
+// 桥。OpenAI 官方契约给它稳定的 128K/16K 信封、text+audio 输入/输出与 function calling；把这条事实
+// 留在这里，避免目录滞后把一个真实、受支持的账号伪装成不能发 input_audio。只有目录完全缺席该家族
+// 时才追加；目录补齐后自然优先、桥自动退役。
+var openaiAudioFallback = modelSpec{
+	prefix: "gpt-audio", ctx: 128_000, out: 16_384,
+	in: []string{"text", "audio"}, outMod: []string{"text", "audio"}, tools: true,
+}
+
+func openaiCatalogSpecs() []modelSpec {
+	specs := catalogSpecs("openai", openaiKnobs)
+	if _, ok := catalogModel("openai", "gpt-audio"); !ok {
+		specs = append(specs, openaiAudioFallback)
+	}
+	return specs
+}
 
 // DescribeModels parses OpenAI's id-only /v1/models body against the followed catalog; ids absent
 // from the catalog are skipped.
@@ -80,5 +110,5 @@ var openaiWire = partMask{image: true, file: true}
 //
 // describeOpenai 解析 OpenAI 仅含 id 的 /v1/models 返回,查 follow 目录;目录外 id 跳过。
 func describeOpenai(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("openai", openaiKnobs), raw, openaiWire), nil
+	return describeFromSpecs(openaiCatalogSpecs(), raw, openaiWire), nil
 }

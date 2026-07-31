@@ -98,6 +98,30 @@ func TestOpenAIBuildRequestNativeKnobs(t *testing.T) {
 	}
 }
 
+func TestOpenAIDescribeModels_UsesAudioFallbackWhileCatalogLags(t *testing.T) {
+	raw := `{"data":[{"id":"gpt-audio"},{"id":"gpt-audio-mini"},{"id":"gpt-audio-2025-08-28"},{"id":"gpt-4.1"}]}`
+	models, err := describeOpenai(raw)
+	if err != nil {
+		t.Fatal(err)
+	}
+	byID := make(map[string]ModelInfo, len(models))
+	for _, model := range models {
+		byID[model.ID] = model
+	}
+	for _, id := range []string{"gpt-audio", "gpt-audio-mini", "gpt-audio-2025-08-28"} {
+		model, ok := byID[id]
+		if !ok {
+			t.Fatalf("audio model %q was dropped while the live provider exposes it: %+v", id, models)
+		}
+		if !model.Audio || model.Vision || model.Video || model.NativeDocs {
+			t.Errorf("%s modalities = %+v, want text+audio only", id, model)
+		}
+		if !model.Tools || model.ContextWindow != 128_000 || model.MaxOutput != 16_384 {
+			t.Errorf("%s contract = %+v, want tools + 128K/16K", id, model)
+		}
+	}
+}
+
 func TestOpenAIParseStream(t *testing.T) {
 	p := newOpenAIProvider()
 	resp := &http.Response{Body: sseBody(

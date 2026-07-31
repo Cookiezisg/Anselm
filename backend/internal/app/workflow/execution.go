@@ -122,13 +122,14 @@ func (s *Service) Activate(ctx context.Context, id string) (*workflowdomain.Work
 }
 
 // Deactivate takes the workflow offline gracefully: stop listening (Detach each entry trigger) and
-// flip lifecycle to inactive — or draining if runs are still in flight, which the scheduler flips to
-// inactive when the last one settles. In-flight runs are NOT killed (that is kill's job). Detach is
-// best-effort over whatever entry refs resolve (a since-deleted graph still deactivates).
+// flip lifecycle to inactive — or draining if running runs or accepted pending firings are still
+// outstanding, which the scheduler flips to inactive after both classes settle. In-flight runs are
+// NOT killed (that is kill's job). Detach is best-effort over whatever entry refs resolve (a
+// since-deleted graph still deactivates).
 //
-// Deactivate 优雅下线：停监听（Detach 每个入口 trigger）+ 翻 lifecycle 为 inactive——或仍有 run 在飞则 draining，
-// 由调度器在最后一个结算时翻 inactive。在途 run **不杀**（那是 kill 的事）。Detach 对能解析的入口 ref 尽力而为
-// （图已删也能下线）。
+// Deactivate 优雅下线：停监听（Detach 每个入口 trigger）+ 翻 lifecycle 为 inactive——或仍有 running run / 已接受
+// pending firing 则 draining，由调度器在两类 outstanding 工作都结算时翻 inactive。在途 run **不杀**（那是 kill 的事）。
+// Detach 对能解析的入口 ref 尽力而为（图已删也能下线）。
 func (s *Service) Deactivate(ctx context.Context, id string) (*workflowdomain.Workflow, error) {
 	if s.binder == nil || s.runner == nil {
 		return nil, errExecUnavailable
@@ -139,7 +140,7 @@ func (s *Service) Deactivate(ctx context.Context, id string) (*workflowdomain.Wo
 		}
 	}
 	state := workflowdomain.LifecycleInactive
-	if n, err := s.runner.CountRunning(ctx, id); err == nil && n > 0 {
+	if n, err := s.runner.CountOutstanding(ctx, id); err == nil && n > 0 {
 		state = workflowdomain.LifecycleDraining
 	}
 	return s.SetLifecycle(ctx, id, state, workflowdomain.ActorUser)

@@ -62,11 +62,21 @@ const (
 // prompt / environment）组装回合 system prompt。每个非空段用 <section name="..."> 包裹，使模型能
 // 区分。可选 provider 为 nil 时该段不贡献内容。
 func (s *Service) buildSystemPrompt(ctx context.Context, conv *conversationdomain.Conversation) string {
+	return s.buildSystemPromptForModel(ctx, conv, true)
+}
+
+// buildSystemPromptForModel is the model-aware sibling of buildSystemPrompt. A catalogued
+// chat-only model cannot call tools, so carrying the full searchable tool inventory would both lie
+// to the model and waste a large part of small context windows. The preview path keeps the ordinary
+// full prompt because it has no resolved model; live turns pass the resolved capability.
+// buildSystemPromptForModel 是 buildSystemPrompt 的模型感知兄弟。目录明确 chat-only 的模型不能调工具，
+// 继续携带完整可搜索工具清单既会误导模型，也会浪费小窗口；preview 没有解析模型，仍用完整 prompt，
+// live turn 则传入已解析的能力事实。
+func (s *Service) buildSystemPromptForModel(ctx context.Context, conv *conversationdomain.Conversation, includeTools bool) string {
 	type section struct{ name, content string }
-	sections := []section{
-		{"identity", identitySection},
-		{"how_to_work", howToWorkSection},
-		{"tools", s.toolsOverview()},
+	sections := []section{{"identity", identitySection}, {"how_to_work", howToWorkSection}}
+	if includeTools {
+		sections = append(sections, section{"tools", s.toolsOverview()})
 	}
 	if s.deps.Catalog != nil {
 		sections = append(sections, section{"capabilities", s.deps.Catalog.GetForSystemPrompt(ctx)})

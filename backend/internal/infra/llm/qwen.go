@@ -32,6 +32,36 @@ func newQwenProvider() *compatProvider {
 				}
 			}
 		},
+		cumulativeText: func(modelID string) bool {
+			// DashScope's Qwen-MT translation models return the full translated prefix in each SSE
+			// content delta (observed on qwen-mt-plus). Other Qwen families retain normal increments.
+			// DashScope 的 Qwen-MT 翻译模型在每个 SSE content delta 重发完整译文前缀（qwen-mt-plus 真线缆实证）；
+			// 其余 Qwen 家族仍是普通增量。
+			return strings.HasPrefix(modelID, "qwen-mt-")
+		},
+		prepareSystemForModel: func(modelID, system string, msgs []LLMMessage) (string, []LLMMessage) {
+			if !strings.HasPrefix(modelID, "qwen-mt-") || strings.TrimSpace(system) == "" {
+				return system, msgs
+			}
+			prefix := "System instructions:\n" + system + "\n\n"
+			for i := range msgs {
+				if msgs[i].Role != RoleUser {
+					continue
+				}
+				if len(msgs[i].Parts) == 0 {
+					msgs[i].Content = prefix + msgs[i].Content
+					return "", msgs
+				}
+				// A multimodal first user message cannot safely absorb text into its parts here. Put a
+				// text-only user message immediately before it; the provider still sees no system role.
+				out := make([]LLMMessage, 0, len(msgs)+1)
+				out = append(out, LLMMessage{Role: RoleUser, Content: prefix})
+				out = append(out, msgs[:i]...)
+				out = append(out, msgs[i:]...)
+				return "", out
+			}
+			return "", append([]LLMMessage{{Role: RoleUser, Content: prefix}}, msgs...)
+		},
 		describe: describeQwen,
 	}}
 }
@@ -102,5 +132,19 @@ var qwenWire = partMask{image: true, video: true, audio: true}
 //
 // DescribeModels 解析 Qwen 仅含 id 的 /models 返回,查 follow 目录。
 func describeQwen(raw string) ([]ModelInfo, error) {
-	return describeFromSpecs(catalogSpecs("qwen", qwenKnobs), raw, qwenWire), nil
+	models := describeFromSpecs(catalogSpecs("qwen", qwenKnobs), raw, qwenWire)
+	for i := range models {
+		// Qwen3-Omni-Flash's live contract is text plus ONE other modality (image OR
+		// audio OR video). The catalog correctly exposes each modality independently,
+		// but cannot express this cross-kind constraint. Keep the constraint beside the
+		// Qwen dialect so the attachment renderer can prevent an opaque upstream 400.
+		//
+		// Qwen3-Omni-Flash 的真实契约是文字加一种其它模态（图/音/视频三选一）。目录
+		// 能正确逐项暴露每种模态，却无法表达跨类型约束；把约束放在 Qwen 方言侧，
+		// 由附件 renderer 防止上游只返一个不透明 400。
+		if strings.HasPrefix(models[i].ID, "qwen3-omni-flash") {
+			models[i].MaxDistinctMediaKinds = 1
+		}
+	}
+	return models, nil
 }

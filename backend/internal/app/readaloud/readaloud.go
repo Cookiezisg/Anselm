@@ -19,6 +19,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync"
 	"unicode/utf8"
 
 	"go.uber.org/zap"
@@ -69,17 +70,38 @@ type Uploader interface {
 
 // Service runs read-aloud over its cache.
 type Service struct {
-	synth Synthesizer
-	att   Uploader
-	cache attachmentdomain.SpeechCacheRepository
-	log   *zap.Logger
+	synth  Synthesizer
+	att    Uploader
+	cache  attachmentdomain.SpeechCacheRepository
+	log    *zap.Logger
+	missMu sync.Mutex
+	misses map[string]*readMiss
+}
+
+// readMiss is a per-workspace/key gate for the only part of read-aloud that may spend money. A
+// database uniqueness constraint can prevent two rows, but it cannot refund two upstream
+// syntheses that raced between Lookup and Put. The gate is process-local because this service is
+// the single writer for a desktop backend; the cache's unique index remains the durable fallback.
+//
+// readMiss 是按 workspace/key 的朗读 miss 闸门,保护唯一可能花钱的那一段。数据库唯一约束可以防两
+// 行,却无法退回 Lookup 与 Put 之间竞速的两次上游合成。本 service 是桌面 backend 的单写者,故闸门
+// 按进程即可; durable cache 唯一索引仍是最后一道护栏。
+type readMiss struct {
+	token chan struct{}
+	refs  int
 }
 
 func NewService(synth Synthesizer, att Uploader, cache attachmentdomain.SpeechCacheRepository, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &Service{synth: synth, att: att, cache: cache, log: log.Named("readaloud")}
+	return &Service{
+		synth:  synth,
+		att:    att,
+		cache:  cache,
+		log:    log.Named("readaloud"),
+		misses: make(map[string]*readMiss),
+	}
 }
 
 // Result is one read-aloud outcome. Cached says whether this press cost anything upstream — the
@@ -121,6 +143,20 @@ func (s *Service) Read(ctx context.Context, text, voice string) (*Result, error)
 		return hit, nil
 	}
 
+	// A second request may have passed the first probe at the same time. Serialize only cache
+	// misses, then probe again after taking the gate; the follower now returns the first request's
+	// attachment without touching the synthesizer.
+	// 第二个请求可能同时通过第一次探测。只串行化 miss,拿到闸后再次探测; follower 此时直接返回
+	// 第一个请求的附件,完全不碰 synthesizer。
+	release, err := s.acquireMiss(ctx, text, voice)
+	if err != nil {
+		return nil, err
+	}
+	defer release()
+	if hit, err := s.probe(ctx, text, voice); err == nil && hit != nil {
+		return hit, nil
+	}
+
 	audio, provider, model, resolvedVoice, err := s.synth.SynthesizeSpeech(ctx, text, voice)
 	if err != nil {
 		return nil, err
@@ -155,6 +191,47 @@ func (s *Service) Read(ctx context.Context, text, voice string) (*Result, error)
 		}
 	}
 	return &Result{Attachment: att}, nil
+}
+
+func (s *Service) acquireMiss(ctx context.Context, text, voice string) (func(), error) {
+	key := missKey(ctx, text, voice)
+	s.missMu.Lock()
+	if s.misses == nil {
+		s.misses = make(map[string]*readMiss)
+	}
+	gate := s.misses[key]
+	if gate == nil {
+		gate = &readMiss{token: make(chan struct{}, 1)}
+		gate.token <- struct{}{}
+		s.misses[key] = gate
+	}
+	gate.refs++
+	s.missMu.Unlock()
+
+	select {
+	case <-gate.token:
+		return func() { s.releaseMiss(key, gate, true) }, nil
+	case <-ctx.Done():
+		s.releaseMiss(key, gate, false)
+		return nil, ctx.Err()
+	}
+}
+
+func (s *Service) releaseMiss(key string, gate *readMiss, ownsToken bool) {
+	if ownsToken {
+		gate.token <- struct{}{}
+	}
+	s.missMu.Lock()
+	gate.refs--
+	if gate.refs == 0 {
+		delete(s.misses, key)
+	}
+	s.missMu.Unlock()
+}
+
+func missKey(ctx context.Context, text, voice string) string {
+	workspaceID, _ := reqctxpkg.GetWorkspaceID(ctx)
+	return workspaceID + "\x00" + text + "\x00" + voice
 }
 
 // probe checks the cache for the route we are ABOUT to take, without synthesizing.

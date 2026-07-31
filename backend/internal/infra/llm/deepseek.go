@@ -13,11 +13,12 @@ import (
 // reasoning_content round-trip 规则,以及 thinking + reasoning_effort 这一对。
 func newDeepSeekProvider() *compatProvider {
 	return &compatProvider{spec: compatSpec{
-		name:    "deepseek",
-		baseURL: func() string { return "https://api.deepseek.com" },
-		wire:    deepseekWire,
-		prepare: stripPlainTurnReasoning,
-		parts:   deepseekParts,
+		name:                              "deepseek",
+		baseURL:                           func() string { return "https://api.deepseek.com" },
+		wire:                              deepseekWire,
+		prepare:                           stripPlainTurnReasoning,
+		forceReasoningContentForToolCalls: true,
+		parts:                             deepseekParts,
 		encode: func(req Request, body *compatRequest) {
 			if req.MaxTokens > 0 {
 				body.MaxTokens = req.MaxTokens

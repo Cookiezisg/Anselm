@@ -114,6 +114,23 @@ func (s *Store) ListPendingFirings(ctx context.Context, limit int) ([]*triggerdo
 	return rows, nil
 }
 
+// CountPendingFiringsByWorkflow counts accepted events that have not become flowruns yet. The
+// workflow lifecycle uses this alongside running-run count: :deactivate is a graceful drain, so
+// pending inbox rows keep the workflow in `draining` until the scheduler consumes them.
+//
+// CountPendingFiringsByWorkflow 统计已接受但尚未变成 flowrun 的事件。workflow lifecycle 把它与 running
+// run 数相加：:deactivate 是优雅排空，pending 收件箱行存在时 workflow 必须保持 `draining`，直到 scheduler 消费。
+func (s *Store) CountPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int, error) {
+	n, err := s.frs.
+		WhereEq("workflow_id", workflowID).
+		WhereEq("status", triggerdomain.FiringPending).
+		Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.CountPendingFiringsByWorkflow: %w", err)
+	}
+	return int(n), nil
+}
+
 // firingQuery applies every FiringFilter predicate — the SINGLE place the filter's meaning is
 // expressed, shared by SearchFirings (the page) and CountFirings (the number). The "错过 N" KPI card
 // deep-links to the very list it counts, so a second copy of these predicates would be a bug with a
@@ -203,6 +220,22 @@ func (s *Store) MarkFiringOutcome(ctx context.Context, firingID, status string) 
 		return fmt.Errorf("triggerstore.MarkFiringOutcome: %w", err)
 	}
 	return nil
+}
+
+// ShedPendingFiringsByWorkflow settles every still-pending firing for a workflow as `shed`.
+// It is the durable fence for a hard workflow kill: already-accepted events remain auditable but
+// cannot be drained into a new run after the user has stopped the workflow.
+//
+// ShedPendingFiringsByWorkflow 把 workflow 尚未消费的 pending firing 全部收口为 `shed`。这是 workflow
+// 硬 kill 的耐久闸：已接受事件仍可审计，但用户停掉 workflow 后不能再被 drain 成新 run。
+func (s *Store) ShedPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int64, error) {
+	n, err := s.frs.WhereEq("workflow_id", workflowID).
+		WhereEq("status", triggerdomain.FiringPending).
+		Update(ctx, "status", triggerdomain.FiringShed)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.ShedPendingFiringsByWorkflow: %w", err)
+	}
+	return n, nil
 }
 
 // SupersedeAllButNewestPending collapses a workflow's PENDING firings to the latest — buffer_one's

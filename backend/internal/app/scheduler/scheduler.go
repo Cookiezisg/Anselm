@@ -118,11 +118,23 @@ type ApprovalResolver interface {
 // missed 计数为 0 是**真相**、而非搪塞。
 type FiringInbox interface {
 	ListPendingFirings(ctx context.Context, limit int) ([]*triggerdomain.Firing, error)
+	// CountPendingFiringsByWorkflow counts accepted-but-not-yet-claimed events for lifecycle drain
+	// reconciliation. Pending rows are outstanding work during :deactivate even though they are not
+	// flowruns yet; the count is workspace-scoped by the store/ORM context.
+	// CountPendingFiringsByWorkflow 统计已接受但尚未 claim 的 workflow 事件，供 lifecycle 排空对账。
+	// pending 行虽还不是 flowrun，却是 :deactivate 的 outstanding 工作；store/ORM 按 workspace 隔离。
+	CountPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int, error)
 	// CountFirings counts the firings matching a filter (工单⑭) — the "错过 N" KPI card's number.
 	// CountFirings 数匹配 filter 的 firing（工单⑭）——「错过 N」KPI 牌的那个数字。
 	CountFirings(ctx context.Context, filter triggerdomain.FiringFilter) (int, error)
 	ClaimFiring(ctx context.Context, firingID string, create func(tx *ormpkg.DB) (string, error)) (string, error)
 	MarkFiringOutcome(ctx context.Context, firingID, status string) error
+	// ShedPendingFiringsByWorkflow is the hard-stop fence used by :kill: already-accepted events
+	// that have not become runs must not resurrect an inactive workflow after its running siblings
+	// are cancelled. It returns the number of pending rows settled as shed.
+	// ShedPendingFiringsByWorkflow 是 :kill 的硬停闸：已接受但尚未成 run 的事件不得在取消在途兄弟后
+	// 复活 inactive workflow；返被收口为 shed 的 pending 行数。
+	ShedPendingFiringsByWorkflow(ctx context.Context, workflowID string) (int64, error)
 	// SupersedeAllButNewestPending collapses a workflow's pending firings to the newest (buffer_one's
 	// keep-only-latest disposition), returning the survivor's id ("" if none) and the count superseded.
 	// SupersedeAllButNewestPending 把某 workflow 的待处理 firing 收敛到最新一条（buffer_one 只留最新），返存活者 id（无则 ""）与被 supersede 数。

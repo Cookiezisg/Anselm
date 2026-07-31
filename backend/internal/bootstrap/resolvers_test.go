@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	modelapp "github.com/sunweilin/anselm/backend/internal/app/model"
@@ -42,8 +43,10 @@ func (fakeCaps) List(context.Context) ([]modelapp.CapabilityView, error) {
 		{
 			Provider: "mock", ModelID: "default_model",
 			ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, Audio: true, NativeDocs: true,
+			Tools:         true,
 			MaxMediaParts: 3, MaxMediaBytes: 42,
 		},
+		{Provider: "mock", ModelID: "chat_only_model", ContextWindow: 100000, MaxOutput: 8000},
 		{Provider: "anselm", ModelID: "managed_model", ContextWindow: 100000, MaxOutput: 8000, Vision: true, Video: true, MaxMediaParts: 8, MaxMediaBytes: 3 << 20},
 	}, nil
 }
@@ -120,6 +123,16 @@ func TestModelResolvers_OverrideWinsSkippingPicker(t *testing.T) {
 	}
 }
 
+func TestAgentResolver_RejectsKnownChatOnlyModel(t *testing.T) {
+	rs, _, _ := newResolvers()
+	_, err := rs.Agent().ResolveAgent(context.Background(), &modeldomain.ModelRef{
+		APIKeyID: "override_key", ModelID: "chat_only_model",
+	})
+	if !errors.Is(err, modeldomain.ErrNotAgentCapable) {
+		t.Fatalf("ResolveAgent error = %v, want MODEL_NOT_AGENT_CAPABLE", err)
+	}
+}
+
 // fakeConvStore is a minimal ConversationStore for the summary adapter.
 type fakeConvStore struct {
 	conv      *conversationdomain.Conversation
@@ -171,13 +184,13 @@ func TestModelInfoLookup_WindowAndCaps(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ResolveChat: %v", err)
 	}
-	if !b.Caps.Vision || !b.Caps.Video || !b.Caps.Audio || !b.Caps.NativeDocs ||
+	if !b.Caps.Vision || !b.Caps.Video || !b.Caps.Audio || !b.Caps.NativeDocs || !b.Caps.Tools || !b.Caps.ToolsKnown ||
 		b.Caps.MaxMediaParts != 3 || b.Caps.MaxMediaBytes != 42 {
 		t.Fatalf("chat Caps must come from the lookup, got %+v", b.Caps)
 	}
 }
 
-func TestChatResolver_ManagedGatewayStagesMediaWithoutInlineEnvelope(t *testing.T) {
+func TestChatResolver_ManagedGatewayKeepsInlineEnvelopeForLeasedMedia(t *testing.T) {
 	lookup := NewModelInfoLookup(fakeCaps{})
 	resolver := chatResolver{
 		core: &modelResolver{
@@ -197,7 +210,7 @@ func TestChatResolver_ManagedGatewayStagesMediaWithoutInlineEnvelope(t *testing.
 		b.Caps.ManagedGateway.InstallID != "ins_test" {
 		t.Fatalf("managed media target = %+v", b.Caps.ManagedGateway)
 	}
-	if b.Caps.MaxMediaParts != 0 || b.Caps.MaxMediaBytes != 0 {
-		t.Fatalf("remote media must not inherit inline envelope: %+v", b.Caps)
+	if b.Caps.MaxMediaParts != 8 || b.Caps.MaxMediaBytes != 3<<20 {
+		t.Fatalf("managed media must retain gateway inline envelope: %+v", b.Caps)
 	}
 }

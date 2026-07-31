@@ -9,7 +9,10 @@ import (
 	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
 	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
+	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 )
 
 // fakeReconciler records which workflows the scheduler asked to settle their drain.
@@ -44,6 +47,50 @@ func TestDrainReconcile_FiresOnRunSettle(t *testing.T) {
 	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusCompleted)
 	if len(recon.drained) == 0 || recon.drained[len(recon.drained)-1] != "wf_1" {
 		t.Fatalf("a settled run with 0 in-flight should reconcile drain for wf_1, got %v", recon.drained)
+	}
+}
+
+// TestDrainReconcile_WaitsForPendingFiring: a terminal run must not flip a draining workflow
+// inactive while its accepted inbox still has a pending firing. Once that row is settled, the same
+// reconciliation is allowed to close the drain.
+func TestDrainReconcile_WaitsForPendingFiring(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("t", workflowdomain.NodeKindTrigger, "trg_1", nil),
+			node("a", workflowdomain.NodeKindAction, "fn_1", nil),
+		},
+		Edges: []workflowdomain.Edge{edge("e", "t", "", "a")},
+	}
+	store, sqlDB := newStore(t)
+	trg := triggerstore.New(ormpkg.Open(sqlDB))
+	raw, _ := json.Marshal(g)
+	wf := &fakeWorkflows{
+		wf:   &workflowdomain.Workflow{ID: "wf_1", Concurrency: workflowdomain.ConcurrencyAllowAll, ActiveVersionID: "wfv_1", LifecycleState: workflowdomain.LifecycleDraining},
+		ver:  &workflowdomain.Version{ID: "wfv_1", WorkflowID: "wf_1", Version: 1, Graph: string(raw)},
+		pins: map[string]string{},
+	}
+	svc := NewService(store, wf, &fakeControl{byID: map[string][]controldomain.Branch{}}, &fakeApproval{byID: map[string]*approvaldomain.Version{}}, newDisp(), trg, nil)
+	recon := &fakeReconciler{}
+	svc.SetLifecycleReconciler(recon)
+	ctx := ctxWS("ws_1")
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+		ID: "trf_pending_reconcile", TriggerID: "trg_1", WorkflowID: "wf_1", ActivationID: "tra_1",
+		DedupKey: "pending-reconcile", Status: triggerdomain.FiringPending,
+	}); err != nil {
+		t.Fatalf("AppendFiring: %v", err)
+	}
+
+	runID := mustRun(t, svc, ctx, map[string]any{})
+	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusCompleted)
+	if len(recon.drained) != 0 {
+		t.Fatalf("drain must wait for pending firing, got premature reconcile %v", recon.drained)
+	}
+	if err := trg.MarkFiringOutcome(ctx, "trf_pending_reconcile", triggerdomain.FiringShed); err != nil {
+		t.Fatalf("settle pending firing: %v", err)
+	}
+	svc.afterRunSettled(ctx, "wf_1")
+	if len(recon.drained) != 1 || recon.drained[0] != "wf_1" {
+		t.Fatalf("drain should reconcile after pending firing settles, got %v", recon.drained)
 	}
 }
 

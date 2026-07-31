@@ -37,6 +37,7 @@ type fakeRunner struct {
 	started []string
 	killed  []string
 	running int
+	pending int
 }
 
 func (f *fakeRunner) StartRun(_ context.Context, w string, _ map[string]any) (string, error) {
@@ -48,6 +49,9 @@ func (f *fakeRunner) KillWorkflow(_ context.Context, w string) (int, error) {
 	return 3, nil
 }
 func (f *fakeRunner) CountRunning(_ context.Context, _ string) (int, error) { return f.running, nil }
+func (f *fakeRunner) CountOutstanding(_ context.Context, _ string) (int, error) {
+	return f.running + f.pending, nil
+}
 
 // TestExecutionLifecycle drives all five execution-lifecycle actions over a real Service + in-memory store with fake
 // binder/runner, asserting each engages the right collaborator and lands the right lifecycle state.
@@ -192,6 +196,29 @@ func TestDeactivateDrainsWhenRunsInFlight(t *testing.T) {
 	}
 	if got.LifecycleState != workflowdomain.LifecycleDraining {
 		t.Fatalf("deactivate with runs in flight: want draining, got %q", got.LifecycleState)
+	}
+}
+
+// TestDeactivateDrainsWhenAcceptedFiringsPending — a durable pending firing is outstanding work
+// even before it has become a flowrun, so :deactivate must choose draining for it too.
+func TestDeactivateDrainsWhenAcceptedFiringsPending(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	binder, runner := &fakeBinder{}, &fakeRunner{pending: 2}
+	svc.SetExecutionPorts(binder, runner)
+
+	w, _, err := svc.Create(ctx, CreateInput{Name: "queued", Ops: linearOps(t)})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, err := svc.Activate(ctx, w.ID); err != nil {
+		t.Fatalf("Activate: %v", err)
+	}
+	got, err := svc.Deactivate(ctx, w.ID)
+	if err != nil {
+		t.Fatalf("Deactivate: %v", err)
+	}
+	if got.LifecycleState != workflowdomain.LifecycleDraining {
+		t.Fatalf("deactivate with accepted pending firings: want draining, got %q", got.LifecycleState)
 	}
 }
 

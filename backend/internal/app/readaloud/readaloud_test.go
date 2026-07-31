@@ -4,7 +4,9 @@ import (
 	"context"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -28,6 +30,43 @@ type fakeSynth struct {
 	err       error
 	routeErr  error
 }
+
+type gatedSynth struct {
+	mu       sync.Mutex
+	calls    int
+	started  chan struct{}
+	second   chan struct{}
+	release  chan struct{}
+	provider string
+	model    string
+	voice    string
+}
+
+func (f *gatedSynth) SynthesizeSpeech(_ context.Context, text, voice string) (llminfra.GeneratedAudio, string, string, string, error) {
+	f.mu.Lock()
+	f.calls++
+	call := f.calls
+	f.mu.Unlock()
+	if call == 1 {
+		close(f.started)
+		<-f.release
+	} else if call == 2 {
+		close(f.second)
+	}
+	if voice == "" {
+		voice = f.voice
+	}
+	return llminfra.GeneratedAudio{Bytes: []byte("audio:" + text), Mime: "audio/wav"}, f.provider, f.model, voice, nil
+}
+
+func (f *gatedSynth) SpeechRouteIdentity(_ context.Context, voice string) (string, string, string, error) {
+	if voice == "" {
+		voice = f.voice
+	}
+	return f.provider, f.model, voice, nil
+}
+
+func (f *gatedSynth) SpeechAvailable(context.Context) bool { return true }
 
 func (f *fakeSynth) SynthesizeSpeech(_ context.Context, text, voice string) (llminfra.GeneratedAudio, string, string, string, error) {
 	f.calls++
@@ -53,6 +92,7 @@ func (f *fakeSynth) SpeechRouteIdentity(_ context.Context, voice string) (string
 func (f *fakeSynth) SpeechAvailable(context.Context) bool { return f.available }
 
 type fakeAtt struct {
+	mu      sync.Mutex
 	rows    map[string]*attachmentdomain.Attachment
 	deleted []string
 	n       int
@@ -63,6 +103,8 @@ func newFakeAtt() *fakeAtt {
 }
 
 func (f *fakeAtt) Upload(_ context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.n++
 	a := &attachmentdomain.Attachment{
 		ID:       "att_" + strings.Repeat("0", 15) + string(rune('a'+f.n-1)),
@@ -73,12 +115,16 @@ func (f *fakeAtt) Upload(_ context.Context, filename, mime string, data []byte) 
 }
 
 func (f *fakeAtt) Delete(_ context.Context, id string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	f.deleted = append(f.deleted, id)
 	delete(f.rows, id)
 	return nil
 }
 
 func (f *fakeAtt) Get(_ context.Context, id string) (*attachmentdomain.Attachment, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	a, ok := f.rows[id]
 	if !ok {
 		return nil, attachmentdomain.ErrNotFound
@@ -87,6 +133,7 @@ func (f *fakeAtt) Get(_ context.Context, id string) (*attachmentdomain.Attachmen
 }
 
 type fakeCache struct {
+	mu      sync.Mutex
 	rows    map[string]*attachmentdomain.SpeechCacheEntry
 	putErr  error
 	evicted []string
@@ -97,6 +144,8 @@ func newFakeCache() *fakeCache {
 }
 
 func (f *fakeCache) Lookup(_ context.Context, key string) (*attachmentdomain.SpeechCacheEntry, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	e, ok := f.rows[key]
 	if !ok {
 		return nil, attachmentdomain.ErrNotFound
@@ -105,6 +154,8 @@ func (f *fakeCache) Lookup(_ context.Context, key string) (*attachmentdomain.Spe
 }
 
 func (f *fakeCache) Put(_ context.Context, e *attachmentdomain.SpeechCacheEntry, _ int64) ([]string, error) {
+	f.mu.Lock()
+	defer f.mu.Unlock()
 	if f.putErr != nil {
 		return nil, f.putErr
 	}
@@ -114,8 +165,59 @@ func (f *fakeCache) Put(_ context.Context, e *attachmentdomain.SpeechCacheEntry,
 	return out, nil
 }
 
-func newSvc(synth *fakeSynth, att *fakeAtt, cache *fakeCache) *Service {
+func newSvc(synth Synthesizer, att *fakeAtt, cache *fakeCache) *Service {
 	return NewService(synth, att, cache, zap.NewNop())
+}
+
+// TestRead_ConcurrentIdenticalPressesCostOnce is the race that sequential cache assertions miss:
+// two requests can both observe a miss before either has written the row. The miss path must merge
+// them before synthesis, not merely let the unique database index discard the second artifact.
+func TestRead_ConcurrentIdenticalPressesCostOnce(t *testing.T) {
+	synth := &gatedSynth{
+		started:  make(chan struct{}),
+		second:   make(chan struct{}),
+		release:  make(chan struct{}),
+		provider: "qwen",
+		model:    "qwen-audio-3.0-tts-flash",
+		voice:    "longanhuan_v3.6",
+	}
+	att, cache := newFakeAtt(), newFakeCache()
+	svc := newSvc(synth, att, cache)
+	type result struct {
+		out *Result
+		err error
+	}
+	results := make(chan result, 2)
+	go func() {
+		out, err := svc.Read(context.Background(), "并发朗读", "")
+		results <- result{out: out, err: err}
+	}()
+	<-synth.started
+	go func() {
+		out, err := svc.Read(context.Background(), "并发朗读", "")
+		results <- result{out: out, err: err}
+	}()
+	// Before the keyed gate existed, the follower reached the synthesizer here. With the fix it
+	// waits on the gate instead; the bounded select keeps the regression deterministic in both
+	// shapes while the final call count remains the money assertion.
+	select {
+	case <-synth.second:
+	case <-time.After(50 * time.Millisecond):
+	}
+	close(synth.release)
+	first, second := <-results, <-results
+	if first.err != nil || second.err != nil {
+		t.Fatalf("concurrent reads failed: first=%v second=%v", first.err, second.err)
+	}
+	if synth.calls != 1 {
+		t.Fatalf("concurrent identical reads synthesized %d times, want 1", synth.calls)
+	}
+	if first.out == nil || second.out == nil || first.out.Attachment.ID != second.out.Attachment.ID {
+		t.Fatalf("concurrent identical reads must share one attachment: first=%+v second=%+v", first.out, second.out)
+	}
+	if first.out.Cached == second.out.Cached {
+		t.Fatalf("one reader must synthesize and the other observe cache: first=%+v second=%+v", first.out, second.out)
+	}
 }
 
 // TestRead_SecondListenCostsNothing: the second identical press must not reach the provider at

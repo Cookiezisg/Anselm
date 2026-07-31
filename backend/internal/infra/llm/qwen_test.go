@@ -114,6 +114,7 @@ func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 	models, err := newQwenProvider().DescribeModels(`{"data":[
 		{"id":"qwen3.7-plus"},
 		{"id":"qwen3.7-plus-2026-05-26"},
+		{"id":"qwen3-omni-flash"},
 		{"id":"qwen3.5-omni-plus"},
 		{"id":"qwen3.5-plus"},
 		{"id":"qwen-turbo"},
@@ -126,8 +127,8 @@ func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 	for _, model := range models {
 		byID[model.ID] = model
 	}
-	if len(byID) != 4 {
-		t.Fatalf("described models = %#v, want exactly the four catalog-known ids", models)
+	if len(byID) != 5 {
+		t.Fatalf("described models = %#v, want exactly the five catalog-known ids", models)
 	}
 	if _, ok := byID["qwen3.5-omni-plus"]; ok {
 		t.Errorf("qwen3.5-omni-plus described despite being absent from the followed catalog (P2)")
@@ -137,6 +138,10 @@ func TestQwenDescribeModels_AdvertisesNativeInputTruthfully(t *testing.T) {
 		if m.ContextWindow != 1_000_000 || m.MaxOutput != 65_536 || !m.Vision || !m.Video || m.Audio {
 			t.Errorf("%s caps = %+v, want 1M/64K/image+video", id, m)
 		}
+	}
+	omni := byID["qwen3-omni-flash"]
+	if !omni.Vision || !omni.Video || !omni.Audio || omni.MaxDistinctMediaKinds != 1 {
+		t.Errorf("qwen3-omni-flash caps = %+v, want image+video+audio with one distinct native media kind", omni)
 	}
 	plus := byID["qwen3.5-plus"]
 	if plus.ContextWindow != 1_000_000 || plus.MaxOutput != 65_536 || !plus.Vision || !plus.Video || plus.Audio {
@@ -275,6 +280,54 @@ func TestQwenParseStream(t *testing.T) {
 	}
 	if !sawToolStart || !sawFinish {
 		t.Errorf("missing events: toolStart=%v finish=%v", sawToolStart, sawFinish)
+	}
+}
+
+func TestQwenParseStreamCumulativeText(t *testing.T) {
+	p := newQwenProvider()
+	resp := &http.Response{Body: sseBody(
+		`data: {"choices":[{"delta":{"content":"Sure"}}]}`,
+		`data: {"choices":[{"delta":{"content":"Sure!"}}]}`,
+		`data: {"choices":[{"delta":{"content":"Sure! What"}}]}`,
+		`data: {"choices":[{"delta":{"content":"Sure! What would you like me to reply with?"},"finish_reason":"stop"}]}`,
+		`data: [DONE]`,
+	)}
+	events := collect(p.ParseStream(context.Background(), resp, Request{ModelID: "qwen-mt-plus"}))
+	var text strings.Builder
+	for _, ev := range events {
+		switch ev.Type {
+		case EventText:
+			text.WriteString(ev.Delta)
+		case EventError:
+			t.Fatalf("unexpected error event: %v", ev.Err)
+		}
+	}
+	if text.String() != "Sure! What would you like me to reply with?" {
+		t.Fatalf("cumulative text = %q, want one translated prefix", text.String())
+	}
+}
+
+func TestQwenBuildRequest_QwenMTFoldsSystemIntoUser(t *testing.T) {
+	p := newQwenProvider()
+	req, err := p.BuildRequest(context.Background(), Request{
+		ModelID: "qwen-mt-plus", Key: "k", BaseURL: "https://example.invalid/v1",
+		System: "Answer briefly.", Messages: []LLMMessage{{Role: RoleUser, Content: "Hello"}},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(req.Body)
+	var wire struct {
+		Messages []struct {
+			Role    string `json:"role"`
+			Content string `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(body, &wire); err != nil {
+		t.Fatal(err)
+	}
+	if len(wire.Messages) != 1 || wire.Messages[0].Role != "user" || !strings.Contains(wire.Messages[0].Content, "System instructions:") || !strings.HasSuffix(wire.Messages[0].Content, "Hello") {
+		t.Fatalf("Qwen-MT wire messages = %+v, want one user message with folded system", wire.Messages)
 	}
 }
 

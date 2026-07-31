@@ -130,7 +130,7 @@ func emitGeminiChunk(chunk geminiResponse, toolIdx *int, yield func(StreamEvent)
 		for _, part := range cand.Content.Parts {
 			switch {
 			case part.FunctionCall != nil:
-				if !emitGeminiFunctionCall(*part.FunctionCall, toolIdx, yield) {
+				if !emitGeminiFunctionCall(*part.FunctionCall, part.ThoughtSignature, toolIdx, yield) {
 					return false
 				}
 			case part.Thought:
@@ -176,7 +176,7 @@ func emitGeminiChunk(chunk geminiResponse, toolIdx *int, yield func(StreamEvent)
 	return true
 }
 
-func emitGeminiFunctionCall(fc geminiFunctionCall, toolIdx *int, yield func(StreamEvent) bool) bool {
+func emitGeminiFunctionCall(fc geminiFunctionCall, signature string, toolIdx *int, yield func(StreamEvent) bool) bool {
 	idx := *toolIdx
 	*toolIdx++
 
@@ -184,7 +184,7 @@ func emitGeminiFunctionCall(fc geminiFunctionCall, toolIdx *int, yield func(Stre
 	if id == "" {
 		id = fmt.Sprintf("gemini_call_%d", idx)
 	}
-	if !yield(StreamEvent{Type: EventToolStart, ToolIndex: idx, ToolID: id, ToolName: fc.Name}) {
+	if !yield(StreamEvent{Type: EventToolStart, ToolIndex: idx, ToolID: id, ToolName: fc.Name, Signature: signature}) {
 		return false
 	}
 	args := fc.Args
@@ -320,7 +320,10 @@ func geminiAssistantParts(m LLMMessage) []geminiPart {
 		if tc.Arguments != "" && json.Valid([]byte(tc.Arguments)) {
 			args = json.RawMessage(tc.Arguments)
 		}
-		parts = append(parts, geminiPart{FunctionCall: &geminiFunctionCall{ID: tc.ID, Name: tc.Name, Args: args}})
+		parts = append(parts, geminiPart{
+			FunctionCall:     &geminiFunctionCall{ID: tc.ID, Name: tc.Name, Args: args},
+			ThoughtSignature: tc.Signature,
+		})
 	}
 	if m.Content != "" {
 		parts = append(parts, geminiPart{Text: m.Content})
@@ -545,6 +548,15 @@ func (p *geminiProvider) DescribeModels(raw string) ([]ModelInfo, error) {
 		//
 		// 每个 gemini-* 生成模型都原生多模态（图 + 内联 PDF）；embedding / aqa 模型不是（也从不被选作对话）。
 		multimodal := strings.HasPrefix(id, "gemini")
+		// Gemini's ListModels payload does not publish function-calling capability. Keep the live
+		// inventory and windows above, but recover the followed catalog's per-model tools fact so
+		// an otherwise tool-capable Gemini model is not silently turned into chat-only.
+		// Gemini 的 ListModels 载荷不发布 function-calling 能力。保留上面的 live 清单与窗口，但补回
+		// 目录逐模型 tools 事实，避免一个本来能调工具的 Gemini 模型被静默变成 chat-only。
+		tools := false
+		if cm, ok := catalogModel("google", id); ok {
+			tools = cm.Tools
+		}
 		out = append(out, ModelInfo{
 			ID:            id,
 			DisplayName:   id,
@@ -552,6 +564,7 @@ func (p *geminiProvider) DescribeModels(raw string) ([]ModelInfo, error) {
 			MaxOutput:     m.OutputTokenLimit,
 			Vision:        multimodal,
 			NativeDocs:    multimodal,
+			Tools:         tools,
 			Knobs:         geminiKnobsFor(id),
 		})
 	}

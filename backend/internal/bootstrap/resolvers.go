@@ -145,22 +145,24 @@ func (r chatResolver) bundle(ctx context.Context, scenario string, override *mod
 	if err != nil {
 		return chatapp.Bundle{}, err
 	}
-	// Caps comes from the resolved model's catalog entry (vision / native-docs); an unknown model
-	// yields zero caps, so chat renders attachments conservatively rather than over-claiming.
+	// Caps comes from the resolved model's catalog entry (vision / native-docs / media envelope); an
+	// unknown model yields zero caps, so chat renders attachments conservatively rather than
+	// over-claiming.
 	//
 	// Caps 取自解析出的模型目录项（vision / native-docs）；未知模型得零 caps，chat 保守渲染附件而非
 	// 过度声明。
 	caps := r.lookup.contentCaps(ctx, provider, req.ModelID)
 	if provider == "anselm" && (caps.Vision || caps.Video) && req.BaseURL != "" && req.Key != "" {
-		// Only the managed gateway has this private staging/fetch contract. Removing the inline
-		// decoded-byte envelope here is intentional: the chat request now carries tiny HTTPS URLs;
-		// upload-size/MIME policy belongs to the authenticated gateway, which sees the real bytes.
+		// Only the managed gateway has this private staging/fetch contract. Keep the catalog's
+		// decoded-byte envelope even though the chat wire carries tiny HTTPS lease URLs: the gateway
+		// inlines lease content into the upstream request and enforces the same 3 MiB budget. Clearing
+		// it here lets a generated clip pass the app-side guard and turns a recoverable note into a
+		// terminal gateway 400 after the generation has already succeeded.
 		//
-		// 只有受管网关拥有这份私有暂存/拉取协议。此处去掉内联解码字节额度是刻意的：聊天请求现在只带很小
-		// 的 HTTPS URL；上传大小/MIME policy 应归于能看到真实字节的已鉴权网关。
+		// 只有受管网关拥有这份私有 staging/fetch 协议。即使聊天线缆只携带很小的 HTTPS lease URL，也必须保留
+		// 目录发布的解码字节信封：网关会把 lease 内容内联到上游请求，并执行同一个 3 MiB 上限。此处清零
+		// 会让生成的大视频穿过应用闸门，把本可降级为注记的情况变成生成成功后才发生的网关 400。
 		caps.ManagedGateway = &chatapp.ManagedGatewayMedia{BaseURL: req.BaseURL, InstallID: req.Key}
-		caps.MaxMediaParts = 0
-		caps.MaxMediaBytes = 0
 	}
 	profile := modelprofiledomain.Identity{}
 	if provider != "anselm" {
@@ -212,6 +214,16 @@ func (r agentResolver) ResolveAgent(ctx context.Context, override *modeldomain.M
 	client, req, provider, apiKeyID, err := r.core.resolve(ctx, modeldomain.ScenarioAgent, override)
 	if err != nil {
 		return agentapp.LLMBundle{}, err
+	}
+	// A known chat-only model must fail before the ReAct loop reaches the provider. Sending the
+	// agent's tool schema to it turns a deterministic capability mismatch into a vague empty/error
+	// execution (Qwen qwen-mt-plus rejects `tools` with Function call not supported). Unknown/custom
+	// models remain compatible: without a catalog fact we cannot honestly reject them here.
+	// 已知 chat-only 模型须在进入 ReAct loop 前失败。否则把 agent 工具 schema 发上游只会把确定性的能力
+	// 不匹配变成模糊的空答/错误执行（Qwen qwen-mt-plus 真实拒绝 `tools`）。未知/custom 模型保兼容：没有
+	// 目录事实时，我们不能诚实地在此拒绝。
+	if v, ok := r.core.lookup.find(ctx, provider, req.ModelID); ok && !v.Tools {
+		return agentapp.LLMBundle{}, modeldomain.ErrNotAgentCapable
 	}
 	return agentapp.LLMBundle{Client: client, Request: req, APIKeyID: apiKeyID, Provider: provider}, nil
 }

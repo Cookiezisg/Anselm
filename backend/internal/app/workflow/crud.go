@@ -416,11 +416,43 @@ func (s *Service) Search(ctx context.Context, query string) ([]*workflowdomain.W
 	return out, nil
 }
 
-// Delete soft-deletes the workflow and purges its relation edges.
+// Delete stops the workflow's automation (detach every entry trigger and cancel in-flight runs),
+// then soft-deletes the workflow and purges its relation edges. Durable flowrun/version history is
+// intentionally retained for audit and replay reads; the deleted workflow is no longer a listener
+// candidate and any already-queued firing is shed by the scheduler's deleted-workflow guard.
 //
-// Delete 软删 workflow 并清理 relation 边。
+// Delete 先停掉 workflow 自动化（摘每个入口 trigger、取消在途 run），再软删 workflow 并清理 relation
+// 边。durable flowrun/version 历史刻意保留供审计与 replay 读取；删掉的 workflow 不再是 listener 候选，
+// 已排队 firing 由 scheduler 的 deleted-workflow guard 收口为 shed。
 func (s *Service) Delete(ctx context.Context, id string) error {
-	w, _ := s.repo.GetWorkflow(ctx, id)
+	w, err := s.repo.GetWorkflow(ctx, id)
+	if err != nil {
+		return fmt.Errorf("workflowapp.Delete: %w", err)
+	}
+	// Stop the in-memory listener before the row disappears. entryTriggerRefsOf only reads the
+	// active graph and does not resolve the trigger entities, so a trigger deleted earlier still
+	// gets detached and cannot leave a stale workflow id in the binder.
+	// 在行消失前先停内存 listener。entryTriggerRefsOf 只读 active 图、不解析 trigger 实体，故即使 trigger
+	// 先被删，仍能摘掉它，不会把悬空 workflow id 留在 binder 里。
+	if s.binder != nil {
+		if refs, rerr := s.entryTriggerRefsOf(ctx, w); rerr == nil {
+			for _, ref := range refs {
+				s.binder.Detach(ref, id)
+			}
+		} else {
+			s.log.Warn("workflowapp.Delete: could not enumerate entry triggers", zap.String("workflowId", id), zap.Error(rerr))
+		}
+	}
+	// Deletion is a hard stop for automation, including manually-started runs on an inactive
+	// workflow. A runner may be absent in isolated/unit compositions; deletion remains durable and
+	// logs the best-effort cleanup failure instead of leaving the row undeletable.
+	// 删除是自动化的硬停，包括 inactive workflow 上手动启动的 run。隔离/unit 装配可能没有 runner；仍须
+	// 让删除持久落地，只记录 best-effort 清理失败，不把行留成删不掉。
+	if s.runner != nil {
+		if _, kerr := s.runner.KillWorkflow(ctx, id); kerr != nil {
+			s.log.Warn("workflowapp.Delete: kill in-flight runs failed", zap.String("workflowId", id), zap.Error(kerr))
+		}
+	}
 	if err := s.repo.DeleteWorkflow(ctx, id); err != nil {
 		return fmt.Errorf("workflowapp.Delete: %w", err)
 	}

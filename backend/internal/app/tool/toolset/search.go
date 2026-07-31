@@ -167,19 +167,34 @@ func (t *SearchTools) Execute(ctx context.Context, argsJSON string) (string, err
 // 高分在前，同分按名。纯关键词匹配——无 embedding（LLM 从概览自拟 query，本地 lazy 全集小到词法
 // 排序即够）。
 func rankLazy(lazy []toolapp.Tool, query string, limit int) []toolapp.Tool {
-	terms := strings.Fields(strings.ToLower(query))
+	terms := searchTerms(query)
 	type scored struct {
 		tool  toolapp.Tool
 		score int
 	}
 	var hits []scored
 	for _, tl := range lazy {
-		hay := strings.ToLower(tl.Name() + " " + tl.Description())
+		name := strings.ToLower(strings.ReplaceAll(tl.Name(), "_", " "))
+		hay := name + " " + strings.ToLower(tl.Description())
 		score := 0
 		for _, term := range terms {
 			if strings.Contains(hay, term) {
-				score++
+				// A hit in the tool name is stronger than one in prose. The overview
+				// teaches users the canonical name, while descriptions often mention
+				// neighboring tools (for example list_attachments mentions
+				// read_attachment), so prose-only overlap must not drown the exact tool.
+				if strings.Contains(name, term) {
+					score += 3
+				} else {
+					score++
+				}
 			}
+		}
+		// If the query names the tool as a phrase, make that an explicit tie-break
+		// bonus. Normalize the underscore so "read attachment" reaches
+		// read_attachment without requiring the model to know the implementation spelling.
+		if phrase := strings.Join(terms, " "); phrase != "" && strings.Contains(name, phrase) {
+			score += 5
 		}
 		if score > 0 {
 			hits = append(hits, scored{tool: tl, score: score})
@@ -197,6 +212,11 @@ func rankLazy(lazy []toolapp.Tool, query string, limit int) []toolapp.Tool {
 		out = append(out, hits[i].tool)
 	}
 	return out
+}
+
+func searchTerms(query string) []string {
+	query = strings.ToLower(strings.NewReplacer("_", " ", "-", " ").Replace(query))
+	return strings.Fields(query)
 }
 
 var _ toolapp.Tool = (*SearchTools)(nil)

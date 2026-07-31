@@ -111,12 +111,24 @@ type ContentCapabilities struct {
 	Video      bool
 	Audio      bool
 	NativeDocs bool
+	// ToolsKnown distinguishes a catalogued chat-only model from an unknown/custom model. A known
+	// false value suppresses tool definitions on the wire; an unknown value preserves the historical
+	// best-effort behavior for unprobed/custom routes.
+	// ToolsKnown 区分「目录明确知道 chat-only」与「未知/自定义模型」。已知 false 时不上工具线缆；未知
+	// 则保留未探测/custom 路线的历史 best-effort 行为。
+	Tools      bool
+	ToolsKnown bool
 	// MaxMediaParts / MaxMediaBytes are optional app-side guards for one rendered user turn.
 	// Zero means the provider did not publish a finite inline-media envelope.
 	// MaxMediaParts / MaxMediaBytes 是单个渲染 user 回合的可选 app 侧闸；零值表示 provider 未发布
 	// 有限内联媒体额度。
 	MaxMediaParts int
 	MaxMediaBytes int64
+	// MaxDistinctMediaKinds limits how many different native media kinds (image, video,
+	// audio) may appear in one user turn. Zero means no finite cross-kind constraint is known.
+	// MaxDistinctMediaKinds 限制单个 user 回合可出现多少种不同的原生媒体类型（图、视频、音频）。
+	// 零表示未知或没有有限的跨类型约束。
+	MaxDistinctMediaKinds int
 	// ManagedGateway is present only for Anselm's built-in, device-proven gateway. It tells the
 	// attachment adapter to stage native image/video bytes once and hand the provider an expiring
 	// HTTPS source instead of embedding base64 in every sampling request. It contains the public

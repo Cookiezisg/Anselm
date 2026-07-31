@@ -3,6 +3,7 @@ package trigger
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	entitystreamapp "github.com/sunweilin/anselm/backend/internal/app/entitystream"
@@ -48,6 +49,21 @@ func (s *Service) AttachOnce(ctx context.Context, triggerID, workflowID string) 
 	return s.attach(ctx, triggerID, workflowID, true, false)
 }
 
+// reportGateLocked returns the per-trigger report barrier. The caller must hold s.mu for writing;
+// the gate intentionally survives listener-entry deletion so Detach can fence a report whose
+// snapshot raced with one-shot auto-detach or another registry removal.
+//
+// reportGateLocked 返回每 trigger 的 report 栅栏。调用方必须持有 s.mu 写锁；栅栏刻意跨 listener entry
+// 删除存活，使 Detach 能 fence 那些与 one-shot 自动摘除或其它 registry 删除交错的 report 快照。
+func (s *Service) reportGateLocked(triggerID string) *sync.RWMutex {
+	gate := s.reportGates[triggerID]
+	if gate == nil {
+		gate = &sync.RWMutex{}
+		s.reportGates[triggerID] = gate
+	}
+	return gate
+}
+
 // attach is the shared body: ensure the listener is hot, then add workflowID to the fan-out set
 // (and, when once, to the one-shot set). A PAUSED trigger (scheduler 工单⑦) still tracks its
 // references — the entry is created with paused=true and Register is skipped — so a boot replay
@@ -88,7 +104,15 @@ func (s *Service) attach(ctx context.Context, triggerID, workflowID string, once
 			}
 			hot = time.Now()
 		}
-		e = &listenEntry{workspaceID: t.WorkspaceID, kind: t.Kind, workflows: make(map[string]time.Time), once: make(map[string]bool), paused: t.Paused, hotSince: hot}
+		e = &listenEntry{
+			workspaceID: t.WorkspaceID,
+			kind:        t.Kind,
+			reportGate:  s.reportGateLocked(triggerID),
+			workflows:   make(map[string]time.Time),
+			once:        make(map[string]bool),
+			paused:      t.Paused,
+			hotSince:    hot,
+		}
 		s.listeners[triggerID] = e
 		wentHot = true
 	}
@@ -129,9 +153,12 @@ func (s *Service) attach(ctx context.Context, triggerID, workflowID string, once
 // Detach 移除 workflowID 对 triggerID 的引用。最后一个引用（1→0）停掉底层 listener。
 func (s *Service) Detach(triggerID, workflowID string) {
 	s.mu.Lock()
-	defer s.mu.Unlock()
+	gate := s.reportGateLocked(triggerID)
 	e, ok := s.listeners[triggerID]
 	if !ok {
+		s.mu.Unlock()
+		gate.Lock()
+		gate.Unlock()
 		return
 	}
 	delete(e.workflows, workflowID)
@@ -142,6 +169,15 @@ func (s *Service) Detach(triggerID, workflowID string) {
 		}
 		delete(s.listeners, triggerID)
 	}
+	s.mu.Unlock()
+
+	// A report may have copied this workflow before the registry mutation and still be writing its
+	// durable Activation/Firing rows. Fence the write side only after releasing s.mu: the report's
+	// fan-out may need the registry lock for one-shot claims and active-snapshot filtering.
+	// report 可能在 registry mutation 前已经复制了该 workflow，仍在写 durable Activation/Firing。释放 s.mu
+	// 后再拿写侧 fence；report 的 fan-out 可能需要 registry 锁做 one-shot claim/active snapshot 过滤。
+	gate.Lock()
+	gate.Unlock()
 }
 
 // attachRuntime fills the computed RefCount/Listening fields from the in-memory registry. A

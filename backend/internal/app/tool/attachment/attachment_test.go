@@ -92,6 +92,16 @@ func TestAttachmentTools_WithInspectMedia(t *testing.T) {
 	}
 }
 
+func TestInspectMediaDescriptionOverviewNamesTemporalRange(t *testing.T) {
+	firstLine := strings.SplitN(inspectMediaDescription, "\n", 2)[0]
+	if !strings.Contains(firstLine, "startMs/endMs") {
+		t.Fatalf("lazy overview first line must expose temporal range args: %q", firstLine)
+	}
+	if !strings.Contains(firstLine, "page/offset/limitChars") {
+		t.Fatalf("lazy overview first line must expose bounded text args: %q", firstLine)
+	}
+}
+
 func TestListAttachments_ReturnsUploaded(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte("hello world"))
@@ -190,6 +200,29 @@ func TestReadAttachment_IndexReturnsChunkOffsetsWithoutDumpingBody(t *testing.T)
 	}
 	if !strings.Contains(idx.Usage, "offset") {
 		t.Fatalf("index should tell the agent how to continue: %+v", idx)
+	}
+}
+
+func TestReadAttachment_IndexAcceptsStringBooleanFromManagedCaller(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "managed-index.txt", "text/plain", []byte(strings.Repeat("body\n", readAttachmentIndexChunkChars*2)))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"id":"`+a.ID+`","index":"true"}`)
+	if err != nil {
+		t.Fatalf("stringified index should be accepted for managed callers: %v", err)
+	}
+	var idx attachmentTextIndex
+	if err := json.Unmarshal([]byte(out), &idx); err != nil || idx.AttachmentID != a.ID {
+		t.Fatalf("stringified index should still return the compact index JSON: err=%v index=%+v out=%q", err, idx, out)
+	}
+}
+
+func TestInspectMedia_ValidateAcceptsStringifiedScalarsFromManagedCaller(t *testing.T) {
+	err := (&InspectMedia{}).ValidateInput([]byte(`{"attachmentId":"att_test","question":"page","page":"2","limitChars":"128","startMs":"100","endMs":"200","tiles":"false"}`))
+	if err != nil {
+		t.Fatalf("stringified inspect scalars should be accepted for managed callers: %v", err)
 	}
 }
 
