@@ -174,6 +174,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮用当前部署默认 API 对用户多模态 workflow 三入口做双跑复核：manual、外部 webhook、chat→`trigger_workflow` 各 2/2 完成（manual 57.69s/54.58s、webhook 29.25s/25.19s、chat 35.24s/35.28s；包 237.823s）。PDF sandbox token、PNG/MP4 exact bytes、flowrun terminal 与三路 provenance（origin/triggerId/conversationId）均闭合，没有入口专属媒体丢失、错误拆回合、CEL 漂移或重复产物。
 
+本轮对聊天 workflow replay 单独做当前窗口双跑：两轮均先由 `search_flowruns(status=failed)`/`get_flowrun` 读取 durable 失败节点，再由 `replay_flowrun` 沿同一 `flowrunId` 恢复；stable 前缀与 finish 各一次，flaky handler 恰一次 failed+一次 ok（54.01s、51.35s）。该恢复体验与三入口多模态链互不干扰，没有重复节点、孤儿 run 或旧终态复活。
+
 ### FRT-07 最新证据
 
 本轮对 managed 音色全生命周期做当前双跑：参考 WAV 朗读后，`enroll_voice` 均出现 danger interaction 并完成批准，登记可见；克隆音色随后真实朗读并产出第二份 WAV，最后删除后 `/voices` inventory 归零。两轮 43.93s/40.48s（包 84.993s），源/克隆附件可逐字节回读，无句柄、receipt 或媒体孤儿；继续证明 speech denial 的时序红灯不代表公共 voice/TTS 路由回归。

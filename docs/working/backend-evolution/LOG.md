@@ -1281,6 +1281,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-809 | 默认 managed chat 当前三跑全绿：每个新 workspace 都完成 managed key/default model provision，普通中文问候在单一 durable turn 内完成，无工具、无错误回合、无多模态/异步路径残留；作为复杂 live lane 后的基本入口 sanity 未见回归 | FRT-13 + FRT-16 / managed-read / default chat post-multimodal sanity | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChat$' -count=3 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo809-managed-default-chat-triple.jsonl` → PASS：7.41s、9.82s、4.16s（包 22.213s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-810 | 聊天入口 workflow failed→replay 当前双跑全绿：两轮先通过 durable `search_flowruns(status=failed)`/`get_flowrun` 暴露失败节点，再调用 `replay_flowrun`；已完成 stable 前缀只保留一次，flaky handler 恰一次 failed+一次 ok，finish 与父回合最终 completed，未见重复节点、孤儿 run 或旧终态复活 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / flowrun failure diagnosis and replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunReplay$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo810-managed-chat-flowrun-replay-double.jsonl` → PASS：54.01s、51.35s（包 105.927s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
