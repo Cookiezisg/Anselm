@@ -146,6 +146,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮复探同一 flowrun 内的 managed producer→managed viewer：image producer→viewer 两轮 58.44s/56.70s 完成，PNG content 1,095,190/1,098,489 bytes；speech producer→viewer 两轮 31.94s/22.83s 完成，WAV content 73,004/80,684 bytes。四次 flowrun 均 durable completed，下游消费的是同一 MediaRef 而非 receipt 文本，audio viewer 继续诚实降级；未见重复生成、附件孤儿或异步结果丢失。
 
+本轮再做长尾 async video producer→managed viewer 双跑：两轮各只提交一次 `generate_video`，flowrun 分别在 268.05s/171.02s 后才 durable completed，下游回读的同一 MediaRef MP4 为 8,552,829/7,348,559 bytes。没有提前终态、重复提交、receipt-only 占位、迟到附件或 viewer 只读文本；耗时差异归属于真实 gateway job 窗口，未暴露 workflow scheduler、恢复或附件 ledger 缺陷。
+
 本轮再补 workflow speech producer→Qwen BYOK viewer：上游 managed WAV、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `input_audio` 在两个当前独立进程均闭合（20.557s、19.261s）；该音频入口没有把 receipt 当作内容，也没有因跨 provider 重投影而丢失源字节。
 
 本轮再补 workflow async video producer→Qwen BYOK viewer：上游 managed video、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `video_url` 在两个当前独立进程均闭合（117.005s、130.147s）；长尾 job 的等待与清理均收口，没有把 receipt 文本冒充视频，也没有迟到孤儿产物。

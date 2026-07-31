@@ -1211,6 +1211,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-774 | managed workflow 产物→下游 viewer 当前双跑全绿：image producer→managed viewer 两轮 58.44s/56.70s，各只生成一份真实 PNG（1,095,190/1,098,489 bytes）并由同一 flowrun 下游消费；speech producer→managed viewer 两轮 31.94s/22.83s，各落一份 73,004/80,684-byte WAV，viewer 对不支持的 chat audio 保持诚实降级。四次 flowrun 均 durable completed，MediaRef/attachment content 闭合，无 receipt-only、重复生成或媒体孤儿 | FRT-04 + FRT-09 / managed workflow / producer→managed viewer image + speech | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerate(ImageToViewer|SpeechToManagedViewer)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo774-managed-workflow-image-speech-viewer-double.jsonl` → PASS：包 170.523s；未输出 provider secret |
 
+| 2026-07-31 | EVO-775 | managed workflow 异步 video producer→managed viewer 当前双跑全绿：每轮只提交一次 `generate_video`，等待真实 gateway job 完成后 flowrun 才 durable completed，下游消费同一 MP4 MediaRef；两轮附件 content 分别为 8,552,829 与 7,348,559 bytes，未见提前终态、重复提交、receipt-only 或迟到孤儿。耗时 268.05s/171.02s，包 439.443s；长尾差异仍在上游任务窗口，不是本地恢复或附件台账漂移 | FRT-04 + FRT-09 + FRT-13 / managed workflow / async video producer→viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateVideoToManagedViewer$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo775-managed-workflow-video-viewer-double.jsonl` → PASS：268.05s、171.02s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
