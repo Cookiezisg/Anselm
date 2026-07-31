@@ -1301,6 +1301,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-819 | managed 子代理故意失败续接当前隔离双跑为 1 绿 1 红：绿跑真实单次派遣、`failed + triggeredBy=agent` execution、`SUBAGENT_FUNCTION_FAILURE_8B2D` 经 child/父结果回传且父 completed；红跑先发非法 `subagent_type=general` 被校验拒绝，再发合法 `general-purpose`，严格 `parentSubagentCalls=1` oracle 在 ledger 断言前击穿，但 corrected child 仍完成故意失败、父无直接 function 调用且 marker 保留。没有新的 execution/锚点/孤儿/终态缺陷证据，继续归类 managed schema recovery/重复派发时序哨兵 | FRT-05 + FRT-13 / managed / subagent failed-function continuation reliability sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentFunctionFailureContinues$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo819-managed-subagent-function-failure-double.jsonl` → 包级 FAIL：39.40s PASS、48.29s FAIL（包 88.284s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-820 | managed 子代理取消终态当前双跑为 1 红 1 绿：红跑模型先派 `Plan` 子代理并被其工具集拒绝，再派 `general-purpose`；`:cancel` 204 后出现一个 completed refusal child 与一个 cancelled child，严格 30s parent/child settle oracle 未收口。绿跑 `:cancel` 204 后父/child durable cancelled、单条 `agent/cancelled` execution、follow-up completed 且无工具复活。红灯仍是模型选型/重复派发叠加 REST settle 时序，没有新的 ledger、孤儿或终态损坏证据 | FRT-05 + FRT-13 / managed / subagent cancellation terminal reliability sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentCancelTerminal$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo820-managed-subagent-cancel-double.jsonl` → 包级 FAIL：82.99s FAIL、51.11s PASS（包 135.082s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
