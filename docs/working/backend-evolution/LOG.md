@@ -1225,6 +1225,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-781 | managed 并行子代理跨回合上下文当前 clean 双跑：每轮首回合均只保留两个 child，各自 function execution 恰一条；下一轮父回合不再调用工具而逐字恢复两个 marker，`parentBlockId` 与 `agent/ok` ledger 一一闭合。两轮 92.82s/65.53s，包 158.660s，未复现重复 child、跨树串线、历史丢 marker 或终态缺失 | FRT-05 + FRT-13 / managed / parallel subagent context continuation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ParallelSubagentContextContinues$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo781-managed-parallel-subagent-context-double.jsonl` → PASS：92.82s、65.53s；未输出 provider secret |
 
+| 2026-07-31 | EVO-782 | BYOK 能力降级/资格矩阵当前 6/6 通过：OpenAI `gpt-4.1-mini` 图片+不支持音频、图片+不支持视频均保留 98-byte PNG 的 native `image_url`，不发送 WAV/MP4 而写明确 capability note；源 WAV 96,044 bytes、MP4 2,969,360 bytes 均逐字节回读。Qwen chat-only agent 两轮在 0 steps 明确失败，没有工具调用、execution ledger 或 managed fallback。包 24.797s；BYOK harness 的 managed install skip 属预期 | FRT-02 + FRT-10 + FRT-11 / byok-read / multimodal capability downgrade + chat-only rejection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_BYOK=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^(TestLiveBYOK_(OpenAIImageAndUnsupportedAudio|OpenAIImageAndUnsupportedVideo|QwenChatOnlyAgentRejected))$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo782-byok-capability-downgrade-double.jsonl` → PASS：6/6（Audio 7.60s/4.34s；Video 5.35s/4.29s；Qwen 1.19s/1.07s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

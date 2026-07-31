@@ -88,6 +88,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮继续做同回合与历史交互矩阵：OpenAI 图片 retry、edit-resend、多图与 Qwen image+video、image+audio 共 10/10 通过；retry 保留单一 user 行/assistant 版本链，edit-resend 继续发送同一 native image，多图不丢第二份；Qwen image+video 同时保留 exact native parts，image+audio 遵守能力上限，把音频写成明确降级而不发非法组合。两轮各项均闭合（包 46.670s），没有 managed fallback、provider 400、附件字节变化或历史媒体丢失。
 
+最新一次把 OpenAI 图片+不支持音频/视频与 Qwen chat-only agent 资格合并双跑：6/6 通过（包 24.797s）。两条 OpenAI 路径仍只发送 98-byte PNG native image，WAV 96,044 bytes 与 MP4 2,969,360 bytes 仅留明确 capability note 且源件逐字节可回读；Qwen chat-only 在 0 steps 失败，没有 tool call、execution ledger 或 managed fallback。BYOK harness 的 managed install skip 为预期隔离，不是失败。
+
 ### FRT-03 最新证据
 
 本轮复探 hybrid ownership 的两条最小闭环：OpenAI BYOK planner 只规划一次并把生成交给默认 Anselm managed image route；反向路径由 managed image producer 生成真实 PNG MediaRef，再由 OpenAI BYOK vision viewer 读取同一附件。两条路径各跑两个独立进程均通过（planner/viewer 组合包 62.764s、60.281s），附件端点可逐字节回读，没有重复生成、receipt 冒充媒体或 managed/BYOK ownership 串线。
@@ -351,6 +353,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 同日复探 Qwen chat-only 模型的 agent 资格闸：API key 探测与能力投影允许该模型作为对话模型，但把它显式设置到 agent 后，真实 `:invoke` 在 0 steps 直接落 `failed`，错误说明为 `cannot run as an agent`，未产生 tool call、function execution、模型回退或消费。两次独立 BYOK 进程通过（3.656s、3.050s），未形成目录裁剪或路由边界缺陷。
 
 本轮资格边界组合再次通过：Qwen chat-only agent 仍在 0 steps 明确拒绝，未发工具或 provider 请求；该项单场景 1.08s，未形成能力投影回归。
+
+最新一次与 OpenAI 多模态降级一起做双跑：Qwen chat-only 两轮均保持 0-step `cannot run as an agent` 拒绝，OpenAI 图片+不支持音频/视频均保持 native image + capability note，6/6 通过（包 24.797s）；未形成能力目录、BYOK 路由或 managed fallback 回归。
 
 ### FRT-11 最新证据
 
