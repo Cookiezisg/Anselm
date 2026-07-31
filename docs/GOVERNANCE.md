@@ -18,11 +18,11 @@ audience: [human, ai]
 
 ## 0. 强制性与执行设计（先读这条）
 
-文档规范若不被执行，等于不存在。本规范用**三层冗余**确保 Claude（及人）完整遵循——任一层兜住，三层叠加几乎不漏：
+文档规范若不被执行，等于不存在。本规范用**三层冗余**确保编码代理与人完整遵循：
 
 | 层 | 机制 | 作用 |
 |---|---|---|
-| **① 常驻** | `CLAUDE.md`（每次会话**自动加载**、工程纪律唯一事实源）内嵌「文档纪律」节：核心条款 + §7 触发表精要 + §12 收尾清单 | 使 Claude **每次会话都已读到**这些规则——**无「不知道」借口** |
+| **① 常驻** | `CLAUDE.md`（工程纪律唯一事实源）内嵌「文档纪律」节：核心条款 + §7 触发表精要 + §12 收尾清单 | 所有代理从同一入口获得规则 |
 | **② 规范** | 本文件：具体到 **if-then** 的触发表（§7）、可逐条勾的收尾清单（§12）、机械可判的门禁项（§11） | 把「文档要同步」从空泛原则变成**可机械执行**的指令 |
 | **③ 门禁** | `make -C docs verify`（§11，`backend/cmd/docs`、并入根 `make verify`）机械校验 frontmatter / 必填 / 类型·状态 / INDEX≤50 / 孤儿链接 | 捕捉人或 AI 的疏漏，**让违规无法静默通过** |
 
@@ -38,7 +38,7 @@ audience: [human, ai]
 
 1. **文档-代码物理同步（doc-code parity）**：`reference` 类文档必须与代码**逐字**对得上。代码是事实，文档是其精确投影。
 2. **单一事实源**：每个事实只在**一处**权威记录（见 §10 权威层级）；他处引用、不复制。
-3. **零历史包袱**：项目未上线。文档**只描述当前物理事实**，禁止「曾经如何、后来改成」的演化叙述（历史在 git 与 `archive/`）。
+3. **零历史包袱**：没有已承诺的兼容面时不维护兼容叙事。current 文档**只描述当前物理事实**，演化过程进入 git、ADR 与 `archive/`。
 4. **写 Why 不写 What**：What 看代码/结构即知；文档的价值在解释**为什么这样设计**、有哪些取舍与边界。
 5. **高密度**：表格优先、要点优先、删一切 fluff（「本节将介绍…」之类）。本规范自身即范例。
 6. **中文**：所有文档正文用**中文**；代码标识符、路径、wire code、frontmatter 字段名保持原文。
@@ -108,7 +108,7 @@ docs/
 │   ├── backend/          ← api.md · database.md · events.md · error-codes.md · changelog.md
 │   │   ├── domains/      ← 每个后端域一篇 <domain>.md
 │   │   └── foundation/   ← 地基/引擎/infra 一篇（orm · cel · reqctx · loop · tool · …）
-│   └── frontend/         ← architecture.md · contract.md · sse-gateway.md（Flutter，ADR 0004）
+│   └── frontend/         ← overview · architecture · contract · design-system · platform
 │       └── features/     ← 每个 feature 一篇 <feature>.md
 ├── decisions/            ← ADR，仅追加、不可变（decision）
 ├── how-to/               ← 操作手册（how-to）
@@ -140,7 +140,9 @@ draft → active → superseded → archived
 
 `decision` 不走「superseded→改」——ADR 不可变，被推翻时**新建**一篇 ADR 并把旧篇 `status` 置 `superseded`、`superseded-by` 指向新篇。
 
-**部分取代**(0725 补:ADR 0012 只推翻了 0011 的上游那半,入站那半仍是现行法):旧篇 `status` **保持 `active`**——把仍在生效的法条标成 superseded 是让文档撒谎,而 `superseded-by` 会诱导读者整篇跳过。做法是在旧篇标题下加一段**前向指针**,写明**哪一半被谁取代、哪一半仍然有效**;新篇同样写明它 supersede 的是哪一半。加前向指针是**补元数据**、不是改决定,不违反 ADR 不可变——不可变禁的是「回头把当初的判断改成后来的判断」。
+**部分取代**：若新 ADR 只取代旧 ADR 的一部分，旧篇继续保持 `active`。
+允许在旧篇标题下补一条前向元数据，精确说明被取代范围并链接新 ADR；不得
+改写原判断。整篇取代时才使用 `status: superseded` 和 `superseded-by`。
 
 ---
 
@@ -158,7 +160,7 @@ draft → active → superseded → archived
 | 架构 / 分层 / 实体 / 引擎 / 路线状态变更 | **整体重述** `concepts/architecture.md` 相关节（§1.7，非追加） |
 | 工程规则 / 设计原则 / 契约宪法（N·D·E·S·T）变更 | **整体重述** `CLAUDE.md` 相关节（§1.7，非追加） |
 | 前端契约层（DTO / envelope / 错误码映射）变更 | `references/frontend/contract.md` + 对应 `domains/<域>.md` |
-| 前端架构 / 分层 / SSE gateway 规则变更 | `references/frontend/{architecture,sse-gateway}.md` + `CLAUDE.md` 前端节 + [`ADR 0004`](decisions/0004-frontend-flutter-architecture.md) |
+| 前端架构 / 分层 / SSE gateway 规则变更 | `references/frontend/architecture.md` + 必要时 `contract.md` + `CLAUDE.md` 前端节；产生新取舍时新建 ADR |
 
 **两种更新 mode 不混（§1.1 vs §1.7）**：`reference` 文档行 = **精确同步**（增量改到逐字吻合代码）；`architecture.md` / `CLAUDE.md` 行 = **整体重述**（把相关节重写到当前状态、删尽旧状态，绝不在旁追加）。表为高频清单、非穷举——「代码改了而某文档因此失真」一律适用。
 
@@ -219,7 +221,7 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 
 ---
 
-## 12. Claude 收尾清单（★★ 每次代码改动「完成」前逐条勾）
+## 12. Agent 收尾清单（★★ 每次代码改动「完成」前逐条勾）
 
 声明任何代码改动**完成**之前，逐条自检——任一项未过 = 改动**未完成**，回去补：
 
@@ -228,7 +230,7 @@ CLAUDE.md  >  references/  >  concepts/  >  working/  >  archive/
 3. ☐ 改的是**状态文档**（`architecture.md` / `CLAUDE.md` / 本规范）吗？→ 是**整体重述到当前状态**吗（没在旧内容旁追加、没留旧状态痕迹，§1.7）？
 4. ☐ 新建文档有合法 frontmatter（§3）吗？`type`/`status`/`id` 对吗？放对目录（§5）了吗？
 5. ☐ 删/移过文档吗？→ 所有指向它的链接（`INDEX.md` 及他处）都修了吗（无孤儿链接）？
-6. ☐ 动过 `decisions/` 里的 ADR 吗？→ **禁止**（只能新建 supersede）。
+6. ☐ 动过 `decisions/` 里的 ADR 吗？→ 原决定正文不可改；只允许新建 superseding ADR，以及按 §6 更新生命周期或前向元数据。
 7. ☐ working 文档落地了吗（提取进 concepts/references + 填 `landed-into` + 移 `archive/`）？
 
 ---

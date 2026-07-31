@@ -72,3 +72,12 @@ landed-into:
 - backend overview、concept architecture、INDEX 同步新边界；overview、database、error-codes 去掉易漂移的域/handler/provider/错误码手工总数。error registry 仍由 `cmd/docs/drift.go` 对具体 code 双向严格校验。
 - `make -C docs verify` 通过；四索引漂移检测保持 error code 双向、event 双向/族、endpoint 资源词与 table 双向覆盖，warning 仍仅 DTO mirror 12 checked / 21 skipped。裸 shell `go test ./cmd/docs` 因系统 go1.26.2 与项目缓存/标准库 go1.25.11 混用失败；改用仓库锁定工具链 `mise exec -- go test ./cmd/docs`（go1.25.11）通过，确认是环境选择而非代码失败。
 - G2 尚未完成：当前 backend reference 仍有大量 WRK/工单/批次历史标签，且 CLAUDE 当前快照复制了 API Serve 内部 provider 数字；后续批次必须继续整体重述，不能把本节视为 G2 完成。
+
+## 2026-07-31 · G2-002 · 工程宪法恢复为稳定事实源
+
+- 整体重述根 `CLAUDE.md`：保留项目定义、9 条设计原则、N/D/E/S/T 契约、前端守则和文档纪律，删除前后端施工流水、WRK 标签、provider/model/工具数量、一次性性能数字、真钱实验过程及 API Serve 内部实现复制。
+- 当前能力改为短地图：系统架构、后端、前端、managed gateway、契约索引、working 与 archive 各指向唯一权威入口；多模态仍明确属于当前产品路径，具体机制由 backend/frontend reference 与 ADR 承担。
+- 修正前端物理分层为 `lib/core → lib/features → lib/app`，删除不存在的 `shared/core`、`sse-gateway.md` 和强制多 agent 扇出流程；任务可按实际执行环境选择协作方式，不再由项目宪法硬编码代理编排。
+- 同步重述 GOVERNANCE 的常驻执行层措辞、前端 canonical 文档地图与同步触发表；ADR 规则现在区分“不可改原决定正文”和“允许生命周期/前向元数据”，消除 §6 与收尾清单互相冲突。
+- 验证：`make -C docs verify` 与 `git diff --check` 通过；warning 仍仅为 DTO mirror 12 checked / 21 skipped。
+- G2 仍未完成：`concepts/architecture.md` 及 backend 四索引、domains、foundation 仍需逐篇清除建造史并复核当前代码。

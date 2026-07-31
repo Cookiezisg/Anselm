@@ -1,165 +1,208 @@
-# Anselm — Claude 工作守则
+# Anselm — Agent 工作守则
 
-> Claude Code 进入本项目自动加载本文件。**本文件是项目工程纪律的唯一事实源**。
-> 项目愿景 / 架构 / 实体地图 / 引擎见 [`docs/concepts/architecture.md`](docs/concepts/architecture.md)；文档规范见 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)。
-> 旧版（覆盖回 `backend/` 之前的快照）在 `version-0.2` git 分支——参考旧版 checkout 它即可，不在当前文档维护任何历史。
+> 任何 AI 编码代理进入本项目，均以本文件为工程纪律的唯一事实源。
+> 文档入口见 [`docs/INDEX.md`](docs/INDEX.md)，文档治理规范见
+> [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)。
 >
-> **交流语言**：本项目的所有对话回复一律用**中文**（代码、标识符、commit message 等技术产物的语言约定不受此限）。
+> **交流语言**：对话回复一律使用中文；代码、标识符、协议字段和
+> commit message 等技术产物按各自约定。
 
----
+## 项目定义
 
-## 项目一句话
+Anselm 是本地优先的 Agentic Workflow Platform：
 
-- **本地优先 Agentic Workflow Platform**，目标 **Flutter 桌面 app**（macOS/Linux/Windows，Go 后端作 sidecar）、**单进程单用户**、SQLite 落盘（**不做 SaaS**）。
-- **核心心智**：**Quadrinity（四项全能）** 实体（Function/Handler/Agent/Workflow）+ **Durable Execution**（节点结果记忆化 + 解释器幂等重走）。
-- **架构**：4 层 Clean Architecture，依赖单向 `transport → app → (domain ∪ infra/store) → infra/db`。地基自研：`pkg/orm`（去 GORM）+ `glebarez/go-sqlite`（纯 Go、无 CGO）。
-- **当前状态**（快照——只留当前物理事实；建造史 / 逐批过程 / 历史裁决一律从 git + `docs/archive/` 取，见 #7）：
-  - **后端 `backend/`**：全 Quadrinity 实体 + durable 引擎，编译/装配/启动/服务全通；loopback 加固（默认绑 `127.0.0.1` + `RequireBearerToken`［`ANSELM_AUTH_TOKEN`，空=关］+ `RequireLoopbackHost` 防 DNS rebinding）；touchpoint 对话触点台账（右岛数据源，(对话,物,动词) 聚合落盘）；**对话分叉与版本指针**（`:fork` 前缀复制〔seq 重排 + 嵌套 remap + summary 两分支**水位重定基**〕；`:retry` 的 `superseded_by` **是指针不是软删**——行仍在盘上、仍在三个 REST 读形态里、仍可翻看，LLM 装配与**压缩读**双侧过滤〔只过滤装配会让被重试掉的回答经摘要流回每一轮，是个单向阀〕）；**驻地**（`work_dir` 列 + ctx 播种走 `reqctx`〔subagent 继承因此免费〕+ 三族工具定根 + `marker` block 型〔CHECK 封闭集七型〕+ workdir 投影与 git 三动作）；**受管免费档**（内置 Anselm 网关：device-proof 签名 + `POST /freetier:provision` 兼**自愈**——网关侧 install 消失〔其库被清/被吊销〕时,仅凭结构化码 `INVALID_INSTALL` 重新登记并**就地**换受管行的秘密〔行 id 不变,scenario 默认零重接;瞬时失败绝不轮换,否则等于因网络眨眼毁掉好 install〕;受管媒体走 device-proof 断点上传取 lease,**以相对 fetch 路径**嵌进 chat〔[ADR 0011](docs/decisions/0011-gateway-media-handle-contract.md):凡带 scheme/host 网关一律拒——这条形状约束本身就是 SSRF 的对策〕,由网关校验归属时效后**把内容内联转发上游**〔[ADR 0012](docs/decisions/0012-gateway-media-inline-upstream.md):provider 拉取器拒绝回拉网关公开主机,线上判别实验实证〕）；**全模态产出**（WRK-082，[ADR 0014](docs/decisions/0014-mediaref-one-currency.md) 是它的宪法）：**生成即工具**——`generate_image`/`generate_speech`/`generate_video` 与 X→X 一族 `edit_image`/`animate_image`/`enroll_voice` 都是 Tool（非第五个实体），经 **CapabilityTools 缝**逐请求 resident 注入 chat、经 **`sys:` 第四挂载词法**进 agent/subagent，**诚实缺席**（无可用路由即整个工具不存在；六个谓词**各自**判定——会画不等于会改、会说不等于会克隆）；**五个产地一间库**——生成工具/MCP 二进制/**fn·hd 沙箱产物**（`{"$media":"…"}` 声明就地换成 receipt，共用 `app/mediaartifact` 一个采集器〔路径逃逸/内容嗅探/mime 白名单三个安全决定只存一份〕，`ANSELM_OUT` + cwd；**fn 逐运行、hd 逐调用**——hd 是长跑实例、一进程服务多次调用，故目录必须随调用穿过 stdio RPC〔`StreamCall` 的 `outDir` 参数 + driver 的 `out` 字段〕，否则「这次调用的产物」不是良定义集合；driver 的 `chdir` 安全性来自 client 全程持锁使派发严格串行，`fspath.Inside` fail-closed）/朗读（零 token，`speech_cache` 50MB LRU，探测在合成**之前**故重听零上游花费）全部落 `attachments`；**一个值类型**——`pkg/mediaref` 的 `attachmentId` receipt（含**字符串形**：跨 workflow 节点它就是以文本走的）+ `anselm://media/<id>` 文档正文形；**一个消费咽喉**——`ToContentParts(ids, caps)` 三入口共用（agent payload / loop `MediaExpander` tool_result / 附件文档注入），按解析模型模态门控、看不了就留文本 receipt；**能力决定回不回喂**［[ADR 0020](docs/decisions/0020-capability-decides-model-input.md)，取代 0017］——一切产地的 receipt 一视同仁收集,到不到得了模型由能力+信封闸独家裁决;0017 的产地否决被成对真钱实验**证伪**〔拿到没有图的 receipt,`qwen3-vl-plus` 把生成当失败、重画到 MAX_STEPS:否决开 4 次出图 vs 否决关 1 次,各跑两遍零分歧——**知道自己要什么 ≠ 知道做出来是什么**〕,正是「一个节点烧掉十张真图」的病灶;复发保险是 EVALS_MEDIA 守卫〔断言一回合出图==1,mock 的脚本化模型不会因看不见图而重画,故只有真钱守得住〕;**归属收口**［H5.8］——`ToolResultContentParts` 只展开**本次工具调用自己铸出**的附件（附件行的 `origin_tool_call_id`）；审计 125 工具实证只有 `inspect_media`／`read_attachment` 会正当回显自己没铸的 id，而两者描述都明写不得倾倒字节，故这条**修好了两份正被静默违反的契约**；另两个入口仍走未收窄的 `ToContentParts`（收窄会让「附一个文件」整个坏掉）。**大小只决定怎么降级、不决定走不走**，remote 路径同守信封〔ADR 0012 把 lease 改成内联上游后字节回到表上，漏查即整轮 400——真机实测:3.2MB 生成视频在**已生成已付费之后**打死那一轮〕。**「写」留给自己，「读」交给目录**［H11，WRK-085］——**六个生成工具与朗读全部只在受管档**，直连方言（图五家 / 语音三 wire / 视频两家×三动词，约 1700 行）整体删除。判据是**成本线**、不是「文本 vs 多模态」：一天里踩的五个坑全在「写」那一侧——同一供应商两个域名对工具参数一个发增量一个发累积值（七个方言全废）、TTS 只有 WebSocket、`voice-enrollment` 只收公网 URL、`qwen-tts` 那个 model id 根本不存在、登记其实是异步的；而「读」（文本 + 多模态**输入**）是 OpenAI 兼容协议里最标准化的部分、零维护、不花我们的钱，故 **BYOK 全开**（能力闸按 ADR 0020 降级成文本注记、不报错）。**「全开」= 目录里我们说得了方言的每一家**［H12］：`modelcatalog.json` 装下 models.dev **全部 173 家 / 5585 模型**，`app/apikey` 的 provider 白名单、方言表、旋钮表**三张手写表全部退役**——DisplayName / base URL / 能力 / **有哪些旋钮**（`reasoning_options` 三形状：effort 枚举 · toggle 开关 · budget 整数）逐条由目录喂，方言只留**拼法**（`reasoning_effort` / `thinking` / `enable_thinking`，**拼法缺席即沉默**——发一个我们发明的参数名换来的是读起来像「这个模型坏了」的 400）。方言实为**三份实现服务五种**：一份 `compat.go` 打 159 家 / 5293 模型，anthropic 9、google 1，而 **azure 2 与 vertex 2 各只是 `compatSpec` 的两个钩子**（`chatURL` / `auth`）——它们与 OpenAI 的差别全在 URL 与头上、body 逐字相同。**`npm` 说的是「存在哪个 SDK」、不是「这家能说什么」，两个方向都会误导**：Bedrock 顶着 `@ai-sdk/amazon-bedrock`（Converse+SigV4）却**同时**在 `/openai/v1` 上讲 OpenAI 兼容、普通 bearer，故**零新代码**；Vertex 顶着 `@ai-sdk/google-vertex` 像 Gemini 的表亲，却要**服务账号 JSON 文件**签 JWT 换 OAuth2 token，路由到 Gemini 会永远 401 而消息去怪用户的 key。**说不了的方言整家不下发**（摆出来等于邀请一次我们早就知道的失败），**未验证的家戴徽**（`curated=false` = 靠机械映射抵达、我们没试过，UI 据此把「你的 key 不对」「这家我们没试过」「地址不对」**三种失败分清**——鉴权失败在用户自填地址上必须**同时指向 base URL 那一栏**，因为一个指向真实但错误地方的 URL 答的 401 与一把坏 key 一模一样）。base URL **三层兜底**（目录 `api` → `knownBaseURLs` 预填 → `knownBaseURLHints` 形状 → 才是空着，**166 / 10 / 5**；预填的每一行都是**从已发布的 SDK 包源码里读出来的**、不是凭记忆——凭记忆写错的 URL 会以「你的 key 无效」的形态失败，而那句话是**假的**）。**手写 spec 必须够得着**：`lookupProvider` 在跌向合成 provider 前先把目录 id 翻回注册表键，少这一跳则 `alibaba`/`zhipuai`/`moonshotai` 三家静默落到通用实现上——base URL 对、模型列得出来、卡上写着「已验证」，而旋钮拼法、编码器、线缆掩码全是错的（守卫比指针钉住）。**诚实缺口**：azure / bedrock / vertex 三家按官方文档实现、**尚未真钱验收**（需用户自己的 Azure / AWS / GCP 凭证）。**参考音色**［H9］是「写」里最锋利的一件:一个具名音色由 `enroll_voice` 从**已有音频附件**铸出（`dangerous` 闸——理由不是钱而是**声音是身份**），库存 **2 个/workspace**，而**库存不是配额**：时间不腾位、创建花过一次真钱、删除收回的是**位置**不是费用，故满态的话术是「删掉一个才能腾出地方」、**绝不是「明天再试」**（两种语言的措辞律入守卫）。**句柄两跳翻译**——桌面把用户取的**名字**换成网关行 id、网关**按 install 收窄**再换成供应商 id；少任一跳，登记都会「成功、付钱、然后永远说不了话」（真钱验收实证），而句柄刻意不是供应商 id 是一条**隔离边界**（否则任一 install 能指名别人的音色，与 ADR 0015 签名句柄同理）。**真钱验收 `EVALS_VOICE=1` 打生产网关**跑完整条链（登记→合成→删除+用完即撤）——本地跑它**物理上不可能**，因为上游自己来拉样本。受管档**三个全开**（图 10 张/天、语音 5 万字符/天、视频 **10 条/天**，per-install）；视频的受管路由是**唯一的两次请求**形态——提交拿**签名句柄**（`HMAC(installId‖taskId)`，常数时间比较；裸转发上游 task id 等于让任一 install 读走别人的视频；密钥由 `MEDIA_SIGNING_SECRET` 域分离派生、不新增 env），钱**落在提交**、轮询绝不动钱（「只在客户端回来轮询时退款」= 走开的人白拿、等着的人付钱），钱按**秒**而品类账本按**条**（按秒配给只会让用户写更短的提示词、而不是少生成视频）——见 [ADR 0015](docs/decisions/0015-managed-video-signed-handle.md)。**中间件包装转发律**：`statusRecorder` 挡在每条路由前面,它没转发的接口=从整个 API 面上被静默剥掉——`Flush` 为三条 SSE 流、`Hijack` 为一切 WebSocket 路由,缺一即该类路由**全灭且零日志**（守卫测试钉死)。契约成体系：`references/backend/`（overview 鸟瞰 + api/database/error-codes/events 四索引 + domains/ 分域 + foundation/ 地基，与代码逐字同步）。
-  - **前端 `frontend/`（已全量并入 main，PR #10）**：设计系统 + UI kit（An* 原语，gallery-first）+ 三岛壳 `AnShell`（可拖收左岛/海洋/按需右岛+浮层头）+ 运行时骨干（SSE 三流常驻、sidecar 进程托管、启动门控），**四海洋全建成**：
-    - **chat**：完整聊天（rail **四段结构**［新对话·搜索 / 置顶 / 📁 驻地组 ×N〔组头计数走服务端投影防翻页漂移，组头 ⋯ = 归档全部对话／删除全部对话〔**永不出现「目录」字样**——那两个动作删的只是**对话**〕／在访达中显示〕 / 最近〔仅无驻地对话〕；有查询词时**搜索替换结构**、不过滤结构，否则收起的组会对未滚进视野的对话答「没有匹配」］ / transcript CustomScrollView+center 锚 + **消息动作排**〔复制走 `turnCopyText` **取自 model 而非选区**——懒列表的 `Cmd+A` 只触及已建条目 / 分叉 / 重试换模型 / 编辑重发 / 版本翻页 `‹ 2/2 ›`；末轮恒显、历史 hover 现、生成中不显〕 / composer send↔stop·@ 提及·附件三入口·**生成中 Enter 入队**〔队列 chip 行可点开改／✕ 删，空框 `↑` 取回最后一条，管道空闲逐条排出；**按停止不清队列**——停止是对在飞那一轮的表态〕 / 自动命名双落 / **驻地**〔可选工作目录：面包屑处按钮三态〔**纯字形、三态三字形**：laptop 未挂／folder 已挂／folder-x 目录已不存在——面包屑**一律不写名字**〔分叉的父名同此律〕，名字与完整路径都在**点开**后的菜单身份头里，hover 有 tooltip；纯字形因此恒为 28pt 方块，挂载／退出／改名都不让面包屑重排。尺寸与模型选择器同为 `md` 档〕 + 三段式菜单〔完整路径·在访达中显示·在终端打开 / 切换·退出·最近目录 / git 段：分支一键切、新建分支、**为此对话开一个 worktree**〔路径与分支同 `make worktree` 约定〕〕；语义是**告诉 AI 聚焦这里、不是牢笼**——**只闸写不闸读**，越界写无视 LLM 自报 danger 强制走人闸〔`fspath.Inside` 走 `os.Root`，`filepath.Rel` 先挡兄弟目录前缀陷阱，逐组件 `Stat` 而非 `Lstat`，处处 fail-closed〕；**脏区切分支直接拒绝**——git 自己把「活静默搬到另一条分支」放在**成功**分支上〕）+ 全工具卡谱系（113 工具逐卡设计，默认收起，仅失败一次与人闸自动展开）+ 右岛侧幕（触点台账·时间三档分组 + 12 kind 量身活舞台 + 流式全链「自动开岛→登台→活更新→1.8s 停留→自动谢幕」;**G 系列根治五铁律**——①舞台体只吃本行 StageScene、禁 watch 导演器全局态 ②行内交互=行级认领、绝不冻流水线[镜头锁已删,导演器仅 idle/following/failedHold 三态] ③判活单源 ToolCardPhase[参流关≠执行终态] ④导演器按 subagentEpoch 对照 transcript 重新接地[DB 行是真相:410 幽灵/冷启动在飞全自愈] ⑤舞台体读键与后端 schema 逐字同源、fixture 帧形=真线缆[守卫测试锁];**逐帧结构不变量网** `sidestage_invariants_test` 把 demo 全剧灌真面板逐步断言[无重复卡/群像不复辟/终局无幽灵 Live],入 verify 门禁）。侧幕形态见 [`references/frontend/features/chat-sidestage.md`](docs/references/frontend/features/chat-sidestage.md)。
-    - **entities**：列表 rail + 详情海洋 + 右岛调试台（JSON-first：AnCodeEditor 编辑器卡 + 示例生成器 + 工具条来源 chip + 最近执行台账「用这份输入」装回）+ Overview 关系图（涟漪焦点星图：雾彩 kind 色板 + 默认焦点=最近实体 + BFS 衰减 + 四力布局，全参数集中 `core/graph/relation_graph_config.dart`）。
-    - **library**（命名三层：**Library**=容器/整个海洋 · **page**=里面的单位 · **document** 与 **skill**=page 的两种作用。容器一律 library［`OceanKind.library`/路由 `/library`/i18n `library.*`/`features/library/`］；**两种作用留自己的名**——后端 `documents` 表·`document.*`·`DOCUMENT_*`·`DocumentNode` 与 skill 侧全不动，rail 两组仍叫 Documents/Skills）：Notion 式页面树 + 原生编辑器（super_editor **vendor** 于 `third_party/`，节点级增量补丁见 ADR 0009；slash 命令 / @ 药丸 / markdown 即打即转 / 嵌入式 AnCodeEditor 代码块 / 行内代码 paint-beneath / 可编辑表格 / codec 三保真）+ 一头三组右岛（大纲/属性/反链）。
-    - **scheduler**：Overview 主页 + 运行矩阵 + 运行卷宗/节点检查器双脸右岛。
-  - **平台模块**：notifications（后端 Emit/Broadcast 分径 + 左岛铃托盘［1:1 左岛 rail 原语，时间分组+SliverAnimatedList 滑动折叠］+ **顶带唯一即时消息舞台**［后台事件与操作反馈同口；当前卡恒定居中 + 最多两候场点 + `+N→✕` 快照清场；无界私有队列 / 定长 UI 投影］+ OS 原生通知；顶带收起不碰左岛账本，未读徽标**绝不据帧 +1**、靠权威 unread-count refetch；右上 toast 已退役、overlay 仅留确认框）· settings（13 面板 + 机器/工作区两持久化轴 + 三相等门禁 + **设置项级搜索**；平台地基：dio 脉搏热切换 / keychain 铸钥 ADR 0008 / 出厂重置 / 更新检查 / 可改绑全局快捷键）· **字体三轴**（UI/内容/代码三条机器级偏好轴；内容衬线=思源宋，代码可选 Fira/Cascadia；辖区=嵌入档+chrome 归 UI 轴、阅读档归内容轴、一切 mono 归代码轴）· **右岛三段式文法**（`AnPanelHead` 身份头 / 速览带［有真信号才渲］/ AnRow 组头分组，四海洋右岛统一）· **媒体一族卡**（WRK-082 `core/media/`：`media_ref` 是后端 `pkg/mediaref` 的逐条孪生件、`media_source` 是平台级附件缝［故各面读媒体不必 import chat］、`media_cards` 的 `AnMediaRefCard` 按**附件行的 mime** 分发——不按 receipt 自称、不按 url 猜；chat 工具卡 / flowrun 节点检查器 / 实体调试台 / approval 门 / 文档编辑器**同吃这一族**，故新模态零渲染代码；**放大与走带**〔B1 人眼验收补的两个洞:图卡点击→`openImageViewer` 全分辨率大图〔`InteractiveViewer` 缩放,与封顶缩略图不同的 ImageCache 键〕;视频有了 `AnVideoControls` 走带条〔播放/暂停/重播/可拖进度/位置时长/全屏〕——此前渲的是**裸的** `VideoPlayer(controller)`,官方包自己不带控件,于是一段片子播完停在最后一帧、想再看只能重载对话。两处 widget 一直在树上且都是对的,**故任何断言都看不见**。查看器直接构造 `RawDialogRoute`,与 `an_dialog.dart` 同一套〔scrim/Escape/点遮罩/closedLoop/`Material(transparency)` 免黄线/自补 namesRoute〕,视频全屏**共用那一个活 controller**〕· **媒体内联播放** 官方 `video_player`，实现**按平台选**［[ADR 0019](docs/decisions/0019-vendor-media-kit-video-linux-only.md)，取代 0018/0016］——macOS/iOS **AVFoundation**（系统解码器、包内零解码库）／Windows `video_player_win`（系统 Media Foundation）／Linux `video_player_media_kit` + **vendored `media_kit_video`**〔`third_party/`，与上游分歧**恰好一处**：`platforms:` 只留 linux。pub.dev 上**不存在**不声明 macos 的 video_player 兼容 Linux 后端〔`flutter_mpv_video` 同病、`flutter_gstreamer_player` 2022 弃养且非 video_player 实现〕，故自己扛；随之丢弃 4MB 用不到的 darwin/android/windows 原生源，vendor 体积 416K〕+ `media_kit_libs_linux`；**「按平台」必须落在包的平台声明上、不能靠 Dart 过滤**〔实证:Dart 过滤只管**注册**、拦不住 Flutter **链** framework——用全平台包时 macOS 白背 26MB mdk，且其 weak-link 可选 ffmpeg 会沿 rpath 捡走机器上的 Homebrew 副本，成了「加载哪些库取决于跑在谁机器上」的 app〕——播放器**只在点击时构造**〔`Player()` 伸原生层，widget test 里没有那一层，急切构造会**崩**而非失败；且十段片子不该起十个 libmpv〕，取流走 **loopback HTTP + 鉴权头**而非文件路径〔沙箱化 macOS app 读不了任意路径，实测 `Operation not permitted`；`network.client` 本来就为 sidecar 开着，且 HTTP 是流式的、20MB 片子下完前就开播〕；**libmpv 真送那些头**已用「无头即 401」实测，不验则视频每个测试都绿、只在真后端死。**音频同栈**〔`AttachmentAudioDriver` 是这层缝的**第三个**实现，audioplayers → media_kit → video_player，而 UI **三次都没改过**——那正是这层缝存在的全部理由；朗读规格多次实测 open→playing **cold 106–126ms／warm 61–124ms**，在感知阈内〕；**macOS 侧已无 CocoaPods**〔16 个 macOS 插件里 15 个早已在 SPM 上，`media_kit_video` 是**最后一个**——它为 Linux 而来、macOS 一次也不调用，却因 pubspec 声明了 macos 且只有 podspec，让 Flutter **每次 macOS 构建都自动重建 Podfile**。vendor 掉那行声明后：`pod deintegrate`〔工具改工程文件、**不手搓 pbxproj**〕→ 删 Podfile/Podfile.lock → gitignore 摘 `**/Pods/`；`grep -c Pods` 43→0，`flutter clean` 后完整重建通过**且 Podfile 没有回来**〔**这一步才是判据**——上一轮正是漏了它，才把一次没发生的拆除报成了已完成〕，包内 `media_kit_video.framework` 消失〕〕）。
-  - **关键约定**：app 与 demo 共用唯一 `app/app_shell.dart`，只差数据源 + 启动门控（`make -C frontend app` 真后端 / `make -C frontend demo` fixture 零后端）；字重两档（正文 w300 / 加粗 w400，见「视觉灵魂」节）；组件 gallery-first；右岛内距单源律（岛 12 + 行族 s8 假想框）；**丝滑军规（S 系列战役）**——中心海洋/右岛一切 AsyncValue 主内容一律 `AnLastGood`（last-known-good：有旧值绝不渲骨架，跨选区快照顶替 ≤400ms，`resetKey` 硬换代防串数据；骨架防闪双闸 160ms 延迟 + 200ms 最短停留；内容首现 `AnContentIn` 180ms 浮现，原地更新零动画）；流式渲染全走增量（open 文本块 `AnStreamingMarkdown` 段身份缓存、未闭合围栏码 `AnCodeEditor` live 尾切、agent 轨迹 `BlockTreeView` revision 缓存、sidestage 消费者比对 `subagentEpoch` 一个 int）；rail、中心海洋**与右岛**同走懒保活栈（切海洋零重建零骨架，三者互为孪生件）；窄窗岛屿开合冻结海洋终宽（滑动零 relayout）；**禁止条件包装（RI 战役，最硬的一条）**——`cond ? child : Wrapper(child)` 与 `if (cond) w = Wrapper(child: w)` 都会改变 slot 的 `runtimeType`，于是 `Widget.canUpdate` 判否、**整棵子树卸载重挂**（provider 重新订阅取数=闪；一帧 inflate 上百 element=卡；transcript 按新宽重排=阅读位置飞掉）。正解恒为**包装层恒挂、只翻参数**（`ExcludeFocus(excluding:)` / `IgnorePointer(ignoring:)` / `ClipRect(clipper: cond ? … : null)` / `OverflowBox(minWidth: cond ? x : null)` / `Offstage(offstage:)`；`if (t == 0) return SizedBox.shrink()` 早退同罪——它销毁子树）。**任何像素断言都抓不到它**（前后布局都对，丢的是身份），故守卫必须**数挂载次数**（`test/core/ui/an_shell_test.dart` 的 RI 重挂守卫：来回切两岛后海洋与 inspector 各只许挂载一次，且**必须在窄窗下验**——冻结闸只在海洋 <768 时上膛，宽窗下验会宣布已修而它根本没被碰过）——细则全在 `design-system.md` 对应原语条目。
-  - **门禁（分层）**：**全量 verify 是 pre-push 档**——根目录 `make verify`（后端 + 前端 + 文档 + web demo,**四子门禁并发**、墙钟=max≈前端一路,实测全量 ~2.5min;各写独立 log、失败门禁末尾整段打印;后端内部 vet 与 build+test 也并发）推送前/战役收口时全绿一次；局部全量分别是 `make -C backend verify`、`make -C frontend verify`、`make -C docs verify`、`make -C demo verify`。**内环/提交环走快档**：前端 `make -C frontend quick`（format 检查 + analyze + 只跑 diff 涉及的测试——guards 恒跑、gallery 矩阵仅在动 core/ui·core/design·gallery 时陪跑；无关改动 ~13s(analyze 与测试并发)、纯 feature 改动 ~30-60s，`QUICK_BASE` 定基线）；后端 `make -C backend test` 靠 Go 内容寻址缓存天然增量（未动的包秒过；testend/evals 保留 `-count=1`——独立 module 看不见后端二进制变化，缓存会撒谎）。快档**不是** verify 的替代，只是把全量从「每次提交」移回宪法原定的「每次推送」。根 `make setup` 准备全部锁定依赖，日常命令在依赖缺失时自行恢复；`make clean` 只删可再生产物。
-  - **多会话纪律**：**一个并发 AI 会话一个 worktree**——`make worktree NAME=<x>`（→ `../Anselm-<x>` + 分支 `wt/<x>`，独立 index/构建缓存，对象库共享；收口 `make worktree-rm NAME=<x>`）。同树双会话互踩是实证过的事故源（同文件交错编辑、门禁抢 build 目录、R22/R25 级收容误伤）；新树首个前端命令付一次冷编译即全部代价。单会话日常照旧在主树。
-  - **文档**：前端先读鸟瞰 [`overview.md`](docs/references/frontend/overview.md)，再按需读 [`architecture.md`](docs/references/frontend/architecture.md) · [`design-system.md`](docs/references/frontend/design-system.md) · [`contract.md`](docs/references/frontend/contract.md) · [`platform.md`](docs/references/frontend/platform.md) · [`features/`](docs/references/frontend/features/)；已完成的建造史只在 [`docs/archive/`](docs/archive/)。
+- Flutter 桌面客户端运行于 macOS、Linux、Windows；
+- Go 后端作为单进程、单用户 sidecar，数据存入 SQLite；
+- Function、Handler、Agent、Workflow（Quadrinity）承载能力；
+- Durable Execution 通过节点结果记忆化和解释器幂等重走实现；
+- 已部署的 Anselm API 提供受管模型与媒体能力，用户也可选择本地 BYOK。
 
-## 文档地图
+当前系统已经覆盖对话、实体、工作流、调度、文档、工具、通知、搜索和
+多模态输入/生成等产品路径。不要在本文件复制功能清单、模型目录、端点数量
+或阶段进度；这些易变事实按下列入口查阅：
 
-> 入口 = [`docs/INDEX.md`](docs/INDEX.md)（AI 会话先读它再循链接）。后端全域 reference 已成体系——overview 鸟瞰 + `api/database/error-codes/events` 四索引 + `domains/` 分域 + `foundation/` 地基，与代码逐字同步；前端 reference 随 features 落地填充。
-
-| 用途 | 路径 |
+| 要了解 | 权威入口 |
 |---|---|
-| 文档入口（索引 + 结构） | `docs/INDEX.md` |
-| 愿景 / 架构 / 实体 / 引擎 / 路线 | `docs/concepts/architecture.md` |
-| 文档规范（类型 / 同步 / 执行） | `docs/GOVERNANCE.md` |
-| 后端鸟瞰（第 0 篇） | `docs/references/backend/overview.md` |
-| 契约四索引（端点 / 表 / 错误码 / 事件） | `docs/references/backend/{api,database,error-codes,events}.md` |
-| 分域 / 地基详解 | `docs/references/backend/domains/` · `foundation/` |
-| 架构决策（ADR） | `docs/decisions/` |
+| 系统心智、分层与主要数据流 | [`docs/concepts/architecture.md`](docs/concepts/architecture.md) |
+| 后端当前能力与边界 | [`docs/references/backend/overview.md`](docs/references/backend/overview.md) |
+| Anselm API 与本地 sidecar 的责任边界 | [`docs/references/backend/managed-gateway.md`](docs/references/backend/managed-gateway.md) |
+| 前端当前产品与工程结构 | [`docs/references/frontend/overview.md`](docs/references/frontend/overview.md) |
+| HTTP、数据库、错误码、事件 | [`docs/references/backend/`](docs/references/backend/) |
+| 在研战役 | [`docs/working/`](docs/working/) |
+| 已结束过程 | [`docs/archive/`](docs/archive/) 或 git 历史 |
 
----
+后端采用四层 Clean Architecture，依赖方向为
+`transport → app → (domain ∪ infra/store) → infra/db`；`domain` 不依赖
+外部实现。基础设施以 `pkg/orm` 和纯 Go SQLite 为数据库底座。
 
-# 设计原则（9 条，#9 最高优先级）
+## 设计原则（9 条，#9 最高优先级）
 
-1. **Quadrinity 实体化**：任何能力必须归属于 Function / Handler / Agent / Workflow 之一。
-2. **Durable 为魂**：工作流执行基于**节点结果记忆化**（`flowrun_nodes` 行表 + record-once）+ **解释器幂等重走**实现崩溃恢复与确定性重放——**非**事件日志（Temporal 式 journal 已否决）。
-3. **依赖自下而上**：`domain` 层**严禁 import 任何外部包**（含 ORM / cel-go）；`app` 层协调 domain 与 infra；跨实体协作走 DIP 端口、不硬依赖具体实现。
-4. **后端契约是事实源**：`reference` 文档 = 代码的精确投影；前端按 [`ADR 0004`](docs/decisions/0004-frontend-flutter-architecture.md)（Flutter 3-tier feature-first）对接已定型的后端契约（运行时管道状态见「当前状态」节）。
-5. **端到端推演先行**：开工前必走完整数据流 + 列出跨域依赖（relation 边）。
-6. **反校验剧场**：只保留有物理价值的校验（JSON、必填、CHECK/UNIQUE）；不加多余 null-check。
-7. **零历史包袱 + 状态即重述**：项目未上线，禁止维护兼容性、禁止历史演化描述，只留当前物理事实（历史从 git 取）。**状态文档**（本文件 / `architecture.md` / `GOVERNANCE.md`）改任何状态/事实 = **整体重述当前状态、非追加**——绝不在旧内容旁堆新句、不留旧状态痕迹（见末「文档纪律」节 + GOVERNANCE §1.7）。
-8. **复用优先、不造轮子 + 最佳实践优先（遇问题先查、不手搓）**：动工前先盘点 `pkg/*` 与 `infra/*` 既有能力——能复用就复用。**遇到任何不确定的问题（工程 OR 视觉），第一反应是联网查成熟方案 / 官方文档 / 标准库 / 既有最佳实践，绝不一上来自己手搓**——本项目在红绿灯重定位、窗口 chrome 等问题上反复手搓、反复跌跟头，教训惨痛：手搓的"看似能跑"往往埋着边界 bug，成熟方案已替你踩过坑。有成熟包/标准 API 就用它（如 macOS 窗口用 `macos_window_utils`），而非抄它的实现。业务层手搓的样板本应由地基提供时 **强化地基**、非模块内重抄。错误抽象与重复样板比多写一行更糟。
-9. **📌 文档与代码物理同步（最高优先级）**：每个代码改动必须在**同一提交**伴随对应文档的 1:1 更新——**文档落后于代码 = 严重 Bug，与编译失败同级**。完整执行规则见本文件末「**文档纪律（强制）**」节 + [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)。
+1. **Quadrinity 实体化**：能力必须归属于 Function、Handler、Agent、
+   Workflow 之一；工具是执行能力，不是第五种实体。
+2. **Durable 为魂**：工作流以 `flowrun_nodes` 的节点结果记忆化和解释器
+   幂等重走实现恢复与重放，不以事件日志作为执行真相。
+3. **依赖自下而上**：`domain` 严禁导入外部包；`app` 协调 domain 与
+   infra；跨实体协作走 DIP 端口。
+4. **后端契约是事实源**：后端 wire contract 与数据库结构是产品契约；
+   reference 是代码的精确投影，前端 DTO 按契约镜像。
+5. **端到端推演先行**：动工前走完整数据流，并列出跨域依赖与 relation 边。
+6. **反校验剧场**：只保留有物理价值的校验，如 JSON、必填、
+   `CHECK`、`UNIQUE`；不堆防御性空判断。
+7. **零历史包袱，状态即重述**：没有已承诺的兼容面时不维护兼容层；
+   状态文档只陈述当前事实，历史进入 git、ADR 或 `archive/`。
+8. **复用与成熟实践优先**：先盘点 `pkg/`、`infra/` 和成熟依赖；遇到
+   不确定问题先查官方资料与最佳实践。公共样板应强化地基，不在模块内复制。
+9. **文档与代码物理同步**：代码改动必须在同一提交同步对应文档。
+   文档落后于代码与编译失败同级。
 
----
+## 契约宪法
 
-# Standards — 契约宪法
+### HTTP API（N 系列）
 
-## HTTP API（N 系列）
+- **N1 Envelope**：成功为 `{"data": ...}`；失败为
+  `{"error": {"code", "message", "details"}}`。
+- **N2 状态码**：异步流使用 `202 Accepted`，无响应体成功使用
+  `204 No Content`，SSE 游标淘汰使用 `410 Gone`。
+- **N3 命名**：API 线缆使用 camelCase，数据库物理列使用 snake_case。
+- **N4 分页**：无界集合必须支持 `cursor` 与 `limit`；有界资源、批查和
+  派生投影只有在 [`api.md`](docs/references/backend/api.md) 明确登记后才可
+  豁免游标分页，登记必须与实际参数及截断语义一致。
+- **N5 动作后缀**：非 CRUD 动作用 `:action`。标准执行动词为
+  Function `:run`、Handler `:call`、Agent `:invoke`、Workflow
+  `:trigger`；AI 编辑与诊断使用 `:iterate`、`:triage` 并返回
+  `conversationId`。
 
-- **N1 统一 Envelope**：成功 `{"data": ...}`；失败 `{"error": {"code", "message", "details"}}`。
-- **N2 状态码**：202 Accepted（异步流）/ 204 No Content / 410 Gone（SSE 淘汰）。
-- **N3 命名规约**：API 线缆 camelCase；数据库物理列 snake_case。
-- **N4 分页**：**无界集合** List 接口必须支持 `?cursor=...&limit=...`（api-keys/function/handler/agent/workflow/flowrun/trigger/control/approval/mcp/conversation/relation/notification/search/touchpoint 及各版本·执行·调用日志）。**豁免三类，皆无 `nextCursor`**：①**有界可枚举资源**（单用户少量或系统级固定集：workspaces / skills / memories / documents 树 / sandbox runtimes·envs / todos / model-capabilities / tools 目录）②**有界批查**（flowrun-stats，workflowIds ≤50 封顶 · flowrun-matrix，flowrunIds ≤50 封顶——均去重后计数、越界 422 大声拒）——①② 返全集不分页，分页参数按标准 HTTP 忽略而非报错。③**有界投影**（trigger-schedule，limit ≤1000 封顶）——**不是已存集合**、而是按窗现算的派生时间线，故 `within`/`limit` 是**真参数**（超上限钳制、不可解析或非正 → 422），响应经 `truncated` 诚实报告窗内还有更多；窗头恒 now、无游标。**登记必须与行为逐字吻合**——把一个 422 非法参数、自报截断的端点塞进「忽略分页参数、返全集」的豁免里，是让宪法替代码撒谎。
-- **N5 动作后缀**：非 CRUD 逻辑用 `:action`。
-    - **`:run`**(fn) / **`:call`**(hd) / **`:invoke`**(ag) / **`:trigger`**(wf) 为标准执行动词。
-    - **`:iterate`**（AI 编辑实体）/ **`:triage`**（AI 诊断执行）统一返回 `conversationId` 开启对话。
+### 数据库（D 系列）
 
-## 数据库（D 系列）
+- **D1 删除语义**：业务表默认以 `deleted_at` 软删除；内容和执行日志不设
+  软删除。物理删除例外必须先在
+  [`database.md`](docs/references/backend/database.md) 立法。现有例外只有：
+  `:replay` 清除失败节点以便幂等重走，以及按用户保留策略清理终态 run
+  及其附属历史；`running`、`parked` 永不由保留任务删除。
+- **D2 物理隔离**：除明确登记的全局配置外，业务表必须持有
+  `workspace_id`，并由 `pkg/orm` 根据上下文双向隔离。
+- **D3 唯一性**：`idx_frn_once` 保证 flowrun 节点只记录一次；
+  `idx_trf_dedup` 保证 trigger firing 去重。
 
-- **D1 软删除**：业务表用 `deleted_at DATETIME`；**Log 表**（`flowrun_nodes` / trigger 的 firing·activation / messages 块 等内容/执行日志）**无 `deleted_at`、严禁逻辑删除**——物理删**恰有两个例外**，皆显式立法在 `database.md` flowrun 节（与之逐字对齐）：**①`:replay`** 经 `DeleteFailedNodes` 清 `flowrun_nodes` 的 failed 行（failed 是非结果、清掉让幂等重走重跑，record-once 真相不损）；**②run 历史保留清理**（scheduler 工单⑬）经 `PurgeTerminalRunsBefore` 物理删越过保留线的终态 run（头+节点行+该 run 产生的审计行）——**它删的是真实历史**，正当性来自「用户配置的容量治理、非业务逻辑丢行」：线显式（Settings 存储面板，默认 90d、`0`=永久；大表历史尽头的墓碑句已按用户 0718 裁定删除，保留线只在设置面板陈述）、保留窗内真相完整；**running/parked 永不删**。新增任何物理删例外 = 先在 `database.md` 立法。
-- **D2 物理隔离**：所有表（除全局配置外）必须持 **`workspace_id`** 物理列；`pkg/orm` 据 ctx 自动双向隔离。
-- **D3 唯一性铁律**：`idx_frn_once`（flowrun 记忆化 `UNIQUE(flowrun_id,node_id,iteration)`）与 `idx_trf_dedup`（trigger firing 去重）必须保证幂等。
+### SSE（E 系列）
 
-## SSE 协议（E 系列）
+- **E1 三条流**：系统只有 `messages`、`entities`、`notifications` 三条
+  workspace 级常驻流；后端发送完整 delta，前端按 scope 自滤。
+- **E2 帧耐久性**：delta、tick 等瞬时帧使用 `seq=0`，不进入 replay
+  buffer；open、close、signal 等耐久帧进入 buffer，close 携带快照。
+- **E3 嵌套**：messages 流以 `parentBlockId` 表达 subagent 递归树。
 
-- **E1 三条流限制**：全系统仅 `messages` / `entities` / `notifications` 三条 SSE，**永不再加**。前端启动即常驻全连；三流 **workspace 级、后端不过滤**（发完整 delta、前端自滤）；订阅统一在 `StreamHandler`（`GET /api/v1/{messages,entities,notifications}/stream`）。
-- **E2 Ephemeral 帧**：delta / tick（如 flowrun 节点推进）标 `seq=0`，**不入 buffer、不产生背压**；open/close/signal 为 durable（close 带快照供 replay）。
-- **E3 嵌套递归**：messages 流支持 `parentBlockId` 嵌套，前端据此渲染 subagent 树。
+## 代码规范（S 系列）
 
----
+- **S5 物理文件对齐**：transport handler 文件名对应 API 资源域，domain
+  文件名对应 Repository 接口。
+- **S9 确定性上下文**：跨层调用必须传 `ctx`；异步 finalize 使用 detached
+  context，保留 workspace 种子且不继承请求取消。
+- **S11 注释双语化**：需要解释的注释使用英文与中文两段，只解释 Why。
+- **S13 导入别名**：`internal/` 包导入使用 `<name><role>` 别名，如
+  `chatapp`、`workflowstore`。
+- **S15 ID**：ID 采用 `<prefix>_<16hex>`；前缀全集登记在
+  [`database.md`](docs/references/backend/database.md)，infra ID 不从消费
+  实体 ID 派生。
+- **S18 Tool**：Tool 实现 `Name`、`Description`、`Parameters`、
+  `ValidateInput`、`Execute`；framework 注入并剥离 `summary`、`danger`、
+  `execution_group`。危险等级同时衡量状态影响与成本：
+  `safe` 只读或可逆且不额外付费，`cautious` 可恢复写入或小额计量付费，
+  `dangerous` 不可逆、外部写入或值得逐次确认的付费。
+- **S20 错误**：命名 sentinel 统一使用 `pkg/errors` 的
+  `errorspkg.New(kind, code, message)`；稳定 wire code 采用
+  `<ENTITY>_<REASON>`。标准库 `errors.Is/As` 与 `%w` 用于保留错误链；
+  domain 将通用 infra 错误翻译为具体错误。
+- **S22 工作区卫生**：仓库只保留源码和必要配置。构建产物、系统或编辑器
+  文件不得入库。改变命令、工具或目录结构时，同提交同步 `.gitignore`、
+  `Makefile`、`mise.toml` 的相关事实。
 
-# 代码规范（S 系列）
+## 测试与门禁（T 系列）
 
-- **S5 物理文件对齐**：handler 文件名对应 API 资源域；domain 文件名对应 Repository 接口。
-- **S9 确定性上下文**：每个跨层调用强制传 `ctx`；异步 Finalize 必须用 **Detached Context**（保留 workspace 种子、脱离请求取消）。
-- **S11 注释双语化**：`// English \n\n // 中文`。**只写 Why、不写 What**。
-- **S13 导入别名**：所有 `internal/` 包导入带 `<name><role>` 别名（如 `apikeydomain`、`chatapp`、`workflowstore`）。
-- **S15 ID 宪法**：`<prefix>_<16hex>`。前缀全集必须在 `references/backend/database.md` 登记（infra 侧 ID 用自己的前缀，不从消费实体 ID 派生）。
-- **S18 Tool 规范**：Tool 实现 **5 方法接口**（`Name`/`Description`/`Parameters`/`ValidateInput`/`Execute`）；`summary` / `danger`（三级 safe/cautious/dangerous，LLM 逐次自报）/ `execution_group` 三字段由 Framework 强制注入 schema 并从 args 剥离。**三级判据含成本**：花钱**就是**一种不可逆——`safe`=只读或可逆**且不额外花钱**、`cautious`=改可恢复状态**或花掉一笔有计量的小钱**、`dangerous`=不可逆／外部写／**以用户会想被问一句的费率花钱**。判据过去只讲状态变更，于是一次生成视频（真钱 + 一天额度的一大块）完全可以被合理地判成 `safe`，那道闸在**最该响**的一类调用上从没响过（WRK-082 H5.6；锚点取**费率**不点名工具，否则下一个花钱的工具失去校准；守卫钉住那几个承重词）。**无中央权限门控**：危险靠 LLM 自报 + 逐次内存阻塞确认（active skill 的 `allowed-tools` 预授权可免确认）。
-- **S20 错误构造（全量统一）**：所有**命名 sentinel 错误**一律 `errorspkg.New(kind, code, msg)`（`pkg/errors`——错误类型是纯机制、放地基、全层可用，无反向依赖）；带 Kind（→HTTP status）+ 稳定 `<ENTITY>_<REASON>` wire code。**无"是否冒泡 HTTP"之分**——同一错误两种出口：HTTP 读 Kind/Code 走 Envelope，LLM tool 读 Message。**禁止**用标准库 `errors.New` 造命名 sentinel；`fmt.Errorf("…: %w", err)` 包裹照常（保留 `errorspkg.Error` 链供 `errors.Is/As`）。泛型原语（如 `orm.ErrNotFound`）带兜底码、由 domain 翻译成具体码。`errors.Is`/`errors.As` 用标准库。见 [`decisions/0002`](docs/decisions/0002-unified-error-type.md)。
-- **S22 工作区卫生 + 事实同步**：仓库只留源码 + 必要配置——**散落二进制 / 构建产物 / OS·编辑器生成物一律不入库**（`go build` 出 `bin/`、日常用 `go run`；`.DS_Store`·`mise.local.toml`·`backend/<cmd>` 散件 gitignore，stale 产物随手删）。改 `cmd/` 子命令 / 工具 / 目录结构 → **同提交把 `.gitignore`·`Makefile`·`mise.toml` 同步到当前物理事实**（删尽对已不存在之物的忽略 / 引用 / 目标——同 #7「状态即重述」、把 gitignore·Makefile 也当状态）。删前先辨：产物（可删）vs 源码 / 版本钉文件（如 `mise.toml`，不动）。
+- **T5 双层验收**：包内单元/集成测试覆盖局部行为；`testend/` 是独立
+  module，以真实二进制和纯 HTTP/SSE 做黑盒验收。`make -C backend testend`
+  默认使用 llmmock；`make -C backend evals` 只在显式开启时调用真实模型。
+- **T5.1 契约改动查 testend**：修改端点、表、事件或错误码时，按事件或
+  错误码的**域前缀**搜索并同步 `testend/`，再运行相关黑盒场景。只搜索完整
+  事件名会漏掉集合断言。
+- **T6 Fake LLM**：默认测试使用 `fake_llm`，不消耗模型额度。
+- **局部门禁**：后端 `make -C backend verify`；前端
+  `make -C frontend verify`；文档 `make -C docs verify`；web demo
+  `make -C demo verify`。
+- **根门禁**：推送前和战役收口运行 `make verify`。快速内环不是根门禁的
+  替代。
+- **真实验收**：`testend` 和 `evals` 不属于默认 `make verify`；涉及其
+  契约或真实体验时按任务显式运行，并在日志记录环境、范围和证据。
+- **工具链**：使用仓库的 mise 固定版本。裸系统工具与 mise 版本不一致时，
+  以 `mise exec -- <command>` 执行。
 
----
+## 前端开发守则
 
-# 测试与门禁（T 系列）
+详细事实见 [`frontend/README.md`](frontend/README.md) 与
+[`docs/references/frontend/`](docs/references/frontend/)。
 
-- **T5 验收双层**：单元/集成测试随包；**全功能黑盒验收在 `testend/`**（独立 module、零 backend import、拉真二进制打纯 HTTP/SSE）——`make -C backend testend`（llmmock 零 token，**全场景 `t.Parallel()` + `-parallel 16`，~4-4.5min(长尾=cron 真刻度等待场景 125s,数据驱动调优后的地板)**——每场景本就是隔离宇宙〔独立数据目录+空闲端口+独立进程组〕，并行只是同时开几个宇宙、隔离零损）+ `make -C backend evals`（真模型金标，EVALS=1 门控烧钱）。两者不进 `make verify`。见 [`references/testend/overview.md`](docs/references/testend/overview.md)。
-- **T5.1 契约改动必须搜 testend（按域前缀，不是事件全名）**：改 N/D/E 契约（端点 / 表 / SSE 事件 / 错误码）→ **同提交**搜 `grep -rn '"<域>\.' testend/` 并改；`make -C backend testend` 手动跑一次（`-run` 只跑相关场景即可）。
-  **为什么单列一条**：一次契约改动有四道防线——编译器护后端码、`make verify` 护常规门禁、#9 + `make -C docs verify` 护文档，而 **testend 断言无编译器、无门禁（T5 明文不入 verify）、且天然搜不到**。实证：`940a8700`（通知分径 N0）的作者**尽责地同步了 testend**（新增整个 `TestNotification_FrameOnlyFork`、另改 5 个后端单测），仍漏了第二处 —— 因为那处把断言写成**域前缀** `"conversation."` 塞在 slice 里，`git grep "conversation.created" -- testend/` **零命中**。测试**红了 11 天没人知道**。
-  **「按域前缀搜」是本条的要害**——少了它，规则挡不住这次的漏法。
-- **T6 Fake LLM**：默认测试用 `fake_llm`，0 Token 消耗。
-- **`make verify`（pre-push 门禁，host 平台）**：后端（`gofmt` 检查 + `go vet` + `go build` + 单测）、前端、文档、web demo 全绿。并发/取消测试带 `-race`。
-- **`make -C docs verify`（文档门禁）**：`cmd/docs` 跑 GOVERNANCE §11 全套（frontmatter / 日期 / ID 语法与唯一性 / 类型与 canonical 目录 / 生命周期 / working 私有墓地禁令 / INDEX≤50 / 孤儿链接 + **契约漂移检测**——错误码/通知事件/端点资源词/表名从后端源码机械提取、与四索引 diff，漂移即红；#9 的机械半，见 §11.9）。
-- **跨平台 release**：任意平台 `cd backend && GOOS=x GOARCH=y go build ./cmd/server` 直接出二进制——**无内嵌、无预拉**（运行时由自研 `directInstaller` 在目标机首用按需下，见 [`decisions/0001`](docs/decisions/0001-sandbox-runtime-direct-install.md)）。
-- **`make -C frontend verify`（前端门禁，mise flutter）**：codegen（freezed/json/slang）+ `flutter analyze` 净 + `flutter test` 绿；根目录 `make verify` 再统一编排后端、前端、文档和 web demo。
+- **分层**：`lib/core`（契约、网络、设计、SSE、进程等共享地基）→
+  `lib/features/<domain>`（data/state/ui）→ `lib/app`（装配与 shell）。
+  feature 之间不直接依赖；跨 feature 通过 core provider 或导航意图协作。
+- **进程**：桌面 app 启动并监管 Go sidecar，经 localhost HTTP+SSE 通信；
+  `/api/v1/health` 作为启动门控。开发时可用 `ANSELM_BACKEND_URL` 连接现有
+  后端。
+- **状态与实时**：Riverpod 管 server state；三条 SSE 流保持常驻。
+  `SseGateway` 先按 scope demux；数据库行是真相，耐久帧推进游标，瞬时帧
+  只更新临时视图。
+- **契约**：`lib/core/contract` 的 freezed DTO 镜像后端 wire contract；
+  封闭集才 seal，开放协议必须保留 unknown fallback。改变后端字段时同提交
+  更新 Dart DTO 和 [`contract.md`](docs/references/frontend/contract.md)。
+- **视觉与 i18n**：颜色、度量和字重走 design token；Dart 不硬编码用户可见
+  中英文，文案进入 slang locale 文件。
+- **启动面**：只保留 `make -C frontend gallery`、`app`、`demo` 三类入口；
+  app 与 demo 共用 `AppShell`，差异通过数据源 override 与启动门控表达。
+- **验证**：内环运行 `make -C frontend quick`；交付前运行
+  `make -C frontend verify`。涉及桌面原生行为时补真机检查，不能以 widget
+  test 代替可见体验。
+- **开发流程**：先从后端代码与 reference 提取精确集成契约，再查相关官方
+  资料和成熟实践，形成可验证的小步实现。若前端需求暴露后端缺口，必须明确
+  扩展任务范围，并按 N/D/E/S/T 与文档同步规则一同交付。
 
----
+## 文档纪律
 
-# 前端开发守则（Flutter 桌面端，按本节 + [`decisions/0004`](docs/decisions/0004-frontend-flutter-architecture.md)）
+完整规范以 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md) 为准。本节是每次
+会话必须执行的常驻摘要。
 
-- **技术栈**：Flutter 桌面端（Dart）。状态 **Riverpod**（经典 provider 写法，非 codegen——此 Dart SDK + freezed 3 太新，riverpod_generator/lint 生态未跟上，见 ADR 0004 取舍）；**freezed + json_serializable + slang** 经 build_runner codegen；**dio**（HTTP）/ **go_router**（导航）/ **window_manager**（窗口尺寸·最小·居中·resize,逻辑点 scale 正确）+ **macos_window_utils**（仅 macOS 窗口外观:无边框 + 加高标题栏让红绿灯居中可点）/ **scaled_app**（应内 Cmd +/- 整体缩放）——窗口三件套都用成熟包、**不手搓**,见原则 #8。工具链经 **mise**（`go` + `flutter` + Node LTS，真·可写官方 SDK；devbox/nix 已弃——只读 store 构建不了 macOS app，见 [`decisions/0005`](docs/decisions/0005-toolchain-mise.md)）。
-- **进程模型**：Go 后端作 **sidecar**，客户端经 localhost HTTP+SSE 对接——Dart 抢临时端口 → `ANSELM_ADDR` 拉起 → `/api/v1/health` 门控。**退出卫生双保险**（WRK-070 T2）：干净退出（⌘Q/关窗）经 `AppLifecycleListener.onExitRequested` 优雅停 sidecar 再放行；崩溃路径（GUI 被 SIGTERM/SIGKILL，Dart 无机会跑）靠后端 **stdin 死人开关**（`ANSELM_PARENT_WATCH=1`：app 终生握子进程 stdin，任何退出形态管道必 EOF → 后端汇入与 SIGTERM 同一有序关停；macOS 无 `Pdeathsig`，此为可移植做法）。dev 用 `ANSELM_BACKEND_URL` 挂已跑后端（`make -C backend run`，不设 watch env、零行为变化）。
-- **分层（3-tier feature-first，对齐 Clean 不照搬）**：`shared/core`（contract/net、SSE gateway、design、i18n、router、process）→ `features/<域>`（各自管 data+state+ui）→ `app`（装配根 + shell）。**无 use-case 层**（客户端零业务规则，Go 二进制即用例）。features **互不依赖**（跨 feature 走 shared provider / nav intent）。唯一框架无关纯模型层：`BlockTreeReducer` / `GraphModel`（承载性正确、须脱 widget/socket 单测）。
-- **状态 + 实时**：Riverpod 托管 server-state（`AsyncNotifier` 分页 `loadMore`）+ 三条 `keepAlive` SSE 流。SSE 经 `SseGateway` 的 plain-Dart **`Map<Scope,Stream>` demux 自滤**（**不**在 Riverpod 里逐帧 `.where`）。铁律 **DB 行是真相、流只为实时**：`seq>0` 才 durable / 推进续传游标；ephemeral（delta/tick）只改瞬时视图态、不进耐久缓存。
-- **DIP 注入**：`shared` 不依赖上层；**workspace**（=唯一鉴权轴，header `X-Anselm-Workspace-ID`）+ **baseUrl** 由 `app` 经 `ProviderScope` override 注入；401（`UNAUTH_NO_WORKSPACE`→清选区重选）/ 410（`SEQ_TOO_OLD`→重取 REST 再续）在此拦截。
-- **契约层 = 后端投影**：freezed DTO 逐字镜像 `references/`；**仅 seal 真封闭集**（4 frame 动词 / **7** block 型 / 5 图节点 kind / 4 trigger 源），协议级 SSE `node.type` 与 ~350 错误码**保持开放 + `unknown` 兜底**。改后端字段 → **同提交**改 Dart DTO（文档纪律延伸到前端契约;**机械守卫**:DTO doc 注释带镜像锚〔`<file>.go:<line>`〕且类名与 Go struct 同名者,`make -C docs verify` 逐字段 diff——漏镜像/幽灵字段即红,见 GOVERNANCE §11.8;新 DTO 想被守就写锚）。
-- **视觉灵魂**：明亮、通透、轻盈。`Tokens.rowHeight = 32` 紧凑；`tool_call` 与 `reasoning` 默认折叠。颜色/度量走 design token，禁内联硬编码。**字体只两档字重**——正文 `AnText.bodyWeight`(w300)、加粗 `AnText.emphasisWeight`(w400),**禁 w500/w600/SemiBold**(加粗一律 `.weight(AnText.emphasisWeight)`;层级靠字号+颜色,不靠更重字重)。
-- **i18n**：严禁在 Dart 硬编码中英文；文案走 slang `context.t.<key>`、登记在 `lib/i18n/<locale>.i18n.json`。
-- **格式化是机械事实**：Go 一律 `gofmt`、Dart 一律官方 `dart format`；各自 `make -C backend verify` / `make -C frontend verify` 均检查格式，`format` 目标写入格式。格式化不改变语义；升级 SDK、首次接入门禁或已积累漂移时，**直接全量重排并提交**，绝不为压缩 diff 人工保留非标准格式，也不把机械 diff 当作额外风险或停工理由。
-- **门禁**：全量 `make -C frontend verify`（codegen + `flutter analyze` 净 + 测试**按目录四组并行**〔`test/dev/verify_tests.sh`:gallery 矩阵已按取模拆 4 桶独走一组、chat 一组、core 一组、其余动态兜底组——新 feature 目录自动落组;失败自动打印失败块;实测全量 ~2.5min,曾试 `--total-shards` 反而更慢——运行时分片让每进程编全量 kernel〕）= **pre-push 档**；内环用 `make -C frontend quick`（format 检查 + analyze + 按 git diff 映射只跑受影响测试:`lib/features/<x>`→`test/features/<x>`、`lib/core/<y>`→`test/core/<y>`、动 core/ui·core/design·gallery 才附带 gallery 矩阵、guards 恒跑、改 i18n/契约打印 gen 提醒——实现在 `test/dev/quick_tests.sh`）。codegen 产物入库（源等价、deterministic，fresh checkout 直接 analyze）。层依赖暂用目录约定 + review 守（custom_lint 待生态跟上 SDK 再接）。桌面真跑 `flutter run -d <平台>` 需完整 Xcode（macOS 侧**不再需要 CocoaPods**，ADR 0019）等机器层面工具，不入门禁；用根 `make doctor` 明确检查原生前置条件。
-- **启动面（规范，三个、永不增 per-feature 入口）**：`make -C frontend gallery`（组件视觉目录）· `make -C frontend app`（真壳 + 真后端 sidecar;**真机验收先 `make -C backend seed`**——幂等灌标准演示数据〔workspace/积木/skill 含 fn 绑定/文档 wikilink/对话〕+ 打印 probe env〔`export ANSELM_BASE/ANSELM_WS` + curl 样例〕,验收现场与探索式断言一条命令,勿再手搓 curl 建现场）· `make -C frontend demo`（真壳 + 假数据、零后端）。**app 与 demo 共用唯一壳 `app/app_shell.dart`（`AppShell`，哪个 feature 在哪个岛只写一次）**，只差两点 ①数据源（app 接 Live repository / demo `ProviderScope` override 成 `features/*/data/*_demo_fixture`）②启动（app 走 `AppStartupGate` 等后端 / demo 跳门控）。**新 feature 接进 `AppShell` 一次、app+demo 同时拥有；绝不为单 feature 加 `make <feature>` 入口或 per-feature 截图**（碎片化必不 sync；截图统一 `test/dev/capture_demo.dart` 截整 `AppShell`）。**一次性视觉验证抄 `test/dev/capture_example.dart` 模板**——样板全在 `capture_support.dart` 地基（`loadAppFonts` 含 Lucide300 图标脸〔漏了全豆腐块,踩过两次的坑〕/ `CaptureHost` 边界在 MaterialApp 之上〔模态入镜〕/ `capturePng` 固化 runAsync-toImage 舞步），夹具只写「渲什么 + 什么状态」~20 行,勿再手搓 160 行。详见 [`architecture.md`](docs/references/frontend/architecture.md) §6。
-- **🔁 迭代流程铁律（每个 feature/任务强制）**：① **对接后端前先吃透后端**——凡涉及后端契约的任务,**开工前先多 agent 扇出详读相关后端代码 + `references/backend/`**,产出精确"集成契约"(端点/帧/DTO/错误码/SSE 语义)再动手,**绝不照猜后端**。② **必要时改后端**——前端需要而后端缺的(如 loopback 鉴权、新端点、契约缺口),**允许给后端加端点/中间件**,但须同提交守后端纪律(N/D/E/S/T 系列 + `make verify` + 文档 1:1 同步 #9)。③ **每步执行前大规模扇出调研(两段,缺一不可)**——**(a) 读码吃透相关后端**(见①,产出精确集成契约),**紧接 (b) 联网详调该解决方案的 best practice**(怎么把这套建好:成熟包 / 业界模式 / 已知坑,原则 #8——例:Dart SSE 断线续传、dio 拦截器、Riverpod 分页、子进程托管的标准做法);两段均过对抗验证;再 → working 规范 → **用户拍板** → 单一作者建 → 对抗复审 → 真机截图验 → landed-into docs。④ **超强覆盖测试**——feature 落地配 widget-test 矩阵(空/超长/海量/极值/注入五电池)入 `make -C frontend verify`;涉后端改动配 `testend` 黑盒(llmmock 零 token);两端门禁各自全绿才算完。
+### 三条铁律
 
----
+1. **同步**：代码与对应文档在同一提交更新；否则改动未完成。
+2. **触发即停**：发现文档与代码不符，先修正文档并记录 `[doc-fix]`，再续
+   原任务。
+3. **存疑即查**：先查 `GOVERNANCE.md`；规范缺口按设计原则处理，并补齐
+   规范。
 
-# 文档纪律（强制 —— 完整规范见 [`docs/GOVERNANCE.md`](docs/GOVERNANCE.md)）
+### 同步触发表
 
-> 本节是文档规范的**常驻执行层**：CLAUDE.md 每次会话自动加载，故下列规则你**每次都已读到、无「不知道」借口**。详尽规则（6 类型 / frontmatter / 生命周期 / 命名 / 质量门禁）在 `GOVERNANCE.md`——它是 binding。**本节与 GOVERNANCE §0/§7/§12 必须一致**（改一处即同步另一处）。
-
-## 三条铁律（违反 = 严重 Bug，与编译失败同级）
-
-1. **同步**：改代码 → **同一提交**改对应文档。文档落后于代码 = 这次改动**未完成**。
-2. **触发即停**：发现文档与代码不符 → 立刻停下修文档（记 `[doc-fix]` dev log），再续原任务。
-3. **存疑即查**：不确定 → 查 `GOVERNANCE.md`；它没覆盖 → 按设计原则推导 + 回头补一条进 GOVERNANCE。
-
-## 同步触发表（改左列代码 → 同一提交改右列文档）
-
-| 代码改动 | 必须同步 |
+| 改动 | 必须同步 |
 |---|---|
-| 新增/改 API 端点 | `references/backend/api.md` + 对应 `domains/<域>.md` |
-| 新增/改 DB 表/列 | `references/backend/database.md` + 对应 `domains/<域>.md` |
-| 新增/改 error code | `references/backend/error-codes.md` + 对应 `domains/<域>.md` |
-| 新增/改 SSE 事件 | `references/backend/events.md` + 对应 `domains/<域>.md` |
-| 架构决策（选型/取舍） | `decisions/` 新建一篇 ADR |
-| 架构 / 实体 / 引擎 / 路线状态变更 | **整体重述** `concepts/architecture.md` 相关节（非追加） |
-| 工程规则 / 设计原则 / N·D·E·S·T 变更 | **整体重述** 本文件相关节（非追加） |
-| 前端契约层（DTO / envelope / 错误码）变更 | `references/frontend/contract.md` + 对应 `domains/<域>.md` |
-| 前端架构 / 分层 / SSE gateway 规则变更 | `references/frontend/{architecture,sse-gateway}.md` + 本文件前端节 + [`ADR 0004`](docs/decisions/0004-frontend-flutter-architecture.md) |
+| API 端点 | `references/backend/api.md` + 对应 domain reference |
+| DB 表或列 | `references/backend/database.md` + 对应 domain reference |
+| error code | `references/backend/error-codes.md` + 对应 domain reference |
+| SSE 事件 | `references/backend/events.md` + 对应 domain reference |
+| 架构选型或取舍 | 新建或按治理规则 supersede `decisions/` 中的 ADR |
+| 架构、实体、引擎或路线状态 | 整体重述 `concepts/architecture.md` 相关节 |
+| N/D/E/S/T 或工程规则 | 整体重述本文件相关节 |
+| 前端 DTO / envelope / 错误映射 | `references/frontend/contract.md` + 后端对应 reference |
+| 前端分层、装配或 SSE gateway | `references/frontend/architecture.md` + 本节；需要取舍时新建 ADR |
 
-非穷举。**两种 mode 不混**：`reference` 文档 = 精确同步（逐字吻合代码）；`architecture.md` / 本文件 = **整体重述**（相关节重写到当前状态、删尽旧状态，绝不追加堆叠）——见 GOVERNANCE §1.7。
+`reference` 文档必须精确同步代码；本文件、`architecture.md` 和
+`GOVERNANCE.md` 等状态文档必须整体重述当前事实，不能把新状态追加在旧状态
+旁边。
 
-## 收尾清单（声明任何代码改动「完成」前逐条勾，任一未过 = 未完成）
+### 完成前检查
 
-1. ☐ 碰了上表的东西？→ 对应文档**同提交**更新了？
-2. ☐ 改的 `reference` 文档与代码**逐字**对得上（端点/字段/码/事件 一一吻合）？
-3. ☐ 改的是状态文档（architecture / 本文件 / GOVERNANCE）？→ 是**整体重述到当前状态**（没在旧内容旁追加、没留旧状态痕迹）？
-4. ☐ 新文档 frontmatter 合法（`type`/`status`/`id`）、放对目录（GOVERNANCE §5）？
-5. ☐ 删/移文档后无孤儿链接（`INDEX.md` 及他处指向它的都修了）？
-6. ☐ 没编辑 `decisions/` 里的 ADR（不可变，只能新建 supersede）？
-7. ☐ working 文档落地了（结论提取进 concepts/references + 填 `landed-into` + 移 `archive/`）？
-
-> 工作区卫生（散落二进制 / 产物 / OS 垃圾 + `.gitignore`·`Makefile`·`mise.toml` 同步到当前事实）见 **S22**——每次提交前一并自检（非文档纪律范畴，不入本清单）。
+- 对应 reference、concept 和前端投影是否已在同提交同步；
+- 端点、字段、表、错误码和事件是否与代码一致；
+- 新文档的 frontmatter、ID、类型、目录和生命周期是否合法；
+- 移动或删除文档后是否修复全部链接；
+- 是否避免篡改既有 ADR 的决定正文；
+- working 结论是否落入稳定文档，填写 `landed-into` 后移入顶层
+  `docs/archive/`；
+- `make -C docs verify` 是否通过；
+- 工作区是否只包含本任务有意修改的文件。
