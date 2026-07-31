@@ -186,6 +186,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮单独复探聊天 failure→replay：两轮均先由聊天工具读取 `status=failed` 的 durable run，再调用 `replay_flowrun`；stable prefix 只保留一次，flaky handler 各有一次 failed 与一次 ok，finish/父回合最终 completed，`origin=chat` 与 conversation provenance 保持闭合。两轮 60.93s/43.48s 通过（包 105.092s），未见重复稳定节点、孤儿 run 或旧终态复活。
 
+本轮跨仓复核 `Anselm-API-Serve` 完整网关门禁时，裸命令先因宿主 `go` 1.26.2 与 Go 1.25.11 的 `GOROOT/缓存` 混用，在标准库阶段报版本不匹配；随后用 mise Go 1.25.11、临时 `GOCACHE` 和清理后的环境复跑，vet/build、全仓 race/unit、integration e2e、golangci-lint（0 issues）与 docs lint（35 files/0 warnings）全部通过。该次把“环境工具链漂移”与 gateway 代码回归分开，未形成 FRT-04 的 router/stream/quota/媒体底座缺陷；sibling 工作树保持 clean。
+
 ### FRT-07 最新证据
 
 本轮对 managed 音色全生命周期做当前双跑：参考 WAV 朗读后，`enroll_voice` 均出现 danger interaction 并完成批准，登记可见；克隆音色随后真实朗读并产出第二份 WAV，最后删除后 `/voices` inventory 归零。两轮 43.93s/40.48s（包 84.993s），源/克隆附件可逐字节回读，无句柄、receipt 或媒体孤儿；继续证明 speech denial 的时序红灯不代表公共 voice/TTS 路由回归。

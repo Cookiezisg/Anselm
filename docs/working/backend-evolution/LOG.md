@@ -1321,6 +1321,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-829 | 在 EVO-822～828 的 managed/BYOK 多模态、PDF、语音成本、会话 lineage、workflow fanout/replay focused 探针之后执行 backend 全量黑盒总闸：chat、agent/subagent、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生全部通过；未发现 focused live 证据造成稳定基础回归 | full backend testend regression / post-EVO-822~828 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo829-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 336.152s`；未启用 provider secret |
 
+| 2026-07-31 | EVO-830 | sibling `Anselm-API-Serve` 网关总闸首次被宿主工具链路径挡住：裸 `make verify` 的 `go` 为 1.26.2，却混用 Go 1.25.11 的 `GOROOT/缓存`，在标准库编译阶段报版本不匹配；清理环境变量、钉定 mise Go 1.25.11 并使用临时 `GOCACHE` 后完整门禁通过，确认不是网关代码回归。vet/build、全仓 race/unit、integration e2e、golangci-lint（0 issues）与 docs lint（35 files/0 warnings）均通过；工作树 clean | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify + toolchain drift classification | 首次：`cd ../Anselm-API-Serve && make verify` → stdlib `go1.25.11`/`go1.26.2` mismatch；复跑：`env -u GOROOT -u GOTOOLCHAIN GOCACHE=$(mktemp -d /tmp/anselm-evo830-go-cache.XXXXXX) PATH=/Users/SP14921/.local/share/mise/installs/go/1.25.11/bin:/usr/bin:/bin:/opt/homebrew/bin make verify` → PASS（integration e2e、lint、docs 全绿）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
