@@ -307,4 +307,4 @@ landed-into:
   - `cd testend && mise exec -- go test -count=1 ./...`：通过，场景组约 `327.572s`。
   - `make verify`：backend、frontend、docs、demo 全部通过。
 - 台架控制面最终复核：`RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3 python3 testend/rig/anchors.py check /private/tmp/anselm-rig-formal-20260801-3/anchor-answers.json` 通过 10 个锚点；同一 RIG_HOME 的 `alarms.py check` 为 `clean (100 judgments on record)`。默认 `~/.anselm-rig` 的空 journal 是一次未选台架上下文的空壳，未被用作本批次证据，也没有把它冒充成 100 条裁决。
-- `git diff --check` 通过；本记录与代码/契约同步，待最终工作树审计通过后一次性提交。下一前线为 `TOOL-013 search_tools`，不在本批次门禁记录中提前裁决。
+- `git diff --check` 通过；本记录与代码/契约同步，最终工作树审计通过后已提交 `906c9971`。下一前线为 `TOOL-013 search_tools`，不在本批次门禁记录中提前裁决。
