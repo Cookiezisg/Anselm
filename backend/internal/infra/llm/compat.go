@@ -69,6 +69,17 @@ type compatSpec struct {
 	// prepare 在编码前调整消息列表。只有 DeepSeek 需要,而它那条规则是**真实的上游约束**、不是偏好。
 	prepare func([]LLMMessage) []LLMMessage
 
+	// forceReasoningContentForToolCalls keeps an explicit empty reasoning_content field on assistant
+	// tool-call turns when the provider returned no reasoning delta. DeepSeek's thinking-mode API
+	// rejects the next continuation if the field is omitted; the empty value is accepted and truthfully
+	// records that this particular upstream turn carried no reasoning text. This is a wire quirk, so
+	// it stays on the provider spec instead of changing every compatible family's messages.
+	// forceReasoningContentForToolCalls 在 provider 没有返回 reasoning delta 时，仍在 assistant 工具调用
+	// 回合保留显式的空 reasoning_content。DeepSeek thinking-mode API 会拒绝省略该字段的下一轮续写；
+	// 空值已由真实上游验证接受，也如实记录这一轮上游没有推理文本。这是线缆差异，故放在 provider
+	// spec 上，而不是改变所有兼容方言的消息。
+	forceReasoningContentForToolCalls bool
+
 	// prepareSystemForModel rewrites the system prompt for a model-specific message grammar. Most
 	// compatible endpoints accept a system role; Qwen-MT does not and folds it into the first user
 	// message instead.
@@ -281,7 +292,11 @@ func (p *compatProvider) toMessage(m LLMMessage) (compatMessage, error) {
 		}
 		return compatTextImageParts(m)
 	case RoleAssistant:
-		return buildCompatAssistantMsg(m), nil
+		cm := buildCompatAssistantMsg(m)
+		if p.spec.forceReasoningContentForToolCalls && len(m.ToolCalls) > 0 && m.ReasoningContent == "" {
+			cm.forceReasoningContent = true
+		}
+		return cm, nil
 	case RoleTool:
 		return compatMessage{Role: "tool", Content: jsonString(m.Content), ToolCallID: m.ToolCallID}, nil
 	default:
@@ -596,12 +611,45 @@ type compatReasoning struct {
 // compatMessage 的 Content 用 RawMessage,可装字符串或 content-part 数组。Images 承载 Ollama 的
 // 消息级 base64 数组(那一家不用 content part)。
 type compatMessage struct {
-	Role             string           `json:"role"`
-	Content          json.RawMessage  `json:"content,omitempty"`
-	ReasoningContent string           `json:"reasoning_content,omitempty"`
-	Images           []string         `json:"images,omitempty"`
-	ToolCalls        []compatToolCall `json:"tool_calls,omitempty"`
-	ToolCallID       string           `json:"tool_call_id,omitempty"`
+	Role                  string           `json:"role"`
+	Content               json.RawMessage  `json:"content,omitempty"`
+	ReasoningContent      string           `json:"reasoning_content,omitempty"`
+	Images                []string         `json:"images,omitempty"`
+	ToolCalls             []compatToolCall `json:"tool_calls,omitempty"`
+	ToolCallID            string           `json:"tool_call_id,omitempty"`
+	forceReasoningContent bool             `json:"-"`
+}
+
+// MarshalJSON gives DeepSeek the ability to distinguish “field absent” from “field present but
+// empty”. The ordinary omitempty tag is correct for every other compatible provider, but DeepSeek
+// thinking-mode requires reasoning_content on every assistant tool-call turn, including a turn for
+// which the upstream stream emitted no reasoning delta.
+//
+// MarshalJSON 让 DeepSeek 能区分「字段缺失」与「字段存在但为空」。普通 omitempty 对其他兼容
+// provider 是正确的，但 DeepSeek thinking-mode 要求每个 assistant 工具调用回合都有
+// reasoning_content，包括上游流没有发 reasoning delta 的回合。
+func (m compatMessage) MarshalJSON() ([]byte, error) {
+	type wireMessage struct {
+		Role             string           `json:"role"`
+		Content          json.RawMessage  `json:"content,omitempty"`
+		ReasoningContent *string          `json:"reasoning_content,omitempty"`
+		Images           []string         `json:"images,omitempty"`
+		ToolCalls        []compatToolCall `json:"tool_calls,omitempty"`
+		ToolCallID       string           `json:"tool_call_id,omitempty"`
+	}
+	var reasoning *string
+	if m.ReasoningContent != "" || m.forceReasoningContent {
+		value := m.ReasoningContent
+		reasoning = &value
+	}
+	return json.Marshal(wireMessage{
+		Role:             m.Role,
+		Content:          m.Content,
+		ReasoningContent: reasoning,
+		Images:           m.Images,
+		ToolCalls:        m.ToolCalls,
+		ToolCallID:       m.ToolCallID,
+	})
 }
 
 type compatContentPart struct {

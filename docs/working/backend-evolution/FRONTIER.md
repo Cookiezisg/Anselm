@@ -402,6 +402,10 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮对聊天入口 workflow 控制面做当前窗口双跑：`search_tools→trigger_workflow→get_flowrun` 两轮均读取 `origin=chat` 的 completed run 与唯一 function marker；失败诊断两轮均经 `search_flowruns(status=failed)→get_flowrun` 暴露 durable 节点错误；approval 两轮均先 park 在 `human` 节点、仅观察回合不提前决定，再由 `decide_approval(yes)` 恢复下游 publish；replay 两轮均保留已完成 stable 前缀，只重跑 flaky handler，finish 与 marker 完成。8/8 通过（42.70/33.50、45.93/40.26、48.74/64.59、49.49/56.66s），flowrun/节点/执行台账与 assistant 回答闭合，未出现重复已完成节点、孤儿 run 或旧终态复活。
 
+EVO-790 对当前 BYOK 资格窗口做了分层复探：Kimi `:test` 的上游 401 两轮都安全映射为 422 `API_KEY_TEST_FAILED`；DeepSeek 文本 smoke 通过，但 `deepseek-v4-flash` tool lane 在原 `maxSteps=4` 下分别暴露上游 400 与 `MAX_STEPS_REACHED`。当时的隔离摘要只看到模型连续发现 lazy tools，故先把 400 与三跑波动分流为 provider/model 哨兵；Google 文本/tool/stale 恢复在同一时间窗收到 429，已结构化为 `LLM_RATE_LIMITED`；此前 stale 首发 404→`LLM_MODEL_NOT_FOUND` 的证据仍成立，没有 fallback、伪造 assistant 或无界重试。
+
+EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四个 `/chat/completions` body 到上游，得到明确 400「thinking mode 必须回传 `reasoning_content`」；该 assistant 工具调用回合恰好缺失字段，而非工具名重复、tool pairing 破坏或 durable history 投影错误。对同一 body 只补显式空 `reasoning_content` 即获上游 200，因此兼容层现在只对 DeepSeek、只对缺少推理文本的 assistant tool-call 回合编码空字段，普通 assistant 与其他 compat provider 仍省略。新增 wire regression test 后，真实 BYOK focused lane（workspace `maxSteps=8`，全局默认不变；通用低预算 `MAX_STEPS` 合同仍由静态 loop/agent 门禁覆盖）双跑均完成（15.64s、11.62s）；该项不再归类为“仅 provider 波动”。
+
 ### FRT-13 最新证据
 
 同日补上真实 managed 原地重试闭环：首轮默认 chat 完成后调用 `:retry`（无 content 的 regenerate 分支），旧 assistant 行保留，新 assistant 行通过 `supersededBy`/`attrs.retryOf` 组成线性版本链，历史仍只有一条 user 行；随后在最新版本上继续发送 follow-up，回合再次 completed。两次真实 managed 复跑通过（总计 11.951s、12.262s）。首轮优雅关停阶段出现一次 search embed `context canceled` WARN，第二轮未复现，归类为测试服务 shutdown 噪声而非产品缺陷。
@@ -457,6 +461,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 本轮再次复探 Google stale-model 的重复失败边界（2.14s）：两次显式选择各只触发一次上游请求，均落 `LLM_MODEL_NOT_FOUND`；该行为与 Kimi 401、Qwen chat-only 拒绝组成当前 BYOK 资格三分法，未形成重试、回退或历史污染回归。
 
 当前窗口的重复失败复探延续同一合同（2.10s）：同一 stale model 的两次发送各只产生一次上游请求，均 durable 落 `LLM_MODEL_NOT_FOUND`；恢复 lane 的额外 429 被单独结构化 skip，没有被错误算成自动失效或降级已实现。
+
+EVO-790 的同批次 stale-model 资格探针被 Google 当前 429 窗口覆盖：account-unavailable 首轮仍有一轮先完成单次 404→`LLM_MODEL_NOT_FOUND`，后续恢复发送与另一轮首发均只得到结构化 `LLM_RATE_LIMITED`；重复失败场景两轮首发同样被 429 拦截。因此当前不新增自动失效/降级结论，也不把 provider rate window 误算成 Anselm 重试或目录投影回归。
 
 本轮所有 live 探针与文档变更后执行一次全量后端黑盒回归：`testend/scenarios` 用时 328.040s 全绿，未引入新的稳定产品缺陷；该门禁只证明当前已落地行为没有被本轮工作回归，不替代各 provider/managed 场景的独立真线缆证据。
 

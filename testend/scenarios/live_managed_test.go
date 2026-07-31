@@ -6172,7 +6172,10 @@ func TestLiveBYOK_DeepSeekToolContinuation(t *testing.T) {
 	}
 	wc.PUT("/api/v1/workspaces/"+wsID+"/default-models/dialogue",
 		map[string]any{"apiKeyId": keyID, "modelId": modelID}).OK(t, nil)
-	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 4}}).OK(t, nil)
+	// DeepSeek may spend several ReAct steps discovering the lazy function tool before it
+	// reaches the user function. This lane proves the wire continuation itself; the low-budget
+	// MAX_STEPS boundary remains covered by the separate reliability sentinel.
+	wc.PATCH("/api/v1/limits", map[string]any{"agent": map[string]any{"maxSteps": 8}}).OK(t, nil)
 
 	fnID := fnCreate(t, wc, "deepseek_eval_square", "def deepseek_eval_square(n: int) -> dict:\n    return {\"square\": n * n}\n")
 	harness.Eventually(t, 30000, "the DeepSeek continuation function environment becomes ready", func() bool {
