@@ -314,6 +314,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮重新复探子代理 image writer：两次独立 managed 进程均最终只执行一条 `generate_image`，PNG receipt 与 content 端点闭合，父回合 completed（56.913s、60.863s）。第二次仍出现一次非法 `subagent_type` 的 schema warning 后自我修正，但没有步数耗尽、重复生成或附件孤儿；这降低了当前红灯频率，却继续证明该项应作为模型 schema recovery/步预算哨兵保留，而非宣称后端缺陷已修复。
 
+本轮对同一子代理 image writer 做当前双跑：两轮均在一次非法 `subagent_type` 校验警告后自纠，最终只执行一条 `generate_image`，父层 receipt 标注 `provider=anselm`，PNG content 分别为 1,085,802/1,087,873 bytes，父回合均 completed。没有 `MAX_STEPS_REACHED`、重复 receipt、迟到附件或媒体孤儿；该项继续表现为可恢复的 managed schema-recovery/步预算信号，而不是已证实的 backend writer 缺陷。
+
 本轮再做子代理媒体读侧当前双路径：video 与 audio 附件各由 general-purpose child 真实调用 `inspect_media`，分别回传 bounded temporal metadata，父层无偷调，原始 MP4/WAV 字节可回读，child execution/message 与父回合闭合。两项通过（97.380s、31.740s；包 129.945s），未形成媒体读取或子代理接线缺陷。
 
 随后补图片对照：general-purpose child 真实调用 `inspect_media` 取得 bounded image evidence，父回合续接、源 PNG 字节与 child execution/message/`parentBlockId` 均闭合（30.198s）；本次未复现 nested-vision 502、Explore 越权或媒体孤儿。

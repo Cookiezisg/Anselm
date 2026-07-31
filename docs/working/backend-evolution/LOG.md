@@ -1239,6 +1239,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-788 | managed 子代理文本/PDF 消费当前双跑全绿（4/4）：普通 TXT 由 `general-purpose` child 找到唯一 token，PDF 由 child 经 sandbox `read_attachment` 抽取唯一 token；父层没有直接读取工具，父回合完成，74-byte TXT 与 544-byte PDF 源件逐字节不变。包 111.653s | FRT-05 + FRT-01 / managed-read / subagent text + PDF attachment projection | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentReads(TextAttachment|PDFAttachment)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo788-managed-subagent-text-pdf-double.jsonl` → PASS：Text 37.84s/23.67s、PDF 21.25s/28.10s；未输出 provider secret |
 
+| 2026-07-31 | EVO-789 | managed 子代理 image writer 当前双跑全绿：两轮 child 均最终只调用一次 `generate_image`，父层收到 `provider=anselm` receipt，真实 PNG 分别 1,085,802/1,087,873 bytes 可回读；每轮先出现一次非法 `subagent_type` schema warning 后自纠，但没有 `MAX_STEPS_REACHED`、重复生成或媒体孤儿。包 104.683s | FRT-05 + FRT-09 / managed-write / subagent image artifact + schema recovery | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentGenerateImageArtifact$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo789-managed-subagent-image-writer-double.jsonl` → PASS：53.18s、51.01s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
