@@ -1267,6 +1267,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-802 | 当前工作树完成一次全量 backend 黑盒总闸：在 EVO-797～801 的 managed/BYOK/多模态/子代理探针后，contract、chat、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生仍全绿；未发现本轮稳定产品回归 | full backend testend regression / post-EVO-797~801 live probes | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo802-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 312.509s`；未启用 provider secret |
 
+| 2026-07-31 | EVO-803 | sibling `Anselm-API-Serve` 当前完整网关门禁全绿：vet/build、全仓 race/unit、真实 HTTP+SQLite integration e2e、golangci-lint 与 docs lint 均通过；确认本轮 managed/BYOK live 证据依赖的 router/middleware/upstream、quota、媒体/语音/视频与错误边界底座没有代码级漂移，sibling 工作树保持 clean | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-evo803-api-serve-verify.log | tail -n 180` → PASS：integration 6.662s；golangci-lint 0 issues；docs 35 files clean；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
