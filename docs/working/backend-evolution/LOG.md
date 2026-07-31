@@ -1213,6 +1213,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-775 | managed workflow 异步 video producer→managed viewer 当前双跑全绿：每轮只提交一次 `generate_video`，等待真实 gateway job 完成后 flowrun 才 durable completed，下游消费同一 MP4 MediaRef；两轮附件 content 分别为 8,552,829 与 7,348,559 bytes，未见提前终态、重复提交、receipt-only 或迟到孤儿。耗时 268.05s/171.02s，包 439.443s；长尾差异仍在上游任务窗口，不是本地恢复或附件台账漂移 | FRT-04 + FRT-09 + FRT-13 / managed workflow / async video producer→viewer | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_WorkflowGenerateVideoToManagedViewer$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo775-managed-workflow-video-viewer-double.jsonl` → PASS：268.05s、171.02s；未输出 provider secret |
 
+| 2026-07-31 | EVO-776 | 完成 EVO-767～775 后执行 backend 全量黑盒总闸：`testend/scenarios` 300.011s 全绿，确认语音 danger/voice/ASR、BYOK 多模态历史与融合、managed workflow image/speech/video producer→viewer 等本轮 focused/live 探针没有回归 contract、durable、chat、workflow、附件、MCP/function/handler、取消/重试、崩溃恢复或资源卫生基线；未启用 provider secret | full backend testend regression / post-EVO-767~775 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo776-backend-testend-full.log | tail -n 120` → `ok github.com/sunweilin/anselm/testend/scenarios 300.011s` |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
