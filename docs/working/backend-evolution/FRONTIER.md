@@ -222,6 +222,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 随后对同一 managed 图像写入链做当前窗口复探：独立 `generate_image` 回读 1,101,958-byte PNG；`edit_image` 保留 1,083,251-byte source sibling 并产出 1,677,425-byte 不同 edited sibling；文字-only `animate_image` 经 danger approval 进入异步路由，源 lineage 保留且唯一 7,026,354-byte MP4 可回读。三项分别 28.85s、77.03s、131.39s 通过，未出现重复 receipt、迟到产物或孤儿附件；动画中段的高频 messages 轮询最终正常收口，不构成 durable 卡死。
 
+本轮对同一 managed 写入资源链做当前窗口双跑：`generate_image` 29.00s/25.12s 各只铸一份 PNG，`edit_image` 78.45s/81.48s 保留 source sibling 并产出不同 edited sibling，文字-only `animate_image` 115.72s/118.49s 经 danger approval 进入异步 job 并最终只生成一份 MP4。六次 flowrun/receipt/MediaRef/content/terminal 全部闭合，没有迟到重复、receipt-only 或孤儿附件。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。

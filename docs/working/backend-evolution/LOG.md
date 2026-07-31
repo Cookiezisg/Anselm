@@ -1193,6 +1193,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-765 | workflow 并发 fanout/AND-join 当前双跑全绿：manual 8-branch/双四输入 join/finish 与 chat→`trigger_workflow` 4-branch/双 join 均等待全部 live 入边后只执行一次，节点 `(node,iteration)`、flowrunId、function ledger 与 chat provenance 一一闭合；4/4 通过，未见早 join、重复节点、孤儿 branch 或聊天入口状态漂移。包 41.716s | FRT-04 + FRT-15 / managed-write / workflow fanout + AND-join + chat trigger | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo765-managed-workflow-fanout-join-double.jsonl` → PASS：manual 7.63s/3.74s、chat 15.35s/13.93s；未输出 provider secret |
 
+| 2026-07-31 | EVO-766 | managed 媒体写入资源链双跑全绿：`generate_image` 只铸一份真实 PNG，`edit_image` 保留 source sibling 并产出不同 edited sibling，文字-only `animate_image` 经 danger approval 进入异步 job、保留源 lineage 并最终只生成一份 MP4；6/6 通过，receipt/MediaRef/content/flowrun terminal 对齐，无迟到重复、receipt-only 或孤儿附件。包 449.093s | FRT-09 + FRT-13 / managed-write / image generate→edit→async animation | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(GenerateImageArtifact|EditImageArtifact|AnimateImageArtifactTextOnly)$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo766-managed-image-edit-animate-double.jsonl` → PASS：Generate 29.00s/25.12s、Edit 78.45s/81.48s、Animate 115.72s/118.49s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
