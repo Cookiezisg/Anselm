@@ -1319,6 +1319,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-828 | 聊天入口 workflow failed→replay 当前双跑全绿（2/2）：首轮通过聊天工具发现/读取 failed run，随后 `replay_flowrun` 复用已完成 stable prefix，只重跑 flaky handler；两轮均保留 `origin=chat`/conversation provenance，函数与 handler execution 台账各自为一次失败+一次成功，finish 与父回合 completed。未见重复稳定节点、孤儿 run 或旧终态复活 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / chat flowrun diagnosis and replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunReplay$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo828-managed-chat-flowrun-replay-double.jsonl` → PASS：60.93s、43.48s；包 105.092s；未输出 provider secret |
 
+| 2026-07-31 | EVO-829 | 在 EVO-822～828 的 managed/BYOK 多模态、PDF、语音成本、会话 lineage、workflow fanout/replay focused 探针之后执行 backend 全量黑盒总闸：chat、agent/subagent、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生全部通过；未发现 focused live 证据造成稳定基础回归 | full backend testend regression / post-EVO-822~828 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo829-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 336.152s`；未启用 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
