@@ -430,6 +430,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同一聊天入口控制面真实双跑也覆盖了 workflow 的状态分支：成功、失败、approval park/resume 与 failed replay 八次全部闭合（EVO-742）；因此 FRT-15 的节点/执行台账之外，聊天侧对 flowrun 状态的读取、诊断和恢复没有新增缺口。
 
+本轮再做 workflow 并发核心双跑：manual 的 8 branch/双四输入 join/finish 与 chat→`trigger_workflow` 的 4 branch/双 join 均在全部 live 入边完成后只落一次，`(node,iteration)`、flowrunId、function ledger 与 chat provenance 一致；4/4 通过（包 41.716s），未见早 join、重复节点、孤儿 branch 或入口状态漂移。
+
 ### FRT-16 最新证据
 
 同日补上真实对话分叉闭环：先完成一轮默认 managed chat，再从该 assistant 消息调用 `:fork`；源会话仍保持原 2 条 append-only 消息，新会话复制同一前缀但不复用源 assistant ID，返回的 `forkedFromConversationId`、`forkedFromMessageId` 与 `(fork)` 标题后缀均正确。随后在新分支继续发送 follow-up，仍经默认 Anselm 路由完成；源会话消息数保持不变。两次真实 managed 复跑通过（总计 13.209s、12.768s），未形成后端缺陷。

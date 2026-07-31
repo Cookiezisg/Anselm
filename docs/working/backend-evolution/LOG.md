@@ -1191,6 +1191,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-764 | 当前部署默认 Anselm API 的 workflow 用户多模态三入口双跑全绿：manual、外部 webhook、chat→`trigger_workflow` 各自把 PDF+PNG+MP4 穿过 trigger/CEL→managed agent，6/6 flowrun durable completed；PDF sandbox token、PNG/MP4 源字节与 `origin`/`triggerId`/`conversationId` provenance 均闭合，未见入口专属丢媒体、错误拆回合、CEL 路由漂移或重复产物。包 237.823s | FRT-01 + FRT-04 + FRT-15 / managed-read / workflow user attachment fusion across manual + webhook + chat | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo764-managed-workflow-user-fusion-double.jsonl` → PASS：manual 57.69s/54.58s、webhook 29.25s/25.19s、chat 35.24s/35.28s；未输出 provider secret |
 
+| 2026-07-31 | EVO-765 | workflow 并发 fanout/AND-join 当前双跑全绿：manual 8-branch/双四输入 join/finish 与 chat→`trigger_workflow` 4-branch/双 join 均等待全部 live 入边后只执行一次，节点 `(node,iteration)`、flowrunId、function ledger 与 chat provenance 一一闭合；4/4 通过，未见早 join、重复节点、孤儿 branch 或聊天入口状态漂移。包 41.716s | FRT-04 + FRT-15 / managed-write / workflow fanout + AND-join + chat trigger | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo765-managed-workflow-fanout-join-double.jsonl` → PASS：manual 7.63s/3.74s、chat 15.35s/13.93s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
