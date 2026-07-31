@@ -1215,6 +1215,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-776 | 完成 EVO-767～775 后执行 backend 全量黑盒总闸：`testend/scenarios` 300.011s 全绿，确认语音 danger/voice/ASR、BYOK 多模态历史与融合、managed workflow image/speech/video producer→viewer 等本轮 focused/live 探针没有回归 contract、durable、chat、workflow、附件、MCP/function/handler、取消/重试、崩溃恢复或资源卫生基线；未启用 provider secret | full backend testend regression / post-EVO-767~775 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo776-backend-testend-full.log | tail -n 120` → `ok github.com/sunweilin/anselm/testend/scenarios 300.011s` |
 
+| 2026-07-31 | EVO-777 | sibling `Anselm-API-Serve` 当前完整网关契约门禁全绿：`go vet`、trimpath build、全仓 race/unit、真实 HTTP+SQLite integration e2e、golangci-lint 与 docs lint 均通过；integration e2e 6.866s、lint 0 issues、docs 35 files clean，且 sibling 工作树保持 clean。确认本轮 managed/BYOK live 证据依赖的 router/middleware/upstream、stream settle、quota、拒绝 rollback、异步媒体与 voice/ASR 公共服务底座未漂移 | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify | `cd ../Anselm-API-Serve; set -o pipefail; make verify 2>&1 | tee /tmp/anselm-evo777-api-serve-verify.log | tail -n 160` → PASS：integration 6.866s；golangci-lint 0 issues；docs 35 files clean；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
