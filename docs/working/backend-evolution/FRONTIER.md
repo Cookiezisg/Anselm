@@ -224,6 +224,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮对同一 managed 写入资源链做当前窗口双跑：`generate_image` 29.00s/25.12s 各只铸一份 PNG，`edit_image` 78.45s/81.48s 保留 source sibling 并产出不同 edited sibling，文字-only `animate_image` 115.72s/118.49s 经 danger approval 进入异步 job 并最终只生成一份 MP4。六次 flowrun/receipt/MediaRef/content/terminal 全部闭合，没有迟到重复、receipt-only 或孤儿附件。
 
+紧接着复探高风险控制矩阵时，语音拒绝出现可重复但非每轮一致的 danger-gate 红灯：组合双跑中 `GenerateSpeechDeniedNoSpend` 为 0/2（64.71s、61.78s），视频拒绝、视频批准后取消与 quota 分别为 2/2；将语音场景隔离后为 1/2（13.53s 通过、61.42s 在 60s 内未出现 interaction）。轮询期间 interaction 始终是空列表，失败停在模型没有发起 `generate_speech` danger 请求，未进入合成、receipt 或 quota 断言。正常 `GenerateSpeechArtifact` 紧接着 2/2 通过（11.46s、8.31s），真实 WAV、`provider=anselm` receipt 与附件路径闭合，因此当前结论仍是 managed 模型工具遵循/上游 stream 时序稳定性哨兵，而非 gateway danger、reservation 或 artifact ledger 缺陷；不改生产代码。
+
 ### FRT-01 最新证据
 
 同日复跑默认 managed 三模态同回合 sentinel：同一用户消息同时携带 text、PNG 与 MP4，真实 Anselm API Serve 路由完成后，durable turn 保持 completed，三个附件仍可逐字节回读（80-byte fixture、98-byte PNG、2,969,360-byte MP4），未退化为占位文本、拆成错误的多回合或错误切换到 BYOK。两个独立 backend 进程通过（53.209s、48.321s）；关停阶段偶见的本地 search embedder `context canceled` 仍是已知 shutdown 噪声，未形成产品缺陷。
