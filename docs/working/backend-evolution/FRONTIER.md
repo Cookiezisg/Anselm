@@ -184,6 +184,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着复探 human approval：两轮 chat workflow 都在 `human` 节点 durable park，停泊期间下游没有提前 publish；`decide_approval(yes)` 后仅恢复一次下游 action，interaction/decision、flowrun、function/handler ledger 与父回合均 completed（48.79s、43.29s）。审批状态与 replay/多模态入口共享同一耐久控制面，未形成重复恢复或旧终态复活。
 
+本轮单独复探聊天 failure→replay：两轮均先由聊天工具读取 `status=failed` 的 durable run，再调用 `replay_flowrun`；stable prefix 只保留一次，flaky handler 各有一次 failed 与一次 ok，finish/父回合最终 completed，`origin=chat` 与 conversation provenance 保持闭合。两轮 60.93s/43.48s 通过（包 105.092s），未见重复稳定节点、孤儿 run 或旧终态复活。
+
 ### FRT-07 最新证据
 
 本轮对 managed 音色全生命周期做当前双跑：参考 WAV 朗读后，`enroll_voice` 均出现 danger interaction 并完成批准，登记可见；克隆音色随后真实朗读并产出第二份 WAV，最后删除后 `/voices` inventory 归零。两轮 43.93s/40.48s（包 84.993s），源/克隆附件可逐字节回读，无句柄、receipt 或媒体孤儿；继续证明 speech denial 的时序红灯不代表公共 voice/TTS 路由回归。

@@ -1317,6 +1317,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-827 | managed workflow fanout/AND-join 当前双跑全绿（4/4）：manual 每轮展开 8 条 branch、双四输入 join 与 finish，chat→`trigger_workflow` 每轮展开 4 条 branch 与双 join；所有 live 入边完成后才 join，`(node,iteration)`、flowrunId、chat `origin/conversationId` 与 function execution ledger 一一闭合。未见早 join、重复节点、孤儿 branch 或入口状态漂移；收尾 search engine context-canceled 为 teardown 噪声 | FRT-04 + FRT-15 / managed / workflow fanout, AND-join and chat trigger | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowFanoutJoin|ChatTriggerWorkflowFanoutJoin)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo827-managed-workflow-fanout-join-double.jsonl` → PASS：manual 7.04s/3.63s；chat 14.14s/13.87s；包 39.633s；未输出 provider secret |
 
+| 2026-07-31 | EVO-828 | 聊天入口 workflow failed→replay 当前双跑全绿（2/2）：首轮通过聊天工具发现/读取 failed run，随后 `replay_flowrun` 复用已完成 stable prefix，只重跑 flaky handler；两轮均保留 `origin=chat`/conversation provenance，函数与 handler execution 台账各自为一次失败+一次成功，finish 与父回合 completed。未见重复稳定节点、孤儿 run 或旧终态复活 | FRT-04 + FRT-13 + FRT-15 / managed-read+write / chat flowrun diagnosis and replay | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_ChatFlowrunReplay$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo828-managed-chat-flowrun-replay-double.jsonl` → PASS：60.93s、43.48s；包 105.092s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
