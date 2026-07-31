@@ -174,6 +174,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮沿语音 danger 面做音色生命周期双跑：两轮均稳定出现 `enroll_voice` interaction 并完成 approve→异步登记→克隆朗读→删除，源/克隆 WAV 均为 357,164/337,964 bytes，删除后 `/voices` inventory 归零（39.83s、38.53s）。结合正常 `generate_speech` 2/2 通过，这说明当前红灯集中在“生成语音拒绝前模型是否发起 danger 请求”的 managed 工具遵循/stream 时序，而不是 voice broker、上游句柄、附件存储或清理语义的共享故障；不改生产代码。
 
+随后复探 proof-bound realtime ASR：两轮 WebSocket 均接受 100ms PCM16/16k/mono 帧并收到 `session.finished`（4.88s、1.98s），没有 error event；测试只验传输与 session lifecycle，不把静音输入当作转写内容。语音输入面保持闭合，未见与 managed 语音写入或 danger gate 相关的共享层回归。
+
 ### FRT-08 最新证据
 
 同日复探 managed 朗读成本闸：顺序路径第一次合成、同文本同音色命中同一缓存、换文本生成新 WAV；并发路径在同 workspace 同 key 下同时发起两次相同请求，两个响应共享同一附件且 quota 只增加一次。两条场景在两个独立进程均通过（顺序 10.11s/9.93s，并发 5.81s/5.25s），未复现重复付费竞态；provider wire 计数仍受 API Serve 公网不暴露 raw wire 的设计边界约束。

@@ -1203,6 +1203,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-770 | 受管音色完整生命周期当前双跑全绿：参考 WAV 经默认朗读产生后，`enroll_voice` 均出现 danger interaction 并完成批准，异步登记可见、克隆音色朗读产出第二份 WAV，最后删除上游/本地 voice 后 inventory 归零；两轮源/克隆音频均为 357,164/337,964 bytes，未见句柄、附件或清理孤儿。包 78.987s（39.83s、38.53s），说明 EVO-767～768 的语音拒绝红灯不是所有 voice danger 写入入口的共性 | FRT-07 + FRT-09 / managed voice / enroll→clone speak→delete | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_EnrollSpeakDelete$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo770-voice-enroll-speak-delete-double.jsonl` → PASS：39.83s、38.53s；未输出 provider secret |
 
+| 2026-07-31 | EVO-771 | proof-bound realtime ASR WebSocket 当前双跑全绿：每轮真实连接均接受 100ms PCM16/16k/mono 二进制帧、收到 `session.finished`，没有 error event 或把静音帧误当作转写语义；两轮 4.88s/1.98s，包 7.343s。语音输入 transport/lifecycle 与近期 managed 语音写入路径互不回归 | FRT-07 / voice input / WebSocket session lifecycle | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_VOICE=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveVoice_SpeechInputASR$' -count=2 -parallel 1 -timeout 20m -json 2>&1 | tee /tmp/anselm-evo771-voice-asr-double.jsonl` → PASS：4.88s、1.98s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
