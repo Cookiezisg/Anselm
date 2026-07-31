@@ -314,6 +314,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补做默认 managed 直接 chat 多附件矩阵双跑：text+image+video、PDF+image、video+unsupported-audio、multiple images 共 8/8 通过；PDF/PNG/MP4/WAV 源件均逐字节可回读，WAV 按能力面转为明确注记而非非法 native audio，三模态回合保持单一 durable turn completed。各场景耗时 PDF+image 14.07s/10.11s、video+audio 40.26s/45.30s、text+image+video 41.99s/42.45s、multiple image 6.08s/7.71s，包 208.839s；未见 400、拆回合、媒体丢失或路由漂移。
 
+本轮继续复探同一 direct-reader 多模态读侧的高频交叉：`image+unsupported-audio` 两轮均完成，vision 保持 native 路由、audio 只留下明确 capability 降级；`text+image+video` 两轮均在单一 durable turn 完成，text/PNG/MP4 源件 80/98/2,969,360 bytes 经 content 端点逐字节回读。4/4 通过（Image+audio 10.03s/6.63s；text+image+video 41.97s/42.26s；包 101.837s），未见非法 native audio、400、拆回合、占位文本或媒体丢失；关停阶段 embedding `context canceled` 仍是已知 shutdown lexical fallback 噪声。
+
 随后做 direct-reader 与 subagent-reader 的对照双跑：TXT 与 PDF 各两次均由 `general-purpose` child 真实读取，PDF 路径明确使用 sandbox `read_attachment`；父层没有偷调，唯一 token 通过 child→parent 回传，74-byte TXT 与 544-byte PDF 源件保持逐字节不变。4/4 通过（Text 37.84/23.67s、PDF 21.25/28.10s；包 111.653s），未形成代理上下文投影、PDF 抽取或父回合终态缺陷。
 
 ### FRT-05 最新证据

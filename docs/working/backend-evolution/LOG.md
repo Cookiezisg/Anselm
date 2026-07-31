@@ -1305,6 +1305,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-821 | 当前窗口在视频 artifact、workflow 诊断/观测、BYOK provider/DeepSeek continuation 与 subagent 失败/取消哨兵之后完成 backend 全量黑盒总闸：chat、agent/subagent、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生全部通过；没有发现本轮 focused live 证据造成的稳定基础回归 | full backend testend regression / post-EVO-814~820 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo821-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 297.802s`；未启用 provider secret |
 
+| 2026-07-31 | EVO-822 | managed 默认 chat 多模态读侧当前双跑全绿（4/4）：`image+unsupported-audio` 两轮均完成，vision 保持可用且 audio 只形成明确降级，不向上游发送非法 native audio；`text+image+video` 两轮均在单一 durable turn 完成，text/PNG/MP4 源件分别 80/98/2,969,360 bytes 且 content 端点逐字节一致。未见拆回合、400、占位文本、媒体丢失或路由漂移；收尾的 embedding `context canceled` 仍是 shutdown lexical fallback 噪声 | FRT-01 + FRT-13 / managed-read / direct multimodal attachment reprobe | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWith(TextImageAndVideoAttachments|ImageAndUnsupportedAudio)$' -count=2 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo822-managed-multimodal-read-double.jsonl` → PASS：Image+unsupported audio 10.03s/6.63s；text+image+video 41.97s/42.26s；包 101.837s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
