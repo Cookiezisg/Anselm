@@ -26,15 +26,14 @@
 package harness
 
 import (
-	"bytes"
-	"io"
 	"net/http"
 	"net/http/httptest"
-	"net/http/httputil"
 	"net/url"
 	"strings"
 	"sync"
 	"testing"
+
+	"github.com/sunweilin/anselm/testend/harness/proxycore"
 )
 
 // Recorder is a recording pass-through to a real provider. Point an api-key's baseUrl at
@@ -75,50 +74,15 @@ func NewRecorder(t *testing.T, upstream string) *Recorder {
 	}
 	rec := &Recorder{}
 
-	proxy := &httputil.ReverseProxy{
-		Rewrite: func(pr *httputil.ProxyRequest) {
-			pr.Out.URL.Scheme = u.Scheme
-			pr.Out.URL.Host = u.Host
-			// The outbound Host header must name the UPSTREAM, not the loopback proxy: a shared
-			// TLS frontend routes on it (and on SNI), so leaving 127.0.0.1 there answers with a
-			// certificate error or someone else's vhost.
-			// 出站 Host 头必须写**上游**、而非回环代理:共享 TLS 前端按它(与 SNI)路由,留着
-			// 127.0.0.1 会换来证书错误或别人的 vhost。
-			pr.Out.Host = u.Host
-		},
-		// -1 = flush immediately, never buffer. Streaming chat is SSE, and a proxy that buffers it
-		// turns a live token stream into one late blob — which the backend's own stream reader would
-		// then see as a stall. Same law as the backend's middleware: a wrapper that fails to forward
-		// flushing silently kills the streaming route.
-		// -1 = 立刻 flush、绝不缓冲。流式聊天是 SSE,一个缓冲它的代理会把逐 token 的活流变成一坨迟到的
-		// 数据——而后端自己的流读取器会把那看作卡住。与后端中间件同一条律:不转发 flush 的包装层,会静默
-		// 杀死流式路由。
-		FlushInterval: -1,
-	}
-
-	mux := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		body, _ := io.ReadAll(r.Body)
-		r.Body = io.NopCloser(bytes.NewReader(body))
+	// The transparency invariants (upstream Host rewrite, end-to-end flush forwarding) live in
+	// proxycore — one place, shared with the standalone rig tap (cmd/llmtap).
+	// 透明性不变量(上游 Host 重写、端到端 flush 转发)住 proxycore——只此一份,与独立台架 tap
+	// (cmd/llmtap)共用。
+	rec.srv = httptest.NewServer(proxycore.Handler(u, func(r *http.Request, body []byte) {
 		rec.note(r.Method, r.URL.Path, body)
-		proxy.ServeHTTP(&flushingWriter{ResponseWriter: w}, r)
-	})
-
-	rec.srv = httptest.NewServer(mux)
+	}, nil))
 	t.Cleanup(rec.srv.Close)
 	return rec
-}
-
-// flushingWriter forwards Flush. Without it the SSE routes above die silently — httptest's writer
-// implements Flusher, but wrapping it in anything that does not is enough to lose it.
-//
-// flushingWriter 转发 Flush。少了它,上面那些 SSE 路由会静默死掉——httptest 的 writer 实现了 Flusher,
-// 而把它包进任何**没有**实现 Flusher 的东西里,就足以把它弄丢。
-type flushingWriter struct{ http.ResponseWriter }
-
-func (w *flushingWriter) Flush() {
-	if f, ok := w.ResponseWriter.(http.Flusher); ok {
-		f.Flush()
-	}
 }
 
 func (r *Recorder) note(method, path string, body []byte) {

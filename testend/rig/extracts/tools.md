@@ -1,0 +1,136 @@
+# 提取①·工具全集(0728 基线,0731 对照新 main 重校)· TOTAL 124
+# 0731 重校法:活后端 GET /tools 全集(117,与基线逐字同)+ 代码枚举逐请求 resident
+# (search_tools + 生成族 6)。差异恰为生成族 +3:edit_image / animate_image / enroll_voice
+# (「改图/图生视频/参考音色」桌面半,生成全部收归受管后仍是 CapabilityTools 缝注入)。
+
+TOOL | Read | filesystem | 读文件,cat -n 格式,默认前 2000 行,offset+limit 分页
+TOOL | Write | filesystem | 原子写文件(覆盖需本对话先 Read 过),父目录须存在
+TOOL | Edit | filesystem | 文件内精确字面串替换(非正则),须先 Read
+TOOL | LS | search | 列目录直接内容(非递归),目录优先
+TOOL | Glob | search | glob 模式找文件(支持 ** 递归),按 mtime 倒序
+TOOL | Grep | search | ripgrep 正则内容检索,三种输出模式
+TOOL | Bash | shell | 执行 shell 命令,支持 run_in_background
+TOOL | BashOutput | shell | 拉取后台 Bash 新增输出+状态
+TOOL | KillShell | shell | 按 bash_id 终止后台 Bash(幂等)
+TOOL | ask_user | ask | 向用户提问并阻塞等待(humanloop broker)
+TOOL | todo_write | todo | 整体覆盖写本对话任务清单
+TOOL | todo_read | todo | 读回当前任务清单含已完成项
+TOOL | search_tools | toolset | 按能力检索并激活 lazy 工具
+TOOL | search_function | function | 关键词+语义检索 function 库
+TOOL | get_function | function | 取 function 活跃版本全貌
+TOOL | create_function | function | ops 构建新 Python function,v1 立即生效
+TOOL | edit_function | function | 活跃版本叠 ops 出新版本
+TOOL | revert_function | function | 活跃指针切到已有版本号
+TOOL | delete_function | function | 删 function 全版本+环境,不可逆
+TOOL | update_function_meta | function | 仅改 name/description/tags
+TOOL | run_function | function | 关键字参数运行,返回 ok/output/logs
+TOOL | search_function_executions | function | 分页检索执行历史
+TOOL | get_function_execution | function | 取单条执行记录
+TOOL | search_handler | handler | 检索 handler 库
+TOOL | get_handler | handler | 取活跃版本+配置态+运行态
+TOOL | create_handler | handler | 新建有状态常驻 Python 类
+TOOL | edit_handler | handler | 叠 ops 新版本并重启实例
+TOOL | revert_handler | handler | 切版本并重启实例
+TOOL | delete_handler | handler | 停实例删全版本,不可逆
+TOOL | call_handler | handler | 调用常驻实例方法
+TOOL | update_handler_config | handler | Merge Patch 写 init-args 后重启
+TOOL | update_handler_meta | handler | 仅改 meta,不重启
+TOOL | restart_handler | handler | 优雅关停+新实例
+TOOL | search_handler_calls | handler | 列调用历史
+TOOL | get_handler_call | handler | 取单条调用记录
+TOOL | search_agent | agent | 检索 agent 库
+TOOL | get_agent | agent | 取 agent 活跃版本完整配置
+TOOL | create_agent | agent | 新建配置式 LLM worker
+TOOL | edit_agent | agent | 局部编辑,未传字段保持
+TOOL | revert_agent | agent | 回退活跃版本
+TOOL | delete_agent | agent | 软删,保留执行历史
+TOOL | update_agent_meta | agent | 仅改行 meta
+TOOL | invoke_agent | agent | 跑 agent ReAct 循环,按 outputSchema 成形
+TOOL | search_agent_executions | agent | 检索运行历史
+TOOL | get_agent_execution | agent | 取单条执行全记录
+TOOL | search_control | control | 检索 control
+TOOL | get_control | control | 取活跃版本分支集
+TOOL | create_control | control | 新建路由分支表实体
+TOOL | edit_control | control | 全量替换分支集新版本
+TOOL | revert_control | control | 切版本指针
+TOOL | delete_control | control | 删全版本
+TOOL | search_approval | approval | 检索 approval 表单
+TOOL | get_approval | approval | 取活跃版本(模板+timeout 等)
+TOOL | create_approval | approval | 新建 approval 表单实体
+TOOL | edit_approval | approval | 全量替换新版本
+TOOL | revert_approval | approval | 切版本指针
+TOOL | delete_approval | approval | 删全版本,不可逆
+TOOL | search_workflow | workflow | 检索 workflow 含生命周期态
+TOOL | get_workflow | workflow | 取活跃图+生命周期+并发策略
+TOOL | create_workflow | workflow | ops 构图,v1 初始 deactivated
+TOOL | edit_workflow | workflow | 叠 ops 出新版本
+TOOL | revert_workflow | workflow | 切图版本指针
+TOOL | delete_workflow | workflow | 删全图版本,不可逆
+TOOL | capability_check_workflow | workflow | 校验图健全+引用实体可用
+TOOL | trigger_workflow | workflow | 自供 payload 手动跑一次
+TOOL | stage_workflow | workflow | 布防:下次真实触发跑一次即解除
+TOOL | activate_workflow | workflow | 上线持续监听
+TOOL | deactivate_workflow | workflow | 优雅下线,在飞跑完
+TOOL | kill_workflow | workflow | 硬停+取消在飞
+TOOL | get_flowrun | workflow | 取运行头+全节点记录
+TOOL | search_flowruns | workflow | 列运行,可限定 workflow
+TOOL | replay_flowrun | workflow | 断点重跑失败运行
+TOOL | list_approval_inbox | workflow | 列全工作区待决审批
+TOOL | decide_approval | workflow | 批/拒停在审批节点的运行
+TOOL | search_triggers | trigger | 检索 trigger 含 listener 在线态
+TOOL | get_trigger | trigger | 取 kind/配置/运行态
+TOOL | create_trigger | trigger | 新建信号源
+TOOL | edit_trigger | trigger | 改 name/description/config(kind 不可变)
+TOOL | delete_trigger | trigger | 软删,停 listener
+TOOL | fire_trigger | trigger | 手动触发一次演练扇出
+TOOL | search_activations | trigger | 查动作日志(触没触发都记)
+TOOL | get_activation | trigger | 取单条 activation
+TOOL | search_firings | trigger | 查扇出收件箱逐 workflow 处置
+TOOL | search_documents | document | 按内容检索文档库
+TOOL | list_documents | document | 列 Notion 式树
+TOOL | read_document | document | 载入完整 markdown 正文
+TOOL | create_document | document | 建文档,可嵌套
+TOOL | edit_document | document | 更新字段,content/tags 全量替换
+TOOL | move_document | document | 重挂父节点+兄弟序,路径级联
+TOOL | delete_document | document | 删除文档
+TOOL | list_attachments | attachment | 列上传文件
+TOOL | read_attachment | attachment | 读文本/文档类附件正文
+TOOL | inspect_media | attachment | 按 id 取有界媒体证据(图走视觉路由)
+TOOL | read_memory | memory | 按名载入记忆正文
+TOOL | write_memory | memory | 存跨对话持久事实(重名原地更新)
+TOOL | forget_memory | memory | 删除记忆
+TOOL | get_model_config | model | 报工作区模型配置
+TOOL | list_mcp_marketplace | mcp | 浏览 MCP 市场
+TOOL | install_mcp_server | mcp | 安装 MCP server+env
+TOOL | uninstall_mcp_server | mcp | 卸载:停进程删配置
+TOOL | reconnect_mcp | mcp | 重启已装 server 连接
+TOOL | search_mcp_calls | mcp | 列工具调用历史
+TOOL | get_mcp_call | mcp | 取单条调用记录
+TOOL | activate_skill | skill | 激活:载入指令+占位符替换
+TOOL | get_skill | skill | 读完整内容不激活
+TOOL | create_skill | skill | 撰写新 skill
+TOOL | edit_skill | skill | 全量覆写 SKILL.md
+TOOL | delete_skill | skill | 永久删除目录
+TOOL | run_skill_script | skill | 沙箱跑 skill 自带脚本
+TOOL | Subagent | subagent | 派发隔离子 agent(Explore/Plan/general-purpose)
+TOOL | get_subagent_trace | subagent | 读回 subagent 隐藏 trace
+TOOL | search_conversations | conversation | 混合检索历史对话
+TOOL | list_conversations | conversation | 枚举对话按活跃排序
+TOOL | manage_conversation | conversation | 归档/置顶/重命名当前对话
+TOOL | search_blocks | blocks | 检索可接线 workflow 积木
+TOOL | get_relations | relation | 查实体关系邻域(uses/used-by)
+TOOL | WebFetch | web | 抓 URL 并 LLM 摘要
+TOOL | WebSearch | web | 联网搜索
+TOOL | generate_image | generate | 文生图,落附件返回 receipt
+TOOL | generate_speech | generate | 文合成语音,落音频附件
+TOOL | generate_video | generate | 文生视频(同步,最贵)
+TOOL | edit_image | generate | 改既有图:attachmentId+指令("改成夜晚"),生成模型原生改图,落新附件返回 receipt
+TOOL | animate_image | generate | 图生视频:attachmentId+运动 prompt("缓推近"),受管两次请求形(签名句柄),落视频附件
+TOOL | enroll_voice | generate | 参考音色登记:干净音频附件(≤30s 单说话人)+名字→音色库存,后续 generate_speech 可指名
+
+## 分区事实(验收路径决定项)
+- Resident 12(filesystem3+search3+shell3+ask_user+todo2);其余 109 Lazy 须 search_tools/自动激活。
+- 动态族:mcp__<server>__<tool> 逐请求注入 / agent mount 族(仅 invoke_agent 内部面,随实体改名) / sys: 挂载使 generate 三件在 agent 面二次出现。
+- 条件注入:generate 三件按路由可用性诚实缺席;run_skill_script 需沙箱;inspect_media 需 resolver。
+- subagent 裁剪:Subagent/get_subagent_trace 恒剔除;Explore={Read,LS,Glob,Grep};Plan=+{WebFetch,WebSearch};general-purpose=全集-2。
+- skill allowed-tools 用户数据驱动,不可枚举;skill 不进 search_tools 投影。

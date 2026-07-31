@@ -14,7 +14,7 @@ landed-into:
 
 > **本文件由 `testend/rig/gen_coverage.py` 生成/刷新,手改只动「五级」「证据」两列**(其余列
 > 重生成时以原始提取物为准)。行键=项名;重提取后重生成:已判列逐字携带、新行未判、消失行进墓碑。
-> 原始提取物(含完整配方与语义)在 `testend/rig/coverage/*.md`,判前先查原文。
+> 原始提取物(含完整配方与语义)在 `testend/rig/extracts/*.md`,判前先查原文。
 >
 > **五级列**(WRK-087 §0 判据金字塔,每格一符):①办成 ②真(五通道互证) ③顺(丝滑) ④美(craft)
 > ⑤可发现。符号:`·`=未判 `✓`=过 `✗`=开缺陷(修复中,格上留 ✗ 直到真机复验) `~`=不适用
@@ -22,7 +22,7 @@ landed-into:
 > 证据列写指针。
 
 
-## 工具全集(121)
+## 工具全集(124)
 
 | ID | 项 | 摘要 | 五级 | 证据 |
 |---|---|---|---|---|
@@ -147,8 +147,11 @@ landed-into:
 | TOOL-119 | generate_image | generate · 文生图,落附件返回 receipt | ····· |  |
 | TOOL-120 | generate_speech | generate · 文合成语音,落音频附件 | ····· |  |
 | TOOL-121 | generate_video | generate · 文生视频(同步,最贵) | ····· |  |
+| TOOL-122 | edit_image | generate · 改既有图:attachmentId+指令("改成夜晚"),生成模型原生改图,落新附件返回 receipt | ····· |  |
+| TOOL-123 | animate_image | generate · 图生视频:attachmentId+运动 prompt("缓推近"),受管两次请求形(签名句柄),落视频附件 | ····· |  |
+| TOOL-124 | enroll_voice | generate · 参考音色登记:干净音频附件(≤30s 单说话人)+名字→音色库存,后续 generate_speech 可指名 | ····· |  |
 
-## API 端点全集(255)
+## API 端点全集(257)
 
 | ID | 项 | 摘要 | 五级 | 证据 |
 |---|---|---|---|---|
@@ -370,45 +373,47 @@ landed-into:
 | EP-216 | GET /api/v1/freetier/quota | freetier · 免费档本月配额代理（无受管行 404） | ····· |  |
 | EP-217 | POST /api/v1/freetier:provision | freetier · 手动重开通/修复（幂等），返 `{provisioned}` | ····· |  |
 | EP-218 | GET /api/v1/speech/asr | speech · 本机 ASR WebSocket sidecar（16k PCM + 控制帧） | ····· |  |
-| EP-219 | GET /api/v1/read-aloud/availability | read-aloud · 朗读可用性 `{available}` | ····· |  |
-| EP-220 | POST /api/v1/read-aloud:read | read-aloud · 合成朗读，返附件引用 + `cached`（不经 LLM） | ····· |  |
-| EP-221 | GET /api/v1/model-capabilities | model · 模型能力目录（有界不分页） | ····· |  |
-| EP-222 | GET /api/v1/scenarios | model · 场景枚举（dialogue/utility/agent + image/speech/video） | ····· |  |
-| EP-223 | GET /api/v1/relations | relation · 关系边列表 | ····· |  |
-| EP-224 | GET /api/v1/relations/neighborhood | relation · 某实体邻域子图 | ····· |  |
-| EP-225 | GET /api/v1/relgraph | relation · 全关系图 | ····· |  |
-| EP-226 | GET /api/v1/catalog | catalog · 目录/模板清单 | ····· |  |
-| EP-227 | GET /api/v1/tools | tools · 可授权内置工具目录 `{name, summary}`（有界不分页） | ····· |  |
-| EP-228 | GET /api/v1/limits | limits · 机器级活动运行上限 | ····· |  |
-| EP-229 | GET /api/v1/limits/schema | limits · 逐字段 default/min/max/unit/desc 元数据 | ····· |  |
-| EP-230 | PATCH /api/v1/limits | limits · 部分合并更新并热换（越界 400） | ····· |  |
-| EP-231 | POST /api/v1/limits:reset | limits · 恢复服务端 Default() 并热换 | ····· |  |
-| EP-232 | GET /api/v1/health | system · liveness 探针（免 workspace，不免 bearer） | ····· |  |
-| EP-233 | GET /api/v1/version | system · 构建版本 `{version}`（免 workspace） | ····· |  |
-| EP-234 | GET /api/v1/system/data-dir | system · 解析后的数据目录 `{dataDir}` | ····· |  |
-| EP-235 | GET /api/v1/network | system · 出站代理配置读 | ····· |  |
-| EP-236 | PATCH /api/v1/network | system · 出站代理配置整体替换并应用 env | ····· |  |
-| EP-237 | GET /api/v1/retention | system · run 保留天数（恒具体值，默认 90） | ····· |  |
-| EP-238 | PATCH /api/v1/retention | system · 部分合并保留策略并踢一趟清理（0=永久） | ····· |  |
-| EP-239 | GET /api/v1/storage-stat | storage · 库 + 附件两存储字节盘点（零参数单对象） | ····· |  |
-| EP-240 | POST /api/v1/storage:compact | storage · 同步全量 VACUUM，200 返 `{reclaimedBytes,migrated}` | ····· |  |
-| EP-241 | GET /api/v1/notifications | notification · 通知 keyset 分页（最新在前） | ····· |  |
-| EP-242 | GET /api/v1/notifications/unread-count | notification · 未读计数（徽标对账源） | ····· |  |
-| EP-243 | POST /api/v1/notifications/{id}:mark-read | notification · 单条标已读 | ····· |  |
-| EP-244 | POST /api/v1/notifications:mark-all-read | notification · 批量标已读（可选 `{after?,before?}` 半开窗） | ····· |  |
-| EP-245 | POST /api/v1/notifications:mark-all-unread | notification · 批量标未读（mark-all-read 镜像），204 | ····· |  |
-| EP-246 | POST /api/v1/executions/{id}:triage | aispawn · 按 execId 前缀开 AI 诊断对话，202 返 conversation id | ····· |  |
-| EP-247 | GET /api/v1/messages/stream | stream(SSE) · 聊天消息 SSE 流（open→delta*→close） | ····· |  |
-| EP-248 | GET /api/v1/entities/stream | stream(SSE) · 实体面板活动 SSE 流（含 ephemeral Signal） | ····· |  |
-| EP-249 | GET /api/v1/notifications/stream | stream(SSE) · 通知 SSE 流 | ····· |  |
-| EP-250 | GET /debug/pprof/ | debug(dev-only) · pprof Index 子树（goroutine/heap/allocs/block…） | ····· |  |
-| EP-251 | GET /debug/pprof/cmdline | debug(dev-only) · 进程命令行 | ····· |  |
-| EP-252 | GET /debug/pprof/profile | debug(dev-only) · CPU profile | ····· |  |
-| EP-253 | GET /debug/pprof/symbol | debug(dev-only) · 符号解析 | ····· |  |
-| EP-254 | GET /debug/pprof/trace | debug(dev-only) · 执行 trace | ····· |  |
-| EP-255 | GET /debug/stats | debug(dev-only) · 运行时快照 JSON（goroutines/heap/GC…） | ····· |  |
+| EP-219 | GET /api/v1/voices | voice · 音色库存列表（enroll_voice 登记的参考音色;库存上限闸,不是钱的闸） | ····· |  |
+| EP-220 | DELETE /api/v1/voices/{id} | voice · 删除已登记音色（网关侧句柄随之失效） | ····· |  |
+| EP-221 | GET /api/v1/read-aloud/availability | read-aloud · 朗读可用性 `{available}` | ····· |  |
+| EP-222 | POST /api/v1/read-aloud:read | read-aloud · 合成朗读，返附件引用 + `cached`（不经 LLM） | ····· |  |
+| EP-223 | GET /api/v1/model-capabilities | model · 模型能力目录（有界不分页） | ····· |  |
+| EP-224 | GET /api/v1/scenarios | model · 场景枚举（dialogue/utility/agent + image/speech/video） | ····· |  |
+| EP-225 | GET /api/v1/relations | relation · 关系边列表 | ····· |  |
+| EP-226 | GET /api/v1/relations/neighborhood | relation · 某实体邻域子图 | ····· |  |
+| EP-227 | GET /api/v1/relgraph | relation · 全关系图 | ····· |  |
+| EP-228 | GET /api/v1/catalog | catalog · 目录/模板清单 | ····· |  |
+| EP-229 | GET /api/v1/tools | tools · 可授权内置工具目录 `{name, summary}`（有界不分页） | ····· |  |
+| EP-230 | GET /api/v1/limits | limits · 机器级活动运行上限 | ····· |  |
+| EP-231 | GET /api/v1/limits/schema | limits · 逐字段 default/min/max/unit/desc 元数据 | ····· |  |
+| EP-232 | PATCH /api/v1/limits | limits · 部分合并更新并热换（越界 400） | ····· |  |
+| EP-233 | POST /api/v1/limits:reset | limits · 恢复服务端 Default() 并热换 | ····· |  |
+| EP-234 | GET /api/v1/health | system · liveness 探针（免 workspace，不免 bearer） | ····· |  |
+| EP-235 | GET /api/v1/version | system · 构建版本 `{version}`（免 workspace） | ····· |  |
+| EP-236 | GET /api/v1/system/data-dir | system · 解析后的数据目录 `{dataDir}` | ····· |  |
+| EP-237 | GET /api/v1/network | system · 出站代理配置读 | ····· |  |
+| EP-238 | PATCH /api/v1/network | system · 出站代理配置整体替换并应用 env | ····· |  |
+| EP-239 | GET /api/v1/retention | system · run 保留天数（恒具体值，默认 90） | ····· |  |
+| EP-240 | PATCH /api/v1/retention | system · 部分合并保留策略并踢一趟清理（0=永久） | ····· |  |
+| EP-241 | GET /api/v1/storage-stat | storage · 库 + 附件两存储字节盘点（零参数单对象） | ····· |  |
+| EP-242 | POST /api/v1/storage:compact | storage · 同步全量 VACUUM，200 返 `{reclaimedBytes,migrated}` | ····· |  |
+| EP-243 | GET /api/v1/notifications | notification · 通知 keyset 分页（最新在前） | ····· |  |
+| EP-244 | GET /api/v1/notifications/unread-count | notification · 未读计数（徽标对账源） | ····· |  |
+| EP-245 | POST /api/v1/notifications/{id}:mark-read | notification · 单条标已读 | ····· |  |
+| EP-246 | POST /api/v1/notifications:mark-all-read | notification · 批量标已读（可选 `{after?,before?}` 半开窗） | ····· |  |
+| EP-247 | POST /api/v1/notifications:mark-all-unread | notification · 批量标未读（mark-all-read 镜像），204 | ····· |  |
+| EP-248 | POST /api/v1/executions/{id}:triage | aispawn · 按 execId 前缀开 AI 诊断对话，202 返 conversation id | ····· |  |
+| EP-249 | GET /api/v1/messages/stream | stream(SSE) · 聊天消息 SSE 流（open→delta*→close） | ····· |  |
+| EP-250 | GET /api/v1/entities/stream | stream(SSE) · 实体面板活动 SSE 流（含 ephemeral Signal） | ····· |  |
+| EP-251 | GET /api/v1/notifications/stream | stream(SSE) · 通知 SSE 流 | ····· |  |
+| EP-252 | GET /debug/pprof/ | debug(dev-only) · pprof Index 子树（goroutine/heap/allocs/block…） | ····· |  |
+| EP-253 | GET /debug/pprof/cmdline | debug(dev-only) · 进程命令行 | ····· |  |
+| EP-254 | GET /debug/pprof/profile | debug(dev-only) · CPU profile | ····· |  |
+| EP-255 | GET /debug/pprof/symbol | debug(dev-only) · 符号解析 | ····· |  |
+| EP-256 | GET /debug/pprof/trace | debug(dev-only) · 执行 trace | ····· |  |
+| EP-257 | GET /debug/stats | debug(dev-only) · 运行时快照 JSON（goroutines/heap/GC…） | ····· |  |
 
-## 前端面全集(113)
+## 前端面全集(114)
 
 | ID | 项 | 摘要 | 五级 | 证据 |
 |---|---|---|---|---|
@@ -480,53 +485,54 @@ landed-into:
 | SURF-066 | settings/panel-general | panel · 通用:主题三档 + 缩放六档 + 字体三轴 + 语言双写 + 记住窗口 + 开机自启 + 自动检查更新。 | ····· |  |
 | SURF-067 | settings/panel-notifications | panel · 通知:三档级别 + OS/应用内两开关 + 失败崩溃/待审批/需关注三类登记。 | ····· |  |
 | SURF-068 | settings/panel-chat | panel · 对话:右岛自动登台三档 + 发送键两档 + webFetchMode + 默认对话模型跳转行。 | ····· |  |
-| SURF-069 | settings/panel-models-keys | panel · 模型与密钥:受管免费档卡 + 品牌 logo 密钥行 + 场景默认三行(ModelPickerPanel) + 搜索区。 | ····· |  |
-| SURF-070 | settings/panel-mcp | panel · MCP 服务器:空态即市场 + 已装双列品牌卡 + 详情三 tab(工具/调用/stderr) + 手动添加/导入/市场。 | ····· |  |
-| SURF-071 | settings/panel-memory | panel · 记忆:名册 + 搜索 + 行内金 pin toggle + 新建记忆推入编辑 + 确认物理删除。 | ····· |  |
-| SURF-072 | settings/panel-sandbox | panel · 沙箱:健康门 + 磁盘占用诚实字节 + 运行时装删(五 owner tab) + GC 两步。 | ····· |  |
-| SURF-073 | settings/panel-workspaces | panel · 工作区:色点名册(点行热切换) + 新建 AnComposer + 推入编辑(改名/六色/危险区输名删)。 | ····· |  |
-| SURF-074 | settings/panel-storage | panel · 存储与日志:数据目录 + 磁盘占用 + 诊断 + Run 历史保留 + 数据库压缩 + 重置偏好 + 出厂重置。 | ····· |  |
-| SURF-075 | settings/panel-limits | panel · 高级限额:`GET /limits/schema` 驱动的 group + 字段行,部分嵌套 PATCH + 越界回滚。 | ····· |  |
-| SURF-076 | settings/panel-network | panel · 网络:http/https/no_proxy 三字段 + 整体替换 PATCH + 重启注记 AnCallout。 | ····· |  |
-| SURF-077 | settings/panel-shortcuts | panel · 快捷键:6 全局命令逐行小帽,点帽录键 + 冲突拒绝 + 单项/全部重置。 | ····· |  |
-| SURF-078 | settings/panel-about | panel · 关于:版本区 + 检查更新(GitHub Releases 三面) + 引擎版本 + 诊断 + 字体致谢。 | ····· |  |
-| SURF-079 | settings/detail-push | screen · 推入第三级(13 kind):addKey/editKey/sandboxInstall/mcpServer/mcpAdd/mcpImport/mcpMar… | ····· |  |
-| SURF-080 | i18n/chat | i18n-group · 683 键:对话海洋全部文案(rail/composer/侧幕/工具卡/turn 动作)。 | ····· |  |
-| SURF-081 | i18n/settings | i18n-group · 399 键:13 面板 + 三段目录 + 搜索 + 三域徽全部文案。 | ····· |  |
-| SURF-082 | i18n/entities | i18n-group · 302 键:实体海洋 rail/详情/tab/调试台/关系图文案。 | ····· |  |
-| SURF-083 | i18n/scheduler | i18n-group · 246 键:调度海洋 rail/Overview/运营主页/run 旗舰文案。 | ····· |  |
-| SURF-084 | i18n/library | i18n-group · 125 键:文库海洋 rail/编辑器/skill 表单/右岛三组文案。 | ····· |  |
-| SURF-085 | i18n/notifications | i18n-group · 45 键:通知托盘标题/时段组/批量标记/搜索/显示选项。 | ····· |  |
-| SURF-086 | i18n/run | i18n-group · 41 键:运行结果、重放、审批等待、flowrun 节点计数文案。 | ····· |  |
-| SURF-087 | i18n/feedback | i18n-group · 36 键:信息/成功/警告/错误/确认删除/加载/步骤/标签增删。 | ····· |  |
-| SURF-088 | i18n/a11y | i18n-group · 26 键:屏幕阅读器标签(旗标/编辑字段/更多动作/图缩放)。 | ····· |  |
-| SURF-089 | i18n/attach | i18n-group · 21 键:附件不可用/重试/上传中/媒体准备失败/取消准备。 | ····· |  |
-| SURF-090 | i18n/shell | i18n-group · 14 键:侧栏收展/切面板/海洋/即将推出/设置/通知/工作区回退。 | ····· |  |
-| SURF-091 | i18n/ref | i18n-group · 11 键:11 种 ref 药丸类型名(function/handler/workflow/agent/document/conversation/… | ····· |  |
-| SURF-092 | i18n/coldStart | i18n-group · 11 键:onboarding 预览/连接中/创建工作区/名称冲突/画作致谢。 | ····· |  |
-| SURF-093 | i18n/action | i18n-group · 8 键:编辑/取消/保存/复制/展开/收起/换行/删除通用动词。 | ····· |  |
-| SURF-094 | i18n/diff | i18n-group · 7 键:新增/删除/折叠/显示全部/只显变更。 | ····· |  |
-| SURF-095 | i18n/startup | i18n-group · 6 键:启动门控连接中/崩溃/重试/错误面文案。 | ····· |  |
-| SURF-096 | i18n/graph | i18n-group · 6 键:图节点 kind 词。 | ····· |  |
-| SURF-097 | i18n/status | i18n-group · 5 键:idle/run/wait/err/done 五状态词。 | ····· |  |
-| SURF-098 | i18n/tree | i18n-group · 3 键:JSON 树非法/循环/更多项。 | ····· |  |
-| SURF-099 | i18n/appName | i18n-group · 1 键:产品名 wordmark。 | ····· |  |
-| SURF-100 | i18n/markdown | i18n-group · 1 键:图片加载失败提示。 | ····· |  |
-| SURF-101 | stage/function | stage · 地层 → OpTicker 三态点 → 活代码窗 → 落定真 diff 徽(before=冻结基线)。 | ····· |  |
-| SURF-102 | stage/document | stage · 书脊 + 前缀快进 + R-9 元数据卡 + `[[id]]` 内联药丸解真名。 | ····· |  |
-| SURF-103 | stage/workflow | stage · 真画布图生长 + 判别式抽屉;edit ops 在旧图重放,落定对账新鲜真相。 | ····· |  |
-| SURF-104 | stage/control | stage · 丝线决策梯 + 透传幽灵 + 否则徽。 | ····· |  |
-| SURF-105 | stage/approval | stage · 信笺 + 琥珀插值 + timeout 人话;失败面红标「创建失败·残稿如下」。 | ····· |  |
-| SURF-106 | stage/trigger | stage · 四脸(cron/webhook/fsnotify/sensor) + R-16 落定只信 GET + nextFireAt 分钟活钟。 | ····· |  |
-| SURF-107 | stage/subagent | stage · 一席一卡:任务名=args.prompt 首行 + ReAct 尾 + 结算双源 + 内联终端活窗 ≤10 行。 | ····· |  |
-| SURF-108 | stage/handler | stage · 方法架:set_init_args_schema 键=args,update_method RFC-7396 合并上架,timeout 渲钟词。 | ····· |  |
-| SURF-109 | stage/agent | stage · prompt/tools/knowledge/model 四槽全铺,未触槽回全墨,落定 prompt 有界视口内滚。 | ····· |  |
-| SURF-110 | stage/skill | stage · 装订台 + allowedTools 琥珀仅在信任门已批时 + $ 占位槽。 | ····· |  |
-| SURF-111 | stage/memory | stage · 记忆笺,图钉 REST-only。 | ····· |  |
-| SURF-112 | stage/mcp | stage · 接线现场 + 工具货架(仅 install/reconnect/create 的类型化 tools 列表)。 | ····· |  |
-| SURF-113 | stage/generic | stage · 第 13 座通用舞台兜底(诚实丝带 + kind 量身体 + poll 型活运行卷);conversation 无舞台、attachment 走展品座。 | ····· |  |
+| SURF-069 | settings/panel-models-keys | panel · 模型与密钥(0731 重形):受管免费档卡 + **音色库存卡**(克隆音色 2 槽:列表/删除/「库存不是配额」文案,仅受管档) + 品牌 logo 密钥行… | ····· |  |
+| SURF-070 | core/media-viewer | overlay · 媒体放大察看器(0731 新增,WRK-082 B1 人眼验收逼出):图/视频同一 RawDialogRoute chrome(scrim/关闭/Esc/… | ····· |  |
+| SURF-071 | settings/panel-mcp | panel · MCP 服务器:空态即市场 + 已装双列品牌卡 + 详情三 tab(工具/调用/stderr) + 手动添加/导入/市场。 | ····· |  |
+| SURF-072 | settings/panel-memory | panel · 记忆:名册 + 搜索 + 行内金 pin toggle + 新建记忆推入编辑 + 确认物理删除。 | ····· |  |
+| SURF-073 | settings/panel-sandbox | panel · 沙箱:健康门 + 磁盘占用诚实字节 + 运行时装删(五 owner tab) + GC 两步。 | ····· |  |
+| SURF-074 | settings/panel-workspaces | panel · 工作区:色点名册(点行热切换) + 新建 AnComposer + 推入编辑(改名/六色/危险区输名删)。 | ····· |  |
+| SURF-075 | settings/panel-storage | panel · 存储与日志:数据目录 + 磁盘占用 + 诊断 + Run 历史保留 + 数据库压缩 + 重置偏好 + 出厂重置。 | ····· |  |
+| SURF-076 | settings/panel-limits | panel · 高级限额:`GET /limits/schema` 驱动的 group + 字段行,部分嵌套 PATCH + 越界回滚。 | ····· |  |
+| SURF-077 | settings/panel-network | panel · 网络:http/https/no_proxy 三字段 + 整体替换 PATCH + 重启注记 AnCallout。 | ····· |  |
+| SURF-078 | settings/panel-shortcuts | panel · 快捷键:6 全局命令逐行小帽,点帽录键 + 冲突拒绝 + 单项/全部重置。 | ····· |  |
+| SURF-079 | settings/panel-about | panel · 关于:版本区 + 检查更新(GitHub Releases 三面) + 引擎版本 + 诊断 + 字体致谢。 | ····· |  |
+| SURF-080 | settings/detail-push | screen · 推入第三级(13 kind):addKey/editKey/sandboxInstall/mcpServer/mcpAdd/mcpImport/mcpMar… | ····· |  |
+| SURF-081 | i18n/chat | i18n-group · 683 键:对话海洋全部文案(rail/composer/侧幕/工具卡/turn 动作)。 | ····· |  |
+| SURF-082 | i18n/settings | i18n-group · 399 键:13 面板 + 三段目录 + 搜索 + 三域徽全部文案。 | ····· |  |
+| SURF-083 | i18n/entities | i18n-group · 302 键:实体海洋 rail/详情/tab/调试台/关系图文案。 | ····· |  |
+| SURF-084 | i18n/scheduler | i18n-group · 246 键:调度海洋 rail/Overview/运营主页/run 旗舰文案。 | ····· |  |
+| SURF-085 | i18n/library | i18n-group · 125 键:文库海洋 rail/编辑器/skill 表单/右岛三组文案。 | ····· |  |
+| SURF-086 | i18n/notifications | i18n-group · 45 键:通知托盘标题/时段组/批量标记/搜索/显示选项。 | ····· |  |
+| SURF-087 | i18n/run | i18n-group · 41 键:运行结果、重放、审批等待、flowrun 节点计数文案。 | ····· |  |
+| SURF-088 | i18n/feedback | i18n-group · 36 键:信息/成功/警告/错误/确认删除/加载/步骤/标签增删。 | ····· |  |
+| SURF-089 | i18n/a11y | i18n-group · 26 键:屏幕阅读器标签(旗标/编辑字段/更多动作/图缩放)。 | ····· |  |
+| SURF-090 | i18n/attach | i18n-group · 21 键:附件不可用/重试/上传中/媒体准备失败/取消准备。 | ····· |  |
+| SURF-091 | i18n/shell | i18n-group · 14 键:侧栏收展/切面板/海洋/即将推出/设置/通知/工作区回退。 | ····· |  |
+| SURF-092 | i18n/ref | i18n-group · 11 键:11 种 ref 药丸类型名(function/handler/workflow/agent/document/conversation/… | ····· |  |
+| SURF-093 | i18n/coldStart | i18n-group · 11 键:onboarding 预览/连接中/创建工作区/名称冲突/画作致谢。 | ····· |  |
+| SURF-094 | i18n/action | i18n-group · 8 键:编辑/取消/保存/复制/展开/收起/换行/删除通用动词。 | ····· |  |
+| SURF-095 | i18n/diff | i18n-group · 7 键:新增/删除/折叠/显示全部/只显变更。 | ····· |  |
+| SURF-096 | i18n/startup | i18n-group · 6 键:启动门控连接中/崩溃/重试/错误面文案。 | ····· |  |
+| SURF-097 | i18n/graph | i18n-group · 6 键:图节点 kind 词。 | ····· |  |
+| SURF-098 | i18n/status | i18n-group · 5 键:idle/run/wait/err/done 五状态词。 | ····· |  |
+| SURF-099 | i18n/tree | i18n-group · 3 键:JSON 树非法/循环/更多项。 | ····· |  |
+| SURF-100 | i18n/appName | i18n-group · 1 键:产品名 wordmark。 | ····· |  |
+| SURF-101 | i18n/markdown | i18n-group · 1 键:图片加载失败提示。 | ····· |  |
+| SURF-102 | stage/function | stage · 地层 → OpTicker 三态点 → 活代码窗 → 落定真 diff 徽(before=冻结基线)。 | ····· |  |
+| SURF-103 | stage/document | stage · 书脊 + 前缀快进 + R-9 元数据卡 + `[[id]]` 内联药丸解真名。 | ····· |  |
+| SURF-104 | stage/workflow | stage · 真画布图生长 + 判别式抽屉;edit ops 在旧图重放,落定对账新鲜真相。 | ····· |  |
+| SURF-105 | stage/control | stage · 丝线决策梯 + 透传幽灵 + 否则徽。 | ····· |  |
+| SURF-106 | stage/approval | stage · 信笺 + 琥珀插值 + timeout 人话;失败面红标「创建失败·残稿如下」。 | ····· |  |
+| SURF-107 | stage/trigger | stage · 四脸(cron/webhook/fsnotify/sensor) + R-16 落定只信 GET + nextFireAt 分钟活钟。 | ····· |  |
+| SURF-108 | stage/subagent | stage · 一席一卡:任务名=args.prompt 首行 + ReAct 尾 + 结算双源 + 内联终端活窗 ≤10 行。 | ····· |  |
+| SURF-109 | stage/handler | stage · 方法架:set_init_args_schema 键=args,update_method RFC-7396 合并上架,timeout 渲钟词。 | ····· |  |
+| SURF-110 | stage/agent | stage · prompt/tools/knowledge/model 四槽全铺,未触槽回全墨,落定 prompt 有界视口内滚。 | ····· |  |
+| SURF-111 | stage/skill | stage · 装订台 + allowedTools 琥珀仅在信任门已批时 + $ 占位槽。 | ····· |  |
+| SURF-112 | stage/memory | stage · 记忆笺,图钉 REST-only。 | ····· |  |
+| SURF-113 | stage/mcp | stage · 接线现场 + 工具货架(仅 install/reconnect/create 的类型化 tools 列表)。 | ····· |  |
+| SURF-114 | stage/generic | stage · 第 13 座通用舞台兜底(诚实丝带 + kind 量身体 + poll 型活运行卷);conversation 无舞台、attachment 走展品座。 | ····· |  |
 
-## 难触发/边界路径全集(338)
+## 难触发/边界路径全集(353)
 
 | ID | 项 | 摘要 | 五级 | 证据 |
 |---|---|---|---|---|
@@ -868,6 +874,21 @@ landed-into:
 | EDGE-336 | testend 超时/被杀由下一轮收 | testend · 让整轮撞 `-timeout` 或对测试二进制 SIGKILL · 下一轮按 `$TMPDIR/anselm-testend/<pid>/` 的 pid … | ····· |  |
 | EDGE-337 | testend 缓存剥 pid | testend · 让运行时缓存搭上 `embedder.pid` · `saveRuntimeCache` 回存前剥 `*.pid`，否则回收器指向 OS 此后分给别人的号码 | ····· |  |
 | EDGE-338 | testend 网关指向关闭端口 | testend · 跑一轮完整 testend 并观察真网关侧 · `ANSELM_GATEWAY_URL` 指向关闭的回环端口使开通快速失败，绝不登记 ~50 个真 ins… | ····· |  |
+| EDGE-339 | BYOK base URL 模板未填占位 | apikey · 选 Azure/Vertex 等模板型供应商,base URL 留占位原样提交 · 表单以 `baseUrlTemplateHint` 指名要替换的占位;模… | ····· |  |
+| EDGE-340 | Vertex service-account 文件校验 | apikey · 贴一段缺 `type`/`project_id`/`private_key` 的 JSON · `serviceAccountBad` 当场拒绝;合法文件则… | ····· |  |
+| EDGE-341 | 未验证供应商诚实徽标 | apikey · 从 173 家目录选一家从未真测过的 · `unverified` 徽标 + hint(「来自 models.dev 目录,没人试过」);诊断句引导先疑 b… | ····· |  |
+| EDGE-342 | chat-only 模型的工具面 | catalog · 选一个 `tool_call=false` 的模型开对话 · picker 带 `chatOnlyBadge`,目录不再替用户扔掉能聊天的模型;对话内工具… | ····· |  |
+| EDGE-343 | 工具参数双线缆形 | llm · 让 provider 分别以 object 与 string 两形返回 tool arguments · 两形都被认得(toolargs 归一),不再只认其中一种 | ····· |  |
+| EDGE-344 | 直连生成整体退场 | generate · 只配 BYOK key、无受管 install,让模型试 generate_image · 生成三工具**诚实缺席**(CapabilityTools … | ····· |  |
+| EDGE-345 | 音色登记→指名说话全链 | voice · enroll_voice 登记参考音色→generate_speech 指名它 · 句柄被翻译成上游 id(63f402f 之前从来没能说过话);音色出现在设… | ····· |  |
+| EDGE-346 | 音色库存 2 槽上限 | voice · 登记第三个音色 · 库存闸拒绝(`voicesFull` 文案「删一个腾位」);库存不是钱的闸,与配额无关 | ····· |  |
+| EDGE-347 | 删音色上游失败保行 | voice · 让网关删句柄失败再删本地音色 · `voicesDeleteFailed`:行保留可重试,绝不本地删了上游还挂着 | ····· |  |
+| EDGE-348 | 语音双工握手拒绝闭集 | speech · 让网关握手返 401/配额类拒绝 · 拒绝只携带闭集 code(`handshakeRefusal`),上游散文**没有能力**泄进用户面错误 | ····· |  |
+| EDGE-349 | 语音流中上游断线 | speech · 会话中途杀上游连接 · 客户端收 `SPEECH_UPSTREAM_CLOSED` 事件帧,双向心跳 deadline 收尾,不悬挂 | ····· |  |
+| EDGE-350 | 语音帧越界 | speech · 发超过帧上限的音频帧 / 非法控制帧 · `SPEECH_AUDIO_FRAME_INVALID` / `SPEECH_CONTROL_INVALID`,会… | ····· |  |
+| EDGE-351 | 429 不动钱 | freetier · 受管生成撞限流(非配额耗尽) · 网关侧 429 **不扣用户配额**(aabd07d:恢复 GW-INV-23 合规);配额卡数字不动 | ····· |  |
+| EDGE-352 | 分叉携带附件与 subagent 树 | fork · fork 一条带附件、@ 快照与 subagent 嵌套的对话 · attrs 逐字带走**除** retryOf/parentBlockId 被 remap … | ····· |  |
+| EDGE-353 | workflow 停用排空双类 | workflow · :deactivate 时既有在飞 run 又有已接受 pending firing · draining 直到**两类**都排空才 inactive;… | ····· |  |
 
-**TOTAL: 827 行 × 5 级 = 4135 格**
+**TOTAL: 848 行 × 5 级 = 4240 格**
 

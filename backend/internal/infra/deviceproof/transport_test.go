@@ -212,3 +212,51 @@ func TestTransportDoesNotRetryOrdinaryUnauthorizedResponse(t *testing.T) {
 		t.Fatalf("response body was not preserved: %q", raw)
 	}
 }
+
+// TestProofHostOverrideBindsTrueAudience: with ANSELM_PROOF_HOST set, htu names the override
+// (the true audience behind a local recording proxy) instead of the proxied URL's host —
+// and the guard is that ONLY the host changes: path, query, method, body hash stay exact.
+//
+// TestProofHostOverrideBindsTrueAudience:设了 ANSELM_PROOF_HOST 时,htu 点名覆盖值(本地录制
+// 代理背后的真实受众)而非被代理 URL 的主机——守卫点在**只有主机变**:路径/查询/方法/body 哈希逐字不动。
+func TestProofHostOverrideBindsTrueAudience(t *testing.T) {
+	signer, err := generate()
+	if err != nil {
+		t.Fatal(err)
+	}
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]string{
+			"nonce": "nonce-ph", "expiresAt": time.Now().Add(time.Minute).Format(time.RFC3339),
+		})
+	}))
+	defer srv.Close()
+
+	t.Setenv(EnvProofHost, "API.Anselm.Website")
+
+	proof := NewTransport(srv.Client().Transport, signer)
+	headers, err := proof.ProofHeaders(context.Background(), http.MethodPost, srv.URL+"/v1/install?a=b", "ins_test", []byte(`{"x":1}`), false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	parts := strings.Split(headers.Get(HeaderProof), ".")
+	if len(parts) != 2 {
+		t.Fatalf("proof parts = %d", len(parts))
+	}
+	rawPayload, err := b64.DecodeString(parts[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var payload struct {
+		Method string `json:"htm"`
+		Target string `json:"htu"`
+	}
+	if err := json.Unmarshal(rawPayload, &payload); err != nil {
+		t.Fatal(err)
+	}
+	if payload.Target != "api.anselm.website/v1/install?a=b" {
+		t.Fatalf("htu = %q, want override host with original path+query", payload.Target)
+	}
+	if payload.Method != http.MethodPost {
+		t.Fatalf("htm = %q", payload.Method)
+	}
+}

@@ -63,6 +63,7 @@ Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接�
 |---|---|
 | 无配置 | 使用编译进代码的线上 Anselm API base |
 | `ANSELM_GATEWAY_URL` | 显式覆盖受管网关 origin，供隔离测试/本地网关；不是 provider base URL |
+| `ANSELM_PROOF_HOST` | 覆盖 device-proof `htu` 签进的主机（`deviceproof.EnvProofHost`）。htu 按 DPoP 式点名请求目标，受管流量因此**天生反代理**；唯一正当例外是设备自己的本地录制代理（验收台架线缆见证者，WRK-087）——请求物理上途经 127.0.0.1，证明仍点名真实受众。只放宽请求**途经**哪里、不放宽证明能**花在**哪里；不设 = 行为逐字不变 |
 | `ANSELM_GATEWAY_INTEGRATION_URL` | 只启用独立 gateway integration test |
 
 主仓不需要 `DASHSCOPE_API_KEY`、`ANSELM_DASHSCOPE_BASE` 或部署网关的任意 provider secret。若某个 BYOK provider 需要 key/base URL，它通过产品的 Models & Keys 写入本地加密存储，而不是作为默认受管路径的启动前提。

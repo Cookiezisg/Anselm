@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -20,6 +21,20 @@ const (
 	HeaderInstallID = "X-Anselm-Install-ID"
 	HeaderProof     = "X-Anselm-Proof"
 	HeaderPublicKey = "X-Anselm-Public-Key"
+
+	// EnvProofHost overrides the host bound into the proof's htu claim. htu deliberately names
+	// the request target (DPoP-style), which makes managed traffic unproxyable-by-design — the
+	// one legitimate exception is the device's OWN local recording proxy (the acceptance rig's
+	// wire witness, WRK-087): requests physically go to 127.0.0.1 but their true audience is
+	// still the gateway, so the proof must say so or the gateway rightly answers 401. The
+	// override only ever widens where the request may PASS THROUGH, never where the proof can
+	// be SPENT — htu still pins the gateway. Unset = behavior unchanged.
+	//
+	// EnvProofHost 覆盖签进 htu 的主机。htu 刻意点名请求目标(DPoP 式),使受管流量**天生反代理**
+	// ——唯一正当的例外是设备**自己的**本地录制代理(验收台架的线缆见证者,WRK-087):请求物理上
+	// 发往 127.0.0.1,但真实受众仍是网关,证明必须如实说,否则网关理直气壮地 401。该覆盖只放宽
+	// 请求**途经**哪里,从不放宽证明能**花在**哪里——htu 仍钉死网关。不设 = 行为逐字不变。
+	EnvProofHost = "ANSELM_PROOF_HOST"
 )
 
 type cachedChallenge struct {
@@ -188,7 +203,11 @@ func (t *Transport) sign(kid, nonce string, req *http.Request, body []byte) stri
 		panic("deviceproof: crypto/rand failed: " + err.Error())
 	}
 	bh := sha256.Sum256(body)
-	target := strings.ToLower(req.URL.Host) + req.URL.EscapedPath()
+	host := strings.ToLower(strings.TrimSpace(os.Getenv(EnvProofHost)))
+	if host == "" {
+		host = strings.ToLower(req.URL.Host)
+	}
+	target := host + req.URL.EscapedPath()
 	if req.URL.RawQuery != "" {
 		target += "?" + req.URL.RawQuery
 	}
