@@ -1189,6 +1189,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-763 | deployed gateway sibling 当前总闸全绿：vet、trimpath build、全仓 race/unit、integration e2e、golangci-lint 与 docs lint 均通过；e2e 6.895s、lint 0 issues、docs 35 files clean，确认 router/middleware/SQLite/upstream、stream settle、quota/async 边界仍可作为 backend 黑盒的真实服务底座。未改 gateway、未输出 provider secret。 | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify | `cd ../Anselm-API-Serve && make verify` → PASS：`go vet ./...`、trimpath build、`go test -race ./...`、`go test -tags=integration -race -count=1 ./internal/e2e/...`、golangci-lint `0 issues`、docs lint `35 file(s) ok, 0 warning(s)` |
 
+| 2026-07-31 | EVO-764 | 当前部署默认 Anselm API 的 workflow 用户多模态三入口双跑全绿：manual、外部 webhook、chat→`trigger_workflow` 各自把 PDF+PNG+MP4 穿过 trigger/CEL→managed agent，6/6 flowrun durable completed；PDF sandbox token、PNG/MP4 源字节与 `origin`/`triggerId`/`conversationId` provenance 均闭合，未见入口专属丢媒体、错误拆回合、CEL 路由漂移或重复产物。包 237.823s | FRT-01 + FRT-04 + FRT-15 / managed-read / workflow user attachment fusion across manual + webhook + chat | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=2 -parallel 1 -timeout 90m -json 2>&1 | tee /tmp/anselm-evo764-managed-workflow-user-fusion-double.jsonl` → PASS：manual 57.69s/54.58s、webhook 29.25s/25.19s、chat 35.24s/35.28s；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

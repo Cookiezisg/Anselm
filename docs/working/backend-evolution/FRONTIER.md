@@ -158,6 +158,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 同日的 Qwen 原生 speech/video viewer 对照均 completed：speech 26.47s、video 135.89s，异步视频等待到 durable terminal 后再验证 9,393,843-byte MP4 和 `video_url`；两条路径均无重复提交、receipt-only 或跨方言丢媒体。
 
+本轮用当前部署默认 API 对用户多模态 workflow 三入口做双跑复核：manual、外部 webhook、chat→`trigger_workflow` 各 2/2 完成（manual 57.69s/54.58s、webhook 29.25s/25.19s、chat 35.24s/35.28s；包 237.823s）。PDF sandbox token、PNG/MP4 exact bytes、flowrun terminal 与三路 provenance（origin/triggerId/conversationId）均闭合，没有入口专属媒体丢失、错误拆回合、CEL 漂移或重复产物。
+
 ### FRT-07 最新证据
 
 本轮先把语音输入与音色全生命周期放在同一 managed 组中复探：realtime ASR 独立通过（10.01s），但首个 `EnrollSpeakDelete` 进程在等待 60s 内没有得到 `enroll_voice` danger interaction，测试在审批断言前退出，未提交登记任务，不能把该红灯误判成库存、异步状态或删除语义缺陷。随后将生命周期场景隔离并以两个独立进程复跑，均完整通过危险审批→异步登记→克隆音色合成→删除，耗时 44.75s、54.67s；voice inventory/上游句柄和最终本地清理均闭合。当前结论是受管模型/网关时序可靠性哨兵，保留首轮 60s stall 证据，未改生产代码。
