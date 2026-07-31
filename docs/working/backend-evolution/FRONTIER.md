@@ -154,6 +154,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮再补 workflow async video producer→Qwen BYOK viewer：上游 managed video、flowrun node、MediaRef attachment 与下游 Qwen recorder 的 exact-byte `video_url` 在两个当前独立进程均闭合（117.005s、130.147s）；长尾 job 的等待与清理均收口，没有把 receipt 文本冒充视频，也没有迟到孤儿产物。
 
+当前窗口重新覆盖用户多模态 workflow 的三条入口：manual trigger、真实 webhook 与 chat→`trigger_workflow` 各自把 PDF+PNG+MP4 送入 managed agent。三条 flowrun 分别 67.54s、26.44s、43.16s 完成；PDF token 经 sandbox 抽取，PNG/MP4 MediaRef、`origin`/`triggerId`/`conversationId` 与 552/555/560-byte PDF、98-byte PNG、2,969,360-byte MP4 源字节均可审计回读。未形成入口特有的 payload/CEL 装配、provenance 或多模态映射回归。
+
 同日复探聊天入口的 workflow 生命周期组合：默认 managed chat 先发现并调用 `trigger_workflow`，随后分别通过 `get_flowrun` 读取 completed run、通过 `search_flowruns(status=failed)` 加 `get_flowrun` 诊断 durable 节点错误、再调用 `replay_flowrun` 恢复同一失败 run。三条路径在两个独立进程中全部通过（包总计 134.638s、126.102s）；`origin=chat`、`conversationId`、节点错误、已完成节点不重跑与 function/handler execution ledger 均闭合，未形成后端缺陷。
 
 本轮再做 workflow 控制面独立组合：`ChatFlowrunFailureDiagnosis`、`ChatFlowrunApprovalDecision`、`ChatFlowrunReplay` 各自当前进程通过（47.010s、45.660s、45.430s；包 138.878s）。失败节点的检索、审批停泊/决定/恢复、replay 的已完成前缀复用与 function/handler ledger 均闭合，没有把模型文本当作状态真相，也没有重复执行。

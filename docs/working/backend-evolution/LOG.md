@@ -1253,6 +1253,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-795 | 对照复探证明 managed speech writer 本身稳定：直接 `generate_speech` 双跑均只执行一次，真实 WAV content 与 `provider=anselm` receipt 闭合，回合正常完成（12.18s、11.15s）；因此 EVO-794 的红灯边界继续收窄到“先请求 danger 审批”的模型/流式时序，不改生产代码 | FRT-09 / managed-write / speech writer control reprobe | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_GenerateSpeechArtifact$' -count=2 -parallel 1 -timeout 30m -json 2>&1 | tee /tmp/anselm-evo795-managed-speech-artifact-double.jsonl` → PASS 12.18s/11.15s（包 24.041s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-796 | 用户多模态 workflow 三入口当前独立组合全绿：manual trigger、真实 webhook、chat→`trigger_workflow` 均把 PDF+PNG+MP4 穿过 trigger/CEL→managed agent；PDF sandbox token、PNG/MP4 MediaRef、入口 provenance 与源字节全部闭合，未出现入口特有 payload/CEL 或媒体映射漂移 | FRT-01 + FRT-04 / managed / manual + webhook + chat multimodal workflow fan-in | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_(WorkflowUserAttachmentFusion|WorkflowWebhookUserAttachmentFusion|ChatTriggerWorkflowUserAttachmentFusion)$' -count=1 -parallel 1 -timeout 45m -json 2>&1 | tee /tmp/anselm-evo796-managed-workflow-attachment-fusion-triple-entry.jsonl` → PASS：Manual 67.54s、Webhook 26.44s、Chat 43.16s（包 137.69s）；未输出 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
