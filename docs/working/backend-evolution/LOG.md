@@ -1303,6 +1303,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-820 | managed 子代理取消终态当前双跑为 1 红 1 绿：红跑模型先派 `Plan` 子代理并被其工具集拒绝，再派 `general-purpose`；`:cancel` 204 后出现一个 completed refusal child 与一个 cancelled child，严格 30s parent/child settle oracle 未收口。绿跑 `:cancel` 204 后父/child durable cancelled、单条 `agent/cancelled` execution、follow-up completed 且无工具复活。红灯仍是模型选型/重复派发叠加 REST settle 时序，没有新的 ledger、孤儿或终态损坏证据 | FRT-05 + FRT-13 / managed / subagent cancellation terminal reliability sentinel | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_SubagentCancelTerminal$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo820-managed-subagent-cancel-double.jsonl` → 包级 FAIL：82.99s FAIL、51.11s PASS（包 135.082s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-821 | 当前窗口在视频 artifact、workflow 诊断/观测、BYOK provider/DeepSeek continuation 与 subagent 失败/取消哨兵之后完成 backend 全量黑盒总闸：chat、agent/subagent、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生全部通过；没有发现本轮 focused live 证据造成的稳定基础回归 | full backend testend regression / post-EVO-814~820 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo821-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 297.802s`；未启用 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`

@@ -492,6 +492,8 @@ EVO-791 把 DeepSeek 红灯推进到真实线缆根因：重放失败的第四�
 
 取消复探同样没有升级为 durable recovery defect：一轮因 `Plan` refusal child 与后续合法 child 并存，30s settle oracle 未满足；另一轮在 `:cancel` 204 后父/child 与 agent execution 全部闭合，follow-up 不复活工具。红灯仍限定在模型工具选择和 REST 历史投影时序，而非取消 ledger、孤儿或旧终态复活。
 
+随后执行全量 backend 黑盒总闸：`make -C backend testend` 的 `testend/scenarios` 在 297.802s 全绿，覆盖本轮 focused live 之后的 chat、agent/subagent、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生；没有把任何模型时序哨兵或 provider 限流误判成稳定基础回归。
+
 聊天入口 workflow 控制面随后做真实双跑：`trigger_workflow→get_flowrun` 的成功读取、失败 run 的 `search_flowruns→get_flowrun` 诊断、approval park→`decide_approval` 续接以及 `replay_flowrun` 的失败节点重跑全部通过（包 378.238s）。结果进一步确认 durable flowrun/interaction/节点台账与聊天续接一致，未出现审批后重复执行、失败 replay 重跑已完成节点或旧终态复活。
 
 本轮补做 chat 基础 contract 双跑：消息/块 durable 物理投影、generating/finalize 窗、progress 与 approve-always、crash sweep/graceful shutdown、空板/跨 workspace、model override/activity order、search cursor、todo、touchpoint 和严格 action/unknown-field 面全部通过，13 个场景共 26/26（包 359.539s）。crash 与 graceful 场景各约 61s 是主动验证连接收口的长尾，最终均无 orphan 或终态错序，不构成产品缺陷。
