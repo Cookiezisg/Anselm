@@ -792,6 +792,33 @@ func TestAutoTitle_FirstTurn(t *testing.T) {
 	}
 }
 
+func TestAutoTitle_FallsBackWhenUtilityProducesOnlyReasoning(t *testing.T) {
+	store := newStore(t)
+	titler := &fakeTitler{called: make(chan string, 1)}
+	reasoningOnly := []llminfra.StreamEvent{
+		{Type: llminfra.EventReasoning, Delta: "I should think about a title first."},
+		{Type: llminfra.EventFinish, FinishReason: "stop"},
+	}
+	svc := NewService(store, Deps{
+		Conversations: fakeConvs{conv: &conversationdomain.Conversation{}},
+		Resolver:      fakeResolver{client: &fakeClient{script: reasoningOnly}},
+		Bridge:        newRecordBridge(),
+		Titler:        titler,
+	}, zap.NewNop())
+
+	if _, err := svc.Send(ctxWS("ws_1"), "cv_1", SendInput{Content: "Draft a launch checklist"}); err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	select {
+	case title := <-titler.called:
+		if title != "Draft a launch checklist" {
+			t.Fatalf("fallback title = %q, want the local user request", title)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("a reasoning-only utility response must still produce a local title")
+	}
+}
+
 // TestListMessagesUsage_ForeignConversation404 — F72: a cross-ws / nonexistent conversation id must
 // 404 via the ownership pre-check (like SystemPromptPreview), not return 200-empty / 0-tokens.
 func TestListMessagesUsage_ForeignConversation404(t *testing.T) {

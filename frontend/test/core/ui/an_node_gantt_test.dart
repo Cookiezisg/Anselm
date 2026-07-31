@@ -61,12 +61,12 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('an ultra-narrow track does not ArgumentError (the clamp guard)', (
+  testWidgets('an ultra-narrow track remains bounded (the responsive lane guard)', (
     tester,
   ) async {
-    // 150px host: lane 132 + gaps → track <4px. Without the minBar guard, clamp(s4, w) throws an
-    // ArgumentError (a release-mode crash, not just a debug overflow). 极窄轨:无 minBar 护栏则 clamp 抛
-    // ArgumentError(release 崩溃、非仅 debug 溢出)。
+    // 150px host: the fixed lane used to consume more than the row after padding. The lane now yields
+    // width to the track, so the narrow state is still renderable rather than an overflow frame.
+    // 极窄轨:固定标签列不能吃掉 padding 后的整行;现在让出宽度给轨道,窄态也必须是无溢出的可渲帧。
     await tester.pumpWidget(
       _host(
         AnNodeGantt(rows: rows, notRunLabel: 'x', waitingLabel: 'w'),
@@ -74,17 +74,7 @@ void main() {
       ),
     );
     await tester.pump();
-    // A RenderFlex overflow at this absurd width (never seen in the >=480px ocean) is acceptable;
-    // an ArgumentError is the bug. 该荒谬窄度的溢出可接受,ArgumentError 才是 bug。
-    var arg = false;
-    for (
-      var ex = tester.takeException();
-      ex != null;
-      ex = tester.takeException()
-    ) {
-      if (ex is ArgumentError) arg = true;
-    }
-    expect(arg, isFalse);
+    expect(tester.takeException(), isNull);
   });
 
   testWidgets('50-node gantt renders without exploding', (tester) async {

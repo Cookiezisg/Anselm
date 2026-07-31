@@ -49,6 +49,34 @@ func TestPairDiff_EncoderNoiseAbsorbed(t *testing.T) {
 	}
 }
 
+func TestPairDiffROI_IgnoresMotionOutsideTarget(t *testing.T) {
+	white := color.RGBA{255, 255, 255, 255}
+	a := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	b := image.NewRGBA(image.Rect(0, 0, 100, 100))
+	fill(a, a.Bounds(), white)
+	fill(b, b.Bounds(), white)
+	fill(b, image.Rect(80, 80, 90, 90), color.RGBA{0, 0, 0, 255})
+	if frac, _ := pairDiffROI(a, b, image.Rect(0, 0, 50, 50)); frac != 0 {
+		t.Fatalf("outside motion leaked into ROI: %v", frac)
+	}
+	fill(b, image.Rect(10, 10, 20, 20), color.RGBA{0, 0, 0, 255})
+	frac, box := pairDiffROI(a, b, image.Rect(0, 0, 50, 50))
+	if frac != 100.0/2500.0 || box != image.Rect(10, 10, 20, 20) {
+		t.Fatalf("ROI diff = %v %v", frac, box)
+	}
+}
+
+func TestParseROI(t *testing.T) {
+	bounds := image.Rect(0, 0, 100, 100)
+	got, err := parseROI("10,20,30,40", bounds)
+	if err != nil || got != image.Rect(10, 20, 40, 60) {
+		t.Fatalf("parseROI = %v, %v", got, err)
+	}
+	if _, err := parseROI("1,2,0,4", bounds); err == nil {
+		t.Fatal("zero-width ROI accepted")
+	}
+}
+
 func TestLuminanceContrast_WCAGAnchors(t *testing.T) {
 	// Black-on-white is the spec's own anchor: exactly 21:1.
 	// 黑底白字是规范自身的锚点:恰 21:1。

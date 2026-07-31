@@ -27,12 +27,13 @@ import (
 )
 
 type record struct {
-	TS       string `json:"ts"`
-	Method   string `json:"method"`
-	Path     string `json:"path"`
-	Size     int    `json:"size"`
-	BodyFile string `json:"bodyFile,omitempty"`
-	Status   int    `json:"status,omitempty"`
+	TS           string `json:"ts"`
+	Method       string `json:"method"`
+	Path         string `json:"path"`
+	Size         int    `json:"size"`
+	BodyFile     string `json:"bodyFile,omitempty"`
+	ResponseFile string `json:"responseFile,omitempty"`
+	Status       int    `json:"status,omitempty"`
 }
 
 func main() {
@@ -59,9 +60,14 @@ func main() {
 		fmt.Fprintf(os.Stderr, "llmtap: mkdir bodies: %v\n", err)
 		os.Exit(1)
 	}
+	responses := filepath.Join(filepath.Dir(*out), "llm-responses")
+	if err := os.MkdirAll(responses, 0o755); err != nil {
+		fmt.Fprintf(os.Stderr, "llmtap: mkdir responses: %v\n", err)
+		os.Exit(1)
+	}
 
 	var mu sync.Mutex
-	n := 0
+	n, responseN := 0, 0
 	writeRec := func(r record) {
 		r.TS = time.Now().Format(time.RFC3339Nano)
 		b, err := json.Marshal(r)
@@ -78,7 +84,7 @@ func main() {
 	// and pretending to pair them would fabricate an ordering the wire does not guarantee.
 	// 请求与响应各落一行(共 method+path 的先后序)而非并成一条:ModifyResponse 与请求钩子的调度
 	// 不同,假装配对等于伪造一个线缆并不保证的顺序。
-	handler := proxycore.Handler(u, func(r *http.Request, body []byte) {
+	handler := proxycore.HandlerWithResponseBody(u, func(r *http.Request, body []byte) {
 		mu.Lock()
 		n++
 		seq := n
@@ -91,6 +97,16 @@ func main() {
 		writeRec(record{Method: r.Method, Path: r.URL.Path, Size: len(body), BodyFile: bf})
 	}, func(resp *http.Response) {
 		writeRec(record{Method: resp.Request.Method, Path: resp.Request.URL.Path, Status: resp.StatusCode})
+	}, func(resp *http.Response, body []byte) {
+		mu.Lock()
+		responseN++
+		seq := responseN
+		mu.Unlock()
+		file := filepath.Join(responses, fmt.Sprintf("%05d%s.bin", seq, strings.ReplaceAll(resp.Request.URL.Path, "/", "_")))
+		if err := os.WriteFile(file, body, 0o644); err != nil {
+			return
+		}
+		writeRec(record{Method: resp.Request.Method, Path: resp.Request.URL.Path, Size: len(body), ResponseFile: file, Status: resp.StatusCode})
 	})
 
 	fmt.Printf("llmtap: %s → %s (journal %s)\n", *listen, u.String(), *out)

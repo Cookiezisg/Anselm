@@ -254,6 +254,10 @@ RawDialogRoute<T> anPanelRoute<T>({
     barrierDismissible: true,
     barrierLabel: barrierLabel,
     transitionDuration: reduced ? Duration.zero : AnMotion.mid,
+    // Content panels own their initial control focus. Leaving the route default at true makes
+    // RawDialogRoute focus its scope first, racing descendant autofocus (notably name fields opened
+    // from a menu). 内容型面板由内容自己决定首焦点；否则路由先抢 scope 焦点，会和菜单打开的命名字段竞争。
+    requestFocus: false,
     traversalEdgeBehavior: TraversalEdgeBehavior.closedLoop,
     pageBuilder: (context, animation, secondary) => builder(context),
     transitionBuilder: (context, animation, secondary, child) {

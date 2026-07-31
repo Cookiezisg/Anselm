@@ -45,6 +45,7 @@ class ToolCardSpec {
     this.hasBodyOf,
     this.awaitingVerb,
     this.terminalVerb,
+    this.failedVerb,
     this.verbOf,
     this.resultFailed,
     this.suppressReceiptAutoExpand = false,
@@ -63,6 +64,11 @@ class ToolCardSpec {
   /// the first consumer of the verb-state seam (ask_user: 已回答/已跳过/空答案 off the result prose).
   /// 带结果覆盖终态动词(verb-state 缝首个消费者:ask_user 按结果散文分 已回答/已跳过/空答案)。
   final String Function(Translations t, ToolCardState state)? terminalVerb;
+
+  /// Override the settled failure verb without changing denied/cancelled language. A failed file
+  /// operation must never reuse its success verb ("Wrote" beside a read-first error is a lie).
+  /// 失败终态单独换动词,不影响拒绝/取消:文件操作失败时绝不能继续显示成功动词。
+  final String Function(Translations t)? failedVerb;
 
   /// STATE-AWARE running/settled verb (verb-state seam extension) — replaces [verb] for the
   /// running/argsStreaming/succeeded/failed channel when the verb depends on ARGS, not just live/settled.
@@ -160,11 +166,13 @@ String? _nameOrIdTarget(ToolCardState s, String idKey) {
 ToolCardSpec _fsOp({
   required String Function(Translations) liveVerb,
   required String Function(Translations) doneVerb,
+  required String Function(Translations) failedVerb,
   ToolReceipt? Function(Translations, ToolCardState)? receipt,
   Widget Function(BuildContext, ToolCardState)? body,
   bool bodyless = false,
 }) => ToolCardSpec(
   verb: (t, {required bool live}) => live ? liveVerb(t) : doneVerb(t),
+  failedVerb: failedVerb,
   target: (s) {
     final p = argString(s.argsText, 'file_path');
     return p == null ? null : pathBasename(p);
@@ -172,6 +180,11 @@ ToolCardSpec _fsOp({
   // Every fs op checks for an error FIRST (danger receipt + auto-expand); else the success receipt.
   // 每个 fs 操作先查错误(红回执+自动展开),否则成功回执。
   receipt: (t, s) => fsErrorReceipt(t, s.resultText) ?? receipt?.call(t, s),
+  // Filesystem guards return an honest refusal string with a completed tool_result (the backend
+  // reserves status=error for transport/framework failures). Reclassify that payload so the row
+  // cannot keep its success verb beside a red refusal receipt.
+  // 文件安全闸以 completed + 拒绝散文返回(status=error 留给框架失败),必须重分类,避免红回执旁仍写成功动词。
+  resultFailed: (s) => fsErrorKind(s.resultText) != null,
   body: body,
   bodyless: bodyless,
 );
@@ -608,6 +621,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'Read': _fsOp(
     liveVerb: (t) => t.chat.tool.reading,
     doneVerb: (t) => t.chat.tool.read,
+    failedVerb: (t) => t.chat.tool.readFailed,
     // Four-quadrant receipt: L 行 / 行 F–L / N+ 行 / 行 F–N+. 四象限。
     receipt: (t, s) => readReceipt(
       s.resultText,
@@ -621,6 +635,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'Write': _fsOp(
     liveVerb: (t) => t.chat.tool.writing,
     doneVerb: (t) => t.chat.tool.wrote,
+    failedVerb: (t) => t.chat.tool.writeFailed,
     receipt: (t, s) {
       // Write success = `Wrote <path>` — the receipt is the content's line count (empty → 空文件, body
       // hidden). A non-«Wrote» / non-error result → grey «结果未确认» (a past-tense verb over an
@@ -644,6 +659,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'Edit': _fsOp(
     liveVerb: (t) => t.chat.tool.editing,
     doneVerb: (t) => t.chat.tool.edited,
+    failedVerb: (t) => t.chat.tool.editFailed,
     receipt: (t, s) {
       // Edit success = `Replaced N occurrence(s) in <path>.` → «N 处替换»; a non-«Replaced» / non-error
       // result → grey «结果未确认». Edit 成功=N 处替换;非确认→灰。
@@ -1298,6 +1314,10 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => execReceipt(t, s.resultText),
     resultFailed: (s) => execResultFailed(s.resultText),
     body: runFunctionBody,
+    // runFunctionBody renders both ExecutionResult.errorMsg and tool_result.error through _errorLines.
+    // Do not let the chassis duplicate the backend's potentially huge logs/traceback.
+    // runFunctionBody 已用 _errorLines 统一渲染两种错误；禁止底盘重复追加可能巨大的日志/traceback。
+    ownsError: true,
   ),
   'call_handler': ToolCardSpec(
     verb: (t, {required bool live}) =>

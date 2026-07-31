@@ -23,6 +23,7 @@ class AnPopoverController extends ChangeNotifier {
 
   void open() => _set(true);
   void close() => _set(false);
+
   void toggle() => _set(!_open);
 
   void _set(bool v) {
@@ -73,6 +74,7 @@ class _AnPopoverState extends State<AnPopover>
   // reader user would be dropped to the document root on pick / Esc / outside-tap (WCAG 2.4.3).
   // 开前焦点持有者,关时归还:浮层 FocusScope 夺焦、裸 scope 不像路由自动恢复,否则键盘/屏读落到 root。
   FocusNode? _restoreFocus;
+  late final FocusScopeNode _overlayFocusScope;
 
   // The nearest ancestor scrollable, listened to WHILE OPEN: scrolling it DISMISSES the popover (the
   // delegate snapshots the anchor rect at build, and a moving anchor can't be re-tracked without a frame of
@@ -92,6 +94,7 @@ class _AnPopoverState extends State<AnPopover>
   @override
   void initState() {
     super.initState();
+    _overlayFocusScope = FocusScopeNode(debugLabel: 'AnPopover overlay');
     _anim = AnimationController(vsync: this, duration: AnMotion.fast);
     _scaleCurve = CurvedAnimation(parent: _anim, curve: AnMotion.easeOut);
     _scale = Tween<double>(begin: 0.96, end: 1).animate(_scaleCurve);
@@ -123,17 +126,26 @@ class _AnPopoverState extends State<AnPopover>
     } else if (_portal.isShowing) {
       // Animate out, then remove the overlay (unless reopened mid-reverse) and hand focus back to the
       // trigger (if it's still mounted) so traversal / SR position survives the close. 反向播完撤浮层 + 归还焦点。
-      _anim.animateBack(0, duration: revealDur).whenComplete(() {
-        if (!widget.controller.isOpen && _portal.isShowing) {
-          _portal.hide();
-          _detachScrollDismiss();
-          final restore = _restoreFocus;
-          _restoreFocus = null;
-          if (restore != null && restore.context != null) {
-            restore.requestFocus();
+      _anim.animateBack(0, duration: revealDur ?? AnMotion.fast).whenComplete(
+        () {
+          if (!widget.controller.isOpen && _portal.isShowing) {
+            _portal.hide();
+            _detachScrollDismiss();
+            final restore = _restoreFocus;
+            _restoreFocus = null;
+            final primary = FocusManager.instance.primaryFocus;
+            final focusIsInOverlay =
+                primary == null ||
+                identical(primary, _overlayFocusScope) ||
+                primary.ancestors.contains(_overlayFocusScope);
+            if (focusIsInOverlay &&
+                restore != null &&
+                restore.context != null) {
+              restore.requestFocus();
+            }
           }
-        }
-      });
+        },
+      );
     }
   }
 
@@ -157,6 +169,7 @@ class _AnPopoverState extends State<AnPopover>
     _scaleCurve
         .dispose(); // before the parent controller (CurvedAnimation owns a parent listener) 先于父控制器
     _anim.dispose();
+    _overlayFocusScope.dispose();
     super.dispose();
   }
 
@@ -221,6 +234,7 @@ class _AnPopoverState extends State<AnPopover>
                       // FocusScope (not a plain Focus): the overlay is a self-contained focus context — arrow
                       // keys traverse rows, Esc has a target, a descendant autofocus seeds it. 浮层自成焦点域。
                       child: FocusScope(
+                        node: _overlayFocusScope,
                         autofocus: true,
                         child: widget.overlayBuilder(
                           overlayContext,

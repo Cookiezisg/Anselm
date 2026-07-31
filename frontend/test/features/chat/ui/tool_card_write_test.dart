@@ -14,13 +14,14 @@ import 'package:flutter_test/flutter_test.dart';
 // Write live window + settled body (B4 F01.3) — the file streams in as the LLM types (last 8 lines),
 // then settles to a folded, capped, copyable code window. Write 活窗 + 落定体。
 
-BlockNode _settled(String args, String result) =>
+BlockNode _settled(String args, String result, {String? error}) =>
     BlockNode(id: 'tc_w', kind: BlockKind.toolCall)
       ..status = 'completed'
       ..content = {'name': 'Write', 'arguments': args}
       ..children.add(
         BlockNode(id: 'tr_w', kind: BlockKind.toolResult)
-          ..status = 'completed'
+          ..status = error == null ? 'completed' : 'error'
+          ..error = error
           ..content = {'content': result},
       );
 
@@ -154,5 +155,52 @@ void main() {
       findsOneWidget,
     ); // receipt
     expect(find.byType(AnCodeEditor), findsNothing); // no code body
+  });
+
+  testWidgets(
+    'failed Write never presents the success verb or a false success receipt',
+    (tester) async {
+      const error =
+          'File must be read first before overwriting: /ws/existing.txt. Use the Read tool first.';
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _settled(
+              '{"file_path":"/ws/existing.txt","content":"OVERWRITE_ATTEMPT\\n"}',
+              error,
+              error: error,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining(t.chat.tool.writeFailed), findsOneWidget);
+      expect(find.textContaining(t.chat.tool.wrote), findsNothing);
+      expect(find.textContaining(t.chat.tool.fsReadFirst), findsOneWidget);
+      expect(find.textContaining(error), findsOneWidget);
+    },
+  );
+
+  testWidgets('completed refusal result is still rendered as a failed Write', (
+    tester,
+  ) async {
+    const refusal =
+        'File must be read first before overwriting: /ws/existing.txt. Use the Read tool first.';
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _settled(
+            '{"file_path":"/ws/existing.txt","content":"OVERWRITE_ATTEMPT\\n"}',
+            refusal,
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining(t.chat.tool.writeFailed), findsOneWidget);
+    expect(find.textContaining(t.chat.tool.wrote), findsNothing);
+    expect(find.textContaining(t.chat.tool.fsReadFirst), findsOneWidget);
   });
 }

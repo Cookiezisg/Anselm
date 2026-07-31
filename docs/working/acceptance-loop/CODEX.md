@@ -4,8 +4,8 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-07-28
-reviewed: 2026-07-28
-review-due: 2026-10-26
+reviewed: 2026-08-01
+review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
@@ -66,6 +66,7 @@ landed-into:
 | E2 | i18n 零硬编码:一切用户可见文案走 slang 键,中英两 locale 齐 | grep + 双语开关走查 | 仓内 i18n 铁律 |
 | E3 | 空态 = 满态收起的形状、零墓碑文案;语气轻盈诚实不惊吓 | 目视 | 用户 0718 拍板(仓内) |
 | E4 | **诚实降级/诚实缺席**:能力无路由则入口不出现或明说「没有+怎么获得」,绝无「有但调了必失败」 | 拔 key/断网后走查 | 仓内 WRK-082 宪法 |
+| E5 | **机器值人类化**:面向用户的数量/额度/金额/时间必须按 locale 分组、缩写或相对表达并说明语义;禁裸大整数、ISO 时间戳与存储单位直出 | 双 locale 目视;原始 `1000000000` / `2026-08-31T00:00:00Z` = 违 | WRK-087 A05 现场立法 · Nielsen match real world |
 
 ## F · 数据真相(五通道互证——任何一对不一致即 bug,无论画面多好看)
 

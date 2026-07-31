@@ -1893,17 +1893,26 @@ class Translations$chat$tool$en {
 	/// en: 'Read'
 	String get read => 'Read';
 
+	/// en: 'Read failed'
+	String get readFailed => 'Read failed';
+
 	/// en: 'Writing'
 	String get writing => 'Writing';
 
 	/// en: 'Wrote'
 	String get wrote => 'Wrote';
 
+	/// en: 'Write failed'
+	String get writeFailed => 'Write failed';
+
 	/// en: 'Editing'
 	String get editing => 'Editing';
 
 	/// en: 'Edited'
 	String get edited => 'Edited';
+
+	/// en: 'Edit failed'
+	String get editFailed => 'Edit failed';
 
 	/// en: 'Globbing'
 	String get globbing => 'Globbing';
@@ -7214,10 +7223,13 @@ extension on Translations {
 			'chat.tool.progressOmitted' => ({required Object n}) => '…${n} earlier lines omitted',
 			'chat.tool.reading' => 'Reading',
 			'chat.tool.read' => 'Read',
+			'chat.tool.readFailed' => 'Read failed',
 			'chat.tool.writing' => 'Writing',
 			'chat.tool.wrote' => 'Wrote',
+			'chat.tool.writeFailed' => 'Write failed',
 			'chat.tool.editing' => 'Editing',
 			'chat.tool.edited' => 'Edited',
+			'chat.tool.editFailed' => 'Edit failed',
 			'chat.tool.globbing' => 'Globbing',
 			'chat.tool.globbed' => 'Globbed',
 			'chat.tool.grepping' => 'Searching',
@@ -7575,11 +7587,11 @@ extension on Translations {
 			'chat.tool.fireNo' => 'not fired',
 			'chat.tool.gettingFlowrun' => 'Opening run',
 			'chat.tool.gotFlowrun' => 'Opened run',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.gettingAgentExec' => 'Opening agent run',
 			'chat.tool.gotAgentExec' => 'Opened agent run',
 			'chat.tool.transcriptSteps' => ({required Object n}) => 'Trajectory · ${n} steps',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.transcriptOpenFull' => 'View full trajectory',
 			'chat.tool.transcriptEmpty' => 'No trajectory recorded',
 			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => 'showing ${shown}/${total} blocks',
@@ -8089,11 +8101,11 @@ extension on Translations {
 			'feedback.cast.verb.unknown' => 'Touched',
 			'feedback.codeTruncated' => ({required Object shown, required Object total}) => 'Showing the first ${shown} of ${total} lines - open the full file externally',
 			'shell.collapseSidebar' => 'Collapse sidebar',
+			_ => null,
+		} ?? switch (path) {
 			'shell.expandSidebar' => 'Expand sidebar',
 			'shell.togglePanel' => 'Toggle panel',
 			'shell.ocean.chat' => 'Chat',
-			_ => null,
-		} ?? switch (path) {
 			'shell.ocean.entities' => 'Entities',
 			'shell.ocean.scheduler' => 'Scheduler',
 			'shell.ocean.library' => 'Library',
@@ -8603,11 +8615,11 @@ extension on Translations {
 			'library.table.insertRowAbove' => 'Insert row above',
 			'library.table.insertRowBelow' => 'Insert row below',
 			'library.table.deleteRow' => 'Delete row',
+			_ => null,
+		} ?? switch (path) {
 			'library.table.insertColLeft' => 'Insert column left',
 			'library.table.insertColRight' => 'Insert column right',
 			'library.table.deleteCol' => 'Delete column',
-			_ => null,
-		} ?? switch (path) {
 			'library.table.deleteTable' => 'Delete table',
 			'library.skillSourceMode' => 'Source',
 			'library.skillRichMode' => 'Rich text',

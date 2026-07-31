@@ -12,18 +12,23 @@
 # 数据源,故它只追加、时戳由本脚本盖,不经手写。
 import argparse
 import datetime
+import hashlib
 import json
 import re
 import os
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
-COVERAGE = ROOT / "../../docs/working/acceptance-loop/COVERAGE.md"
-CODEX = ROOT / "../../docs/working/acceptance-loop/CODEX.md"
+COVERAGE = Path(os.environ.get("RIG_COVERAGE", str(ROOT / "../../docs/working/acceptance-loop/COVERAGE.md")))
+CODEX = Path(os.environ.get("RIG_CODEX", str(ROOT / "../../docs/working/acceptance-loop/CODEX.md")))
 RIG_HOME = Path(os.environ.get("RIG_HOME", str(Path.home() / ".anselm-rig")))
 JOURNAL = RIG_HOME / "judgments.jsonl"
 ALARMS = RIG_HOME / "alarms.json"
+ANCHORS = ROOT / "anchors.json"
+ANCHOR_STATUS = Path(os.environ.get("RIG_ANCHOR_STATUS", str(RIG_HOME / "anchor-check.json")))
+ANCHOR_MAX_AGE = datetime.timedelta(hours=4)
 
 SYM = {"pass": "✓", "fail": "✗", "na": "~"}
 
@@ -40,6 +45,22 @@ def open_alarms():
         return [a for a in json.loads(ALARMS.read_text()) if not a.get("acked")]
     except Exception:
         return [{"id": "alarms-unreadable", "note": "alarms.json corrupt — treat as open"}]
+
+
+def calibration_problem():
+    try:
+        status = json.loads(ANCHOR_STATUS.read_text())
+        checked = datetime.datetime.fromisoformat(status["checkedAt"])
+        if checked.tzinfo is None:
+            checked = checked.replace(tzinfo=datetime.timezone.utc)
+        if datetime.datetime.now(datetime.timezone.utc) - checked > ANCHOR_MAX_AGE:
+            return "anchor calibration is older than 4h"
+        digest = hashlib.sha256(ANCHORS.read_bytes()).hexdigest()
+        if status.get("anchorSetSha256") != digest:
+            return "anchor set changed after calibration"
+    except (OSError, ValueError, KeyError, TypeError):
+        return "anchor calibration missing or unreadable"
+    return ""
 
 
 def law_exists(law: str) -> bool:
@@ -67,8 +88,11 @@ def main():
     ap.add_argument("--session", default="", help="rig session dir (required for level-2 verdicts)")
     args = ap.parse_args()
 
-    if args.verdict == "pass" and (alarms := open_alarms()):
-        fail(f"{len(alarms)} open alarm(s) — resolve/ack them before any new pass: {[a['id'] for a in alarms]}")
+    if args.verdict == "pass":
+        if problem := calibration_problem():
+            fail(f"{problem} — run anchors.py quiz, answer it, then anchors.py check")
+        if alarms := open_alarms():
+            fail(f"{len(alarms)} open alarm(s) — resolve/ack them before any new pass: {[a['id'] for a in alarms]}")
 
     if args.verdict in ("pass", "fail"):
         if not args.law or not law_exists(args.law):
@@ -86,9 +110,29 @@ def main():
         if not args.session:
             fail("level-2 (数据真相) pass requires --session <rig session dir>")
         s = Path(args.session)
-        for j in ("manifest.json", "backend.log", "sse.jsonl"):
-            if not (s / j).exists():
-                fail(f"session journal {j} missing — five-channel evidence incomplete")
+        required = ("manifest.json", "backend.log", "sse.jsonl", "frontend.log", "llm.jsonl", "screen.mov")
+        for j in required:
+            p = s / j
+            if not p.exists() or p.stat().st_size == 0:
+                fail(f"session journal {j} missing or empty — five-channel evidence incomplete")
+        try:
+            subprocess.run(
+                ["ffprobe", "-v", "error", "-show_entries", "format=duration", "-of", "csv=p=0", str(s / "screen.mov")],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True,
+            )
+        except (OSError, subprocess.CalledProcessError):
+            fail("screen.mov is not a finalized readable recording")
+        try:
+            sse = [json.loads(line) for line in (s / "sse.jsonl").read_text().splitlines()]
+        except (OSError, ValueError):
+            fail("sse.jsonl is unreadable")
+        connected = {row.get("stream") for row in sse if row.get("tap") == "connect"}
+        missing = {"messages", "entities", "notifications"} - connected
+        if missing:
+            fail(f"SSE witness never connected streams: {sorted(missing)}")
 
     text = COVERAGE.read_text()
     pat = re.compile(rf"^(\| {args.family}-\d+ \| {re.escape(args.item)} \| .*\| )([·✓✗~]{{5}})( \| )(.*?)( \|)$", re.M)

@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
@@ -19,6 +21,8 @@ BlockNode _node(
   String result, {
   String? progress,
   String? entityName,
+  String resultStatus = 'completed',
+  String? resultError,
 }) {
   final call = BlockNode(id: 'tc_x', kind: BlockKind.toolCall)
     ..status = 'completed'
@@ -32,7 +36,8 @@ BlockNode _node(
   }
   call.children.add(
     BlockNode(id: 'tr_x', kind: BlockKind.toolResult)
-      ..status = 'completed'
+      ..status = resultStatus
+      ..error = resultError
       ..content = {'content': result},
   );
   return call;
@@ -202,6 +207,66 @@ void main() {
       findsWidgets,
     ); // bar + receipt both say 运行失败
   });
+
+  testWidgets(
+    'run_function hard tool error is rendered once through the bounded family body',
+    (tester) async {
+      const error = 'run_function: function not found';
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _node(
+              'run_function',
+              '{"functionId":"fn_missing","args":{}}',
+              '',
+              resultStatus: 'error',
+              resultError: error,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // The family owns the bounded error excerpt; the chassis must not render a second raw copy.
+      // 族体负责有界错误摘要，底盘不能再渲染第二份原文。
+      expect(find.text(error), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'run_function long failure keeps the terminal cause visible in the red excerpt',
+    (tester) async {
+      final error = [
+        ...List.generate(30, (i) => 'MIDDLE-${i.toString().padLeft(3, '0')}'),
+        'TAIL-END',
+        'RuntimeError: TAIL-FAILURE',
+      ].join('\n');
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _node(
+              'run_function',
+              '{"functionId":"fn_long_failure","args":{}}',
+              jsonEncode({
+                'ok': false,
+                'output': null,
+                'errorMsg': error,
+                'elapsedMs': 58,
+              }),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      // Repetitive log lines must not hide the terminal traceback; the full log remains in LogDrawer.
+      // 重复日志不能遮住最终 traceback；完整日志仍在日志抽屉。
+      expect(find.textContaining('RuntimeError: TAIL-FAILURE'), findsOneWidget);
+      expect(find.textContaining('MIDDLE-000'), findsOneWidget);
+    },
+  );
 
   testWidgets('run_function logs drawer folds print() output', (tester) async {
     await tester.pumpWidget(

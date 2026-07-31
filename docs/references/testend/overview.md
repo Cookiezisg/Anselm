@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-12
-reviewed: 2026-07-31
-review-due: 2026-10-29
+reviewed: 2026-08-01
+review-due: 2026-10-30
 audience: [human, ai]
 ---
 
@@ -60,6 +60,18 @@ wire 时使用透明 recorder、exact-byte 断言或 provider usage；无法观�
 Sandbox 运行时缓存只保存可派生 runtime，不保存 pidfile 或业务状态。Darwin
 优先使用 copy-on-write clone 预置，其他环境回落复制并显式记录；隔离语义不能
 因缓存优化改变。
+
+## 全产品验收台架
+
+`testend/rig/` 是 WRK-087 的专机台架，不是普通自动化测试。`rig-up.sh` 亲自编译并托管真实
+Flutter App、sidecar、屏幕录像、动态全 workspace SSE witness 与受管网关 wire witness；
+`rig-check.sh` 持续证明五通道归属和接线；`rig-down.sh` 按顺序排空进程并封口 MOV。完整操作只认
+[`testend/rig/README.md`](../../../testend/rig/README.md)，不能用手起 App、外来 sidecar 或缺失
+任一 journal 的会话代替。
+
+台架观察者仍遵守 testend 的黑盒边界：`cmd/ssetap` 只打 HTTP/SSE，`cmd/llmtap` 只代理上游线缆，
+`cmd/measure` 只读截图/帧。受管录制代理通过 `ANSELM_PROOF_HOST` 继续把 device proof 绑定真实
+受众；它只允许本机透明途经，不改变证明能在哪里消费。
 
 ## 多模态素材
 

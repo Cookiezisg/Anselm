@@ -20,14 +20,27 @@ import 'transcript_peek.dart';
 // the ExecutionResult shape ({ok, output, errorMsg, elapsedMs, logs?}); the body is intent → input
 // section → (logs drawer) → output section → exec result bar. F08 执行体:输入→黑箱→输出的可核账凭据。
 
+const int _errorExcerptLines = 20;
+
+String _errorExcerpt(String msg) {
+  final lines = msg.trim().split('\n');
+  if (lines.length <= _errorExcerptLines) return msg;
+  // Keep a small prefix for context and the tail where tracebacks and the actual failure live. The
+  // full payload remains in LogDrawer, so the red summary never spends its height on repetitive logs.
+  // 头部留少量上下文、尾部保留 traceback/真实失败；完整载荷仍在日志抽屉，红摘要不被重复日志占满。
+  const head = 3;
+  final tail = _errorExcerptLines - head;
+  return [...lines.take(head), ...lines.skip(lines.length - tail)].join('\n');
+}
+
 // A bounded error line (shared by run_function / call_handler bodies). Multi-line so the padding token
 // sits on its own line (not co-lined with a bare maxLines number). 有界错误行(两执行体共用)。
 Widget _errorLines(AnColors c, String msg) => Padding(
   padding: const EdgeInsets.only(bottom: AnSpace.s2),
   child: Text(
-    msg,
+    _errorExcerpt(msg),
     style: AnText.code.copyWith(color: c.danger),
-    maxLines: 20,
+    maxLines: _errorExcerptLines,
     overflow: TextOverflow.ellipsis,
   ),
 );
@@ -72,7 +85,14 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
   final out = _obj(state.resultText);
   final input = _obj(state.argsText)?['args'];
   final logs = out?['logs'] as String?;
-  final errorMsg = out?['errorMsg'] as String?;
+  // A sandbox failure is inside ExecutionResult, while a tool/framework failure (for example a
+  // missing function) arrives as the tool_result's separate `error` field. Keep both on the same
+  // bounded visual path; the chassis must not append the raw, unbounded field again.
+  // 沙箱失败在 ExecutionResult 内，工具/框架失败(如函数不存在)在 tool_result 独立 `error` 字段；
+  // 两者统一走同一条有界视觉路径，底盘不能再追加无界原文。
+  final errorMsg =
+      out?['errorMsg'] as String? ??
+      (state.errorText.isEmpty ? null : state.errorText);
   final ok = out?['ok'] == true;
 
   return Column(

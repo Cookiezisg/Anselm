@@ -10,11 +10,17 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."   # frontend/
 ROOT="$(cd .. && pwd)"
 PORT="${ANSELM_DEV_PORT:-8742}"
-URL="http://127.0.0.1:$PORT"
+EXPLICIT_BACKEND="${ANSELM_BACKEND_URL:-}"
+URL="${EXPLICIT_BACKEND:-http://127.0.0.1:$PORT}"
 DEVICE="${DEVICE:-macos}"
 MISE="${MISE:-mise}"
 
 if ! curl -sf "$URL/api/v1/health" >/dev/null 2>&1; then
+  if [ -n "$EXPLICIT_BACKEND" ]; then
+    echo "✗ explicit ANSELM_BACKEND_URL is not healthy: $URL" >&2
+    echo "  Refusing to silently start or attach to a different backend." >&2
+    exit 1
+  fi
   echo "→ no backend on :$PORT — starting it (make -C backend run) in the background …"
   ( cd "$ROOT" && make -C backend run ) >/tmp/anselm-dev-server.log 2>&1 &
   for i in $(seq 1 80); do curl -sf "$URL/api/v1/health" >/dev/null 2>&1 && break || sleep 0.5; done
@@ -22,6 +28,9 @@ if ! curl -sf "$URL/api/v1/health" >/dev/null 2>&1; then
     || { echo "✗ backend didn't come up (see /tmp/anselm-dev-server.log)"; exit 1; }
   echo "  backend up on :$PORT (persists across app restarts — 'make -C backend stop' from repo root to kill)."
 else
+  if [ -n "$EXPLICIT_BACKEND" ]; then
+    echo "→ attaching to explicit backend $URL."
+  else
   # Say HOW OLD it is. Reuse is the right default (the backend outlives app restarts), but a silent
   # reuse turns 真机验收 into a lie: a session can run the whole acceptance against a binary from
   # hours ago and draw conclusions about code that is not running. Observed 0727 — a real-machine
@@ -32,13 +41,14 @@ else
   # 可以拿三小时前的二进制跑完整套验收,然后对**根本没在跑的代码**下结论。0727 实地撞上——一次真机播放
   # 「失败」,真因是后端启动于 `http.ServeContent` 那个修复落地前 3 小时;下面这行「跑了多久」正是当时
   # 一眼就能看破它的东西。
-  started=$(ps -o lstart= -p "$(lsof -ti :"$PORT" -sTCP:LISTEN 2>/dev/null | head -1)" 2>/dev/null | sed 's/^ *//')
-  if [ -n "$started" ]; then
-    echo "→ reusing backend already on :$PORT (started $started)."
-    echo "  ⚠ it is NOT rebuilt — if your Go code is newer, 'make -C backend stop' first or you are testing an old binary."
-  else
-    echo "→ reusing backend already on :$PORT (start time unknown)."
-    echo "  ⚠ it is NOT rebuilt — 'make -C backend stop' first if your Go code changed."
+    started=$(ps -o lstart= -p "$(lsof -ti :"$PORT" -sTCP:LISTEN 2>/dev/null | head -1)" 2>/dev/null | sed 's/^ *//')
+    if [ -n "$started" ]; then
+      echo "→ reusing backend already on :$PORT (started $started)."
+      echo "  ⚠ it is NOT rebuilt — if your Go code is newer, 'make -C backend stop' first or you are testing an old binary."
+    else
+      echo "→ reusing backend already on :$PORT (start time unknown)."
+      echo "  ⚠ it is NOT rebuilt — 'make -C backend stop' first if your Go code changed."
+    fi
   fi
 fi
 

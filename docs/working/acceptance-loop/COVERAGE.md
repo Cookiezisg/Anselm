@@ -26,8 +26,8 @@ landed-into:
 
 | ID | 项 | 摘要 | 五级 | 证据 |
 |---|---|---|---|---|
-| TOOL-001 | Read | filesystem · 读文件,cat -n 格式,默认前 2000 行,offset+limit 分页 | ····· |  |
-| TOOL-002 | Write | filesystem · 原子写文件(覆盖需本对话先 Read 过),父目录须存在 | ····· |  |
+| TOOL-001 | Read | filesystem · 读文件,cat -n 格式,默认前 2000 行,offset+limit 分页 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-9/evidence/tool-001-read-session-summary.txt; L2:F2→/tmp/anselm-rig-formal-20260801-9/evidence/tool-001-read-session-summary.txt; L3:A5→/tmp/anselm-rig-formal-20260801-9/evidence/tool-001-read-session-summary.txt; L4:C4→/tmp/anselm-rig-formal-20260801-9/evidence/read-tool-final.png; L5:G2→/tmp/anselm-rig-formal-20260801-9/evidence/read-tool-final.png |
+| TOOL-002 | Write | filesystem · 原子写文件(覆盖需本对话先 Read 过),父目录须存在 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-12/evidence/tool-002-write-session-summary.txt; L3:A5→/tmp/anselm-rig-formal-20260801-12/evidence/tool-002-write-session-summary.txt; L4:C4→/tmp/anselm-rig-formal-20260801-12/evidence/tool-002-write-session-summary.txt; L5:G2→/tmp/anselm-rig-formal-20260801-12/evidence/tool-002-write-session-summary.txt; L2:F2→/tmp/anselm-rig-formal-20260801-12/evidence/tool-002-write-session-summary.txt |
 | TOOL-003 | Edit | filesystem · 文件内精确字面串替换(非正则),须先 Read | ····· |  |
 | TOOL-004 | LS | search · 列目录直接内容(非递归),目录优先 | ····· |  |
 | TOOL-005 | Glob | search · glob 模式找文件(支持 ** 递归),按 mtime 倒序 | ····· |  |
@@ -419,18 +419,18 @@ landed-into:
 |---|---|---|---|---|
 | SURF-001 | shell/startup-gate | screen · 后端 phase 门控面:连接中 / 崩溃可重试 / 就绪显壳,整 app 单点。 | ····· |  |
 | SURF-002 | shell/workspace-gate | screen · 冷启动工作区名册解析中的「准备工作区」面,扣住 Router。 | ····· |  |
-| SURF-003 | shell/workspace-onboarding | screen · 零工作区单页创建面:左 Rijksmuseum 画作 + 右恒宽 460 决策列 + 真 AnComposer。 | ····· |  |
+| SURF-003 | shell/workspace-onboarding | screen · 零工作区单页创建面:左 Rijksmuseum 画作 + 右恒宽 460 决策列 + 真 AnComposer。 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-3/evidence/edge-325-onboarding.png; L2:F1→/tmp/anselm-rig-formal-20260801-3/evidence/first-slice-observations.txt; L3:B2→/tmp/anselm-rig-formal-20260801-3/evidence/visual-stability-final.txt; L4:C2→/tmp/anselm-rig-formal-20260801-3/evidence/edge-325-onboarding.png; L5:G1→/tmp/anselm-rig-formal-20260801-3/evidence/edge-325-onboarding.png |
 | SURF-004 | shell/ocean-switcher | rail · 左岛顶部四海洋图标钮 + matched-geometry 滑动药丸,settings 时无选中。 | ····· |  |
 | SURF-005 | shell/sidebar-footer | rail · 左岛底栏:workspace 快捷菜单 + 设置格 + 通知格(红点)。 | ····· |  |
 | SURF-006 | shell/ocean-breadcrumb-head | screen · 海洋浮层头 44px 透明带:reopen 钮 + OceanBreadcrumb 标题 + panel-right 钮。 | ····· |  |
 | SURF-007 | shell/notice-band | screen · 顶带消息舞台:AnNoticeCapsule / AnApprovalCapsule 居中 + 右缘队列尾巴。 | ····· |  |
 | SURF-008 | shell/notification-tray | rail · 铃接管左岛中段:搜索 + ⚙ + 今天/昨天/更早三时段可折叠组。 | ····· |  |
 | SURF-009 | shell/flowrun-inbox | rail · 铃托盘顶部「待你处理」审批带:parked 卡 + Approve/Reject。 | ····· |  |
-| SURF-010 | chat/landing | screen · 无选区新对话面:静态问候 h2 + 居中浮起 composer,首发建线程并导航。 | ····· |  |
-| SURF-011 | chat/transcript | screen · `/chat/:id` 对话正文流 + 停靠 composer,按会话 key 换台。 | ····· |  |
-| SURF-012 | chat/composer | screen · 停靠输入器:附件/@ mention/工作目录钮/git 动作/发送键两档。 | ····· |  |
-| SURF-013 | chat/toc | screen · 场次条:全量 keyset 分页锚点列,任意深度不静默截断。 | ····· |  |
-| SURF-014 | chat/log-drawer | screen · 共享日志抽屉:计行标签 + 双端截断 + 全量复制 + MCP stderr 分段。 | ····· |  |
+| SURF-010 | chat/landing | screen · 无选区新对话面:静态问候 h2 + 居中浮起 composer,首发建线程并导航。 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-3/evidence/chat-landing.png; L2:F1→/tmp/anselm-rig-formal-20260801-3/evidence/first-slice-observations.txt; L3:B2→/tmp/anselm-rig-formal-20260801-3/evidence/visual-stability-final.txt; L4:C2→/tmp/anselm-rig-formal-20260801-3/evidence/chat-landing.png; L5:G1→/tmp/anselm-rig-formal-20260801-3/evidence/chat-landing.png |
+| SURF-011 | chat/transcript | screen · `/chat/:id` 对话正文流 + 停靠 composer,按会话 key 换台。 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-3/evidence/chat-final.png; L2:F2→/tmp/anselm-rig-formal-20260801-3/evidence/first-slice-observations.txt; L3:A5→/tmp/anselm-rig-formal-20260801-3/evidence/visual-stability-final.txt; L4:C5→/tmp/anselm-rig-formal-20260801-3/evidence/chat-final.png; L5:G1→/tmp/anselm-rig-formal-20260801-3/evidence/chat-final.png |
+| SURF-012 | chat/composer | screen · 停靠输入器:附件/@ mention/工作目录钮/git 动作/发送键两档。 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-4/evidence/composer-mention-final.png; L2:F2→/tmp/anselm-rig-formal-20260801-4/evidence/composer-surface-session-summary.txt; L3:A5→/tmp/anselm-rig-formal-20260801-4/evidence/composer-surface-session-summary.txt; L4:C4→/tmp/anselm-rig-formal-20260801-4/evidence/composer-mention-final.png; L5:G2→/tmp/anselm-rig-formal-20260801-4/evidence/composer-mention-candidate.png |
+| SURF-013 | chat/toc | screen · 场次条:全量 keyset 分页锚点列,任意深度不静默截断。 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-5/evidence/toc-full-list.png; L2:F2→/tmp/anselm-rig-formal-20260801-5/evidence/toc-surface-session-summary.txt; L3:B2→/tmp/anselm-rig-formal-20260801-5/evidence/toc-jump-present.png; L4:C4→/tmp/anselm-rig-formal-20260801-5/evidence/toc-full-list.png; L5:G2→/tmp/anselm-rig-formal-20260801-5/evidence/toc-full-list.png |
+| SURF-014 | chat/log-drawer | screen · 共享日志抽屉:计行标签 + 双端截断 + 全量复制 + MCP stderr 分段。 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-8/evidence/surf-014-session-summary.txt; L2:F2→/tmp/anselm-rig-formal-20260801-8/evidence/surf-014-session-summary.txt; L3:A5→/tmp/anselm-rig-formal-20260801-8/evidence/surf-014-session-summary.txt; L4:C4→/tmp/anselm-rig-formal-20260801-8/evidence/log-drawer-mcp-dossier.png; L5:G2→/tmp/anselm-rig-formal-20260801-8/evidence/log-drawer-mcp-dossier.png |
 | SURF-015 | chat/run-dossier | screen · 一次执行的完整审计卷宗:状态徽 + 溯源 + I/O 机器窗 + 日志抽屉。 | ····· |  |
 | SURF-016 | chat/nested-run-pane | screen · Subagent/invoke_agent 卡下的 live E3 嵌套轨迹窗。 | ····· |  |
 | SURF-017 | chat/tool-cards | screen · 对话流内联工具卡族(exec/search/todo/trigger/workflow/subagent 等 20+ 皮肤)。 | ····· |  |
@@ -860,8 +860,8 @@ landed-into:
 | EDGE-322 | 应内缩放到顶 | frontend · 在小屏上连按 ⌘+ · `maxFactor` = 屏可容/设计 min，到顶即停、绝不撑破布局；持久化档恢复时也按当前屏收敛 | ····· |  |
 | EDGE-323 | 进全屏白带 | frontend · 从小窗进原生全屏 · 在原生 `willEnterFullScreen`（动画**前**）撤 toolbar，过渡无白带（window_manager … | ····· |  |
 | EDGE-324 | 窗角半径 swizzle 失效 | frontend · 让 `NSThemeFrame` 私有半径 getter 改名（未来 OS 版本） · 判空守卫静默回落系统半径、不崩 | ····· |  |
-| EDGE-325 | 空工作区名册 | frontend · 全新安装（或出厂重置）后启动 · 停在单页 onboarding，创建成功直接落空白 Chat；不另存 first-run flag，故恢复数据库不漂移 | ····· |  |
-| EDGE-326 | 首启创建过渡 | frontend · 在 onboarding 提交名字 · 旧面与真 Shell 短暂共存、按两端实测 Composer 矩形做 560ms paint-only 飞行；r… | ····· |  |
+| EDGE-325 | 空工作区名册 | frontend · 全新安装（或出厂重置）后启动 · 停在单页 onboarding，创建成功直接落空白 Chat；不另存 first-run flag，故恢复数据库不漂移 | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-3/evidence/edge-325-onboarding.png; L2:F1→/tmp/anselm-rig-formal-20260801-3/evidence/first-slice-observations.txt; L3:B2→/tmp/anselm-rig-formal-20260801-3/evidence/visual-stability-final.txt; L4:C2→/tmp/anselm-rig-formal-20260801-3/evidence/edge-325-onboarding.png; L5:G1→/tmp/anselm-rig-formal-20260801-3/evidence/edge-325-onboarding.png |
+| EDGE-326 | 首启创建过渡 | frontend · 在 onboarding 提交名字 · 旧面与真 Shell 短暂共存、按两端实测 Composer 矩形做 560ms paint-only 飞行；r… | ✓✓✓✓✓ | L1:G1→/tmp/anselm-rig-formal-20260801-3/evidence/chat-landing.png; L2:F1→/tmp/anselm-rig-formal-20260801-3/evidence/first-slice-observations.txt; L3:B2→/tmp/anselm-rig-formal-20260801-3/evidence/visual-stability-final.txt; L4:C2→/tmp/anselm-rig-formal-20260801-3/evidence/edge-326-transition-before.png; L5:G1→/tmp/anselm-rig-formal-20260801-3/evidence/chat-landing.png |
 | EDGE-327 | workspace 热切换三拍 | frontend · 在一条对话深链上切换 workspace · ①同瞬 `go('/')` 并清右岛线程记忆 ②post-frame 才设 id（先离开是先一**帧**）… | ····· |  |
 | EDGE-328 | 快捷键冷启动 | frontend · 冷启动后不点任何地方直接按 ⌘B · `GlobalShortcuts` 挂在 autofocus **之上**才不被饿死（放焦点之下要先点一下才活） | ····· |  |
 | EDGE-329 | 快捷键录制后吞键 | frontend · 在设置里录一个新绑定后继续按组合键 · 录完 `unfocus()` 交还键盘，否则本行吞掉后续每次组合键 | ····· |  |

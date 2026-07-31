@@ -45,13 +45,15 @@ class AnMenuItem extends AnMenuEntry {
 
 /// F2 — a floating command / option menu on [AnPopover]: section labels + rows of `lead (icon or check) |
 /// label | meta`, with danger / disabled / checked flavors. [anchorBuilder] builds the trigger and is
-/// handed a `toggle` callback + the open state (wire it to a button's onPressed). Picking an item runs its
-/// onTap and closes the menu unless [AnMenuItem.keepOpen] (multi-check sliders stay open). The reusable
+/// handed a `toggle` callback + the open state (wire it to a button's onPressed). Picking an item starts
+/// closing the menu before running its onTap unless [AnMenuItem.keepOpen] (multi-check sliders stay open).
+/// The reusable
 /// base for sidebar sliders (Sort / Display), row-more actions, and the shell ⋯ menu.
 ///
 /// F2——浮层命令/选项菜单(搭 AnPopover):分组小标题 + `前导(icon 或 勾)| 标签 | meta` 行,带 danger/disabled/checked
-/// 风味。anchorBuilder 建触发器、收到 toggle + 开合态(接到按钮 onPressed)。pick 跑 onTap 后收起,除非 keepOpen(多选 sliders
-/// 不收)。sidebar sliders(Sort/Display)、row-more、壳 ⋯ 菜单的共享基座。
+/// 风味。anchorBuilder 建触发器、收到 toggle + 开合态(接到按钮 onPressed)。pick 先发起收起,再在同一事件
+/// 循环跑 onTap,除非 keepOpen(多选 sliders 不收);浮层只在仍持焦时归还触发器焦点。sidebar sliders(Sort/Display)、
+/// row-more、壳 ⋯ 菜单的共享基座。
 class AnMenu extends StatefulWidget {
   const AnMenu({
     required this.anchorBuilder,
@@ -176,8 +178,19 @@ class _AnMenuState extends State<AnMenu> {
       danger: item.danger,
       autofocus: autofocus,
       onTap: () {
-        item.onTap?.call();
-        if (!item.keepOpen) _popover.close();
+        if (item.keepOpen) {
+          item.onTap?.call();
+          return;
+        }
+        // Start the exit before the command, but do not make the command wait on animation completion:
+        // a menu pick is a user action, not an animation callback. The popover only restores focus when
+        // it still owns focus, so a command that opens a dialog keeps the dialog's focus.
+        // 先发起退场,但不把命令绑在动画完成回调上:点菜单是用户动作,不是动画回调。浮层只在仍持焦时归还焦点,
+        // 因此会开 dialog 的命令不会被抢焦。
+        _popover.close();
+        Future<void>.microtask(() {
+          if (mounted) item.onTap?.call();
+        });
       },
       builder: (context, active) {
         final c = context.colors;

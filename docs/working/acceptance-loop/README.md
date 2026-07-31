@@ -4,18 +4,21 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-07-27
-reviewed: 2026-07-27
-review-due: 2026-10-25
+reviewed: 2026-08-01
+review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
 
 # WRK-087 · 端到端全产品验收循环(acceptance loop)
 
-> **状态(2026-07-31 晚):台架已按新 main 全量重落并真机冒烟全通(P14);清册已四路重校对齐新 main
-> (848 行 × 5 级 = 4240 格,零裁决损失);操作手册 [`testend/rig/README.md`](../../../testend/rig/README.md)
-> 使**任何 agent 不带对话记忆即可操作全套台架**(用户 0731 要求)。loop 未开跑,余两个开跑前条件:
-> ①用户过目 JOURNEYS(N6)②锚点集冻结(录屏台架在真 App 上定型后)。**
+> **状态(2026-08-01):Day 0 已打通。conductor 亲自托管真实 App、Flutter console、屏幕录像、
+> 后端、三路 SSE 与网关线缆,并在全新数据目录完成 onboarding → 受管开通 → 五通道自检 →
+> 优雅收台的真机闭环。清册为 848 行 × 5 级 = 4240 格;锚点校准已冻结并接入 gate。
+> 操作手册 [`testend/rig/README.md`](../../../testend/rig/README.md) 使任何 agent 不带对话记忆也能
+> 操作全套台架。400+ 旅程扩写按 P12 推迟二期,一期直接按 COVERAGE 驻停清扫。Goal 已配置为
+> active，Loop 执行协议见 [`LOOP.md`](LOOP.md)；主循环已启动，当前首批完成 50/50 个单格，
+> `TOOL-002 Write` 已收尾；统一长门禁、完整 testend 与最终 workspace verify 均已通过，现进入提交前审计。**
 >
 > **开工前提已满足**:另一团队的后端大改(BYOK 全目录 / 生成收归受管 / 音色 / 媒体子域 …)已并入
 > `main`;本仓与隔壁 `Anselm-API-Serve` 均已对齐到各自最新 `main`。
@@ -60,9 +63,10 @@ landed-into:
 | P9 | **专用机器,24h 独占** | 「机器我单独给你配了一台电脑。这台电脑24小时都是你的,我不会打扰」 |
 | P10 | **修复权限边界认可**(直接修 + 代拍台账,产品形状级决策才停下等拍)+ **前置工程认可**(台架与清册各投约一天) | 「产品边界我认。前置工程我也认」 |
 | P11 | **单一作者连续施工,不换 agent;质量控制全靠机制**,用户不在场是默认假设;金标准取行业已知 | 「不同意换agent施工。我这边没办法老看你。我想这一切靠机制来控制。很多东西的金标准其实全行业都知道的」 |
-| P12 | **旅程目录至少 400 条、非排列组合堆砌、对产品 100% 覆盖**——⏸ **用户 0728 裁定推迟到二期迭代,一期照现有 47 条旅程开跑**。原拍板:「Journey实在是太少太少了,产品的可能性非常多……至少400条,而且不是靠排列组合堆砌的……我希望能够做到对产品100%覆盖」;推迟原话:「那我们抛弃吧,我不想再浪费token了,journey的优化我后面放二期迭代」。**核验器 `testend/rig/check_journeys.py` 已在盘上并自证基线**(读 0%,因 47 条版无「扫」字段),二期照做法直接落:每条旅程带「扫」字段逐字认领清册行,脚本 diff 出未认领行,认领不动的进「幕后」段给理由。**一期不受阻**——清册 827 行仍是覆盖真相源,主循环按 COVERAGE 面矩阵驻停清扫,旅程只作路线 | 见左 |
+| P12 | **旅程目录至少 400 条、非排列组合堆砌、对产品 100% 覆盖**——⏸ **用户 0728 裁定推迟到二期迭代,一期照现有 47 条旅程开跑**。原拍板:「Journey实在是太少太少了,产品的可能性非常多……至少400条,而且不是靠排列组合堆砌的……我希望能够做到对产品100%覆盖」;推迟原话:「那我们抛弃吧,我不想再浪费token了,journey的优化我后面放二期迭代」。**核验器 `testend/rig/check_journeys.py` 已在盘上并自证基线**(读 0%,因 47 条版无「扫」字段),二期照做法直接落:每条旅程带「扫」字段逐字认领清册行,脚本 diff 出未认领行,认领不动的进「幕后」段给理由。**一期不受阻**——清册 848 行仍是覆盖真相源,主循环按 COVERAGE 面矩阵驻停清扫,旅程只作路线 | 见左 |
 | P13 | **对齐新 main 时整体清零我方代码差异**——两仓都拉到最新 `main`;`Anselm-API-Serve` 不允许有任何差异;本仓唯一允许的差异是 `docs/working/acceptance-loop/` 这套战役文档。据此撤下:台架三件套与两个 tap、测量脚本箱、gate/警报/核验器/生成器、`proxycore` 重构、后端 `ANSELM_PROOF_HOST`、`api.md` 四处 `[doc-fix]`(后三者原地已被新 main 的改动覆盖或作废) | 「我们这边不要有任何diff,抛弃我们所有其他的commit,对比最新main分支,API Serve不允许有差异,我们这边的差异是,我们这docs里加一下我们新的这个working」 |
 | P14 | **P13 的撤下是误点,当日翻案:台架照原标准全量重落**——「标准不能变」;并新增一条硬要求:**台架必须做到任何 agent 都能用**(不依赖单一会话的记忆)——落为 [`testend/rig/README.md`](../../../testend/rig/README.md) 自足操作手册 | 「哦,我需要你给我把这些坐回来。标准不能变的。刚刚点错了……而且还有一个要求,哪个agent来都可以用」 |
+| P15 | **以 50 个 COVERAGE 单格为一个施工批次**:单格仍逐个真实验证、发现即停修;累计到 50 格后统一跑门禁、完整 testend、警报复核并提交,不为赶批次降低质量 | 「门禁你也看到了,特别特别长,所以走完50个格子后,才开始统一搞一次门禁+提交」 |
 
 **未被否决(我提议,用户未反对;翻案即改)**:
 
@@ -73,7 +77,7 @@ landed-into:
 | N3 | **旅程走线 × 驻停清扫**:旅程给路线与产品语境;每到一站打开该面清册页穷尽掉(每状态/控件/边界/构造变体全过五级)才离站;无旅程经过的清册行写构造补线(仍以用户视角写) | 「带着房间清单的深度清扫,沿旅程路线走」 |
 | N4 | **三压缩器**:原语级修复(修在 token/原语上,整列翻绿)· 同类横扫(发现一处即横扫同类面)· 现场立法(裁决沉淀成法,后面机械地审) | 乘法体量(万级格子)可行性的来源 |
 | N5 | **控制系统六机制**(纯机制、零人力、单一作者,详见 §4):法典先行 / 判断降为测量 / 账本 gate / 锚点机械自校 / 统计警报 / 守卫+夜间门禁压舱 | 承诺的不是「不下滑」,是「下滑活不过一天且有纠偏程序」 |
-| N6 | **旅程目录开跑前用户过目一次**(旅程编码产品意图,源头应是用户);其余全程用户想看才看 | 唯一保留的用户触点 |
+| N6 | **旅程目录开跑前用户过目一次**——✅ 用户已过目并裁定现版太少；随后按 P12 明确把 400+ 扩写推迟二期，因此一期不再受此触点阻塞 | 唯一保留的用户触点已完成 |
 | N7 | **完成判据 = 清册干涸(矩阵全绿),一周 = 预算非判据**;溢出诚实溢出在账上,绝不合并格子宣称测过 | 诚实律 |
 | N8 | **AI 引导面也是产品面**:工具描述/system prompt 装配/模型跑偏时的兜底,判「产品聪明不聪明」,在直接修权限内,修完真对话复验 | AI 产品特有的一层 |
 | N9 | **停与修分离**:停是义务(前线冻结、格子红着),修不必在同一口气里赶完 | stop-and-fix 的本义是前线不带病推进 |
@@ -143,91 +147,64 @@ recorder 真在录;自检项常驻,台架变更后重跑。
 6. 账本 gate 脚本(§4.3)。
 7. 锚点集(§4.4)。
 8. 警报脚本(§4.5)。
-9. **LOG.md** 逐日日志 + 代拍台账(§6)。
+9. **[LOG.md](LOG.md)** 逐日日志 + 代拍台账(§6)。
 
 证据(PNG/录屏/journal)落专机本地目录、不入 git,账上记指针;路径 Day 0 定稿后回填本节。
 
-### 5.1 试用轮实测记录(2026-07-28,Day 0 前置事实)
+### 5.1 真机闭环(2026-08-01,当前实现)
 
-用户指示「先跑一轮试用 app、各种权限走到底」(0728 原话),实测结果:
+在隔壁团队大改合并后的最新 `main` 上，以**全新数据目录**执行了一次完整闭环：`rig-up` 建并托管
+五个进程组 → App 显示首次 onboarding → Computer Use 创建 `Rig Smoke` workspace → sidecar 经
+本机 llmtap 完成 challenge/install/models(均 200)→ ssetap 在 workspace 出现后自动发现并接入
+messages/entities/notifications 三流 → `rig-check` 五通道全绿 → `rig-down` 依次收 App、后端、SSE、
+llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov` 经 ffprobe 可读(78.02s)。
 
-- ✅ **Computer Use 全通**:`website.anselm.app`(显示名 `anselm`)full tier 授权;截图/点击/打字/快捷键
-  全部工作。**chat 端到端真跑通**:真消息 → 真网关(`anselm-auto` 受管路由)→ 流式 markdown 渲染 →
-  自动命名双落(rail + 面包屑)→ composer 三态(空闲 mic / 可发箭头 / 流式中停止方块)全部正确。
-- ✅ 通道四(前端 console):`flutter run` stdout 即 journal,试用轮零报错。
-- ✅ ffmpeg 已装(brew),录屏抽帧的解帧半就绪。
-- ✅ **屏幕录制权限已授予并闭环**(用户 0728 在系统设置手动授予):静帧 2880×1800、视频
-  **60fps 原生**(逐帧粒度恰为一个 Flutter 帧 16.7ms)、ffmpeg 抽帧全分辨率——录屏→抽帧管线全通,
-  权限至此**全部走到底**。
-- ⚠️ **台架教训(当场抓到,记入自检)**:journal 归属必须验证——本轮我起的后端因端口被一小时前的
-  dev 后端占着而瞬间退出,我的 backend.log 悄悄成了死进程的日志,活流量全在别处
-  (`/tmp/anselm-dev-server.log`)。**台架自检新增一条:持有服务端口的 PID 必须 == 我捕获 stdout
-  的 PID**,否则通道二整条是假的。
-- 📋 环境事实:dev 后端惯例端口 `:8742`;`make -C backend seed` 建的是独立「演示工作台」workspace
-  (与既有「Weilin」并存,rail 只显当前 workspace 的对话——隔离在正常工作,验收时注意 workspace 轴)。
+本轮不是“组件理论可用”，而是确认了以下真实边界：
 
-### 5.2 Day 0 进度(0728 建成 → 0731 按 P14 在新 main 上全量重落,当晚真机冒烟全通)
+- `screencapture -v` 录制中不会产生可读 MOV，故 L2 裁决只接受 **rig-down 后**已封口且 ffprobe
+  可读的会话。
+- onboarding 前没有 workspace；ssetap 必须常驻轮询并动态接管后续创建的每个 workspace，热切换
+  也不得丢观察面。
+- conductor 派生进程必须独立 session；普通后台子进程会随启动 shell 退出，造成“刚绿即死”。
+- 透明代理只转发 `Flush` 不够；`ResponseController` 必须能 `Unwrap` 到 `Hijacker`，否则 SSE 正常而
+  WebSocket 语音路径全部 500。真实 101 upgrade 已有守卫测试。
+- Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
+  sidecar 不算验收证据。
 
-**重落实况(0731)**:侦察发现 `harness/llmrecord.go` 与 `deviceproof/` 在新 main 上**逐字未变**,
-故存档(tag `rig/day0-archive`)全部原样合流,仅三类适配:①WRK 编号上移(085/086→087/088)
-②提取物目录改名 `testend/rig/extracts/`(0728 的 `coverage/` 名字撞上 `.gitignore:171` 的
-`**/coverage/`,提取物因此从未入库——这次目录名绕开陷阱,四份提取物真正入库)③`judge.py`/`alarms.py`
-的 `RIG_HOME` 改 env 可覆盖(与 shell 三件套同约定,互锁自测得以在临时目录零污染地跑)。
-**重落中新立一条自检(D1 同族,当场撞见)**:受管 key 的 base_url 在 provision 时**落库**
-(`freetier.go` 存 `AnselmGatewayBase()`),换过接线的旧数据目录会让受管流量**静默绕开 tap**——
-rig-up 对错指针直接拒绝、rig-check 持续断言(「通道五接线闸」)。
-**新 main 真机冒烟(0731)**:rig-up 全新数据目录→D1 归属验证✓→provision 穿 tap
-(challenge/install/models 全 200,`ANSELM_PROOF_HOST` 在新网关部署上依然成立)→接线闸确认落库指针
-指 tap✓→真发受管 chat 一条:线缆 `POST /v1/chat/completions` 200 在案、SSE 独立见证 35 帧
-(分流后 durable seq 单调:messages [1..8] 无洞)、后端 journal 零 WARN/ERROR→rig-check 全绿→
-rig-down 优雅收尾。互锁环自测(临时 RIG_HOME):合成橡皮章 journal→三曲线开单→gate 拒收 pass→
-ack 可销→数据未稀释时复查重开(设计如此)。
+### 5.2 Day 0 当前状态(整体重述,2026-08-01)
 
-| 交付物 | 0728 验证结论 · 0731 重落状态 |
+| 交付物 | 当前真相 |
 |---|---|
-| 通道一(帧):Computer Use + 录屏抽帧 | ✅ 全通(§5.1) |
-| 通道三(SSE tap):`testend/cmd/ssetap` | ✅ 已重落(`testend/cmd/ssetap`)· 0728 活后端真机验证——真发一条 chat 消息,三流全连、87 帧落 JSONL、durable seq 单调、断线自动落账重连(fromSeq 续传);帧形逐字与线缆同(`{seq,scope,id,frame:{kind,node}}`) |
-| conductor(`testend/rig/rig-{up,check,down}.sh`) | ✅ 已重落(`testend/rig/rig-{up,check,down}.sh`,0731 增通道五接线闸)· 0728 全周期真机验证——up:自建 server/ssetap 二进制、journal 落会话目录、**D1 归属自检**(端口 LISTEN 持有者 PID == 捕获 stdout 的 PID,预检拒收养外来后端——对着占 :8742 的真外来后端实测拒绝)、可选 seed、manifest+current 软链;check:权限/归属/健康/tap 活性/journal 非空五格;down:后端先 SIGTERM 走优雅关停、tap 后死、journal 保留。**自检当场抓到自己的坑**:裸 `lsof -ti` 会把 tap 的客户端连接算进持有者,归属判定必须 `-sTCP:LISTEN` |
-| 通道四(前端 console journal) | 形态已验(试用轮 flutter run stdout);接进 conductor 待 app 托管步 |
-| 通道五(`testend/cmd/llmtap` + `harness/proxycore`) | ✅ 已重落(`testend/cmd/llmtap` + `harness/proxycore` + 后端 `ANSELM_PROOF_HOST`〔deviceproof 单测绿〕)· 0728 **五通道全链真机证明**,0731 对新网关部署复证——透明代理核提取为 `harness/proxycore` 共享包(llmrecord 重构同吃,flush 军规只存一份);llmtap 独立进程:请求体落逐调用文件、响应状态入账;rig-up 默认接线(`ANSELM_GATEWAY_URL` 指 tap)。**当场撞上并解掉一个结构性问题**:device-proof 的 `htu` 按 DPoP 式签 host+path,受管流量**天生反代理**(经 tap 的 install 被生产网关 401——安全设计在正确工作)。解法=后端新 env `ANSELM_PROOF_HOST`(签**真实受众**主机;只放宽请求**途经**哪里、不放宽证明能**花在**哪里;不设=行为逐字不变),deviceproof 单测 + api.md env 段同步落。修后全链实测:challenge/install/models 全 200 且逐字在案,真 chat 回合穿 tap——请求体 50,253 字节留底、真网关 200、SSE 独立见证 32 帧、后端 journal 零 WARN/ERROR |
-| 测量脚本箱(`testend/cmd/measure`) | ✅ 已重落(`testend/cmd/measure`,守卫测试绿)——单二进制四子命令:`diff`(相邻帧变化占比+包围盒,每通道容差 8 吸收编码噪声)/ `regions`(目标色连通域矩形——高亮「等高吗、有缝吗」用像素回答)/ `contrast`(WCAG 2.x 原公式)/ `latency`(动作帧→首个越阈变化帧→ms)。守卫用**合成已知几何**钉(移动色块恰 200 像素变化/噪声档 Δ4 归零/黑白锚点恰 21:1);真 ffmpeg 帧冒烟通过 |
-| CODEX 法典([CODEX.md](CODEX.md),WRK-088) | ✅ **在盘上**——八域 32 条开局法(A 时延反馈/B 运动/C 几何/D 色彩/E 文案错误/F 数据真相五通道互证/G 可发现性/H AI 引导面),逐条带可执行判定(能测量的直接点名 measure 子命令与阈值)与来源分层(仓内军规>行业标准>自立法);附立法协议四条(触发/三要素/只收紧/回灌横扫)。docs verify 绿 |
-| COVERAGE 清册([COVERAGE.md](COVERAGE.md),WRK-089) | ⚠️ **在盘上但已过期**——四路机械提取(工具 121 / 端点 255 / 前端面 113〔含 i18n 键组逐组〕/ 难触发路径 338〔每条带构造配方与预期〕)= **827 行 × 5 级 = 4135 格**,但那是 **0728 旧后端**的投影:新 main 把生成整体收归受管并删掉直连方言、加了改图/图生视频/参考音色三工具与 BYOK 全目录(173 家)、音色库存与支出两个新面,故工具数/端点数/面数**全部作废,开跑前必须重提取**。生成器 `gen_coverage.py` ⏏ 撤下(重落时它仍是增量刷新的机制本体:行键=项名,重生成时已判列逐字携带、新行未判、消失行进墓碑,自测实证裁决跨重生成存活)。**⚠️ 记录订正**:原始提取物**从未入库**——`.gitignore:171` 的 `**/coverage/` 把 `testend/rig/coverage/*.md` 静默吃掉了,本表此前写的「入库」是错的;四份提取物(848 行)现备份在专机 `~/.anselm-rig/extracts-0728/`。**提取即产出真发现**:端点完备性 diff 抓到 4 处 api.md 漂移(0728 已 `[doc-fix]` 修掉,该提交按 P13 撤下——新 main 是否仍漂,重提取时自会再答一次) |
-| JOURNEYS 旅程目录([JOURNEYS.md](JOURNEYS.md),WRK-090) | ✅ **在盘上**,**⚠️ 待用户过目**(N6 唯一开工前触点);扩写至 400+ 推迟二期(P12)——九区 47 条主线(初见/对话主线/多模态创作/构建/自动化/知识技能/驻地/设置平台/坏天气),每条四行:目(用户视角)/线(站点)/判(特压的 CODEX 法条与 EDGE 行)/构(构造前置);驻停清扫语义与 COVERAGE 双账锁死;死角补线机制 + 排程节。docs verify 绿 |
-| 账本 gate(`testend/rig/judge.py`) | ✅ 已重落(`testend/rig/judge.py`,RIG_HOME 可覆盖)——标绿是脚本动作:pass/fail 必须援引**存在于 CODEX.md** 的法条(或 measure 值)+ 盘上真实非空的证据文件;na 必须写明为何不适用;L2(数据真相)pass 必须带 rig session 且五通道 journal 齐;**警报未销期间新 pass 一律拒收**;每次裁决盖时戳追加 `~/.anselm-rig/judgments.jsonl`(警报曲线数据源,只追加不手写)。四条拒收路径 + 落格 + journal 实测 |
-| 警报脚本(`testend/rig/alarms.py`) | ✅ 已重落(`testend/rig/alarms.py`,0731 互锁环复测)——三曲线:裁决间隔中位数 <25s(快得不像真看过证据)/ 末 10 条速率 vs 尾窗基线 ≥3×(通过率暴冲)/ 近 50 条 fail 占比 <5%(发现率塌方:更可能是判断失灵而非产品变干净);开局阈值集中成文、随真实数据按立法协议收紧;`ack` 须写销账依据。**互锁环端到端实测**:合成橡皮章 journal → 警报开单 → gate 拒收新 pass → 销账 → 恢复 |
-| 锚点集 | ⏳ **刻意后置**(唯一未建项):冻结条件 = 录屏台架在真 App 上定型 + 另一团队 WRK-082 收尾合并后(锚点判在别人正在改的面上会作废);Day 0 其余全部就绪后、主循环开跑前冻结 |
+| 五通道 conductor | ✅ `rig-{up,check,down}.sh` 亲自托管 App、Flutter console、录像、后端、动态全 workspace SSE tap、LLM tap；D1 端口归属、受管 baseURL 接线、进程身份、journal 与三流连接持续自检。任一通道禁用时不得报验收绿 |
+| 帧与 Computer Use | ✅ 屏幕权限、真实交互、MOV 封口、ffmpeg/ffprobe 全通；Computer Use 负责操作与现场截图，连续录像由 conductor 落盘 |
+| SSE witness | ✅ `cmd/ssetap` 支持固定 workspace 与动态全 workspace；durable cursor 逐流续传，每帧带 workspace/stream/接收时戳 |
+| LLM witness | ✅ `cmd/llmtap` 请求体与响应体逐调用留底；透明核同时保 SSE flush 与 WebSocket upgrade；device-proof 仍签真实受众，不放宽证明消费边界 |
+| 测量脚本箱 | ✅ `cmd/measure` 提供 diff/regions/contrast/latency；diff 与 latency 支持 ROI，排除时钟、光标和无关动画；合成已知几何守卫绿 |
+| CODEX | ✅ [WRK-088](CODEX.md) 八域 33 条法，裁决只能援引法条或测量值，法不够先立法 |
+| COVERAGE | ✅ [WRK-089](COVERAGE.md) 已对齐新 main：工具 124 / 端点 257 / 面 114 / 边 353，共 **848 行 × 5 级 = 4240 格**；它是一期覆盖真相源 |
+| JOURNEYS | ✅ [WRK-090](JOURNEYS.md) 现有 47 条只作一期路线；400+ 与逐行认领按用户 P12 推迟二期，不阻塞一期按 COVERAGE 驻停清扫 |
+| 账本 gate | ✅ `judge.py` 校验证据文件、CODEX 法条、L2 六件五通道证据、三流连接、可读 MOV、开放警报和四小时锚点凭证；任一缺失物理拒收 pass |
+| 锚点自校 | ✅ [WRK-091](ANCHORS.md) 冻结 10 个正反锚点；无答案答卷通过才签发绑定题集哈希的四小时凭证，题集变化或凭证过期自动锁 gate |
+| 统计警报 | ✅ `alarms.py` 监控裁决过快、速率暴冲、发现率塌方；ack 必须写复审结论，且在出现新裁决前不会拿同一批历史原地复活；新证据到达后重新评估 |
+| 操作手册 | ✅ `testend/rig/README.md` 自足描述起、检、停、校准、测量、裁决和警报，任何 agent 无需旧对话即可使用 |
+| 产品主循环 | ✅ 已从第一条未裁决格启动；真实会话 `/tmp/anselm-rig-formal-20260801-3/sessions/20260801-012108` 完成 onboarding→聊天首轮切片；`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011` 各五格均由 `judge.py` 独立落账。后续真实会话 `/tmp/anselm-rig-formal-20260801-4/sessions/20260801-015325` 修复了真实发现的菜单→模态焦点覆盖缺陷；共享菜单现已改为先发起退场、在同一事件循环执行命令，并仅在仍持有浮层焦点时归还触发器，widget 回归与真实 Computer Use 复验通过。并完成 composer 的流式输入、附件预览/读取、实体 mention 候选/药丸/上下文注入、工作目录、git 分支和工作目录聊天连续性。`SURF-012` 与 `SURF-013` 五格均已由 `judge.py` 独立落账；`SURF-013` 会话 `/tmp/anselm-rig-formal-20260801-5/sessions/20260801-021909` 真实构造 51 个用户回合，REST 证明 anchors 分页为 50+2，Computer Use 逐帧复验全量场次条、任意深度深跳与 `Jump to present`。`SURF-014` 首次真实会话发现长失败日志被错误摘要覆盖并触发 AXTree 红行，已冻结；`tool_card_exec.dart`/`tool_card_catalog.dart` 已将工具层错误与执行结果统一到单一 20 行 head+tail 摘要，防止底盘重复追加无界原文，并补齐 21 项 widget 守卫。修复后会话 `/tmp/anselm-rig-formal-20260801-8/sessions/20260801-030652` 真实复验成功函数、长失败函数、MCP 失败 dossier、stderr 抽屉与 Copy→Copied；前端无 Flutter/AXTree/RenderFlex/Dart 错误，后端无 WARN/ERROR/panic，LLM 28 个 HTTP 响应全 200，三路 SSE durable seq 各自单调。`TOOL-001 Read` 会话 `/tmp/anselm-rig-formal-20260801-9/sessions/20260801-032022` 真实覆盖默认整读、offset/limit 分页、缺失文件和越界安全拒绝；`TOOL-002 Write` 会话 `/tmp/anselm-rig-formal-20260801-12/sessions/20260801-033935` 首轮真实发现 completed 拒绝结果仍显示成功动词，已冻结；修复 `resultFailed` 重分类后真实复验显示 `Write failed existing.txt · read first`，SSE 仅 1 次 Write/0 次 Read、磁盘保持 `ORIGINAL_CONTENT`，五通道无红线。证据在 `/tmp/anselm-rig-formal-20260801-8/evidence/`、`/tmp/anselm-rig-formal-20260801-9/evidence/` 与 `/tmp/anselm-rig-formal-20260801-12/evidence/`，`SURF-014`、`TOOL-001`、`TOOL-002` 五格均已由 `judge.py` 独立落账，当前首批 **50 / 50**；`make verify`、`make -C backend testend`、`cd testend && go test -count=1 ./...` 与 `alarms.py check` 均已通过，现进入工作树审计和提交前检查 |
 
-**Day 0 状态(0731 重述):盘上只剩这四份文档,台架代码整体撤下(P13),锚点集仍未建。**
-Day 0 的价值因此**不在代码在知识**——五通道形态、四类测量、32 条法、清册的四路提取法与 merge-aware
-合账法、gate↔警报互锁环、以及一串只有真跑才撞得到的坑(D1 归属、`lsof -sTCP:LISTEN`、
-device-proof 反代理),全部逐条留在本页,重落是照抄不是重想。
-
-**重落清单执行状态(0731)**:
-
-1. ✅ 五通道台架重落 + 新 main 真机冒烟全通(含新立的通道五接线闸)。
-2. ✅ 四路重提取对齐新 main → COVERAGE 重生成:**848 行 × 5 级 = 4240 格**(工具 124〔+3 生成族:
-   edit_image/animate_image/enroll_voice〕/ 端点 257〔+2 voices〕/ 面 114〔+media-viewer,
-   models-keys 重形〕/ 边 353〔+15:BYOK 目录/音色链/语音双工/429 不动钱/分叉携媒/停用双排空〕);
-   重提取顺带再抓一处 api.md 漂移(webhook catch-all 仍缺登记,已 `[doc-fix]` 补进 trigger 节;
-   另发现 i18n 孤儿键组 spend.*,已交独立工单)。
-3. ✅ gate / 警报 / 旅程核验器重落,互锁环复测。
-4. ⏳ **用户过目 JOURNEYS**(N6)。
-5. ⏳ **冻结锚点集**——余一个条件:录屏台架在真 App 上定型。
+**Day 0 已完成。** 主循环配置为从 COVERAGE 第一条未裁决格开始，遵守“台架先绿 → 锚点解锁 → 旅程走线
+→ 到站清完整列 → 发现即冻结前线并修复 → 同类横扫 → judge 落账”的固定节拍；当前已完成
+`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011`、`SURF-012`、`SURF-013`、`SURF-014`、`TOOL-001`、`TOOL-002` 的五级裁决，批次计数为 **50 / 50**。统一 `alarms.py check` 已完成并销账历史两条统计警报，`make verify` 已全绿；当前继续执行完整 testend、修复场景回归、工作树审计和提交前检查，未完成前不提交。
 
 ## §6 施工中代拍台账(依据注明,用户可随时翻案)
 
 | # | 代拍决策 | 依据 | 状态 |
 |---|---|---|---|
 | D1 | 台架自检增加「journal 归属验证」:服务端口持有者 PID == stdout 捕获对象 PID | §5.1 试用轮当场事故 | ✅ 立法,Day 0 实现 |
-| D2 | 台架代码住 `testend/`:SSE tap 等 Go 观察者进 `testend/cmd/`(它本就是零 backend import、打纯 HTTP/SSE 的黑盒家),编排脚本后续进 `testend/rig/` | 复用既有模块与 harness 纪律,不为战役开新顶层目录 | 📋 施工中 |
+| D2 | 台架代码住 `testend/`:SSE tap 等 Go 观察者进 `testend/cmd/`(它本就是零 backend import、打纯 HTTP/SSE 的黑盒家),编排脚本进 `testend/rig/` | 复用既有模块与 harness 纪律,不为战役开新顶层目录 | ✅ Day 0 实现 |
 
 ## §7 施工序与完成判据
 
 ```
 [前提] ✅ 另一团队后端大改已并入 main(0731),两仓已对齐
-→ Day 0':台架重落 + 清册重提取(§5.2 重落清单 1–3;法典与旅程已在盘上)
-→ 用户过目旅程目录(N6,唯一开工前触点)+ 冻结锚点集
+→ ✅ Day 0:五通道台架 + 清册 + 法典 + gate + 锚点 + 警报 + 操作手册全通
 → 主循环:旅程走线 × 驻停清扫,昼夜连轴(专机 24h,P9);
    交互扫面与门禁/testend/回归/数据预构造穿插
 → 收口:全量回归 sweep + 门禁全绿 + 本页收口重述 + landed-into + 归档

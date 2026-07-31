@@ -71,11 +71,24 @@ class ChatGitNameDialog extends StatefulWidget {
 
 class _ChatGitNameDialogState extends State<ChatGitNameDialog> {
   final _name = TextEditingController();
+  final _nameFocus = FocusNode(debugLabel: 'chat-git-name');
   bool _busy = false;
   String? _error;
 
   @override
+  void initState() {
+    super.initState();
+    // RawDialogRoute's focus scope can already own focus when the panel is pushed from a menu.
+    // Autofocus alone is then unreliable, so explicitly focus the only text field after mount.
+    // 菜单推入 RawDialogRoute 时 scope 可能已持焦，单靠 autofocus 不可靠；挂载后显式聚焦唯一输入框。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) _nameFocus.requestFocus();
+    });
+  }
+
+  @override
   void dispose() {
+    _nameFocus.dispose();
     _name.dispose();
     super.dispose();
   }
@@ -129,6 +142,7 @@ class _ChatGitNameDialogState extends State<ChatGitNameDialog> {
                 const SizedBox(height: AnSpace.s12),
                 AnInput(
                   controller: _name,
+                  focusNode: _nameFocus,
                   placeholder: widget.placeholder,
                   autofocus: true,
                   block: true,

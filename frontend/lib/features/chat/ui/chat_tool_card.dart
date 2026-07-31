@@ -321,23 +321,34 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final verbStyle = AnText.label.copyWith(color: c.inkMuted);
     final verbFaint = AnText.label.copyWith(color: c.inkFaint);
     final faint = AnText.meta.copyWith(color: c.inkFaint);
+    final payloadFailed =
+        state.phase == ToolCardPhase.succeeded &&
+        (spec.resultFailed?.call(state) ?? false);
+    final failed = state.phase == ToolCardPhase.failed || payloadFailed;
 
     // Terminal overrides stay with the chassis; live/settled verbs come from the family spec.
     // 终态动词归底盘;进行/过去时动词出自族规格。
     // Awaiting + terminal verbs default to the chassis, but a family may override them (ask_user:
     // 等待你回答 + 已回答/已跳过/空答案 by result). 等待/终态动词默认归底盘,族可覆盖(ask_user)。
-    final verb = switch (state.phase) {
-      ToolCardPhase.awaitingConfirm =>
-        spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm,
-      ToolCardPhase.denied =>
-        spec.terminalVerb?.call(t, state) ?? t.chat.tool.denied,
-      ToolCardPhase.cancelled =>
-        spec.terminalVerb?.call(t, state) ?? t.chat.tool.cancelled,
-      _ =>
-        spec.terminalVerb?.call(t, state) ??
-            spec.verbOf?.call(t, state, live: live) ??
-            spec.verb(t, live: live),
-    };
+    final String verb;
+    if (state.phase == ToolCardPhase.awaitingConfirm) {
+      verb = spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm;
+    } else if (failed) {
+      verb =
+          spec.failedVerb?.call(t) ??
+          spec.terminalVerb?.call(t, state) ??
+          spec.verbOf?.call(t, state, live: live) ??
+          spec.verb(t, live: live);
+    } else if (state.phase == ToolCardPhase.denied) {
+      verb = spec.terminalVerb?.call(t, state) ?? t.chat.tool.denied;
+    } else if (state.phase == ToolCardPhase.cancelled) {
+      verb = spec.terminalVerb?.call(t, state) ?? t.chat.tool.cancelled;
+    } else {
+      verb =
+          spec.terminalVerb?.call(t, state) ??
+          spec.verbOf?.call(t, state, live: live) ??
+          spec.verb(t, live: live);
+    }
     final target = spec.target?.call(state) ?? '';
 
     // The dimmed receipt tail: elapsed seconds while live-and-slow; the family receipt (the
@@ -368,8 +379,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
         ),
       );
     }
-    if (state.phase == ToolCardPhase.failed &&
-        familyReceipt?.tone != ToolReceiptTone.danger) {
+    if (failed && familyReceipt?.tone != ToolReceiptTone.danger) {
       receipt.add(
         TextSpan(
           text: ' · ${t.run.failed}',

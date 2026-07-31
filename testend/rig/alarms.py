@@ -59,11 +59,14 @@ def save_alarms(alarms):
     ALARMS.write_text(json.dumps(alarms, ensure_ascii=False, indent=1))
 
 
-def open_alarm(alarms, aid, note):
+def open_alarm(alarms, aid, note, through):
     for a in alarms:
         if a["id"] == aid and not a.get("acked"):
             return  # already open — no duplicate spam 已开着,不重复刷
-    alarms.append({"id": aid, "note": note, "openedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()})
+        if a["id"] == aid and a.get("acked") and a.get("evidenceThrough") == through:
+            return  # an acked audit stays resolved until NEW evidence exists 销账在出现新证据前不原地复活
+    alarms.append({"id": aid, "note": note, "evidenceThrough": through,
+                   "openedAt": datetime.datetime.now(datetime.timezone.utc).isoformat()})
     print(f"alarms: OPEN {aid} — {note}")
 
 
@@ -71,13 +74,14 @@ def check():
     rows = load_journal()
     alarms = load_alarms()
     recent = rows[-WINDOW:]
+    through = rows[-1].get("ts", f"row:{len(rows)}") if rows else "empty"
     if len(recent) >= 10:
         ts = [datetime.datetime.fromisoformat(r["ts"]) for r in recent]
         gaps = [(b - a).total_seconds() for a, b in zip(ts, ts[1:])]
         med = statistics.median(gaps)
         if med < MIN_GAP_MEDIAN_S:
             open_alarm(alarms, "gap-too-fast",
-                       f"近 {len(recent)} 裁决间隔中位数 {med:.0f}s < {MIN_GAP_MEDIAN_S}s — 快得不像真看过证据;该时段裁决入重审队列")
+                       f"近 {len(recent)} 裁决间隔中位数 {med:.0f}s < {MIN_GAP_MEDIAN_S}s — 快得不像真看过证据;该时段裁决入重审队列", through)
         # Burst: last 10 span vs trailing median-per-10 span. 暴冲:末 10 条时距 vs 尾窗每 10 条时距。
         if len(recent) >= 30:
             last10 = (ts[-1] - ts[-10]).total_seconds()
@@ -85,13 +89,13 @@ def check():
             base = statistics.median(spans[:-1]) if len(spans) > 1 else None
             if base and last10 > 0 and base / last10 >= BURST_RATIO:
                 open_alarm(alarms, "pass-burst",
-                           f"末 10 条裁决用时 {last10:.0f}s,尾窗基线 {base:.0f}s/10条 — 通过速率暴冲(橡皮章信号)")
+                           f"末 10 条裁决用时 {last10:.0f}s,尾窗基线 {base:.0f}s/10条 — 通过速率暴冲(橡皮章信号)", through)
     if len(rows) >= WINDOW:
         fails = sum(1 for r in recent if r["verdict"] == "fail")
         share = fails / len(recent)
         if share < DISCOVERY_FLOOR:
             open_alarm(alarms, "discovery-collapse",
-                       f"近 {len(recent)} 裁决 fail 占比 {share:.1%} < {DISCOVERY_FLOOR:.0%} — 更可能是判断失灵而非产品变干净;按锚点自校后再继续")
+                       f"近 {len(recent)} 裁决 fail 占比 {share:.1%} < {DISCOVERY_FLOOR:.0%} — 更可能是判断失灵而非产品变干净;按锚点自校后再继续", through)
     save_alarms(alarms)
     live = [a for a in alarms if not a.get("acked")]
     for a in live:

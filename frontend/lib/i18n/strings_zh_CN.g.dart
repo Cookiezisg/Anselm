@@ -842,10 +842,13 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String progressOmitted({required Object n}) => '…前 ${n} 行略';
 	@override String get reading => '正在读取';
 	@override String get read => '已读取';
+	@override String get readFailed => '读取失败';
 	@override String get writing => '正在写入';
 	@override String get wrote => '已写入';
+	@override String get writeFailed => '写入失败';
 	@override String get editing => '正在编辑';
 	@override String get edited => '已编辑';
+	@override String get editFailed => '编辑失败';
 	@override String get globbing => '正在检索';
 	@override String get globbed => '已检索';
 	@override String get grepping => '正在搜索';
@@ -3107,10 +3110,13 @@ extension on TranslationsZhCn {
 			'chat.tool.progressOmitted' => ({required Object n}) => '…前 ${n} 行略',
 			'chat.tool.reading' => '正在读取',
 			'chat.tool.read' => '已读取',
+			'chat.tool.readFailed' => '读取失败',
 			'chat.tool.writing' => '正在写入',
 			'chat.tool.wrote' => '已写入',
+			'chat.tool.writeFailed' => '写入失败',
 			'chat.tool.editing' => '正在编辑',
 			'chat.tool.edited' => '已编辑',
+			'chat.tool.editFailed' => '编辑失败',
 			'chat.tool.globbing' => '正在检索',
 			'chat.tool.globbed' => '已检索',
 			'chat.tool.grepping' => '正在搜索',
@@ -3468,11 +3474,11 @@ extension on TranslationsZhCn {
 			'chat.tool.fireNo' => '未 fire',
 			'chat.tool.gettingFlowrun' => '正在调阅运行',
 			'chat.tool.gotFlowrun' => '已调阅运行',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.gettingAgentExec' => '正在调阅智能体执行',
 			'chat.tool.gotAgentExec' => '已调阅智能体执行',
 			'chat.tool.transcriptSteps' => ({required Object n}) => '轨迹 · ${n} 步',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.transcriptOpenFull' => '查看完整轨迹',
 			'chat.tool.transcriptEmpty' => '无轨迹记录',
 			'chat.tool.transcriptCapped' => ({required Object shown, required Object total}) => '显示 ${shown}/${total} 块',
@@ -3982,11 +3988,11 @@ extension on TranslationsZhCn {
 			'feedback.cast.verb.unknown' => '触碰',
 			'feedback.codeTruncated' => ({required Object total, required Object shown}) => '共 ${total} 行·已显示前 ${shown} 行——完整文件请在外部打开',
 			'shell.collapseSidebar' => '收起侧栏',
+			_ => null,
+		} ?? switch (path) {
 			'shell.expandSidebar' => '展开侧栏',
 			'shell.togglePanel' => '切换面板',
 			'shell.ocean.chat' => '对话',
-			_ => null,
-		} ?? switch (path) {
 			'shell.ocean.entities' => '实体',
 			'shell.ocean.scheduler' => '调度',
 			'shell.ocean.library' => '文库',
@@ -4496,11 +4502,11 @@ extension on TranslationsZhCn {
 			'library.table.insertRowAbove' => '在上方插入行',
 			'library.table.insertRowBelow' => '在下方插入行',
 			'library.table.deleteRow' => '删除行',
+			_ => null,
+		} ?? switch (path) {
 			'library.table.insertColLeft' => '在左侧插入列',
 			'library.table.insertColRight' => '在右侧插入列',
 			'library.table.deleteCol' => '删除列',
-			_ => null,
-		} ?? switch (path) {
 			'library.table.deleteTable' => '删除表格',
 			'library.skillSourceMode' => '源码',
 			'library.skillRichMode' => '富文本',

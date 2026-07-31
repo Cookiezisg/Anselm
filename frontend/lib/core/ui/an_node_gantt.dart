@@ -150,39 +150,60 @@ class AnNodeGantt extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: AnSpace.s8),
         child: SizedBox(
           height: AnSize.row,
-          child: Row(
-            children: [
-              SizedBox(
-                width: AnSize.ganttLaneW,
-                child: Row(
-                  children: [
-                    Icon(
-                      AnIcons.node(r.kind.name),
-                      size: AnSize.iconSm,
-                      color: c.inkFaint,
-                    ),
-                    const SizedBox(width: AnSpace.s6),
-                    Flexible(
-                      child: Text(
-                        r.nodeId,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: AnText.code.copyWith(color: c.inkMuted),
-                      ),
-                    ),
-                    if (r.iterations > 1) ...[
-                      const SizedBox(width: AnSpace.s6),
-                      Text(
-                        '×${r.iterations}',
-                        style: AnText.metaTabular().copyWith(color: c.accent),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-              const SizedBox(width: AnSpace.s12),
-              Expanded(child: _track(context, r)),
-            ],
+          child: LayoutBuilder(
+            builder: (context, constraints) {
+              final available = constraints.maxWidth;
+              final laneWidth =
+                  !available.isFinite ||
+                      available >= AnSize.ganttLaneW + AnSpace.s12
+                  ? AnSize.ganttLaneW
+                  : (available - AnSpace.s12)
+                        .clamp(0.0, AnSize.ganttLaneW)
+                        .toDouble();
+              final gap = (available - laneWidth)
+                  .clamp(0.0, AnSpace.s12)
+                  .toDouble();
+              return Row(
+                children: [
+                  SizedBox(
+                    width: laneWidth,
+                    child: laneWidth < AnSize.iconSm + AnSpace.s6
+                        ? null
+                        : Row(
+                            children: [
+                              Icon(
+                                AnIcons.node(r.kind.name),
+                                size: AnSize.iconSm,
+                                color: c.inkFaint,
+                              ),
+                              const SizedBox(width: AnSpace.s6),
+                              Flexible(
+                                child: Text(
+                                  r.nodeId,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: AnText.code.copyWith(
+                                    color: c.inkMuted,
+                                  ),
+                                ),
+                              ),
+                              if (r.iterations > 1) ...[
+                                const SizedBox(width: AnSpace.s6),
+                                Text(
+                                  '×${r.iterations}',
+                                  style: AnText.metaTabular().copyWith(
+                                    color: c.accent,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                  ),
+                  SizedBox(width: gap),
+                  Expanded(child: _track(context, r)),
+                ],
+              );
+            },
           ),
         ),
       ),

@@ -1,97 +1,123 @@
 #!/usr/bin/env bash
-# rig-check — the rig's self-test ("先查夹具再报缺陷", WRK-082 F1 / WRK-087 D1): every
-# observation channel must prove it is actually observing before any product verdict is
-# trusted. A silent channel reads exactly like a clean product — that is the failure mode
-# this script exists to make loud.
-#
-# rig-check — 台架自检(「先查夹具再报缺陷」,WRK-082 F1 / WRK-087 D1):每条观测通道先
-# 证明自己真的在观测,产品裁决才可信。哑掉的通道读起来与干净的产品一模一样——本脚本
-# 存在就是为了让这种失败大声。
+# rig-check proves that every observer is alive, attributed, and producing current-session evidence.
 set -euo pipefail
 
 RIG_HOME="${RIG_HOME:-$HOME/.anselm-rig}"
 MANIFEST="$RIG_HOME/current/manifest.json"
 FAIL=0
 note() { echo "$@"; }
-bad()  { echo "$@" >&2; FAIL=1; }
+bad() { echo "$@" >&2; FAIL=1; }
+field() { python3 -c "import json; print(json.load(open('$MANIFEST')).get('$1',''))"; }
+alive_as() {
+  local pid="$1" pattern="$2"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && ps -o command= -p "$pid" | grep -Eq "$pattern"
+}
 
-# ① tooling — 帧通道的解帧半与录屏权限。
-command -v ffmpeg >/dev/null || bad "✗ ffmpeg missing (frame extraction dead)"
+command -v ffmpeg >/dev/null || bad "✗ ffmpeg missing — frame extraction unavailable"
 TMP=$(mktemp -d)
 if screencapture -x "$TMP/probe.png" 2>/dev/null && [ -s "$TMP/probe.png" ]; then
   note "✓ screen capture permission live"
 else
-  bad "✗ screencapture denied — Screen Recording permission lost (channel 1 video dead)"
+  bad "✗ screencapture denied — channel 1 blind"
 fi
 rm -rf "$TMP"
 
-# ② live session + D1 attribution — 通道二的 journal 归属。
 if [ ! -f "$MANIFEST" ]; then
   bad "✗ no live rig session — run rig-up.sh first"
 else
-  PORT=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['port'])")
-  BPID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['backendPid'])")
-  SESSION=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['session'])")
+  PORT=$(field port)
+  BPID=$(field backendPid)
+  TPID=$(field tapPid)
+  LPID=$(field llmtapPid)
+  LPORT=$(field llmtapPort)
+  APID=$(field appPid)
+  RPID=$(field recorderPid)
+  SESSION=$(field session)
+
   LISTENER=$(lsof -ti ":$PORT" -sTCP:LISTEN 2>/dev/null | sort -u || true)
-  if [ "$LISTENER" = "$BPID" ]; then
-    note "✓ D1 attribution: port :$PORT holder == journaled backend PID $BPID"
+  if [ "$LISTENER" = "$BPID" ] && alive_as "$BPID" '/server($| )'; then
+    note "✓ channel 2 backend attributed: :$PORT holder == PID $BPID"
   else
-    bad "✗ D1 attribution BROKEN: port holder [$LISTENER] != journaled PID $BPID — backend.log is not the live truth"
+    bad "✗ channel 2 attribution broken: holder [$LISTENER], manifest PID [$BPID]"
   fi
-  curl -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null && note "✓ backend health ok" \
-    || bad "✗ backend health failed"
+  curl -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null && note "✓ backend health ok" || bad "✗ backend health failed"
+  [ -s "$SESSION/backend.log" ] || bad "✗ backend.log missing or empty"
+  if grep -Eq 'panic:|(^|[^A-Za-z])FATAL([^A-Za-z]|$)' "$SESSION/backend.log" 2>/dev/null; then
+    bad "✗ backend journal contains panic/FATAL"
+  fi
 
-  # ③ channel 3 — tap 必须活着且真连上了(journal 里有 connect 且进程在)。
-  TPID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['tapPid'])")
-  if [ -n "$TPID" ] && kill -0 "$TPID" 2>/dev/null; then
-    if grep -q '"tap":"connect"' "$SESSION/sse.jsonl" 2>/dev/null; then
-      note "✓ ssetap alive and connected ($(grep -c '"tap":"connect"' "$SESSION/sse.jsonl") connects journaled)"
-    else
-      bad "✗ ssetap running but no connect record — channel 3 silently blind"
-    fi
+  if alive_as "$TPID" '/ssetap($| )'; then
+    note "✓ channel 3 ssetap alive (PID $TPID)"
   else
-    bad "✗ ssetap not running (channel 3 dead)"
+    bad "✗ channel 3 ssetap dead or PID reused"
   fi
-
-  # ③b channel 5 — llmtap 若启用必须活着且在监听(哑掉的线缆见证 == 没有见证)。
-  LPID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['llmtapPid'])")
-  LPORT=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['llmtapPort'])")
-  if [ -n "$LPID" ]; then
-    if kill -0 "$LPID" 2>/dev/null && [ "$(lsof -ti ":$LPORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$LPID" ]; then
-      note "✓ llmtap alive and listening on :$LPORT"
-    else
-      bad "✗ llmtap dead or not listening — channel 5 blind, managed-route calls unwitnessed"
-    fi
-  fi
-
-  # ③c channel-5 WIRING — the managed key's base_url is PERSISTED at provision time
-  # (freetier.go stores AnselmGatewayBase()), so a data dir provisioned without the tap
-  # keeps pointing at production forever: managed traffic then bypasses the tap while
-  # llm.jsonl sits there looking merely quiet. Same family as D1 — a silent channel
-  # reads exactly like a clean product, so the wiring itself must be asserted.
-  # ③c 通道五**接线**——受管 key 的 base_url 在 provision 时**落库**(freetier.go 存的是
-  # AnselmGatewayBase()),故不带 tap 开通的数据目录会永远指着生产:受管流量绕开 tap,
-  # 而 llm.jsonl 只是安静地空着。与 D1 同族——哑通道读起来与干净产品一样,接线本身必须断言。
-  WS=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['ws'])")
-  if [ -n "$LPID" ] && [ -n "$WS" ]; then
-    ANSELM_BASE=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" \
-      -H "X-Anselm-Workspace-ID: $WS" | python3 -c '
+  WORKSPACES=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces" | python3 -c 'import json,sys; print(" ".join(x["id"] for x in json.load(sys.stdin).get("data",[])))' || true)
+  if [ -n "$WORKSPACES" ]; then
+    for ws in $WORKSPACES; do
+      for stream in messages entities notifications; do
+        python3 - "$SESSION/sse.jsonl" "$ws" "$stream" <<'PY' || bad "✗ ssetap has no connect for $ws/$stream"
 import json, sys
-rows = json.load(sys.stdin).get("data") or []
-print(next((r.get("baseUrl", "") for r in rows if r.get("provider") == "anselm"), "ABSENT"))')
-    case "$ANSELM_BASE" in
-      "ABSENT") note "· managed key not provisioned yet (async) — re-check after first managed use" ;;
-      "http://127.0.0.1:$LPORT"*) note "✓ channel-5 wiring: managed base_url points at the tap ($ANSELM_BASE)" ;;
-      *) bad "✗ channel-5 wiring BROKEN: managed base_url is $ANSELM_BASE, not the tap — managed traffic unwitnessed. Re-provision (fresh RIG_DATA) or fix the key row." ;;
-    esac
+try:
+    rows = (json.loads(x) for x in open(sys.argv[1]))
+    ok = any(r.get("workspace") == sys.argv[2] and r.get("stream") == sys.argv[3] and r.get("tap") == "connect" for r in rows)
+except (OSError, ValueError):
+    ok = False
+raise SystemExit(0 if ok else 1)
+PY
+      done
+    done
+    note "✓ channel 3 connected for every current workspace"
+  else
+    note "· no workspace yet — discovery is live; onboarding remains observable from creation onward"
   fi
 
-  # ④ backend journal is being written and carries no unexplained panic.
-  # ④ 后端 journal 在动、且无未解释 panic。
-  [ -s "$SESSION/backend.log" ] && note "✓ backend journal non-empty" || bad "✗ backend journal empty"
-  if grep -q "panic:" "$SESSION/backend.log" 2>/dev/null; then
-    bad "✗ panic present in backend journal — read it before anything else"
+  if [ -n "$LPID" ]; then
+    if alive_as "$LPID" '/llmtap($| )' && [ "$(lsof -ti ":$LPORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$LPID" ]; then
+      note "✓ channel 5 llmtap attributed: :$LPORT holder == PID $LPID"
+    else
+      bad "✗ channel 5 llmtap dead, reused, or not the listener"
+    fi
+    [ -f "$SESSION/llm.jsonl" ] || bad "✗ llm.jsonl missing"
+    if [ -n "$WORKSPACES" ]; then
+      for ws in $WORKSPACES; do
+        BASE=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws" | python3 -c '
+import json,sys
+rows=json.load(sys.stdin).get("data") or []
+print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"ABSENT"))' || echo ABSENT)
+        case "$BASE" in
+          ABSENT) note "· managed key pending for $ws" ;;
+          "http://127.0.0.1:$LPORT"*) note "✓ channel 5 wiring for $ws → tap" ;;
+          *) bad "✗ channel 5 wiring for $ws bypasses tap: $BASE" ;;
+        esac
+      done
+    fi
+  elif [ -f "$SESSION/llm.disabled" ]; then
+    bad "✗ channel 5 explicitly disabled — useful for diagnosis, never valid for acceptance"
+  else
+    bad "✗ channel 5 has neither a live observer nor an explicit disabled marker"
+  fi
+
+  if alive_as "$APID" 'flutter_tools\.snapshot run'; then
+    note "✓ channel 4 Flutter runner alive (PID $APID)"
+  else
+    bad "✗ channel 4 Flutter runner dead or PID reused"
+  fi
+  [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
+  grep -q 'Flutter run key commands' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log never reached resident app"
+  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device' "$SESSION/frontend.log" 2>/dev/null; then
+    bad "✗ frontend.log contains an unreviewed Flutter failure"
+  fi
+
+  if alive_as "$RPID" 'screencapture.*-v'; then
+    note "✓ channel 1 recorder alive (PID $RPID)"
+  else
+    bad "✗ channel 1 recorder dead or PID reused"
   fi
 fi
 
-if [ "$FAIL" = "0" ]; then echo "✓ rig-check: all channels observing"; else echo "✗ rig-check FAILED"; exit 1; fi
+if [ "$FAIL" = "0" ]; then
+  echo "✓ rig-check: five channels physically observing"
+else
+  echo "✗ rig-check FAILED"
+  exit 1
+fi

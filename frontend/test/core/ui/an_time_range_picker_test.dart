@@ -321,6 +321,11 @@ void main() {
       'tier 2: the custom row opens the calendar pane; picks preview in plain ink; ONLY '
       'Apply commits — full-day defaults, and the capsule speaks in DAYS',
       (tester) async {
+        final now = DateTime.now();
+        final from = DateTime(now.year, now.month, 10);
+        final to = DateTime(now.year, now.month, 20, 23, 59);
+        final expectedDays =
+            '${strings.dayText(from)} – ${strings.dayText(to)}';
         final changes = <AnTimeRange>[];
         AnTimeRange value = const AnPresetRange(AnTimePreset.d7);
         await tester.pumpWidget(
@@ -362,7 +367,7 @@ void main() {
         await tester.pump();
         expect(changes, isEmpty, reason: '未应用不提交');
         expect(
-          find.text('7 月 10 日 – 7 月 20 日'),
+          find.text(expectedDays),
           findsOneWidget,
           reason: '预览行(纯墨,假链接蓝退役)',
         );
@@ -370,17 +375,8 @@ void main() {
         await tester.tap(find.text('应用'));
         await tester.pumpAndSettle();
         // Endpoints default to the FULL DAY (00:00–23:59) — no time tier touched. 整天默认。
-        expect(changes, [
-          AnAbsoluteRange(
-            from: DateTime(2026, 7, 10),
-            to: DateTime(2026, 7, 20, 23, 59),
-          ),
-        ]);
-        expect(
-          find.text('7 月 10 日 – 7 月 20 日'),
-          findsOneWidget,
-          reason: '整天对,胶囊念日子',
-        );
+        expect(changes, [AnAbsoluteRange(from: from, to: to)]);
+        expect(find.text(expectedDays), findsOneWidget, reason: '整天对,胶囊念日子');
       },
     );
 

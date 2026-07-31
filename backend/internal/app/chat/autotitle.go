@@ -26,16 +26,14 @@ var autoTitleTimeout = 10 * time.Second
 
 // autoTitlePersistTimeout budgets the FAST half — one local SQLite read + write. It gets its OWN
 // deadline, freshly derived from the DETACHED context, because sharing the generate budget means the
-// slow step can starve the fast one: the title was already produced, and it was then thrown away at
-// the last inch by a deadline that had nothing to do with writing it (real machine, WRK-083 L11 —
-// `set title failed: conversationstore.Get: context deadline exceeded`). A one-turn conversation
-// stays named "New chat" forever in that case, while its perfectly good title dies in memory.
-// This is S9's rule read to its end: an async finalize must not be cancelled by what preceded it.
+// slow step can starve the final write (real machine, WRK-083 L11 —
+// `set title failed: conversationstore.Get: context deadline exceeded`). This applies equally to a
+// utility-generated title and the local request-derived fallback. This is S9's rule read to its end:
+// an async finalize must not be cancelled by what preceded it.
 //
 // autoTitlePersistTimeout 为**快的那半**编预算——一次本地 SQLite 读+写。它拿**自己的** deadline、从 detached
-// context 新derive,因为与生成步共用预算意味着慢的会把快的**饿死**:标题**已经生成出来了**,却在最后一寸被一个
-// 与「写它」毫无关系的 deadline 丢掉(真机,WRK-083 L11)。那种情况下,只发过一轮的对话会永远叫「New chat」,
-// 而它那个完全可用的标题死在内存里。这是把 S9 读到底:异步 finalize 不该被它之前的那一步取消。
+// context 新derive,因为与生成步共用预算意味着慢的会把最后的写入**饿死**(真机,WRK-083 L11)。这同时保护
+// utility 生成的标题和本地首句兜底标题。这是把 S9 读到底:异步 finalize 不该被它之前的那一步取消。
 const autoTitlePersistTimeout = 5 * time.Second
 
 // autoTitleSystem instructs the utility model to produce a bare title. End-of-prompt phrasing +
@@ -68,11 +66,13 @@ func (s *Service) maybeAutoTitle(conv *conversationdomain.Conversation, workspac
 }
 
 // autoTitle generates and persists a conversation's auto title from its first exchange, on a
-// detached + time-boxed context. Any failure (no thread / resolve / generate / persist) is logged
-// and dropped — the conversation simply stays untitled.
+// detached + time-boxed context. The utility model is preferred, but a local request-derived title
+// is the honest fallback when the utility route is unavailable, times out, or emits no text: a
+// one-turn conversation must not stay "New chat" forever because an optional background chore failed.
 //
-// autoTitle 在 detached + 限时 context 上从对话首次交流生成并落标题。任何失败（无线程 / 解析 /
-// 生成 / 落盘）记日志后丢弃——对话就保持无标题。
+// autoTitle 在 detached + 限时 context 上从对话首次交流生成并落标题。优先用 utility 模型；utility
+// 不可用、超时或只吐 reasoning 时，诚实回落到本地首条请求标题——一次性对话不能因为可选的后台杂活失败
+// 就永远叫「New chat」。
 func (s *Service) autoTitle(conversationID, workspaceID string) {
 	dctx := reqctxpkg.Detached(workspaceID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
@@ -91,23 +91,33 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 	// The workspace utility model (a small, cheap model, seeded to the managed default at
 	// provisioning). No utility default configured → MODEL_NOT_CONFIGURED, dropped best-effort.
 	// workspace utility 模型（小而廉价，provisioning 时已播成 managed 默认）。未配则 MODEL_NOT_CONFIGURED、best-effort 丢弃。
+	title := ""
+	fallback := fallbackTitle(thread)
+	fallbackReason := ""
 	bundle, err := s.deps.Resolver.ResolveUtility(ctx)
 	if err != nil {
-		s.log.Warn("chatapp.autoTitle: resolve utility failed", zap.Error(err))
-		return
-	}
-	req := bundle.Request
-	req.System = autoTitleSystem
-	req.Messages = []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: excerpt}}
+		fallbackReason = "utility model unavailable"
+	} else {
+		req := bundle.Request
+		req.System = autoTitleSystem
+		req.Messages = []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: excerpt}}
 
-	raw, err := llminfra.Generate(ctx, bundle.Client, req)
-	if err != nil {
-		s.log.Warn("chatapp.autoTitle: generate failed", zap.Error(err))
-		return
+		raw, generateErr := llminfra.Generate(ctx, bundle.Client, req)
+		if generateErr != nil {
+			fallbackReason = "utility generation failed"
+		} else {
+			title = cleanTitle(raw)
+			if title == "" {
+				fallbackReason = "utility produced no text"
+			}
+		}
 	}
-	title := cleanTitle(raw)
 	if title == "" {
-		return
+		title = fallback
+		if title == "" {
+			return
+		}
+		s.log.Info("chatapp.autoTitle: using local fallback", zap.String("reason", fallbackReason))
 	}
 	// SetAutoTitle persists Title+AutoTitled AND emits conversation.auto_titled on the
 	// notifications stream (the frontend re-reads the row + arms the title typewriter). That is
@@ -122,6 +132,24 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 		s.log.Warn("chatapp.autoTitle: set title failed", zap.Error(err))
 		return
 	}
+}
+
+// fallbackTitle returns a concise, local title from the first user request. It is deliberately
+// independent of the model route so the conversation remains identifiable during gateway outage,
+// utility timeout, or a thinking-only response.
+//
+// fallbackTitle 从首条用户请求生成简洁本地标题。它刻意不依赖模型路由，故网关故障、utility 超时或只返回
+// thinking 时，对话仍然可识别。
+func fallbackTitle(thread []*messagesdomain.Message) string {
+	for _, m := range thread {
+		if m.Role != messagesdomain.RoleUser {
+			continue
+		}
+		if title := cleanTitle(userText(m)); title != "" {
+			return title
+		}
+	}
+	return ""
 }
 
 // titleExcerpt renders the first user + first assistant text into a compact prompt for titling.
@@ -164,8 +192,8 @@ func cleanTitle(s string) string {
 	}
 	s = strings.TrimSpace(strings.Trim(strings.TrimSpace(s), `"'`))
 	s = strings.TrimRight(s, ".。!！?？ ")
-	if len(s) > autoTitleMaxLen {
-		s = strings.TrimSpace(s[:autoTitleMaxLen])
+	if len([]rune(s)) > autoTitleMaxLen {
+		s = strings.TrimSpace(string([]rune(s)[:autoTitleMaxLen]))
 	}
 	return s
 }

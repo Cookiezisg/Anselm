@@ -51,10 +51,10 @@ func main() {
 
 func usage() {
 	fmt.Fprintln(os.Stderr, `usage: measure <diff|regions|contrast|latency> [flags]
-  diff     -dir <frames/> [-threshold 0.0005]
-  regions  -img <shot.png> -color '#RRGGBB' [-tol 24] [-min 16]
-  contrast -fg '#RRGGBB' -bg '#RRGGBB'
-  latency  -dir <frames/> -fps 60 -action <frameIndex> [-threshold 0.0005]`)
+	  diff     -dir <frames/> [-roi x,y,w,h] [-threshold 0.0005]
+	  regions  -img <shot.png> -color '#RRGGBB' [-tol 24] [-min 16]
+	  contrast -fg '#RRGGBB' -bg '#RRGGBB'
+	  latency  -dir <frames/> -fps 60 -action <frameIndex> [-roi x,y,w,h] [-threshold 0.0005]`)
 	os.Exit(2)
 }
 
@@ -103,17 +103,25 @@ func framePaths(dir string) []string {
 // pairDiff 报告两帧的变化像素占比与变化包围盒。每通道容差 8 吸收视频编码噪声——不设则每个
 // h264 帧「处处在变」,数字什么都说明不了。
 func pairDiff(a, b *image.RGBA) (frac float64, box image.Rectangle) {
+	return pairDiffROI(a, b, a.Bounds())
+}
+
+func pairDiffROI(a, b *image.RGBA, roi image.Rectangle) (frac float64, box image.Rectangle) {
 	const tol = 8
 	bounds := a.Bounds()
 	if b.Bounds() != bounds {
 		return 1, bounds
 	}
+	roi = roi.Intersect(bounds)
+	if roi.Empty() {
+		return 0, image.Rectangle{}
+	}
 	changed := 0
-	minX, minY, maxX, maxY := bounds.Max.X, bounds.Max.Y, bounds.Min.X-1, bounds.Min.Y-1
-	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
-		ai := a.PixOffset(bounds.Min.X, y)
-		bi := b.PixOffset(bounds.Min.X, y)
-		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+	minX, minY, maxX, maxY := roi.Max.X, roi.Max.Y, roi.Min.X-1, roi.Min.Y-1
+	for y := roi.Min.Y; y < roi.Max.Y; y++ {
+		ai := a.PixOffset(roi.Min.X, y)
+		bi := b.PixOffset(roi.Min.X, y)
+		for x := roi.Min.X; x < roi.Max.X; x++ {
 			if absInt(int(a.Pix[ai])-int(b.Pix[bi])) > tol ||
 				absInt(int(a.Pix[ai+1])-int(b.Pix[bi+1])) > tol ||
 				absInt(int(a.Pix[ai+2])-int(b.Pix[bi+2])) > tol {
@@ -135,7 +143,7 @@ func pairDiff(a, b *image.RGBA) (frac float64, box image.Rectangle) {
 			bi += 4
 		}
 	}
-	total := bounds.Dx() * bounds.Dy()
+	total := roi.Dx() * roi.Dy()
 	if changed == 0 {
 		return 0, image.Rectangle{}
 	}
@@ -159,6 +167,7 @@ type diffRow struct {
 func cmdDiff(args []string) {
 	fs := flag.NewFlagSet("diff", flag.ExitOnError)
 	dir := fs.String("dir", "", "frame directory (sorted *.png)")
+	roiArg := fs.String("roi", "", "optional region x,y,w,h; excludes clocks, cursor, and unrelated animation")
 	threshold := fs.Float64("threshold", 0.0005, "report pairs with changedFrac above this")
 	_ = fs.Parse(args)
 	if *dir == "" {
@@ -170,12 +179,16 @@ func cmdDiff(args []string) {
 		fatal(err)
 	}
 	enc := json.NewEncoder(os.Stdout)
+	roi, err := parseROI(*roiArg, prev.Bounds())
+	if err != nil {
+		fatal(err)
+	}
 	for i := 1; i < len(paths); i++ {
 		cur, err := loadPNG(paths[i])
 		if err != nil {
 			fatal(err)
 		}
-		frac, box := pairDiff(prev, cur)
+		frac, box := pairDiffROI(prev, cur, roi)
 		if frac > *threshold {
 			_ = enc.Encode(diffRow{
 				From: filepath.Base(paths[i-1]), To: filepath.Base(paths[i]),
@@ -343,6 +356,7 @@ func cmdLatency(args []string) {
 	fps := fs.Float64("fps", 60, "extraction fps of the frame directory")
 	action := fs.Int("action", -1, "0-based index of the action frame")
 	threshold := fs.Float64("threshold", 0.0005, "changedFrac that counts as visible feedback")
+	roiArg := fs.String("roi", "", "optional region x,y,w,h; excludes unrelated motion")
 	_ = fs.Parse(args)
 	if *dir == "" || *action < 0 {
 		usage()
@@ -355,12 +369,16 @@ func cmdLatency(args []string) {
 	if err != nil {
 		fatal(err)
 	}
+	roi, err := parseROI(*roiArg, base.Bounds())
+	if err != nil {
+		fatal(err)
+	}
 	for i := *action + 1; i < len(paths); i++ {
 		cur, err := loadPNG(paths[i])
 		if err != nil {
 			fatal(err)
 		}
-		frac, box := pairDiff(base, cur)
+		frac, box := pairDiffROI(base, cur, roi)
 		if frac > *threshold {
 			ms := float64(i-*action) / *fps * 1000
 			fmt.Printf(`{"feedbackFrame":%d,"latencyMs":%.1f,"changedFrac":%.5f,"box":%q}`+"\n",
@@ -369,6 +387,32 @@ func cmdLatency(args []string) {
 		}
 	}
 	fmt.Println(`{"feedbackFrame":-1,"latencyMs":-1,"note":"no visible feedback in window"}`)
+}
+
+func parseROI(raw string, bounds image.Rectangle) (image.Rectangle, error) {
+	if strings.TrimSpace(raw) == "" {
+		return bounds, nil
+	}
+	parts := strings.Split(raw, ",")
+	if len(parts) != 4 {
+		return image.Rectangle{}, fmt.Errorf("roi must be x,y,w,h, got %q", raw)
+	}
+	values := make([]int, 4)
+	for i, part := range parts {
+		v, err := strconv.Atoi(strings.TrimSpace(part))
+		if err != nil {
+			return image.Rectangle{}, fmt.Errorf("roi must be x,y,w,h, got %q", raw)
+		}
+		values[i] = v
+	}
+	if values[2] <= 0 || values[3] <= 0 {
+		return image.Rectangle{}, fmt.Errorf("roi width and height must be positive")
+	}
+	roi := image.Rect(values[0], values[1], values[0]+values[2], values[1]+values[3]).Intersect(bounds)
+	if roi.Empty() {
+		return image.Rectangle{}, fmt.Errorf("roi %q does not intersect image bounds %v", raw, bounds)
+	}
+	return roi, nil
 }
 
 func round5(v float64) float64 { return math.Round(v*1e5) / 1e5 }

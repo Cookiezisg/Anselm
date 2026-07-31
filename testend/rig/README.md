@@ -12,11 +12,11 @@
 
 | 通道 | 载体 | journal |
 |---|---|---|
-| ① 帧 | Computer Use 截图 + `screencapture -v` 录屏 → ffmpeg 抽帧 | 会话目录 PNG/MOV(不入 git) |
+| ① 帧 | Computer Use 操作/截图 + conductor 的 `screencapture -v` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
 | ② 后端 | conductor 亲启的 sidecar,stdout 全量捕获 | `backend.log` |
-| ③ SSE | `cmd/ssetap` 独立订三条流(不经前端 demux) | `sse.jsonl` |
-| ④ 前端 | `flutter run` console(接 app 时) | `frontend.log` |
-| ⑤ LLM 线缆 | `cmd/llmtap` 透明代理在受管网关前 | `llm.jsonl` + 逐调用请求体文件 |
+| ③ SSE | `cmd/ssetap` 动态发现全部 workspace 并独立订三条流(不经前端 demux) | `sse.jsonl` |
+| ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
+| ⑤ LLM 线缆 | `cmd/llmtap` 透明代理在受管网关前 | `llm.jsonl` + 逐调用请求体/响应体文件 |
 
 所有会话落 `~/.anselm-rig/sessions/<时间戳>/`,`~/.anselm-rig/current` 软链指认活会话,
 `manifest.json` 是其余脚本唯一读的连接事实。
@@ -24,16 +24,17 @@
 ## 起 / 检 / 停
 
 ```bash
-testend/rig/rig-up.sh      # 建二进制→起 llmtap→起后端(经 tap)→seed→接线闸→起 ssetap→manifest
-testend/rig/rig-check.sh   # 五通道自检:权限/D1 归属/健康/tap 活性/接线/journal 非空
-testend/rig/rig-down.sh    # 后端优雅关停→双 tap 收尾,journal 全保留
+testend/rig/rig-up.sh      # 建二进制→起 llmtap/后端/ssetap/录像/真实 App→manifest
+testend/rig/rig-check.sh   # 五通道自检:权限/进程与端口归属/三流连接/受管接线/journal
+testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe MOV,journal 全保留
 ```
 
-环境旋钮(都有默认值):`RIG_PORT`(默认 8742;dev 后端占着就换)· `RIG_DATA`(数据目录)·
-`RIG_SEED=0` 跳过播种 · `RIG_LLMTAP=0` 关线缆见证(后端直连网关)· `RIG_HOME`(全套家目录)。
+环境旋钮(都有默认值):`RIG_PORT`(8742;被占就换)· `RIG_LLMTAP_PORT`(8788)· `RIG_DATA`·
+`RIG_HOME`· `RIG_SEED=0` 跳过播种并走真实首次 onboarding。`RIG_LLMTAP=0`、`RIG_RECORD=0`、
+`RIG_APP=0` 只用于诊断；缺任一通道的会话不能通过 `rig-check` 或 L2 gate。
 
-**接 app**:`ANSELM_BACKEND_URL=http://127.0.0.1:<RIG_PORT> make -C frontend app`,
-console 输出重定向进会话目录作 `frontend.log`(通道④)。
+所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。首次
+注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
 ## 两条铁律(都以真事故立法,自检强制执行)
 
@@ -49,14 +50,32 @@ console 输出重定向进会话目录作 `frontend.log`(通道④)。
 ## 测量(凡能成为数字的视觉判断必须成为数字)
 
 ```bash
-cd testend && go run ./cmd/measure <子命令>
-  diff A.png B.png        # 相邻帧变化占比+包围盒(每通道容差 8 吸收编码噪声)——跳变/闪
-  regions IMG.png RRGGBB  # 目标色连通域矩形——高亮「等高吗、有缝吗」用像素回答
-  contrast IMG.png x y x2 y2   # WCAG 2.x 对比度
-  latency 帧目录 动作帧号      # 动作帧→首个越阈变化帧→ms
+cd testend
+go run ./cmd/measure diff -dir <frames/> -roi x,y,w,h
+go run ./cmd/measure regions -img <shot.png> -color '#RRGGBB'
+go run ./cmd/measure contrast -fg '#RRGGBB' -bg '#RRGGBB'
+go run ./cmd/measure latency -dir <frames/> -fps 30 -action <0-based帧号> -roi x,y,w,h
 ```
 
-录屏抽帧:`ffmpeg -i in.mov -vf fps=30 frames/f%04d.png`。
+先 `rig-down.sh` 封口录像，再抽帧：
+
+```bash
+SESSION=~/.anselm-rig/sessions/<时间戳>
+mkdir -p "$SESSION/frames"
+ffmpeg -i "$SESSION/screen.mov" -vf fps=30 "$SESSION/frames/f%06d.png"
+```
+
+ROI 应只框目标控件，排除时钟、鼠标、呼吸动画等无关变化；不使用 ROI 的全屏延迟数字通常无意义。
+
+## 开工校准(先于任何 pass)
+
+```bash
+python3 testend/rig/anchors.py quiz
+# 逐题填写 ~/.anselm-rig/anchor-quiz.json 的 verdict / law / reason
+python3 testend/rig/anchors.py check ~/.anselm-rig/anchor-quiz.json
+```
+
+校准凭证绑定冻结题集且只活四小时；缺失、过期或题集变化时 `judge.py` 物理拒绝所有新 pass。
 
 ## 裁决与记账(标绿是脚本动作,不是文本编辑)
 
@@ -67,7 +86,8 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
 
 - pass/fail 必须引**存在于 CODEX.md** 的法条(或测量值);证据必须是盘上真实非空文件。
 - `na` 用 `--evidence 'note:<为何不适用>'`。
-- L2(数据真相)pass 还须 `--session <会话目录>` 且五通道 journal 齐。
+- L2(数据真相)pass 还须 `--session <会话目录>`；必须先 `rig-down`，六件证据非空、MOV 可读且
+  SSE witness 曾连接三条流。
 - 每次裁决盖时戳追加 `~/.anselm-rig/judgments.jsonl`——只经脚本、不手写。
 - 法不够用 → **先立法再判**:按 CODEX.md 末的立法协议加新法条(只收紧、带回灌横扫),再引用它。
 
@@ -78,8 +98,8 @@ python3 testend/rig/alarms.py check              # 三曲线:间隔中位数<25s
 python3 testend/rig/alarms.py ack <id> --note "<销账依据:重审结果>"
 ```
 
-**警报未销期间 judge.py 拒收一切新 pass**(物理拒收,非约定)。销账后若数据未被新的真实裁决
-稀释,`check` 会再次开单——这是设计:销账不改写历史。
+**警报未销期间 judge.py 拒收一切新 pass**(物理拒收,非约定)。ack 绑定当前最后一条裁决水位，
+同一批历史不会原地复活；出现新裁决后重新计算，异常仍在才重新开单。
 
 ## 清册刷新(代码合并后)
 

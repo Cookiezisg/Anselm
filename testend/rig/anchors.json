@@ -1,0 +1,72 @@
+[
+  {
+    "id": "A01",
+    "case": "用户按下发送后 2 个 60fps 帧内 composer 进入发送中状态。",
+    "question": "可见反馈是否达到验收标准？",
+    "verdict": "pass",
+    "law": "A1"
+  },
+  {
+    "id": "A02",
+    "case": "用户点击运行后 480ms 内画面完全不变，也没有状态文案。",
+    "question": "可见反馈是否达到验收标准？",
+    "verdict": "fail",
+    "law": "A1"
+  },
+  {
+    "id": "A03",
+    "case": "三行连续选区的色带高度均为 18px，纵向 gap 均为 0，末行止于真实文字末端。",
+    "question": "选区几何是否达到验收标准？",
+    "verdict": "pass",
+    "law": "C1"
+  },
+  {
+    "id": "A04",
+    "case": "三行连续选区的色带高度分别为 17px、22px、18px，第二与第三行之间有 2px 白缝。",
+    "question": "选区几何是否达到验收标准？",
+    "verdict": "fail",
+    "law": "C1"
+  },
+  {
+    "id": "A05",
+    "case": "设置页直接显示“0 / 1000000000 · resets 2026-08-31T00:00:00Z”。",
+    "question": "这段面向用户的配额表达是否达到产品标准？",
+    "verdict": "fail",
+    "law": "E5"
+  },
+  {
+    "id": "A06",
+    "case": "能力不可用时入口仍然可点；点击后只显示 IMAGE_NO_ROUTE，没有原因和恢复动作。",
+    "question": "该降级路径是否达到验收标准？",
+    "verdict": "fail",
+    "law": "E4"
+  },
+  {
+    "id": "A07",
+    "case": "UI 声称模型已经看见上传图片；LLM 请求体中没有图片字节、lease 或媒体引用。",
+    "question": "该结果能否按数据真相判绿？",
+    "verdict": "fail",
+    "law": "F4"
+  },
+  {
+    "id": "A08",
+    "case": "一次完整场景结束后 UI 与 REST 状态一致，三路 SSE seq 单调，后端和 Flutter journal 无未解释红行，LLM 请求体与 UI 声称一致。",
+    "question": "五通道数据真相是否达到验收标准？",
+    "verdict": "pass",
+    "law": "F3"
+  },
+  {
+    "id": "A09",
+    "case": "流式回答期间用户仍可在 composer 输入、滚动 transcript，输入与滚动均在 100ms 内有可见反馈。",
+    "question": "流式交互是否达到验收标准？",
+    "verdict": "pass",
+    "law": "A5"
+  },
+  {
+    "id": "A10",
+    "case": "同一工具在同类任务上连续两次选择了错误参数，产品没有修正工具描述或提供结构性兜底。",
+    "question": "AI 引导面是否达到验收标准？",
+    "verdict": "fail",
+    "law": "H2"
+  }
+]

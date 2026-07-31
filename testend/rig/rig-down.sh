@@ -1,38 +1,57 @@
 #!/usr/bin/env bash
-# rig-down — stop the rig session recorded in the manifest, backend first via SIGTERM so its
-# graceful-shutdown path (scheduler drain, sandbox reap) runs; the tap dies after, so the
-# journal's last frames are the backend's own shutdown truth, not an artificial cut.
-#
-# rig-down — 按 manifest 停台架:后端先走 SIGTERM 使优雅关停路径(调度排空、sandbox 收割)
-# 真跑;tap 后死,journal 的最后几帧是后端自己的关停真相、不是人为切断。
+# rig-down stops only processes whose current command still matches the role recorded in manifest.
+# This prevents a stale manifest from killing an unrelated process after PID reuse.
 set -euo pipefail
 
 RIG_HOME="${RIG_HOME:-$HOME/.anselm-rig}"
 MANIFEST="$RIG_HOME/current/manifest.json"
-[ -f "$MANIFEST" ] || { echo "✗ no live rig session ($MANIFEST missing)"; exit 1; }
+[ -f "$MANIFEST" ] || { echo "✗ no live rig session"; exit 1; }
+field() { python3 -c "import json; print(json.load(open('$MANIFEST')).get('$1',''))"; }
+matches() {
+  local pid="$1" pattern="$2"
+  [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null && ps -o command= -p "$pid" | grep -Eq "$pattern"
+}
+stop_matching() {
+  local label="$1" pid="$2" pattern="$3" signal="${4:-TERM}"
+  if matches "$pid" "$pattern"; then
+    kill -"$signal" -"$pid"
+    for _ in $(seq 1 40); do kill -0 "$pid" 2>/dev/null || break; sleep 0.25; done
+    if kill -0 "$pid" 2>/dev/null; then
+      kill -KILL -"$pid" 2>/dev/null || true
+      echo "⚠ $label required SIGKILL"
+    else
+      echo "✓ $label stopped"
+    fi
+  elif [ -n "$pid" ] && kill -0 "$pid" 2>/dev/null; then
+    echo "✗ refusing to kill PID $pid for $label: command identity no longer matches" >&2
+    return 1
+  else
+    echo "· $label already gone"
+  fi
+}
 
-BACKEND_PID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['backendPid'])")
-TAP_PID=$(python3 -c "import json; print(json.load(open('$MANIFEST'))['tapPid'])")
+SESSION=$(field session)
+APP_PID=$(field appPid)
+BACKEND_PID=$(field backendPid)
+TAP_PID=$(field tapPid)
+LLMTAP_PID=$(field llmtapPid)
+RECORDER_PID=$(field recorderPid)
 
-if kill -0 "$BACKEND_PID" 2>/dev/null; then
-  kill -TERM "$BACKEND_PID"
-  for i in $(seq 1 40); do kill -0 "$BACKEND_PID" 2>/dev/null || break; sleep 0.25; done
-  kill -0 "$BACKEND_PID" 2>/dev/null && { echo "⚠ backend still alive after 10s — SIGKILL"; kill -9 "$BACKEND_PID"; }
-  echo "✓ backend stopped"
-else
-  echo "· backend already gone"
-fi
+# App first: it observes an orderly end instead of a manufactured backend outage. Backend then drains
+# while ssetap remains connected to witness its terminal frames. Recorder is last and receives INT so
+# screencapture writes the MOV trailer instead of leaving an unreadable file.
+stop_matching "Flutter app" "$APP_PID" 'flutter_tools\.snapshot run'
+stop_matching "backend" "$BACKEND_PID" '/server($| )'
+stop_matching "ssetap" "$TAP_PID" '/ssetap($| )'
+stop_matching "llmtap" "$LLMTAP_PID" '/llmtap($| )'
+stop_matching "screen recorder" "$RECORDER_PID" 'screencapture.*-v' INT
 
-if [ -n "$TAP_PID" ] && kill -0 "$TAP_PID" 2>/dev/null; then
-  kill -TERM "$TAP_PID"
-  echo "✓ ssetap stopped"
-fi
-
-LLMTAP_PID=$(python3 -c "import json; print(json.load(open('$MANIFEST')).get('llmtapPid',''))")
-if [ -n "$LLMTAP_PID" ] && kill -0 "$LLMTAP_PID" 2>/dev/null; then
-  kill -TERM "$LLMTAP_PID"
-  echo "✓ llmtap stopped"
+if [ -f "$SESSION/screen.mov" ]; then
+  ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$SESSION/screen.mov" >"$SESSION/screen.duration" 2>"$SESSION/ffprobe.log" || {
+    echo "✗ screen.mov is not readable; evidence channel 1 invalid" >&2; exit 1;
+  }
+  echo "✓ recording finalized ($(cat "$SESSION/screen.duration")s)"
 fi
 
 rm -f "$RIG_HOME/current"
-echo "✓ rig down — journals preserved in the session directory"
+echo "✓ rig down — journals preserved in $SESSION"

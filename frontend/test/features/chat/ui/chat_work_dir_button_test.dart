@@ -599,7 +599,16 @@ void main() {
       expect(find.text(t.chat.workDir.newBranchTitle), findsOneWidget);
       expect(find.text(t.chat.workDir.newBranchExplainer), findsOneWidget);
 
-      await tester.enterText(find.byType(EditableText), 'feat/wd2');
+      final field = find.byType(EditableText);
+      expect(field, findsOneWidget);
+      expect(
+        tester.widget<EditableText>(field).focusNode.hasFocus,
+        isTrue,
+        reason:
+            'opening the naming modal must put keyboard focus in its field, not in the background composer',
+      );
+      await tester.enterText(field, 'feat/wd2');
+      expect(tester.widget<EditableText>(field).controller.text, 'feat/wd2');
       await _tapMenu(tester, t.chat.workDir.newBranchConfirm);
 
       expect(h.repo.createdBranches, ['feat/wd2']);
