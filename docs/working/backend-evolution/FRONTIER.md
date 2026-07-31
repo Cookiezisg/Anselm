@@ -224,6 +224,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 紧接着语音 denial 也在隔离进程中完成同一合同：interaction→deny 204→约 17s completed，历史没有 `generate_speech` receipt，quota 没有消费。当前视频/语音两条最新拒绝路径均有绿灯，对此前的长尾红灯只保留为时序哨兵与后续 gateway request-level 观测线索，不再把它们视作稳定后端 defect。
 
+当前窗口重新抽样语音 danger-gate：三跑仅 1/3 在 13.03s 进入 interaction 并完成拒绝，另外两轮在 65.38s/61.45s 内始终为空；用正确 `source ../.env` 的独立校准同样在 64.18s 超时。所有红灯都停在模型尚未提出 `generate_speech` 审批，未触达合成、receipt、附件或 quota 断言。紧邻的直接 `GenerateSpeechArtifact` 双跑 2/2 通过（12.18s、11.15s），真实 WAV、`provider=anselm` receipt 与 content 闭合，进一步把问题收窄为 managed 模型工具遵循/stream 时序哨兵，而不是 speech route、danger broker 或 reservation ledger 缺陷。
+
 本轮补做当前窗口的直接 managed `generate_video` writer：首轮完整通过 danger approval→一次异步 gateway submission→durable completion，唯一 MP4 为 4,104,553 bytes，receipt 恰一条且标注 `provider=anselm`；双跑第二轮在审批后遇到 `api.anselm.website` DNS 暂时无法解析，回合以 `LLM_STREAM_ERROR` 结束，失败没有触及本地 MP4、receipt 或 attachment 断言。紧接着单独 re-probe 恢复并以 149.90s 通过同一 artifact/receipt 合同，故当前记为 2 次成功 + 1 次可定位上游 DNS 瞬态，不改视频 writer、danger gate 或 durable ledger。
 
 同日复探批准后异步视频取消：danger approve 后观察到 gateway submission，再发 `:cancel` 204；父回合落 `cancelled`，随后等待仍没有本地 video receipt 或迟到附件。底层任务被杀时的 `tool execute failed` WARN 是取消噪声，durable/history/attachment 语义保持正确，未形成资源孤儿或重复消费缺陷。
