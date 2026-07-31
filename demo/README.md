@@ -1,106 +1,66 @@
-# Anselm `demo/` — 设计系统 + 完整能力 demo（Flutter 1:1 事实源）
+# Anselm Web Demo
 
-> 这是 Anselm 桌面端的**严格约束设计系统**与**完整产品能力 demo**：纯静态、不连后端、不进后端门禁。
-> 目标 = 一套丑布局根本表达不出来的规范 + 一个展示产品所有能力的可跑 demo，供后续 Flutter 桌面端**逐组件 1:1 参照**。
-> `design/` 是上一版（迁移负债：双组件系统/带 bug/覆盖错位），**只作参照、不再开发**；本目录是干净重建。
+`demo/` 是不连接后端的静态 Web Components 原型与视觉回归资产。它保存 Flutter
+重建之前形成的交互样本、组件压力样本和 Playwright 矩阵，但**不是当前产品、
+前端架构或后端契约的事实源**。
 
----
+当前产品事实从以下入口读取：
 
-## 一句话心法
+- Flutter 产品与路由：[`docs/references/frontend/overview.md`](../docs/references/frontend/overview.md)
+- 设计系统：[`docs/references/frontend/design-system.md`](../docs/references/frontend/design-system.md)
+- 后端 HTTP / DTO：[`docs/references/backend/api.md`](../docs/references/backend/api.md)
 
-**一致性 = 约束的副产品。** 规范的力量在“拒绝什么”，不在“能表达什么”。
-照规范做（拼 `<an-*>` 原语）比不照做（手写 CSS）更省事 —— 这才是真强制。
+## 当前用途
 
----
+| 入口 | 用途 |
+|---|---|
+| `app.html` | 用固定 mock 数据浏览三岛壳和历史产品原型 |
+| `reference.html` | 浏览 `core/primitives/` 的 specimen 与压力态 |
+| `features/onboarding/onboarding.html` | 独立 onboarding 原型 |
+| `make -C demo verify` | 运行源码 lint、reference 矩阵、app/settings/onboarding smoke 与安全专项 |
 
-## 三层强制（约束怎么真正咬合）
+demo 不发真实 HTTP，不消费真实 SSE，也不证明 Flutter 已实现同名交互。需要验证当前
+桌面产品时，使用 `make -C frontend gallery`、`make -C frontend demo` 或
+`make -C frontend app`。
 
-| 层 | 机制 | 治什么 | 落点 |
-|---|---|---|---|
-| **L1 机械门禁** | `node tools/lint.mjs` 扫描：禁裸 `hex/px/ms`、禁在 tokens 外定义 `--变量`、强制 `an-` 标签前缀 | 裸值、乱定义、命名漂 | [`tools/lint.mjs`](tools/lint.mjs) |
-| **L2 结构封装** | 原语 = 原生 **Web Component + Shadow DOM**。feature 只能写 `<an-*>` 标签，**够不到内部、改不了样式** | “各自造轮子” 在结构上不可能 | [`core/base.js`](core/base.js) + `core/primitives/` |
-| **L3 声明式 + 覆盖闸** | 页面由 schema 声明驱动（手搓布局表达不出来）+ [`CAPABILITY.md`](CAPABILITY.md) 把“覆盖所有能力”变成可勾选清单 | 实现不一致、覆盖错位/不贴后端 | `core/schema/{kind-schema,render}.js` + `core/config/*` + `CAPABILITY.md` |
+## 物理结构
 
-> token 是 `:root` 上的自定义属性，**穿透 shadow 边界**继续生效 —— 所以组件内 `var(--…)` 照常工作、换肤零成本。
-
----
-
-## 目录 = 归属（一文件一主人）
-
-```
+```text
 demo/
-├── README.md            # 本文（宪法）
-├── CAPABILITY.md        # 能力清单 = 后端契约的投影（覆盖闸：做哪些面）
-├── PATTERNS.md          # 原语/Pattern 覆盖登记（杜绝造轮子：每个 UI 范式的归宿）
-├── reference.html       # 能力参考画廊（独立页·单独管理）：声明式 catalog 驱动，每原语一展位、各态一格；与 app 同源加载全部原语，便于拓展/debug
-├── app.html             # 完整产品 app 宿主（三岛骨架可跑；海洋内容 Phase 3 铺）
-├── index.html           # 入口画廊（规划）
+├── app.html                     # 静态产品原型入口
+├── reference.html               # 组件 specimen 入口
 ├── core/
-│   ├── tokens.css       # 🔒 唯一值源（密度 2 幂 · 布局 2:3:6 · 字阶模数）
-│   ├── reset.css        # 🔒 light-dom 基座（与 tokens 是门禁唯二豁免层）
-│   ├── base.js          # AnElement 基类（Shadow DOM + token + 生命周期）
-│   ├── icons.js         # 图标语法：领域 key → Lucide 名（单一映射）
-│   ├── primitives/      # 强制层原语（45 个 <an-*> custom element，CSS 内联在 static css；floating/menu/model-picker/mention/toast/dialog 6 个命令式浮层/交互模块）
-│   ├── config/          # 单源枚举：entity-kinds（9 kind）· state-model（状态翻译）
-│   ├── schema/          # 声明式：kind-schema（KIND_SCHEMA）· render（renderEntity 渲染器，L3 闭环）
-│   ├── patterns/        # 复合件（EntityCard/RunGraph 等，只由 primitives 拼，Phase 3）
-│   ├── manifest.js      # 海洋注册表（append-only）
-│   ├── intent.js · live.js   # 选中通道 / 三流实时（mock→真 SseGateway 同契约）
-│   ├── shell.js         # <an-shell> 三岛外壳（布局/收起/拖拽/滚动）
-│   ├── sidebar.js       # <an-sidebar> 左岛（导航/轴/peek）
-│   └── app.js           # 装配根/控制器（manifest→nav，切海洋，注入 Intent）
-├── features/<ocean>/    # 海洋（一文件夹一主人，只装配、零 bespoke CSS，Phase 3）
-└── tools/lint.mjs · serve.mjs · matrix.mjs   # L1 门禁 · no-cache 预览 · 全矩阵 Playwright 回归(make demo-test)
+│   ├── tokens.css               # web demo token
+│   ├── base.js                  # Web Component 基类
+│   ├── primitives/              # 50 个历史原语 / 复合件
+│   ├── config/                  # demo 枚举与状态映射
+│   ├── schema/                  # demo 声明式实体投影
+│   ├── manifest.js              # 原型 surface 注册
+│   └── app.js, shell.js, ...    # 静态装配与三岛壳
+├── features/                    # mock surface 与 reference catalog
+└── tools/                       # serve、lint、Playwright matrix
 ```
 
----
+`core/manifest.js` 当前登记 chat、entities、scheduler、documents、settings、
+notifications、onboarding 与 graph-editor。这里的 `documents` 是旧原型命名；
+当前 Flutter 产品面叫 Library。
 
-## 原语契约（写一个 `<an-*>` 怎么写）
-
-```js
-class AnXxx extends window.AnElement {
-  static tag = "an-xxx";              // 必须 an- 前缀
-  static observed = ["a", "b"];       // 反射的属性（变更即重渲）
-  static css = `...`;                 // 内联 CSS（shadow 内类名无需前缀——已隔离）
-  render() { return `...`; }           // 返回 shadow innerHTML
-  hydrate() { /* 可选：绑事件，emit('an-xxx-event') */ }
-}
-window.AnElement.define(AnXxx);
-```
-
-- 取值：`this.attr(n,d)` / `this.has(n)` / `this.num(n,d)`；查 shadow：`this.$(s)` / `this.$$(s)`。
-- 对外事件：`this.emit('an-select', {...})`（`composed:true`，feature `addEventListener` 接）。
-- 转义：`window.anEsc(s)`（单一实现）；图标：`window.icon(name, size?, stroke?)`。
-- **跨海洋通信只走 Intent / Live**（Phase 1b），原语之间不互相 import。
-
----
-
-## 数系（值的数学出处，详见 `core/tokens.css` 注释）
-
-- **密度 = 纯 2 的幂**：grid 4 · gap 8 · icon/lead 16 · row 32（2²·2³·2⁴·2⁵）。
-- **布局 = 谐波 2:3:6**（u=120）：侧栏 240 · 右岛 360 · 内容 720；1440 窗 = 12u 平铺。
-- **字阶 = 模数**：display 16/20/24/32 落 4 网格；body 13 是锚（不入 2 幂）；meta 12 是 UI 下限。
-- 层次靠**字色**（列表项默认 `--ink-2` 灰、hover/选中才 `--ink` 黑；meta `--ink-3`），不靠字号；**accent 极度克制**（仅主 CTA / 实时 / 选中点）。
-- hover 显隐 / 同槽互换 = **0ms 即时**（不入 transition：更脆 + 规避无头渲染器“未完成过渡冻初值”坑）。
-
----
-
-## 运行 / 门禁
+## 使用
 
 ```bash
-node demo/tools/lint.mjs                 # L1 门禁（CI/pre-commit，非零退出=失败）
-make demo-test                           # 全矩阵回归：reference.html 每组件×填充态逐件 Playwright 断言
-                                         #   （无 console 错 / 页面横向溢出 / XSS 逃逸 + app 冒烟 + disabled/dialog 专项）
-                                         #   playwright 是 dev-only 未入库，首次 `cd demo && npm i`；自起隔离端口、跑完自清
-# 预览：preview_start name=demo → /app.html（完整三岛骨架）· /reference.html（原语规格台）
+make -C demo setup
+make -C demo serve
+make -C demo verify
+make -C demo clean
 ```
-**无头渲染器两坑**：① 默认态须正确渲染的属性禁进 transition；② 量布局前先 `preview_resize 1440 900`（视口偶尔塌 1px）。
 
----
+依赖由根目录 `mise.toml` 与 `demo/package-lock.json` 锁定。`verify` 会自起隔离
+HTTP server，并使用与 lockfile 匹配的 Chromium。
 
-## 工程纪律（本工作区约定）
+## 修改边界
 
-- 中文回复；代码/路径/英文 commit 半句保持原样。commit **不加** `Co-Authored-By`。
-- 每次 commit 后 **push origin/main**；**只在 main、不开分支**；精确 `git add demo/`（别 `git add -A`）。
-- `design/` 是上一版参照、不动；`demo/` 是本工作区。
-- 改 token 一处、全系统跟着变；改原语 = 改 `core/primitives/<x>.js`（CSS 内联其中）。
+- 修 demo 自身回归或保留原型证据时，可直接修改本目录并同步本页。
+- 产品事实、Flutter 组件契约与路由变化，不要求机械同步这套历史 Web 实现。
+- 不从 demo 的 mock、旧 provider 名、阶段标记或像素值反推当前产品能力。
+- 新增 demo primitive 时同步 [`PATTERNS.md`](PATTERNS.md)；改变 demo surface
+  覆盖时同步 [`CAPABILITY.md`](CAPABILITY.md)。

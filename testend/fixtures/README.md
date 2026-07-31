@@ -4,8 +4,8 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-07-24
-reviewed: 2026-07-24
-review-due: 2026-10-24
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
@@ -15,7 +15,8 @@ audience: [human, ai]
 SHA-256，不保存大二进制。本地生成物的 hash 也受单测保护，确保相同代码得到相同证据。运行：
 
 ```bash
-go run ./fixtures/cmd/materialize -out .cache/multimodal-fixtures
+cd testend
+mise exec -- go run ./fixtures/cmd/materialize -out .cache/multimodal-fixtures
 ```
 
 生成器会：

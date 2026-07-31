@@ -217,3 +217,12 @@ landed-into:
 - 给旧 free-tier、MCP、Settings、Search、G2/Gallery、Skill 与多模态施工材料补冻结提示和 current landing，避免标题中的“START HERE”“事实源”“待核”继续抢夺当前事实权。
 - acceptance-review、product-review 与 backend-review 的历史子册落到各自终报，再由终报落到当前 backend/testend reference；Convergence 三份子账补齐 parent/current landing。
 - 审计后 archive 内 `status` 全为 `archived`，所有 77 份 Markdown 均有非空 `landed-into`，且 landing 链最终指向 current reference、ADR 或明确的历史总账。
+
+## 2026-07-31 · G4-001 · 根入口与 Web demo 去权威冲突
+
+- 重写根 README 与 docs INDEX：入口按读者问题路由，明确本地 sidecar / 受管 API、六个 Flutter 产品面、四索引、testend、working 与 archive 权威边界；删除重复前端入口、硬编码文档篇数和“五个产品面”等漂移数字。
+- 根 README 补齐仓库物理地图，并明确 `make verify` 不含分钟级 testend 和付费 evals，真实模型只有显式运行才读取环境或 `.env` 凭据。
+- 核对 `demo/` manifest、50 个 primitive 文件、HTML 加载面、Makefile 与 Playwright matrix 后，重写 README/CAPABILITY/PATTERNS：web demo 现在明确只是静态历史原型与自有回归资产，不再自称 Flutter 1:1 或后端能力事实源，也不再携带“自动 push main”等代理指令。
+- 同步 frontend README 的真实启动面，修 demo 品牌副本与 Flutter/native 资产的关系；核对 artwork hash、尺寸、调用点和品牌资产清单，整理来源与许可说明；修正多模态 fixture 的实际执行目录与 mise 命令。
+- 只读复核数据目录、机器指纹密钥、device proof、blob、sandbox 与日志轮转实现后，确认 data migration 正文仍成立，并刷新 how-to 审阅日期。
+- 验证：`make -C docs verify`、`make -C demo verify` 与 `git diff --check` 通过；demo matrix 12 类、385 specimen、0 console error / overflow / XSS escape。

@@ -2,6 +2,8 @@
 
 Anselm 的 Flutter 桌面客户端。Go 后端以 localhost sidecar 运行并持有业务真相；本目录负责桌面壳、交互状态、Dart 契约投影与 macOS/Linux/Windows 原生宿主。
 
+根目录 `demo/` 是独立的历史 Web 原型，不是 Flutter 实现或当前产品事实源。
+
 ## 从哪里读
 
 | 目标 | 入口 |
@@ -34,8 +36,14 @@ make quick       # diff 驱动的开发内环
 make verify      # codegen + analyze + 分组测试
 make gallery     # 原语目录
 make demo        # 真壳 + fixtures
+make onboard     # fixture 首启流程
+make perf        # macOS profile demo + 帧探针
 make app         # 真壳 + sidecar
 make shots       # 无头截图
 ```
 
 普通命令会恢复缺失依赖。默认设备是 macOS；可用 `DEVICE=<flutter-device>` 指定其他已安装桌面目标。macOS 宿主使用 Swift Package Manager，不需要 CocoaPods。
+
+`make app` 默认自动启动或复用开发 sidecar；设置 `ANSELM_BACKEND_URL` 可连接已经
+运行的后端。完整启动、健康门控与退出语义见
+[`platform.md`](../docs/references/frontend/platform.md)。

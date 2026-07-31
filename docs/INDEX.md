@@ -1,33 +1,33 @@
 # Anselm 文档索引
 
-> AI 会话入口。先读本文，再循链接。**文档规范见 [`GOVERNANCE.md`](GOVERNANCE.md)（强制）。**
+> AI 与人的文档入口。工程纪律先读 [`CLAUDE.md`](../CLAUDE.md)，文档创建、
+> 同步和淘汰规则见 [`GOVERNANCE.md`](GOVERNANCE.md)。
 
-## 找什么去哪
+## 当前系统
 
-| 要找 | 去 |
+| 问题 | 权威入口 |
 |---|---|
-| **后端整体怎么组成、怎么流动（第 0 篇）** | `references/backend/overview.md` |
-| 系统架构 / 路线 / 愿景 | `concepts/architecture.md` |
-| 工程纪律 + 代码规则（S/T/N/D/E） | `../CLAUDE.md` |
-| **HTTP 端点 / DB 表 / 错误码 / SSE 事件**（四索引，与代码逐字同步） | `references/backend/{api,database,error-codes,events}.md` |
-| **本地 sidecar 与已部署 Anselm API 的责任边界** | `references/backend/managed-gateway.md` |
-| 某个域怎么设计的（心智模型 / 生命周期 / 坑） | `references/backend/domains/<域>.md` |
-| 地基与引擎（orm / reqctx / **scheduler-flowrun** / loop / stream-llm / sandbox / bootstrap / 小件） | `references/backend/foundation/` |
-| **前端怎么组成、怎么流动（第 0 篇）** | `references/frontend/overview.md` |
-| **前端当前产品与工程心智** | `references/frontend/overview.md` |
-| **后端如何持续用真实场景自我迭代** | `working/backend-evolution/README.md` |
-| 架构决策（直装运行时 / 统一错误类型 / API 契约 / Flutter / mise / MCP / scheduler / 主密钥 / editor / gateway 设备证明 / 媒体 lease 契约 / 媒体内联上游 / 视频同步工具 / MediaRef 唯一货币 / 受管视频签名句柄 / 内联播放[已被 0018 取代] / 产地决定模型输入[已被 0020 取代] / 播放底座按平台选[已被 0019 取代] / vendor linux-only 播放插件·拆 CocoaPods / 能力决定模型输入） | `decisions/000{1,2,3,4,5,6,7,8,9}-*.md` · `decisions/001{0,1,2,3,4,5,6,7,8,9}-*.md` · `decisions/0020-*.md` |
-| 数据目录 / 备份 / 跨机迁移 | `how-to/data-migration.md` |
-| 全功能黑盒验收套件（`make -C backend testend` / `evals`） | `references/testend/overview.md` |
+| 产品心智、分层与端到端数据流 | [`concepts/architecture.md`](concepts/architecture.md) |
+| 后端整体结构 | [`references/backend/overview.md`](references/backend/overview.md) |
+| HTTP / DB / error / SSE 四索引 | [`api`](references/backend/api.md) · [`database`](references/backend/database.md) · [`error-codes`](references/backend/error-codes.md) · [`events`](references/backend/events.md) |
+| 某个后端领域 | [`references/backend/domains/`](references/backend/domains/) |
+| loop、stream、durable、sandbox、bootstrap 等地基 | [`references/backend/foundation/`](references/backend/foundation/) |
+| 本地 sidecar 与已部署 Anselm API 的边界 | [`references/backend/managed-gateway.md`](references/backend/managed-gateway.md) |
+| 前端整体结构与产品面 | [`references/frontend/overview.md`](references/frontend/overview.md) |
+| 前端架构 / DTO / 设计系统 / 平台宿主 | [`architecture`](references/frontend/architecture.md) · [`contract`](references/frontend/contract.md) · [`design-system`](references/frontend/design-system.md) · [`platform`](references/frontend/platform.md) |
+| Chat、Entities、Library、Notifications、Scheduler、Settings | [`references/frontend/features/`](references/frontend/features/) |
+| 黑盒 testend 与真实 evals | [`references/testend/overview.md`](references/testend/overview.md) |
+| 数据目录、备份与跨机迁移 | [`how-to/data-migration.md`](how-to/data-migration.md) |
 
-## 后端文档体系
+## 决策、在研与历史
 
-**先读 [overview.md](references/backend/overview.md)**（鸟瞰 + 三条端到端数据流 + 横切机制），再进分域：
+| 要找 | 去向 |
+|---|---|
+| 不可变架构取舍及 supersede 关系 | [`decisions/`](decisions/) |
+| 后端持续真实体验迭代 | [`working/backend-evolution/README.md`](working/backend-evolution/README.md) |
+| 桌面发行与平台未完成面 | [`working/platform-foundation/README.md`](working/platform-foundation/README.md) |
+| 当前文档治理战役 | [`working/document-governance/CHARTER.md`](working/document-governance/CHARTER.md) |
+| 已完成、终止或被取代的施工证据 | [`archive/`](archive/) |
 
-- **domains/**（21 篇）：function · handler · agent · workflow · trigger · control · approval · skill · mcp · document · chat · messages · conversation · subagent · attachment · memory · todo · relation · touchpoint · search · support-services（十一微域合篇）
-- **foundation/**（8 篇）：orm · reqctx · scheduler-flowrun（durable 引擎）· loop（ReAct）· stream-llm · sandbox（含 envfix）· platform-pkgs · bootstrap
-- **frontend/**（ADR 0004）：**先读 [overview](references/frontend/overview.md)**（三岛壳 + 五个产品面 + sidecar + 三流）· [architecture](references/frontend/architecture.md)（物理文件图 + 路由 + 装配）· [design-system](references/frontend/design-system.md)（设计令牌 + An* 原语）· [contract](references/frontend/contract.md)（后端线缆的 Dart 投影）· [platform](references/frontend/platform.md)（桌面宿主）· [features/](references/frontend/features/)（Chat · Entities · Library · Scheduler · Notifications · Settings 当前形态）。
-
-## 权威层级
-
-`CLAUDE.md` > `references/` > `concepts/` > `working/` > `archive/`。
+权威顺序：`CLAUDE.md` → current `references/` → `concepts/` → `working/` →
+`archive/`。archive 只用于追溯，不能作为当前实现依据。
