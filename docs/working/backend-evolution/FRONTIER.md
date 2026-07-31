@@ -344,6 +344,8 @@ Google 原生视觉也做了当前 key 的独立双跑：`gemini-3-flash-preview
 
 本轮补做实体执行面 contract 双跑：agent invoke 的 wall-clock timeout 与 mount health matrix、嵌套 human loop、flowrun entry/decide/error 读写，function 的 cursor/unknown-field/env lifecycle/version-cap trim，以及 handler 的 cursor/soft-delete/resident/config merge-patch/revert/iterate 全部闭合。11 个场景共 22/22（包 86.083s），没有 execution/environment 泄漏、错误版本复用或软删穿透。
 
+本轮对 managed 子代理的多模态消费面做当前双跑：图片 child 真实执行 `inspect_media` 并把 bounded vision evidence 交回父层；视频 child 返回 `kind=video/mode=metadata` 且保留 1000–2000ms 时间窗；音频 child 返回对应 `kind=audio/mode=metadata` 且保留 1200–2600ms 时间窗。6/6 通过（Image 29.87/26.32s、Video 97.09/93.03s、Audio 27.05/26.50s；包 300.627s），每轮均由 `general-purpose` child 执行、父层没有偷调或伪造 transcript，98-byte PNG、2,969,360-byte MP4、96,044-byte WAV 仍逐字节可回读，未形成 nested vision、temporal metadata、parent continuation 或媒体孤儿回归。
+
 ### FRT-06 最新证据
 
 同日对文档内图片引用做双侧独立复探：managed 默认入口与 OpenAI BYOK 入口都从文档正文的图片引用解析到同一附件 MediaRef，模型回合完成，附件 content 端点回读的 98-byte PNG 与文档/消息投影一致；BYOK 路径保持 OpenAI 选择，不发生 managed fallback。managed 两次通过（5.974s、7.793s），BYOK 两次通过（4.796s、4.795s），未形成文档引用、附件归属或多模态编码缺陷。
