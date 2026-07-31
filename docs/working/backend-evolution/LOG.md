@@ -1187,6 +1187,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-762 | 当前 backend 全量黑盒总闸通过：`testend/scenarios` acceptance suite 在本轮所有 contract/managed 复探后仍全绿，workflow trigger/版本/重启、协议 SSE、chat 物理真相、附件/文档、多模态、MCP/function/handler、provider wire、资源与取消恢复均未出现回归；无 provider secret 注入。 | full backend testend regression / post-EVO-749~761 gate | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo762-backend-testend-full.log` → `ok github.com/sunweilin/anselm/testend/scenarios 352.518s` |
 
+| 2026-07-31 | EVO-763 | deployed gateway sibling 当前总闸全绿：vet、trimpath build、全仓 race/unit、integration e2e、golangci-lint 与 docs lint 均通过；e2e 6.895s、lint 0 issues、docs 35 files clean，确认 router/middleware/SQLite/upstream、stream settle、quota/async 边界仍可作为 backend 黑盒的真实服务底座。未改 gateway、未输出 provider secret。 | FRT-03 + FRT-04 + FRT-07 + FRT-08 + FRT-09 + FRT-11 / Anselm-API-Serve / cross-repo gateway verify | `cd ../Anselm-API-Serve && make verify` → PASS：`go vet ./...`、trimpath build、`go test -race ./...`、`go test -tags=integration -race -count=1 ./internal/e2e/...`、golangci-lint `0 issues`、docs lint `35 file(s) ok, 0 warning(s)` |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
