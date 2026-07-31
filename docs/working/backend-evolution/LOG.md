@@ -1265,6 +1265,8 @@ audience: [human, ai]
 
 | 2026-07-31 | EVO-801 | 默认 managed 普通 chat 多附件融合当前双跑全绿：text+image+video、PDF+image、video+unsupported-audio、两张独立图片均在单回合完成；原始 text/PDF/PNG/MP4/WAV 逐字节回读，音频只写 capability note，不把整回合打成 400，也没有拆回合或 managed 路由漂移 | FRT-01 + FRT-13 / managed-read / direct chat multimodal fusion + honest downgrade | `cd testend; set -o pipefail; set -a; source ../.env; set +a; EVALS_MANAGED=1 /opt/homebrew/bin/mise exec -- go test ./scenarios -run '^TestLiveManaged_DefaultChatWith(TextImageAndVideoAttachments|PDFAndImageAttachments|VideoAndUnsupportedAudio|MultipleImageAttachments)$' -count=2 -parallel 1 -timeout 60m -json 2>&1 | tee /tmp/anselm-evo801-managed-direct-chat-multimodal-double.jsonl` → PASS：PDF+image 14.07s/10.11s、video+audio 40.26s/45.30s、text+image+video 41.99s/42.45s、multiple image 6.08s/7.71s（包 208.839s）；未输出 provider secret |
 
+| 2026-07-31 | EVO-802 | 当前工作树完成一次全量 backend 黑盒总闸：在 EVO-797～801 的 managed/BYOK/多模态/子代理探针后，contract、chat、workflow/trigger、附件/文档、MCP/function/handler、provider wire、取消/恢复与资源卫生仍全绿；未发现本轮稳定产品回归 | full backend testend regression / post-EVO-797~801 live probes | `set -o pipefail; make -C backend testend 2>&1 | tee /tmp/anselm-evo802-backend-testend-full.log | tail -n 160` → `ok github.com/sunweilin/anselm/testend/scenarios 312.509s`；未启用 provider secret |
+
 ## 追加格式
 
 `日期 | EVO-编号 | 一句事实与用户影响 | 共同层/执行面 | 最小可复现或测试 | commit / reference`
