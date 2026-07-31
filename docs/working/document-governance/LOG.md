@@ -113,3 +113,10 @@ landed-into:
 - API 通则精炼后 drift gate 立即发现 `entities` 资源词只存在于被删旧句；新增显式三条 SSE 端点登记后门禁恢复通过，证明本批使用机械反馈修复真实覆盖缺口。
 - 验证：`make -C docs verify` 与 `git diff --check` 通过，DTO warning 未变化。
 - API 支撑域与系统/可观测性仍是两个超长混合段，保留为下一批明确 frontier；本批不宣称 api.md 完成。
+
+## 2026-07-31 · G2-007 · Durable 引擎 reference 重建
+
+- 按 `app/scheduler`、`domain/flowrun`、store schema 与已登记 API 整体重述 `foundation/scheduler-flowrun.md`。
+- 当前文档分离 record-once、walk、手动/firing 创建、approval、replay/cancel、终态/attention、worker pool、boot context、retention、API 与 dispatch；删除工单编号、事故复盘、benchmark 和重复的整页 API 文法。
+- 保留关键正确性边界：graph/ref 双 pin、handler/MCP 活态例外、节点终态写、first-wins、cancelled parked 行只能出现在 cancelled run、被打断节点不写 failed、replay/retention 两个 durable truth 删除例外、background ctx 逐 workspace 播种。
+- 验证：`make -C docs verify`、`git diff --check` 与该文档施工词扫描通过；DTO warning 未变化。

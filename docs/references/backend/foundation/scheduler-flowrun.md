@@ -4,80 +4,246 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-06-11
-review-due: 2026-09-11
+reviewed: 2026-07-31
+review-due: 2026-10-29
 audience: [human, ai]
 ---
 
-# scheduler + flowrun —— durable 执行引擎
+# Scheduler 与 Flowrun
 
 ## 1. 定位
 
-平台的心脏：**durable workflow 解释器**（`app/scheduler`，纯编排无实体）+ **一次执行的持久化状态**（`domain/flowrun` + 两张 Log 表）。设计原则 #2 的落点：**节点结果记忆化 + 解释器幂等重走**（DBOS/Conductor 式），**非**事件溯源日志（Temporal 式已否决）——没有用户代码可重放，只有图解释器，其全部状态 = "哪些 (节点,轮次) 完成了、result 是什么"。
+`app/scheduler` 是 durable workflow 解释器；`domain/flowrun` 与
+`flowruns`/`flowrun_nodes` 保存一次执行的状态。引擎使用节点结果记忆化和
+幂等重走，不使用事件溯源。
 
-## 2. 心智模型（懂了这节，引擎代码就是顺着读）
+一次 run 的两把确定性锁：
 
-**两张表讲完所有状态**：
-- `flowruns`（run 头）= **冻结的拓扑**（`version_id` pin 死图）+ **冻结的引用实体版本**（`pinned_refs`：pin 闭包 `{实体id: active版本id}`）+ 状态。pin 是重放确定性的两把锁——运行中编辑 workflow 或被引用的 function/agent/control/approval 都改不动在途 run（handler 是常驻实例、永远跑 active 类代码；mcp 是无版本的外部 server——两者活态绑定、pin 不约束）。
-- `flowrun_nodes`（★真相表）= 每条是一个 `(节点, 轮次)` 的**记忆化 result**。`UNIQUE(flowrun_id, node_id, iteration)`（`idx_frn_once`，D3）是 **record-once 键**：`INSERT OR IGNORE` 语义、首写赢。
+- `flowruns.version_id` 冻结 workflow graph；
+- `flowruns.pinned_refs` 冻结可版本化引用的 active version。
 
-**整个引擎是一个幂等函数** `Advance(runID)`：**进入时读一次 frn 行** + 冻结图 → 算哪些 (节点,轮次) ready → 跑/求值 → 写行 → 重复直到无人 ready。**行集跨轮在内存携带**：每轮写的节点行追加进内存工作集（record-once：每个 (节点,轮次) 恰由一轮写、ready 计算只调度还没行的节点），故一次驱动**不每轮重读整套行**（避免循环 run 把每行 `result` blob 重拉的 O(N²) 磁盘读）；record-once 冲突（崩溃重放/并发已有行胜）才从盘重读权威集。durable 行仍是真相——**崩溃 = 再调一遍 Advance**（进入时重读）：completed 行被"抄"（record-once 拒绝重写）、绝不重跑。没有事件日志、没有 generation、没有 dispatcher 扇出。
+Handler 是活态常驻实例，MCP 是无版本外部 server，不进入版本 pin。
 
-**节点行只写终态**（completed/failed/parked/cancelled，无瞬时 running 行）：action 在一次同步 advance 内跑完，写行前崩溃就整体重跑（**at-least-once**——副作用靠下游幂等，引擎不装 exactly-once）。`parked` 是唯一非终态：approval 挂起；"哪些 run 在等人"从 parked 行**派生**（parked 行即审批收件箱，无投影表）。`cancelled` 是**中性处置**（呈现层「未执行」桶，非故障——染红即假警报），**只有一个写者**：`CancelParkedNodes` 收割被手动停掉的 run 所 park 的审批（记 failed = 无中生有一次该 run 从未有过的失败，且会与自己的头矛盾——灰 run 上的红格）。**让它对引擎免费的不变式**：cancelled 行**只**存在于头为 cancelled 的 run 上（收割须**赢**头守卫，见 §4「取消」），而 cancelled run 是终局终态（`:replay` 只收 failed、`Recover` 只收 running）⇒ **解释器永不走到 cancelled 行**。破了那道闸它就成「有行、却未 completed」：`hasRow` 挡重排 + `predecessorsSatisfied` 挡每条下游边 = `:replay` 也清不掉的永久停滞子图（`DeleteFailedNodes` 只收 failed 行，D1 不容第三个删）。**排队戳（工单⑫）**：每行带可空 `ready_at`/`started_at`——ready_at 是该 (节点,轮次) 在某轮 walk 首次被算出 ready 的时刻（Advance 按批盖）、started_at 是 runNode 入口（input CEL 求值+派发起点），驱动期间内存暂存（`nodeStamps`）、随该行唯一一次 record-once INSERT 落盘——行仍只写终态、绝无先插后终化；被打断的驱动什么都不写、戳随之消亡。落戳的 replay/恢复立法见 [database.md](../database.md) flowrun 节。
+## 2. Record-once
 
-## 3. walk —— ready 计算（引擎最核心的算法，`walk.go`）
+`flowrun_nodes` 每行表示 `(node_id, iteration)` 的结果。
+`idx_frn_once(flowrun_id,node_id,iteration)` 保证首写赢：
 
-每轮 advance 在"冻结图 + 最新 frn 行"上重建一个纯派生视图：
+```text
+Advance(runID)
+→ 读取冻结图与现有节点行
+→ 推导 ready 集
+→ 执行或求值
+→ record-once 写节点行
+→ 重复直至 terminal 或 parked
+```
 
-1. **seed**：有行的 trigger 节点（run 创建时 trigger 节点行连头一起原子写入——run 绝不无 seed 存在）。
-2. **可达 BFS（从已落库决策重推活跃子图）**：前向边**暂时传播**（未决 control 开放所有 port）；**completed 的 control/approval 只放行选中 port 的边**（`edgePruned`）；**回边只在源 completed 且选中该 port 时走、iteration+1**（循环每个真实决策恰进一轮）。**无 skip 信号传播**——活跃子图每轮从 result 里的 `__port`/`decision` 重新推导。
-3. **ready 判定（一条规则统一 AND-join 和 simple-merge）**：节点 ready ⟺ 被 reached + 还没行 + **每条 live 入边的源都 completed**（被剪的入边忽略——等它们会让分支汇合死锁；并行扇出则两条都 live、自然 AND-join）。
-4. **确定性**：ready 集按节点声明序+轮次排序；`BackEdges`（可归约回边 DFS 判定）与 workflow 校验**用同一个导出纯函数**——系统里"回边"只有一个定义。`MaxIterations=1000` 是失控循环的安全帽（真循环由自身 CEL guard 约束）。**栅栏**（F175-M1）：循环体在 iteration 0..MaxIterations 上跑——溢出时持久化 MaxIterations+1 行（iteration 0 是前向边入口、非回边轮；恰 MaxIterations 条回边轮成功后第 MaxIterations+1 条才被拒），故 1000 上限 ⇒ 至多 1001 行循环体（设计、非 off-by-one）。
+一次 Advance 在内存追加刚写成功的行，避免每轮重读全部 result；发生
+record-once 冲突时重新从数据库取得权威行集。崩溃恢复只是再次 Advance：
+completed 行复用，未落行 activity 可能重跑，因此外部副作用仍要求下游幂等。
 
-**数据接线（model B）**：节点 `Input` 的每个字段是一条裸 CEL，根 = 祖先**节点 id**（`gate.feedback`）。`scopeFor` 取每个节点"`iteration ≤ 当前轮` 中最大且 completed"的 result——循环内祖先解析到当前轮、循环外到固定 result。**无 completed result 的已声明节点绑成空 map（非缺省）**：`celScopedEnv` 把每个 node id 声明为 CEL 根，cel-go 对表达式引用到的未绑根硬报错（即便在 `has()` 内），故缺省会让循环态初始化 `has(loopNode.f) ? loopNode.f : seed.f` 在首轮无法求值——空 map 使 `has()` 干净地为 false、走 seed 分支（循环累加器的标准写法）。control 的 result = 选中分支的 emit 字段**扁平** + 保留键 `__port`；approval = `decision`/`reason`。
+节点只写 `completed|failed|parked|cancelled`，不写瞬时 running。
+`parked` 表示 approval 等待；`cancelled` 只用于已赢得 run 头取消守卫后收割
+parked obligation，不可出现在可 replay 的 run 上。
 
-## 4. run 生命周期
+`ready_at` 是该节点轮次首次进入 ready 集的时间，`started_at` 是引擎开始
+求值 input/派发的时间。两者随唯一一次节点 INSERT 落库；被取消且未落结果的
+activity 不写节点行。
 
-- **手动**（`StartRun`，HTTP `:trigger`）：读 active 版本 → pin 闭包（`BuildPinClosure`：逐 ref 解析 active 版本，**agent 递归一层**进其挂载的 fn/hd——两层是闭包天然下界）→ 选入口 trigger 节点（显式 entryNode > 按 trg_ > 唯一者；歧义 = `FLOWRUN_INVALID_ENTRY`）→ **单事务**写 run 头 + seed trigger 节点 → Advance。
-- **自动**（firing 路径）：见 [trigger.md](../domains/trigger.md)。`consumeFiring` 先 overlap 决策（在途时：serial **留 pending 下个 tick 再试** / skip 标 skipped / buffer_one 收敛到最新+留 pending / replace 先取消在途 run 再跑 / allow_all 并发跑；详见 [trigger.md](../domains/trigger.md)），读全做在事务外，然后 **`ClaimFiring` 单事务**：claim（仅当仍 pending）+ `SeedRunOnTx` 建 run + 回填 started——崩溃回滚后 firing 仍 pending，**绝无 claimed-但-无-run 残留**。workflow `:kill` 在取消在途 run 前先把该 workflow 的剩余 pending firing 统一记为 `shed`，因此硬停后不会有已接受事件复活新 run。若 active workflow 热编辑后已移除该 firing 的 trigger 入口，`FLOWRUN_INVALID_ENTRY` 是结构性不可重试错误，firing 终态记 `shed` 并保留审计，不在 inbox 中自旋；其余 active-version/pin 暂态错误仍可重试。
-- **来源溯源（工单①）**：每个创建咽喉给 run 头盖 `origin`（+仅 chat 的 `conversation_id`）——`StartInput.Origin/ConversationID` 由调用方逐个盖章：HTTP `POST /flowruns` = manual；`workflowapp.Trigger` 共享咽喉在 bootstrap `runnerAdapter` 按 ctx 派生（ctx 有 conversation id[chat loop / subagent host 埋] = chat+对话、无 = manual——HTTP `:trigger` 与对话 `trigger_workflow` 走同一 Runner 端口、以 ctx 区分）；`claimFiring` 经 `FiringInbox.TriggerKind` 解析 trigger kind 逐字盖 cron/webhook/fsnotify/sensor（**best-effort**：trigger 已删则查失败、origin 留 NULL、绝不拖垮 run）。两个咽喉创建提交后各发一条 durable `run_started` Signal（见 §6 事件）；`:replay` 重开既有 run、非出生、不盖不发。
-- **审批**：approval 节点渲染模板后写 **parked** 行、run 保持 running。人工 `DecideApproval` / 超时 `CheckTimeouts` 都走 `ResolveParkedNode` ——**status='parked' 上的条件更新，first-wins**：人 vs 超时谁先写谁赢，输家 no-op（人工路径上呈 `FLOWRUN_APPROVAL_NOT_PARKED` 422）。超时行为 reject→no / approve→yes / fail→run 失败；timeout 支持 `30d`/`2w` 粗粒度。**这是系统唯一的 durable timer**（5 秒 tick 扫描 parked 行 vs deadline，无定时器持久化）。deadline 派生单源 = approval domain 的 `DeadlineFrom(parkedAt)`（parkedAt + timeout；""/不可解析 = 永不超时）——`CheckTimeouts` 扫描与收件箱线缆 `deadline` 字段（工单④）出自同一调用，用户看到的倒计时与真正触发的扫描构造上一致。
-- **失败与修复**：节点失败 = 写 failed 行 + run 标 failed（fail-fast，completed 兄弟行留着）。`:replay` = **物理删 failed 行**（Log 表允许的**两个**删之一——failed 是"非结果"，删它重试不是抹历史；另一个是保留清理，见 §4.2）+ run 翻回 running + `replay_count++` + 重走（completed 复用、被清的重跑）。**只收 failed**：cancelled 是终局终态、不可 :replay（`FLOWRUN_NOT_REPLAYABLE`）。**翻回 running 的那一写同样上 first-wins 守卫**（`ReopenForReplay` 的 `WHERE status='failed'`）——它是系统里**唯一逆转终态**的写，故也是唯一可能漏守卫的地方：无守卫时两个并发 `:replay` 都读到 failed、都过判断，输家的 UPDATE 会落在赢家已把 run 驱到的**新终态**上，把 completed/failed 复活成 running、抹掉刚挣到的 `completed_at`/`error`、并写入据陈旧读算出的 `replay_count`；有守卫则输家匹配 0 行 → `FLOWRUN_NOT_REPLAYABLE`（422，诚实：该 run 已不是 failed），且因只有赢家能把 run 移出 failed，其携带的陈旧 `ReplayCount+1` 恰好正确。保留清理从另一侧守同一边界（删头重申终态守卫使并发 `:replay` 赢）。排队戳（工单⑫）随之自洽：重跑在同 iteration 写**新行新戳**（新的排队起点）、completed 行戳逐字保留。
-- **取消（kill 全 workflow / `:cancel` 单 run，共享一套 race-safe 语义）**：两者对目标 run 都**先标 cancelled（守卫 WHERE running）再 cancel ctx**——头守卫是终态仲裁：`MarkRunTerminal` 返 `won`（影响行数即竞态判决），**只有赢家发 durable `run_terminal`**（同瞬自然结束的 run 保留真实终态，输家不发第二帧、不撒谎）；**赢家（且仅赢家）**随后 `CancelParkedNodes` 收 parked 审批（收件箱不留死项；**行落 `cancelled`**——它自己的真相：这个审批没有失败，是根本没人回答、run 被手动停了）+ `cancelInflight` 取消该 run 在飞 advance ctx（打断卡在长 agent / LLM 流式 / 工具里的节点）。**收割闸在 `won` 上是正确性、非礼貌**：输家的 run 走到的是它**自然的**终态，若那是 `failed` 则 run 仍可 `:replay`、其 parked 行仍然活着可决策（这也正是 `failRun` 路径同样从不收割的原因）；硬收割会把 `cancelled` 行写到一个**可 replay** 的 run 上而 `:replay` 清不掉它 ⇒ 该审批永久卡死、被之后每次重走静默跳过。**被打断的在飞节点不落行**（`failNode` 的 interrupted-bail：驱动 ctx 已取消 ⇒ 节点失败是取消的产物、非结果——返内部伪状态 `nodeInterrupted`〔不在 frn CHECK 四值内、绝不落库；与 `cancelled` 正交:前者是「**不写**任何行」、后者是把**已存在的** parked 行收成终态〕，Advance 见之即退：不写行、不发 tick、不 finalize；判据是**驱动 ctx** 而非 `errors.Is(ctx.Canceled)`，节点自身内部超时仍记真实 failed 行）。`trackInflight` 给每次 advance 注册可取消 ctx（per-run ctx 注册表）；**per-run guard（pool.go `drive`）强制同一 run 同时至多一个 goroutine advance**，故每 run 至多一个 cancel。差异：`KillWorkflow` 批量取消一个 workflow 的全部 running run、lifecycle 由 workflow service 在 :kill 后自己翻；`CancelRun`（`POST /flowruns/{id}:cancel`，工单②）取消单 run——非 running（含输给自然终态的竞态）返 `FLOWRUN_NOT_CANCELLABLE` 422，并走 `afterRunSettled`：取消 **draining** workflow 最后一个在途 run 即结算 draining→inactive（对齐自然终态的排空闭环）。cancelled 不点 attention、不发通知（手动终止非故障）。
-- **崩溃恢复**：boot 时 `Recover` 重走所有 still-running run（`ListRunningRuns` 显式跨 workspace），但**入队到 Advance 池**（非内联）——慢的恢复节点不阻塞 boot（F174）。排队戳（工单⑫）诚实：内存戳不越过崩溃，恢复重跑的 `ready_at` = 恢复驱动的 walk 时刻——恢复是新的排队起点、绝不回填伪装无缝。
-- **run 终态收口**：completed/failed 都过 `markRunTerminal`（store 层 first-wins：守卫 WHERE running，completed 绝不被刷成 cancelled）→ `afterRunSettled` 在 workflow 同时没有 running run **和已接受 pending firing** 时才把 draining 翻 inactive（优雅排空闭环；`CancelRun` 也走它——cancelled 同样是结算）。**first-wins 诚实**：输掉头守卫（:cancel/kill 先落）的 finalize/failRun 静默返回——赢家已发帧并结算，输家绝不为不属于自己的终态发 `run_terminal`/点横幅/发通知。`afterRunSettled` 的 `MarkRunTerminal` 必须**先于** `CountOutstanding`；后者把 running run 与 durable pending firing 一并计入，单连接 SQLite 串行化此读后写，故并发结算 draining workflow 时最后一个 outstanding 工作结算才收口（无丢唤醒）。
+## 3. Walk
 
-### 4.1 Advance 执行并发模型（F174，async pool）
+每轮在冻结图和当前行集上构造派生视图：
 
-**后台路径不再内联跑节点。** `DrainFirings` phase-1（claim/seed/overlap 决策）**严格顺序+有序**（overlap 正确性依赖每存活者在下条被决策前已落 running），phase-2 把每个 seed 的 run **入队**到有界 worker 池（`pool.go`，`advanceWorkers=4`）；`Recover` 与 `CheckTimeouts→settleTimeout` 同样入队。**手动路径**（`StartRun`/`DecideApproval`/`Replay`）仍**内联**经 `drive` 同步跑到终态/parked（一个用户、一个 run，无 HOL）。
+1. 创建 run 时，trigger seed 与 run 头在同一事务写入。
+2. 从 seed 做可达遍历；未决 control 暂时开放出口，已决
+   control/approval 只放行选中 port。
+3. 节点 ready 当且仅当：已到达、尚无该轮节点行、所有 live 入边源均
+   completed。被剪枝入边不参与，因此同一规则同时表达 AND join 与分支 merge。
+4. 被选中的 back edge 进入下一 iteration；ready 集按节点声明序与轮次稳定
+   排序，`MaxIterations` 限制失控循环。
 
-- **为什么池小（N=4）**：SQLite 单连接（`SetMaxOpenConns(1)`）使所有 durable 写 Go 层串行、handler 常驻实例单 mutex stdio 管道——故池唯一并行的是 I/O 密集的慢调用（function sandbox / agent LLM turn / MCP），小 N 吃满收益又封顶子进程扇出（R 系列）。非 settings 旋钮。
-- **per-run 单飞 + redrive**：`drive` 保证同 run 同时至多一个 goroutine；并发触发同一 run 时其余置 redrive 标志、活跃驱动者再走一轮（record-once 护持久性、guard 防重复副作用）。**redrive 仅在 ctx 仍活时进行**——ctx 一取消即停止再走（否则 Advance 立刻返 ctx.Err，关停期的信号风暴会空转钉 CPU；F101 加固）。池未启动时（测试/纯手动）`enqueueAdvance` 内联驱动——故现有测试保持同步、向后兼容。`enqueueAdvance` 的入队发送在释放锁后进行、故与 `StopPool` 的 `close(queue)` 竞争：发送经 `sendJob` **recover 兜 panic**（关停期撞上已关队列 = 丢弃该入队、清去重槽、run 下次 boot 续，绝不崩进程；F101）。
-- **HOL 已消除**：一个 30s 慢节点跑在池 worker 上，drain goroutine 只 claim+入队即返回——慢节点再卡不住后面的 firing / workspace / 下一 tick / 审批超时。
-- **关闭序（R3/F100）**：停 drain+timeout ticker（不再喂池）→ **受 shutdown ctx 上界**等两循环返回（快——只 claim+enqueue；但若 DB 操作卡死，宽限到期照常往下走、绝不把 SIGTERM 拖成 SIGKILL，F101）→ `WaitPoolDrained`（有界宽限给在飞节点干净收尾）→ `scheduler.Shutdown()`（**先置 `advClosing` 标志**、再 cancel 全部在飞 ctx，含池 worker）→ `StopPool()`（关队列 + WaitGroup 等 worker 退出）**才** `db.Close`。两循环的等待早退后可能仍有 feeder 在 mid-send，由 `sendJob` 的 recover 兜住（见上条）。
-- **`advClosing` 守卫（关停不跑缓冲 run）**：`Shutdown()` 取消的只是**已在飞**（进 `Advance` 时经 `trackInflight` 注册）的 ctx；仍**缓冲**在队列里的 run 尚未在飞、且带**不可取消**的 Detached workspace ctx（drainLoop 逐 workspace `Detached(wsID)`）。若无守卫，`StopPool` 的 `close(queue)` 排空会让 worker 把每个缓冲 run 跑到完成——无界 `advWG.Wait` 把关停拖过宽限 → SIGKILL 孤儿化 sandbox 子进程。故 `Shutdown()` **先**（在 cancel 之前）置 `advClosing`，`drive()` 入口检查它 → 跳过缓冲 run（不执行 Advance），run 保持 Running、boot Recover 续跑（同被打断的节点，record-once 保住持久性）。R3/F174 关停挂起家族。
+节点 Input 是以祖先 node id 为根的 CEL。每个已声明但尚无 completed result
+的根绑定为空 map，使 `has(loopNode.field)` 在首轮可安全为 false。
+Control result 是 emit 字段加保留键 `__port`；Approval result 是
+`decision` 与 `reason`。
 
-### 4.2 run 历史保留清理（工单⑬、判决④——D1 的第二个物理删例外）
+## 4. 创建与触发
 
-run 是**永不软删**的 Log 行，故若无保留线，一个跑了三年 cron 的机器会无界堆积。保留线是**用户配置的容量治理**（Settings → 存储 → 「Run 历史保留」，机器级落 `<dataDir>/settings.json` 的 `retention` 段，默认 **90d**、`0`=永久；契约见 [api.md](../api.md)）——**它删的是真实历史，与 `:replay` 删「非结果」性质不同**，故其正当性、范围与边界**逐条立法在 [database.md](../database.md) flowrun 节**，动代码前先读它。要点：
+### 手动
 
-- **只删终态**（completed/failed/cancelled）且 `completed_at` 非 NULL 且**严格早于** cutoff 的 run——**running/parked 永不删，不管多老**（在飞的 run 不是历史；等人的 run 是活的义务）。窗口按 `completed_at` 开，与 flowrun-stats 的 `completedSince` 逐字同源。
-- **删 run 自己的行**：头 + `flowrun_nodes` 行 + **该 run 产生的**四张执行日志表审计行（`flowrun_id = <该 run>`；对话跑的 `flowrun_id=''` 不受影响）。旁系台账（firing / 通知 / 触点）留存，其 `flowrunId` 成悬挂引用 → 深链 404 → 呈现端渲孤儿墓碑。
-- **怎么跑**：`SweepRunRetention(ctx, cutoff)`（app，批循环 + 批间查 ctx）→ `PurgeTerminalRunsBefore`（store，一批一事务、子先于父、删头时**重申终态守卫**使并发 `:replay` 赢、清理输）。bootstrap 逐 workspace（Detached ctx）在 boot / 每 6h / 每次 `PATCH /retention` 各跑一趟；线为 `0` 即碰都不碰 DB。
-- **删完回收磁盘**（T4/WRK-070）：删行本身**一字节都不还给文件系统**（SQLite `DELETE` 只把页移到 freelist）——故一趟清理真删了行后，`sweepRetention` 调**一次** `infra/db.ReclaimFreePages`（DB 全局、非逐 ws），越过回收闸则 `incremental_vacuum` 把腾出的页还给 OS；库天生跑在 `auto_vacuum=INCREMENTAL`（新库 DSN 首位设定；mode=0 的 dogfood 库靠用户在存储面板主动 `Compact` 升级——无 boot 自动迁移）。**回收不删逻辑行、不是物理删例外**，机制见 [platform-pkgs.md](platform-pkgs.md#infradb) `infra/db` 节。
-- **与统计/记忆化的关系**：所有统计与失败聚合窗口（≤7d）远在默认线内、天然不受影响；被清 run 的记忆化行随之消失——它已终态、不会再被重走，record-once 对**存活**的 run 完好如初。
+`StartRun`：
 
-## 5. 后台播种惯例（P3-1 教训，背景工作的铁律）
+1. 读取 active workflow version；
+2. `BuildPinClosure` 解析引用版本；
+3. 选择入口（显式 entryNode、匹配 trigger ref、或唯一 trigger）；
+4. 单事务写 run 头和 seed；
+5. 同步 drive 至 terminal 或 parked。
 
-**后台入口（无请求 ctx）必须逐 workspace 播种**：`bootstrap.forEachWorkspace` 取全局 workspaces 表（无 ,ws 列、裸 ctx 可列），对每个 workspace 以 `reqctx.Detached(wsID)` 重放入口——Boot 的 handler/mcp/ReattachActive + `drainLoop` 每 5 秒 tick 的 DrainFirings + **独立 `timeoutLoop`** 每 5 秒 tick 的 CheckTimeouts（F174：超时扫描从 drain 解耦到自己的 ticker，故满载的 Advance 池绝不饿死审批超时结算）。裸 `context.Background()` 调 ws-scoped 查询会 `MISSING_WORKSPACE_ID`——**自动化链路全死、日志里却像轻微降级**。守护测试 `bootstrap/background_ctx_test.go` 锁死该契约。同族先例：Recover 的 per-run 播种、trigger onReport 的 `Detached(wsID)`、consumeFiring 的按 firing 播种。
+HTTP 直接启动的 origin 为 `manual`。Chat 的 `trigger_workflow` 通过 ctx 的
+conversation id 盖 `chat` 与 `conversation_id`。
 
-## 6. 契约（引用）
+### Firing
 
-- 表：`flowruns` / `flowrun_nodes` → [database.md](../database.md)；ID：`fr_` / `frn_`。两张都是 Log 表（D1 不删；**恰有两个物理删例外**，逐个立法在 database.md flowrun 节：**①** `:replay` 清 failed 行〔非结果〕、**②** run 历史保留清理〔工单⑬，删真实历史，见 §4.2〕）。
-- 端点：`GET/POST /flowruns`（**两种互斥分页模式**,WRK-070 B4:默认 keyset `?cursor&limit`〔信封 `{data,nextCursor?,hasMore}`〕/ 或 offset 页码 `?offset=<非负整数>&limit`〔前端标准翻页器,信封额外带 `total`＝同过滤总行数 SQLite COUNT、无 `nextCursor`,形如 `{data,total,hasMore}`〕——两者同给 422 `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`、坏 `?offset`〔负/非数字〕422 `FLOWRUN_LIST_INVALID_FILTER`〔`param=offset`,复用码不另铸〕;**cursor 模式信封逐字不变、永不带 `total`**故两形状互不相交;两模式共享全部过滤与正典序;store 层共享 `buildRunQuery`〔WHERE 唯一居所〕,offset 走 Order+Limit+Offset+COUNT、keyset 走 Page。List 过滤全 AND 组合,scheduler 工单⑥＋⑮——`?workflowId&triggerId&status&origin&startedAfter&startedBefore&completedAfter&completedBefore`：status/origin 封闭集越集 422、**两个**时间窗 RFC3339 半开 `[after, before)`〔started_at「何时开始」+ completed_at「何时**落定**」——后者未落定 run 的 `completed_at` 为 NULL、`NULL >= ?` 永不真故任一界剔除它〕；`?completedAfter` 是 Overview「24h 失败」牌深链谓词、与 `flowrun-stats.totals.failedSince` **逐字节同谓词**（裸 `completed_at >= ?`）故牌数==列表长；started_at 窗走既有 `idx_fr_ws_created`/`idx_fr_ws_workflow`、`?status&completedAfter` 深链走**新增 `idx_fr_ws_status_completed`**（工单⑮,实测 50.3ms→33.6µs,守卫 `flowrun_plan_test.go`）,完整文法见 api.md）· `GET /flowruns/{id}`（头 + **一页**节点行——N4 `?cursor&limit`、最新在前、返 `nextCursor`，长 loop run 数千行不一次倾倒，F168-M7；scheduler 内部走 `GetNodes` 取全集、REST 走 `ListNodes` 分页）· `POST /flowruns/{id}:replay` · `POST /flowruns/{id}:cancel`（工单② 单 run 取消——语义见 §4「取消」；202 返与 :replay 同信封形 `{flowrun, nodes 首页, nextCursor}`）· `GET /flowrun-inbox`（工单④ enrich——行 = parked 节点 + `workflowId`/`workflowName`〔join 自 run 头，run 头一条 `GetRunsByIDs` 批读 + workflow 名一条 `NamesByIDs` 批读，软删名回落裸 id〕+ `deadline?`〔parkedAt + 钉死 approval 版本 timeout，`DeadlineFrom` 与超时扫描同源；无 timeout 键缺席；approval 版本按 (ref,钉死版本) 记忆化、resolve 失败仅缺 deadline 行仍在〕；有界批读绝不逐行 N+1，enrich 住 app `ListInbox`）· `GET /flowrun-stats`（scheduler 工单③＋⑭ 运营统计批查——**Overview 的统计单源**〔非「仅 flowrun 两表的投影」：`totals.missed` 数的是 `trigger_firings`，见下〕，workspace totals + 逐请求 workflow 健康行［珠串/成功率〔cancelled 中性不参与〕/均时〔仅 completed **且 replay_count=0**——replay 复用同一头且不移 started_at,其耗时跨人类修复窗口；审批等待计入=墙钟语义］/**连败**（running 与 cancelled **均跳过**、**只有 completed 停**〔自愈=证明跑通〕、不受窗口约束）/等人=仍 running 且持 parked 节点的 DISTINCT run 数（totals 与行级两桶同语义,行级喂 rail 琥珀点）］；ids 去重后 ≤50 有界故 N4 豁免；守卫与默认住 app `RunStats`、聚合 SQL 住 store `stats.go`［orm 原始读逃生口 + **时间比较全裸**（`completed_at >= ?`——工单⑮ 实测同一 UTC 文本格式内文本序即时间序、无格式漂移故拆掉曾包的 `julianday()`；`julianday()` 只余 `AVG(julianday(a)-julianday(b))` 时长算术）,六条查询绝不逐 id N+1］。**可选 `until` 上界**（RFC3339 时间戳，坏值 422 `FLOWRUN_STATS_INVALID_UNTIL`；缺席即不设界、逐字节是从前的单界查询）把窗口收成**半开 `[since, until)`**——同样**裸** `AND completed_at < ?` 拼在 `completedSince`/`failedSince`/`successRate`/`avgElapsedMs` 三处窗口 FILTER 上，倒挂窗（`until` ≤ `since`）静默为空非错误；刻意只收绝对时刻（末端回看时长有歧义，自定义范围的结尾光靠 `since` 表达不了）；`running`/`parkedNodes`/`recent`/`lastRunAt`/`consecutiveFailures` 非窗口量、`until` 不碰。**成本立法**：「查询条数 / ids 上限 / 输出有界」**都不是成本上界**——这六条的成本由**扫**什么决定,输入是整部 run 历史（cron@1m × 90d 默认线 = 129,600 行,出厂配置自己就能长到）。连败的逐行 EXISTS 曾在此呈 O(K²)（K=4000 实测 4.27s,且**恰在 workflow 正失败时**爆炸=用户打开 scheduler 的那一刻,健康数据上无从发现）→ 加 `idx_fr_ws_wf_status`（ws,wf,status,started_at DESC,id DESC）使探测成 seek、实测 0.397s 且**与 K 无关**；余 ~0.39s 地板 = 查询① 的 O(N) GROUP BY + 逐行 julianday,线性可预测、**已记档未修**（见 `stats.go` 头 + `stats_bench_test.go`）。**`totals.missed`（工单⑭）**＝窗口内 `created_at` 落入的 `missed` firing 数——它是唯一**不数 flowrun** 的 total（数的是**本该存在却不存在**的 run），由 app `RunStats` 在 `q.Since` **默认之后**经 scheduler 既有的 `FiringInbox.CountFirings` 端口缝入（`CreatedAfter=since`＋`CreatedBefore=until`）：落点刻意在默认之后，故 missed 的窗口与 `completedSince`/`failedSince` 不只是「文档说一致」、而是**物理同一个值**——`until` 也一并镜像过去，第五张牌**两端**都不可能与另外四张漂移。**绝不 all-time**（只增的「有史以来错过多少」＝虚荣数字，军规禁）；按 `created_at` 开窗而 missed 行的 `created_at` **就是那个调度刻度**（工单⑨ 回拨），故整夜停机摊在**那一夜**、非睡醒那一秒；与 `GET /firings` **同一组谓词**计数（store `firingQuery` 单源），故牌与它深链过去的列表不可能矛盾。inbox 为 nil（纯手动部署）＝根本无 firing → 0 是真相；计数**失败**则整批报错、绝不静默吞成 0（「没错过」与「查不出来」是两句话）。完整契约见 api.md）· `GET /flowrun-matrix`（scheduler 工单⑩ 节点×run 状态格阵——两表上的**纯读投影**喂运营主页页顶格阵［`AnRunMatrix`］：`?flowrunIds=<csv,去重后 ≤50>`（**必填**——按请求序去重、空串跳过,空集 400、越界 422 `FLOWRUN_MATRIX_TOO_MANY_IDS`——逐字沿用 flowrun-stats 的 ids 纪律;未知/异 workspace id **静默缺席**;哪些 run 在屏上是客户端的事,它按时间窗文法翻 `GET /flowruns` 逐页批取,本端点自身不带窗口/近期参数）→ `{cols,rows,cells}`；**两条**有界查询答完格阵［请求的 run 头一条 orm `WhereIn` 重排回正典序 + 这批 run 全部节点行一条 `flowrun_id IN (…)` 走 `idx_frn_run`；② 走原始读逃生口只取五个标量列——orm 行映射会水合每个节点的 `result` blob］；cols 正典新→旧（`started_at DESC, id DESC`,**与请求 id 顺序无关**）带 `elapsedMs?`（在跑无 completed_at → 键缺席；**墙钟** start→terminal,含审批等待与 replay 间隔——一个 run 的真实跨度是事实,与 stats 的均时〔统计,故剔 replay〕立场不同）；rows 序=**首次出现序**（刻意不用图拓扑序:每 run 钉死自己的 version_id,跨版本一批没有单一的图）；cells **稀疏**+多迭代一格聚合〔status 取各迭代**最坏**处置 `failed > parked > cancelled > completed`——档排的是**注意力**非「与头一致」:cancelled 压 completed（宣称被切断的一轮「跑完了」是撒谎）、failed 压 cancelled（取消落地前真报错的节点是真失败,cancelled run 可带 failed 行）〕；有界批查 N4 豁免。完整契约见 api.md）· `GET /flowruns/{id}/activity`（scheduler 工单⑤ 按 run 聚合活动时长——四张执行日志表按 flowrun_id UNION 的**纯读投影**喂 S4 甘特+台账，行 `{nodeId, iteration, kind, execId, status, startedAt, endedAt, elapsedMs, readyAt?}`：kind=审计表族 function|handler|agent|mcp、执行段=审计行自己的、`readyAt?`=排队起点 join 自 flowrun_nodes 真相行（工单⑫,键=idx_frn_once,缺席即诚实）；**startedAt 升序**甘特天然序 + N4 keyset,每支走既有 `idx_*_ws_flowrun` 偏索引零 schema 变更；先 GetRun 守卫 404;守卫住 app `ListActivity`、UNION SQL 住 store `activity.go`,完整契约见 api.md）· `POST /flowruns/{id}/approvals/{node}:decide` → [api.md](../api.md)。LLM 面（住 app/tool/workflow）：`get_flowrun`（同「头+全节点行」）+ `search_flowruns`（闭合 trigger_workflow → flowrunId → 检查的环）+ `replay_flowrun`（包 `:replay`——从断点重跑失败 run，仅 failed 可重放、按原 pin 版本）+ `decide_approval`（包 `:decide`——批/拒 park 在审批节点的 run，首决胜，补全 agent 席的人在环决策半边）。
-- 码：`FLOWRUN_*` domain 13 + 工具校验 1（`FLOWRUN_ID_REQUIRED`，住 app/tool/workflow）→ [error-codes.md](../error-codes.md)。WRK-070 B4 一枚：`FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`（`GET /flowruns` 同时给 `?cursor` 与 `?offset` 两种互斥分页模式，大声拒；坏 `?offset` 值不另铸码、复用下方 `FLOWRUN_LIST_INVALID_FILTER`、`param=offset`）。工单③ 三枚：`FLOWRUN_STATS_TOO_MANY_IDS`（批查 ids 去重后 >50，details 带 allowed）+ `FLOWRUN_STATS_INVALID_SINCE`（since 既非 RFC3339 也非正回看时长）+ `FLOWRUN_STATS_INVALID_UNTIL`（until 非 RFC3339 时间戳——刻意只收绝对上界、不收 since 的时长文法，details 带 param/got/want）。工单⑩ 一枚：`FLOWRUN_MATRIX_TOO_MANY_IDS`（矩阵批查 flowrunIds 去重后 >50，details 带 allowed/got）。工单② 一枚：`FLOWRUN_NOT_CANCELLABLE`（`:cancel` 对非 running run——含输给自然终态的 first-wins 竞态输家，422）。`FLOWRUN_INVALID_STATUS`（F168-M2）：list 过滤的 status 越出 `{running,completed,failed,cancelled}` 即 422、非静默空页（parked 是节点态非 run 态、不可作 run 过滤）。工单⑥＋⑮ 一枚：`FLOWRUN_LIST_INVALID_FILTER`（`?origin` 越出 RunOrigins 或 `?startedAfter`/`?startedBefore`/`?completedAfter`/`?completedBefore` 非 RFC3339——details 带 `param`/`got`、枚举再带 `allowed`，F168-M2 同立场；`completedAfter` 同一资源故复用此码、不另分码，对比 firings 的 `TRIGGER_FIRING_INVALID_FILTER` 刻意分码）。
-- 事件：advance 每节点向 entities 流 workflow scope 发进度 Signal（**ephemeral** tick，durable 记录是 frn 行；路由节点带 `port`——control 取 result 保留键 `__port`、approval 取 `decision`；approval 的「已决」tick 由 DecideApproval/settleTimeout 径专发 `emitApprovalDecided`[从盘重读 record-once 行]——Advance 重入时已决行既存、computeReady 跳过、不会再 tick）；**run 出生发一条 durable `run_started` Signal**（`{flowrunId, origin}`，发点 = StartRun 创建后 + claimFiring 提交后——追踪运行的调度面不能漏断连期间出生的 run；`:replay` 不发）；**run 终态另发一条 durable `run_terminal` Signal**（`{flowrunId, status, error?}`，发点 = markRunTerminal[completed/failed] + kill/replace/`:cancel` 的 cancelled 写——「run 结束了」须活过重连；**只有头守卫赢家发**：竞态输家不为不属于自己的终态发第二帧）；终态与挂起走 notifications **唤回环**——failed → `workflow.run_failed` + 点亮 needsAttention（经 LifecycleReconciler.MarkRunAttention，completed 熄灭、cancelled 两不做），approval park → `workflow.approval_pending`（at-least-once）→ [events.md](../events.md)。
+自动路径先按 workflow concurrency 判断：
 
-## 7. 跨域集成
+| 策略 | 在途 run 存在时 |
+|---|---|
+| `serial` | 保持 pending，下次 drain 再试 |
+| `skip` | firing → skipped |
+| `buffer_one` | 只保留最新 pending |
+| `replace` | 取消在途 run，再启动新 run |
+| `allow_all` | 并发启动 |
 
-派发走 4 个窄端口（bootstrap/dispatch.go），签名 `(ctx, ref, pinnedVersionID, input)`：action 按前缀 → fn `RunFunction`（执行 pin 版本）/ hd `Call`（活态绑定，pin 不适用）/ mcp `CallTool`（无版本），agent → `InvokeAgent`（执行 pin 版本；粗粒度 activity——只记忆化最终 result；子步重放是预留）。派发前调度器把 `flowrunID/nodeID` 注入 ctx（执行实体的审计列就此对账）；pin 版本走显式参数（执行语义非环境身份）。control/approval 由解释器**内联求值**（resolve pin 版本 + CEL first-true-wins / 模板渲染），不是 activity。`OK=false` 转 error fail-fast 使节点行写 failed。
+`ClaimFiring` 在单事务内 claim pending firing、seed run、回填 started，避免
+claimed-without-run。Workflow kill 先把剩余 pending firing 标记为 shed。
+Firing origin 来自 trigger kind；已删除 trigger 导致无法解析时 origin 可
+缺席，但不阻止 run。
+
+两个创建入口提交后都发送 durable `run_started`。Replay 重开既有 run，
+不发送 started。
+
+## 5. Approval
+
+Approval 渲染后写 parked 行，run 继续保持 running。人工决定和超时都通过
+`ResolveParkedNode` 对 `status='parked'` 做条件更新，first-wins：
+
+- reject → `decision=no`；
+- approve → `decision=yes`；
+- fail → run failed。
+
+`DeadlineFrom(parkedAt)` 是 timeout scanner 与 inbox `deadline` 的共同来源。
+空 timeout 表示永不超时。周期扫描 parked 行是系统的 durable timer；不另存
+定时器对象。
+
+决定落库后专门发送 approval node tick；Advance 重入看到现有决定行时不会
+重复发 tick。
+
+## 6. 失败、Replay 与取消
+
+### 失败与 Replay
+
+节点失败写 failed 行并 fail-fast 终止 run；已 completed 的兄弟结果保留。
+Replay 只接受 failed run：
+
+1. `ReopenForReplay` 以 `WHERE status='failed'` first-wins 翻回 running；
+2. 物理删除 failed 节点；
+3. `replay_count++`；
+4. 再次 drive，复用 completed、重跑被清节点。
+
+Cancelled 是终局，不能 replay。Retention 与 replay 的删除边界见
+[`database.md`](../database.md)。
+
+### 取消
+
+Workflow kill、replace 和单 run `:cancel` 共用：
+
+1. `MarkRunTerminal(cancelled)` 以 `WHERE status='running'` 仲裁；
+2. 只有赢家收割 parked 节点为 cancelled；
+3. 只有赢家取消该 run 的在飞 drive ctx；
+4. 只有赢家发送 durable `run_terminal`。
+
+若自然完成/失败先赢，取消方不得改写头、收割 approval 或发送第二终态。被
+drive ctx 打断的节点返回内部 interrupted 结果，不落 failed 行；节点自己的
+超时仍是业务失败。
+
+单 run cancel 对非 running 返回 `FLOWRUN_NOT_CANCELLABLE`。取消 draining
+workflow 的最后一个 outstanding run 后，执行与自然终态相同的
+draining→inactive 结算。
+
+## 7. 终态与 Attention
+
+completed、failed、cancelled 都通过 first-wins 的头状态写入。
+`afterRunSettled` 只有在 workflow 没有 running run 且没有已接受 pending
+firing 时才把 draining 收为 inactive。
+
+- completed/failed/cancelled 的赢家发 durable `run_terminal`；
+- failed 发 `workflow.run_failed` 并点亮 attention；
+- completed 可清除 attention；
+- cancelled 是用户处置，不点亮或清除 attention。
+
+## 8. 执行并发
+
+Firing drain 的 claim/seed/overlap phase 严格有序；seed 后的 Advance 进入
+有界 worker pool。Recover 与 approval timeout redrive 也入池。手动
+Start/Decide/Replay 同步 drive，以便调用方直接得到落定状态。
+
+`drive` 保证同一 run 单飞。并发 redrive 只置标志，当前 driver 结束后在 ctx
+仍有效时再走一轮。SQLite 使用单连接，pool 的并行收益主要来自 sandbox、LLM
+和 MCP 等 I/O。
+
+关停顺序：
+
+```text
+stop drain and timeout feeders
+→ bounded wait for feeder exit
+→ bounded wait for active work
+→ mark scheduler closing
+→ cancel inflight drive contexts
+→ stop pool
+→ close DB
+```
+
+Closing 标志使队列中尚未开始的 run 保持 running，由下次 boot Recover；
+不得在关停时把 detached 队列无限跑完。队列关闭与 late sender 的竞态按
+“丢当前 enqueue、boot 恢复”处理，不得使进程 panic。
+
+## 9. Boot 恢复与后台上下文
+
+Boot `Recover` 枚举所有 still-running run 并入池。恢复时重新计算
+ready_at；崩溃前未落库的内存时间戳不伪造为连续。
+
+所有无请求 ctx 的后台入口必须逐 workspace 播种：
+
+```text
+forEachWorkspace
+→ reqctx.Detached(workspaceID)
+→ reattach / drain / timeout / retention work
+```
+
+裸 `context.Background()` 不得执行 workspace-scoped store 查询。
+
+## 10. Retention
+
+机器级 `runRetentionDays` 控制终态 run 历史；`0` 表示永久。Sweep 在 boot、
+周期 ticker 与 PATCH retention 后运行：
+
+- 只删 cutoff 之前且 `completed_at` 非空的
+  completed/failed/cancelled；
+- running 与 parked obligation 永不删除；
+- 同事务删 run 节点及该 run 的四类执行审计；
+- 删除头时再次守卫终态，使并发 replay 胜出；
+- firing、notification、touchpoint 保留，允许 flowrunId 悬挂。
+
+删除行后可调用 `infra/db.ReclaimFreePages` 回收 SQLite freelist；这不删除
+业务行。完整物理边界见 [`database.md`](../database.md)。
+
+## 11. API 投影
+
+- `GET/POST /flowruns`：运行历史与手动启动；
+- `GET /flowruns/{id}`：run 头与分页节点；
+- `GET /flowruns/{id}/activity`：执行审计 UNION 时间线；
+- `POST /flowruns/{id}:replay|:cancel`；
+- `GET /flowrun-inbox`；
+- `GET /flowrun-stats`；
+- `GET /flowrun-matrix`；
+- `POST /flowruns/{id}/approvals/{node}:decide`。
+
+精确 query、响应与错误见 [`api.md`](../api.md) 和
+[`error-codes.md`](../error-codes.md)。LLM 工具
+`get_flowrun`、`search_flowruns`、`replay_flowrun`、
+`decide_approval` 与同一 app service 对齐。
+
+## 12. 派发
+
+Scheduler 通过窄端口派发：
+
+```text
+(ctx, ref, pinnedVersionID, input)
+```
+
+- Function、Agent 执行 pinned version；
+- Handler、MCP 使用活态绑定；
+- Control、Approval 在解释器内解析 pinned version 并求值；
+- dispatch 前把 flowrun id、node id、iteration 注入 ctx，使 execution/call
+  审计与节点真相对账；
+- `OK=false` 转换为节点失败并 fail-fast。
