@@ -374,6 +374,11 @@ void main() {
       repo.emitFrame(_conv, _close('b1', status: 'error'));
       await tester.pump();
 
+      // A failed create has no previous version. The honesty ribbon must not imply one exists.
+      // 新建失败没有上一版,诚实丝带不能暗示存在可回退真相。
+      expect(find.text(t.feedback.cast.ribbonFailedCreate), findsOneWidget);
+      expect(find.text(t.feedback.cast.ribbonFailed), findsNothing);
+
       // The row says «失败», never «进行中» (the old head aliased «director holds a view» to Live).
       // 行头如实「失败」,绝不再渲「进行中」。
       expect(find.text(t.chat.stage.rowFailed), findsOneWidget);
@@ -437,6 +442,22 @@ void main() {
       await tester.pump(const Duration(milliseconds: 300));
       expect(find.text(t.chat.stage.rowRunning), findsOneWidget);
       expect(find.text(t.chat.stage.live), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'G3: an edit failure keeps the previous-version truth while a create failure does not',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('b1', 'edit_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(_conv, _close('b1', status: 'error'));
+      await tester.pump();
+
+      expect(find.text(t.feedback.cast.ribbonFailed), findsOneWidget);
+      expect(find.text(t.feedback.cast.ribbonFailedCreate), findsNothing);
     },
   );
 

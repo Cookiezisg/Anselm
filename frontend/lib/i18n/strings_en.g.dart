@@ -4227,6 +4227,9 @@ class Translations$feedback$cast$en {
 	/// en: 'Draft unsaved · truth is still the last version'
 	String get ribbonFailed => 'Draft unsaved · truth is still the last version';
 
+	/// en: 'Draft unsaved · nothing was created'
+	String get ribbonFailedCreate => 'Draft unsaved · nothing was created';
+
 	/// en: 'AI awaits your decision →'
 	String get gatePill => 'AI awaits your decision →';
 
@@ -8097,6 +8100,7 @@ extension on Translations {
 			'feedback.cast.ribbonLive' => 'Listening live · settle follows the truth',
 			'feedback.cast.ribbonGap' => 'Stream gap · trust the execution record',
 			'feedback.cast.ribbonFailed' => 'Draft unsaved · truth is still the last version',
+			'feedback.cast.ribbonFailedCreate' => 'Draft unsaved · nothing was created',
 			'feedback.cast.gatePill' => 'AI awaits your decision →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
 			'feedback.cast.tombstone' => 'Deleted',
@@ -8109,9 +8113,9 @@ extension on Translations {
 			'feedback.cast.verb.viewed' => 'Viewed',
 			'feedback.cast.verb.executed' => 'Ran',
 			'feedback.cast.verb.attached' => 'Attached',
-			'feedback.cast.verb.deleted' => 'Deleted',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.deleted' => 'Deleted',
 			'feedback.cast.verb.unknown' => 'Touched',
 			'feedback.codeTruncated' => ({required Object shown, required Object total}) => 'Showing the first ${shown} of ${total} lines - open the full file externally',
 			'shell.collapseSidebar' => 'Collapse sidebar',
@@ -8623,9 +8627,9 @@ extension on Translations {
 			'library.slash.media' => 'Media',
 			'library.slash.divider' => 'Divider',
 			'library.slash.todo' => 'To-do',
-			'library.linkHint' => 'Type or paste a link, Enter to apply',
 			_ => null,
 		} ?? switch (path) {
+			'library.linkHint' => 'Type or paste a link, Enter to apply',
 			'library.table.insertRowAbove' => 'Insert row above',
 			'library.table.insertRowBelow' => 'Insert row below',
 			'library.table.deleteRow' => 'Delete row',

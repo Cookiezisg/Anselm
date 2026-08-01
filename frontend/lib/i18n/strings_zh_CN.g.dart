@@ -1682,6 +1682,7 @@ class _Translations$feedback$cast$zh_CN extends Translations$feedback$cast$en {
 	@override String get ribbonLive => '实时聆听中 · 落定以真相为准';
 	@override String get ribbonGap => '实时流有缺口 · 以执行记录为准';
 	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
+	@override String get ribbonFailedCreate => '草稿未保存 · 尚未创建实体';
 	@override String get gatePill => 'AI 在等你决定 →';
 	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
 	@override String get tombstone => '已删除';
@@ -3978,6 +3979,7 @@ extension on TranslationsZhCn {
 			'feedback.cast.ribbonLive' => '实时聆听中 · 落定以真相为准',
 			'feedback.cast.ribbonGap' => '实时流有缺口 · 以执行记录为准',
 			'feedback.cast.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
+			'feedback.cast.ribbonFailedCreate' => '草稿未保存 · 尚未创建实体',
 			'feedback.cast.gatePill' => 'AI 在等你决定 →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
 			'feedback.cast.tombstone' => '已删除',
@@ -3990,9 +3992,9 @@ extension on TranslationsZhCn {
 			'feedback.cast.verb.viewed' => '查看',
 			'feedback.cast.verb.executed' => '执行',
 			'feedback.cast.verb.attached' => '附上',
-			'feedback.cast.verb.deleted' => '删除',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.deleted' => '删除',
 			'feedback.cast.verb.unknown' => '触碰',
 			'feedback.codeTruncated' => ({required Object total, required Object shown}) => '共 ${total} 行·已显示前 ${shown} 行——完整文件请在外部打开',
 			'shell.collapseSidebar' => '收起侧栏',
@@ -4504,9 +4506,9 @@ extension on TranslationsZhCn {
 			'library.slash.media' => '媒体',
 			'library.slash.divider' => '分隔线',
 			'library.slash.todo' => '待办',
-			'library.linkHint' => '输入或粘贴链接,回车确定',
 			_ => null,
 		} ?? switch (path) {
+			'library.linkHint' => '输入或粘贴链接,回车确定',
 			'library.table.insertRowAbove' => '在上方插入行',
 			'library.table.insertRowBelow' => '在下方插入行',
 			'library.table.deleteRow' => '删除行',

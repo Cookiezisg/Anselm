@@ -73,7 +73,7 @@ type DeleteFunction struct {
 func (t *DeleteFunction) Name() string { return "delete_function" }
 
 func (t *DeleteFunction) Description() string {
-	return "Delete a function and all its versions and sandbox environments. This is not reversible. The result reports how many other entities referenced it (and may now fail) — to see what depends on something BEFORE deleting, use get_relations."
+	return "Soft-delete a function from the active catalog and destroy its sandbox environments. Its immutable version history is retained and remains readable for audit, while the function itself and its actions return not-found. This is not reversible. The result reports dependent references and retention truth — to see what depends on something BEFORE deleting, use get_relations."
 }
 
 func (t *DeleteFunction) Parameters() json.RawMessage {
@@ -110,7 +110,16 @@ func (t *DeleteFunction) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := t.svc.Delete(ctx, args.FunctionID); err != nil {
 		return "", fmt.Errorf("delete_function: %w", err)
 	}
-	return toolapp.ToJSON(toolapp.AnnotateDependents(map[string]any{"id": args.FunctionID, "deleted": true}, deps)), nil
+	return toolapp.ToJSON(toolapp.AnnotateDependents(map[string]any{
+		"id":      args.FunctionID,
+		"deleted": true,
+		"retention": map[string]any{
+			"function": "soft_deleted",
+			"versions": "retained_for_audit",
+			"sandbox":  "destroy_requested_best_effort",
+			"actions":  "not_found",
+		},
+	}, deps)), nil
 }
 
 // --- update_function_meta --------------------------------------------------
@@ -120,7 +129,7 @@ type UpdateFunctionMeta struct{ svc *functionapp.Service }
 func (t *UpdateFunctionMeta) Name() string { return "update_function_meta" }
 
 func (t *UpdateFunctionMeta) Description() string {
-	return "Rename or re-describe a function: patches name/description/tags on the function row only — NO new version, NO env rebuild. This is the right tool for a pure rename/redescribe; edit_function with set_meta would mint a redundant identical-code version and rebuild its env. Pass only the fields you want to change (omit the rest)."
+	return `Rename or re-describe a function: patches name/description/tags on the function row only — NO new version, NO env rebuild. This is the right tool for a pure rename/redescribe; edit_function with set_meta would mint a redundant identical-code version and rebuild its env. Pass only the fields you want to change (omit the rest). Use a JSON array of strings for tags, never a comma-separated string; example: {"functionId":"fn_...","name":"new_name","tags":["alpha","beta"]}.`
 }
 
 func (t *UpdateFunctionMeta) Parameters() json.RawMessage {
@@ -131,7 +140,7 @@ func (t *UpdateFunctionMeta) Parameters() json.RawMessage {
 			"functionId": {"type": "string"},
 			"name": {"type": "string", "description": "New name (lowercase alphanumeric + dashes/underscores, 1-64 chars)."},
 			"description": {"type": "string"},
-			"tags": {"type": "array", "items": {"type": "string"}}
+			"tags": {"type": "array", "description": "Replace all tags; must be a JSON array of strings, e.g. [\"alpha\", \"beta\"]. Do not send a comma-separated string.", "items": {"type": "string"}}
 		}
 	}`)
 }

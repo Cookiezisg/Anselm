@@ -17,6 +17,7 @@ import 'package:anselm/features/chat/state/attachment_audio_player.dart';
 import 'package:anselm/features/chat/state/chat_drafts.dart';
 import 'package:anselm/features/chat/state/conversation_stream_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
+import 'package:anselm/features/chat/model/conversation_transcript.dart';
 import 'package:anselm/features/chat/ui/chat_thinking.dart';
 import 'package:anselm/features/chat/ui/chat_transcript.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -382,6 +383,38 @@ void main() {
       );
       await _settle(tester);
       expect(find.textContaining('第一段,更多', findRichText: true), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'pending bubble reconciliation cannot crash a lazy transcript child builder',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+      final controller = container.read(
+        conversationStreamProvider('cv_1').notifier,
+      );
+      controller.transcript.mutate(
+        (t) => t..addPending(PendingSend(localId: 'local_1', text: 'pending')),
+      );
+      await _settle(tester);
+
+      // The durable echo clears the mutable source list while the sliver remains mounted. The
+      // builder must use its build snapshot, not read a shorter list through an old index.
+      // durable 回声在 sliver 仍挂载时清空可变源列表；builder 必须读本次 build 快照，不能用旧下标读短列表。
+      repo.emitFrame(
+        'cv_1',
+        _open('msg_user', 'message', content: {'role': 'user'}),
+      );
+      await _settle(tester);
+      expect(tester.takeException(), isNull);
+      expect(controller.transcript.value.pending, isEmpty);
     },
   );
 

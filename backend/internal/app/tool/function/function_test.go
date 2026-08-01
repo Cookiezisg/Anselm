@@ -1,6 +1,8 @@
 package function
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -28,6 +30,80 @@ func TestFunctionTools_Wiring(t *testing.T) {
 	for name, seen := range want {
 		if !seen {
 			t.Fatalf("missing tool %q", name)
+		}
+	}
+}
+
+func TestDeleteFunction_DescriptionStatesRetentionTruth(t *testing.T) {
+	d := (&DeleteFunction{}).Description()
+	for _, want := range []string{"Soft-delete", "immutable version history", "retained", "sandbox environments"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("delete_function description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestUpdateFunctionMeta_DescriptionStatesPatchShape(t *testing.T) {
+	d := (&UpdateFunctionMeta{}).Description()
+	for _, want := range []string{"JSON array of strings", "never a comma-separated string", `"tags":["alpha","beta"]`} {
+		if !strings.Contains(d, want) {
+			t.Errorf("update_function_meta description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestRunFunction_DescriptionStatesArgumentShapes(t *testing.T) {
+	d := (&RunFunction{}).Description()
+	for _, want := range []string{"JSON integer number", `exact decimal string "2"`, `"version":2`, `"args":{"text":"hello"}`} {
+		if !strings.Contains(d, want) {
+			t.Errorf("run_function description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestRunFunctionArgs_AcceptsStringifiedVersion(t *testing.T) {
+	var args runFunctionArgs
+	if err := json.Unmarshal([]byte(`{"functionId":"fn_1","args":{"text":"hello"},"version":"2"}`), &args); err != nil {
+		t.Fatalf("stringified integer should be accepted: %v", err)
+	}
+	if args.Version != 2 || args.Args["text"] != "hello" {
+		t.Fatalf("decoded args = %+v, want version 2 and text hello", args)
+	}
+}
+
+func TestRunFunctionArgs_RejectsNonIntegerVersion(t *testing.T) {
+	for _, raw := range []string{`2.5`, `[]`, `"two"`} {
+		var args runFunctionArgs
+		if err := json.Unmarshal([]byte(`{"functionId":"fn_1","args":{},"version":`+raw+`}`), &args); err == nil {
+			t.Errorf("version %s should be rejected", raw)
+		}
+	}
+}
+
+func TestSearchFunctionExecutions_DescriptionStatesPagingShape(t *testing.T) {
+	d := (&SearchFunctionExecutions{}).Description()
+	for _, want := range []string{"JSON integer", `exact decimal string "2"`, "nextCursor verbatim"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("search_function_executions description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestSearchFunctionExecutionsArgs_AcceptsStringifiedLimit(t *testing.T) {
+	var args searchFunctionExecutionsArgs
+	if err := json.Unmarshal([]byte(`{"functionId":"fn_1","limit":"2","cursor":"c1"}`), &args); err != nil {
+		t.Fatalf("stringified integer limit should be accepted: %v", err)
+	}
+	if args.Limit != 2 || args.Cursor != "c1" {
+		t.Fatalf("decoded args = %+v, want limit 2 and cursor c1", args)
+	}
+}
+
+func TestSearchFunctionExecutionsArgs_RejectsNonIntegerLimit(t *testing.T) {
+	for _, raw := range []string{`2.5`, `[]`, `"two"`} {
+		var args searchFunctionExecutionsArgs
+		if err := json.Unmarshal([]byte(`{"functionId":"fn_1","limit":`+raw+`}`), &args); err == nil {
+			t.Errorf("limit %s should be rejected", raw)
 		}
 	}
 }

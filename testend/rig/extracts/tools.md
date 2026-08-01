@@ -21,7 +21,7 @@ TOOL | get_function | function | 取 function 活跃版本全貌
 TOOL | create_function | function | ops 构建新 Python function,v1 立即生效
 TOOL | edit_function | function | 活跃版本叠 ops 出新版本
 TOOL | revert_function | function | 活跃指针切到已有版本号
-TOOL | delete_function | function | 删 function 全版本+环境,不可逆
+TOOL | delete_function | function | 软删 function 主行并回收 sandbox;不可逆版本历史保留供审计,主实体与动作随后 not-found
 TOOL | update_function_meta | function | 仅改 name/description/tags
 TOOL | run_function | function | 关键字参数运行,返回 ok/output/logs
 TOOL | search_function_executions | function | 分页检索执行历史

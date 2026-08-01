@@ -18,8 +18,8 @@
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
 | ⑤ LLM 线缆 | `cmd/llmtap` 透明代理在受管网关前 | `llm.jsonl` + 逐调用请求体/响应体文件 |
 
-所有会话落 `~/.anselm-rig/sessions/<时间戳>/`,`~/.anselm-rig/current` 软链指认活会话,
-`manifest.json` 是其余脚本唯一读的连接事实。
+所有会话落 `~/.anselm-rig/sessions/<时间戳>/`；conductor 初始化 `evidence/` 与各 channel journal，
+截图等证据可以直接写入该目录。`~/.anselm-rig/current` 软链指认活会话，`manifest.json` 是其余脚本唯一读的连接事实。
 
 ## 起 / 检 / 停
 

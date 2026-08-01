@@ -319,13 +319,13 @@ func capToolResult(s string) string {
 }
 
 // executeTool runs ValidateInput then Execute and shapes the (output, errMsg, ok) tuple.
-// There is no central permission gate and no error rewriting: a tool owns the quality of its
-// own error message (clean text, any next-step hint), so loop stays a neutral engine and just
-// surfaces err.Error() to the LLM.
+// There is no central permission gate or generic domain translation: a tool owns the quality of its
+// error (clean text, any next-step hint), while the loop removes Go wrapper paths before the result
+// becomes user-visible.
 //
 // executeTool 跑 ValidateInput 再 Execute，整形 (output, errMsg, ok) 三元组。无中央权限门控、
-// 无错误改写：工具自负其 error message 质量（干净文本、必要的 next-step 提示），故 loop 保持中立
-// 引擎、只把 err.Error() 透传给 LLM。
+// 也无通用领域翻译：工具自负其 error 质量（干净文本、必要的 next-step 提示），loop 只在结果
+// 面向用户之前去掉 Go 包装路径。
 func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok bool) {
 	if t == nil {
 		// The LLM named a tool not in this turn's set — a wiring bug or a stale catalog.
@@ -362,17 +362,19 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 	// 只活进了 LLM 那一份、在运维那一份里被扔掉。这个不对称是反的:模型还能重试,凌晨读日志的人不能。
 	if err := t.ValidateInput(argsJSON); err != nil {
 		log.Warn("tool validate failed", zap.String("tool", name), zap.String("error", llmErrText(err)))
-		return "input validation failed: " + llmErrText(err), err.Error(), false
+		msg := "input validation failed: " + llmErrText(err)
+		return msg, msg, false
 	}
 
 	output, err := t.Execute(ctx, string(argsJSON))
 	output = capToolResult(output)
 	if err != nil {
-		log.Warn("tool execute failed", zap.String("tool", name), zap.String("error", llmErrText(err)))
+		msg := llmErrText(err)
+		log.Warn("tool execute failed", zap.String("tool", name), zap.String("error", msg))
 		if output != "" {
-			return output + "\n\n" + llmErrText(err), err.Error(), false
+			return output + "\n\n" + msg, msg, false
 		}
-		return llmErrText(err), err.Error(), false
+		return msg, msg, false
 	}
 	return output, "", true
 }

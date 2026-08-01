@@ -42,7 +42,7 @@ cleanup_failed_start() {
 }
 trap cleanup_failed_start EXIT INT TERM
 
-mkdir -p "$SESSION" "$RIG_HOME/bin" "$DATA"
+mkdir -p "$SESSION/evidence" "$RIG_HOME/bin" "$DATA"
 echo "→ rig session: $SESSION (port :$PORT, data $DATA)"
 
 PREFLIGHT_PORTS=("$PORT")

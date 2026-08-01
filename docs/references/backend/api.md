@@ -51,7 +51,7 @@ audience: [human, ai]
 | `GET /functions` | 分页；`search` 按 name 子串 |
 | `GET /functions/{id}` | 单读，含 activeVersion |
 | `PATCH /functions/{id}` | 更新 metadata，不铸版本 |
-| `DELETE /functions/{id}` | 删除 |
+| `DELETE /functions/{id}` | 软删主行并回收 sandbox；不可变版本历史保留供审计，主实体与动作随后按 not-found 处理 |
 | `POST /functions/{id}:run` | `{args,version?}`，manual run |
 | `POST /functions/{id}:edit` | ops；空 ops 重建 active env |
 | `POST /functions/{id}:revert` | 移 active pointer |

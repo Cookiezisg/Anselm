@@ -274,12 +274,12 @@ void main() {
   );
 
   testWidgets(
-    'searchToolsBody renders the thin hit card: mono name + digest + description',
+    'searchToolsBody renders the compact loaded_tools hit card without raw JSON',
     (tester) async {
       final state = _settled(
         result:
-            '{"tools":[{"name":"run_function","description":"执行一个函数",'
-            '"parameters":{"properties":{"functionId":{},"payload":{},"summary":{}},"required":["functionId"]}}]}',
+            '{"loaded_tools":[{"name":"search_function","purpose":"按关键词查找函数"}],'
+            '"status":"Full parameter schemas are active in the next model request."}',
       );
       await tester.pumpWidget(
         TranslationProvider(
@@ -295,20 +295,16 @@ void main() {
         ),
       );
       await tester.pump();
-      expect(find.text('run_function'), findsOneWidget);
+      expect(find.text('search_function'), findsOneWidget);
+      expect(find.text('按关键词查找函数'), findsOneWidget);
       expect(
-        find.text('functionId*, payload'),
+        find.text(
+          'Full parameter schemas are active in the next model request.',
+        ),
         findsOneWidget,
-      ); // starred + framework filtered
-      expect(
-        find.text('执行一个函数'),
-        findsOneWidget,
-      ); // one-line tease on the row 行上一行预览
-      // The escape hatch now lives behind the row tap (批6 A-079: ledger row + expand body). 逃生口随行展开。
-      expect(find.text(t.chat.tool.toolSchema), findsNothing);
-      await tester.tap(find.text('run_function'));
-      await tester.pumpAndSettle();
-      expect(find.text(t.chat.tool.toolSchema), findsOneWidget);
+      );
+      expect(find.textContaining('loaded_tools'), findsNothing);
+      expect(find.textContaining('"purpose"'), findsNothing);
     },
   );
 

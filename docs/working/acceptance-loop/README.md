@@ -19,8 +19,15 @@ landed-into:
 > 操作全套台架。400+ 旅程扩写按 P12 推迟二期,一期直接按 COVERAGE 驻停清扫。Goal 已配置为
 > active，Loop 执行协议见 [`LOOP.md`](LOOP.md)；首批 50/50 已通过统一长门禁、完整 testend、真实回放、
 > 告警复核和工作树审计，并已提交 `b26f623e`；第二批已完成 50/50 个单格，`TOOL-003 Edit` 至
-> `TOOL-012 todo_read` 已按真实五通道收尾；统一长门禁已全绿并完成审计，下一前线为
-> `TOOL-013 search_tools`。**
+> `TOOL-012 todo_read` 已按真实五通道收尾；统一长门禁已全绿并完成审计。第三批已完成
+> `TOOL-013 search_tools`、`TOOL-014 search_function`、`TOOL-015 get_function`、`TOOL-016 create_function`、`TOOL-017 edit_function`、`TOOL-018 revert_function`、`TOOL-019 delete_function`、`TOOL-020 update_function_meta`、`TOOL-021 run_function` 与 `TOOL-022 search_function_executions` 共 50/50 个单格；
+> `TOOL-016` 首轮发现新建失败态误显示 edit 专属的“上一版”文案，修复为 create 专属的“尚未创建实体”，并补
+> create/edit 对称 widget 回归；`TOOL-017` 又真实覆盖 v1→v2 版本编辑、非法代码拒绝和无 v3 副作用，edit 失败保留上一版真相。
+> `TOOL-018` 又真实覆盖 v2→v1 指针回退、v999 不存在版本拒绝、无新版本副作用和历史保留；`TOOL-019` 首轮发现
+> delete 的工具描述错误宣称“全版本删除”，冻结后修正为主行软删、不可变版本审计保留、sandbox 回收、后续动作 not-found，
+> 并以真实成功/失败路径、SQLite、HTTP、五通道与 native-resolution 画面重跑。`TOOL-020` 首轮发现精确下划线意图在
+> Computer Use 输入层丢失，以及 tags 错用字符串的 AI 引导问题；补充数组形状示例与禁止逗号字符串的 schema/描述后，
+> 修复后二进制用真实成功/失败路径重跑。`TOOL-021` 首轮发现托管模型把显式版本和对象参数字符串化，修复执行边界后真实一次成功 v2、一次不存在 ID 拒绝、一次缺参数执行失败；`TOOL-022` 首轮发现分页 limit 被托管模型发成字符串，修复执行边界接受精确整数字符串并保留强类型公开 schema，随后真实覆盖分页、failed/version 筛选、空结果和非法 status；当前第三批已到 50/50，警报复审后 clean(150 judgments)，统一长门禁已通过，正在执行本批次最终审计与一次性提交。**
 >
 > **开工前提已满足**:另一团队的后端大改(BYOK 全目录 / 生成收归受管 / 音色 / 媒体子域 …)已并入
 > `main`;本仓与隔壁 `Anselm-API-Serve` 均已对齐到各自最新 `main`。
@@ -189,11 +196,11 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 | 锚点自校 | ✅ [WRK-091](ANCHORS.md) 冻结 10 个正反锚点；无答案答卷通过才签发绑定题集哈希的四小时凭证，题集变化或凭证过期自动锁 gate |
 | 统计警报 | ✅ `alarms.py` 监控裁决过快、速率暴冲、发现率塌方；ack 必须写复审结论，且在出现新裁决前不会拿同一批历史原地复活；新证据到达后重新评估 |
 | 操作手册 | ✅ `testend/rig/README.md` 自足描述起、检、停、校准、测量、裁决和警报，任何 agent 无需旧对话即可使用 |
-| 产品主循环 | ✅ 已从第一条未裁决格启动；真实会话持续覆盖 onboarding、chat、composer、toc、log drawer、Read、Write、Edit、LS、Glob、Grep、Bash、BashOutput、KillShell、ask_user、todo_write 和 todo_read。此前各工具切片中的产品语义、错误态和视觉问题均按 stop-and-fix 冻结、修复并真实重跑；最近 todo_write/todo_read 会话 `/tmp/anselm-rig-formal-20260801-28/sessions/20260801-064406` 覆盖部分清单读回、全部完成和零开放项提醒抑制，screen.mov `176.260000s`，backend 无 WARN/ERROR/panic/fatal，frontend 仅已知平台噪声，LLM 26 个响应全 200，messages durable seq 1..64、notifications durable seq 1..2 连续，三流保持连接。本批次 10 个工具格均由 `judge.py` 独立落账，`RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 的警报复审后 clean(100 judgments)；首批 `50 / 50` 已通过统一长门禁、完整 testend、真实回放、告警复核和工作树审计并提交 `b26f623e`；第二批已达到 `50 / 50`，统一长门禁、完整 `make verify`、完整 `testend`、修复场景回归、锚点复核和工作树审计均已通过，下一前线为 `TOOL-013 search_tools` |
+| 产品主循环 | ✅ 已从第一条未裁决格启动；前置真实切片持续覆盖 onboarding、chat、composer、toc、log drawer、Read、Write、Edit、LS、Glob、Grep、Bash、BashOutput、KillShell、ask_user、todo_write、todo_read 以及 function 全生命周期。此前各工具切片中的产品语义、错误态和视觉问题均按 stop-and-fix 冻结、修复并真实重跑；第三批 `TOOL-013` 至 `TOOL-021` 已逐格完成。`TOOL-022 search_function_executions` 的红会话 `/private/tmp/anselm-rig-formal-20260801-30/sessions/20260801-103528` 暴露 limit 字符串化边界问题，修复执行边界与工具契约后，固定会话 `/private/tmp/anselm-rig-formal-20260801-30/sessions/20260801-103839` 真实覆盖分页、failed/version 筛选、空结果和非法 status；screen.mov `420.495000s`，LLM chat-completion 状态响应全 200，messages durable `1..81`、notifications `1..8` 单调，entities 保持连接，frontend 仅已知 macOS 噪声，backend 仅刻意 invalid-status WARN；五级裁决已由 judge 独立落账，警报复审后 clean(150 judgments)。第三批已到 `50 / 50`，统一长门禁已通过，最终工作树审计与本批次提交正在收口。 |
 
 **Day 0 已完成。** 主循环配置为从 COVERAGE 第一条未裁决格开始，遵守“台架先绿 → 锚点解锁 → 旅程走线
 → 到站清完整列 → 发现即冻结前线并修复 → 同类横扫 → judge 落账”的固定节拍；当前已完成
-`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011`、`SURF-012`、`SURF-013`、`SURF-014`、`TOOL-001`、`TOOL-002`、`TOOL-003`、`TOOL-004`、`TOOL-005`、`TOOL-006`、`TOOL-007`、`TOOL-008`、`TOOL-009`、`TOOL-010`、`TOOL-011`、`TOOL-012` 的五级裁决。首批 50/50 已完成统一 `alarms.py check`、完整 testend、修复场景回归、工作树审计并提交 `b26f623e`；第二批已达到 **50 / 50**，`TOOL-011 todo_write` 与 `TOOL-012 todo_read` 已由真实 App + 五通道证据收尾，统一长门禁、完整 `make verify`、完整 `testend`、修复场景回归、锚点复核和工作树审计均已通过，下一前线为 `TOOL-013 search_tools`。
+`EDGE-325`、`EDGE-326`、`SURF-003`、`SURF-010`、`SURF-011`、`SURF-012`、`SURF-013`、`SURF-014`、`TOOL-001`、`TOOL-002`、`TOOL-003`、`TOOL-004`、`TOOL-005`、`TOOL-006`、`TOOL-007`、`TOOL-008`、`TOOL-009`、`TOOL-010`、`TOOL-011`、`TOOL-012`、`TOOL-013`、`TOOL-014`、`TOOL-015`、`TOOL-016`、`TOOL-017`、`TOOL-018`、`TOOL-019`、`TOOL-020`、`TOOL-021`、`TOOL-022` 的五级裁决。首批 50/50 与第二批 50/50 均完成统一 `alarms.py check`、完整 testend、修复场景回归、工作树审计并提交；第三批已完成 **50 / 50**，`TOOL-022 search_function_executions` 已由真实 App + 五通道证据收尾，修复托管模型对分页 limit 的字符串化编码后，真实覆盖分页、failed/version 筛选、空结果和非法 status，警报复审后 clean(150 judgments)；统一长门禁已通过，最终工作树审计与一次性提交正在收口。
 
 ## §6 施工中代拍台账(依据注明,用户可随时翻案)
 

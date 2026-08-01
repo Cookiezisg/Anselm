@@ -1058,6 +1058,7 @@
       "ribbonLive": "Listening live · settle follows the truth",
       "ribbonGap": "Stream gap · trust the execution record",
       "ribbonFailed": "Draft unsaved · truth is still the last version",
+      "ribbonFailedCreate": "Draft unsaved · nothing was created",
       "gatePill": "AI awaits your decision →",
       "livePill": "AI is editing $name →",
       "tombstone": "Deleted",

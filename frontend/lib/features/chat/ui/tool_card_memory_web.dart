@@ -580,8 +580,8 @@ String schemaParamDigest(Map<String, dynamic> schema) {
 
 ToolReceipt? searchToolsReceipt(Translations t, ToolCardState s) {
   final decoded = tryJsonMap(s.resultText);
-  final tools = decoded?['tools'];
-  if (tools is List) {
+  final tools = searchToolsHits(decoded);
+  if (tools != null) {
     return (
       text: t.chat.tool.toolsFound(n: '${tools.length}'),
       tone: ToolReceiptTone.none,
@@ -593,14 +593,27 @@ ToolReceipt? searchToolsReceipt(Translations t, ToolCardState s) {
   return null;
 }
 
-/// search_tools settled: one whisper-thin card per hit — mono tool name + the param digest, the
-/// description, and a per-card schema disclosure (bounded JSON tree, framework fields INCLUDED
-/// there — the escape hatch never edits). search_tools 落定:逐命中极薄卡+schema 逃生口。
+/// Read both the current compact `loaded_tools` result and the older `tools` fixture shape. The
+/// backend deliberately keeps full schemas out of the durable result; they arrive in the next LLM
+/// request, so the UI must render the name/purpose receipt without dumping raw JSON.
+/// 兼容当前紧凑 loaded_tools 与旧 tools fixture；完整 schema 不在持久回执中，不能把原始 JSON 倾倒到界面。
+List<Map<String, dynamic>>? searchToolsHits(Map<String, dynamic>? decoded) {
+  final raw = decoded?['loaded_tools'] ?? decoded?['tools'];
+  if (raw is! List) return null;
+  return [
+    for (final e in raw)
+      if (e is Map) Map<String, dynamic>.from(e),
+  ];
+}
+
+/// search_tools settled: one whisper-thin card per hit — mono tool name + purpose, with an
+/// optional parameter digest only when a legacy/test payload supplies one. search_tools 落定:
+/// 逐命中极薄卡；当前后端只给名称与用途，绝不把 raw JSON 倾倒到 UI。
 Widget searchToolsBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final decoded = tryJsonMap(state.resultText);
-  final tools = decoded?['tools'];
-  if (tools is! List) {
+  final tools = searchToolsHits(decoded);
+  if (tools == null) {
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: AnSpace.s4),
       child: Text(
@@ -612,17 +625,20 @@ Widget searchToolsBody(BuildContext context, ToolCardState state) {
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     children: [
-      for (final e in tools.take(5))
-        if (e is Map) _ToolHitCard(hit: e.cast<String, dynamic>()),
+      if (decoded?['status'] case final String status when status.isNotEmpty)
+        Padding(
+          padding: const EdgeInsets.only(bottom: AnSpace.s4),
+          child: Text(status, style: AnText.meta.copyWith(color: c.inkFaint)),
+        ),
+      for (final e in tools.take(5)) _ToolHitCard(hit: e),
     ],
   );
 }
 
-/// One toolbox hit — since 批6 A-079 a family LEDGER ROW: mono name + the param-digest chip +
-/// the description as the sub line (one-line tease); tapping the row expands the FULL description
-/// + the bounded schema tree (the framework fields stay IN the escape hatch — it never edits).
-/// 工具箱命中——批6 起为族台账行:mono 名+参数摘要 chip+描述副行(一行预览);点行展开全描述+有界
-/// schema 树(逃生口保横切字段,绝不编辑)。
+/// One toolbox hit — a family LEDGER ROW: mono name + optional param digest + purpose as the
+/// subline. A legacy payload may still expose a schema disclosure; the current compact backend
+/// result intentionally has no parameters to disclose.
+/// 工具箱命中：族台账行；当前回执只展示名称与用途，旧 payload 若带 schema 才显示参数逃生口。
 class _ToolHitCard extends StatefulWidget {
   const _ToolHitCard({required this.hit});
 
@@ -641,7 +657,7 @@ class _ToolHitCardState extends State<_ToolHitCard> {
     final t = Translations.of(context);
     final e = widget.hit;
     final params = e['parameters'];
-    final desc = '${e['description'] ?? ''}';
+    final desc = '${e['description'] ?? e['purpose'] ?? ''}';
     return AnLedgerRow(
       // The primitive's disclosure hand (0718 对齐审计 — the row toggled open with zero cue; the
       // reserved lead cell gives the chevron a seat). 原语披露示能:此行曾无任何展开线索。

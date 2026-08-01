@@ -104,7 +104,7 @@ def main():
         out.append("|---|---|---|---|")
         for (tag, name), (status, ev) in sorted(dead):
             out.append(f"| {tag} | {esc(name)} | {status} | {ev} |")
-    out.append(f"\n**TOTAL: {grand} 行 × 5 级 = {grand * 5} 格**\n")
+    out.append(f"\n**TOTAL: {grand} 行 × 5 级 = {grand * 5} 格**")
     OUT.write_text("\n".join(out) + "\n")
     judged = sum(1 for v in existing.values() if v[0] != "·····")
     print(f"gen_coverage: {grand} rows ({judged} carried judgments, {len(dead)} tombstones) → {OUT}")

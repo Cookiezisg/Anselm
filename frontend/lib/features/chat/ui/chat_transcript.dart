@@ -353,7 +353,13 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
         }
         final older = groups.take(olderGroups).toList(growable: false);
         final head = groups.skip(olderGroups).toList(growable: false);
-        final pending = windowMode ? const <PendingSend>[] : t.pending;
+        // Snapshot the mutable pending list for this delegate. Stream reconciliation can clear the
+        // source list between childCount calculation and a lazy builder callback; sharing that
+        // list lets an old index read past the new length and crash the transcript.
+        // 为本次 delegate 固定快照：SSE 对账可能在 childCount 与 lazy builder 之间清空源列表，不能跨帧共享可变引用。
+        final pending = windowMode
+            ? const <PendingSend>[]
+            : List<PendingSend>.unmodifiable(t.pending);
         // Retry / edit-resend exist only on the TAIL, mirroring the backend's own rule (`:retry` replaces the
         // last round and 409s otherwise). They are withheld while a jump window is open (the tail is not even
         // loaded) and while an optimistic bubble sits below (the round the reader sees as last is not the one

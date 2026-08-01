@@ -16,8 +16,11 @@ enum AnHonesty {
   /// The stream had a gap (SSE reconnect) — growth is frozen, trust the record. 流有缺口。
   gap,
 
-  /// The draft failed to save — the truth is still the previous version. 草稿未保存。
+  /// An edit draft failed to save — the truth is still the previous version. 草稿未保存。
   failed,
+
+  /// A create draft failed to save — no entity was created. 新建草稿未保存,没有创建实体。
+  failedCreate,
 }
 
 /// The HONESTY RIBBON — a hairline banner above the stage window that never lets a live painting be
@@ -46,6 +49,11 @@ class AnHonestyRibbon extends StatelessWidget {
         c.danger,
         c.dangerSoft,
         t.feedback.cast.ribbonFailed,
+      ),
+      AnHonesty.failedCreate => (
+        c.danger,
+        c.dangerSoft,
+        t.feedback.cast.ribbonFailedCreate,
       ),
     };
     return Container(

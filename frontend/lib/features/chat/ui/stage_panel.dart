@@ -1296,6 +1296,13 @@ class _GenericStageState extends State<_GenericStage> {
         // not the execution terminal. G4 判活走执行相位,参流关≠执行终态。
         final live = toolLive(state);
         final failed = widget.phase == StagePhase.failedHold;
+        // A create has no previous version to fall back to. Keep the edit copy honest, but say
+        // explicitly that a failed create produced no entity. 新建没有上一版可回退,失败必须明说未创建。
+        final honesty = failed
+            ? (widget.subject.toolName.startsWith('create_')
+                  ? AnHonesty.failedCreate
+                  : AnHonesty.failed)
+            : AnHonesty.live;
         final bespoke = stageBodies[widget.subject.kind];
         final scene = StageScene(
           conversationId: widget.conversationId,
@@ -1324,7 +1331,7 @@ class _GenericStageState extends State<_GenericStage> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (failed || live) ...[
-                  AnHonestyRibbon(failed ? AnHonesty.failed : AnHonesty.live),
+                  AnHonestyRibbon(honesty),
                   const SizedBox(height: AnSpace.s6),
                 ],
                 if (stageRouteOf(widget.subject.toolName)?.lifecycle ==

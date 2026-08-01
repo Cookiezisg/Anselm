@@ -46,6 +46,27 @@ func TestLLMErrText(t *testing.T) {
 	}
 }
 
+// TestExecuteTool_UserErrorMessageIsClean keeps internal Go wrapper paths out of the durable
+// tool-result error card. The model and the human must receive the same stable message.
+func TestExecuteTool_UserErrorMessageIsClean(t *testing.T) {
+	sentinel := errorspkg.New(errorspkg.KindNotFound, "FUNCTION_NOT_FOUND", "function not found")
+	wrapped := fmt.Errorf("functionapp.Get: %w", sentinel)
+
+	out, errMsg, ok := executeTool(
+		context.Background(),
+		fakeTool{name: "get_function", err: wrapped},
+		"get_function",
+		json.RawMessage(`{"functionId":"fn_0000000000000000"}`),
+		zap.NewNop(),
+	)
+	if ok {
+		t.Fatalf("wrapped tool error must fail, got ok=true out=%q errMsg=%q", out, errMsg)
+	}
+	if out != "function not found" || errMsg != "function not found" {
+		t.Fatalf("user-visible tool error must drop Go wrapper path, out=%q errMsg=%q", out, errMsg)
+	}
+}
+
 // TestToolFailureLog_CarriesTheReason — the OPERATOR's copy of a tool failure must carry the same
 // structured Details the LLM's does.
 //
