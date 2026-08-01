@@ -146,6 +146,20 @@ func (t fakeTool) Execute(_ context.Context, _ string) (string, error) {
 
 var _ toolapp.Tool = fakeTool{}
 
+type countingTool struct {
+	name  string
+	calls *int
+}
+
+func (t countingTool) Name() string                        { return t.name }
+func (t countingTool) Description() string                 { return "counting tool" }
+func (t countingTool) Parameters() json.RawMessage         { return json.RawMessage(`{"type":"object"}`) }
+func (t countingTool) ValidateInput(json.RawMessage) error { return nil }
+func (t countingTool) Execute(_ context.Context, _ string) (string, error) {
+	*t.calls++
+	return "executed", nil
+}
+
 // --- event builders --------------------------------------------------------
 
 func textEv(s string) llminfra.StreamEvent {
@@ -555,6 +569,26 @@ func TestRunTools_ResultsIndexAligned(t *testing.T) {
 	}
 	if blocks[1].Content != "result-b" || blocks[1].ParentBlockID != "tc_b" {
 		t.Fatalf("block1 misaligned: %+v", blocks[1])
+	}
+}
+
+func TestRunTools_SuppressesIdenticalCallsInOneBatch(t *testing.T) {
+	runCount := 0
+	calls := []messagesdomain.ToolCallData{
+		{ID: "tc_a", Name: "create_control", Arguments: map[string]any{"name": "router"}, ExecutionGroup: 1},
+		{ID: "tc_b", Name: "create_control", Arguments: map[string]any{"name": "router"}, ExecutionGroup: 1},
+	}
+	blocks := runTools(context.Background(), calls, map[string]toolapp.Tool{
+		"create_control": countingTool{name: "create_control", calls: &runCount},
+	}, zap.NewNop())
+	if runCount != 1 {
+		t.Fatalf("identical calls executed %d times, want once", runCount)
+	}
+	if len(blocks) != 2 || blocks[1].Error != "" || !strings.Contains(blocks[1].Content, "Duplicate tool call suppressed") {
+		t.Fatalf("duplicate result = %+v, want completed suppression", blocks)
+	}
+	if blocks[1].Attrs["duplicateSuppressed"] != true {
+		t.Fatalf("duplicate result attrs = %#v, want duplicateSuppressed=true", blocks[1].Attrs)
 	}
 }
 

@@ -169,6 +169,10 @@ POST /controls|approvals/{id}:iterate
 GET /controls|approvals/{id}/versions[/{version}]
 ```
 
+`DELETE /approvals/{id}` 与 `delete_approval` 均为软删除：普通实体读/搜索返回 not-found、关系边
+被清理，但 `approval_form_versions` 作为不可变审计历史保留；工具调用必须先查关系并经
+`danger="dangerous"` 的人闸批准。
+
 ### Skill
 
 | Method · Path | 语义 |

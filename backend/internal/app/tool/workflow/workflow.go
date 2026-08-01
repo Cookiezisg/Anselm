@@ -65,6 +65,12 @@ const opsDoc = `OP SHAPES (each has an "op" discriminator):
   {"op":"update_edge", "id":"<edgeId>", "patch":{...}}
   {"op":"delete_edge", "id":"<edgeId>"}
 
+HOSTED-MODEL SHAPE COMPATIBILITY: the public schema is the native array above, with add_node/add_edge
+body fields nested under "node"/"edge". At the execution boundary only, an exact JSON-encoded array
+string and the legacy form with those body fields at the op level are accepted; conflicts, malformed
+strings, objects, and non-array values remain errors. The domain parser stays strict after this narrow
+normalization.
+
 NODE KINDS & REF PREFIXES: trigger→trg_, action→fn_ | hd_<id>.method | mcp:server/tool, agent→ag_, control→ctl_, approval→apf_.
 A node's "input" wires each field to a bare CEL expression that reads UPSTREAM NODES' RESULTS BY NODE ID — "<upstreamNodeId>.<field>", e.g. "start.amount" or "check_amount.score". There is NO payload/ctx/input root in a node's input CEL; address the producing node directly. A trigger node has no input. A referenced field must be present on EVERY branch path that can reach this node — a key absent on a taken branch (e.g. an upstream that emits it only on success) fails the WHOLE run fail-fast, and capability_check does NOT catch it. CONDITIONAL/DIAMOND READS: if a node reads "<X>.<field>" where X is on ONE side of a control/approval branch and this node ALSO has a live incoming edge from another branch (a diamond join), then on the run where X's branch was NOT taken X never ran and its result is empty — "X.field" then throws "no such key". GUARD it: "has(X.field) ? X.field : <fallback>" (same has() pattern as LOOP STATE below). capability_check passes the unguarded form (it only checks X is a structural ancestor, not that X is guaranteed to run), so this is YOUR responsibility, not a safety-net failure.
 NODE RESULT SHAPES — what "<nodeId>.<field>" can read from each kind:

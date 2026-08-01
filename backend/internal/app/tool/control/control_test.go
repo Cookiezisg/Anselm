@@ -59,6 +59,26 @@ func TestControlTools_Wiring(t *testing.T) {
 	}
 }
 
+func TestControlTools_DestructiveAndReadContractsAreExplicit(t *testing.T) {
+	tools := ControlTools(nil, nil, nil)
+	byName := make(map[string]toolapp.Tool, len(tools))
+	for _, tool := range tools {
+		byName[tool.Name()] = tool
+	}
+	getDesc := byName["get_control"].Description()
+	for _, want := range []string{"REQUIRED", "controlId", "Never call this tool with {}", "danger=\\\"safe\\\""} {
+		if !strings.Contains(getDesc, want) {
+			t.Errorf("get_control description missing %q: %s", want, getDesc)
+		}
+	}
+	deleteDesc := byName["delete_control"].Description()
+	for _, want := range []string{"destructive", "danger=\\\"dangerous\\\"", "wait for the user's approval", "REQUIRED controlId"} {
+		if !strings.Contains(deleteDesc, want) {
+			t.Errorf("delete_control description missing %q: %s", want, deleteDesc)
+		}
+	}
+}
+
 func TestControlTools_ValidateInput(t *testing.T) {
 	cases := []struct {
 		name    string
@@ -69,11 +89,18 @@ func TestControlTools_ValidateInput(t *testing.T) {
 		{"create no name", &CreateControl{}, `{"branches":[{"port":"a","when":"true"}]}`, true},
 		{"create no branches", &CreateControl{}, `{"name":"x"}`, true},
 		{"create ok", &CreateControl{}, `{"name":"x","branches":[{"port":"a","when":"true"}]}`, false},
+		{"create stringified branches", &CreateControl{}, `{"name":"x","branches":"[{\"port\":\"a\",\"when\":\"true\"}]"}`, false},
+		{"create malformed stringified branches", &CreateControl{}, `{"name":"x","branches":"not json"}`, true},
 		{"edit no id", &EditControl{}, `{"branches":[{"port":"a","when":"true"}]}`, true},
 		{"edit no branches", &EditControl{}, `{"controlId":"ctl_1"}`, true},
-		{"edit ok", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}]}`, false},
+		{"edit missing change reason", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}]}`, true},
+		{"edit empty change reason", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}],"changeReason":"  "}`, true},
+		{"edit ok", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}],"changeReason":"acceptance"}`, false},
+		{"edit stringified branches", &EditControl{}, `{"controlId":"ctl_1","branches":"[{\"port\":\"a\",\"when\":\"true\"}]","changeReason":"acceptance"}`, false},
 		{"revert no id", &RevertControl{}, `{"version":1}`, true},
 		{"revert bad version", &RevertControl{}, `{"controlId":"ctl_1","version":0}`, true},
+		{"revert stringified version", &RevertControl{}, `{"controlId":"ctl_1","version":"2"}`, false},
+		{"revert malformed stringified version", &RevertControl{}, `{"controlId":"ctl_1","version":"2.0"}`, true},
 		{"revert ok", &RevertControl{}, `{"controlId":"ctl_1","version":2}`, false},
 		{"get no id", &GetControl{}, `{}`, true},
 		{"delete no id", &DeleteControl{}, `{}`, true},
@@ -100,11 +127,14 @@ func TestControlTools_RoundTrip(t *testing.T) {
 	if _, err := (&GetControl{svc: svc}).Execute(ctx, `{"controlId":"`+id+`"}`); err != nil {
 		t.Fatalf("get execute: %v", err)
 	}
-	if _, err := (&EditControl{svc: svc}).Execute(ctx, `{"controlId":"`+id+`","branches":[{"port":"only","when":"true"}]}`); err != nil {
+	if _, err := (&EditControl{svc: svc}).Execute(ctx, `{"controlId":"`+id+`","branches":[{"port":"only","when":"true"}],"changeReason":"round trip"}`); err != nil {
 		t.Fatalf("edit execute: %v", err)
 	}
 	if _, err := (&RevertControl{svc: svc}).Execute(ctx, `{"controlId":"`+id+`","version":1}`); err != nil {
 		t.Fatalf("revert execute: %v", err)
+	}
+	if _, err := (&RevertControl{svc: svc}).Execute(ctx, `{"controlId":"`+id+`","version":"1"}`); err != nil {
+		t.Fatalf("stringified revert execute: %v", err)
 	}
 	sout, err := (&SearchControl{svc: svc}).Execute(ctx, `{"query":"router"}`)
 	if err != nil || !strings.Contains(sout, "router") {
@@ -112,6 +142,45 @@ func TestControlTools_RoundTrip(t *testing.T) {
 	}
 	if _, err := (&DeleteControl{svc: svc}).Execute(ctx, `{"controlId":"`+id+`"}`); err != nil {
 		t.Fatalf("delete execute: %v", err)
+	}
+}
+
+func TestControlTools_StringifiedBranches(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+
+	out, err := (&CreateControl{svc: svc}).Execute(ctx,
+		`{"name":"encoded","branches":"[{\"port\":\"pass\",\"when\":\"true\"}]"}`)
+	if err != nil {
+		t.Fatalf("create stringified branches: %v", err)
+	}
+	id := extractID(t, out)
+	if _, err := (&EditControl{svc: svc}).Execute(ctx,
+		`{"controlId":"`+id+`","branches":"[{\"port\":\"next\",\"when\":\"true\"}]","changeReason":"encoded round trip"}`); err != nil {
+		t.Fatalf("edit stringified branches: %v", err)
+	}
+}
+
+func TestControlTools_DescriptionPinsBranchEncoding(t *testing.T) {
+	for _, desc := range []string{(&CreateControl{}).Description(), (&EditControl{}).Description()} {
+		for _, want := range []string{
+			"JSON array",
+			"exact JSON-encoded array string is also accepted",
+			"malformed strings, objects, and non-array values are rejected",
+		} {
+			if !strings.Contains(desc, want) {
+				t.Fatalf("control description missing %q: %s", want, desc)
+			}
+		}
+	}
+	desc := (&EditControl{}).Description()
+	if !strings.Contains(desc, "changeReason") || !strings.Contains(desc, "REQUIRED") {
+		t.Fatal("edit description must pin non-empty changeReason")
+	}
+	revertDesc := (&RevertControl{}).Description()
+	for _, want := range []string{"exact decimal integer string is also accepted", "floats, booleans, arrays, and malformed strings are rejected"} {
+		if !strings.Contains(revertDesc, want) {
+			t.Fatalf("revert description missing %q: %s", want, revertDesc)
+		}
 	}
 }
 

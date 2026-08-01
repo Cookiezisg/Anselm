@@ -2,6 +2,7 @@ package loop
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
@@ -27,7 +28,7 @@ func TestDispatchWithGate_SkillPreApproved(t *testing.T) {
 	state.SetActiveSkill("deployer", []string{"deploy"}) // pre-approves "deploy"
 	ctx := humanloopapp.WithBroker(reqctxpkg.WithAgentState(context.Background(), state), broker)
 
-	out, _, ok, executed := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
+	out, _, ok, executed, _ := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
 	if surfaced != 0 {
 		t.Fatalf("a skill-pre-approved tool must not surface for approval (surfaced %d)", surfaced)
 	}
@@ -50,7 +51,7 @@ func TestDispatchWithGate_NotPreApprovedGated(t *testing.T) {
 	state.SetActiveSkill("reader", []string{"read_file"}) // does NOT cover "deploy"
 	ctx := humanloopapp.WithBroker(reqctxpkg.WithAgentState(context.Background(), state), broker)
 
-	out, _, ok, executed := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
+	out, _, ok, executed, _ := dispatchWithGate(ctx, fakeTool{name: "deploy", result: "deployed"}, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
 	if surfaced != 1 {
 		t.Fatalf("a non-pre-approved dangerous tool must be gated (surfaced %d)", surfaced)
 	}
@@ -59,5 +60,25 @@ func TestDispatchWithGate_NotPreApprovedGated(t *testing.T) {
 	}
 	if executed {
 		t.Fatal("a denied call must report executed=false — the ledger must not book a phantom touch")
+	}
+}
+
+func TestRunOneTool_ApprovedGateFactReachesModelOnly(t *testing.T) {
+	var broker *humanloopapp.Broker
+	broker = humanloopapp.New(func(_ context.Context, req humanloopapp.Request) {
+		go broker.Resolve(req.ToolCallID, humanloopapp.Response{Action: humanloopapp.DecisionApprove})
+	})
+	ctx := humanloopapp.WithBroker(context.Background(), broker)
+	tc := dangerTC("deploy")
+	blocks := runOneTool(ctx, fakeTool{name: "deploy", result: "deployed"}, tc, zap.NewNop())
+	if len(blocks) != 1 || blocks[0].Attrs[messagesdomain.AttrHumanApproval] != true {
+		t.Fatalf("approved tool result attrs = %#v, want humanApproval=true", blocks)
+	}
+	if strings.Contains(blocks[0].Content, "Human approval granted") {
+		t.Fatal("the approval fact must not pollute the visible tool result")
+	}
+	llm := BlocksToAssistantLLM(blocks)
+	if len(llm) != 2 || !strings.Contains(llm[1].Content, "Human approval granted before this tool executed") {
+		t.Fatalf("LLM tool result = %#v, want explicit approval fact", llm)
 	}
 }

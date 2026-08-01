@@ -154,6 +154,20 @@ String approvalTemplateToMarkdown(String template) => template.replaceAllMapped(
 /// + the rules strip (timeout badge → its behaviour, note-allowed) + a mock decision row. Reconstructed
 /// from the args (whole snapshot). 审批表单预览:审批人视角(渲染模板 + 规则条 + mock 决策行)。
 Widget approvalFormBody(BuildContext context, ToolCardState state) {
+  if (state.phase == ToolCardPhase.failed &&
+      state.toolName.startsWith('edit_')) {
+    // An edit failure leaves the previous version active. Showing the approval preview here would
+    // make an unsaved payload look actionable, even though no new approval form exists.
+    // 编辑失败仍以旧版为真相;此处若继续渲染审批预览,会把未保存载荷伪装成可操作表单。
+    final t = Translations.of(context);
+    final c = context.colors;
+    return stageFramed(
+      Text(
+        t.chat.stage.editFailedNoPreview,
+        style: AnText.meta.copyWith(color: c.danger),
+      ),
+    );
+  }
   final t = Translations.of(context);
   final c = context.colors;
   final template = argString(state.argsText, 'template') ?? '';

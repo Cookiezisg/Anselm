@@ -306,6 +306,15 @@ type Message struct {
 // 对有唯一的家。
 const AttrRetryOf = "retryOf"
 
+// AttrHumanApproval marks a tool result whose side effect ran only after the
+// interactive human danger gate returned an explicit approval. It is metadata,
+// not user-visible result text; the LLM history projector uses it to preserve
+// the approval fact without contaminating the rendered tool card.
+//
+// AttrHumanApproval 标记工具结果确实在交互式危险门收到明确批准后才执行。它是元数据，不是用户可见的
+// 结果文本；LLM 历史投影用它保留批准事实，同时不污染工具卡片。
+const AttrHumanApproval = "humanApproval"
+
 // AttrParentBlockID is the Message.Attrs key carrying the block id of the tool_call that spawned
 // a subagent message. It is the message-level form of Block.ParentBlockID: the subagent row itself
 // is nested under a parent block, so a durable copy (for example a conversation fork) must rebase

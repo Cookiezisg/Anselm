@@ -52,11 +52,16 @@ func runTools(
 	//
 	// 每调用一组 block（progress* + tool_result），按下标对齐使并行批写入不竞争顺序；末尾按调用序拍平。
 	perCall := make([][]messagesdomain.Block, len(calls))
+	duplicates := duplicateToolCalls(calls)
 
 	for _, batch := range partitionByExecutionGroup(calls) {
 		if len(batch.items) == 1 {
 			item := batch.items[0]
-			perCall[item.idx] = runOneTool(ctx, byName[item.tc.Name], item.tc, log)
+			if first, ok := duplicates[item.idx]; ok {
+				perCall[item.idx] = runDuplicateTool(ctx, item.tc, first, log)
+			} else {
+				perCall[item.idx] = runOneTool(ctx, byName[item.tc.Name], item.tc, log)
+			}
 			continue
 		}
 		var wg sync.WaitGroup
@@ -67,7 +72,11 @@ func runTools(
 				// Each goroutine writes its own pre-assigned index — no shared-slot race, no lock.
 				//
 				// 每个 goroutine 只写自己预分配的下标——无共享槽竞争、无需锁。
-				perCall[it.idx] = runOneTool(ctx, byName[it.tc.Name], it.tc, log)
+				if first, ok := duplicates[it.idx]; ok {
+					perCall[it.idx] = runDuplicateTool(ctx, it.tc, first, log)
+				} else {
+					perCall[it.idx] = runOneTool(ctx, byName[it.tc.Name], it.tc, log)
+				}
 			}(item)
 		}
 		wg.Wait()
@@ -77,6 +86,49 @@ func runTools(
 		blocks = append(blocks, bs...)
 	}
 	return blocks
+}
+
+// duplicateToolCalls identifies byte-equivalent business calls within one assistant response. A
+// hosted model can emit the same mutation twice in one tool-call batch after recovering from an
+// earlier argument error. Execute the first and return an honest completed suppression result for
+// the rest; a later user turn with the same arguments is not affected.
+//
+// duplicateToolCalls 标出一次 assistant 响应内业务参数完全相同的调用。托管模型可能在修正早期参数
+// 错误时于同一批重复吐出 mutation；只执行首个，其余给诚实的 completed suppression 结果。后续用户回合
+// 主动重复同样参数不受影响。
+func duplicateToolCalls(calls []messagesdomain.ToolCallData) map[int]indexedCall {
+	firstByKey := make(map[string]indexedCall)
+	duplicates := make(map[int]indexedCall)
+	for i, tc := range calls {
+		args, err := json.Marshal(tc.Arguments)
+		if err != nil {
+			continue
+		}
+		key := tc.Name + "\x00" + string(args)
+		first, exists := firstByKey[key]
+		if exists {
+			duplicates[i] = first
+			continue
+		}
+		firstByKey[key] = indexedCall{idx: i, tc: tc}
+	}
+	return duplicates
+}
+
+func runDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, first indexedCall, log *zap.Logger) []messagesdomain.Block {
+	blockID := idgenpkg.New("blk")
+	content := fmt.Sprintf("Duplicate tool call suppressed: identical %s call %s was already handled in this assistant batch.", tc.Name, first.tc.ID)
+	em := newEmitter(ctx, log)
+	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
+	em.close(ctx, blockID, messagesdomain.StatusCompleted,
+		&streamdomain.Node{Type: messagesdomain.BlockTypeToolResult, Content: streamdomain.JSONContent(toolResultContent{Content: content})}, "")
+	return []messagesdomain.Block{{
+		ID:            blockID,
+		Type:          messagesdomain.BlockTypeToolResult,
+		Content:       content,
+		ParentBlockID: tc.ID,
+		Attrs:         map[string]any{"tool": tc.Name, "duplicateSuppressed": true},
+	}}
 }
 
 // runOneTool executes one tool call and returns its tool_result block, live-pushing the block
@@ -113,7 +165,7 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	em := newEmitter(ctx, log)
 	blockID := idgenpkg.New("blk")
 	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
-	output, errMsg, ok, executed := dispatchWithGate(ctx, t, tc, argsJSON, log)
+	output, errMsg, ok, executed, humanApproved := dispatchWithGate(ctx, t, tc, argsJSON, log)
 
 	status := messagesdomain.StatusCompleted
 	if !ok {
@@ -129,13 +181,17 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	if !ok {
 		errVal = errMsg
 	}
+	attrs := map[string]any{"tool": tc.Name}
+	if humanApproved {
+		attrs[messagesdomain.AttrHumanApproval] = true
+	}
 	result := messagesdomain.Block{
 		ID:            blockID,
 		Type:          messagesdomain.BlockTypeToolResult,
 		Content:       output,
 		ParentBlockID: tc.ID,
 		Error:         errVal,
-		Attrs:         map[string]any{"tool": tc.Name},
+		Attrs:         attrs,
 	}
 	// Progress blocks (emitted during Execute) precede the tool_result — chronological + correct
 	// sibling order under the tool_call. Usually empty (most tools emit no progress).
@@ -170,12 +226,13 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // The fourth return (executed) tells the ledger apart from the model: deny / cancel-before-run
 // return ok=true (a smooth "didn't run" RESULT the model reroutes on), yet the tool never
 // executed — recording a touch for it would book a phantom (e.g. a DENIED delete_agent must
-// not produce a `deleted` ledger row).
+// not produce a `deleted` ledger row). The fifth return records an explicit human approval for
+// the model-history projection without adding that fact to the visible tool-result text.
 //
 // 第四个返回值(executed)把台账与模型区分开:deny / 运行前取消返 ok=true(给模型改道的平滑
 // 「没跑」结果),但工具从未执行——为其记触碰即幽灵账(被**拒绝**的 delete_agent 绝不能产生
-// `deleted` 台账行)。
-func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok, executed bool) {
+// `deleted` 台账行)。第五个返回值记录明确的人批准，供模型历史投影使用，但不污染用户可见的工具结果文本。
+func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok, executed, humanApproved bool) {
 	outsideWorkDir := writesOutsideWorkDir(ctx, t, argsJSON)
 	if b := humanloopapp.From(ctx); b != nil && (tc.Danger == string(toolapp.DangerDangerous) || outsideWorkDir) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
@@ -211,20 +268,21 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 				Prompt:         prompt,
 			})
 			if err != nil { // ctx cancelled — the run is aborting
-				return "The run was cancelled before this tool ran.", "", true, false
+				return "The run was cancelled before this tool ran.", "", true, false, false
 			}
 			// Fail-safe: only an explicit approve runs the tool; deny / an unexpected action does NOT
 			// (a malformed resolve must never execute a dangerous call).
 			//
 			// fail-safe：只有显式 approve 才跑工具；deny / 意外动作都不跑（畸形 resolve 绝不能执行危险调用）。
 			if resp.Action != humanloopapp.DecisionApprove && resp.Action != humanloopapp.DecisionApproveAlways {
-				return humanloopapp.DenyFeedback, "", true, false
+				return humanloopapp.DenyFeedback, "", true, false, false
 			}
+			humanApproved = true
 			// approve / approve_always → fall through and execute
 		}
 	}
 	output, errMsg, ok = executeTool(ctx, t, tc.Name, argsJSON, log)
-	return output, errMsg, ok, true
+	return output, errMsg, ok, true, humanApproved
 }
 
 // writesOutsideWorkDir reports whether this call physically writes a file outside the conversation's

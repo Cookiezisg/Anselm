@@ -37,6 +37,27 @@ execution 表，由 durable interpreter 内联求值，不是 activity。
 Create/Edit 先做结构校验，再以 author-time `input` 根编译所有 when/emit；无效 CEL
 不能进入版本线。Domain 不依赖 CEL runtime。
 
+AI 工具的 `branches` 公开 schema 是 branch object 的 JSON array；每个 branch 的出口字段严格
+叫 `port`，不是 `name`，形状例如
+`{\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}`。
+托管模型偶尔会把同一个 array 编成一个完整 JSON 字符串；`create_control` 与 `edit_control` 的
+工具边界只兼容这一种等值编码，仍拒绝 malformed string、object 和非 array，不猜测或改写分支内容。
+
+同一 assistant 响应内完全相同的工具调用只执行首个，后续调用返回 completed suppression 结果，防止
+模型修正参数时重复执行 mutation；跨回合用户主动重复仍按正常的名称冲突/业务规则处理。
+
+`edit_control` 每次写入不可变新版本都必须带非空 `changeReason`。这是 AI 工具边界的审计硬门，
+缺失或空白值在 mutation 发生前以 `CONTROL_CHANGE_REASON_REQUIRED` 拒绝；HTTP/domain service
+的内部调用不改变既有兼容性。
+
+`revert_control` 的公开 schema 仍是 integer；为兼容托管模型，它的工具边界另外接受精确十进制整数字符串，
+但拒绝浮点、布尔、数组和无法解析的字符串。Revert 只移动 active pointer，不新建版本、不改写历史快照。
+
+`get_control` 的 `controlId` 是必填业务参数；托管模型不得以 `{}` 调用，缺少 id 时应先用
+`search_control`。它是只读调用，标准 `danger` 应为 `safe`。`delete_control` 则是不可逆的破坏性
+动作，必须携带 `controlId`、标准 `danger=dangerous`，并在 HumanLoop 用户批准后才可执行；删除前应先
+用 `get_relations` 说明会失效的 workflow 依赖。
+
 ## 3. 版本与运行
 
 Create 产生 v1 并设为 active。Edit 追加版本，Revert 只移动 active pointer，不修改

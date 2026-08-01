@@ -63,14 +63,14 @@ type GetControl struct{ svc *controlapp.Service }
 func (t *GetControl) Name() string { return "get_control" }
 
 func (t *GetControl) Description() string {
-	return "Get one control logic with its active version (the ordered branch set: port / when / emit per branch)."
+	return "Get exactly one existing control logic with its active version (the ordered branch set: port / when / emit per branch). REQUIRED: pass controlId with the ctl_… id. Never call this tool with {} or omit controlId; if you do not have the id, use search_control first. This is read-only: set danger=\\\"safe\\\" and provide a one-sentence summary."
 }
 
 func (t *GetControl) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"required": ["controlId"],
-		"properties": {"controlId": {"type": "string"}}
+		"properties": {"controlId": {"type": "string", "description": "REQUIRED existing control id, for example ctl_0123456789abcdef; never omit or send an empty object."}}
 	}`)
 }
 

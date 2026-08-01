@@ -60,12 +60,15 @@ class ApprovalStageBody extends StatelessWidget {
             ),
           )
         else
-          // G10/A3-21 — a FAILED create is not a «preview about to be sent»: it will never be sent.
-          // 失败的创建不是「即将寄出的预览」——它永远寄不出去。
+          // A failed create has no entity; a failed edit keeps the previous version. Neither is a
+          // preview about to be sent, and the verb must identify which truth survived.
+          // 新建失败没有实体,编辑失败保留上一版;两者都不是即将寄出的预览,文案必须说清真相。
           stageGutterRow(
             lead: Icon(AnIcons.error, size: AnSize.iconSm, color: c.danger),
             child: Text(
-              t.chat.stage.draftFailed,
+              scene.subject.toolName.startsWith('edit_')
+                  ? t.chat.stage.editFailed
+                  : t.chat.stage.draftFailed,
               style: AnText.meta.copyWith(color: c.danger),
             ),
           ),

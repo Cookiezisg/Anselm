@@ -4,7 +4,7 @@ type: reference
 status: active
 owner: @weilin
 created: 2026-06-11
-reviewed: 2026-07-31
+reviewed: 2026-08-02
 review-due: 2026-10-29
 audience: [human, ai]
 ---
@@ -121,7 +121,10 @@ add_edge / update_edge / delete_edge
 ```
 
 Update 是顶层 merge patch；嵌套 `input` 对象整体替换。Node ID 不可变；
-delete node 级联删边。Ops 来自结构化编辑器/工具，非法 JSON 不自动修复。
+delete node 级联删边。公开工具 schema 仍只声明原生数组与嵌套 `node`/`edge`。
+应用工具边界仅为已观测的托管模型形状提供两种窄兼容：精确 JSON 编码的数组字符串，或
+`add_node`/`add_edge` 把 body 字段放在 op 顶层；冲突、畸形字符串、对象和非数组值仍拒绝。
+归一化之后进入 domain 的 `ParseOps` 仍是严格的，结构化编辑器与 HTTP 路径不自动修复非法 JSON。
 
 Active workflow Edit/Revert 改变入口 trigger 时，以旧/新 graph diff
 Detach/Attach。Staged 的 once binding 由 Binder 保持。包含 `set_meta` 时，
@@ -161,6 +164,12 @@ HTTP：
 [`error-codes.md`](../error-codes.md)。ID：`wf_`、`wfv_`。
 
 LLM 工具覆盖构建、生命周期与运行观测：
+
+- `create_workflow` 的 LLM schema 要求显式携带 `description`、`tags`、`changeReason` 三个
+  metadata 槽位；用户未提供时传空字符串/空数组，提供时原样传递。Hosted model 若将 `tags`
+  整体 JSON 编码成字符串，工具边界只接受精确 JSON 数组字符串，不接受逗号分隔文本。这样可
+  阻断模型静默丢失用户意图；`ValidateInput` 在写库前再次要求三个键实际出现，HTTP create
+  仍可省略这些可选字段。
 
 - `get_flowrun` 对节点结果设输出上限，优先保留非 completed 和最新尾部，并
   返回 summary；REST/数据库不受该投影上限；

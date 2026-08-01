@@ -175,6 +175,7 @@ audience: [human, ai]
 | code | HTTP | message |
 |---|---|---|
 | `CONTROL_BRANCHES_REQUIRED` | 400 | branches is required (at least one) |
+| `CONTROL_CHANGE_REASON_REQUIRED` | 400 | changeReason is required |
 | `CONTROL_ID_REQUIRED` | 400 | controlId is required |
 | `CONTROL_NAME_REQUIRED` | 400 | name is required |
 | `CONTROL_VERSION_POSITIVE` | 400 | version must be a positive integer |
@@ -317,6 +318,9 @@ audience: [human, ai]
 | `WORKFLOW_ID_REQUIRED` | 400 | workflowId is required |
 | `WORKFLOW_NAME_REQUIRED` | 400 | name is required |
 | `WORKFLOW_OPS_REQUIRED` | 400 | ops is required (non-empty) |
+| `WORKFLOW_DESCRIPTION_REQUIRED` | 400 | description must be present (use an empty string when absent) |
+| `WORKFLOW_TAGS_REQUIRED` | 400 | tags must be present (use an empty array when absent) |
+| `WORKFLOW_CHANGE_REASON_REQUIRED` | 400 | changeReason must be present (use an empty string when absent) |
 | `WORKFLOW_VERSION_POSITIVE` | 400 | version must be a positive integer |
 
 ### `app/workflow`

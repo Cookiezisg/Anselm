@@ -10,8 +10,9 @@ import errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 // sentinel——工具复用、不逐工具重复声明（S20；撞码守卫兜唯一性）。
 
 var (
-	ErrControlIDRequired = errorspkg.New(errorspkg.KindInvalid, "CONTROL_ID_REQUIRED", "controlId is required")
-	ErrNameRequired      = errorspkg.New(errorspkg.KindInvalid, "CONTROL_NAME_REQUIRED", "name is required")
-	ErrBranchesRequired  = errorspkg.New(errorspkg.KindInvalid, "CONTROL_BRANCHES_REQUIRED", "branches is required (at least one)")
-	ErrVersionPositive   = errorspkg.New(errorspkg.KindInvalid, "CONTROL_VERSION_POSITIVE", "version must be a positive integer")
+	ErrControlIDRequired    = errorspkg.New(errorspkg.KindInvalid, "CONTROL_ID_REQUIRED", "controlId is required")
+	ErrNameRequired         = errorspkg.New(errorspkg.KindInvalid, "CONTROL_NAME_REQUIRED", "name is required")
+	ErrBranchesRequired     = errorspkg.New(errorspkg.KindInvalid, "CONTROL_BRANCHES_REQUIRED", "branches is required (at least one)")
+	ErrChangeReasonRequired = errorspkg.New(errorspkg.KindInvalid, "CONTROL_CHANGE_REASON_REQUIRED", "changeReason is required")
+	ErrVersionPositive      = errorspkg.New(errorspkg.KindInvalid, "CONTROL_VERSION_POSITIVE", "version must be a positive integer")
 )

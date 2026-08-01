@@ -679,6 +679,8 @@
       "delegated": "委派",
       "rowFailed": "失败",
       "draftFailed": "创建失败·残稿如下",
+      "editFailed": "编辑失败·上一版仍有效",
+      "editFailedNoPreview": "没有可审批的预览·上一版仍有效",
       "rowSettling": "正在落定",
       "rowRunning": "运行中",
       "clearRow": "清除此行",

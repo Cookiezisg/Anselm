@@ -59,10 +59,10 @@ TOOL | get_approval | approval | 取活跃版本(模板+timeout 等)
 TOOL | create_approval | approval | 新建 approval 表单实体
 TOOL | edit_approval | approval | 全量替换新版本
 TOOL | revert_approval | approval | 切版本指针
-TOOL | delete_approval | approval | 删全版本,不可逆
-TOOL | search_workflow | workflow | 检索 workflow 含生命周期态
+TOOL | delete_approval | approval | 软删主行、清关系、版本历史保留;需危险人闸
+TOOL | search_workflow | workflow | 直接关键词优先、无直接命中时补语义;返回 tags/生命周期态/active
 TOOL | get_workflow | workflow | 取活跃图+生命周期+并发策略
-TOOL | create_workflow | workflow | ops 构图,v1 初始 deactivated
+TOOL | create_workflow | workflow | ops 构图,v1 初始 deactivated;LLM schema 与 ValidateInput 均强制显式 description/tags/changeReason 槽位(无值传空);用户值原样放顶层;窄兼容托管模型数组字符串(含 tags)与 add_node/add_edge 顶层 body 变体,逗号分隔文本和冲突仍拒绝
 TOOL | edit_workflow | workflow | 叠 ops 出新版本
 TOOL | revert_workflow | workflow | 切图版本指针
 TOOL | delete_workflow | workflow | 删全图版本,不可逆

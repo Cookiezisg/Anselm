@@ -187,6 +187,82 @@ void main() {
   );
 
   testWidgets(
+    'APPROVAL edit failure names the previous-version truth, not a create draft',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(_conv, _open('tc', 'edit_approval'));
+      repo.emitFrame(
+        _conv,
+        _delta(
+          'tc',
+          '{"approvalId":"apf_1","template":"请审批 {{ input.amount }}",'
+              '"allowReason":true,"timeout":"2h","timeoutBehavior":"approve"',
+        ),
+      );
+      await _stageAndSettleFrames(tester);
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 2,
+          scope: _scope,
+          id: 'tc',
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_call',
+              content: {
+                'name': 'edit_approval',
+                'arguments':
+                    '{"approvalId":"apf_1","template":"请审批 {{ input.amount }}",'
+                    '"allowReason":true,"timeout":"2h","timeoutBehavior":"approve"}',
+              },
+            ),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 3,
+          scope: _scope,
+          id: 'tr',
+          frame: FrameOpen(
+            parentId: 'tc',
+            node: const StreamNode(
+              type: 'tool_result',
+              content: {'content': ''},
+            ),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 4,
+          scope: _scope,
+          id: 'tr',
+          frame: FrameClose(
+            status: 'error',
+            result: const StreamNode(
+              type: 'tool_result',
+              content: {
+                'content':
+                    'edit_approval: changeReason is required for a complete replacement',
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.textContaining('编辑失败·上一版仍有效'), findsOneWidget);
+      expect(find.textContaining('创建失败'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'SUBAGENT live term: the tool progress rolls as a SIBLING window below the card (批1 叶子律)',
     (tester) async {
       final repo = _repo();

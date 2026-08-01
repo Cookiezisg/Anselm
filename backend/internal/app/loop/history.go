@@ -59,8 +59,14 @@ func BlocksToAssistantLLM(blocks []messagesdomain.Block) []llminfra.LLMMessage {
 			})
 
 		case messagesdomain.BlockTypeToolResult:
+			content := projectToolResultContent(b)
+			if approved, _ := b.Attrs[messagesdomain.AttrHumanApproval].(bool); approved {
+				// The rendered tool card already carries the approval chip. This model-only
+				// note prevents a post-gate assistant turn from inventing that no gate existed.
+				content += "\n[Human approval granted before this tool executed.]"
+			}
 			toolResults = append(toolResults, llminfra.LLMMessage{
-				Role: llminfra.RoleTool, Content: projectToolResultContent(b), ToolCallID: b.ParentBlockID,
+				Role: llminfra.RoleTool, Content: content, ToolCallID: b.ParentBlockID,
 			})
 		}
 	}

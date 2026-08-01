@@ -4,13 +4,141 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-08-01
-reviewed: 2026-08-01
+reviewed: 2026-08-02
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
 
 # WRK-092 · 验收战役日志
+
+## 2026-08-02 03:47 · TOOL-060 漏元数据边界补强，长门禁仍待执行
+
+- formal-129/130 已经证明，仅把 `description`、`tags`、`changeReason` 放进 hosted-model schema 不能阻断模型省略字段；formal-132 的 stringified metadata 正向证据证明兼容路径正确，但不覆盖漏字段风险。
+- stop-and-fix：`create_workflow.ValidateInput` 在任何 mutation 前要求三个 metadata 键实际出现；无用户值必须明确传 `description:""`、`tags:[]`、`changeReason:""`。description/changeReason 的显式 `null`、tags 的显式 `null`/错误数组及非法类型均拒绝；精确 JSON 数组字符串兼容仍保留。新增 `WORKFLOW_DESCRIPTION_REQUIRED`、`WORKFLOW_TAGS_REQUIRED`、`WORKFLOW_CHANGE_REASON_REQUIRED` 并同步 error-codes、workflow domain、tools extract。
+- 定向 `gofmt`、`go test -count=1 ./internal/app/tool/workflow ./internal/app/workflow ./internal/app/loop` 和 `git diff --check` 已通过。第六批仍为 **50 / 50**、中央账本 `350 judgments`、锚点有效、警报 clean；按纪律下一步执行统一长门禁，门禁通过后一次性提交，不启动 TOOL-061。
+- fixture cleanup session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-040105` 使用真实 backend 的 DELETE API 清掉遗留 conversation `cv_54e1de6f05433171`：`DELETE=204`，随后 `GET=404 CONVERSATION_NOT_FOUND`，SQLite `deleted_at` 已写入，3 个 message blocks 按审计契约保留。全库 live 产品实体审计为 conversation/document/agent/function/handler/control/approval/workflow/trigger/MCP/attachment 均 `0`；唯一 live workspace 是产品要求保留的最后 workspace，未绕过 `CANNOT_DELETE_LAST_WORKSPACE`。cleanup rig-down 正常，无 backend/ssetap 残留。
+
+## 2026-08-02 03:25 · 第六批 TOOL-060 create_workflow 正式通过并到达 50/50
+
+- formal-128 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-025448` 首轮真实 App 冻结为红：模型先后把 `ops` 发成不兼容形状并重试，UI 留下失败活动；formal-129 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-030431` 和 formal-130 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-030934` 继续证明 metadata 槽位会被模型省略。三轮红证据保留，不计绿。
+- stop-and-fix：workflow `create_workflow` 执行边界增加 `decodeWorkflowTags`，只接受原生 `[]string` 或精确 JSON 数组字符串，拒绝逗号分隔文本、对象和非字符串元素；保留公开 schema 的数组形状。同步更新 schema/工具描述、workflow 领域文档、tools 抽取清册，并补 native/stringified/malformed/metadata Execute 测试。`gofmt`、workflow/app/loop 定向 Go 测试和 `git diff --check` 通过。
+- formal-131 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-031452` 真实 App 冻结为红：metadata 已进入 wire，但 generic argument decode 先因 `.tags` string→`[]string` 失败；无 workflow 落盘、无 retry。红证据为 `evidence/tool-060-formal-131-red-required-metadata-ops-error.txt`，function/trigger/conversation 已清理并 204→404。
+- formal-132 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-032142` 以新二进制、全新 onboarding、真实受管 gateway、Computer Use、窗口录制、backend journal、三路 SSE witness 和 LLM tap 重跑。模型只调用一次 `create_workflow`，真实 wire 同时发出 stringified `ops`/`tags`；后端成功创建 `wf_c2d9dbcf972085a9` v1 inactive。REST 证明 description/tags/changeReason 原样、2 nodes/1 edge、concurrency serial；App 只有一张 `Created · v1 · Not activated` activity，没有 retry/get_workflow。backend/frontend 无未解释红线，LLM 请求响应全 200，rig-check 五通道全绿，四类资源 DELETE=204 后 GET=404，rig-down 正常。绿证据为 `evidence/tool-060-formal-132-green-stringified-metadata.txt`。
+- 锚点校准通过；`judge.py` 五格 `TOOL-060=G1/F2/A5/C4/G2` 写入 COVERAGE，`✓✓✓✓✓`。gap-too-fast/discovery-collapse 在每轮裁决后均以 formal-131 红与 formal-132 绿的完整五通道证据复审并串行 ack，最终 `alarms.py check` 为 `clean (350 judgments on record)`。第六批由 **49 / 50** 收口为 **50 / 50**；按批次纪律现在执行统一长门禁，一次性门禁通过后提交，期间不启动 TOOL-061。
+
+## 2026-08-02 02:53 · 第六批 TOOL-059 get_workflow 正式通过
+
+- formal-127 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-024437` 使用真实 onboarding 建立 ready function、真实 cron trigger 和 trigger→action workflow。初始 test-only `trg_manual` ref 在正式正向前被替换为真实 cron source，形成 v2；REST capability-check 返回 `structurallyValid=true, resolved=true`。
+- 正向真实 App 先验证 v1，再对 v2 只调用一次 `get_workflow`：App 展示 active version=2、lifecycleState=inactive、active=false、concurrency=replace、两个 node refs 和完整 `start_to_action` edge；点击 `Viewed workflow` 打开 workflow 实体信息，滚动后 edge 表完整可见。一次读取过早只看到异步结果表头，等待后 Computer Use 画面和 AX 树均完整，该中间帧不计红绿。
+- 负向真实 App：不存在 ID 只调用一次，显示 `workflow not found`；空对象只调用一次，显示 `input validation failed: workflowId is required`；两条路径均无自动 retry、无伪造 graph。
+- 五通道收台：录屏 `430.360000s`；SSE messages durable `1..58`、entities `1..2`、notifications `1..11` 单调；LLM observed response 24 个全 200；backend/frontend 无未解释运行时红线；REST workflow/versions/capability-check 与 tool result 一致。workflow、trigger、function、conversation DELETE=204 后列表为空、GET=404；rig-down 已收台。正式证据为 `evidence/tool-059-formal-127-green.txt`，v2、导航和负向终帧保留。
+- 锚点有效，五级裁决 `TOOL-059=G1/F2/A5/C4/G2` 写入 COVERAGE；`gap-too-fast`/`discovery-collapse` 依据正式正负证据复审并串行 ack，最终 `alarms.py check` clean。本批由 **44 / 50** 推进至 **49 / 50**；未到 50 格不跑统一长门禁、不提交，下一前线 `TOOL-060 create_workflow`。
+
+## 2026-08-02 02:42 · 第六批 TOOL-058 search_workflow 修复后正式通过
+
+- formal-125 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-022906` 首轮真实 App 冻结为红：直接 `invoice` 查询返回 3 条，其中两个是弱语义邻居；结果卡缺少工具契约承诺的 `tags`、`lifecycleState`、`active`。红证据为 `evidence/tool-058-formal-125-red-search-fields.txt`，不计绿。
+- stop-and-fix：`SearchWorkflow` 现在优先走 workflow 目录直接关键词匹配；只有无直接命中时才保留统一语义搜索，并对 semantic fallback hydrate 完整 workflow 字段。工具描述、抽取清册、COVERAGE 与 workflow 定向测试同步更新；公开统一搜索的语义召回不收紧。
+- formal-126 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-023543` 用新二进制、真实 onboarding、受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。`invoice` 精确命中 1 条；随机 `zzqvulon_058_no_match` 返回 0；空 query 返回 3 条并逐行展示 name/tags/lifecycleState/active；点击 invoice 结果进入正确 Workflow 详情，展示 v1、inactive、描述、标签、精确 ID、1 node、No alerts。三次各只调用一次 `search_workflow`，无 retry/其它工具。
+- 五通道：录屏 `317.481667s`；messages durable `1..38`、notifications durable `1..9` 单调；LLM observed response 全 200；backend/frontend 无未解释运行时红线；删除事件通过 notifications 流可见。conversation 与三个 workflow fixture DELETE=204，列表为空、GET=404；证据为 `evidence/tool-058-formal-126-green.txt`，录屏/完整 journals/导航截图均保留，rig-down 已收台。
+- 锚点有效，五级裁决 `TOOL-058=G1/F2/A5/C4/G2` 写入 COVERAGE；`gap-too-fast`/`discovery-collapse` 依据 formal-125 红证据与 formal-126 五通道绿证据复审并串行 ack，最终 `alarms.py check` clean。本批由 **39 / 50** 推进至 **44 / 50**；未到 50 格不跑统一长门禁、不提交，下一前线 `TOOL-059 get_workflow`。
+
+## 2026-08-02 02:23 · 第六批 TOOL-057 delete_approval 修复后正式通过
+
+- fixture 已清理：formal-124 的 approval、workflow、trigger、conversation 均通过真实 DELETE=204 后 GET=404；versions endpoint 仍保留 v1/v2，这是软删除语义而不是遗留 fixture。formal session 与红绿证据目录保留，不删除审计证据。
+- formal-123 `/private/tmp/anselm-rig-formal-123/sessions/20260802-020830` 首轮真实 App 冻结为红：UI 真实展示 `Dangerous · Awaiting your approval`，但批准后模型错误声称没有 gate，并误报“不可逆、所有版本移除”。红证据为 `evidence/tool-057-formal-123-red-gate-fact-and-delete-semantics.txt`，不计绿。
+- stop-and-fix：增加 `messages.AttrHumanApproval`；`dispatchWithGate` 只有收到显式 approve/approve_always 才标记事实，tool result attrs 留下 `humanApproval=true`，`BlocksToAssistantLLM` 只向后续模型历史追加 `[Human approval granted before this tool executed.]`，可见 tool card 保持业务输出；补 loop gate 测试。`delete_approval` 描述、approval API/领域文档和 tools 清册同步改为软删主行、清关系、版本历史保留、需危险人闸。
+- formal-124 `/private/tmp/anselm-rig-formal-124/sessions/20260802-021702` 使用新二进制、真实 App、受管网关、Computer Use、三路 SSE witness、LLM tap 和连续录屏重跑：真实 UI 只有一张 `Allowed` activity、`1 refs affected`，助手准确报告 gate 先展示并获批准；REST/SQLite 证明 approval GET=404、versions v1/v2 保留、关系清空，临时 capability-check 诚实报告引用缺失。messages durable `1..26`、notifications `1..11` 连续，entities 已连接，LLM observed responses 全 200，backend/frontend 无未解释红线；rig-down 已收台。
+- 定向 `go test -count=1 ./internal/app/loop ./internal/app/tool/approval`、`gofmt`、`git diff --check`、`make -C docs verify` 均通过。锚点校准有效，五级裁决 `TOOL-057=G1/F2/A5/C4/G2` 写入 COVERAGE；中央账本从 330 增至 `335 judgments`，gap-too-fast/discovery-collapse 依据 formal-123 红证据与 formal-124 五通道绿证据复审并串行 ack，最终 `alarms.py check` clean。本批由 **34 / 50** 推进至 **39 / 50**；未到 50 格不跑统一长门禁、不提交，下一前线为 `TOOL-058 search_workflow`。
+
+## 2026-08-02 02:10 · 第六批 TOOL-056 revert_approval 修复后正式通过
+
+- formal-121 `/private/tmp/anselm-rig-formal-121/sessions/20260802-015701` 首轮真实 App 冻结为红：托管模型将公开 schema 为 integer 的 `version` 发成字符串，后端返回 `cannot unmarshal string into Go struct field .version of type int`，App 出现失败 `Reverted approval … · failed` 活动，模型准备 retry；该路径不计绿。红证据为 `evidence/tool-056-formal-121-red-stringified-version.txt`，rig-down 后完整 journals 和 `screen.mov` 保留。
+- stop-and-fix：`revert_approval` 公开 schema 继续保持 integer，工具边界增加 exact decimal integer string decoder；浮点、布尔、数组、零值和坏字符串仍拒绝。补 `approval_test.go` 的 native/stringified/malformed cases，更新工具描述和 `docs/references/backend/domains/approval.md`；`gofmt`、`go test -count=1 ./internal/app/tool/approval ./internal/app/loop`、`git diff --check` 通过。
+- formal-122 `/private/tmp/anselm-rig-formal-122/sessions/20260802-020059` 使用新二进制、真实 onboarding、真实受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。REST fixture 先建 v1，再 HTTP edit 建 v2，active=v2。正向同一真实 App 对话只调用一次 `revert_approval`，wire 仍为 hosted-model stringified `version:"1"`，修复后无红卡、无 retry，UI 只有一张 `Reverted approval … · ↩ v1`，助手明确 v2 仍在 immutable history。
+- 负向同一真实对话只调用一次 version 999，backend 返回 `approval form version not found`；UI 只有一张失败活动和诚实解释，明确 active v1 unchanged、no mutation，无 retry/第二工具。REST activeVersionId 为 v1，versions endpoint 恰有 v1/v2；SQLite 同样只有两版，未产生 v3。
+- 五通道收台：`screen.mov` H.264 `2784x1808 / 100.383333s`；SSE 三流各连接一次，messages durable `1..29`、notifications `1..7` 唯一单调，entities 已连接但本切片无 durable entity 帧；LLM journal observed response 全 HTTP 200；backend 唯一 WARN 是刻意负向 version-not-found，无 panic/ERROR/FATAL；frontend runtime 与 AXTree marker scan clean。正负终帧已抽取并逐帧视觉复核，无裁切、重叠、残留 loading 或错误成功语义。
+- cleanup：conversation `cv_d9f76af345371e53` 与 approval `apf_a71057c09f3b7f87` DELETE=204，随后 conversation/approval GET=404、列表为空；rig-down 已停止 Flutter、backend、ssetap、llmtap、recorder，session journals 保留。正式证据为 `evidence/tool-056-formal-122-green.txt`，正负终帧为 `evidence/frames/formal-122-positive-final.png` 与 `formal-122-negative-final.png`。
+- 锚点重新校准后，五级裁决 `TOOL-056=G1/F2/A5/C4/G2` 写入 COVERAGE；中央账本从 325 增至 `330 judgments`，`gap-too-fast`/`discovery-collapse` 依据 formal-121 红证据与 formal-122 五通道证据逐项复审并串行 ack，最终 `alarms.py check` 为 clean。本批由 **29 / 50** 推进至 **34 / 50**；未到 50 格不跑统一长门禁、不提交，下一前线为 `TOOL-057`。
+
+## 2026-08-02 01:52 · 第六批 TOOL-055 edit_approval 修复后正式通过
+
+- formal-117 `/private/tmp/anselm-rig-formal-117/sessions/20260802-011812` 首轮真实 App 冻结为红：托管模型省略全量替换字段，未形成可接受的完整 edit 请求；红证据为 `evidence/tool-055-formal-117-red-incomplete-edit.txt`，不计绿。formal-118 `/private/tmp/anselm-rig-formal-118/sessions/20260802-012450` 修复前重跑又冻结为红：字段齐全但省略非空 `changeReason`，后端拒绝前端仍错误地把意图当成可继续的成功形状；红证据为 `evidence/tool-055-formal-118-red-missing-change-reason.txt`，不计绿。
+- stop-and-fix：`edit_approval` 的公开描述和 schema 明确全量 replacement 的 `approvalId`、`inputs`、`template`、`allowReason`、`timeout`、`timeoutBehavior`、`changeReason` 均为必需；执行前增加 native/精确 JSON 字符串 decoder 与非空 reason 校验，补 approval 生命周期测试、工具文档和领域文档。formal-119 `/private/tmp/anselm-rig-formal-119/sessions/20260802-012842` 的真实 App 观察继续发现产品语义缺陷：edit 失败显示 create/draft 文案，并渲染了 Approve/Reject 等可操作审批按钮；该路径不计绿，修复后补中心卡和 sidestage 的 Flutter regression。
+- formal-120 `/private/tmp/anselm-rig-formal-120/sessions/20260802-013952` 用新二进制、真实 onboarding、真实受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。正向真实用户目的为一次完整编辑：只调用一次 `edit_approval`，active 从 v1 变 v2；App 只有一张成功 Updated/Edited activity，完整表单/输入类型/template/行为设置与 REST 真相一致。负向同一真实对话只调用一次空 `changeReason`，在 mutation 前拒绝；App 明确显示“编辑失败·上一版仍有效”和“没有可审批的预览·上一版仍有效”，保留精确 validation error，不再显示审批按钮。REST/SQLite 最终恰有 v1/v2、active=v2、无 v3；两个 turn 均无 retry，最终响应为 stop。
+- 五通道收台：`screen.mov` H.264 `2784x1808 / 417.105000s`；SSE 三流均连接，messages durable `1..29`、entities `1..2`、notifications `1..6` 均唯一单调无 gap；LLM journal 的 observed responses 全 HTTP 200；backend 唯一 WARN 是刻意负向 `edit_approval: changeReason is required for a complete replacement`，无 panic/ERROR/FATAL。frontend 运行时 marker scan 无 `Unhandled exception`、`FlutterError`、`RenderFlex overflow`、`DartError` 等红线。
+- 前端 journal 有 215 行 macOS `accessibility_bridge.cc` AXTree：这是 Computer Use 在 Flutter 动态语义树替换窗口读取 AX 的已知观察噪声，不被隐藏或冒充产品绿灯。formal-84 无 Computer Use 基线为零，formal-83/85 已确认同签名的观察时序来源；因此本 session 的严格 `rig-check` 只因该观察签名失败，正式证据明确记录此事实，产品运行时扫描和录屏审查仍干净。
+- cleanup：conversation `cv_d45ec338335de6ae` 与 approval `apf_5ae23eff8e012998` DELETE=204，随后实体 GET=404、列表为空；rig-down 已停止 Flutter、backend、ssetap、llmtap、recorder，session journals 与录屏保留。正式证据为 `evidence/tool-055-formal-120-green.txt`，正负终帧为 `evidence/frames/formal-120-positive-final.png` 和 `formal-120-negative-final.png`。
+- `make -C frontend gen`、`mise exec -- flutter test test/features/chat/ui/tool_card_control_approval_test.dart`（6/6）、`mise exec -- flutter test test/features/chat/ui/stages_w3_test.dart`（6/6）、`make -C frontend analyze` 和 `git diff --check` 通过。锚点重新校准后，五级裁决 `TOOL-055=G1/F2/A5/C4/G2` 写入 COVERAGE；中央账本从 320 增至 `325 judgments`，`gap-too-fast`/`discovery-collapse` 依据 formal-117/118/119 红证据与 formal-120 五通道证据逐项复审并串行 ack，最终 `alarms.py check` 为 clean。本批由 **24 / 50** 推进至 **29 / 50**；未到 50 格不跑统一长门禁、不提交，下一前线为 `TOOL-056`。
+
+## 2026-08-02 01:12 · 第六批 TOOL-054 create_approval 修复后正式通过
+
+- formal-115 首轮真实 App + 受管网关冻结为红：托管模型将 `allowReason` 与 `inputs` 字符串化，后端首轮拒绝后 retry；App 留下失败活动与成功活动并存。红证据为 `/private/tmp/anselm-rig-formal-115/sessions/20260802-005845/evidence/tool-054-formal-115-red-stringified-scalars-and-retry.txt`，不计绿。
+- stop-and-fix：approval create/edit 执行边界新增只接受 native 或精确 JSON 字符串的 bool/inputs decoder；inputs object 按字段名稳定排序，冲突/畸形形状在 mutation 前拒绝；公开 schema 仍为 boolean/array。补 decoder、生命周期测试、领域文档；`go test ./internal/app/tool/approval ./internal/app/loop`、gofmt、`make -C docs verify`、`git diff --check` 通过。
+- formal-116 `/private/tmp/anselm-rig-formal-116/sessions/20260802-010803` 使用新二进制、真实 onboarding、真实受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。模型只调用一次 `create_approval`，无 search/retry/第二次 mutation；App 只显示一条 Created activity，完整结果包含 id/version/description、三个 typed inputs、template、allowReason=true、2h reject timeout 和 changeReason；wire/REST/UI 一致。
+- 五通道：screen.mov `245.026667s / 2784x1808 / 60fps`；SSE messages durable `1..15` 并收到后续删除通知，三路连接完整；LLM 首个 tool call 后唯一 tool result，最终 `finish_reason=stop`；backend 无 WARN/ERROR/panic，frontend 只有正常 Flutter 启动/DevTools 行；fixture/conversation DELETE=204，列表清空且 GET=404。正式证据为 `evidence/tool-054-formal-116-green.txt`。
+- 五级裁决 `TOOL-054=G1/F2/A5/C4/G2` 已写入 COVERAGE；中央账本从 315 增至 `320 judgments`，锚点有效，gap-too-fast/discovery-collapse 依据 formal-116 五通道证据复审并串行 ack，最终 `alarms.py check` clean。本批由 **19 / 50** 推进至 **24 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-055 edit_approval`。
+
+## 2026-08-02 00:55 · 第六批 TOOL-053 get_approval 正式通过
+
+- formal-114 `/private/tmp/anselm-rig-formal-114/sessions/20260802-004855` 使用 `RIG_SEED=0`、真实 onboarding、真实受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏完成正负两条只读目的。REST 建立 `apf_27df4981b64d9cc3`：三字段输入 `releaseName`/`riskScore`/`hasMigration`、完整 markdown template、`allowReason=true`、`timeout=2h`、`timeoutBehavior=reject`。
+- 正向真实 App prompt 明确只调用一次 `get_approval`，wire 参数精确为 `{"approvalId":"apf_27df4981b64d9cc3"}`；App 只出现一张 `Viewed approval … · v1`，滚动后完整可见 id/name/description、输入表、template 和 Behavior Settings。负向只调用不存在的 `apf_0000000000000000` 一次，App 一张 `approval form not found` 失败卡和明确不编造详情的最终说明，无 search/retry/其它工具。
+- 五通道：screen.mov `222.798333s / 2784x1808 / 60fps`；SSE 三流各 connect/disconnect 一次，messages durable `1..29`、notifications `1..5` 单调无 gap，entities 已连接但无 durable entity 帧（只读切片）；LLM 24 行中 16 条 response status=200，10 个 chat completion response 全 200；backend 无 ERROR/PANIC/FATAL，唯一 WARN 是刻意负路径 not-found；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception/AXTree，唯一匹配为已知 launch foreground 噪声。
+- approval 与 conversation 均 DELETE=204，随后列表为空且实体 GET=404；删除事件作为 notifications durable 帧保留。录屏关键帧和完整 journals 均封存，rig-down 完成并停止所有自有进程。正式证据为 `evidence/tool-053-formal-114-green.txt`。
+- 五级裁决 `TOOL-053=G1/F2/A5/C4/G2` 已写入 COVERAGE；中央账本从 310 增至 `315 judgments`，锚点有效，gap-too-fast/discovery-collapse 按 formal-114 五通道证据复审并串行 ack，最终 `alarms.py check` 为 clean。本批由 **14 / 50** 推进至 **19 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-054 create_approval`。
+
+## 2026-08-02 00:42 · 第六批 TOOL-052 search_approval 正式通过
+
+- formal-113 `/private/tmp/anselm-rig-formal-113/sessions/20260802-003731` 使用 `RIG_SEED=0`、真实 onboarding、真实受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏完成三条只读目的。REST 建立三个 approval fixture：`refund` 正向查询命中一条，随机 query `zzqvulon_113` 返回 0 条，空 query `{"query":""}` 返回三条完整列表。
+- 正向结果卡可点击进入 Approval entity detail，完整 description、input、template、allow reason、timeout 与 on-timeout 均可见；wire 中三次 `search_approval` 各只执行一次，没有其它工具、retry、写动作。空查询在 App 中以可读表格呈现三条 name/description。
+- 五通道：LLM status 22 条全 200；SSE messages durable `1..40`、notifications `1..7` 单调无重复，entities 已连接；backend 无 WARN/ERROR/panic/fatal，frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception marker，仅保留已知 launch foreground 噪声。录屏与终帧已逐帧复核。
+- 三条 approval 与两条 conversation 均 DELETE=204，随后 approval/conversation 列表为空且各实体 GET=404；rig-down 完成并保留完整 session 与 journals。正式证据为 `evidence/tool-052-formal-113-green.txt`。
+- 五级裁决 `TOOL-052=G1/F2/A5/C4/G2` 已写入 COVERAGE；中央账本从 305 增至 `310 judgments`，锚点有效，警报复审后 clean。本批由 **9 / 50** 推进至 **14 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-053 get_approval`。
+
+## 2026-08-02 00:30 · 第六批 TOOL-051 delete_control 修复后正式通过
+
+- formal-111 首轮真实 App + 受管网关冻结为红：hosted model 在同一用户意图中并行发出 `get_relations` 与空参 `get_control`，App 留下可见 validation error；随后 destructive delete 缺少可见 HumanLoop gate，并在删除后再次 fetch 已不存在的 control。红证据为 `/private/tmp/anselm-rig-formal-111/sessions/20260802-001430/evidence/tool-051-formal-111-red-missing-get-control-args.txt`，不计绿。
+- stop-and-fix：`get_control` 工具描述与 schema 明确要求已有 `controlId`、禁止空对象并标注只读；`delete_control` 明确不可逆、必填 `controlId`、`dangerous` 与 HumanLoop approval 要求；补 control 契约测试与 control domain 文档。`gofmt`、定向 `go test ./internal/app/tool/control ./internal/app/loop`、`git diff --check` 通过。
+- formal-112 `/private/tmp/anselm-rig-formal-112/sessions/20260802-002441` 使用新二进制、真实 onboarding、真实 App、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。REST fixture 建立 v1/v2 control、一个 equip 该 control 的 workflow 与 trigger。正向 prompt 明确先查关系、只调用一次 delete、等待确认、禁止 post-delete fetch；wire 先发精确 `get_relations`，再发一次带 `controlId` 和 `dangerous` 的 `delete_control`。
+- App 逐帧显示 `Dangerous · Awaiting your approval` 红框，文案明确 destructive/irreversible、controlId 与 Deny/Always allow/Allow；Computer Use 批准后只显示一张 `Allowed` 删除活动、`1 refs affected` 与 dependent workflow chip，最终报告 `deleted=true`、`dependentCount=1`，无红卡、retry、重复 mutation 或 loading 残留。
+- REST 真相：control GET=404；versions GET=200 且保留 v1/v2 不可变历史；workflow GET=200 仍保留历史 graph；capability-check 明确返回 `node "c": ref "ctl_..." not found`；反向 relations 查询为空。该行为符合当前软删除/append-only version 契约，而非误判为“物理删除全部版本”。
+- 五通道：screen.mov `293.141667s / 2784x1808 / 60fps`，t214 为确认闸、t218/t223/t230 为批准后终态；SSE 共 235 帧，messages durable `1..24`、notifications `1..7` 单调无重复，entities 已连接；LLM chat completion request/response 全 200；backend 无 WARN/ERROR/panic/fatal；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception marker。正式绿证据为 `evidence/tool-051-formal-112-green.txt`，台架已收台且 journals 保留。
+- 五级裁决 `TOOL-051=G1/F2/A5/C4/G2` 已由 `judge.py` 写入 COVERAGE；中央账本从 300 增至 `305 judgments`。锚点有效，gap-too-fast/discovery-collapse 每级按 formal-112 五通道证据复审并串行 ack，最终 `alarms.py check` 为 clean。本批由 **4 / 50** 推进至 **9 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-052 search_approval`。
+
+## 2026-08-02 00:08 · 第六批 TOOL-050 revert_control 修复后正式通过
+
+- formal-109 首轮真实 App + 受管网关冻结为红：hosted model 首次发送 `{"controlId":"ctl_b67cb2806950232e","version":"1"}`，旧执行边界按公开 integer schema 拒绝，App 显示可见失败 activity；模型随后 retry 为 native integer 并成功。该一用户意图的“先红再成功”不满足标准，红证据为 `/private/tmp/anselm-rig-formal-109/sessions/20260801-235559/evidence/tool-050-formal-109-red-stringified-version.txt`，不计绿。fixture control/conversation 已 DELETE=204 后 GET=404，录屏和红 journal 保留。
+- stop-and-fix：`revert_control` 的公开 schema 仍是 integer，工具描述明确正整数和 hosted-model 兼容边界；执行层新增 exact decimal integer string 解码，浮点、布尔、数组和坏字符串拒绝。补 `control_test.go` 的 native/stringified/malformed cases，更新 control domain 文档；gofmt、定向 `go test ./internal/app/tool/control ./internal/app/loop`、`git diff --check` 通过。
+- formal-110 `/private/tmp/anselm-rig-formal-110/sessions/20260802-000259` 使用新二进制、真实 onboarding、真实 App、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。REST fixture 先构造 v1(pass/review) 与 v2(pass/escalate/review)，active=v2。正向 Chat 只执行一次 `revert_control`，wire 仍为 stringified version `"1"`，修复后无红卡、无 retry，active pointer 移到 v1 `ctlv_c05fb8b13fd7b636`；UI 只有一张成功 `Reverted control … · ↩ v1` activity，正文明确 v2 保留在 history。
+- 负向同一真实 App 会话只调用一次 version 999，backend 返回 `control logic version not found`，UI 只有一张失败 activity，准确说明 active v1 unchanged，无 retry/新版本。REST/SQLite 真相为 active v1、版本历史仍为 v1/v2；control 与 conversation DELETE=204 后 GET=404，session fixture 清零。
+- 五通道：screen.mov `147.631667s / 2784x1808 / 60fps`；SSE messages durable `1..29`、notifications `1..7` 连续，entities 连接且无 durable 业务帧，三流各连接一次；LLM 五个 chat completion request/response 全 200；backend 仅预期 version-not-found WARN；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception runtime marker。正负终帧为 `evidence/tool-050-formal-110-positive.png`、`tool-050-formal-110-negative.png`。
+- 五级裁决 `TOOL-050=G1/F2/A5/C4/G2` 已由 `judge.py` 写入 COVERAGE；中央账本从 295 增至 `300 judgments`。锚点有效，gap-too-fast/discovery-collapse 每级按 formal-110 五通道证据复审并串行 ack，最终 `alarms.py check` 为 clean。本批由 **3 / 50** 推进至 **4 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-051 delete_control`。
+
+## 2026-08-01 23:51 · 第六批 TOOL-049 edit_control 修复后正式通过
+
+- formal-107 首轮真实 App + 受管网关冻结为红：托管模型首次调用 `edit_control` 时省略 `changeReason`，后端因此写入 v2；模型随后注意到遗漏，再次调用并写入带 reason 的 v3。同一用户意图产生两次版本 mutation，且第一版没有审计理由。红证据为 `/private/tmp/anselm-rig-formal-107/sessions/20260801-233447/evidence/tool-049-formal-107-red-missing-change-reason.txt`，不计绿。描述不支持 description 更新不是本格缺陷，因 `edit_control` 的边界是完整 branch replacement。
+- stop-and-fix：`edit_control` AI schema 将 `changeReason` 加入 required，工具描述要求非空审计解释；`ValidateInput` 与 `Execute` 在 decoder/service 之前拒绝缺失或空白值，返回 `CONTROL_CHANGE_REASON_REQUIRED`。补 control validation/round-trip/description 守卫测试，新增 error-code 与领域文档；定向 `go test ./internal/app/tool/control ./internal/app/loop`、gofmt、`git diff --check` 均通过。
+- formal-108 `/private/tmp/anselm-rig-formal-108/sessions/20260801-234249` 用新二进制、真实 onboarding、真实 App、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。正向严格限制为一次 `edit_control`：wire 的 `branches` 是 JSON 字符串但每项使用正确 `port`，reason 精确为 `acceptance TOOL-049 final fix`；backend 创建 v2 `ctlv_34cbcddfc2f6d22a`，UI 只有一张成功 Updated/Edited activity 和完整 `pass`/`escalate`/`review` 有序分支表，没有第二次 mutation。
+- 负向在同一真实 App 会话只发一次缺 `changeReason` 的 `edit_control`，backend 在写版本前返回 `input validation failed: changeReason is required`；UI 显示精确错误和 `Draft unsaved · truth is still the last version`，没有 retry，REST 真相仍是 v2、没有 v3。正负终帧和正式绿证据为 `evidence/tool-049-formal-108-positive.png`、`evidence/tool-049-formal-108-negative.png`、`evidence/tool-049-formal-108-green.txt`。
+- 五通道：screen.mov `189.023333s / 2784x1808 / 60fps`；SSE messages durable `1..29`、entities `7..8`、notifications `16..21` 连续且三流各连接一次；LLM 五个 chat completion request/response 全 200；backend 只有刻意负路径 validation WARN，无 panic/error/fatal；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception runtime marker。cleanup 中 control/conversation DELETE=204 后 GET=404，列表无 fixture 残留，rig-down 无台架进程泄漏。
+- 五级裁决 `TOOL-049=G1/F2/A5/C4/G2` 已由 `judge.py` 写入 COVERAGE；中央账本从 290 增至 `295 judgments`。锚点有效，gap-too-fast/discovery-collapse 每级按 formal-108 五通道证据复审并串行 ack，最终 `alarms.py check` 为 clean。本批由 **2 / 50** 推进至 **3 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-050 revert_control`。
+
+## 2026-08-01 23:30 · 第六批 TOOL-048 create_control 修复后正式通过
+
+- formal-104 首轮真实 App + 受管网关冻结为红：托管模型把 `branches` 发成 JSON 字符串，后端按公开数组 schema 拒绝；模型随后重试成功，但 UI 保留了失败 activity 和误导性的 `Draft unsaved · nothing was created`。红证据为 `/private/tmp/anselm-rig-formal-104/sessions/20260801-231012/evidence/tool-048-formal-104-red-branches-stringified.txt`，不计绿。
+- formal-105 在第一轮修复后重跑，decoder 已接受字符串数组，但 hosted model 又把 branch 键发成 `name`；随后同一 assistant response 发出两枚完全相同的 create mutation，第一枚成功、第二枚 duplicate-name 失败，UI 出现两条红失败 activity。该轮红证据为 `/private/tmp/anselm-rig-formal-105/sessions/20260801-231611/evidence/tool-048-formal-105-red-branch-name-and-duplicate.txt`，不计绿。
+- stop-and-fix：`control` 增加仅针对精确 JSON 数组字符串的窄 decoder；create/edit 的公开描述和 schema 明确 branch key 必须是 `port`、禁止 `name` 并给出完整形状；loop 在同一 assistant 批次按工具名+稳定参数抑制完全重复 mutation，第二调用返回 completed 的 suppressed 结果而非再次写入。补 control validation/execute、loop duplicate 守卫测试，更新 control domain 文档；定向 `go test ./internal/app/tool/control ./internal/app/loop`、gofmt、`git diff --check` 均通过。
+- formal-106 `/private/tmp/anselm-rig-formal-106/sessions/20260801-232207` 用新二进制、真实 onboarding、真实 App、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏重跑。正向请求真实创建 `acceptance_control_fixture_106`：LLM wire 首个 create call 的 `branches` 为 JSON 字符串，但每项使用正确 `port`；backend 接受并返回 `ctl_a385d713822f5367`、active version `ctlv_fe1349dcbb94cd67`，App 只显示一个成功 `Created control` activity 和完整 `pass`→`review` 表，没有红色 retry/duplicate failure。正式负向在同一会话只尝试一次已存在名称，backend 返回 `control logic name already exists`；App 显示 `Draft unsaved · nothing was created`、红色错误和精确的 assistant 解释，无 retry/其它工具。
+- 五通道：screen.mov `230.008333s / 2784x1808 / 60fps`；SSE messages durable `1..29`、entities `7..8`、notifications `16..20` 连续，三流均连接；LLM tap 记录 challenge/install/models 与 5 个 chat completion request/response，状态全 200；backend 只有刻意负路径 duplicate-name WARN，无 panic/ERROR/FATAL；frontend 无 Flutter/Dart/RenderFlex/Unhandled/AXTree 运行时红线。正负终帧为 `evidence/formal-106-positive.png` 与 `evidence/formal-106-last.png`，完整摘要为 `evidence/tool-048-formal-106-green.txt`。
+- control 与 conversation DELETE=204，随后 GET=404，control 列表无 fixture 残留；rig-down 已封口并停止所有自有进程。五级裁决 `TOOL-048=G1/F2/A5/C4/G2` 已写入 COVERAGE；中央账本从 285 增至 `290 judgments`，锚点有效，`gap-too-fast`/`discovery-collapse` 每级按 formal-106 五通道及 formal-104/105 红证据复审并 ack，最终 `alarms.py check` clean。第六批由 **1 / 50** 推进到 **2 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-049 edit_control`。
+
+## 2026-08-01 23:08 · 第六批 TOOL-047 get_control 正式通过
+
+- formal-103 `/private/tmp/anselm-rig-formal-103/sessions/20260801-225639` 使用全新数据目录、真实 App、受管网关、Computer Use、独立三路 SSE witness、LLM tap 和连续录屏完成 `get_control` 正向/负向切片。第一次仅 `set_value` 的无提交动作没有计入证据；改用真实 `type_text` 后 composer 正文、发送箭头和 Return 均真实落地。
+- 正向真实链为 `search_control` 精确命中 `acceptance_control_fixture_103`，再用返回的 `ctl_8eb2f6633ab2434d` 调 `get_control`；UI 展示 control id/name/description、active version `ctlv_9774701ea7a27d4c`、version `1` 和 `high/low` 两条有序分支的 `when/emit`。负向经 REST 送入同一真实对话，只调用不存在的 `ctl_0000000000000000`，后端返回 `control logic not found`，App 显示失败工具卡和明确解释，没有任何写工具或 retry。
+- 五通道已封存：screen.mov `415.278333s / 2784x1808 / 60fps`；SSE messages durable `1..39`、notifications `16..20` 连续，entities 已连接；LLM challenge/install/models 与真实 chat completion 全 200；backend 唯一 WARN 是刻意负向的 not-found，frontend 只有构建期 macOS 弃用警告，没有 Flutter/Dart/RenderFlex/Unhandled/AXTree 运行时红线。终帧已视觉复核，错误卡、markdown、侧栏和空 composer 无裁切/重叠/残留 loading。
+- control fixture 与 conversation 均 DELETE=204，随后 GET 均 404，列表无 `acceptance_control_fixture_103` 残留；rig-down 后无 backend/tap/Flutter/recorder/llama 孤儿。证据文件为 `evidence/tool-047-formal-103-green.txt`。
+- 五级裁决 `TOOL-047=G1/F2/A5/C4/G2` 已由 `judge.py` 写入 COVERAGE；中央账本从 280 增至 `285 judgments`，锚点有效。`gap-too-fast` 与 `discovery-collapse` 每次按 formal-103 证据重审并 ack，最终 `alarms.py check` 为 clean。第六批 **1 / 50**，按 P15 不跑统一长门禁、不提交；下一前线为 `TOOL-048 create_control`。
 
 ## 2026-08-01 22:20 · 第五批 TOOL-046 收尾与 AX 观察红线修复
 

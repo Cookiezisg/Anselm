@@ -1347,6 +1347,8 @@ class _Translations$chat$stage$zh_CN extends Translations$chat$stage$en {
 	@override String get delegated => '委派';
 	@override String get rowFailed => '失败';
 	@override String get draftFailed => '创建失败·残稿如下';
+	@override String get editFailed => '编辑失败·上一版仍有效';
+	@override String get editFailedNoPreview => '没有可审批的预览·上一版仍有效';
 	@override String get rowSettling => '正在落定';
 	@override String get rowRunning => '运行中';
 	@override String get clearRow => '清除此行';
@@ -3628,6 +3630,8 @@ extension on TranslationsZhCn {
 			'chat.stage.delegated' => '委派',
 			'chat.stage.rowFailed' => '失败',
 			'chat.stage.draftFailed' => '创建失败·残稿如下',
+			'chat.stage.editFailed' => '编辑失败·上一版仍有效',
+			'chat.stage.editFailedNoPreview' => '没有可审批的预览·上一版仍有效',
 			'chat.stage.rowSettling' => '正在落定',
 			'chat.stage.rowRunning' => '运行中',
 			'chat.stage.clearRow' => '清除此行',
@@ -3992,10 +3996,10 @@ extension on TranslationsZhCn {
 			'feedback.cast.jumpToScene' => '跳到发生处',
 			'feedback.cast.verb.mentioned' => '提及',
 			'feedback.cast.verb.created' => '创建',
-			'feedback.cast.verb.edited' => '编辑',
-			'feedback.cast.verb.viewed' => '查看',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.edited' => '编辑',
+			'feedback.cast.verb.viewed' => '查看',
 			'feedback.cast.verb.executed' => '执行',
 			'feedback.cast.verb.attached' => '附上',
 			'feedback.cast.verb.deleted' => '删除',
@@ -4506,10 +4510,10 @@ extension on TranslationsZhCn {
 			'library.slash.numbered' => '有序列表',
 			'library.slash.quote' => '引用',
 			'library.slash.code' => '代码块',
-			'library.slash.table' => '表格',
-			'library.slash.media' => '媒体',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.table' => '表格',
+			'library.slash.media' => '媒体',
 			'library.slash.divider' => '分隔线',
 			'library.slash.todo' => '待办',
 			'library.linkHint' => '输入或粘贴链接,回车确定',
@@ -5020,10 +5024,10 @@ extension on TranslationsZhCn {
 			'attach.mediaViewer' => '媒体查看器',
 			'attach.playVideo' => '播放视频',
 			'attach.pauseVideo' => '暂停视频',
-			'attach.replayVideo' => '重播',
-			'attach.enterFullscreen' => '全屏',
 			_ => null,
 		} ?? switch (path) {
+			'attach.replayVideo' => '重播',
+			'attach.enterFullscreen' => '全屏',
 			'attach.remove' => '移除',
 			_ => null,
 		};

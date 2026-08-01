@@ -10,6 +10,12 @@
 package control
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"strconv"
+	"strings"
+
 	controlapp "github.com/sunweilin/anselm/backend/internal/app/control"
 	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -37,6 +43,60 @@ type branchArg struct {
 	Port string            `json:"port"`
 	When string            `json:"when"`
 	Emit map[string]string `json:"emit"`
+}
+
+// decodeControlBranches accepts the schema-correct array and the exact
+// JSON-encoded array string emitted by some hosted models. It tolerates an
+// encoding variant, not a different value: malformed strings, objects and
+// non-array values remain invalid.
+func decodeControlBranches(raw json.RawMessage) ([]branchArg, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+
+	var branches []branchArg
+	switch raw[0] {
+	case '[':
+		if err := json.Unmarshal(raw, &branches); err != nil {
+			return nil, fmt.Errorf("branches must be a JSON array: %w", err)
+		}
+	case '"':
+		var encoded string
+		if err := json.Unmarshal(raw, &encoded); err != nil {
+			return nil, fmt.Errorf("branches must be a JSON array or an exact JSON-encoded array: %w", err)
+		}
+		encodedBytes := bytes.TrimSpace([]byte(encoded))
+		if len(encodedBytes) == 0 || encodedBytes[0] != '[' {
+			return nil, fmt.Errorf("branches string must contain a JSON array")
+		}
+		if err := json.Unmarshal(encodedBytes, &branches); err != nil {
+			return nil, fmt.Errorf("branches string must contain a valid JSON array: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("branches must be a JSON array or an exact JSON-encoded array")
+	}
+	return branches, nil
+}
+
+// decodeControlVersion accepts a native integer and the exact decimal string variant emitted by
+// some hosted models. Other representations stay invalid so a malformed version cannot silently
+// select an unintended snapshot.
+func decodeControlVersion(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	var version int
+	if err := json.Unmarshal(raw, &version); err == nil {
+		return version, nil
+	}
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err != nil {
+		return 0, fmt.Errorf("version must be a positive integer or an exact integer string, got %s", string(raw))
+	}
+	version, err := strconv.Atoi(strings.TrimSpace(encoded))
+	if err != nil {
+		return 0, fmt.Errorf("version must be a positive integer or an exact integer string, got %q", encoded)
+	}
+	return version, nil
 }
 
 func toBranches(in []branchArg) []controldomain.Branch {

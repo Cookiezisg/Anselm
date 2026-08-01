@@ -10,9 +10,12 @@ import errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 // sentinel——工具复用、不逐工具重复声明（S20；撞码守卫兜唯一性）。
 
 var (
-	ErrWorkflowIDRequired = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_ID_REQUIRED", "workflowId is required")
-	ErrFlowrunIDRequired  = errorspkg.New(errorspkg.KindInvalid, "FLOWRUN_ID_REQUIRED", "flowrunId is required")
-	ErrNameRequired       = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_NAME_REQUIRED", "name is required")
-	ErrOpsRequired        = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_OPS_REQUIRED", "ops is required (non-empty)")
-	ErrVersionPositive    = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_VERSION_POSITIVE", "version must be a positive integer")
+	ErrWorkflowIDRequired   = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_ID_REQUIRED", "workflowId is required")
+	ErrFlowrunIDRequired    = errorspkg.New(errorspkg.KindInvalid, "FLOWRUN_ID_REQUIRED", "flowrunId is required")
+	ErrNameRequired         = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_NAME_REQUIRED", "name is required")
+	ErrOpsRequired          = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_OPS_REQUIRED", "ops is required (non-empty)")
+	ErrDescriptionRequired  = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_DESCRIPTION_REQUIRED", "description must be present (use an empty string when absent)")
+	ErrTagsRequired         = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_TAGS_REQUIRED", "tags must be present (use an empty array when absent)")
+	ErrChangeReasonRequired = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_CHANGE_REASON_REQUIRED", "changeReason must be present (use an empty string when absent)")
+	ErrVersionPositive      = errorspkg.New(errorspkg.KindInvalid, "WORKFLOW_VERSION_POSITIVE", "version must be a positive integer")
 )

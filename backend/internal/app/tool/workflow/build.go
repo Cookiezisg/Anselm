@@ -18,27 +18,27 @@ type CreateWorkflow struct{ svc *workflowapp.Service }
 func (t *CreateWorkflow) Name() string { return "create_workflow" }
 
 func (t *CreateWorkflow) Description() string {
-	return "Build a new workflow graph from ops; v1 takes effect immediately (no separate accept step). The new workflow starts deactivated — activate it once its graph is sound. Provide the name and an ops array that builds at least a trigger node.\n\n" + opsDoc
+	return "Build a new workflow graph from ops; v1 takes effect immediately (no separate accept step). The new workflow starts deactivated — activate it once its graph is sound. Provide name, description, tags, changeReason, and an ops array that builds at least a trigger node. The three metadata slots are always required: pass an empty string or [] only when the user supplied no value; otherwise pass each value verbatim at the TOP LEVEL. Never omit user-provided metadata and never put changeReason inside ops. Hosted-model compatibility: tags may arrive as an exact JSON-encoded array string, but never as comma-separated prose.\n\n" + opsDoc
 }
 
 func (t *CreateWorkflow) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
-		"required": ["name", "ops"],
+		"required": ["name", "description", "tags", "changeReason", "ops"],
 		"properties": {
 			"name": {"type": "string", "description": "Unique workflow name."},
-			"description": {"type": "string"},
-			"tags": {"type": "array", "items": {"type": "string"}},
-			"ops": {"type": "array", "description": "Graph-edit ops; each has an 'op' discriminator.", "items": {"type": "object"}},
-			"changeReason": {"type": "string", "description": "One-line reason for this creation."}
+			"description": {"type": "string", "description": "Workflow description. Pass an empty string when the user supplied none; otherwise pass the supplied value verbatim at this top level."},
+			"tags": {"type": "array", "description": "Complete workflow tag list. Pass [] when the user supplied none; otherwise pass the complete list verbatim at this top level. Hosted-model compatibility accepts an exact JSON-encoded array string too; never use comma-separated prose.", "items": {"type": "string"}},
+			"ops": {"type": "array", "description": "Graph-edit ops; each has an 'op' discriminator. The body of add_node/add_edge is nested under node/edge.", "items": {"type": "object"}},
+			"changeReason": {"type": "string", "description": "One-line audit reason. Pass an empty string when the user supplied none; otherwise pass it verbatim at this top level, never inside ops."}
 		}
 	}`)
 }
 
 func (t *CreateWorkflow) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		Name string            `json:"name"`
-		Ops  []json.RawMessage `json:"ops"`
+		Name string          `json:"name"`
+		Ops  json.RawMessage `json:"ops"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("create_workflow: bad args: %w", err)
@@ -46,8 +46,19 @@ func (t *CreateWorkflow) ValidateInput(args json.RawMessage) error {
 	if a.Name == "" {
 		return ErrNameRequired
 	}
-	if len(a.Ops) == 0 {
+	if !hasWorkflowOps(a.Ops) {
 		return ErrOpsRequired
+	}
+	normalized, err := decodeWorkflowOps(a.Ops)
+	if err != nil {
+		return fmt.Errorf("create_workflow: bad args: %w", err)
+	}
+	var ops []json.RawMessage
+	if err := json.Unmarshal(normalized, &ops); err != nil || len(ops) == 0 {
+		return ErrOpsRequired
+	}
+	if err := requireCreateWorkflowMetadata(args); err != nil {
+		return err
 	}
 	return nil
 }
@@ -56,19 +67,27 @@ func (t *CreateWorkflow) Execute(ctx context.Context, argsJSON string) (string, 
 	var args struct {
 		Name         string          `json:"name"`
 		Description  string          `json:"description"`
-		Tags         []string        `json:"tags"`
+		Tags         json.RawMessage `json:"tags"`
 		Ops          json.RawMessage `json:"ops"`
 		ChangeReason string          `json:"changeReason"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("create_workflow: bad args: %w", err)
 	}
-	ops, err := workflowdomain.ParseOps(args.Ops)
+	tags, err := decodeWorkflowTags(args.Tags)
+	if err != nil {
+		return "", fmt.Errorf("create_workflow: bad args: %w", err)
+	}
+	normalizedOps, err := decodeWorkflowOps(args.Ops)
+	if err != nil {
+		return "", fmt.Errorf("create_workflow: %w", err)
+	}
+	ops, err := workflowdomain.ParseOps(normalizedOps)
 	if err != nil {
 		return "", fmt.Errorf("create_workflow: %w", err)
 	}
 	w, v, err := t.svc.Create(ctx, workflowapp.CreateInput{
-		Name: args.Name, Description: args.Description, Tags: args.Tags, Ops: ops, ChangeReason: args.ChangeReason,
+		Name: args.Name, Description: args.Description, Tags: tags, Ops: ops, ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
 		return "", fmt.Errorf("create_workflow: %w", err)
@@ -100,8 +119,8 @@ func (t *EditWorkflow) Parameters() json.RawMessage {
 
 func (t *EditWorkflow) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		WorkflowID string            `json:"workflowId"`
-		Ops        []json.RawMessage `json:"ops"`
+		WorkflowID string          `json:"workflowId"`
+		Ops        json.RawMessage `json:"ops"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("edit_workflow: bad args: %w", err)
@@ -109,7 +128,15 @@ func (t *EditWorkflow) ValidateInput(args json.RawMessage) error {
 	if a.WorkflowID == "" {
 		return ErrWorkflowIDRequired
 	}
-	if len(a.Ops) == 0 {
+	if !hasWorkflowOps(a.Ops) {
+		return ErrOpsRequired
+	}
+	normalized, err := decodeWorkflowOps(a.Ops)
+	if err != nil {
+		return fmt.Errorf("edit_workflow: bad args: %w", err)
+	}
+	var ops []json.RawMessage
+	if err := json.Unmarshal(normalized, &ops); err != nil || len(ops) == 0 {
 		return ErrOpsRequired
 	}
 	return nil
@@ -124,7 +151,11 @@ func (t *EditWorkflow) Execute(ctx context.Context, argsJSON string) (string, er
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("edit_workflow: bad args: %w", err)
 	}
-	ops, err := workflowdomain.ParseOps(args.Ops)
+	normalizedOps, err := decodeWorkflowOps(args.Ops)
+	if err != nil {
+		return "", fmt.Errorf("edit_workflow: %w", err)
+	}
+	ops, err := workflowdomain.ParseOps(normalizedOps)
 	if err != nil {
 		return "", fmt.Errorf("edit_workflow: %w", err)
 	}

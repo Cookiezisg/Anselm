@@ -3366,6 +3366,12 @@ class Translations$chat$stage$en {
 	/// en: 'Create failed · draft below'
 	String get draftFailed => 'Create failed · draft below';
 
+	/// en: 'Edit failed · previous version remains active'
+	String get editFailed => 'Edit failed · previous version remains active';
+
+	/// en: 'No approval preview · previous version remains active'
+	String get editFailedNoPreview => 'No approval preview · previous version remains active';
+
 	/// en: 'Settling'
 	String get rowSettling => 'Settling';
 
@@ -7753,6 +7759,8 @@ extension on Translations {
 			'chat.stage.delegated' => 'Delegated',
 			'chat.stage.rowFailed' => 'Failed',
 			'chat.stage.draftFailed' => 'Create failed · draft below',
+			'chat.stage.editFailed' => 'Edit failed · previous version remains active',
+			'chat.stage.editFailedNoPreview' => 'No approval preview · previous version remains active',
 			'chat.stage.rowSettling' => 'Settling',
 			'chat.stage.rowRunning' => 'Running',
 			'chat.stage.clearRow' => 'Clear this row',
@@ -8117,10 +8125,10 @@ extension on Translations {
 			'feedback.cast.jumpToScene' => 'Jump to occurrence',
 			'feedback.cast.verb.mentioned' => 'Mentioned',
 			'feedback.cast.verb.created' => 'Created',
-			'feedback.cast.verb.edited' => 'Edited',
-			'feedback.cast.verb.viewed' => 'Viewed',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.edited' => 'Edited',
+			'feedback.cast.verb.viewed' => 'Viewed',
 			'feedback.cast.verb.executed' => 'Ran',
 			'feedback.cast.verb.attached' => 'Attached',
 			'feedback.cast.verb.deleted' => 'Deleted',
@@ -8631,10 +8639,10 @@ extension on Translations {
 			'library.slash.numbered' => 'Numbered list',
 			'library.slash.quote' => 'Quote',
 			'library.slash.code' => 'Code block',
-			'library.slash.table' => 'Table',
-			'library.slash.media' => 'Media',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.table' => 'Table',
+			'library.slash.media' => 'Media',
 			'library.slash.divider' => 'Divider',
 			'library.slash.todo' => 'To-do',
 			'library.linkHint' => 'Type or paste a link, Enter to apply',
@@ -9145,10 +9153,10 @@ extension on Translations {
 			'attach.mediaViewer' => 'Media viewer',
 			'attach.playVideo' => 'Play video',
 			'attach.pauseVideo' => 'Pause video',
-			'attach.replayVideo' => 'Replay',
-			'attach.enterFullscreen' => 'Fullscreen',
 			_ => null,
 		} ?? switch (path) {
+			'attach.replayVideo' => 'Replay',
+			'attach.enterFullscreen' => 'Fullscreen',
 			'attach.remove' => 'Remove',
 			_ => null,
 		};

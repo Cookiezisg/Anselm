@@ -34,6 +34,16 @@ BlockNode _node(String name, String args, String result) =>
           ..content = {'content': result},
       );
 
+BlockNode _failedNode(String name, String args, String error) =>
+    BlockNode(id: 'tc_${name}_failed', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': name, 'arguments': args}
+      ..children.add(
+        BlockNode(id: 'tr_${name}_failed', kind: BlockKind.toolResult)
+          ..status = 'error'
+          ..content = {'content': error},
+      );
+
 Widget _host(Widget child) => TranslationProvider(
   child: MaterialApp(
     theme: AnTheme.light(),
@@ -142,4 +152,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('永不超时'), findsOneWidget);
   });
+
+  testWidgets(
+    'failed approval edit does not render an actionable approval preview',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _failedNode(
+              'edit_approval',
+              _apfArgs,
+              'edit_approval: changeReason is required for a complete replacement',
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The failed edit is auto-expanded for diagnosis, but the attempted payload is not a form.
+      // 编辑失败自动展开供诊断,但未保存的 payload 绝不能冒充审批表单。
+      expect(find.textContaining('没有可审批的预览'), findsOneWidget);
+      expect(find.widgetWithText(AnButton, '批准'), findsNothing);
+      expect(find.widgetWithText(AnButton, '拒绝'), findsNothing);
+      expect(find.textContaining('changeReason is required'), findsOneWidget);
+    },
+  );
 }

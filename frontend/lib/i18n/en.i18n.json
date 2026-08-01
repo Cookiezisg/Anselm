@@ -679,6 +679,8 @@
       "delegated": "Delegated",
       "rowFailed": "Failed",
       "draftFailed": "Create failed · draft below",
+      "editFailed": "Edit failed · previous version remains active",
+      "editFailedNoPreview": "No approval preview · previous version remains active",
       "rowSettling": "Settling",
       "rowRunning": "Running",
       "clearRow": "Clear this row",

@@ -4,7 +4,10 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
+	"reflect"
+	"slices"
 	"strings"
 	"testing"
 
@@ -101,7 +104,11 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 	}{
 		{"create no name", &CreateWorkflow{}, `{"ops":[{"op":"add_node"}]}`, true},
 		{"create no ops", &CreateWorkflow{}, `{"name":"a"}`, true},
-		{"create ok", &CreateWorkflow{}, `{"name":"a","ops":[{"op":"add_node"}]}`, false},
+		{"create no description", &CreateWorkflow{}, `{"name":"a","tags":[],"changeReason":"","ops":[{"op":"add_node"}]}`, true},
+		{"create no tags", &CreateWorkflow{}, `{"name":"a","description":"","changeReason":"","ops":[{"op":"add_node"}]}`, true},
+		{"create no change reason", &CreateWorkflow{}, `{"name":"a","description":"","tags":[],"ops":[{"op":"add_node"}]}`, true},
+		{"create ok", &CreateWorkflow{}, `{"name":"a","description":"","tags":[],"changeReason":"","ops":[{"op":"add_node"}]}`, false},
+		{"create stringified ops", &CreateWorkflow{}, `{"name":"a","description":"","tags":[],"changeReason":"","ops":"[{\"op\":\"add_node\"}]"}`, false},
 		{"edit no id", &EditWorkflow{}, `{"ops":[{"op":"add_node"}]}`, true},
 		{"edit no ops", &EditWorkflow{}, `{"workflowId":"wf_1","ops":[]}`, true},
 		{"edit ok", &EditWorkflow{}, `{"workflowId":"wf_1","ops":[{"op":"add_node"}]}`, false},
@@ -142,6 +149,247 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 		if (err != nil) != c.wantErr {
 			t.Errorf("%s: ValidateInput(%s) err=%v, wantErr=%v", c.name, c.args, err, c.wantErr)
 		}
+	}
+}
+
+func TestCreateWorkflow_ValidateInputMetadataSentinels(t *testing.T) {
+	base := `{"name":"a","description":"d","tags":["tag"],"changeReason":"why","ops":[{"op":"add_node"}]}`
+	cases := []struct {
+		name string
+		args string
+		want error
+	}{
+		{"description", strings.Replace(base, `,"description":"d"`, "", 1), ErrDescriptionRequired},
+		{"tags", strings.Replace(base, `,"tags":["tag"]`, "", 1), ErrTagsRequired},
+		{"changeReason", strings.Replace(base, `,"changeReason":"why"`, "", 1), ErrChangeReasonRequired},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := (&CreateWorkflow{}).ValidateInput([]byte(tc.args))
+			if !stderrors.Is(err, tc.want) {
+				t.Fatalf("ValidateInput(%s) = %v, want %v", tc.args, err, tc.want)
+			}
+		})
+	}
+	for _, args := range []string{
+		`{"name":"a","description":"","tags":[],"changeReason":"","ops":[{"op":"add_node"}]}`,
+		`{"name":"a","description":"d","tags":"[\"tag\"]","changeReason":"why","ops":"[{\"op\":\"add_node\"}]"}`,
+	} {
+		if err := (&CreateWorkflow{}).ValidateInput([]byte(args)); err != nil {
+			t.Errorf("ValidateInput(%s) = %v, want nil", args, err)
+		}
+	}
+	for _, args := range []string{
+		`{"name":"a","description":null,"tags":[],"changeReason":"why","ops":[{"op":"add_node"}]}`,
+		`{"name":"a","description":"d","tags":null,"changeReason":"why","ops":[{"op":"add_node"}]}`,
+		`{"name":"a","description":"d","tags":[],"changeReason":null,"ops":[{"op":"add_node"}]}`,
+	} {
+		if err := (&CreateWorkflow{}).ValidateInput([]byte(args)); err == nil {
+			t.Errorf("ValidateInput(%s) accepted explicit null metadata", args)
+		}
+	}
+}
+
+func TestDecodeWorkflowOps_HostedModelShapes(t *testing.T) {
+	const alias = `[
+		{"op":"add_node","id":"start","kind":"trigger","ref":"trg_fixture"},
+		{"op":"add_node","id":"process","kind":"action","ref":"fn_fixture","input":{"value":"start.value"}},
+		{"op":"add_edge","id":"start_to_process","from":"start","to":"process"}
+	]`
+
+	tests := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{"native nested", `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`, `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`},
+		{"stringified native", `"[{\"op\":\"add_node\",\"node\":{\"id\":\"start\",\"kind\":\"trigger\",\"ref\":\"trg_fixture\"}}]"`, `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`},
+		{"top-level body aliases", alias, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"},{"node":{"id":"process","kind":"action","ref":"fn_fixture","input":{"value":"start.value"}},"op":"add_node"},{"edge":{"id":"start_to_process","from":"start","to":"process"},"op":"add_edge"}]`},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := decodeWorkflowOps([]byte(tt.raw))
+			if err != nil {
+				t.Fatalf("decodeWorkflowOps: %v", err)
+			}
+			var gotValue any
+			var wantValue any
+			if err := json.Unmarshal(got, &gotValue); err != nil {
+				t.Fatalf("decoded JSON: %v", err)
+			}
+			if err := json.Unmarshal([]byte(tt.want), &wantValue); err != nil {
+				t.Fatalf("test want JSON: %v", err)
+			}
+			if !reflect.DeepEqual(gotValue, wantValue) {
+				t.Fatalf("normalized ops = %s, want %s", got, tt.want)
+			}
+		})
+	}
+
+	for _, raw := range []string{
+		`"{}"`,
+		`{"op":"add_node","node":{"id":"nested"},"id":"conflict"}`,
+		`[{"op":"add_edge","edge":{"id":"e1"},"from":"start"}]`,
+		`[{"op":1}]`,
+	} {
+		if _, err := decodeWorkflowOps([]byte(raw)); err == nil {
+			t.Errorf("decodeWorkflowOps(%s) should reject malformed/conflicting shape", raw)
+		}
+	}
+}
+
+func TestDecodeWorkflowTags_HostedModelShapes(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{"native", `["acceptance","workflow"]`, []string{"acceptance", "workflow"}},
+		{"stringified native", `"[\"acceptance\",\"workflow\"]"`, []string{"acceptance", "workflow"}},
+		{"empty", `[]`, []string{}},
+		{"missing", ``, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := decodeWorkflowTags([]byte(tt.raw))
+			if err != nil {
+				t.Fatalf("decodeWorkflowTags: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("decoded tags = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+	for _, raw := range []string{`"acceptance,workflow"`, `"{}"`, `{"tag":"acceptance"}`, `["acceptance",1]`} {
+		if _, err := decodeWorkflowTags([]byte(raw)); err == nil {
+			t.Errorf("decodeWorkflowTags(%s) should reject malformed shape", raw)
+		}
+	}
+}
+
+func TestCreateWorkflow_ExecutesHostedModelOpsVariants(t *testing.T) {
+	svc, ctx := newSvc(t)
+	create := &CreateWorkflow{svc: svc}
+	out, err := create.Execute(ctx, `{"name":"hosted_alias","ops":"[{\"op\":\"add_node\",\"id\":\"start\",\"kind\":\"trigger\",\"ref\":\"trg_fixture\"},{\"op\":\"add_node\",\"id\":\"process\",\"kind\":\"action\",\"ref\":\"fn_fixture\"},{\"op\":\"add_edge\",\"id\":\"start_to_process\",\"from\":\"start\",\"to\":\"process\"}]"}`)
+	if err != nil {
+		t.Fatalf("create hosted-model variant: %v", err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &created); err != nil || created.ID == "" {
+		t.Fatalf("create result missing id: %v (%s)", err, out)
+	}
+	got, err := (&GetWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+created.ID+`"}`)
+	if err != nil {
+		t.Fatalf("get hosted-model variant: %v", err)
+	}
+	for _, want := range []string{`"id":"start"`, `"id":"process"`, `"id":"start_to_process"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("normalized graph missing %s: %s", want, got)
+		}
+	}
+}
+
+func TestCreateWorkflow_ExecutesHostedModelStringifiedTags(t *testing.T) {
+	svc, ctx := newSvc(t)
+	create := &CreateWorkflow{svc: svc}
+	out, err := create.Execute(ctx, `{"name":"hosted_tags","description":"nightly sync","tags":"[\"acceptance\",\"workflow\"]","changeReason":"TOOL-060","ops":"[{\"op\":\"add_node\",\"id\":\"start\",\"kind\":\"trigger\",\"ref\":\"trg_fixture\"}]"}`)
+	if err != nil {
+		t.Fatalf("create hosted-model stringified tags: %v", err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &created); err != nil || created.ID == "" {
+		t.Fatalf("create result missing id: %v (%s)", err, out)
+	}
+	got, err := (&GetWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+created.ID+`"}`)
+	if err != nil {
+		t.Fatalf("get hosted-model stringified tags: %v", err)
+	}
+	for _, want := range []string{`"description":"nightly sync"`, `"tags":["acceptance","workflow"]`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("metadata missing %s: %s", want, got)
+		}
+	}
+}
+
+func TestCreateWorkflow_DescriptionPinsUserMetadata(t *testing.T) {
+	desc := (&CreateWorkflow{}).Description()
+	for _, want := range []string{
+		"description, tags, changeReason",
+		"three metadata slots are always required",
+		"at the TOP LEVEL",
+		"Never omit user-provided metadata",
+		"Hosted-model compatibility",
+		"comma-separated prose",
+		"never put changeReason inside ops",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("create_workflow description missing %q: %s", want, desc)
+		}
+	}
+	params := string((&CreateWorkflow{}).Parameters())
+	for _, want := range []string{
+		"Pass an empty string when the user supplied none",
+		"Pass [] when the user supplied none",
+		"exact JSON-encoded array string",
+		"never inside ops",
+	} {
+		if !strings.Contains(params, want) {
+			t.Fatalf("create_workflow parameter schema missing %q: %s", want, params)
+		}
+	}
+	var schema struct {
+		Required []string `json:"required"`
+	}
+	if err := json.Unmarshal([]byte(params), &schema); err != nil {
+		t.Fatalf("create_workflow schema is invalid JSON: %v", err)
+	}
+	for _, required := range []string{"name", "description", "tags", "changeReason", "ops"} {
+		if !slices.Contains(schema.Required, required) {
+			t.Fatalf("create_workflow schema must require %q: %v", required, schema.Required)
+		}
+	}
+}
+
+func TestSearchWorkflow_PrefersDirectMatchesAndReturnsLifecycleFields(t *testing.T) {
+	svc, ctx := newSvc(t)
+	create := &CreateWorkflow{svc: svc}
+	for _, args := range []string{
+		`{"name":"invoice_approval","description":"Approve invoices","tags":["invoice","approval"],"ops":[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_manual"}}]}`,
+		`{"name":"retention_policy","description":"Retain records","tags":["retention"],"ops":[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_manual"}}]}`,
+	} {
+		if _, err := create.Execute(ctx, args); err != nil {
+			t.Fatalf("create fixture: %v", err)
+		}
+	}
+
+	search := &SearchWorkflow{svc: svc}
+	out, err := search.Execute(ctx, `{"query":"invoice"}`)
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	var got struct {
+		Count     int `json:"count"`
+		Total     int `json:"total"`
+		Workflows []struct {
+			Name           string   `json:"name"`
+			Tags           []string `json:"tags"`
+			LifecycleState string   `json:"lifecycleState"`
+			Active         bool     `json:"active"`
+		} `json:"workflows"`
+	}
+	if err := json.Unmarshal([]byte(out), &got); err != nil {
+		t.Fatalf("decode: %v (%s)", err, out)
+	}
+	if got.Count != 1 || got.Total != 1 || len(got.Workflows) != 1 {
+		t.Fatalf("direct keyword must not return weak semantic neighbors: %+v", got)
+	}
+	row := got.Workflows[0]
+	if row.Name != "invoice_approval" || len(row.Tags) != 2 || row.LifecycleState != "inactive" || row.Active {
+		t.Fatalf("search row lost workflow fields: %+v", row)
 	}
 }
 

@@ -78,7 +78,7 @@ func TestDispatchWithGate_OutsideWorkDirForcesGate(t *testing.T) {
 	ctx := residencyCtx(t, broker, root)
 
 	args := []byte(`{"file_path":"` + filepath.Join(base, "outside.txt") + `"}`)
-	out, _, ok, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
+	out, _, ok, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
 
 	if len(*seen) != 1 {
 		t.Fatalf("an out-of-root write must surface for confirmation even at danger=safe (surfaced %d)", len(*seen))
@@ -107,7 +107,7 @@ func TestDispatchWithGate_InsideWorkDirNoGate(t *testing.T) {
 		broker, seen := gateProbe(humanloopapp.DecisionDeny)
 		ctx := residencyCtx(t, broker, root)
 		args := []byte(`{"file_path":` + mustJSON(path) + `}`)
-		out, _, _, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
+		out, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
 		if len(*seen) != 0 {
 			t.Errorf("%q is inside the residency and must NOT be gated", path)
 		}
@@ -126,7 +126,7 @@ func TestDispatchWithGate_NoResidencyNeverGatesOnPath(t *testing.T) {
 	broker, seen := gateProbe(humanloopapp.DecisionDeny)
 	ctx := humanloopapp.WithBroker(reqctxpkg.WithAgentState(context.Background(), agentstatepkg.New()), broker)
 	args := []byte(`{"file_path":"/etc/anything.txt"}`)
-	out, _, _, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
+	out, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
 	if len(*seen) != 0 {
 		t.Fatalf("no residency → no path gate (surfaced %d)", len(*seen))
 	}
@@ -152,7 +152,7 @@ func TestDispatchWithGate_OutsideWorkDirIgnoresApproveAlways(t *testing.T) {
 	args := []byte(`{"file_path":` + mustJSON(filepath.Join(base, "outside.txt")) + `}`)
 
 	for i := range 2 {
-		out, _, _, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
+		out, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
 		if !executed || out != "wrote" {
 			t.Fatalf("call %d: approved write should run: out=%q executed=%v", i, out, executed)
 		}
@@ -180,7 +180,7 @@ func TestDispatchWithGate_OutsideWorkDirIgnoresSkillPreApproval(t *testing.T) {
 	ctx = reqctxpkg.SetWorkDir(ctx, root)
 
 	args := []byte(`{"file_path":` + mustJSON(filepath.Join(base, "outside.txt")) + `}`)
-	_, _, _, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
+	_, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), args, zap.NewNop())
 	if len(*seen) != 1 {
 		t.Fatalf("skill pre-approval must not bypass the residency gate (surfaced %d)", len(*seen))
 	}
@@ -200,7 +200,7 @@ func TestDispatchWithGate_NonWriterToolNeverPathGated(t *testing.T) {
 	broker, seen := gateProbe(humanloopapp.DecisionDeny)
 	ctx := residencyCtx(t, broker, root)
 	args := []byte(`{"file_path":"/etc/passwd"}`)
-	out, _, _, executed := dispatchWithGate(ctx, fakeTool{name: "Read", result: "contents"}, safeTC("Read"), args, zap.NewNop())
+	out, _, _, executed, _ := dispatchWithGate(ctx, fakeTool{name: "Read", result: "contents"}, safeTC("Read"), args, zap.NewNop())
 	if len(*seen) != 0 {
 		t.Fatalf("a non-writing tool must never be path-gated (surfaced %d)", len(*seen))
 	}
@@ -220,7 +220,7 @@ func TestDispatchWithGate_UndeterminableTargetFallsThrough(t *testing.T) {
 	for _, args := range []string{`{}`, `{"file_path":""}`, `{"file_path":"   "}`, `not json at all`} {
 		broker, seen := gateProbe(humanloopapp.DecisionDeny)
 		ctx := residencyCtx(t, broker, root)
-		_, _, _, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), []byte(args), zap.NewNop())
+		_, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), []byte(args), zap.NewNop())
 		if len(*seen) != 0 {
 			t.Errorf("args %q: no determinable target must not manufacture a confirmation", args)
 		}
@@ -241,7 +241,7 @@ func TestDispatchWithGate_DangerousStillGatedInsideResidency(t *testing.T) {
 	ctx := residencyCtx(t, broker, root)
 	tc := messagesdomain.ToolCallData{ID: "tc-d", Name: "Write", Danger: string(toolapp.DangerDangerous)}
 	args := []byte(`{"file_path":"in.txt"}`)
-	out, _, _, executed := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, tc, args, zap.NewNop())
+	out, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, tc, args, zap.NewNop())
 	if len(*seen) != 1 {
 		t.Fatalf("a self-reported dangerous call inside the root must still gate (surfaced %d)", len(*seen))
 	}
