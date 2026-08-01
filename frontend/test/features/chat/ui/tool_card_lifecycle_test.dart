@@ -58,13 +58,24 @@ void main() {
     });
 
     test(
-      'parseDependents JSON: count + refs; parseAgentDependents string: prefix-derived kinds',
+      'parseDependents JSON: count + refs; parseAgentDependents supports JSON and legacy string',
       () {
         final j = parseDependents(
           '{"dependentCount":2,"dependents":[{"kind":"agent","id":"ag_1"},{"kind":"workflow","id":"wf_2"}]}',
         );
         expect(j!.count, 2);
         expect(j.refs.first.kind, 'agent');
+        final structured = parseAgentDependents(
+          '{"dependentCount":1,"dependents":[{"kind":"workflow","id":"wf_3"}]}',
+        );
+        expect(structured!.count, 1);
+        expect(structured.refs.single.kind, 'workflow');
+        expect(
+          parseAgentDependents(
+            '{"deleted":true,"removedRelationEdges":[{"id":"rel_1","kind":"equip"}]}',
+          ),
+          isNull,
+        );
         final s = parseAgentDependents('Referenced by: [wf_1 ctl_2 zz_9]');
         expect(s!.count, 3);
         expect(s.refs[0].kind, 'workflow'); // wf_ → workflow

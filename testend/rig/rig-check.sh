@@ -105,7 +105,7 @@ print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"A
   fi
   [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
   grep -q 'Flutter run key commands' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log never reached resident app"
-  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device' "$SESSION/frontend.log" 2>/dev/null; then
+  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|accessibility_bridge\.cc.*Failed to update ui::AXTree' "$SESSION/frontend.log" 2>/dev/null; then
     bad "✗ frontend.log contains an unreviewed Flutter failure"
   fi
 

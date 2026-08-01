@@ -12,6 +12,144 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+## 2026-08-01 22:20 · 第五批 TOOL-046 收尾与 AX 观察红线修复
+
+- formal-98 与 formal-100 的真实 App 观察在流式动态语义树替换期间读取 AX state，产生 macOS `accessibility_bridge` AXTree 红线；两次均作为反证冻结，未判绿。formal-99 的无 Computer Use AX 读取基线为零，确认问题位于观察时机而非后端、SSE 或业务路径。
+- stop-and-fix：streaming markdown 与 live tail 增加稳定外层 `Semantics` 节点并排除半成品子树语义，补 62 项定向 Flutter 测试；`rig-check.sh` 将 AXTree 错误与 Flutter/Dart/RenderFlex/Unhandled 红线同样拒绝，`testend/rig/README.md` 记录稳定态 AX 读取与连续录屏规则。
+- formal-102 `/private/tmp/anselm-rig-formal-102/sessions/20260801-221506` 以真实 App、受管网关、Computer Use、独立三流 SSE tap 和 LLM tap 重跑 `search_control`。正向精确命中 `acceptance_control_fixture_102`，负向 `zzqvulon_102` 返回空集；录屏 `114.528333s / 2784x1808 / 60fps`，messages durable `1..28`、notifications `1..5`、entities 已连接无 gap，LLM 状态全 200，backend/frontend journal 无未解释红线，最终帧视觉复核通过。
+- fixture control 与 conversation 均 DELETE=204，残留查询为零；formal-102 session 已收台且无进程泄漏。五级裁决 `TOOL-046=G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本 `280 judgments`；`gap-too-fast` 与 `discovery-collapse` 按 formal-102 五通道证据重审并 ack，最终警报 clean。
+- 第五批达到 **50 / 50**。按 P15，下一步运行统一长门禁和工作树审计；门禁未全绿前不提交、不进入 `TOOL-047`。
+
+## 2026-08-01 21:56 · TOOL-045 execution detail 正式通过
+
+- formal-97 使用真实 App、受管网关和 Computer Use，对 REST 预构造的 `agx_071dc2aa5859c391` 只读调用 `get_agent_execution` 一次。正向报告包含 id/agent/version/model/key/provider/status/trigger/input/output/error/timing 以及两条 transcript（reasoning→text），raw REST、LLM wire、UI 一致。
+- detail transcript 的 off-chat block 出现空 id/message/seq/status 与零值时间；前线审查 backend `messages.Block` 契约确认 loop 内存块只有落共享 `message_blocks` 时才分配这些字段，而 execution transcript 是自包含 block 内容，不应伪造元数据。frontend `hydrateTranscript` 对缺 id 生成稳定 `hblk_*`，轨迹不会丢失或孤儿化，故不改数据模型。
+- 负向不存在 `agx_0000000000000000` 只调用一次，UI 显示 `agent execution not found`，无 retry/搜索/写工具。五通道 session `/private/tmp/anselm-rig-formal-97/sessions/20260801-214604`：screen.mov `286.645000s / 2784x1808 / 60fps`；SSE durable `notifications 1..3`、`entities 1..4`、`messages 1..28` 连续；LLM 18 个状态响应全 200；backend 仅预期 not-found WARN；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线。fixture agent/conversation DELETE=204，台架已收台，摘要为 `evidence/tool-045-formal-97-green.txt`。
+- 五级裁决 `TOOL-045=G1/F2/A5/C4/G2` 已写入 COVERAGE。锚点 10/10 通过；`gap-too-fast`、`discovery-collapse` 以 formal-97 真实录屏/五通道复审后 ack，`alarms.py check` clean(275 judgments)。第五批从 **40 / 50** 推进至 **45 / 50**，不跑统一长门禁、不提交；下一前线 `TOOL-046 search_control`。Goal API 与 `LOOP.md` 均为 `active`。
+
+## 2026-08-01 21:40 · TOOL-044 修复分页与瘦身后正式通过
+
+- formal-95 首轮因 Computer Use `type_text` 丢失中文约束，模型越界建立/编辑/运行/删除临时 agent；该 session 作为 setup-contamination 红证据保留在 `/private/tmp/anselm-rig-formal-95/sessions/20260801-211951/evidence/tool-044-input-contamination-red.txt`，不计绿。clean retry 又发现列表携带完整 `transcript`，且模型把 opaque cursor 从 `...478Z` 改成 `...479Z`，第二页出现重复 ID；直接 REST 原 cursor 返回唯一第三条，确认分页 ORM 边界正确。红证据为 `/private/tmp/anselm-rig-formal-95/sessions/20260801-211951/evidence/tool-044-pagination-red.txt`。
+- 前线冻结后，`ListExecutions` 裁剪列表 transcript，工具 description/schema 明确 `nextCursor` 必须逐字复制、禁止 decode/round/reconstruct；补 store 分页无重叠与列表瘦身测试，并同步 agent domain/API/extract 文档。定向 `go test ./internal/infra/store/agent ./internal/app/tool/agent` 全绿，`git diff --check` 通过。
+- formal-96 `/private/tmp/anselm-rig-formal-96/sessions/20260801-213218` 使用新二进制、真实 onboarding、真实受管网关和 Computer Use 完成正向两页分页与负向 `status=failed` 空结果。正向页面为 2+1、ID 零重叠、最终无 cursor，三 execution 均 `ok/manual` 且 input 完整；列表没有 transcript。负向为 0 行、`hasMore=false`、无 cursor、`okCount=3/failedCount=0`，无错误或写动作。
+- 五通道已封存：screen.mov `414.928333s / 2784x1808 / 60fps`；SSE durable `notifications 1..5`、`entities 1..12`、`messages 1..49` 连续；LLM 28 个状态响应全 200，wire 仅有 search_agent/search_agent_executions；backend 无 WARN/ERROR/PANIC/FATAL，frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线。fixture agent/conversation DELETE=204，台架已收台，完整摘要为 `evidence/tool-044-formal-96-green.txt`。
+- 五级裁决 `TOOL-044=G1/F2/A5/C4/G2` 已由 `judge.py` 写入 COVERAGE。锚点 10/10 通过；`gap-too-fast`、`discovery-collapse` 依据 formal-96 完整录屏/五通道复审后 ack，`alarms.py check` clean(270 judgments)。第五批从 **35 / 50** 推进至 **40 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-045 get_agent_execution`。Goal API 与 `LOOP.md` 均为 `active`。
+
+## 2026-08-01 21:13 · TOOL-043 修复后正式通过
+
+- formal-93 的正向 `invoke_agent` 已真实成功，负向不存在 agent ID 也只执行一次并准确显示 `agent not found`；Computer Use 逐帧复核发现右侧 Activity 错用了实体编辑专用文案 `Draft unsaved · truth is still the last version`，故冻结前线并保留红证据 `/private/tmp/anselm-rig-formal-93/sessions/20260801-205216/evidence/tool-043-red-activity-ribbon.txt`。
+- 修复新增 `AnHonesty.failedRun`，按 `create_*`、`edit_*`、其它执行舞台三类失败语义分流；同步双语 i18n、`docs/references/frontend/features/chat.md` 和 `stages_w4_test.dart`，定向 W4 测试 13/13 通过。
+- formal-94 session `/private/tmp/anselm-rig-formal-94/sessions/20260801-210343` 使用新二进制、真实 onboarding、真实受管网关和 Computer Use 完成正向 `search_agent → invoke_agent` 与负向不存在 ID 单次 invoke。正向结构化输出为 answer=4、confidence=1；负向无 executionId、无 retry、无其它写操作，Activity 显示 `Run failed · inspect the error below`，不再出现 draft/version 误导。
+- 五通道证据已封存：screen.mov `236.766667s / 2784x1808 / 60fps`；SSE 三路 durable `messages 1..39`、`entities 1..4`、`notifications 1..3`；LLM 20/20 状态响应全 200；backend 只有刻意负路径 WARN，无 panic/fatal/error；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线；REST、SQLite、UI、SSE 与 LLM wire 交叉一致。正负终帧和完整摘要在 session evidence 内。
+- agent、conversation 均已真实 DELETE=204 后 GET=404，成功 execution 历史保留；formal-94 收台后无 backend、tap、Flutter 或 recorder 残留进程。五级裁决 `TOOL-043=G1/F2/A5/C4/G2` 已落账，锚点 10/10 通过；警报复审并 ack 后中央账本 `clean (265 judgments)`。
+- Goal API 与盘上 `LOOP.md` 均为 `active`；第五批从 **30 / 50** 推进至 **35 / 50**，未到 50 格不跑统一长门禁、不提交。下一前线为 `TOOL-044 search_agent_executions`。
+
+## 2026-08-01 21:02 · TOOL-043 首轮红证据、执行失败丝带冻结
+
+- formal-93 的正向 `invoke_agent` 已真实成功，负向不存在 agent ID 也只执行一次并准确显示 `agent not found`，但 Computer Use 逐帧复核发现右侧 Activity 仍显示实体编辑专用文案 `Draft unsaved · truth is still the last version`。执行调用没有 draft 或上一版实体，这会误导用户，故 `TOOL-043` 不进入裁决；红证据保存在 `/private/tmp/anselm-rig-formal-93/sessions/20260801-205216/evidence/tool-043-red-activity-ribbon.txt`，录像和五通道 journal 保留。
+- 前线修复为三类失败真相：`create_*` 使用“尚未创建实体”，`edit_*` 使用“上一版仍是真相”，其余执行舞台使用新的 `运行失败 · 详情见下方错误`，不再暗示草稿/版本；同步双语 i18n、`docs/references/frontend/features/chat.md`，补 `stages_w4_test.dart` 执行失败守卫。W4 目标测试 13/13 通过。
+- formal-93 的 agent、conversation 已 DELETE=204→GET=404，未复用旧 fixture。formal-94 将用新二进制重新 onboarding、正负执行并逐帧复核，成功后才写五级裁决；当前第五批仍 **30 / 50**，不跑统一长门禁、不提交。
+
+## 2026-08-01 20:49 · TOOL-042 修复回声重叠后正式通过
+
+- formal-91 的首发红证据保留：真实 App 短暂同时显示乐观 user bubble 与 durable user bubble，最终 SQLite 只有一条 user 消息，但该可见瞬态违反逐帧无跳变标准；formal-91 fixture 已在上一条日志中完成 DELETE=204→GET=404 清理，不计入绿格。
+- 前线冻结后定位为 `ConversationTranscript.applyFrame` 在 REST hydration 已写入 terminal settled block 后，又把相同 durable prelude 送进 live reducer 的跨层幂等缺口。修复为已 settled 的 durable block id 直接跳过 prelude，保留非终态 live seed；新增 model 回归测试并同步 frontend 数据边界文档。定向 Flutter 测试 48/48 通过，`git diff --check` 通过。
+- formal-92 使用新二进制、真实 onboarding、真实受管网关与 Computer Use 完成正负路径：正向严格为 `search_tools → search_agent → search_tools → update_agent_meta`，只执行一次并精确改 name/description/tags；负向只执行一次不存在 ID `ag_0000000000000000` 的 `update_agent_meta`，显示 `agent not found` 后停止，无 retry/其它副作用。
+- 五通道证据 session `/private/tmp/anselm-rig-formal-92/sessions/20260801-203729` 已封存：screen.mov `415.496667s / 2784x1808 / 60fps`；SSE durable `messages 1..47`、`entities 1..4`、`notifications 1..7`；LLM 24 个状态响应全 200；backend 仅一条预期 not-found WARN，无 error/fatal/panic；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线；REST/SQLite、UI 与 LLM wire 一致。正负画面和五通道摘要均在 session evidence 内。
+- formal-92 conversation、两个 agent、document、skill 均 DELETE=204 后 GET=404；成功 execution `agx_c4df44281575d3bf` 保留为 `ok/manual`，正式台架已 `rig-down` 且无残留进程。五级裁决 `TOOL-042=G1/F2/A5/C4/G2` 已通过 `judge.py` 写入 COVERAGE，中央账本从 255 增至 260。
+- 裁决后 `alarms.py check` 按设计重新打开 `gap-too-fast` 与 `discovery-collapse`；已用 formal-92 完整录屏、负路径、五通道 journal、锚点校准和此前 formal-91 红证据复审并 ack，最终 `alarms.py check` clean(260 judgments)。Goal API 与盘上 `LOOP.md` 均为 `active`；第五批从 **25 / 50** 推进至 **30 / 50**，下一前线为 `TOOL-043`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-01 20:34 · formal-91 收台、fixture 清理、恢复 Goal 后冻结 TOOL-042
+
+- `formal-91` 的真实 App 路径暂不进入裁决：首发后 Computer Use 画面短暂同时出现乐观 user bubble 和 durable user bubble，流收尾后才收敛为一枚；SQLite 最终只有一条 user message 和一条 user block，因此不是持久重复，但仍违反“逐帧无跳变”的产品标准。红证据摘要为 `/private/tmp/anselm-rig-formal-91/sessions/20260801-202601/evidence/tool-042-formal-91-red-cleanup.txt`，`screen.mov` 已由 `rig-down.sh` 封口为 `402.378333s`。
+- formal-91 fixture 已全部清理并交叉验证：conversation `cv_4f6bc3596c3ae4a4`、agents `ag_5b0eb02605dbe4c7`/`ag_9bc1bc7e30fe75a6`、document `doc_a0e653628e7417ec`、skill `acceptance-update-meta-skill-91` 均 DELETE=204 后 GET=404；`agent_execution agx_163c8f77fcfbb50` 仍保留为 `ok/manual` 历史。台架 `rig-check` 通过后已正常收台，无 formal-91 进程残留。
+- Goal API 当前已恢复为 `active`，盘上 `LOOP.md` 仍为 `active`，没有创建重复 Goal；本批仍 **25 / 50**，下一前线仍为 `TOOL-042 update_agent_meta`。前线冻结，先修复首发回声的原子收敛，再用新二进制重跑，不把 fixture 清理或 formal-91 红证据计入绿格。
+
+## 2026-08-01 20:09 · TOOL-041 delete_agent 收尾、两轮红证据修复后正式通过
+
+- formal-88 不进入裁决：真实 App 的 hosted model 只收到旧的一行删除回执，随后臆造 4 条 removed edges；SQLite/关系 purge 真相只有 2 条 agent→document/skill 的 `equip` 边。前线冻结后在 `relation.Service` 增加双向 `ListTouching` 快照，在 `delete_agent` 增加权威 JSON 回执：`executionHistory=retained`、`removedRelationEdges` 精确列出删除前边、`removedRelationCount`；同步 `dependents` 结构与 agent 领域文档、Go 守卫测试，明确模型不得推断。
+- formal-89 真实复跑确认后端回执已正确，但前端 `parseAgentDependents` 在结构化 JSON 没有 `dependents` 字段时错误回退 legacy regex，UI 显示虚假的“12 refs affected”。修复为任何可解码结构化回执都不再走旧 parser，补 Flutter widget/model 回归测试；formal-88/89 红证据和修复前画面均保留。
+- formal-90 使用新二进制、真实 onboarding、managed gateway、Computer Use、连续录屏、Flutter console、三路 SSE witness、LLM tap 完成正式路径。fixture agent 预挂 document+skill，并先用 REST 建立一条成功 `agent_execution` 作为历史保留对照；真实用户消息最终只触发一次 `delete_agent`，危险动作经人闸批准。UI 删除卡无虚假依赖红块，最终报告精确复述结构化回执：`deleted=true`、`executionHistory=retained`、`removedRelationCount=2`、2 条 outbound `equip` 边，随后停止。
+- 五通道：录屏 `screen.mov` 已封口，`365.840s / 2784x1808`；LLM chat 全 HTTP 200，wire 只有一次实际 delete call 与一次结构化 tool result；SSE durable `messages 1..13`、`entities 1..4`、`notifications 1..9` 连续；backend/frontend journal 无 panic/fatal/error/warn 红线。formal-90 的摘要、全量 journals、wire bodies/responses 和录屏保存在 `/private/tmp/anselm-rig-formal-90/sessions/20260801-195945/`。
+- 清理已完成：document、skill、conversation 各 DELETE=204 后 GET=404；SQLite agent/document/conversation tombstone 已写入，agent execution `agx_2bba47195e6371af` 仍为 `ok/manual`，关系表 touching agent 为 0。正式五级裁决 `TOOL-041=G1/F2/A5/C4/G2` 已通过 `judge.py` 写入 COVERAGE，锚点校准通过；gap-too-fast 与 discovery-collapse 以 formal-88/89 红证据、formal-90 五通道和 cleanup 真相复审并 ack，`alarms.py check` 为 `clean (255 judgments)`。
+- 第五批从 **20 / 50** 推进到 **25 / 50**。按协议未到 50 格，不运行统一长门禁、不提交；下一前线为 `TOOL-042 update_agent_meta`。Goal API 旧实例仍是不可恢复的 `blocked`，盘上 `LOOP.md` 保持 `active`，未创建重复 Goal。
+
+## 2026-08-01 19:40 · TOOL-040 revert_agent 收尾
+
+- formal-86 不进入裁决：真实 App 首轮出现两枚可见红卡，hosted model 先发 `get_agent({})`，再发 `revert_agent` 的 `version:"1"`；前者是模型漏填 required key，后者暴露 `revert_agent` 与已有 `revert_handler` 的执行边界不一致。前线冻结后将 `revert_agent` 改为公开 schema 仍为 integer、执行边界仅兼容精确整数字符串，强化 `agentId`/`version` 描述，补 `agent_test.go` 回归测试并同步 `docs/references/backend/domains/agent.md`。`go test ./internal/app/tool/agent ./internal/app/agent`、`make -C docs verify`、`git diff --check` 通过。
+- formal-87 使用新二进制和真实 onboarding 创建 `Acceptance Revert Agent 87` workspace；REST setup 建立 `ag_3833aea31499eadd` 的 v1/v2，v1 prompt 与 v2 修改 prompt 的历史均保留。正向 Chat 只调用一次 `revert_agent`，wire 参数为 `{"agentId":"ag_3833aea31499eadd","version":"1"}`，执行成功回 v1 `agv_bcfc4c93c0dc2be6`，无红卡；随后一次 `get_agent` 准确回读 active v1 prompt、name、description、tags。负向只调用一次 version 999，UI/最终回答显示 `agent version not found`，无 retry 或其它工具。
+- 五通道：screen.mov `208.695000s / 2784x1808 / 60fps`，终帧为 `evidence/frames/tool-040-positive.jpg`、`tool-040-negative.jpg`；LLM challenge/install/models/chat 全 HTTP 200，实际新调用为一次正向 revert、一次 get、一次负向 revert，后续 body 中重复的是历史上下文；SSE 329 行，messages durable `1..44` 无 gap；backend 234 行仅预期负路径 WARN、无 ERROR/PANIC/FATAL；frontend 17 行无 FlutterError/DartError/RenderFlex/Unhandled/SEVERE/Exception；REST/SQLite active v1、历史恰 v1/v2、mount-health healthy，relations=0。
+- 清理：agent 与 conversation 均 DELETE=204、随后 GET=404；API 搜索无 acceptance 残留，SQLite 保留 deleted_at tombstone 与 v1/v2 审计版本，进程由 rig-down 收台且无 Anselm 台架残留。证据摘要为 `evidence/tool-040-revert-agent-session-summary.txt`。
+- 五级裁决 `TOOL-040=G1/F2/A5/C4/G2` 已落账；gap-too-fast 与 discovery-collapse 用 formal-86 红证据、formal-87 五通道、录屏抽帧和 SQLite 真相复审并 ack，`alarms.py check` 为 `clean (250 judgments)`。第五批从 **19 / 50** 推进至 **20 / 50**，按协议不跑统一长门禁、不提交；下一前线为 `TOOL-041 delete_agent`。Goal API 旧实例仍不可恢复地 `blocked`，盘上 `LOOP.md` 保持 `active`。
+
+## 2026-08-01 19:22 · TOOL-039 edit_agent 收尾
+
+- 前置审查发现契约漂移：LLM `edit_agent` 已实现“只覆盖显式字段、显式空值才清除”，但 `get_agent` 描述仍写成全量替换，领域文档与 app 层注释也混淆 HTTP `:edit` 全量快照和工具层 partial merge。前线冻结后修正 `query.go`、agent service 注释、agent domain 文档，补 `TestGetAgent_DescriptionMatchesPartialEditContract`；`go test ./internal/app/tool/agent ./internal/app/agent`、`make -C docs verify`、`git diff --check` 全部通过。
+- formal-85 真实 onboarding 创建 `Acceptance Edit Agent 85`，REST setup 构造 agent `ag_7d0db44aca4c2ece` 的 v1：skill `acceptance-edit-skill-85`、document `doc_232a942fd12cd220`、function `fn_1ebf9efeb71d5dad`（env ready）均挂载。正向 Chat 只让用户改 prompt；wire 的当前实际调用为 `get_agent` 后单次 `edit_agent`，返回 v2 `agv_fb08c7415f59a98c`。UI 显示 v1→v2、版本 ID 和 preserved-fields 说明；REST activeVersion、mount-health `allHealthy=true`、skill/document/function 三条 equip relation 与 SQLite v1/v2 完全一致，未产生 v3。
+- 负向同一真实 App 对 `ag_0000000000000000` 只调用一次 `edit_agent`。UI 显示 `agent not found`、`Draft unsaved · truth is still the last version`，无 retry/search/create/delete。LLM tap 后审查发现 00008/00009 body 中历史 get/edit tool_calls 是完整上下文回放，不是再次执行；版本数为 2、backend 只有一条预期 not-found WARN，故不是重复写入。
+- 五通道：screen.mov `290.713333s / 2784x1808 / 60fps`；LLM 7 request bodies、9 response records 全 HTTP 200；SSE 248 行，messages/entities/notifications durable 分别 `1..36`、`1..4`、`1..15`，无 gap；backend 425 行仅预期负路径 WARN，无 ERROR/PANIC/FATAL；frontend 无 FlutterError/DartError/RenderFlex/Unhandled/SEVERE/Exception/Lost connection，151 条 AXTree bridge 行与 formal-84 无 Computer Use 基线对照后归类为 Computer Use 动态 AX 查询噪声。正负终帧与摘要保存在 session `evidence/`。
+- 清理：agent、skill、document、function、conversation 均真实 DELETE=204、GET=404；agent relations 归零，SQLite agent/function tombstone 已写入，API 命名扫描无 acceptance 残留；rig-down 后 backend、ssetap、llmtap、Flutter runner、recorder 无残留，证据保留。
+- 五级裁决 `TOOL-039=G1/F2/A5/C4/G2` 已由 `judge.py` 落账。`gap-too-fast` 与 `discovery-collapse` 经五通道/红证据/基线复审后 ack，当前 `alarms.py check` 为 `clean (245 judgments)`。第五批从 **18 / 50** 推进至 **19 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-040 revert_agent`。Goal API 旧实例仍不可恢复地 `blocked`，盘上 `LOOP.md` 保持 `active`。
+
+## 2026-08-01 19:10 · TOOL-038 create_agent 收尾
+
+- formal-81 的首轮真实 App 路径发现新线程首发时 scoped SSE 尚未接上，乐观 user bubble 没有被 durable 回声收敛，画面出现重复问句；前线冻结后在 `conversation_stream_provider.dart` 增加普通 send 的窄 REST head reconcile，retry 保持同一 bubble 语义，Flutter model/provider 定向测试共 37 项通过。
+- formal-82 发现用户明确提供 agent description 时托管模型漏发 `description`，创建成功但 REST description 为空；前线冻结后收紧 `create_agent` 的工具契约和 schema 描述，补 `agent_test.go` 与 agent 领域文档。该红 session 保留，不计绿。
+- formal-83 修复后由真实 Flutter App、managed gateway、Computer Use、连续录屏、Flutter console、三路 SSE witness 和 LLM tap 完成正负路径。正向 exact name/description/system prompt 贯穿 wire、entities、REST 和 UI；负向重复名只发一次 `create_agent`，UI 显示 `agent name already exists` 与 `Draft unsaved · nothing was created`，无 retry/修改/运行。正向 agent 为 `ag_c99dd62a78f39e46`、版本 `agv_a595a4d3437161c6`，终帧与五通道摘要保存在该 session 的 `evidence/`。
+- 五通道：screen.mov `271.741667s / 2784x1808`；LLM challenge/install/models 与 12 个 chat response 全 200；messages/entities/notifications durable 分别 `1..35`、`7..10`、`16..20`，各自一次连接且无 gap；backend 只有预期 duplicate-name WARN；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线。formal-84 无 Computer Use 的 49.608333s 基线 frontend journal 无 accessibility bridge 或 Flutter/Dart/RenderFlex/Unhandled 红线，formal-83 的动态 `AXTree` 行因此归类为观察器噪声，不修改产品。
+- 清理：agent DELETE=204、GET=404，conversation DELETE=204、GET=404，SQLite `deleted_at` 已对证；rig-down 后 backend、ssetap、llmtap、Flutter runner、recorder 均无残留，证据 session 不删除。五级裁决 `G1/F2/A5/C4/G2` 已由 `judge.py` 落账，警报复审并 ack 后 `clean (240 judgments)`。
+- 第五批从 **17 / 50** 推进至 **18 / 50**。按协议不跑统一长门禁、不提交；下一前线为 `TOOL-039 edit_agent`。Goal API 旧实例仍不可恢复地 `blocked`，盘上 `LOOP.md` 维持 `active`，不创建重复 Goal。
+
+## 2026-08-01 18:40 · TOOL-037 get_agent 收尾
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-80/sessions/20260801-182748` 由真实 App + managed gateway + Computer Use 完成。前置无效 outputs setup 400、第一轮无副作用 Bash/中途未完成截图均保留为非裁决红证据；strict 正向只执行 `search_tools → search_agent → get_agent`，最终字段表完整展示顶层 meta 与 activeVersion 全字段，Composer 在 message_stop 后恢复输入态。
+- 负向对不存在 `ag_0000000000000000` 只执行一次 `get_agent`，UI 显示 `agent not found`，无 retry/修改/运行。正负终帧 `evidence/tool-037-positive-final.png`、`tool-037-not-found.png` 已视觉复核；五通道摘要为 `evidence/tool-037-get-agent-session-summary.txt`。
+- 五通道：screen.mov `318.590000s`；LLM challenge/install/models 与 28 个 chat completion response 全 200；messages durable `1..74`、notifications `16..26`，三路均连接；backend 仅预期 setup 400、业务 not-found WARN 和清理 404，frontend 无红线。fixture DELETE=204/GET=404，三个 acceptance 对话逐个 DELETE=204/GET=404，SQLite `deleted_at` 对证。
+- 五级裁决 `TOOL-037=G1/F2/A5/C4/G2` 已由 `judge.py` 落账；三条统计警报复审并 ack 后 `clean (235 judgments)`。第五批新完成单格 **17 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-038 create_agent`。
+
+## 2026-08-01 18:30 · TOOL-036 收尾、TOOL-014/024 共享搜索原语复验恢复
+
+- `TOOL-014 search_function` 与 `TOOL-024 search_handler` 因共享 `ContentSearch` 修复先暂挂旧绿裁决；正式 session `/private/tmp/anselm-rig-formal-20260801-79/sessions/20260801-181753` 重新覆盖两者的命中、空 query、identifier-shaped no-match 六条路径。raw wire、UI 工具卡/表格、SQLite、三路 SSE、backend/frontend 和 343.531667 秒录屏一致，六张终帧已视觉复核，无新增产品缺陷。两格各恢复 `G1/F2/A5/C4/G2`。
+- `TOOL-036 search_agent` 使用 formal session 78 的固定后真实三路径证据恢复 `G1/F2/A5/C4/G2`：命中、空 query、`zzqvulon_78` no-match 均无假阳性；formal-76 的 embedding 假阳性仍作为红证据保留。三格裁决全部由 `judge.py` 落账，非手改 COVERAGE。
+- 裁决后 `alarms.py check` 打开 gap-too-fast/pass-burst/discovery-collapse；已分别以两 session 的录像时长、五通道证据、实际 identifier no-match 和旧红证据复审并 ack，最终 `clean (230 judgments)`。本批新完成单格只有 TOOL-036，累计 **16 / 50**；复验旧格不重复计数，未到 50 格，不跑统一长门禁、不提交。下一前线为 `TOOL-037 get_agent`。
+
+## 2026-08-01 18:16 · TOOL-036 search_agent 正式三路径完成、共享搜索原语待复验
+
+- 前一 session 77 只有 onboarding/fixture 生命周期，未裁决；本次固定修复后二次真实 App session `/private/tmp/anselm-rig-formal-20260801-78/sessions/20260801-181026` 才完成完整三路径。强制“只调用 search_agent、禁止其它工具”的提示被明确记录为台架约束红证据：lazy tool 必须先用 `search_tools` 激活，不能把不可能的提示当产品绿路径。
+- 正向自然语言找名：模型先激活搜索、再单次 `search_agent`，UI `Searched agent … · 1 found`，正文准确返回 fixture 名称和描述；空 query 浏览：UI `Searched tools → Listed agent · 2 found`，表格列出 fixture 与预置报表助手；不相交标识符 `zzqvulon_78`：UI `Searched agent … · no matches`，正文明确 0 条，不编造实体。终帧分别为 `evidence/tool-036-positive.png`、`tool-036-empty.png`、`tool-036-no-match.png`；三帧已视觉复核，无布局跳变、等待失控或错误文案。
+- 五通道：screen.mov `259.898333s`；LLM challenge/install/models 与 26 个 chat completion response 全 200；三路 SSE 各连接一次，messages 712 帧/durable `1..62` 连续，notifications 14 帧/durable `16..29` 连续，entities 无本切片业务帧但连接完整；backend 仅 200/201/202/204 和清理后的预期 404，无 panic/error/warn；frontend 无 Flutter/Dart/RenderFlex/Unhandled/SEVERE/Exception 红线。摘要：`evidence/tool-036-search-agent-session-summary.txt`。
+- 收尾：fixture `ag_b1add33b041e7cb1` DELETE=204、GET=404、SQLite `deleted_at` 对证；四个 acceptance 对话同样 DELETE=204、GET=404，预置演示对话未删除；所有进程已由 `rig-down.sh` 收口，录像、journal、LLM bodies/responses 保留。
+- **不立即裁决**：本格的修复触及共享 `ContentSearch` 语义原语；旧的 `search_function`、`search_handler` 等已绿格自动进入待复验队列。先做同类搜索的正向、空 query、identifier no-match 复验，再以完整证据一次性按 gate 落账。本批仍 **15 / 50**，不跑统一长门禁、不提交。
+
+## 2026-08-01 18:07 · TOOL-036 固定修复 session 收台、fixture 清理与 Goal 恢复检查
+
+- 固定修复后的 `search_agent` session `/private/tmp/anselm-rig-formal-20260801-77/sessions/20260801-180355` 已完成收台；`screen.mov` 为 `197.091667s`，后台 server、ssetap、llmtap、Flutter runner、window recorder 和 llama runtime 均无残留，五通道 journal 与录像完整保留。
+- 通过真实 API 删除 fixture `ag_c60a92bcc799a856` (`acceptance_search_agent_fixture_77`)；DELETE 返回 `204`，随后同 workspace GET 返回 `404 AGENT_NOT_FOUND`，SQLite 主行 `deleted_at=2026-08-01 10:07:35.611655+00:00`。当前 workspace 没有未删除的 acceptance 对话；清理回执保存在该 session 的 `evidence/tool-036-cleanup.txt`。
+- 该 session 尚未进入五级裁决：它用于承载 `TOOL-036 search_agent` 的修复后正式路径，需先补齐五通道摘要、审查旧搜索绿格因共享语义原语变更而产生的复验范围，再按 `judge.py` 落账；不能因 fixture 已删除就把它判绿。
+- Goal API 当前仍是 `blocked` 且没有 `blocked → active` 操作；没有创建重复 Goal、没有伪造 `complete`。盘上 `LOOP.md` 保持 `status: active`，清理完成后继续 `TOOL-036` 的证据审查，当前第五批仍 **15 / 50**。
+
+## 2026-08-01 17:58 · 第五批 TOOL-035 get_handler_call 收尾
+
+- 产品目的：用户从 Chat 打开一条具体 handler call 的完整审计记录，能看到 method、status、input、output、elapsedMs 和 logs；不存在记录时要给出可理解失败且不自动 retry。
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-75/sessions/20260801-174951` 先由真实 onboarding 创建 `Acceptance 75` workspace，再以 REST 构造 handler `hd_4b36bca467a9af7f` 和一条成功 `trace` 调用 `hcl_47cfc89610c56086`。该调用的 output 为 `{"count":1,"ok":true}`，logs 含 `trace-call-start`，SQLite 只有这一条调用审计。
+- 正向真实 Chat 只执行一次 `get_handler_call`，成功卡和最终报告均完整呈现字段与日志；负向真实 Chat 只执行一次不存在 ID `hcl_0000000000000000`，工具卡为 failed，最终报告为 `handler call not found` 并停止，无 retry/其它工具。正负终帧为 `evidence/tool-035-positive.png`、`evidence/tool-035-final.png`。
+- 五通道事实：screen.mov `173.071667s`；LLM 16 个响应全 200；SSE 169 帧，messages/entities/notifications 各连接一次，durable 分别 `1..28`、`1..4`、`1..5`；frontend 无 Flutter/Dart/RenderFlex/Unhandled/SEVERE/Exception/AXTree 红线；backend 仅一条预期 not-found WARN；REST、SQLite、UI、LLM wire 一致。摘要为 `evidence/tool-035-get-handler-call-session-summary.txt`。
+- 清理：handler DELETE=204 后 GET=404，conversation DELETE=204 后 GET=404；主行均写入 `deleted_at`，审计与全部证据 session 保留，无活跃 acceptance fixture。无代码缺陷，无修复提交。锚点校准通过，五级裁决 `G1/F2/A5/C4/G2` 已落账；`gap-too-fast`、`pass-burst`、`discovery-collapse` 均已写复审结论并 ack，`alarms.py check` 为 `clean (215 judgments)`。第五批当前 **15 / 50**，下一前线为 `TOOL-036`；未到 50 格，不跑统一长门禁、不提交。
+
+## 2026-08-01 17:47 · 第五批 TOOL-034 search_handler_calls 收尾、标量兼容修复
+
+- 前置 session `/private/tmp/anselm-rig-formal-20260801-72/sessions/20260801-172949` 不进入裁决：长提示让模型先执行辅助 todo 和多步 handler 操作，属于输入/场景污染；但其中的真实 REST/SQLite 数据真相、调用历史和完整五通道 journal 全部保留。session `/private/tmp/anselm-rig-formal-20260801-73/sessions/20260801-173722` 进一步暴露真实产品边界：托管模型首次把公开 integer 参数 `limit` 发为字符串 `"2"`，后端原实现返回类型错误，UI 出现可见红色失败卡，模型随后 retry；该 session 也只作红证据。
+- 前线冻结后按 `search_function_executions` 的既有兼容先例修复 `backend/internal/app/tool/handler/call.go`：公开 schema 仍为 integer，但执行边界接受缺省/null、原生整数和精确十进制字符串，拒绝浮点、数组、布尔、非数字和非正值；同步 `handler_test.go`、`docs/references/backend/domains/handler.md` 和 `testend/rig/extracts/tools.md`。定向 handler/function Go 测试、`make -C docs verify` 和 `git diff --check` 均通过。
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-74/sessions/20260801-174220` 由真实 App、受管网关、Computer Use 连续录屏、Flutter console、三路 SSE witness、LLM wire 和后端 journal 共同观察。wire 首次仍为 `{"handlerId":"…","limit":"2"}`，但直接成功；UI 只显示一张成功卡，表格呈现最新 failed/次新 ok、`nextCursor`、`hasMore` 和全匹配集 `okCount:2/failedCount:1`，无 retry、红卡、跳变或布局问题。
+- 收尾：backend 无未解释错误，frontend 无 Flutter/Dart/RenderFlex/Unhandled/SEVERE/Exception 红线，REST/SQLite 对证恰三条 setup 调用和正确分页聚合，三路 SSE durable 序列连续；fixture DELETE=204、GET=404，acceptance 对话 DELETE=204，证据 session 保留。五级裁决 `G1/F2/A5/C4/G2` 已落账；anchors 通过，`gap-too-fast` 与 `discovery-collapse` 已写复审说明并 ack，最终 `alarms.py check` 为 `clean (210 judgments)`。第五批当前 **10 / 50**，下一前线为 `TOOL-035 get_handler_call`；未到 50 格，不跑统一长门禁、不提交。
+
+## 2026-08-01 17:26 · 第五批 TOOL-033 restart_handler 收尾、输入污染隔离
+
+- 首个真实 App session `/private/tmp/anselm-rig-formal-20260801-70/sessions/20260801-171503` 不进入裁决：Computer Use 的 `type_text` 将中文用户约束丢失，只把 ASCII 关键词送入 LLM wire；模型因此额外调用了 3 次 `bump`、`edit_handler`、`update_handler_config`、代码 edit 和 `revert_handler`。画面、backend/SSE/frontend/LLM journal 全部保留在 `tool-033-scope-violation-summary.txt`，归类为台架输入污染红证据，不判作产品行为；污染 fixture 与对话随后已真实 DELETE 清理。
+- 改用 wire 可核对的 ASCII 约束后，正式 session `/private/tmp/anselm-rig-formal-20260801-71/sessions/20260801-172125` 严格执行五步：`search_handler` 一次、`call_handler(bump)` 两次、`restart_handler` 一次、`get_handler` 一次；没有任何越界工具、retry 或 Bash/REST。restart 前后 count 均为 1；active v1、method 签名、envStatus=ready、runtimeState=running 均不变。最终抽帧 `evidence/tool-033-final.png` 显示五行工具表和六行断言表，结论不泄漏 opaque machine value。
+- 五通道事实：screen.mov `177.958333s`；LLM 20 个响应全 HTTP 200，tool sequence 与 wire 一致；messages/entities/notifications durable 分别 `1..42`、`7..8`、`16..21` 连续无 gap；backend 无 WARN/ERROR/panic/fatal，frontend 无 Flutter/Dart/RenderFlex/Unhandled/SEVERE/Exception/AXTree 红线；SQLite 只有 v1 与两条成功 bump 调用审计。
+- 收尾清理：fixture DELETE=204、GET=404；acceptance 对话 DELETE=204，SQLite 均写入 `deleted_at`；证据 session 未删除，seed 正式 handler 未修改。锚点校准通过；五级裁决 `G1/F2/A5/C4/G2` 已落账。统计警报因近尾裁决间隔和 fail 占比触发，已用正式正证据与输入污染红证据复审并 ack；`alarms.py check` 为 clean(205 judgments)。第五批当前 **5 / 50**，下一前线为 `TOOL-034 search_handler_calls`。
+
 ## 2026-08-01 17:15 · 旧台架 acceptance fixture 全量清理、循环恢复
 
 - 对历史真实台架数据目录 `formal-33` 至 `formal-38` 逐目录启动隔离后端，使用真实 `DELETE /api/v1/handlers/{id}` 清理 7 个遗留 acceptance handler；每个目标随后用同 workspace `GET` 复核为 `404 HANDLER_NOT_FOUND`。SQLite 只保留不可变版本/调用审计，主行 `deleted_at` 已写入；证据 session、backend journal 和既有 COVERAGE 裁决未删除。

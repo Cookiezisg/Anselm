@@ -284,15 +284,22 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
         ),
     );
     _syncPin();
-    await _post(localId, trimmed, mentions, attachmentIds);
+    await _post(
+      localId,
+      trimmed,
+      mentions,
+      attachmentIds,
+      reconcileAcceptedFromHead: true,
+    );
   }
 
   Future<void> _post(
     String localId,
     String text,
     List<MentionSnapshot> mentions,
-    List<String> attachmentIds,
-  ) async {
+    List<String> attachmentIds, {
+    required bool reconcileAcceptedFromHead,
+  }) async {
     try {
       await _repo.sendMessage(
         conversationId,
@@ -300,6 +307,21 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
         attachmentIds: attachmentIds,
         mentions: [for (final m in mentions) (type: m.type, id: m.id)],
       );
+      // The first POST on a new thread can win the race against the scoped SSE subscription. The user
+      // row is durable even when its echo is missed, so reconcile from the REST head before leaving the
+      // optimistic bubble visible beside its real copy. Retry keeps its existing same-bubble semantics;
+      // its durable echo is reconciled by SSE/resync rather than changing the retry affordance here.
+      // 新线程首发可能先于 scope SSE 建立;即便回声丢失,user 行仍已耐久,用 REST 头收掉重复乐观泡。
+      // retry 保持原有同一气泡语义,由 SSE/重同步对账,不在这里改变 retry affordance。
+      if (!reconcileAcceptedFromHead) return;
+      if (!ref.mounted ||
+          !transcript.value.pending.any((p) => p.localId == localId)) {
+        return;
+      }
+      final page = await _repo.listMessages(conversationId, limit: _pageSize);
+      if (!ref.mounted) return;
+      transcript.mutate((t) => t..reconcilePendingWithDurableHead(page.items));
+      _syncPin();
     } catch (_) {
       if (!ref.mounted) return;
       transcript.mutate((t) => t..markPendingFailed(localId));
@@ -318,7 +340,13 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
       return t;
     });
     _syncPin();
-    await _post(localId, p.text, p.mentions, p.attachmentIds);
+    await _post(
+      localId,
+      p.text,
+      p.mentions,
+      p.attachmentIds,
+      reconcileAcceptedFromHead: false,
+    );
   }
 
   /// Drop a failed bubble. 丢弃失败泡。

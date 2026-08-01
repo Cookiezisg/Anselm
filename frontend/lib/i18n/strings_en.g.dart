@@ -4233,6 +4233,9 @@ class Translations$feedback$cast$en {
 	/// en: 'Draft unsaved · nothing was created'
 	String get ribbonFailedCreate => 'Draft unsaved · nothing was created';
 
+	/// en: 'Run failed · inspect the error below'
+	String get ribbonFailedRun => 'Run failed · inspect the error below';
+
 	/// en: 'AI awaits your decision →'
 	String get gatePill => 'AI awaits your decision →';
 
@@ -8105,6 +8108,7 @@ extension on Translations {
 			'feedback.cast.ribbonGap' => 'Stream gap · trust the execution record',
 			'feedback.cast.ribbonFailed' => 'Draft unsaved · truth is still the last version',
 			'feedback.cast.ribbonFailedCreate' => 'Draft unsaved · nothing was created',
+			'feedback.cast.ribbonFailedRun' => 'Run failed · inspect the error below',
 			'feedback.cast.gatePill' => 'AI awaits your decision →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
 			'feedback.cast.tombstone' => 'Deleted',
@@ -8115,9 +8119,9 @@ extension on Translations {
 			'feedback.cast.verb.created' => 'Created',
 			'feedback.cast.verb.edited' => 'Edited',
 			'feedback.cast.verb.viewed' => 'Viewed',
-			'feedback.cast.verb.executed' => 'Ran',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.executed' => 'Ran',
 			'feedback.cast.verb.attached' => 'Attached',
 			'feedback.cast.verb.deleted' => 'Deleted',
 			'feedback.cast.verb.unknown' => 'Touched',
@@ -8629,9 +8633,9 @@ extension on Translations {
 			'library.slash.code' => 'Code block',
 			'library.slash.table' => 'Table',
 			'library.slash.media' => 'Media',
-			'library.slash.divider' => 'Divider',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.divider' => 'Divider',
 			'library.slash.todo' => 'To-do',
 			'library.linkHint' => 'Type or paste a link, Enter to apply',
 			'library.table.insertRowAbove' => 'Insert row above',
@@ -9143,6 +9147,8 @@ extension on Translations {
 			'attach.pauseVideo' => 'Pause video',
 			'attach.replayVideo' => 'Replay',
 			'attach.enterFullscreen' => 'Fullscreen',
+			_ => null,
+		} ?? switch (path) {
 			'attach.remove' => 'Remove',
 			_ => null,
 		};

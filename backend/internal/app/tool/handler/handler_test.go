@@ -328,6 +328,34 @@ func TestHandlerTools_Wiring(t *testing.T) {
 	}
 }
 
+func TestSearchHandlerCalls_DescriptionStatesPagingShape(t *testing.T) {
+	d := (&SearchHandlerCalls{}).Description()
+	for _, want := range []string{"JSON integer", `exact decimal string "2"`, "nextCursor verbatim"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("search_handler_calls description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestSearchHandlerCallsArgs_AcceptsStringifiedLimit(t *testing.T) {
+	var args searchHandlerCallsArgs
+	if err := json.Unmarshal([]byte(`{"handlerId":"hd_1","limit":"2","cursor":"c1"}`), &args); err != nil {
+		t.Fatalf("stringified integer limit should be accepted: %v", err)
+	}
+	if args.Limit != 2 || args.Cursor != "c1" {
+		t.Fatalf("decoded args = %+v, want limit 2 and cursor c1", args)
+	}
+}
+
+func TestSearchHandlerCallsArgs_RejectsNonIntegerLimit(t *testing.T) {
+	for _, raw := range []string{`2.5`, `[]`, `"two"`} {
+		var args searchHandlerCallsArgs
+		if err := json.Unmarshal([]byte(`{"handlerId":"hd_1","limit":`+raw+`}`), &args); err == nil {
+			t.Errorf("limit %s should be rejected", raw)
+		}
+	}
+}
+
 func TestValidateInput_RequiredFields(t *testing.T) {
 	cases := []struct {
 		name    string

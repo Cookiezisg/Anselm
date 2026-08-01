@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
@@ -16,21 +17,62 @@ import (
 
 type RevertAgent struct{ svc *agentapp.Service }
 
+// revertAgentArgs keeps the public schema's integer version while accepting the exact
+// integer-string encoding emitted by some hosted models. No other coercion is allowed.
+//
+// revertAgentArgs 保持公开 schema 的 integer，同时兼容部分托管模型发出的整数串编码；不做其他隐式转换。
+type revertAgentArgs struct {
+	AgentID string
+	Version int
+}
+
+func (a *revertAgentArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		AgentID string          `json:"agentId"`
+		Version json.RawMessage `json:"version"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	version, err := decodeRevertAgentVersion(raw.Version)
+	if err != nil {
+		return fmt.Errorf("version: %w", err)
+	}
+	*a = revertAgentArgs{AgentID: raw.AgentID, Version: version}
+	return nil
+}
+
+func decodeRevertAgentVersion(raw json.RawMessage) (int, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer, got %q", text)
+	}
+	return value, nil
+}
+
 func (t *RevertAgent) Name() string { return "revert_agent" }
 
 func (t *RevertAgent) Description() string {
-	return "Revert an agent's active version to an existing older version number (does not renumber). Use when a recent edit made it worse — the version history is the undo. Note: name, description and tags are NOT versioned (they live on the agent), so a revert restores only the versioned config (prompt/tools/knowledge/skill/inputs/outputs/model) and leaves name/description/tags unchanged — use update_agent_meta to also change those."
+	return "Revert an agent's active version to an existing older version number (does not renumber). The required JSON keys are exactly agentId (the ag_ id) and version (an integer; an integer string is also accepted). Use when a recent edit made it worse — the version history is the undo. Note: name, description and tags are NOT versioned (they live on the agent), so a revert restores only the versioned config (prompt/tools/knowledge/skill/inputs/outputs/model) and leaves name/description/tags unchanged — use update_agent_meta to also change those."
 }
 
 func (t *RevertAgent) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","required":["agentId","version"],"properties":{"agentId":{"type":"string"},"version":{"type":"integer","description":"Target version number to make active."}}}`)
+	return json.RawMessage(`{"type":"object","required":["agentId","version"],"properties":{"agentId":{"type":"string","description":"Required. The exact ag_ agent id."},"version":{"type":"integer","description":"Required target version number to make active. Send a JSON integer, not a name."}}}`)
 }
 
 func (t *RevertAgent) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		AgentID string `json:"agentId"`
-		Version int    `json:"version"`
-	}
+	var a revertAgentArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("revert_agent: bad args: %w", err)
 	}
@@ -41,10 +83,7 @@ func (t *RevertAgent) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *RevertAgent) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var a struct {
-		AgentID string `json:"agentId"`
-		Version int    `json:"version"`
-	}
+	var a revertAgentArgs
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("revert_agent: bad args: %w", err)
 	}
@@ -65,7 +104,7 @@ type DeleteAgent struct {
 func (t *DeleteAgent) Name() string { return "delete_agent" }
 
 func (t *DeleteAgent) Description() string {
-	return "Delete an agent (soft-delete). Its relation edges to mounted skill/doc/fn/hd/mcp are removed; its execution history is retained. The result reports how many other entities referenced it (e.g. workflow agent-nodes) and may now fail — to check dependents BEFORE deleting, use get_relations."
+	return "Delete an agent (soft-delete). Its execution history is retained and every relation edge touching it is removed. The JSON result is authoritative: removedRelationEdges is the exact pre-delete edge snapshot; dependents, when present, are only incoming equip/link references that may now fail. Never infer or invent edge types, counts, or IDs that are not present in the result. If relationAudit is unavailable, say the exact edge audit was unavailable."
 }
 
 func (t *DeleteAgent) Parameters() json.RawMessage {
@@ -93,10 +132,22 @@ func (t *DeleteAgent) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("delete_agent: bad args: %w", err)
 	}
 	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindAgent, a.AgentID)
+	edges, auditOK := toolapp.RelationEdgeRefs(ctx, t.deps, relationdomain.EntityKindAgent, a.AgentID)
 	if err := t.svc.Delete(ctx, a.AgentID); err != nil {
 		return "", fmt.Errorf("delete_agent: %w", err)
 	}
-	return fmt.Sprintf("Deleted agent %q.", a.AgentID) + toolapp.DependentSuffix(deps), nil
+	out := map[string]any{
+		"agentId":          a.AgentID,
+		"deleted":          true,
+		"executionHistory": "retained",
+	}
+	if auditOK {
+		out["removedRelationEdges"] = edges
+		out["removedRelationCount"] = len(edges)
+	} else {
+		out["relationAudit"] = "unavailable"
+	}
+	return toolapp.ToJSON(toolapp.AnnotateDependents(out, deps)), nil
 }
 
 // --- invoke_agent ----------------------------------------------------------

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode"
 	"unicode/utf8"
 
 	"go.uber.org/zap"
@@ -385,6 +386,17 @@ func isEmbeddingInputTooLarge(err error) bool {
 // fuseSemantic 用 RRF（k=60）把词法 chunk 命中与 workspace 向量的余弦 top-K 融合。
 // 任何失败原样返回词法列表——混合是增强，绝不是依赖。
 func (s *Service) fuseSemantic(ctx context.Context, q *searchdomain.Query, lex []*searchdomain.DocHit) []*searchdomain.DocHit {
+	// Identifier-shaped queries are exact/lexical lookups, not semantic prose. The builtin
+	// embedder has a high baseline for opaque tokens such as `ag_xxx` or `zzqvulon_76`; allowing
+	// vector-only hits there turns an unknown ID into a plausible but wrong entity. Keep semantic
+	// enrichment when lexical evidence exists, and keep natural-language semantic-only recall.
+	//
+	// 标识符形查询是精确/词法查找，不是语义 prose。内置 embedder 对 `ag_xxx`、`zzqvulon_76`
+	// 等不透明 token 的基线相似度偏高；此时放行纯向量命中会把未知 ID 伪装成看似合理但错误的实体。
+	// 有词法证据时仍允许语义补充；普通自然语言的纯语义召回仍保留。
+	if len(lex) == 0 && isIdentifierShapedQuery(q.Q) {
+		return lex
+	}
 	prov := s.provider(ctx)
 	if prov == nil {
 		return lex
@@ -462,6 +474,26 @@ func (s *Service) fuseSemantic(ctx context.Context, q *searchdomain.Query, lex [
 		return out[i].DocID < out[j].DocID
 	})
 	return out
+}
+
+// isIdentifierShapedQuery recognizes opaque lookup tokens whose semantics must not be guessed.
+// This is intentionally narrow: underscores, path-like separators, or digits are strong signals
+// for IDs/keys, while ordinary natural-language queries remain eligible for semantic-only recall.
+//
+// isIdentifierShapedQuery 识别不应猜语义的 opaque 查找 token。规则刻意收窄：下划线、路径分隔符或数字
+// 是 ID/key 的强信号；普通自然语言仍可走纯语义召回。
+func isIdentifierShapedQuery(raw string) bool {
+	for _, token := range strings.Fields(raw) {
+		if strings.ContainsAny(token, "_/:\\") {
+			return true
+		}
+		for _, r := range token {
+			if unicode.IsDigit(r) {
+				return true
+			}
+		}
+	}
+	return false
 }
 
 // matchesFilters re-applies Query filters to a hydrated row (the cosine path

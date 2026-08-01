@@ -110,14 +110,26 @@ func TestStore_ExecutionsPagingAggregates(t *testing.T) {
 		e := &agentdomain.Execution{
 			ID: fmt.Sprintf("agx_%d", i), AgentID: "ag_1", VersionID: "agv_1",
 			Status: st, TriggeredBy: "chat", StartedAt: now, EndedAt: now, CreatedAt: now,
+			Transcript: []byte(`[{"type":"text","content":"private audit"}]`),
 		}
 		if err := s.SaveExecution(ctx, e); err != nil {
 			t.Fatalf("save exec: %v", err)
 		}
+		time.Sleep(time.Millisecond)
 	}
-	rows, _, err := s.ListExecutions(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1"})
-	if err != nil || len(rows) != 3 {
-		t.Fatalf("list: %v %d", err, len(rows))
+	rows, next, err := s.ListExecutions(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1", Limit: 2})
+	if err != nil || len(rows) != 2 || next == "" {
+		t.Fatalf("page 1: %v rows=%d next=%q", err, len(rows), next)
+	}
+	if rows[0].ID == rows[1].ID || len(rows[0].Transcript) != 0 || len(rows[1].Transcript) != 0 {
+		t.Fatalf("list page must be slim and unique: %#v", rows)
+	}
+	page2, finalCursor, err := s.ListExecutions(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1", Limit: 2, Cursor: next})
+	if err != nil || len(page2) != 1 || finalCursor != "" {
+		t.Fatalf("page 2: %v rows=%d cursor=%q", err, len(page2), finalCursor)
+	}
+	if page2[0].ID == rows[0].ID || page2[0].ID == rows[1].ID {
+		t.Fatalf("pages overlap at cursor boundary: page1=%v page2=%v", []string{rows[0].ID, rows[1].ID}, []string{page2[0].ID})
 	}
 	agg, err := s.ComputeExecutionAggregates(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1"})
 	if err != nil || agg.OKCount != 2 || agg.FailedCount != 1 {

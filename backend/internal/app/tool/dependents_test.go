@@ -20,6 +20,9 @@ func (f fakeCounter) CountDependents(context.Context, string, string) (int, erro
 func (f fakeCounter) ListDependents(context.Context, string, string) ([]*relationdomain.Relation, error) {
 	return f.edges, f.err
 }
+func (f fakeCounter) ListTouching(context.Context, string, string) ([]*relationdomain.Relation, error) {
+	return f.edges, f.err
+}
 
 func twoDeps() []*relationdomain.Relation {
 	return []*relationdomain.Relation{
@@ -39,6 +42,21 @@ func TestDependentRefs_NilAndErrorSafe(t *testing.T) {
 	}
 	if got := DependentRefs(ctx, fakeCounter{err: errors.New("db down")}, "function", "fn_1"); got != nil {
 		t.Fatalf("counter error = %v, want nil (advisory; delete must not fail)", got)
+	}
+}
+
+func TestRelationEdgeRefs_DistinguishesUnavailableFromEmpty(t *testing.T) {
+	ctx := context.Background()
+	refs, ok := RelationEdgeRefs(ctx, fakeCounter{edges: twoDeps()}, "agent", "ag_1")
+	if !ok || len(refs) != 2 || refs[0]["fromKind"] != "agent" {
+		t.Fatalf("refs = %v, ok=%v, want the full edge snapshot", refs, ok)
+	}
+	empty, ok := RelationEdgeRefs(ctx, fakeCounter{}, "agent", "ag_1")
+	if !ok || len(empty) != 0 {
+		t.Fatalf("empty snapshot = %v, ok=%v, want empty and available", empty, ok)
+	}
+	if _, ok := RelationEdgeRefs(ctx, nil, "agent", "ag_1"); ok {
+		t.Fatal("nil reader must report an unavailable audit")
 	}
 }
 

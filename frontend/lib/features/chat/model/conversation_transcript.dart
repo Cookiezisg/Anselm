@@ -244,24 +244,44 @@ class ConversationTranscript {
   /// 在此消费:在飞(非失败)泡按 FIFO 与 settled **尾部** user 回合按原文匹配(只看尾部——深历史合理
   /// 重复短语,刚落的发送按构造必在尾部)。失败泡保留(retry/discard 不动)。
   void _reconcilePendingWithSettled() {
+    _reconcilePendingWithUserTexts(
+      settled.reversed
+          .where((n) => turnRole(n) == 'user')
+          .map((n) => turnText(n).trim()),
+    );
+  }
+
+  /// Reconcile an accepted send against a REST head without rebuilding the live layer. A first send on
+  /// a newly created conversation can be accepted before its scoped SSE subscription is live; the POST
+  /// is durable, but its user echo is then missed. The controller uses this narrow fallback after POST.
+  ///
+  /// 对已接受的发送用 REST 头对账,不重建 live 层。新会话首发可能在 scope SSE 建立前已被 POST 接收:
+  /// user 行已耐久但回声丢失;控制器在 POST 后用这条窄兜底收掉乐观泡。
+  void reconcilePendingWithDurableHead(List<ChatMessage> newestFirst) {
+    _reconcilePendingWithUserTexts(
+      newestFirst
+          .where((m) => m.role == 'user' && _isTerminal(m.status))
+          .map((m) => turnText(hydrateTurn(m)).trim()),
+    );
+  }
+
+  void _reconcilePendingWithUserTexts(Iterable<String> userTexts) {
     final inFlight = pending.where((p) => !p.failed).length;
     if (inFlight == 0) return;
-    // The trailing window: enough user turns to cover every in-flight bubble, plus slack for the
-    // assistant replies interleaved between them. 尾窗:覆盖全部在飞泡的 user 回合数+穿插余量。
+    // The trailing window covers every in-flight bubble plus slack for interleaved assistant replies.
+    // 尾窗覆盖全部在飞泡,并为穿插的 assistant 回合留余量。
     final tailTexts = <String, int>{};
     var seen = 0;
-    for (var i = settled.length - 1; i >= 0 && seen < inFlight + 2; i--) {
-      final n = settled[i];
-      if (turnRole(n) != 'user') continue;
-      final txt = turnText(n).trim();
-      tailTexts[txt] = (tailTexts[txt] ?? 0) + 1;
+    for (final text in userTexts) {
+      if (seen >= inFlight + 2) break;
+      tailTexts[text] = (tailTexts[text] ?? 0) + 1;
       seen++;
     }
     pending.removeWhere((p) {
       if (p.failed) return false;
-      final c = tailTexts[p.text] ?? 0;
-      if (c > 0) {
-        tailTexts[p.text] = c - 1;
+      final count = tailTexts[p.text] ?? 0;
+      if (count > 0) {
+        tailTexts[p.text] = count - 1;
         return true;
       }
       return false;
@@ -350,6 +370,13 @@ class ConversationTranscript {
   /// Fold one stream frame; reconcile a durable user echo against the oldest pending bubble.
   /// 折一帧;durable 用户回声对账最老乐观泡。
   void applyFrame(StreamEnvelope env) {
+    // Hydration and the scoped stream intentionally overlap: a durable frame can be buffered while
+    // REST loads the same terminal row. The row already lives in [settled], so folding that frame into
+    // [_live] would render one message twice across the layer boundary. Terminal settled rows never
+    // receive later updates; skip only this exact durable block id and keep the live seed path intact.
+    // 水化与 scoped stream 刻意重叠:REST 正在加载同一终态行时,durable 帧可能先入缓冲。该行已在 settled,
+    // 再折进 live 就会跨层渲两遍。终态 settled 行不会再有后续更新,只跳过同一 durable block id,保留在飞种子。
+    if (env.durable && _settledContainsId(env.id)) return;
     _live.apply(env);
     // A Subagent tool_call opening/closing is the ONLY live event that changes the subagent
     // structure (the open frame carries the tool name — the stage director routes on it the same
@@ -402,6 +429,21 @@ class ConversationTranscript {
         ],
       };
     }
+  }
+
+  bool _settledContainsId(String id) {
+    bool walk(BlockNode node) {
+      if (node.id == id) return true;
+      for (final child in node.children) {
+        if (walk(child)) return true;
+      }
+      return false;
+    }
+
+    for (final root in settled) {
+      if (walk(root)) return true;
+    }
+    return false;
   }
 
   /// Drop the live layer (410 resync: the caller refetches the head via [setHistory], which re-seeds any

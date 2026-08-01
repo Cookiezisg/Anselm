@@ -12,7 +12,7 @@
 
 | 通道 | 载体 | journal |
 |---|---|---|
-| ① 帧 | Computer Use 操作/截图 + conductor 绑定 Anselm 窗口的 `screencapture -v -l` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
+| ① 帧 | Computer Use 操作/稳定态截图 + conductor 绑定 Anselm 窗口的 `screencapture -v -l` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
 | ② 后端 | conductor 亲启的 sidecar,stdout 全量捕获 | `backend.log` |
 | ③ SSE | `cmd/ssetap` 动态发现全部 workspace 并独立订三条流(不经前端 demux) | `sse.jsonl` |
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
@@ -20,6 +20,11 @@
 
 所有会话落 `~/.anselm-rig/sessions/<时间戳>/`；conductor 初始化 `evidence/` 与各 channel journal，
 截图等证据可以直接写入该目录。`~/.anselm-rig/current` 软链指认活会话，`manifest.json` 是其余脚本唯一读的连接事实。
+
+Computer Use 的 macOS AX 树读取只在稳定态做；流式期间由连续 `screen.mov` 负责逐帧证据。原因是 Flutter
+debug engine 在 AX 树正被替换时可能输出 `accessibility_bridge.cc ... Failed to update ui::AXTree`，这是观察器/引擎
+交互噪声，但仍属于未审阅前端红线：`rig-check` 会拒绝它，证据必须另行说明「流中不读 AX、静置不增长、无
+FlutterError/DartError/RenderFlex」后才可把它从产品缺陷中分流，不能用 grep 静默抹掉。
 
 ## 起 / 检 / 停
 

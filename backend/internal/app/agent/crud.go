@@ -19,11 +19,12 @@ import (
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
-// Config is the mutable agent configuration carried by create/edit (a full snapshot — edit
-// REPLACES, it does not merge). It maps 1:1 onto an AgentVersion's mounted fields.
+// Config is the mutable agent configuration carried by create/edit. The HTTP :edit endpoint
+// receives a full snapshot; the LLM edit_agent tool merges its partial patch before calling Edit.
+// It maps 1:1 onto an AgentVersion's mounted fields.
 //
-// Config 是 create/edit 携带的可变 agent 配置（全量快照——edit 是替换、非合并）。1:1 映射到
-// AgentVersion 的挂载字段。
+// Config 是 create/edit 携带的可变 agent 配置。HTTP :edit 接收全量快照；LLM edit_agent 工具
+// 会先合并部分 patch 再调用 Edit。它 1:1 映射到 AgentVersion 的挂载字段。
 type Config struct {
 	Prompt        string
 	Skill         string
@@ -45,9 +46,11 @@ type CreateInput struct {
 	Config
 }
 
-// EditInput is the edit payload: target id + the new full Config (becomes version max+1).
+// EditInput is the service edit payload: target id + the full Config to persist as version max+1.
+// The LLM tool is responsible for merging its partial request before constructing this input.
 //
-// EditInput 是 edit 载荷：目标 id + 新的完整 Config（成为版本 max+1）。
+// EditInput 是 service edit 载荷：目标 id + 要持久化为新版本的完整 Config。
+// LLM 工具在构造此输入前负责合并它收到的部分请求。
 type EditInput struct {
 	ID string
 	Config

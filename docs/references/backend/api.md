@@ -97,7 +97,7 @@ audience: [human, ai]
 | `POST /agents/{id}:iterate` | 打开 AI 构建 Conversation |
 | `GET /agents/{id}/versions[/{version}]` | 版本分页/单读 |
 | `GET /agents/{id}/mount-health` | 全部 tool/knowledge 挂载健康 |
-| `GET /agents/{id}/executions` | Execution 分页与 aggregates |
+| `GET /agents/{id}/executions` | Execution 轻量分页与 aggregates（列表不带 transcript；`nextCursor` 原样续传） |
 | `GET /agent-executions/{id}` | 单条 Execution，含 transcript |
 
 ## 4. Workflow execution

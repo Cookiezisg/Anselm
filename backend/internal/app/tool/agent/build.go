@@ -54,7 +54,7 @@ type CreateAgent struct{ svc *agentapp.Service }
 func (t *CreateAgent) Name() string { return "create_agent" }
 
 func (t *CreateAgent) Description() string {
-	return "Build a new agent — a configured LLM worker that runs a ReAct loop. It writes no code; it mounts capabilities by reference: a prompt, an optional skill, knowledge documents, and tools (fn_/hd_/mcp refs). v1 takes effect immediately (no separate accept). Build an agent (not a function) when the task needs LLM reasoning/judgement across multiple tool calls; build a function for deterministic code."
+	return "Build a new agent — a configured LLM worker that runs a ReAct loop. It writes no code; it mounts capabilities by reference: a prompt, an optional skill, knowledge documents, and tools (fn_/hd_/mcp refs). v1 takes effect immediately (no separate accept). Build an agent (not a function) when the task needs LLM reasoning/judgement across multiple tool calls; build a function for deterministic code. If the user supplies description or tags, you MUST pass those fields exactly in this call; never silently omit explicit metadata. They are optional only when the user did not provide them."
 }
 
 func (t *CreateAgent) Parameters() json.RawMessage {
@@ -63,8 +63,8 @@ func (t *CreateAgent) Parameters() json.RawMessage {
 		"required": ["name", "prompt"],
 		"properties": {
 			"name": {"type": "string", "description": "Unique agent name."},
-			"description": {"type": "string", "description": "One-line role summary."},
-			"tags": {"type": "array", "items": {"type": "string"}},` + configProps + `
+			"description": {"type": "string", "description": "One-line role summary. If the user supplied one, pass it exactly; never omit it."},
+			"tags": {"type": "array", "items": {"type": "string"}, "description": "Tags supplied by the user. Pass them exactly; never silently omit explicit tags."},` + configProps + `
 		}
 	}`)
 }

@@ -289,6 +289,20 @@ void main() {
 
   group('optimistic FIFO reconcile', () {
     test(
+      'an accepted REST head consumes a bubble when its SSE echo was missed',
+      () {
+        final t = ConversationTranscript('cv_1')..setHistory(const []);
+        t.addPending(PendingSend(localId: 'l1', text: '首条消息'));
+
+        t.reconcilePendingWithDurableHead([
+          _turn('msg_u', 'user', blocks: [_blk('text', 'text', '首条消息')]),
+        ]);
+
+        expect(t.pending, isEmpty);
+      },
+    );
+
+    test(
       'the durable user echo consumes the oldest bubble and inherits its mentions',
       () {
         final t = ConversationTranscript('cv_1')..setHistory(const []);
@@ -316,6 +330,31 @@ void main() {
           mentions.single.name,
           'bot',
         ); // local mentions merged (echo carries none) 本地快照并入
+      },
+    );
+
+    test(
+      'a buffered durable echo already hydrated in settled does not create a live duplicate',
+      () {
+        final t = ConversationTranscript('cv_1')
+          ..addPending(PendingSend(localId: 'l1', text: '首条消息'))
+          ..setHistory([
+            _turn('msg_u', 'user', blocks: [_blk('text', 'text', '首条消息')]),
+          ]);
+
+        // This is the prelude that arrived while REST hydration was in flight.
+        t.applyFrame(_open('msg_u', 'message', content: {'role': 'user'}));
+        t.applyFrame(
+          _close(
+            'msg_u',
+            result: {'role': 'user', 'content': '首条消息'},
+            type: 'message',
+          ),
+        );
+
+        expect(t.pending, isEmpty);
+        expect(t.turns.map((n) => n.id), ['msg_u']);
+        expect(t.liveTurns, isEmpty);
       },
     );
 

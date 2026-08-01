@@ -199,6 +199,21 @@ void main() {
   );
 
   test(
+    'send: accepted POST reconciles from REST when the scoped echo is missed',
+    () async {
+      final (c, repo) = _setup(messages: {'cv_1': []});
+      c.listen(conversationStreamProvider('cv_1'), (_, _) {});
+      await pumpEventQueue();
+      final ctl = c.read(conversationStreamProvider('cv_1').notifier);
+
+      await ctl.send('首条消息');
+
+      expect(repo.lastSend?.content, '首条消息');
+      expect(ctl.transcript.value.pending, isEmpty);
+    },
+  );
+
+  test(
     'send failure marks the bubble failed; retry re-posts; discard drops it',
     () async {
       final (c, repo) = _setup(messages: {'cv_1': []});

@@ -461,6 +461,22 @@ void main() {
     },
   );
 
+  testWidgets('G3: an execution failure never wears draft/version truth', (
+    tester,
+  ) async {
+    final repo = _repo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump();
+    repo.emitFrame(_conv, _open('b1', 'invoke_agent'));
+    await tester.pump(const Duration(milliseconds: 600));
+    repo.emitFrame(_conv, _close('b1', status: 'error'));
+    await tester.pump();
+
+    expect(find.text(t.feedback.cast.ribbonFailedRun), findsOneWidget);
+    expect(find.text(t.feedback.cast.ribbonFailed), findsNothing);
+    expect(find.text(t.feedback.cast.ribbonFailedCreate), findsNothing);
+  });
+
   testWidgets(
     'G7: a user-opened CHANNEL row survives its own itemId resolving (key migration for every view)',
     (tester) async {

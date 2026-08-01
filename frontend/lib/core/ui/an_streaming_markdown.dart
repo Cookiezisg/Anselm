@@ -166,13 +166,26 @@ class _AnStreamingMarkdownState extends State<AnStreamingMarkdown> {
     if (!_isAppend(text)) _reset();
     _advance(text);
     final tail = text.substring(_settledChars);
-    if (_settled.isEmpty) return AnMarkdown(tail, prose: widget.prose);
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ..._settled,
-        if (tail.trim().isNotEmpty) AnMarkdown(tail, prose: widget.prose),
-      ],
+    final visual = _settled.isEmpty
+        ? AnMarkdown(tail, prose: widget.prose)
+        : Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              ..._settled,
+              if (tail.trim().isNotEmpty) AnMarkdown(tail, prose: widget.prose),
+            ],
+          );
+
+    // macOS' AX bridge cannot safely reconcile a markdown subtree whose text node is replaced on every
+    // streaming delta. Keep one semantic node stable and let the visual markdown remain disposable; the
+    // settled transcript switches back to the full interactive semantics of AnMarkdown. 流式每个 delta
+    // 都替换 markdown 子树时 macOS AX bridge 会撞到已移除的 node id;稳定外层语义节点,视觉子树可替换。
+    final label = text.trim();
+    if (label.isEmpty) return visual;
+    return Semantics(
+      container: true,
+      label: label,
+      child: ExcludeSemantics(child: visual),
     );
   }
 }

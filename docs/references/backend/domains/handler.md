@@ -66,6 +66,10 @@ canonical 形状为准，近似拼写、未知字段或空 patch 不因此获得
 `revert_handler` 的 `version` 公开仍是 integer；执行边界额外接受只包含十进制整数的
 字符串，以兼容 hosted model 的标量字符串化。小数、数组、布尔、文字和非正数仍拒绝。
 
+`search_handler_calls` 的 `limit` 公开仍是 integer；执行边界同样接受精确十进制整数
+字符串，以避免托管模型的标量字符串化把一次只读查询变成用户可见的失败重试。小数、
+数组、布尔和非数字字符串仍拒绝；`cursor` 必须原样传回 `nextCursor`。
+
 ## 3. 配置
 
 Config 以 AES-GCM 整 blob 存储。Update 使用 JSON Merge Patch，`null` 删除

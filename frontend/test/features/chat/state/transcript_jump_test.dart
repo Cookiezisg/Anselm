@@ -211,15 +211,17 @@ void main() {
         await pumpEventQueue();
         final ctl = c.read(conversationStreamProvider('cv_1').notifier);
 
-        // A send whose echo never arrives (the 410 gap ate it)… 回声被 410 缺口吃掉的发送。
+        // A send whose echo never arrives (the 410 gap ate it) is reconciled from the REST head
+        // immediately after POST, before the resync signal is delivered. 回声被 410 缺口吃掉时,
+        // POST 成功后先从 REST 头立即对账,不让重复乐观泡停留在画面上。
         await ctl.send('缺口里的发送');
         await pumpEventQueue();
-        expect(ctl.transcript.value.pending.length, 1);
-        expect(ctl.transcript.value.hasInFlight, isTrue);
+        expect(ctl.transcript.value.pending, isEmpty);
+        expect(ctl.transcript.value.hasInFlight, isFalse);
 
-        // …but it DID land server-side (the fixture's send writes the row; the echo frame never
-        // came). The resync re-hydrate must consume the bubble off the terminal settled turn.
-        // 但它落了盘(fixture 发送即落行;回声帧没来)。重同步重拉须凭终态 settled 回合消费泡。
+        // It DID land server-side (the fixture's send writes the row; the echo frame never came).
+        // A later resync remains idempotent and must not create a duplicate user turn.
+        // 它确实落盘;后续重同步仍须幂等,不能再造一条重复 user 回合。
         repo.emitResync();
         await pumpEventQueue();
 
@@ -242,9 +244,11 @@ void main() {
         );
 
         // A FAILED bubble with the same text is NOT touched (retry/discard must survive). 失败泡不动。
-        await ctl.send('失败的发送');
-        await pumpEventQueue();
-        ctl.transcript.value.pending.single.failed = true;
+        ctl.transcript.mutate(
+          (t) => t
+            ..addPending(PendingSend(localId: 'failed_1', text: '失败的发送'))
+            ..markPendingFailed('failed_1'),
+        );
         repo.emitResync();
         await pumpEventQueue();
         expect(

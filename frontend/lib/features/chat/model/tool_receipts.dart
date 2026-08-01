@@ -393,6 +393,10 @@ Dependents? parseDependents(String output) {
 
 /// Parse delete_agent's STRING tail `… [ag_1 fn_2 …]` (kinds derived from the S15 prefix). 字符串形依赖。
 Dependents? parseAgentDependents(String output) {
+  // delete_agent now returns the same structured dependency shape as the other delete tools.
+  // Keep the legacy string-tail parser for old transcripts and imported showcase data.
+  final decoded = _obj(output);
+  if (decoded != null) return parseDependents(output);
   final m = RegExp(r'\[([^\]]*)\]').firstMatch(output);
   if (m == null) return null;
   final ids = m

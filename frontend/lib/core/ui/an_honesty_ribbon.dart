@@ -21,6 +21,9 @@ enum AnHonesty {
 
   /// A create draft failed to save — no entity was created. 新建草稿未保存,没有创建实体。
   failedCreate,
+
+  /// An execution failed — there is no draft or previous entity version to imply. 执行失败,不暗示草稿或上一版。
+  failedRun,
 }
 
 /// The HONESTY RIBBON — a hairline banner above the stage window that never lets a live painting be
@@ -54,6 +57,11 @@ class AnHonestyRibbon extends StatelessWidget {
         c.danger,
         c.dangerSoft,
         t.feedback.cast.ribbonFailedCreate,
+      ),
+      AnHonesty.failedRun => (
+        c.danger,
+        c.dangerSoft,
+        t.feedback.cast.ribbonFailedRun,
       ),
     };
     return Container(

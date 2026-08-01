@@ -203,6 +203,41 @@ func (s *Service) CountDependents(ctx context.Context, kind, id string) (int, er
 	return len(edges), nil
 }
 
+// ListTouching returns every raw relation edge touching (kind,id), on either side.
+// Delete tools use this as a best-effort pre-delete audit because PurgeEntity removes
+// the edges before the result is rendered. Unlike ListDependents, this includes the
+// entity's own mounts and create/edit provenance as well as incoming dependencies.
+//
+// ListTouching 返回触及 (kind,id) 任一端的全部原始 relation 边。删除工具在 purge 前做
+// best-effort 审计，因为 PurgeEntity 会先删边；与 ListDependents 不同，它包含本实体的
+// 出向挂载、create/edit 溯源和入向依赖。
+func (s *Service) ListTouching(ctx context.Context, kind, id string) ([]*relationdomain.Relation, error) {
+	if err := validateEntityRef(kind, id); err != nil {
+		return nil, fmt.Errorf("relationapp.ListTouching: %w", err)
+	}
+	outgoing, err := s.repo.ListByFromAndKinds(ctx, kind, id, nil)
+	if err != nil {
+		return nil, fmt.Errorf("relationapp.ListTouching: %w", err)
+	}
+	incoming, err := s.repo.ListByToAndKinds(ctx, kind, id, nil)
+	if err != nil {
+		return nil, fmt.Errorf("relationapp.ListTouching: %w", err)
+	}
+	seen := make(map[string]struct{}, len(outgoing)+len(incoming))
+	result := make([]*relationdomain.Relation, 0, len(outgoing)+len(incoming))
+	for _, edge := range append(outgoing, incoming...) {
+		if edge == nil {
+			continue
+		}
+		if _, ok := seen[edge.ID]; ok {
+			continue
+		}
+		seen[edge.ID] = struct{}{}
+		result = append(result, edge)
+	}
+	return result, nil
+}
+
 // ListDependents returns the incoming equip/link edges to (kind,id) — the SAME dependents
 // CountDependents counts, but as their {fromKind,fromId} refs so a delete tool can name exactly which
 // entities to repair (the bare count is unfollowable once delete purges the edges — F160). The

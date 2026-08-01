@@ -179,7 +179,7 @@ EDGE | 搜索 embedder 缺席降级 | search | 把 `embedder` 设为 `off`（或
 EDGE | 首用下载途中关停 | search | 在 builtin embedder 首次拉 ~600MB 模型时发 SIGTERM | `Close(ctx)` 由关停 ctx 限界、中止安装 ctx 释放锁，绝不把 db.Close 阻塞在下载上
 EDGE | embedder 孤儿回收 | search | kill -9 后端留下 ~2GB llama-server 再启动 | 按 `runtimes/llamasrv/embedder.pid` best-effort 回收残留
 EDGE | 整批 embed upsert 全失败 | search | 让向量表写入全失败（盘满/表损） | 中止本轮等下次 kick，绝不进无限重嵌热循环
-EDGE | cosineFloor 噪声闸 | search | 用一段乱码 query 搜一个有 8 个实体的 workspace | 余弦 <0.55 全被挡，绝不按噪声灌全 workspace
+EDGE | cosineFloor 噪声闸 | search | 用自然语言乱码与 identifier-shaped 乱码 query 分别搜一个有实体向量的 workspace | 余弦 <0.55 被挡；无词法命中的 ID/key 形 query 即使高于 floor 也不放行纯向量假阳性，自然语言 semantic-only 召回仍保留
 EDGE | 换 embedder 重嵌 | search | 从 builtin 切到 ollama | 旧模型行对新模型即「缺向量」自动重嵌，绝不混用；向量缓存整体 invalidate
 EDGE | 短词 LIKE 回退 | search | 用 2 个字符的 query 搜 | trigram 零命中 → 短词 LIKE 回退；长短混合时长 token 走 MATCH、短 token 叠 LIKE
 EDGE | 异查询游标 | search | 拿 A 查询的 cursor 去翻 B 查询 | 400 `SEARCH_CURSOR_INVALID`，绝不切错窗口

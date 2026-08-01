@@ -684,6 +684,30 @@ func TestHybrid_CosineFloorAdmitsGenuineMatch(t *testing.T) {
 	}
 }
 
+func TestHybrid_IdentifierQueryRejectsSemanticOnlyNoise(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{} // no lexical evidence: isolate the identifier guard
+	repo.docsByID = map[string]*searchdomain.DocHit{
+		"sd_agent": {DocID: "sd_agent", EntityType: searchdomain.TypeAgent, EntityID: "ag_real", Title: "real agent"},
+	}
+	repo.embedded = map[string][]float32{
+		// 0.63 is above the current floor and reproduces the builtin model's observed opaque-token false positive.
+		"m1/sd_agent": {0.63, 0.776, 0},
+	}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{
+		"zzqvulon_76": {1, 0, 0},
+	}}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "zzqvulon_76", Types: []searchdomain.EntityType{searchdomain.TypeAgent}, IncludeArchived: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(page.Hits) != 0 {
+		t.Fatalf("unknown identifier must not surface a semantic-only agent: %+v", page.Hits)
+	}
+}
+
 func TestHybrid_DegradesWhenProviderFails(t *testing.T) {
 	repo := newFakeRepo()
 	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_a", 0, "", "天气预报文档", 5.0)}

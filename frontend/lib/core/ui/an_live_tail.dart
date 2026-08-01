@@ -79,6 +79,19 @@ class AnLiveTail extends StatelessWidget {
 
   Widget _shell(Widget body) => bare ? body : AnWindow(child: body);
 
+  Widget _stableSemantics(Widget visual) {
+    final label = text.trim();
+    if (label.isEmpty) return visual;
+    // The live tail replaces its visual text on every delta. A stable semantic parent prevents the macOS
+    // AX bridge from receiving child ids that were removed between two frames. 活尾每个 delta 替换视觉
+    // 文本;稳定语义父节点,不把跨帧已移除的 child id 送进 macOS AX bridge。
+    return Semantics(
+      container: true,
+      label: label,
+      child: ExcludeSemantics(child: visual),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
@@ -101,31 +114,33 @@ class AnLiveTail extends StatelessWidget {
             ? folded.sublist(folded.length - tailLines)
             : folded;
         final base = AnText.code.copyWith(color: c.inkMuted);
-        return _shell(
-          Stack(
-            children: [
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  for (final line in tail)
-                    Text.rich(
-                      TextSpan(children: ansiSpans(line, c, base: base)),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                ],
-              ),
-              if (hasMore)
-                Positioned(
-                  top: 0,
-                  left: 0,
-                  right: 0,
-                  height: AnSpace.s16,
-                  // Fade blends to the WHITE window face (灰底退役,拍板 #1). 渐隐融白窗面。
-                  child: AnEdgeFade(fromTop: true, color: c.surface),
+        return _stableSemantics(
+          _shell(
+            Stack(
+              children: [
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    for (final line in tail)
+                      Text.rich(
+                        TextSpan(children: ansiSpans(line, c, base: base)),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                  ],
                 ),
-            ],
+                if (hasMore)
+                  Positioned(
+                    top: 0,
+                    left: 0,
+                    right: 0,
+                    height: AnSpace.s16,
+                    // Fade blends to the WHITE window face (灰底退役,拍板 #1). 渐隐融白窗面。
+                    child: AnEdgeFade(fromTop: true, color: c.surface),
+                  ),
+              ],
+            ),
           ),
         );
 
@@ -134,29 +149,33 @@ class AnLiveTail extends StatelessWidget {
         final tail = lines.length > tailLines
             ? lines.sublist(lines.length - tailLines)
             : lines;
-        return _shell(
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              // One visual line per logical line — the term face's metric contract (复审 #23: a
-              // wrapping long line must not blow the tailLines height). 与 term 同契约:行不折、超长裁。
-              for (final line in tail)
-                Text(
-                  line,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: AnText.code.copyWith(color: c.inkMuted),
-                ),
-            ],
+        return _stableSemantics(
+          _shell(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                // One visual line per logical line — the term face's metric contract (复审 #23: a
+                // wrapping long line must not blow the tailLines height). 与 term 同契约:行不折、超长裁。
+                for (final line in tail)
+                  Text(
+                    line,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: AnText.code.copyWith(color: c.inkMuted),
+                  ),
+              ],
+            ),
           ),
         );
 
       case AnLiveTailStyle.prose:
-        return _shell(
-          _ProseTail(
-            text: _tailSlice(text, _proseTailLines),
-            maxHeight: maxHeight ?? AnSize.proseClamp,
+        return _stableSemantics(
+          _shell(
+            _ProseTail(
+              text: _tailSlice(text, _proseTailLines),
+              maxHeight: maxHeight ?? AnSize.proseClamp,
+            ),
           ),
         );
     }

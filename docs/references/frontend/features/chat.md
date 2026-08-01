@@ -27,9 +27,11 @@ audience: [human, ai]
 
 ## 2. 数据与状态边界
 
-- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。
+- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。
+- 侧幕失败丝带按动作语义分流：`create_*` 只说明未创建实体，`edit_*` 才说明上一版仍是真相，执行类工具（例如 `invoke_agent`、`run_function`、`call_handler`）只说明运行失败并指向下方错误；执行失败不得复用草稿/版本文案。
 - 对话列表、当前选区、transcript、草稿、附件准备、队列、interaction、驻地与侧幕分别持有最小状态；跨面只经 provider 或路由意图，不让 widget 互相持有。
 - **DB 行是真相、流只为实时**：`seq>0` 的 durable 帧可推进水位；`seq=0` 的 delta/tick/interaction 只改瞬时态。410 后重取 REST，再从新水位续流。
+- 流式正文与活尾的视觉树可以逐帧替换，但 macOS AX 只暴露一个稳定的外层语义节点；流式期间不把半成品 markdown 子节点交给读屏，落定后恢复完整的 markdown/链接语义，避免语义桥收到已移除的 child id。
 - transcript 以服务端行保留全部版本；LLM 装配和压缩读过滤被替代版本，前端读形态不过滤，故版本翻页与模型上下文都成立。
 - 附件上传、生成、MCP/function/handler 产物最终都以 attachment / `MediaRef` 投影进入同一媒体卡族；渲染按附件行 `mime`，不按 URL 或 receipt 自称猜类型。
 

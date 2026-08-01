@@ -37,9 +37,19 @@ Agent 与 Chat 内的 Subagent 不同：前者是可版本化实体并写
 - inputs/outputs 声明；
 - 可选 ModelRef override。
 
-Edit 是完整 Config 快照替换，写单调新版本并立即激活；Revert 只移动 pointer。
-LLM `edit_agent` 在工具层采用“只覆盖显式字段”的 merge 便利语义，显式空值才
-清除字段。Metadata 使用 `update_agent_meta`，不进入版本 Config。
+HTTP `:edit` 是完整 Config 快照替换，写单调新版本并立即激活；Revert 只移动 pointer。
+LLM `edit_agent` 在工具层采用“只覆盖显式字段”的 merge 便利语义，先读取 active
+版本再调用同一个 service；省略字段保留，显式空值才清除字段。Metadata 使用
+`update_agent_meta`，不进入版本 Config。两条入口的边界必须保持明确，不能用 HTTP
+全量语义去描述 LLM 工具，也不能让工具层静默抹掉未提及的挂载。
+
+LLM `revert_agent` 的公开参数仍是 `version: integer`；执行边界同时接受严格的整数字符串
+（例如 `"1"`），以兼容托管模型的标量字符串化，但拒绝小数、布尔值与非数字文本。它只
+移动 active pointer，不铸造新版本；name、description、tags 仍留在主行。
+
+`create_agent` 的 `description` 与 `tags` 是可选 metadata；但只要用户在意图中明确
+提供，LLM 必须原样带入同一次 tool call，不得静默省略。工具 description 与参数
+schema 都明确了这条保真约束，后端执行层会把收到的 metadata 写入 Agent 主行。
 
 Agent name 是展示身份，可包含中文与空格。版本保留上限为 50，active version
 不被 trim。
@@ -133,7 +143,31 @@ Workflow Agent node 可以提供已完成 ReAct steps，并通过 recorder 逐�
 - Relation：equip edges 指向 Function、Handler、MCP、Skill 与 Document；
 - Workflow：Agent node 调用同一 `InvokeAgent`；
 - Chat：`invoke_agent` 使用父 tool-call scope；
-- Delete：软删主行并清 relation，Execution 仍是耐久审计。
+- Delete：软删主行并清理所有触及该 agent 的 relation，Execution 仍是耐久审计。
+
+`delete_agent` 的 LLM 回执是 JSON，且回执本身是删除事实的唯一来源：
+
+```json
+{
+  "agentId": "ag_…",
+  "deleted": true,
+  "executionHistory": "retained",
+  "removedRelationCount": 2,
+  "removedRelationEdges": [
+    {"id": "…", "kind": "equip", "fromKind": "agent", "fromId": "ag_…", "toKind": "document", "toId": "doc_…"}
+  ]
+}
+```
+
+`removedRelationEdges` 是 purge 前的完整边快照，包含本 agent 的挂载边、入向依赖和
+create/edit 溯源；没有边时返回空数组。`dependents`（若存在）只表示入向
+`equip/link` 边，是删除后可能受影响的实体。模型不得从 tool result 未列出的内容推断或
+编造关系；`relationAudit: "unavailable"` 时必须明确告知用户精确边审计不可用。
 
 LLM 工具覆盖搜索、读取、构建、revert、删除、invoke 与 Execution 查询；
 metadata 更新使用专用工具。Mount health 是按需 HTTP 投影。
+
+Execution 历史列表是轻量分页投影：每行保留 id、状态、触发来源、输入、输出、耗时和时间，
+不携带完整 `transcript`；完整 transcript 只由 `get_agent_execution` / 单条 HTTP 详情返回。
+`nextCursor` 是不透明 token，续页必须逐字复制，不能解码、四舍五入或重新拼接；列表分页必须
+保证相邻页无重叠、无漏行。

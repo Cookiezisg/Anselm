@@ -44,6 +44,20 @@ func TestCreateAgent_ValidateInput(t *testing.T) {
 	}
 }
 
+func TestCreateAgent_Description_PreservesExplicitMetadata(t *testing.T) {
+	tl := &CreateAgent{}
+	if !strings.Contains(tl.Description(), "MUST pass those fields exactly") {
+		t.Fatal("create_agent description must require explicit metadata to be forwarded")
+	}
+	params := string(tl.Parameters())
+	if !strings.Contains(params, "If the user supplied one, pass it exactly") {
+		t.Fatal("description schema must require an explicit user description to be forwarded")
+	}
+	if !strings.Contains(params, "Pass them exactly") {
+		t.Fatal("tags schema must require explicit user tags to be forwarded")
+	}
+}
+
 func TestInvokeAgent_RequiresAgentID(t *testing.T) {
 	tl := &InvokeAgent{}
 	if err := tl.ValidateInput(json.RawMessage(`{}`)); err == nil {
@@ -76,6 +90,50 @@ func TestEditAgent_ValidateInput_NoPromptRequired(t *testing.T) {
 	}
 	if err := tl.ValidateInput(json.RawMessage(`{"tools":[]}`)); err == nil {
 		t.Fatal("missing agentId should fail")
+	}
+}
+
+func TestGetAgent_DescriptionMatchesPartialEditContract(t *testing.T) {
+	tl := &GetAgent{}
+	desc := tl.Description()
+	if !strings.Contains(desc, "partial patch") || !strings.Contains(desc, "preserves every omitted field") {
+		t.Fatalf("get_agent must describe edit_agent's partial-preserve contract, got %q", desc)
+	}
+	if strings.Contains(desc, "replaces the whole config") {
+		t.Fatalf("get_agent must not advertise the stale full-replace contract, got %q", desc)
+	}
+}
+
+func TestRevertAgent_AcceptsIntegerAndIntegerString(t *testing.T) {
+	tl := &RevertAgent{}
+	for _, raw := range []string{
+		`{"agentId":"ag_1","version":1}`,
+		`{"agentId":"ag_1","version":"1"}`,
+		`{"agentId":"ag_1","version":" 1 "}`,
+	} {
+		if err := tl.ValidateInput(json.RawMessage(raw)); err != nil {
+			t.Fatalf("valid revert args rejected for %s: %v", raw, err)
+		}
+	}
+	for _, raw := range []string{
+		`{"agentId":"ag_1"}`,
+		`{"agentId":"ag_1","version":0}`,
+		`{"agentId":"ag_1","version":"nope"}`,
+		`{"agentId":"ag_1","version":1.5}`,
+	} {
+		if err := tl.ValidateInput(json.RawMessage(raw)); err == nil {
+			t.Fatalf("invalid revert args unexpectedly accepted for %s", raw)
+		}
+	}
+}
+
+func TestRevertAgent_DescriptionMakesRequiredKeysExplicit(t *testing.T) {
+	tl := &RevertAgent{}
+	if !strings.Contains(tl.Description(), "required JSON keys are exactly agentId") {
+		t.Fatalf("revert_agent must make the exact required key explicit, got %q", tl.Description())
+	}
+	if !strings.Contains(string(tl.Parameters()), `"required":["agentId","version"]`) {
+		t.Fatalf("revert_agent schema must retain both required keys, got %s", tl.Parameters())
 	}
 }
 

@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
 	loopapp "github.com/sunweilin/anselm/backend/internal/app/loop"
@@ -102,7 +104,7 @@ type SearchHandlerCalls struct{ svc *handlerapp.Service }
 func (t *SearchHandlerCalls) Name() string { return "search_handler_calls" }
 
 func (t *SearchHandlerCalls) Description() string {
-	return "List a handler's call history (most recent first) with an ok/failed rollup. Filter by method or status (ok|failed|cancelled|timeout). Use get_handler_call on an id for the full record including logs."
+	return `List a handler's call history (most recent first) with an ok/failed rollup. Filter by method or status (ok|failed|cancelled|timeout). Omit limit for the default page size; when paginating, prefer a JSON integer such as 2 (the boundary also accepts the exact decimal string "2" from managed callers) and pass nextCursor verbatim. Use get_handler_call on an id for the full record including logs.`
 }
 
 func (t *SearchHandlerCalls) Parameters() json.RawMessage {
@@ -113,7 +115,7 @@ func (t *SearchHandlerCalls) Parameters() json.RawMessage {
 			"handlerId": {"type": "string"},
 			"method": {"type": "string"},
 			"status": {"type": "string", "description": "ok | failed | cancelled | timeout."},
-			"limit": {"type": "integer"},
+			"limit": {"type": "integer", "description": "Optional page size (default 50); prefer a JSON integer such as 2. The exact decimal string \"2\" is also accepted from managed callers; other strings are invalid."},
 			"cursor": {"type": "string"}
 		}
 	}`)
@@ -133,13 +135,7 @@ func (t *SearchHandlerCalls) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *SearchHandlerCalls) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		HandlerID string `json:"handlerId"`
-		Method    string `json:"method"`
-		Status    string `json:"status"`
-		Limit     int    `json:"limit"`
-		Cursor    string `json:"cursor"`
-	}
+	var args searchHandlerCallsArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_handler_calls: bad args: %w", err)
 	}
@@ -150,6 +146,61 @@ func (t *SearchHandlerCalls) Execute(ctx context.Context, argsJSON string) (stri
 		return "", fmt.Errorf("search_handler_calls: %w", err)
 	}
 	return toolapp.ToJSON(res), nil
+}
+
+type searchHandlerCallsArgs struct {
+	HandlerID string `json:"handlerId"`
+	Method    string `json:"method"`
+	Status    string `json:"status"`
+	Limit     int    `json:"limit"`
+	Cursor    string `json:"cursor"`
+}
+
+// UnmarshalJSON keeps the public schema strongly typed while tolerating the exact decimal-string
+// scalar emitted by some managed callers. A first-call type rejection only creates a visible red
+// card and an avoidable retry; floats, arrays, booleans, and non-numeric strings remain invalid.
+func (a *searchHandlerCallsArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		HandlerID string          `json:"handlerId"`
+		Method    string          `json:"method"`
+		Status    string          `json:"status"`
+		Limit     json.RawMessage `json:"limit"`
+		Cursor    string          `json:"cursor"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	limit, err := decodeHandlerToolInt(raw.Limit)
+	if err != nil {
+		return fmt.Errorf("limit: %w", err)
+	}
+	*a = searchHandlerCallsArgs{
+		HandlerID: raw.HandlerID,
+		Method:    raw.Method,
+		Status:    raw.Status,
+		Limit:     limit,
+		Cursor:    raw.Cursor,
+	}
+	return nil
+}
+
+func decodeHandlerToolInt(raw json.RawMessage) (int, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer, got %q", text)
+	}
+	return value, nil
 }
 
 // --- get_handler_call ------------------------------------------------------

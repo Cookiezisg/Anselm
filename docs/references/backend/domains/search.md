@@ -81,7 +81,10 @@ Embedding worker 与 lexical index worker 分离，下载/推理不阻塞实体�
 Workspace vector cache 在增量写后 patch；只有 purge、schema/model 变化才整体
 失效。
 
-查询时 lexical window 与超过相关性下限的 semantic window 使用 RRF 融合。
+查询时 lexical window 与超过相关性下限的 semantic window 使用 RRF 融合；但无词法命中且形似
+ID/key 的 query（含下划线、路径分隔符或数字）不接受纯向量命中。内置 embedder 对不透明
+token 可能有偏高相似度基线，猜出一个实体比返回空结果更危险；有词法证据时仍可做语义补充，
+普通自然语言仍保留 semantic-only recall。
 Semantic provider 不可用、未 ready 或失败时原样返回 lexical 结果；降级不改变
 HTTP shape。
 

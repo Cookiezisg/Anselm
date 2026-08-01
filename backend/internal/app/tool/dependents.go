@@ -21,6 +21,48 @@ type DependentCounter interface {
 	ListDependents(ctx context.Context, kind, id string) ([]*relationdomain.Relation, error)
 }
 
+// RelationEdgeReader is the optional full relation-audit port used by delete tools. It is
+// deliberately separate from DependentCounter: callers that only need impact counts do not
+// need to implement a second read path.
+//
+// RelationEdgeReader 是删除工具可选的完整 relation 审计端口。它刻意独立于
+// DependentCounter，让只需要影响计数的调用方不必实现第二条读取路径。
+type RelationEdgeReader interface {
+	ListTouching(ctx context.Context, kind, id string) ([]*relationdomain.Relation, error)
+}
+
+// RelationEdgeRefs snapshots every edge touching (kind,id) in a compact, machine-readable
+// shape. The bool distinguishes a real empty snapshot from an unavailable advisory read.
+// A delete must continue in the latter case, but the result must say the audit was unavailable.
+//
+// RelationEdgeRefs 将触及 (kind,id) 的全部边快照成紧凑机器形状。bool 区分真实空快照与审计
+// 读取不可用；后一种情况删除仍须继续，但回执必须明确审计不可用。
+func RelationEdgeRefs(ctx context.Context, reader any, kind, id string) ([]map[string]string, bool) {
+	r, ok := reader.(RelationEdgeReader)
+	if !ok || r == nil {
+		return nil, false
+	}
+	edges, err := r.ListTouching(ctx, kind, id)
+	if err != nil {
+		return nil, false
+	}
+	refs := make([]map[string]string, 0, len(edges))
+	for _, edge := range edges {
+		if edge == nil {
+			continue
+		}
+		refs = append(refs, map[string]string{
+			"id":       edge.ID,
+			"kind":     edge.Kind,
+			"fromKind": edge.FromKind,
+			"fromId":   edge.FromID,
+			"toKind":   edge.ToKind,
+			"toId":     edge.ToID,
+		})
+	}
+	return refs, true
+}
+
 // DependentRefs returns the {kind,id} refs of every live entity referencing (kind,id), or nil when
 // the counter is nil / the read fails — advisory only, a delete must never fail because this did. A
 // delete tool calls it BEFORE deleting (the purge erases the edges) so it can tell the agent EXACTLY

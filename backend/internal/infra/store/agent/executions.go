@@ -38,6 +38,13 @@ func (s *Store) ListExecutions(ctx context.Context, filter agentdomain.Execution
 	if err != nil {
 		return nil, "", fmt.Errorf("agentstore.ListExecutions: %w", err)
 	}
+	// List pages stay slim: transcript is the full per-run audit payload and belongs to
+	// get_agent_execution, not every history row. Carrying it here inflates LLM tool results and
+	// makes an opaque pagination cursor harder for the model to preserve byte-for-byte.
+	// 列表页保持轻量：transcript 是单次运行的完整审计载荷，只随 get_agent_execution 返回，不能随每行历史重复携带。
+	for _, row := range rows {
+		row.Transcript = nil
+	}
 	return rows, next, nil
 }
 

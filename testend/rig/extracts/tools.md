@@ -36,9 +36,9 @@ TOOL | call_handler | handler | 只调用已声明的常驻实例方法；顶层
 TOOL | update_handler_config | handler | 唯一的 init-args 配置工具；Merge Patch 后重启；兼容解码后仍为对象的 JSON 字符串，数组/非法字符串/根级 null 拒绝
 TOOL | update_handler_meta | handler | 仅改 meta,不重启
 TOOL | restart_handler | handler | 优雅关停+新实例
-TOOL | search_handler_calls | handler | 列调用历史
+TOOL | search_handler_calls | handler | 列调用历史；支持 cursor/limit 分页，limit 接受 JSON 整数或精确十进制字符串
 TOOL | get_handler_call | handler | 取单条调用记录
-TOOL | search_agent | agent | 检索 agent 库
+TOOL | search_agent | agent | 按关键词+语义检索 agent；自然语言可纯语义召回，含下划线/分隔符/数字的 ID/key 形 query 必须有词法证据，空 query 列出全部
 TOOL | get_agent | agent | 取 agent 活跃版本完整配置
 TOOL | create_agent | agent | 新建配置式 LLM worker
 TOOL | edit_agent | agent | 局部编辑,未传字段保持
@@ -46,7 +46,7 @@ TOOL | revert_agent | agent | 回退活跃版本
 TOOL | delete_agent | agent | 软删,保留执行历史
 TOOL | update_agent_meta | agent | 仅改行 meta
 TOOL | invoke_agent | agent | 跑 agent ReAct 循环,按 outputSchema 成形
-TOOL | search_agent_executions | agent | 检索运行历史
+TOOL | search_agent_executions | agent | 检索轻量运行历史（分页 cursor 必须原样复制,列表不带 transcript）
 TOOL | get_agent_execution | agent | 取单条执行全记录
 TOOL | search_control | control | 检索 control
 TOOL | get_control | control | 取活跃版本分支集

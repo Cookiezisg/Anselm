@@ -22,7 +22,7 @@ type SearchAgent struct {
 func (t *SearchAgent) Name() string { return "search_agent" }
 
 func (t *SearchAgent) Description() string {
-	return "Find agents by keyword + semantic relevance over name / description / tags. Returns id + name + description; empty query lists all. Use get_agent for the full config (prompt / mounted skill / knowledge / tools)."
+	return "Find agents by keyword + semantic relevance over name / description / tags. Natural-language queries may use semantic-only matches; identifier-shaped queries (IDs/keys with underscores, separators, or digits) require lexical evidence and never guess a vector-only entity. Returns id + name + description; empty query lists all. Use get_agent for the full config (prompt / mounted skill / knowledge / tools)."
 }
 
 func (t *SearchAgent) Parameters() json.RawMessage {
@@ -61,7 +61,7 @@ type GetAgent struct{ svc *agentapp.Service }
 func (t *GetAgent) Name() string { return "get_agent" }
 
 func (t *GetAgent) Description() string {
-	return "Get an agent's full configuration: prompt, mounted skill, knowledge document IDs, tool refs, outputSchema, and model override — via its active version. Read this before edit_agent (edit replaces the whole config)."
+	return "Get an agent's full configuration: prompt, mounted skill, knowledge document IDs, tool refs, outputSchema, and model override — via its active version. Read this when you need the current config; edit_agent accepts a partial patch and preserves every omitted field."
 }
 
 func (t *GetAgent) Parameters() json.RawMessage {

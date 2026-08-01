@@ -1684,6 +1684,7 @@ class _Translations$feedback$cast$zh_CN extends Translations$feedback$cast$en {
 	@override String get ribbonGap => '实时流有缺口 · 以执行记录为准';
 	@override String get ribbonFailed => '草稿未保存 · 真相仍是上一版';
 	@override String get ribbonFailedCreate => '草稿未保存 · 尚未创建实体';
+	@override String get ribbonFailedRun => '运行失败 · 详情见下方错误';
 	@override String get gatePill => 'AI 在等你决定 →';
 	@override String livePill({required Object name}) => 'AI 正在编辑 ${name} →';
 	@override String get tombstone => '已删除';
@@ -3982,6 +3983,7 @@ extension on TranslationsZhCn {
 			'feedback.cast.ribbonGap' => '实时流有缺口 · 以执行记录为准',
 			'feedback.cast.ribbonFailed' => '草稿未保存 · 真相仍是上一版',
 			'feedback.cast.ribbonFailedCreate' => '草稿未保存 · 尚未创建实体',
+			'feedback.cast.ribbonFailedRun' => '运行失败 · 详情见下方错误',
 			'feedback.cast.gatePill' => 'AI 在等你决定 →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
 			'feedback.cast.tombstone' => '已删除',
@@ -3992,9 +3994,9 @@ extension on TranslationsZhCn {
 			'feedback.cast.verb.created' => '创建',
 			'feedback.cast.verb.edited' => '编辑',
 			'feedback.cast.verb.viewed' => '查看',
-			'feedback.cast.verb.executed' => '执行',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.executed' => '执行',
 			'feedback.cast.verb.attached' => '附上',
 			'feedback.cast.verb.deleted' => '删除',
 			'feedback.cast.verb.unknown' => '触碰',
@@ -4506,9 +4508,9 @@ extension on TranslationsZhCn {
 			'library.slash.code' => '代码块',
 			'library.slash.table' => '表格',
 			'library.slash.media' => '媒体',
-			'library.slash.divider' => '分隔线',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.divider' => '分隔线',
 			'library.slash.todo' => '待办',
 			'library.linkHint' => '输入或粘贴链接,回车确定',
 			'library.table.insertRowAbove' => '在上方插入行',
@@ -5020,6 +5022,8 @@ extension on TranslationsZhCn {
 			'attach.pauseVideo' => '暂停视频',
 			'attach.replayVideo' => '重播',
 			'attach.enterFullscreen' => '全屏',
+			_ => null,
+		} ?? switch (path) {
 			'attach.remove' => '移除',
 			_ => null,
 		};

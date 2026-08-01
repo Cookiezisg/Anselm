@@ -143,6 +143,22 @@ void main() {
       },
     );
 
+    testWidgets('live tail exposes one stable semantic node', (tester) async {
+      await tester.pumpWidget(
+        _host(const AnLiveTail('live output', style: AnLiveTailStyle.prose)),
+      );
+
+      expect(
+        find.descendant(
+          of: find.byType(AnLiveTail),
+          matching: find.byType(ExcludeSemantics),
+        ),
+        findsOneWidget,
+      );
+      final semantics = tester.getSemantics(find.byType(AnLiveTail));
+      expect(semantics.label, 'live output');
+    });
+
     testWidgets(
       'prose face grows a TOP fade only when the text actually overflows (批1)',
       (tester) async {

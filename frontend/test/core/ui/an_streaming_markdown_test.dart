@@ -47,6 +47,22 @@ void main() {
     },
   );
 
+  testWidgets('streaming markdown exposes one stable semantic node', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host(const AnStreamingMarkdown('live answer')));
+
+    expect(
+      find.descendant(
+        of: find.byType(AnStreamingMarkdown),
+        matching: find.byType(ExcludeSemantics),
+      ),
+      findsOneWidget,
+    );
+    final semantics = tester.getSemantics(find.byType(AnStreamingMarkdown));
+    expect(semantics.label, 'live answer');
+  });
+
   testWidgets(
     'a blank line INSIDE an open fence is not a boundary — code stays whole',
     (tester) async {

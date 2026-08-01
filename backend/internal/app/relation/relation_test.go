@@ -357,6 +357,23 @@ func TestList_IncompleteFilterRejected(t *testing.T) {
 	}
 }
 
+func TestListTouching_ReturnsBothSidesWithoutDuplicates(t *testing.T) {
+	repo := newFakeRepo()
+	repo.rows = []*relationdomain.Relation{
+		{ID: "rel_out", Kind: relationdomain.KindEquip, FromKind: "agent", FromID: "ag_1", ToKind: "document", ToID: "doc_1"},
+		{ID: "rel_in", Kind: relationdomain.KindEquip, FromKind: "workflow", FromID: "wf_1", ToKind: "agent", ToID: "ag_1"},
+		{ID: "rel_other", Kind: relationdomain.KindEquip, FromKind: "workflow", FromID: "wf_2", ToKind: "agent", ToID: "ag_2"},
+	}
+	svc := newSvc(repo, nil)
+	got, err := svc.ListTouching(context.Background(), "agent", "ag_1")
+	if err != nil {
+		t.Fatalf("ListTouching: %v", err)
+	}
+	if len(got) != 2 || got[0].ID != "rel_out" || got[1].ID != "rel_in" {
+		t.Fatalf("touching edges = %+v, want rel_out + rel_in", got)
+	}
+}
+
 // TestCountDependents: the honest "what breaks if I delete this" count = INCOMING equip/link only.
 // It must exclude create/edit provenance (the conversation that built it) and the entity's OWN
 // outgoing edges — counting those would report a wildly wrong dependent number for workflows/agents.

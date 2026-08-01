@@ -18,7 +18,7 @@ type SearchAgentExecutions struct{ svc *agentapp.Service }
 func (t *SearchAgentExecutions) Name() string { return "search_agent_executions" }
 
 func (t *SearchAgentExecutions) Description() string {
-	return "Search an agent's execution history (runs): filter by agentId / status / triggeredBy / conversationId / flowrunId, cursor-paged, with an ok-vs-failed rollup. Use get_agent_execution for one run's full input/output."
+	return "Search an agent's execution history (runs): filter by agentId / status / triggeredBy / conversationId / flowrunId, cursor-paged, with an ok-vs-failed rollup. List rows are intentionally slim; use get_agent_execution for one run's full input/output and transcript. The nextCursor is opaque: when requesting the next page, copy it byte-for-byte into cursor; never retype, round, decode, or alter any character."
 }
 
 func (t *SearchAgentExecutions) Parameters() json.RawMessage {
@@ -30,8 +30,8 @@ func (t *SearchAgentExecutions) Parameters() json.RawMessage {
 			"triggeredBy": {"type": "string", "enum": ["chat", "workflow", "manual"]},
 			"conversationId": {"type": "string"},
 			"flowrunId": {"type": "string"},
-			"limit": {"type": "integer"},
-			"cursor": {"type": "string"}
+			"limit": {"type": "integer", "description": "Optional page size."},
+			"cursor": {"type": "string", "description": "Opaque cursor. Copy the previous nextCursor byte-for-byte; never edit or reconstruct it."}
 		}
 	}`)
 }

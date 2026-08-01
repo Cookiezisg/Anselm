@@ -1296,12 +1296,15 @@ class _GenericStageState extends State<_GenericStage> {
         // not the execution terminal. G4 判活走执行相位,参流关≠执行终态。
         final live = toolLive(state);
         final failed = widget.phase == StagePhase.failedHold;
-        // A create has no previous version to fall back to. Keep the edit copy honest, but say
-        // explicitly that a failed create produced no entity. 新建没有上一版可回退,失败必须明说未创建。
+        // Failure truth follows the operation, not the generic stage fallback: create has no entity,
+        // edit can truthfully retain the previous version, and execution has neither draft semantics.
+        // 失败真相按动作分流:新建无实体、编辑可保上一版、执行不暗示草稿/版本。
         final honesty = failed
             ? (widget.subject.toolName.startsWith('create_')
                   ? AnHonesty.failedCreate
-                  : AnHonesty.failed)
+                  : widget.subject.toolName.startsWith('edit_')
+                  ? AnHonesty.failed
+                  : AnHonesty.failedRun)
             : AnHonesty.live;
         final bespoke = stageBodies[widget.subject.kind];
         final scene = StageScene(
