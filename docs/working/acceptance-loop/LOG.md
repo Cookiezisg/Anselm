@@ -12,6 +12,13 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+## 2026-08-01 17:15 · 旧台架 acceptance fixture 全量清理、循环恢复
+
+- 对历史真实台架数据目录 `formal-33` 至 `formal-38` 逐目录启动隔离后端，使用真实 `DELETE /api/v1/handlers/{id}` 清理 7 个遗留 acceptance handler；每个目标随后用同 workspace `GET` 复核为 `404 HANDLER_NOT_FOUND`。SQLite 只保留不可变版本/调用审计，主行 `deleted_at` 已写入；证据 session、backend journal 和既有 COVERAGE 裁决未删除。
+- 清理过程中首次 shell wrapper 把 zsh 保留变量 `status` 当作赋值目标，导致 wrapper 提前退出；`curl` 已实际完成的 DELETE 仍落盘，随后改用 `http_code` 重跑并对 34 号第二个目标补删。该脚本事故不作为产品证据，所有临时后端均由显式 `rig-down.sh` 收台。
+- 全目录 SQLite 审计结果：活跃名称匹配 `acceptance|fixture` 的 handler 为 **0**；formal-33/34/35/36/37/38 的软删除计数分别为 `1/2/1/1/1/1`。端口 `8843–8848`、`8854–8858` 与 `anselm-server/ssetap/llmtap/Flutter/llama` 进程均无残留。正式 `order_desk` 未修改。
+- Goal API 仍只提供“标记完成/标记阻塞”，没有既有 `blocked → active` 恢复操作；未创建重复 Goal、未谎报完成。持久执行协议 `LOOP.md` 仍为 `status: active`，fixture 清理完成后按 `TOOL-033 restart_handler` 继续下一前线。
+
 ## 2026-08-01 17:06 · 第四批 50/50 统一长门禁收口
 
 - `make verify` 全绿：backend、frontend、docs、demo 均通过；修复后的 `backend/internal/app/loop` 守卫测试通过。
