@@ -34,8 +34,8 @@ landed-into:
 > 录屏 `114.528333s / 2784x1808 / 60fps`，messages durable `1..28`、notifications `1..5` 连续，
 > entities 已连接，LLM 状态全 200，前后端无未解释红线。formal-98/100 暴露的 AXTree 红证据已保留并
 > 触发稳定语义节点、定向测试和 rig-check 红线修复；formal-102 的 fixture 与对话均 DELETE=204 后
-> 复核清零。五级裁决 `G1/F2/A5/C4/G2` 已入账，警报复审后 clean；统一长门禁尚未执行，下一前线
-> 为 `TOOL-047`，门禁全绿前不提交。
+> 复核清零。五级裁决 `G1/F2/A5/C4/G2` 已入账，警报复审后 clean；统一长门禁已通过，下一前线
+> 统一长门禁、完整 testend、专项回归、锚点/警报/进程/diff 审计均通过，批次已提交 `90f51edd`。
 > **开工前提已满足**:另一团队的后端大改(BYOK 全目录 / 生成收归受管 / 音色 / 媒体子域 …)已并入
 > `main`;本仓与隔壁 `Anselm-API-Serve` 均已对齐到各自最新 `main`。
 >
@@ -203,7 +203,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 | 锚点自校 | ✅ [WRK-091](ANCHORS.md) 冻结 10 个正反锚点；无答案答卷通过才签发绑定题集哈希的四小时凭证，题集变化或凭证过期自动锁 gate |
 | 统计警报 | ✅ `alarms.py` 监控裁决过快、速率暴冲、发现率塌方；ack 必须写复审结论，且在出现新裁决前不会拿同一批历史原地复活；新证据到达后重新评估 |
 | 操作手册 | ✅ `testend/rig/README.md` 自足描述起、检、停、校准、测量、裁决和警报，任何 agent 无需旧对话即可使用 |
-| 产品主循环 | ✅ 已从第一条未裁决格启动；前置真实切片持续覆盖 onboarding、chat、composer、toc、log drawer、Read、Write、Edit、LS、Glob、Grep、Bash、BashOutput、KillShell、ask_user、todo_write、todo_read 以及 function 全生命周期。此前各工具切片中的产品语义、错误态和视觉问题均按 stop-and-fix 冻结、修复并真实重跑；第四批 TOOL-023 至 TOOL-032 已逐格完成，第五批 TOOL-033 至 TOOL-046 已由正式五通道 session 收尾。formal-98/100 的 AXTree 红证据已冻结并推动稳定语义节点、定向测试与 rig-check 红线修复；formal-102 已重跑命中/空结果、五通道和终帧，TOOL-046=G1/F2/A5/C4/G2 已由 judge.py 落账。中央账本 280 judgments，警报 clean；第五批 50 / 50，统一长门禁待执行，下一前线 TOOL-047。 |
+| 产品主循环 | ✅ 已从第一条未裁决格启动；前置真实切片持续覆盖 onboarding、chat、composer、toc、log drawer、Read、Write、Edit、LS、Glob、Grep、Bash、BashOutput、KillShell、ask_user、todo_write、todo_read 以及 function 全生命周期。此前各工具切片中的产品语义、错误态和视觉问题均按 stop-and-fix 冻结、修复并真实重跑；第四批 TOOL-023 至 TOOL-032 已逐格完成，第五批 TOOL-033 至 TOOL-046 已由正式五通道 session 收尾。formal-98/100 的 AXTree 红证据已冻结并推动稳定语义节点、定向测试与 rig-check 红线修复；formal-102 已重跑命中/空结果、五通道和终帧，TOOL-046=G1/F2/A5/C4/G2 已由 judge.py 落账。中央账本 280 judgments，警报 clean；第五批 50 / 50，统一长门禁、完整 testend、专项回归、锚点/警报/进程/diff 审计均通过，已提交 90f51edd；下一前线 TOOL-047。 |
 
 **当前执行状态（2026-08-01 22:20）。** `TOOL-046 search_control` 正式 session 为 `/private/tmp/anselm-rig-formal-102/sessions/20260801-221506`。真实 App 正向精确命中 `acceptance_control_fixture_102`，负向 `zzqvulon_102` 返回空集；正向由 Computer Use 发送，负向经 REST 送入同一真实对话以避免流式动态语义树期间读取 AX state，仍由 App 渲染并经过同一后端/SSE/LLM 链。录屏、`backend.log`、`sse.jsonl`、`frontend.log`、`llm.jsonl` 和最终帧均已封存，证据文件为 `evidence/tool-046-formal-102-green.txt`。早期正式会话的 AXTree 红证据没有被降级或抹除；稳定语义节点、定向 62 项测试和 rig-check 红线已落盘。控制 fixture 与对话均 DELETE=204，残留查询为零，正式 session 无幸存进程。TOOL-046 五格 `G1/F2/A5/C4/G2` 已写入 COVERAGE，中央 280 条裁决、锚点有效、警报最终 clean。按 P15，50 格批次边界现在执行统一长门禁；门禁未全绿前不提交、不进入 `TOOL-047`。
 

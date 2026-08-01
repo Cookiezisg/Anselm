@@ -18,7 +18,7 @@ landed-into:
 - stop-and-fix：streaming markdown 与 live tail 增加稳定外层 `Semantics` 节点并排除半成品子树语义，补 62 项定向 Flutter 测试；`rig-check.sh` 将 AXTree 错误与 Flutter/Dart/RenderFlex/Unhandled 红线同样拒绝，`testend/rig/README.md` 记录稳定态 AX 读取与连续录屏规则。
 - formal-102 `/private/tmp/anselm-rig-formal-102/sessions/20260801-221506` 以真实 App、受管网关、Computer Use、独立三流 SSE tap 和 LLM tap 重跑 `search_control`。正向精确命中 `acceptance_control_fixture_102`，负向 `zzqvulon_102` 返回空集；录屏 `114.528333s / 2784x1808 / 60fps`，messages durable `1..28`、notifications `1..5`、entities 已连接无 gap，LLM 状态全 200，backend/frontend journal 无未解释红线，最终帧视觉复核通过。
 - fixture control 与 conversation 均 DELETE=204，残留查询为零；formal-102 session 已收台且无进程泄漏。五级裁决 `TOOL-046=G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本 `280 judgments`；`gap-too-fast` 与 `discovery-collapse` 按 formal-102 五通道证据重审并 ack，最终警报 clean。
-- 第五批达到 **50 / 50**。按 P15，下一步运行统一长门禁和工作树审计；门禁未全绿前不提交、不进入 `TOOL-047`。
+- 第五批达到 **50 / 50**。按 P15，统一长门禁、完整 testend、专项回归、锚点/警报/工作树/进程/diff 审计均已通过，批次已提交 `90f51edd`；下一前线为 `TOOL-047`。
 
 ## 2026-08-01 21:56 · TOOL-045 execution detail 正式通过
 

@@ -29,7 +29,7 @@ landed-into:
 
 ## 当前前线（2026-08-01 22:20）
 
-第五批已达到 **50 / 50**：`TOOL-033` 至 `TOOL-046` 均完成五级真实裁决，中央账本为 `280 judgments`，锚点校准有效，警报复审后 clean。最后一格 `TOOL-046 search_control` 使用 formal-102：真实 App 命中 `acceptance_control_fixture_102`，负路径 `zzqvulon_102` 返回空集；三路 SSE 均连接且 `messages 1..28`、`notifications 1..5` 连续，LLM 状态全 200，前后端无未解释红线，录屏 `114.528333s / 2784x1808 / 60fps` 已封口。formal-98/100 的 AXTree 观察红证据保留并已促成稳定语义节点、定向测试和 rig-check 红线修复；formal-102 的证据文件为 `/private/tmp/anselm-rig-formal-102/sessions/20260801-221506/evidence/tool-046-formal-102-green.txt`。fixture 已 DELETE=204 并复核清零。按 P15，下一步只能运行统一长门禁、完整 testend、锚点/警报/工作树/进程审计并一次性提交；门禁未全绿前不进入 `TOOL-047`。
+第五批已达到 **50 / 50**：`TOOL-033` 至 `TOOL-046` 均完成五级真实裁决，中央账本为 `280 judgments`，锚点校准有效，警报复审后 clean。最后一格 `TOOL-046 search_control` 使用 formal-102：真实 App 命中 `acceptance_control_fixture_102`，负路径 `zzqvulon_102` 返回空集；三路 SSE 均连接且 `messages 1..28`、`notifications 1..5` 连续，LLM 状态全 200，前后端无未解释红线，录屏 `114.528333s / 2784x1808 / 60fps` 已封口。formal-98/100 的 AXTree 观察红证据保留并已促成稳定语义节点、定向测试和 rig-check 红线修复；formal-102 的证据文件为 `/private/tmp/anselm-rig-formal-102/sessions/20260801-221506/evidence/tool-046-formal-102-green.txt`。fixture 已 DELETE=204 并复核清零。统一长门禁、完整 testend、专项回归、锚点/警报/工作树/进程/diff 审计均已通过，并已提交 `90f51edd`；下一前线为 `TOOL-047`。
 
 ## 唤醒协议
 
