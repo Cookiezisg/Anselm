@@ -71,6 +71,16 @@ Inactive inventory 只在 prompt 暴露紧凑名称/用途；完整 schema 在�
 次 request tools 中出现。AgentState 使用有界 recency set；直接点名 lazy tool
 时 AutoActivator 可补发现步骤。
 
+### Grounded final text
+
+面向用户的 assistant 文本还有服务端确定性边界：loop 会在流式文本的唯一出口保留跨 chunk 的尾部词元，并隐藏实体 ID、长整数、时间戳与长 hash 等不透明机器值。原始 tool call/tool result 卡片与审计数据不改，仍保留精确值供追查；摘要只能表达语义结果（例如「已变更」），不能把机器值抄回 prose 或表格。该边界不依赖模型是否遵守 prompt。例外是带 flowrun 身份的 workflow agent：其终答同时是下游节点的数据，必须保留完整 MediaRef receipt；它不是直接面向用户的 chat prose。
+
+System prompt 明确禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文。
+用户只需要判断变化时，最终叙述应使用 `changed` / `unchanged` 等语义结果，原始
+tool card 才是机器值的精确来源；确实需要精确值时应指向紧邻的 raw tool card，
+默认不输出机器值的任何片段，包括前缀、后缀或 `...123` 这样的省略片段；不能自行重算、规范化或把猜测数字放入表格。这样避免工具结果正确而最终总结生成
+一个看似可信但不存在的机器值。
+
 模型目录明确 `tools=false` 时，Chat 不发送 tools array，并在 system prompt
 明确本轮只能文本回答。Capability tool 是否出现由运行期路由决定；没有能力时
 工具诚实缺席。

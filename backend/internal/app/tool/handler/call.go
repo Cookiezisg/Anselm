@@ -18,7 +18,7 @@ type CallHandler struct{ svc *handlerapp.Service }
 func (t *CallHandler) Name() string { return "call_handler" }
 
 func (t *CallHandler) Description() string {
-	return "Call a method on a handler's resident instance (it stays alive between calls, so its state persists). Returns the method's result. The instance is started on first use if needed. Each call is recorded — inspect later with search_handler_calls / get_handler_call (logs included)."
+	return "Call a declared method on a handler's resident instance; args are that method's keyword arguments. This does NOT change the handler's init config — never put top-level config here; use update_handler_config for merge-patch config changes. The instance stays alive between calls, so its state persists. Returns the method's result. Each call is recorded — inspect later with search_handler_calls / get_handler_call (logs included)."
 }
 
 func (t *CallHandler) Parameters() json.RawMessage {
@@ -34,6 +34,13 @@ func (t *CallHandler) Parameters() json.RawMessage {
 }
 
 func (t *CallHandler) ValidateInput(args json.RawMessage) error {
+	var envelope map[string]json.RawMessage
+	if err := json.Unmarshal(args, &envelope); err != nil {
+		return fmt.Errorf("call_handler: bad args: %w", err)
+	}
+	if _, ok := envelope["config"]; ok {
+		return fmt.Errorf("call_handler: top-level config is not a method argument; use update_handler_config")
+	}
 	var a struct {
 		HandlerID string `json:"handlerId"`
 		Method    string `json:"method"`
@@ -51,6 +58,9 @@ func (t *CallHandler) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *CallHandler) Execute(ctx context.Context, argsJSON string) (string, error) {
+	if err := t.ValidateInput([]byte(argsJSON)); err != nil {
+		return "", err
+	}
 	var args struct {
 		HandlerID string            `json:"handlerId"`
 		Method    string            `json:"method"`

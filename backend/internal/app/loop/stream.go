@@ -118,6 +118,17 @@ func streamLLM(
 	entBridge := entitystreamapp.BridgeFrom(ctx)
 
 	var textBuf strings.Builder
+	var redactor textRedactor
+	// Workflow agent text is also a data boundary: downstream CEL wiring may consume a
+	// MediaRef receipt from the node result. Redacting it here would turn a usable attachment
+	// reference into prose and break agent -> workflow -> agent media handoff. Ordinary chat
+	// text keeps the user-facing redaction floor.
+	// workflow agent 的文本同时是数据边界：下游 CEL 可能从节点结果消费 MediaRef receipt。在这里脱敏会把
+	// 可用附件引用变成 prose，打断 agent -> workflow -> agent 的媒体链；普通 chat 文本仍保留用户面脱敏底线。
+	redactText := true
+	if _, ok := reqctxpkg.GetFlowrunID(ctx); ok {
+		redactText = false
+	}
 	var reason reasonAccum
 	accums := map[int]*toolAccum{}
 	stopReason = messagesdomain.StopReasonEndTurn
@@ -126,8 +137,12 @@ func streamLLM(
 
 	closeText := func(status string) {
 		if textBlockID != "" {
+			if redactText {
+				textBuf.WriteString(redactor.Flush())
+			}
 			em.close(ctx, textBlockID, status, textSnapshot(textBuf.String()), "")
 			textBlockID = ""
+			redactor = textRedactor{}
 		}
 	}
 	closeReason := func(status string) {
@@ -145,8 +160,15 @@ func streamLLM(
 				textBlockID = idgenpkg.New("blk")
 				em.open(ctx, textBlockID, msgID, messagesdomain.BlockTypeText, nil)
 			}
-			em.delta(ctx, textBlockID, event.Delta)
-			textBuf.WriteString(event.Delta)
+			if redactText {
+				if safe := redactor.Write(event.Delta); safe != "" {
+					em.delta(ctx, textBlockID, safe)
+					textBuf.WriteString(safe)
+				}
+			} else {
+				em.delta(ctx, textBlockID, event.Delta)
+				textBuf.WriteString(event.Delta)
+			}
 
 		case llminfra.EventReasoning:
 			closeText(messagesdomain.StatusCompleted)

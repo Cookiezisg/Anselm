@@ -46,10 +46,33 @@ Function 每次调用启动隔离进程；Handler 在常驻进程上执行 RPC�
 纯 metadata 更新不铸版本、不重启，因此不会无故丢掉内存态。空 ops 表示重建
 active env 并重启；工具结果明确返回 restarted。
 
+### LLM 构建 op 形状
+
+create_handler 与 edit_handler 的 ops 是带 op 判别字段的数组。
+update_method 是唯一使用 RFC 7396 merge patch 的 op，精确形状为：
+
+~~~json
+{"op":"update_method","name":"place","patch":{"description":"..."}}
+~~~
+
+其中顶层 name 选择已有 method，所有修改字段必须嵌在 patch 对象内；
+不能使用 methodName，也不能把 description、body、inputs 或 outputs
+放在 patch 外。add_method 的完整 MethodSpec 必须嵌在 method 字段内。
+执行边界只为 hosted model 的一个确定性别名
+`updateMethod` + `method/methodName` + 顶层 method 字段，以及完整的
+`kind:"set_method"` + 嵌套 MethodSpec，提供窄归一化；公开 schema 仍以
+canonical 形状为准，近似拼写、未知字段或空 patch 不因此获得通过。
+
+`revert_handler` 的 `version` 公开仍是 integer；执行边界额外接受只包含十进制整数的
+字符串，以兼容 hosted model 的标量字符串化。小数、数组、布尔、文字和非正数仍拒绝。
+
 ## 3. 配置
 
 Config 以 AES-GCM 整 blob 存储。Update 使用 JSON Merge Patch，`null` 删除
 字段，保存后重启实例并重新执行 `__init__`。Clear 清空配置并停止实例。
+工具执行边界接受 schema 所述对象，亦接受一个解码后仍为对象的 JSON 字符串，
+以容忍托管模型对嵌套 object 的字符串化；数组、数字、非法 JSON 字符串和根级
+`null` 仍拒绝。该兼容只改变编码，不改变 Merge Patch 语义。
 
 读侧只提供：
 
@@ -59,6 +82,10 @@ Config 以 AES-GCM 整 blob 存储。Update 使用 JSON Merge Patch，`null` 删
 Spawn 前按 active `InitArgSpec` 过滤配置，避免 schema 已删除的孤儿 key 作为
 意外 kwarg 进入 `__init__`。必填值不全时返回
 `HANDLER_CONFIG_INCOMPLETE`。
+
+LLM 工具边界也刻意分开：`call_handler` 只调用已声明的方法，`args` 是该方法的关键字参数，不能用
+顶层 `config` 改初始化配置；`update_handler_config` 是修改 init-args 的唯一工具，执行 JSON Merge
+Patch 后重启实例。这样「调用方法」与「重配服务」不会在模型第一次操作时混成同一条路径。
 
 ## 4. 实例生命周期
 
@@ -132,6 +159,12 @@ Uploader 未装配时不创建目录，声明原样通过。
 - Agent mount `hd_<id>.<method>` 合成为 `<handler>__<method>`；
 - Workflow action、Chat、HTTP 与 Sensor 调用同一 `Call`；
 - Delete 停实例、软删主行、清 relation，并最佳努力回收 env/代码目录。
+
+`delete_handler` 的工具回执同时返回结构化 `retention`：`handler=soft_deleted`、
+`versions=retained_for_audit`、`sandbox=destroy_requested_best_effort`、
+`actions=not_found`。这四项是删除后的结果事实；若删除前存在引用，还会额外返回
+`dependents`、`dependentCount` 与修复提示。版本和环境的实际状态仍以对应 REST/数据库
+审计证据为准，不能把“best effort”误读为同步清理完成。
 
 LLM 工具覆盖搜索、读取、构建、revert、配置、restart、调用与 Call 查询。
 `update_handler_meta` 只改主行，不重启实例。

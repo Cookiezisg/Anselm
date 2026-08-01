@@ -26,14 +26,14 @@ TOOL | update_function_meta | function | 仅改 name/description/tags
 TOOL | run_function | function | 关键字参数运行,返回 ok/output/logs
 TOOL | search_function_executions | function | 分页检索执行历史
 TOOL | get_function_execution | function | 取单条执行记录
-TOOL | search_handler | handler | 检索 handler 库
+TOOL | search_handler | handler | 检索 handler 库；调用方法用 call_handler，修改 init 配置用 update_handler_config
 TOOL | get_handler | handler | 取活跃版本+配置态+运行态
 TOOL | create_handler | handler | 新建有状态常驻 Python 类
 TOOL | edit_handler | handler | 叠 ops 新版本并重启实例
 TOOL | revert_handler | handler | 切版本并重启实例
-TOOL | delete_handler | handler | 停实例删全版本,不可逆
-TOOL | call_handler | handler | 调用常驻实例方法
-TOOL | update_handler_config | handler | Merge Patch 写 init-args 后重启
+TOOL | delete_handler | handler | 停实例并软删主行;回执含 retention(handler/versions/sandbox/actions);版本历史保留供审计,环境尽力回收,关系边清理;主实体与动作随后 not-found
+TOOL | call_handler | handler | 只调用已声明的常驻实例方法；顶层 config 不属于此工具，修改 init 配置用 update_handler_config
+TOOL | update_handler_config | handler | 唯一的 init-args 配置工具；Merge Patch 后重启；兼容解码后仍为对象的 JSON 字符串，数组/非法字符串/根级 null 拒绝
 TOOL | update_handler_meta | handler | 仅改 meta,不重启
 TOOL | restart_handler | handler | 优雅关停+新实例
 TOOL | search_handler_calls | handler | 列调用历史

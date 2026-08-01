@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -32,7 +33,9 @@ OP SHAPES:
   {"op":"set_dependencies", "dependencies":["requests==2.31"]}
   {"op":"set_python_version", "version":"3.12"}
 
-init_args (secrets like api_key) are NOT set here — the user fills them via the config; mark sensitive:true to encrypt at rest. A method's optional "timeout" (ms) bounds that one call's wall clock; omit it and the call falls back to the global handler-call default — set a tighter timeout for a method that could hang (a slow/blocking call holds the resident instance's serial pipe for its whole duration). A streaming method body yields {"progress": ...} items to stream progress; its call result is then either the last NON-progress value it yields OR its return-statement value (both honored — a bare return is NOT dropped). The instance starts once config is complete; failed dependency installs auto-fix (≤3) with an LLM.`
+init_args (secrets like api_key) are NOT set here — the user fills them via the config; mark sensitive:true to encrypt at rest. A method's optional "timeout" (ms) bounds that one call's wall clock; omit it and the call falls back to the global handler-call default — set a tighter timeout for a method that could hang (a slow/blocking call holds the resident instance's serial pipe for its whole duration). A streaming method body yields {"progress": ...} items to stream progress; its call result is then either the last NON-progress value it yields OR its return-statement value (both honored — a bare return is NOT dropped). The instance starts once config is complete; failed dependency installs auto-fix (≤3) with an LLM.
+
+The ops value should be a JSON array. For hosted-model compatibility, an exact JSON-encoded array string is also accepted; malformed strings, objects, and non-array values are rejected.`
 }
 
 func (t *CreateHandler) Parameters() json.RawMessage {
@@ -46,14 +49,187 @@ func (t *CreateHandler) Parameters() json.RawMessage {
 	}`)
 }
 
+// decodeHandlerOps accepts the declared array shape and the exact JSON-encoded
+// array form emitted by some hosted models. Keeping this compatibility here
+// lets ValidateInput and Execute enforce the same boundary.
+func decodeHandlerOps(raw json.RawMessage) ([]json.RawMessage, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+
+	var ops []json.RawMessage
+	switch raw[0] {
+	case '[':
+		if err := json.Unmarshal(raw, &ops); err != nil {
+			return nil, fmt.Errorf("ops must be a JSON array: %w", err)
+		}
+	case '"':
+		var encoded string
+		if err := json.Unmarshal(raw, &encoded); err != nil {
+			return nil, fmt.Errorf("ops must be a JSON array or an exact JSON-encoded array: %w", err)
+		}
+		encoded = string(bytes.TrimSpace([]byte(encoded)))
+		if len(encoded) == 0 || encoded[0] != '[' {
+			return nil, fmt.Errorf("ops string must contain a JSON array")
+		}
+		if err := json.Unmarshal([]byte(encoded), &ops); err != nil {
+			return nil, fmt.Errorf("ops string must contain a valid JSON array: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("ops must be a JSON array or an exact JSON-encoded array")
+	}
+	return ops, nil
+}
+
+func parseHandlerOps(raw json.RawMessage) ([]handlerapp.Op, error) {
+	items, err := decodeHandlerOps(raw)
+	if err != nil {
+		return nil, err
+	}
+	if len(items) == 0 {
+		return nil, nil
+	}
+	items, err = normalizeHandlerOps(items)
+	if err != nil {
+		return nil, err
+	}
+	normalized, err := json.Marshal(items)
+	if err != nil {
+		return nil, fmt.Errorf("ops normalization: %w", err)
+	}
+	return handlerapp.ParseOps(normalized)
+}
+
+// normalizeHandlerOps keeps the public update_method shape strict while
+// repairing one deterministic hosted-model alias at the execution boundary.
+// Models occasionally camel-case the op and emit method/methodName plus
+// top-level patch fields; converting only the known fields avoids making
+// arbitrary malformed ops valid.
+func normalizeHandlerOps(items []json.RawMessage) ([]json.RawMessage, error) {
+	const opUpdateMethod = "update_method"
+	patchFields := []string{"description", "body", "inputs", "outputs", "streaming", "timeout"}
+	normalized := make([]json.RawMessage, 0, len(items))
+	for i, item := range items {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(item, &fields); err != nil {
+			return nil, fmt.Errorf("ops[%d] normalization: %w", i, err)
+		}
+		var op string
+		if err := json.Unmarshal(fields["op"], &op); err != nil {
+			var kind string
+			if kindErr := json.Unmarshal(fields["kind"], &kind); kindErr != nil || kind != "set_method" {
+				normalized = append(normalized, item)
+				continue
+			}
+			for key := range fields {
+				if key != "kind" && key != "method" {
+					return nil, fmt.Errorf("ops[%d] set_method unknown field %q", i, key)
+				}
+			}
+			var method map[string]json.RawMessage
+			if err := json.Unmarshal(fields["method"], &method); err != nil || method == nil {
+				return nil, fmt.Errorf("ops[%d] set_method requires a method object", i)
+			}
+			for key := range method {
+				allowed := key == "name"
+				for _, patchKey := range patchFields {
+					if key == patchKey {
+						allowed = true
+						break
+					}
+				}
+				if !allowed {
+					return nil, fmt.Errorf("ops[%d] set_method unknown method field %q", i, key)
+				}
+			}
+			fields = map[string]json.RawMessage{"op": json.RawMessage(`"update_method"`)}
+			for key, value := range method {
+				fields[key] = value
+			}
+			op = opUpdateMethod
+		}
+		if op == "updateMethod" {
+			op = opUpdateMethod
+			fields["op"] = json.RawMessage(`"update_method"`)
+		}
+		if op != opUpdateMethod {
+			normalized = append(normalized, item)
+			continue
+		}
+		nameRaw, hasName := fields["name"]
+		patchRaw, hasPatch := fields["patch"]
+		if hasName && hasPatch {
+			normalized = append(normalized, item)
+			continue
+		}
+		allowed := map[string]bool{
+			"op": true, "name": true, "patch": true, "method": true, "methodName": true,
+			"description": true, "body": true, "inputs": true, "outputs": true,
+			"streaming": true, "timeout": true,
+		}
+		for key := range fields {
+			if !allowed[key] {
+				return nil, fmt.Errorf("ops[%d] update_method unknown field %q", i, key)
+			}
+		}
+		if !hasName {
+			for _, alias := range []string{"method", "methodName"} {
+				if candidate, ok := fields[alias]; ok {
+					nameRaw, hasName = candidate, true
+					break
+				}
+			}
+		}
+		if !hasName {
+			return nil, fmt.Errorf("ops[%d] update_method requires name (or a known method alias)", i)
+		}
+		var name string
+		if err := json.Unmarshal(nameRaw, &name); err != nil || name == "" {
+			return nil, fmt.Errorf("ops[%d] update_method method alias must be a non-empty string", i)
+		}
+		if !hasPatch {
+			patch := make(map[string]json.RawMessage)
+			for _, key := range patchFields {
+				if value, ok := fields[key]; ok {
+					patch[key] = value
+				}
+			}
+			if len(patch) == 0 {
+				return nil, fmt.Errorf("ops[%d] update_method requires patch fields", i)
+			}
+			var err error
+			patchRaw, err = json.Marshal(patch)
+			if err != nil {
+				return nil, fmt.Errorf("ops[%d] update_method patch normalization: %w", i, err)
+			}
+		}
+		canonical := map[string]json.RawMessage{
+			"op":    fields["op"],
+			"name":  nameRaw,
+			"patch": patchRaw,
+		}
+		value, err := json.Marshal(canonical)
+		if err != nil {
+			return nil, fmt.Errorf("ops[%d] update_method normalization: %w", i, err)
+		}
+		normalized = append(normalized, value)
+	}
+	return normalized, nil
+}
+
 func (t *CreateHandler) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		Ops []json.RawMessage `json:"ops"`
+		Ops json.RawMessage `json:"ops"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("create_handler: bad args: %w", err)
 	}
-	if len(a.Ops) == 0 {
+	ops, err := decodeHandlerOps(a.Ops)
+	if err != nil {
+		return fmt.Errorf("create_handler: bad args: %w", err)
+	}
+	if len(ops) == 0 {
 		return ErrOpsRequired
 	}
 	return nil
@@ -67,9 +243,9 @@ func (t *CreateHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("create_handler: bad args: %w", err)
 	}
-	ops, err := handlerapp.ParseOps(args.Ops)
+	ops, err := parseHandlerOps(args.Ops)
 	if err != nil {
-		return "", fmt.Errorf("create_handler: %w", err)
+		return "", fmt.Errorf("create_handler: bad args: %w", err)
 	}
 	sink := newBuildSink(ctx)
 	defer sink.Close()
@@ -91,7 +267,11 @@ type EditHandler struct{ svc *handlerapp.Service }
 func (t *EditHandler) Name() string { return "edit_handler" }
 
 func (t *EditHandler) Description() string {
-	return `Edit a handler: apply ops on top of its active version, producing a new version that takes effect immediately — the resident instance is restarted to load the new code (which WIPES in-memory state). EXCEPTION: a metadata-only edit (all ops are set_meta — just name/description/tags) does NOT mint a version or restart, so it preserves in-memory state; prefer it for pure renames. Same op shapes as create_handler. Empty ops rebuilds the environment + restarts the instance, which WIPES in-memory state (the result then carries restarted:true — it is not a no-op); if you only want to reset a misbehaving instance, prefer restart_handler. The result includes runtimeState: if it is not "running" after a code edit, the new version failed to spawn (broken __init__ or missing config) — call get_handler for details, fix the code, or revert_handler to the last good version. Use revert_handler to switch to an older version, restart_handler to just reset a misbehaving instance.`
+	return `Edit a handler: apply ops on top of its active version, producing a new version that takes effect immediately — the resident instance is restarted to load the new code (which WIPES in-memory state). EXCEPTION: a metadata-only edit (all ops are set_meta — just name/description/tags) does NOT mint a version or restart, so it preserves in-memory state; prefer it for pure renames.
+
+OP SHAPES (exact): update_method MUST be {"op":"update_method","name":"place","patch":{"description":"..."}}. Use the top-level "name" field to select the existing method and put every changed method field inside the RFC 7396 "patch" object. Do NOT use "methodName" and do NOT put "description", "body", "inputs", or "outputs" beside "patch". Other op shapes are the same as create_handler: add_method nests its MethodSpec under "method"; set_meta uses name/description/tags; delete_method uses name.
+
+Empty ops rebuilds the environment + restarts the instance, which WIPES in-memory state (the result then carries restarted:true — it is not a no-op); if you only want to reset a misbehaving instance, prefer restart_handler. The result includes runtimeState: if it is not "running" after a code edit, the new version failed to spawn (broken __init__ or missing config) — call get_handler for details, fix the code, or revert_handler to the last good version. Use revert_handler to switch to an older version, restart_handler to just reset a misbehaving instance.`
 }
 
 func (t *EditHandler) Parameters() json.RawMessage {
@@ -100,7 +280,7 @@ func (t *EditHandler) Parameters() json.RawMessage {
 		"required": ["handlerId", "ops"],
 		"properties": {
 			"handlerId": {"type": "string"},
-			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env + restart).", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env + restart). For update_method use {op, name, patch}; name selects the existing method and patch is the RFC 7396 object. Do not use methodName or top-level method fields.", "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)
@@ -117,6 +297,9 @@ func (t *EditHandler) ValidateInput(args json.RawMessage) error {
 	if a.HandlerID == "" {
 		return ErrHandlerIDRequired
 	}
+	if _, err := decodeHandlerOps(a.Ops); err != nil {
+		return fmt.Errorf("edit_handler: bad args: %w", err)
+	}
 	return nil
 }
 
@@ -130,10 +313,10 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("edit_handler: bad args: %w", err)
 	}
 	var ops []handlerapp.Op
-	if len(args.Ops) > 0 {
-		parsed, perr := handlerapp.ParseOps(args.Ops)
+	if len(bytes.TrimSpace(args.Ops)) > 0 && !bytes.Equal(bytes.TrimSpace(args.Ops), []byte("null")) {
+		parsed, perr := parseHandlerOps(args.Ops)
 		if perr != nil {
-			return "", fmt.Errorf("edit_handler: %w", perr)
+			return "", fmt.Errorf("edit_handler: bad args: %w", perr)
 		}
 		ops = parsed
 	}

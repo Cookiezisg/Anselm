@@ -468,6 +468,7 @@ ToolCardSpec _delete({
   verb: (t, {required bool live}) => live
       ? t.chat.tool.deletingKind(kind: kind(t))
       : t.chat.tool.deletedKind2(kind: kind(t)),
+  failedVerb: (t) => t.chat.tool.deleteFailedKind(kind: kind(t)),
   // Tombstone: the id, plain mono — the target chip is NOT a ref pill. 墓碑:纯 mono id。
   target: (s) => s.arg(idKey),
   receipt: (t, s) => deleteReceipt(
@@ -1142,6 +1143,8 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) => live
         ? t.chat.tool.deletingKind(kind: t.chat.tool.kind.document)
         : t.chat.tool.deletedKind2(kind: t.chat.tool.kind.document),
+    failedVerb: (t) =>
+        t.chat.tool.deleteFailedKind(kind: t.chat.tool.kind.document),
     target: (s) => s.arg('id'),
     receipt: (t, s) => deletedDocReceipt(
       s.resultText,

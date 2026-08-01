@@ -1012,6 +1012,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String revertedKind({required Object kind}) => '已回退${kind}';
 	@override String deletingKind({required Object kind}) => '正在删除${kind}';
 	@override String deletedKind2({required Object kind}) => '已删除${kind}';
+	@override String deleteFailedKind({required Object kind}) => '删除${kind}失败';
 	@override String get staging => '正在设为待命';
 	@override String get staged => '已待命';
 	@override String get activatingWf => '正在上线';
@@ -3295,6 +3296,7 @@ extension on TranslationsZhCn {
 			'chat.tool.revertedKind' => ({required Object kind}) => '已回退${kind}',
 			'chat.tool.deletingKind' => ({required Object kind}) => '正在删除${kind}',
 			'chat.tool.deletedKind2' => ({required Object kind}) => '已删除${kind}',
+			'chat.tool.deleteFailedKind' => ({required Object kind}) => '删除${kind}失败',
 			'chat.tool.staging' => '正在设为待命',
 			'chat.tool.staged' => '已待命',
 			'chat.tool.activatingWf' => '正在上线',
@@ -3477,9 +3479,9 @@ extension on TranslationsZhCn {
 			'chat.tool.gotActivation' => '已调阅活动档案',
 			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
 			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
-			'chat.tool.fireYes' => '已 fire',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.fireYes' => '已 fire',
 			'chat.tool.fireNo' => '未 fire',
 			'chat.tool.gettingFlowrun' => '正在调阅运行',
 			'chat.tool.gotFlowrun' => '已调阅运行',
@@ -3991,9 +3993,9 @@ extension on TranslationsZhCn {
 			'feedback.cast.verb.edited' => '编辑',
 			'feedback.cast.verb.viewed' => '查看',
 			'feedback.cast.verb.executed' => '执行',
-			'feedback.cast.verb.attached' => '附上',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.attached' => '附上',
 			'feedback.cast.verb.deleted' => '删除',
 			'feedback.cast.verb.unknown' => '触碰',
 			'feedback.codeTruncated' => ({required Object total, required Object shown}) => '共 ${total} 行·已显示前 ${shown} 行——完整文件请在外部打开',
@@ -4505,9 +4507,9 @@ extension on TranslationsZhCn {
 			'library.slash.table' => '表格',
 			'library.slash.media' => '媒体',
 			'library.slash.divider' => '分隔线',
-			'library.slash.todo' => '待办',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.todo' => '待办',
 			'library.linkHint' => '输入或粘贴链接,回车确定',
 			'library.table.insertRowAbove' => '在上方插入行',
 			'library.table.insertRowBelow' => '在下方插入行',

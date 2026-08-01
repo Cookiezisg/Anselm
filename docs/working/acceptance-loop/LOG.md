@@ -12,8 +12,174 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+## 2026-08-01 17:06 · 第四批 50/50 统一长门禁收口
+
+- `make verify` 全绿：backend、frontend、docs、demo 均通过；修复后的 `backend/internal/app/loop` 守卫测试通过。
+- 第一道完整黑盒在媒体 workflow 场景暴露真实回归：`TestWorkflowMedia_FunctionArtifactToVisionAgent` 与
+  `TestWorkflowMedia_AgentNodeToAgentNode` 的 flowrun 节点结果收到 `<opaque value omitted>`，因新加的用户
+  prose 脱敏越过了数据边界，导致 downstream 无法解析 `attachmentId`。前线冻结；`stream.go` 改为仅对普通
+  chat prose 脱敏，带 flowrun 身份的 workflow agent 保留完整 MediaRef receipt，新增 chat/workflow 双向守卫。
+  定向两个媒体场景通过，随后完整 `make -C backend testend` 通过（`294.982s`）。
+- `cd testend && mise exec -- go test -count=1 -timeout 30m ./...` 全包通过：scenarios `337.102s`，cmd/measure、
+  ssetap、fixtures/materialize、golden、harness、proxycore 均通过。第二次 `make verify` 也在文档同步后全绿。
+- 收台事实：anchors `10/10`；`alarms.py check` 为 `clean (200 judgments on record)`；`git diff --check` 通过；
+  无残留 `anselm-server`、llmtap、ssetap、Flutter runner、scenario test 或 llama-server 进程；临时 acceptance
+  fixture 与对话此前均已由真实 DELETE + GET 404 对证，rig 状态目录无未清理 fixture 名称。下一前线为 `TOOL-033 restart_handler`，
+  本批次现在一次性提交。
+
+## 2026-08-01 16:22 · 第四批 TOOL-032 update_handler_meta 收尾、批次满 50/50
+
+- 产品目的：真实用户从自然语言找到一个 handler，先观察常驻实例，再只修改 name/description/tags；active version、方法、环境和 resident memory 必须保持，随后不存在 ID 的拒绝要可解释且不重试。
+- session `/private/tmp/anselm-rig-formal-20260801-69/sessions/20260801-161542` 由同一 conductor 托管真实 Flutter App、受管网关、Computer Use 连续录像、Flutter console、三路 SSE witness 和 LLM tap。真实路径只调用一次 `update_handler_meta`，前后 bump 得 count 1→2，v1、方法、env ready、创建/同步事实和 running resident 连续；负路径对不存在 ID 只调用一次，`handler not found`，未用 edit/restart/retry。完成 checklist 6/6，Activity 成功目标显示 `Ran ×2`。
+- 五通道事实：screen.mov `298.946667s / 2784x1808 / 60fps`；LLM 21 个 response files 全 HTTP 200，19 个 request bodies；SSE 990 帧，messages/entities/notifications durable 分别 `1..116`、`7..8`、`16..21`，无 gap；frontend 无 Flutter/Dart/RenderFlex/Unhandled/SEVERE/Exception/AXTree 红线；backend 仅一条刻意 not-found WARN。抽帧 `evidence/frames/tool-032-220.jpg`、`tool-032-260.jpg`、`tool-032-295.jpg` 已复核，未发现视觉或交互缺陷；摘要为 `evidence/tool-032-update-handler-meta-session-summary.txt`。
+- fixture `hd_c7594fb02098ddf8` 已 DELETE 后 GET 404，acceptance conversation 也已 DELETE 后 GET 404；证据 session 和审计 journal 保留。锚点复校通过，五级裁决 `G1/F2/A5/C4/G2` 已落账；两条统计警报已基于本次证据、失败 session 和锚点复审并 ack，当前 `alarms.py check` 为 clean(200 judgments)。
+- 第四批达到 **50 / 50**。现在统一运行长门禁、完整 testend、已修场景回归、锚点/警报复核和工作树审计；全部通过前不提交。下一前线暂记 `TOOL-033 restart_handler`。
+
 本页只记录**已经发生的日级事实与前线位置**，不复制 WRK-087 的规则。每日收台后追加一节；细粒度
 格子结论只进 COVERAGE 与 `~/.anselm-rig/judgments.jsonl`，证据只放专机 session 目录。
+
+## 2026-08-01 16:15 · 第四批 TOOL-031 update_handler_config 收尾
+
+- 前置 session `/private/tmp/anselm-rig-formal-20260801-54/sessions/20260801-150710` 未进入裁决：Computer Use 在布局变化后误触语音入口，真实受管 ASR 握手返回 503，Composer 停在 `Finishing 00:00`。冻结后修复 `frontend/lib/features/chat/state/speech_input_provider.dart` 的握手失败收尾，新增 fake-channel 守卫，`flutter test` 通过 5/5；该 session 保留为红证据。
+- 清理台架也发现 `RIG_LLMTAP=0` 在 `set -u` 下的空数组问题，已修复 `testend/rig/rig-up.sh` 并同步手册。session 65 的 fixture 因 init body 含字面 `\\n` 被判为 setup contamination，不作产品证据；session 67 因旧工具边界导致模型把 config 误送进 `call_handler`，不作绿证据。随后收紧 `call_handler` 描述和执行边界，补 handler 测试及领域/工具提取文档。
+- 干净 session `/private/tmp/anselm-rig-formal-20260801-68/sessions/20260801-160415` 使用正确 fixture `hd_c6b5cbdd36c1aa92`，真实 App 先 inspect，再将 config 做 `warm→cool→default` 三次更新；每次 bootId 变化、prefix 保持，明确不存在 handler 的负路径只执行一次返回 `handler not found`，没有错误重试。最终文本不泄漏实体 ID、长整数或 ISO 时间戳，raw tool card 仍保留机器真值；视觉终帧见 `evidence/tool-031-final-clean.png`，五通道摘要见 `evidence/tool-031-final-clean-summary.txt`。
+- 五通道事实：screen.mov `2784x1808 / 221.563333s`；LLM 26/26 状态 200；messages/entities/notifications durable 分别 `1..102`、`1..2`、`1..8`；frontend 无 Flutter/Dart/RenderFlex/Unhandled/SEVERE/Exception/AXTree 红线；backend 仅一条刻意 not-found WARN。fixture 删除后 GET 404，历史审计证据与 session 未删除，rig-down 进程组无残留。
+- 锚点重新校准通过；`judge.py` 按 COVERAGE 真实 row key `update_handler_config` 写入五级 `G1/F2/A5/C4/G2`。统计警报因连续裁决动作过快和近尾 fail 占比偏低而打开，已用正负证据、锚点和失败 session 复审并分别 ack；当前 `alarms.py check` 为 clean(195 judgments)。
+- 第四批从 **40 / 50** 推进至 **45 / 50**；未到 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-032 update_handler_meta`。Goal API 仍没有 `blocked → active` 操作，不创建重复 Goal、不谎报完成；盘上 `LOOP.md` 保持 active，继续按协议推进。
+
+## 2026-08-01 15:25 · TOOL-031 前置失败、语音清理与台架自修
+
+- session `/private/tmp/anselm-rig-formal-20260801-54/sessions/20260801-150710` 未进入 TOOL-031 裁决：Computer Use 在布局变化后点中了语音按钮，真实受管 ASR 握手返回 503，前端停在 `Finishing 00:00`，Composer 无法恢复。录屏 `screen.mov` 可读（`2784x1808 / 941.5s`），终帧与 backend/frontend 原始错误已保存在该 session 的 `evidence/`，此 session 只作红证据。
+- 前线冻结后修复 `frontend/lib/features/chat/state/speech_input_provider.dart`：握手失败由 watcher 捕获，启动竞争期暂存错误，录音初始化收尾时以 `socketAlreadyClosed=true` 走统一失败清理，确保 Composer 解锁且不再等待已关闭音频 sink。新增真实 handshake-failure fake-channel 守卫；`mise exec -- flutter test test/features/chat/state/speech_input_provider_test.dart` 通过（5/5）。
+- 为清理 TOOL-031 fixture 启动无 App 台架时暴露 `RIG_LLMTAP=0` 在 `set -u` 下展开空数组的问题；修复 `testend/rig/rig-up.sh` 的无 tap 分支并同步台架手册。修复后的 session `/private/tmp/anselm-rig-formal-20260801-55/sessions/20260801-152437` 仅用于清理，已正常收台。
+- 通过真实 DELETE API 删除 `hd_e35443a1b63f72c9` (`acceptance_update_handler_config_fixture_54`)；GET 为 404，SQLite 对证 `deleted_at` 已写入、handler_versions=1、sandbox_envs=0、relations=0、handler_calls=0。临时 session 与进程均已收口。当前第四批仍 **40 / 50**，TOOL-031 未判绿，下一步是重建前端后的干净真实会话。
+- Goal API 仍无 `blocked → active` 操作；不创建重复 Goal、不谎报完成，继续以本页、`LOOP.md`、`README.md` 和台架事实幂等推进。
+
+## 2026-08-01 15:00 · TOOL-030 fixture 清理与 goal 恢复检查
+
+- 按用户授权启动一次无 App 的清理台架 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-52`，只用于本地产品 API 清理，不作为验收 session；`RIG_APP=0` 导致 `rig-check` 的前端观察器项缺席是预期，不进入任何裁决。
+- 通过真实 DELETE API 清理仍存活的 `acceptance_call_handler_fixture_51`。随后 GET 返回 `HANDLER_NOT_FOUND`；SQLite 对证主行 `deleted_at` 已写入、版本 1 行保留、sandbox 环境 0 行、关系边 0 行、三条 `handler_calls` 审计行保留，正式 handler `order_desk` 未受影响。
+- 同步 DELETE 五个本轮专用 acceptance 对话。服务端语义为可恢复立碑：五个 `conversations.deleted_at` 均已写入，消息和五通道 session 证据未直接抹除；这是产品数据保留契约，不是清理失败。默认 `演示对话` 保留。
+- `rig-down.sh` 已收台，进程组无残留。历史 screen/LLM/SSE/backend evidence 目录未删除，COVERAGE 裁决仍可复核。当前第四批仍为 **40 / 50**，下一前线 `TOOL-031 update_handler_config`。
+- Goal API 仍只提供“标记完成/标记阻塞”，无法把既有 `blocked` 状态直接切回 active；未创建重复 goal，也未谎报完成。盘上 `LOOP.md` 仍为 active，按其协议继续执行。
+
+## 2026-08-01 14:54 · 第四批 TOOL-030 call_handler 收尾
+
+- 本切片的产品目的：证明 stateful handler 的常驻语义是用户可依赖的，而不是每次调用都隐式重建；同一方法连续调用必须保留状态，失败方法必须诚实落入调用审计且不被自动重试或伪装成成功。
+- 最终 session `/private/tmp/anselm-rig-formal-20260801-51/sessions/20260801-144938` 由 conductor 托管真实 Flutter App、真实受管网关、Computer Use、连续窗口录像、Flutter console、三路 SSE witness 和 LLM tap。fixture `hd_3d0642336c9881b6` 只通过 REST 预先创建，版本 `hdv_5dc8f4027a7d323d`、环境 `hdenv_6173d28a1d4cc891` ready；方法 `bump` 递增 `self.count`，方法 `fail` 抛出刻意 `ValueError`。
+- 真实 App 先只读搜索 handler，再按用户目的连续调用 `call_handler.bump` 两次，UI 结果 wrapper 明确为 `count: 1`、`count: 2`；随后只调用一次 `call_handler.fail`，UI 展示 ValueError 与失败日志，未执行 retry、edit、config、shell 或 REST。活动面显示 `Ran ×2 · Failed`，并明确 draft 未改变最后版本。
+- REST 调用台账独立返回恰三行：同一 `instance_id` 的 bump success 两行与 fail failed 一行；SQLite 证明 handler 仍未删除、只有一个版本、环境仍 ready、meta 未变。失败 traceback 保留在调用审计，证明是业务失败而非前端吞错。
+- 五通道收台：screen.mov H.264 `2784x1808 / 129.256667s / 60fps`；LLM 18/18 状态 HTTP 200、8 个 chat request body；SSE 三流各连接一次，messages/entities/notifications durable 分别 `1..46`、`1..2`、`1..5`，无 durable gap；frontend 无 FlutterError/DartError/RenderFlex/Unhandled/SEVERE；backend 无 panic/fatal/ERROR，仅一条刻意 `ValueError` 业务失败。
+- 锚点重新盲测通过；五级裁决独立落账 `L1 G1`、`L2 F2`、`L3 A5`、`L4 C4`、`L5 G2`。三曲线开启后按 session 51 的完整五通道、终态截图和 REST/SQLite 账本复审并 ack，最终 `alarms.py check` 为 `clean (190 judgments on record)`。
+- 第四批从 **35 / 50** 推进至 **40 / 50**；未到第四批 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-031 update_handler_config`。
+
+## 2026-08-01 14:46 · 第四批 TOOL-029 delete_handler 收尾
+
+- 本切片的产品目的：从真实 Chat 入口删除一个有两个版本、已准备环境的 stateful handler；删除后活动产品面应诚实消失，但不可变版本仍可审计，环境与关系清理要有可核对事实；不存在 ID 的失败不能伪装成成功或产生副作用。
+- 前置真实会话 `/private/tmp/anselm-rig-formal-20260801-49/sessions/20260801-143154` 保留为红证据：旧二进制的正向 `delete_handler` 回执只有 `{"deleted":true,"id":"..."}`，模型只能把版本保留、环境清理和依赖上报当作工具文档推断，不能向用户提供直接回执。后端 SQLite/HTTP 仍证明 v1/v2 保留、活动主行软删、环境和关系行清理；该会话不用于判绿。
+- 前线冻结后修复 `backend/internal/app/tool/handler/manage.go`：`delete_handler` 与 `delete_function` 对齐，回执加入 `retention.handler=soft_deleted`、`versions=retained_for_audit`、`sandbox=destroy_requested_best_effort`、`actions=not_found`，依赖存在时继续折入 `dependents/dependentCount/note`。`handler_test.go` 增加结构化回执守卫；`docs/references/backend/domains/handler.md` 与 `testend/rig/extracts/tools.md` 同步。此前已发现的前端错误动词也一并修复：失败卡片使用中英双语 `deleteFailedKind`，widget test 通过。
+- 最终 session `/private/tmp/anselm-rig-formal-20260801-50/sessions/20260801-143835` 由 conductor 托管真实 Flutter App、真实受管网关、Computer Use、窗口录屏、Flutter console、三路 SSE tap 和 LLM tap；fixture `hd_ae18f91613773bad` 从 REST 先建 v1/v2，真实 App 正向只调用一次 `delete_handler`，画面展示 retention JSON、五行验证表和后续 `get_handler` not-found。SQLite 对证：主行有 `deleted_at`，v1/v2 保留且 env status ready，`sandbox_envs` 归属行 0、`relations` 归属行 0。
+- 同一 session 的负路径经过产品危险人闸后只调用一次不存在 ID `hd_0000000000000000`；修复后的卡片是 `Delete handler failed · failed`，不是过去式成功标题，最终错误为 `handler not found`，报告确认实体、环境和关系均未改变。关键抽帧为 `evidence/tool-029-positive.png` 与 `evidence/tool-029-negative.png`，完整证据为 `evidence/tool-029-delete-handler-session-summary.txt`。
+- 五通道收台：screen.mov H.264 `2784x1808 / 191.041667s / 60fps`；LLM 20/20 状态 HTTP 200、9 个 chat request body；SSE 三流各连接一次，messages/entities/notifications durable 分别 `1..51`、`1..4`、`1..12`，500 stream frames 无 durable gap；frontend 无 FlutterError/DartError/RenderFlex/Unhandled/SEVERE；backend 仅三条有因 WARN（删除后的读取、缺 handlerId 校验、刻意不存在 ID 删除）。
+- 锚点重新盲测通过；五级裁决独立落账 `L1 G1`、`L2 F2`、`L3 A5`、`L4 C4`、`L5 G2`。三曲线开启 `gap-too-fast` 与 `discovery-collapse` 后，以完整五通道、正负抽帧和数据库证据复审并 ack，最终 `alarms.py check` 为 `clean (185 judgments on record)`。
+- 第四批从 **30 / 50** 推进至 **35 / 50**；未到第四批 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-030`。
+
+## 2026-08-01 13:35 · 第四批 TOOL-028 revert_handler 收尾
+
+- 本切片的产品目的：把真实 stateful handler 从 active v2 回退到历史 v1，确认 v2 不被删除、resident 按 v1 重启且运行，另以 version 999 证明不存在版本拒绝不会改指针、铸版本或重启。
+- session 42 `/private/tmp/anselm-rig-formal-20260801-42/sessions/20260801-131010` 首轮前置 edit 暴露 `op:"updateMethod"` + `methodName`；session 43 `/private/tmp/anselm-rig-formal-20260801-43/sessions/20260801-131437` 暴露 `kind:"set_method"`；session 44 `/private/tmp/anselm-rig-formal-20260801-44/sessions/20260801-131916` 暴露 `set_method_description`。三者均保留为红证据，未把“最终通过但中间失败/重试”判绿。
+- 为已观测的前置模型形状补齐窄归一化和守卫测试：`build.go` 只接受 `updateMethod`、`method/methodName` 及完整 `kind:set_method` + 有限 MethodSpec 字段的确定性 alias，未知字段、空 patch 和近似拼写仍拒绝；`handler.md` 同步公开 canonical 形状与兼容边界。
+- session 45 `/private/tmp/anselm-rig-formal-20260801-45/sessions/20260801-132148` 将 edit 前置问题隔离后，真实回退路径暴露 hosted model 发 `version:"1"`，严格 int 解码失败并发生一次模型重试。收台后修复 `manage.go`：公开 schema 不变，专用 decoder 接受 exact integer/string integer，拒绝小数、数组、布尔、文字和非正数；`handler_test.go` 补齐边界测试。
+- 最终 session `/private/tmp/anselm-rig-formal-20260801-46/sessions/20260801-132558` 使用真实 HTTP canonical edit 端点构造 fixture：handler `hd_0500bfd2001381c0` 从 v1 建 v2 `hdv_9da340ed531c4f14`，`place` 描述为 `Revert fixture v2`，active v2/env ready；REST、SQLite、entities/notifications SSE 与 App 初态一致。
+- 主路径在真实 App 中按名称找到 handler，实际只执行一次回退到 v1，再只读一次核验。UI 显示 `Reverted handler ... · ↩ v1`，表格/总结给出 active `hdv_1451ab39abfb137a`、version 1、v2 历史保留、env ready、runtime running、resident restarted yes；v1 的 place 不再有 v2 描述。录屏抽帧 `evidence/revert-handler-success.jpg`。
+- 负路径在同一真实对话的新 user turn 中只执行一次 version 999；backend 原文和 UI 均为 `handler version not found`，无 retry/read/edit/restart。报告列出 active v1、无指针切换、无新版本、无重启；SQLite 最终只有 v1/v2、active 仍为 v1。录屏抽帧 `evidence/revert-handler-negative.jpg`。
+- 五通道收台事实：screen.mov H.264 `2784x1808 / 258.636667s`；LLM 所有状态记录 HTTP 200；SSE messages 1208 帧/durable `1..91`、entities 5 帧/durable `7..8`、notifications 8 帧/durable `16..21`，三流各连接一次且无 gap；frontend 无 FlutterError/RenderFlex/DartError/Unhandled/Exception/AXTree；backend 仅一条有因的 version-not-found WARN。
+- 产品审查：主路径报告的表格、版本 ID、环境/运行态和重启事实层级清楚；负路径红卡与下面的中文负向报告配对，明确“失败是正确结果”，没有把拒绝伪装成成功。连续录像中可见三张无副作用的 Bash echo 计划卡片，这是模型冗余动作而非业务错误，已记录但不阻断本格回退真相；后续 judge 仍以实际工具调用、五通道和产品结果为准。
+- 锚点校准通过后，五级裁决独立落账：L1 `G1`、L2 `F2`、L3 `A5`、L4 `C4`、L5 `G2`。每次裁决后的 `gap-too-fast` 与 `discovery-collapse` 均使用对应成功/负路径证据复审并 ack，最终 `alarms.py check` 为 `clean (180 judgments on record)`。
+- 第四批从 **25 / 50** 推进至 **30 / 50**；未到第四批 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-029 delete_handler`。
+
+## 2026-08-01 13:07 · 第四批 TOOL-027 edit_handler 收尾
+
+- 本切片的产品目的：在真实 App 中找到播种的 stateful handler `order_desk`，只通过一次 `edit_handler` 更新既有 `place` 方法的描述，确认新版本生效、resident 重启、环境健康，并用不存在 method 的负路径确认拒绝无副作用。
+- 前两次固定台架会话 `/private/tmp/anselm-rig-formal-20260801-39/sessions/20260801-124803` 与 `/private/tmp/anselm-rig-formal-40/sessions/20260801-125520` 保留为红证据，分别暴露托管模型发送 `methodName`，以及发送 `method` 加顶层 `description`。两者都没有判绿；前线冻结。
+- 直接修复 `backend/internal/app/tool/handler/build.go`：公开 `edit_handler` 描述和参数 schema 明确规范 `{op:"update_method",name,patch}`；执行边界仅对已知 hosted-model alias (`method`/`methodName` + 顶层 method fields) 做确定性归一化，未知字段、空 method、无 patch 和错误类型仍拒绝。补 `handler_test.go` 的规范形状、alias 修复、未知/畸形形状拒绝测试，并同步 `docs/references/backend/domains/handler.md`。
+- 修复后二进制真实会话 `/private/tmp/anselm-rig-formal-20260801-41/sessions/20260801-125948` 由同一 conductor 托管真实 Flutter App、受管网关、Computer Use、连续窗口录像、Flutter console、三路 SSE witness 和 LLM tap；证据摘要为 `evidence/tool-027-edit-handler-session-summary.txt`。
+- 成功路径只调用一次 `edit_handler`，wire 目标为 `hd_433206676aad6bc0`，单一 update op 更新 `place` 描述。UI 报告 version 2 from version 1、env ready、runtime running from stopped、restarted yes；SQLite 证明 active `hdv_9d072606077924bf`，恰有 v1/v2，v2 描述准确，未混入其它 op。
+- 负路径只调用一次 `edit_handler`，目标 `does_not_exist`；backend 原文为 `invalid build op (op=update_method; reason=update_method: method "does_not_exist" not found)`，UI 报告 failed 且 truth remains last version；SQLite 仍只有 v1/v2、active 仍是 v2、无 v3。两张关键画面分别为 `evidence/edit-handler-success.png` 与 `evidence/edit-handler-rejected-missing-method.png`。
+- 五通道收台事实：screen.mov H.264 `2784x1808 / 160.443333s`；LLM tap 26 个状态全 HTTP 200；SSE journal 记录 messages 648 帧/durable `1..57`、entities 5 帧/durable `7..8`、notifications 9 帧/durable `16..22`，三流无 durable gap；frontend 无 FlutterError/RenderFlex/DartError/Unhandled/Exception/AXTree；backend 只有刻意负路径 WARN，无 panic/fatal。
+- targeted handler tests 通过：`mise exec -C backend -- go test -count=1 ./internal/app/tool/handler/... ./internal/app/handler/...`。录屏、LLM body/response、SSE、后端、前端和 SQLite 证据均保留；完整证据摘要已写入 session 目录。
+- 锚点校准通过后，五级裁决独立落账：L1 `G1`、L2 `F2`、L3 `A5`、L4 `C4`、L5 `G2`。每次裁决后的 `gap-too-fast` 与 `discovery-collapse` 均按本次五通道证据复审并 ack，最终 `alarms.py check` 为 `clean (175 judgments on record)`。
+- 第四批从 **20 / 50** 推进至 **25 / 50**；未到第四批 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-028 revert_handler`。
+
+## 2026-08-01 12:05 · 第四批 TOOL-025 get_handler 收尾
+
+- 固定真实会话 `/private/tmp/anselm-rig-formal-20260801-32/sessions/20260801-115554` 由同一 conductor
+  托管真实 Flutter App、受管网关、Computer Use、连续录像、Flutter console、三路 SSE witness 与 LLM tap；
+  证据摘要为 `evidence/tool-025-get-handler-session-summary.txt`。
+- 正常用户目的路径先用 `search_handler` 搜索 `order desk`，得到 `hd_fff4fb4ab53677f3`，再只调用一次 `get_handler`。
+  UI 显示 `Viewed handler order_desk · v1`，完整详情含 ID/name/description/tags/activeVersionId/时间、v1 的 place 与
+  cancel 方法、空 inputs、streaming=false、`return {"ok": True}` 方法体、init args schema=null、configState=ready、
+  runtimeState=stopped；解释说明首次调用会自动启动常驻实例。
+- 负向路径只调用 `get_handler(hd_0000000000000000)` 一次，工具卡片和正文均为 `handler not found`，没有 retry。
+  另有一条刻意受限的名称误作 ID 红反证：第一次 `get_handler(order_desk)` 失败后模型搜索到了真实 ID，但该路径不作绿证据；
+  正常用户旅程已证明名称发现→ID详情链自然可走，不需要代码修复。
+- 五通道收台事实：`screen.mov` 为 H.264 `2880x1800 / 302.100000s` 且 ffprobe 可读；frontend.log 无
+  `Unhandled exception`、`FlutterError`、`Lost connection to device` 或未解释 Error；backend 只有两条有因的 not-found WARN，无
+  panic/FATAL/未解释 ERROR；LLM tap 11 个 chat-completion request body、11 个 response body，22 个 status 观察全 HTTP 200；
+  sse journal 744 条，三流各连接一次且 0 gaps，messages durable `1..61`、notifications `16..19` 单调，entities 已连接且无读操作 durable 变更。
+- SQLite 与 wire 对账：handler 主行 `hd_fff4fb4ab53677f3` 与 active version `hdv_5fcf68c48ffdc95d` 与详情一致；正常回合
+  的 search→get 参数和 full JSON 结果一致，负向回合参数为 `hd_0000000000000000`、结果为 `handler not found`；所有消息 completed，
+  没有 handler/version 写入。
+- 产品审查结论：详情页的基本信息、方法代码块、状态表和错误卡片均逐帧检查，层级、滚动和错误边界清晰；新用户可以从名称自然
+  搜索到完整详情，本切片无功能、真相、交互、文案或视觉缺陷。
+- 五级裁决已独立落账：L1 `G1`、L2 `F2`、L3 `A5`、L4 `C4`、L5 `G2`；每次裁决后的两项统计警报均以完整录屏、正常/红反证、
+  SQLite、SSE、LLM 与后端日志复审并 ack。最终 `alarms.py check` 为 `clean (165 judgments on record)`。
+- 第四批从 **10 / 50** 推进至 **15 / 50**；未到 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-026 create_handler`。
+
+## 2026-08-01 11:55 · 第四批 TOOL-024 search_handler 收尾
+
+- 固定真实会话 `/private/tmp/anselm-rig-formal-20260801-31/sessions/20260801-114544` 由同一 conductor
+  托管真实 Flutter App、受管网关、Computer Use、连续录像、Flutter console、三路 SSE witness 与 LLM tap；
+  证据摘要为 `evidence/tool-024-search-handler-session-summary.txt`。
+- 使用 seed 的真实 handler `hd_553209acf70a2470 / order_desk / 订单台`，完成三条产品路径：名称 query `order` 命中
+  1 条；不传 query 的空查询列出全部 1 条；随机 query `zzznonexistentacceptance` 返回 count 0、空列表且不重试。
+  每条路径都只执行一次 `search_handler`；第一次按懒加载协议先出现一次 `search_tools`，之后的工具名、参数和结果均为
+  canonical wire。UI 分别呈现 `Searched handler · 1 found`、`Listed handler · 1 found` 和明确 `no matches` 空态。
+- 五通道收台事实：`screen.mov` 为 H.264 `2880x1800 / 264.113333s` 且 ffprobe 可读；frontend.log 无
+  `Unhandled exception`、`FlutterError`、`Lost connection to device` 或未解释 Error；backend 无 WARN/ERROR/panic/FATAL；
+  LLM tap 记录 8 个 chat-completion request body、8 个 response body，16 个 status 观察全为 HTTP 200；sse journal 265 条，
+  三流各连接一次且 0 gaps，messages durable `1..48`、notifications `16..17` 单调，entities 已连接但无读操作 durable 变更。
+- SQLite 与 wire 对账：三条 user/assistant 回合均 `completed`；message_blocks 中三次 `search_handler` 参数分别为
+  `{"query":"order"}`、`{}`、`{"query":"zzznonexistentacceptance"}`，工具结果分别为 count 1、count 1、count 0；
+  handler 主行仍为 seed 数据，读工具没有制造 handler mutation 或 handler-call 审计行。
+- 产品审查结论：用户能从自然语言入口发现 lazy tool，成功结果字段完整，空查询与 no-match 都可解释且没有悬挂 composer；
+  命中、全列出、无命中三张画面逐帧检查未发现功能、真相、交互、文案或视觉缺陷，本切片无需代码修复。
+- 五级裁决已独立落账：L1 `G1`、L2 `F2`、L3 `A5`、L4 `C4`、L5 `G2`；每次裁决后的 `gap-too-fast` 与
+  `discovery-collapse` 均用完整录屏、三态截图、SQLite、SSE、LLM 与后端日志复审并 ack。最终 `alarms.py check` 为
+  `clean (160 judgments on record)`。
+- 第四批从 **5 / 50** 推进至 **10 / 50**；未到 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-025 get_handler`。
+
+## 2026-08-01 11:43 · 第四批 TOOL-023 get_function_execution 收尾
+
+- 固定真实会话 `/private/tmp/anselm-rig-formal-20260801-30/sessions/20260801-113505` 由同一 conductor
+  托管真实 Flutter App、受管网关、Computer Use、连续录像、Flutter console、三路 SSE witness 与 LLM tap；
+  证据摘要为 `evidence/tool-023-get-function-execution-session-summary.txt`。
+- 成功路径只调用 `get_function_execution` 一次，真实取回 `fne_6f78754411a72538` 的完整执行记录：function/version、
+  status、triggeredBy、input/output、error、logs、elapsedMs、startedAt/endedAt、conversation/message/toolCall 等字段
+  与 SQLite、UI、LLM wire 互证一致。失败路径只调用 `fne_0000000000000000` 一次，UI 明确显示 `function execution not found`、
+  请求 ID 与 “No retry performed.”，SQLite 无该行，无重试和副作用。截图分别为
+  `evidence/get-function-execution-success.jpg` 与 `evidence/get-function-execution-not-found.jpg`。
+- 五通道收台事实：`screen.mov` 为 H.264 `2880x1800 / 159.710000s` 且 ffprobe 可读；frontend.log 无
+  `Unhandled exception`、`FlutterError`、`Lost connection to device`；backend 仅一条刻意 not-found WARN，无 panic/FATAL/未解释
+  ERROR；LLM 6 个请求体、7 个响应体及 14 个 status 记录全 HTTP 200；sse journal 共 370 条、6 次连接、0 gaps，
+  messages durable `1..28`、notifications `1..4` 单调，entities 保持连接；真实 SQLite execution 行记录 `status=ok`、
+  `elapsed_ms=61`，不存在 ID 查询计数为 0。
+- 产品审查结论：成功详情层级完整、错误路径停止重试且没有孤儿 composer；逐帧检查未发现功能、真相、交互、文案或视觉缺陷，
+  本切片无需代码修复。
+- 五级裁决已独立落账：L1 `G1`、L2 `F2`、L3 `A5`、L4 `C4`、L5 `G2`；每次裁决后的 `gap-too-fast` 与
+  `discovery-collapse` 均用完整录屏、成功/负向画面和五通道证据复审并 ack。最终 `alarms.py check` 为
+  `clean (155 judgments on record)`。
+- 第四批从 **0 / 50** 推进至 **5 / 50**；未到 50 格，不运行统一长门禁、不提交。下一前线为 `TOOL-024 search_handler`。
 
 ## 2026-08-01 10:45 · 第三批 TOOL-022 search_function_executions 收尾与 50/50 边界
 
@@ -451,3 +617,29 @@ landed-into:
   为 `clean (110 judgments on record)`。
 - 第三批从 **5 / 50** 推进至 **10 / 50**；下一前线为 `TOOL-015 get_function`。未到第三批 50 格不跑统一
   长门禁、不提交。
+## 2026-08-01 12:43 · 第四批 TOOL-026 create_handler 真实工具切片与 stop-and-fix
+
+- 首轮真实窗口绑定台架会话：`/private/tmp/anselm-rig-formal-20260801-38/sessions/20260801-123643`。`rig-check`
+  在收台前确认五通道物理在线：backend PID 与 `:8742` 归属、ssetap 三流连接、llmtap 接线、Flutter runner 和
+  `screencapture -v -l 9726` 的 Anselm 窗口录像。录像不再把外部桌面弹窗当作产品证据。
+- 产品成功路径：真实 App 对话一次调用 `create_handler`，`set_meta → add_method` 创建
+  `acceptance_handler_minimal_probe`；LLM wire 中 `ops` 是合法 JSON-encoded array string，后端返回
+  `hd_4b7c8c7338fa5724` / v1 / `envStatus=ready` / `opsApplied=2`；SQLite 与 UI 回执一致。
+- 产品拒绝路径：新对话一次调用只带 `set_meta` 的 `create_handler`，后端返回
+  `handler class code invalid (reason=a handler needs at least one method)`；UI 明确显示 failed 与
+  `Draft unsaved · nothing was created`。模型没有重试 create，随后一次 `search_handler` 仅作只读核实；SQLite
+  没有 `acceptance_handler_invalid_probe_minimal`，没有负向副作用。
+- 首轮问题不是被掩盖而是冻结修复：托管模型将 Parameters 声明的 array 发为 JSON-encoded array string。
+  `backend/internal/app/tool/handler/build.go` 新增 create/edit 共用 `decodeHandlerOps`/`parseHandlerOps`，接受
+  原生 array 与精确字符串化 array，拒绝 malformed string/object/scalar；`handler_test.go` 补齐边界测试。
+  同步修复窗口录像台架：`rig-up.sh` 等窗口再录像，`rig-check.sh` 拒绝全桌面 evidence。
+- 五通道收台：`screen.mov` `256.185000s`、`2784x1808`；`backend.log` 仅一条刻意拒绝 WARN、无 ERROR/panic/fatal；
+  `sse.jsonl` 585 帧，messages durable `1..53`、entities `7..12`、notifications `16..22` 连续；`frontend.log`
+  仅已知 macOS IMK/foreground 噪声，无 FlutterError/RenderFlex/DartError/AXTree/unhandled；`llm.jsonl` challenge/
+  install/models/chat 共 24 个响应全 200，9 个 chat request/response 均留档。证据摘要、成功/拒绝截图和抽帧已封存于
+  `.../evidence/`。
+- `judge.py` 在锚点校准通过且先验警报 clean 后独立落账 `TOOL-026 create_handler` 五格：L1 `G1`、L2 `F2`、
+  L3 `A5`、L4 `C4`、L5 `G2`。每格后 `gap-too-fast` 与 `discovery-collapse` 按本格正/负证据复审并 ack，最终
+  `alarms.py check` 为 `clean (170 judgments on record)`。
+- 第四批从 **15 / 50** 推进至 **20 / 50**；下一前线为 `TOOL-027 edit_handler`。未到第四批 50 格不跑统一长门禁、
+  不提交。

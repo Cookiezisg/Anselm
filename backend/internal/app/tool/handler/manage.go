@@ -4,6 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	handlerapp "github.com/sunweilin/anselm/backend/internal/app/handler"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -13,6 +15,48 @@ import (
 // --- revert_handler --------------------------------------------------------
 
 type RevertHandler struct{ svc *handlerapp.Service }
+
+// revertHandlerArgs preserves the public integer schema while accepting the exact
+// integer-string encoding emitted by some hosted models. No other coercion is allowed.
+type revertHandlerArgs struct {
+	HandlerID string
+	Version   int
+}
+
+func (a *revertHandlerArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		HandlerID string          `json:"handlerId"`
+		Version   json.RawMessage `json:"version"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	version, err := decodeRevertVersion(raw.Version)
+	if err != nil {
+		return fmt.Errorf("version: %w", err)
+	}
+	*a = revertHandlerArgs{HandlerID: raw.HandlerID, Version: version}
+	return nil
+}
+
+func decodeRevertVersion(raw json.RawMessage) (int, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer, got %q", text)
+	}
+	return value, nil
+}
 
 func (t *RevertHandler) Name() string { return "revert_handler" }
 
@@ -32,10 +76,7 @@ func (t *RevertHandler) Parameters() json.RawMessage {
 }
 
 func (t *RevertHandler) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		HandlerID string `json:"handlerId"`
-		Version   int    `json:"version"`
-	}
+	var a revertHandlerArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("revert_handler: bad args: %w", err)
 	}
@@ -49,10 +90,7 @@ func (t *RevertHandler) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *RevertHandler) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		HandlerID string `json:"handlerId"`
-		Version   int    `json:"version"`
-	}
+	var args revertHandlerArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("revert_handler: bad args: %w", err)
 	}
@@ -73,7 +111,7 @@ type DeleteHandler struct {
 func (t *DeleteHandler) Name() string { return "delete_handler" }
 
 func (t *DeleteHandler) Description() string {
-	return "Delete a handler: stop its resident instance and remove all versions + environments. Not reversible. The result reports how many other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
+	return "Delete a handler from the active product surface: stop its resident instance and soft-delete the handler row. Immutable versions remain available for audit, environments are destroyed best-effort, and relation edges are purged. The handler and its actions are not recoverable through the active API. The result reports which other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
 }
 
 func (t *DeleteHandler) Parameters() json.RawMessage {
@@ -108,7 +146,22 @@ func (t *DeleteHandler) Execute(ctx context.Context, argsJSON string) (string, e
 	if err := t.svc.Delete(ctx, args.HandlerID); err != nil {
 		return "", fmt.Errorf("delete_handler: %w", err)
 	}
-	return toolapp.ToJSON(toolapp.AnnotateDependents(map[string]any{"id": args.HandlerID, "deleted": true}, deps)), nil
+	return toolapp.ToJSON(handlerDeleteResult(args.HandlerID, deps)), nil
+}
+
+// handlerDeleteResult keeps the destructive result honest and machine-readable: the active
+// handler is gone, but immutable versions remain auditable and cleanup is best-effort.
+func handlerDeleteResult(id string, deps []map[string]string) map[string]any {
+	return toolapp.AnnotateDependents(map[string]any{
+		"id":      id,
+		"deleted": true,
+		"retention": map[string]any{
+			"handler":  "soft_deleted",
+			"versions": "retained_for_audit",
+			"sandbox":  "destroy_requested_best_effort",
+			"actions":  "not_found",
+		},
+	}, deps)
 }
 
 // --- restart_handler -------------------------------------------------------
@@ -161,10 +214,34 @@ func (t *RestartHandler) Execute(ctx context.Context, argsJSON string) (string, 
 
 type UpdateHandlerConfig struct{ svc *handlerapp.Service }
 
+type updateHandlerConfigArgs struct {
+	HandlerID string            `json:"handlerId"`
+	Config    toolapp.ObjectMap `json:"config"`
+}
+
+func (a *updateHandlerConfigArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		HandlerID string          `json:"handlerId"`
+		Config    json.RawMessage `json:"config"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	if len(raw.Config) == 0 || string(raw.Config) == "null" {
+		return fmt.Errorf("config: must be an object")
+	}
+	var config toolapp.ObjectMap
+	if err := json.Unmarshal(raw.Config, &config); err != nil {
+		return fmt.Errorf("config: %w", err)
+	}
+	*a = updateHandlerConfigArgs{HandlerID: raw.HandlerID, Config: config}
+	return nil
+}
+
 func (t *UpdateHandlerConfig) Name() string { return "update_handler_config" }
 
 func (t *UpdateHandlerConfig) Description() string {
-	return "Set a handler's init-args config (the values passed to __init__), then restart the instance to apply them. Pass a partial object (JSON Merge Patch); null deletes a key. Note: secret values (api keys, db strings) are normally filled by the user, not here — only set values you actually have."
+	return "The only tool for changing a handler's init-args config (the values passed to __init__): pass a partial object (JSON Merge Patch), then the instance restarts to apply it. null deletes a key. Do NOT use call_handler or add a method field for config changes. For hosted-model compatibility, an exact JSON-encoded object string is also accepted, but arrays and malformed strings are rejected. Note: secret values (api keys, db strings) are normally filled by the user, not here — only set values you actually have."
 }
 
 func (t *UpdateHandlerConfig) Parameters() json.RawMessage {
@@ -179,9 +256,7 @@ func (t *UpdateHandlerConfig) Parameters() json.RawMessage {
 }
 
 func (t *UpdateHandlerConfig) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		HandlerID string `json:"handlerId"`
-	}
+	var a updateHandlerConfigArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("update_handler_config: bad args: %w", err)
 	}
@@ -192,10 +267,7 @@ func (t *UpdateHandlerConfig) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *UpdateHandlerConfig) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		HandlerID string         `json:"handlerId"`
-		Config    map[string]any `json:"config"`
-	}
+	var args updateHandlerConfigArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("update_handler_config: bad args: %w", err)
 	}

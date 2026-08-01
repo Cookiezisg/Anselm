@@ -80,8 +80,13 @@ else
   : >"$SESSION/llm.disabled"
 fi
 
-BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
-  env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "${GATEWAY_ENV[@]}" "$RIG_HOME/bin/server")
+if [ "$LLMTAP" = "1" ]; then
+  BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
+    env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "${GATEWAY_ENV[@]}" "$RIG_HOME/bin/server")
+else
+  BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
+    env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "$RIG_HOME/bin/server")
+fi
 for _ in $(seq 1 80); do
   curl -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null 2>&1 && break
   sleep 0.25
@@ -105,18 +110,6 @@ TAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/sse
   "$RIG_HOME/bin/ssetap" -base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
 echo "✓ ssetap discovery up (PID $TAP_PID)"
 
-if [ "$RECORD" = "1" ]; then
-  RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" -- \
-    screencapture -v -C -k "$SESSION/screen.mov")
-  sleep 1
-  kill -0 "$RECORDER_PID" 2>/dev/null || {
-    echo "✗ screen recorder exited — check Screen Recording permission and $SESSION/recording.log" >&2; exit 1;
-  }
-  echo "✓ screen recording (PID $RECORDER_PID)"
-else
-  : >"$SESSION/recording.disabled"
-fi
-
 if [ "$APP" = "1" ]; then
   : >"$SESSION/frontend.log"
   APP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT/frontend" --out "$SESSION/frontend.log" -- \
@@ -138,6 +131,29 @@ else
   : >"$SESSION/frontend.disabled"
 fi
 
+APP_WINDOW_ID=""
+if [ "$RECORD" = "1" ] && [ "$APP" = "1" ]; then
+  # Record the Anselm window, not the whole desktop. An unrelated foreground permission dialog
+  # must never become a false product frame in the acceptance evidence.
+  for _ in $(seq 1 40); do
+    APP_WINDOW_ID=$(swift -e 'import CoreGraphics; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let owner = w[kCGWindowOwnerName as String] as? String ?? ""; let name = w[kCGWindowName as String] as? String ?? ""; if owner.lowercased() == "anselm" && name == "anselm" { print(w[kCGWindowNumber as String] ?? ""); exit(0) } }' 2>/dev/null | tr -d '[:space:]')
+    [ -n "$APP_WINDOW_ID" ] && break
+    sleep 0.25
+  done
+  [ -n "$APP_WINDOW_ID" ] || {
+    echo "✗ could not resolve the Anselm window ID — refusing desktop-wide recording" >&2; exit 1;
+  }
+  RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" -- \
+    screencapture -v -C -k -l "$APP_WINDOW_ID" "$SESSION/screen.mov")
+  sleep 1
+  kill -0 "$RECORDER_PID" 2>/dev/null || {
+    echo "✗ screen recorder exited — check Screen Recording permission and $SESSION/recording.log" >&2; exit 1;
+  }
+  echo "✓ window recording (Anselm window $APP_WINDOW_ID, PID $RECORDER_PID)"
+else
+  : >"$SESSION/recording.disabled"
+fi
+
 python3 - "$SESSION/manifest.json" <<PY
 import json, sys
 json.dump({
@@ -148,6 +164,7 @@ json.dump({
   "llmtapPort": $LLMTAP_PORT,
   "llmUpstream": "$LLM_UPSTREAM",
   "appPid": "$APP_PID",
+  "appWindowId": "$APP_WINDOW_ID",
   "recorderPid": "$RECORDER_PID",
   "data": "$DATA",
   "session": "$SESSION",

@@ -31,6 +31,7 @@ else
   LPID=$(field llmtapPid)
   LPORT=$(field llmtapPort)
   APID=$(field appPid)
+  AWID=$(field appWindowId)
   RPID=$(field recorderPid)
   SESSION=$(field session)
 
@@ -108,8 +109,12 @@ print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"A
     bad "✗ frontend.log contains an unreviewed Flutter failure"
   fi
 
-  if alive_as "$RPID" 'screencapture.*-v'; then
-    note "✓ channel 1 recorder alive (PID $RPID)"
+  if [ -n "$AWID" ] && alive_as "$RPID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
+    note "✓ channel 1 window recorder alive (PID $RPID, Anselm window $AWID)"
+  elif [ -n "$AWID" ]; then
+    bad "✗ channel 1 recorder is not bound to Anselm window $AWID"
+  elif alive_as "$RPID" 'screencapture.*-v'; then
+    bad "✗ channel 1 manifest has no Anselm window ID — desktop-wide recording is not evidence"
   else
     bad "✗ channel 1 recorder dead or PID reused"
   fi

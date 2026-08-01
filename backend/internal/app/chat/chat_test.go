@@ -610,6 +610,9 @@ func TestBuildSystemPrompt_Sections(t *testing.T) {
 		`<section name="environment">`,
 		"Reply in Chinese.",
 		`<section name="critical_rules">`,
+		"Opaque machine values",
+		"raw tool card",
+		"Never output any portion",
 		"perform a consistency pass",
 	} {
 		if !strings.Contains(prompt, want) {

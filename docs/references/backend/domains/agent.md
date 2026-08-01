@@ -89,7 +89,9 @@ receipt。这样 Chat、Workflow agent node 与 HTTP Invoke 使用相同多模�
 
 Agent host 不写 Chat message history：完整 text、reasoning、tool-call、
 tool-result blocks 序列化进 Execution transcript。Chat 中的嵌套调用实时走
-父 tool-call scope；重载时可从 transcript 恢复。
+父 tool-call scope；重载时可从 transcript 恢复。Workflow agent 的终答是下游
+节点的数据边界，包含 MediaRef receipt 时保留其完整机器值；只有直接展示给用户的
+Chat prose 才走不透明机器值脱敏。
 
 运行来源为 `chat|workflow|manual`。Execution 记录 model、API key、provider、
 conversation、message、tool-call 与 flowrun 溯源，状态为

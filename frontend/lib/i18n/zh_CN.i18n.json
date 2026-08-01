@@ -340,6 +340,7 @@
       "revertedKind": "已回退$kind",
       "deletingKind": "正在删除$kind",
       "deletedKind2": "已删除$kind",
+      "deleteFailedKind": "删除$kind失败",
       "staging": "正在设为待命",
       "staged": "已待命",
       "activatingWf": "正在上线",

@@ -340,6 +340,7 @@
       "revertedKind": "Reverted $kind",
       "deletingKind": "Deleting $kind",
       "deletedKind2": "Deleted $kind",
+      "deleteFailedKind": "Delete $kind failed",
       "staging": "Staging",
       "staged": "Staged",
       "activatingWf": "Activating",

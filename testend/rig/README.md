@@ -12,7 +12,7 @@
 
 | 通道 | 载体 | journal |
 |---|---|---|
-| ① 帧 | Computer Use 操作/截图 + conductor 的 `screencapture -v` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
+| ① 帧 | Computer Use 操作/截图 + conductor 绑定 Anselm 窗口的 `screencapture -v -l` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
 | ② 后端 | conductor 亲启的 sidecar,stdout 全量捕获 | `backend.log` |
 | ③ SSE | `cmd/ssetap` 动态发现全部 workspace 并独立订三条流(不经前端 demux) | `sse.jsonl` |
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
@@ -24,7 +24,7 @@
 ## 起 / 检 / 停
 
 ```bash
-testend/rig/rig-up.sh      # 建二进制→起 llmtap/后端/ssetap/录像/真实 App→manifest
+testend/rig/rig-up.sh      # 建二进制→起 llmtap/后端/ssetap/真实 App/窗口录像→manifest
 testend/rig/rig-check.sh   # 五通道自检:权限/进程与端口归属/三流连接/受管接线/journal
 testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe MOV,journal 全保留
 ```
@@ -32,8 +32,10 @@ testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe M
 环境旋钮(都有默认值):`RIG_PORT`(8742;被占就换)· `RIG_LLMTAP_PORT`(8788)· `RIG_DATA`·
 `RIG_HOME`· `RIG_SEED=0` 跳过播种并走真实首次 onboarding。`RIG_LLMTAP=0`、`RIG_RECORD=0`、
 `RIG_APP=0` 只用于诊断；缺任一通道的会话不能通过 `rig-check` 或 L2 gate。
+`RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
 
-所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。首次
+所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。录像在
+Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝把全桌面录屏当作帧证据。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
 ## 两条铁律(都以真事故立法,自检强制执行)

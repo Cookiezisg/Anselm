@@ -252,6 +252,8 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   bool _replaying = false;
   var _socketGeneration = 0;
   var _remainingLiveReconnects = 0;
+  var _captureStarting = false;
+  String? _pendingSocketError;
   final List<Uint8List> _retryFrames = [];
   var _retryBytes = 0;
   Future<void> _draftWrite = Future<void>.value();
@@ -277,6 +279,8 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       return;
     }
     state = const SpeechInputState(recording: true);
+    _captureStarting = true;
+    _pendingSocketError = null;
     _serverFinished = false;
     _replaying = false;
     _remainingLiveReconnects = _speechLiveReconnectAttempts;
@@ -289,6 +293,8 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       _recorder = recorder;
       final allowed = await recorder.hasPermission();
       if (!allowed) {
+        _captureStarting = false;
+        _pendingSocketError = null;
         await _close(cancelRecorder: true);
         state = const SpeechInputState(error: speechInputErrorPermissionDenied);
         return;
@@ -301,7 +307,15 @@ class SpeechInputController extends Notifier<SpeechInputState> {
         }
       }, onError: (Object e) => _fail(e));
       _startMeters(recorder);
+      _captureStarting = false;
+      final pendingError = _pendingSocketError;
+      _pendingSocketError = null;
+      if (pendingError != null) {
+        await _failAsync(pendingError, socketAlreadyClosed: true);
+      }
     } catch (e) {
+      _captureStarting = false;
+      _pendingSocketError = null;
       await _close(cancelRecorder: true);
       state = const SpeechInputState(error: speechInputErrorFailed);
     }
@@ -392,6 +406,27 @@ class SpeechInputController extends Notifier<SpeechInputState> {
         }
       },
     );
+    unawaited(_watchSocketReady(channel, generation));
+  }
+
+  Future<void> _watchSocketReady(
+    WebSocketChannel channel,
+    int generation,
+  ) async {
+    try {
+      await channel.ready;
+    } catch (_) {
+      if (generation == _socketGeneration && state.active) {
+        if (_captureStarting) {
+          _pendingSocketError = speechInputErrorConnectionLost;
+          return;
+        }
+        await _failAsync(
+          speechInputErrorConnectionLost,
+          socketAlreadyClosed: true,
+        );
+      }
+    }
   }
 
   Future<void> _handleSocketLost(int generation) async {
@@ -399,6 +434,10 @@ class SpeechInputController extends Notifier<SpeechInputState> {
       return;
     }
     if (state.recording && await _tryLiveReconnect(socketAlreadyClosed: true)) {
+      return;
+    }
+    if (_captureStarting) {
+      _pendingSocketError = speechInputErrorConnectionLost;
       return;
     }
     await _failAsync(speechInputErrorConnectionLost, socketAlreadyClosed: true);

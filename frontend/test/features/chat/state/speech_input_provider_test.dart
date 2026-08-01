@@ -60,11 +60,12 @@ class _FakeCapture implements SpeechAudioCapture {
 
 class _FakeWebSocketChannel extends StreamChannelMixin<dynamic>
     implements WebSocketChannel {
-  _FakeWebSocketChannel();
+  _FakeWebSocketChannel({this.readyError});
 
   final incoming = StreamController<dynamic>();
   final outgoing = StreamController<dynamic>();
   final sent = <dynamic>[];
+  final Object? readyError;
 
   @override
   int? closeCode;
@@ -76,7 +77,8 @@ class _FakeWebSocketChannel extends StreamChannelMixin<dynamic>
   String? protocol;
 
   @override
-  Future<void> get ready => Future.value();
+  Future<void> get ready =>
+      readyError == null ? Future.value() : Future<void>.error(readyError!);
 
   @override
   Stream<dynamic> get stream => incoming.stream;
@@ -148,6 +150,36 @@ Future<void> _flushAsync() async {
 }
 
 void main() {
+  test('failed websocket handshake releases the composer', () async {
+    final capture = _FakeCapture();
+    final container = ProviderContainer(
+      overrides: [
+        speechInputAvailableProvider.overrideWithValue(true),
+        backendStartupProvider.overrideWith(_ReadyBackend.new),
+        speechDraftStoreProvider.overrideWithValue(_FakeDraftStore()),
+        speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+        speechSocketConnectorProvider.overrideWithValue((uri, headers) {
+          return _FakeWebSocketChannel(
+            readyError: StateError('ASR gateway rejected handshake'),
+          );
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(speechInputProvider, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(speechInputProvider.notifier).start();
+    await Future<void>.delayed(const Duration(seconds: 1));
+
+    final state = container.read(speechInputProvider);
+    expect(state.active, isFalse);
+    expect(state.error, speechInputErrorConnectionLost);
+    expect(state.canRetry, isFalse);
+    expect(capture.cancelled, isTrue);
+    expect(capture.disposed, isTrue);
+  });
+
   test('restores persisted retry draft and replays PCM on retry', () async {
     final store = _FakeDraftStore([
       Uint8List.fromList([9, 8]),

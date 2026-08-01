@@ -21,7 +21,7 @@ type SearchHandler struct {
 func (t *SearchHandler) Name() string { return "search_handler" }
 
 func (t *SearchHandler) Description() string {
-	return "Find handlers by keyword + semantic relevance over name / description / tags. Returns id + name + description; empty query lists all. Use get_handler for the full class interface + config state."
+	return "Find handlers by keyword + semantic relevance over name / description / tags. Returns id + name + description; empty query lists all. Use get_handler for the full class interface + config state, call_handler only for a declared method, and update_handler_config to change init config."
 }
 
 func (t *SearchHandler) Parameters() json.RawMessage {

@@ -1,11 +1,258 @@
 package handler
 
 import (
+	"encoding/json"
+	"strings"
 	"testing"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 )
+
+func TestDecodeHandlerOps_AcceptsNativeAndStringifiedArrays(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want int
+	}{
+		{name: "native array", raw: `[{"op":"set_meta","name":"probe"}]`, want: 1},
+		{name: "exact JSON encoded array", raw: `"[{\"op\":\"set_meta\",\"name\":\"probe\"}]"`, want: 1},
+		{name: "null is empty", raw: `null`, want: 0},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			ops, err := decodeHandlerOps(json.RawMessage(tc.raw))
+			if err != nil {
+				t.Fatalf("decodeHandlerOps(%s): %v", tc.raw, err)
+			}
+			if len(ops) != tc.want {
+				t.Fatalf("got %d ops, want %d", len(ops), tc.want)
+			}
+		})
+	}
+}
+
+func TestDecodeHandlerOps_RejectsMalformedOrNonArrayValues(t *testing.T) {
+	for _, raw := range []string{
+		`"not json"`,
+		`"{\"op\":\"set_meta\"}"`,
+		`{"op":"set_meta"}`,
+		`7`,
+	} {
+		t.Run(raw, func(t *testing.T) {
+			if _, err := decodeHandlerOps(json.RawMessage(raw)); err == nil {
+				t.Fatalf("decodeHandlerOps(%s) unexpectedly succeeded", raw)
+			}
+		})
+	}
+}
+
+func TestEditHandler_DescriptionPinsUpdateMethodShape(t *testing.T) {
+	desc := (&EditHandler{}).Description()
+	for _, want := range []string{
+		`"op":"update_method"`,
+		`"name":"place"`,
+		`"patch":{"description":"..."}`,
+		`Do NOT use "methodName"`,
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("edit_handler description missing %q: %s", want, desc)
+		}
+	}
+}
+
+func TestDeleteHandler_DescriptionPinsSoftDeleteRetention(t *testing.T) {
+	desc := (&DeleteHandler{}).Description()
+	for _, want := range []string{
+		"soft-delete the handler row",
+		"Immutable versions remain available for audit",
+		"destroyed best-effort",
+		"relation edges are purged",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("delete_handler description missing %q: %s", want, desc)
+		}
+	}
+	if strings.Contains(desc, "remove all versions") {
+		t.Fatalf("delete_handler description still claims versions are removed: %s", desc)
+	}
+}
+
+func TestHandlerDeleteResultStatesRetentionTruth(t *testing.T) {
+	result := handlerDeleteResult("hd_1", nil)
+	if result["id"] != "hd_1" || result["deleted"] != true {
+		t.Fatalf("result identity = %#v, want deleted hd_1", result)
+	}
+	retention, ok := result["retention"].(map[string]any)
+	if !ok {
+		t.Fatalf("retention = %#v, want object", result["retention"])
+	}
+	for key, want := range map[string]string{
+		"handler":  "soft_deleted",
+		"versions": "retained_for_audit",
+		"sandbox":  "destroy_requested_best_effort",
+		"actions":  "not_found",
+	} {
+		if retention[key] != want {
+			t.Fatalf("retention[%q] = %#v, want %q", key, retention[key], want)
+		}
+	}
+}
+
+func TestUpdateHandlerConfig_AcceptsObjectEncodingOnly(t *testing.T) {
+	tool := &UpdateHandlerConfig{}
+	cases := []struct {
+		name    string
+		args    string
+		wantErr bool
+	}{
+		{name: "native object", args: `{"handlerId":"hd_1","config":{"mode":"cool"}}`},
+		{name: "stringified object", args: `{"handlerId":"hd_1","config":"{\"mode\":\"cool\"}"}`},
+		{name: "missing config", args: `{"handlerId":"hd_1"}`, wantErr: true},
+		{name: "null config", args: `{"handlerId":"hd_1","config":null}`, wantErr: true},
+		{name: "array config", args: `{"handlerId":"hd_1","config":[]}`, wantErr: true},
+		{name: "malformed string", args: `{"handlerId":"hd_1","config":"not json"}`, wantErr: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			err := tool.ValidateInput([]byte(tc.args))
+			if (err != nil) != tc.wantErr {
+				t.Fatalf("ValidateInput(%s) err=%v, wantErr=%v", tc.args, err, tc.wantErr)
+			}
+		})
+	}
+}
+
+func TestUpdateHandlerConfig_DescriptionPinsStringifiedObjectBoundary(t *testing.T) {
+	desc := (&UpdateHandlerConfig{}).Description()
+	for _, want := range []string{
+		"only tool for changing",
+		"Do NOT use call_handler",
+		"JSON Merge Patch",
+		"exact JSON-encoded object string is also accepted",
+		"arrays and malformed strings are rejected",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("update_handler_config description missing %q: %s", want, desc)
+		}
+	}
+}
+
+func TestCallHandler_RejectsTopLevelConfig(t *testing.T) {
+	tool := &CallHandler{}
+	if err := tool.ValidateInput([]byte(`{"handlerId":"hd_1","method":"inspect","args":{},"config":{"mode":"cool"}}`)); err == nil {
+		t.Fatal("call_handler accepted top-level config; config changes must use update_handler_config")
+	}
+	if err := tool.ValidateInput([]byte(`{"handlerId":"hd_1","method":"inspect","args":{"config":"method argument"}}`)); err != nil {
+		t.Fatalf("call_handler rejected a method-level config argument: %v", err)
+	}
+}
+
+func TestCallHandler_DescriptionPinsConfigBoundary(t *testing.T) {
+	desc := (&CallHandler{}).Description()
+	for _, want := range []string{
+		"does NOT change the handler's init config",
+		"use update_handler_config",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("call_handler description missing %q: %s", want, desc)
+		}
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsHostedUpdateMethodAlias(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"updateMethod","methodName":"place","description":"Place an order and return a confirmation"}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(items[0], &got); err != nil {
+		t.Fatalf("normalized op is invalid JSON: %v", err)
+	}
+	if string(got["name"]) != `"place"` {
+		t.Fatalf("normalized name = %s, want %q", got["name"], "place")
+	}
+	if string(got["op"]) != `"update_method"` {
+		t.Fatalf("normalized op = %s, want %q", got["op"], "update_method")
+	}
+	var patch map[string]string
+	if err := json.Unmarshal(got["patch"], &patch); err != nil {
+		t.Fatalf("normalized patch is invalid: %v", err)
+	}
+	if patch["description"] != "Place an order and return a confirmation" {
+		t.Fatalf("normalized patch = %#v", patch)
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsHostedSetMethodAlias(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"kind":"set_method","method":{"name":"place","description":"Revert probe v2","body":"return {\"ok\": True}","inputs":[],"streaming":false}}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var got map[string]json.RawMessage
+	if err := json.Unmarshal(items[0], &got); err != nil {
+		t.Fatalf("normalized op is invalid JSON: %v", err)
+	}
+	if string(got["op"]) != `"update_method"` || string(got["name"]) != `"place"` {
+		t.Fatalf("normalized discriminator/name = %s / %s", got["op"], got["name"])
+	}
+	var patch map[string]json.RawMessage
+	if err := json.Unmarshal(got["patch"], &patch); err != nil {
+		t.Fatalf("normalized patch is invalid: %v", err)
+	}
+	if string(patch["description"]) != `"Revert probe v2"` || string(patch["body"]) == "" {
+		t.Fatalf("normalized patch = %s", got["patch"])
+	}
+}
+
+func TestNormalizeHandlerOps_RejectsUnknownUpdateMethodShape(t *testing.T) {
+	for _, raw := range []string{
+		`{"op":"update_method","method":"place"}`,
+		`{"op":"update_method","method":7,"description":"bad"}`,
+		`{"op":"update_method","method":"place","description":"bad","unknown":"bad"}`,
+	} {
+		if _, err := normalizeHandlerOps([]json.RawMessage{[]byte(raw)}); err == nil {
+			t.Fatalf("normalizeHandlerOps(%s) unexpectedly succeeded", raw)
+		}
+	}
+	for _, raw := range []string{
+		`{"kind":"set_method","method":{"name":"place"}}`,
+		`{"kind":"set_method","method":{"name":"place","unknown":"bad"}}`,
+		`{"kind":"set_method","method":"place"}`,
+	} {
+		if _, err := normalizeHandlerOps([]json.RawMessage{[]byte(raw)}); err == nil {
+			t.Fatalf("normalizeHandlerOps(%s) unexpectedly succeeded", raw)
+		}
+	}
+}
+
+func TestRevertHandler_OnlyAcceptsExactIntegerOrIntegerString(t *testing.T) {
+	tool := &RevertHandler{}
+	for _, raw := range []string{
+		`{"handlerId":"hd_1","version":1}`,
+		`{"handlerId":"hd_1","version":"1"}`,
+		`{"handlerId":"hd_1","version":" 1 "}`,
+	} {
+		if err := tool.ValidateInput(json.RawMessage(raw)); err != nil {
+			t.Fatalf("ValidateInput(%s) = %v, want nil", raw, err)
+		}
+	}
+	for _, raw := range []string{
+		`{"handlerId":"hd_1","version":"1.0"}`,
+		`{"handlerId":"hd_1","version":"one"}`,
+		`{"handlerId":"hd_1","version":[]}`,
+		`{"handlerId":"hd_1","version":true}`,
+		`{"handlerId":"hd_1","version":0}`,
+	} {
+		if err := tool.ValidateInput(json.RawMessage(raw)); err == nil {
+			t.Fatalf("ValidateInput(%s) unexpectedly succeeded", raw)
+		}
+	}
+}
 
 // TestBuildOutput_SurfacesRuntimeState — F-handler-broken-init-outage (round-8): edit_handler must
 // surface the post-edit runtimeState (+ a warning when not running) so a broken __init__ that builds
@@ -90,7 +337,11 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 	}{
 		{"create empty ops", &CreateHandler{}, `{"ops":[]}`, true},
 		{"create with ops", &CreateHandler{}, `{"ops":[{"op":"set_meta","name":"a"}]}`, false},
+		{"create with stringified ops", &CreateHandler{}, `{"ops":"[{\"op\":\"set_meta\",\"name\":\"a\"}]"}`, false},
+		{"create with malformed stringified ops", &CreateHandler{}, `{"ops":"not json"}`, true},
 		{"edit no id", &EditHandler{}, `{"ops":[]}`, true},
+		{"edit with stringified ops", &EditHandler{}, `{"handlerId":"hd_1","ops":"[{\"op\":\"set_meta\",\"name\":\"a\"}]"}`, false},
+		{"edit with malformed stringified ops", &EditHandler{}, `{"handlerId":"hd_1","ops":"not json"}`, true},
 		{"get no id", &GetHandler{}, `{}`, true},
 		{"call no id", &CallHandler{}, `{"method":"m","args":{}}`, true},
 		{"call no method", &CallHandler{}, `{"handlerId":"hd_1","args":{}}`, true},

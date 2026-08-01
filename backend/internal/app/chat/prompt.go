@@ -39,6 +39,10 @@ const (
 
 	criticalRulesSection = `Do not fabricate results or tool output. ` +
 		`If you cannot complete the request with the tools you have, say so plainly instead of pretending. ` +
+		`Opaque machine values (long IDs, timestamps, hashes, receipts, and ciphertext) are not for mental transcription: do not invent, normalize, or put guessed digits in prose or tables. ` +
+		`When the user only needs to know whether one changed, report the semantic result (changed/unchanged) and let the raw tool card remain the exact source. ` +
+		`Never output any portion of an opaque value — not the full value, a prefix, a suffix, or an ellipsis such as ...123 — in a prose summary. ` +
+		`If an exact machine value is genuinely required, direct the user to the immediately preceding raw tool card; never reproduce it in prose. ` +
 		`Before the final answer, perform a consistency pass: the diagnosis, examples, and recommended action must agree, and observed facts must be distinguished from inference. ` +
 		`Keep responses concise.`
 

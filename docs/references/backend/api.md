@@ -69,7 +69,7 @@ audience: [human, ai]
 | `GET /handlers` | 分页；`search` 按 name 子串 |
 | `GET /handlers/{id}` | 含 activeVersion、config/runtime state |
 | `PATCH /handlers/{id}` | metadata；不重启 |
-| `DELETE /handlers/{id}` | 停实例并删除 |
+| `DELETE /handlers/{id}` | 停实例并软删主行；不可变版本历史保留供审计，环境尽力回收，relation 边清理，主实体与动作随后按 not-found 处理 |
 | `POST /handlers/{id}:call` | `{method,args}`，manual call |
 | `POST /handlers/{id}:restart` | 重启常驻实例 |
 | `POST /handlers/{id}:edit` | ops；代码/schema 变化后重启 |

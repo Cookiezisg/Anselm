@@ -2402,6 +2402,9 @@ class Translations$chat$tool$en {
 	/// en: 'Deleted $kind'
 	String deletedKind2({required Object kind}) => 'Deleted ${kind}';
 
+	/// en: 'Delete $kind failed'
+	String deleteFailedKind({required Object kind}) => 'Delete ${kind} failed';
+
 	/// en: 'Staging'
 	String get staging => 'Staging';
 
@@ -7416,6 +7419,7 @@ extension on Translations {
 			'chat.tool.revertedKind' => ({required Object kind}) => 'Reverted ${kind}',
 			'chat.tool.deletingKind' => ({required Object kind}) => 'Deleting ${kind}',
 			'chat.tool.deletedKind2' => ({required Object kind}) => 'Deleted ${kind}',
+			'chat.tool.deleteFailedKind' => ({required Object kind}) => 'Delete ${kind} failed',
 			'chat.tool.staging' => 'Staging',
 			'chat.tool.staged' => 'Staged',
 			'chat.tool.activatingWf' => 'Activating',
@@ -7598,9 +7602,9 @@ extension on Translations {
 			'chat.tool.gotActivation' => 'Opened activation record',
 			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
 			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
-			'chat.tool.fireYes' => 'fired',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.fireYes' => 'fired',
 			'chat.tool.fireNo' => 'not fired',
 			'chat.tool.gettingFlowrun' => 'Opening run',
 			'chat.tool.gotFlowrun' => 'Opened run',
@@ -8112,9 +8116,9 @@ extension on Translations {
 			'feedback.cast.verb.edited' => 'Edited',
 			'feedback.cast.verb.viewed' => 'Viewed',
 			'feedback.cast.verb.executed' => 'Ran',
-			'feedback.cast.verb.attached' => 'Attached',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.verb.attached' => 'Attached',
 			'feedback.cast.verb.deleted' => 'Deleted',
 			'feedback.cast.verb.unknown' => 'Touched',
 			'feedback.codeTruncated' => ({required Object shown, required Object total}) => 'Showing the first ${shown} of ${total} lines - open the full file externally',
@@ -8626,9 +8630,9 @@ extension on Translations {
 			'library.slash.table' => 'Table',
 			'library.slash.media' => 'Media',
 			'library.slash.divider' => 'Divider',
-			'library.slash.todo' => 'To-do',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.todo' => 'To-do',
 			'library.linkHint' => 'Type or paste a link, Enter to apply',
 			'library.table.insertRowAbove' => 'Insert row above',
 			'library.table.insertRowBelow' => 'Insert row below',

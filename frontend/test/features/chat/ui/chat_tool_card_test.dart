@@ -98,6 +98,18 @@ void main() {
     },
   );
 
+  testWidgets('delete failure never speaks in the past tense', (tester) async {
+    final failed = _call(
+      'delete_handler',
+      extra: {'arguments': '{"handlerId":"hd_missing"}'},
+    )..children.add(_result('handler not found', error: true));
+    await tester.pumpWidget(_host(ChatToolCard(node: failed), reduced: true));
+    await tester.pumpAndSettle();
+
+    expect(find.text('删除处理器失败'), findsOneWidget);
+    expect(find.text('已删除处理器'), findsNothing);
+  });
+
   testWidgets(
     'success stays collapsed; tapping reveals intent/args/result sections',
     (tester) async {
