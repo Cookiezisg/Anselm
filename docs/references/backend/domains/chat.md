@@ -73,9 +73,42 @@ Inactive inventory 只在 prompt 暴露紧凑名称/用途；完整 schema 在�
 
 ### Grounded final text
 
-面向用户的 assistant 文本还有服务端确定性边界：loop 会在流式文本的唯一出口保留跨 chunk 的尾部词元，并隐藏实体 ID、长整数、时间戳与长 hash 等不透明机器值。原始 tool call/tool result 卡片与审计数据不改，仍保留精确值供追查；摘要只能表达语义结果（例如「已变更」），不能把机器值抄回 prose 或表格。该边界不依赖模型是否遵守 prompt。例外是带 flowrun 身份的 workflow agent：其终答同时是下游节点的数据，必须保留完整 MediaRef receipt；它不是直接面向用户的 chat prose。
+面向用户的 assistant 文本还有服务端确定性边界：loop 会在流式文本的唯一出口保留跨 chunk 的尾部词元，并在看到未闭合的括号时短暂保留整个小括号片段，避免 provider 把 `(`、反引号、ID、`)` 分成不同 delta 后先泄露半个坏占位。实体名后紧接可能的 opaque ID 时，连同实体名和分隔符一起短暂保留，确保 chunk 恰好切在 `workflow ` 与 `wf_…` 之间时仍能整体清理；ID 被 Markdown `` `…` ``、`*…*` 或 `**…**` 包住时，同样先完成整体替换再向 SSE 发出，不能把 `workflow **` 这类半截格式先发给用户。它隐藏实体 ID、长整数、时间戳与长 hash 等不透明机器值。隐藏时按类型替换为上下文中性的 `the requested item` 等人话短语，而不是把 `<opaque value omitted>` 或旧版 `the referenced item` 这类坏模板标记露给用户；若模型把一个已经有名称的实体 ID 冗余写成括号（例如 `workflow nightly (wf_…)` 或 ``workflow nightly (`wf_…`)``），只删除整段冗余括号，不留下占位；若 ID 紧跟已有人话实体名（例如 `The workflow wf_… remains intact`），移除 ID 后也移除重复占位，结果为 `The workflow remains intact`，不制造重复名词；若模型用 `The ID <opaque>`、`The flowrun ID <opaque>`、`The flow run ID <opaque>` 或 `The flowrun with ID <opaque>` 引出一个待查对象，则整体改写为 `The requested item`、`The requested flowrun` 或 `The requested flow run`，不产生语法残片；`The flow ` 与 `run with ID ...` 也必须合并后再脱敏，不能因早期 chunk 边界重现同一残片；已明确实体名的 `flowrun report for <opaque>`（包括 Markdown 加粗或反引号装饰）则直接缩为 `flowrun report`，不能留下 “report for …” 坏短语；包含 opaque flowrun ID 的 Markdown 表格行改为 `Run / Current run` 语义行，不把 placeholder 留在表格里。对 `get_flowrun` 的错误总结还会把 `get_flowrun for <opaque>` 改写为 `get_flowrun for the requested run`，把“没有 workflow run with …”改成“没有匹配请求的 workflow run”，避免失败路径出现“the referenced item”或“the requested item”悬空占位。历史消息如果已经持久化旧版占位词，重建时也会先归一化到当前词汇。原始 tool call/tool_result 卡片与审计数据不改，仍保留精确值供追查。摘要只能表达语义结果（例如「已变更」），不能把机器值抄回 prose 或表格。该边界不依赖模型是否遵守 prompt。**但工具调用 JSON 参数是明确例外：若某个工具需要 opaque 值，模型必须从用户消息或上一个 tool result 逐字复制全部字符；不得缩写、规范化、脱敏或猜测。** 例外不适用于面向用户的 prose。带 flowrun 身份的 workflow agent 终答同时是下游节点的数据，必须保留完整 MediaRef receipt；它不是直接面向用户的 chat prose。
 
-System prompt 明确禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文。
+在同一确定性出口中，`Flowrun: <opaque>` 标题收敛为 `Flowrun`，`flowrunId = <opaque>` 收敛为 `the current run`；含 `wfv_`、`apf_`、`apfv_` 等内部版本引用的表格行分别显示 `Current version`、`Internal references`，不把机器值或任何旧版占位带到用户画面。
+
+Flowrun 的自然语言摘要也遵守同一边界：`Run summary for <opaque>` 或其已脱敏的 placeholder 变体收敛为 `Run summary`；`Pinned reference: ... function pinned to version <fnv_...>` 收敛为 `Pinned reference: The function version is pinned.`。精确的 function/version ID 只保留在相邻 tool card 的 Copy 操作和审计/tool-result 面，不进入 assistant prose。`fnv_` 同时属于跨 delta 的整行缓冲集合，不能在中间 SSE 帧短暂露出。
+
+即使模型已经提前生成中性占位，同一出口也会对 Flowrun 标题、Run/Version/Ref/Node record 表行及 Pinned Refs 列表做二次语义归一化；Pinned Refs 既覆盖带 `approval form`/`version` 语义的行，也覆盖原始 opaque 值在通用替换后形成的双占位表格行、带实体注释的 ``<placeholder> (approval form) | <placeholder>`` 行、`placeholder → placeholder` 裸列表项和 `Approval form <placeholder> pinned to version <placeholder>` 自然语言项；结构化清理必须在通用 ID 替换之后再跑一次，最终用户画面不能出现任何占位短语。
+
+对于带反引号或 opaque 值的 Markdown 表格行、Flowrun 报告 prose/标题、概览字段、失败报告与 Pinned Refs 摘要，delta 出口还会在最多 512 个 rune 内暂存当前未换行的整行，等行边界到达后再做语义归一化；因此 provider 把 ``| `<placeholder> (approval form) | `<placeholder>` |``、``## Flowrun Report: `<placeholder>```、``Here is the complete flowrun report for `<placeholder>`:``、``**Flowrun ID:** `<placeholder>``` 或 ``The requested item does not correspond...`` 拆成多帧时，中间 SSE 帧也不会出现坏占位或半截结构。失败总结中即使模型改用 `flowrunId: <placeholder>`、`The requested item doesn't correspond to any actual run`、`no workflow run exists with the requested item`、`The requested item is all zeroes after the run ID prefix`、`the actual fr_... ID` 或直接写出 `get_flowrun call`，也统一改写成 `for the supplied run`、`The supplied run ID does not correspond...`、`The supplied run ID has an all-zero suffix`、`the run ID` 和 `run lookup`，不把字段名、工具名或示例前缀带进助手正文。Flowrun 概览中的 `- ID`/`- Version` 会分别显示 `Current run`/`Current version`；失败报告显示 `Requested ID: Supplied run ID`，自然语言引用摘要和箭头列表显示内部引用语义。text block 的 durable close 会对该 block 的完整原始文本再跑一次同一 redactor；因此跨 provider delta 拆开的 Markdown 标题、表格行和列表，在最终 SSE close、数据库快照和 UI 重建三处保持同一语义结果，而不是只在单个 delta 上近似处理。
+
+Flowrun 的另一种 `Not Found` 失败模板也遵守同一人话边界：`call to get_flowrun with ID <placeholder>` 归一为 `run lookup for the supplied run ID`，`there is no workflow run ... with <placeholder>` 归一为 `matching the supplied run`。这些规则和前述表格/失败行一样，既作用于完整 durable close，也作用于跨 delta 的未换行缓冲。
+
+失败报告中残留在同一行的 `<placeholder>` 只要与 `workflow run`、`run ID` 或 `search_flowruns` 同行，也会归一为 `the supplied run ID`，并去掉包裹它的 Markdown 反引号；句首按自然语言规则恢复大写。这样“看起来像 placeholder”或“检查你从哪里拿到它”等建议句不会把脱敏占位直接显示给用户。
+
+流式出口在上下文句尚未闭合时也会暂存 `workflow run` 与 `call to get_flowrun` 前缀；不能先发出前半句，再在后续 delta 才看到 placeholder。该缓冲是逐行的，仍受 512-rune 上限约束，收行后才发送规范化文本。
+
+同一出口还把 `The requested flowrun ...` 归一为 `The supplied run ID ...`，把 `an actual fr_... ID` 一类示例归一为 `a real run ID`；助手正文不展示内部 ID 前缀，即使模型把示例放在“如何继续”说明中。
+
+若失败说明写出 `The get_flowrun tool ...`，面向用户的正文显示为 `The run lookup tool ...`；精确工具名仍只保留在独立 tool card 和审计线缆中。
+
+脱敏后的句法也要保持完整：`the value the supplied run ID looks like ...` 会收敛为 `the supplied run ID looks like ...`，不得留下两个主语拼接的残片。
+
+失败列表中的 `the requested item appears to be a placeholder` 也按同一上下文改写为 `the supplied run ID appears to be a placeholder`；反引号包住的 `get_flowrun` 调用名同样只在 tool card/审计面保留。
+
+Reasoning 也在同一边界内：若 provider 把 `get_flowrun` 拆成 `ge` 与 `t_flowrun` 两个 delta，出口先暂存部分工具名，直到完整词可归一为 `run lookup`；reasoning 的 durable close 不得重新带回工具名或 opaque placeholder。
+
+该归一化只在失败报告上下文行内触发，不改变普通实体句中已有的 `The requested flowrun` 语义测试；这样通用实体脱敏与 Flowrun 错误文案各自保持稳定边界。
+
+用户面可见的 reasoning block 也走同一条 delta + durable-close 脱敏边界，不能因它显示在「thinking」区域而泄露 flowrun、实体、版本或时间戳；ISO 与 `YYYY-MM-DD HH:MM:SS UTC` 两种时间写法都必须收敛为 `the recorded time`；带 flowrun 上下文的 workflow-agent reasoning 是下游数据边界，按 workflow-agent text 的规则保留原值。
+
+System prompt 明确禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文。危险 HumanLoop
+批准句不采用模型的自报 summary 作为动作真相：它由实际解析的工具名生成，避免 `delete_workflow`
+被模型 prose 伪装成 `deactivate_workflow`；二者语义冲突时副作用在闸前终止并反馈模型改选。
+
+对 `get_flowrun`，若模型把 `flowrunId` 截断、改名为 `file_path` 或丢失部分字符，loop 只在最新的 user/tool
+message 中存在**唯一一个**明确 `fr_…` 证据值时按原字节恢复；多个候选、无候选或仅有相似值都不修复，仍让工具诚实失败。
 用户只需要判断变化时，最终叙述应使用 `changed` / `unchanged` 等语义结果，原始
 tool card 才是机器值的精确来源；确实需要精确值时应指向紧邻的 raw tool card，
 默认不输出机器值的任何片段，包括前缀、后缀或 `...123` 这样的省略片段；不能自行重算、规范化或把猜测数字放入表格。这样避免工具结果正确而最终总结生成

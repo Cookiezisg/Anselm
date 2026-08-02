@@ -12,6 +12,61 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+## 2026-08-02 18:05 · 第七批 TOOL-065 trigger_workflow 正式通过
+
+- 首轮探索真实路径在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-174253` 冻结为红：托管模型把 `trigger_workflow.payload` 发成字符串，旧 `map[string]any` 边界拒绝后模型 retry；该路径保留为真实产品问题，不计绿。后续无 observer 的快速 exploratory run 只证明了回执，不承担 payload 证据，也在正式证据中明确排除。
+- stop-and-fix：`backend/internal/app/tool/workflow/exec.go` 将参数收紧为 `toolapp.ObjectMap`，接受 native object 与精确 JSON object string，拒绝数组/数字/畸形字符串；同步 workflow 测试、领域文档和工具抽取清册。真实 App 复跑又发现 fast workflow 的 `run_terminal` 可能先于 tool receipt close 到达，Activity 永久停留 Running；`frontend/lib/features/chat/state/stage_director_provider.dart` 改为提前订阅 workflow terminal、按 flowrunId 缓冲并在 receipt close 后结算，补 `R-10` Flutter regression。
+- formal-142 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-175457` 由新二进制、真实 App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 完成正式重跑。最终唯一 mutation 为一次 `trigger_workflow`，wire payload 是 JSON object string；flowrun `fr_363b14b855b3d924` REST 为 completed，trigger 节点保留 `amount=18240,currency=CNY`，observer 节点得到相同值。SSE 记录 `run_started`、observer tick 和同一 flowrun 的 `run_terminal`；App Activity 最终为 `Ran`，无 stale Running。
+- 五通道收台：final `screen.mov`、`backend.log`、`sse.jsonl`、`frontend.log`、`llm.jsonl` 均封存，LLM 响应全 200，backend/frontend 无未解释运行时红线；真实 DELETE 后 workflow/function/trigger、四个 conversation 均无 live 残留（其中一个 conversation 已先消失，DELETE=404 作为幂等清理事实保留），rig-down 已停止 backend/ssetap/llmtap/Flutter/recorder。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-175457/evidence/tool-065-formal-green-trigger-workflow.md`。
+- 五级 `G1/F2/A5/C4/G2` 已写入 COVERAGE。以正确 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 为准，账本从 360 增至 **365 judgments**；锚点刷新后通过，`gap-too-fast` 与 `discovery-collapse` 已按红绿证据复审并 ack，`alarms.py check` clean。Flutter 定向 19 项、Go workflow/loop 定向测试、`make -C docs verify` 与 `git diff --check` 通过；第七批从 **20 / 50** 推进至 **25 / 50**，下一前线 `TOOL-066 stage_workflow`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-02 17:40 · 第七批 TOOL-064 capability_check_workflow 正式通过
+
+- 首轮真实 App 发现两处产品缺陷：空 Go slice 在工具回执里变成 `null`，英文标题把单数写成 `1 warnings` / `1 problems`。stop-and-fix 后，后端稳定输出空数组，前端回执和展开 chip 走中英文单数/复数 i18n；定向 backend/loop/widget 测试通过。
+- formal-141 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-173429` 真实重跑三条路径：正常 workflow 显示 `structurally runnable` 且 `problems:[]`/`warnings:[]`；悬空 trigger 显示 `1 problem` 并阻断 activation；undeclared output advisory 显示 `1 warning`，问题数组为空且不阻断 activation。
+- 五通道通过：连续录屏、backend/frontend journal、三路 SSE 和 LLM tap 均归属于同一 conductor；SSE 恰有三次 canonical capability 调用，messages durable seq 单调至 44、notifications 至 5；无后端 panic/ERROR/WARN 或 Flutter runtime 红线。REST active lists 清空，fixture GET=404，SQLite 只留软删除审计行；rig-down 无残留进程。
+- 正式绿证据：`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-173429/evidence/tool-064-formal-green-capability.md`。五级 `G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本从 365 增至 370 judgments。集中写入五格触发 `gap-too-fast`，已写复审结论并 ack，`alarms.py check` clean。
+- 第七批从 **15 / 50** 推进至 **20 / 50**；未到 50 格不跑统一长门禁、不提交。下一前线为 `TOOL-065 trigger_workflow`。
+
+## 2026-08-02 17:20 · 第七批 TOOL-063 delete_workflow 静态危险等级修复后正式通过
+
+- formal-140 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-171233` 继续同一真实夹具完成终验。模型在 LLM 线缆中仍自报 `danger:"safe"`，但静态 `DangerFloorer` 将有效危险等级提升为 `dangerous`；真实 App 逐帧停在 `Dangerous · Awaiting your approval`，没有被模型自报或 skill/approve-always 绕过。
+- 获得本次临时夹具删除授权后，UI 只出现一次 `delete_workflow` 调用、一次 Allow、一次删除回执；最终文案明确主行不可恢复、没有 restore 操作，版本历史和 flowrun 仅作审计保留。
+- 五通道交叉核验：Computer Use 终帧与连续 `screen.mov` 一致；backend journal 无 panic/ERROR/WARN；ssetap 记录一枚危险 interaction、一枚 resolved interaction 和一枚 `workflow.deleted`，messages durable seq 单调至 30、notifications 至 6；frontend console 无 Flutter/Dart/RenderFlex/Unhandled 红线；llmtap 只有一次 canonical `workflowId` 删除 tool call，所有网关响应成功。
+- REST/关系真相：workflow GET=404 `WORKFLOW_NOT_FOUND`，versions GET=200 保留 v2/v1，trigger 清理前 `refCount=0/listening=false`，关系邻域为空；conversation 和 trigger 清理均 DELETE=204 后 GET=404，活动 fixture 列表为空。rig-check 五通道全绿，rig-down 停掉 Flutter/backend/ssetap/llmtap/recorder，五个 PID 均退出。
+- 正式绿证据：`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-171233/evidence/tool-063-formal-green-danger-floor.txt`。锚点复校通过，judge 前后 `alarms.py check` 均 clean；最终为 `clean (5 judgments on record)`，五级 `G1/F2/A5/C4/G2` 已落账，中央账本从 360 增至 365 judgments。
+- 第七批从 **10 / 50** 推进至 **15 / 50**；未到 50 格不跑统一长门禁、不提交。下一前线为 `TOOL-064 capability_check_workflow`。
+
+## 2026-08-02 05:27 · TOOL-063 delete_workflow 修复后等待不可逆人闸确认
+
+- formal-136 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-045515` 首轮真实 App 暴露严重产品循环缺陷：一次 `delete_workflow` 获准并成功后，模型又重复发起同一危险 mutation，随后产生第二个人闸和失败卡。红证据已封存为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-045515/evidence/tool-063-formal-red-duplicate-mutation.txt`，不计绿。
+- stop-and-fix：loop 增加 per-Run logical mutation ledger，只抑制同一回合内已经处理过的 dangerous/workdir-outside 重复调用；首个执行结果保留，后续重复调用落可解释 suppression result，不再二次审批或执行；补 loop 回归和 foundation 文档。随后真实 App 重跑证明 exact-once 已成立，但暴露第二个红点：模型在成功后声称「You can still recover the workflow if needed」。
+- formal-137 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-050833` 红证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-050833/evidence/tool-063-formal-red-prose-placeholder.txt`；type-aware opaque redaction 修复后，formal-138 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-051526` 仍因错误恢复承诺冻结，证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-051526/evidence/tool-063-formal-red-recovery-promise.txt`。
+- stop-and-fix：`delete_workflow` 描述明确主行 NOT restorable 且不存在 restore 操作，执行回执增加 `restorable:false`/`historyRetained:true`，chat critical rules 禁止模型从 soft-delete 推导恢复承诺；同步 workflow domain、tools extract，并通过 `go test -count=1 ./internal/app/tool/workflow ./internal/app/loop ./internal/app/chat` 与 `git diff --check`。
+- formal-139 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-052255` 已重新起真实 onboarding、受管网关、五通道 conductor；真实 App 已完成关系查询和删除前说明，画面准确写明主行不可恢复、没有 restore operation，并停在 `Dangerous / Awaiting your approval`。补齐 v2 后 REST 证明 workflow active=v2、versions=[2,1]、trigger/ref relation 仍完整；rig-check 五通道全绿，backend/frontend/LLM/SSE 尚无未解释红线。
+- 当前状态：该 fixture 的删除是不可逆动作，台架已收口但未点击 `Allow`，所以 `TOOL-063` 仍为 `·····`，不写 judge、不改中央账本；session 录屏/journal 保留，下一步是取得明确删除授权后从同一 fixture 完成五通道终验。第七批仍 **10 / 50**，不跑统一长门禁、不提交。
+
+## 2026-08-02 04:53 · 第七批 TOOL-062 revert_workflow 正式通过
+
+- formal-133 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-043458` 首轮真实 App 暴露 hosted model 将 `version` 发成字符串，旧执行边界拒绝后模型 retry；formal-134 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-044050` 在 decoder 修复后又暴露模型省略 `version`、先查 `get_workflow` 再 retry。两轮均冻结为红，不计绿。
+- stop-and-fix：`revert_workflow` 执行边界接受 native positive integer 或 exact decimal integer string，浮点/布尔/数组/坏字符串继续拒绝；工具 schema/描述明确 `workflowId` 与 `version` 同一调用必填、禁止 inspect/retry、失败结果权威。补 Go 工具/loop 定向测试、workflow domain 文档和 tools extract。
+- formal-135 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-044518` 通过真实 onboarding、受管网关、真实 App、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和连续录屏重跑。正向从 active v2 只调用一次 `revert_workflow`，wire 使用 `version:"1"`，UI 只有一张成功 `↩ v1` activity；负向只调用一次 version 999，精确显示 `workflow version not found`，无 retry、无 `get_workflow`。录屏 `257.141667s`，REST/SQLite 证明 active v1 且 v1/v2 历史保留，LLM response 全 200，frontend 无 runtime marker，backend 只有刻意负路径 WARN。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-044518/evidence/tool-062-formal-acceptance.txt`。
+- fixture cleanup 已通过真实 REST 完成：两个 conversation 和 workflow 均 DELETE=204、GET=404，三类列表均为空；SQLite live conversation/workflow/trigger 为 0，tombstone 的 `deleted_at` 已写入，4 messages、12 message_blocks、2 workflow_versions、4 notifications 审计行保留；唯一 live workspace 未删除。cleanup rig-down 后无 server/ssetap/Flutter/recorder 孤儿。
+- 锚点 `10/10` 重校准通过；五级裁决 `TOOL-062=G1/F2/A5/C4/G2` 写入 COVERAGE，中央账本从 355 增至 `360 judgments`。gap-too-fast/discovery-collapse 按红绿完整证据复审并 ack，`alarms.py check` 为 clean。第七批由 **5 / 50** 推进至 **10 / 50**，按批次纪律不跑统一长门禁、不提交，下一前线 `TOOL-063 delete_workflow`。
+
+## 2026-08-02 04:32 · 第七批 TOOL-061 edit_workflow 正式通过
+
+- 正向路径在真实 App、受管网关、Computer Use、三路 SSE witness、backend/frontend journal 和 LLM wire 上完成：既有 workflow 从 v1 编辑到 v2，描述、tags、trigger ref、changeReason 和 UI activity 与 REST/SQLite/SSE 一致。正向 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-041823`。
+- 首轮探索性负向曾把 filesystem `Edit` 的 `file_path/old_string` 形状误发给 `edit_workflow`，造成一次 validation failure 和 retry；该红事实不计绿。stop-and-fix 强化 `edit_workflow` 描述/schema，明确它不是 filesystem Edit、`workflowId` 是实体 ID、`ops` 非空，并补 Go 回归；同时修复 New chat 清除 landing draft/附件的状态泄漏，Flutter 定向 22 项与 workflow/loop Go 定向测试通过。
+- 修复后的正式负向从 clean landing 出发，对不存在的 `wf_missing_tool061` 只发一次合法 `edit_workflow`，UI 只有一张失败 activity，助手明确没有 search/create/retry/其它 mutation；正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-042438/evidence/tool-061-formal-acceptance.txt`。录屏、backend、三路 SSE、frontend、LLM 五通道文件均完整，前端唯一 error-like 启动文本是已知 Flutter runner foreground harness warning。
+- fixture 已按真实 API 清理：conversation `cv_0c82ee3e7c62b0de`、workflow `wf_85ddbf59a68ba18b`、triggers `trg_698325b524506e16`/`trg_e79e9b41571591aa` 均 `DELETE=204` 后 `GET=404`；SQLite 审计行保留，live conversation/workflow/trigger 为 0，只有最后 workspace live，messages 无 in-flight。
+- 锚点 `10/10` 重新校准；五级裁决 `TOOL-061=G1/F2/A5/C4/G2` 写入 COVERAGE，中央账本 `355 judgments`。gap-too-fast/discovery-collapse 因本次五格是同一已复核证据包的批处理落账而开启，已按正式正负证据重审并 ack，`alarms.py check` 为 clean。第七批 **5 / 50**，不跑统一长门禁、不提交，下一前线 `TOOL-062 revert_workflow`。
+
+## 2026-08-02 04:04 · 第六批收口，第七批从 TOOL-061 开始
+
+- 第六批 `TOOL-055` 至 `TOOL-060` 共 50 个单格已完成五级裁决；统一 `make verify`、完整 `make -C backend testend`、文档、锚点、警报、fixture 和进程审计全部通过，唯一提交为 `8e2c93e4`。
+- 中央账本保持 `350 judgments`，`alarms.py check` 为 clean，goal API 与盘上协议均为 active。第七批计数重置为 **0 / 50**，下一前线 `TOOL-061 edit_workflow`；未到第 50 格不运行长门禁、不提交。
+
 ## 2026-08-02 03:47 · TOOL-060 漏元数据边界补强，长门禁仍待执行
 
 - formal-129/130 已经证明，仅把 `description`、`tags`、`changeReason` 放进 hosted-model schema 不能阻断模型省略字段；formal-132 的 stringified metadata 正向证据证明兼容路径正确，但不覆盖漏字段风险。
@@ -916,3 +971,46 @@ landed-into:
   `alarms.py check` 为 `clean (170 judgments on record)`。
 - 第四批从 **15 / 50** 推进至 **20 / 50**；下一前线为 `TOOL-027 edit_handler`。未到第四批 50 格不跑统一长门禁、
   不提交。
+
+## 2026-08-02 22:16 · 第七批 TOOL-066 stage_workflow 正式收口
+
+- formal-139、formal-140、formal-141 均作为真实 stop-and-fix 红证据保留，不计绿。首轮暴露 stage 回执只有 opaque ID；修复后真实 App 的历史 stage 卡片仍错误声称 awaiting next real trigger；再修复后旧二进制的安全 redactor 又把 Markdown 反引号 ID parenthetical 渲染成 `name (the referenced item)`。
+- 修复内容：`Service.Stage` 返回已读取的 workflow snapshot，HTTP/LLM 结果包含真实 name、id、inactive lifecycle 和 `active=false`；前端卡片改成历史事实 `one-shot · auto-disarms`；redactor 只去掉名称后重复的 opaque entity ID parenthetical，独立 ID 仍替换为 `the referenced item`。后端/前端定向测试、`make -C docs verify`、`git diff --check` 通过。
+- formal-142 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-220942` 使用真实 App、受管网关、Computer Use、窗口录屏、backend/frontend journal、三路 SSE witness 和 LLM tap。真实 App 只调用一次 stage，第一发真实 webhook `202 Accepted`，唯一 activation `fired=true/firingCount=1`，唯一 firing 建立 completed flowrun `fr_1398ab2d27f13cd2`；trigger 随即 `refCount=0/listening=false`，workflow 仍 inactive。第二发真实 webhook `404`，backend 记录路由注销，无第二 firing/flowrun。
+- 五通道结果：`screen.mov` 已由 rig-down 封口 `281.433333s`；SSE 有唯一 `run_started → run_terminal(completed)` 且三流均连接、durable seq 单调；LLM install/models/chat 全 200 且 stage 只调用一次；backend/frontend 无未解释产品运行时红线，仅已知 macOS foreground launcher 噪声。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-220942/evidence/tool-066-formal-142-green-stage-workflow.md`。
+- `judge.py` 五格 `G1/F2/A5/C4/G2` 已落账，中央账本 `370 judgments`；`gap-too-fast` 与 `discovery-collapse` 由 formal-142 的完整录屏、正负路径、前三场红证据和五通道证据复审后 ack，`alarms.py check` clean。第七批推进至 **30 / 50**，下一前线 `TOOL-067 activate_workflow`；未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-02 22:34 · 第七批 TOOL-067 activate_workflow 正式收口
+
+- formal-143、formal-144 均作为真实 stop-and-fix 红证据保留，不计绿。formal-143 暴露 activate 回执只有 opaque ID，最终话术无法确认目标；formal-144 在服务层返回真实名称后，又由流式 provider chunk 分界暴露跨 chunk parenthetical redaction 缺陷，最终出现 `name (the referenced item)`。
+- 修复内容：`ActivateWorkflow` 返回 action-after 的 workflow name/id/lifecycle/active 快照，并将同类命名快照语义横扫到 `deactivate_workflow`/`kill_workflow`；redactor 对未闭合 parenthetical 做有界跨 chunk 暂存，并清理实体替换后残余 placeholder；补真实 Service/tool 与跨 chunk regression 测试，同步 backend/frontend/API/tool/chat 文档。
+- formal-145 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-222906` 使用真实 App、真实受管网关、Computer Use、窗口录屏、backend/frontend journal、三路 SSE witness 和 LLM tap。App 严格只调用一次 activate，危险人闸按明确用户意图批准一次；最终画面确认真实 workflow `tool067-activate-continuous-final` 已 active 且持续 listening，无 placeholder、无 retry。
+- 两次真实 webhook 均返回 `202 {"accepted":true}`：`probe=first` → `fr_6bca393151534731`，`probe=second` → `fr_86aa0c00e769386b`；两个 flowrun 均 completed，节点结果精确保留各自 body，trigger 仍 `listening=true/refCount=1`，workflow 仍 `active=true/lifecycleState=active`。
+- 五通道收台：`rig-check` 收台前通过 D1/backend/ssetap/llmtap/Flutter/录屏自检；`screen.mov` 封口 `278.248333s`；SSE durable `messages 1..15`、`entities 1..4`、`notifications 1..4` 单调并捕获两次 `run_started → run_terminal`；LLM challenge/install/models/chat 全 200；backend 无意外 marker；frontend 仅已知 foreground launcher 噪声，无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线。证据为 `.../sessions/20260802-222906/evidence/tool-067-formal-145-green-activate-workflow.md`。
+- `judge.py` 五格 `G1/F2/A5/C4/G2` 已落账，中央账本 `375 judgments`。`gap-too-fast` 与 `discovery-collapse` 按 formal-143/144 红证据、formal-145 录屏、双 webhook REST truth 和五通道 journal 完整复审并 ack，`alarms.py check` clean。第七批推进至 **35 / 50**，下一前线 `TOOL-068 deactivate_workflow`；未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-02 23:48 · 第七批 TOOL-068 deactivate_workflow 正式收口
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-234036` 使用新二进制、真实 App、真实受管网关、Computer Use、连续窗口录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap。REST setup 先将 `wf_afab89684d8c5025` 置为 active；真实 App 随后发送一条明确请求，模型只调用一次 `deactivate_workflow`，参数为 `{"workflowId":"wf_afab89684d8c5025"}`，没有 `kill_workflow`。
+- 工具回执为 `active=false`、`lifecycleState=inactive`、真实名称 `tool068-redaction-green-target`；notifications 的 `workflow.lifecycle_changed`、最终 REST GET 和 messages tool result 三方一致。最终画面显示 `Stopped listening … · offline` 以及可读的 `Deactivation confirmed`、真实 name、`lifecycleState: inactive`、`active: false`；没有 retry、没有错误卡、没有第二个 lifecycle 动作。终帧为 `evidence/tool-068-final-frame.jpg`，完整录屏封口 `439.891667s / 2784x1808 / 60fps`。
+- 五通道收台：SSE 三流均连接，messages durable seq `1..38` 连续并包含 deactivate call/result/message close，notifications 捕获 active→inactive 两条 lifecycle 事实；`backend.log` 无 WARN/ERROR/panic/FATAL；`llm.jsonl` challenge/install/models/chat 观察响应全 200；`frontend.log` 无 FlutterError、DartError、RenderFlex 或 unhandled exception。
+- 严格 `rig-check` 唯一失败是 frontend journal 中 177 条 `accessibility_bridge.cc ... Failed to update ui::AXTree`。该红线没有被隐藏：三秒静置后重新读取完整稳定 App，AXTree 数量仍为 177，且稳定态没有新增；按 `testend/rig/README.md` 的既有规则分流为 Computer Use 读取动态 macOS AX 树时的观察器/引擎交互噪声，流式期间以连续录屏取帧而不反复读 AX。完整审阅结论、计数和失败的 `rig-check` 输出均保留在正式证据摘要，不把它冒充为全绿。
+- `judge.py` 在锚点有效、先验警报 clean 且证据文件/法条齐全后落账五格 `G1/F2/A5/C4/G2`，中央账本由 `375` 增至 **380 judgments**。新增的 `gap-too-fast` 与 `discovery-collapse` 经完整录屏、终帧、红线分流和五通道复审后写 note 并 ack，`alarms.py check` 最终 clean。第七批推进至 **40 / 50**，下一前线为 `TOOL-069 kill_workflow`；未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-03 00:12 · 第七批 TOOL-069 kill_workflow 正式收口
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-235255` 使用新二进制、真实 App、真实受管网关、Computer Use、连续窗口录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap。目标 workflow `wf_95346c04c2a5fd5f` `tool069-kill-target` 先由真实 API 布置为 active，存在一个 approval-parked 在飞 run 和一个 queued firing；App 只调用一次 `kill_workflow`，没有 deactivate/delete/get 或 retry。真实危险人闸只批准一次，workflow 自身 approval 未被决策。
+- 首轮真实 UI 观察发现审批胶囊先挂短 notice、再异步替换成长问题句时没有重测高度，`340x110` 壳体出现 `RenderFlex overflowed by 18 pixels`，按钮行被挤出。前线冻结，修复 `AnApprovalCapsule.didUpdateWidget` 在 question 变化时重测，并补异步长问题句 widget regression；`mise exec -- flutter test test/core/run/an_approval_capsule_test.dart` 9/9 通过。hot-restart 后真实 App 再次显示长问题句、Approve/Reject，无黄色条纹。修复前四条 overflow 日志原样保留。
+- 正式结果为 `active=false`、`lifecycleState=inactive`、真实 name `tool069-kill-target`、`killed=1`；`fr_3fbbd32920fb144a` 为 cancelled/error=`killed by user`，`trf_0078980b8eafea0f` 为 shed，approval inbox 不再有目标 parked 行。最终帧 `evidence/tool-069-screen-final.jpg` 与 `tool-069-final-kill.jpeg` 已视觉检查，录屏封口 `996.078333s / 2784x1808 / 60fps`。
+- 五通道：SSE 三流连接，durable `messages 1..15`、`entities 1..8`、`notifications 1..15`；关键消息为 kill call close seq 7、cancelled `run_terminal` seq 5、inactive lifecycle seq 11、authoritative tool result seq 10；LLM body `00006_v1_chat_completions.bin` 仅有一个实际 `kill_workflow` call，challenge/install/models/chat 响应全 200；backend 无产品 WARN/ERROR/panic/FATAL；frontend 只有修复前四条 overflow，hot-restart 后无新增 runtime 红线。
+- 严格 `rig-check` 因历史修复前 overflow 按设计失败，证据没有将它冒充全绿；修复后真实帧、回归测试和五通道均通过。正式摘要为 `.../sessions/20260802-235255/evidence/tool-069-formal-green-kill-workflow.md`。临时 layout-probe workflow、trigger、approval 已通过真实 API 删除，删除/取消信号保留在 SSE journal；rig-down 已封口且进程清零。
+- 锚点 10/10 重新校准后，`judge.py` 五格 `G1/F2/A5/C4/G2` 落账，中央账本由 `380` 增至 **385 judgments**。`gap-too-fast` 与 `discovery-collapse` 按完整 996 秒录屏、修复前红证据、修复后终帧、REST/SSE/LLM/backend/frontend 五通道复审并 ack，最终 `alarms.py check` clean。第七批推进至 **45 / 50**，下一前线为 `TOOL-070 get_flowrun`；未到 50 格不跑统一长门禁、不提交。
+- 前端完整门禁首次在 `conversation_rail.dart` 的 `_newChat` 暴露两条 Riverpod protected API warning；将直接 `.state++` 收口为 `ChatLandingReset.bump()`，不改变 landing generation 语义。`conversation_rail_test.dart` 18 项通过，随后 `make -C frontend verify` 完成 `gen + analyze + 5168 tests` 全绿。
+
+## 2026-08-03 03:44 · 第七批 TOOL-070 get_flowrun 正式收口
+
+- formal-146 的第一轮真实大运行路径冻结为红：用户正文出现 `Run summary for the requested item`，并泄露 function pinned version 的 `fnv_...` opaque ID；红观察来自真实 Flutter App、SSE durable close 和 LLM/tool-result 交叉核对，不计入绿。
+- stop-and-fix 在 `backend/internal/app/loop/redact.go` 增加 flowrun summary 与 pinned reference 的语义归一化、`fnv_` 跨 delta 整行缓冲和 durable close 二次 redaction；`redact_test.go` 增加完整 summary、pinned version、跨 chunk 和 close snapshot 守卫；`docs/references/backend/domains/chat.md` 同步规则。`go test ./internal/app/loop ./internal/app/tool/workflow ./internal/app/chat` 全绿。
+- formal-147 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-033531` 用修复后二进制、真实 App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 重跑。真实用户请求只调用一次 `get_flowrun`；真实 run `fr_31606084bcee949b` 为 completed，REST 两页合计 91 个 completed 节点，UI 正确显示 80/91 capped projection 和 91 节点总数。最终录屏 `327.648333s`，证据为 `evidence/tool-070-formal-acceptance.md`。
+- 五通道复核：messages durable `1..20`、notifications durable `1..2` 连续；可见 reasoning/text 无 `the requested item`、`the referenced item`、`fnv_`、`wfv_`、`apf_`、`apfv_` 或 `get_flowrun tool`；raw tool result 保留完整机器值；backend 无产品异常；frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线；LLM challenge/install/models/chat 全 200；REST/SSE/UI 三方一致。rig-check 收台前通过，rig-down 已封口并清零进程。
+- 锚点 10/10 复核有效，`judge.py` 五格 `G1/F2/A5/C4/G2` 落账，中央账本由 `385` 增至 **390 judgments**。`gap-too-fast` 与 `discovery-collapse` 因五格写入过快打开，已根据完整录屏、前置红证据、修复后二次运行和五通道审查写 resolution 并 ack，`alarms.py check` clean。第七批达到 **50 / 50**；统一长门禁、完整 testend、工作树审计和提交现在解锁，下一前线为 `TOOL-071 search_flowruns`。
