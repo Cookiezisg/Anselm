@@ -83,16 +83,16 @@ TOOL | create_trigger | trigger | 新建信号源;config 兼容原生对象或�
 TOOL | edit_trigger | trigger | 改 name/description/config(kind 不可变);config 同样兼容原生对象或精确 JSON 字符串;sensor output map 与 create 同源归一化,省略/null 不改配置
 TOOL | delete_trigger | trigger | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;门禁本体说明 stop listener/主行不可恢复/history 保留/relation edges purge;软删主行,停 listener,清关系,activation/firing 历史保留,主行不可恢复
 TOOL | fire_trigger | trigger | 手动触发一次演练扇出;只合成 {manual:true},真实走 firing inbox/overlap 策略并回 activationId;暂停返回 TRIGGER_PAUSED,不可用 edit_trigger 清除 paused,必须经 Resume 控件或 :resume 后再 fire
-TOOL | search_activations | trigger | 查动作日志(触没触发都记)
+TOOL | search_activations | trigger | 查动作日志(触没触发都记);每行 firingCount=该次 activation 扇出的 workflow 数,不是历史累计次数;payload.manual=true 表示手动 fire 绕过 sensor condition,不是条件通过证据;支持 firedOnly/cursor/limit;托管模型发出的精确字符串布尔/十进制 limit 窄兼容,浮点/任意字符串/数组拒绝
 TOOL | get_activation | trigger | 取单条 activation
-TOOL | search_firings | trigger | 查扇出收件箱逐 workflow 处置
-TOOL | search_documents | document | 按内容检索文档库
-TOOL | list_documents | document | 列 Notion 式树
+TOOL | search_firings | trigger | 查扇出收件箱逐 workflow 处置(status=started/pending/skipped/superseded/shed);必须逐字复制 opaque triggerId,不是 name/pattern/placeholder,不知道 id 先 search_triggers;支持 cursor/limit,limit 接受原生整数或精确十进制字符串,浮点/任意字符串/数组拒绝
+TOOL | search_documents | document | 文档库关键词检索（query；非文件系统 path/pattern）；托管 provider 若误发显式 path/pattern 形状则非空 pattern/path 只作为文档 query、两者皆空返回一页有界文档列表，绝不读文件系统；返回正文/标题 snippet 与 durable path/description/tags、total/nextCursor（仅截断时出现）；无 nextCursor 即完整，匹配到 ID 后直接使用；用同一 query 原样携 cursor 续页
+TOOL | list_documents | document | 枚举已知父节点的 Notion 式直接子节点;按 sibling position 做 cursor 分页(默认50,最大200);返回本页 count/同父 total/complete/hasMore,有更多时返 nextCursor;必须逐字携 cursor,不能从 count 或全局上限猜完整性;同回合相同 parentId/cursor/limit 已返回后不得重复;用 search_documents 做关键词检索
 TOOL | read_document | document | 载入完整 markdown 正文
-TOOL | create_document | document | 建文档,可嵌套
-TOOL | edit_document | document | 更新字段,content/tags 全量替换
-TOOL | move_document | document | 重挂父节点+兄弟序,路径级联
-TOOL | delete_document | document | 静态危险下限=cautious;软删整棵子树,墓碑可恢复
+TOOL | create_document | document | 建文档,可嵌套; name/description/content/tags 每次调用(包括首次)必填,未提供后三者传空字符串/空数组;用户值同一调用原样带上;禁止name-only placeholder/先create再edit或同父同名重复mutation
+TOOL | edit_document | document | 一次请求一个 canonical call,更新字段,content/tags 全量替换,tags 必须是 JSON 字符串数组（仅兼容多包一层的合法 JSON 数组字符串）
+TOOL | move_document | document | 重挂父节点+兄弟序,跨父压缩旧/新 sibling 且路径级联;position 接受原生非负整数或托管调用者的严格十进制整数字符串,拒绝浮点/布尔/数组/任意字符串;自身/后代循环为该精确文档/父节点组合的终局拒绝,本回合不重复调用
+TOOL | delete_document | document | 静态危险下限=cautious;软删整棵子树,墓碑可恢复;缺失ID为completed软失败,界面不得显示成功删除
 TOOL | list_attachments | attachment | 列上传文件
 TOOL | read_attachment | attachment | 读文本/文档类附件正文
 TOOL | inspect_media | attachment | 按 id 取有界媒体证据(图走视觉路由)

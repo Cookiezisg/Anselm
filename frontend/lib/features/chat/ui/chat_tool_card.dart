@@ -153,6 +153,15 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final awaiting = widget.interaction?.isAwaiting ?? false;
     final state = ToolCardState.of(widget.node, awaitingConfirm: awaiting);
     final spec = toolCardSpecFor(state.toolName);
+    // A terminal-rejection duplicate is a protocol/audit fact, not a second user-facing action.
+    // Keep it in the durable block and wire journals, but do not make the transcript show a noisy
+    // "Not run" row after the first rejection already explains the outcome.
+    // 终局拒绝的重复调用是协议/审计事实，不是第二个用户动作。保留在 durable block 与线缆，transcript
+    // 不再渲染第一条拒绝已经说明结果后的“未执行”噪音。
+    if (state.phase == ToolCardPhase.suppressed &&
+        state.resultText.startsWith(terminalDuplicateSuppressedProse)) {
+      return const SizedBox.shrink();
+    }
     final live =
         state.phase == ToolCardPhase.argsStreaming ||
         state.phase == ToolCardPhase.running;

@@ -147,9 +147,9 @@ unknown IDs 缺席，cells 按 `(flowrun,node)` 聚合 iterations。
 | `POST /triggers/{id}:fire` | 手动 fan-out |
 | `POST /triggers/{id}:pause` · `:resume` | 持久暂停 / 恢复 |
 | `POST /triggers/{id}:iterate` | 打开 AI 构建 Conversation |
-| `GET /triggers/{id}/activations` | Activation 分页 |
+| `GET /triggers/{id}/activations` | Activation 分页；每行 `firingCount` 是该次 activation 的 workflow 扇出数，不是历史累计 fire 次数 |
 | `GET /trigger-activations/{id}` | 单 Activation |
-| `GET /firings` · `GET /triggers/{id}/firings` | workspace / trigger Firing 分页 |
+| `GET /firings` · `GET /triggers/{id}/firings` | workspace / trigger Firing 分页；工具侧必须传精确 opaque triggerId（不是 name/pattern），`limit` 为整数，托管模型可用精确十进制字符串，错误形状拒绝 |
 | `GET /trigger-schedule` | 有界 schedule window，截断时 `truncated=true` |
 | `ANY /webhooks/{triggerId}/{path...}` | webhook source 入口（catch-all 前缀挂载一次、registry 派发；可选 secret/HMAC、10MB body 上限；bearer 豁免）；成功 `202` 表示 Activation/Firing 已耐久写入，scheduler 排空异步——完整形状见 [`domains/trigger.md`](domains/trigger.md) |
 
@@ -209,7 +209,7 @@ GET /controls|approvals/{id}/versions[/{version}]
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /documents` · `GET /documents/tree` | 分页列表 / 树投影 |
+| `GET /documents` · `GET /documents/tree` | `GET /documents` 是 `?parentId&cursor&limit` 的直接子节点 cursor 分页（默认 50、最大 200，响应 `data/nextCursor?/hasMore`）；`tree` 是整树 metadata 投影 |
 | `POST /documents` | 创建 |
 | `GET|PATCH|DELETE /documents/{id}` | 单读 / 更新 / 删除 |
 | `POST /documents/{id}:iterate` | 打开 AI 编辑 Conversation |

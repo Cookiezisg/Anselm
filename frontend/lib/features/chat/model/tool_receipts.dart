@@ -455,6 +455,13 @@ ToolReceipt? deletedDocReceipt(
   return null;
 }
 
+/// delete_document returns a completed sentence for a missing tombstone, so the card must
+/// reclassify that payload instead of trusting the transport status. 文档不存在是软失败。
+bool deletedDocumentResultFailed(String output) {
+  final t = output.trimLeft();
+  return RegExp(r'^Document "[^"]+" not found').hasMatch(t);
+}
+
 /// move_document — `→ {new path}` from `… (new path: <path>).`. move 回执=新家地址。
 final RegExp _movedPath = RegExp(r'new path:\s*([^)]+)\)');
 ToolReceipt? movedReceipt(

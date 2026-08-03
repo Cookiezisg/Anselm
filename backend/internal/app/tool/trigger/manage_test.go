@@ -26,6 +26,110 @@ func TestFireTrigger_DescriptionRedirectsForPayload(t *testing.T) {
 	}
 }
 
+func TestSearchActivations_DescriptionPinsPerActivationFanout(t *testing.T) {
+	desc := (&SearchActivations{}).Description()
+	for _, want := range []string{
+		"firingCount",
+		"number of workflows fanned out by THAT activation",
+		"NOT a cumulative counter",
+		"NOT the number of fires in the trigger's history",
+		"fired entry can still be 0",
+		"payload.manual=true",
+		"bypassed the sensor condition",
+		"NOT evidence that the sensor condition or threshold evaluated true",
+		"exact JSON strings \"true\"/\"false\"",
+		"exact decimal integer strings such as \"3\"",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("search_activations description missing %q: %s", want, desc)
+		}
+	}
+	if !json.Valid((&SearchActivations{}).Parameters()) {
+		t.Fatal("search_activations Parameters must be valid JSON")
+	}
+}
+
+func TestSearchActivationsArgsAcceptHostedScalarStrings(t *testing.T) {
+	var got searchActivationsArgs
+	if err := json.Unmarshal([]byte(`{"triggerId":"trg_1","firedOnly":"true","limit":"3","cursor":"c"}`), &got); err != nil {
+		t.Fatalf("exact hosted scalar strings rejected: %v", err)
+	}
+	if got.TriggerID != "trg_1" || !got.FiredOnly || got.Limit != 3 || got.Cursor != "c" {
+		t.Fatalf("decoded args = %+v", got)
+	}
+	if err := json.Unmarshal([]byte(`{"triggerId":"trg_1","firedOnly":false,"limit":3}`), &got); err != nil {
+		t.Fatalf("native scalar values rejected: %v", err)
+	}
+}
+
+func TestSearchActivationsArgsRejectWrongScalarShapes(t *testing.T) {
+	for _, raw := range []string{
+		`{"triggerId":"trg_1","firedOnly":"1"}`,
+		`{"triggerId":"trg_1","firedOnly":1}`,
+		`{"triggerId":"trg_1","limit":"3.0"}`,
+		`{"triggerId":"trg_1","limit":3.0}`,
+		`{"triggerId":"trg_1","limit":[]}`,
+	} {
+		var got searchActivationsArgs
+		if err := json.Unmarshal([]byte(raw), &got); err == nil {
+			t.Errorf("wrong scalar shape unexpectedly accepted: %s", raw)
+		}
+	}
+}
+
+func TestSearchFiringsArgsAcceptHostedLimitString(t *testing.T) {
+	var got searchFiringsArgs
+	if err := json.Unmarshal([]byte(`{"triggerId":"trg_1","limit":"3","status":"started"}`), &got); err != nil {
+		t.Fatalf("exact hosted limit string rejected: %v", err)
+	}
+	if got.TriggerID != "trg_1" || got.Limit != 3 || got.Status != "started" {
+		t.Fatalf("decoded args = %+v", got)
+	}
+	if err := json.Unmarshal([]byte(`{"triggerId":"trg_1","limit":3}`), &got); err != nil {
+		t.Fatalf("native limit rejected: %v", err)
+	}
+}
+
+func TestSearchFiringsArgsRejectWrongLimitShapes(t *testing.T) {
+	for _, raw := range []string{
+		`{"triggerId":"trg_1","limit":"3.0"}`,
+		`{"triggerId":"trg_1","limit":3.0}`,
+		`{"triggerId":"trg_1","limit":[]}`,
+		`{"triggerId":"trg_1","limit":"many"}`,
+	} {
+		var got searchFiringsArgs
+		if err := json.Unmarshal([]byte(raw), &got); err == nil {
+			t.Errorf("wrong limit shape unexpectedly accepted: %s", raw)
+		}
+	}
+}
+
+func TestSearchFiringsDescriptionPinsExactTriggerID(t *testing.T) {
+	desc := (&SearchFirings{}).Description()
+	for _, want := range []string{
+		"exact opaque triggerId",
+		"byte-for-byte",
+		"NOT a name/pattern search",
+		"never accepts a pattern argument",
+		"the requested item",
+		"call search_triggers first",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Errorf("search_firings description missing %q: %s", want, desc)
+		}
+	}
+	if !json.Valid((&SearchFirings{}).Parameters()) {
+		t.Fatal("search_firings Parameters must be valid JSON")
+	}
+}
+
+func TestSearchFiringsValidateRejectsPatternWithoutTriggerID(t *testing.T) {
+	err := (&SearchFirings{}).ValidateInput(json.RawMessage(`{"pattern":"search_firings"}`))
+	if err == nil || !strings.Contains(err.Error(), "exact triggerId is required") {
+		t.Fatalf("pattern-only args error = %v, want exact triggerId guidance", err)
+	}
+}
+
 func TestNormalizeSensorOutputObjectShorthand(t *testing.T) {
 	config := map[string]any{
 		"output": map[string]any{

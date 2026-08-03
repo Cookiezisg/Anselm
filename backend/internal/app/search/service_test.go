@@ -615,6 +615,29 @@ func TestHybrid_SemanticOnlyHitSurfaces(t *testing.T) {
 	}
 }
 
+func TestSearch_LexicalOnlySuppressesSemanticOnlyHit(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_a", 0, "", "heliograph notes", 5.0)}
+	repo.hits[0].DocID = "sd_a"
+	repo.docsByID = map[string]*searchdomain.DocHit{
+		"sd_b": {DocID: "sd_b", EntityType: searchdomain.TypeDocument, EntityID: "doc_b", Title: "unrelated notes", Snippet: "no lexical evidence", UpdatedAt: time.Date(2026, 6, 12, 9, 0, 0, 0, time.UTC)},
+	}
+	repo.embedded = map[string][]float32{
+		"m1/sd_b": {1, 0, 0},
+		"m1/sd_a": {0, 1, 0},
+	}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{"heliograph": {1, 0, 0}}}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "heliograph", Types: []searchdomain.EntityType{searchdomain.TypeDocument}, IncludeArchived: true, LexicalOnly: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(page.Hits) != 1 || page.Hits[0].EntityID != "doc_a" {
+		t.Fatalf("lexical-only search must exclude semantic-only hit: %+v", page.Hits)
+	}
+}
+
 // TestHybrid_CosineFloorRejectsNoise — F80: a vector whose cosine to the query is below cosineFloor
 // (noise, on a model with a high baseline similarity) must NOT surface semantically — only genuinely
 // near vectors clear the floor. Without it, a no-match query floods the whole workspace.

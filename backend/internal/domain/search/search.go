@@ -177,10 +177,14 @@ type Query struct {
 	Types           []EntityType
 	Tags            []string
 	IncludeArchived bool
-	UpdatedAfter    *time.Time
-	UpdatedBefore   *time.Time
-	Cursor          string
-	Limit           int
+	// LexicalOnly disables semantic-only recall. Keyword-oriented surfaces use this when every
+	// returned row must carry lexical evidence for the query; RAG and omni-search keep hybrid recall.
+	// LexicalOnly 禁止纯语义召回。关键词面要求每一行都有词法证据时使用；RAG 与综搜仍保留混合召回。
+	LexicalOnly   bool
+	UpdatedAfter  *time.Time
+	UpdatedBefore *time.Time
+	Cursor        string
+	Limit         int
 }
 
 // LexicalQuery is the repository-level form: tokens already routed, the

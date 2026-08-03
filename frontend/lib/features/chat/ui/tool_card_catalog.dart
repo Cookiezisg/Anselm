@@ -4,6 +4,7 @@ import 'package:flutter/widgets.dart';
 
 import '../../../core/design/colors.dart';
 import '../../../core/ui/an_chip.dart';
+import '../../../core/ui/an_callout.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
@@ -340,13 +341,17 @@ ToolCardSpec _build({
 /// present, LIST when it's empty — decided ONLY after args complete (during argsStreaming the default
 /// search channel is locked, never flipped mid-stream). The query becomes the target chip; the receipt
 /// is [searchReceipt] (double-shape, nil-slice safe). `listOnly` = list_documents/list_attachments (no
-/// query arg → always the list channel). The settled body (ToolHitList) lands in B3.3 — until then the
-/// collapsed row is already fully specific over the generic body.
+/// query arg → always the list channel). `listWhenQueryEmpty` is false for a query-required search:
+/// an invalid empty-argument call must remain visibly a search failure, not masquerade as a listing.
+/// The settled body (ToolHitList) lands in B3.3 — until then the collapsed row is already fully
+/// specific over the generic body.
 /// F07 实体搜索:双声道(有 query=搜、空=列,仅 args 完整后判)+ query chip + searchReceipt;体 B3.3 落。
+/// query 必填的搜索关闭空 query 列声道,畸形调用仍显「搜索失败」,不伪装成列举。
 ToolCardSpec _entitySearch({
   required String Function(Translations) kind,
   required String listKey,
   bool listOnly = false,
+  bool listWhenQueryEmpty = true,
   Widget Function(BuildContext, ToolCardState)? body,
 }) => ToolCardSpec(
   verb: (t, {required bool live}) {
@@ -364,7 +369,10 @@ ToolCardSpec _entitySearch({
       : (t, s, {required bool live}) {
           final argsComplete = s.phase != ToolCardPhase.argsStreaming;
           final q = s.arg('query');
-          final listChannel = argsComplete && (q == null || q.trim().isEmpty);
+          final listChannel =
+              listWhenQueryEmpty &&
+              argsComplete &&
+              (q == null || q.trim().isEmpty);
           final kw = kind(t);
           return listChannel
               ? (live
@@ -908,6 +916,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'search_documents': _entitySearch(
     kind: (t) => t.chat.tool.kind.document,
     listKey: 'documents',
+    listWhenQueryEmpty: false,
     body: searchHitBody(
       listKey: 'documents',
       cap: 20,
@@ -1150,12 +1159,15 @@ final Map<String, ToolCardSpec> _catalog = {
       deleted: t.chat.tool.deletedShort,
       withDescendants: (n) => t.chat.tool.docDescendants(n: '$n'),
     ),
-    body: (context, s) => lifecycleRefNote(
-      context,
-      kind: 'document',
-      id: argString(s.argsText, 'id') ?? '',
-      note: Translations.of(context).chat.tool.noteDeleteDocSoft,
-    ),
+    resultFailed: (s) => deletedDocumentResultFailed(s.resultText),
+    body: (context, s) => deletedDocumentResultFailed(s.resultText)
+        ? AnCallout(s.resultText.trim(), severity: AnCalloutSeverity.warn)
+        : lifecycleRefNote(
+            context,
+            kind: 'document',
+            id: argString(s.argsText, 'id') ?? '',
+            note: Translations.of(context).chat.tool.noteDeleteDocSoft,
+          ),
   ),
   // workflow 生杀四将
   'stage_workflow': _action(
@@ -1231,14 +1243,34 @@ final Map<String, ToolCardSpec> _catalog = {
   'move_document': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.movingDoc : t.chat.tool.movedDoc,
+    failedVerb: (t) => t.chat.tool.moveFailed,
+    resultFailed: (s) => s.resultText.startsWith(
+      'Cannot move a document under itself or one of its own descendants (cycle).',
+    ),
     target: (s) => s.arg('id'),
     receipt: (t, s) =>
-        movedReceipt(s.resultText, toPath: (p) => t.chat.tool.movedTo(path: p)),
-    body: (context, s) => lifecycleRefNote(
-      context,
-      kind: 'document',
-      id: argString(s.argsText, 'id') ?? '',
-    ),
+        s.resultText.startsWith(
+          'Cannot move a document under itself or one of its own descendants (cycle).',
+        )
+        ? (text: t.chat.tool.moveCycleRejected, tone: ToolReceiptTone.danger)
+        : movedReceipt(
+            s.resultText,
+            toPath: (p) => t.chat.tool.movedTo(path: p),
+          ),
+    body: (context, s) {
+      final cycle = s.resultText.startsWith(
+        'Cannot move a document under itself or one of its own descendants (cycle).',
+      );
+      return lifecycleRefNote(
+        context,
+        kind: 'document',
+        id: argString(s.argsText, 'id') ?? '',
+        note: cycle
+            ? Translations.of(context).chat.tool.moveCycleRejected
+            : null,
+        noteColor: cycle ? context.colors.danger : null,
+      );
+    },
   ),
   // update_meta triplet — dynamic verb (rename when only `name` in args) + changed-field receipt.
   'update_function_meta': _meta(

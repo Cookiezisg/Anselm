@@ -66,20 +66,25 @@ type moveDocumentRequest struct {
 	Position *int    `json:"position,omitempty"` // omit = append to end
 }
 
-// List returns direct children of parentId (or root when the query param is empty).
+// List returns one cursor-paged page of direct children of parentId (or root when the query param is empty).
 //
-// List 返 parentId 直接子节点（参数空 = root 级）。
+// List 返 parentId 直接子节点的一页（参数空 = root 级），经 ?cursor&limit 游标分页。
 func (h *DocumentHandler) List(w http.ResponseWriter, r *http.Request) {
-	var parentID *string
-	if pid := r.URL.Query().Get("parentId"); pid != "" {
-		parentID = &pid
-	}
-	rows, err := h.svc.ListByParent(r.Context(), parentID)
+	p, err := responsehttpapi.ParsePage(r)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	responsehttpapi.Success(w, http.StatusOK, rows)
+	var parentID *string
+	if pid := r.URL.Query().Get("parentId"); pid != "" {
+		parentID = &pid
+	}
+	rows, _, next, err := h.svc.ListByParentPage(r.Context(), parentID, p.Cursor, p.Limit)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Paged(w, rows, next, next != "")
 }
 
 // Tree returns the whole tree's metadata (no content) for a one-shot sidebar load.

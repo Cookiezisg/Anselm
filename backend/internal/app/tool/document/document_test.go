@@ -2,6 +2,7 @@ package document
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -95,6 +96,21 @@ func TestReadDocument_NotFoundSoftFails(t *testing.T) {
 	}
 }
 
+func TestReadDocument_ContractRequiresOpaqueID(t *testing.T) {
+	description := (&ReadDocument{}).Description()
+	for _, want := range []string{"exact opaque doc_ ID", "search_documents", "list_documents", "never pass a document name or path"} {
+		if !strings.Contains(description, want) {
+			t.Errorf("description must contain %q; got %q", want, description)
+		}
+	}
+	schema := string((&ReadDocument{}).Parameters())
+	for _, want := range []string{"Exact opaque document ID", "never a name or path", "doc_0123456789abcdef"} {
+		if !strings.Contains(schema, want) {
+			t.Errorf("schema must contain %q; got %q", want, schema)
+		}
+	}
+}
+
 func TestListDocuments_RootAndChild(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	root, _ := svc.Create(ctx, documentapp.CreateInput{Name: "Root"})
@@ -117,9 +133,71 @@ func TestListDocuments_RootAndChild(t *testing.T) {
 	}
 }
 
+func TestListDocuments_PaginatesAndDisclosesCompleteness(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	for _, name := range []string{"A", "B", "C", "D", "E"} {
+		if _, err := svc.Create(ctx, documentapp.CreateInput{Name: name}); err != nil {
+			t.Fatalf("seed %s: %v", name, err)
+		}
+	}
+
+	var first struct {
+		Count     int              `json:"count"`
+		Total     int              `json:"total"`
+		Complete  bool             `json:"complete"`
+		HasMore   bool             `json:"hasMore"`
+		Next      string           `json:"nextCursor"`
+		Documents []map[string]any `json:"documents"`
+	}
+	out, err := (&ListDocuments{svc: svc}).Execute(ctx, `{"limit":2}`)
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	if err := json.Unmarshal([]byte(out), &first); err != nil {
+		t.Fatalf("decode page 1: %v", err)
+	}
+	if first.Count != 2 || first.Total != 5 || first.Complete || !first.HasMore || first.Next == "" || len(first.Documents) != 2 {
+		t.Fatalf("page 1 completeness = %+v", first)
+	}
+
+	var last struct {
+		Count     int              `json:"count"`
+		Total     int              `json:"total"`
+		Complete  bool             `json:"complete"`
+		HasMore   bool             `json:"hasMore"`
+		Next      string           `json:"nextCursor"`
+		Documents []map[string]any `json:"documents"`
+	}
+	out, err = (&ListDocuments{svc: svc}).Execute(ctx, `{"cursor":"`+first.Next+`","limit":10}`)
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+	if err := json.Unmarshal([]byte(out), &last); err != nil {
+		t.Fatalf("decode page 2: %v", err)
+	}
+	if last.Count != 3 || last.Total != 5 || !last.Complete || last.HasMore || last.Next != "" || len(last.Documents) != 3 {
+		t.Fatalf("page 2 completeness = %+v", last)
+	}
+}
+
+func TestListDocuments_ContractExplainsOpaquePaging(t *testing.T) {
+	description := (&ListDocuments{}).Description()
+	for _, want := range []string{"cursor-paged", "total", "complete", "hasMore", "byte-for-byte", "Never infer completeness", "identical list_documents call", "Default page size is 50"} {
+		if !strings.Contains(description, want) {
+			t.Errorf("description must contain %q; got %q", want, description)
+		}
+	}
+	schema := string((&ListDocuments{}).Parameters())
+	for _, want := range []string{"cursor", "limit", "Opaque nextCursor", "1-200"} {
+		if !strings.Contains(schema, want) {
+			t.Errorf("schema must contain %q; got %q", want, schema)
+		}
+	}
+}
+
 func TestSearchDocuments(t *testing.T) {
 	svc, ctx := newToolSvc(t)
-	if _, err := svc.Create(ctx, documentapp.CreateInput{Name: "Alpha", Description: "about alpha"}); err != nil {
+	if _, err := svc.Create(ctx, documentapp.CreateInput{Name: "Alpha", Description: "about alpha", Tags: []string{"fixture"}}); err != nil {
 		t.Fatalf("seed: %v", err)
 	}
 	hit, err := (&SearchDocuments{svc: svc}).Execute(ctx, `{"query":"alpha"}`)
@@ -135,6 +213,38 @@ func TestSearchDocuments(t *testing.T) {
 	}
 	if !strings.Contains(miss, `"count":0`) {
 		t.Fatalf("expected miss (count 0), got %q", miss)
+	}
+	compat, err := (&SearchDocuments{svc: svc}).Execute(ctx, `{"path":"","pattern":""}`)
+	if err != nil || !strings.Contains(compat, "Alpha") {
+		t.Fatalf("empty filesystem-shaped provider args should return bounded document listing: err=%v result=%q", err, compat)
+	}
+	pattern, err := (&SearchDocuments{svc: svc}).Execute(ctx, `{"path":"","pattern":"alpha"}`)
+	if err != nil || !strings.Contains(pattern, "Alpha") {
+		t.Fatalf("non-empty provider pattern should become a document query: err=%v result=%q", err, pattern)
+	}
+}
+
+func TestSearchDocumentsContractSeparatesFilesystemGrep(t *testing.T) {
+	description := (&SearchDocuments{}).Description()
+	for _, want := range []string{"document library", "NOT filesystem", "path/pattern", "Markdown body", "nextCursor only when results are truncated", "result is complete", "use that exact ID", "byte-for-byte", "FIRST call", "default/unbounded", "Hosted-provider compatibility", "bounded library page"} {
+		if !strings.Contains(description, want) {
+			t.Errorf("description must contain %q; got %q", want, description)
+		}
+	}
+	schema := string((&SearchDocuments{}).Parameters())
+	for _, want := range []string{"Keyword or phrase", "Do not use path or pattern", "Maximum matching documents", "first call", "Opaque continuation cursor"} {
+		if !strings.Contains(schema, want) {
+			t.Errorf("schema must contain %q; got %q", want, schema)
+		}
+	}
+	if err := (&SearchDocuments{}).ValidateInput([]byte(`{"path":".","pattern":"heliograph"}`)); err != nil {
+		t.Fatalf("filesystem-shaped provider args should enter compatibility recovery, got %v", err)
+	}
+	if err := (&SearchDocuments{}).ValidateInput([]byte(`{"path":"","pattern":""}`)); err != nil {
+		t.Fatalf("empty filesystem-shaped provider args should enter bounded compatibility recovery, got %v", err)
+	}
+	if err := (&SearchDocuments{}).ValidateInput([]byte(`{"query":"heliograph","cursor":"opaque_cursor"}`)); err != nil {
+		t.Fatalf("opaque cursor should be accepted for unified search, got %v", err)
 	}
 }
 
@@ -162,11 +272,33 @@ func TestEditDocument(t *testing.T) {
 	}
 }
 
+func TestEditDocumentAcceptsOnlyJSONEncodedTagsArrayCompatibilityShape(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	d, _ := svc.Create(ctx, documentapp.CreateInput{Name: "Doc", Tags: []string{"draft"}})
+
+	if _, err := (&EditDocument{svc: svc}).Execute(ctx, `{"id":"`+d.ID+`","tags":"[\"release\",\"accepted\"]"}`); err != nil {
+		t.Fatalf("JSON-encoded tags array should be accepted: %v", err)
+	}
+	got, _ := svc.Get(ctx, d.ID)
+	if strings.Join(got.Tags, ",") != "release,accepted" {
+		t.Fatalf("decoded tags = %#v", got.Tags)
+	}
+
+	if _, err := (&EditDocument{svc: svc}).Execute(ctx, `{"id":"`+d.ID+`","tags":"release,accepted"}`); err == nil {
+		t.Fatal("comma-joined tags string must remain invalid")
+	}
+	got, _ = svc.Get(ctx, d.ID)
+	if strings.Join(got.Tags, ",") != "release,accepted" {
+		t.Fatalf("invalid tags input changed durable tags = %#v", got.Tags)
+	}
+}
+
 func TestMoveDocument(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	a, _ := svc.Create(ctx, documentapp.CreateInput{Name: "A"})
 	b, _ := svc.Create(ctx, documentapp.CreateInput{Name: "B"})
-	out, err := (&MoveDocument{svc: svc}).Execute(ctx, `{"id":"`+b.ID+`","parentId":"`+a.ID+`"}`)
+	tool := &MoveDocument{svc: svc}
+	out, err := tool.Execute(ctx, `{"id":"`+b.ID+`","parentId":"`+a.ID+`","position":"0"}`)
 	if err != nil {
 		t.Fatalf("move: %v", err)
 	}
@@ -181,6 +313,9 @@ func TestMoveDocument(t *testing.T) {
 	if !strings.Contains(cyc, "cycle") {
 		t.Fatalf("expected cycle rejection, got %q", cyc)
 	}
+	if !(&MoveDocument{svc: svc}).HaltOnRepeat(cyc, "") {
+		t.Fatalf("cycle rejection must be terminal for exact repeat: %q", cyc)
+	}
 	// parentId omitted → friendly required hint.
 	miss, err := (&MoveDocument{svc: svc}).Execute(ctx, `{"id":"`+b.ID+`"}`)
 	if err != nil {
@@ -188,6 +323,41 @@ func TestMoveDocument(t *testing.T) {
 	}
 	if !strings.Contains(miss, "parentId required") {
 		t.Fatalf("got %q", miss)
+	}
+}
+
+func TestMoveDocument_RejectsNonIntegerPositionWithoutMutation(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, _ := svc.Create(ctx, documentapp.CreateInput{Name: "A"})
+	b, _ := svc.Create(ctx, documentapp.CreateInput{Name: "B"})
+	tool := &MoveDocument{svc: svc}
+
+	for _, position := range []string{`0.5`, `true`, `[]`, `"0.5"`, `"first"`, `-1`} {
+		args := `{"id":"` + b.ID + `","parentId":"` + a.ID + `","position":` + position + `}`
+		if err := tool.ValidateInput([]byte(args)); err == nil {
+			t.Fatalf("position %s should fail validation", position)
+		}
+		if _, err := tool.Execute(ctx, args); err == nil {
+			t.Fatalf("position %s should fail execution", position)
+		}
+	}
+	got, err := svc.Get(ctx, b.ID)
+	if err != nil {
+		t.Fatalf("get after rejected moves: %v", err)
+	}
+	if got.ParentID != nil || got.Path != "/B" {
+		t.Fatalf("rejected positions mutated document: parent=%v path=%q", got.ParentID, got.Path)
+	}
+}
+
+func TestMoveDocument_ContractDescribesHostedPositionCompatibility(t *testing.T) {
+	for _, want := range []string{`exact decimal integer string`, "floats", "booleans", "arrays", "malformed strings"} {
+		if !strings.Contains((&MoveDocument{}).Description(), want) {
+			t.Errorf("description must contain %q; got %q", want, (&MoveDocument{}).Description())
+		}
+	}
+	if !strings.Contains(string((&MoveDocument{}).Parameters()), "exact decimal integer string") {
+		t.Error("schema must disclose hosted position compatibility")
 	}
 }
 
@@ -234,6 +404,101 @@ func TestCreateDocument_DescriptionNoFalseAutoSplit(t *testing.T) {
 		if !strings.Contains(d, want) {
 			t.Errorf("description must state the hard 1MB rejection (mention %q); got: %s", want, d)
 		}
+	}
+}
+
+func TestCreateDocument_ContractRequiresCanonicalNameOnFirstCall(t *testing.T) {
+	for name, text := range map[string]string{
+		"description": createDocumentDescription,
+		"schema":      string(createDocumentSchema),
+	} {
+		for _, want := range []string{"REQUIRED", "every call", "first", "exact requested", "Never omit", "guess"} {
+			if !strings.Contains(text, want) {
+				t.Errorf("%s must teach the canonical first-call name contract (%q): %s", name, want, text)
+			}
+		}
+	}
+	if err := (&CreateDocument{}).ValidateInput([]byte(`{"description":"missing title"}`)); err == nil {
+		t.Fatal("create without name must remain a validation failure")
+	}
+}
+
+func TestCreateDocument_SchemaRequiresCanonicalDataFields(t *testing.T) {
+	var schema struct {
+		Required   []string `json:"required"`
+		Properties map[string]struct {
+			Description string `json:"description"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(createDocumentSchema, &schema); err != nil {
+		t.Fatalf("decode create schema: %v", err)
+	}
+	want := map[string]bool{"name": true, "description": true, "content": true, "tags": true}
+	got := map[string]bool{}
+	for _, field := range schema.Required {
+		got[field] = true
+	}
+	for field := range want {
+		if !got[field] {
+			t.Errorf("required fields missing %q: %v", field, schema.Required)
+		}
+	}
+	for field, terms := range map[string][]string{
+		"description": {"REQUIRED", "exactly", "empty string"},
+		"content":     {"REQUIRED", "full Markdown", "empty string"},
+		"tags":        {"REQUIRED", "exact", "[]"},
+	} {
+		text := schema.Properties[field].Description
+		for _, term := range terms {
+			if !strings.Contains(text, term) {
+				t.Errorf("%s schema description must mention %q: %s", field, term, text)
+			}
+		}
+	}
+}
+
+func TestEditDocument_SchemaTeachesTagsArrayShape(t *testing.T) {
+	var schema struct {
+		Properties map[string]struct {
+			Type        string `json:"type"`
+			Description string `json:"description"`
+			Items       struct {
+				Type string `json:"type"`
+			} `json:"items"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal(editDocumentSchema, &schema); err != nil {
+		t.Fatalf("decode edit schema: %v", err)
+	}
+	tags := schema.Properties["tags"]
+	if tags.Type != "array" || tags.Items.Type != "string" {
+		t.Fatalf("edit tags schema = %#v, want array of strings", tags)
+	}
+	for _, want := range []string{"Full replacement", "JSON array", "never a single string"} {
+		if !strings.Contains(tags.Description, want) {
+			t.Errorf("edit tags schema must mention %q: %s", want, tags.Description)
+		}
+	}
+	for _, want := range []string{"JSON array of strings", "never a single string", "tags:["} {
+		if !strings.Contains(editDocumentDescription, want) {
+			t.Errorf("edit description must mention %q: %s", want, editDocumentDescription)
+		}
+	}
+}
+
+func TestCreateDocument_CallIdentityUsesParentAndExactName(t *testing.T) {
+	tool := &CreateDocument{}
+	if got := tool.CallIdentity(json.RawMessage(`{"name":"Release Atlas"}`)); got != "document::Release Atlas" {
+		t.Fatalf("root identity = %q", got)
+	}
+	if got := tool.CallIdentity(json.RawMessage(`{"name":"Release Atlas","content":"later"}`)); got != "document::Release Atlas" {
+		t.Fatalf("optional fields must not change identity = %q", got)
+	}
+	if got := tool.CallIdentity(json.RawMessage(`{"name":"Ship Checklist","parentId":"doc_root"}`)); got != "document:doc_root:Ship Checklist" {
+		t.Fatalf("child identity = %q", got)
+	}
+	if got := tool.CallIdentity(json.RawMessage(`{"description":"missing title"}`)); got != "" {
+		t.Fatalf("missing name identity = %q, want empty", got)
 	}
 }
 

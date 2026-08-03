@@ -62,6 +62,18 @@ type CallIdentityer interface {
 	CallIdentity(args json.RawMessage) string
 }
 
+// RepeatTerminaler is an optional contract for a tool result that is a final rejection for
+// the exact business call. The loop records that call and ends the current ReAct turn if the
+// model emits the same call again, while ordinary execution errors retain their retry path.
+// It is optional so S18's Tool interface remains exactly five methods.
+//
+// RepeatTerminaler 是工具可选的结果契约：某个结果明确表示这次业务调用已经是终局拒绝时，
+// loop 记住该调用，模型再次吐出同一调用就收束本回合；普通执行错误仍保留重试路径。
+// 它是可选接口，故 S18 的 Tool 仍严格保持五个方法。
+type RepeatTerminaler interface {
+	HaltOnRepeat(result string, errorText string) bool
+}
+
 // ArgumentNormalizer is an optional, narrow compatibility seam for a tool that can repair a
 // provider-produced argument key without changing its business meaning. The loop applies it before
 // the call is persisted or executed, so the visible tool card, audit trail, and execution all agree.
@@ -98,6 +110,14 @@ func CallIdentity(t Tool, args json.RawMessage) string {
 		return identity.CallIdentity(args)
 	}
 	return ""
+}
+
+// HaltOnRepeat reports whether a completed result is a terminal rejection for this tool call.
+//
+// HaltOnRepeat 报告一次完成结果是否表示该工具调用已经是终局拒绝。
+func HaltOnRepeat(t Tool, result string, errorText string) bool {
+	terminal, ok := t.(RepeatTerminaler)
+	return ok && terminal.HaltOnRepeat(result, errorText)
 }
 
 // MinimumDanger returns a tool's non-bypassable static danger floor.

@@ -20,9 +20,13 @@ import (
 // 这些只界定建连阶段（connect / TLS / 响应头），绝不限流式 body。流式 body 由 providerClient.Stream
 // 的逐事件 idle 计时器（死连接探测）+ 不重置的总墙钟（LLMStreamMaxSec，封顶不收敛的模型）+ ctx 取消管控。
 const (
-	dialTimeout           = 10 * time.Second
-	tlsHandshakeTimeout   = 10 * time.Second
-	responseHeaderTimeout = 60 * time.Second
+	dialTimeout         = 10 * time.Second
+	tlsHandshakeTimeout = 10 * time.Second
+	// Managed gateways can spend over a minute warming a cold route before they
+	// send the first response headers. Keep this separate from the streaming
+	// idle/total budgets: once headers arrive, those limits still detect a dead
+	// or non-converging stream.
+	responseHeaderTimeout = 120 * time.Second
 )
 
 // newSharedHTTPClient builds the one *http.Client every Provider reuses. Timeout is 0

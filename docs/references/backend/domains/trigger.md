@@ -26,7 +26,9 @@ infra listener
 → scheduler drain
 ```
 
-Activation 记录 source 活动，sensor 未触发的 probe 也记录原因。Firing 是
+Activation 记录 source 活动，sensor 未触发的 probe 也记录原因。`firingCount` 是**该条
+activation 的 workflow 扇出数**（per-entry fan-out width），不是 trigger 历史累计次数；未触发
+通常为 0，已触发但没有监听 workflow 时也可以为 0。Firing 是
 persist-before-act 收件箱；只有 Fired activity 才为监听 workflow 创建。Webhook 的 `202`
 只有在这条 durable audit/inbox 写入完成后才返回；scheduler 排空仍然异步。若持久化失败，
 入口返回失败而不是给发送方一个会在崩溃中丢失的假确认。
@@ -179,7 +181,8 @@ Unregister 不向 ServeMux 动态增删 pattern。
 
 - Create/Edit 只写用户配置列；`EditTrigger` 不得整行覆盖 `paused` 或
   `missed_checked_at`。
-- `:fire` 为当前监听者生成 `{manual:true}`，零监听者时仍写一条
+- `:fire` 为当前监听者生成 `{manual:true}`；该标记表示**手动绕过 source condition 的动作**，不证明
+  sensor 的 CEL 条件或阈值求值为真。零监听者时仍写一条
   firing_count=0 的 Activation；自定义测试 payload 应走 Workflow trigger。
   暂停时返回 `TRIGGER_PAUSED`，不得用 `edit_trigger` 清除暂停；恢复必须走 trigger
   的 Resume 控件或 `POST /api/v1/triggers/{id}:resume`，再执行 fire。

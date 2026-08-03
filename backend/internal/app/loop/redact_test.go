@@ -54,6 +54,33 @@ func TestRedactOpaqueMachineValuesRemovesRedundantEntityParenthetical(t *testing
 	}
 }
 
+func TestRedactOpaqueMachineValuesKeepsNameAfterPositionID(t *testing.T) {
+	cases := map[string]string{
+		"- Position 0: `doc_00112233445566` (Existing First)": "- Position 0: Existing First",
+		"- Position 1: the requested item (Existing Last)":    "- Position 1: Existing Last",
+	}
+	for input, want := range cases {
+		if got := redactOpaqueMachineValues(input); got != want {
+			t.Fatalf("position name redaction = %q, want %q", got, want)
+		}
+	}
+}
+
+func TestTextRedactorKeepsPositionNameAfterSplitID(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"- Position 0: `doc_001122",
+		"33445566` (Existing First)\n",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "- Position 0: Existing First\n" {
+		t.Fatalf("stream position name redaction = %q", got.String())
+	}
+}
+
 func TestRedactOpaqueMachineValuesDoesNotDuplicateEntityNoun(t *testing.T) {
 	for _, input := range []string{
 		"The workflow wf_00112233445566 remains intact.",
@@ -73,6 +100,93 @@ func TestRedactOpaqueMachineValuesDoesNotDuplicateEntityNoun(t *testing.T) {
 	}
 	if got := redactOpaqueMachineValues("Workflow `the referenced item` remains intact."); got != "Workflow remains intact." {
 		t.Fatalf("backtick entity noun cleanup = %q", got)
+	}
+}
+
+func TestRedactOpaqueMachineValuesRemovesUnavailableIDColumn(t *testing.T) {
+	input := "| Document | Path | ID |\n|---|---|---|\n| **Release Atlas** | `/Release Atlas` | `the requested item` |\n| **Ship Checklist** | `/Release Atlas/Ship Checklist` | `the requested item` |"
+	want := "| Document | Path |\n| --- | --- |\n| **Release Atlas** | `/Release Atlas` |\n| **Ship Checklist** | `/Release Atlas/Ship Checklist` |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("unavailable ID column redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsOrdinaryEmptyTableCells(t *testing.T) {
+	input := "| Name | State | Notes |\n|---|---|---|\n| Release Atlas | active |  |"
+	if got := redactOpaqueMachineValues(input); got != input {
+		t.Fatalf("ordinary empty table cell changed: got %q, want %q", got, input)
+	}
+}
+
+func TestRedactOpaqueMachineValuesRemovesPlaceholderLabeledField(t *testing.T) {
+	input := "Ship Checklist\n- Path: /Release Atlas/Ship Checklist\n- ID: the requested item\n- Description: Release gates to run"
+	want := "Ship Checklist\n- Path: /Release Atlas/Ship Checklist\n- Description: Release gates to run"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("placeholder labeled field redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorNeverStreamsPlaceholderLabeledField(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"Ship Checklist\n- ID: the requested",
+		" item\n- Description: Release gates to run",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "the requested item") || strings.Contains(piece, "the referenced item") {
+			t.Fatalf("stream leaked labeled placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "the requested item") || strings.Contains(got.String(), "the referenced item") {
+		t.Fatalf("flush leaked labeled placeholder: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "Description: Release gates to run") {
+		t.Fatalf("redaction removed neighboring field: %q", got.String())
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsEntitySearchReasoningFluent(t *testing.T) {
+	input := "I found the document \"Edit Atlas\" with id \"doc_00112233445566aa\".\n- `doc_00112233445566aa` — \"Edit Atlas\" at path `/Edit Atlas`"
+	want := "I found the document \"Edit Atlas\".\n- \"Edit Atlas\" at path `/Edit Atlas`"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("entity search reasoning redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorKeepsEntitySearchReasoningFluentAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"I found the document \"Edit Atlas\" with id \"doc_001122",
+		"33445566aa\".\n- `doc_00112233445566aa` — \"Edit Atlas\" at path `/Edit Atlas`",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	want := "I found the document \"Edit Atlas\".\n- \"Edit Atlas\" at path `/Edit Atlas`"
+	if got.String() != want {
+		t.Fatalf("stream entity search reasoning redaction = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorNeverStreamsUnavailableIDPlaceholder(t *testing.T) {
+	var r textRedactor
+	for _, delta := range []string{
+		"| Document | Path | ID |\n",
+		"|---|---|---|\n",
+		"| **Release Atlas** | `/Release Atlas` | `the requested",
+		" item` |\n",
+		"| **Ship Checklist** | `/Release Atlas/Ship Checklist` | `the requested item` |\n",
+	} {
+		if piece := r.Write(delta); strings.Contains(piece, "the requested item") || strings.Contains(piece, "the referenced item") {
+			t.Fatalf("stream leaked redaction placeholder: %q", piece)
+		}
+	}
+	if piece := r.Flush(); strings.Contains(piece, "the requested item") || strings.Contains(piece, "the referenced item") {
+		t.Fatalf("flush leaked redaction placeholder: %q", piece)
 	}
 }
 

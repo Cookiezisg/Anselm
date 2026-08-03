@@ -180,7 +180,7 @@ func Run(
 		finalWritten  bool
 		stepsRun      int
 		consecAllFail int
-		handledCalls  = make(map[string]indexedCall)
+		handledCalls  = make(map[string]handledCall)
 		contextTrack  contextTracker
 	)
 

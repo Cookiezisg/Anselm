@@ -52,16 +52,20 @@ func runTools(
 // The ledger is deliberately owned by loop.Run rather than persisted or attached to a conversation:
 // an identical call in a later user turn is a new intent and must remain executable. Calls repeated
 // across ReAct steps are suppressed before dispatch, so they cannot open another approval gate or
-// repeat a side effect after a successful/denied execution.
+// repeat a side effect after a successful/denied execution. Successful safe calls are also recorded;
+// a safe call that failed is deliberately not recorded so the model retains a real retry path. A
+// protected duplicate asks Run to end the turn (the model must not bypass a denied/guarded action),
+// while a safe duplicate only returns the cached suppression result and lets the model continue.
 //
 // runToolsWithLedger 是 runTools 加上「本次 Run 已处理调用」台账。台账刻意由 loop.Run 持有，而不
 // 持久化或挂在对话上：后续用户回合的同参数调用是新意图，必须仍可执行。跨 ReAct 步重复调用在
-// dispatch 前被压制，故成功/拒绝后既不会再开批准闸，也不会再做一次副作用。
+// dispatch 前被压制，故成功/拒绝后既不会再开批准闸，也不会再做一次副作用；安全读调用成功后也
+// 不会重复花费时间，失败的安全调用则仍可重试。
 func runToolsWithLedger(
 	ctx context.Context,
 	calls []messagesdomain.ToolCallData,
 	byName map[string]toolapp.Tool,
-	handled map[string]indexedCall,
+	handled map[string]handledCall,
 	log *zap.Logger,
 ) ([]messagesdomain.Block, bool) {
 	if len(calls) == 0 {
@@ -71,7 +75,7 @@ func runToolsWithLedger(
 		calls[i].Danger = string(toolapp.EffectiveDanger(byName[calls[i].Name], toolapp.DangerLevel(calls[i].Danger)))
 	}
 	if handled == nil {
-		handled = make(map[string]indexedCall)
+		handled = make(map[string]handledCall)
 	}
 	// Per-call block lists (progress* + tool_result), index-aligned so a parallel batch's writes
 	// don't race on order; flattened in call order at the end.
@@ -79,14 +83,13 @@ func runToolsWithLedger(
 	// 每调用一组 block（progress* + tool_result），按下标对齐使并行批写入不竞争顺序；末尾按调用序拍平。
 	perCall := make([][]messagesdomain.Block, len(calls))
 	duplicates := duplicateToolCalls(calls, byName)
-	prior := make(map[int]indexedCall)
+	prior := make(map[int]handledCall)
+	haltOnRepeat := false
 	for i, tc := range calls {
-		if !repeatGuardedCall(ctx, tc, byName) {
-			continue
-		}
 		if key, ok := canonicalToolCallKey(tc, byName[tc.Name]); ok {
 			if first, exists := handled[key]; exists {
 				prior[i] = first
+				haltOnRepeat = haltOnRepeat || first.haltOnRepeat
 			}
 		}
 	}
@@ -127,11 +130,8 @@ func runToolsWithLedger(
 	// complete, so the goroutines never race on the ledger map.
 	//
 	// 只记录本批新 key 的第一次出现。待并行执行全部结束后再写，故 goroutine 不会竞争台账 map。
-	firstNew := make(map[string]indexedCall)
+	firstNew := make(map[string]handledCall)
 	for i, tc := range calls {
-		if !repeatGuardedCall(ctx, tc, byName) {
-			continue
-		}
 		key, ok := canonicalToolCallKey(tc, byName[tc.Name])
 		if !ok {
 			continue
@@ -140,7 +140,9 @@ func runToolsWithLedger(
 			continue
 		}
 		if _, exists := firstNew[key]; !exists {
-			firstNew[key] = indexedCall{idx: i, tc: tc}
+			if remember, halt, terminal := rememberHandledCall(ctx, tc, byName[tc.Name], perCall[i]); remember {
+				firstNew[key] = handledCall{call: indexedCall{idx: i, tc: tc}, haltOnRepeat: halt, terminalRepeat: terminal}
+			}
 		}
 	}
 	for key, first := range firstNew {
@@ -151,7 +153,32 @@ func runToolsWithLedger(
 	for _, bs := range perCall {
 		blocks = append(blocks, bs...)
 	}
-	return blocks, len(prior) > 0
+	return blocks, haltOnRepeat
+}
+
+// rememberHandledCall decides whether a call is safe to suppress on a later ReAct step. A
+// protected mutation is remembered even when the user denied it, preserving the existing
+// no-second-gate invariant. Any other call is remembered only after a successful tool_result;
+// this keeps transient read failures retryable while preventing a successful search from being
+// needlessly executed over and over.
+//
+// rememberHandledCall 决定后续 ReAct 步是否可以抑制调用。受保护 mutation 即使被用户拒绝也记账，
+// 保持不再开第二个人闸的不变量；其它调用只有 tool_result 成功才记账，既保留临时读失败的重试路，
+// 又不让成功搜索被无谓重复执行。
+func rememberHandledCall(ctx context.Context, tc messagesdomain.ToolCallData, t toolapp.Tool, blocks []messagesdomain.Block) (remember, haltOnRepeat, terminalRepeat bool) {
+	if repeatGuardedCall(ctx, tc, map[string]toolapp.Tool{tc.Name: t}) {
+		return true, true, false
+	}
+	for _, b := range blocks {
+		if b.Type == messagesdomain.BlockTypeToolResult {
+			terminal := toolapp.HaltOnRepeat(t, b.Content, b.Error)
+			if terminal {
+				return true, true, true
+			}
+			return b.Error == "", false, false
+		}
+	}
+	return false, false, false
 }
 
 // canonicalToolCallKey excludes framework standard fields because they describe the model's
@@ -230,9 +257,12 @@ func runDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, first
 	}}
 }
 
-func runTurnDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, first indexedCall, log *zap.Logger) []messagesdomain.Block {
+func runTurnDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, first handledCall, log *zap.Logger) []messagesdomain.Block {
 	blockID := idgenpkg.New("blk")
-	content := fmt.Sprintf("Duplicate tool call suppressed: identical %s call %s was already handled earlier in this turn; no second approval or execution was requested.", tc.Name, first.tc.ID)
+	content := fmt.Sprintf("Duplicate tool call suppressed: identical %s call %s was already handled earlier in this turn; no second approval or execution was requested.", tc.Name, first.call.tc.ID)
+	if first.terminalRepeat {
+		content = fmt.Sprintf("Duplicate tool call suppressed: terminal rejection for identical %s call %s; no second execution was requested.", tc.Name, first.call.tc.ID)
+	}
 	em := newEmitter(ctx, log)
 	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
 	em.close(ctx, blockID, messagesdomain.StatusCompleted,
@@ -243,10 +273,11 @@ func runTurnDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, f
 		Content:       content,
 		ParentBlockID: tc.ID,
 		Attrs: map[string]any{
-			"tool":                tc.Name,
-			"duplicateSuppressed": true,
-			"duplicateScope":      "turn",
-			"duplicateOf":         first.tc.ID,
+			"tool":                     tc.Name,
+			"duplicateSuppressed":      true,
+			"duplicateScope":           "turn",
+			"duplicateOf":              first.call.tc.ID,
+			"terminalRepeatSuppressed": first.terminalRepeat,
 		},
 	}}
 }
@@ -724,6 +755,12 @@ func llmErrText(err error) string {
 type indexedCall struct {
 	idx int
 	tc  messagesdomain.ToolCallData
+}
+
+type handledCall struct {
+	call           indexedCall
+	haltOnRepeat   bool
+	terminalRepeat bool
 }
 
 type executionBatch struct {

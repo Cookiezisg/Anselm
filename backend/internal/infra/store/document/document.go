@@ -13,9 +13,12 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	paginationpkg "github.com/sunweilin/anselm/backend/internal/pkg/pagination"
 )
 
 // Schema is the documents DDL, exported as ordered idempotent statements for
@@ -135,17 +138,66 @@ func (s *Store) GetBatch(ctx context.Context, ids []string) ([]*documentdomain.D
 }
 
 func (s *Store) ListByParent(ctx context.Context, parentID *string) ([]*documentdomain.Document, error) {
-	q := s.repo.Query()
-	if parentID == nil {
-		q = q.WhereNull("parent_id")
-	} else {
-		q = q.WhereEq("parent_id", *parentID)
-	}
+	q := s.siblingsQuery(parentID)
 	rows, err := q.Order("position ASC, created_at ASC").Find(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("documentstore.ListByParent: %w", err)
 	}
 	return rows, nil
+}
+
+type siblingCursor struct {
+	Position  int       `json:"p"`
+	CreatedAt time.Time `json:"c"`
+	ID        string    `json:"i"`
+}
+
+// ListByParentPage is the bounded sibling-list path used by the API and list_documents tool.
+// The tuple includes the visible position, creation timestamp, and id so equal-position rows are
+// still stable across pages. One extra row detects a next page without loading an unbounded tree.
+//
+// ListByParentPage 是 API 与 list_documents 工具使用的有界兄弟列表路径。元组包含可见 position、
+// 创建时间与 id，因此相同 position 的行跨页仍稳定。多取一行探测下一页，绝不加载无界树。
+func (s *Store) ListByParentPage(ctx context.Context, parentID *string, cursor string, limit int) ([]*documentdomain.Document, int, string, error) {
+	if limit <= 0 {
+		limit = 50
+	}
+	q := s.siblingsQuery(parentID)
+	count, err := q.Count(ctx)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("documentstore.ListByParentPage count: %w", err)
+	}
+
+	if cursor != "" {
+		var c siblingCursor
+		if err := paginationpkg.DecodeCursor(cursor, &c); err != nil {
+			return nil, 0, "", fmt.Errorf("%w: document sibling cursor: %v", errorspkg.ErrInvalidRequest, err)
+		}
+		q.Where("(position, created_at, id) > (?, ?, ?)", c.Position, c.CreatedAt, c.ID)
+	}
+
+	rows, err := q.Order("position ASC, created_at ASC, id ASC").Limit(limit + 1).Find(ctx)
+	if err != nil {
+		return nil, 0, "", fmt.Errorf("documentstore.ListByParentPage: %w", err)
+	}
+	var next string
+	if len(rows) > limit {
+		last := rows[limit-1]
+		next, err = paginationpkg.EncodeCursor(siblingCursor{Position: last.Position, CreatedAt: last.CreatedAt, ID: last.ID})
+		if err != nil {
+			return nil, 0, "", fmt.Errorf("documentstore.ListByParentPage cursor encode: %w", err)
+		}
+		rows = rows[:limit]
+	}
+	return rows, int(count), next, nil
+}
+
+func (s *Store) siblingsQuery(parentID *string) *ormpkg.Query[documentdomain.Document] {
+	q := s.repo.Query()
+	if parentID == nil {
+		return q.WhereNull("parent_id")
+	}
+	return q.WhereEq("parent_id", *parentID)
 }
 
 func (s *Store) ListAll(ctx context.Context) ([]*documentdomain.Document, error) {

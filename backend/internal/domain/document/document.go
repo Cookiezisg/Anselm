@@ -111,6 +111,7 @@ type Repository interface {
 	Get(ctx context.Context, id string) (*Document, error)
 	GetBatch(ctx context.Context, ids []string) ([]*Document, error)
 	ListByParent(ctx context.Context, parentID *string) ([]*Document, error)
+	ListByParentPage(ctx context.Context, parentID *string, cursor string, limit int) (rows []*Document, total int, nextCursor string, err error)
 	ListAll(ctx context.Context) ([]*Document, error)
 	Search(ctx context.Context, query string, limit int) ([]*Document, error)
 	Update(ctx context.Context, d *Document) error

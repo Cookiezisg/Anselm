@@ -11,17 +11,17 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const createDocumentDescription = `Create a document in the user's library. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision). To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
+const createDocumentDescription = `Create a document in the user's library. name, description, content, and tags are REQUIRED on every call, including the first call. Send the exact requested document title as a non-empty name; copy user-supplied description, tags, and content exactly. If the user did not supply one of those three fields, send an explicit empty string or empty array for that field — never omit it, invent it, or use a name-only placeholder. Never omit a required field, stage creation followed by edit, guess a default, or silently retry the same document with different arguments. One requested document gets one canonical create call; validation failure is not success. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision). To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
 
 var createDocumentSchema = json.RawMessage(`{
 	"type": "object",
-	"required": ["name"],
+	"required": ["name", "description", "content", "tags"],
 	"properties": {
-		"name":        {"type": "string", "description": "Document title; no slashes, up to 256 chars."},
+		"name":        {"type": "string", "description": "REQUIRED on every call, including the first; exact requested document title, non-empty, no slashes, up to 256 chars. Never omit, guess, or use a placeholder."},
 		"parentId":    {"type": ["string", "null"], "description": "Parent doc ID; null/omit = root."},
-		"description": {"type": "string", "description": "One-line catalog summary."},
-		"content":     {"type": "string", "description": "Full markdown body. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
-		"tags":        {"type": "array", "items": {"type": "string"}}
+		"description": {"type": "string", "description": "REQUIRED on every call. Copy the user's description exactly; if none was supplied, use an empty string. Never omit or invent."},
+		"content":     {"type": "string", "description": "REQUIRED on every call. Copy the user's full Markdown exactly; if no body was supplied, use an empty string. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
+		"tags":        {"type": "array", "items": {"type": "string"}, "description": "REQUIRED on every call. Copy one exact string per user-supplied tag; if none was supplied, use []. Never comma-join or invent tags."}
 	}
 }`)
 
@@ -33,6 +33,27 @@ type CreateDocument struct{ svc *documentapp.Service }
 func (t *CreateDocument) Name() string                { return "create_document" }
 func (t *CreateDocument) Description() string         { return createDocumentDescription }
 func (t *CreateDocument) Parameters() json.RawMessage { return createDocumentSchema }
+
+// CallIdentity treats a same-parent, same-name create as one business intent even when a model
+// changes optional fields between calls. This prevents one assistant batch from creating a
+// placeholder and a second sibling for the same requested document.
+//
+// CallIdentity 把同父同名 create 视为同一个业务意图，即使模型在调用间改了可选字段；避免一次
+// assistant 批次先造 placeholder、再造一个同名 sibling。
+func (t *CreateDocument) CallIdentity(args json.RawMessage) string {
+	var a struct {
+		Name     string  `json:"name"`
+		ParentID *string `json:"parentId"`
+	}
+	if err := json.Unmarshal(args, &a); err != nil || strings.TrimSpace(a.Name) == "" {
+		return ""
+	}
+	parent := ""
+	if a.ParentID != nil {
+		parent = strings.TrimSpace(*a.ParentID)
+	}
+	return "document:" + parent + ":" + a.Name
+}
 
 func (t *CreateDocument) ValidateInput(args json.RawMessage) error {
 	var a struct {

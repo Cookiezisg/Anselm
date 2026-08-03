@@ -4,11 +4,13 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
 
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -91,6 +93,42 @@ func TestListByParent_Ordered(t *testing.T) {
 	roots, _ := s.ListByParent(ctx, nil)
 	if len(roots) != 1 || roots[0].ID != "doc_r" {
 		t.Errorf("root list: %+v", roots)
+	}
+}
+
+func TestListByParentPage_CursorTotalAndStableOrder(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	for i, name := range []string{"A", "B", "C", "D", "E"} {
+		ins(t, s, ctx, fmt.Sprintf("doc_%d", i), nil, name, "/"+name)
+	}
+
+	page1, total, next, err := s.ListByParentPage(ctx, nil, "", 2)
+	if err != nil {
+		t.Fatalf("page 1: %v", err)
+	}
+	if total != 5 || len(page1) != 2 || next == "" || page1[0].Name != "A" || page1[1].Name != "B" {
+		t.Fatalf("page 1 = total=%d rows=%v next=%q", total, page1, next)
+	}
+
+	page2, total2, next2, err := s.ListByParentPage(ctx, nil, next, 2)
+	if err != nil {
+		t.Fatalf("page 2: %v", err)
+	}
+	if total2 != 5 || len(page2) != 2 || next2 == "" || page2[0].Name != "C" || page2[1].Name != "D" {
+		t.Fatalf("page 2 = total=%d rows=%v next=%q", total2, page2, next2)
+	}
+
+	page3, total3, next3, err := s.ListByParentPage(ctx, nil, next2, 2)
+	if err != nil {
+		t.Fatalf("page 3: %v", err)
+	}
+	if total3 != 5 || len(page3) != 1 || next3 != "" || page3[0].Name != "E" {
+		t.Fatalf("page 3 = total=%d rows=%v next=%q", total3, page3, next3)
+	}
+
+	if _, _, _, err := s.ListByParentPage(ctx, nil, "not-a-cursor", 2); !errors.Is(err, errorspkg.ErrInvalidRequest) {
+		t.Fatalf("malformed cursor error = %v, want ErrInvalidRequest", err)
 	}
 }
 

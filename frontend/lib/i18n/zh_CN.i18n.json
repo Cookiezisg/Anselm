@@ -356,6 +356,8 @@
       "activatedSkill": "已激活技能",
       "movingDoc": "正在移动文档",
       "movedDoc": "已移动文档",
+      "moveFailed": "移动被拒绝",
+      "moveCycleRejected": "目标不能是文档自身或其后代",
       "updatingMeta": "正在更新信息",
       "updatedMeta": "已更新信息",
       "renaming": "正在改名",

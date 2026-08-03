@@ -2,7 +2,7 @@
 //
 // 覆盖行：A-doc-3/4/6/7/8 · A-att-4/6 · B-doc-1/3/7/10/13 · B-att-1/2/4/5/8/9。
 // 事实源：docs/references/backend/domains/{document,attachment,conversation}.md + api.md + error-codes.md。
-// 要点：document 树为一趟拿全设计（api.md 未定义 ?parentId 列表分页，N4 张力记账在批次报告）；
+// 要点：document /documents 是直接子节点 cursor 分页，/documents/tree 才是一趟拿全的 metadata 投影；
 // Create 重名自动后缀 vs PATCH 显式改名严格 409；:duplicate BFS 深拷铸新 id；软删整子树留墓碑；
 // attachment CAS 按 SHA-256 dedup（多行一 blob）；渲染降级三路（不认 mime / 盘上 blob 缺失 /
 // 行被软删）都绝不让回合失败、且诚实报缺；活跃附件作 catalog source 入 system prompt。
@@ -17,6 +17,7 @@ import (
 	"io"
 	"io/fs"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -198,7 +199,7 @@ func TestContractDocsAtt_DocumentNameGuardsSoftDelete(t *testing.T) {
 }
 
 // TestContractDocsAtt_DocumentChildrenDuplicateMove:
-// A-doc-3 ?parentId 直接子节点一趟拿全（position ASC；无游标——api.md 树设计无分页）；
+// A-doc-3 ?parentId 直接子节点 cursor 分页（position ASC；默认 50、最大 200）；
 // A-doc-4 :duplicate 201 返新根裸实体（名自动去重）+ /tree 无 content 形；
 // B-doc-10 深拷三层子树（BFS 铸新 id、parent/path 重映射、content 复制、原树不动）；
 // A-doc-7 :move 防环/自指/未知父 + nil parent=移根、:duplicate 显式 parentId 落点与错误路径。
@@ -209,7 +210,7 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "doc-tree-ws"}).Field(t, "id")
 	wc := c.WS(wsID)
 
-	// A-doc-3 多子节点：55 个直接子一次全返、创建序 = position ASC、顶层无分页坐标。
+	// A-doc-3 多子节点：55 个直接子分两页返回，创建序 = position ASC，游标续页不重不漏。
 	var parent docsattC_doc
 	wc.POST("/api/v1/documents", map[string]any{"name": "kids-parent"}).OK(t, &parent)
 	for i := 0; i < 55; i++ {
@@ -217,14 +218,14 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 			"name": fmt.Sprintf("kid-%02d", i), "parentId": parent.ID,
 		}).OK(t, nil)
 	}
-	r := wc.GET("/api/v1/documents?parentId=" + parent.ID)
-	var kids []docsattC_doc
-	r.OK(t, &kids)
-	if len(kids) != 55 {
-		t.Fatalf("children list is a one-shot full set (tree design, api.md), want 55 got %d", len(kids))
+	r := wc.GET("/api/v1/documents?parentId=" + parent.ID + "&limit=50")
+	var firstPage []docsattC_doc
+	r.OK(t, &firstPage)
+	if len(firstPage) != 50 || !r.HasMore || r.NextCursor == "" {
+		t.Fatalf("first children page must be 50 rows with a continuation cursor, got rows=%d cursor=%q hasMore=%v", len(firstPage), r.NextCursor, r.HasMore)
 	}
 	prev := -1
-	for i, k := range kids {
+	for i, k := range firstPage {
 		if k.Name != fmt.Sprintf("kid-%02d", i) {
 			t.Fatalf("children must come back position ASC (creation order), idx %d got %q", i, k.Name)
 		}
@@ -233,14 +234,40 @@ func TestContractDocsAtt_DocumentChildrenDuplicateMove(t *testing.T) {
 		}
 		prev = k.Position
 	}
-	if r.NextCursor != "" || r.HasMore {
-		t.Fatalf("document children list carries no pagination coordinates (tree design), got cursor=%q hasMore=%v", r.NextCursor, r.HasMore)
+	page2URL := "/api/v1/documents?parentId=" + parent.ID + "&limit=50&cursor=" + url.QueryEscape(r.NextCursor)
+	r2 := wc.GET(page2URL)
+	var secondPage []docsattC_doc
+	r2.OK(t, &secondPage)
+	if len(secondPage) != 5 || r2.NextCursor != "" || r2.HasMore {
+		t.Fatalf("last children page must contain the remaining 5 rows without another cursor, got rows=%d cursor=%q hasMore=%v", len(secondPage), r2.NextCursor, r2.HasMore)
 	}
-	// 传分页参数不改变全量语义（api.md 未定义 cursor/limit，忽略而非报错）。
-	var kids2 []docsattC_doc
-	wc.GET("/api/v1/documents?parentId="+parent.ID+"&limit=5&cursor=zz").OK(t, &kids2)
-	if len(kids2) != 55 {
-		t.Fatalf("undocumented cursor/limit params must not truncate the tree list, got %d", len(kids2))
+	for i, k := range secondPage {
+		if k.Name != fmt.Sprintf("kid-%02d", i+50) {
+			t.Fatalf("continued children page must resume at the cursor, idx %d got %q", i+50, k.Name)
+		}
+		if k.Position <= prev {
+			t.Fatalf("continued children page must preserve position order, idx %d pos %d after %d", i+50, k.Position, prev)
+		}
+		prev = k.Position
+	}
+	seen := make(map[string]struct{}, len(firstPage)+len(secondPage))
+	for _, page := range [][]docsattC_doc{firstPage, secondPage} {
+		for _, k := range page {
+			if _, ok := seen[k.ID]; ok {
+				t.Fatalf("continued children pages must not duplicate id %s", k.ID)
+			}
+			seen[k.ID] = struct{}{}
+		}
+	}
+	if len(seen) != 55 {
+		t.Fatalf("children pages must cover all 55 siblings, got %d unique rows", len(seen))
+	}
+	wc.GET("/api/v1/documents?parentId="+parent.ID+"&cursor=zz").Fail(t, 400, "INVALID_REQUEST")
+	// /tree 才是一次返回全部 metadata 的树投影；正文仍不随树线缆返回。
+	var treeMeta []map[string]json.RawMessage
+	wc.GET("/api/v1/documents/tree").OK(t, &treeMeta)
+	if len(treeMeta) < 56 {
+		t.Fatalf("tree projection must include the parent and all 55 children, got %d", len(treeMeta))
 	}
 	// 根级列表（空 parentId）只见根，不见子。
 	var roots []docsattC_doc

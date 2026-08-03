@@ -249,6 +249,15 @@ func (s *Service) ListByParent(ctx context.Context, parentID *string) ([]*docume
 	return s.repo.ListByParent(ctx, parentID)
 }
 
+// ListByParentPage returns one stable, position-ordered page of direct children plus the total
+// sibling count. The cursor is opaque to this layer and is only minted/decoded by storage.
+//
+// ListByParentPage 返回一页稳定、按 position 排序的直接子节点及兄弟总数。cursor 对本层不透明，
+// 只由存储层铸造/解码。
+func (s *Service) ListByParentPage(ctx context.Context, parentID *string, cursor string, limit int) (rows []*documentdomain.Document, total int, nextCursor string, err error) {
+	return s.repo.ListByParentPage(ctx, parentID, cursor, limit)
+}
+
 // ListAll returns every live document (tree endpoint + catalog source).
 //
 // ListAll 返所有活跃文档（树端点 + catalog source）。
@@ -346,6 +355,17 @@ func (s *Service) Move(ctx context.Context, id string, in MoveInput) (*documentd
 	}
 
 	parentChanged := !samePtrString(d.ParentID, in.ParentID)
+	var oldSiblings []*documentdomain.Document
+	if parentChanged {
+		// A cross-parent move must close the gap in the source parent as well as insert into
+		// the target. Keeping only the target reorder leaves positions like 1,2 after the
+		// first child is moved away, which makes the next visible order depend on stale gaps.
+		// 跨父移动既要在目标插入，也要压缩旧父空洞；只重排目标会留下 1,2 这样的旧位置空洞。
+		oldSiblings, err = s.repo.ListByParent(ctx, d.ParentID)
+		if err != nil {
+			return nil, fmt.Errorf("documentapp.Move: source ListByParent: %w", err)
+		}
+	}
 	d.ParentID = in.ParentID
 
 	// Stable insert-at-index: pull the target parent's current children (ListByParent is ordered
@@ -384,7 +404,20 @@ func (s *Service) Move(ctx context.Context, id string, in MoveInput) (*documentd
 		d.Path = parentPath + "/" + d.Name
 	}
 
-	changed := make([]*documentdomain.Document, 0, len(ordered))
+	changed := make([]*documentdomain.Document, 0, len(ordered)+len(oldSiblings))
+	if parentChanged {
+		compactIndex := 0
+		for _, doc := range oldSiblings {
+			if doc.ID == d.ID {
+				continue
+			}
+			if doc.Position != compactIndex {
+				doc.Position = compactIndex
+				changed = append(changed, doc)
+			}
+			compactIndex++
+		}
+	}
 	for i, doc := range ordered {
 		if doc.Position != i || doc.ID == d.ID {
 			doc.Position = i

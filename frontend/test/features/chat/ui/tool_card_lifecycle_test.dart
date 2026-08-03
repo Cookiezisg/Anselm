@@ -158,7 +158,59 @@ void main() {
         'w4',
       );
     });
+
+    test(
+      'delete_document missing id is a soft failure, not a success receipt',
+      () {
+        expect(
+          deletedDocumentResultFailed(
+            'Document "doc_missing" not found (already deleted?).',
+          ),
+          isTrue,
+        );
+        expect(
+          deletedDocumentResultFailed(
+            'Deleted document doc_1 along with 2 descendant(s).',
+          ),
+          isFalse,
+        );
+        expect(
+          deletedDocReceipt(
+            'Document "doc_missing" not found (already deleted?).',
+            deleted: 'd',
+            withDescendants: (n) => 'w$n',
+          ),
+          isNull,
+        );
+      },
+    );
   });
+
+  testWidgets(
+    'delete_document missing id shows failure verb and no soft-delete success note',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _node(
+              'delete_document',
+              '{"id":"doc_missing"}',
+              'Document "doc_missing" not found (already deleted?).',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('删除文档失败'), findsOneWidget);
+      expect(
+        find.textContaining('Document "doc_missing" not found'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('已删除文档'), findsNothing);
+      expect(find.textContaining('软删除,可恢复'), findsNothing);
+    },
+  );
 
   test(
     'restart_handler resultFailed: the error key flips a completed result to failed',

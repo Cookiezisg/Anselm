@@ -12,6 +12,86 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-03 17:49 · 第九批统一长门禁通过，准备提交
+
+- `testend/scenarios/TestContractDocsAtt_DocumentChildrenDuplicateMove` 首轮长门禁确定性失败：测试仍断言 `/documents?parentId` 一次返回 55 行；该断言与当前 `ListByParentPage`、`docs/references/backend/api.md` 的默认 50 + opaque cursor 契约冲突，未改生产行为。
+- 修正 testend 契约测试为首页 50、cursor 续页 5、顺序保持、跨页无重复、非法 cursor 返回 `400 INVALID_REQUEST`，并明确由 `/documents/tree` 承担整树 metadata 一次加载；`gofmt` 后定向测试通过。
+- 完整 `mise exec -- go test ./...`（testend，`scenarios 319.089s`）通过；根目录 `make verify` 的 backend/frontend/docs/demo 全部通过；backend 目录 `mise exec -- go test ./...` 全部通过；残留进程为空，锚点 10/10 重新校准解锁 4h，`alarms.py check` 为 clean，`git diff --check` 通过。
+- 复核发现无 `RIG_HOME` 的命令会读到旧默认账本（20 条），并非本批账本；正式台架根 `/private/tmp/anselm-rig-formal-20260801-3` 的同源执行为 `10/10`、`clean (485 judgments on record)`。台架 README 已明确所有 judge/alarms/anchors 命令必须绑定同一个 `RIG_HOME`。
+- 第九批 `TOOL-081..090` 五级裁决保持 **485 judgments / 50/50**，统一长门禁完成，下一原子前线 `TOOL-091 list_attachments`；当前仅待工作树审计和本批提交。
+
+# 2026-08-03 17:13 · 第九批 TOOL-090 delete_document 正式通过，50/50，长门禁进行中
+
+- 首轮 formal `20260803-170003` 冻结为红：真实 App 的后端 `Document "doc_missing_delete_090" not found` 与最终 prose 都正确，但工具卡仍显示 `Deleted document`，并保留成功软删注记；红证据保留为 `tool-090-formal-170003-red-not-found.md`。
+- stop-and-fix：前端增加 completed not-found payload 的确定性重分类，失败动词改为 `Delete document failed`，自动展开琥珀原始证据，失败体不再渲染 `soft-deleted, recoverable`；补充 parser/widget 回归并同步 Document/Chat 文档和工具抽取清册。
+- formal green `20260803-170748` 使用新二进制、全新 onboarding、真实 Flutter App、真实受管 gateway、Computer Use、234.611667s 封口录像、backend/frontend journal、三路独立 SSE witness 和 LLM tap 重跑。正向 exact search + 一次 cascade delete 真正删除 root/child/deep 三行，Standalone 活着；负向一次 missing ID 无 mutation；Library 只显示 Standalone。SQLite/REST/UI/tool result/LLM wire 一致，SSE 298 frames、messages durable `1..36`、notifications `1..7` 单调、无 gap，LLM 全 200，backend/frontend 无未解释红线。正式证据为 `evidence/tool-090-formal-170748-green.md`。
+- `judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，中央账本由 480 增至 **485 judgments**；`gap-too-fast` 与 `discovery-collapse` 按 10/10 anchor、红证据/修复测试/绿 session/五通道复审后 ack，复审记录为 `tool-090-ledger-alarm-reaudit.md`，`alarms.py check` 最终 `clean (485 judgments)`。第九批到达 **50 / 50**，当前进入统一长门禁，下一原子前线 `TOOL-091 list_attachments`。
+
+# 2026-08-03 16:54 · 第九批 TOOL-089 move_document 正式通过，45/50
+
+- formal `20260803-162904` 首轮冻结为红：真实 App 在 true-cycle 拒绝后重复同一 document/parent pair，且前端把 terminal duplicate 渲染为误导性的第二张 `Not run` 卡。红证据保留、不计绿。
+- stop-and-fix：增加不改变 S18 五方法 `Tool` 接口的可选 `RepeatTerminaler`；per-Run ledger 区分安全失败可重试、危险/保护调用停回合和 terminal cycle rejection；前端只隐藏 terminal duplicate 噪声，durable/SSE/audit 仍保留；move 工具描述/schema、localized failure/cycle copy、后端/前端领域文档、工具抽取清册和 Go/Flutter 回归同步。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-164319` 以修复后二进制、真实 onboarding、真实 Flutter App、受管 gateway、Computer Use、546.920000s 封口录像和五通道台架完成：一次 position 0 移入、一次 position 2 移回 root、一次单次 destination list、一次 true-cycle terminal reject。SQLite seq `3/4`、`9/10`、`12/13`、`18/19`、最终 parent/position/path 与 UI/tool result/wire 一致；SSE 452 frames、61 durable、无 gap；LLM 全 200；backend/frontend 无未解释红线。正式证据为 `evidence/tool-089-formal-164319-green.md`。
+- `judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，中央账本由 475 增至 **480 judgments**；`gap-too-fast` 与 `discovery-collapse` 按 10/10 anchor 重校、红证据/修复测试/绿 session/五通道复审后 ack，复审记录为 `tool-089-ledger-alarm-reaudit.md`，`alarms.py check` 最终 `clean (480 judgments)`。正式 session、journals、LLM wire、SSE witness 和 screen.mov 保留；第九批 **45 / 50**，下一前线 `TOOL-090 delete_document`，未到第 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 16:01 · 第九批 TOOL-088 edit_document 正式通过，40/50
+
+- formal-150806、151705、152100、152600、153110、153603、154652 先后冻结为红：reasoning placeholder 泄漏、tags JSON 编码失败、同一意图拆成两次 edit、重复 search 失败循环、hosted provider 双重编码 tags、失败 search 后恢复不稳，以及 filesystem-shaped `path/pattern` 参数投给 `search_documents`。七份真实红证据均保留，不计绿。
+- stop-and-fix：loop 增加 per-Run tool ledger，成功 safe call 只抑制重复而不结束回合，失败 safe call 保留 retry，危险/越界重复仍按保护规则停回合；`search_documents` 增加不读 filesystem 的窄 provider compatibility；`edit_document.tags` 接受精确一层 JSON 编码数组并拒绝任意字符串；prompt/schema 收紧为单一 canonical edit、完整 search 后逐字复制 opaque `doc_` ID。同步 loop/document/chat 测试、领域/API 文档与工具抽取清册，定向 Go tests、docs verify 和 diff check 通过。
+- formal-155506 使用新二进制、真实 onboarding、真实 Flutter App、真实受管 gateway、Computer Use、140.740000s 录屏、backend/frontend journals、三路独立 SSE witness 和 LLM tap 重跑。root `/Release Atlas Final` 完整更新，child 路径随 rename 正确级联；wire 只有一次成功 search、一次成功 edit、一次成功 child search，无 retry/失败活动/重复 mutation。SQLite/REST、tool result、UI 和五通道一致；messages durable `1..27`、notifications `1..5` 连续，LLM 全 200，backend/frontend clean。正式证据为 `sessions/20260803-155506/evidence/tool-088-formal-155506-green-edit-document.md`。
+- 台架收台后仅删除已隔离的 `discarded-tool088` 临时 fixture，正式 session、journal、LLM bodies/responses、SSE witness、frontend/backend log 和 `screen.mov` 保留。10/10 anchor 校准有效，`judge.py` 写入 `G1/F2/A5/C4/G2` 五格，中央账本由 470 增至 **475 judgments**；警报复审后 `alarms.py check` 为 `clean (475 judgments)`。第九批 **40 / 50**，下一前线 `TOOL-089 move_document`；未到第 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 15:00 · 第九批 TOOL-087 create_document 正式通过，35/50
+
+- formal-140938、142906、143806、144710 先后冻结为红：分别发现 placeholder ID 进入用户表格、首次 create 漏掉必填 name、先造空根再删除/编辑且同名子文档重复 mutation、以及用户明确提供的 description/tags 被模型静默漏传。四份真实红证据均保留，不计绿。
+- stop-and-fix：system prompt 与 loop redactor 修复 placeholder 泄漏后，create_document 的 LLM schema 收紧为每次必传 name/description/content/tags；未提供后三者显式传空字符串/空数组，用户值必须在同一 canonical call 原样带上。同步 `backend/internal/app/tool/document/create.go`、document contract tests、工具抽取清册与 document domain 文档；定向 Go tests、docs verify、diff check 通过。
+- formal-145421 使用新二进制、全新 data dir、真实 Flutter App、真实受管 gateway、Computer Use、窗口录屏、三路 SSE witness、LLM tap 和两类 journal 重跑。root `/Release Atlas` 与 child `/Release Atlas/Ship Checklist` 正确写入；root description/tags、child description、parentId 均与用户输入和 wire 一致。最终 UI 只显示两项 Created，无 retry/delete/edit/duplicate/failure；SSE durable messages/entities/notifications `1..26`/`1..4`/`1..4` 连续唯一；LLM 两次实际 create 全 HTTP 200；REST/SQLite/tool result/UI 一致，backend/frontend clean，录屏 `282.973333s`。正式证据为 `sessions/20260803-145421/evidence/tool-087-formal-145421-green-create-document.md`。
+- 台架已收台，五通道 journals 与 screen.mov 保留。10/10 anchor 重校后，`judge.py` 写入 `G1/F2/A5/C4/G2`，中央账本由 465 增至 **470 judgments**；`gap-too-fast`/`discovery-collapse` 依据锚点、四份真实红证据、最终绿证据和五通道复审后 ack，`alarms.py check` 最终 `clean (470 judgments)`。第九批 **35 / 50**，下一前线 `TOOL-088 edit_document`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 13:56 · 第九批 TOOL-086 read_document 正式通过，30/50
+
+- 首轮真实 App 观察冻结两条产品红：formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-133944` 中 `search_documents` 的 query-required 空参数被前端 generic entity card 误呈为 `Listed document · failed`，且 hosted model 将 filesystem `path/pattern` 形状投给文档搜索；formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-134623` 中模型将 `Engineering Handbook` 路径误当作 `read_document.id`，留下可见 not-found 后才搜索重试。两份红证据均保留、不计绿。
+- stop-and-fix：前端 `_entitySearch` 增加 `listWhenQueryEmpty` 开关，`search_documents` 固定走 query-required search channel，补 `entity_search_verb_test.dart` 并同步 Chat 文档；后端 `read_document` description/schema 明确必须逐字复制 `search_documents`/`list_documents` 返回的 opaque `doc_` ID，禁止名称或路径，补 `TestReadDocument_ContractRequiresOpaqueID` 与 document domain 文档。`gofmt`、`go test ./internal/app/tool/document`、Flutter entity-search 定向测试和 `git diff --check` 通过。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-135027` 使用新二进制、真实 Flutter App、真实受管 gateway、Computer Use、连续录屏和五通道台架重跑：LLM wire 严格为 `search_documents(query)` → `search_tools` → `read_document(id=doc_0628e58b2f3d8c1d)`，无失败卡/retry；最终 UI 完整展示 path、description、tags、全部标题、中文注记和最终句，画面清楚。REST/SQLite、tool result 与 UI 逐字一致，messages durable `1..27` 连续，三流连接，LLM 全 200，backend/frontend 错误扫描 clean；录屏 `159.260000s / 2784x1808 / 60fps`。正式证据为 `evidence/tool-086-formal-135027-green-read-document.md`。
+- `judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，中央账本由 455 增至 **460 judgments**；`gap-too-fast` 与 `discovery-collapse` 依据两份红证据、绿 session、五通道交叉核对和复审说明 `tool-086-ledger-alarm-reaudit.md` ack，`alarms.py check` 最终 `clean (460 judgments)`。独立 cleanup session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-135432` 将 root/child document 与 acceptance conversation DELETE=204、随后 GET=404，列表为空，台架收台。第九批 **30 / 50**，下一前线 `TOOL-087 create_document`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 13:35 · 第九批 TOOL-085 list_documents 正式通过，25/50
+
+- 首轮正式空目录路径在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-130911` 冻结为红：根列表成功后旧共享 LLM transport 的 60 秒响应头预算耗尽，真实 App 显示 `LLM_STREAM_ERROR`，没有给用户空目录结果；红证据 `evidence/tool-085-formal-130911-red-empty-folder-header-timeout.md` 保留、不计绿。
+- stop-and-fix 将共享建连响应头预算提高到 120 秒，仅覆盖受管网关冷路由/上游唤醒；`ChatTurnSec`、流式 idle、`LLMStreamMaxSec` 未放宽。补 `TestNewHTTPClient_SeparatesSetupAndStreamingBudgets` 与 Chat domain 预算契约，`go test ./internal/infra/llm`、`git diff --check` 和 docs verify 通过。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-132312` 重新 onboarding 并构造真实树：根 5 个、Projects 3 个子项、Large Collection 120 个直接子项、Empty Notebook 0 个子项。HTTP 三页 `40/40/40` 与游标真实正确；Computer Use 强制模型执行根列表 + 三页 cursor，最终 UI 明示 `complete:true`、`hasMore:false`、总数 120、首尾位置 0/119；独立空路径显示 `Listed document · empty` 并回答 zero documents。
+- 五通道封口：`screen.mov` `418.840000s`；LLM tool args/results 与 REST 逐字一致且所有响应 200；SSE 三流均连接，两个 conversation durable seq 分别 `1..36`、`37..54` 连续；backend/frontend 错误扫描 clean。正式证据为 `evidence/tool-085-formal-132312-green-list-documents.md`。
+- 五级 `TOOL-085=G1/F2/A5/C4/G2` 由 `judge.py` 写入 COVERAGE，中央账本从 450 增至 **455 judgments**。五格原子落账触发 `gap-too-fast`，历史尾窗无 fail 触发 `discovery-collapse`；两条均基于红/绿 session、五通道和夹具事实复审后 ack，复审为 `tool-085-ledger-alarm-reaudit.md`，`alarms.py check` 最终 `clean (455 judgments)`。第九批 **25 / 50**，下一前线 `TOOL-086 read_document`；未到第 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 12:48 · 第九批 TOOL-084 search_documents 正式通过，20/50
+
+- 首轮真实 App 路径冻结为红：formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-121222` 将 filesystem Grep 的 `path/pattern` 形状投给文档搜索；`121822` 暴露结果带 `hasMore/nextCursor` 但工具 schema 没有 cursor；`122316` 暴露 assistant 在同一 tool-call 消息中先输出用户可见 Page 3 文本，最终重复回答；`123034` 暴露 hybrid semantic-only recall 把 `Noisy Field Notes` 混进 `heliograph` 关键词结果；`123622` 暴露模型首轮不带 limit、先无界查询再重做分页。红证据均已保留，不计绿。
+- stop-and-fix：`search_documents` 明确为文档库内容/标题检索，不接受 filesystem `path/pattern`；schema 与执行边界补齐 `query/limit/cursor`，要求显式上限必须在首调用携带，cursor 必须逐字续传；结果补 durable path/description/tags；文档关键词路径显式 `LexicalOnly`，不改变 RAG/omni 的 hybrid 语义；chat prompt 增加 tool-call assistant message 不得携带用户答案的单一回复规则。同步 Go/chat 测试、domain/API 文档与工具抽取清册。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-124129` 使用新二进制、真实 Flutter App、真实受管 gateway、Computer Use、连续录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap 重跑。首调用 wire 为 `{"limit":1,"query":"heliograph"}`；第二、三页分别使用精确 cursor `eyJoIjoiY2UxNGM5MjM4NzRkIiwibyI6MX0` 与 `eyJoIjoiY2UxNGM5MjM4NzRkIiwibyI6Mn0`，总计 3 条目标文档，无 `Noisy Field Notes`，最终 UI 只出现一份答案且无失败卡/retry/重复 Page 3。
+- 五通道封口：`screen.mov` `187.523333s`；SSE durable seq `1..48` 连续；LLM wire、tool result、REST/SQLite 与 UI 一致；backend/frontend 无 `error|exception|panic|fatal|assert` 未解释红线；fixture 清理 DELETE=204、GET=404、列表为空。`rig-check` 在运行中五通道全绿，随后 `rig-down` 干净收台并保留 journals。
+- 证据为 `sessions/20260803-124129/evidence/tool-084-formal-124129-green-search-documents.txt`；账本复审为 `tool-084-ledger-alarm-reaudit.txt`。`judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，中央账本由 445 增至 **450 judgments**；`alarms.py check` 最终 `clean`，本轮告警均依据红证据、绿证据和复审说明 ack，不隐藏统计异常。第九批当前 **20 / 50**，下一前线 `TOOL-085 list_documents`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 12:08 · 第九批 TOOL-083 search_firings 正式通过，15/50
+
+- 首轮 formal-138 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-115803` 真实 App 冻结为红：hosted model 将 `limit` 发成 `"3"`，后端类型拒绝并留下可见失败活动/retry。formal-139 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-120111` 在 limit decoder 修复后又暴露模型把 `pattern` 发给 firing inbox，遗漏必填 `triggerId`，再次留下失败活动/retry；两份红证据均保留、不计绿。
+- stop-and-fix：`search_firings` 执行边界接受 native integer 或 exact decimal integer string，公开 schema 仍为 integer；description/schema/validation 明确必须从 `search_triggers` 或工具卡逐字复制 exact opaque `triggerId`，不是 name/pattern/`the requested item`，并补 limit/shape/description/validation 回归测试。同步 API 文档与 `testend/rig/extracts/tools.md`。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-120402` 真实新二进制 + Flutter App + 受管 gateway + Computer Use：no-status/started/skipped 三条有效查询均成功，结果 1/1/0；空 skipped 被正确解释为合法 no-match。最终 UI 无失败活动/retry，LLM wire 全 200；同批重复只读调用由 loop 幂等抑制，没有重复 repository 访问。五通道证据：screen.mov `141.861667s`，SSE messages durable `1..39`、notifications `1..2` 单调唯一，backend/frontend 无未解释红线。正式证据为 `evidence/tool-083-formal-120402-green.txt`。
+- 五级 `TOOL-083=G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本从 440 增至 **445 judgments**。`gap-too-fast`、`pass-burst`、`discovery-collapse` 经两份红证据、修复测试、绿 session 和锚点复审后 ack，最终 `alarms.py check` clean；复审说明为 `tool-083-ledger-alarm-reaudit.txt`。第九批 **15 / 50**，下一前线 `TOOL-084`，未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 11:56 · 第九批 TOOL-082 get_activation 正式通过，10/50
+
+- formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-115120` 真实 Flutter App + 受管 gateway + Computer Use 直接读取历史 activation `tra_eb22f6013f7ea958`，并读取不存在 `tra_0000000000000000`。正向 200，负向 404；模型只发两次 `get_activation`，无 `search_activations`、retry 或其它工具。最终 UI 完整展示 fired/kind/payload/firingCount/returnValue/detail/createdAt，解释 manual fire 绕过 sensor condition 且 optional 字段缺席不应编造；负向只显示权威 not-found。
+- 五通道：screen.mov `179.710000s`；SSE 三流连接，messages durable `1..18`、notifications `1..2` 单调唯一；LLM proof/chat 响应全 200；backend 只有刻意不存在 ID 的一条 WARN；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线。正式证据为 `evidence/tool-082-formal-115120-green.txt`。
+- 五级 `TOOL-082=G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本从 435 增至 **440 judgments**。第一次连续 gate 命令在证据文件同步瞬间写入 L1-L4、拒绝 L5；确认文件非空后幂等补写 L5，没有绕过 gate。`gap-too-fast`/`discovery-collapse` 经本轮 session、负路径和既有红证据重审并 ack，最终 `alarms.py check` clean；复审说明为 `tool-082-ledger-alarm-reaudit.txt`。第九批 **10 / 50**，下一前线 `TOOL-083`，未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 11:47 · 第九批 TOOL-081 search_activations 正式通过，5/50
+
+- 首轮真实 App 观察冻结三条红：第一轮把 `firingCount` 说成 trigger 历史累计；第二轮把 `payload.manual=true` 说成 sensor CEL 阈值通过；第三轮修复语义后，hosted model 把 `firedOnly`/`limit` 发送成字符串，后端拒绝并在 UI 留下失败活动与 retry。三份红证据均保留、不计绿。
+- stop-and-fix：`backend/internal/app/tool/trigger/activations.go` 明确逐行 per-activation workflow fan-out 与 manual bypass 语义；增加只接受 exact `"true"`/`"false"` 和十进制整数字符串的窄兼容，错误形状仍拒绝。同步 `manage_test.go`、trigger domain/API 文档和 `testend/rig/extracts/tools.md`；`go test ./internal/app/tool/trigger ./internal/app/loop`、`git diff --check` 通过。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-113825` 使用新二进制、真实 Flutter App、真实受管 gateway、Computer Use、窗口录屏和五通道台架。最终 UI 正确解释 `firingCount=1` 是单条 activation 扇出 1 个 workflow；`manual=true` 绕过 CEL，不证明阈值为真；低值 sensor probes 为 `fired=false`。最终 LLM 请求序列只有 `search_triggers → search_activations`，没有失败请求/retry；screen.mov `314.906667s`，SSE durable seq 单调无重复，三流已连接，LLM chat/proof 响应全 200，backend/frontend 无未解释红线。一次 Computer Use wrapper 超时被单独记为观察器仪器事件，重启 kernel 后重新取得最终帧，不计产品红。
+- 正式证据为 `sessions/20260803-113825/evidence/tool-081-formal-113825-green.txt`；五级 `TOOL-081=G1/F2/A5/C4/G2` 写入 COVERAGE，中央账本由 430 增至 **435 judgments**。`gap-too-fast` 与 `discovery-collapse` 经过 session、红证据和 10/10 anchor re-audit 后 ack，`alarms.py check` clean；复审说明为 `tool-081-ledger-alarm-reaudit.txt`。
+- 允许删除后的清理 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-114620` 通过本地 API 将 workflow、trigger、function 和 4 条 acceptance conversation 全部 DELETE=204，GET=404、列表为空；SQLite 保留软删审计、57 activations/1 firing；台架进程已清零。第九批 **5 / 50**，下一前线 `TOOL-082`，未到 50 格不跑统一长门禁、不提交。
+
 # 2026-08-03 10:49 · 第八批 TOOL-080 fire_trigger 正式通过，50/50 收口待统一长门禁
 
 - 首轮真实暂停负向冻结为红：助手错误建议用 `edit_trigger` 清除 paused，但该工具不能 resume。红证据保留于 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-103209/evidence/tool-080-red-paused-wrong-resume-guidance.txt`，不计绿。

@@ -33,6 +33,10 @@ var (
 	// parenthesis). Remove the placeholder form too, so a chunk-boundary miss cannot leave
 	// "name (the referenced item)" in the final prose.
 	opaquePlaceholderParentheticalPattern = regexp.MustCompile(`\s*\(\s*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `\s*\)`)
+	// A model may put the opaque id first and the human name in parentheses, e.g.
+	// "Position 0: `doc_…` (Existing First)". Once the id is redacted, preserve the name
+	// and remove the unavailable machine-value fragment instead of exposing a placeholder.
+	opaquePositionPlaceholderNamePattern = regexp.MustCompile(`(?im)^([ \t]*[-*]?[ \t]*position[ \t]+[0-9]+[ \t]*:[ \t]*)` + "`?" + `(?:the requested item|the referenced item)` + "`?" + `[ \t]*\([ \t]*([^()\r\n]+?)\s*\)[ \t]*$`)
 	// When a model puts an opaque id immediately after an already human-readable entity noun,
 	// replacing it with a second noun makes broken prose ("the workflow the referenced item").
 	// Drop only the placeholder in that narrow context; standalone ids still retain an honest
@@ -47,6 +51,7 @@ var (
 	// emphasis remains intact.
 	opaqueEntityNounDecoratedPlaceholderPattern = regexp.MustCompile(
 		`(?i)\b(the\s+)?(workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+(?:\*{1,3}|_{1,3}|` + "`" + `)\s*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `\s*(?:\*{1,3}|_{1,3}|` + "`" + `)([[:space:][:punct:]]|$)`)
+	opaqueEntityIDClausePrefixPattern = regexp.MustCompile(`(?i)(?:[ \t]+(?:with|using|having)[ \t]+(?:the[ \t]+)?(?:id|identifier)[ \t]+[\x60"]?)$`)
 	// Preserve the grammar of sentences that introduce an opaque identifier, e.g.
 	// "The ID `fr_…` does not exist". Replacing only the identifier would produce
 	// "The ID the referenced item"; the adjacent tool card still contains the exact ID.
@@ -109,12 +114,24 @@ var (
 	opaquePinnedReferenceNaturalPattern                = regexp.MustCompile(`(?im)^[ \t]*pinned[ \t]+reference:[^\r\n]*(?:pinned[ \t]+ref|pinned[ \t]+to|version)[^\r\n]*(?:\bfnv|wfv|apfv|hdv)_[A-Za-z0-9]+[^\r\n]*$`)
 	// A model can independently choose the neutral phrase, especially after a failed get_flowrun.
 	// Rewrite that phrase in the flowrun-specific grammar so the final answer reads naturally.
-	opaqueFlowrunTargetPlaceholderPattern       = regexp.MustCompile(`(?i)(\bget_flowrun\b` + "`?" + `\s+for\s+)` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?")
-	opaqueFlowrunIDPlaceholderPattern           = regexp.MustCompile(`(?i)(?:\bwith\s+)?flowrunId\s+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?")
-	opaqueFlowrunMissingIDPattern               = regexp.MustCompile(`(?i)(\bthe\s+id\s+doesn['’]t\s+exist\s+[—-]\s+)` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?(\\s+appears)")
-	opaqueFlowrunNoMatchPattern                 = regexp.MustCompile(`(?i)(\bthere\s+is\s+no\s+workflow\s+run)\s+with\s+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?")
-	opaqueFlowrunRequestedIDRowPattern          = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*(?:requested\s+id|flow\s*run\s*id)[^\r\n|]*\|[ \t]*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]*\|[ \t]*$`)
-	opaqueFlowrunIDFieldPlaceholderPattern      = regexp.MustCompile(`(?im)^[ \t]*\*{0,2}flowrun\s+id\*{0,2}:\*{0,2}[ \t]+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]*$`)
+	opaqueFlowrunTargetPlaceholderPattern  = regexp.MustCompile(`(?i)(\bget_flowrun\b` + "`?" + `\s+for\s+)` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?")
+	opaqueFlowrunIDPlaceholderPattern      = regexp.MustCompile(`(?i)(?:\bwith\s+)?flowrunId\s+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?")
+	opaqueFlowrunMissingIDPattern          = regexp.MustCompile(`(?i)(\bthe\s+id\s+doesn['’]t\s+exist\s+[—-]\s+)` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?(\\s+appears)")
+	opaqueFlowrunNoMatchPattern            = regexp.MustCompile(`(?i)(\bthere\s+is\s+no\s+workflow\s+run)\s+with\s+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?")
+	opaqueFlowrunRequestedIDRowPattern     = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*(?:requested\s+id|flow\s*run\s*id)[^\r\n|]*\|[ \t]*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]*\|[ \t]*$`)
+	opaqueFlowrunIDFieldPlaceholderPattern = regexp.MustCompile(`(?im)^[ \t]*\*{0,2}flowrun\s+id\*{0,2}:\*{0,2}[ \t]+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]*$`)
+	// A placeholder must never survive in an ordinary labeled field either. Removing the whole
+	// field is more honest than showing "ID: -" or inventing a value; the adjacent tool card remains
+	// the exact-value surface.
+	// 普通的带标签字段也不能留下 placeholder。整行移除比显示「ID: -」或编造值更诚实；精确值仍在相邻工具卡。
+	opaquePlaceholderLabeledLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{0,2}|_{0,2})?(?:id|identifier|path|label|name)(?:\*{0,2}|_{0,2})?[ \t]*:[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*\r?$`)
+	// Search results sometimes repeat a redacted ID in prose, e.g. "with id the requested
+	// item" or as the first bullet before the human-readable name. Remove only that unavailable
+	// machine-value fragment so the reasoning remains factual and fluent.
+	// 搜索结果有时会在 prose 中重复已脱敏 ID，例如「with id the requested item」或把它放在
+	// 人话名称之前的首个 bullet。只移除不可用的机器值片段，保留事实和流畅度。
+	opaqueEntityIDClausePattern                 = regexp.MustCompile(`(?i)[ \t]+(?:with|using|having)[ \t]+(?:the[ \t]+)?(?:id|identifier)[ \t]+[\x60"]?(?:the requested item|the referenced item)[\x60"]?`)
+	opaqueEntitySearchBulletPattern             = regexp.MustCompile(`(?im)^([ \t]*[-*][ \t]+)[\x60"]?(?:the requested item|the referenced item)[\x60"]?[ \t]*[—-][ \t]*`)
 	opaqueFlowrunCallIDPlaceholderPattern       = regexp.MustCompile(`(?i)(\b(?:the\s+)?call\s+to\s+[\x60]?get_flowrun[\x60]?\s+)(?:with\s+)?flowrunId\s*[:=]\s*[\x60]?` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `[\x60]?`)
 	opaqueFlowrunIDColonPlaceholderPattern      = regexp.MustCompile(`(?i)\bflowrunId\s*:\s*[\x60]?` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `[\x60]?`)
 	opaqueFlowrunExampleIDPattern               = regexp.MustCompile(`(?i)\bthe\s+(?:actual|real)\s+fr_[.…]+(?:\s+id)?`)
@@ -145,10 +162,11 @@ var (
 	// Hold a human-readable entity noun at the end of a delta until the following token arrives.
 	// Otherwise a provider chunk boundary between "workflow " and "wf_…" would make the later
 	// redaction unable to remove the duplicate noun from already-emitted SSE text.
-	entityNounPrefixPattern = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+(?:\*{1,3}|_{1,3}|` + "`" + `)?$`)
-	isoTimestampPattern     = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}| UTC)?\b`)
-	longIntegerPattern      = regexp.MustCompile(`\b\d{10,}\b`)
-	longHexPattern          = regexp.MustCompile(`\b[0-9a-fA-F]{32,}\b`)
+	entityNounPrefixPattern   = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+(?:\*{1,3}|_{1,3}|` + "`" + `)?$`)
+	isoTimestampPattern       = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}| UTC)?\b`)
+	longIntegerPattern        = regexp.MustCompile(`\b\d{10,}\b`)
+	longHexPattern            = regexp.MustCompile(`\b[0-9a-fA-F]{32,}\b`)
+	positionLinePrefixPattern = regexp.MustCompile(`(?i)^\s*[-*]?\s*position\s+[0-9]+\s*:`)
 )
 
 // redactOpaqueMachineValues protects the user-facing assistant prose. Tool blocks remain
@@ -189,6 +207,7 @@ func redactOpaqueMachineValues(text string) string {
 		return "the requested item"
 	})
 	text = entityIDPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
+	text = opaquePositionPlaceholderNamePattern.ReplaceAllString(text, "${1}${2}")
 	// A raw opaque ref can become the neutral placeholder only at the generic ID pass above;
 	// repeat the structured-row cleanup after that pass so the final close snapshot cannot retain
 	// a placeholder merely because its source prefix was not known to the first pass.
@@ -210,6 +229,7 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueNodeRecordPlaceholderTableRowPattern.ReplaceAllString(text, "| **Node record** | Internal record |")
 	text = opaquePinnedRefsPlaceholderTableRowPattern.ReplaceAllString(text, "| Internal reference | Current version |")
 	text = opaquePinnedRefAnnotatedPlaceholderTableRowPattern.ReplaceAllString(text, "| Internal approval reference | Current version |")
+	text = redactOpaquePlaceholderLabeledLines(text)
 	text = opaqueFlowrunOverviewIDPlaceholderPattern.ReplaceAllString(text, "- Run: Current run")
 	text = opaqueFlowrunOverviewVersionPlaceholderPattern.ReplaceAllString(text, "- Version: Current version")
 	text = opaquePinnedRefsPlaceholderBulletPattern.ReplaceAllString(text, "- Internal approval references")
@@ -218,6 +238,7 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueFlowrunSummaryTargetPattern.ReplaceAllString(text, "${1}:")
 	text = opaquePinnedReferenceNaturalPattern.ReplaceAllString(text, "Pinned reference: The function version is pinned.")
 	text = opaqueFlowrunIDFieldPlaceholderPattern.ReplaceAllString(text, "**Requested ID:** Supplied run ID")
+	text = opaquePlaceholderLabeledLinePattern.ReplaceAllString(text, "")
 	text = opaqueFlowrunCallIDPlaceholderPattern.ReplaceAllString(text, "${1}for the supplied run")
 	text = opaqueFlowrunIDColonPlaceholderPattern.ReplaceAllString(text, "run ID: supplied run ID")
 	text = opaqueFlowrunMissingTargetSentencePattern.ReplaceAllString(text, "The supplied run ID does not correspond to any flowrun in this workspace")
@@ -267,8 +288,174 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaquePlaceholderParentheticalPattern.ReplaceAllString(text, "")
 	text = opaqueEntityNounDecoratedPlaceholderPattern.ReplaceAllString(text, "${1}${2}${3}")
 	text = opaqueEntityNounPlaceholderPattern.ReplaceAllString(text, "${1}${2}")
+	text = opaqueEntityIDClausePattern.ReplaceAllString(text, "")
+	text = opaqueEntitySearchBulletPattern.ReplaceAllString(text, "$1")
+	// A placeholder inside a Markdown table is still not a user-facing value. During streaming,
+	// replace the cell with an honest unavailable marker; the complete close pass below can remove
+	// an entirely unavailable ID column instead of leaving a misleading header behind.
+	// Markdown 表格里的 placeholder 仍不是用户值。流式阶段先替换为诚实的不可用标记；完整 close 再移除整列。
+	text = redactOpaquePlaceholderTableCells(text)
+	text = removeOpaquePlaceholderIDColumns(text)
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	return longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
+}
+
+func redactOpaquePlaceholderTableCells(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if !ok || len(cells) < 3 {
+			continue
+		}
+		changed := false
+		for j, cell := range cells {
+			if isOpaquePlaceholderTableCell(cell) {
+				cells[j] = "-"
+				changed = true
+			}
+		}
+		if changed {
+			lines[i] = formatMarkdownTableRow(cells)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func redactOpaquePlaceholderLabeledLines(text string) string {
+	lines := strings.Split(text, "\n")
+	inFlowrunOverview := false
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		trimmed := strings.ToLower(strings.TrimSpace(line))
+		if strings.Contains(trimmed, "flowrun overview") {
+			inFlowrunOverview = true
+			kept = append(kept, line)
+			continue
+		}
+		if inFlowrunOverview && trimmed == "" {
+			inFlowrunOverview = false
+			kept = append(kept, line)
+			continue
+		}
+		if !inFlowrunOverview && opaquePlaceholderLabeledLinePattern.MatchString(line) {
+			continue
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
+}
+
+func removeOpaquePlaceholderIDColumns(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := 0; i+2 < len(lines); {
+		header, ok := markdownTableCells(lines[i])
+		if !ok {
+			i++
+			continue
+		}
+		separator, ok := markdownTableCells(lines[i+1])
+		if !ok || len(separator) != len(header) || !isMarkdownTableSeparator(separator) {
+			i++
+			continue
+		}
+		idColumn := -1
+		for column, cell := range header {
+			if isOpaqueIDHeaderCell(cell) {
+				idColumn = column
+				break
+			}
+		}
+		if idColumn < 0 {
+			i += 2
+			continue
+		}
+
+		rows := make([]int, 0, 4)
+		for row := i + 2; row < len(lines); row++ {
+			cells, rowOK := markdownTableCells(lines[row])
+			if !rowOK || len(cells) != len(header) {
+				break
+			}
+			rows = append(rows, row)
+		}
+		if len(rows) == 0 {
+			i += 2
+			continue
+		}
+		allUnavailable := true
+		for _, row := range rows {
+			cells, _ := markdownTableCells(lines[row])
+			if !isUnavailableOpaqueTableCell(cells[idColumn]) {
+				allUnavailable = false
+				break
+			}
+		}
+		if !allUnavailable {
+			i = rows[len(rows)-1] + 1
+			continue
+		}
+		lines[i] = formatMarkdownTableRow(removeMarkdownTableCell(header, idColumn))
+		lines[i+1] = formatMarkdownTableRow(removeMarkdownTableCell(separator, idColumn))
+		for _, row := range rows {
+			cells, _ := markdownTableCells(lines[row])
+			lines[row] = formatMarkdownTableRow(removeMarkdownTableCell(cells, idColumn))
+		}
+		i = rows[len(rows)-1] + 1
+	}
+	return strings.Join(lines, "\n")
+}
+
+func markdownTableCells(line string) ([]string, bool) {
+	trimmed := strings.TrimSpace(line)
+	if !strings.HasPrefix(trimmed, "|") {
+		return nil, false
+	}
+	trimmed = strings.TrimPrefix(trimmed, "|")
+	if strings.HasSuffix(trimmed, "|") {
+		trimmed = strings.TrimSuffix(trimmed, "|")
+	}
+	return strings.Split(trimmed, "|"), true
+}
+
+func formatMarkdownTableRow(cells []string) string {
+	for i := range cells {
+		cells[i] = strings.TrimSpace(cells[i])
+	}
+	return "| " + strings.Join(cells, " | ") + " |"
+}
+
+func removeMarkdownTableCell(cells []string, index int) []string {
+	result := make([]string, 0, len(cells)-1)
+	result = append(result, cells[:index]...)
+	return append(result, cells[index+1:]...)
+}
+
+func isMarkdownTableSeparator(cells []string) bool {
+	for _, cell := range cells {
+		value := strings.Trim(strings.TrimSpace(cell), ":")
+		if len(value) < 3 || strings.Trim(value, "-") != "" {
+			return false
+		}
+	}
+	return true
+}
+
+func isOpaqueIDHeaderCell(cell string) bool {
+	value := strings.ToLower(strings.TrimSpace(cell))
+	value = strings.Trim(value, "`*_ ")
+	return value == "id" || value == "identifier" || strings.HasSuffix(value, " id")
+}
+
+func isUnavailableOpaqueTableCell(cell string) bool {
+	value := strings.ToLower(strings.TrimSpace(cell))
+	value = strings.Trim(value, "`*_ ")
+	return value == "" || value == "-" || value == "n/a" || isOpaquePlaceholderTableCell(cell)
+}
+
+func isOpaquePlaceholderTableCell(cell string) bool {
+	value := strings.ToLower(strings.TrimSpace(cell))
+	value = strings.Trim(value, "`*_ ")
+	return value == opaqueEntityPlaceholder || value == legacyEntityPlaceholder
 }
 
 // textRedactor keeps the trailing token until a delimiter arrives. Provider deltas are allowed
@@ -338,6 +525,15 @@ func (r *textRedactor) Write(delta string) string {
 	if loc := opaqueIDSubjectPrefixPattern.FindStringIndex(emitted); loc != nil && loc[1] == len(emitted) {
 		// Hold "The ID `" together with the following token so a chunk boundary
 		// cannot turn the eventual redaction into "The ID the referenced item".
+		emitted = emitted[:loc[0]]
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
+		r.pending = pending + string(runes[cut:])
+		return redactOpaqueMachineValues(emitted)
+	}
+	if loc := opaqueEntityIDClausePrefixPattern.FindStringIndex(emitted); loc != nil && loc[1] == len(emitted) {
+		// Hold "with id `" together with the following opaque value. Otherwise a provider
+		// chunk boundary can expose the machine-value introducer before the clause is removed.
+		// 将「with id `」与后续 opaque value 一起暂存，避免 provider 分块先露出机器值引导语。
 		emitted = emitted[:loc[0]]
 		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
@@ -441,13 +637,25 @@ func splitToolNamePrefix(text string) (prefix, held string, ok bool) {
 }
 
 func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
+	if newline := strings.LastIndexByte(text, '\n'); newline >= 0 {
+		completed := text[:newline+1]
+		for _, line := range strings.Split(completed, "\n") {
+			if opaquePlaceholderLabeledLinePattern.MatchString(line) {
+				return completed, text[newline+1:], true
+			}
+		}
+	}
 	lineStart := strings.LastIndexByte(text, '\n') + 1
 	line := text[lineStart:]
 	if line == "" || len([]rune(line)) > 512 {
 		return "", "", false
 	}
+	if hasOpaquePlaceholderLabeledPrefix(line) {
+		return text[:lineStart], line, true
+	}
 	lower := strings.ToLower(line)
 	hasTable := strings.Contains(line, "|")
+	isPositionLine := positionLinePrefixPattern.MatchString(line)
 	isFlowrunStatusLine := opaqueFlowrunStatusLinePattern.MatchString(line) && strings.Contains(lower, opaqueEntityPlaceholder)
 	isWebhookEndpointLine := strings.Contains(lower, "/api/v1/webhooks/")
 	if !hasTable && !strings.Contains(line, "`") &&
@@ -468,6 +676,7 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 		return "", "", false
 	}
 	if !hasTable &&
+		!isPositionLine &&
 		!isFlowrunStatusLine &&
 		!isWebhookEndpointLine &&
 		!strings.Contains(lower, "flowrun report") &&
@@ -490,4 +699,25 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 		}
 	}
 	return text[:lineStart], line, true
+}
+
+func hasOpaquePlaceholderLabeledPrefix(line string) bool {
+	colon := strings.IndexByte(line, ':')
+	if colon < 0 {
+		return false
+	}
+	label := strings.Trim(strings.TrimSpace(line[:colon]), "`*_ ")
+	label = strings.TrimSpace(strings.TrimLeft(label, "-*0123456789.) "))
+	switch strings.ToLower(label) {
+	case "id", "identifier", "path", "label", "name":
+	default:
+		return false
+	}
+	value := strings.Trim(strings.TrimSpace(line[colon+1:]), "`*_ ")
+	for _, phrase := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+		if value != "" && len(value) < len(phrase) && strings.HasPrefix(phrase, strings.ToLower(value)) {
+			return true
+		}
+	}
+	return false
 }

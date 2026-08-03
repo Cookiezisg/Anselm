@@ -152,6 +152,23 @@ type countingTool struct {
 	calls *int
 }
 
+type terminalResultTool struct {
+	name  string
+	calls *int
+}
+
+func (t terminalResultTool) Name() string                        { return t.name }
+func (t terminalResultTool) Description() string                 { return "terminal result tool" }
+func (t terminalResultTool) Parameters() json.RawMessage         { return json.RawMessage(`{"type":"object"}`) }
+func (t terminalResultTool) ValidateInput(json.RawMessage) error { return nil }
+func (t terminalResultTool) Execute(_ context.Context, _ string) (string, error) {
+	*t.calls++
+	return "terminal rejection", nil
+}
+func (terminalResultTool) HaltOnRepeat(result string, _ string) bool {
+	return result == "terminal rejection"
+}
+
 func (t countingTool) Name() string                        { return t.name }
 func (t countingTool) Description() string                 { return "counting tool" }
 func (t countingTool) Parameters() json.RawMessage         { return json.RawMessage(`{"type":"object"}`) }
@@ -654,7 +671,7 @@ func TestRunTools_GuardedIdentitySuppressesChangedNoise(t *testing.T) {
 	runCount := 0
 	tool := identityCountingTool{name: "delete_workflow", calls: &runCount}
 	byName := map[string]toolapp.Tool{"delete_workflow": tool}
-	handled := make(map[string]indexedCall)
+	handled := make(map[string]handledCall)
 	first := messagesdomain.ToolCallData{
 		ID:        "tc_first",
 		Name:      "delete_workflow",
@@ -676,6 +693,77 @@ func TestRunTools_GuardedIdentitySuppressesChangedNoise(t *testing.T) {
 	}
 	if len(blocks) != 1 || !strings.Contains(blocks[0].Content, "Duplicate tool call suppressed") {
 		t.Fatalf("second guarded call = %+v, want suppression", blocks)
+	}
+}
+
+func TestRunToolsLedger_SuppressesSuccessfulSafeCallAcrossSteps(t *testing.T) {
+	runCount := 0
+	byName := map[string]toolapp.Tool{
+		"search_documents": countingTool{name: "search_documents", calls: &runCount},
+	}
+	handled := make(map[string]handledCall)
+	call := messagesdomain.ToolCallData{
+		ID:        "tc_search_1",
+		Name:      "search_documents",
+		Arguments: map[string]any{"query": "Edit Atlas"},
+	}
+	if blocks, repeated := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{call}, byName, handled, zap.NewNop()); repeated || len(blocks) != 1 {
+		t.Fatalf("first safe call = repeated:%v blocks:%d, want one execution", repeated, len(blocks))
+	}
+	call.ID = "tc_search_2"
+	blocks, repeated := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{call}, byName, handled, zap.NewNop())
+	if repeated || runCount != 1 {
+		t.Fatalf("successful safe call executed again: repeated=%v runCount=%d", repeated, runCount)
+	}
+	if len(blocks) != 1 || blocks[0].Attrs["duplicateScope"] != "turn" {
+		t.Fatalf("suppression result = %+v, want turn-scoped duplicate", blocks)
+	}
+}
+
+func TestRunToolsLedger_HaltsAfterTerminalToolResult(t *testing.T) {
+	runCount := 0
+	byName := map[string]toolapp.Tool{
+		"move_document": terminalResultTool{name: "move_document", calls: &runCount},
+	}
+	handled := make(map[string]handledCall)
+	call := messagesdomain.ToolCallData{
+		ID:        "tc_move_1",
+		Name:      "move_document",
+		Arguments: map[string]any{"id": "doc_a", "parentId": "doc_descendant"},
+	}
+	if blocks, repeated := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{call}, byName, handled, zap.NewNop()); repeated || len(blocks) != 1 {
+		t.Fatalf("first terminal result = repeated:%v blocks:%d, want one execution", repeated, len(blocks))
+	}
+	call.ID = "tc_move_2"
+	blocks, repeated := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{call}, byName, handled, zap.NewNop())
+	if !repeated || runCount != 1 {
+		t.Fatalf("terminal result must halt exact repeat: repeated=%v runCount=%d", repeated, runCount)
+	}
+	if len(blocks) != 1 || !strings.Contains(blocks[0].Content, "terminal rejection") {
+		t.Fatalf("terminal repeat = %+v, want terminal suppression", blocks)
+	}
+}
+
+func TestRunToolsLedger_RetriesFailedSafeCall(t *testing.T) {
+	byName := map[string]toolapp.Tool{
+		"search_documents": fakeTool{name: "search_documents", err: errors.New("temporary index unavailable")},
+	}
+	handled := make(map[string]handledCall)
+	call := messagesdomain.ToolCallData{
+		ID:        "tc_search_fail_1",
+		Name:      "search_documents",
+		Arguments: map[string]any{"query": "Edit Atlas"},
+	}
+	// The fake carries no counter, so run the same assertion through the durable result shape:
+	// a failed safe call must not create a prior entry and must be dispatched again.
+	blocks, repeated := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{call}, byName, handled, zap.NewNop())
+	if repeated || len(blocks) != 1 || blocks[0].Error == "" {
+		t.Fatalf("first failed safe call = repeated:%v blocks:%+v", repeated, blocks)
+	}
+	call.ID = "tc_search_fail_2"
+	blocks, repeated = runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{call}, byName, handled, zap.NewNop())
+	if repeated || len(blocks) != 1 || blocks[0].Error == "" {
+		t.Fatalf("failed safe call was suppressed: repeated=%v blocks:%+v", repeated, blocks)
 	}
 }
 

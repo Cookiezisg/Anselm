@@ -39,6 +39,9 @@ turn：
 - Shutdown 取消所有 running turn 并停止 queue；
 - Cancel 同时取消 running turn、清空 queued turn，并把所有 assistant 行收成
   cancelled。
+- LLM 建连阶段允许受管网关最多 120 秒返回响应头，以覆盖冷路由/上游唤醒；这不是整回合预算。
+  响应头之后仍由流式 idle 预算检测死连接，并由 `LLMStreamMaxSec` 限制持续输出却不收敛的模型；
+  整个回合最终仍受 `ChatTurnSec` 约束。
 
 Task 不复用请求 context。Worker 从 workspace detached context 重建 locale、
 conversation/message、AgentState、两条 stream、HumanLoop、workdir 与 Chat turn
@@ -71,9 +74,31 @@ Inactive inventory 只在 prompt 暴露紧凑名称/用途；完整 schema 在�
 次 request tools 中出现。AgentState 使用有界 recency set；直接点名 lazy tool
 时 AutoActivator 可补发现步骤。
 
+每个 Chat ReAct 回合还维护一份内存内调用台账：同一业务调用在成功后不会跨步重复执行，避免
+模型在已经拿到完整只读结果后反复搜索、浪费用户等待；安全调用若工具层失败则不入账，保留真实
+重试路径。危险或驻地越界调用即使被拒绝也入账，后续重复调用只返回可解释的 suppression result，
+并结束本回合，防止绕过人闸。台账只属于当前回合，不跨用户消息持久化；同一参数的新用户意图
+仍可正常执行。
+
+工具调用的 assistant 消息不得同时携带面向用户的答案文本：不要在 tool result
+返回前陈述结果。必要时只在 reasoning 中表达简短意图，等待 tool result 后再
+一次性给出答案，避免把同一结果作为中间文本和最终文本重复展示。
+
+同一回合内，已返回结果的只读枚举不得用完全相同的参数重复调用；模型应复用已有结果，或明确改变边界/过滤后再查。若安全层仍拦截重复调用，tool result 必须诚实标明未执行，不能伪装成成功。
+
+工具若返回对精确业务调用已经终局的拒绝（当前 `move_document` 的循环拒绝），可通过可选的
+`RepeatTerminaler` 契约声明该结果；这不扩张 S18 的五方法 `Tool` 接口。相同调用随后再出现时，
+loop 只生成可审计的 suppression result 并收束本回合，不再次执行；前端不把这条终局重复拦截渲染成
+第二条“未执行”卡，但 durable block、SSE 与后台台账仍保留原始证据。父节点暂时不存在等可由本回合
+其它变更修复的错误不得误标为终局。
+
 ### Grounded final text
 
 实体 ID 的前缀清单必须与当前领域命名保持同步；trigger 的真实 ID 前缀是 `trg_`，也必须经过同一条直接与流式脱敏路径，不能只兼容历史 `tr_` 缩写。
+
+普通实体表格如果只有脱敏后的机器值，系统提示明确禁止把 `the requested item` 或 `the referenced item` 当作 ID、路径、标签或表格单元格；服务端流式阶段把这类单元格标为不可用，完整 durable close 再将所有值都不可用的 ID 列整体移除。精确 ID 仍只保留在相邻 tool card 与审计线缆中，助手正文优先展示人名与路径。
+
+当模型把 opaque ID 放在位置/列表标签前、把人名放在括号内（例如 `Position 0: doc_… (Existing First)`）时，脱敏器必须保留括号中的人名，输出 `Position 0: Existing First`，不能留下 `the requested item`。
 
 面向用户的 assistant 文本还有服务端确定性边界：loop 会在流式文本的唯一出口保留跨 chunk 的尾部词元，并在看到未闭合的括号时短暂保留整个小括号片段，避免 provider 把 `(`、反引号、ID、`)` 分成不同 delta 后先泄露半个坏占位。实体名后紧接可能的 opaque ID 时，连同实体名和分隔符一起短暂保留，确保 chunk 恰好切在 `workflow ` 与 `wf_…` 之间时仍能整体清理；ID 被 Markdown `` `…` ``、`*…*` 或 `**…**` 包住时，同样先完成整体替换再向 SSE 发出，不能把 `workflow **` 这类半截格式先发给用户。它隐藏实体 ID、长整数、时间戳与长 hash 等不透明机器值。隐藏时按类型替换为上下文中性的 `the requested item` 等人话短语，而不是把 `<opaque value omitted>` 或旧版 `the referenced item` 这类坏模板标记露给用户；若模型把一个已经有名称的实体 ID 冗余写成括号（例如 `workflow nightly (wf_…)` 或 ``workflow nightly (`wf_…`)``），只删除整段冗余括号，不留下占位；若 ID 紧跟已有人话实体名（例如 `The workflow wf_… remains intact`），移除 ID 后也移除重复占位，结果为 `The workflow remains intact`，不制造重复名词；若模型用 `The ID <opaque>`、`The flowrun ID <opaque>`、`The flow run ID <opaque>` 或 `The flowrun with ID <opaque>` 引出一个待查对象，则整体改写为 `The requested item`、`The requested flowrun` 或 `The requested flow run`，不产生语法残片；`The flow ` 与 `run with ID ...` 也必须合并后再脱敏，不能因早期 chunk 边界重现同一残片；已明确实体名的 `flowrun report for <opaque>`（包括 Markdown 加粗或反引号装饰）则直接缩为 `flowrun report`，不能留下 “report for …” 坏短语；包含 opaque flowrun ID 的 Markdown 表格行改为 `Run / Current run` 语义行，不把 placeholder 留在表格里。对 `get_flowrun` 的错误总结还会把 `get_flowrun for <opaque>` 改写为 `get_flowrun for the requested run`，把“没有 workflow run with …”改成“没有匹配请求的 workflow run”，避免失败路径出现“the referenced item”或“the requested item”悬空占位。历史消息如果已经持久化旧版占位词，重建时也会先归一化到当前词汇。原始 tool call/tool_result 卡片与审计数据不改，仍保留精确值供追查。摘要只能表达语义结果（例如「已变更」），不能把机器值抄回 prose 或表格。该边界不依赖模型是否遵守 prompt。**但工具调用 JSON 参数是明确例外：若某个工具需要 opaque 值，模型必须从用户消息或上一个 tool result 逐字复制全部字符；不得缩写、规范化、脱敏或猜测。** 例外不适用于面向用户的 prose。带 flowrun 身份的 workflow agent 终答同时是下游节点的数据，必须保留完整 MediaRef receipt；它不是直接面向用户的 chat prose。
 
@@ -205,3 +230,5 @@ system-prompt-preview 端点见 [`api.md`](../api.md)。表见
 最大 steps 从 live limits 读取；触顶以 `max_steps` /
 `MAX_STEPS_REACHED` 诚实终止。HumanLoop interaction 是回合内 ephemeral
 broker；重启后不存在，Workflow durable approval 由 Scheduler 独立管理。
+
+当用户明确要求某个操作“必须被拒绝”时，模型必须先用最新工具结果验证拒绝前提；如果事实不满足该前提，不能为了迎合用户先执行再撤销，必须保持 durable state 不变并说明事实冲突。

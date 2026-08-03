@@ -2450,6 +2450,12 @@ class Translations$chat$tool$en {
 	/// en: 'Moved document'
 	String get movedDoc => 'Moved document';
 
+	/// en: 'Move rejected'
+	String get moveFailed => 'Move rejected';
+
+	/// en: 'The destination cannot be the document itself or one of its descendants'
+	String get moveCycleRejected => 'The destination cannot be the document itself or one of its descendants';
+
 	/// en: 'Updating info'
 	String get updatingMeta => 'Updating info';
 
@@ -7456,6 +7462,8 @@ extension on Translations {
 			'chat.tool.activatedSkill' => 'Activated skill',
 			'chat.tool.movingDoc' => 'Moving document',
 			'chat.tool.movedDoc' => 'Moved document',
+			'chat.tool.moveFailed' => 'Move rejected',
+			'chat.tool.moveCycleRejected' => 'The destination cannot be the document itself or one of its descendants',
 			'chat.tool.updatingMeta' => 'Updating info',
 			'chat.tool.updatedMeta' => 'Updated info',
 			'chat.tool.renaming' => 'Renaming',
@@ -7621,10 +7629,10 @@ extension on Translations {
 			'chat.tool.gotHdCall' => 'Opened handler-call record',
 			'chat.tool.gettingMcpCall' => 'Opening MCP-call record',
 			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
-			'chat.tool.gettingActivation' => 'Opening activation record',
-			'chat.tool.gotActivation' => 'Opened activation record',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.gettingActivation' => 'Opening activation record',
+			'chat.tool.gotActivation' => 'Opened activation record',
 			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
 			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
 			'chat.tool.fireYes' => 'fired',
@@ -8135,10 +8143,10 @@ extension on Translations {
 			'feedback.cast.ribbonFailedRun' => 'Run failed · inspect the error below',
 			'feedback.cast.gatePill' => 'AI awaits your decision →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
-			'feedback.cast.tombstone' => 'Deleted',
-			'feedback.cast.loadFailed' => 'Load failed',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.tombstone' => 'Deleted',
+			'feedback.cast.loadFailed' => 'Load failed',
 			'feedback.cast.goToEntity' => 'Open entity',
 			'feedback.cast.jumpToScene' => 'Jump to occurrence',
 			'feedback.cast.verb.mentioned' => 'Mentioned',
@@ -8649,10 +8657,10 @@ extension on Translations {
 			'library.props.time.daysAgo' => ({required Object n}) => '${n} days ago',
 			'library.slash.text' => 'Text',
 			'library.slash.h1' => 'Heading 1',
-			'library.slash.h2' => 'Heading 2',
-			'library.slash.h3' => 'Heading 3',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.h2' => 'Heading 2',
+			'library.slash.h3' => 'Heading 3',
 			'library.slash.bulleted' => 'Bulleted list',
 			'library.slash.numbered' => 'Numbered list',
 			'library.slash.quote' => 'Quote',
@@ -9163,10 +9171,10 @@ extension on Translations {
 			'attach.loadingAudio' => 'Loading audio…',
 			'attach.audioPlaybackFailed' => 'Playback failed — tap to retry',
 			'attach.audioPlaybackOffline' => 'Offline — tap to retry playback',
-			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
-			'attach.viewFullSize' => 'View full size',
 			_ => null,
 		} ?? switch (path) {
+			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
+			'attach.viewFullSize' => 'View full size',
 			'attach.closeViewer' => 'Close',
 			'attach.mediaViewer' => 'Media viewer',
 			'attach.playVideo' => 'Play video',

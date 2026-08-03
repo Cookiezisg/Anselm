@@ -40,6 +40,11 @@ testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe M
 `RIG_APP=0` 只用于诊断；缺任一通道的会话不能通过 `rig-check` 或 L2 gate。
 `RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
 
+`RIG_HOME` 是本次验收的账本根：`judgments.jsonl`、`alarms.json`、`anchor-check.json` 和 `current`
+必须来自同一个显式目录。正式 session 使用 `RIG_HOME=/private/tmp/anselm-rig-formal-...` 时，
+`judge.py`、`alarms.py`、`anchors.py` 必须逐条带同一个 `RIG_HOME` 运行；不能把默认
+`~/.anselm-rig` 中旧账本的 clean 结果当作当前 session 的门禁证据。
+
 所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。录像在
 Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝把全桌面录屏当作帧证据。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
@@ -96,7 +101,8 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
 - `na` 用 `--evidence 'note:<为何不适用>'`。
 - L2(数据真相)pass 还须 `--session <会话目录>`；必须先 `rig-down`，六件证据非空、MOV 可读且
   SSE witness 曾连接三条流。
-- 每次裁决盖时戳追加 `~/.anselm-rig/judgments.jsonl`——只经脚本、不手写。
+- 每次裁决盖时戳追加 `$RIG_HOME/judgments.jsonl`——只经脚本、不手写；未设置 `RIG_HOME` 时才使用
+  默认 `~/.anselm-rig`。
 - 同一 `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针；更换证据或裁决则会留下新的审计行。
 - 法不够用 → **先立法再判**:按 CODEX.md 末的立法协议加新法条(只收紧、带回灌横扫),再引用它。
 

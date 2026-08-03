@@ -356,6 +356,8 @@
       "activatedSkill": "Activated skill",
       "movingDoc": "Moving document",
       "movedDoc": "Moved document",
+      "moveFailed": "Move rejected",
+      "moveCycleRejected": "The destination cannot be the document itself or one of its descendants",
       "updatingMeta": "Updating info",
       "updatedMeta": "Updated info",
       "renaming": "Renaming",

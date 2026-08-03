@@ -79,6 +79,25 @@ void main() {
     );
   });
 
+  testWidgets('terminal rejection duplicate stays out of the transcript', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _call(
+            'move_document',
+            result:
+                'Duplicate tool call suppressed: terminal rejection for identical move_document call tc_0; no second execution was requested.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('未执行'), findsNothing);
+    expect(find.textContaining('terminal rejection'), findsNothing);
+  });
+
   testWidgets(
     'awaiting danger → the gate renders LOCKED-OPEN under an amber verb, no chevron',
     (tester) async {

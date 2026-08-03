@@ -7,18 +7,21 @@ import 'package:flutter_test/flutter_test.dart';
 // is decided ONLY after args complete (argsStreaming locks the default search channel, never flips).
 // F07 双声道:有 query=搜、空=列;仅 args 完整后判,流中锁默认搜索。
 
-ToolCardState _state({required ToolCardPhase phase, required String args}) =>
-    ToolCardState(
-      phase: phase,
-      toolName: 'search_function',
-      summary: '',
-      danger: '',
-      argsText: args,
-      resultText: '',
-      errorText: '',
-      progressText: '',
-      progressLive: false,
-    );
+ToolCardState _state({
+  required ToolCardPhase phase,
+  required String args,
+  String toolName = 'search_function',
+}) => ToolCardState(
+  phase: phase,
+  toolName: toolName,
+  summary: '',
+  danger: '',
+  argsText: args,
+  resultText: '',
+  errorText: '',
+  progressText: '',
+  progressLive: false,
+);
 
 String _verb(ToolCardState s, {required bool live}) {
   final spec = toolCardSpecFor(s.toolName);
@@ -84,6 +87,31 @@ void main() {
     );
     expect(spec.target, isNull); // no query chip
   });
+
+  test(
+    'search_documents is query-required — empty args stay SEARCH channel',
+    () {
+      final spec = toolCardSpecFor('search_documents');
+      final empty = _state(
+        phase: ToolCardPhase.succeeded,
+        args: '{}',
+        toolName: 'search_documents',
+      );
+      final blank = _state(
+        phase: ToolCardPhase.succeeded,
+        args: '{"query":""}',
+        toolName: 'search_documents',
+      );
+      expect(
+        spec.verbOf!.call(t, empty, live: false),
+        t.chat.tool.searchedKind(kind: t.chat.tool.kind.document),
+      );
+      expect(
+        spec.verbOf!.call(t, blank, live: false),
+        t.chat.tool.searchedKind(kind: t.chat.tool.kind.document),
+      );
+    },
+  );
 
   test('query becomes the target chip; empty query → no chip', () {
     final spec = toolCardSpecFor('search_function');

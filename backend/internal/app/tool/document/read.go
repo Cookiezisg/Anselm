@@ -11,13 +11,13 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const readDocumentDescription = `Load a document's full markdown body plus path, description, and tags. Use after picking a doc via search_documents / list_documents.`
+const readDocumentDescription = `Load a document's full markdown body plus path, description, and tags. The id must be the exact opaque doc_ ID returned by search_documents or list_documents; never pass a document name or path. Use after picking a doc via search_documents / list_documents.`
 
 var readDocumentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
-		"id": {"type": "string"}
+		"id": {"type": "string", "description": "Exact opaque document ID returned by search_documents or list_documents (for example doc_0123456789abcdef); never a name or path."}
 	}
 }`)
 

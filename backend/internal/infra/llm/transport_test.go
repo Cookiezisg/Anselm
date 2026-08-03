@@ -9,6 +9,23 @@ import (
 	"time"
 )
 
+func TestNewHTTPClient_SeparatesSetupAndStreamingBudgets(t *testing.T) {
+	client := newSharedHTTPClient()
+	if client.Timeout != 0 {
+		t.Fatalf("client total timeout = %s, want 0 so healthy streams are not killed", client.Timeout)
+	}
+	transport, ok := client.Transport.(*http.Transport)
+	if !ok {
+		t.Fatalf("client transport = %T, want *http.Transport", client.Transport)
+	}
+	if transport.ResponseHeaderTimeout != 120*time.Second {
+		t.Fatalf("response header timeout = %s, want 120s managed-gateway setup budget", transport.ResponseHeaderTimeout)
+	}
+	if responseHeaderTimeout != 120*time.Second {
+		t.Fatalf("responseHeaderTimeout constant drifted to %s", responseHeaderTimeout)
+	}
+}
+
 func TestClassifyHTTPError(t *testing.T) {
 	cases := []struct {
 		status int

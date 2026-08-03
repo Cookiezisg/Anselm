@@ -314,7 +314,9 @@ func (s *Service) window(ctx context.Context, q *searchdomain.Query, foldByEntit
 	if err != nil {
 		return nil, fmt.Errorf("search: lexical: %w", err)
 	}
-	lex = s.fuseSemantic(ctx, q, lex)
+	if !q.LexicalOnly {
+		lex = s.fuseSemantic(ctx, q, lex)
+	}
 	hits := fold(lex, foldByEntity)
 	boost(hits, q.Q)
 	sort.SliceStable(hits, func(i, j int) bool {

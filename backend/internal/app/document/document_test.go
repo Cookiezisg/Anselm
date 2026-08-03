@@ -218,6 +218,54 @@ func TestMove_StableReorder(t *testing.T) {
 	}
 }
 
+func TestMove_CrossParentCompactsSourceAndTarget(t *testing.T) {
+	svc, ctx := newSvc(t)
+	source, _ := svc.Create(ctx, CreateInput{Name: "Source"})
+	moving, _ := svc.Create(ctx, CreateInput{Name: "Moving", ParentID: &source.ID})
+	child, _ := svc.Create(ctx, CreateInput{Name: "Child", ParentID: &moving.ID})
+	remaining, _ := svc.Create(ctx, CreateInput{Name: "Remaining", ParentID: &source.ID})
+	target, _ := svc.Create(ctx, CreateInput{Name: "Target"})
+	existing, _ := svc.Create(ctx, CreateInput{Name: "Existing", ParentID: &target.ID})
+	zero := 0
+
+	got, err := svc.Move(ctx, moving.ID, MoveInput{ParentID: &target.ID, Position: &zero})
+	if err != nil {
+		t.Fatalf("cross-parent move: %v", err)
+	}
+	if got.Path != "/Target/Moving" {
+		t.Fatalf("moved path = %q, want /Target/Moving", got.Path)
+	}
+
+	sourceKids, err := svc.ListByParent(ctx, &source.ID)
+	if err != nil {
+		t.Fatalf("source children: %v", err)
+	}
+	if len(sourceKids) != 1 || sourceKids[0].ID != remaining.ID || sourceKids[0].Position != 0 {
+		t.Fatalf("source siblings were not compacted: %+v", sourceKids)
+	}
+
+	targetKids, err := svc.ListByParent(ctx, &target.ID)
+	if err != nil {
+		t.Fatalf("target children: %v", err)
+	}
+	if len(targetKids) != 2 || targetKids[0].ID != moving.ID || targetKids[1].ID != existing.ID {
+		t.Fatalf("target order = %+v, want moving then existing", targetKids)
+	}
+	for i, doc := range targetKids {
+		if doc.Position != i {
+			t.Fatalf("target %q position = %d, want %d", doc.Name, doc.Position, i)
+		}
+	}
+
+	child, err = svc.Get(ctx, child.ID)
+	if err != nil {
+		t.Fatalf("child after move: %v", err)
+	}
+	if child.Path != "/Target/Moving/Child" {
+		t.Fatalf("descendant path = %q, want /Target/Moving/Child", child.Path)
+	}
+}
+
 func TestResolveAttached_NoSubtree(t *testing.T) {
 	svc, ctx := newSvc(t)
 	root, _ := svc.Create(ctx, CreateInput{Name: "Root"})

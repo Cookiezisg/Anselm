@@ -1028,6 +1028,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get activatedSkill => '已激活技能';
 	@override String get movingDoc => '正在移动文档';
 	@override String get movedDoc => '已移动文档';
+	@override String get moveFailed => '移动被拒绝';
+	@override String get moveCycleRejected => '目标不能是文档自身或其后代';
 	@override String get updatingMeta => '正在更新信息';
 	@override String get updatedMeta => '已更新信息';
 	@override String get renaming => '正在改名';
@@ -3319,6 +3321,8 @@ extension on TranslationsZhCn {
 			'chat.tool.activatedSkill' => '已激活技能',
 			'chat.tool.movingDoc' => '正在移动文档',
 			'chat.tool.movedDoc' => '已移动文档',
+			'chat.tool.moveFailed' => '移动被拒绝',
+			'chat.tool.moveCycleRejected' => '目标不能是文档自身或其后代',
 			'chat.tool.updatingMeta' => '正在更新信息',
 			'chat.tool.updatedMeta' => '已更新信息',
 			'chat.tool.renaming' => '正在改名',
@@ -3484,10 +3488,10 @@ extension on TranslationsZhCn {
 			'chat.tool.gotHdCall' => '已调阅处理器调用档案',
 			'chat.tool.gettingMcpCall' => '正在调阅 MCP 调用档案',
 			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
-			'chat.tool.gettingActivation' => '正在调阅活动档案',
-			'chat.tool.gotActivation' => '已调阅活动档案',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.gettingActivation' => '正在调阅活动档案',
+			'chat.tool.gotActivation' => '已调阅活动档案',
 			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
 			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
 			'chat.tool.fireYes' => '已 fire',
@@ -3998,10 +4002,10 @@ extension on TranslationsZhCn {
 			'feedback.cast.ribbonFailedRun' => '运行失败 · 详情见下方错误',
 			'feedback.cast.gatePill' => 'AI 在等你决定 →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
-			'feedback.cast.tombstone' => '已删除',
-			'feedback.cast.loadFailed' => '加载失败',
 			_ => null,
 		} ?? switch (path) {
+			'feedback.cast.tombstone' => '已删除',
+			'feedback.cast.loadFailed' => '加载失败',
 			'feedback.cast.goToEntity' => '去实体页',
 			'feedback.cast.jumpToScene' => '跳到发生处',
 			'feedback.cast.verb.mentioned' => '提及',
@@ -4512,10 +4516,10 @@ extension on TranslationsZhCn {
 			'library.props.time.daysAgo' => ({required Object n}) => '${n} 天前',
 			'library.slash.text' => '正文',
 			'library.slash.h1' => '标题 1',
-			'library.slash.h2' => '标题 2',
-			'library.slash.h3' => '标题 3',
 			_ => null,
 		} ?? switch (path) {
+			'library.slash.h2' => '标题 2',
+			'library.slash.h3' => '标题 3',
 			'library.slash.bulleted' => '无序列表',
 			'library.slash.numbered' => '有序列表',
 			'library.slash.quote' => '引用',
@@ -5026,10 +5030,10 @@ extension on TranslationsZhCn {
 			'attach.loadingAudio' => '正在加载音频…',
 			'attach.audioPlaybackFailed' => '播放失败 — 点按重试',
 			'attach.audioPlaybackOffline' => '已离线 — 点按重试播放',
-			'attach.audioPlaybackUnavailable' => '暂不能播放',
-			'attach.viewFullSize' => '查看大图',
 			_ => null,
 		} ?? switch (path) {
+			'attach.audioPlaybackUnavailable' => '暂不能播放',
+			'attach.viewFullSize' => '查看大图',
 			'attach.closeViewer' => '关闭',
 			'attach.mediaViewer' => '媒体查看器',
 			'attach.playVideo' => '播放视频',
