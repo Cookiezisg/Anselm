@@ -180,6 +180,7 @@ func Run(
 		finalWritten  bool
 		stepsRun      int
 		consecAllFail int
+		handledCalls  = make(map[string]indexedCall)
 		contextTrack  contextTracker
 	)
 
@@ -250,8 +251,11 @@ func Run(
 				}
 				return toolapp.BuildSpec{}, false
 			}
+			minimumDangerOf := func(name string) toolapp.DangerLevel {
+				return toolapp.MinimumDanger(byName[name])
+			}
 
-			aBlocks, toolCalls, sr, streamErr, iT, oT = streamLLM(ctx, client, req, buildOf, log)
+			aBlocks, toolCalls, sr, streamErr, iT, oT = streamLLM(ctx, client, req, buildOf, log, minimumDangerOf)
 			contextTrack.anchor(iT, fp.total)
 			if observer, ok := host.(ContextObserver); ok {
 				observer.ObserveContext(ctx, ContextObservation{
@@ -359,7 +363,20 @@ func Run(
 			}
 		}
 
-		rBlocks := runTools(ctx, toolCalls, byName, log)
+		// Normalize only after auto-activation: a lazy tool's optional repair hook is not
+		// present in byName until the requested tool group has been activated.
+		//
+		// 必须在 auto-activation 之后规范化：lazy tool 的 repair hook 要等工具组激活后才在 byName 中存在。
+		var repairedTools []string
+		toolCalls, aBlocks, repairedTools = normalizeToolCallArguments(toolCalls, aBlocks, byName, injectReminders(ctx, host, history))
+		if len(repairedTools) > 0 {
+			log.Info("normalized provider tool arguments", zap.Strings("tools", repairedTools))
+			// Replace the just-appended assistant blocks with their normalized durable form.
+			allBlocks = allBlocks[:len(allBlocks)-len(aBlocks)]
+			allBlocks = append(allBlocks, aBlocks...)
+		}
+
+		rBlocks, repeatedCall := runToolsWithLedger(ctx, toolCalls, byName, handledCalls, log)
 		allBlocks = append(allBlocks, rBlocks...)
 
 		// Consecutive-all-fail circuit breaker: count turns where every tool_result carries
@@ -423,6 +440,20 @@ func Run(
 		// LLM + 工具。
 		if rec, ok := host.(StepRecorder); ok {
 			rec.RecordStep(ctx, step, aBlocks, rBlocks)
+		}
+
+		// An exact call repeated after an earlier execution/denial is not a new intent. The result
+		// above satisfies the provider's tool protocol; ending this turn prevents a model that ignores
+		// the suppression feedback from producing an unbounded chain of identical calls. A later user
+		// message gets a fresh ledger and can intentionally retry.
+		//
+		// 早先已执行/拒绝后又出现完全相同的调用，不是新意图。上面的结果已满足 provider 工具协议；
+		// 此处结束回合，防止模型无视 suppression 反馈继续吐无限重复调用。下一条用户消息拥有新台账，
+		// 仍可有意重试。
+		if repeatedCall {
+			host.WriteFinalize(ctx, allBlocks, messagesdomain.StatusCompleted, messagesdomain.StopReasonEndTurn, "", "", totalIn, totalOut)
+			finalWritten = true
+			break
 		}
 
 		log.Debug("react step complete", zap.Int("step", step))

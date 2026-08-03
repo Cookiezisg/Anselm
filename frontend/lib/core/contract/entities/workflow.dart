@@ -158,13 +158,16 @@ abstract class FlowrunNodeSummary with _$FlowrunNodeSummary {
 }
 
 /// The composite `data` of GET /flowruns/{id} = {flowrun, nodes, nextCursor} AND the get_flowrun /
-/// replay_flowrun tool result = {flowrun, nodes, nodeSummary?} (one bespoke decode for both — the REST
-/// shape paginates via [nextCursor], the tool caps at 80 via [nodeSummary]; both optional). flowrun.go。
+/// replay_flowrun tool result = {flowrun, nodes, workflowName?, nodeSummary?} (one bespoke decode for
+/// both — the REST shape paginates via [nextCursor], the tool caps at 80 via [nodeSummary]; all extras
+/// are optional). get_flowrun resolves [workflowName] only while the workflow remains readable; the
+/// durable [Flowrun.workflowId] is always the identity. flowrun.go。
 @freezed
 abstract class FlowrunComposite with _$FlowrunComposite {
   const factory FlowrunComposite({
     required Flowrun flowrun,
     @Default(<FlowrunNode>[]) List<FlowrunNode> nodes,
+    String? workflowName,
     String? nextCursor,
     FlowrunNodeSummary? nodeSummary,
   }) = _FlowrunComposite;

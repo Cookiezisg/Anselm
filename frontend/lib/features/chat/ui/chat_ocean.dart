@@ -38,7 +38,8 @@ class _ChatOceanState extends ConsumerState<ChatOcean> {
     final id = selected?.id;
     final Widget content;
     if (id == null) {
-      content = const _ChatLanding();
+      final landingReset = ref.watch(chatLandingResetProvider);
+      content = _ChatLanding(key: ValueKey('chat-landing-$landingReset'));
     } else {
       content = Column(
         children: [
@@ -107,7 +108,7 @@ class _ChatOceanState extends ConsumerState<ChatOcean> {
 /// 新对话 landing:**静态**问候 + 居中浮起 composer(心口 ≈ 上中,2:3)。三家皆静态——打字机拖慢可交互时刻、
 /// 每次新建重播成噪音,流式隐喻留给回答本身。h2(24,ChatGPT 值)/主墨/一次轻淡入上移。首发建线程+发送+导航。
 class _ChatLanding extends ConsumerWidget {
-  const _ChatLanding();
+  const _ChatLanding({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

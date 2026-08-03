@@ -62,6 +62,128 @@ func TestCapFlowrunNodes(t *testing.T) {
 	}
 }
 
+func TestGetFlowrunDescriptionStatesLargeRunProjection(t *testing.T) {
+	d := (&GetFlowrun{}).Description()
+	for _, want := range []string{"80", "non-completed", "nodeSummary", "GET /api/v1/flowruns/{id}", "flowrunId", "character-for-character", "never abbreviate", "do not use file_path"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("get_flowrun description must state %q, got %q", want, d)
+		}
+	}
+	if strings.Contains(d, "every node's record") {
+		t.Errorf("get_flowrun description must not promise an uncapped full node set: %q", d)
+	}
+}
+
+func TestGetFlowrunParametersMakeIDFieldUnambiguous(t *testing.T) {
+	var schema struct {
+		Properties map[string]struct {
+			Description string `json:"description"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal((&GetFlowrun{}).Parameters(), &schema); err != nil {
+		t.Fatalf("get_flowrun parameter schema must be valid JSON: %v", err)
+	}
+	desc := schema.Properties["flowrunId"].Description
+	for _, want := range []string{"Required run ID", "fr_", "character-for-character", "never abbreviate", "not file_path"} {
+		if !strings.Contains(desc, want) {
+			t.Errorf("flowrunId parameter description must state %q, got %q", want, desc)
+		}
+	}
+}
+
+func TestSearchFlowrunsDescriptionKeepsListAndDetailAsExplicitSteps(t *testing.T) {
+	d := (&SearchFlowruns{}).Description()
+	for _, want := range []string{"workflow name", "status, error and timing", "Do not automatically call get_flowrun", "explicitly asks", "one specific run"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("search_flowruns description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestSearchFlowrunsParametersConstrainStatusAndUnknownFields(t *testing.T) {
+	var schema struct {
+		AdditionalProperties bool `json:"additionalProperties"`
+		Properties           map[string]struct {
+			Enum []string `json:"enum"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal((&SearchFlowruns{}).Parameters(), &schema); err != nil {
+		t.Fatalf("search_flowruns parameter schema must be valid JSON: %v", err)
+	}
+	if schema.AdditionalProperties {
+		t.Fatal("search_flowruns must reject fields outside its explicit filter contract")
+	}
+	if got := schema.Properties["status"].Enum; !slices.Equal(got, []string{"running", "completed", "failed", "cancelled"}) {
+		t.Fatalf("status enum = %#v", got)
+	}
+}
+
+func TestGetFlowrunNormalizesOnlyAnUnambiguousFilePathAlias(t *testing.T) {
+	tool := &GetFlowrun{}
+	got, changed := tool.NormalizeArguments(json.RawMessage(`{"file_path":"fr_19b3486793b3b754"}`))
+	if !changed {
+		t.Fatal("fr_ file_path alias should be normalized")
+	}
+	var args map[string]any
+	if err := json.Unmarshal(got, &args); err != nil {
+		t.Fatalf("normalized args are invalid JSON: %v", err)
+	}
+	if args["flowrunId"] != "fr_19b3486793b3b754" || args["file_path"] != nil {
+		t.Fatalf("normalized args = %#v, want only exact flowrunId", args)
+	}
+	for _, raw := range []string{
+		`{"file_path":"/tmp/run.json"}`,
+		`{"file_path":""}`,
+	} {
+		if _, changed := tool.NormalizeArguments(json.RawMessage(raw)); changed {
+			t.Errorf("ambiguous alias %s must not be normalized", raw)
+		}
+	}
+	got, changed = tool.NormalizeArguments(json.RawMessage(`{"flowrunId":"fr_exact","file_path":"fr_exact"}`))
+	if !changed || string(got) != `{"flowrunId":"fr_exact"}` {
+		t.Fatalf("same-value redundant alias = %s, changed=%v; want only flowrunId", got, changed)
+	}
+	if _, changed := tool.NormalizeArguments(json.RawMessage(`{"flowrunId":"fr_exact","file_path":"fr_other"}`)); changed {
+		t.Fatal("conflicting file_path must not be normalized")
+	}
+}
+
+func TestGetFlowrunRejectsFilePathAfterNormalizationBoundary(t *testing.T) {
+	if err := (&GetFlowrun{}).ValidateInput(json.RawMessage(`{"file_path":"/tmp/run.json"}`)); err == nil || !strings.Contains(err.Error(), "file_path is not accepted") {
+		t.Fatalf("ordinary file_path must be rejected clearly, got %v", err)
+	}
+	if err := (&GetFlowrun{}).ValidateInput(json.RawMessage(`{"flowrunId":"fr_exact","file_path":"fr_other"}`)); err == nil || !strings.Contains(err.Error(), "file_path is not accepted") {
+		t.Fatalf("conflicting file_path must be rejected clearly, got %v", err)
+	}
+}
+
+func TestGetFlowrunNotFoundReasonIsActionable(t *testing.T) {
+	err := flowrundomain.ErrNotFound.WithDetails(map[string]any{
+		"reason": "No workflow run exists for the supplied flowrunId. Verify that the ID is correct and belongs to the current workspace.",
+	})
+	if !strings.Contains(err.Error(), "flowrun not found") {
+		t.Fatalf("tool must preserve the stable not-found message: %v", err)
+	}
+	if !strings.Contains(err.Details["reason"].(string), "current workspace") {
+		t.Fatalf("tool not-found reason must explain the workspace check: %#v", err.Details)
+	}
+}
+
+func TestFlowrunNodesResultNamedKeepsIdentityAndAddsDisplayName(t *testing.T) {
+	run := &flowrundomain.FlowRun{ID: "fr_1", WorkflowID: "wf_1"}
+	out := flowrunNodesResultNamed(run, nil, "nightly_rollup")
+	if out["workflowName"] != "nightly_rollup" {
+		t.Fatalf("named result must expose the resolved workflow name: %#v", out)
+	}
+	gotRun, ok := out["flowrun"].(*flowrundomain.FlowRun)
+	if !ok || gotRun.WorkflowID != "wf_1" {
+		t.Fatalf("named result must preserve the durable workflow id: %#v", out["flowrun"])
+	}
+	if _, ok := flowrunNodesResultNamed(run, nil, "")["workflowName"]; ok {
+		t.Fatal("unresolved workflow name must be omitted rather than invented")
+	}
+}
+
 // TestWorkflowTools_Wiring asserts all 14 tools are constructed with the expected names and
 // each satisfies the 5-method Tool interface: 7 build/query + 5 execution-lifecycle (D1) +
 // 2 run-observability.
@@ -116,6 +238,9 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 		{"get ok", &GetWorkflow{}, `{"workflowId":"wf_1"}`, false},
 		{"revert no id", &RevertWorkflow{}, `{"version":1}`, true},
 		{"revert bad version", &RevertWorkflow{}, `{"workflowId":"wf_1","version":0}`, true},
+		{"revert stringified version", &RevertWorkflow{}, `{"workflowId":"wf_1","version":"2"}`, false},
+		{"revert malformed stringified version", &RevertWorkflow{}, `{"workflowId":"wf_1","version":"2.0"}`, true},
+		{"revert boolean version", &RevertWorkflow{}, `{"workflowId":"wf_1","version":true}`, true},
 		{"revert ok", &RevertWorkflow{}, `{"workflowId":"wf_1","version":2}`, false},
 		{"delete no id", &DeleteWorkflow{}, `{}`, true},
 		{"delete ok", &DeleteWorkflow{}, `{"workflowId":"wf_1"}`, false},
@@ -125,6 +250,8 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 		// execution lifecycle (D1)
 		{"trigger no id", &TriggerWorkflow{}, `{"payload":{}}`, true},
 		{"trigger ok", &TriggerWorkflow{}, `{"workflowId":"wf_1","payload":{"x":1}}`, false},
+		{"trigger stringified payload", &TriggerWorkflow{}, `{"workflowId":"wf_1","payload":"{\"x\":1}"}`, false},
+		{"trigger array payload rejected", &TriggerWorkflow{}, `{"workflowId":"wf_1","payload":[]}`, true},
 		{"trigger ok no payload", &TriggerWorkflow{}, `{"workflowId":"wf_1"}`, false},
 		{"stage no id", &StageWorkflow{}, `{}`, true},
 		{"stage ok", &StageWorkflow{}, `{"workflowId":"wf_1"}`, false},
@@ -149,6 +276,19 @@ func TestValidateInput_RequiredFields(t *testing.T) {
 		if (err != nil) != c.wantErr {
 			t.Errorf("%s: ValidateInput(%s) err=%v, wantErr=%v", c.name, c.args, err, c.wantErr)
 		}
+	}
+}
+
+func TestDecideApprovalDescriptionUsesInboxAsDiscoverySource(t *testing.T) {
+	d := (&DecideApproval{}).Description()
+	if !strings.Contains(d, "list_approval_inbox") {
+		t.Fatalf("decide_approval must direct the model to the authoritative inbox: %q", d)
+	}
+	if strings.Contains(d, "Find a parked run + its approval node id with get_flowrun / search_flowruns") {
+		t.Fatalf("decide_approval retained the stale discovery guidance: %q", d)
+	}
+	if !strings.Contains(d, "character-for-character") {
+		t.Fatalf("decide_approval must require exact ids from the inbox row: %q", d)
 	}
 }
 
@@ -354,6 +494,69 @@ func TestCreateWorkflow_DescriptionPinsUserMetadata(t *testing.T) {
 	}
 }
 
+func TestDeleteWorkflow_DescriptionAndResultContract(t *testing.T) {
+	desc := (&DeleteWorkflow{}).Description()
+	for _, want := range []string{
+		"always dangerous",
+		"never downgrade its danger field",
+		"NOT restorable",
+		"no restore operation",
+		"never tell the user it can be recovered",
+		"required workflowId key",
+		"exact hosted-model id alias",
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("delete_workflow description missing %q: %s", want, desc)
+		}
+	}
+	if got := (&DeleteWorkflow{}).MinimumDanger(); got != toolapp.DangerDangerous {
+		t.Fatalf("delete_workflow minimum danger = %q, want dangerous", got)
+	}
+	for _, tc := range []struct {
+		name string
+		args string
+		want bool
+	}{
+		{name: "canonical", args: `{"workflowId":"wf_1"}`, want: true},
+		{name: "hosted alias", args: `{"id":"wf_1"}`, want: true},
+		{name: "conflicting keys", args: `{"workflowId":"wf_1","id":"wf_2"}`, want: false},
+		{name: "filesystem field", args: `{"workflowId":"wf_1","file_path":""}`, want: false},
+		{name: "missing", args: `{}`, want: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := (&DeleteWorkflow{}).ValidateInput([]byte(tc.args)) == nil; got != tc.want {
+				t.Fatalf("ValidateInput(%s)=%v, want %v", tc.args, got, tc.want)
+			}
+		})
+	}
+	if got := (&DeleteWorkflow{}).CallIdentity(json.RawMessage(`{"workflowId":"wf_1","file_path":""}`)); got != "workflow:wf_1" {
+		t.Fatalf("CallIdentity must ignore irrelevant fields, got %q", got)
+	}
+
+	svc, ctx := newSvc(t)
+	created, err := (&CreateWorkflow{svc: svc}).Execute(ctx, `{"name":"delete-contract","description":"","tags":[],"changeReason":"contract test","ops":[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_contract"}}]}`)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	var createdRow struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(created), &createdRow); err != nil || createdRow.ID == "" {
+		t.Fatalf("decode created workflow: %v (%s)", err, created)
+	}
+	deleted, err := (&DeleteWorkflow{svc: svc}).Execute(ctx, `{"id":"`+createdRow.ID+`"}`)
+	if err != nil {
+		t.Fatalf("delete workflow: %v", err)
+	}
+	var result map[string]any
+	if err := json.Unmarshal([]byte(deleted), &result); err != nil {
+		t.Fatalf("decode delete result: %v (%s)", err, deleted)
+	}
+	if result["restorable"] != false || result["historyRetained"] != true {
+		t.Fatalf("delete result must state the actual recovery boundary: %s", deleted)
+	}
+}
+
 func TestSearchWorkflow_PrefersDirectMatchesAndReturnsLifecycleFields(t *testing.T) {
 	svc, ctx := newSvc(t)
 	create := &CreateWorkflow{svc: svc}
@@ -408,6 +611,100 @@ func newSvc(t *testing.T) (*workflowapp.Service, context.Context) {
 	}
 	svc := workflowapp.NewService(workflowstore.New(ormpkg.Open(sqlDB)), nil, nil, zap.NewNop())
 	return svc, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+}
+
+type stageResultBinder struct {
+	attach     []string
+	attachOnce []string
+}
+
+func (b *stageResultBinder) Attach(_ context.Context, triggerID, workflowID string) error {
+	b.attach = append(b.attach, triggerID+"|"+workflowID)
+	return nil
+}
+
+func (b *stageResultBinder) AttachOnce(_ context.Context, triggerID, workflowID string) error {
+	b.attachOnce = append(b.attachOnce, triggerID+"|"+workflowID)
+	return nil
+}
+
+func (b *stageResultBinder) AttachReplay(context.Context, string, string) error { return nil }
+
+func (b *stageResultBinder) Detach(string, string) {}
+
+func TestStageWorkflow_ExecuteReturnsNamedSnapshotFromRealService(t *testing.T) {
+	svc, ctx := newSvc(t)
+	binder := &stageResultBinder{}
+	svc.SetExecutionPorts(binder, nil)
+
+	created, err := (&CreateWorkflow{svc: svc}).Execute(ctx, `{"name":"stage_named","description":"","tags":[],"changeReason":"contract test","ops":[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_a"}}]}`)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	var row struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(created), &row); err != nil || row.ID == "" {
+		t.Fatalf("decode created workflow: %v (%s)", err, created)
+	}
+
+	out, err := (&StageWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+row.ID+`"}`)
+	if err != nil {
+		t.Fatalf("stage workflow: %v", err)
+	}
+	var result struct {
+		Staged         bool   `json:"staged"`
+		WorkflowID     string `json:"workflowId"`
+		WorkflowName   string `json:"workflowName"`
+		LifecycleState string `json:"lifecycleState"`
+		Active         bool   `json:"active"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("decode stage result: %v (%s)", err, out)
+	}
+	if !result.Staged || result.WorkflowID != row.ID || result.WorkflowName != "stage_named" || result.LifecycleState != "inactive" || result.Active {
+		t.Fatalf("stage result must identify the actual inactive workflow: %+v", result)
+	}
+	if len(binder.attachOnce) != 1 || binder.attachOnce[0] != "trg_a|"+row.ID {
+		t.Fatalf("stage must attach the actual workflow exactly once: %v", binder.attachOnce)
+	}
+}
+
+func TestActivateWorkflow_ExecuteReturnsNamedSnapshotFromRealService(t *testing.T) {
+	svc, ctx := newSvc(t)
+	binder := &stageResultBinder{}
+	svc.SetExecutionPorts(binder, nil)
+
+	created, err := (&CreateWorkflow{svc: svc}).Execute(ctx, `{"name":"activate_named","description":"","tags":[],"changeReason":"contract test","ops":[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_a"}}]}`)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	var row struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(created), &row); err != nil || row.ID == "" {
+		t.Fatalf("decode created workflow: %v (%s)", err, created)
+	}
+
+	out, err := (&ActivateWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+row.ID+`"}`)
+	if err != nil {
+		t.Fatalf("activate workflow: %v", err)
+	}
+	var result struct {
+		WorkflowID     string `json:"workflowId"`
+		WorkflowName   string `json:"workflowName"`
+		LifecycleState string `json:"lifecycleState"`
+		Active         bool   `json:"active"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("decode activate result: %v (%s)", err, out)
+	}
+	if result.WorkflowID != row.ID || result.WorkflowName != "activate_named" || result.LifecycleState != "active" || !result.Active {
+		t.Fatalf("activate result must identify the actual live workflow: %+v", result)
+	}
+	if len(binder.attach) != 1 || binder.attach[0] != "trg_a|"+row.ID {
+		t.Fatalf("activate must attach the actual workflow exactly once: %v", binder.attach)
+	}
 }
 
 // TestCreateGetEdit_HappyPath drives create → get → edit through the tools over a real
@@ -492,6 +789,16 @@ func TestCapabilityCheck_Execute_StructuralOnly(t *testing.T) {
 	if err := json.Unmarshal([]byte(res), &rep); err != nil {
 		t.Fatalf("capcheck result: %v (%s)", err, res)
 	}
+	var shape map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(res), &shape); err != nil {
+		t.Fatalf("capcheck shape: %v (%s)", err, res)
+	}
+	if got := string(shape["problems"]); got != "[]" {
+		t.Fatalf("empty problems must be an array, got %s", got)
+	}
+	if got := string(shape["warnings"]); got != "[]" {
+		t.Fatalf("empty warnings must be an array, got %s", got)
+	}
 	// No resolver wired → structural-only, valid, OK.
 	if !rep.OK || !rep.StructurallyValid || rep.Resolved {
 		t.Fatalf("structural-only capcheck wrong: %+v", rep)
@@ -506,6 +813,42 @@ func TestOpsDoc_SchemaLessTextConvention(t *testing.T) {
 	for _, want := range []string{"SCHEMA-LESS", "<nodeId>.text", "summarize.text"} {
 		if !strings.Contains(opsDoc, want) {
 			t.Fatalf("opsDoc must document the schema-less .text convention; missing %q", want)
+		}
+	}
+}
+
+// TestEditWorkflow_DescriptionDisambiguatesFilesystemEdit — the resident filesystem Edit tool has
+// file_path/old_string/new_string, while this lazy tool edits a workflow graph with workflowId/ops.
+// Keep that distinction explicit because a wrong first call makes the user watch a needless failed
+// activity and can trigger a model retry before the real operation.
+func TestEditWorkflow_DescriptionDisambiguatesFilesystemEdit(t *testing.T) {
+	description := (&EditWorkflow{}).Description()
+	for _, want := range []string{
+		"NOT the filesystem Edit tool",
+		"file_path",
+		"old_string",
+		"new_string",
+		"workflowId",
+		"non-empty ops array",
+	} {
+		if !strings.Contains(description, want) {
+			t.Fatalf("edit_workflow description must disambiguate the filesystem Edit tool; missing %q", want)
+		}
+	}
+}
+
+func TestRevertWorkflow_DescriptionDocumentsHostedIntegerCompatibility(t *testing.T) {
+	description := (&RevertWorkflow{}).Description()
+	for _, want := range []string{
+		"positive integer",
+		"exact decimal integer string is also accepted",
+		"floats, booleans, arrays, and malformed strings are rejected",
+		"one call containing BOTH",
+		"never omit either key",
+		"without another tool call",
+	} {
+		if !strings.Contains(description, want) {
+			t.Fatalf("revert_workflow description must document version compatibility; missing %q", want)
 		}
 	}
 }
@@ -540,9 +883,22 @@ func TestEdit_RejectsInvalidConcurrency(t *testing.T) {
 // must disclose the per-kind fire-payload shape so the agent doesn't burn failed runs guessing it.
 func TestTriggerWorkflow_PayloadDescribesEntryShape(t *testing.T) {
 	params := string((&TriggerWorkflow{}).Parameters())
-	for _, want := range []string{"body", "fsnotify", "create_trigger"} {
+	for _, want := range []string{"body", "fsnotify", "create_trigger", "JSON-encoded object string", "arrays"} {
 		if !strings.Contains(params, want) {
 			t.Errorf("trigger_workflow payload description must mention %q to disclose the entry-trigger fire-payload shape; got: %s", want, params)
 		}
+	}
+}
+
+// TestTriggerWorkflow_StringifiedPayloadPreservesObject proves the hosted-model compatibility lane
+// changes only the encoding, not the payload object that reaches the scheduler.
+func TestTriggerWorkflow_StringifiedPayloadPreservesObject(t *testing.T) {
+	var args triggerWorkflowArgs
+	if err := json.Unmarshal([]byte(`{"workflowId":"wf_1","payload":"{\"body\":{\"amount\":18240}}"}`), &args); err != nil {
+		t.Fatalf("stringified payload must decode: %v", err)
+	}
+	body, ok := args.Payload["body"].(map[string]any)
+	if !ok || body["amount"] != float64(18240) {
+		t.Fatalf("decoded payload changed shape: workflow=%q payload=%#v", args.WorkflowID, args.Payload)
 	}
 }

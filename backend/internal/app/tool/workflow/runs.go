@@ -3,10 +3,13 @@ package workflow
 import (
 	"context"
 	"encoding/json"
+	stderrors "errors"
 	"fmt"
+	"strings"
 
 	schedulerapp "github.com/sunweilin/anselm/backend/internal/app/scheduler"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 	flowrundomain "github.com/sunweilin/anselm/backend/internal/domain/flowrun"
 )
 
@@ -21,30 +24,73 @@ import (
 
 // --- get_flowrun -------------------------------------------------------------
 
-type GetFlowrun struct{ sched *schedulerapp.Service }
+type GetFlowrun struct {
+	sched     *schedulerapp.Service
+	workflows *workflowapp.Service
+}
 
 func (t *GetFlowrun) Name() string { return "get_flowrun" }
 
 func (t *GetFlowrun) Description() string {
-	return "Get one workflow run by its flowrun id: the run header (status, error, pinned versions) plus every node's record (status, result, error, iteration). Use this to inspect how a run started via trigger_workflow went, or to diagnose a failed/parked run."
+	return "Get one workflow run by its flowrun id. STRICT ARGUMENT CONTRACT: pass the run ID in the flowrunId field exactly, character-for-character; if it came from the user or a previous tool result, copy every character into this JSON argument and never abbreviate, normalize, redact, or guess it. For example {\"flowrunId\":\"fr_…\"}; do not use file_path, id, or workflowId. The run header includes status, error, and pinned versions, plus node records (status, result, error, iteration). Runs with 80 or fewer node rows return every row; large or looping runs return every non-completed row plus the most recent completed tail (up to 80) and a nodeSummary with the true total. Use the REST endpoint GET /api/v1/flowruns/{id} to page the full node set. Use this to inspect how a run started via trigger_workflow went, or to diagnose a failed/parked run."
 }
 
 func (t *GetFlowrun) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
+		"additionalProperties": false,
 		"required": ["flowrunId"],
-		"properties": {"flowrunId": {"type": "string"}}
+		"properties": {"flowrunId": {"type": "string", "description": "Required run ID. Copy the fr_… value character-for-character, including every digit; never abbreviate or guess it. This is not file_path, id, or workflowId."}}
 	}`)
 }
 
-func (t *GetFlowrun) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		FlowrunID string `json:"flowrunId"`
+// NormalizeArguments repairs one observed hosted-model drift: some providers have emitted the
+// filesystem-shaped `file_path` key for a run id even though the schema requires `flowrunId`.
+// Only an unmistakable fr_ value is eligible, and an explicit flowrunId always wins. This is not
+// fuzzy lookup: the ID bytes are preserved exactly and the scheduler still performs the normal
+// workspace-scoped lookup.
+//
+// NormalizeArguments 修复一次已观测到的 hosted model 漂移：尽管 schema 要求 `flowrunId`，某些 provider
+// 曾把 run id 放进 filesystem 形状的 `file_path`。只有明确的 fr_ 值才可修复，显式 flowrunId 永远优先。
+// 这不是模糊查找：ID 字节逐字保留，scheduler 仍走普通 workspace 隔离查询。
+func (t *GetFlowrun) NormalizeArguments(args json.RawMessage) (json.RawMessage, bool) {
+	var fields map[string]any
+	if json.Unmarshal(args, &fields) != nil || fields == nil {
+		return args, false
 	}
-	if err := json.Unmarshal(args, &a); err != nil {
+	if value, ok := fields["flowrunId"].(string); ok && value != "" {
+		if alias, ok := fields["file_path"].(string); ok && alias == value {
+			delete(fields, "file_path")
+			normalized, err := json.Marshal(fields)
+			if err == nil {
+				return normalized, true
+			}
+		}
+		return args, false
+	}
+	value, ok := fields["file_path"].(string)
+	if !ok || !strings.HasPrefix(value, "fr_") || len(value) <= len("fr_") {
+		return args, false
+	}
+	delete(fields, "file_path")
+	fields["flowrunId"] = value
+	normalized, err := json.Marshal(fields)
+	if err != nil {
+		return args, false
+	}
+	return normalized, true
+}
+
+func (t *GetFlowrun) ValidateInput(args json.RawMessage) error {
+	var fields map[string]any
+	if err := json.Unmarshal(args, &fields); err != nil {
 		return fmt.Errorf("get_flowrun: bad args: %w", err)
 	}
-	if a.FlowrunID == "" {
+	if _, ok := fields["file_path"]; ok {
+		return fmt.Errorf("get_flowrun: file_path is not accepted; provide the run ID in flowrunId")
+	}
+	flowrunID, _ := fields["flowrunId"].(string)
+	if flowrunID == "" {
 		return ErrFlowrunIDRequired
 	}
 	return nil
@@ -59,27 +105,42 @@ func (t *GetFlowrun) Execute(ctx context.Context, argsJSON string) (string, erro
 	}
 	run, nodes, err := t.sched.GetRunWithNodes(ctx, args.FlowrunID)
 	if err != nil {
+		if stderrors.Is(err, flowrundomain.ErrNotFound) {
+			return "", flowrundomain.ErrNotFound.WithDetails(map[string]any{
+				"reason": "No workflow run exists for the supplied flowrunId. Verify that the ID is correct and belongs to the current workspace.",
+			})
+		}
 		return "", fmt.Errorf("get_flowrun: %w", err)
 	}
-	return toolapp.ToJSON(flowrunNodesResult(run, nodes)), nil
+	workflowName := ""
+	if t.workflows != nil {
+		if workflow, resolveErr := t.workflows.GetWorkflow(ctx, run.WorkflowID); resolveErr == nil && workflow != nil {
+			workflowName = workflow.Name
+		}
+	}
+	return toolapp.ToJSON(flowrunNodesResultNamed(run, nodes, workflowName)), nil
 }
 
 // --- search_flowruns ---------------------------------------------------------
 
-type SearchFlowruns struct{ sched *schedulerapp.Service }
+type SearchFlowruns struct {
+	sched     *schedulerapp.Service
+	workflows *workflowapp.Service
+}
 
 func (t *SearchFlowruns) Name() string { return "search_flowruns" }
 
 func (t *SearchFlowruns) Description() string {
-	return "List workflow runs (most recent first), optionally filtered to one workflow. Each row carries status, error and timing; use get_flowrun on an id for the per-node detail."
+	return "List workflow runs (most recent first), optionally filtered to one workflow. Each row carries the workflow name when still available, status, error and timing. Do not automatically call get_flowrun after this result: only call get_flowrun when the user explicitly asks for per-node detail or selects one specific run to diagnose."
 }
 
 func (t *SearchFlowruns) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
+		"additionalProperties": false,
 		"properties": {
 			"workflowId": {"type": "string", "description": "Optional: only this workflow's runs."},
-			"status": {"type": "string", "description": "Optional: running | completed | failed | cancelled."},
+			"status": {"type": "string", "enum": ["running", "completed", "failed", "cancelled"], "description": "Optional run status filter."},
 			"limit": {"type": "integer", "description": "Page size (default 50)."},
 			"cursor": {"type": "string", "description": "Opaque pagination cursor."}
 		}
@@ -113,7 +174,34 @@ func (t *SearchFlowruns) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("search_flowruns: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"runs": runs, "nextCursor": next, "hasMore": next != ""}), nil
+	return toolapp.ToJSON(map[string]any{"runs": searchFlowrunRows(ctx, runs, t.workflows), "nextCursor": next, "hasMore": next != ""}), nil
+}
+
+// searchFlowrunRows adds a human-readable workflow name without changing the durable run identity.
+// A deleted workflow is an honest name omission; the raw workflowId remains in the tool result for
+// exact follow-up calls and audit.
+//
+// searchFlowrunRows 在不改变 durable run 身份的前提下补人话 workflow 名称。workflow 已删时诚实缺名；
+// 原始 workflowId 仍留在 tool result，供逐字后续调用与审计。
+func searchFlowrunRows(ctx context.Context, runs []*flowrundomain.FlowRun, workflows *workflowapp.Service) []map[string]any {
+	rows := make([]map[string]any, 0, len(runs))
+	for _, run := range runs {
+		encoded, err := json.Marshal(run)
+		if err != nil {
+			continue
+		}
+		var row map[string]any
+		if err := json.Unmarshal(encoded, &row); err != nil {
+			continue
+		}
+		if workflows != nil {
+			if wf, err := workflows.Get(ctx, run.WorkflowID); err == nil && wf != nil && wf.Name != "" {
+				row["workflowName"] = wf.Name
+			}
+		}
+		rows = append(rows, row)
+	}
+	return rows
 }
 
 // --- replay_flowrun ----------------------------------------------------------
@@ -185,7 +273,7 @@ type DecideApproval struct{ sched *schedulerapp.Service }
 func (t *DecideApproval) Name() string { return "decide_approval" }
 
 func (t *DecideApproval) Description() string {
-	return "Approve or reject a workflow run PARKED on an approval node (the human-in-the-loop decision). Args: flowrunId, the approval node's id (nodeId), decision ('yes' approves / 'no' rejects), and an optional reason. First decision wins (a later decide, or the approval's timeout, no-ops). Find a parked run + its approval node id with get_flowrun / search_flowruns. Returns the updated run + nodes after the decision resumes (yes) or stops (no, per the node's branches) the run."
+	return "Approve or reject a workflow run PARKED on an approval node (the human-in-the-loop decision). First call list_approval_inbox to discover the workspace-wide parked rows, then copy flowrunId and nodeId character-for-character from one row; do not use search_flowruns, whose run-status filter cannot find a parked node. Args: flowrunId, the approval node's id (nodeId), decision ('yes' approves / 'no' rejects), and an optional reason. First decision wins (a later decide, or the approval's timeout, no-ops). Returns the authoritative updated run + nodes after the decision resumes (yes) or stops (no, per the node's branches) the run."
 }
 
 func (t *DecideApproval) Parameters() json.RawMessage {
@@ -193,8 +281,8 @@ func (t *DecideApproval) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["flowrunId", "nodeId", "decision"],
 		"properties": {
-			"flowrunId": {"type": "string", "description": "The run parked on the approval."},
-			"nodeId": {"type": "string", "description": "The approval node's id in the graph."},
+			"flowrunId": {"type": "string", "description": "REQUIRED exact flowrun id copied character-for-character from list_approval_inbox; never abbreviate, guess, or substitute workflowId."},
+			"nodeId": {"type": "string", "description": "REQUIRED exact approval node id copied character-for-character from the same list_approval_inbox row."},
 			"decision": {"type": "string", "enum": ["yes", "no"], "description": "yes = approve, no = reject."},
 			"reason": {"type": "string", "description": "Optional reason recorded with the decision."}
 		}
@@ -244,8 +332,21 @@ func (t *DecideApproval) Execute(ctx context.Context, argsJSON string) (string, 
 // flowrunNodesResult 构建 {flowrun, nodes, nodeSummary?} 工具结果，经 capFlowrunNodes 限大 run 的节点，使
 // get_flowrun/replay_flowrun/decide_approval 不把长 loop 的数千节点行（MaxIterations 时约 650KB）倾倒进 LLM 上下文（F173）。
 func flowrunNodesResult(run *flowrundomain.FlowRun, nodes []*flowrundomain.FlowRunNode) map[string]any {
+	return flowrunNodesResultNamed(run, nodes, "")
+}
+
+// flowrunNodesResultNamed adds the resolved workflow name when the referenced workflow is still
+// readable. The name is a convenience projection for the LLM and card; the durable FlowRun keeps
+// workflowId as the only identity, and a deleted/missing workflow remains an honest name omission.
+//
+// flowrunNodesResultNamed 在 workflow 仍可读时补真实名称，供 LLM 与卡片使用。耐久 FlowRun 仍以
+// workflowId 为唯一身份；workflow 已删/不可读时诚实缺席名称，不伪造。
+func flowrunNodesResultNamed(run *flowrundomain.FlowRun, nodes []*flowrundomain.FlowRunNode, workflowName string) map[string]any {
 	shown, summary := capFlowrunNodes(nodes)
 	out := map[string]any{"flowrun": run, "nodes": shown}
+	if workflowName != "" {
+		out["workflowName"] = workflowName
+	}
 	if summary != nil {
 		out["nodeSummary"] = summary
 	}

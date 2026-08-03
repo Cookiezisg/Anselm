@@ -198,58 +198,70 @@ class _AnPopoverState extends State<AnPopover>
 
   @override
   Widget build(BuildContext context) {
-    return OverlayPortal(
-      controller: _portal,
-      overlayChildBuilder: (overlayContext) {
-        return Stack(
-          children: [
-            // Outside-tap barrier (transparent, full-screen). 点外关闭遮罩。
-            Positioned.fill(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
-                onTap: widget.controller.close,
-              ),
-            ),
-            // Position with a delegate that flips + clamps to stay on-screen (it measures the child first).
-            // Anchor rect read at BUILD (size access during layout is forbidden). 经 delegate 翻转+夹取定位。
-            Positioned.fill(
-              child: CustomSingleChildLayout(
-                delegate: _PopoverLayoutDelegate(
-                  anchorRect: _anchorRectIn(overlayContext),
-                  alignEnd: widget.alignEnd,
-                  gap: widget.gap,
-                  pad: AnSpace.s8,
+    // Keep one semantic boundary mounted with the trigger while the OverlayPortal adds/removes its
+    // floating child. macOS' AX bridge otherwise sees the portal's transient menu node as the root being
+    // replaced during open/close and can reject the next update (`...will not be in the tree`). The
+    // boundary is deliberately unconditional: the trigger and the optional popover are one navigable
+    // control family, while explicit child nodes preserve each menu row's own button semantics.
+    // 浮层 OverlayPortal 开合会增删瞬时子树;若没有一个随触发器常驻的语义边界,macOS AX bridge 会把菜单节点
+    // 当作正在替换的根而拒绝下一次更新。边界**无条件**挂载;触发器与可选浮层同属一组,explicit child nodes
+    // 仍保留每个菜单行自己的按钮语义。
+    return Semantics(
+      container: true,
+      explicitChildNodes: true,
+      child: OverlayPortal(
+        controller: _portal,
+        overlayChildBuilder: (overlayContext) {
+          return Stack(
+            children: [
+              // Outside-tap barrier (transparent, full-screen). 点外关闭遮罩。
+              Positioned.fill(
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: widget.controller.close,
                 ),
-                child: FadeTransition(
-                  opacity: _anim,
-                  child: ScaleTransition(
-                    scale: _scale,
-                    alignment: Alignment
-                        .topCenter, // grow downward from the top edge 自顶向下展开
-                    child: CallbackShortcuts(
-                      bindings: {
-                        const SingleActivator(LogicalKeyboardKey.escape):
-                            widget.controller.close,
-                      },
-                      // FocusScope (not a plain Focus): the overlay is a self-contained focus context — arrow
-                      // keys traverse rows, Esc has a target, a descendant autofocus seeds it. 浮层自成焦点域。
-                      child: FocusScope(
-                        node: _overlayFocusScope,
-                        autofocus: true,
-                        child: widget.overlayBuilder(
-                          overlayContext,
-                          _anchorSize(),
+              ),
+              // Position with a delegate that flips + clamps to stay on-screen (it measures the child first).
+              // Anchor rect read at BUILD (size access during layout is forbidden). 经 delegate 翻转+夹取定位。
+              Positioned.fill(
+                child: CustomSingleChildLayout(
+                  delegate: _PopoverLayoutDelegate(
+                    anchorRect: _anchorRectIn(overlayContext),
+                    alignEnd: widget.alignEnd,
+                    gap: widget.gap,
+                    pad: AnSpace.s8,
+                  ),
+                  child: FadeTransition(
+                    opacity: _anim,
+                    child: ScaleTransition(
+                      scale: _scale,
+                      alignment: Alignment
+                          .topCenter, // grow downward from the top edge 自顶向下展开
+                      child: CallbackShortcuts(
+                        bindings: {
+                          const SingleActivator(LogicalKeyboardKey.escape):
+                              widget.controller.close,
+                        },
+                        // FocusScope (not a plain Focus): the overlay is a self-contained focus context — arrow
+                        // keys traverse rows, Esc has a target, a descendant autofocus seeds it. 浮层自成焦点域。
+                        child: FocusScope(
+                          node: _overlayFocusScope,
+                          autofocus: true,
+                          child: widget.overlayBuilder(
+                            overlayContext,
+                            _anchorSize(),
+                          ),
                         ),
                       ),
                     ),
                   ),
                 ),
               ),
-            ),
-          ],
-        );
-      },
-      child: KeyedSubtree(key: _anchorKey, child: widget.anchor),
+            ],
+          );
+        },
+        child: KeyedSubtree(key: _anchorKey, child: widget.anchor),
+      ),
     );
   }
 }

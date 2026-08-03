@@ -611,8 +611,11 @@ func TestBuildSystemPrompt_Sections(t *testing.T) {
 		"Reply in Chinese.",
 		`<section name="critical_rules">`,
 		"Opaque machine values",
+		"Never promise that a deleted or soft-deleted entity can be restored",
 		"raw tool card",
 		"Never output any portion",
+		"inside a tool-call JSON argument",
+		"copy it character-for-character",
 		"perform a consistency pass",
 	} {
 		if !strings.Contains(prompt, want) {

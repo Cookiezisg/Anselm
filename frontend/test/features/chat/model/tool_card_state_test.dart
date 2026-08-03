@@ -89,6 +89,14 @@ void main() {
     final gateCancelled = _call()
       ..children.add(_result('The run was cancelled before this tool ran.'));
     expect(ToolCardState.of(gateCancelled).phase, ToolCardPhase.cancelled);
+
+    final suppressed = _call()
+      ..children.add(
+        _result(
+          'Duplicate tool call suppressed: identical delete_workflow call tc_0 was already handled earlier in this turn; no second approval or execution was requested.',
+        ),
+      );
+    expect(ToolCardState.of(suppressed).phase, ToolCardPhase.suppressed);
   });
 
   test(

@@ -143,7 +143,9 @@ Workflow Agent node 可以提供已完成 ReAct steps，并通过 recorder 逐�
 - Relation：equip edges 指向 Function、Handler、MCP、Skill 与 Document；
 - Workflow：Agent node 调用同一 `InvokeAgent`；
 - Chat：`invoke_agent` 使用父 tool-call scope；
-- Delete：软删主行并清理所有触及该 agent 的 relation，Execution 仍是耐久审计。
+- Delete：软删主行并清理所有触及该 agent 的 relation，Execution 仍是耐久审计。主实体与 active
+  configuration **不可恢复**；`delete_agent` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe`
+  也必须先经过 HumanLoop 用户批准，且不能被 skill 或 `approve_always` 预授权绕过。
 
 `delete_agent` 的 LLM 回执是 JSON，且回执本身是删除事实的唯一来源：
 

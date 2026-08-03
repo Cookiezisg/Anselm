@@ -12,6 +12,72 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-03 10:49 · 第八批 TOOL-080 fire_trigger 正式通过，50/50 收口待统一长门禁
+
+- 首轮真实暂停负向冻结为红：助手错误建议用 `edit_trigger` 清除 paused，但该工具不能 resume。红证据保留于 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-103209/evidence/tool-080-red-paused-wrong-resume-guidance.txt`，不计绿。
+- stop-and-fix：同步 `FireTrigger` 描述、trigger domain docs、工具抽取清册，明确 `TRIGGER_PAUSED`、Resume control/`POST /api/v1/triggers/{id}:resume`，并明确 `edit_trigger` 不可恢复；补工具描述守卫测试。`go test -count=1 ./internal/app/tool/trigger ./internal/app/loop` 通过。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-104036` 真实 active/paused 双路径：正向只调用一次 `fire_trigger`，产生 activation `tra_77b6353d19b9ba70`、一个 firing 和 completed flowrun `fr_1dfce2fbff3f084b`；暂停负向只调用一次，展示真实错误和正确 Resume 指引，无 retry、`trigger_workflow` 或 mutation。五通道证据：screen.mov `223.748333s / 2784x1808 / 60fps`，SSE 三流无 gap/error，LLM 响应全 200，backend 仅预期 paused WARN，frontend 无运行时红线。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-104036/evidence/tool-080-formal-green-fire-trigger.txt`。
+- fixture 通过真实 API DELETE=204 清理，随后 GET=404、命名列表为空，activation/firing/flowrun 审计行保留。五级 `TOOL-080=G1/F2/A5/C4/G2` 写入 COVERAGE，中央账本 **430 judgments**，第八批 **50 / 50**；锚点 10/10 有效，`alarms.py check` clean。统一长门禁、完整 testend、工作树审计和提交已解锁，下一前线暂缓。
+- 统一收口：根 `make verify` 的 backend/frontend/docs/demo 全绿，显式 `go test ./...` 全绿。第一次完整 testend 在 `TestContractChat_TouchpointSelfReportAndNameBorrow` 暴露旧 fixture 未处理 `delete_function` 的 dangerous gate；没有降低安全 floor，修改 testend 用例依次批准两道人闸，定向场景 `6.456s` 通过；第二次完整 `make testend` `310.401s` 全绿。收台后无 testend/llama 残留进程，`git diff --check` 与 `alarms.py check` clean；当前进入工作树审计与提交。
+
+# 2026-08-03 10:29 · 第八批 TOOL-079 delete_trigger 正式通过，Popover AXTree 红线已修复
+
+- 首轮 stop-and-fix 观察在打开/关闭模型 Popover 后发现 105 行 macOS `AXTree` 更新失败：`Failed to update ui::AXTree, error: 149 will not be in the tree and is not the new root`。画面表面正常但 accessibility tree 已退化，不能计绿；`frontend/lib/core/ui/an_popover.dart` 增加常驻 `Semantics(container:true, explicitChildNodes:true)` 边界，补 `an_menu_test.dart` 回归，并同步 chat feature/testend 文档。
+- 修复验证：Popover 定向 Flutter test 14/14；`frontend/make verify` 5174 项；`docs/make verify`；`go test -count=1 ./internal/app/loop ./internal/app/tool/trigger ./internal/app/tool`；`git diff --check` 均通过。
+- 负向 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-073913` 真实 Deny 后 trigger 主行仍存在、没有删除 touchpoint；正向 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-101120` 使用新二进制、真实 Flutter App、受管 gateway、Computer Use 和连续录屏完成 Allow。Gate 具体说明主行不可恢复、listener 停止、关系影响和审计历史保留；UI 只出现一次 `delete_trigger` 和一次 Allow，最终显示 `Deleted trigger ... · deleted`。
+- 五通道交叉核对：`rig-check` 在运行中全绿；screen.mov 封口 `838.035000s / 2784x1808 / 60fps`；frontend journal 无 Flutter/Dart/RenderFlex/Unhandled 红线；backend journal 无 panic/FATAL/ERROR；SSE 三流已连接，messages durable `1..13` 连续；LLM wire 恰有一次 canonical delete call，所有网关响应 200。SQLite/REST 证明 `deleted_at` 审计保留、正常读取不可见、activation/firing 为 0、created/deleted touchpoint 成对存在；正式证据为 `evidence/tool-079-formal-green-delete-trigger.txt`。
+- 五级 `TOOL-079=G1/F2/A5/C4/G2` 已由 `judge.py` 写入 COVERAGE，中央账本为 **425 judgments**。两条批量写账警报 (`gap-too-fast`、`discovery-collapse`) 均经红绿证据复审并 ack，`alarms.py check` 最终 clean；第八批推进到 **45 / 50**，下一前线 `TOOL-080 fire_trigger`，未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-03 07:12 · 第八批 TOOL-078 edit_trigger 正式通过
+
+- formal-136 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-065903` 首轮真实 App 冻结为红：hosted model 把 `create_trigger.config` 发成 JSON 字符串，后端拒绝，Flutter 活动岛出现失败卡，随后 retry 才成功。该错误历史保留，不计绿。
+- stop-and-fix：`backend/internal/app/tool/trigger/build.go` 增加 create/edit 对称严格对象解码，接受原生 object 与精确 JSON 编码 object string，拒绝数组/标量/普通文本/坏 JSON；edit 复用 sensor output map→CEL 归一化。补 trigger Go 测试、工具描述、领域文档和清册同步。
+- formal-137 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-070531` 新二进制真实 onboarding + 受管 gateway + Computer Use 重跑：create `acceptance_078_cron` 后一次 edit 改名/描述/表达式到 `*/15`，再更新到 `*/20`；最终 UI 无失败卡、retry 或 Settling 残留，SQLite 只有一条 `acceptance_078_cron_renamed`，config=`{"expression":"*/20 * * * *"}`，paused=0。模型最后一次虽在 reasoning 中说要字符串化，实际 wire 仍为 native object，已如实记录，不冒充字符串 wire 成功。
+- 五通道：screen.mov `222.758333s`；rig-check 五通道在线且 D1 归属正确；SSE 432 帧，notifications durable `1..2`、messages durable `1..59` 单调唯一，三流均连接；LLM tap 36 条 journal、10 bodies、24 个有状态响应全 200；backend/frontend 错误扫描 clean。正式证据为 `evidence/tool-078-formal-137-green-edit-trigger.txt`。
+- 五级 `TOOL-078=G1/F2/A5/C4/G2` 写入 COVERAGE，中央账本从 425 增至 **430 judgments**；批量写账触发 `gap-too-fast`，已用 formal-137 完整复核说明 ack，`alarms.py check` clean。第八批推进至 **40 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-079 delete_trigger`。
+
+## 2026-08-03 06:56 · 第八批 TOOL-077 create_trigger 正式通过
+
+- formal-132 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-062539` 首轮真实 webhook 路径冻结为红：助手正文把 webhook endpoint 中的 opaque trigger id 脱敏成不可用的 `the requested item`，用户无法复制可工作的 URL。formal-133 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-063222` 暴露 sensor `config.output` 对象 map 被后端拒绝两次后才成功；formal-134 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-063932` 暴露 fsnotify 坏 config 触发 Flutter `String`→`Map` 强转异常，App 出现 `Something went wrong`。三份红证据已保留，不计绿。
+- stop-and-fix：`redact.go` 改为让 webhook endpoint 的可用语义留在工具卡、而不让机器 id 污染助手正文；`create_trigger` 对自然语言 sensor output map 稳定转换为 CEL object literal；`tool_card_trigger.dart` 对坏 config/events 安全降级，失败卡显示真实后端错误而不回显敏感参数。补充 loop/trigger Go 测试、Flutter widget test、Dart analyze 及 backend/frontend domain docs；定向测试全绿。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-064904` 以新二进制、真实 onboarding、真实受管 gateway、Computer Use、连续窗口录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 走通四种 source kind：sensor（真实搜索 function 后创建、5s、condition、total/healthy CEL output）、cron（`*/5 * * * *` 与 next fire）、webhook（`acceptance-077-hook-final`，精确 POST endpoint 只在 Activity card 出现）、fsnotify（绝对路径、create+modify、`*.json`）。所有创建一次成功，四张展开卡字段完整，最终 UI 无错误横幅。
+- 五通道交叉核对：`rig-check` 运行中确认五通道在线且归属正确；screen.mov `297.055000s`；SSE 共 778 帧，messages durable 尾段 `102..116` 单调，entities/notifications 生命周期完整；backend 无 WARN/ERROR/panic/FATAL/tool failure，REST 与 SQLite 证明四条 trigger 的 config/outputs/paused/listening 真相；frontend 无 FlutterError/未处理异常/渲染错误；LLM wire 全部经过 tap。正式证据为 `evidence/tool-077-formal-135-green-four-trigger-kinds.txt`。
+- 锚点校准因超过 4 小时先被 judge 正确拒绝，随后按 `anchors.py quiz/check` 完成 10/10 校准并解锁 4 小时窗口。五级 `TOOL-077=G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本从 420 增至 **425 judgments**；五格批量写账触发的 `gap-too-fast` 已以完整复核说明 ack，`alarms.py check` clean。第八批推进至 **35 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-078 edit_trigger`。
+
+## 2026-08-03 06:21 · 第八批 TOOL-076 get_trigger 正式通过
+
+- formal-130 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-060503` 首轮真实 Flutter App + 受管网关 + Computer Use 冻结为红：`get_trigger` 成功后，助手正文复述真实 `trg_...` 内部 ID。红证据 `evidence/tool-076-formal-130-red-trigger-id-leak.txt` 保留且未计绿；根因是 `backend/internal/app/loop/redact.go` 的 opaque ID 前缀族没有覆盖当前 `trg_`。
+- stop-and-fix：将 `trg` 加入所有实体 ID 的直接/流式 redaction 族，补充 `redact_test.go` 的直接路径与 provider chunk 拆分回归；同步 `docs/references/backend/domains/chat.md`。`mise exec -- gofmt`、`go test -count=1 ./internal/app/loop` 和 `git diff --check` 通过；rig-up 重新编译新二进制后才重跑。
+- formal green session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-061313` 通过真实 onboarding 创建 workspace `TOOL-076 Trigger Observatory Fixed`，接入真实受管 gateway、Computer Use、连续窗口录屏、backend/frontend journal、三路 SSE witness 和 LLM tap。fixture 包含无监听 cron 与由 active workflow 监听的 webhook；暂停后再读 webhook，状态由 `listening=true` 正确变为 `false`。
+- 三条真实 App 路径均只调用一次 `get_trigger`、无 retry：live webhook 显示 webhook/path/paused=false/refCount=1/listener=true；paused webhook 显示 paused=true/refCount=1/listener=false；全零不存在 ID 显示 not found。三条助手正文均不含 `trg_`，精确内部值只保留在相邻 tool card、SSE/LLM/审计线缆。
+- 五通道交叉核对：录屏封口 `361.345000s`；messages durable `1..44`、notifications `1..8` 连续无 gap，entities 已连接；LLM challenge/install/models 与 6 个 chat completion 响应全 HTTP 200，业务 tool call 恰为 3 次 `get_trigger`；backend 无 panic/FATAL/未解释错误，唯一 WARN 是刻意不存在 ID 的 `trigger not found`；frontend 无 `Unhandled exception`、`FlutterError`、`Lost connection` 或断言红线，启动器既有 `open returned 1` 已单独标注。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-061313/evidence/tool-076-formal-131-green-trigger-get.txt`。
+- 五级裁决 `TOOL-076=G1/F2/A5/C4/G2` 已由 `judge.py` 落账，中央账本从 415 增至 **420 judgments**。`gap-too-fast` 与 `discovery-collapse` 因五级裁决在同一真实证据包内原子写账而开启，均已带复核说明 ack，最终 `alarms.py check` clean。第八批推进至 **30 / 50**，未到第 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-077 create_trigger`。
+
+## 2026-08-03 06:04 · 第八批 TOOL-075 search_triggers 正式通过
+
+- formal-129 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-054338` 首轮真实 App 冻结为红：hosted model 发出 `pattern` 而不是公开 schema 的 `query`，旧执行边界静默忽略未知字段，工具结果退化为全量 3 条，App 显示 `Listed trigger · 3 found`。红证据 `tool-075-formal-129-red-pattern-ignored.txt` 保留且未计绿。
+- formal-129 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-054842` 在兼容别名加入后再次冻结为红：别名已到达，但语义搜索把两个弱邻居与直接命中混在一起，App 仍显示 3 条。红证据 `tool-075-formal-129-red-semantic-broad.txt` 保留且未计绿。
+- stop-and-fix：`backend/internal/app/tool/trigger/query.go` 接受 canonical `query` 与 hosted-model `pattern` 别名；先执行 `name/description/kind` 直接字段命中，只有无直接命中时才走 semantic fallback；`query_test.go` 覆盖 canonical/alias/query-wins/empty/malformed，工具抽取清册同步声明未知搜索键不得静默退化为全量列表。定向 `gofmt` 与 `go test -count=1 ./internal/app/tool/trigger` 通过。
+- formal-129 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-055155` 使用真实 Flutter App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 重跑。fixture `trg_8273487be54a4c02` 为 `acceptance_webhookpulse_075`（webhook，`refCount=1`，`listening=true`），workflow `wf_af0805d20c0e8439` 引用它；真实 wire 发送 `{"path":"/","pattern":"webhookpulse"}`，业务工具只调用一次 `search_triggers`，无 `get_trigger`/retry。App 最终显示 `Listed trigger · 1 found`，助手准确报告名称、kind 和 listener live。
+- 五通道：录屏 `242.068333s`；messages durable `1..14`、notifications `1..4` 单调唯一且无 gap；LLM challenge 与四个 chat completion 响应全 200；backend/frontend 无未解释红线；SQLite、tool result、SSE close、UI 和助手文本一致。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-055155/evidence/tool-075-formal-129-green.txt`。
+- 五级裁决 `TOOL-075=G1/F2/A5/C4/G2` 已由 `judge.py` 落账，中央账本从 410 增至 **415 judgments**。`gap-too-fast` 与 `discovery-collapse` 已用两次红证据和一次绿证据写复审说明并 ack，最终 `alarms.py check` 为 clean。第八批推进至 **25 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-076 get_trigger`。
+
+## 2026-08-03 05:39 · 第八批 TOOL-074 decide_approval 正式通过
+
+- 首轮真实路径在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-052105` 冻结为红：真实 `decide_approval` 已返回成功，SQLite 和 entities durable `run_terminal` 均已显示 completed，但审批顶带仍停在 `Awaiting approval`，继续显示 `Approve/Reject`。红证据 `evidence/tool-074-formal-128-red-stale-approval-rail.txt` 保留，未计入绿账本。
+- stop-and-fix：`frontend/lib/core/notice/notice_center.dart` 增加按 flowrun/node 收回可见和排队审批副本；`frontend/lib/features/notifications/state/notice_dispatcher.dart` 监听 durable entities `run_terminal`；`frontend/lib/app/app_shell.dart` 在本地审批决策期间保留 Approved/Rejected verdict，避免 terminal race 抹掉用户反馈。补充 NoticeCenter、dispatcher 回归测试，Flutter analyze 与定向测试全绿，并同步 notifications 领域文档。
+- formal-128 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-053215` 使用新二进制、真实 Flutter App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 重跑。真实 run `fr_9ecfcdf874048091` 走通 `trigger → approval → publish`；模型业务工具序列为一次 `list_approval_inbox`、一次 lazy `search_tools`、一次精确 `decide_approval`，批准理由为 `fixed rail approved`，下游 marker 为 `TOOL074_APPROVED`。终帧显示 `Approved … · completed`，顶带和审批按钮均消失，无重复 mutation/retry/stale actionable copy。
+- 五通道：screen.mov `171.458333s`；SSE messages durable `1..30`、entities `1..2`、notifications `1..3` 连续，entities 末帧为该 run 的 `run_terminal/completed`；LLM 五个请求/响应全 HTTP 200；backend 无 panic/FATAL/ERROR，frontend 无 `Unhandled exception`、`FlutterError`、`Lost connection` 或 AXTree 红线；SQLite start/hold/publish 全 completed、hold decision=`yes`、parked=0。证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-053215/evidence/tool-074-formal-128-green.txt`。
+- 五级 `G1/F2/A5/C4/G2` 已由 `judge.py` 落账，中央账本从 405 增至 **410 judgments**。gap-too-fast、pass-burst、discovery-collapse 已逐条带真实 session 复审说明 ack，最终 `alarms.py check` clean。第八批推进至 **20 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-075 search_triggers`。
+
+## 2026-08-03 05:17 · 第八批 TOOL-073 list_approval_inbox 正式通过
+
+- 真实夹具为 `trigger → approval`：run 头保持 `running`，approval 节点 `hold` 保持 `parked`；REST 收件箱先对证一行渲染提示和 deadline，证明收件箱查的是 parked 节点而不是 run 头状态。
+- formal-127 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-051054` 通过真实 Flutter App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 完成。正向提示只允许一次 `list_approval_inbox`，wire 返回完整 `flowrunId/nodeId/ref/parkedAt`；工具卡展开后显示 `Approval / Summary / Waiting / run` 四列，`Checked · 1 awaiting`，没有把机器字段丢掉。解决审批后再次只调用一次工具，空路径返回 `count:0, parked:[]`，App 显示 `Checked · None awaiting`，助手没有编造行。
+- 观察到助手正文用 `Current run` 而非复述 opaque flowrun id；这是仓内 redaction 规则要求，精确值保留在相邻工具卡、tool result 和 LLM wire，不构成数据或产品缺陷，因此没有源码修复。
+- 五通道：screen.mov `256.773333s`；rig-check 五通道全绿；SSE messages durable `1..28` 连续，含 `approval_pending` 与 cleanup `run_terminal`；LLM 两次真实工具调用各一次，网关响应全 200；backend 无 panic/FATAL/ERROR，frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线；SQLite 收尾 run `completed`、parked=0、无重复 run。证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-051054/evidence/tool-073-formal-127-green.txt`。
+- 五级 `G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本从 400 增至 **405 judgments**。本次集中落账触发三条统计警报，已用完整 session 和正负路径逐条复审并 ack，最终 `alarms.py check` clean。第八批由 **10 / 50** 推进至 **15 / 50**；未到 50 格不跑统一长门禁、不提交，下一前线 `TOOL-074 decide_approval`。
+
 ## 2026-08-02 18:05 · 第七批 TOOL-065 trigger_workflow 正式通过
 
 - 首轮探索真实路径在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260802-174253` 冻结为红：托管模型把 `trigger_workflow.payload` 发成字符串，旧 `map[string]any` 边界拒绝后模型 retry；该路径保留为真实产品问题，不计绿。后续无 observer 的快速 exploratory run 只证明了回执，不承担 payload 证据，也在正式证据中明确排除。
@@ -1014,3 +1080,19 @@ landed-into:
 - formal-147 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-033531` 用修复后二进制、真实 App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路 SSE witness 和 LLM tap 重跑。真实用户请求只调用一次 `get_flowrun`；真实 run `fr_31606084bcee949b` 为 completed，REST 两页合计 91 个 completed 节点，UI 正确显示 80/91 capped projection 和 91 节点总数。最终录屏 `327.648333s`，证据为 `evidence/tool-070-formal-acceptance.md`。
 - 五通道复核：messages durable `1..20`、notifications durable `1..2` 连续；可见 reasoning/text 无 `the requested item`、`the referenced item`、`fnv_`、`wfv_`、`apf_`、`apfv_` 或 `get_flowrun tool`；raw tool result 保留完整机器值；backend 无产品异常；frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线；LLM challenge/install/models/chat 全 200；REST/SSE/UI 三方一致。rig-check 收台前通过，rig-down 已封口并清零进程。
 - 锚点 10/10 复核有效，`judge.py` 五格 `G1/F2/A5/C4/G2` 落账，中央账本由 `385` 增至 **390 judgments**。`gap-too-fast` 与 `discovery-collapse` 因五格写入过快打开，已根据完整录屏、前置红证据、修复后二次运行和五通道审查写 resolution 并 ack，`alarms.py check` clean。第七批达到 **50 / 50**；统一长门禁、完整 testend、工作树审计和提交现在解锁，下一前线为 `TOOL-071 search_flowruns`。
+
+## 2026-08-03 04:46 · 第八批 TOOL-071 search_flowruns 正式收口
+
+- formal-042059 的真实运行先冻结为红：中文前缀后的 redactor 使用 byte offset 切 rune，后端出现 `slice bounds` panic。修复为 byte-to-rune 边界转换并补 Unicode regression；formal-043147 又发现状态列表把多条运行写成 `the requested item`，formal-043651 进一步发现 durable close 前的 `seq=0` delta 仍会逐帧泄漏半截占位符。两轮均保留为红证据，不计绿。
+- stop-and-fix 收紧 `search_flowruns` 的工具描述与 closed schema，结果行投影 `workflowName`，明确默认不自动调用 `get_flowrun`；状态占位符清理改为换行前整行缓冲，前端相邻工具卡展示 workflowName。`go test ./internal/app/loop ./internal/app/tool/workflow` 全绿，`docs/references/backend/domains/{chat,workflow}.md` 同步。
+- formal-147 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-043918` 使用修复后二进制、真实 Flutter App、真实受管网关、Computer Use、连续录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap 重跑。用户请求只调用一次 `search_flowruns`，没有 `get_flowrun`、retry 或第二次 mutation；真实 fixture REST 为 3 completed、1 failed（`TOOL071_FAILURE_MARKER`）、1 running/approval parked。最终画面显示 `completed=3 / failed=1 / running=1`、合计 5 和 `Searched runs · 5`，无错误卡、详情卡、布局溢出或占位符。
+- 录屏封口 `234.511667s / 2784x1808`，证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-043918/evidence/tool-071-formal-acceptance.md`。五通道交叉核对：messages durable `1..14`、notifications `1..2` 连续，三流均连接，SSE 全量无 `the requested item`/`the referenced item`，raw tool result 保留完整机器值；backend/frontend 无未解释红线；LLM wire 只有一次真实 `search_flowruns`，网关响应全 200。rig-down 已封口，进程清零。
+- 锚点 10/10 仍在有效窗口内，`judge.py` 五格 `G1/F2/A5/C4/G2` 落账，中央账本由 `390` 增至 **395 judgments**。`gap-too-fast` 与 `discovery-collapse` 已按正式录屏、三轮前置红证据和五通道复审 ack，`alarms.py check` clean。第八批当前 **5 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-072 replay_flowrun`。
+2026-08-03 05:02 · 第八批 TOOL-072 replay_flowrun 正式收口
+
+- 前置真实 App session `20260803-044843` 发现产品红线：completed run 的真实拒绝结果落成 `status=error`，但 replay 工具卡仍显示成功动词 `Replayed run`，且错误由族体和底盘重复显示；该 session 不判绿。
+- stop-and-fix：为 `replay_flowrun` 增加 `failedVerb`（`Replay not run` / `未执行重放`），设置 `ownsError=true` 避免重复错误，补双语 i18n、生成物、widget regression 和 `docs/references/frontend/features/chat.md`。`make gen` 与 `tool_card_flowrun_test.dart` 15/15 全绿。
+- 修复后正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-045854` 真实 App 重跑 completed-run 拒绝路径；Computer Use 终帧为 `Replay not run fr_72aedca13… · failed`，错误只出现一次。LLM wire 一次 `replay_flowrun`，SSE messages `1..14` 连续且 tool_result `status=error`，backend 无未解释异常，frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线；录屏 `152.226667s`。
+- SQLite 对证：run `fr_72aedca131ce4031` 为 `completed/replay_count=1`，四节点 completed；flaky handler `failed=1, ok=1`，stable/finish function 各执行一次，已完成节点没有重跑。正向真实成功路径沿用 session `20260803-044843`，显示 `Replayed run … · Completed · 4 nodes`，marker `TOOL072_REPLAY_DONE`。
+- 台架卫生：专用 workspace `ws_f68e2c882a19940f` 通过真实 workspace DELETE=204 清除；`ws_23d0c85d912ce656` 的 workflow/functions/handler/conversation 均 DELETE=204、GET=404，四类 live 列表为空，SQLite 主行保留 `deleted_at` 审计，最后保留一个空 workspace。
+- 五级 `G1/F2/A5/C4/G2` 已落账，中央账本由 395 增至 **400 judgments**；`gap-too-fast`、`pass-burst`、`discovery-collapse` 均写复审结论后 ack，`alarms.py check` clean。第八批推进至 **10 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-073 list_approval_inbox`。证据：`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-045854/evidence/tool-072-postfix-acceptance.md`。

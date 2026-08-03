@@ -201,6 +201,24 @@ void main() {
     },
   );
 
+  test(
+    'stage_workflow receipt is a durable action fact, not a live waiting claim',
+    () {
+      final spec = toolCardSpecFor('stage_workflow');
+      final receipt = spec.receipt!(
+        t,
+        _s(
+          'stage_workflow',
+          '{"staged":true,"workflowId":"wf_1","workflowName":"nightly","lifecycleState":"inactive","active":false}',
+        ),
+      );
+      expect(receipt!.text, t.chat.tool.staged2);
+      expect(receipt.text, isNot(contains('awaiting')));
+      expect(receipt.text, isNot(contains('候')));
+      expect(receipt.text, contains(' · '));
+    },
+  );
+
   testWidgets('delete tombstone chip is plain mono (NOT a tappable pill)', (
     tester,
   ) async {

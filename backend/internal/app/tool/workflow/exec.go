@@ -27,7 +27,7 @@ type TriggerWorkflow struct{ svc *workflowapp.Service }
 func (t *TriggerWorkflow) Name() string { return "trigger_workflow" }
 
 func (t *TriggerWorkflow) Description() string {
-	return "Run a workflow once, right now, with a payload you supply as if a trigger had fired it. Use this to execute a workflow on demand (a manual \"run now\"). The payload should match the shape the workflow's entry trigger emits; pass {} if it reads nothing. Returns the new flowrun id — call get_flowrun with it to inspect how the run went (per-node status, results, errors). Does not change whether the workflow is listening for real triggers — use activate_workflow for that. NOTE: a manual run starts immediately and does NOT apply the workflow's concurrency/overlap policy (serial/skip/buffer_one/replace) — that policy governs only REAL trigger fires (cron tick / webhook POST / file change / sensor). So two manual runs can be in flight at once even under replace/buffer_one; to exercise the overlap policy, fire the real trigger."
+	return "Run a workflow once, right now, with a payload you supply as if a trigger had fired it. Use this to execute a workflow on demand (a manual \"run now\"). The payload should match the shape the workflow's entry trigger emits; pass {} if it reads nothing. For hosted-model compatibility, the same JSON object is also accepted when encoded as an exact JSON string; arrays, numbers, and malformed strings are rejected. Returns the new flowrun id — call get_flowrun with it to inspect how the run went (per-node status, results, errors). Does not change whether the workflow is listening for real triggers — use activate_workflow for that. NOTE: a manual run starts immediately and does NOT apply the workflow's concurrency/overlap policy (serial/skip/buffer_one/replace) — that policy governs only REAL trigger fires (cron tick / webhook POST / file change / sensor). So two manual runs can be in flight at once even under replace/buffer_one; to exercise the overlap policy, fire the real trigger."
 }
 
 func (t *TriggerWorkflow) Parameters() json.RawMessage {
@@ -36,15 +36,18 @@ func (t *TriggerWorkflow) Parameters() json.RawMessage {
 		"required": ["workflowId"],
 		"properties": {
 			"workflowId": {"type": "string"},
-			"payload": {"type": "object", "description": "Data fed to the entry trigger node as its result (the workflow reads <triggerNode>.field). MUST match the entry trigger's fire-payload shape: a webhook nests the POSTed JSON under 'body' (so {\"body\":{...your fields...}}, NOT the fields flat); cron emits {\"firedAt\":...}; fsnotify emits {\"path\":...,\"eventKind\":...,\"firedAt\":...}; a sensor emits its configured output. create_trigger documents each kind's fire payload. Optional; defaults to {}."}
+			"payload": {"type": "object", "description": "Data fed to the entry trigger node as its result (the workflow reads <triggerNode>.field). MUST match the entry trigger's fire-payload shape: a webhook nests the POSTed JSON under 'body' (so {\"body\":{...your fields...}}, NOT the fields flat); cron emits {\"firedAt\":...}; fsnotify emits {\"path\":...,\"eventKind\":...,\"firedAt\":...}; a sensor emits its configured output. create_trigger documents each kind's fire payload. Optional; defaults to {}. For hosted-model compatibility, an exact JSON-encoded object string is also accepted; arrays, numbers, and malformed strings are rejected."}
 		}
 	}`)
 }
 
+type triggerWorkflowArgs struct {
+	WorkflowID string            `json:"workflowId"`
+	Payload    toolapp.ObjectMap `json:"payload"`
+}
+
 func (t *TriggerWorkflow) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		WorkflowID string `json:"workflowId"`
-	}
+	var a triggerWorkflowArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("trigger_workflow: bad args: %w", err)
 	}
@@ -55,10 +58,7 @@ func (t *TriggerWorkflow) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *TriggerWorkflow) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		WorkflowID string         `json:"workflowId"`
-		Payload    map[string]any `json:"payload"`
-	}
+	var args triggerWorkflowArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("trigger_workflow: bad args: %w", err)
 	}
@@ -76,7 +76,7 @@ type StageWorkflow struct{ svc *workflowapp.Service }
 func (t *StageWorkflow) Name() string { return "stage_workflow" }
 
 func (t *StageWorkflow) Description() string {
-	return "Arm a workflow to run exactly once on its NEXT real trigger fire, then automatically disarm — a trial run with a genuine event. Use this to test a workflow against a real cron tick / webhook / file change without committing it to listen forever. Only works on workflows whose entry is a real trigger source; fails if the workflow is already active (deactivate it first). Refuses a non-runnable graph (WORKFLOW_NOT_RUNNABLE, problems in details) — a dangling/mismatched node ref or an unwired required input — so a broken workflow is never armed; run capability_check first if unsure."
+	return "Arm a workflow to run exactly once on its NEXT real trigger fire, then automatically disarm — a trial run with a genuine event. Use this to test a workflow against a real cron tick / webhook / file change without committing it to listen forever. Only works on workflows whose entry is a real trigger source; fails if the workflow is already active (deactivate it first). Refuses a non-runnable graph (WORKFLOW_NOT_RUNNABLE, problems in details) — a dangling/mismatched node ref or an unwired required input — so a broken workflow is never armed; run capability_check first if unsure. On success, the result includes the workflow's real name, id, inactive lifecycle state, and active=false so you can confirm exactly what was staged."
 }
 
 func (t *StageWorkflow) Parameters() json.RawMessage {
@@ -96,10 +96,17 @@ func (t *StageWorkflow) Execute(ctx context.Context, argsJSON string) (string, e
 	if err != nil {
 		return "", err
 	}
-	if err := t.svc.Stage(ctx, id); err != nil {
+	wf, err := t.svc.Stage(ctx, id)
+	if err != nil {
 		return "", fmt.Errorf("stage_workflow: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"staged": true, "workflowId": id}), nil
+	return toolapp.ToJSON(map[string]any{
+		"staged":         true,
+		"workflowId":     id,
+		"workflowName":   wf.Name,
+		"lifecycleState": wf.LifecycleState,
+		"active":         wf.Active,
+	}), nil
 }
 
 // --- activate_workflow -----------------------------------------------------
@@ -109,7 +116,7 @@ type ActivateWorkflow struct{ svc *workflowapp.Service }
 func (t *ActivateWorkflow) Name() string { return "activate_workflow" }
 
 func (t *ActivateWorkflow) Description() string {
-	return "Bring a workflow online: it starts listening to its trigger continuously and reacts to every real fire (going live). Use this to deploy a workflow into production. Fails if its entry is not a real trigger source. Refuses a non-runnable graph (WORKFLOW_NOT_RUNNABLE, problems in details) — a dangling/mismatched node ref or an unwired required input — so a broken workflow never goes live; run capability_check first if unsure. To run it just once instead, use trigger_workflow (now) or stage_workflow (next real fire)."
+	return "Bring a workflow online: it starts listening to its trigger continuously and reacts to every real fire (going live). Use this to deploy a workflow into production. Fails if its entry is not a real trigger source. Refuses a non-runnable graph (WORKFLOW_NOT_RUNNABLE, problems in details) — a dangling/mismatched node ref or an unwired required input — so a broken workflow never goes live; run capability_check first if unsure. On success, the result includes the workflow's real name, id, active lifecycle state, and active=true so you can confirm exactly what went live. To run it just once instead, use trigger_workflow (now) or stage_workflow (next real fire)."
 }
 
 func (t *ActivateWorkflow) Parameters() json.RawMessage {
@@ -133,7 +140,7 @@ func (t *ActivateWorkflow) Execute(ctx context.Context, argsJSON string) (string
 	if err != nil {
 		return "", fmt.Errorf("activate_workflow: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"workflowId": id, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
+	return toolapp.ToJSON(map[string]any{"workflowId": id, "workflowName": wf.Name, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
 }
 
 // --- deactivate_workflow ---------------------------------------------------
@@ -143,7 +150,7 @@ type DeactivateWorkflow struct{ svc *workflowapp.Service }
 func (t *DeactivateWorkflow) Name() string { return "deactivate_workflow" }
 
 func (t *DeactivateWorkflow) Description() string {
-	return "Take a workflow offline gracefully: it stops listening for new triggers, but any run already in flight is left to finish. Use this to retire a live workflow without disrupting work in progress. To also abort the running executions, use kill_workflow instead."
+	return "Take a workflow offline gracefully: it stops listening for new triggers, but any run already in flight is left to finish. Use this to retire a live workflow without disrupting work in progress. On success, the result includes the workflow's real name, id, and lifecycle state (inactive or draining). To also abort the running executions, use kill_workflow instead."
 }
 
 func (t *DeactivateWorkflow) Parameters() json.RawMessage {
@@ -167,7 +174,7 @@ func (t *DeactivateWorkflow) Execute(ctx context.Context, argsJSON string) (stri
 	if err != nil {
 		return "", fmt.Errorf("deactivate_workflow: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"workflowId": id, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
+	return toolapp.ToJSON(map[string]any{"workflowId": id, "workflowName": wf.Name, "lifecycleState": wf.LifecycleState, "active": wf.Active}), nil
 }
 
 // --- kill_workflow ---------------------------------------------------------
@@ -177,7 +184,7 @@ type KillWorkflow struct{ svc *workflowapp.Service }
 func (t *KillWorkflow) Name() string { return "kill_workflow" }
 
 func (t *KillWorkflow) Description() string {
-	return "Hard-stop a workflow: stop listening for triggers AND immediately cancel every run currently in flight (interrupting even a long-running step). Use this as an emergency stop when a workflow is misbehaving or runaway. For a graceful stop that lets in-flight runs finish, use deactivate_workflow. Returns how many runs were killed."
+	return "Hard-stop a workflow: stop listening for triggers AND immediately cancel every run currently in flight (interrupting even a long-running step). Use this as an emergency stop when a workflow is misbehaving or runaway. For a graceful stop that lets in-flight runs finish, use deactivate_workflow. On success, the result includes the workflow's real name, id, inactive lifecycle state, active=false, and how many runs were killed."
 }
 
 func (t *KillWorkflow) Parameters() json.RawMessage {
@@ -201,7 +208,11 @@ func (t *KillWorkflow) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("kill_workflow: %w", err)
 	}
-	return toolapp.ToJSON(map[string]any{"workflowId": id, "killed": killed}), nil
+	wf, err := t.svc.Get(ctx, id)
+	if err != nil {
+		return "", fmt.Errorf("kill_workflow: read final workflow: %w", err)
+	}
+	return toolapp.ToJSON(map[string]any{"workflowId": id, "workflowName": wf.Name, "lifecycleState": wf.LifecycleState, "active": wf.Active, "killed": killed}), nil
 }
 
 // --- shared {workflowId}-only arg helpers ----------------------------------

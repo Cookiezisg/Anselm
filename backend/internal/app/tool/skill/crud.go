@@ -151,8 +151,10 @@ type DeleteSkill struct {
 
 func (t *DeleteSkill) Name() string { return "delete_skill" }
 
+func (t *DeleteSkill) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *DeleteSkill) Description() string {
-	return "Delete a skill permanently (removes its directory). Cannot be undone. The result reports how many agents equipped it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Delete a skill permanently (removes its directory). Cannot be undone. The result reports how many agents equipped it (and may now fail) — check get_relations BEFORE deleting."
 }
 
 func (t *DeleteSkill) Parameters() json.RawMessage {

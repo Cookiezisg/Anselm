@@ -161,6 +161,7 @@ class NoticeCenter extends Notifier<NoticeCenterState> {
   ListQueue<NoticeEntry> _priorityPending = ListQueue<NoticeEntry>();
   ListQueue<NoticeEntry> _normalPending = ListQueue<NoticeEntry>();
   Map<String, String> _activeCoalesce = <String, String>{};
+  final Set<String> _localApprovalDecisions = <String>{};
   NoticeEntry? _current;
   int _sequence = 0;
   int _priorityStreak = 0;
@@ -237,9 +238,73 @@ class NoticeCenter extends Notifier<NoticeCenterState> {
   void finishExit(String id) {
     final current = _current;
     if (current == null || current.id != id) return;
+    _forgetLocalApproval(current.message);
     _releaseCoalesce(current);
     _current = _takeNext();
     _publish();
+  }
+
+  /// A decision started from the visible approval card must keep its verdict visible even when the
+  /// durable terminal frame wins the race with the HTTP response. 卡片内决策必须保留判词回执，不能被
+  /// 早到的终态帧抢先撤掉。
+  void beginLocalApprovalDecision(String flowrunId, String nodeId) {
+    _localApprovalDecisions.add('$flowrunId/$nodeId');
+  }
+
+  /// A failed local request re-arms authoritative terminal cleanup. 本地请求失败后恢复权威终态清理能力。
+  void cancelLocalApprovalDecision(String flowrunId, String nodeId) {
+    _localApprovalDecisions.remove('$flowrunId/$nodeId');
+  }
+
+  /// A terminal run can no longer have an actionable approval. Remove queued copies immediately and
+  /// let the visible copy reverse through the normal animation. 终态 run 不再有可操作审批；候场副本立即
+  /// 移除，当前副本沿正常退场动画收回。
+  void resolveApprovalsForRun(String flowrunId) {
+    var changed = false;
+    final current = _current;
+    if (current != null && _approvalBelongsToRun(current.message, flowrunId)) {
+      final key = _approvalKey(current.message);
+      if (key == null || !_localApprovalDecisions.contains(key)) {
+        _current = current.requestDismiss();
+        changed = true;
+      }
+    }
+    changed = _removeApprovals(_priorityPending, flowrunId) || changed;
+    changed = _removeApprovals(_normalPending, flowrunId) || changed;
+    if (changed) _publish();
+  }
+
+  bool _removeApprovals(ListQueue<NoticeEntry> queue, String flowrunId) {
+    if (queue.isEmpty) return false;
+    final kept = <NoticeEntry>[];
+    var removed = false;
+    for (final entry in queue) {
+      if (_approvalBelongsToRun(entry.message, flowrunId)) {
+        _forgetLocalApproval(entry.message);
+        _releaseCoalesce(entry);
+        removed = true;
+      } else {
+        kept.add(entry);
+      }
+    }
+    if (!removed) return false;
+    queue
+      ..clear()
+      ..addAll(kept);
+    return true;
+  }
+
+  bool _approvalBelongsToRun(NoticeMessage message, String flowrunId) =>
+      message.kind == NoticeKind.approval && message.flowrunId == flowrunId;
+
+  String? _approvalKey(NoticeMessage message) =>
+      message.flowrunId == null || message.nodeId == null
+      ? null
+      : '${message.flowrunId}/${message.nodeId}';
+
+  void _forgetLocalApproval(NoticeMessage message) {
+    final key = _approvalKey(message);
+    if (key != null) _localApprovalDecisions.remove(key);
   }
 
   /// Clear the visible snapshot selected by the `+N → X` affordance.

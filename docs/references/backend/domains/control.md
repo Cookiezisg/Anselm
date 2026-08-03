@@ -55,8 +55,9 @@ AI 工具的 `branches` 公开 schema 是 branch object 的 JSON array；每个 
 
 `get_control` 的 `controlId` 是必填业务参数；托管模型不得以 `{}` 调用，缺少 id 时应先用
 `search_control`。它是只读调用，标准 `danger` 应为 `safe`。`delete_control` 则是不可逆的破坏性
-动作，必须携带 `controlId`、标准 `danger=dangerous`，并在 HumanLoop 用户批准后才可执行；删除前应先
-用 `get_relations` 说明会失效的 workflow 依赖。
+动作，具有不可绕过的静态 `dangerous` 下限；即使模型自报 `safe`，也必须携带 `controlId`、标准
+`danger=dangerous`，并在 HumanLoop 用户批准后才可执行，不能被 skill 或 `approve_always` 预授权绕过；
+删除前应先用 `get_relations` 说明会失效的 workflow 依赖。
 
 ## 3. 版本与运行
 

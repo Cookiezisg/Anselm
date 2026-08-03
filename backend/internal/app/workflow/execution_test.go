@@ -81,7 +81,7 @@ func TestExecutionLifecycle(t *testing.T) {
 	}
 
 	// stage on an active workflow → ErrAlreadyActive (no attach-once)
-	if err := svc.Stage(ctx, wf); !errors.Is(err, workflowdomain.ErrAlreadyActive) {
+	if _, err := svc.Stage(ctx, wf); !errors.Is(err, workflowdomain.ErrAlreadyActive) {
 		t.Fatalf("Stage on active: want ErrAlreadyActive, got %v", err)
 	}
 
@@ -98,8 +98,10 @@ func TestExecutionLifecycle(t *testing.T) {
 	}
 
 	// stage now (inactive) → AttachOnce
-	if err := svc.Stage(ctx, wf); err != nil {
+	if got, err := svc.Stage(ctx, wf); err != nil {
 		t.Fatalf("Stage after deactivate: %v", err)
+	} else if got.Name != "pipe" || got.Active || got.LifecycleState != workflowdomain.LifecycleInactive {
+		t.Fatalf("Stage snapshot wrong: name=%q active=%v state=%q", got.Name, got.Active, got.LifecycleState)
 	}
 	if !slices.Contains(binder.attachOnce, key) {
 		t.Fatalf("stage did not attach-once %q: %v", key, binder.attachOnce)
@@ -149,7 +151,7 @@ func TestArm_RejectsUnresolvableRef(t *testing.T) {
 	if len(binder.attach) != 0 {
 		t.Fatalf("a broken workflow must NOT be attached, got: %v", binder.attach)
 	}
-	if err := svc.Stage(ctx, w.ID); !errors.Is(err, workflowdomain.ErrNotRunnable) {
+	if _, err := svc.Stage(ctx, w.ID); !errors.Is(err, workflowdomain.ErrNotRunnable) {
 		t.Fatalf("Stage broken graph: want ErrNotRunnable, got %v", err)
 	}
 	if len(binder.attachOnce) != 0 {

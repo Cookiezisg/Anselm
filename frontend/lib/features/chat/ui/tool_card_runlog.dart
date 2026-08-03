@@ -328,6 +328,8 @@ Widget flowrunsBody(BuildContext context, ToolCardState s) => _countBody(
         leading: RunLeading.status('${r['status']}'),
         monoId: r['id'] as String?,
         chips: [
+          if ((r['workflowName'] as String?)?.isNotEmpty ?? false)
+            AnChip(r['workflowName'] as String, tone: AnTone.none),
           if ((r['replayCount'] is int ? r['replayCount'] as int : 0) > 0)
             AnChip(
               t.run.replayTimes(n: '${r['replayCount']}'),

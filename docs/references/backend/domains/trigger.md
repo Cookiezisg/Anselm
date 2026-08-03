@@ -160,7 +160,16 @@ workflow concurrency 控制，不内置 edge state。
 - webhook：path + 可选 secret；支持直接 secret 或 HMAC-SHA256 header；
 - fsnotify：path + 可选 event kind/pattern；
 - sensor：interval、function/handler/MCP target、可选 method/tool、CEL
-  condition 与 output。
+  condition 与 output。存储态 `config.output` 是 CEL 字符串；面向自然语言
+  agent 的 `{"field":"payload.value"}` 对象简写由 `create_trigger` 稳定转换为
+  CEL object literal 后再校验，不能把 map 直接落盘。
+
+`create_trigger` 与 `edit_trigger` 的 `config` 线缆都接受两种等价编码：schema
+规定的原生 JSON object，或其**精确 JSON 编码字符串**（字符串内容去掉首尾空白后
+必须仍是 object）。数组、标量、普通文本和坏 JSON 字符串均拒绝，避免把模型的
+编码错误猜成另一种配置。`edit_trigger` 在写入前按当前 trigger 的 kind 对 sensor
+的 `config.output` 对象简写执行同一稳定归一化；省略 `config`（或显式 `null`）
+仍表示不修改，不会清空既有配置。
 
 Sensor target 在 create/edit 时通过注入的 validator eager 校验。Webhook
 使用一个 `/api/v1/webhooks/` catch-all 和内存 path registry；Register/
@@ -172,9 +181,14 @@ Unregister 不向 ServeMux 动态增删 pattern。
   `missed_checked_at`。
 - `:fire` 为当前监听者生成 `{manual:true}`，零监听者时仍写一条
   firing_count=0 的 Activation；自定义测试 payload 应走 Workflow trigger。
+  暂停时返回 `TRIGGER_PAUSED`，不得用 `edit_trigger` 清除暂停；恢复必须走 trigger
+  的 Resume 控件或 `POST /api/v1/triggers/{id}:resume`，再执行 fire。
 - `:pause` / `:resume` 控制 source，不取消既有工作。
 - `:iterate` 打开 AI 编辑对话。
-- Delete 停 listener、删除实体并清 relation；既有日志保留。
+- Delete 停 listener、软删主行并清 relation；既有 activation/firing 日志保留。主行**不可恢复**，当前没有
+  restore 操作；`delete_trigger` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe` 也必须先经过
+  HumanLoop 用户批准，且不能被 skill 或 `approve_always` 预授权绕过。删除前先用 `get_relations` 解释会
+  失效的 workflow 依赖。
 
 Shutdown join cron、fsnotify、sensor 等 goroutine 后再关闭下游资源。Webhook
 listener 由 HTTP server 生命周期承载。

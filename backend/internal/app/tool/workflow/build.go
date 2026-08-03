@@ -1,15 +1,38 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 )
+
+// decodeWorkflowVersion accepts the public integer shape and the exact decimal string variant
+// emitted by some hosted models. Other representations stay invalid so a malformed version cannot
+// silently select an unintended snapshot.
+func decodeWorkflowVersion(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	var version int
+	if err := json.Unmarshal(raw, &version); err == nil {
+		return version, nil
+	}
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err != nil {
+		return 0, fmt.Errorf("version must be a positive integer or an exact integer string, got %s", string(raw))
+	}
+	version, err := strconv.Atoi(strings.TrimSpace(encoded))
+	if err != nil {
+		return 0, fmt.Errorf("version must be a positive integer or an exact integer string, got %q", encoded)
+	}
+	return version, nil
+}
 
 // --- create_workflow -------------------------------------------------------
 
@@ -102,7 +125,7 @@ type EditWorkflow struct{ svc *workflowapp.Service }
 func (t *EditWorkflow) Name() string { return "edit_workflow" }
 
 func (t *EditWorkflow) Description() string {
-	return "Edit a workflow: apply ops on top of its active graph, producing a new version that takes effect immediately. Same op shapes as create_workflow. The ops array must be non-empty. Use revert_workflow to switch the active version to an older one.\n\n" + opsDoc
+	return "Edit a workflow graph: apply ops on top of its active graph, producing a new version that takes effect immediately. IMPORTANT: this is NOT the filesystem Edit tool. Never send file_path, old_string, or new_string. This tool requires the workflowId plus one non-empty ops array; metadata changes belong inside a set_meta op. If the workflowId does not exist, make this one valid call and report the returned error; do not create or retry. Same op shapes as create_workflow. Use revert_workflow to switch the active version to an older one.\n\n" + opsDoc
 }
 
 func (t *EditWorkflow) Parameters() json.RawMessage {
@@ -110,8 +133,8 @@ func (t *EditWorkflow) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["workflowId", "ops"],
 		"properties": {
-			"workflowId": {"type": "string"},
-			"ops": {"type": "array", "description": "Graph-edit ops (non-empty).", "items": {"type": "object"}},
+			"workflowId": {"type": "string", "description": "Workflow entity ID, not a file path."},
+			"ops": {"type": "array", "description": "Non-empty workflow graph-edit ops. Do not use file_path, old_string, or new_string; those belong to the filesystem Edit tool.", "minItems": 1, "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)
@@ -173,7 +196,7 @@ type RevertWorkflow struct{ svc *workflowapp.Service }
 func (t *RevertWorkflow) Name() string { return "revert_workflow" }
 
 func (t *RevertWorkflow) Description() string {
-	return "Switch a workflow's active graph version to an existing version by its number. This only moves the active pointer — newer versions are kept in history and can be switched back to."
+	return "Switch a workflow's active graph version to an existing version by its number. This only moves the active pointer — newer versions are kept in history and can be switched back to. The version must be a positive integer; for hosted-model compatibility, an exact decimal integer string is also accepted, while floats, booleans, arrays, and malformed strings are rejected. IMPORTANT: make one call containing BOTH the required workflowId and version keys; never omit either key, call get_workflow to verify, or retry. The tool result is authoritative: if the requested version does not exist, report that failure without another tool call."
 }
 
 func (t *RevertWorkflow) Parameters() json.RawMessage {
@@ -181,16 +204,16 @@ func (t *RevertWorkflow) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["workflowId", "version"],
 		"properties": {
-			"workflowId": {"type": "string"},
-			"version": {"type": "integer", "description": "The version number to make active."}
+			"workflowId": {"type": "string", "description": "REQUIRED exact existing workflow entity ID (wf_...). Never omit or send an empty object."},
+			"version": {"type": "integer", "description": "REQUIRED target version number. Send this key in the same call as workflowId. For hosted-model compatibility, an exact decimal integer string is also accepted; floats, booleans, arrays, and malformed strings are rejected."}
 		}
 	}`)
 }
 
 func (t *RevertWorkflow) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		WorkflowID string `json:"workflowId"`
-		Version    int    `json:"version"`
+		WorkflowID string          `json:"workflowId"`
+		Version    json.RawMessage `json:"version"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("revert_workflow: bad args: %w", err)
@@ -198,7 +221,11 @@ func (t *RevertWorkflow) ValidateInput(args json.RawMessage) error {
 	if a.WorkflowID == "" {
 		return ErrWorkflowIDRequired
 	}
-	if a.Version <= 0 {
+	version, err := decodeWorkflowVersion(a.Version)
+	if err != nil {
+		return fmt.Errorf("revert_workflow: %w", err)
+	}
+	if version <= 0 {
 		return ErrVersionPositive
 	}
 	return nil
@@ -206,13 +233,17 @@ func (t *RevertWorkflow) ValidateInput(args json.RawMessage) error {
 
 func (t *RevertWorkflow) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		WorkflowID string `json:"workflowId"`
-		Version    int    `json:"version"`
+		WorkflowID string          `json:"workflowId"`
+		Version    json.RawMessage `json:"version"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("revert_workflow: bad args: %w", err)
 	}
-	v, err := t.svc.Revert(ctx, args.WorkflowID, args.Version)
+	version, err := decodeWorkflowVersion(args.Version)
+	if err != nil {
+		return "", fmt.Errorf("revert_workflow: bad args: %w", err)
+	}
+	v, err := t.svc.Revert(ctx, args.WorkflowID, version)
 	if err != nil {
 		return "", fmt.Errorf("revert_workflow: %w", err)
 	}
@@ -228,41 +259,88 @@ type DeleteWorkflow struct {
 
 func (t *DeleteWorkflow) Name() string { return "delete_workflow" }
 
+func (t *DeleteWorkflow) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
+func (t *DeleteWorkflow) CallIdentity(args json.RawMessage) string {
+	var fields struct {
+		WorkflowID string `json:"workflowId"`
+		AliasID    string `json:"id"`
+	}
+	if err := json.Unmarshal(args, &fields); err != nil {
+		return ""
+	}
+	id := strings.TrimSpace(fields.WorkflowID)
+	if id == "" {
+		id = strings.TrimSpace(fields.AliasID)
+	}
+	if id == "" {
+		return ""
+	}
+	return "workflow:" + id
+}
+
 func (t *DeleteWorkflow) Description() string {
-	return "Soft-delete a workflow and stop its automation (listeners and in-flight runs). This is not reversible for the workflow row; immutable graph versions and flowrun history remain readable for audit. The result reports how many other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Soft-delete a workflow and stop its automation (listeners and in-flight runs). The workflow primary row is NOT restorable: there is no restore operation, so never tell the user it can be recovered. Immutable graph versions and flowrun history remain readable for audit. Pass the required workflowId key (not a generic id); the execution boundary may accept an exact hosted-model id alias only when workflowId is absent. Send no other keys: file_path, old_string, new_string, or other filesystem Edit fields are invalid here. The result reports how many other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
 }
 
 func (t *DeleteWorkflow) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"required": ["workflowId"],
-		"properties": {"workflowId": {"type": "string"}}
+		"additionalProperties": false,
+		"properties": {"workflowId": {"type": "string", "description": "REQUIRED workflow entity ID (wf_...). Use this exact key; do not send a generic id key."}}
 	}`)
 }
 
-func (t *DeleteWorkflow) ValidateInput(args json.RawMessage) error {
-	var a struct {
+func decodeDeleteWorkflowID(raw json.RawMessage) (string, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &fields); err != nil {
+		return "", fmt.Errorf("delete_workflow: bad args: %w", err)
+	}
+	for key := range fields {
+		if key != "workflowId" && key != "id" {
+			return "", fmt.Errorf("delete_workflow: unknown field %q (only workflowId is accepted; id is a hosted-model alias)", key)
+		}
+	}
+	var args struct {
 		WorkflowID string `json:"workflowId"`
+		AliasID    string `json:"id"`
 	}
-	if err := json.Unmarshal(args, &a); err != nil {
-		return fmt.Errorf("delete_workflow: bad args: %w", err)
+	if err := json.Unmarshal(raw, &args); err != nil {
+		return "", fmt.Errorf("delete_workflow: bad args: %w", err)
 	}
-	if a.WorkflowID == "" {
-		return ErrWorkflowIDRequired
+	workflowID := strings.TrimSpace(args.WorkflowID)
+	aliasID := strings.TrimSpace(args.AliasID)
+	if workflowID != "" && aliasID != "" && workflowID != aliasID {
+		return "", fmt.Errorf("delete_workflow: workflowId and id must identify the same workflow")
 	}
-	return nil
+	if workflowID != "" {
+		return workflowID, nil
+	}
+	if aliasID != "" {
+		return aliasID, nil
+	}
+	return "", ErrWorkflowIDRequired
+}
+
+func (t *DeleteWorkflow) ValidateInput(args json.RawMessage) error {
+	_, err := decodeDeleteWorkflowID(args)
+	return err
 }
 
 func (t *DeleteWorkflow) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		WorkflowID string `json:"workflowId"`
+	workflowID, err := decodeDeleteWorkflowID([]byte(argsJSON))
+	if err != nil {
+		return "", err
 	}
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return "", fmt.Errorf("delete_workflow: bad args: %w", err)
-	}
-	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindWorkflow, args.WorkflowID)
-	if err := t.svc.Delete(ctx, args.WorkflowID); err != nil {
+	deps := toolapp.DependentRefs(ctx, t.deps, relationdomain.EntityKindWorkflow, workflowID)
+	if err := t.svc.Delete(ctx, workflowID); err != nil {
 		return "", fmt.Errorf("delete_workflow: %w", err)
 	}
-	return toolapp.ToJSON(toolapp.AnnotateDependents(map[string]any{"id": args.WorkflowID, "deleted": true}, deps)), nil
+	return toolapp.ToJSON(toolapp.AnnotateDependents(map[string]any{
+		"id":              workflowID,
+		"deleted":         true,
+		"restorable":      false,
+		"historyRetained": true,
+	}, deps)), nil
 }

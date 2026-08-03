@@ -7,13 +7,13 @@ import '../../../core/model/partial_json.dart';
 
 /// The tool card's lifecycle phase — derived, never stored (WRK-053 §2). Wire anchors:
 /// argsStreaming = tool_call still open (args flow as deltas); running = tool_call closed and its
-/// execution result is either not open yet OR still open; the four terminals split only after that
-/// tool_result CLOSE (error status / the backend's fixed deny/cancel prose / plain success). awaitingConfirm is fed by the interaction
+/// execution result is either not open yet OR still open; the terminals split only after that
+/// tool_result CLOSE (error status / the backend's fixed deny/cancel/suppression prose / plain success). awaitingConfirm is fed by the interaction
 /// signal layer (V6) — the chassis renders it, the wiring lands with the humanloop batch.
 ///
 /// 工具卡生命周期相位——**派生、不存**(WRK-053 §2)。线缆锚点:argsStreaming=tool_call 未关(args
-/// delta 流入);running=tool_call 已关且 tool_result 尚未开或仍开;四种终态只在 tool_result Close 后分流
-/// (error 状态 / 后端固定的拒绝·取消散文 / 普通成功)。awaitingConfirm 由 interaction 信号层喂
+/// delta 流入);running=tool_call 已关且 tool_result 尚未开或仍开;终态只在 tool_result Close 后分流
+/// (error 状态 / 后端固定的拒绝·取消·抑制散文 / 普通成功)。awaitingConfirm 由 interaction 信号层喂
 /// (V6)——底盘先会渲,接线随人在环批次。
 enum ToolCardPhase {
   argsStreaming,
@@ -23,6 +23,7 @@ enum ToolCardPhase {
   failed,
   denied,
   cancelled,
+  suppressed,
 }
 
 /// The backend's FIXED refusal/cancel prose on a completed tool_result (wire contract, not
@@ -35,6 +36,7 @@ const String deniedProsePrefix = 'The user denied running this tool';
 const String declinedProsePrefix = 'The user declined to answer this question';
 const String cancelledBeforeRunProse =
     'The run was cancelled before this tool ran';
+const String duplicateSuppressedProse = 'Duplicate tool call suppressed:';
 
 /// ask_user's exact completed-but-empty answer (backend `ask/ask.go`): an accept with a blank answer
 /// closes status=completed with this prose — the card reads it as 空答案, not a real answer.
@@ -240,6 +242,9 @@ class ToolCardState {
     }
     if (resultText.startsWith(cancelledBeforeRunProse)) {
       return ToolCardPhase.cancelled;
+    }
+    if (resultText.startsWith(duplicateSuppressedProse)) {
+      return ToolCardPhase.suppressed;
     }
     return ToolCardPhase.succeeded;
   }

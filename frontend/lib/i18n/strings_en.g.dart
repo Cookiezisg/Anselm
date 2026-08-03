@@ -1860,6 +1860,9 @@ class Translations$chat$tool$en {
 	/// en: 'Interrupted'
 	String get cancelled => 'Interrupted';
 
+	/// en: 'Not run'
+	String get suppressed => 'Not run';
+
 	/// en: '$s s'
 	String elapsed({required Object s}) => '${s} s';
 
@@ -2489,8 +2492,8 @@ class Translations$chat$tool$en {
 	/// en: '$n keys'
 	String nKeys({required Object n}) => '${n} keys';
 
-	/// en: 'awaiting next real trigger'
-	String get staged2 => 'awaiting next real trigger';
+	/// en: 'one-shot · auto-disarms'
+	String get staged2 => 'one-shot · auto-disarms';
 
 	/// en: 'listening'
 	String get listening2 => 'listening';
@@ -2807,6 +2810,9 @@ class Translations$chat$tool$en {
 	/// en: 'Replayed run'
 	String get replayedRun => 'Replayed run';
 
+	/// en: 'Replay not run'
+	String get replayRejected => 'Replay not run';
+
 	/// en: 'Triggering workflow'
 	String get triggeringWf => 'Triggering workflow';
 
@@ -3056,8 +3062,14 @@ class Translations$chat$tool$en {
 	/// en: 'structurally runnable'
 	String get capRunnable => 'structurally runnable';
 
+	/// en: '$n problem'
+	String capProblem({required Object n}) => '${n} problem';
+
 	/// en: '$n problems'
 	String capProblems({required Object n}) => '${n} problems';
+
+	/// en: '$n warning'
+	String capWarning({required Object n}) => '${n} warning';
 
 	/// en: '$n warnings'
 	String capWarnings({required Object n}) => '${n} warnings';
@@ -7236,6 +7248,7 @@ extension on Translations {
 			'chat.tool.awaitingConfirm' => 'Awaiting confirmation',
 			'chat.tool.denied' => 'Denied',
 			'chat.tool.cancelled' => 'Interrupted',
+			'chat.tool.suppressed' => 'Not run',
 			'chat.tool.elapsed' => ({required Object s}) => '${s} s',
 			'chat.tool.intent' => 'Intent',
 			'chat.tool.argsLabel' => 'Arguments',
@@ -7457,7 +7470,7 @@ extension on Translations {
 			'chat.tool.killedN' => ({required Object n}) => 'killed ${n} in-flight',
 			'chat.tool.noInflight' => 'no in-flight runs',
 			'chat.tool.nKeys' => ({required Object n}) => '${n} keys',
-			'chat.tool.staged2' => 'awaiting next real trigger',
+			'chat.tool.staged2' => 'one-shot · auto-disarms',
 			'chat.tool.listening2' => 'listening',
 			'chat.tool.offline' => 'offline',
 			'chat.tool.draining' => 'draining',
@@ -7563,6 +7576,7 @@ extension on Translations {
 			'chat.tool.firePayloadNote' => 'Payload is always {manual:true}; see the trigger log for fan-out and disposition',
 			'chat.tool.replayingRun' => 'Replaying run',
 			'chat.tool.replayedRun' => 'Replayed run',
+			'chat.tool.replayRejected' => 'Replay not run',
 			'chat.tool.triggeringWf' => 'Triggering workflow',
 			'chat.tool.triggeredWf' => 'Triggered workflow',
 			'chat.tool.invokingAgent' => 'Invoking agent',
@@ -7609,10 +7623,10 @@ extension on Translations {
 			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
 			'chat.tool.gettingActivation' => 'Opening activation record',
 			'chat.tool.gotActivation' => 'Opened activation record',
-			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
-			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
+			'chat.tool.logOmitted' => ({required Object n}) => '… ${n} chars omitted …',
 			'chat.tool.fireYes' => 'fired',
 			'chat.tool.fireNo' => 'not fired',
 			'chat.tool.gettingFlowrun' => 'Opening run',
@@ -7648,7 +7662,9 @@ extension on Translations {
 			'chat.tool.checkingCapability' => 'Checking workflow',
 			'chat.tool.checkedCapability' => 'Checked workflow',
 			'chat.tool.capRunnable' => 'structurally runnable',
+			'chat.tool.capProblem' => ({required Object n}) => '${n} problem',
 			'chat.tool.capProblems' => ({required Object n}) => '${n} problems',
+			'chat.tool.capWarning' => ({required Object n}) => '${n} warning',
 			'chat.tool.capWarnings' => ({required Object n}) => '${n} warnings',
 			'chat.tool.capProblemsLabel' => 'Problems',
 			'chat.tool.capWarningsLabel' => 'Warnings',
@@ -8121,12 +8137,12 @@ extension on Translations {
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
 			'feedback.cast.tombstone' => 'Deleted',
 			'feedback.cast.loadFailed' => 'Load failed',
+			_ => null,
+		} ?? switch (path) {
 			'feedback.cast.goToEntity' => 'Open entity',
 			'feedback.cast.jumpToScene' => 'Jump to occurrence',
 			'feedback.cast.verb.mentioned' => 'Mentioned',
 			'feedback.cast.verb.created' => 'Created',
-			_ => null,
-		} ?? switch (path) {
 			'feedback.cast.verb.edited' => 'Edited',
 			'feedback.cast.verb.viewed' => 'Viewed',
 			'feedback.cast.verb.executed' => 'Ran',
@@ -8635,12 +8651,12 @@ extension on Translations {
 			'library.slash.h1' => 'Heading 1',
 			'library.slash.h2' => 'Heading 2',
 			'library.slash.h3' => 'Heading 3',
+			_ => null,
+		} ?? switch (path) {
 			'library.slash.bulleted' => 'Bulleted list',
 			'library.slash.numbered' => 'Numbered list',
 			'library.slash.quote' => 'Quote',
 			'library.slash.code' => 'Code block',
-			_ => null,
-		} ?? switch (path) {
 			'library.slash.table' => 'Table',
 			'library.slash.media' => 'Media',
 			'library.slash.divider' => 'Divider',
@@ -9149,12 +9165,12 @@ extension on Translations {
 			'attach.audioPlaybackOffline' => 'Offline — tap to retry playback',
 			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
 			'attach.viewFullSize' => 'View full size',
+			_ => null,
+		} ?? switch (path) {
 			'attach.closeViewer' => 'Close',
 			'attach.mediaViewer' => 'Media viewer',
 			'attach.playVideo' => 'Play video',
 			'attach.pauseVideo' => 'Pause video',
-			_ => null,
-		} ?? switch (path) {
 			'attach.replayVideo' => 'Replay',
 			'attach.enterFullscreen' => 'Fullscreen',
 			'attach.remove' => 'Remove',

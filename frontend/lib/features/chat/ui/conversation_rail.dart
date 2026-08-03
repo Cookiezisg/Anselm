@@ -19,9 +19,11 @@ import '../../../core/ui/an_time_pulse.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
+import '../state/chat_drafts.dart';
 import '../state/conversation_list_provider.dart';
 import '../state/conversation_list_state.dart';
 import '../state/fork_conversation.dart';
+import '../state/pending_attachments.dart';
 import '../state/selected_conversation.dart';
 import '../state/title_reveals.dart';
 import 'conversation_rail_model.dart';
@@ -87,6 +89,18 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   ChatRepository get _repo => ref.read(chatRepositoryProvider);
   ConversationListNotifier get _list =>
       ref.read(conversationListProvider.notifier);
+
+  void _newChat() {
+    // New chat is an explicit discard boundary. Route navigation alone does not remount the landing
+    // when the user is already there, so clear both local payload stores and bump the landing key.
+    // 「新对话」是明确丢弃边界。用户已在 landing 时单靠导航不会重挂，故同时清文本/附件并 bump key。
+    ref.read(chatDraftsProvider).clear(ChatDrafts.landingKey);
+    ref
+        .read(pendingAttachmentsProvider(ChatDrafts.landingKey).notifier)
+        .clear();
+    ref.read(chatLandingResetProvider.notifier).bump();
+    if (mounted) context.go('/');
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -157,7 +171,7 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           selectedId: selected?.id,
           // New chat = the landing at '/' (no selection; the FIRST SEND creates the thread — nothing is
           // minted by the click itself). 新对话=回 '/' landing(首发才建线程,点击本身不铸)。
-          onNew: () => context.go('/'),
+          onNew: _newChat,
           menuEntries: _menu(t, sort, archived, showCount, showTime),
           // The row id IS the conversation id — navigate straight to it (route is the source of truth).
           onSelect: (id) => context.go(conversationLocation(id)),

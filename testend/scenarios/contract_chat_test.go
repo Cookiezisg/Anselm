@@ -1235,6 +1235,26 @@ func TestContractChat_TouchpointSelfReportAndNameBorrow(t *testing.T) {
 	)
 	conv2 := convCreate(t, wc, "name borrow")
 	mid2 := sendMsg(t, wc, conv2, "run one, then delete both")
+	// delete_function has a non-bypassable dangerous floor. Resolve both real gates in order;
+	// treating this fixture as gate-free would leave the turn pending forever and would no longer
+	// exercise the product's actual irreversible-delete contract.
+	// delete_function 有不可绕过的 dangerous 下限。按真实产品顺序批准两道人闸；把 fixture 当成免闸
+	// 会让回合永远 pending，也就不再覆盖不可逆删除的真实契约。
+	var pendingDelete []struct {
+		ToolCallID string `json:"toolCallId"`
+	}
+	awaitDeleteGate := func(label string) {
+		t.Helper()
+		harness.Eventually(t, 15000, label, func() bool {
+			pendingDelete = nil
+			wc.GET("/api/v1/conversations/"+conv2+"/interactions").OK(t, &pendingDelete)
+			return len(pendingDelete) == 1
+		})
+		wc.POST("/api/v1/conversations/"+conv2+"/interactions/"+pendingDelete[0].ToolCallID,
+			map[string]any{"action": "approve"}).OK(t, nil)
+	}
+	awaitDeleteGate("first delete_function gate")
+	awaitDeleteGate("second delete_function gate")
 	if turn := waitTurn(t, wc, conv2, mid2, 120000); turn.Status != "completed" {
 		t.Fatalf("borrow turn must complete, got %s %s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
 	}

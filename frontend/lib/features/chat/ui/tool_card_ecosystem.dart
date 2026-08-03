@@ -99,18 +99,20 @@ ToolReceipt? capabilityReceipt(Translations t, String output) {
   if (o['ok'] == true) {
     final warns = (o['warnings'] as List?)?.length ?? 0;
     return warns > 0
-        ? (
-            text: t.chat.tool.capWarnings(n: '$warns'),
-            tone: ToolReceiptTone.warn,
-          )
+        ? (text: _capWarningsText(t, warns), tone: ToolReceiptTone.warn)
         : (text: t.chat.tool.capRunnable, tone: ToolReceiptTone.none);
   }
   final probs = (o['problems'] as List?)?.length ?? 0;
-  return (
-    text: t.chat.tool.capProblems(n: '$probs'),
-    tone: ToolReceiptTone.danger,
-  );
+  return (text: _capProblemsText(t, probs), tone: ToolReceiptTone.danger);
 }
+
+String _capProblemsText(Translations t, int count) => count == 1
+    ? t.chat.tool.capProblem(n: '$count')
+    : t.chat.tool.capProblems(n: '$count');
+
+String _capWarningsText(Translations t, int count) => count == 1
+    ? t.chat.tool.capWarning(n: '$count')
+    : t.chat.tool.capWarnings(n: '$count');
 
 bool capabilityFailed(String output) => _obj(output)?['ok'] == false;
 
@@ -141,7 +143,7 @@ Widget capabilityBody(BuildContext context, ToolCardState state) {
           AnChip(
             o['ok'] == true
                 ? t.chat.tool.capRunnable
-                : t.chat.tool.capProblems(n: '${problems.length}'),
+                : _capProblemsText(t, problems.length),
             tone: o['ok'] == true ? AnTone.ok : AnTone.danger,
           ),
           if (o['structurallyValid'] == true)

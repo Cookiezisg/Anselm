@@ -56,6 +56,29 @@ Widget _host(Widget child) => TranslationProvider(
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
+  testWidgets('duplicate suppression is visibly not executed, not deleted', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _call(
+            'delete_workflow',
+            result:
+                'Duplicate tool call suppressed: identical delete_workflow call tc_0 was already handled earlier in this turn; no second approval or execution was requested.',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('未执行'), findsOneWidget);
+    expect(find.text('已删除'), findsNothing);
+    expect(
+      find.textContaining('Duplicate tool call suppressed'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets(
     'awaiting danger → the gate renders LOCKED-OPEN under an amber verb, no chevron',
     (tester) async {

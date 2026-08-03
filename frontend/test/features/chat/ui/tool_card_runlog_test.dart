@@ -308,6 +308,7 @@ void main() {
                     {
                       'id': 'fr_02',
                       'workflowId': 'wf_1',
+                      'workflowName': 'chargeback_review',
                       'status': 'failed',
                       'replayCount': 2,
                       'error': 'node charge failed',
@@ -333,6 +334,7 @@ void main() {
           find.textContaining('node charge failed'),
           findsOneWidget,
         ); // run-level error subtext
+        expect(find.text('chargeback_review'), findsOneWidget);
         expect(find.textContaining(t.chat.tool.parkRunCaption), findsOneWidget);
       },
     );

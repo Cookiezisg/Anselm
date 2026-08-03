@@ -154,6 +154,70 @@ void main() {
     expect(state().queue.pendingCount, 0);
   });
 
+  test('terminal run retracts its visible and queued approval copies only', () {
+    final current = controller().push(
+      const NoticeMessage(
+        text: 'deploy',
+        kind: NoticeKind.approval,
+        flowrunId: 'fr_done',
+        nodeId: 'hold',
+      ),
+      priority: NoticePriority.priority,
+    );
+    final sameRun = controller().push(
+      const NoticeMessage(
+        text: 'deploy again',
+        kind: NoticeKind.approval,
+        flowrunId: 'fr_done',
+        nodeId: 'second_hold',
+      ),
+      priority: NoticePriority.priority,
+    );
+    final otherRun = controller().push(
+      const NoticeMessage(
+        text: 'other',
+        kind: NoticeKind.approval,
+        flowrunId: 'fr_waiting',
+        nodeId: 'hold',
+      ),
+      priority: NoticePriority.priority,
+    );
+
+    controller().resolveApprovalsForRun('fr_done');
+
+    expect(state().current?.id, current);
+    expect(state().current?.dismissRequested, isTrue);
+    expect(state().queue.pendingCount, 1);
+    expect(state().queue.cues.single.id, otherRun);
+    expect(sameRun, isNot(otherRun));
+    controller().finishExit(current);
+    expect(state().current?.id, otherRun);
+  });
+
+  test(
+    'terminal preserves an approval card while its local decision is showing',
+    () {
+      final id = controller().push(
+        const NoticeMessage(
+          text: 'deploy',
+          kind: NoticeKind.approval,
+          flowrunId: 'fr_local',
+          nodeId: 'hold',
+        ),
+        priority: NoticePriority.priority,
+      );
+      controller().beginLocalApprovalDecision('fr_local', 'hold');
+
+      controller().resolveApprovalsForRun('fr_local');
+      expect(state().current?.id, id);
+      expect(state().current?.dismissRequested, isFalse);
+
+      controller().cancelLocalApprovalDecision('fr_local', 'hold');
+      controller().resolveApprovalsForRun('fr_local');
+      expect(state().current?.dismissRequested, isTrue);
+    },
+  );
+
   test(
     'optional operation coalesce key is O(1)-style active dedup, then re-arms after exit',
     () {

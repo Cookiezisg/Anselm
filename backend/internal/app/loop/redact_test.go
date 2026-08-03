@@ -76,6 +76,66 @@ func TestRedactOpaqueMachineValuesDoesNotDuplicateEntityNoun(t *testing.T) {
 	}
 }
 
+func TestRedactOpaqueMachineValuesHidesTriggerIDs(t *testing.T) {
+	input := "The trigger trg_00112233445566 is live."
+	want := "The trigger is live."
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("trigger ID redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesMakesWebhookEndpointHonest(t *testing.T) {
+	input := "Once active:\n\n```\nPOST /api/v1/webhooks/trg_00112233445566/acceptance-077-hook\n```"
+	want := "Once active:\n\n```\nSee the exact webhook endpoint in the trigger card.\n```"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("webhook endpoint redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorHidesWebhookEndpointAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"Once active:\n\n```\nPOST /api/v1/webhooks/",
+		"trg_00112233445566/acceptance-077-hook",
+		"\n```",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "/api/v1/webhooks/") || strings.Contains(piece, "trg_") {
+			t.Fatalf("stream leaked executable webhook endpoint in intermediate piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "Once active:\n\n```\nSee the exact webhook endpoint in the trigger card.\n```"
+	if got.String() != want {
+		t.Fatalf("stream webhook endpoint redaction = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorHidesTriggerIDsAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"The trigger ",
+		"trg_001122334455",
+		"66 is live.",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "trg_") {
+			t.Fatalf("stream leaked trigger ID in intermediate piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "trg_") {
+		t.Fatalf("stream leaked trigger ID after flush: %q", got.String())
+	}
+	if got.String() != "The trigger is live." {
+		t.Fatalf("stream trigger redaction = %q", got.String())
+	}
+}
+
 func TestRedactOpaqueMachineValuesKeepsOpaqueIDSentenceGrammatical(t *testing.T) {
 	for _, input := range []string{
 		"The ID fr_00112233445566 does not correspond to any existing flowrun.",
@@ -252,6 +312,64 @@ func TestRedactOpaqueMachineValuesCleansCurrentFlowrunReportPlaceholders(t *test
 	t.Logf("redacted current flowrun report: %q", got)
 	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
 		t.Fatalf("current flowrun report placeholder leaked: %q", got)
+	}
+}
+
+func TestRedactOpaqueMachineValuesMakesSearchRunRowsDistinctAndActionable(t *testing.T) {
+	input := "| # | Run ID | Workflow | Status | Started |\n|---|---|---|---|---|\n| 1 | `the requested item` | **failed_workflow** | ❌ Failed | 20:09:40 |\n| 2 | `the requested item` | **completed_workflow** | ✅ Completed | 20:09:41 |"
+	got := redactOpaqueMachineValues(input)
+	for _, want := range []string{
+		"| 1 | See the run card | **failed_workflow** | ❌ Failed | 20:09:40 |",
+		"| 2 | See the run card | **completed_workflow** | ✅ Completed | 20:09:41 |",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("search run row must point to the exact adjacent card, missing %q in %q", want, got)
+		}
+	}
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
+		t.Fatalf("search run rows leaked a placeholder: %q", got)
+	}
+}
+
+func TestRedactOpaqueMachineValuesLocalizesChineseSearchRunList(t *testing.T) {
+	input := "查询到 5 条工作流运行记录：\n\n1. the requested item - running状态\n2. the requested item - failed状态（有错误信息）\n\n- `the requested item` - 工作流 `the requested item`，开始于 20:05:41"
+	got := redactOpaqueMachineValues(input)
+	for _, want := range []string{
+		"1. 该运行记录 - running状态",
+		"2. 该运行记录 - failed状态（有错误信息）",
+		"- 该运行 - 该工作流，开始于 20:05:41",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Chinese search list must remain natural, missing %q in %q", want, got)
+		}
+	}
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
+		t.Fatalf("Chinese search list leaked a placeholder: %q", got)
+	}
+}
+
+func TestRedactOpaqueMachineValuesRemovesPlaceholderOnlyStatusDetails(t *testing.T) {
+	input := "- running: 1 (the requested item - tool071_approval)\n- failed: 1 (the requested item - tool071_failed)\n- completed: 3 (the requested item, the requested item, the requested item - all tool071_completed)"
+	want := "- running: 1 (tool071_approval)\n- failed: 1 (tool071_failed)\n- completed: 3 (all tool071_completed)"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("placeholder-only status details = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorHandlesUnicodeBeforeHeldEntityPrefix(t *testing.T) {
+	var r textRedactor
+	_ = r.Write("失败摘要：\n• the workflow ")
+	_ = r.Write("fr_1234567890abcdef")
+	_ = r.Flush()
+}
+
+func TestTextRedactorHoldsStatusPlaceholderUntilLineCompletes(t *testing.T) {
+	var r textRedactor
+	if got := r.Write("- running: 1 (the requested item - tool071_approval"); got != "" {
+		t.Fatalf("status placeholder leaked before line completion: %q", got)
+	}
+	if got := r.Write(")\n"); got != "- running: 1 (tool071_approval)\n" {
+		t.Fatalf("completed status line = %q", got)
 	}
 }
 

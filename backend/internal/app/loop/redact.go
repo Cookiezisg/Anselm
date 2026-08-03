@@ -4,6 +4,7 @@ import (
 	"regexp"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 const (
@@ -23,11 +24,11 @@ const (
 var (
 	// Entity ids are useful inside tool cards, but they are not useful prose. Keep the
 	// prefixes explicit so ordinary snake_case words remain untouched.
-	entityIDPattern = regexp.MustCompile(`\b(?:ws|fn|fnv|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+\b`)
+	entityIDPattern = regexp.MustCompile(`\b(?:ws|fn|fnv|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+\b`)
 	// Models sometimes repeat an opaque target in parentheses after already naming it, e.g.
 	// "workflow nightly (wf_...)". Removing that redundant parenthetical is more fluent than
 	// leaving "(the referenced item)" in user-facing prose; standalone ids still use the placeholder.
-	opaqueEntityParentheticalPattern = regexp.MustCompile("\\s*\\(\\s*`?(?:ws|fn|fnv|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+`?\\s*\\)")
+	opaqueEntityParentheticalPattern = regexp.MustCompile("\\s*\\(\\s*`?(?:ws|fn|fnv|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+`?\\s*\\)")
 	// A streamed parenthetical can be redacted in two passes (the id arrives after the opening
 	// parenthesis). Remove the placeholder form too, so a chunk-boundary miss cannot leave
 	// "name (the referenced item)" in the final prose.
@@ -49,32 +50,43 @@ var (
 	// Preserve the grammar of sentences that introduce an opaque identifier, e.g.
 	// "The ID `fr_…` does not exist". Replacing only the identifier would produce
 	// "The ID the referenced item"; the adjacent tool card still contains the exact ID.
-	opaqueIDSubjectPattern = regexp.MustCompile(`(?i)\bthe\s+id\s+` + "`?" + `(?:ws|fn|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
+	opaqueIDSubjectPattern = regexp.MustCompile(`(?i)\bthe\s+id\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
 	// Keep the introducer pending when the provider splits immediately before the ID.
 	opaqueIDSubjectPrefixPattern = regexp.MustCompile(`(?i)(?:\bthe\s+id\s+` + "`?" + `)$`)
 	// Models also introduce a target as "The flowrun ID `fr_…`" or
 	// "The flowrun with ID `fr_…`". Replace the
 	// whole subject prefix so the result remains a complete noun phrase.
-	opaqueTypedIDSubjectPattern       = regexp.MustCompile(`(?i)\b(the\s+)?(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+(?:with\s+)?id\s+` + "`?" + `(?:ws|fn|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
+	opaqueTypedIDSubjectPattern       = regexp.MustCompile(`(?i)\b(the\s+)?(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+(?:with\s+)?id\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
 	opaqueTypedIDSubjectPrefixPattern = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+(?:with\s+)?id\s+` + "`?" + `$`)
 	flowRunSubjectPrefixPattern       = regexp.MustCompile(`(?i)\b(?:the\s+)?flow\s+$`)
-	opaqueReportForPattern            = regexp.MustCompile(`(?i)\b(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+` + "`?" + `(?:ws|fn|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
+	opaqueReportForPattern            = regexp.MustCompile(`(?i)\b(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
 	opaqueReportForPrefixPattern      = regexp.MustCompile(`(?i)(?:\b(?:flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+)$`)
 	// A model may put the opaque run id in a Markdown table. Replacing only the cell with a generic
 	// placeholder makes the table look like a broken template; retain the semantic row instead.
 	//
 	// 模型可能把 opaque run id 放进 Markdown 表格。只把单元格替换成通用 placeholder 会像坏模板；保留语义行。
-	opaqueFlowrunIDTableRowPattern  = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*(?:flow\s*run|flowrun|run)[ \t]*id[^\r\n|]*\|[^\r\n|]*` + "`?" + `fr_[A-Za-z0-9]+` + "`?" + `[^\r\n|]*\|[ \t]*$`)
-	opaqueReportDecoratedPattern    = regexp.MustCompile(`(?i)\b(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+(?:\*{1,3}|_{1,3}|` + "`" + `)*` + `(?:ws|fn|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
-	opaqueFlowrunReportTitlePattern = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s+report\s*[:\x{2014}\-]\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*fr_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
-	opaqueFlowrunTitlePattern       = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s*:\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*fr_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
-	opaqueFlowrunAssignmentPattern  = regexp.MustCompile(`(?i)\bflowrunId\s*=\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*fr_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
-	opaqueVersionTableRowPattern    = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*version[^\r\n|]*\|[^\r\n|]*wfv_[A-Za-z0-9]+[^\r\n|]*\|[ \t]*$`)
-	opaquePinnedRefsTableRowPattern = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*pinned\s+refs[^\r\n|]*\|[^\r\n|]*(?:apf|apfv)_[A-Za-z0-9]+[^\r\n|]*\|[ \t]*$`)
+	opaqueFlowrunIDTableRowPattern = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*(?:flow\s*run|flowrun|run)[ \t]*id[^\r\n|]*\|[^\r\n|]*` + "`?" + `fr_[A-Za-z0-9]+` + "`?" + `[^\r\n|]*\|[ \t]*$`)
+	opaqueReportDecoratedPattern   = regexp.MustCompile(`(?i)\b(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+(?:\*{1,3}|_{1,3}|` + "`" + `)*` + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
+	// A webhook endpoint contains an opaque trigger id but is also an executable user-facing value.
+	// Redacting only the id would leave a URL that looks copyable but cannot work.
+	opaqueWebhookEndpointPattern            = regexp.MustCompile(`(?im)^[ \t]*(?:POST[ \t]+)?(?:https?://[^ \t/]+)?/api/v1/webhooks/` + "`?" + `trg_[A-Za-z0-9]+` + "`?" + `/[^\r\n \t]+[ \t]*$`)
+	opaqueWebhookEndpointPlaceholderPattern = regexp.MustCompile(`(?im)^[ \t]*(?:POST[ \t]+)?(?:https?://[^ \t/]+)?/api/v1/webhooks/` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `/[^\r\n \t]+[ \t]*$`)
+	opaqueFlowrunReportTitlePattern         = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s+report\s*[:\x{2014}\-]\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*fr_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
+	opaqueFlowrunTitlePattern               = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s*:\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*fr_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
+	opaqueFlowrunAssignmentPattern          = regexp.MustCompile(`(?i)\bflowrunId\s*=\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*fr_[A-Za-z0-9]+(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
+	opaqueVersionTableRowPattern            = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*version[^\r\n|]*\|[^\r\n|]*wfv_[A-Za-z0-9]+[^\r\n|]*\|[ \t]*$`)
+	opaquePinnedRefsTableRowPattern         = regexp.MustCompile(`(?im)^[ \t]*\|[^\r\n|]*pinned\s+refs[^\r\n|]*\|[^\r\n|]*(?:apf|apfv)_[A-Za-z0-9]+[^\r\n|]*\|[ \t]*$`)
 	// Models may already have applied the neutral placeholder before the server-side redactor sees
 	// the final text. Normalize those structured rows too, otherwise the placeholder leaks as prose.
 	//
 	// 模型可能在服务端 redactor 之前就先用了中性 placeholder；结构化行也要归一化，否则 placeholder 会漏到画面。
+	opaqueFlowrunSearchRowPlaceholderPattern           = regexp.MustCompile("(?im)^([ \\t]*\\|[ \\t]*[0-9]+[ \\t]*\\|)[ \\t]*(?:`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?)[ \\t]*(\\|[^\\r\\n]*$)")
+	opaqueFlowrunChineseWorkflowListPattern            = regexp.MustCompile(`(?m)^([ \t]*[-*][ \t]*)` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `([ \t]*-[ \t]*)工作流[ \t]*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `([^\r\n]*)$`)
+	opaqueFlowrunChineseStatusListPattern              = regexp.MustCompile(`(?m)^([ \t]*(?:[-*]|[0-9]+[.)])[ \t]*)` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `([ \t]*-[^\r\n]*(?:running|failed|completed|状态)[^\r\n]*)$`)
+	opaqueFlowrunStatusListPlaceholderPattern          = regexp.MustCompile(`(?im)^([ \t]*[-*][ \t]*(?:completed|failed|running|cancelled)[ \t]*:[ \t]*[0-9]+)[ \t]*\([ \t]*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `(?:[ \t]*,[ \t]*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `)*[ \t]*\)[ \t]*$`)
+	opaqueFlowrunStatusLinePattern                     = regexp.MustCompile(`(?im)^([ \t]*[-*][ \t]*(?:completed|failed|running|cancelled)[ \t]*:[^\r\n]*)$`)
+	opaqueFlowrunStatusPlaceholderRunPattern           = regexp.MustCompile(regexp.QuoteMeta(opaqueEntityPlaceholder) + `(?:[ \t]*,[ \t]*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `)*[ \t]*(?:-[ \t]*)?`)
+	opaqueFlowrunStatusEmptyDetailPattern              = regexp.MustCompile(`[ \t]*\([ \t]*\)[ \t]*$`)
 	opaqueFlowrunReportTitlePlaceholderPattern         = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s+report\s*[:\x{2014}\-]\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
 	opaqueFlowrunReportForPlaceholderPattern           = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s+report\s+for\s+(?:\*{1,3}|_{1,3}|` + "`" + `)*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
 	opaqueFlowrunTitlePlaceholderPattern               = regexp.MustCompile(`(?i)\b(flow\s*run|flowrun)\s*:\s*(?:\*{1,3}|_{1,3}|` + "`" + `)*` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `(?:\*{1,3}|_{1,3}|` + "`" + `)*`)
@@ -92,7 +104,7 @@ var (
 	opaquePinnedRefsNaturalSentencePattern             = regexp.MustCompile(`(?im)^[ \t]*(?:\*{0,2}pinned\s+refs:?\*{0,2}[ \t]*)?approval form[ \t]+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]+pinned\s+to\s+version[ \t]+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[.]?[ \t]*$`)
 	opaqueFlowrunOverviewIDPlaceholderPattern          = regexp.MustCompile(`(?im)^[ \t]*-[ \t]*id:[ \t]+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]*$`)
 	opaqueFlowrunOverviewVersionPlaceholderPattern     = regexp.MustCompile(`(?im)^[ \t]*-[ \t]*version:[ \t]+` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `[ \t]*$`)
-	opaqueFlowrunSummaryTargetPattern                  = regexp.MustCompile(`(?im)^([ \t]*(?:flow\s*run|flowrun|run)[ \t]+summary)[ \t]+for[ \t]+(?:` + "`?" + `(?:ws|fn|fnv|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+` + "`?" + `|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `|the requested run|the supplied run(?: ID)?)[ \t]*:?[ \t]*$`)
+	opaqueFlowrunSummaryTargetPattern                  = regexp.MustCompile(`(?im)^([ \t]*(?:flow\s*run|flowrun|run)[ \t]+summary)[ \t]+for[ \t]+(?:` + "`?" + `(?:ws|fn|fnv|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+` + "`?" + `|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `|the requested run|the supplied run(?: ID)?)[ \t]*:?[ \t]*$`)
 	opaqueFlowrunSummaryForPrefixPattern               = regexp.MustCompile(`(?i)(?:\bflow\s*run|\bflowrun|\brun)[ \t]+summary[ \t]+for[ \t]+(?:the[ \t]+)?$`)
 	opaquePinnedReferenceNaturalPattern                = regexp.MustCompile(`(?im)^[ \t]*pinned[ \t]+reference:[^\r\n]*(?:pinned[ \t]+ref|pinned[ \t]+to|version)[^\r\n]*(?:\bfnv|wfv|apfv|hdv)_[A-Za-z0-9]+[^\r\n]*$`)
 	// A model can independently choose the neutral phrase, especially after a failed get_flowrun.
@@ -129,7 +141,7 @@ var (
 	opaqueFlowrunValueSuppliedIDPattern         = regexp.MustCompile(`(?i)\bthe\s+value\s+the\s+supplied\s+run\s+id\s+looks\s+like\b`)
 	opaqueFlowrunLabelPattern                   = regexp.MustCompile(`(?i)\bflowrunId\b|\bflowrun\s+ID\b`)
 	opaqueFlowrunPrefixPhrasePattern            = regexp.MustCompile(`(?i)\bthe\s+` + "`?" + `fr_` + "`?" + `\s+prefix\b`)
-	opaqueEntityPrefixPhrasePattern             = regexp.MustCompile(`(?i)\bthe\s+` + "`?" + `(?:ws|fn|hd|ag|wf|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_` + "`?" + `\s+prefix\b`)
+	opaqueEntityPrefixPhrasePattern             = regexp.MustCompile(`(?i)\bthe\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_` + "`?" + `\s+prefix\b`)
 	// Hold a human-readable entity noun at the end of a delta until the following token arrives.
 	// Otherwise a provider chunk boundary between "workflow " and "wf_…" would make the later
 	// redaction unable to remove the duplicate noun from already-emitted SSE text.
@@ -146,6 +158,8 @@ func redactOpaqueMachineValues(text string) string {
 	// Keep old durable assistant blocks readable after the placeholder vocabulary changes.
 	text = strings.ReplaceAll(text, legacyEntityPlaceholder, opaqueEntityPlaceholder)
 	text = isoTimestampPattern.ReplaceAllString(text, opaqueTimestampPlaceholder)
+	text = opaqueWebhookEndpointPattern.ReplaceAllString(text, "See the exact webhook endpoint in the trigger card.")
+	text = opaqueWebhookEndpointPlaceholderPattern.ReplaceAllString(text, "See the exact webhook endpoint in the trigger card.")
 	text = opaqueFlowrunIDTableRowPattern.ReplaceAllString(text, "| **Run** | Current run |")
 	text = opaqueFlowrunIDPlaceholderTableRowPattern.ReplaceAllString(text, "| **Run** | Current run |")
 	text = opaqueVersionTableRowPattern.ReplaceAllString(text, "| **Version** | Current version |")
@@ -179,6 +193,18 @@ func redactOpaqueMachineValues(text string) string {
 	// repeat the structured-row cleanup after that pass so the final close snapshot cannot retain
 	// a placeholder merely because its source prefix was not known to the first pass.
 	text = opaqueFlowrunIDPlaceholderTableRowPattern.ReplaceAllString(text, "| **Run** | Current run |")
+	text = opaqueFlowrunSearchRowPlaceholderPattern.ReplaceAllString(text, "${1} See the run card ${2}")
+	text = opaqueFlowrunChineseWorkflowListPattern.ReplaceAllString(text, "${1}该运行${2}该工作流${3}")
+	text = opaqueFlowrunChineseStatusListPattern.ReplaceAllString(text, "${1}该运行记录${2}")
+	text = opaqueFlowrunStatusListPlaceholderPattern.ReplaceAllString(text, "${1}")
+	text = opaqueFlowrunStatusLinePattern.ReplaceAllStringFunc(text, func(line string) string {
+		if !strings.Contains(line, opaqueEntityPlaceholder) {
+			return line
+		}
+		line = opaqueFlowrunStatusPlaceholderRunPattern.ReplaceAllString(line, "")
+		line = opaqueFlowrunStatusEmptyDetailPattern.ReplaceAllString(line, "")
+		return line
+	})
 	text = opaqueVersionPlaceholderTableRowPattern.ReplaceAllString(text, "| **Version** | Current version |")
 	text = opaqueRefPlaceholderTableRowPattern.ReplaceAllString(text, "| **Ref** | Internal reference |")
 	text = opaqueNodeRecordPlaceholderTableRowPattern.ReplaceAllString(text, "| **Node record** | Internal record |")
@@ -305,7 +331,7 @@ func (r *textRedactor) Write(delta string) string {
 		// following Write will release it; if it is an opaque id, the complete phrase is redacted
 		// before any part reaches the messages stream.
 		emitted = emitted[:loc[0]]
-		pending := string(runes[loc[0]:cut])
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
 		return redactOpaqueMachineValues(emitted)
 	}
@@ -313,7 +339,7 @@ func (r *textRedactor) Write(delta string) string {
 		// Hold "The ID `" together with the following token so a chunk boundary
 		// cannot turn the eventual redaction into "The ID the referenced item".
 		emitted = emitted[:loc[0]]
-		pending := string(runes[loc[0]:cut])
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
 		return redactOpaqueMachineValues(emitted)
 	}
@@ -321,7 +347,7 @@ func (r *textRedactor) Write(delta string) string {
 		// Keep "The flowrun with ID `" together with the following token for
 		// the same whole-subject rewrite across provider chunk boundaries.
 		emitted = emitted[:loc[0]]
-		pending := string(runes[loc[0]:cut])
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
 		return redactOpaqueMachineValues(emitted)
 	}
@@ -329,7 +355,7 @@ func (r *textRedactor) Write(delta string) string {
 		// "The flow run ..." is commonly split after "The flow ". Keep that
 		// compound-noun prefix until we know whether the next token is "run".
 		emitted = emitted[:loc[0]]
-		pending := string(runes[loc[0]:cut])
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
 		return redactOpaqueMachineValues(emitted)
 	}
@@ -337,7 +363,7 @@ func (r *textRedactor) Write(delta string) string {
 		// Hold "flowrun report for " until the ID arrives so a streamed
 		// placeholder does not leave "report for the referenced item" behind.
 		emitted = emitted[:loc[0]]
-		pending := string(runes[loc[0]:cut])
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
 		return redactOpaqueMachineValues(emitted)
 	}
@@ -345,7 +371,7 @@ func (r *textRedactor) Write(delta string) string {
 		// Hold "Run summary for the " until the target arrives; otherwise a provider frame boundary
 		// can expose the target placeholder before the summary-specific rewrite sees the whole line.
 		emitted = emitted[:loc[0]]
-		pending := string(runes[loc[0]:cut])
+		pending := string(runes[runeIndexAtByteOffset(emitted, loc[0]):cut])
 		r.pending = pending + string(runes[cut:])
 		return redactOpaqueMachineValues(emitted)
 	}
@@ -360,6 +386,13 @@ func (r *textRedactor) Flush() string {
 	emitted := redactOpaqueMachineValues(r.pending)
 	r.pending = ""
 	return emitted
+}
+
+// regexp.FindStringIndex returns byte offsets, while the pending buffer is split as runes so a
+// multi-byte user-facing prefix cannot turn a byte offset into an invalid slice bound.
+// regexp.FindStringIndex 返回字节下标，但 pending 按 rune 切分；多字节人话前缀不能直接拿字节下标切 rune。
+func runeIndexAtByteOffset(text string, byteOffset int) int {
+	return utf8.RuneCountInString(text[:byteOffset])
 }
 
 func isTokenContinuation(r rune) bool {
@@ -415,7 +448,11 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 	}
 	lower := strings.ToLower(line)
 	hasTable := strings.Contains(line, "|")
+	isFlowrunStatusLine := opaqueFlowrunStatusLinePattern.MatchString(line) && strings.Contains(lower, opaqueEntityPlaceholder)
+	isWebhookEndpointLine := strings.Contains(lower, "/api/v1/webhooks/")
 	if !hasTable && !strings.Contains(line, "`") &&
+		!isFlowrunStatusLine &&
+		!isWebhookEndpointLine &&
 		!strings.Contains(lower, opaqueEntityPlaceholder) &&
 		!strings.Contains(lower, legacyEntityPlaceholder) &&
 		!strings.Contains(lower, "flowrun report") &&
@@ -431,6 +468,8 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 		return "", "", false
 	}
 	if !hasTable &&
+		!isFlowrunStatusLine &&
+		!isWebhookEndpointLine &&
 		!strings.Contains(lower, "flowrun report") &&
 		!strings.Contains(lower, "flowrun overview") &&
 		!strings.Contains(lower, "flowrun id") &&

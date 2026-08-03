@@ -261,8 +261,10 @@ type DeleteApproval struct {
 
 func (t *DeleteApproval) Name() string { return "delete_approval" }
 
+func (t *DeleteApproval) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *DeleteApproval) Description() string {
-	return "Soft-delete an approval form from normal reads and purge its relation edges. This is a destructive action: set danger=\"dangerous\" and wait for the user's approval before calling it. The immutable version history is retained for audit; this does NOT hard-delete the versions. Workflows that referenced it will fail their capability check until repointed. Check get_relations first so you can explain dependents; the result reports how many entities were affected."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Soft-delete an approval form from normal reads and purge its relation edges. This is a destructive action: set danger=\"dangerous\" and wait for the user's approval before calling it. The approval primary row is NOT restorable through the active API. The immutable version history is retained for audit; this does NOT hard-delete the versions. Workflows that referenced it will fail their capability check until repointed. Check get_relations first so you can explain dependents; the result reports how many entities were affected."
 }
 
 func (t *DeleteApproval) Parameters() json.RawMessage {

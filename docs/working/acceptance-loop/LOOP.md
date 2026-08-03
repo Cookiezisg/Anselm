@@ -27,11 +27,19 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-03 03:44）
+## 当前前线（2026-08-03 11:12）
 
-第七批已完成 **50 / 50**，中央账本 **390 judgments**；锚点 10/10 重新校准有效，`alarms.py check` clean。`TOOL-070 get_flowrun` 的正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-033531` 使用修复后台架二进制、真实 App、真实受管网关、Computer Use 和五通道台架完成；真实用户请求只调用一次 get_flowrun，没有 retry/search/mutation。真实 run `fr_31606084bcee949b` REST 分页返回 91 个 completed 节点，UI 显示 `Completed · 80/91` 与 91 节点总数，并明确说明 projection capped。
+第八批已完成 **50 / 50**，中央账本 **430 judgments**；锚点 10/10 已于本地时间 10:47:56 重新校准，题集 hash 一致并解锁 4 小时，`alarms.py check` clean。`TOOL-080 fire_trigger` 已完成真实 active/paused 双路径、stop-and-fix、五通道证据和真实 API fixture 清理；根 `make verify`、完整 `go test ./...`、第二次完整 testend `310.401s` 和进程泄漏审计均通过。第一次 testend 暴露旧用例未批准新 dangerous delete floor，已按真实交互修复并定向复验；当前只剩工作树审计与提交，下一原子前线暂缓。
 
-首轮真实大运行画面曾暴露 `Run summary for the requested item` 和用户正文中的 `fnv_...`；前线冻结后修复 flowrun summary/pinned reference 的语义归一化、跨 delta `fnv_` 整行缓冲、durable close 二次 redaction，并补 Go regression。修复后 327.648333s 录屏最终画面无 placeholder、opaque version 或布局红线；SSE messages `1..20`、notifications `1..2` 连续，backend/frontend/LLM wire/REST 交叉一致。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-033531/evidence/tool-070-formal-acceptance.md`。五级 `G1/F2/A5/C4/G2` 已落账，两个统计警报按红修复证据和完整复审 ack 后 clean；统一长门禁、完整 testend、工作树审计和提交现在解锁。下一原子前线为 `TOOL-071 search_flowruns`。
+`TOOL-079` 的首轮 Computer Use 观察在打开/关闭模型 Popover 后产生 105 行 macOS `AXTree` 更新失败，画面没有立即破碎但可访问性树已退化；已在 `an_popover.dart` 为常驻 `OverlayPortal` 增加稳定的 `Semantics(container:true, explicitChildNodes:true)` 边界，补 14/14 Flutter 回归并通过 frontend 5174 项、docs verify、相关 Go tests 和 diff 检查。负向 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-073913` 的 Deny 未执行删除；正向 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-101120` 的 Allow 只执行一次 delete，UI 显示主行不可恢复、listener 停止、关系影响和审计历史保留，SQLite/REST、SSE、LLM wire、backend/frontend journals 与 `838.035000s / 2784x1808 / 60fps` 封口录屏一致。五级 `G1/F2/A5/C4/G2` 已落账；正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-101120/evidence/tool-079-formal-green-delete-trigger.txt`。本批仍未到第 50 格，不启动统一长门禁、不提交。
+
+`TOOL-078` formal-136 首轮真实 create 暴露 hosted model 将 `config` 发成 JSON 字符串，后端拒绝、App 留失败活动并 retry；修复后 formal-137 真实 onboarding 先 create cron，再 edit name/description/expression，最终 SQLite 为 `acceptance_078_cron_renamed`、`Edit acceptance trigger`、`*/20 * * * *`、`paused=0`，UI 无失败卡/retry/Settling 残留。五通道证据为 screen.mov `222.758333s`、SSE 432 帧且 messages durable `1..59`、LLM tap 24 个有状态响应全 200、backend/frontend 错误扫描 clean；证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-070531/evidence/tool-078-formal-137-green-edit-trigger.txt`。模型最后一次 reasoning 声称字符串化但 wire 仍是 native object，已如实记录，不将其冒充字符串 wire 成功；真实历史红证据与 decoder 单测继续承担该兼容路径证明。五级 `G1/F2/A5/C4/G2` 已落账，gap-too-fast 按批量写账复审并 ack，当前未到 50 格不跑统一长门禁、不提交。
+
+formal-132 暴露 webhook endpoint 被错误脱敏成不可用 placeholder；formal-133 暴露 sensor 自然语言 output map 未规范化导致两次失败重试；formal-134 暴露 fsnotify 坏 config 让 Flutter trigger 卡直接 Map 强转，真实 App 出现 `Something went wrong` 和 Dart type-cast 异常。三份红证据均保留不计绿。修复分别落在 webhook 语义 redaction、sensor map→CEL 规范化及 trigger card 的坏输入容错，并同步 Go/Flutter 回归测试与 domain docs。
+
+`TOOL-080` 首轮暂停负向把恢复动作错误引导到 `edit_trigger`，冻结为红；修复后工具描述、trigger domain 文档、抽取清册和守卫测试共同明确 Resume control/`:resume`，而非 `edit_trigger`。formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-104036` 的正向只执行一次 `fire_trigger` 并产生一个 activation/firing/completed flowrun，暂停负向只执行一次并无 mutation；screen.mov `223.748333s`，SSE 三流无 gap/error，LLM 响应全 200，backend/frontend 扫描 clean。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-104036/evidence/tool-080-formal-green-fire-trigger.txt`，fixture 通过真实 DELETE=204→GET=404 清理，五级已落账。
+
+formal green session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-064904` 使用新二进制、真实 Flutter App、真实受管网关、Computer Use 和五通道台架走通 sensor、cron、webhook、fsnotify 四种 source kind。sensor 真实搜索 function 后一次创建，cron 展示 next fire，webhook 精确 endpoint 只在工具卡可复制，fsnotify 展示路径/事件/pattern；四条均一次成功，最终画面无错误横幅。screen.mov `297.055000s`；SSE 778 帧、messages durable 尾段 `102..116` 单调；backend/frontend 无未解释红线，REST/SQLite/LLM wire/UI 一致。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-064904/evidence/tool-077-formal-135-green-four-trigger-kinds.txt`。五级 `G1/F2/A5/C4/G2` 已落账，gap-too-fast 已按完整复核说明 ack；未到第 50 格，不启动统一长门禁、不提交。
 
 ## 历史前线摘要（更新前，2026-08-02 05:27）
 

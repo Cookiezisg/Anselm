@@ -176,11 +176,11 @@ class _ChatToolCardState extends State<ChatToolCard> {
       );
     }
 
-    // Failure auto-expands ONCE (industry consensus) — including a DANGER-TONED family
+    // Failure or system suppression auto-expands ONCE (industry consensus) — including a DANGER-TONED family
     // receipt (Bash exit≠0 / timeout close with status=completed on the wire, but the user
     // wants to see why). The user's explicit toggle wins after.
-    // 失败自动展开一次(业界共识)——含**危险色族回执**(Bash 非零 exit/超时在线缆上是 completed,
-    // 但用户要看原因);之后用户手动开关优先。
+    // 失败或系统抑制自动展开一次(业界共识)——含**危险色族回执**(Bash 非零 exit/超时在线缆上是 completed,
+    // 但用户要看原因);之后用户手动开关优先。抑制不是失败，但“未执行”必须可见。
     final hasBody =
         !spec.bodyless && (spec.hasBodyOf?.call(state) ?? state.hasBody);
     ToolReceipt? familyReceipt;
@@ -204,7 +204,8 @@ class _ChatToolCardState extends State<ChatToolCard> {
         state.phase == ToolCardPhase.failed ||
         resultFailed ||
         dangerReceiptExpands;
-    if (failedLook && hasBody && !_autoExpandedOnce) {
+    final suppressedLook = state.phase == ToolCardPhase.suppressed;
+    if ((failedLook || suppressedLook) && hasBody && !_autoExpandedOnce) {
       _autoExpandedOnce = true;
       _userExpanded ??= true;
     }
@@ -239,9 +240,14 @@ class _ChatToolCardState extends State<ChatToolCard> {
                   // reveal only when THIS instance witnessed the settle. 族体读揭示信号:仅亲历落定时播。
                   ToolCardReveal(
                     revealOnMount: _transitionObserved,
-                    child:
-                        spec.body?.call(context, state) ??
-                        _GenericToolBody(state: state),
+                    // A system-suppressed call is not a family success receipt. Show the raw
+                    // suppression proof even for thin lifecycle families whose normal body is
+                    // intentionally empty when there are no dependents.
+                    // 系统抑制不是族成功回执:即使生命周期族正常无依赖时没有展开体,也必须显示原始抑制证据。
+                    child: state.phase == ToolCardPhase.suppressed
+                        ? _GenericToolBody(state: state)
+                        : spec.body?.call(context, state) ??
+                              _GenericToolBody(state: state),
                   ),
                   // Family bodies get the error section from the CHASSIS — every family shows
                   // failures without re-implementing them (the generic body has its own). A family that
@@ -333,6 +339,8 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final String verb;
     if (state.phase == ToolCardPhase.awaitingConfirm) {
       verb = spec.awaitingVerb?.call(t) ?? t.chat.tool.awaitingConfirm;
+    } else if (state.phase == ToolCardPhase.suppressed) {
+      verb = t.chat.tool.suppressed;
     } else if (failed) {
       verb =
           spec.failedVerb?.call(t) ??
@@ -391,6 +399,7 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final dimVerb =
         state.phase == ToolCardPhase.denied ||
         state.phase == ToolCardPhase.cancelled;
+    final suppressedVerb = state.phase == ToolCardPhase.suppressed;
     return AnInteractive(
       onTap: hasBody
           ? () => setState(() => _userExpanded = !(_userExpanded ?? false))
@@ -403,14 +412,22 @@ class _ChatToolCardState extends State<ChatToolCard> {
             Icon(
               AnIcons.toolIcon(state.toolName),
               size: AnSize.icon,
-              color: state.phase == ToolCardPhase.awaitingConfirm
+              color:
+                  state.phase == ToolCardPhase.awaitingConfirm || suppressedVerb
                   ? c.warn
                   : c.inkFaint,
             ),
             const SizedBox(width: AnSpace.s6),
             live
                 ? AnShimmerText('$verb…', style: verbStyle)
-                : Text(verb, style: dimVerb ? verbFaint : verbStyle),
+                : Text(
+                    verb,
+                    style: suppressedVerb
+                        ? verbStyle.copyWith(color: c.warn)
+                        : dimVerb
+                        ? verbFaint
+                        : verbStyle,
+                  ),
             if (target.isNotEmpty) ...[
               const SizedBox(width: AnSpace.s6),
               Flexible(

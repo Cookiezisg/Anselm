@@ -27,7 +27,11 @@ Widget triggerConfigBody(BuildContext context, ToolCardState state) {
   final result = state.resultObj; // C-028: memoized decode 记忆化解码
 
   final kind = (args?['kind'] ?? '').toString();
-  final config = (args?['config'] as Map?) ?? const {};
+  // A rejected tool call can contain malformed JSON shapes (for example the model
+  // sending config as a string). The error card must still render the raw args and
+  // backend error instead of crashing the transcript while expanding its face.
+  final rawConfig = args?['config'];
+  final config = rawConfig is Map ? rawConfig : const <String, dynamic>{};
   final id = (result?['id'] ?? '').toString();
 
   final rows = <Widget>[
@@ -125,9 +129,10 @@ List<Widget> _faceOf(
       ];
     case 'fsnotify':
       final path = (config['path'] ?? '').toString();
-      final events =
-          (config['events'] as List?)?.map((e) => e.toString()).toList() ??
-          const [];
+      final rawEvents = config['events'];
+      final events = rawEvents is List
+          ? rawEvents.map((e) => e.toString()).toList()
+          : const <String>[];
       final pattern = (config['pattern'] ?? '').toString();
       return [
         Text(path, style: AnText.mono.copyWith(color: c.inkMuted)),

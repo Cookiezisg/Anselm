@@ -110,8 +110,10 @@ type DeleteHandler struct {
 
 func (t *DeleteHandler) Name() string { return "delete_handler" }
 
+func (t *DeleteHandler) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *DeleteHandler) Description() string {
-	return "Delete a handler from the active product surface: stop its resident instance and soft-delete the handler row. Immutable versions remain available for audit, environments are destroyed best-effort, and relation edges are purged. The handler and its actions are not recoverable through the active API. The result reports which other entities referenced it (and may now fail) — to check dependents BEFORE deleting, use get_relations."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Delete a handler from the active product surface: stop its resident instance and soft-delete the handler row. Immutable versions remain available for audit, environments are destroyed best-effort, and relation edges are purged. The handler and its actions are NOT recoverable through the active API. The result reports which other entities referenced it (and may now fail) — check get_relations BEFORE deleting."
 }
 
 func (t *DeleteHandler) Parameters() json.RawMessage {

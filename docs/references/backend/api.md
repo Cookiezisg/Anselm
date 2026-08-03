@@ -111,8 +111,8 @@ audience: [human, ai]
 | `POST /workflows/{id}:edit` · `:revert` | Graph ops / 移 pointer |
 | `POST /workflows/{id}:capability-check` | 返回阻断 problems 与 advisory warnings |
 | `POST /workflows/{id}:trigger` | 显式 run-now，返 flowrun ID |
-| `POST /workflows/{id}:stage` | 一次性待命 |
-| `POST /workflows/{id}:activate` · `:deactivate` · `:kill` | 上线 / 排空下线 / 硬停 |
+| `POST /workflows/{id}:stage` | 一次性待命；成功返回 workflow 实体快照（含名称与生命周期） |
+| `POST /workflows/{id}:activate` · `:deactivate` · `:kill` | 上线 / 排空下线 / 硬停；均返回动作后的 workflow 实体快照 |
 | `POST /workflows/{id}:iterate` | 打开 AI 构建 Conversation |
 | `GET /workflows/{id}/versions[/{version}]` | 版本分页/单读 |
 

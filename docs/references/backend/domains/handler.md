@@ -162,7 +162,9 @@ Uploader 未装配时不创建目录，声明原样通过。
 - Mention 提供 description 与装配后的 active class；
 - Agent mount `hd_<id>.<method>` 合成为 `<handler>__<method>`；
 - Workflow action、Chat、HTTP 与 Sensor 调用同一 `Call`；
-- Delete 停实例、软删主行、清 relation，并最佳努力回收 env/代码目录。
+- Delete 停实例、软删主行、清 relation，并最佳努力回收 env/代码目录。主实体与 actions **不可恢复**；
+  `delete_handler` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe` 也必须先经过 HumanLoop
+  用户批准，且不能被 skill 或 `approve_always` 预授权绕过。
 
 `delete_handler` 的工具回执同时返回结构化 `retention`：`handler=soft_deleted`、
 `versions=retained_for_audit`、`sandbox=destroy_requested_best_effort`、

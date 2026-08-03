@@ -24,7 +24,8 @@
 Computer Use 的 macOS AX 树读取只在稳定态做；流式期间由连续 `screen.mov` 负责逐帧证据。原因是 Flutter
 debug engine 在 AX 树正被替换时可能输出 `accessibility_bridge.cc ... Failed to update ui::AXTree`，这是观察器/引擎
 交互噪声，但仍属于未审阅前端红线：`rig-check` 会拒绝它，证据必须另行说明「流中不读 AX、静置不增长、无
-FlutterError/DartError/RenderFlex」后才可把它从产品缺陷中分流，不能用 grep 静默抹掉。
+FlutterError/DartError/RenderFlex」后才可把它从产品缺陷中分流，不能用 grep 静默抹掉。菜单/锚定浮层另有
+产品代码守卫：触发器树必须保留常驻的显式语义边界；若开合后 AX 红线仍持续增长，先修代码，不得直接归类为观察噪声。
 
 ## 起 / 检 / 停
 

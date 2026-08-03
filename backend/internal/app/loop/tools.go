@@ -44,20 +44,59 @@ func runTools(
 	byName map[string]toolapp.Tool,
 	log *zap.Logger,
 ) []messagesdomain.Block {
+	blocks, _ := runToolsWithLedger(ctx, calls, byName, nil, log)
+	return blocks
+}
+
+// runToolsWithLedger is runTools plus a per-Run ledger of calls that have already been handled.
+// The ledger is deliberately owned by loop.Run rather than persisted or attached to a conversation:
+// an identical call in a later user turn is a new intent and must remain executable. Calls repeated
+// across ReAct steps are suppressed before dispatch, so they cannot open another approval gate or
+// repeat a side effect after a successful/denied execution.
+//
+// runToolsWithLedger 是 runTools 加上「本次 Run 已处理调用」台账。台账刻意由 loop.Run 持有，而不
+// 持久化或挂在对话上：后续用户回合的同参数调用是新意图，必须仍可执行。跨 ReAct 步重复调用在
+// dispatch 前被压制，故成功/拒绝后既不会再开批准闸，也不会再做一次副作用。
+func runToolsWithLedger(
+	ctx context.Context,
+	calls []messagesdomain.ToolCallData,
+	byName map[string]toolapp.Tool,
+	handled map[string]indexedCall,
+	log *zap.Logger,
+) ([]messagesdomain.Block, bool) {
 	if len(calls) == 0 {
-		return nil
+		return nil, false
+	}
+	for i := range calls {
+		calls[i].Danger = string(toolapp.EffectiveDanger(byName[calls[i].Name], toolapp.DangerLevel(calls[i].Danger)))
+	}
+	if handled == nil {
+		handled = make(map[string]indexedCall)
 	}
 	// Per-call block lists (progress* + tool_result), index-aligned so a parallel batch's writes
 	// don't race on order; flattened in call order at the end.
 	//
 	// 每调用一组 block（progress* + tool_result），按下标对齐使并行批写入不竞争顺序；末尾按调用序拍平。
 	perCall := make([][]messagesdomain.Block, len(calls))
-	duplicates := duplicateToolCalls(calls)
+	duplicates := duplicateToolCalls(calls, byName)
+	prior := make(map[int]indexedCall)
+	for i, tc := range calls {
+		if !repeatGuardedCall(ctx, tc, byName) {
+			continue
+		}
+		if key, ok := canonicalToolCallKey(tc, byName[tc.Name]); ok {
+			if first, exists := handled[key]; exists {
+				prior[i] = first
+			}
+		}
+	}
 
 	for _, batch := range partitionByExecutionGroup(calls) {
 		if len(batch.items) == 1 {
 			item := batch.items[0]
-			if first, ok := duplicates[item.idx]; ok {
+			if first, ok := prior[item.idx]; ok {
+				perCall[item.idx] = runTurnDuplicateTool(ctx, item.tc, first, log)
+			} else if first, ok := duplicates[item.idx]; ok {
 				perCall[item.idx] = runDuplicateTool(ctx, item.tc, first, log)
 			} else {
 				perCall[item.idx] = runOneTool(ctx, byName[item.tc.Name], item.tc, log)
@@ -72,7 +111,9 @@ func runTools(
 				// Each goroutine writes its own pre-assigned index — no shared-slot race, no lock.
 				//
 				// 每个 goroutine 只写自己预分配的下标——无共享槽竞争、无需锁。
-				if first, ok := duplicates[it.idx]; ok {
+				if first, ok := prior[it.idx]; ok {
+					perCall[it.idx] = runTurnDuplicateTool(ctx, it.tc, first, log)
+				} else if first, ok := duplicates[it.idx]; ok {
 					perCall[it.idx] = runDuplicateTool(ctx, it.tc, first, log)
 				} else {
 					perCall[it.idx] = runOneTool(ctx, byName[it.tc.Name], it.tc, log)
@@ -81,11 +122,70 @@ func runTools(
 		}
 		wg.Wait()
 	}
+
+	// Record only the first new key in this batch. Writes happen after all parallel execution is
+	// complete, so the goroutines never race on the ledger map.
+	//
+	// 只记录本批新 key 的第一次出现。待并行执行全部结束后再写，故 goroutine 不会竞争台账 map。
+	firstNew := make(map[string]indexedCall)
+	for i, tc := range calls {
+		if !repeatGuardedCall(ctx, tc, byName) {
+			continue
+		}
+		key, ok := canonicalToolCallKey(tc, byName[tc.Name])
+		if !ok {
+			continue
+		}
+		if _, exists := prior[i]; exists {
+			continue
+		}
+		if _, exists := firstNew[key]; !exists {
+			firstNew[key] = indexedCall{idx: i, tc: tc}
+		}
+	}
+	for key, first := range firstNew {
+		handled[key] = first
+	}
+
 	var blocks []messagesdomain.Block
 	for _, bs := range perCall {
 		blocks = append(blocks, bs...)
 	}
-	return blocks
+	return blocks, len(prior) > 0
+}
+
+// canonicalToolCallKey excludes framework standard fields because they describe the model's
+// presentation of a call, not its business identity. A tool may provide a narrower CallIdentity
+// for guarded mutations; otherwise json.Marshal sorts map keys so logically identical object
+// arguments have one stable key even when a provider streams another order.
+//
+// canonicalToolCallKey 排除 framework 标准字段，因为它们描述模型如何呈现调用，不是业务身份。受保护
+// mutation 可提供更窄的 CallIdentity；否则 json.Marshal 排序 map key，使参数顺序不同仍只有一个键。
+func canonicalToolCallKey(tc messagesdomain.ToolCallData, t toolapp.Tool) (string, bool) {
+	args, err := json.Marshal(tc.Arguments)
+	if err != nil {
+		return "", false
+	}
+	if identity := toolapp.CallIdentity(t, args); identity != "" {
+		return tc.Name + "\x00" + identity, true
+	}
+	return tc.Name + "\x00" + string(args), true
+}
+
+// repeatGuardedCall limits the cross-step ledger to calls that already carry a human-facing safety
+// boundary: a dangerous self-report or a residency write that physically leaves the mounted root.
+// Read/retry tools remain repeatable after an execution error; otherwise a transient read failure
+// would be turned into a silent suppression instead of the existing recovery path.
+//
+// repeatGuardedCall 只把跨步台账用于已有用户安全边界的调用：LLM 自报 dangerous，或实际写出驻地根的
+// 调用。读/重试工具在执行报错后仍可重复，否则一次临时读失败会被静默压制，破坏原有恢复路径。
+func repeatGuardedCall(ctx context.Context, tc messagesdomain.ToolCallData, byName map[string]toolapp.Tool) bool {
+	if toolapp.EffectiveDanger(byName[tc.Name], toolapp.DangerLevel(tc.Danger)) == toolapp.DangerDangerous {
+		return true
+	}
+	t := byName[tc.Name]
+	argsJSON, err := json.Marshal(tc.Arguments)
+	return err == nil && writesOutsideWorkDir(ctx, t, argsJSON)
 }
 
 // duplicateToolCalls identifies byte-equivalent business calls within one assistant response. A
@@ -96,15 +196,14 @@ func runTools(
 // duplicateToolCalls 标出一次 assistant 响应内业务参数完全相同的调用。托管模型可能在修正早期参数
 // 错误时于同一批重复吐出 mutation；只执行首个，其余给诚实的 completed suppression 结果。后续用户回合
 // 主动重复同样参数不受影响。
-func duplicateToolCalls(calls []messagesdomain.ToolCallData) map[int]indexedCall {
+func duplicateToolCalls(calls []messagesdomain.ToolCallData, byName map[string]toolapp.Tool) map[int]indexedCall {
 	firstByKey := make(map[string]indexedCall)
 	duplicates := make(map[int]indexedCall)
 	for i, tc := range calls {
-		args, err := json.Marshal(tc.Arguments)
-		if err != nil {
+		key, ok := canonicalToolCallKey(tc, byName[tc.Name])
+		if !ok {
 			continue
 		}
-		key := tc.Name + "\x00" + string(args)
 		first, exists := firstByKey[key]
 		if exists {
 			duplicates[i] = first
@@ -128,6 +227,27 @@ func runDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, first
 		Content:       content,
 		ParentBlockID: tc.ID,
 		Attrs:         map[string]any{"tool": tc.Name, "duplicateSuppressed": true},
+	}}
+}
+
+func runTurnDuplicateTool(ctx context.Context, tc messagesdomain.ToolCallData, first indexedCall, log *zap.Logger) []messagesdomain.Block {
+	blockID := idgenpkg.New("blk")
+	content := fmt.Sprintf("Duplicate tool call suppressed: identical %s call %s was already handled earlier in this turn; no second approval or execution was requested.", tc.Name, first.tc.ID)
+	em := newEmitter(ctx, log)
+	em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
+	em.close(ctx, blockID, messagesdomain.StatusCompleted,
+		&streamdomain.Node{Type: messagesdomain.BlockTypeToolResult, Content: streamdomain.JSONContent(toolResultContent{Content: content})}, "")
+	return []messagesdomain.Block{{
+		ID:            blockID,
+		Type:          messagesdomain.BlockTypeToolResult,
+		Content:       content,
+		ParentBlockID: tc.ID,
+		Attrs: map[string]any{
+			"tool":                tc.Name,
+			"duplicateSuppressed": true,
+			"duplicateScope":      "turn",
+			"duplicateOf":         first.tc.ID,
+		},
 	}}
 }
 
@@ -233,8 +353,32 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 // 「没跑」结果),但工具从未执行——为其记触碰即幽灵账(被**拒绝**的 delete_agent 绝不能产生
 // `deleted` 台账行)。第五个返回值记录明确的人批准，供模型历史投影使用，但不污染用户可见的工具结果文本。
 func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData, argsJSON []byte, log *zap.Logger) (output, errMsg string, ok, executed, humanApproved bool) {
+	if t != nil && t.Name() != tc.Name {
+		msg := fmt.Sprintf("tool dispatch mismatch: requested %q but resolved %q; no tool was executed", tc.Name, t.Name())
+		log.Error("tool dispatch mismatch", zap.String("requested_tool", tc.Name), zap.String("resolved_tool", t.Name()))
+		return msg, msg, false, false, false
+	}
+	// Validate before opening a dangerous gate. A malformed mutation must not show an "Allowed"
+	// card and only then reveal that nothing could execute; that sequence teaches users to approve
+	// blind and can leave the model asking for a second destructive gate for the same intent.
+	//
+	// 先校验再开危险闸。畸形 mutation 不得先显示「Allowed」再说根本没法执行；那会教用户盲点批准，
+	// 还可能让模型为同一意图再开第二道破坏性人闸。
+	if t != nil {
+		if err := t.ValidateInput(argsJSON); err != nil {
+			msg := "input validation failed: " + llmErrText(err)
+			log.Warn("tool validate failed before gate", zap.String("tool", tc.Name), zap.String("error", llmErrText(err)))
+			return msg, msg, false, false, false
+		}
+	}
+	if conflict := toolIntentConflict(tc.Name, tc.Summary); conflict != "" {
+		log.Warn("tool intent conflict before gate", zap.String("tool", tc.Name), zap.String("summary", tc.Summary), zap.String("error", conflict))
+		return conflict, conflict, false, false, false
+	}
 	outsideWorkDir := writesOutsideWorkDir(ctx, t, argsJSON)
-	if b := humanloopapp.From(ctx); b != nil && (tc.Danger == string(toolapp.DangerDangerous) || outsideWorkDir) {
+	effectiveDanger := toolapp.EffectiveDanger(t, toolapp.DangerLevel(tc.Danger))
+	staticDanger := toolapp.MinimumDanger(t)
+	if b := humanloopapp.From(ctx); b != nil && (effectiveDanger == toolapp.DangerDangerous || outsideWorkDir) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
 		// An out-of-root write skips BOTH bypasses on purpose. approve_always is per (conversation, tool),
 		// so honouring it would turn one "yes, edit that file over there" into a standing licence for every
@@ -246,7 +390,7 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 		// 那边那个文件」变成此后**任何**位置每次 Write 的长期许可——用户回答的是一个**路径**、不是一个工具。
 		// active skill 的 allowed-tools 是同一形状的承诺（「本 skill 会用 Write」）,而它是在谁都还不知道
 		// 它要写到哪里之前作出的。两者都从未授权「离开驻地」。
-		if outsideWorkDir || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
+		if outsideWorkDir || staticDanger == toolapp.DangerDangerous || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
 			// The reason rides the prompt only when it IS the reason, so an ordinary danger confirmation's
 			// payload stays byte-identical to what every existing client already parses. Without this key
 			// the user would face an approval dialog for a write the model called `safe` and have no way to
@@ -255,7 +399,15 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 			// 理由**仅在它就是理由时**才上 prompt,故普通 danger 确认的载荷与每个既有客户端已在解析的形状
 			// 逐字节相同。没有这个键,用户会为一次模型自称 `safe` 的写面对一个批准框、却无从知道为什么——
 			// 一个无法自我解释的弹窗只会被闭眼点掉。
-			payload := map[string]any{"summary": tc.Summary, "args": json.RawMessage(argsJSON)}
+			// The model's summary is not an authority over the operation it selected. In particular,
+			// a delete call must never be presented as a deactivate call just because the model wrote
+			// "deactivate" in this field. Build the approval sentence from the resolved tool name;
+			// keep the payload shape stable for existing clients.
+			//
+			// 模型自报 summary 不能决定它实际选中的动作。尤其不能因为模型在此字段写了
+			// "deactivate"，就把 delete 调用展示成 deactivate。批准句由真实解析工具名生成，
+			// 同时保持既有 payload 形状，兼容现有客户端。
+			payload := map[string]any{"summary": canonicalGateSummary(t, tc, outsideWorkDir), "args": json.RawMessage(argsJSON)}
 			if outsideWorkDir {
 				payload["outsideWorkDir"] = true
 			}
@@ -263,7 +415,7 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 			resp, err := b.Request(ctx, humanloopapp.Request{
 				ToolCallID:     tc.ID,
 				Kind:           humanloopapp.KindDanger,
-				Tool:           tc.Name,
+				Tool:           resolvedToolName(t, tc),
 				ConversationID: convID,
 				Prompt:         prompt,
 			})
@@ -283,6 +435,100 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 	}
 	output, errMsg, ok = executeTool(ctx, t, tc.Name, argsJSON, log)
 	return output, errMsg, ok, true, humanApproved
+}
+
+// resolvedToolName is the name the executor actually resolved. It is kept separate from the
+// model's prose so the human gate and audit trail cannot describe a different operation.
+//
+// resolvedToolName 返回执行器实际解析到的名字。它与模型 prose 分离，确保人闸与审计不会描述另一个动作。
+func resolvedToolName(t toolapp.Tool, tc messagesdomain.ToolCallData) string {
+	if t != nil && t.Name() != "" {
+		return t.Name()
+	}
+	return tc.Name
+}
+
+// canonicalGateSummary is the user-facing action sentence for a dangerous gate. The LLM summary
+// remains useful on the tool card, but it is deliberately not used here: approval must identify the
+// operation that will actually execute. Lifecycle verbs get explicit copy because "deactivate",
+// "kill", and "delete" have materially different consequences.
+//
+// canonicalGateSummary 是危险闸面向用户的动作句。LLM summary 仍可在工具卡使用，但刻意不用于这里：批准
+// 必须指出将真实执行的动作。生命周期动词的后果不同，故 deactivate / kill / delete 使用明确文案。
+func canonicalGateSummary(t toolapp.Tool, tc messagesdomain.ToolCallData, outsideWorkDir bool) string {
+	name := resolvedToolName(t, tc)
+	if outsideWorkDir {
+		return fmt.Sprintf("Write outside the conversation work directory using `%s`. The exact target is shown below.", name)
+	}
+	switch name {
+	case "delete_function":
+		return "Remove this function from the active catalog. Its primary entity and actions are not restorable; sandbox environments are destroyed, version history is retained for audit, and dependent relations are purged."
+	case "delete_handler":
+		return "Remove this handler from the active product surface. Its resident instance stops, the handler and its actions are not restorable, immutable versions remain for audit, and relation edges are purged."
+	case "delete_agent":
+		return "Remove this agent from the active product surface. Its active configuration is not restorable; execution history is retained for audit and relation edges are purged."
+	case "delete_control":
+		return "Delete this control logic and all its versions. This is not reversible and has no restore operation; workflows that reference it may fail capability checks."
+	case "delete_approval":
+		return "Remove this approval form from normal reads. Its primary row is not restorable; immutable versions remain for audit, relation edges are purged, and referencing workflows may fail capability checks."
+	case "delete_skill":
+		return "Permanently delete this skill and its directory. This cannot be undone; agents equipped with it may fail after its relation is removed."
+	case "delete_trigger":
+		return "Remove this trigger from normal reads and stop its listener. The primary row is not restorable; activation and firing history remains for audit, relation edges are purged, and referencing workflows may stop receiving its signal."
+	case "delete_workflow":
+		return "Permanently delete this workflow from normal reads. It is not restorable; automation is stopped and history is retained for audit."
+	case "deactivate_workflow":
+		return "Take this workflow offline gracefully: stop accepting new triggers and let in-flight runs finish."
+	case "kill_workflow":
+		return "Hard-stop this workflow: stop accepting new triggers and cancel every in-flight run immediately."
+	default:
+		return fmt.Sprintf("Run the `%s` operation. The selected tool is `%s`.", name, name)
+	}
+}
+
+// toolIntentConflict catches the high-consequence lifecycle mix-ups that can otherwise pass a
+// human gate with a misleading model summary (for example delete_workflow + "deactivate"). The
+// call is rejected before approval or side effect; the model receives a concrete correction and
+// may select the intended tool on the next step.
+//
+// toolIntentConflict 拦截高后果生命周期动作的自相矛盾，避免错误调用带着误导 summary 通过人闸（例如
+// delete_workflow + "deactivate"）。它在批准和副作用之前拒绝，模型收到明确纠正后可在下一步选择正确工具。
+func toolIntentConflict(toolName, summary string) string {
+	s := strings.ToLower(strings.TrimSpace(summary))
+	if s == "" {
+		return ""
+	}
+	has := func(parts ...string) bool {
+		for _, part := range parts {
+			if strings.Contains(s, part) {
+				return true
+			}
+		}
+		return false
+	}
+	var expected string
+	switch toolName {
+	case "delete_workflow":
+		if has("deactivat", "graceful", "offline", "stop listening", "drain") {
+			expected = "deactivate_workflow"
+		}
+	case "deactivate_workflow":
+		if has("delete", "permanent", "remove", "irreversible") {
+			expected = "delete_workflow"
+		}
+	case "kill_workflow":
+		if has("deactivat", "graceful", "offline", "let.*finish", "drain") {
+			expected = "deactivate_workflow"
+		}
+	case "activate_workflow":
+		if has("deactivat", "offline", "stop listening") {
+			expected = "deactivate_workflow"
+		}
+	}
+	if expected == "" {
+		return ""
+	}
+	return fmt.Sprintf("tool selection conflict: `%s` was selected, but its summary describes `%s`; no tool was executed. Select `%s` for the described operation.", toolName, expected, expected)
 }
 
 // writesOutsideWorkDir reports whether this call physically writes a file outside the conversation's

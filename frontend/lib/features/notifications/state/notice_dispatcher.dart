@@ -5,8 +5,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/contract/notification.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
+import '../../../core/runtime.dart';
 import '../../../core/settings/settings_prefs.dart';
 import '../../../core/router/navigation.dart';
+import '../../../core/sse/frame.dart';
+import '../../../core/sse/sse_gateway.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/notification_providers.dart';
 import '../data/notification_signal.dart';
@@ -31,13 +34,33 @@ class NoticeDispatcher extends Notifier<void> {
   @override
   void build() {
     final repo = ref.watch(notificationRepositoryProvider);
-    final sub = repo.signals().listen(_onSignal);
-    ref.onDispose(sub.cancel);
+    final notificationSub = repo.signals().listen(_onSignal);
+    final workflowSub = ref
+        .watch(sseGatewayProvider)
+        ?.kindStream(StreamName.entities, 'workflow')
+        .listen(_onWorkflowFrame);
+    ref.onDispose(() {
+      notificationSub.cancel();
+      workflowSub?.cancel();
+    });
     // Init the OS-native notifier once (app root = LocalOsNotifier; demo/tests = Noop, a no-op). Tapping a
     // posted OS notification deep-links via the same router as its top-band counterpart. 初始化 OS 通知器(一次)。
     ref
         .read(osNotifierProvider)
         .init((location) => ref.read(goRouterProvider).go(location));
+  }
+
+  /// A run terminal is the authoritative end of every parked approval in that run. The approval
+  /// notification is a presentation copy and may have been created by a different client or by the
+  /// model, so waiting for a local button callback is insufficient. 收件通知是展示副本，模型/别的客户端
+  /// 也能决策；run_terminal 是同一 run 全部审批不再可操作的权威收口。
+  void _onWorkflowFrame(StreamEnvelope env) {
+    if (!env.durable || env.frame is! FrameSignal) return;
+    final signal = env.frame as FrameSignal;
+    if (signal.node.type != 'run_terminal') return;
+    final flowrunId = signal.node.content?['flowrunId'] as String?;
+    if (flowrunId == null || flowrunId.isEmpty) return;
+    ref.read(noticeCenterProvider.notifier).resolveApprovalsForRun(flowrunId);
   }
 
   void _onSignal(NotificationSignal s) {

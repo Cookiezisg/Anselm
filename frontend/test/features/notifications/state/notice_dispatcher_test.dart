@@ -1,7 +1,13 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/notification.dart';
 import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/notice/notice_center.dart';
+import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/sse/frame.dart';
+import 'package:anselm/core/sse/sse_connection.dart';
+import 'package:anselm/core/sse/sse_gateway.dart';
 import 'package:anselm/features/notifications/data/notification_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/notifications/data/os_notifier.dart';
@@ -29,6 +35,29 @@ class _FakeOsNotifier implements OsNotifier {
   }
 }
 
+class _FakeConn extends SseConnection {
+  _FakeConn()
+    : super(
+        streamPath: '/x',
+        baseUrl: 'http://localhost:1',
+        workspaceId: () => null,
+        authToken: () => null,
+      );
+
+  final ctrl = StreamController<StreamEnvelope>.broadcast();
+
+  @override
+  Stream<StreamEnvelope> get envelopes => ctrl.stream;
+
+  @override
+  void start() {}
+
+  @override
+  Future<void> stop() async {
+    await ctrl.close();
+  }
+}
+
 NotificationItem _n(String type, Map<String, dynamic> payload) =>
     NotificationItem(
       id: 'x',
@@ -44,6 +73,7 @@ void main() {
   (ProviderContainer, FixtureNotificationRepository) setup({
     String? level,
     void Function(SettingsPrefs)? prefsTweak,
+    SseGateway? gateway,
   }) {
     final repo = FixtureNotificationRepository(seed: const []);
     final prefs = SettingsPrefs.inMemory();
@@ -53,9 +83,11 @@ void main() {
       overrides: [
         notificationRepositoryProvider.overrideWithValue(repo),
         settingsPrefsProvider.overrideWithValue(prefs),
+        if (gateway != null) sseGatewayProvider.overrideWithValue(gateway),
       ],
     );
     addTearDown(container.dispose);
+    if (gateway != null) addTearDown(gateway.dispose);
     container.read(noticeDispatcherProvider);
     return (container, repo);
   }
@@ -114,6 +146,46 @@ void main() {
       expect(message?.tone, AnTone.warn);
       expect(message?.title, 'deploy');
       expect((message?.flowrunId, message?.nodeId), ('fr_1', 'gate'));
+    },
+  );
+
+  test(
+    'workflow terminal retracts a pending approval card from the live entities stream',
+    () async {
+      final conns = {for (final n in StreamName.values) n: _FakeConn()};
+      final gateway = SseGateway(
+        baseUrl: 'http://localhost:1',
+        workspaceId: () => null,
+        authToken: () => null,
+        connectionFactory: (n) => conns[n]!,
+      );
+      final (container, repo) = setup(gateway: gateway);
+      repo.emit(
+        _n('workflow.approval_pending', {
+          'name': 'deploy',
+          'workflowId': 'wf_2',
+          'flowrunId': 'fr_done',
+          'nodeId': 'gate',
+        }),
+      );
+      await pumpEventQueue();
+      expect(stage(container).current?.message.kind, NoticeKind.approval);
+
+      conns[StreamName.entities]!.ctrl.add(
+        StreamEnvelope(
+          seq: 9,
+          scope: const StreamScope(kind: 'workflow', id: 'wf_2'),
+          id: 'terminal',
+          frame: const FrameSignal(
+            node: StreamNode(
+              type: 'run_terminal',
+              content: {'flowrunId': 'fr_done', 'status': 'completed'},
+            ),
+          ),
+        ),
+      );
+      await pumpEventQueue();
+      expect(stage(container).current?.dismissRequested, isTrue);
     },
   );
 

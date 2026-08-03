@@ -42,7 +42,9 @@ Move 支持：
 Duplicate 深拷整棵子树，为每个节点铸新 ID 并重映射 parent/path；新根名称按 Create
 规则去重。复制逐节点执行，不宣称跨整棵树原子。
 
-Delete 软删整棵子树，并在删除前枚举所有后裔 ID 清理 Relation 边。墓碑保留；
+Delete 软删整棵子树，并在删除前枚举所有后裔 ID 清理 Relation 边。墓碑保留，可由用户恢复；
+因此 `delete_document` 的工具层静态危险下限是 `cautious`（不可被模型自报 `safe` 降低，但不需要
+不可逆操作的人闸）。
 正常 List/Get/Search 不返回已删节点。
 
 ## 3. 内容与挂载

@@ -103,8 +103,10 @@ type DeleteAgent struct {
 
 func (t *DeleteAgent) Name() string { return "delete_agent" }
 
+func (t *DeleteAgent) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *DeleteAgent) Description() string {
-	return "Delete an agent (soft-delete). Its execution history is retained and every relation edge touching it is removed. The JSON result is authoritative: removedRelationEdges is the exact pre-delete edge snapshot; dependents, when present, are only incoming equip/link references that may now fail. Never infer or invent edge types, counts, or IDs that are not present in the result. If relationAudit is unavailable, say the exact edge audit was unavailable."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Soft-delete an agent from the active product surface; its execution history is retained and every relation edge touching it is removed. The agent and its active configuration are NOT restorable through the active API. The JSON result is authoritative: removedRelationEdges is the exact pre-delete edge snapshot; dependents, when present, are only incoming equip/link references that may now fail. Never infer or invent edge types, counts, or IDs that are not present in the result. If relationAudit is unavailable, say the exact edge audit was unavailable."
 }
 
 func (t *DeleteAgent) Parameters() json.RawMessage {

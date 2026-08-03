@@ -24,6 +24,14 @@ BlockNode _node(String name, String args, String result) =>
           ..content = {'content': result},
       );
 
+BlockNode _failedNode(String name, String args, String error) {
+  final node = _node(name, args, '');
+  final result = node.children.single;
+  result.status = 'error';
+  result.error = error;
+  return node;
+}
+
 ToolCardState _state(String name, String args, String result) => ToolCardState(
   phase: ToolCardPhase.succeeded,
   toolName: name,
@@ -179,5 +187,25 @@ void main() {
     await tester.tap(find.textContaining('已创建触发器'), warnIfMissed: false);
     await tester.pumpAndSettle();
     expect(find.textContaining('foo'), findsOneWidget);
+  });
+
+  testWidgets('failed trigger with malformed config still renders its error', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _failedNode(
+            'create_trigger',
+            '{"name":"落盘","kind":"fsnotify","config":"not-an-object"}',
+            'create_trigger: invalid trigger config',
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('create_trigger: invalid trigger config'), findsOneWidget);
   });
 }

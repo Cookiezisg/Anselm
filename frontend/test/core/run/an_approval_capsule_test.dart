@@ -21,12 +21,13 @@ void main() {
   );
 
   AnApprovalCapsule cap({
+    String question = 'Deploy **v2.4.0** to production?',
     String? verdict,
     VoidCallback? onDismissed,
     VoidCallback? onApprove,
   }) => AnApprovalCapsule(
     title: 'approve_deploy',
-    question: 'Deploy **v2.4.0** to production?',
+    question: question,
     pendingLabel: 'Awaiting approval',
     busyLabel: 'Deciding',
     approveLabel: 'Approve',
@@ -68,6 +69,31 @@ void main() {
       expect(find.text('Reject'), findsOneWidget);
     },
   );
+
+  testWidgets('re-measures an approval question resolved after the notice mounts', (
+    tester,
+  ) async {
+    await tester.pumpWidget(host(cap(question: 'Approve?')));
+    await tester.pump(const Duration(milliseconds: 900));
+
+    // The real host first renders its short notice copy, then replaces it with the parked
+    // approval's two-line question once the inbox resolves.  The controls must remain inside
+    // the block after that update. 真实宿主先渲短通知, inbox resolve 后再换两行审批问题;
+    // 更新后按钮仍必须完整留在块内。
+    await tester.pumpWidget(
+      host(
+        cap(
+          question:
+              'Emergency stop probe: approve cancellation of the in-flight run?',
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 900));
+
+    expect(tester.takeException(), isNull);
+    expect(find.text('Approve'), findsOneWidget);
+    expect(find.text('Reject'), findsOneWidget);
+  });
 
   testWidgets('the dot is WARN amber — never danger red (分级点色铁律)', (
     tester,

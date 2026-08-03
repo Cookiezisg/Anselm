@@ -199,6 +199,11 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
   @override
   void didUpdateWidget(AnApprovalCapsule old) {
     super.didUpdateWidget(old);
+    // The host may mount with the short notice copy and resolve the parked approval a frame later.
+    // Re-measure that asynchronous question before the button row is laid out, otherwise a newly
+    // wrapped second line overflows the originally measured shell. 宿主可能先挂短通知文案、下一帧才
+    // resolve 停车审批;问题句异步变成长文后必须重测,否则第二行会把按钮行挤出壳体。
+    if (old.question != widget.question) _measure();
     // A verdict landed — show it a beat, then retreat along the same line. 判词落地:亮一拍,同线倒放。
     if (old.verdict == null && widget.verdict != null) {
       _announce(widget.verdict!);

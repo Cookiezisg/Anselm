@@ -8,10 +8,11 @@ import (
 	"strings"
 
 	documentapp "github.com/sunweilin/anselm/backend/internal/app/document"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const deleteDocumentDescription = `Soft-delete a document and all of its descendants recursively. Returns the deleted count. The user can still recover tombstoned docs; already-sent messages keep resolving.`
+const deleteDocumentDescription = `Delete a document and all of its descendants recursively. This changes recoverable state: set danger="cautious" so the user sees the action, but do not claim it is irreversible. Tombstoned documents can be recovered; already-sent messages keep resolving. Returns the deleted count.`
 
 var deleteDocumentSchema = json.RawMessage(`{
 	"type": "object",
@@ -26,9 +27,10 @@ var deleteDocumentSchema = json.RawMessage(`{
 // DeleteDocument 是 delete_document 系统工具的实现。
 type DeleteDocument struct{ svc *documentapp.Service }
 
-func (t *DeleteDocument) Name() string                { return "delete_document" }
-func (t *DeleteDocument) Description() string         { return deleteDocumentDescription }
-func (t *DeleteDocument) Parameters() json.RawMessage { return deleteDocumentSchema }
+func (t *DeleteDocument) Name() string                       { return "delete_document" }
+func (t *DeleteDocument) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerCautious }
+func (t *DeleteDocument) Description() string                { return deleteDocumentDescription }
+func (t *DeleteDocument) Parameters() json.RawMessage        { return deleteDocumentSchema }
 
 func (t *DeleteDocument) ValidateInput(args json.RawMessage) error {
 	var a struct {

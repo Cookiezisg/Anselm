@@ -235,11 +235,7 @@ func (h *WorkflowHandler) trigger(w http.ResponseWriter, r *http.Request, id str
 //
 // stage 支撑 :stage——给 workflow 待命，下一次真实触发跑一次、随即自动撤防。
 func (h *WorkflowHandler) stage(w http.ResponseWriter, r *http.Request, id string) {
-	if err := h.svc.Stage(r.Context(), id); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, err)
-		return
-	}
-	wf, err := h.svc.Get(r.Context(), id) // 返动作后实体快照,不发 {staged:true} 裸键
+	wf, err := h.svc.Stage(r.Context(), id)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

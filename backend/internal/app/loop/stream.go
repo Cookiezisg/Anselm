@@ -58,7 +58,8 @@ type (
 )
 
 type toolAccum struct {
-	id, name string
+	id, name      string
+	minimumDanger toolapp.DangerLevel
 	// signature is an opaque provider-issued function-call signature. Gemini 3 requires
 	// this value on the exact functionCall part when the tool result is sent back.
 	// signature 是 provider 颁发的不透明 function-call 签名；Gemini 3 回传 tool result
@@ -107,6 +108,7 @@ func streamLLM(
 	req llminfra.Request,
 	buildOf func(toolName string) (toolapp.BuildSpec, bool),
 	log *zap.Logger,
+	minimumDangerOf ...func(toolName string) toolapp.DangerLevel,
 ) (blocks []messagesdomain.Block, toolCalls []messagesdomain.ToolCallData, stopReason string, streamErr error, inputTokens, outputTokens int) {
 	em := newEmitter(ctx, log)
 	msgID, _ := reqctxpkg.GetMessageID(ctx)
@@ -118,7 +120,22 @@ func streamLLM(
 	entBridge := entitystreamapp.BridgeFrom(ctx)
 
 	var textBuf strings.Builder
+	// rawTextBuf lets the close snapshot run the deterministic redactor over the complete text block.
+	// Delta-level redaction must stay streaming, but Markdown tables and headings can span provider
+	// chunks; the durable close is the final place where those whole-line rules can be applied.
+	//
+	// rawTextBuf 使 close snapshot 能对完整 text block 跑确定性 redactor。delta 级脱敏仍需流式进行，但
+	// Markdown 表格和标题可能跨 provider chunk；耐久 close 是应用整行规则的最终位置。
+	var rawTextBuf strings.Builder
 	var redactor textRedactor
+	// Reasoning is rendered in the chat transcript while a turn is live, so it follows the same
+	// user-facing redaction boundary as text. It is not a workflow data channel: workflow-agent
+	// turns keep the raw reasoning below, just like raw agent text and receipts.
+	//
+	// reasoning 也会在回合进行时渲染到 chat transcript，因此与正文共享同一用户面脱敏边界；它不是
+	// workflow 数据通道，workflow-agent 回合和 raw agent text/receipt 一样保留原值。
+	var rawReasonBuf strings.Builder
+	var reasonRedactor textRedactor
 	// Workflow agent text is also a data boundary: downstream CEL wiring may consume a
 	// MediaRef receipt from the node result. Redacting it here would turn a usable attachment
 	// reference into prose and break agent -> workflow -> agent media handoff. Ordinary chat
@@ -138,15 +155,28 @@ func streamLLM(
 	closeText := func(status string) {
 		if textBlockID != "" {
 			if redactText {
-				textBuf.WriteString(redactor.Flush())
+				redactor.Flush()
+				// Re-redact the complete raw block so multiline/table semantics are not
+				// lost at provider chunk boundaries. The streamed deltas remain protected
+				// by redactor.Write; this only replaces the final durable snapshot.
+				textBuf.Reset()
+				textBuf.WriteString(redactOpaqueMachineValues(rawTextBuf.String()))
 			}
 			em.close(ctx, textBlockID, status, textSnapshot(textBuf.String()), "")
 			textBlockID = ""
 			redactor = textRedactor{}
+			rawTextBuf.Reset()
 		}
 	}
 	closeReason := func(status string) {
 		if reasonBlockID != "" {
+			if redactText {
+				reasonRedactor.Flush()
+				// Reasoning may contain the same machine values as the tool result it is describing.
+				// Re-redact the complete accumulated reasoning so multiline prose is safe at durable close.
+				reason.buf.Reset()
+				reason.buf.WriteString(redactOpaqueMachineValues(rawReasonBuf.String()))
+			}
 			em.close(ctx, reasonBlockID, status, reasonSnapshot(reason), "")
 			reasonBlockID = ""
 		}
@@ -159,6 +189,9 @@ func streamLLM(
 			if textBlockID == "" {
 				textBlockID = idgenpkg.New("blk")
 				em.open(ctx, textBlockID, msgID, messagesdomain.BlockTypeText, nil)
+			}
+			if redactText {
+				rawTextBuf.WriteString(event.Delta)
 			}
 			if redactText {
 				if safe := redactor.Write(event.Delta); safe != "" {
@@ -177,8 +210,16 @@ func streamLLM(
 					reasonBlockID = idgenpkg.New("blk")
 					em.open(ctx, reasonBlockID, msgID, messagesdomain.BlockTypeReasoning, nil)
 				}
-				em.delta(ctx, reasonBlockID, event.Delta)
-				reason.buf.WriteString(event.Delta)
+				if redactText {
+					rawReasonBuf.WriteString(event.Delta)
+					if safe := reasonRedactor.Write(event.Delta); safe != "" {
+						em.delta(ctx, reasonBlockID, safe)
+						reason.buf.WriteString(safe)
+					}
+				} else {
+					em.delta(ctx, reasonBlockID, event.Delta)
+					reason.buf.WriteString(event.Delta)
+				}
 			}
 			// Signature arrives as a zero-Delta EventReasoning; capture it for the snapshot.
 			// Signature 随 Delta 为空的 EventReasoning 到达，捕获供快照用。
@@ -200,7 +241,11 @@ func streamLLM(
 			// （index 风格的家常发 "call_0"/"call_1"），而 message_blocks.id 是全表 PK——沿用线缆 id 会在
 			// finalize 撞 UNIQUE、整回合丢失。provider id 只是响应内关联句柄（accums 本就按 ToolIndex
 			// 键控）；历史回喂用本 id 配对 assistant tool_calls 与 tool 结果，provider 照单全收。
-			a := &toolAccum{id: idgenpkg.New("blk"), name: event.ToolName}
+			minimumDanger := toolapp.DangerSafe
+			if len(minimumDangerOf) > 0 && minimumDangerOf[0] != nil {
+				minimumDanger = minimumDangerOf[0](event.ToolName)
+			}
+			a := &toolAccum{id: idgenpkg.New("blk"), name: event.ToolName, minimumDanger: minimumDanger}
 			a.signature = event.Signature
 			accums[event.ToolIndex] = a
 			em.open(ctx, a.id, msgID, messagesdomain.BlockTypeToolCall,
@@ -307,6 +352,7 @@ func reasonSnapshot(r reasonAccum) *streamdomain.Node {
 
 func toolCallSnapshot(a *toolAccum) *streamdomain.Node {
 	fields, args := parseToolArgs(a.args.String())
+	fields.Danger = toolapp.RaiseDanger(fields.Danger, a.minimumDanger)
 	argsJSON, _ := json.Marshal(args)
 	return &streamdomain.Node{
 		Type: messagesdomain.BlockTypeToolCall,
@@ -347,6 +393,7 @@ func assembleBlocks(text string, reason reasonAccum, accums map[int]*toolAccum) 
 	for _, i := range sortedAccumKeys(accums) {
 		a := accums[i]
 		fields, args := parseToolArgs(a.args.String())
+		fields.Danger = toolapp.RaiseDanger(fields.Danger, a.minimumDanger)
 		argsJSON, _ := json.Marshal(args)
 		// tool / summary / danger persist on the block so a DB-rebuilt history (after replay
 		// eviction) keeps the call's name and self-reported risk, matching the live snapshot.
@@ -389,6 +436,7 @@ func collectToolCalls(accums map[int]*toolAccum) []messagesdomain.ToolCallData {
 	for _, i := range sortedAccumKeys(accums) {
 		a := accums[i]
 		fields, args := parseToolArgs(a.args.String())
+		fields.Danger = toolapp.RaiseDanger(fields.Danger, a.minimumDanger)
 		calls = append(calls, messagesdomain.ToolCallData{
 			ID:             a.id,
 			Name:           a.name,

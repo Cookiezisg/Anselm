@@ -45,6 +45,7 @@ audience: [human, ai]
 - 批清按点击时的快照换队列；清场动画期间新到消息保留。
 - app 聚焦时 durable 事件进入顶带；未聚焦时进入 `OsNotifier`，不再补一份迟到顶带消息。
 - 设置中的 level、类别与 4 秒去重由 `NoticeDispatcher` 执行。
+- 审批顶带只在 parked 状态可操作：`NoticeDispatcher` 同时监听 entities 流的 durable `run_terminal`，按 `flowrunId` 撤销当前与候场中的审批展示副本，因此模型、其他客户端、调度器收件箱或取消动作完成后不会留下可点击的旧 Approve/Reject；如果决策由当前卡片发起，先保留本地判词回执，再按同一倒放退场。
 
 ## 5. 关键不变量
 

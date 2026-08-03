@@ -240,6 +240,70 @@ void main() {
   );
 
   testWidgets(
+    'R-10 catches a terminal before the execution receipt closes and matches its flowrun',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+
+      repo.emitFrame(_conv, _open('b1', 'trigger_workflow'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(
+        _conv,
+        _callClose('b1', arguments: '{"workflowId":"wf_fast"}'),
+      );
+      await tester.pump();
+
+      // The real race: terminal is durable, but it arrives before tool_result close carries the
+      // receipt. It must not settle until the execution itself closes. 真实竞态:终态先于回执。
+      repo.emitWorkflowFrame(
+        'wf_fast',
+        const StreamEnvelope(
+          seq: 8,
+          scope: StreamScope(kind: 'workflow', id: 'wf_fast'),
+          id: 'terminal-fast',
+          frame: FrameSignal(
+            node: StreamNode(
+              type: 'run_terminal',
+              content: {'flowrunId': 'fr_fast', 'status': 'completed'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
+
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 9,
+          scope: _scope,
+          id: 'r1',
+          frame: const FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {'content': '{"flowrunId":"fr_fast"}'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // The matching early terminal now settles the stage; an unrelated run would remain pending.
+      // 回执给出归属后，先到终态按 flowrunId 对账落定；别的 run 不会串台。
+      expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.following);
+      await tester.pump(const Duration(milliseconds: 2400));
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse);
+    },
+  );
+
+  testWidgets(
     'deltas on the SUBJECT do not broadcast (value equality); channel deltas badge unread',
     (tester) async {
       final repo = FixtureChatRepository();

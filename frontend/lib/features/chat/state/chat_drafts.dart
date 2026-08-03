@@ -26,3 +26,20 @@ class ChatDrafts {
 }
 
 final chatDraftsProvider = Provider<ChatDrafts>((ref) => ChatDrafts());
+
+/// Explicit New chat actions must remount an already-visible landing composer. The draft store is
+/// intentionally non-reactive during typing, so a cheap generation signal keeps that boundary explicit.
+/// 显式「新对话」必须让已在 landing 上的输入框重挂。逐字输入期间草稿仓刻意不响应式重建，故用廉价
+/// generation 信号明确表达这个丢弃边界。
+class ChatLandingReset extends Notifier<int> {
+  @override
+  int build() => 0;
+
+  /// Advance the landing generation after an explicit New chat discard boundary.
+  /// 显式「新对话」丢弃边界后推进 landing generation。
+  void bump() => state++;
+}
+
+final chatLandingResetProvider = NotifierProvider<ChatLandingReset, int>(
+  ChatLandingReset.new,
+);

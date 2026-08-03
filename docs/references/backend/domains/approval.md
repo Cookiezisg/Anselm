@@ -38,8 +38,10 @@ Create 产生 v1；Edit 追加版本；Revert 移动 active pointer。Workflow a
 具体版本，运行不会漂移到后来编辑。
 
 Delete 是**软删除**：审批表从普通读/搜索中消失，且其 relation edges 被清理；`apfv_` 版本行
-是不可变审计历史，保留而不硬删。工具层的 `delete_approval` 因此必须自报
-`danger="dangerous"` 并等待用户批准，且应先用 `get_relations` 解释受影响的 workflow/agent。
+是不可变审计历史，保留而不硬删。主行**不可恢复**，当前没有 restore 操作。工具层的
+`delete_approval` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe` 也必须经过 HumanLoop
+用户批准，且不能被 skill 或 `approve_always` 预授权绕过；仍应先用 `get_relations` 解释受影响的
+workflow/agent。
 删除后引用它的 workflow 仍保留原图，但 capability check 会诚实报告缺失引用，直到显式改绑。
 
 `revert_approval` 的公开 schema 仍是 integer；为兼容托管模型，工具执行边界另外接受精确十进制整数字符串，

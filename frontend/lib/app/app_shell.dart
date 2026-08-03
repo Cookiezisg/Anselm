@@ -951,6 +951,9 @@ class _ApprovalCapsuleHostState extends ConsumerState<_ApprovalCapsuleHost> {
     });
     final t = context.t;
     try {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .beginLocalApprovalDecision(parked.flowrunId, parked.nodeId);
       await ref
           .read(entityRepositoryProvider)
           .decideApproval(parked.flowrunId, parked.nodeId, decision: decision);
@@ -967,6 +970,9 @@ class _ApprovalCapsuleHostState extends ConsumerState<_ApprovalCapsuleHost> {
         flowrunInboxProvider,
       ); // the tray's «needs you» count follows 托盘待办跟上
     } catch (_) {
+      ref
+          .read(noticeCenterProvider.notifier)
+          .cancelLocalApprovalDecision(parked.flowrunId, parked.nodeId);
       if (!mounted) return;
       setState(() {
         _busy = false;

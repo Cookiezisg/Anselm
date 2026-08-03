@@ -185,7 +185,12 @@ Widget replayFlowrunBody(BuildContext context, ToolCardState state) {
       ],
       FlowrunNodeList(nodes: comp.nodes, summary: comp.nodeSummary),
       // No SizedBox — the family bar brings its own top s6 (批3: a kept one doubles the gap). 条自带前距。
-      _runFooter(context, run, hasParked: flowrunHasParked(comp)),
+      _runFooter(
+        context,
+        run,
+        workflowName: comp.workflowName,
+        hasParked: flowrunHasParked(comp),
+      ),
     ],
   );
 }
@@ -211,6 +216,7 @@ String _flowrunStatusWord(
 Widget _runFooter(
   BuildContext context,
   Flowrun run, {
+  String? workflowName,
   required bool hasParked,
 }) {
   final t = Translations.of(context);
@@ -226,7 +232,9 @@ Widget _runFooter(
         toolNavPill(
           context,
           kind: 'workflow',
-          label: run.workflowId,
+          label: workflowName?.trim().isNotEmpty == true
+              ? workflowName!.trim()
+              : run.workflowId,
           id: run.workflowId,
         ),
       AnChip(
@@ -286,7 +294,12 @@ Widget getFlowrunBody(BuildContext context, ToolCardState state) {
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
-      _runFooter(context, run, hasParked: flowrunHasParked(comp)),
+      _runFooter(
+        context,
+        run,
+        workflowName: comp.workflowName,
+        hasParked: flowrunHasParked(comp),
+      ),
       if (run.error != null && run.error!.isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
         rawMonoWindow(

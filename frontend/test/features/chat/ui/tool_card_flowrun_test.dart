@@ -26,6 +26,19 @@ BlockNode _replay(String result) =>
           ..content = {'content': result},
       );
 
+BlockNode _replayRejected(String result) =>
+    BlockNode(id: 'tc_rejected', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {
+        'name': 'replay_flowrun',
+        'arguments': '{"flowrunId":"fr_completed_run"}',
+      }
+      ..children.add(
+        BlockNode(id: 'tr_rejected', kind: BlockKind.toolResult)
+          ..status = 'error'
+          ..content = {'content': result},
+      );
+
 String _node(
   String nodeId,
   String kind,
@@ -184,6 +197,26 @@ void main() {
       findsOneWidget,
     ); // run-level error window
   });
+
+  testWidgets(
+    'replay rejection uses a non-success verb and keeps the backend error visible',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _replayRejected(
+              'FLOWRUN_NOT_REPLAYABLE: flowrun is not in a replayable (failed) state',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining(t.chat.tool.replayRejected), findsOneWidget);
+      expect(find.textContaining(t.chat.tool.replayedRun), findsNothing);
+      expect(find.textContaining('FLOWRUN_NOT_REPLAYABLE'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     '80-node cap: the honest summary bar reads the REAL counts, not nodes.length',
@@ -349,7 +382,7 @@ void main() {
         _host(
           ChatToolCard(
             node: gfr(
-              '{"flowrun":{"id":"fr_9a8b7c6d5e4f3a2b","workflowId":"wf_1a2b3c4d5e6f7a8b","versionId":"v1","status":"completed","replayCount":0,"triggerId":"trg_abc123def456","pinnedRefs":{},"updatedAt":"2026-07-05T14:05:00Z"},"nodes":[${_node('trigger', 'trigger', 'completed')},${_node('fetch', 'action', 'completed')}]}',
+              '{"flowrun":{"id":"fr_9a8b7c6d5e4f3a2b","workflowId":"wf_1a2b3c4d5e6f7a8b","versionId":"v1","status":"completed","replayCount":0,"triggerId":"trg_abc123def456","pinnedRefs":{},"updatedAt":"2026-07-05T14:05:00Z"},"workflowName":"nightly_rollup","nodes":[${_node('trigger', 'trigger', 'completed')},${_node('fetch', 'action', 'completed')}]}',
             ),
           ),
         ),
@@ -362,9 +395,9 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(FlowrunNodeList), findsOneWidget);
       expect(
-        find.textContaining('wf_1a2b3c4d5e6f7a8b'),
+        find.textContaining('nightly_rollup'),
         findsWidgets,
-      ); // workflow pill in the header
+      ); // resolved workflow name in the header, not an opaque id
       expect(
         find.textContaining(t.run.provTrigger),
         findsOneWidget,

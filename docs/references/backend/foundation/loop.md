@@ -60,6 +60,15 @@ Reminder 与媒体追加只进入后续 request，不污染 durable Message hist
 Tool 执行前 Open 空 tool_result，progress 作为子块实时/持久化，完成后 Close
 完整 result。
 
+同一 `Run` 内，已经执行、参数校验失败或被人拒绝的 `dangerous`/静态危险下限/驻地越界写调用若在后续 ReAct
+step 以相同工具名和规范化业务参数再次出现，Loop 在 dispatch 前产生已完成的
+suppression tool_result，不再开第二次人闸或产生第二次副作用，并结束当前回合。
+工具可选声明更窄的业务 `CallIdentity`；例如 `delete_workflow` 的身份只有目标 workflow，
+所以模型第一次把无效的 `file_path` 混入参数并在下一步修正时，仍被识别为同一个破坏性意图，
+不会因为无关字段变化而重新打开危险闸。该台账只存在于本次 `Run`；下一条用户消息是新意图，
+仍可主动重试。只读或普通
+可重试调用不因一次失败被这条跨步保护静默吞掉。
+
 单个 tool result 有统一硬上限，防止持久化、SSE 与当前 prompt 同时被无界输出
 撑爆。Object 型参数接受真实 object 或“可解析为 object 的 JSON string”，不
 接受数组/标量的猜测转换。
@@ -94,13 +103,29 @@ Chat context 可携 ephemeral broker；独立 Agent、顶层 Subagent 与 Workfl
 两类 gate：
 
 - 模型自报 `dangerous`：允许 conversation/tool 的 approve-always 与 active
-  Skill allowed-tools 预授权；
+  Skill allowed-tools 预授权；工具若实现 `DangerFloorer`，其静态下限会覆盖较低的模型自报，且
+  不受这两种预授权绕过；
 - Workdir 外写入：由 `FileWriteTool.WriteTarget`、`fspath.ExpandIn` 与
   `fspath.Inside` 计算，任何预授权都不能绕过。
 
+不可逆工具必须通过静态下限把有效等级固定为 `dangerous`；例如 `delete_workflow` 即使模型自报
+`safe` 也必须先出现真实 HumanLoop approval，再允许副作用发生。tool-call 的 durable/SSE
+快照同样展示提升后的有效等级，不能出现“看起来 safe、实际上要批准”的错觉。
+
+危险闸的批准句由执行器实际解析到的工具名生成，不能直接信任模型自报的 `summary`。所有不可逆
+删除族（`delete_function` / `delete_handler` / `delete_agent` / `delete_control` / `delete_approval` /
+`delete_skill` / `delete_trigger` / `delete_workflow`）都必须在门禁本体写清真实后果，而不是只说
+“运行某个工具”：例如 `delete_trigger` 必须明确写成停止 listener、主行不可恢复、历史保留供审计且
+关系边会被清理；`delete_workflow` 必须明确写成不可恢复删除，`deactivate_workflow` 必须明确写成
+停止新触发但等待在途运行收尾，`kill_workflow` 必须明确写成取消在途运行；模型 summary 只能留在工具卡中。
+这不是文案偏好，而是副作用前的动作身份校验。高后果生命周期工具若自报 summary 与实际工具
+相互矛盾（例如 `delete_workflow` 自称 deactivate），在打开批准闸之前拒绝执行，并将应选工具
+反馈给模型；绝不能让错误动作带着误导句进入批准流程。
+
 Workdir 是 zoom，不限制读取。路径无法可靠解析时回到普通 danger 语义；工具
-Execute 仍会校验自己的参数。越界确认 payload 在标准 summary/args 外增加
-`outsideWorkDir=true`。
+参数会在 gate 之前先做纯结构校验，非法 mutation 不得先显示 Allowed 再失败；
+工具 Execute 仍会再次校验自己的参数。越界确认 payload 在标准 summary/args 外
+增加 `outsideWorkDir=true`。
 
 ## 6. 多模态工具结果
 

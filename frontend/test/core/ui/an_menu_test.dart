@@ -42,6 +42,34 @@ void main() {
     },
   );
 
+  testWidgets('popover keeps a mounted explicit semantic boundary', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(menu(entries: const [AnMenuItem(label: 'Edit')])),
+    );
+
+    final boundary = find.ancestor(
+      of: find.text('Open'),
+      matching: find.byWidgetPredicate(
+        (widget) =>
+            widget is Semantics &&
+            widget.container &&
+            widget.explicitChildNodes,
+      ),
+    );
+    expect(
+      boundary,
+      findsOneWidget,
+      reason:
+          'the trigger must keep a semantic parent while OverlayPortal toggles the menu',
+    );
+
+    await tester.tap(find.text('Open'));
+    await tester.pumpAndSettle();
+    expect(boundary, findsOneWidget);
+  });
+
   testWidgets('picking an item fires onTap and closes the menu', (
     tester,
   ) async {

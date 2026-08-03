@@ -1839,7 +1839,7 @@ as String,
 /// @nodoc
 mixin _$FlowrunComposite {
 
- Flowrun get flowrun; List<FlowrunNode> get nodes; String? get nextCursor; FlowrunNodeSummary? get nodeSummary;
+ Flowrun get flowrun; List<FlowrunNode> get nodes; String? get workflowName; String? get nextCursor; FlowrunNodeSummary? get nodeSummary;
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -1852,16 +1852,16 @@ $FlowrunCompositeCopyWith<FlowrunComposite> get copyWith => _$FlowrunCompositeCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other.nodes, nodes)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.nodeSummary, nodeSummary) || other.nodeSummary == nodeSummary));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other.nodes, nodes)&&(identical(other.workflowName, workflowName) || other.workflowName == workflowName)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.nodeSummary, nodeSummary) || other.nodeSummary == nodeSummary));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(nodes),nextCursor,nodeSummary);
+int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(nodes),workflowName,nextCursor,nodeSummary);
 
 @override
 String toString() {
-  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, nextCursor: $nextCursor, nodeSummary: $nodeSummary)';
+  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, workflowName: $workflowName, nextCursor: $nextCursor, nodeSummary: $nodeSummary)';
 }
 
 
@@ -1872,7 +1872,7 @@ abstract mixin class $FlowrunCompositeCopyWith<$Res>  {
   factory $FlowrunCompositeCopyWith(FlowrunComposite value, $Res Function(FlowrunComposite) _then) = _$FlowrunCompositeCopyWithImpl;
 @useResult
 $Res call({
- Flowrun flowrun, List<FlowrunNode> nodes, String? nextCursor, FlowrunNodeSummary? nodeSummary
+ Flowrun flowrun, List<FlowrunNode> nodes, String? workflowName, String? nextCursor, FlowrunNodeSummary? nodeSummary
 });
 
 
@@ -1889,11 +1889,12 @@ class _$FlowrunCompositeCopyWithImpl<$Res>
 
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? flowrun = null,Object? nodes = null,Object? nextCursor = freezed,Object? nodeSummary = freezed,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? flowrun = null,Object? nodes = null,Object? workflowName = freezed,Object? nextCursor = freezed,Object? nodeSummary = freezed,}) {
   return _then(_self.copyWith(
 flowrun: null == flowrun ? _self.flowrun : flowrun // ignore: cast_nullable_to_non_nullable
 as Flowrun,nodes: null == nodes ? _self.nodes : nodes // ignore: cast_nullable_to_non_nullable
-as List<FlowrunNode>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
+as List<FlowrunNode>,workflowName: freezed == workflowName ? _self.workflowName : workflowName // ignore: cast_nullable_to_non_nullable
+as String?,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,nodeSummary: freezed == nodeSummary ? _self.nodeSummary : nodeSummary // ignore: cast_nullable_to_non_nullable
 as FlowrunNodeSummary?,
   ));
@@ -2001,10 +2002,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? workflowName,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FlowrunComposite() when $default != null:
-return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);case _:
+return $default(_that.flowrun,_that.nodes,_that.workflowName,_that.nextCursor,_that.nodeSummary);case _:
   return orElse();
 
 }
@@ -2022,10 +2023,10 @@ return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? workflowName,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)  $default,) {final _that = this;
 switch (_that) {
 case _FlowrunComposite():
-return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);case _:
+return $default(_that.flowrun,_that.nodes,_that.workflowName,_that.nextCursor,_that.nodeSummary);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -2042,10 +2043,10 @@ return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);ca
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( Flowrun flowrun,  List<FlowrunNode> nodes,  String? workflowName,  String? nextCursor,  FlowrunNodeSummary? nodeSummary)?  $default,) {final _that = this;
 switch (_that) {
 case _FlowrunComposite() when $default != null:
-return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);case _:
+return $default(_that.flowrun,_that.nodes,_that.workflowName,_that.nextCursor,_that.nodeSummary);case _:
   return null;
 
 }
@@ -2057,7 +2058,7 @@ return $default(_that.flowrun,_that.nodes,_that.nextCursor,_that.nodeSummary);ca
 @JsonSerializable()
 
 class _FlowrunComposite implements FlowrunComposite {
-  const _FlowrunComposite({required this.flowrun, final  List<FlowrunNode> nodes = const <FlowrunNode>[], this.nextCursor, this.nodeSummary}): _nodes = nodes;
+  const _FlowrunComposite({required this.flowrun, final  List<FlowrunNode> nodes = const <FlowrunNode>[], this.workflowName, this.nextCursor, this.nodeSummary}): _nodes = nodes;
   factory _FlowrunComposite.fromJson(Map<String, dynamic> json) => _$FlowrunCompositeFromJson(json);
 
 @override final  Flowrun flowrun;
@@ -2068,6 +2069,7 @@ class _FlowrunComposite implements FlowrunComposite {
   return EqualUnmodifiableListView(_nodes);
 }
 
+@override final  String? workflowName;
 @override final  String? nextCursor;
 @override final  FlowrunNodeSummary? nodeSummary;
 
@@ -2084,16 +2086,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other._nodes, _nodes)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.nodeSummary, nodeSummary) || other.nodeSummary == nodeSummary));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunComposite&&(identical(other.flowrun, flowrun) || other.flowrun == flowrun)&&const DeepCollectionEquality().equals(other._nodes, _nodes)&&(identical(other.workflowName, workflowName) || other.workflowName == workflowName)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.nodeSummary, nodeSummary) || other.nodeSummary == nodeSummary));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(_nodes),nextCursor,nodeSummary);
+int get hashCode => Object.hash(runtimeType,flowrun,const DeepCollectionEquality().hash(_nodes),workflowName,nextCursor,nodeSummary);
 
 @override
 String toString() {
-  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, nextCursor: $nextCursor, nodeSummary: $nodeSummary)';
+  return 'FlowrunComposite(flowrun: $flowrun, nodes: $nodes, workflowName: $workflowName, nextCursor: $nextCursor, nodeSummary: $nodeSummary)';
 }
 
 
@@ -2104,7 +2106,7 @@ abstract mixin class _$FlowrunCompositeCopyWith<$Res> implements $FlowrunComposi
   factory _$FlowrunCompositeCopyWith(_FlowrunComposite value, $Res Function(_FlowrunComposite) _then) = __$FlowrunCompositeCopyWithImpl;
 @override @useResult
 $Res call({
- Flowrun flowrun, List<FlowrunNode> nodes, String? nextCursor, FlowrunNodeSummary? nodeSummary
+ Flowrun flowrun, List<FlowrunNode> nodes, String? workflowName, String? nextCursor, FlowrunNodeSummary? nodeSummary
 });
 
 
@@ -2121,11 +2123,12 @@ class __$FlowrunCompositeCopyWithImpl<$Res>
 
 /// Create a copy of FlowrunComposite
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? flowrun = null,Object? nodes = null,Object? nextCursor = freezed,Object? nodeSummary = freezed,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? flowrun = null,Object? nodes = null,Object? workflowName = freezed,Object? nextCursor = freezed,Object? nodeSummary = freezed,}) {
   return _then(_FlowrunComposite(
 flowrun: null == flowrun ? _self.flowrun : flowrun // ignore: cast_nullable_to_non_nullable
 as Flowrun,nodes: null == nodes ? _self._nodes : nodes // ignore: cast_nullable_to_non_nullable
-as List<FlowrunNode>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
+as List<FlowrunNode>,workflowName: freezed == workflowName ? _self.workflowName : workflowName // ignore: cast_nullable_to_non_nullable
+as String?,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,nodeSummary: freezed == nodeSummary ? _self.nodeSummary : nodeSummary // ignore: cast_nullable_to_non_nullable
 as FlowrunNodeSummary?,
   ));

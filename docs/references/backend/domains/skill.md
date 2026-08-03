@@ -110,5 +110,7 @@ description/when-to-use/body chunks，不索引 bundled files。
 [`error-codes.md`](../error-codes.md)，事件见
 [`events.md`](../events.md)。无数据库表或生成 ID。
 
-LLM 工具覆盖 activate、get、create、edit、delete 与 run script。内建工具候选
+LLM 工具覆盖 activate、get、create、edit、delete 与 run script。`delete_skill` 永久移除 skill
+目录，没有 restore 操作，具有不可绕过的静态 `dangerous` 下限；即使模型自报 `safe` 也必须经过
+HumanLoop 用户批准，且不能被 skill 或 `approve_always` 预授权绕过。内建工具候选
 来自 `GET /tools`，实体/MCP callable 从各自 live surface 选择。

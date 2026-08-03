@@ -21,7 +21,7 @@ TOOL | get_function | function | 取 function 活跃版本全貌
 TOOL | create_function | function | ops 构建新 Python function,v1 立即生效
 TOOL | edit_function | function | 活跃版本叠 ops 出新版本
 TOOL | revert_function | function | 活跃指针切到已有版本号
-TOOL | delete_function | function | 软删 function 主行并回收 sandbox;不可逆版本历史保留供审计,主实体与动作随后 not-found
+TOOL | delete_function | function | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;软删 function 主行并回收 sandbox;不可逆版本历史保留供审计,主实体与动作随后 not-found
 TOOL | update_function_meta | function | 仅改 name/description/tags
 TOOL | run_function | function | 关键字参数运行,返回 ok/output/logs
 TOOL | search_function_executions | function | 分页检索执行历史
@@ -31,7 +31,7 @@ TOOL | get_handler | handler | 取活跃版本+配置态+运行态
 TOOL | create_handler | handler | 新建有状态常驻 Python 类
 TOOL | edit_handler | handler | 叠 ops 新版本并重启实例
 TOOL | revert_handler | handler | 切版本并重启实例
-TOOL | delete_handler | handler | 停实例并软删主行;回执含 retention(handler/versions/sandbox/actions);版本历史保留供审计,环境尽力回收,关系边清理;主实体与动作随后 not-found
+TOOL | delete_handler | handler | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;停实例并软删主行;回执含 retention(handler/versions/sandbox/actions);版本历史保留供审计,环境尽力回收,关系边清理;主实体与动作随后 not-found
 TOOL | call_handler | handler | 只调用已声明的常驻实例方法；顶层 config 不属于此工具，修改 init 配置用 update_handler_config
 TOOL | update_handler_config | handler | 唯一的 init-args 配置工具；Merge Patch 后重启；兼容解码后仍为对象的 JSON 字符串，数组/非法字符串/根级 null 拒绝
 TOOL | update_handler_meta | handler | 仅改 meta,不重启
@@ -43,7 +43,7 @@ TOOL | get_agent | agent | 取 agent 活跃版本完整配置
 TOOL | create_agent | agent | 新建配置式 LLM worker
 TOOL | edit_agent | agent | 局部编辑,未传字段保持
 TOOL | revert_agent | agent | 回退活跃版本
-TOOL | delete_agent | agent | 软删,保留执行历史
+TOOL | delete_agent | agent | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;软删,保留执行历史,active configuration 不可恢复
 TOOL | update_agent_meta | agent | 仅改行 meta
 TOOL | invoke_agent | agent | 跑 agent ReAct 循环,按 outputSchema 成形
 TOOL | search_agent_executions | agent | 检索轻量运行历史（分页 cursor 必须原样复制,列表不带 transcript）
@@ -53,36 +53,36 @@ TOOL | get_control | control | 取活跃版本分支集
 TOOL | create_control | control | 新建路由分支表实体
 TOOL | edit_control | control | 全量替换分支集新版本
 TOOL | revert_control | control | 切版本指针
-TOOL | delete_control | control | 删全版本
+TOOL | delete_control | control | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;删全版本,不可逆
 TOOL | search_approval | approval | 检索 approval 表单
 TOOL | get_approval | approval | 取活跃版本(模板+timeout 等)
 TOOL | create_approval | approval | 新建 approval 表单实体
 TOOL | edit_approval | approval | 全量替换新版本
 TOOL | revert_approval | approval | 切版本指针
-TOOL | delete_approval | approval | 软删主行、清关系、版本历史保留;需危险人闸
+TOOL | delete_approval | approval | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;软删主行、清关系、版本历史保留,主行不可恢复
 TOOL | search_workflow | workflow | 直接关键词优先、无直接命中时补语义;返回 tags/生命周期态/active
 TOOL | get_workflow | workflow | 取活跃图+生命周期+并发策略
 TOOL | create_workflow | workflow | ops 构图,v1 初始 deactivated;LLM schema 与 ValidateInput 均强制显式 description/tags/changeReason 槽位(无值传空);用户值原样放顶层;窄兼容托管模型数组字符串(含 tags)与 add_node/add_edge 顶层 body 变体,逗号分隔文本和冲突仍拒绝
 TOOL | edit_workflow | workflow | 叠 ops 出新版本
-TOOL | revert_workflow | workflow | 切图版本指针
-TOOL | delete_workflow | workflow | 删全图版本,不可逆
-TOOL | capability_check_workflow | workflow | 校验图健全+引用实体可用
-TOOL | trigger_workflow | workflow | 自供 payload 手动跑一次
-TOOL | stage_workflow | workflow | 布防:下次真实触发跑一次即解除
-TOOL | activate_workflow | workflow | 上线持续监听
-TOOL | deactivate_workflow | workflow | 优雅下线,在飞跑完
-TOOL | kill_workflow | workflow | 硬停+取消在飞
-TOOL | get_flowrun | workflow | 取运行头+全节点记录
+TOOL | revert_workflow | workflow | 切图版本指针;version 公开 integer,执行边界兼容精确整数字符串;workflowId+version 同次调用,失败不重试;新版本保留历史
+TOOL | delete_workflow | workflow | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸且不可被 skill/approve_always 绕过;软删主行并停自动化;canonical 参数 workflowId(兼容 hosted model 的精确 id 别名,冲突拒绝),拒绝 file_path/old_string/new_string 等文件编辑字段;CallIdentity 按目标 workflow 收窄,参数修正不得为同一破坏性意图重开人闸;主行不可恢复且无 restore 操作;版本/flowrun 历史保留供审计;回执含 restorable=false,historyRetained=true;参数先于危险人闸校验
+TOOL | capability_check_workflow | workflow | 校验图健全+引用实体可用;回执始终带 problems/warnings 数组(空时为[]),ok 只受结构与阻断问题影响,warning 仅提示
+TOOL | trigger_workflow | workflow | 自供 payload 手动跑一次;不改 listener/不走 overlap policy;回 flowrunId+workflowId;payload 必须符合入口 fire-payload shape(webhook 用户数据在 body),执行边界兼容同一 object 的 JSON 字符串编码,数组/数字/畸形字符串拒绝
+TOOL | stage_workflow | workflow | 布防:下次真实触发跑一次即解除;成功回执带staged/workflowId/workflowName/lifecycleState/active,保持inactive
+TOOL | activate_workflow | workflow | 上线持续监听;成功回执带workflowId/workflowName/lifecycleState=active/active=true
+TOOL | deactivate_workflow | workflow | 优雅下线,在飞跑完;回执带workflowId/workflowName/lifecycleState(active/inactive/draining)/active
+TOOL | kill_workflow | workflow | 硬停+取消在飞;回执带workflowId/workflowName/lifecycleState=inactive/active=false/killed
+TOOL | get_flowrun | workflow | 严格使用flowrunId字段(不是file_path/id/workflowId);取运行头+节点记录+可解析时workflowName(身份仍是flowrun.workflowId);≤80行全量,大/循环run保留全部非completed与最新尾部至80并带真实总数nodeSummary;全量经GET /api/v1/flowruns/{id}分页
 TOOL | search_flowruns | workflow | 列运行,可限定 workflow
 TOOL | replay_flowrun | workflow | 断点重跑失败运行
 TOOL | list_approval_inbox | workflow | 列全工作区待决审批
-TOOL | decide_approval | workflow | 批/拒停在审批节点的运行
-TOOL | search_triggers | trigger | 检索 trigger 含 listener 在线态
+TOOL | decide_approval | workflow | 先用list_approval_inbox发现parked行,逐字复制flowrunId+nodeId后批/拒;yes/no+可选reason;first-wins,后续决定/超时no-op;回更新run+nodes
+TOOL | search_triggers | trigger | 按 query（兼容 hosted model 的 pattern 别名）检索 trigger，直接 name/description/kind 命中优先于语义邻居，含 listener 在线态；未知/畸形搜索键不得静默退化为全量列出
 TOOL | get_trigger | trigger | 取 kind/配置/运行态
-TOOL | create_trigger | trigger | 新建信号源
-TOOL | edit_trigger | trigger | 改 name/description/config(kind 不可变)
-TOOL | delete_trigger | trigger | 软删,停 listener
-TOOL | fire_trigger | trigger | 手动触发一次演练扇出
+TOOL | create_trigger | trigger | 新建信号源;config 兼容原生对象或精确 JSON 字符串,数组/标量/坏字符串拒绝;sensor output map 稳定归一化为 CEL
+TOOL | edit_trigger | trigger | 改 name/description/config(kind 不可变);config 同样兼容原生对象或精确 JSON 字符串;sensor output map 与 create 同源归一化,省略/null 不改配置
+TOOL | delete_trigger | trigger | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;门禁本体说明 stop listener/主行不可恢复/history 保留/relation edges purge;软删主行,停 listener,清关系,activation/firing 历史保留,主行不可恢复
+TOOL | fire_trigger | trigger | 手动触发一次演练扇出;只合成 {manual:true},真实走 firing inbox/overlap 策略并回 activationId;暂停返回 TRIGGER_PAUSED,不可用 edit_trigger 清除 paused,必须经 Resume 控件或 :resume 后再 fire
 TOOL | search_activations | trigger | 查动作日志(触没触发都记)
 TOOL | get_activation | trigger | 取单条 activation
 TOOL | search_firings | trigger | 查扇出收件箱逐 workflow 处置
@@ -92,7 +92,7 @@ TOOL | read_document | document | 载入完整 markdown 正文
 TOOL | create_document | document | 建文档,可嵌套
 TOOL | edit_document | document | 更新字段,content/tags 全量替换
 TOOL | move_document | document | 重挂父节点+兄弟序,路径级联
-TOOL | delete_document | document | 删除文档
+TOOL | delete_document | document | 静态危险下限=cautious;软删整棵子树,墓碑可恢复
 TOOL | list_attachments | attachment | 列上传文件
 TOOL | read_attachment | attachment | 读文本/文档类附件正文
 TOOL | inspect_media | attachment | 按 id 取有界媒体证据(图走视觉路由)
@@ -110,7 +110,7 @@ TOOL | activate_skill | skill | 激活:载入指令+占位符替换
 TOOL | get_skill | skill | 读完整内容不激活
 TOOL | create_skill | skill | 撰写新 skill
 TOOL | edit_skill | skill | 全量覆写 SKILL.md
-TOOL | delete_skill | skill | 永久删除目录
+TOOL | delete_skill | skill | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;永久删除目录,不可恢复
 TOOL | run_skill_script | skill | 沙箱跑 skill 自带脚本
 TOOL | Subagent | subagent | 派发隔离子 agent(Explore/Plan/general-purpose)
 TOOL | get_subagent_trace | subagent | 读回 subagent 隐藏 trace

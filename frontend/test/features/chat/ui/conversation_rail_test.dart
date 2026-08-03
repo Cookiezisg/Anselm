@@ -11,6 +11,7 @@ import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
+import 'package:anselm/features/chat/state/chat_drafts.dart';
 import 'package:anselm/features/chat/state/conversation_list_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/conversation_rail.dart';
@@ -141,6 +142,34 @@ Future<void> _openRowMenu(WidgetTester tester, String rowText) async {
 }
 
 void main() {
+  testWidgets(
+    'New chat clears the landing draft and requests a fresh composer',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(FixtureChatRepository(conversations: [_c('cv_a', 'thread A')])),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(ConversationRail)),
+      );
+      container
+          .read(chatDraftsProvider)
+          .set(ChatDrafts.landingKey, 'stale draft');
+      final before = container.read(chatLandingResetProvider);
+
+      final t = Translations.of(tester.element(find.byType(ConversationRail)));
+      await tester.tap(find.text(t.chat.kNew));
+      await tester.pump();
+
+      expect(
+        container.read(chatDraftsProvider).of(ChatDrafts.landingKey),
+        isEmpty,
+      );
+      expect(container.read(chatLandingResetProvider), before + 1);
+    },
+  );
+
   testWidgets('loaded → AnSidebarList with Pinned + Recents sections', (
     tester,
   ) async {

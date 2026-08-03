@@ -457,13 +457,13 @@ ToolCardSpec _revert({
 );
 
 /// delete: TOMBSTONE chip (mono, NOT a pill — a dead entity gets no live jump) + the impact audit.
-/// `agentForm` reads the string-tail dependents; `soft` = amber (document/trigger soft delete).
+/// `agentForm` reads the legacy string-tail dependents; delete tone comes from the tool result/gate,
+/// not from a hidden per-card soft-delete flag.
 /// delete:墓碑 chip(纯 mono 不可点)+ 删除审计。
 ToolCardSpec _delete({
   required String Function(Translations) kind,
   required String idKey,
   bool agentForm = false,
-  bool soft = false,
 }) => ToolCardSpec(
   verb: (t, {required bool live}) => live
       ? t.chat.tool.deletingKind(kind: kind(t))
@@ -1136,7 +1136,6 @@ final Map<String, ToolCardSpec> _catalog = {
   'delete_trigger': _delete(
     kind: (t) => t.chat.tool.kind.trigger,
     idKey: 'triggerId',
-    soft: true,
   ),
   // delete_document: SOFT (amber, recoverable) — string template receipt + soft-fail reclassification.
   'delete_document': ToolCardSpec(
@@ -1391,6 +1390,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'replay_flowrun': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.replayingRun : t.chat.tool.replayedRun,
+    failedVerb: (t) => t.chat.tool.replayRejected,
     target: (s) {
       final id = s.arg('flowrunId');
       return id == null ? null : (truncate(id, AnTrunc.id));
@@ -1398,6 +1398,7 @@ final Map<String, ToolCardSpec> _catalog = {
     receipt: (t, s) => replayReceipt(t, s.resultText),
     resultFailed: (s) => replayResultFailed(s.resultText),
     body: replayFlowrunBody,
+    ownsError: true,
   ),
 
   // ── F09 run-log search (aggregate families: fn exec / hd calls / agent runs / mcp calls) ──

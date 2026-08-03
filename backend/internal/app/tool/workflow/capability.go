@@ -51,12 +51,22 @@ func (t *CapabilityCheckWorkflow) Execute(ctx context.Context, argsJSON string) 
 	if err != nil {
 		return "", fmt.Errorf("capability_check_workflow: %w", err)
 	}
+	// Keep the report shape stable for the model and every UI projection: an empty list means
+	// "nothing found", while null makes a successful check look unresolved in generated tables.
+	problems := rep.Problems
+	if problems == nil {
+		problems = []string{}
+	}
+	warnings := rep.Warnings
+	if warnings == nil {
+		warnings = []string{}
+	}
 	return toolapp.ToJSON(map[string]any{
 		"id":                args.WorkflowID,
 		"ok":                rep.OK(),
 		"structurallyValid": rep.StructurallyValid,
 		"resolved":          rep.Resolved,
-		"problems":          rep.Problems,
-		"warnings":          rep.Warnings,
+		"problems":          problems,
+		"warnings":          warnings,
 	}), nil
 }

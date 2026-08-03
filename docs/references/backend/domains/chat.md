@@ -73,11 +73,17 @@ Inactive inventory 只在 prompt 暴露紧凑名称/用途；完整 schema 在�
 
 ### Grounded final text
 
+实体 ID 的前缀清单必须与当前领域命名保持同步；trigger 的真实 ID 前缀是 `trg_`，也必须经过同一条直接与流式脱敏路径，不能只兼容历史 `tr_` 缩写。
+
 面向用户的 assistant 文本还有服务端确定性边界：loop 会在流式文本的唯一出口保留跨 chunk 的尾部词元，并在看到未闭合的括号时短暂保留整个小括号片段，避免 provider 把 `(`、反引号、ID、`)` 分成不同 delta 后先泄露半个坏占位。实体名后紧接可能的 opaque ID 时，连同实体名和分隔符一起短暂保留，确保 chunk 恰好切在 `workflow ` 与 `wf_…` 之间时仍能整体清理；ID 被 Markdown `` `…` ``、`*…*` 或 `**…**` 包住时，同样先完成整体替换再向 SSE 发出，不能把 `workflow **` 这类半截格式先发给用户。它隐藏实体 ID、长整数、时间戳与长 hash 等不透明机器值。隐藏时按类型替换为上下文中性的 `the requested item` 等人话短语，而不是把 `<opaque value omitted>` 或旧版 `the referenced item` 这类坏模板标记露给用户；若模型把一个已经有名称的实体 ID 冗余写成括号（例如 `workflow nightly (wf_…)` 或 ``workflow nightly (`wf_…`)``），只删除整段冗余括号，不留下占位；若 ID 紧跟已有人话实体名（例如 `The workflow wf_… remains intact`），移除 ID 后也移除重复占位，结果为 `The workflow remains intact`，不制造重复名词；若模型用 `The ID <opaque>`、`The flowrun ID <opaque>`、`The flow run ID <opaque>` 或 `The flowrun with ID <opaque>` 引出一个待查对象，则整体改写为 `The requested item`、`The requested flowrun` 或 `The requested flow run`，不产生语法残片；`The flow ` 与 `run with ID ...` 也必须合并后再脱敏，不能因早期 chunk 边界重现同一残片；已明确实体名的 `flowrun report for <opaque>`（包括 Markdown 加粗或反引号装饰）则直接缩为 `flowrun report`，不能留下 “report for …” 坏短语；包含 opaque flowrun ID 的 Markdown 表格行改为 `Run / Current run` 语义行，不把 placeholder 留在表格里。对 `get_flowrun` 的错误总结还会把 `get_flowrun for <opaque>` 改写为 `get_flowrun for the requested run`，把“没有 workflow run with …”改成“没有匹配请求的 workflow run”，避免失败路径出现“the referenced item”或“the requested item”悬空占位。历史消息如果已经持久化旧版占位词，重建时也会先归一化到当前词汇。原始 tool call/tool_result 卡片与审计数据不改，仍保留精确值供追查。摘要只能表达语义结果（例如「已变更」），不能把机器值抄回 prose 或表格。该边界不依赖模型是否遵守 prompt。**但工具调用 JSON 参数是明确例外：若某个工具需要 opaque 值，模型必须从用户消息或上一个 tool result 逐字复制全部字符；不得缩写、规范化、脱敏或猜测。** 例外不适用于面向用户的 prose。带 flowrun 身份的 workflow agent 终答同时是下游节点的数据，必须保留完整 MediaRef receipt；它不是直接面向用户的 chat prose。
 
-在同一确定性出口中，`Flowrun: <opaque>` 标题收敛为 `Flowrun`，`flowrunId = <opaque>` 收敛为 `the current run`；含 `wfv_`、`apf_`、`apfv_` 等内部版本引用的表格行分别显示 `Current version`、`Internal references`，不把机器值或任何旧版占位带到用户画面。
+在同一确定性出口中，`Flowrun: <opaque>` 标题收敛为 `Flowrun`，`flowrunId = <opaque>` 收敛为 `the current run`；含 `wfv_`、`apf_`、`apfv_` 等内部版本引用的表格行分别显示 `Current version`、`Internal references`，不把机器值或任何旧版占位带到用户画面。`search_flowruns` 生成的多行运行表若包含脱敏后的运行 ID，则每行显示 `See the run card`；中文列表进一步把同一行的两个脱敏值归一成「该运行 / 该工作流」，避免重复的 `the requested item` 让用户误以为多行指向同一个对象；精确 ID 仍只在相邻 tool card 的 Copy 面保留。
+
+若模型生成的是可执行 webhook URL（例如 `/api/v1/webhooks/<trigger-id>/<mount-path>`），不能只把 `<trigger-id>` 替成 placeholder 后留下一个看似可复制但必定失效的地址；服务端会将整行收敛为 `See the exact webhook endpoint in the trigger card.`，并在流式换行前暂存整个 endpoint。精确 URL 仍由 trigger tool card 的原始结果提供。
 
 Flowrun 的自然语言摘要也遵守同一边界：`Run summary for <opaque>` 或其已脱敏的 placeholder 变体收敛为 `Run summary`；`Pinned reference: ... function pinned to version <fnv_...>` 收敛为 `Pinned reference: The function version is pinned.`。精确的 function/version ID 只保留在相邻 tool card 的 Copy 操作和审计/tool-result 面，不进入 assistant prose。`fnv_` 同时属于跨 delta 的整行缓冲集合，不能在中间 SSE 帧短暂露出。
+
+状态统计 reasoning 如果把计数后的明细写成脱敏 placeholder（例如 `running: 1 (the requested item - tool071_approval)`），服务端会移除 placeholder 和多余分隔符，保留可读的 `running: 1 (tool071_approval)`；若括号里只有 placeholder，则整段括号移除。该状态行在换行前会被完整暂存，所以早于 durable close 的 `seq=0` delta 也不能露出半截占位。不能让用户看到重复占位，也不能暗示多个结果是同一个对象。精确运行 ID 仍只从相邻 `search_flowruns` tool card 读取。
 
 即使模型已经提前生成中性占位，同一出口也会对 Flowrun 标题、Run/Version/Ref/Node record 表行及 Pinned Refs 列表做二次语义归一化；Pinned Refs 既覆盖带 `approval form`/`version` 语义的行，也覆盖原始 opaque 值在通用替换后形成的双占位表格行、带实体注释的 ``<placeholder> (approval form) | <placeholder>`` 行、`placeholder → placeholder` 裸列表项和 `Approval form <placeholder> pinned to version <placeholder>` 自然语言项；结构化清理必须在通用 ID 替换之后再跑一次，最终用户画面不能出现任何占位短语。
 
@@ -105,7 +111,8 @@ Reasoning 也在同一边界内：若 provider 把 `get_flowrun` 拆成 `ge` 与
 
 System prompt 明确禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文。危险 HumanLoop
 批准句不采用模型的自报 summary 作为动作真相：它由实际解析的工具名生成，避免 `delete_workflow`
-被模型 prose 伪装成 `deactivate_workflow`；二者语义冲突时副作用在闸前终止并反馈模型改选。
+被模型 prose 伪装成 `deactivate_workflow`；所有不可逆 delete 族还必须在门禁本体展示实际后果，不能
+退化成泛化的“运行某工具”。二者语义冲突时副作用在闸前终止并反馈模型改选。
 
 对 `get_flowrun`，若模型把 `flowrunId` 截断、改名为 `file_path` 或丢失部分字符，loop 只在最新的 user/tool
 message 中存在**唯一一个**明确 `fr_…` 证据值时按原字节恢复；多个候选、无候选或仅有相似值都不修复，仍让工具诚实失败。

@@ -12,6 +12,7 @@ import (
 
 	"go.uber.org/zap"
 
+	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -233,6 +234,63 @@ func TestRun_ToolThenText(t *testing.T) {
 	}
 	if !sawToolResult || !sawText {
 		t.Fatalf("blocks missing pieces: toolResult=%v text=%v (%+v)", sawToolResult, sawText, host.fin.blocks)
+	}
+}
+
+func TestRun_SuppressesRepeatedToolCallAcrossReactSteps(t *testing.T) {
+	for _, tc := range []struct {
+		name    string
+		action  string
+		wantRun int
+	}{
+		{name: "approved", action: humanloopapp.DecisionApprove, wantRun: 1},
+		{name: "denied", action: humanloopapp.DecisionDeny, wantRun: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			runCount := 0
+			surfaced := 0
+			var broker *humanloopapp.Broker
+			broker = humanloopapp.New(func(_ context.Context, req humanloopapp.Request) {
+				surfaced++
+				go broker.Resolve(req.ToolCallID, humanloopapp.Response{Action: tc.action})
+			})
+			client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+				{toolStartEv(0, "tc_1", "mutate"), toolDeltaEv(0, `{"summary":"change","danger":"dangerous","itemId":"item_1","version":1}`), finishEv()},
+				// Same business args, deliberately streamed in a different object-key order.
+				{toolStartEv(0, "tc_2", "mutate"), toolDeltaEv(0, `{"version":1,"itemId":"item_1","danger":"dangerous","summary":"change"}`), finishEv()},
+			}}
+			host := &fakeHost{
+				history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "change item_1"}},
+				tools:   []toolapp.Tool{countingTool{name: "mutate", calls: &runCount}},
+			}
+
+			res := Run(humanloopapp.WithBroker(context.Background(), broker), host, client, llminfra.Request{}, 5, nil)
+
+			if runCount != tc.wantRun {
+				t.Fatalf("Execute count=%d, want %d", runCount, tc.wantRun)
+			}
+			if surfaced != 1 {
+				t.Fatalf("approval gates=%d, want exactly 1", surfaced)
+			}
+			if res.Status != messagesdomain.StatusCompleted || host.fin.status != messagesdomain.StatusCompleted {
+				t.Fatalf("result status=%q finalize status=%q, want completed", res.Status, host.fin.status)
+			}
+			if client.calls != 2 {
+				t.Fatalf("LLM calls=%d, want initial call plus one suppression observation", client.calls)
+			}
+			var suppressed bool
+			for _, block := range host.fin.blocks {
+				if block.Attrs["duplicateScope"] == "turn" {
+					suppressed = true
+					if block.Error != "" || !strings.Contains(block.Content, "no second approval or execution was requested") {
+						t.Fatalf("suppression block=%+v, want completed authoritative result", block)
+					}
+				}
+			}
+			if !suppressed {
+				t.Fatalf("final blocks contain no cross-step suppression result: %+v", host.fin.blocks)
+			}
+		})
 	}
 }
 
@@ -592,6 +650,60 @@ func TestRunTools_SuppressesIdenticalCallsInOneBatch(t *testing.T) {
 	}
 }
 
+func TestRunTools_GuardedIdentitySuppressesChangedNoise(t *testing.T) {
+	runCount := 0
+	tool := identityCountingTool{name: "delete_workflow", calls: &runCount}
+	byName := map[string]toolapp.Tool{"delete_workflow": tool}
+	handled := make(map[string]indexedCall)
+	first := messagesdomain.ToolCallData{
+		ID:        "tc_first",
+		Name:      "delete_workflow",
+		Danger:    string(toolapp.DangerDangerous),
+		Arguments: map[string]any{"workflowId": "wf_same", "file_path": ""},
+	}
+	second := messagesdomain.ToolCallData{
+		ID:        "tc_second",
+		Name:      "delete_workflow",
+		Danger:    string(toolapp.DangerDangerous),
+		Arguments: map[string]any{"workflowId": "wf_same"},
+	}
+	if blocks, _ := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{first}, byName, handled, zap.NewNop()); len(blocks) != 1 {
+		t.Fatalf("first guarded call blocks = %d, want 1", len(blocks))
+	}
+	blocks, hadPrior := runToolsWithLedger(context.Background(), []messagesdomain.ToolCallData{second}, byName, handled, zap.NewNop())
+	if !hadPrior || runCount != 1 {
+		t.Fatalf("same business mutation with changed noise must run once: hadPrior=%v runCount=%d", hadPrior, runCount)
+	}
+	if len(blocks) != 1 || !strings.Contains(blocks[0].Content, "Duplicate tool call suppressed") {
+		t.Fatalf("second guarded call = %+v, want suppression", blocks)
+	}
+}
+
+type identityCountingTool struct {
+	name  string
+	calls *int
+}
+
+func (t identityCountingTool) Name() string        { return t.name }
+func (t identityCountingTool) Description() string { return "identity test tool" }
+func (t identityCountingTool) Parameters() json.RawMessage {
+	return json.RawMessage(`{"type":"object"}`)
+}
+func (identityCountingTool) ValidateInput(json.RawMessage) error { return nil }
+func (t identityCountingTool) Execute(context.Context, string) (string, error) {
+	*t.calls++
+	return "executed", nil
+}
+func (identityCountingTool) CallIdentity(args json.RawMessage) string {
+	var fields struct {
+		WorkflowID string `json:"workflowId"`
+	}
+	if err := json.Unmarshal(args, &fields); err != nil {
+		return ""
+	}
+	return "workflow:" + fields.WorkflowID
+}
+
 func TestExecuteTool_NotFound(t *testing.T) {
 	out, errMsg, ok := executeTool(context.Background(), nil, "ghost", []byte(`{}`), zap.NewNop())
 	if ok || !strings.Contains(out, "not found") || errMsg == "" {
@@ -700,6 +812,25 @@ func TestStreamLLM_AssemblesBlocksAndDanger(t *testing.T) {
 	}
 	if toolCallBlk == nil || toolCallBlk.Attrs["danger"] != "dangerous" || toolCallBlk.Attrs["signature"] != "sig-call" {
 		t.Fatalf("tool_call block missing danger attr: %+v", blocks)
+	}
+}
+
+func TestStreamLLM_StaticDangerFloorNormalizesPresentation(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		toolStartEv(0, "tc_delete", "delete_workflow"),
+		toolDeltaEv(0, `{"summary":"remove workflow","danger":"safe","workflowId":"wf_1"}`),
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	minimumDanger := func(string) toolapp.DangerLevel { return toolapp.DangerDangerous }
+	blocks, calls, _, _, _, _ := streamLLM(context.Background(), client, llminfra.Request{}, noBuild, nil, minimumDanger)
+	if len(calls) != 1 || calls[0].Danger != string(toolapp.DangerDangerous) {
+		t.Fatalf("tool call danger = %+v, want static dangerous floor", calls)
+	}
+	for _, block := range blocks {
+		if block.Type == messagesdomain.BlockTypeToolCall && block.Attrs["danger"] != string(toolapp.DangerDangerous) {
+			t.Fatalf("durable tool-call danger = %#v, want dangerous", block.Attrs["danger"])
+		}
 	}
 }
 

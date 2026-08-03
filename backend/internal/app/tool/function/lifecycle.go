@@ -72,8 +72,10 @@ type DeleteFunction struct {
 
 func (t *DeleteFunction) Name() string { return "delete_function" }
 
+func (t *DeleteFunction) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *DeleteFunction) Description() string {
-	return "Soft-delete a function from the active catalog and destroy its sandbox environments. Its immutable version history is retained and remains readable for audit, while the function itself and its actions return not-found. This is not reversible. The result reports dependent references and retention truth — to see what depends on something BEFORE deleting, use get_relations."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Soft-delete a function from the active catalog and destroy its sandbox environments. Its immutable version history is retained and remains readable for audit, while the function itself and its actions return not-found. The function is NOT restorable through the active API. The result reports dependent references and retention truth — to see what depends on something BEFORE deleting, use get_relations."
 }
 
 func (t *DeleteFunction) Parameters() json.RawMessage {

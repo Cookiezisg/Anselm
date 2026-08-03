@@ -250,8 +250,10 @@ type DeleteControl struct {
 
 func (t *DeleteControl) Name() string { return "delete_control" }
 
+func (t *DeleteControl) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *DeleteControl) Description() string {
-	return "Delete a control logic and all its versions. Not reversible. This is a destructive action: set danger=\\\"dangerous\\\" and wait for the user's approval before calling it. Pass the REQUIRED controlId (never `{}`); check get_relations first so you can explain dependents. Workflows that reference it will fail their capability check until repointed. The result reports how many entities referenced it."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Delete a control logic and all its versions. It is NOT reversible and has no restore operation. This is a destructive action: set danger=\\\"dangerous\\\" and wait for the user's approval before calling it. Pass the REQUIRED controlId (never `{}`); check get_relations first so you can explain dependents. Workflows that reference it will fail their capability check until repointed. The result reports how many entities referenced it."
 }
 
 func (t *DeleteControl) Parameters() json.RawMessage {

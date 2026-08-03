@@ -2,6 +2,8 @@ package loop
 
 import (
 	"context"
+	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
 
@@ -16,6 +18,160 @@ import (
 
 func dangerTC(name string) messagesdomain.ToolCallData {
 	return messagesdomain.ToolCallData{ID: "tc1", Name: name, Danger: string(toolapp.DangerDangerous)}
+}
+
+type invalidInputTool struct{}
+
+func (invalidInputTool) Name() string                { return "invalid" }
+func (invalidInputTool) Description() string         { return "invalid" }
+func (invalidInputTool) Parameters() json.RawMessage { return json.RawMessage(`{"type":"object"}`) }
+func (invalidInputTool) ValidateInput(json.RawMessage) error {
+	return errors.New("required field is missing")
+}
+func (invalidInputTool) Execute(context.Context, string) (string, error) {
+	panic("invalid tool must not execute")
+}
+
+type staticDangerTool struct{ fakeTool }
+
+func (staticDangerTool) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
+func TestDispatchWithGate_ValidationHappensBeforeDangerGate(t *testing.T) {
+	broker, seen := gateProbe(humanloopapp.DecisionApprove)
+	ctx := humanloopapp.WithBroker(context.Background(), broker)
+
+	out, errMsg, ok, executed, approved := dispatchWithGate(
+		ctx,
+		invalidInputTool{},
+		dangerTC("invalid"),
+		[]byte(`{}`),
+		zap.NewNop(),
+	)
+	if len(*seen) != 0 {
+		t.Fatalf("invalid dangerous input must not open an approval gate: %d requests", len(*seen))
+	}
+	if ok || executed || approved {
+		t.Fatalf("invalid input must fail before execution/approval: out=%q err=%q ok=%v executed=%v approved=%v", out, errMsg, ok, executed, approved)
+	}
+	if out != "input validation failed: required field is missing" || errMsg != out {
+		t.Fatalf("unexpected validation result: out=%q err=%q", out, errMsg)
+	}
+}
+
+func TestDispatchWithGate_StaticDangerFloorCannotBeSelfReportedSafe(t *testing.T) {
+	var broker *humanloopapp.Broker
+	seen := 0
+	broker = humanloopapp.New(func(_ context.Context, req humanloopapp.Request) {
+		seen++
+		go broker.Resolve(req.ToolCallID, humanloopapp.Response{Action: humanloopapp.DecisionApprove})
+	})
+	ctx := humanloopapp.WithBroker(context.Background(), broker)
+
+	tc := messagesdomain.ToolCallData{ID: "tc_delete", Name: "delete_workflow", Danger: string(toolapp.DangerSafe)}
+	out, _, ok, executed, approved := dispatchWithGate(
+		ctx,
+		staticDangerTool{fakeTool{name: "delete_workflow", result: "deleted"}},
+		tc,
+		[]byte(`{}`),
+		zap.NewNop(),
+	)
+	if seen != 1 {
+		t.Fatalf("static irreversible danger floor must surface one gate, got %d", seen)
+	}
+	if !ok || !executed || !approved || out != "deleted" {
+		t.Fatalf("approved static-danger call should execute: out=%q ok=%v executed=%v approved=%v", out, ok, executed, approved)
+	}
+}
+
+func TestDispatchWithGate_ApprovalUsesResolvedToolAction(t *testing.T) {
+	broker, seen := gateProbe(humanloopapp.DecisionDeny)
+	ctx := humanloopapp.WithBroker(context.Background(), broker)
+	tc := messagesdomain.ToolCallData{
+		ID:      "tc_delete",
+		Name:    "delete_workflow",
+		Summary: "Clean up the old workflow",
+		Danger:  string(toolapp.DangerDangerous),
+	}
+
+	_, _, _, executed, _ := dispatchWithGate(
+		ctx,
+		staticDangerTool{fakeTool{name: "delete_workflow", result: "deleted"}},
+		tc,
+		[]byte(`{}`),
+		zap.NewNop(),
+	)
+	if executed {
+		t.Fatal("a denied call must not execute")
+	}
+	if len(*seen) != 1 {
+		t.Fatal("a dangerous delete must surface exactly one gate")
+	}
+	var prompt map[string]any
+	if err := json.Unmarshal((*seen)[0].Prompt, &prompt); err != nil {
+		t.Fatalf("gate prompt is not JSON: %v", err)
+	}
+	if got := prompt["summary"]; got != "Permanently delete this workflow from normal reads. It is not restorable; automation is stopped and history is retained for audit." {
+		t.Fatalf("gate must use the resolved delete action, got %v", got)
+	}
+}
+
+func TestCanonicalGateSummary_CoversIrreversibleDeleteFamily(t *testing.T) {
+	cases := []struct {
+		name string
+		want []string
+	}{
+		{name: "delete_function", want: []string{"not restorable", "version history", "sandbox"}},
+		{name: "delete_handler", want: []string{"resident instance", "not restorable", "relation edges"}},
+		{name: "delete_agent", want: []string{"active configuration", "not restorable", "execution history"}},
+		{name: "delete_control", want: []string{"not reversible", "restore operation", "capability checks"}},
+		{name: "delete_approval", want: []string{"primary row", "not restorable", "versions", "capability checks"}},
+		{name: "delete_skill", want: []string{"Permanently delete", "cannot be undone", "equipped"}},
+		{name: "delete_trigger", want: []string{"stop its listener", "primary row", "not restorable", "activation and firing history", "relation edges"}},
+		{name: "delete_workflow", want: []string{"not restorable", "automation is stopped", "history"}},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := canonicalGateSummary(fakeTool{name: tc.name}, dangerTC(tc.name), false)
+			for _, want := range tc.want {
+				if !strings.Contains(got, want) {
+					t.Fatalf("summary %q missing %q", got, want)
+				}
+			}
+			if strings.HasPrefix(got, "Run the `") {
+				t.Fatalf("irreversible delete must not use generic gate copy: %q", got)
+			}
+		})
+	}
+}
+
+func TestToolIntentConflictRejectsDestructiveWrongTool(t *testing.T) {
+	var ran bool
+	tracked := trackingTool{fakeTool: fakeTool{name: "delete_workflow", result: "deleted"}, ran: &ran}
+	tc := messagesdomain.ToolCallData{
+		ID:      "tc_delete",
+		Name:    "delete_workflow",
+		Summary: "Deactivate this workflow gracefully and let in-flight runs finish",
+		Danger:  string(toolapp.DangerDangerous),
+	}
+	out, errMsg, ok, executed, approved := dispatchWithGate(
+		context.Background(), tracked, tc, []byte(`{}`), zap.NewNop(),
+	)
+	if ok || executed || approved || ran {
+		t.Fatalf("conflicting destructive call must not run: out=%q err=%q ok=%v executed=%v approved=%v ran=%v", out, errMsg, ok, executed, approved, ran)
+	}
+	if !strings.Contains(out, "deactivate_workflow") {
+		t.Fatalf("conflict feedback must identify the intended tool: %q", out)
+	}
+}
+
+type trackingTool struct {
+	fakeTool
+	ran *bool
+}
+
+func (t trackingTool) Execute(context.Context, string) (string, error) {
+	*t.ran = true
+	return t.result, nil
 }
 
 // TestDispatchWithGate_SkillPreApproved: a dangerous tool the active skill declared in its

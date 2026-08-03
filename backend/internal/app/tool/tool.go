@@ -15,14 +15,14 @@ import (
 	"fmt"
 )
 
-// DangerLevel is the LLM's self-declared risk for one tool call (the injected `danger`
-// field). Pure trust: tools set no floor — the LLM must declare honestly on every call,
-// guided by the field description. The loop gates on it: dangerous blocks for user
+// DangerLevel is the LLM's reported risk for one tool call (the injected `danger` field). Most
+// tools use that report directly, while a tool may provide a non-bypassable DangerFloorer floor
+// when risk is an operation fact. The loop gates on the effective level: dangerous blocks for user
 // approval, cautious is surfaced but not blocked, safe runs silently.
 //
-// DangerLevel 是 LLM 对一次工具调用自报的危险度（注入的 `danger` 字段）。纯信任：工具不设下限
-// ——LLM 须每次诚实自报、由字段描述引导。loop 据此设闸：dangerous 阻塞等用户同意、cautious 标记
-// 不阻塞、safe 静默执行。
+// DangerLevel 是 LLM 对一次工具调用报告的危险度（注入的 `danger` 字段）。多数工具直接使用该报告；风险由
+// 操作事实决定时，工具可提供不可绕过的 DangerFloorer 下限。loop 据有效等级设闸：dangerous 阻塞等用户同意、
+// cautious 标记不阻塞、safe 静默执行。
 type DangerLevel string
 
 const (
@@ -40,6 +40,113 @@ const (
 	// 钱花掉就收不回,故一次「只是写了个文件」的调用,在那个文件要花真钱时**依然是** dangerous（H5.6）。
 	DangerDangerous DangerLevel = "dangerous"
 )
+
+// DangerFloorer is an optional tool contract for calls whose risk is a fact of the operation,
+// not a model opinion. The loop raises the reported level to this floor before gating, ledger
+// deduplication, or presenting the call. It deliberately stays optional so S18's five-method Tool
+// interface does not grow.
+//
+// DangerFloorer 是可选工具契约，给那些风险由操作事实决定、不是模型意见的调用设下限。loop 在设闸、台账去重
+// 和展示调用前把自报等级抬到这个下限。它刻意保持可选，故 S18 的五方法 Tool 接口不扩张。
+type DangerFloorer interface {
+	MinimumDanger() DangerLevel
+}
+
+// CallIdentityer is an optional contract for tools whose business identity is narrower than their
+// full JSON shape. The loop uses it to suppress a repeated guarded mutation even when a model changes
+// irrelevant or invalid fields between attempts (for example delete_workflow + file_path).
+//
+// CallIdentityer 是可选契约，给业务身份比完整 JSON 更窄的工具使用。loop 据此压制同一受保护 mutation
+// 的重复调用，即使模型在重试间改了无关或非法字段（例如 delete_workflow + file_path）。
+type CallIdentityer interface {
+	CallIdentity(args json.RawMessage) string
+}
+
+// ArgumentNormalizer is an optional, narrow compatibility seam for a tool that can repair a
+// provider-produced argument key without changing its business meaning. The loop applies it before
+// the call is persisted or executed, so the visible tool card, audit trail, and execution all agree.
+// A normalizer must be conservative: return changed=false unless the supplied value is unambiguous.
+//
+// ArgumentNormalizer 是工具可选的、窄范围兼容缝，用于修复 provider 产出的参数键而不改变业务含义。
+// loop 在落盘和执行前应用它，使可见 tool card、审计和执行三者一致。normalizer 必须保守：只有值无歧义
+// 时才返回 changed=true。
+type ArgumentNormalizer interface {
+	NormalizeArguments(args json.RawMessage) (normalized json.RawMessage, changed bool)
+}
+
+// NormalizeArguments applies a tool's optional argument repair hook.
+//
+// NormalizeArguments 应用工具可选的参数修复钩子。
+func NormalizeArguments(t Tool, args json.RawMessage) (json.RawMessage, bool) {
+	normalizer, ok := t.(ArgumentNormalizer)
+	if !ok {
+		return args, false
+	}
+	normalized, changed := normalizer.NormalizeArguments(args)
+	if !changed || len(normalized) == 0 {
+		return args, false
+	}
+	return normalized, true
+}
+
+// CallIdentity returns a tool-defined business identity, or an empty string when the tool has no
+// narrower identity contract. The empty result falls back to the full normalized argument object.
+//
+// CallIdentity 返回工具定义的业务身份；没有更窄契约时返回空串，调用方回退到完整规范化参数对象。
+func CallIdentity(t Tool, args json.RawMessage) string {
+	if identity, ok := t.(CallIdentityer); ok {
+		return identity.CallIdentity(args)
+	}
+	return ""
+}
+
+// MinimumDanger returns a tool's non-bypassable static danger floor.
+//
+// MinimumDanger 返回工具不可绕过的静态危险下限。
+func MinimumDanger(t Tool) DangerLevel {
+	if floorer, ok := t.(DangerFloorer); ok {
+		floor := floorer.MinimumDanger()
+		if IsValidDanger(string(floor)) {
+			return floor
+		}
+	}
+	return DangerSafe
+}
+
+// RaiseDanger applies a static floor to a model-reported danger level. Invalid or missing model
+// values retain the existing fail-open safe default; a valid floor can only raise, never lower.
+//
+// RaiseDanger 把静态下限应用到模型自报等级。非法/缺失自报仍保留既有 fail-open safe 默认；有效下限只升不降。
+func RaiseDanger(reported, floor DangerLevel) DangerLevel {
+	if !IsValidDanger(string(reported)) {
+		reported = DangerSafe
+	}
+	if !IsValidDanger(string(floor)) {
+		floor = DangerSafe
+	}
+	if dangerRank(floor) > dangerRank(reported) {
+		return floor
+	}
+	return reported
+}
+
+func dangerRank(level DangerLevel) int {
+	switch level {
+	case DangerDangerous:
+		return 2
+	case DangerCautious:
+		return 1
+	default:
+		return 0
+	}
+}
+
+// EffectiveDanger returns the model report after applying the tool's static floor.
+//
+// EffectiveDanger 返回应用工具静态下限后的模型自报等级。
+func EffectiveDanger(t Tool, reported DangerLevel) DangerLevel {
+	return RaiseDanger(reported, MinimumDanger(t))
+}
 
 // IsValidDanger reports whether s is one of the three levels.
 //

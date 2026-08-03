@@ -76,6 +76,46 @@ void main() {
         )!.tone,
         ToolReceiptTone.danger,
       );
+      expect(
+        capabilityReceipt(
+          t,
+          jsonEncode({
+            'ok': true,
+            'warnings': ['w'],
+          }),
+        )!.text,
+        t.chat.tool.capWarning(n: '1'),
+      );
+      expect(
+        capabilityReceipt(
+          t,
+          jsonEncode({
+            'ok': true,
+            'warnings': ['w', 'w2'],
+          }),
+        )!.text,
+        t.chat.tool.capWarnings(n: '2'),
+      );
+      expect(
+        capabilityReceipt(
+          t,
+          jsonEncode({
+            'ok': false,
+            'problems': ['p'],
+          }),
+        )!.text,
+        t.chat.tool.capProblem(n: '1'),
+      );
+      expect(
+        capabilityReceipt(
+          t,
+          jsonEncode({
+            'ok': false,
+            'problems': ['p1', 'p2'],
+          }),
+        )!.text,
+        t.chat.tool.capProblems(n: '2'),
+      );
       expect(capabilityFailed(jsonEncode({'ok': false})), isTrue);
     });
     test('mcp status: connected→tool count, else danger', () {

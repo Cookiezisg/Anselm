@@ -65,35 +65,37 @@ func (s *Service) ensureRunnable(ctx context.Context, id string) error {
 }
 
 // Stage arms the workflow for exactly ONE run on its next real trigger fire, then auto-disarms (the
-// "trial run"). It does not change lifecycle — the workflow stays inactive but armed. ErrAlreadyActive
-// if it is already continuously listening (deactivate first); ErrNoTriggerEntry if it has no trigger node.
+// "trial run"). It does not change lifecycle — the workflow stays inactive but armed. The returned
+// snapshot is the named workflow that was armed, so action callers can confirm the target without a
+// second, potentially inconsistent read. ErrAlreadyActive if it is already continuously listening
+// (deactivate first); ErrNoTriggerEntry if it has no trigger node.
 //
 // Stage 给 workflow 待命，使其在下一次真实触发时恰跑一次、随即自动撤防（「试运行」）。不改 lifecycle——workflow
 // 保持 inactive 但已待命。已在持续监听 → ErrAlreadyActive（先 deactivate）；无 trigger 节点 → ErrNoTriggerEntry。
-func (s *Service) Stage(ctx context.Context, id string) error {
+func (s *Service) Stage(ctx context.Context, id string) (*workflowdomain.Workflow, error) {
 	if s.binder == nil {
-		return errExecUnavailable
+		return nil, errExecUnavailable
 	}
 	w, err := s.repo.GetWorkflow(ctx, id)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	if w.Active {
-		return workflowdomain.ErrAlreadyActive
+		return nil, workflowdomain.ErrAlreadyActive
 	}
 	if err := s.ensureRunnable(ctx, id); err != nil {
-		return err
+		return nil, err
 	}
 	refs, err := s.entryTriggerRefsOf(ctx, w)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	for _, ref := range refs {
 		if err := s.binder.AttachOnce(ctx, ref, id); err != nil {
-			return fmt.Errorf("workflowapp.Stage: attach-once %s: %w", ref, err)
+			return nil, fmt.Errorf("workflowapp.Stage: attach-once %s: %w", ref, err)
 		}
 	}
-	return nil
+	return w, nil
 }
 
 // Activate brings the workflow online: start listening on each entry trigger, then flip lifecycle to

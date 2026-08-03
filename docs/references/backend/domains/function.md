@@ -99,7 +99,9 @@ Function 与 Handler 共用 `app/mediaartifact`；attachment uploader 未装配�
 
 ## 6. 删除与投影
 
-Delete 软删主行、清 relation，并最佳努力销毁该 Function 的 env 和代码目录。
+Delete 软删主行、清 relation，并最佳努力销毁该 Function 的 env 和代码目录。主行与动作**不可恢复**；
+`delete_function` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe` 也必须先经过 HumanLoop
+用户批准，且不能被 skill 或 `approve_always` 预授权绕过。
 Version 与 Execution 的耐久边界见 [`database.md`](../database.md)。
 
 Function 通过以下投影进入产品：

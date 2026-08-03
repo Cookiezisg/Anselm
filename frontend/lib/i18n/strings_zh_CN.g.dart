@@ -831,6 +831,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get awaitingConfirm => '等待确认';
 	@override String get denied => '已拒绝执行';
 	@override String get cancelled => '已中断';
+	@override String get suppressed => '未执行';
 	@override String elapsed({required Object s}) => '${s} 秒';
 	@override String get intent => '意图';
 	@override String get argsLabel => '参数';
@@ -1041,7 +1042,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String killedN({required Object n}) => '杀停 ${n} 个在途运行';
 	@override String get noInflight => '无在途运行';
 	@override String nKeys({required Object n}) => '${n} 键';
-	@override String get staged2 => '候下一发真实触发';
+	@override String get staged2 => '单次 · 触发后解除';
 	@override String get listening2 => '监听中';
 	@override String get offline => '已下线';
 	@override String get draining => '排空中';
@@ -1147,6 +1148,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get firePayloadNote => 'payload 恒为 {manual:true};扇出与处置见触发日志';
 	@override String get replayingRun => '正在重放运行';
 	@override String get replayedRun => '已重放运行';
+	@override String get replayRejected => '未执行重放';
 	@override String get triggeringWf => '正在触发工作流';
 	@override String get triggeredWf => '已触发工作流';
 	@override String get invokingAgent => '正在调用智能体';
@@ -1230,7 +1232,9 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get checkingCapability => '正在体检工作流';
 	@override String get checkedCapability => '已体检工作流';
 	@override String get capRunnable => '结构可运行';
+	@override String capProblem({required Object n}) => '${n} 问题';
 	@override String capProblems({required Object n}) => '${n} 问题';
+	@override String capWarning({required Object n}) => '${n} 警示';
 	@override String capWarnings({required Object n}) => '${n} 警示';
 	@override String get capProblemsLabel => '问题';
 	@override String get capWarningsLabel => '警示';
@@ -3107,6 +3111,7 @@ extension on TranslationsZhCn {
 			'chat.tool.awaitingConfirm' => '等待确认',
 			'chat.tool.denied' => '已拒绝执行',
 			'chat.tool.cancelled' => '已中断',
+			'chat.tool.suppressed' => '未执行',
 			'chat.tool.elapsed' => ({required Object s}) => '${s} 秒',
 			'chat.tool.intent' => '意图',
 			'chat.tool.argsLabel' => '参数',
@@ -3328,7 +3333,7 @@ extension on TranslationsZhCn {
 			'chat.tool.killedN' => ({required Object n}) => '杀停 ${n} 个在途运行',
 			'chat.tool.noInflight' => '无在途运行',
 			'chat.tool.nKeys' => ({required Object n}) => '${n} 键',
-			'chat.tool.staged2' => '候下一发真实触发',
+			'chat.tool.staged2' => '单次 · 触发后解除',
 			'chat.tool.listening2' => '监听中',
 			'chat.tool.offline' => '已下线',
 			'chat.tool.draining' => '排空中',
@@ -3434,6 +3439,7 @@ extension on TranslationsZhCn {
 			'chat.tool.firePayloadNote' => 'payload 恒为 {manual:true};扇出与处置见触发日志',
 			'chat.tool.replayingRun' => '正在重放运行',
 			'chat.tool.replayedRun' => '已重放运行',
+			'chat.tool.replayRejected' => '未执行重放',
 			'chat.tool.triggeringWf' => '正在触发工作流',
 			'chat.tool.triggeredWf' => '已触发工作流',
 			'chat.tool.invokingAgent' => '正在调用智能体',
@@ -3480,10 +3486,10 @@ extension on TranslationsZhCn {
 			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
 			'chat.tool.gettingActivation' => '正在调阅活动档案',
 			'chat.tool.gotActivation' => '已调阅活动档案',
-			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
-			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
+			'chat.tool.logOmitted' => ({required Object n}) => '…省略 ${n} 字符…',
 			'chat.tool.fireYes' => '已 fire',
 			'chat.tool.fireNo' => '未 fire',
 			'chat.tool.gettingFlowrun' => '正在调阅运行',
@@ -3519,7 +3525,9 @@ extension on TranslationsZhCn {
 			'chat.tool.checkingCapability' => '正在体检工作流',
 			'chat.tool.checkedCapability' => '已体检工作流',
 			'chat.tool.capRunnable' => '结构可运行',
+			'chat.tool.capProblem' => ({required Object n}) => '${n} 问题',
 			'chat.tool.capProblems' => ({required Object n}) => '${n} 问题',
+			'chat.tool.capWarning' => ({required Object n}) => '${n} 警示',
 			'chat.tool.capWarnings' => ({required Object n}) => '${n} 警示',
 			'chat.tool.capProblemsLabel' => '问题',
 			'chat.tool.capWarningsLabel' => '警示',
@@ -3992,12 +4000,12 @@ extension on TranslationsZhCn {
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
 			'feedback.cast.tombstone' => '已删除',
 			'feedback.cast.loadFailed' => '加载失败',
+			_ => null,
+		} ?? switch (path) {
 			'feedback.cast.goToEntity' => '去实体页',
 			'feedback.cast.jumpToScene' => '跳到发生处',
 			'feedback.cast.verb.mentioned' => '提及',
 			'feedback.cast.verb.created' => '创建',
-			_ => null,
-		} ?? switch (path) {
 			'feedback.cast.verb.edited' => '编辑',
 			'feedback.cast.verb.viewed' => '查看',
 			'feedback.cast.verb.executed' => '执行',
@@ -4506,12 +4514,12 @@ extension on TranslationsZhCn {
 			'library.slash.h1' => '标题 1',
 			'library.slash.h2' => '标题 2',
 			'library.slash.h3' => '标题 3',
+			_ => null,
+		} ?? switch (path) {
 			'library.slash.bulleted' => '无序列表',
 			'library.slash.numbered' => '有序列表',
 			'library.slash.quote' => '引用',
 			'library.slash.code' => '代码块',
-			_ => null,
-		} ?? switch (path) {
 			'library.slash.table' => '表格',
 			'library.slash.media' => '媒体',
 			'library.slash.divider' => '分隔线',
@@ -5020,12 +5028,12 @@ extension on TranslationsZhCn {
 			'attach.audioPlaybackOffline' => '已离线 — 点按重试播放',
 			'attach.audioPlaybackUnavailable' => '暂不能播放',
 			'attach.viewFullSize' => '查看大图',
+			_ => null,
+		} ?? switch (path) {
 			'attach.closeViewer' => '关闭',
 			'attach.mediaViewer' => '媒体查看器',
 			'attach.playVideo' => '播放视频',
 			'attach.pauseVideo' => '暂停视频',
-			_ => null,
-		} ?? switch (path) {
 			'attach.replayVideo' => '重播',
 			'attach.enterFullscreen' => '全屏',
 			'attach.remove' => '移除',

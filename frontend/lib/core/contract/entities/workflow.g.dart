@@ -215,6 +215,7 @@ _FlowrunComposite _$FlowrunCompositeFromJson(Map<String, dynamic> json) =>
               ?.map((e) => FlowrunNode.fromJson(e as Map<String, dynamic>))
               .toList() ??
           const <FlowrunNode>[],
+      workflowName: json['workflowName'] as String?,
       nextCursor: json['nextCursor'] as String?,
       nodeSummary: json['nodeSummary'] == null
           ? null
@@ -227,6 +228,7 @@ Map<String, dynamic> _$FlowrunCompositeToJson(_FlowrunComposite instance) =>
     <String, dynamic>{
       'flowrun': instance.flowrun.toJson(),
       'nodes': instance.nodes.map((e) => e.toJson()).toList(),
+      'workflowName': instance.workflowName,
       'nextCursor': instance.nextCursor,
       'nodeSummary': instance.nodeSummary?.toJson(),
     };

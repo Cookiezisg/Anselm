@@ -53,6 +53,12 @@ class StageDirectorController extends Notifier<StageState> {
   final Map<String, String> _pollFlowrun =
       {}; // blockId → flowrunId (from the receipt)
   final Map<String, StreamSubscription<StreamEnvelope>> _terminalSubs = {};
+  // A very fast run can publish durable run_terminal after the tool-call closes but before the
+  // execution receipt closes. Keep those terminals per flowrun until the receipt tells us which run
+  // belongs to this block; accepting one blindly would confuse concurrent runs of the same workflow.
+  // 极快 run 可能在 tool-call 关帧后、执行回执关帧前就发出 durable run_terminal。按 flowrun 暂存，等回执
+  // 给出归属再认领；不能盲认，否则同 workflow 并发 run 会串台。
+  final Map<String, Map<String, String>> _pendingTerminals = {};
   // A tool_call closes when the model has finished its argument stream; that is NOT the execution
   // terminal. The backend opens its tool_result at actual execution start and closes it at the real
   // terminal, so remember that child → parent linkage here. 参流 Close≠执行终态；真实执行由 tool_result
@@ -99,6 +105,7 @@ class StageDirectorController extends Notifier<StageState> {
     _pollCalls.clear();
     _pollWorkflow.clear();
     _pollFlowrun.clear();
+    _pendingTerminals.clear();
     _executionParents.clear();
     _ownerOf.clear();
     _tracked.clear();
@@ -306,8 +313,10 @@ class StageDirectorController extends Notifier<StageState> {
             _pollCalls.remove(parent);
             _pollWorkflow.remove(parent);
             _pollFlowrun.remove(parent);
+            _pendingTerminals.remove(parent);
           }
           _director.onToolClose(parent, now, ok: ok);
+          if (workflowID != null) _reconcilePendingTerminal(parent);
           break;
         }
 
@@ -323,7 +332,14 @@ class StageDirectorController extends Notifier<StageState> {
         }
         if (_pollCalls.contains(env.id)) {
           final m = _workflowRe.firstMatch(args);
-          if (m != null) _pollWorkflow[env.id] = m.group(1)!;
+          if (m != null) {
+            _pollWorkflow[env.id] = m.group(1)!;
+            // Subscribe before dispatch. The backend can finish a trigger-only workflow before the
+            // tool_result receipt is closed; workflowFrames is a broadcast stream with no replay.
+            // 在后端派发前订阅。trigger-only workflow 可能早于 tool_result 回执关帧结束；workflowFrames
+            // 是无回放 broadcast，晚订阅必丢 durable terminal。
+            _watchTerminal(env.id, m.group(1)!);
+          }
         }
         if (status == 'error' || status == 'cancelled') {
           // The model stream itself aborted, so no execution child will ever arrive. 模型流中止，无执行子节点可等。
@@ -399,7 +415,7 @@ class StageDirectorController extends Notifier<StageState> {
   /// `run_terminal` 落定舞台(R-10 退役)。回执缺 id 时终态退化为先到先落——一次诚实落定胜过永久驻留;
   /// 但 tick **绝不猜**(错 run 的进度是谎言,缺卷只是缺口)。
   void _watchTerminal(String blockId, String workflowId) {
-    _terminalSubs[blockId]?.cancel();
+    if (_terminalSubs.containsKey(blockId)) return;
     final flowrunId = _pollFlowrun[blockId];
     if (flowrunId != null) {
       ref.read(flowrunProgressProvider(blockId).notifier).begin(flowrunId);
@@ -424,20 +440,40 @@ class StageDirectorController extends Notifier<StageState> {
         return;
       }
       if (frame.node.type != 'run_terminal') return;
-      if (wanted != null && frameRun != wanted) return;
       final status = '${content['status'] ?? ''}';
-      ref.read(flowrunProgressProvider(blockId).notifier).terminal(status);
-      _terminalSubs.remove(blockId)?.cancel();
-      _pollCalls.remove(blockId);
-      _pollWorkflow.remove(blockId);
-      _pollFlowrun.remove(blockId);
-      _director.onRunTerminal(
-        blockId,
-        DateTime.now(),
-        ok: status == 'completed',
-      );
-      _publish();
+      if (wanted == null) {
+        // The execution is still open, so this is only a candidate. Receipt close will reconcile it
+        // by id (or use the documented first-terminal fallback when no id exists at all).
+        (_pendingTerminals[blockId] ??= {})[frameRun] = status;
+        return;
+      }
+      if (frameRun != wanted) return;
+      _settleTerminal(blockId, status);
     });
+  }
+
+  /// Reconcile a terminal captured before the execution receipt told us its flowrun id. 对账先到终态。
+  void _reconcilePendingTerminal(String blockId) {
+    final pending = _pendingTerminals.remove(blockId);
+    if (pending == null || pending.isEmpty) return;
+    final wanted = _pollFlowrun[blockId];
+    final status = wanted == null
+        ? pending.values.first
+        : pending.remove(wanted);
+    if (status == null) return;
+    _settleTerminal(blockId, status);
+  }
+
+  void _settleTerminal(String blockId, String status) {
+    if (!_pollCalls.contains(blockId)) return;
+    ref.read(flowrunProgressProvider(blockId).notifier).terminal(status);
+    _terminalSubs.remove(blockId)?.cancel();
+    _pollCalls.remove(blockId);
+    _pollWorkflow.remove(blockId);
+    _pollFlowrun.remove(blockId);
+    _pendingTerminals.remove(blockId);
+    _director.onRunTerminal(blockId, DateTime.now(), ok: status == 'completed');
+    _publish();
   }
 
   // ── user-side inputs 用户侧 ──
