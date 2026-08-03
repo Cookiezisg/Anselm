@@ -12,13 +12,13 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
-# 2026-08-03 17:49 · 第九批统一长门禁通过，准备提交
+# 2026-08-03 17:53 · 第九批统一长门禁通过并提交
 
 - `testend/scenarios/TestContractDocsAtt_DocumentChildrenDuplicateMove` 首轮长门禁确定性失败：测试仍断言 `/documents?parentId` 一次返回 55 行；该断言与当前 `ListByParentPage`、`docs/references/backend/api.md` 的默认 50 + opaque cursor 契约冲突，未改生产行为。
 - 修正 testend 契约测试为首页 50、cursor 续页 5、顺序保持、跨页无重复、非法 cursor 返回 `400 INVALID_REQUEST`，并明确由 `/documents/tree` 承担整树 metadata 一次加载；`gofmt` 后定向测试通过。
 - 完整 `mise exec -- go test ./...`（testend，`scenarios 319.089s`）通过；根目录 `make verify` 的 backend/frontend/docs/demo 全部通过；backend 目录 `mise exec -- go test ./...` 全部通过；残留进程为空，锚点 10/10 重新校准解锁 4h，`alarms.py check` 为 clean，`git diff --check` 通过。
 - 复核发现无 `RIG_HOME` 的命令会读到旧默认账本（20 条），并非本批账本；正式台架根 `/private/tmp/anselm-rig-formal-20260801-3` 的同源执行为 `10/10`、`clean (485 judgments on record)`。台架 README 已明确所有 judge/alarms/anchors 命令必须绑定同一个 `RIG_HOME`。
-- 第九批 `TOOL-081..090` 五级裁决保持 **485 judgments / 50/50**，统一长门禁完成，下一原子前线 `TOOL-091 list_attachments`；当前仅待工作树审计和本批提交。
+- 第九批 `TOOL-081..090` 五级裁决保持 **485 judgments / 50/50**，统一长门禁完成并提交为 `32b33499`，下一原子前线 `TOOL-091 list_attachments`。
 
 # 2026-08-03 17:13 · 第九批 TOOL-090 delete_document 正式通过，50/50，长门禁进行中
 
