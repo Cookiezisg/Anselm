@@ -297,9 +297,9 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-03 17:53)
+### 5.2 Day 0 当前状态(整体重述,2026-08-03 18:02)
 
-**当前前线（2026-08-03 17:53）。** 第八批已完成 **50 / 50**，并已提交 `31ad1e72`；第九批从 `TOOL-081` 开始已完成 **50 / 50** 单格裁决，中央账本为 **485 judgments**。锚点 10/10 已重新校准，题集 hash 一致且仍在 4 小时窗口；`TOOL-084` 至 `TOOL-090` 的真实红路径均保留并完成复审，`alarms.py check` 为 `clean (485 judgments)`。`TOOL-090 delete_document` 的五级裁决已落账，统一长门禁已经通过；本批已提交 `32b33499`，下一原子前线为 `TOOL-091 list_attachments`。
+**当前前线（2026-08-03 18:02）。** 第八批已完成 **50 / 50**，并已提交 `31ad1e72`；第九批从 `TOOL-081` 开始已完成 **50 / 50** 单格裁决，中央账本为 **485 judgments**。锚点 10/10 已重新校准，题集 hash 一致且仍在 4 小时窗口；`TOOL-084` 至 `TOOL-090` 的真实红路径均保留并完成复审，`alarms.py check` 为 `clean (485 judgments)`。`TOOL-090 delete_document` 的五级裁决已落账，统一长门禁已经通过；本批已提交 `32b33499`。用户授权后，上一轮 `data-tool090b` 的可恢复 fixture 已通过真实本地 API 清理：conversation 与 standalone document 均 `DELETE=204`、随后 `GET=404`，列表为空；软删审计、正式 session、录屏与 journals 均保留。goal 当前为 `active`，下一原子前线仍为 `TOOL-091 list_attachments`。
 
 `TOOL-088 edit_document` 首轮至第七轮真实观察冻结七条红：reasoning placeholder 泄漏；tags 被发成 JSON 字符串后失败；同一用户意图被拆成两次 edit；重复 search 进入失败循环；hosted provider 对 tags 做双重编码；失败 search 后没有稳健恢复；以及 provider 将 `search_documents` 发成 filesystem-shaped `path/pattern` 参数。七份红证据均保留、不计绿。
 

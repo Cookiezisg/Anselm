@@ -12,6 +12,12 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-03 18:02 · 用户授权后的 TOOL-090 fixture 清理、Goal 恢复检查
+
+- `data-tool090b` 是上一轮隔离验收数据目录，live workspace `ws_488c4c04a60aaeb8` 中只剩 conversation `cv_3bd441a0d334aa00` 与 standalone document `doc_1b398ca1ba3b8394`；此前已删除的 root/child/deep document 保持 tombstone，不重复处理。
+- 在独立本地 API cleanup session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-180108` 中，按用户授权真实调用 DELETE：conversation/document 均返回 `204`；随后同 workspace GET 均返回 `404`，`/conversations` 与 `/documents` 列表均为空。SQLite 软删审计保留，正式验收 session、screen.mov、SSE/LLM/backend/frontend journals 未删除。
+- cleanup 台架已由 `rig-down.sh` 正常收台，无 backend/ssetap/Flutter/llmtap/recorder 残留。Goal API 当前为 `active`，没有创建重复 goal、没有伪造完成；下一原子前线仍为 `TOOL-091 list_attachments`。
+
 # 2026-08-03 17:53 · 第九批统一长门禁通过并提交
 
 - `testend/scenarios/TestContractDocsAtt_DocumentChildrenDuplicateMove` 首轮长门禁确定性失败：测试仍断言 `/documents?parentId` 一次返回 55 行；该断言与当前 `ListByParentPage`、`docs/references/backend/api.md` 的默认 50 + opaque cursor 契约冲突，未改生产行为。

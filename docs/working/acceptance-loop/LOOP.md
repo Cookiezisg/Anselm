@@ -27,11 +27,11 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-03 17:53）
+## 当前前线（2026-08-03 18:02）
 
 统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。定向测试和完整 testend `go test ./...`（scenarios 319.089s）、`make verify`、backend `go test ./...`、锚点、警报、diff check 全绿。
 
-**提交更新（2026-08-03 17:53）。** 第九批已完成统一长门禁并提交 `32b33499`；下一原子前线为 `TOOL-091 list_attachments`。
+**提交更新（2026-08-03 18:02）。** 第九批已完成统一长门禁并提交 `32b33499`；用户授权后，上一轮 `data-tool090b` 的 live fixture 已通过真实本地 API 清理，conversation/document 均 `DELETE=204` 后 `GET=404`，列表为空，软删审计与正式证据保留；下一原子前线为 `TOOL-091 list_attachments`。
 
 第八批已完成 **50 / 50** 并提交 `31ad1e72`；第九批已完成 **50 / 50**，中央账本 **485 judgments**。锚点 10/10 已重新校准，题集 hash 一致且仍在 4 小时窗口；`TOOL-084` 至 `TOOL-090` 的真实红路径已保留并完成复审，`alarms.py check` 为 `clean (485 judgments)`。`TOOL-090` 五级裁决已落账，当前执行本批次统一长门禁；通过后提交，下一原子前线为 `TOOL-091 list_attachments`。
 
