@@ -112,6 +112,16 @@ Chat context 可携 ephemeral broker；独立 Agent、顶层 Subagent 与 Workfl
 `safe` 也必须先出现真实 HumanLoop approval，再允许副作用发生。tool-call 的 durable/SSE
 快照同样展示提升后的有效等级，不能出现“看起来 safe、实际上要批准”的错觉。
 
+同一规则适用于 `install_mcp_server`：安装会持久化 server 配置、可能启动常驻进程/外部连接并新增
+能力与加密凭证，故其静态下限恒为 `dangerous`。即使模型自报 `safe` 或 `cautious`，也必须先出现
+action-time HumanLoop approval，且不能由 skill `allowed-tools` 或 `approve_always` 绕过；批准句必须
+说明这些持久化与外部后果。
+
+`uninstall_mcp_server` 也属于不可绕过的 `dangerous` 工具：它停止常驻进程、永久删除持久化 server
+配置并使动态工具不可用，必须先出现 action-time HumanLoop approval。工具描述要求模型使用安装回执的
+短 server name；后端同时接受对应 marketplace registry name 作为确定性别名。名称失败不允许模型在
+同一用户意图内自行换名重试，避免一张失败卡后再产生第二次不可逆副作用。
+
 危险闸的批准句由执行器实际解析到的工具名生成，不能直接信任模型自报的 `summary`。所有不可逆
 删除族（`delete_function` / `delete_handler` / `delete_agent` / `delete_control` / `delete_approval` /
 `delete_skill` / `delete_trigger` / `delete_workflow`）都必须在门禁本体写清真实后果，而不是只说

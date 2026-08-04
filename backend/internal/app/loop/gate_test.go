@@ -128,6 +128,9 @@ func TestCanonicalGateSummary_CoversIrreversibleDeleteFamily(t *testing.T) {
 		{name: "delete_skill", want: []string{"Permanently delete", "cannot be undone", "equipped"}},
 		{name: "delete_trigger", want: []string{"stop its listener", "primary row", "not restorable", "activation and firing history", "relation edges"}},
 		{name: "delete_workflow", want: []string{"not restorable", "automation is stopped", "history"}},
+		{name: "forget_memory", want: []string{"Permanently delete", "cannot be undone", "restore operation", "future context"}},
+		{name: "install_mcp_server", want: []string{"persists its configuration", "resident process", "encrypted credentials"}},
+		{name: "uninstall_mcp_server", want: []string{"stops its resident process", "permanently deletes its persistent configuration", "tools unavailable"}},
 	}
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {

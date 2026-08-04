@@ -470,11 +470,59 @@ func TestSend_AttachmentOnlyPersistsAndReplays(t *testing.T) {
 			break
 		}
 	}
-	if replayed == nil || len(replayed.Parts) != 1 || replayed.Parts[0].Type != llminfra.PartVideoURL {
+	if replayed == nil || len(replayed.Parts) != 2 || replayed.Parts[0].Type != llminfra.PartText ||
+		!strings.Contains(replayed.Parts[0].Text, "id=att_video_1") || replayed.Parts[1].Type != llminfra.PartVideoURL {
 		t.Fatalf("attachment-only user turn disappeared from LLM history: %+v", history)
 	}
 	if got, want := renderer.ids, []string{"att_video_1"}; !slices.Equal(got, want) {
 		t.Fatalf("renderer ids = %v, want %v", got, want)
+	}
+}
+
+func TestLoadHistory_AttachmentToolHintCarriesExactIDs(t *testing.T) {
+	svc, store := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	ctx := ctxWS("ws_1")
+	user := &messagesdomain.Message{
+		ID: "msg_user", ConversationID: "cv_1", Role: messagesdomain.RoleUser, Status: messagesdomain.StatusCompleted,
+		Attrs: map[string]any{attrAttachments: []any{"att_image_1", "att_audio_2"}},
+	}
+	if err := store.CreateMessage(ctx, user, []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: "inspect the uploads"}}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	renderer := &fakeAttachmentRenderer{parts: []llminfra.ContentPart{
+		{Type: llminfra.PartImageURL, ImageURL: "data:image/png;base64,AAAA"},
+		{Type: llminfra.PartInputAudio, MediaType: "audio/wav", Data: "AAAA"},
+	}}
+	svc.deps.Attachments = renderer
+
+	history, err := (&chatHost{svc: svc, conversationID: "cv_1", assistantMsgID: "msg_assistant"}).LoadHistory(ctx)
+	if err != nil {
+		t.Fatalf("LoadHistory: %v", err)
+	}
+	if len(history) != 1 || len(history[0].Parts) != 3 || history[0].Content != "" {
+		t.Fatalf("attachment history shape = %+v, want one text hint plus two media parts", history)
+	}
+	hint := history[0].Parts[0].Text
+	for _, want := range []string{
+		"<uploaded_attachments_for_tools>",
+		"position 1: id=att_image_1; attachmentId=att_image_1",
+		"position 2: id=att_audio_2; attachmentId=att_audio_2",
+		"For read_attachment use key id",
+		"for inspect_media use key attachmentId",
+	} {
+		if !strings.Contains(hint, want) {
+			t.Fatalf("attachment tool hint missing %q: %q", want, hint)
+		}
+	}
+	if strings.Contains(hint, "att_...") {
+		t.Fatalf("attachment tool hint leaked the schema placeholder: %q", hint)
+	}
+	persisted, err := store.GetMessage(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("get persisted user: %v", err)
+	}
+	if got := userText(persisted); got != "inspect the uploads" {
+		t.Fatalf("persisted user text changed: %q", got)
 	}
 }
 

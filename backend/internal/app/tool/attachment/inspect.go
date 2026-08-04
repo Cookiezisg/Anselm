@@ -34,14 +34,14 @@ const (
 //
 // 首行既要短又要有用：lazy 工具目录刻意只保留前 180 个字符，因此时间范围旋钮必须在模型
 // 未先 search_tools、准备直接调用 inspect_media 时就可见。
-const inspectMediaDescription = `Inspect one uploaded attachment by attachmentId with bounded evidence; text/docs accept query/page/offset/limitChars, audio/video accept startMs/endMs, images accept crop/detail/tiles.
+const inspectMediaDescription = `Inspect one uploaded attachment using the exact attachmentId from <uploaded_attachments_for_tools>; never copy an illustrative schema value; text/docs accept query/page/offset/limitChars, audio/video accept startMs/endMs, images accept crop/detail/tiles.
 For images, tiles (boolean) with tileRows/tileCols (integers) returns a compact map without vision; crop/detail are optional. Optional query/contextChars/maxMatches search text or documents; optional page/offset/limitChars select bounded slices. Images otherwise use the default vision-capable Anselm route and send only one bounded proxy/crop. Text/documents use local extraction; audio/video return metadata only, never fake transcript/OCR/scenes.`
 
 var inspectMediaSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["attachmentId", "question"],
 	"properties": {
-		"attachmentId": {"type": "string", "description": "Uploaded attachment id, e.g. att_..."},
+		"attachmentId": {"type": "string", "description": "Exact ID from <uploaded_attachments_for_tools>; do not copy an illustrative schema value"},
 		"question": {"type": "string", "description": "The specific question to answer from this attachment evidence."},
 		"query": {"type": "string", "maxLength": 512, "description": "For text/document attachments, optional literal query. Prefer this over a broad page read when looking for a specific phrase."},
 		"page": {"type": "integer", "minimum": 1, "description": "For text/document attachments, return a bounded extracted page when page markers are available; otherwise interpreted as a fixed text window."},

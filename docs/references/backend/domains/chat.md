@@ -134,6 +134,8 @@ Reasoning 也在同一边界内：若 provider 把 `get_flowrun` 拆成 `ge` 与
 
 用户面可见的 reasoning block 也走同一条 delta + durable-close 脱敏边界，不能因它显示在「thinking」区域而泄露 flowrun、实体、版本或时间戳；ISO 与 `YYYY-MM-DD HH:MM:SS UTC` 两种时间写法都必须收敛为 `the recorded time`；带 flowrun 上下文的 workflow-agent reasoning 是下游数据边界，按 workflow-agent text 的规则保留原值。
 
+附件清单的上传时点是例外的可用性语义：精确 `createdAt` 保留在相邻附件工具卡中；若模型把它放进用户正文表格，正文改为 `See the exact upload time in the attachment card.`，不得把 `the recorded time` 留成看似真实的字段值。
+
 System prompt 明确禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文。危险 HumanLoop
 批准句不采用模型的自报 summary 作为动作真相：它由实际解析的工具名生成，避免 `delete_workflow`
 被模型 prose 伪装成 `deactivate_workflow`；所有不可逆 delete 族还必须在门禁本体展示实际后果，不能
@@ -172,7 +174,10 @@ summary，避免下一回合与 summary/watermark 写竞态。
 2. attached Document 正文中的 MediaRef；
 3. tool_result 中本次 tool-call 产生的 MediaRef。
 
-User 附件与文档媒体追加为正在回答的最后一条 user message parts；tool media
+User 附件的精确 opaque ID 会按媒体顺序写入只给模型看的
+`<uploaded_attachments_for_tools>` 目录（`read_attachment` 使用 `id`，
+`inspect_media` 使用 `attachmentId`），避免模型把 schema 示例 `att_...` 当成真实 ID
+而先白付一次失败工具调用；提示中不重复展示任何示例 ID，该目录不写入持久 user bubble，也不渲染给用户。User 附件与文档媒体追加为正在回答的最后一条 user message parts；tool media
 在当前 loop 下一步以临时 user parts 回喂，不重复落 Message Block。模型不支持
 相应模态时保留文本 receipt/文档正文，不能声称已看见媒体。
 

@@ -94,11 +94,17 @@ func TestAttachmentTools_WithInspectMedia(t *testing.T) {
 
 func TestInspectMediaDescriptionOverviewNamesTemporalRange(t *testing.T) {
 	firstLine := strings.SplitN(inspectMediaDescription, "\n", 2)[0]
+	if !strings.Contains(firstLine, "<uploaded_attachments_for_tools>") || !strings.Contains(firstLine, "never copy") {
+		t.Fatalf("lazy overview first line must teach exact attachment identity: %q", firstLine)
+	}
 	if !strings.Contains(firstLine, "startMs/endMs") {
 		t.Fatalf("lazy overview first line must expose temporal range args: %q", firstLine)
 	}
 	if !strings.Contains(firstLine, "page/offset/limitChars") {
 		t.Fatalf("lazy overview first line must expose bounded text args: %q", firstLine)
+	}
+	if strings.Contains(string(inspectMediaSchema), "att_...") {
+		t.Fatal("inspect_media schema must not present an illustrative ID as a copyable attachment value")
 	}
 }
 
@@ -137,6 +143,21 @@ func TestReadAttachment_TextContent(t *testing.T) {
 	}
 	if !strings.Contains(out, "# Title") || !strings.Contains(out, "body line") {
 		t.Fatalf("read should return the text content: %q", out)
+	}
+}
+
+func TestReadAttachment_AcceptsManagedAttachmentIDAlias(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "managed.txt", "text/plain", []byte("MANAGED_ALIAS_TOKEN"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	out, err := (&ReadAttachment{svc: svc}).Execute(ctx, `{"attachmentId":"`+a.ID+`"}`)
+	if err != nil {
+		t.Fatalf("read with managed alias: %v", err)
+	}
+	if !strings.Contains(out, "MANAGED_ALIAS_TOKEN") {
+		t.Fatalf("managed attachmentId alias should read the same attachment: %q", out)
 	}
 }
 

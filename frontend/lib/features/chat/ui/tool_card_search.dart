@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/model/byte_format.dart';
+import '../../../core/model/time_format.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/ui/an_chip.dart';
 import '../../../core/ui/icons.dart';
@@ -143,12 +144,16 @@ ToolHitRow documentListRow(Map<String, dynamic> hit) {
   );
 }
 
-/// list_attachments: filename + mime · size. Attachments have NO panel → inert (informational). 附件清单(惰性)。
+/// list_attachments: filename + kind/mime/size, with the exact local upload stamp in the tail.
+/// Attachments have NO panel → inert (informational). 附件清单(惰性),尾格保留真实上传时点。
 ToolHitRow attachmentListRow(Map<String, dynamic> hit) {
   final filename = (hit['filename'] ?? hit['id'] ?? '?').toString();
+  final kind = (hit['kind'] ?? '').toString();
   final mime = (hit['mime'] ?? '').toString();
   final size = hit['sizeBytes'];
+  final uploaded = fmtStamp(hit['createdAt']?.toString());
   final sub = [
+    if (kind.isNotEmpty) kind,
     if (mime.isNotEmpty) mime,
     if (size is int) formatBytes(size),
   ].join(' · ');
@@ -156,6 +161,7 @@ ToolHitRow attachmentListRow(Map<String, dynamic> hit) {
     glyph: AnIcons.attach,
     title: filename,
     subtitle: sub.isEmpty ? null : sub,
+    trailing: uploaded.isEmpty ? null : Text(uploaded, style: AnText.mono),
     // 'attachment' has no panel — an inert, informational row. 无面板→惰性。
     kind: 'attachment',
     id: (hit['id'] ?? '').toString(),

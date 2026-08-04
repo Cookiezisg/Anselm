@@ -508,6 +508,12 @@ func canonicalGateSummary(t toolapp.Tool, tc messagesdomain.ToolCallData, outsid
 		return "Remove this trigger from normal reads and stop its listener. The primary row is not restorable; activation and firing history remains for audit, relation edges are purged, and referencing workflows may stop receiving its signal."
 	case "delete_workflow":
 		return "Permanently delete this workflow from normal reads. It is not restorable; automation is stopped and history is retained for audit."
+	case "forget_memory":
+		return "Permanently delete this memory from the workspace. This cannot be undone and has no restore operation; it will no longer appear in future context."
+	case "install_mcp_server":
+		return "Install this MCP server into the workspace. This persists its configuration, may start a resident process or external connection, and can add new capabilities and encrypted credentials."
+	case "uninstall_mcp_server":
+		return "Uninstall this MCP server from the workspace. This stops its resident process, permanently deletes its persistent configuration, and makes its tools unavailable."
 	case "deactivate_workflow":
 		return "Take this workflow offline gracefully: stop accepting new triggers and let in-flight runs finish."
 	case "kill_workflow":

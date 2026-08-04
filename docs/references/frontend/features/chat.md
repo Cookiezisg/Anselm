@@ -34,6 +34,11 @@ audience: [human, ai]
 - 流式正文与活尾的视觉树可以逐帧替换，但 macOS AX 只暴露一个稳定的外层语义节点；流式期间不把半成品 markdown 子节点交给读屏，落定后恢复完整的 markdown/链接语义，避免语义桥收到已移除的 child id。所有基于 `OverlayPortal` 的锚定菜单也必须在触发器所在树上常驻一个 `container + explicitChildNodes` 语义边界；开合只增删浮层子树，不得让瞬时菜单节点成为 AX 根。
 - transcript 以服务端行保留全部版本；LLM 装配和压缩读过滤被替代版本，前端读形态不过滤，故版本翻页与模型上下文都成立。
 - 附件上传、生成、MCP/function/handler 产物最终都以 attachment / `MediaRef` 投影进入同一媒体卡族；渲染按附件行 `mime`，不按 URL 或 receipt 自称猜类型。
+- `list_attachments` 的 settled 目录行展示 filename、kind、MIME、大小和本地化的 `createdAt` 上传时点；附件没有详情 panel 时保持惰性，不渲染死链接。
+- 用户消息附带的附件精确 ID 只进入模型专用的 `<uploaded_attachments_for_tools>` 目录，不进入可见 user bubble；模型因此可以直接用正确的 `read_attachment.id` 或 `inspect_media.attachmentId`，不会先把 `att_...` schema 示例当成真实文件而制造失败卡。
+- `get_model_config` 的 settled tool card 是配置事实的 durable projection：展示每个默认角色及安全的 key display name、key 的 provider/masked/status、端点、模型的 context/output/media 能力和 native options；不展示 `apiKeyId`、密文或依赖模型 prose 才能理解的 raw map。
+- `list_mcp_marketplace` 使用共享目录卡：行内保留 full registry name、description、runtime 和 required-env 数量；大目录明确显示 `first N of M`，点击后进入有界 JSON tree，不静默丢弃未显示的 server。模型正文可以补充每个 env 的精确名称与 required/optional 说明，但卡片的目录事实不依赖它。
+- MCP 生命周期卡的安装/重连失败也可能是 loop 浮出的纯文本（例如 `required environment variables missing (missing=[ENTRA_CLIENT_ID])`），不能沿用成功语气：必须红色回执、自动展开，并保留具体缺失变量；失败帧的纯文本由底盘错误区唯一承载，族体不重复渲染；卸载成功的普通文本回执不误判为失败。结构化状态以后端 `ready` 为正常、`degraded` 为可调用警告，旧 `connected` 仅作兼容别名；不能把 `ready` 投影成 `disconnected`，也不能把 `degraded` 当成失败。`uninstall_mcp_server` 是受危险闸保护的持久化删除：最终卡片必须能区分拒绝、失败和成功，不能在一次失败后静默追加第二次模型重试。
 
 ## 3. 路由与生命周期
 

@@ -93,12 +93,12 @@ TOOL | create_document | document | 建文档,可嵌套; name/description/conten
 TOOL | edit_document | document | 一次请求一个 canonical call,更新字段,content/tags 全量替换,tags 必须是 JSON 字符串数组（仅兼容多包一层的合法 JSON 数组字符串）
 TOOL | move_document | document | 重挂父节点+兄弟序,跨父压缩旧/新 sibling 且路径级联;position 接受原生非负整数或托管调用者的严格十进制整数字符串,拒绝浮点/布尔/数组/任意字符串;自身/后代循环为该精确文档/父节点组合的终局拒绝,本回合不重复调用
 TOOL | delete_document | document | 静态危险下限=cautious;软删整棵子树,墓碑可恢复;缺失ID为completed软失败,界面不得显示成功删除
-TOOL | list_attachments | attachment | 列上传文件
-TOOL | read_attachment | attachment | 读文本/文档类附件正文
-TOOL | inspect_media | attachment | 按 id 取有界媒体证据(图走视觉路由)
+TOOL | list_attachments | attachment | 按新到旧列 workspace 上传文件 metadata(id/filename/mime/kind/sizeBytes/createdAt),createdAt 是精确 ISO-8601 上传时点;不读 blob;文本/文档下一步 read_attachment,媒体下一步 inspect_media
+TOOL | read_attachment | attachment | 按 canonical `id` 读取文本/文档类附件正文（受管模型误发 `attachmentId` 时兼容归一化；大文本支持 index/offset/limitChars/query，媒体返回描述符并指向 inspect_media）
+TOOL | inspect_media | attachment | 用 user 回合 `<uploaded_attachments_for_tools>` 中的精确 attachmentId 取有界媒体证据;禁止复制 schema 示例值;图走有界视觉/crop 或 tiles,文本/文档走本地 query/page/offset,音视频只回 metadata+时间范围,不伪造 transcript/OCR/scene
 TOOL | read_memory | memory | 按名载入记忆正文
 TOOL | write_memory | memory | 存跨对话持久事实(重名原地更新)
-TOOL | forget_memory | memory | 删除记忆
+TOOL | forget_memory | memory | 不可逆删除记忆;始终 dangerous 并需用户 approval;删除 Markdown 后无 restore 操作,重复调用诚实返回 already gone
 TOOL | get_model_config | model | 报工作区模型配置
 TOOL | list_mcp_marketplace | mcp | 浏览 MCP 市场
 TOOL | install_mcp_server | mcp | 安装 MCP server+env

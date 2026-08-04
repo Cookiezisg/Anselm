@@ -12,6 +12,155 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-04 15:05 · TOOL-099/100 修复后正式成功，等待五级账本写入
+
+- 最终 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-144146` 使用修复后二进制、真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journals；录屏 `1172.000000s / 2784x1808 / 60fps`，台架已由 `rig-down.sh` 收台。
+- `TOOL-099 install_mcp_server`：用户在危险 gate 点击 Allow 后，`io.github.upstash/context7` 安装成功；UI 显示 `Allowed · connected · 2 tools`，前端不再把 canonical `ready` 错投影为 disconnected。修复后的前一 session 已完成一次 `search_tools` 和一次 `mcp__context7__resolve-library-id`，返回 5 条 Flutter matches；无失败 retry。
+- `TOOL-100 uninstall_mcp_server`：模型只发一次 `{"name":"context7"}`；真实 UI 先显示 Dangerous、完整后果和 Awaiting approval，用户点击 Allow 后严格形成 `tool_call(dangerous) → interaction → resolved(Allow) → tool_result`。最终只有一张成功卡、一个 `context7 Deleted` activity，SQLite 为 soft-delete，工具与 resident process 消失，无第二次调用、无矛盾卡片。
+- 五通道封口：SSE messages durable `1..32`、notifications `1..6` 单调唯一，entity `connecting → ready`；LLM 18 个响应状态全 200；backend 1265 行与 frontend log 无 panic/fatal/error/warn/exception 红线；rig-down 后无 Context7/MCP 残留进程。绿证据分别为 `tool-099-formal-144146-green.md`、`tool-100-formal-144146-green.md`，前序红证据不删除。
+- anchors 已通过 10/10 校准，定向 Go/Flutter 回归和 diff check 通过。当前正式账本仍为 525；下一动作是按 `G1/F2/A5/C4/G2` 分别写入 TOOL-099 与 TOOL-100 十格，随后复核并 ack 新警报；满第十批 50/50 前不跑统一长门禁、不提交。
+
+# 2026-08-04 15:06 · TOOL-099 install_mcp_server 五级账本通过，45/50
+
+- 绿证据 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-144146/evidence/tool-099-formal-144146-green.md` 经 judge 写入 `G1/F2/A5/C4/G2`，`TOOL-099` 行为 `✓✓✓✓✓`。
+- 中央账本由 525 增至 **530 judgments**。`TOOL-100 uninstall_mcp_server` 已有同一最终 session 的完整危险 gate/Allow/单次 mutation/soft-delete/无残留证据，但尚未写账；写完后第十批正好 50/50，再执行统一长门禁。
+
+# 2026-08-04 15:07 · TOOL-100 uninstall_mcp_server 五级账本通过，第十批 50/50
+
+- 绿证据 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-144146/evidence/tool-100-formal-144146-green.md` 经 judge 写入 `G1/F2/A5/C4/G2`，`TOOL-100` 行为 `✓✓✓✓✓`。
+- 中央账本由 530 增至 **535 judgments**；第十批 `TOOL-091..100` 达到 **50 / 50**。产品格完成，统一长门禁尚未开始；下一步先跑警报检查/复核，再跑完整验证、残留进程检查和工作树审计。
+
+# 2026-08-04 15:16 · 第十批统一长门禁通过，待提交
+
+- `alarms.py check`：`clean (535 judgments on record)`；gap/pass-burst/discovery-collapse 均依据 `tool-099-100-ledger-alarm-reaudit.md` 复审并 ack。
+- `make verify`：backend、frontend、docs、demo 全绿；backend `mise exec -- go test ./...` 与 testend `mise exec -- go test ./...` 全绿。
+- anchors `10/10`、`git diff --check`、COVERAGE `TOOL-091..100` 全部 `✓✓✓✓✓`、台架/Context7 残留进程为空；第十批长门禁完成。
+- 当前工作树只含本批验收修复、回归测试、台架清册和同步文档；提交后下一原子前线为 `TOOL-101 reconnect_mcp`，Goal 仍 active。
+
+# 2026-08-04 14:38 · TOOL-099 cleanup 暴露 uninstall 无 gate + 模型重试红
+
+- 同一真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-143238` 先已完成修复后的 context7 success：卡片 `Allowed · connected · 2 tools`，dynamic `search_tools` 后一次 `mcp__context7__resolve-library-id` 返回 5 条 Flutter matches；SSE durable 到 `38`，Activity `1 touched · 1 executed`，后端/LLM/frontend redline clean。
+- 清理请求明确要求 uninstall exactly once、do not retry。模型先以 `{"name":"io.github.upstash/context7"}` 调用，结果 `mcp server not found`；该 destructive call 的 wire danger 是 `safe`，没有 interaction。随后模型自行换成 `{"name":"context7"}` 再次调用，成功停止进程并删除配置；UI 留下失败 MCP error 卡、成功 Uninstalled 卡和 `context7 Deleted`，模型还在正文承认违反 exactly-once。
+- 红证据为 `evidence/tool-099-formal-143238-red-uninstall-no-gate-retry.md`，录屏 `297.000000s / 2784x1808 / 60fps`；台架已收台，不写 judge/COVERAGE。
+- stop-and-fix：`UninstallServer.MinimumDanger() = dangerous`；Description/canonical summary 说清永久删配置、停进程、工具失效、必须短名且不准猜名重试；`RemoveServer` 接受对应 registry name 确定性别名。同步 MCP/loop 领域文档；Go `internal/app/mcp`、`internal/app/tool/mcp`、`internal/app/tool`、`internal/app/loop` 全绿，`gofmt` 与 `git diff --check` 通过。
+- 下一步：修复后二进制真实重跑 uninstall，先确认 gate 再决定是否继续 action-time Allow；验证一次调用、失败名不重试、成功后 server/tool 恢复不可用与最终 UI 真相，再考虑 TOOL-099 五格写账。
+
+# 2026-08-04 14:31 · TOOL-099 Allow success path exposes ready/disconnected projection red
+
+- 新 binary formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-142537` 在收到 action-time `Allow` 后真实安装 `io.github.upstash/context7`；真实 Flutter App、受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 与录屏均保留，`screen.mov` 为 `164.860000s / 2784x1808 / 60fps`。
+- 五通道交叉事实：MCP 子进程 stderr 报 `Context7 Documentation MCP Server v3.2.5 running on stdio`；entities 为 `disconnected → connecting → ready`；notifications 有 `mcp.installed`；messages/tool result 返回 `status=ready`、2 个工具；touchpoint 为 `created`。但 durable tool card 显示 `Allowed · disconnected · 2 tools`，助手正文说 `ready`。这是产品真相投影红，不计 `TOOL-099` 任何绿格。
+- 红证据 `evidence/tool-099-formal-142537-red-ready-disconnected.md` 已封存。台架已收台；没有继续动态调用或卸载，避免在修复前扩大成功路径的证据边界。
+- stop-and-fix：前端仅把历史 `connected` 当健康，错过后端 canonical `ready`，并把可调用 `degraded` 误判为失败。现在统一为 `ready` 正常、`degraded` 警告、`connected` 兼容、其余非可调用态失败；中英文 i18n、widget regression、chat 文档已同步。`mise exec -- dart run slang`、`dart format`、Flutter 生态 `13/13`、Go loop/tool/mcp/mcp-app 四包全绿，`git diff --check` 通过。
+- 当前仍不写 `judge.py`、不改 `TOOL-099` COVERAGE、不跑第十批长门禁、不提交；下一步必须新 binary 真实重跑同一 Allow success，再验证 dynamic tool discovery/call 与 uninstall cleanup。
+
+# 2026-08-04 10:46 · TOOL-099 修复后危险 gate Deny formal，当前仍未绿
+
+- 新 binary formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-104247` 从 onboarding 起真实启动 Flutter App、受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和录屏；收台后 `screen.mov` 为 `88.993333s / 2784x1808 / 60fps`。
+- 同一无 env prompt 的 wire 为 `danger:"dangerous"`，UI 显示完整 `Dangerous · Awaiting your approval` 和持久化外部能力 canonical summary；点击安全 `Deny` 后 SSE 严格为 `tool_call → interaction → resolved → tool_result`，结果是拒绝文本，无 install execution、无半安装行。助手准确说明缺失 env 未知，因为工具在校验前被拒绝，不伪造早先红场景的 `ENTRA_CLIENT_ID`。
+- `rig-check.sh` 五通道全绿；SSE durable messages `1..14`，backend 175 行、frontend 19 行、LLM 18 个状态，红线扫描为空。证据为 `evidence/tool-099-formal-104247-red-deny-gate.md`，只证明恢复后的负路径，不计 `TOOL-099` 绿格。
+- 后续成功路径必须在得到 action-time confirmation 后点击 `Allow`，再核对真实 server row、连接状态、动态工具 `search_tools`/调用、卸载清理；当前不写 `judge.py`、不改 COVERAGE、不跑第十批统一长门禁、不提交。
+
+# 2026-08-04 10:46 · TOOL-099 context7 成功路径停在 action-time Allow
+
+- formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-104745` 已启动真实 App、受管 gateway、Computer Use、五通道台架；无凭证 `io.github.upstash/context7` 路径确实到达 `Dangerous · Awaiting your approval`。
+- 未点击 `Allow`/`Always allow`，故没有 install、connection、dynamic tool discovery 或 cleanup 证据；录屏 `119.278333s / 2784x1808 / 60fps` 与 journals 已封存，证据 `tool-099-formal-104745-awaiting-action-time-allow.md` 明确不计绿。
+- 台架已安全收台，当前暂停原因仅为缺少这一次安装动作的明确 action-time 用户确认；恢复后从该成功 gate 继续，不跳过 `TOOL-099`，不写 `judge.py`，不改 COVERAGE，不提交。
+
+# 2026-08-04 10:46 · TOOL-099 install_mcp_server 静态危险 floor 修复，当前仍红
+
+- 封口 formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-103221`：真实 Flutter App、真实受管 gateway、Computer Use、backend/frontend journal、三路 SSE witness、LLM tap 与 `451.045000s / 2784x1808 / 60fps` 录屏均保留。
+- 这次真实 wire 的 `tool_call` 是 `danger:"cautious"`，没有 interaction；随后直接执行缺 env 校验，SSE 返回 `required environment variables missing (missing=[ENTRA_CLIENT_ID])`。因缺 env 没有服务行/半安装副作用，但这不是安全证明。红证据为 `evidence/tool-099-formal-103221-red-missing-danger-floor.md`，不计绿。
+- stop-and-fix：`InstallServer.MinimumDanger() = dangerous`；canonical gate summary 明确持久化配置、常驻进程/外部连接、新能力与加密凭证；破坏性/静态 floor 清册、真实 MCP adapter 文案测试、loop 通用 canonical summary 测试和 MCP/loop 领域契约同步。`gofmt`、`go test -count=1 ./internal/app/loop ./internal/app/tool ./internal/app/tool/mcp ./internal/app/mcp` 全绿。
+- 后续：重建台架后以同一缺 env prompt 重跑，必须看到 `Dangerous · Awaiting your approval` 与 interaction，再在获得 action-time confirmation 后才可测试 Allow/成功安装；当前不写 `judge.py`，不改 `TOOL-099` COVERAGE，不跑第十批统一长门禁，不提交。
+
+# 2026-08-04 10:24 · TOOL-099 安装错误投影 stop-and-fix，40/50
+
+- 静态核对真实后端错误面：`InstallFromRegistry` 对缺失 required env 返回 `MCP_ENV_MISSING`，`details.missing` 保留精确变量名；进入 loop 后用户可见文本为 `required environment variables missing (missing=[ENTRA_CLIENT_ID])`，不是 JSON `status`。
+- 首轮真实 App 已走到 `install_mcp_server` 的危险确认层；未获得 action-time `Allow` 前通过 Computer Use 点击 `Deny`，确认没有安装、没有服务行、没有成功回执。该路径只证明安全拒绝，不计 `TOOL-099` 任何绿格。
+- 发现并修复前端 MCP 生命周期卡的失败分类缺口：纯文本安装/重连错误现在红色回执、自动展开且保留缺失变量；卸载成功的普通文本不误判。同步 `docs/references/frontend/features/chat.md`、后端 MCP 领域说明和本页前线状态。
+- 逐帧 widget 回归又发现同一纯文本错误在族体和底盘重复出现；stop-and-fix 让失败帧的错误由底盘唯一承载，JSON 状态失败仍保留结构化状态体。`ChatToolCard` 真实 `status=error` 夹具现在断言红色错误回执、自动展开和缺失变量只出现一次。
+- loop 线缆回归 `TestExecuteTool_UserErrorDetailsAreVisible` 锁定 `executeTool` 返回的 `out` 与 `errMsg` 都保留 `ENTRA_CLIENT_ID`，避免领域错误到聊天 tool_result 之间丢失可行动细节。
+- 验证：`mise exec -- flutter test test/features/chat/ui/tool_card_ecosystem_test.dart` 全部 `13/13`；`mise exec -- go test -count=1 ./internal/app/tool/mcp ./internal/app/mcp ./internal/app/loop` 全绿，其中 `TestInstall_MissingEnv` 锁定 `details.missing` 精确变量名与 0 行落盘，`TestExecuteTool_UserErrorDetailsAreVisible` 锁定 loop 两个错误出口；`git diff --check` 通过。未写 judge、未改 COVERAGE、未触发 50 格长门禁。
+- 下一动作：用户在 App 确认安装动作后，重新跑 EnterpriseMCP 无 env 的真实缺失变量路径，再跑带 `ENTRA_CLIENT_ID` 的真实安装/连接或明确失败路径；五通道、录像、UI 和清理齐全后才决定 `TOOL-099` 五格。
+
+# 2026-08-04 10:28 · TOOL-098 list_mcp_marketplace 正式通过，40/50
+
+- formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-100552` 使用全新 workspace、真实 Flutter App、真实受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal；录屏 `385.805000s / 2784x1808 / 60fps`。
+- 三条真实路径完成：`query="database query"` 返回 4 个 installable server，逐 server 卡片显示 full name/description/runtime/required-env 数量，正文区分 required/optional env；`zzz_unfindable_capability_987` 返回 0，UI 提供 broaden/single keyword/no-query/capability 四类恢复建议；无 query 返回 96，卡片显示 `first 30 of 96`，点击进入有界 JSON tree（count 96、servers 96）。无失败卡、retry 或死链。
+- 五通道一致：SSE 三流连接，messages durable `1..48`、notifications `1..6` 单调唯一；三个 chat body 各只发一次 marketplace call，HTTP 全 200；backend 427 行/frontend 16 行，红线扫描为空；`rig-check` 五观察器全绿。一次 Computer Use 30s observer timeout 后重置 kernel，最终 AX/画面重新获取，作为仪器事件记录而非产品红。
+- 前端补充市场卡回归，`dart analyze` 与生态/记忆 widget 测试 `24/24` 全绿；`git diff --check` 通过。正式证据 `tool-098-formal-100552-green.md`。
+- `judge.py` 写入 `TOOL-098=list_mcp_marketplace` 的 `G1/F2/A5/C4/G2`，中央账本 `520→525 judgments`，COVERAGE 行 `✓✓✓✓✓`。五格批量写账触发的 `gap-too-fast` 与 `discovery-collapse` 已以 anchors `10/10`、三条路径、正式录屏和复审 `tool-098-ledger-alarm-reaudit.md` ack，`alarms.py check` clean；三条验收 conversation 已 DELETE=204、列表为空，evidence/journal/录像保留。下一原子前线 `TOOL-099 install_mcp_server`。
+
+# 2026-08-04 10:03 · TOOL-097 get_model_config 正式通过，35/50
+
+- 首轮 formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-094444` 冻结为产品红：真实后端/LLM wire 返回完整配置，但 durable tool card 只有数量和模型名 chip，用户无法直接核验 key 健康、脱敏值、端点、默认 key 关联和能力边界。红证据 `tool-097-formal-094444-red-thin-card.md` 保留，不计绿。
+- stop-and-fix 在前端 `modelConfigBody` 增加默认角色与安全 key 名关联、API key provider/masked/status、端点、bounded model capability table 和 native option chips；不渲染 `apiKeyId`/密文；中英文 i18n 与 privacy/widget regression 同步。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-095429` 使用真实 Flutter App、真实受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 重跑。录屏 `173.423333s / 2784x1808 / 60fps`；最终展开卡显示六个默认角色、`Anselm Free / anselm / ins_ab0...82c6 / ok`、endpoint、`anselm-auto / 1M / 16.4k / image · video` 和 native option，无 raw JSON、opaque key、剪裁或跳变。
+- 五通道一致：SSE 三流各连接一次，messages durable `1..14`、notifications `1..2`，一次 tool call/result；REST/SQLite、tool result、LLM wire、UI 对齐，frontend/backend 红线为空，`rig-check` 五观察器全绿。正式证据为 `tool-097-formal-095429-green.md`，账本复审为 `tool-097-ledger-alarm-reaudit.md`。
+- `judge.py` 写入 `TOOL-097=get_model_config` 的 `G1/F2/A5/C4/G2`，中央账本 `515→520 judgments`，COVERAGE 行 `✓✓✓✓✓`。五格批量写账触发的 `gap-too-fast` 与 `discovery-collapse` 已以 anchors `10/10`、红证据/修复链/正式 session 重审并 ack，`alarms.py check` clean；验收 conversations 已 DELETE=204、列表为空，evidence/journal/录像保留。下一原子前线 `TOOL-098 list_mcp_marketplace`。
+
+# 2026-08-04 09:42 · TOOL-096 forget_memory 正式 Allow/Already-gone 通过，30/50
+
+- 复用修复后的真实 binary 和 formal workspace，启动真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 与窗口录制；`rig-check.sh` 在收台前通过五个物理观察器，最终 `screen.mov` 为 `114.498333s / 2784x1808 / 60fps`。
+- 首轮红证据仍保留：`danger=cautious` 的 hosted tool call 绕过了不可逆删除的人闸。stop-and-fix 已加入 `ForgetMemory.MinimumDanger() = dangerous`、不可绕过的 canonical summary、Go 回归测试和同步文档；此前 fixed deny session 证明 existing/missing 两条路径 Deny 均无副作用。
+- 本次得到 action-time 授权后真实点击 `Allow`：UI 先显示明确的 `Dangerous / Awaiting your approval` 和“不可逆、无恢复操作”，随后显示 `Forgot`；REST memory list 为空、目标 GET=404。新对话再次调用同一工具并批准后，UI 显示中性 `Already gone`，tool result 为 `not found (already gone?)`，没有第二条 `memory.deleted` 通知。
+- 五通道交叉核对：两条 conversation 各一次 `forget_memory`，SSE 均为 `tool_call → interaction → resolved → tool_result`；真实删除只产生一条 `memory.deleted`，messages durable 到 seq 28；LLM wire、REST、UI、backend/frontend journal 一致且红线扫描为空。证据为 `sessions/20260804-093819/evidence/tool-096-formal-093819-green.md`，账本复审为 `tool-096-ledger-alarm-reaudit.md`。
+- anchors `10/10` 后写入 `G1/F2/A5/C4/G2`，`TOOL-096` 行变为 `✓✓✓✓✓`；五格写账触发 `gap-too-fast` 与 `discovery-collapse`，已按红证据、修复链、正式 session 和复审记录 ack，`alarms.py check` 为 `clean (515 judgments)`。`gen_coverage.py` 重建为 848 rows，验收夹具 conversation 已 DELETE=204、列表为空，memory 已 404。
+- 第十批由 **25 / 50** 推进至 **30 / 50**；按批次纪律不提前跑统一长门禁、不提交。下一原子前线：`TOOL-097 get_model_config`。
+
+# 2026-08-03 20:09 · TOOL-096 forget_memory 首轮红后修复，正式重跑完成 deny/approval 边界，25/50
+
+- 首轮 formal `/private/tmp/anselm-rig-formal-20260803-195946` 发现不可逆 `forget_memory` 只收到 hosted model 的 `danger=cautious`，未开人闸便真实删除 memory；红证据 `tool-096-formal-195946-red-missing-danger-floor.md` 保留，不计绿。
+- stop-and-fix 为 `ForgetMemory.MinimumDanger() = dangerous`、canonical gate summary 明确“不可撤销、无恢复操作”、破坏性工具总测试和 gate summary 测试，并同步 memory 领域文档与工具清册；定向 Go tests 全绿。
+- 修复后 formal `/private/tmp/anselm-rig-formal-20260803-200420` 真实验证 existing-memory 与 missing-memory 两条请求均显示 `Dangerous · Awaiting your approval`；两次 Deny 均无副作用，REST 证明现有 memory 保留。五通道、录屏 `214.911667s / 2784x1808 / 60fps`、anchors 10/10、backend/frontend scan 和 rig-check 均通过。
+- 随后异步根门禁 `make verify` 完整跑完 backend/frontend/docs/demo；frontend 四组测试均通过（最后一组含 perf 组 `+915`），root verify 临时日志已按成功路径清理，`git diff --check` 通过。
+- 成功 `Allow` 是不可逆动作，尚未得到 action-time confirmation，故不执行、不写 `judge.py`，`TOOL-096` 不进 COVERAGE 绿格；第十批仍 **25 / 50**，账本仍 **510 judgments**，下一动作仍为 `TOOL-096`。
+
+# 2026-08-03 19:55 · 第十批 TOOL-095 write_memory 正式通过，25/50
+
+- 正向 create：真实 App 要求模型用一次 canonical `write_memory` 保存 exact slug/description/body；REST 最终为 `source=ai,pinned=false`，UI 展示可展开 `Memorized … · 1 lines` 卡片，正文与 description 可读，无 raw JSON。
+- 正向 update：先以真实 API 建立 `source=user,pinned=true` 的用户策展记忆；新对话中模型一次用同名 `write_memory` 更新 description/body。REST 证明新正文已落盘，但 `source=user` 与 `pinned=true` 均保留，模型没有额外工具调用。
+- 负向 slug：真实 App 要求 exact invalid name `Invalid Memory 095` 且禁止归一化；模型原样调用一次，后端返回 `Cannot save memory...invalid`，UI 显示红色 `Not saved` 与规则，未创建行、未 retry。
+- formal session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-194919` 使用真实 Flutter App、真实受管 gateway、Computer Use、三路 SSE、LLM tap、backend/frontend journal；录屏 `211.295000s / 2784x1808 / 60fps`，messages `1..42`、notifications `1..9` 连续，LLM 24 条状态全 200，五通道无未解释运行时红线。正式证据为 `evidence/tool-095-formal-194919-green.md`。
+- 定向回归：backend memory/tool/chat Go tests、Flutter `tool_card_memory_web_test.dart`、`git diff --check` 全部通过；三条 acceptance conversation 与两个 memory 均真实 DELETE=204、列表为空，最后 workspace 因 last-workspace 约束保留。
+- `judge.py` 写入 `TOOL-095=G1/F2/A5/C4/G2`，中央账本 505→**510 judgments**；五格写入触发的 `gap-too-fast`/`pass-burst`/`discovery-collapse` 以 anchors 10/10、formal session 和复审记录 `evidence/tool-095-ledger-alarm-reaudit.md` 逐格复核并 ack，`alarms.py check` clean。下一前线 `TOOL-096 forget_memory`，第十批 **25 / 50**，不提前跑统一长门禁、不提交。
+
+# 2026-08-03 19:47 · 第十批 TOOL-094 read_memory 正式通过，20/50
+
+- 正向 real App 路径：创建未置顶 `acceptance-read-memory` 后，在新对话要求模型读取。LLM 初始 system prompt 只有 name+description index，没有正文 token；模型一次精确调用 `read_memory({"name":"acceptance-read-memory"})`，UI 展示可展开的 source/description/排版正文记忆卡，用户得到精确 token 和 Tuesday review instruction。
+- 负向 real App 路径：新对话要求对 `ghost-memory-094` 只调用一次 `read_memory`。后端返回权威 not-found，模型明确报告缺失、不编造；UI 显示中性灰 `Recalled ghost-memory-094 · Not found`，没有 retry、红色 incident 或第二次工具调用。
+- formal session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-193847` 使用真实 Flutter App、真实受管 gateway、Computer Use、三路 SSE、LLM tap、backend/frontend journal；录屏 `258.178333s / 2784x1808 / 60fps`，messages `1..28`、notifications `1..5` 连续，LLM 18 条状态全 200，五通道无未解释运行时红线。正式证据为 `evidence/tool-094-formal-193847-green.md`。
+- 定向回归：backend memory/tool/chat Go tests、Flutter `tool_card_memory_web_test.dart`、`git diff --check` 全部通过；fixture 两条 conversation 与 memory 均真实 DELETE=204、列表为空、memory GET=404，最后 workspace 因 last-workspace 约束保留。
+- `judge.py` 写入 `TOOL-094=G1/F2/A5/C4/G2`，中央账本 500→**505 judgments**；五格写入触发的 `gap-too-fast`/`discovery-collapse` 以 anchors 10/10、formal session 和复审记录 `evidence/tool-094-ledger-alarm-reaudit.md` 逐格复核并 ack，`alarms.py check` clean。下一前线 `TOOL-095 write_memory`，第十批 **20 / 50**，不提前跑统一长门禁、不提交。
+
+# 2026-08-03 19:33 · 第十批 TOOL-093 inspect_media 正式通过，15/50
+
+- 首轮 formal `20260803-185851` 冻结为红：fresh media turn 的 hosted model 看不到 provider media part 对应的 opaque attachment ID，首次把 schema 示例 `att_...` 当成真实 ID 调用 `inspect_media`，后端返回 not found；用户目的虽然最终完成，但多付一次失败调用、等待/token 和幽灵 viewed touchpoint。红证据保留、不计绿。
+- stop-and-fix：`backend/internal/app/chat/history.go` 增加只给模型看的 `<uploaded_attachments_for_tools>` 目录，按消息媒体顺序提供精确 ID，并明确 `read_attachment` 用 `id`、`inspect_media` 用 `attachmentId`；用户 bubble、持久化消息和 UI 不变。inspect_media 首行描述和 schema 字段移除可复制的示例值；新增 chat history、inspect description/schema regression test，同步 backend/frontend attachment/chat domain 文档与 tools extract。
+- formal green `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-191935` 使用修复后二进制、真实 Flutter App、真实受管 gateway、Computer Use、665.508333s 录屏和五通道台架完成六条产品路径：image default vision、tiles、crop、text query、audio range、video range。首个 image tool call 直接使用真实 ID，无 `list_attachments` 预探；后续每条路径均无失败卡、placeholder 参数、伪造 transcript/scene 或 crop 越界结论。
+- 视频路径中模型在完成结果后重复发起一次完全相同的调用；loop 返回 `Duplicate tool call suppressed`，未二次执行、未二次审批，作为同回合幂等守卫正向证据保留。最终 UI 结果清楚、工具卡单一且可读。
+- 五通道：`screen.mov` `665.508333s / 2784x1808 / 60fps`；SSE 408 frames，messages durable `1..97`、notifications `1..2` 连续；LLM `58×200/8×201`，精确 tool args/results 与 SQLite/UI 一致；backend/frontend error scan clean；live `rig-check` 五通道全绿，`rig-down` 干净收台。
+- 正式证据为 `evidence/tool-093-formal-191935-green.md`，红证据为 `sessions/20260803-185851/`，账本复审为 `tool-093-ledger-alarm-reaudit.md`。以显式 `export RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 写入五级 `TOOL-093=G1/F2/A5/C4/G2`，中央账本由 495 增至 **500 judgments**；`gap-too-fast` 与 `discovery-collapse` 经红绿 session、修复测试、anchors 10/10 和五通道原始日志复审并 ack，`alarms.py check` 为 `clean (500 judgments)`。
+- 第十批当前 **15 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线 `TOOL-094 read_memory`。
+
+# 2026-08-03 18:55 · 第十批 TOOL-092 read_attachment 正式通过，10/50
+
+- 首轮真实 red session `20260803-183532` 暴露 hosted caller 在已 `list_attachments` 后仍将 `read_attachment` 参数写成 `attachmentId`，后端正确返回 `id is required`，App 出现失败卡；该红证据保留、不计绿。
+- stop-and-fix：schema/description 明确 canonical `id`，字段说明给出 `{"id":"att_..."}` 示例并显式排除 `attachmentId`；`readArgs` 对受管 caller 做窄兼容归一化 `attachmentId → id`，不改变 workspace/附件权限边界。新增 alias regression test，同步 attachment domain 文档和 tools extract。
+- fixed formal session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-184402` 真实 App + 真实受管 gateway + Computer Use + 三路独立 SSE + LLM tap 完成：小文本精读、182KB Markdown `index/offset/query`、越界 offset、PNG media descriptor 四条路径；长文索引 `19 chunks / 145689 chars`，越界返回真实 `totalChars=145689` 与恢复建议，PNG 明确指向 `inspect_media`，无失败卡/溢出/伪造视觉结论。主录屏 `432.071667s / 2784x1808 / 60fps`。
+- 五通道：messages durable `1..111`、notifications `1..2` 连续，entities 已连接；LLM 42×200/2×201，backend/frontend error scan 0；同数据目录重开 session `20260803-185153` 恢复 workspace、Recents、PNG 和成功 read 卡。证据 `evidence/tool-092-formal-184402-green.md`，重开 `evidence/tool-092-reopen.md`，账本复审 `tool-092-ledger-alarm-reaudit.md`。
+- 账本 gate：formal `export RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下写入 `TOOL-092=G1/F2/A5/C4/G2`，490→495 judgments；`gap-too-fast` 与 `discovery-collapse` 按红证据、修复测试、432s 真 session、长文/媒体负路径和 durable reopen 复审并 ack，`alarms.py check` 为 `clean (495 judgments)`。
+- 当前第十批 **10 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线 `TOOL-093 inspect_media`。
+
+# 2026-08-03 18:31 · 第十批 TOOL-091 list_attachments 正式通过，5/50
+
+- 首轮真实 session `20260803-180353` 暴露产品红：工具结果有精确 `createdAt`，但前端附件行忽略 kind/createdAt；模型正文把 timestamp 写成 `the recorded time`，看似报告字段但用户拿不到值。红证据 session 与录屏保留，不计绿。
+- stop-and-fix：`list_attachments` description/schema 明确 `createdAt` 是 exact ISO 且精确值留在附件卡；`attachmentListRow` 展示 kind/MIME/size/localized createdAt；全局 opaque timestamp redaction 不放宽，附件表格单元格改为明确 `See the exact upload time in the attachment card.`。redactor 增加跨 provider chunk 的表头/数据行有界暂存及 direct/stream regression；同步 attachment/chat/frontend/extract 文档。
+- 新 formal session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-182222` 从空数据目录真实 onboarding 重跑：空列表准确显示 empty；上传 91-byte plain-text fixture 后只调用一次 list，工具卡列出 filename/kind/MIME/size/本地化上传时间，正文指向卡片；切到 New chat 再从 Recents 重开，结果完整恢复。Computer Use 最终帧没有溢出、剪裁、红卡或视口跳变；录屏 `346.391667s / 2784x1808 / 60fps`。
+- 五通道封口：SSE 三流连接，messages durable `1..29` 连续无 gap；LLM proof/install/models/chat 全 200，tool result/LLM wire/SQLite/UI 同一 live row；backend/frontend error scan clean。正式证据为 `evidence/tool-091-formal-182222-green.md`，终帧为 `tool-091-final.png`。
+- 账本 gate：以显式 `export RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 写入 `TOOL-091=G1/F2/A5/C4/G2`，中央账本 **485→490**。`gap-too-fast` 与 `discovery-collapse` 经 anchors 10/10、五通道、SQLite、红证据和绿证据复审后 ack，正式 `alarms.py check` 为 `clean (490 judgments)`；复审记录为 `tool-091-ledger-alarm-reaudit.md`。
+- 操作纪律补强：一次未 export 的试写误落默认 `~/.anselm-rig`，未作为正式依据；已销默认误警，并将“shell 必须 export RIG_HOME，不能只给单条命令环境前缀”补入 `testend/rig/README.md`。当前第十批 **5 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-092 read_attachment`。
+
 # 2026-08-03 18:02 · 用户授权后的 TOOL-090 fixture 清理、Goal 恢复检查
 
 - `data-tool090b` 是上一轮隔离验收数据目录，live workspace `ws_488c4c04a60aaeb8` 中只剩 conversation `cv_3bd441a0d334aa00` 与 standalone document `doc_1b398ca1ba3b8394`；此前已删除的 root/child/deep document 保持 tombstone，不重复处理。

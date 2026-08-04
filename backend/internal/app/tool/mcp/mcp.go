@@ -16,11 +16,11 @@ import (
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 )
 
-// MCPTools constructs the fixed MCP management tools (resident). Note: NO danger field —
-// danger is the LLM's per-call self-report (S18); these tools carry zero danger logic.
+// MCPTools constructs the fixed MCP management tools (resident). Danger remains an LLM
+// per-call report by default, while persistent installs provide their own static floor.
 //
-// MCPTools 构造固定的 MCP 管理工具（resident）。注意：无 danger 字段——danger 是 LLM 逐次自报
-// （S18）；这些工具零 danger 逻辑。
+// MCPTools 构造固定的 MCP 管理工具（resident）。danger 默认仍是 LLM 逐次自报；但持久化安装
+// 工具提供自己的静态下限。
 func MCPTools(svc *mcpapp.Service) []toolapp.Tool {
 	return []toolapp.Tool{
 		&ListMarketplace{svc: svc},

@@ -26,6 +26,36 @@ func TestRedactOpaqueMachineValuesKeepsHumanSemantics(t *testing.T) {
 	}
 }
 
+func TestRedactOpaqueMachineValuesPointsAttachmentTimestampToCard(t *testing.T) {
+	input := "| Filename | Kind | Uploaded |\n|---|---|---|\n| report.txt | text | 2026-08-03T10:09:27Z |"
+	want := "| Filename | Kind | Uploaded |\n|---|---|---|\n| report.txt | text | See the exact upload time in the attachment card. |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("attachment timestamp redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorDoesNotStreamAttachmentTimestampPlaceholder(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Filename | Uploaded |\n|---|---|\n| report.txt | 2026-08-03T10:",
+		"09:27Z |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("stream leaked timestamp placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "2026-08-03T10:09:27Z") || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("stream leaked exact or vague timestamp: %q", got.String())
+	}
+	if !strings.Contains(got.String(), attachmentTimestampTableHint) {
+		t.Fatalf("stream did not point to attachment card: %q", got.String())
+	}
+}
+
 func TestRedactOpaqueMachineValuesRemovesRedundantEntityParenthetical(t *testing.T) {
 	for _, input := range []string{
 		"The workflow nightly (wf_00112233445566) is staged.",

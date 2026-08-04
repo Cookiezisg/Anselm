@@ -5,6 +5,7 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/tool_card_ecosystem.dart';
+import 'package:anselm/features/chat/ui/tool_hit_list.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -21,6 +22,21 @@ BlockNode _n(String name, String args, Map<String, dynamic> result) =>
           ..status = 'completed'
           ..content = {'content': jsonEncode(result)},
       );
+
+BlockNode _raw(
+  String name,
+  String args,
+  String result,
+) => BlockNode(id: 'tc_raw', kind: BlockKind.toolCall)
+  ..status = 'completed'
+  ..content = {'name': name, 'arguments': args}
+  ..children.add(
+    BlockNode(id: 'tr_raw', kind: BlockKind.toolResult)
+      // The loop closes a failed Execute with status=error; keep this fixture on the real wire shape.
+      // loop 对 Execute 错误以 status=error 关帧；夹具必须保持真实线缆形状。
+      ..status = 'error'
+      ..content = {'content': result},
+  );
 
 Widget _host(Widget c) => TranslationProvider(
   child: MaterialApp(
@@ -118,22 +134,46 @@ void main() {
       );
       expect(capabilityFailed(jsonEncode({'ok': false})), isTrue);
     });
-    test('mcp status: connected→tool count, else danger', () {
-      expect(
-        mcpStatusReceipt(
-          t,
-          jsonEncode({
-            'status': 'connected',
-            'tools': [1, 2],
-          }),
-        )!.tone,
-        isNot(ToolReceiptTone.danger),
-      );
-      expect(
-        mcpStatusReceipt(t, jsonEncode({'status': 'error', 'tools': []}))!.tone,
-        ToolReceiptTone.danger,
-      );
-      expect(mcpStatusFailed(jsonEncode({'status': 'error'})), isTrue);
+    test(
+      'mcp status: ready is healthy, degraded warns, terminal states fail',
+      () {
+        expect(
+          mcpStatusReceipt(
+            t,
+            jsonEncode({
+              'status': 'ready',
+              'tools': [1, 2],
+            }),
+          )!.tone,
+          isNot(ToolReceiptTone.danger),
+        );
+        expect(mcpStatusFailed(jsonEncode({'status': 'ready'})), isFalse);
+        expect(
+          mcpStatusReceipt(
+            t,
+            jsonEncode({'status': 'degraded', 'tools': []}),
+          )!.tone,
+          ToolReceiptTone.warn,
+        );
+        expect(mcpStatusFailed(jsonEncode({'status': 'degraded'})), isFalse);
+        expect(
+          mcpStatusReceipt(
+            t,
+            jsonEncode({'status': 'error', 'tools': []}),
+          )!.tone,
+          ToolReceiptTone.danger,
+        );
+        expect(mcpStatusFailed(jsonEncode({'status': 'error'})), isTrue);
+      },
+    );
+
+    test('mcp lifecycle plain execution errors stay visibly failed', () {
+      const missing =
+          'required environment variables missing (missing=[ENTRA_CLIENT_ID])';
+      expect(mcpStatusFailed(missing), isTrue);
+      expect(mcpStatusReceipt(t, missing)!.tone, ToolReceiptTone.danger);
+      expect(mcpStatusReceipt(t, missing)!.text, t.chat.tool.mcpError);
+      expect(mcpStatusFailed('Uninstalled MCP server "github".'), isFalse);
     });
     test('marketplace: N servers; model: N available', () {
       expect(
@@ -207,13 +247,13 @@ void main() {
     ); // auto-expanded problem
   });
 
-  testWidgets('mcp reconnect connected: status + tool chips', (tester) async {
+  testWidgets('mcp reconnect ready: status + tool chips', (tester) async {
     await tester.pumpWidget(
       _host(
         ChatToolCard(
           node: _n('reconnect_mcp', '{"name":"acme"}', {
             'name': 'acme',
-            'status': 'connected',
+            'status': 'ready',
             'tools': [
               {'name': 'search_docs'},
               {'name': 'fetch_page'},
@@ -229,6 +269,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text(t.chat.tool.mcpConnected), findsOneWidget);
+    expect(find.text(t.chat.tool.mcpDisconnected), findsNothing);
     expect(find.text('search_docs'), findsOneWidget);
   });
 
@@ -256,6 +297,114 @@ void main() {
     ); // auto-expanded
   });
 
+  testWidgets('mcp install plain missing-env result is red and expanded', (
+    tester,
+  ) async {
+    const missing =
+        'required environment variables missing (missing=[ENTRA_CLIENT_ID])';
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _raw(
+            'install_mcp_server',
+            '{"name":"io.github.microsoft/EnterpriseMCP"}',
+            missing,
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pumpAndSettle();
+    expect(
+      find.byWidgetPredicate(
+        (widget) =>
+            widget is Text &&
+            widget.textSpan?.toPlainText().contains(t.chat.tool.mcpError) ==
+                true,
+      ),
+      findsOneWidget,
+    );
+    expect(find.textContaining('ENTRA_CLIENT_ID'), findsOneWidget);
+  });
+
+  testWidgets(
+    'list_mcp_marketplace: renders installable rows and required-env badge',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _n('list_mcp_marketplace', '{"query":"database"}', {
+              'count': 2,
+              'servers': [
+                {
+                  'name': 'acme/database',
+                  'description': 'Query an Acme database',
+                  'runtime': 'node',
+                  'env': [
+                    {'name': 'ACME_TOKEN', 'required': true},
+                    {'name': 'ACME_REGION', 'required': false},
+                  ],
+                },
+                {
+                  'name': 'acme/remote-db',
+                  'description': 'Hosted database tools',
+                  'runtime': 'remote',
+                  'env': const [],
+                },
+              ],
+            }),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.textContaining(t.chat.tool.browsedMarket),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(ToolHitList), findsOneWidget);
+      expect(find.text('acme/database'), findsOneWidget);
+      expect(find.text('acme/remote-db'), findsOneWidget);
+      expect(find.text('node'), findsOneWidget);
+      expect(find.text(t.chat.tool.mcpEnvRequired(n: '1')), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'list_mcp_marketplace: over-cap list keeps an honest first/total escape hatch',
+    (tester) async {
+      final servers = [
+        for (var i = 0; i < 31; i++)
+          {
+            'name': 'acme/server-$i',
+            'description': 'Server $i',
+            'runtime': 'remote',
+            'env': const [],
+          },
+      ];
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _n('list_mcp_marketplace', '{}', {
+              'count': servers.length,
+              'servers': servers,
+            }),
+          ),
+        ),
+      );
+      await tester.pump();
+      await tester.tap(
+        find.textContaining(t.chat.tool.browsedMarket),
+        warnIfMissed: false,
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(t.chat.tool.cappedFooter(n: '30', total: '31')),
+        findsOneWidget,
+      );
+    },
+  );
+
   testWidgets(
     'get_model_config: reads modelId from the real wire — NEVER dumps the map or leaks apiKeyId',
     (tester) async {
@@ -274,8 +423,22 @@ void main() {
                 'agent': 'not configured',
               },
               'apiKeys': [
-                {'id': 'k1'},
-                {'id': 'k2'},
+                {
+                  'id': 'k1',
+                  'displayName': 'Primary key',
+                  'provider': 'anselm',
+                  'keyMasked': 'sk-abcd...wxyz',
+                  'baseUrl': 'https://api.example.test/v1',
+                  'testStatus': 'ok',
+                },
+                {
+                  'id': 'k2',
+                  'displayName': 'Backup key',
+                  'provider': 'openai',
+                  'keyMasked': 'sk-efgh...uvwx',
+                  'baseUrl': 'https://backup.example.test/v1',
+                  'testStatus': 'failed',
+                },
               ],
               'availableModels': [
                 {
@@ -284,13 +447,20 @@ void main() {
                   'modelId': 'claude-sonnet-5',
                   'displayName': 'Sonnet 5',
                   'contextWindow': 200000,
+                  'maxOutput': 16000,
+                  'vision': true,
+                  'video': false,
+                  'audio': false,
+                  'nativeOptions': [
+                    {'key': 'thinking', 'label': 'Thinking'},
+                  ],
                 },
                 {
                   'apiKeyId': 'key_SECRET_LEAK',
                   'provider': 'anselm',
                   'modelId': 'claude-opus-4-8',
                   'displayName': 'Opus 4.8',
-                  'contextWindow': 200000,
+                  'contextWindow': 128000,
                 },
               ],
             }),
@@ -308,6 +478,13 @@ void main() {
         findsWidgets,
       ); // default row + available chip show the modelId
       expect(find.text('claude-opus-4-8'), findsOneWidget); // available chip
+      expect(find.text('sk-abcd...wxyz'), findsOneWidget);
+      expect(find.text('Primary key'), findsWidgets);
+      expect(find.text('https://api.example.test/v1'), findsOneWidget);
+      expect(find.text('200k'), findsOneWidget);
+      expect(find.text('16k'), findsOneWidget);
+      expect(find.text(t.chat.tool.modelVision), findsOneWidget);
+      expect(find.text('Thinking'), findsOneWidget);
       // The apiKeyId must NEVER reach the widget tree (privacy) — no raw map dump either.
       expect(find.textContaining('key_SECRET_LEAK'), findsNothing);
       expect(find.textContaining('apiKeyId'), findsNothing);

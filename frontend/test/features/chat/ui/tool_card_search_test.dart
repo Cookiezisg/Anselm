@@ -161,16 +161,23 @@ void main() {
       expect(r.id, 'hd_9'); // entityId, not ref
     });
 
-    test('attachmentListRow: inert (no panel) + human size', () {
+    test('attachmentListRow: inert + full metadata projection', () {
       final r = attachmentListRow({
         'id': 'att_1',
         'filename': 'q3.pdf',
+        'kind': 'document',
         'mime': 'application/pdf',
         'sizeBytes': 48210,
+        'createdAt': '2026-08-03T10:07:21Z',
       });
       expect(r.kind, 'attachment'); // no panel → ToolHitList renders it inert
       expect(r.title, 'q3.pdf');
+      expect(r.subtitle, startsWith('document · application/pdf · '));
       expect(r.subtitle, contains('KB'));
+      expect(
+        r.trailing,
+        isNotNull,
+      ); // exact local upload stamp stays visible in the tail
     });
   });
 }

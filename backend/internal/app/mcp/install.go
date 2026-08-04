@@ -178,7 +178,23 @@ func (s *Service) Import(ctx context.Context, entries map[string]mcpinfra.Import
 func (s *Service) RemoveServer(ctx context.Context, name string) error {
 	srv, err := s.repo.GetByName(ctx, name)
 	if err != nil {
-		return fmt.Errorf("mcpapp.RemoveServer: %w", err)
+		// Users naturally retain the marketplace identifier from install. Accept it as a
+		// deterministic alias, but do not make the LLM guess or retry a second spelling.
+		// 用户通常会保留安装时的市场标识；这里确定性接受它为别名，避免模型猜名重试。
+		servers, listErr := s.repo.List(ctx)
+		if listErr != nil {
+			return fmt.Errorf("mcpapp.RemoveServer: %w", err)
+		}
+		for _, candidate := range servers {
+			if candidate.RegistryID == name {
+				srv = candidate
+				err = nil
+				break
+			}
+		}
+		if err != nil {
+			return fmt.Errorf("mcpapp.RemoveServer: %w", err)
+		}
 	}
 	s.closeOne(srv.ID)
 	if err := s.repo.Delete(ctx, srv.ID); err != nil {

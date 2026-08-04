@@ -147,8 +147,18 @@ func tokenMatchCount(name, description string, tokens []string) int {
 type InstallServer struct{ svc *mcpapp.Service }
 
 func (t *InstallServer) Name() string { return "install_mcp_server" }
+
+// MinimumDanger makes the persistent server/configuration write a tool fact rather than a
+// model opinion. Installing a marketplace server can add a resident process, encrypted
+// credentials, and new external capabilities, so neither a cautious self-report nor a
+// conversation pre-authorization may bypass the action-time approval.
+//
+// MinimumDanger 将持久化 server/config 写入定义为工具事实，而不是模型意见。安装市场 server
+// 可能新增常驻进程、加密凭证和外部能力，因此 cautious 自报和对话预授权都不能绕过动作时批准。
+func (t *InstallServer) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *InstallServer) Description() string {
-	return "Install an MCP server from the marketplace by its full name (from list_mcp_marketplace), supplying any required environment variables (API keys). On success the server's tools become available — find them with search_tools. By product design Anselm connects MARKETPLACE (registry) servers ONLY — there is no custom self-hosted server (a local stdio command or a private SSE/HTTP url). If a user asks to connect their own server, explain that only servers from the marketplace catalog are supported."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Install an MCP server from the marketplace by its full name (from list_mcp_marketplace), supplying any required environment variables (API keys). This creates persistent server configuration, may start a resident process or external connection, and can add new capabilities and encrypted credentials; it cannot be treated as a cautious preview. Set danger=\"dangerous\" and wait for the user's approval before calling it. On success the server's tools become available — find them with search_tools. By product design Anselm connects MARKETPLACE (registry) servers ONLY — there is no custom self-hosted server (a local stdio command or a private SSE/HTTP url). If a user asks to connect their own server, explain that only servers from the marketplace catalog are supported."
 }
 func (t *InstallServer) Parameters() json.RawMessage {
 	return json.RawMessage(`{
@@ -197,8 +207,16 @@ func (t *InstallServer) Execute(ctx context.Context, argsJSON string) (string, e
 type UninstallServer struct{ svc *mcpapp.Service }
 
 func (t *UninstallServer) Name() string { return "uninstall_mcp_server" }
+
+// MinimumDanger makes stopping a resident process and deleting its persistent server
+// configuration a tool fact rather than a model opinion. The action is not reversible
+// through the MCP panel, so skill and approve-always preauthorization cannot bypass it.
+// MinimumDanger 将停常驻进程和删除持久化 server 配置定义为工具事实，而不是模型意见。
+// MCP 面板没有恢复入口，因此 skill 与 approve-always 预授权都不能绕过它。
+func (t *UninstallServer) MinimumDanger() toolapp.DangerLevel { return toolapp.DangerDangerous }
+
 func (t *UninstallServer) Description() string {
-	return "Uninstall an MCP server by name: stop its process and delete its configuration. Its tools become unavailable."
+	return "This call is always dangerous and requires explicit user approval; never downgrade its danger field. Uninstall an MCP server by its installed server name exactly as returned in the install result (for example, context7), not its marketplace registry name. This stops its resident process, permanently deletes its persistent configuration, and makes its tools unavailable. If the name is not found, report the failure and do not retry with another name."
 }
 func (t *UninstallServer) Parameters() json.RawMessage {
 	return json.RawMessage(`{"type":"object","required":["name"],"properties":{"name":{"type":"string","description":"Installed server name (e.g. context7)."}}}`)

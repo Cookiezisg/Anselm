@@ -27,13 +27,29 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-03 18:02）
+## 当前前线（2026-08-04 15:16）
 
 统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。定向测试和完整 testend `go test ./...`（scenarios 319.089s）、`make verify`、backend `go test ./...`、锚点、警报、diff check 全绿。
 
-**提交更新（2026-08-03 18:02）。** 第九批已完成统一长门禁并提交 `32b33499`；用户授权后，上一轮 `data-tool090b` 的 live fixture 已通过真实本地 API 清理，conversation/document 均 `DELETE=204` 后 `GET=404`，列表为空，软删审计与正式证据保留；下一原子前线为 `TOOL-091 list_attachments`。
+**当前更新（2026-08-04 15:16）。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50**，中央账本 **535 judgments**。两项 MCP 工具均为 `✓✓✓✓✓`，最终 session、五通道证据、前序红修复链和警报复审均已封存。第十批统一长门禁已通过：`make verify` backend/frontend/docs/demo、backend 与 testend 全量 `go test ./...`、anchors 10/10、alarms clean、残留进程和 diff check 均绿。当前只需提交本批；提交后下一原子前线是 `TOOL-101 reconnect_mcp`，主验收循环继续 active。
 
-第八批已完成 **50 / 50** 并提交 `31ad1e72`；第九批已完成 **50 / 50**，中央账本 **485 judgments**。锚点 10/10 已重新校准，题集 hash 一致且仍在 4 小时窗口；`TOOL-084` 至 `TOOL-090` 的真实红路径已保留并完成复审，`alarms.py check` 为 `clean (485 judgments)`。`TOOL-090` 五级裁决已落账，当前执行本批次统一长门禁；通过后提交，下一原子前线为 `TOOL-091 list_attachments`。
+`TOOL-098` green session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-100552` 的录屏为 `385.805000s / 2784x1808 / 60fps`；五级 `G1/F2/A5/C4/G2` 已写入 `COVERAGE.md`，行状态 `✓✓✓✓✓`。query `database query` 得 4、unmatchable 得 0 且显示 actionable recovery、unfiltered 得 96 且卡片 `first 30 of 96` 可打开有界 JSON tree；messages `1..48`、notifications `1..6`，LLM/REST/SQLite/UI 对齐，frontend/backend 红线为空。正式证据为 `tool-098-formal-100552-green.md`，账本复审为 `tool-098-ledger-alarm-reaudit.md`；观察器一次 30s timeout 已重取最终状态并单独归类，不算产品失败。
+
+修复后 formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-104247` 用新 binary 重跑 `TOOL-099` 无 env 路径：真实 UI 显示 `Dangerous · Awaiting your approval`，SSE 为 `tool_call(dangerous) → interaction → resolved(Deny) → tool_result`，没有安装执行或半安装行；录屏 `88.993333s / 2784x1808 / 60fps`，五通道和 `rig-check` 全绿。证据 `evidence/tool-099-formal-104247-red-deny-gate.md` 只证明负路径，不写 `judge.py`。
+
+上一轮 success formal `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-143238` 已得到 action-time `Allow`，修复后的卡片显示 `Allowed · connected · 2 tools`，动态 `search_tools` 与 `mcp__context7__resolve-library-id` 一次调用成功；但 uninstall cleanup 没有 gate 且发生了错误名重试，红证据 `evidence/tool-099-formal-143238-red-uninstall-no-gate-retry.md` 仍为红。下一步从修复后二进制重跑卸载，必须证明 `dangerous → interaction`、一次调用、失败名不重试和最终持久化清理。
+
+`TOOL-097` green session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-095429` 的录屏为 `173.423333s / 2784x1808 / 60fps`；五级 `G1/F2/A5/C4/G2` 已写入 `COVERAGE.md`，行状态 `✓✓✓✓✓`。真实 durable card 显示六个默认角色、`Anselm Free` 脱敏 key 与 `ok` 状态、端点、`anselm-auto` 的 `1M/16.4k/image · video` 能力及 native option；messages durable `1..14`、notifications `1..2`，LLM wire/REST/SQLite/UI 对齐，frontend/backend 红线扫描为空。红证据为 `tool-097-formal-094444-red-thin-card.md`，账本复审为 `tool-097-ledger-alarm-reaudit.md`；第十批不因单格完成提前跑长门禁或提交。
+
+`TOOL-095` 的产品结论：创建写入 `source=ai,pinned=false`；更新真实 `source=user,pinned=true` 记忆后只改变 description/body，策展与作者归属保留；非法 slug 原样拒绝并以红色 `Not saved` 显示具体规则，绝不静默改名或重试。SSE messages durable `1..42`、notifications `1..9` 连续，LLM 24 个状态条目全 200，backend/frontend journal clean。五格写账触发的 `gap-too-fast`/`pass-burst`/`discovery-collapse` 已在 `tool-095-ledger-alarm-reaudit.md` 中逐格复核后 ack。
+
+`TOOL-093 inspect_media` formal green：红 session 暴露 fresh media turn 把 schema 示例 `att_...` 当成真实附件 ID，先造成一次失败调用；修复后，`history.go` 在 model-only `<uploaded_attachments_for_tools>` 目录提供按媒体顺序的精确 ID，同时 inspect schema/description 移除可复制示例值。真实 App 在 665.508333s 录屏中完成 image default vision、tiles、crop、text query、audio range、video range 六条路径；没有失败卡、placeholder 参数或伪造 transcript/scene/越界视觉结论。视频模型重复请求由 loop `Duplicate tool call suppressed`，未二次执行。messages `1..97`、notifications `1..2` 连续，LLM `58×200/8×201`，backend/frontend clean；正式证据为 `evidence/tool-093-formal-191935-green.md`，复审为 `tool-093-ledger-alarm-reaudit.md`，五级 `G1/F2/A5/C4/G2` 已落账。
+
+`TOOL-092 read_attachment` formal green：首轮 hosted caller 将 canonical `id` 误发成 `attachmentId`，真实失败卡被冻结；修复 schema/description 的 `id` 规范并增加受管别名归一化后，真实 App 一次完成小文本正文读取、长文 `index/offset/query`、越界 offset 自纠和 PNG 媒体描述符降级。长文索引 `19 chunks / 145689 chars`，query 只有一个有界命中；图片明确指向 `inspect_media`，不伪造像素结论。主录屏 `432.071667s / 2784x1808 / 60fps`，重开 companion `35.160000s`；messages durable `1..111`、notifications `1..2` 无 gap，LLM 42×200/2×201，backend/frontend clean。正式证据为 `evidence/tool-092-formal-184402-green.md`，账本复审为 `tool-092-ledger-alarm-reaudit.md`，五级 `G1/F2/A5/C4/G2` 已落账。
+
+第八批已完成 **50 / 50** 并提交 `31ad1e72`；第九批已完成 **50 / 50**，中央账本 **485 judgments**。第十批正式账本推进到 **500 judgments**，anchors 10/10 有效，正式 alarms clean；`TOOL-091` 的空/正向路径、`TOOL-092` 的文本/长文/媒体路径与持久化重开、`TOOL-093` 的六条 inspect_media 路径均已封存。一次未 export `RIG_HOME` 的试写误归默认账本，已重放到正式根并在台架手册和 LOG 记录；下一原子前线为 `TOOL-094 read_memory`。
+
+`TOOL-091 list_attachments` formal green：空 workspace 一次真实 `list_attachments` 返回 empty；上传一个 91-byte plain-text fixture 后一次真实 `list_attachments` 返回一条 live metadata。SQLite 与 SSE close/tool result/LLM wire/UI 的 filename、kind、MIME、size、createdAt 一致；messages durable `1..29` 无 gap；工具卡逐字段展示本地化上传时点，正文表格由 redactor 指向附件卡，避免全局 timestamp privacy boundary 与产品可用性冲突。录屏 `346.391667s / 2784x1808 / 60fps`，backend/frontend scan clean；五级 `G1/F2/A5/C4/G2` 已落账。
 
 `TOOL-088 edit_document` 的七轮首测红证据覆盖 reasoning placeholder、tags 编码、拆分 mutation、重复 search、provider 双重编码、失败 search 恢复和 filesystem-shaped search 参数。stop-and-fix 修复 per-Run safe-call ledger、search_documents 的窄 provider compatibility、tags 一层 JSON 编码解码，以及单一 canonical edit/opaque ID prompt 契约；测试、领域/API 文档和抽取清册同步。
 

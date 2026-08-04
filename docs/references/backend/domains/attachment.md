@@ -113,12 +113,17 @@ workspace 与 Attachment；只有 audio kind 可签发。
 
 ## 7. LLM 工具
 
-- `list_attachments`：按新到旧列 metadata，不读 blob；
-- `read_attachment`：文本/文档支持索引、分页和 literal query；二进制只返回描述符；
+- `list_attachments`：按新到旧列 metadata，不读 blob；每行的 `createdAt` 是精确 ISO-8601 上传时点，并在相邻附件卡中展示。用户询问上传时间时，正文应指向该精确卡片，不能编造、规范化或用「记录时间」等占位话术冒充字段值；
+- `read_attachment`：文本/文档支持索引、分页和 literal query；二进制只返回描述符。规范参数键是 `id`；受管模型误用 `attachmentId` 时后端兼容这一别名，但工具描述和 schema 以 `id` 为唯一 canonical wire key；
 - `inspect_media`：
   - image：有界代理/crop 进入默认视觉路由，或返回 tile map；
   - text/document：复用本地抽取并返回有界页、窗口或匹配；
   - audio/video：只返回本地 metadata capsule 与时间范围意图。
+
+用户在本回合上传的附件 ID 会按媒体顺序进入模型专用的
+`<uploaded_attachments_for_tools>` 目录；模型必须逐字复制其中的精确 ID，不能复制
+schema 的示例值。`read_attachment` 使用 canonical `id`，`inspect_media` 使用
+`attachmentId`，因此新上传的附件无需先调用 `list_attachments` 才能检查。
 
 `inspect_media` 不伪造 transcript、OCR、scene 或 keyframe，也不把原始媒体写进 tool
 result。图片检查继续使用默认 Anselm 模型解析；受管路由用短期 remote media，BYOK

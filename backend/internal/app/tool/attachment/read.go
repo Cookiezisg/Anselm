@@ -28,13 +28,13 @@ const (
 	readAttachmentMaxQueryChars             = 512
 )
 
-const readAttachmentDescription = `Read uploaded attachment by id. Large text/docs: index:boolean; offset,limitChars,contextChars,maxMatches:integer; query:string. Emit JSON types (never quote booleans/integers). Find ids via list_attachments. Text and document files (PDF/Office) are text-extracted; index:true returns a compact chunk/page map, while offset/limitChars page bounded slices and query returns bounded literal-match snippets. Images/audio/video return descriptors; use inspect_media for bounded media evidence.`
+const readAttachmentDescription = `Read an uploaded attachment by its opaque id. The required argument key is exactly "id" (for example {"id":"att_..."}); do not use "attachmentId". Large text/docs: index:boolean; offset,limitChars,contextChars,maxMatches:integer; query:string. Emit JSON types (never quote booleans/integers). Find ids via list_attachments. Text and document files (PDF/Office) are text-extracted; index:true returns a compact chunk/page map, while offset/limitChars page bounded slices and query returns bounded literal-match snippets. Images/audio/video return descriptors; use inspect_media for bounded media evidence.`
 
 var readAttachmentSchema = json.RawMessage(`{
 	"type": "object",
 	"required": ["id"],
 	"properties": {
-		"id": {"type": "string"},
+		"id": {"type": "string", "description": "Required opaque uploaded attachment id. Use this exact key: id, not attachmentId."},
 		"index": {"type": "boolean", "description": "When true for text/document attachments, return a compact chunk/page index with offsets and previews instead of body text. Use this before reading a large file; pass offset with nextOffset to continue the index."},
 		"offset": {"type": "integer", "minimum": 0, "description": "Character offset into the extracted text page or index. Use nextOffset from a previous result to continue."},
 		"limitChars": {"type": "integer", "minimum": 1, "maximum": 120000, "description": "Maximum characters to return in page mode. Defaults to 80000; capped at 120000."},
@@ -171,11 +171,13 @@ type readArgs struct {
 }
 
 // UnmarshalJSON tolerates the stringified scalar values emitted by some managed tool callers
-// while keeping the public schema strongly typed. A rejected first call forces an avoidable retry
-// and can consume the agent's step budget before it can summarize a successful bounded read.
+// while keeping the public schema strongly typed. The attachmentId alias is accepted only as a
+// compatibility seam for hosted callers that copy the inspect_media naming; the canonical wire
+// key remains id and is called out explicitly in the schema and description.
 func (a *readArgs) UnmarshalJSON(data []byte) error {
 	var raw struct {
 		ID           string          `json:"id"`
+		AttachmentID string          `json:"attachmentId"`
 		Index        json.RawMessage `json:"index"`
 		Offset       json.RawMessage `json:"offset"`
 		LimitChars   json.RawMessage `json:"limitChars"`
@@ -206,8 +208,12 @@ func (a *readArgs) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("maxMatches: %w", err)
 	}
+	id := strings.TrimSpace(raw.ID)
+	if id == "" {
+		id = strings.TrimSpace(raw.AttachmentID)
+	}
 	*a = readArgs{
-		ID:           raw.ID,
+		ID:           id,
 		Index:        index,
 		Offset:       offset,
 		LimitChars:   limitChars,

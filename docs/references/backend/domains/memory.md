@@ -47,6 +47,11 @@ Upsert 以 name 决定 create/update。更新既有记忆时只改 description/c
 
 因此模型更新用户置顶规则时，不会静默取消置顶或把作者改成 AI。
 
+`forget_memory` 是不可逆删除：它移除对应 Markdown 文件，没有恢复端点，也不会把记忆移入可恢复回收站。
+因此工具具有不可绕过的 `dangerous` 下限；即使模型自报 `safe` 或 `cautious`，loop 仍必须先展示明确的
+人闸，只有用户批准后才执行。删除后再次按同一 name 调用返回可解释的 `already gone` 结果，而不是伪造一次
+新的删除。
+
 Create/Update/Delete 发送持久通知并通知 Search 重建；pin/unpin 只广播实时更新，不制造
 新的 inbox 行。通知与索引均 best-effort，文件仍是事实源。
 

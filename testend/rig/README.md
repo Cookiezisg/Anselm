@@ -42,8 +42,10 @@ testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe M
 
 `RIG_HOME` 是本次验收的账本根：`judgments.jsonl`、`alarms.json`、`anchor-check.json` 和 `current`
 必须来自同一个显式目录。正式 session 使用 `RIG_HOME=/private/tmp/anselm-rig-formal-...` 时，
-`judge.py`、`alarms.py`、`anchors.py` 必须逐条带同一个 `RIG_HOME` 运行；不能把默认
-`~/.anselm-rig` 中旧账本的 clean 结果当作当前 session 的门禁证据。
+必须先在 shell 中 `export RIG_HOME=/private/tmp/anselm-rig-formal-...`，再运行 `judge.py`、
+`alarms.py`、`anchors.py`；仅写在某一条命令前面的 `RIG_HOME=... command` 不会传给后续命令，
+曾造成正式账本与默认账本归属混淆。不能把默认 `~/.anselm-rig` 中旧账本的 clean 结果当作当前
+session 的门禁证据。
 
 所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。录像在
 Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝把全桌面录屏当作帧证据。首次

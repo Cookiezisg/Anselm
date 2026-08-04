@@ -295,9 +295,70 @@ func redactOpaqueMachineValues(text string) string {
 	// an entirely unavailable ID column instead of leaving a misleading header behind.
 	// Markdown 表格里的 placeholder 仍不是用户值。流式阶段先替换为诚实的不可用标记；完整 close 再移除整列。
 	text = redactOpaquePlaceholderTableCells(text)
+	// Attachment metadata has a useful exact timestamp in the adjacent tool card. Do not leave a
+	// table cell that looks like a value but only says "the recorded time"; point the reader to the
+	// exact, copyable card instead while keeping the global timestamp redaction boundary intact.
+	text = redactAttachmentTimestampTableRows(text)
 	text = removeOpaquePlaceholderIDColumns(text)
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	return longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
+}
+
+const attachmentTimestampTableHint = "See the exact upload time in the attachment card."
+
+func redactAttachmentTimestampTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := 0; i+2 < len(lines); {
+		header, ok := markdownTableCells(lines[i])
+		if !ok {
+			i++
+			continue
+		}
+		separator, ok := markdownTableCells(lines[i+1])
+		if !ok || len(separator) != len(header) || !isMarkdownTableSeparator(separator) {
+			i++
+			continue
+		}
+
+		timestampColumn := -1
+		for column, cell := range header {
+			label := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
+			if label == "uploaded" || label == "upload time" || label == "uploaded at" || label == "created at" || label == "createdat" {
+				timestampColumn = column
+				break
+			}
+		}
+		if timestampColumn < 0 {
+			i += 2
+			continue
+		}
+
+		changed := false
+		lastRow := i + 1
+		for row := i + 2; row < len(lines); row++ {
+			cells, rowOK := markdownTableCells(lines[row])
+			if !rowOK || len(cells) != len(header) {
+				break
+			}
+			lastRow = row
+			if isOpaqueTimestampPlaceholderCell(cells[timestampColumn]) {
+				cells[timestampColumn] = attachmentTimestampTableHint
+				lines[row] = formatMarkdownTableRow(cells)
+				changed = true
+			}
+		}
+		if !changed {
+			i = lastRow + 1
+			continue
+		}
+		i = lastRow + 1
+	}
+	return strings.Join(lines, "\n")
+}
+
+func isOpaqueTimestampPlaceholderCell(cell string) bool {
+	value := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
+	return value == opaqueTimestampPlaceholder
 }
 
 func redactOpaquePlaceholderTableCells(text string) string {
@@ -474,6 +535,14 @@ func (r *textRedactor) Write(delta string) string {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
 	}
+	// Attachment upload-time tables need their header and data rows together: the exact timestamp
+	// is redacted globally, then the row is rewritten to point at the adjacent tool card. Hold the
+	// bounded table until its row boundary is known so a provider chunk cannot strand the row without
+	// its header context.
+	if prefix, held, ok := splitAttachmentTimestampTablePrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
 	// Markdown table rows carrying opaque values are semantic units, not ordinary prose. A
 	// provider can split the row after an opening backtick or between the two cells; holding the
 	// incomplete line prevents a bad placeholder from appearing in an intermediate SSE frame.
@@ -632,6 +701,58 @@ func splitToolNamePrefix(text string) (prefix, held string, ok bool) {
 			holdStart--
 		}
 		return text[:holdStart], text[holdStart:], true
+	}
+	return "", "", false
+}
+
+func splitAttachmentTimestampTablePrefix(text string) (prefix, held string, ok bool) {
+	lines := strings.SplitAfter(text, "\n")
+	offset := 0
+	for i := 0; i+1 < len(lines); i++ {
+		headerLine := strings.TrimSuffix(lines[i], "\n")
+		separatorLine := strings.TrimSuffix(lines[i+1], "\n")
+		header, headerOK := markdownTableCells(headerLine)
+		separator, separatorOK := markdownTableCells(separatorLine)
+		if !headerOK || !separatorOK || len(separator) != len(header) || !isMarkdownTableSeparator(separator) {
+			offset += len(lines[i])
+			continue
+		}
+
+		timestampColumn := -1
+		for column, cell := range header {
+			label := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
+			if label == "uploaded" || label == "upload time" || label == "uploaded at" || label == "created at" || label == "createdat" {
+				timestampColumn = column
+				break
+			}
+		}
+		if timestampColumn < 0 {
+			offset += len(lines[i])
+			continue
+		}
+
+		row := i + 2
+		rowEnd := row
+		for rowEnd < len(lines) {
+			candidate := strings.TrimSuffix(lines[rowEnd], "\n")
+			cells, rowOK := markdownTableCells(candidate)
+			if !rowOK || len(cells) != len(header) {
+				break
+			}
+			rowEnd++
+		}
+		if rowEnd == row {
+			return "", text, true
+		}
+
+		prefixEnd := 0
+		for j := 0; j < rowEnd; j++ {
+			prefixEnd += len(lines[j])
+		}
+		if prefixEnd == len(text) {
+			return "", text, true
+		}
+		return text[:prefixEnd], text[prefixEnd:], true
 	}
 	return "", "", false
 }

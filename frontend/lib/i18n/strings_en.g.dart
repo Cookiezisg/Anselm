@@ -3116,6 +3116,9 @@ class Translations$chat$tool$en {
 	/// en: 'disconnected'
 	String get mcpDisconnected => 'disconnected';
 
+	/// en: 'degraded'
+	String get mcpDegraded => 'degraded';
+
 	/// en: '$n tools'
 	String mcpToolCount({required Object n}) => '${n} tools';
 
@@ -3148,6 +3151,81 @@ class Translations$chat$tool$en {
 
 	/// en: '$n available models'
 	String modelAvail({required Object n}) => '${n} available models';
+
+	/// en: 'API keys'
+	String get modelConfigKeysSection => 'API keys';
+
+	/// en: 'Available models'
+	String get modelConfigModelsSection => 'Available models';
+
+	/// en: 'Name'
+	String get modelKeyName => 'Name';
+
+	/// en: 'Provider'
+	String get modelKeyProvider => 'Provider';
+
+	/// en: 'Masked key'
+	String get modelKeyMasked => 'Masked key';
+
+	/// en: 'Status'
+	String get modelKeyStatus => 'Status';
+
+	/// en: 'Endpoints'
+	String get modelEndpoints => 'Endpoints';
+
+	/// en: 'No API keys configured'
+	String get modelNoKeys => 'No API keys configured';
+
+	/// en: 'Model catalog unavailable or empty'
+	String get modelNoModels => 'Model catalog unavailable or empty';
+
+	/// en: 'Unnamed key'
+	String get modelUnnamedKey => 'Unnamed key';
+
+	/// en: 'Model'
+	String get modelModel => 'Model';
+
+	/// en: 'Context'
+	String get modelContext => 'Context';
+
+	/// en: 'Output'
+	String get modelOutput => 'Output';
+
+	/// en: 'Media'
+	String get modelMedia => 'Media';
+
+	/// en: '… and $n more'
+	String modelMore({required Object n}) => '… and ${n} more';
+
+	/// en: 'Native options'
+	String get modelOptions => 'Native options';
+
+	/// en: 'image'
+	String get modelVision => 'image';
+
+	/// en: 'video'
+	String get modelVideo => 'video';
+
+	/// en: 'audio'
+	String get modelAudio => 'audio';
+
+	/// en: 'Dialogue'
+	String get modelDialogue => 'Dialogue';
+
+	/// en: 'Utility'
+	String get modelUtility => 'Utility';
+
+	/// en: 'Agent'
+	String get modelAgent => 'Agent';
+
+	/// en: 'Image'
+	String get modelImage => 'Image';
+
+	/// en: 'Speech'
+	String get modelSpeech => 'Speech';
+
+	/// en: 'Video'
+	String get modelVideoRole => 'Video';
 
 	/// en: 'you'
 	String get memSourceUser => 'you';
@@ -7686,6 +7764,7 @@ extension on Translations {
 			'chat.tool.reconnectedMcp' => 'Reconnected MCP',
 			'chat.tool.mcpConnected' => 'connected',
 			'chat.tool.mcpDisconnected' => 'disconnected',
+			'chat.tool.mcpDegraded' => 'degraded',
 			'chat.tool.mcpToolCount' => ({required Object n}) => '${n} tools',
 			'chat.tool.mcpFailures' => ({required Object n}) => '${n} consecutive failures',
 			'chat.tool.browsingMarket' => 'Browsing marketplace',
@@ -7697,6 +7776,31 @@ extension on Translations {
 			'chat.tool.modelDefaults' => 'Default models',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} keys',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} available models',
+			'chat.tool.modelConfigKeysSection' => 'API keys',
+			'chat.tool.modelConfigModelsSection' => 'Available models',
+			'chat.tool.modelKeyName' => 'Name',
+			'chat.tool.modelKeyProvider' => 'Provider',
+			'chat.tool.modelKeyMasked' => 'Masked key',
+			'chat.tool.modelKeyStatus' => 'Status',
+			'chat.tool.modelEndpoints' => 'Endpoints',
+			'chat.tool.modelNoKeys' => 'No API keys configured',
+			'chat.tool.modelNoModels' => 'Model catalog unavailable or empty',
+			'chat.tool.modelUnnamedKey' => 'Unnamed key',
+			'chat.tool.modelModel' => 'Model',
+			'chat.tool.modelContext' => 'Context',
+			'chat.tool.modelOutput' => 'Output',
+			'chat.tool.modelMedia' => 'Media',
+			'chat.tool.modelMore' => ({required Object n}) => '… and ${n} more',
+			'chat.tool.modelOptions' => 'Native options',
+			'chat.tool.modelVision' => 'image',
+			'chat.tool.modelVideo' => 'video',
+			'chat.tool.modelAudio' => 'audio',
+			'chat.tool.modelDialogue' => 'Dialogue',
+			'chat.tool.modelUtility' => 'Utility',
+			'chat.tool.modelAgent' => 'Agent',
+			'chat.tool.modelImage' => 'Image',
+			'chat.tool.modelSpeech' => 'Speech',
+			'chat.tool.modelVideoRole' => 'Video',
 			'chat.tool.memSourceUser' => 'you',
 			'chat.tool.memSourceAi' => 'AI',
 			'chat.tool.firingClaimed' => 'claimed',
@@ -8117,6 +8221,8 @@ extension on Translations {
 			'action.expand' => 'Expand',
 			'action.collapse' => 'Collapse',
 			'action.wrap' => 'Wrap',
+			_ => null,
+		} ?? switch (path) {
 			'action.delete' => 'Delete',
 			'feedback.info' => 'Info',
 			'feedback.success' => 'Success',
@@ -8143,8 +8249,6 @@ extension on Translations {
 			'feedback.cast.ribbonFailedRun' => 'Run failed · inspect the error below',
 			'feedback.cast.gatePill' => 'AI awaits your decision →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI is editing ${name} →',
-			_ => null,
-		} ?? switch (path) {
 			'feedback.cast.tombstone' => 'Deleted',
 			'feedback.cast.loadFailed' => 'Load failed',
 			'feedback.cast.goToEntity' => 'Open entity',
@@ -8631,6 +8735,8 @@ extension on Translations {
 			'library.props.toolPickerBuiltin' => 'Builtin tools',
 			'library.props.toolPickerFunctions' => 'Functions',
 			'library.props.toolPickerHandlers' => 'Handlers',
+			_ => null,
+		} ?? switch (path) {
 			'library.props.toolPickerMcp' => 'MCP tools',
 			'library.props.toolPickerAddLiteral' => ({required Object q}) => 'Add "${q}" verbatim',
 			'library.props.toolPickerHint' => 'Pick from below, or type a scope like Bash(git:*) and press Enter.',
@@ -8657,8 +8763,6 @@ extension on Translations {
 			'library.props.time.daysAgo' => ({required Object n}) => '${n} days ago',
 			'library.slash.text' => 'Text',
 			'library.slash.h1' => 'Heading 1',
-			_ => null,
-		} ?? switch (path) {
 			'library.slash.h2' => 'Heading 2',
 			'library.slash.h3' => 'Heading 3',
 			'library.slash.bulleted' => 'Bulleted list',
@@ -9145,6 +9249,8 @@ extension on Translations {
 			'settings.spend.empty' => 'Nothing generated with your own keys in the last 30 days.',
 			'settings.spend.unavailable' => 'The spend ledger could not be read.',
 			'settings.spend.estimateNote' => 'Units are counted; money is an ESTIMATE from a hand-written price table — your provider\'s billing console is the authority. Managed free-tier usage is in the card above.',
+			_ => null,
+		} ?? switch (path) {
 			'settings.spend.catImage' => 'Images',
 			'settings.spend.catSpeech' => 'Speech',
 			'settings.spend.catVideo' => 'Video',
@@ -9171,8 +9277,6 @@ extension on Translations {
 			'attach.loadingAudio' => 'Loading audio…',
 			'attach.audioPlaybackFailed' => 'Playback failed — tap to retry',
 			'attach.audioPlaybackOffline' => 'Offline — tap to retry playback',
-			_ => null,
-		} ?? switch (path) {
 			'attach.audioPlaybackUnavailable' => 'Playback not available yet',
 			'attach.viewFullSize' => 'View full size',
 			'attach.closeViewer' => 'Close',

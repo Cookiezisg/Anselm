@@ -14,6 +14,7 @@ import (
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -200,10 +201,22 @@ func TestInstall_MissingEnv(t *testing.T) {
 		Name:     "x/y",
 		Packages: []mcpdomain.Package{{Name: "y-mcp", RuntimeHint: "npx", EnvVars: []mcpdomain.EnvVar{{Name: "API_KEY", Required: true}}}},
 	}}}
-	svc := svcWith(newFakeRepo(), reg, &fakeClient{})
+	repo := newFakeRepo()
+	svc := svcWith(repo, reg, &fakeClient{})
 	_, err := svc.InstallFromRegistry(ctxWS("ws_1"), "x/y", nil)
 	if !errors.Is(err, mcpdomain.ErrEnvMissing) {
 		t.Fatalf("want ErrEnvMissing, got %v", err)
+	}
+	var structured *errorspkg.Error
+	if !errors.As(err, &structured) {
+		t.Fatalf("want structured missing-env error, got %T", err)
+	}
+	missing, ok := structured.Details["missing"].([]string)
+	if !ok || len(missing) != 1 || missing[0] != "API_KEY" {
+		t.Fatalf("want details.missing=[API_KEY], got %#v", structured.Details["missing"])
+	}
+	if got, _ := repo.List(ctxWS("ws_1")); len(got) != 0 {
+		t.Fatalf("missing env must not persist a partial server, got %d rows", len(got))
 	}
 }
 
@@ -326,6 +339,20 @@ func TestRemove_StopsAndDeletes(t *testing.T) {
 	_, _ = svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
 	if err := svc.RemoveServer(ctx, "context7"); err != nil {
 		t.Fatalf("remove: %v", err)
+	}
+	if _, err := svc.GetServer(ctx, "context7"); !errors.Is(err, mcpdomain.ErrServerNotFound) {
+		t.Fatalf("removed server should be NotFound, got %v", err)
+	}
+}
+
+func TestRemove_AcceptsMarketplaceRegistryAlias(t *testing.T) {
+	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{})
+	ctx := ctxWS("ws_1")
+	if _, err := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if err := svc.RemoveServer(ctx, "io.github.upstash/context7"); err != nil {
+		t.Fatalf("remove by registry alias: %v", err)
 	}
 	if _, err := svc.GetServer(ctx, "context7"); !errors.Is(err, mcpdomain.ErrServerNotFound) {
 		t.Fatalf("removed server should be NotFound, got %v", err)

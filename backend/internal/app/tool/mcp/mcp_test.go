@@ -2,7 +2,10 @@ package mcp
 
 import (
 	"encoding/json"
+	"strings"
 	"testing"
+
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
 // TestDynamicTool_Naming: a server tool is exposed as mcp__<server>__<tool> (':' is illegal
@@ -27,6 +30,30 @@ func TestInstallServer_ValidateInput(t *testing.T) {
 	}
 	if err := tool.ValidateInput(json.RawMessage(`{"name":"io.github.x/y"}`)); err != nil {
 		t.Fatalf("valid name should pass: %v", err)
+	}
+}
+
+func TestInstallServer_HasNonBypassableDangerFloor(t *testing.T) {
+	tool := &InstallServer{}
+	if got := tool.MinimumDanger(); got != toolapp.DangerDangerous {
+		t.Fatalf("minimum danger = %q, want %q", got, toolapp.DangerDangerous)
+	}
+	for _, phrase := range []string{"always dangerous", "explicit user approval", "never downgrade"} {
+		if !strings.Contains(tool.Description(), phrase) {
+			t.Fatalf("description missing %q: %s", phrase, tool.Description())
+		}
+	}
+}
+
+func TestUninstallServer_HasNonBypassableDangerFloor(t *testing.T) {
+	tool := &UninstallServer{}
+	if got := tool.MinimumDanger(); got != toolapp.DangerDangerous {
+		t.Fatalf("minimum danger = %q, want %q", got, toolapp.DangerDangerous)
+	}
+	for _, phrase := range []string{"always dangerous", "explicit user approval", "never downgrade"} {
+		if !strings.Contains(tool.Description(), phrase) {
+			t.Fatalf("description missing %q: %s", phrase, tool.Description())
+		}
 	}
 }
 

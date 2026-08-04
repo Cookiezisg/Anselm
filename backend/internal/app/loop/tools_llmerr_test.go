@@ -67,6 +67,31 @@ func TestExecuteTool_UserErrorMessageIsClean(t *testing.T) {
 	}
 }
 
+func TestExecuteTool_UserErrorDetailsAreVisible(t *testing.T) {
+	missing := errorspkg.New(
+		errorspkg.KindUnprocessable,
+		"MCP_ENV_MISSING",
+		"required environment variables missing",
+	).WithDetails(map[string]any{"missing": []string{"ENTRA_CLIENT_ID"}})
+
+	out, errMsg, ok := executeTool(
+		context.Background(),
+		fakeTool{name: "install_mcp_server", err: missing},
+		"install_mcp_server",
+		json.RawMessage(`{"name":"io.github.microsoft/EnterpriseMCP"}`),
+		zap.NewNop(),
+	)
+	if ok {
+		t.Fatalf("missing env must fail, got ok=true out=%q", out)
+	}
+	for _, got := range []string{out, errMsg} {
+		if !strings.Contains(got, "required environment variables missing") ||
+			!strings.Contains(got, "ENTRA_CLIENT_ID") {
+			t.Fatalf("tool result must retain the exact missing env name, got %q", got)
+		}
+	}
+}
+
 // TestToolFailureLog_CarriesTheReason — the OPERATOR's copy of a tool failure must carry the same
 // structured Details the LLM's does.
 //

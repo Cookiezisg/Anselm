@@ -8,7 +8,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 )
 
-const listAttachmentsDescription = `List the files uploaded to this workspace (newest first): id, filename, mime, kind, sizeBytes, createdAt each. kind is one of image/document/text/audio/video/other. Use this to discover what's attached. For text/document use read_attachment; for image/audio/video use inspect_media with a specific question so media stays bounded and does not dump raw bytes into context.`
+const listAttachmentsDescription = `List the files uploaded to this workspace (newest first): id, filename, mime, kind, sizeBytes, createdAt each. createdAt is the exact ISO-8601 upload timestamp and is shown in the adjacent attachment card. When the user asks when a file was uploaded, point them to that exact card; never invent, normalize, or replace the value with a placeholder such as "the recorded time". kind is one of image/document/text/audio/video/other. Use this to discover what's attached. For text/document use read_attachment; for image/audio/video use inspect_media with a specific question so media stays bounded and does not dump raw bytes into context.`
 
 var listAttachmentsSchema = json.RawMessage(`{
 	"type": "object",

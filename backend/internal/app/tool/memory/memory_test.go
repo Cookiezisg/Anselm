@@ -9,6 +9,7 @@ import (
 	"go.uber.org/zap"
 
 	memoryapp "github.com/sunweilin/anselm/backend/internal/app/memory"
+	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	memorydomain "github.com/sunweilin/anselm/backend/internal/domain/memory"
 )
 
@@ -172,6 +173,18 @@ func TestForgetMemory_DeletesThenSoftFails(t *testing.T) {
 	}
 	if !strings.Contains(again, "not found") {
 		t.Fatalf("got %q", again)
+	}
+}
+
+func TestForgetMemory_IsAlwaysDangerous(t *testing.T) {
+	tool := &ForgetMemory{}
+	if got := tool.MinimumDanger(); got != toolapp.DangerDangerous {
+		t.Fatalf("forget_memory minimum danger = %q, want dangerous", got)
+	}
+	for _, want := range []string{"always dangerous", "explicit user approval", "never downgrade", "no restore operation"} {
+		if !strings.Contains(tool.Description(), want) {
+			t.Fatalf("forget_memory description missing %q: %s", want, tool.Description())
+		}
 	}
 }
 

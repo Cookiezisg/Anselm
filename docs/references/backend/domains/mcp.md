@@ -63,7 +63,22 @@ RoundTripper。
 
 Package 选择按轻量 runtime 优先：node、python、docker、dotnet；无可运行 package
 时使用 remote。只有 Required env 缺失才阻断；args/header/URL 中的 credential
-placeholder 会被提升为所需 env。
+placeholder 会被提升为所需 env。缺失时返回 `MCP_ENV_MISSING`，其
+`details.missing` 保留精确变量名；进入 chat loop 后会以可行动的纯文本形式浮出，不能只显示
+一个无上下文的“安装失败”。
+
+`install_mcp_server` 是持久化外部能力安装，不是只读的 plan：它可能写入 server 配置、启动常驻进程
+或建立外部连接，并保存加密凭证。因此工具具有不可绕过的静态 `dangerous` 下限；即使模型自报
+`safe`/`cautious`，也必须先经过 Chat HumanLoop 的 action-time 用户批准，不能由 skill 的
+`allowed-tools` 或 conversation `approve_always` 预授权绕过。批准句必须明确说明持久化配置、常驻
+进程/外部连接与新增能力/加密凭证；缺少 env 时，批准后仍只执行无副作用的校验并返回
+`MCP_ENV_MISSING`，不得落半安装行。
+
+`uninstall_mcp_server` 同样具有不可绕过的静态 `dangerous` 下限：它会停止常驻进程并永久删除持久化
+server 配置，使动态工具立即不可用；没有 MCP 面板恢复入口。它必须先经过 action-time HumanLoop
+批准，不能被 skill 或 `approve_always` 绕过。参数应使用安装回执返回的已安装 server name（例如
+`context7`）；实现同时接受对应的 marketplace registry name 作为确定性别名，避免模型因名称格式猜测
+而重复调用。找不到名称时应诚实失败，不由模型自行换名重试。
 
 市场使用 curated allowlist 覆盖 registry 数据源。Registry 声明仍是 package、
 env description 与 required flag 的基础；overlay 只修正可运行/认证机制，不在

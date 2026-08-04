@@ -1250,6 +1250,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get reconnectedMcp => '已重连 MCP';
 	@override String get mcpConnected => '已连接';
 	@override String get mcpDisconnected => '未连接';
+	@override String get mcpDegraded => '已降级';
 	@override String mcpToolCount({required Object n}) => '${n} 工具';
 	@override String mcpFailures({required Object n}) => '${n} 次连续失败';
 	@override String get browsingMarket => '正在浏览市场';
@@ -1261,6 +1262,31 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get modelDefaults => '默认模型';
 	@override String modelKeys({required Object n}) => '${n} 个密钥';
 	@override String modelAvail({required Object n}) => '${n} 个可用模型';
+	@override String get modelConfigKeysSection => 'API 密钥';
+	@override String get modelConfigModelsSection => '可用模型';
+	@override String get modelKeyName => '名称';
+	@override String get modelKeyProvider => '提供方';
+	@override String get modelKeyMasked => '脱敏密钥';
+	@override String get modelKeyStatus => '状态';
+	@override String get modelEndpoints => '端点';
+	@override String get modelNoKeys => '未配置 API 密钥';
+	@override String get modelNoModels => '模型目录不可用或为空';
+	@override String get modelUnnamedKey => '未命名密钥';
+	@override String get modelModel => '模型';
+	@override String get modelContext => '上下文';
+	@override String get modelOutput => '输出';
+	@override String get modelMedia => '媒体';
+	@override String modelMore({required Object n}) => '… 另有 ${n} 个';
+	@override String get modelOptions => '原生选项';
+	@override String get modelVision => '图片';
+	@override String get modelVideo => '视频';
+	@override String get modelAudio => '音频';
+	@override String get modelDialogue => '对话';
+	@override String get modelUtility => '实用';
+	@override String get modelAgent => 'Agent';
+	@override String get modelImage => '生图';
+	@override String get modelSpeech => '语音';
+	@override String get modelVideoRole => '视频';
 	@override String get memSourceUser => '你';
 	@override String get memSourceAi => 'AI';
 	@override String get firingClaimed => '已认领';
@@ -3545,6 +3571,7 @@ extension on TranslationsZhCn {
 			'chat.tool.reconnectedMcp' => '已重连 MCP',
 			'chat.tool.mcpConnected' => '已连接',
 			'chat.tool.mcpDisconnected' => '未连接',
+			'chat.tool.mcpDegraded' => '已降级',
 			'chat.tool.mcpToolCount' => ({required Object n}) => '${n} 工具',
 			'chat.tool.mcpFailures' => ({required Object n}) => '${n} 次连续失败',
 			'chat.tool.browsingMarket' => '正在浏览市场',
@@ -3556,6 +3583,31 @@ extension on TranslationsZhCn {
 			'chat.tool.modelDefaults' => '默认模型',
 			'chat.tool.modelKeys' => ({required Object n}) => '${n} 个密钥',
 			'chat.tool.modelAvail' => ({required Object n}) => '${n} 个可用模型',
+			'chat.tool.modelConfigKeysSection' => 'API 密钥',
+			'chat.tool.modelConfigModelsSection' => '可用模型',
+			'chat.tool.modelKeyName' => '名称',
+			'chat.tool.modelKeyProvider' => '提供方',
+			'chat.tool.modelKeyMasked' => '脱敏密钥',
+			'chat.tool.modelKeyStatus' => '状态',
+			'chat.tool.modelEndpoints' => '端点',
+			'chat.tool.modelNoKeys' => '未配置 API 密钥',
+			'chat.tool.modelNoModels' => '模型目录不可用或为空',
+			'chat.tool.modelUnnamedKey' => '未命名密钥',
+			'chat.tool.modelModel' => '模型',
+			'chat.tool.modelContext' => '上下文',
+			'chat.tool.modelOutput' => '输出',
+			'chat.tool.modelMedia' => '媒体',
+			'chat.tool.modelMore' => ({required Object n}) => '… 另有 ${n} 个',
+			'chat.tool.modelOptions' => '原生选项',
+			'chat.tool.modelVision' => '图片',
+			'chat.tool.modelVideo' => '视频',
+			'chat.tool.modelAudio' => '音频',
+			'chat.tool.modelDialogue' => '对话',
+			'chat.tool.modelUtility' => '实用',
+			'chat.tool.modelAgent' => 'Agent',
+			'chat.tool.modelImage' => '生图',
+			'chat.tool.modelSpeech' => '语音',
+			'chat.tool.modelVideoRole' => '视频',
 			'chat.tool.memSourceUser' => '你',
 			'chat.tool.memSourceAi' => 'AI',
 			'chat.tool.firingClaimed' => '已认领',
@@ -3976,6 +4028,8 @@ extension on TranslationsZhCn {
 			'action.expand' => '展开',
 			'action.collapse' => '收起',
 			'action.wrap' => '自动换行',
+			_ => null,
+		} ?? switch (path) {
 			'action.delete' => '删除',
 			'feedback.info' => '提示',
 			'feedback.success' => '成功',
@@ -4002,8 +4056,6 @@ extension on TranslationsZhCn {
 			'feedback.cast.ribbonFailedRun' => '运行失败 · 详情见下方错误',
 			'feedback.cast.gatePill' => 'AI 在等你决定 →',
 			'feedback.cast.livePill' => ({required Object name}) => 'AI 正在编辑 ${name} →',
-			_ => null,
-		} ?? switch (path) {
 			'feedback.cast.tombstone' => '已删除',
 			'feedback.cast.loadFailed' => '加载失败',
 			'feedback.cast.goToEntity' => '去实体页',
@@ -4490,6 +4542,8 @@ extension on TranslationsZhCn {
 			'library.props.toolPickerBuiltin' => '内置工具',
 			'library.props.toolPickerFunctions' => '函数',
 			'library.props.toolPickerHandlers' => '处理器',
+			_ => null,
+		} ?? switch (path) {
 			'library.props.toolPickerMcp' => 'MCP 工具',
 			'library.props.toolPickerAddLiteral' => ({required Object q}) => '按原文添加 “${q}”',
 			'library.props.toolPickerHint' => '从下方挑选，或输入作用域如 Bash(git:*) 后回车。',
@@ -4516,8 +4570,6 @@ extension on TranslationsZhCn {
 			'library.props.time.daysAgo' => ({required Object n}) => '${n} 天前',
 			'library.slash.text' => '正文',
 			'library.slash.h1' => '标题 1',
-			_ => null,
-		} ?? switch (path) {
 			'library.slash.h2' => '标题 2',
 			'library.slash.h3' => '标题 3',
 			'library.slash.bulleted' => '无序列表',
@@ -5004,6 +5056,8 @@ extension on TranslationsZhCn {
 			'settings.spend.empty' => '这 30 天没有用自己的 key 生成过东西。',
 			'settings.spend.unavailable' => '读不到支出台账。',
 			'settings.spend.estimateNote' => '用量是数出来的;金额是**估算**——按手写价目表算,权威以供应商账单为准。免费档的用量在上面那张卡里。',
+			_ => null,
+		} ?? switch (path) {
 			'settings.spend.catImage' => '图像',
 			'settings.spend.catSpeech' => '语音',
 			'settings.spend.catVideo' => '视频',
@@ -5030,8 +5084,6 @@ extension on TranslationsZhCn {
 			'attach.loadingAudio' => '正在加载音频…',
 			'attach.audioPlaybackFailed' => '播放失败 — 点按重试',
 			'attach.audioPlaybackOffline' => '已离线 — 点按重试播放',
-			_ => null,
-		} ?? switch (path) {
 			'attach.audioPlaybackUnavailable' => '暂不能播放',
 			'attach.viewFullSize' => '查看大图',
 			'attach.closeViewer' => '关闭',

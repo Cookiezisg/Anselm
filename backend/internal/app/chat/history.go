@@ -202,6 +202,20 @@ func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) (
 	if len(ids) == 0 || h.svc.deps.Attachments == nil {
 		return llminfra.LLMMessage{Role: llminfra.RoleUser, Content: text}, nil
 	}
+	// The provider-facing media parts intentionally contain bytes/leases, not the opaque
+	// attachment identity that attachment tools need. Keep that identity in a model-only
+	// directory so a fresh upload can be inspected directly instead of making the model
+	// guess an illustrative schema value and pay for a failed tool call first.
+	//
+	// provider-facing 媒体 part 故意只带字节/lease，不带附件工具所需的 opaque 身份。把身份放进
+	// 只给模型看的目录，使刚上传的附件可以直接检查，而不是让模型猜 schema 示例 `att_...`，先白付一次失败调用。
+	if hint := renderAttachmentToolHint(ids); hint != "" {
+		if text != "" {
+			text = hint + "\n\n" + text
+		} else {
+			text = hint
+		}
+	}
 
 	parts, err := h.svc.deps.Attachments.ToContentParts(ctx, ids, h.caps)
 	if err != nil {
@@ -214,6 +228,29 @@ func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) (
 	}
 	msg.Parts = append(msg.Parts, parts...)
 	return msg, nil
+}
+
+// renderAttachmentToolHint makes the exact IDs from this user turn available to attachment
+// tools without changing the persisted user bubble. The order matches the media parts appended
+// below, which lets the model correlate a mixed upload without a workspace-wide search.
+//
+// renderAttachmentToolHint 把本回合的精确 id 提供给附件工具，但不改变持久化 user 气泡。顺序与
+// 下方追加的媒体 part 一致，故混合上传也能在不扫 workspace 的情况下完成对应。
+func renderAttachmentToolHint(ids []string) string {
+	if len(ids) == 0 {
+		return ""
+	}
+	var b strings.Builder
+	b.WriteString("<uploaded_attachments_for_tools>\n")
+	b.WriteString("Use these exact opaque IDs for this message's attachments. Never copy an illustrative schema value. For read_attachment use key id; for inspect_media use key attachmentId.\n")
+	for i, id := range ids {
+		if strings.TrimSpace(id) == "" {
+			continue
+		}
+		fmt.Fprintf(&b, "- position %d: id=%s; attachmentId=%s\n", i+1, id, id)
+	}
+	b.WriteString("</uploaded_attachments_for_tools>")
+	return b.String()
 }
 
 // userText concatenates a turn's text blocks (newline-joined). User turns carry only text blocks;

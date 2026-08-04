@@ -11,6 +11,8 @@ import (
 	documenttool "github.com/sunweilin/anselm/backend/internal/app/tool/document"
 	functiontool "github.com/sunweilin/anselm/backend/internal/app/tool/function"
 	handlertool "github.com/sunweilin/anselm/backend/internal/app/tool/handler"
+	mcptool "github.com/sunweilin/anselm/backend/internal/app/tool/mcp"
+	memorytool "github.com/sunweilin/anselm/backend/internal/app/tool/memory"
 	skilltool "github.com/sunweilin/anselm/backend/internal/app/tool/skill"
 	triggertool "github.com/sunweilin/anselm/backend/internal/app/tool/trigger"
 	workflowtool "github.com/sunweilin/anselm/backend/internal/app/tool/workflow"
@@ -33,6 +35,9 @@ func TestDestructiveDeleteToolsHaveNonBypassableDangerFloors(t *testing.T) {
 		{"delete_approval", &approvaltool.DeleteApproval{}, toolapp.DangerDangerous},
 		{"delete_skill", &skilltool.DeleteSkill{}, toolapp.DangerDangerous},
 		{"delete_trigger", &triggertool.DeleteTrigger{}, toolapp.DangerDangerous},
+		{"forget_memory", &memorytool.ForgetMemory{}, toolapp.DangerDangerous},
+		{"install_mcp_server", &mcptool.InstallServer{}, toolapp.DangerDangerous},
+		{"uninstall_mcp_server", &mcptool.UninstallServer{}, toolapp.DangerDangerous},
 		{"delete_document", &documenttool.DeleteDocument{}, toolapp.DangerCautious},
 	}
 	for _, tc := range tooled {

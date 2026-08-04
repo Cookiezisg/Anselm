@@ -187,39 +187,79 @@ Widget _issue(
 
 // ── mcp lifecycle (F13): install / uninstall / reconnect → a ServerStatus card ──
 
-/// The mcp server-status receipt — connected → tool count; else red 未连接 (auto-expand). mcp 状态回执。
+/// The MCP server-status receipt. `ready` is the canonical healthy state; `connected`
+/// remains a wire-compatibility alias for older stored tool results. `degraded` is callable
+/// but deserves a warning, not a false failure. MCP 状态回执：ready 是真实成功态，connected
+/// 仅兼容旧回执；degraded 仍可调用但应显示警告，不能误报失败。
 ToolReceipt? mcpStatusReceipt(Translations t, String output) {
   final o = _obj(output);
   final status = o?['status'];
-  if (status is! String) return null;
-  final connected = status == 'connected';
+  if (status is! String) {
+    return _mcpLifecycleErrorLike(output)
+        ? (text: t.chat.tool.mcpError, tone: ToolReceiptTone.danger)
+        : null;
+  }
   final tools = (o!['tools'] as List?)?.length ?? 0;
-  return connected
-      ? (
-          text: t.chat.tool.mcpToolCount(n: '$tools'),
-          tone: ToolReceiptTone.none,
-        )
-      : (text: t.chat.tool.mcpDisconnected, tone: ToolReceiptTone.danger);
+  return switch (status) {
+    'ready' || 'connected' => (
+      text: t.chat.tool.mcpToolCount(n: '$tools'),
+      tone: ToolReceiptTone.none,
+    ),
+    'degraded' => (text: t.chat.tool.mcpDegraded, tone: ToolReceiptTone.warn),
+    _ => (text: t.chat.tool.mcpDisconnected, tone: ToolReceiptTone.danger),
+  };
 }
 
 bool mcpStatusFailed(String output) {
-  final s = _obj(output)?['status'];
-  return s is String && s != 'connected';
+  final o = _obj(output);
+  final s = o?['status'];
+  if (s is String) {
+    return s != 'ready' && s != 'connected' && s != 'degraded';
+  }
+  // Tool execution errors are surfaced as plain text by the loop. Install/reconnect used to
+  // remain green because this predicate only understood the successful JSON status shape.
+  // 工具执行错误经 loop 以纯文本浮出；此前这里只认成功 JSON，导致安装/重连失败仍显绿。
+  return _mcpLifecycleErrorLike(output);
 }
 
-/// mcp lifecycle body — a status badge + tool count + the tool names + the last error (if disconnected).
+bool _mcpLifecycleErrorLike(String output) {
+  final text = output.trim();
+  if (text.isEmpty) return false;
+  final lower = text.toLowerCase();
+  return RegExp(r'\bmcp_[a-z0-9_]+\b').hasMatch(text) ||
+      lower.contains('required environment variables missing') ||
+      lower.contains('mcp server install failed') ||
+      lower.contains('mcp server not found') ||
+      lower.contains('mcp server is not connected') ||
+      lower.contains('mcp server name already exists') ||
+      lower.contains('mcp registry entry not found') ||
+      lower.contains('no package with a supported runtime') ||
+      (lower.contains('mcp oauth') && lower.contains('failed'));
+}
+
+/// mcp lifecycle body — a status badge + tool count + the tool names + the last error (if unhealthy).
 /// mcp 生命周期体:状态章 + 工具数 + 工具名 + 末错。
 Widget mcpStatusBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
   final o = _obj(state.resultText);
   if (o == null) {
+    // A failed tool_result already gets the canonical error section from the chassis. Do not render
+    // the same plain error a second time in the family body; JSON status failures are still projected
+    // below because they are completed tool results with a failed payload, not a failed frame.
+    // 失败 tool_result 已由底盘统一渲染错误区；纯文本错误不在族体重复。JSON 状态失败仍保留在下方投影，
+    // 因为那是 completed 帧里的失败 payload，而不是 error 帧。
+    if (state.phase == ToolCardPhase.failed) return const SizedBox.shrink();
     return Text(
       state.resultText,
-      style: AnText.code.copyWith(color: c.inkMuted),
+      style: AnText.code.copyWith(
+        color: _mcpLifecycleErrorLike(state.resultText) ? c.danger : c.inkMuted,
+      ),
     );
   }
-  final connected = o['status'] == 'connected';
+  final status = o['status'];
+  final healthy = status == 'ready' || status == 'connected';
+  final degraded = status == 'degraded';
   final tools = (o['tools'] as List?)?.whereType<Map>().toList() ?? const [];
   final lastError = o['lastError'] as String?;
   final failures = o['consecutiveFailures'] is int
@@ -235,14 +275,22 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
           AnChip(
-            connected ? t.chat.tool.mcpConnected : t.chat.tool.mcpDisconnected,
-            tone: connected ? AnTone.ok : AnTone.danger,
+            healthy
+                ? t.chat.tool.mcpConnected
+                : degraded
+                ? t.chat.tool.mcpDegraded
+                : t.chat.tool.mcpDisconnected,
+            tone: healthy
+                ? AnTone.ok
+                : degraded
+                ? AnTone.warn
+                : AnTone.danger,
           ),
           Text(
             t.chat.tool.mcpToolCount(n: '${tools.length}'),
             style: AnText.meta.copyWith(color: c.inkFaint),
           ),
-          if (!connected && failures > 0)
+          if (!healthy && failures > 0)
             Text(
               t.chat.tool.mcpFailures(n: '$failures'),
               style: AnText.meta.copyWith(color: c.danger),
@@ -260,7 +308,7 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
           ],
         ),
       ],
-      if (!connected && (lastError ?? '').isNotEmpty) ...[
+      if (!healthy && (lastError ?? '').isNotEmpty) ...[
         const SizedBox(height: AnSpace.s6),
         rawMonoWindow(
           context,
@@ -349,8 +397,40 @@ ToolReceipt? modelConfigReceipt(Translations t, String output) {
   return (text: t.chat.tool.modelAvail(n: '$n'), tone: ToolReceiptTone.none);
 }
 
-/// get_model_config body — default models (per-role) + api-key count + available-model chips.
-/// get_model_config 体:默认模型 + 密钥数 + 可用模型。
+String _modelConfigCompact(dynamic value) {
+  final n = value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+  if (n <= 0) return '—';
+  if (n >= 1000000) {
+    return '${(n / 1000000).toStringAsFixed(n % 1000000 == 0 ? 0 : 1)}M';
+  }
+  if (n >= 1000) {
+    return '${(n / 1000).toStringAsFixed(n % 1000 == 0 ? 0 : 1)}k';
+  }
+  return '$n';
+}
+
+String _modelConfigMedia(Translations t, Map model) {
+  final media = <String>[];
+  if (model['vision'] == true) media.add(t.chat.tool.modelVision);
+  if (model['video'] == true) media.add(t.chat.tool.modelVideo);
+  if (model['audio'] == true) media.add(t.chat.tool.modelAudio);
+  return media.isEmpty ? '—' : media.join(' · ');
+}
+
+String _modelConfigRole(Translations t, String key) => switch (key) {
+  'dialogue' => t.chat.tool.modelDialogue,
+  'utility' => t.chat.tool.modelUtility,
+  'agent' => t.chat.tool.modelAgent,
+  'image' => t.chat.tool.modelImage,
+  'speech' => t.chat.tool.modelSpeech,
+  'video' => t.chat.tool.modelVideoRole,
+  _ => key,
+};
+
+/// get_model_config body — the tool card is the durable projection of the real config, not just a
+/// count. It omits apiKeyId and encrypted values while keeping defaults, masked key health, endpoints,
+/// and model capabilities visible without trusting prose generated by the model.
+/// get_model_config 体:卡片是真实配置投影,不是只报数量;不泄 apiKeyId/密文,但完整呈现可诊断事实。
 Widget modelConfigBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final t = Translations.of(context);
@@ -362,57 +442,152 @@ Widget modelConfigBody(BuildContext context, ToolCardState state) {
     );
   }
   final defaults = o['defaultModels'];
-  final keys = (o['apiKeys'] as List?)?.length ?? 0;
-  // An available model is {apiKeyId, provider, modelId, displayName, contextWindow} — show the modelId,
-  // NEVER the whole map (which leaks apiKeyId). 可用模型取 modelId、绝不倾倒整 map(会泄漏 apiKeyId)。
-  final avail =
-      (o['availableModels'] as List?)
-          ?.map(
-            (e) => e is Map
-                ? '${e['modelId'] ?? e['displayName'] ?? e['id'] ?? e['name'] ?? ''}'
-                : '$e',
-          )
-          .where((s) => s.isNotEmpty)
-          .toList() ??
-      const [];
+  final keys = (o['apiKeys'] as List?)?.whereType<Map>().toList() ?? const [];
+  final available =
+      (o['availableModels'] as List?)?.whereType<Map>().toList() ?? const [];
+  final keyNames = <String, String>{
+    for (final key in keys)
+      if ('${key['id'] ?? ''}'.isNotEmpty &&
+          '${key['displayName'] ?? ''}'.isNotEmpty)
+        '${key['id']}': '${key['displayName']}',
+  };
+  final defaultRows = <AnKvRow>[];
+  if (defaults is Map) {
+    for (final entry in defaults.entries) {
+      final value = entry.value;
+      final modelId = value is Map ? '${value['modelId'] ?? '—'}' : '$value';
+      final keyName = value is Map ? keyNames['${value['apiKeyId']}'] : null;
+      defaultRows.add(
+        AnKvRow(
+          _modelConfigRole(t, '${entry.key}'),
+          keyName == null || keyName.isEmpty || modelId == 'not configured'
+              ? modelId
+              : '$modelId · $keyName',
+          mono: true,
+        ),
+      );
+    }
+  }
+  final keyRows = [
+    for (final key in keys)
+      <String, String>{
+        'name': '${key['displayName'] ?? t.chat.tool.modelUnnamedKey}',
+        'provider': '${key['provider'] ?? '—'}',
+        'masked': '${key['keyMasked'] ?? '—'}',
+        'status': '${key['testStatus'] ?? '—'}',
+      },
+  ];
+  final modelRows = [
+    for (final model in available.take(50))
+      <String, String>{
+        'model': '${model['modelId'] ?? model['displayName'] ?? '—'}',
+        'provider': '${model['provider'] ?? '—'}',
+        'context': _modelConfigCompact(model['contextWindow']),
+        'output': _modelConfigCompact(model['maxOutput']),
+        'media': _modelConfigMedia(t, model),
+      },
+  ];
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
     children: [
-      if (defaults is Map && defaults.isNotEmpty) ...[
-        // A configured scenario's value is a {apiKeyId, modelId} map — show only the modelId (never
-        // the apiKeyId); an unconfigured scenario is the string "not configured". Family KV list
-        // (批6 A-050 — the bare mono colon lines retire). 只显 modelId、不泄 apiKeyId;族键值列。
+      if (defaultRows.isNotEmpty) ...[
         AnFieldSection(
           label: t.chat.tool.modelDefaults,
+          child: AnKv(dense: true, rows: defaultRows),
+        ),
+        const SizedBox(height: AnSpace.s6),
+      ],
+      AnFieldSection(
+        label: t.chat.tool.modelConfigKeysSection,
+        child: keys.isEmpty
+            ? Text(t.chat.tool.modelNoKeys, style: AnText.meta)
+            : AnThinTable(
+                columns: [
+                  AnTableColumn('name', label: t.chat.tool.modelKeyName),
+                  AnTableColumn(
+                    'provider',
+                    label: t.chat.tool.modelKeyProvider,
+                  ),
+                  AnTableColumn('masked', label: t.chat.tool.modelKeyMasked),
+                  AnTableColumn('status', label: t.chat.tool.modelKeyStatus),
+                ],
+                rows: keyRows,
+              ),
+      ),
+      if (keys.any((key) => '${key['baseUrl'] ?? ''}'.isNotEmpty)) ...[
+        const SizedBox(height: AnSpace.s6),
+        AnFieldSection(
+          label: t.chat.tool.modelEndpoints,
           child: AnKv(
             dense: true,
             rows: [
-              for (final e in defaults.entries)
-                AnKvRow(
-                  '${e.key}',
-                  '${e.value is Map ? ((e.value as Map)['modelId'] ?? '') : e.value}',
-                  mono: true,
-                ),
+              for (final key in keys)
+                if ('${key['baseUrl'] ?? ''}'.isNotEmpty)
+                  AnKvRow(
+                    '${key['displayName'] ?? t.chat.tool.modelUnnamedKey}',
+                    '${key['baseUrl']}',
+                    mono: true,
+                  ),
             ],
           ),
         ),
-        const SizedBox(height: AnSpace.s6),
       ],
-      Text(
-        t.chat.tool.modelKeys(n: '$keys'),
-        style: AnText.meta.copyWith(color: c.inkFaint),
+      const SizedBox(height: AnSpace.s8),
+      AnFieldSection(
+        label: t.chat.tool.modelConfigModelsSection,
+        child: modelRows.isEmpty
+            ? Text(t.chat.tool.modelNoModels, style: AnText.meta)
+            : Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnThinTable(
+                    columns: [
+                      AnTableColumn('model', label: t.chat.tool.modelModel),
+                      AnTableColumn(
+                        'provider',
+                        label: t.chat.tool.modelKeyProvider,
+                      ),
+                      AnTableColumn('context', label: t.chat.tool.modelContext),
+                      AnTableColumn('output', label: t.chat.tool.modelOutput),
+                      AnTableColumn('media', label: t.chat.tool.modelMedia),
+                    ],
+                    rows: modelRows,
+                  ),
+                  if (available.length > 50)
+                    Padding(
+                      padding: const EdgeInsets.only(top: AnSpace.s4),
+                      child: Text(
+                        t.chat.tool.modelMore(n: '${available.length - 50}'),
+                        style: AnText.meta,
+                      ),
+                    ),
+                  for (final model in available.take(50))
+                    if ((model['nativeOptions'] as List?)?.isNotEmpty == true)
+                      Padding(
+                        padding: const EdgeInsets.only(top: AnSpace.s4),
+                        child: Wrap(
+                          spacing: AnGap.inline,
+                          runSpacing: AnSpace.s4,
+                          children: [
+                            AnChip(
+                              '${model['modelId'] ?? '—'} · ${t.chat.tool.modelOptions}',
+                              tone: AnTone.none,
+                            ),
+                            for (final option
+                                in (model['nativeOptions'] as List)
+                                    .whereType<Map>())
+                              AnChip(
+                                '${option['label'] ?? option['key'] ?? '—'}',
+                                look: AnChipLook.outlined,
+                                mono: true,
+                              ),
+                          ],
+                        ),
+                      ),
+                ],
+              ),
       ),
-      if (avail.isNotEmpty) ...[
-        const SizedBox(height: AnSpace.s6),
-        Wrap(
-          spacing: AnGap.inline,
-          runSpacing: AnGap.stackTight,
-          children: [
-            for (final m in avail.take(30)) AnChip(m, tone: AnTone.none),
-          ],
-        ),
-      ],
     ],
   );
 }
