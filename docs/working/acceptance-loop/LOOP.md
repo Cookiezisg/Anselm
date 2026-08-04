@@ -31,7 +31,7 @@ landed-into:
 
 统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。定向测试和完整 testend `go test ./...`（scenarios 319.089s）、`make verify`、backend `go test ./...`、锚点、警报、diff check 全绿。
 
-**当前更新（2026-08-04 15:16）。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50**，中央账本 **535 judgments**。两项 MCP 工具均为 `✓✓✓✓✓`，最终 session、五通道证据、前序红修复链和警报复审均已封存。第十批统一长门禁已通过：`make verify` backend/frontend/docs/demo、backend 与 testend 全量 `go test ./...`、anchors 10/10、alarms clean、残留进程和 diff check 均绿。当前只需提交本批；提交后下一原子前线是 `TOOL-101 reconnect_mcp`，主验收循环继续 active。
+**当前更新（2026-08-04 15:16）。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50**，中央账本 **535 judgments**。两项 MCP 工具均为 `✓✓✓✓✓`，最终 session、五通道证据、前序红修复链和警报复审均已封存。第十批统一长门禁已通过：`make verify` backend/frontend/docs/demo、backend 与 testend 全量 `go test ./...`、anchors 10/10、alarms clean、残留进程和 diff check 均绿；本批已提交 `553fa150`。下一原子前线是 `TOOL-101 reconnect_mcp`，主验收循环继续 active。
 
 `TOOL-098` green session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-100552` 的录屏为 `385.805000s / 2784x1808 / 60fps`；五级 `G1/F2/A5/C4/G2` 已写入 `COVERAGE.md`，行状态 `✓✓✓✓✓`。query `database query` 得 4、unmatchable 得 0 且显示 actionable recovery、unfiltered 得 96 且卡片 `first 30 of 96` 可打开有界 JSON tree；messages `1..48`、notifications `1..6`，LLM/REST/SQLite/UI 对齐，frontend/backend 红线为空。正式证据为 `tool-098-formal-100552-green.md`，账本复审为 `tool-098-ledger-alarm-reaudit.md`；观察器一次 30s timeout 已重取最终状态并单独归类，不算产品失败。
 

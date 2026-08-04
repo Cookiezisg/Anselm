@@ -30,12 +30,12 @@ landed-into:
 - 绿证据 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-144146/evidence/tool-100-formal-144146-green.md` 经 judge 写入 `G1/F2/A5/C4/G2`，`TOOL-100` 行为 `✓✓✓✓✓`。
 - 中央账本由 530 增至 **535 judgments**；第十批 `TOOL-091..100` 达到 **50 / 50**。产品格完成，统一长门禁尚未开始；下一步先跑警报检查/复核，再跑完整验证、残留进程检查和工作树审计。
 
-# 2026-08-04 15:16 · 第十批统一长门禁通过，待提交
+# 2026-08-04 15:16 · 第十批统一长门禁通过并提交 `553fa150`
 
 - `alarms.py check`：`clean (535 judgments on record)`；gap/pass-burst/discovery-collapse 均依据 `tool-099-100-ledger-alarm-reaudit.md` 复审并 ack。
 - `make verify`：backend、frontend、docs、demo 全绿；backend `mise exec -- go test ./...` 与 testend `mise exec -- go test ./...` 全绿。
 - anchors `10/10`、`git diff --check`、COVERAGE `TOOL-091..100` 全部 `✓✓✓✓✓`、台架/Context7 残留进程为空；第十批长门禁完成。
-- 当前工作树只含本批验收修复、回归测试、台架清册和同步文档；提交后下一原子前线为 `TOOL-101 reconnect_mcp`，Goal 仍 active。
+- 本批已提交为 `553fa150`，包含本批验收修复、回归测试、台架清册和同步文档；下一原子前线为 `TOOL-101 reconnect_mcp`，Goal 仍 active。
 
 # 2026-08-04 14:38 · TOOL-099 cleanup 暴露 uninstall 无 gate + 模型重试红
 
