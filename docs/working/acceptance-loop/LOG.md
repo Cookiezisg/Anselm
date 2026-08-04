@@ -17,7 +17,7 @@ landed-into:
 - 完整 `make testend` 首轮唯一红线为 `TestP4bMcp_ChatInstallErrorFaces`：`install_mcp_server` 的静态危险下限使真实 chat 回合停在 `streaming` 等待用户批准，旧剧本没有处理 interaction。这是验收剧本缺口，不是 MCP 安装挂死；产品安全门不降低。
 - stop-and-fix：场景现在逐次等待并断言 `danger/install_mcp_server` interaction，模拟用户批准两次后才验证 `MCP_ENV_MISSING`（`STRIPE_API_KEY`）与 `MCP_REGISTRY_NOT_FOUND` 回喂模型、且无 server 残留；MCP 领域文档同步写明安装/卸载即使最终前置失败也必须先过人在环。
 - 定向 `TestP4bMcp_ChatInstallErrorFaces` 通过（`5.78s`），完整 `make testend` 通过，scenarios `292.290s`，退出码 0。当前无 `anselm-testend`/`llama-server` 残留；本批 50/50 长门禁完成，进入最终 `make verify`、审计和提交。
-- 最终 `make verify` 四门全绿（backend/frontend/docs/demo）；`git diff --check` 通过，`anchors.py check` 恢复并通过 10/10，`alarms.py check` 为 `clean (585 judgments)`。锚点答卷留在台架 `RIG_HOME`，不进入仓库。
+- 最终 `make verify` 四门全绿（backend/frontend/docs/demo）；`git diff --check` 通过，`anchors.py check` 恢复并通过 10/10，`alarms.py check` 为 `clean (585 judgments)`。锚点答卷留在台架 `RIG_HOME`，不进入仓库。批次随后提交为 `de146b72`，下一前线 `TOOL-111 get_subagent_trace`。
 
 # 2026-08-04 19:06 · 第十一批 TOOL-110 Subagent 正式收口，50/50
 
