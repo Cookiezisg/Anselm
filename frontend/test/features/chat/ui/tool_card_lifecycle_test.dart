@@ -36,6 +36,16 @@ BlockNode _node(String name, String args, String result) =>
           ..content = {'content': result},
       );
 
+BlockNode _failedNode(String name, String args, String error) =>
+    BlockNode(id: 'tc_${name}_failed', kind: BlockKind.toolCall)
+      ..status = 'completed'
+      ..content = {'name': name, 'arguments': args}
+      ..children.add(
+        BlockNode(id: 'tr_${name}_failed', kind: BlockKind.toolResult)
+          ..status = 'error'
+          ..content = {'content': error},
+      );
+
 Widget _host(Widget c) => TranslationProvider(
   child: MaterialApp(
     theme: AnTheme.light(),
@@ -250,6 +260,44 @@ void main() {
         args: '{"functionId":"fn_1","name":"x","tags":["a"]}',
       );
       expect(spec.verbOf!(t, full, live: false), t.chat.tool.updatedMeta);
+    },
+  );
+
+  testWidgets(
+    'create/edit build failures use explicit failure verbs, never success past tense',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _failedNode(
+              'create_skill',
+              '{"name":"release-notes","description":"d","body":"b"}',
+              'skill name already exists',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('创建技能失败'), findsOneWidget);
+      expect(find.textContaining('已创建技能'), findsNothing);
+      expect(find.text('release-notes'), findsOneWidget);
+
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _failedNode(
+              'edit_skill',
+              '{"name":"release-notes","description":"d","body":"b"}',
+              'skill body is invalid',
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('修改技能失败'), findsOneWidget);
+      expect(find.textContaining('已修改技能'), findsNothing);
     },
   );
 

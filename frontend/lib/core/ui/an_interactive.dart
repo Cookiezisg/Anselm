@@ -104,6 +104,7 @@ class _AnInteractiveState extends State<AnInteractive>
   // trackpad drag a reverse delta → overscroll self-oscillation (探针实证:披露箭头/换件行 flicker)。
   // Flushed to [_hovered] once the scroller settles. press/tap/focus 不冻,只冻 hover;滚停一次应用。
   bool? _pendingHover;
+  bool _hoverFlushScheduled = false;
 
   bool get _canActivate => widget.enabled && widget.onTap != null;
 
@@ -126,15 +127,31 @@ class _AnInteractiveState extends State<AnInteractive>
       _pendingHover = h;
       return;
     }
+    // A settle callback can be waiting for the post-frame boundary while the pointer moves again.
+    // Drop that stale snapshot or it could overwrite the newer direct hover state.
+    // 滚停回调等待帧边界期间指针可能再次移动;清掉旧快照,避免回调覆盖更新后的 hover。
+    _pendingHover = null;
     _set(() => _hovered = h);
   }
 
   @override
   void onHoverScrollSettled() {
-    final h = _pendingHover;
-    if (h == null) return;
-    _pendingHover = null;
-    _set(() => _hovered = h);
+    if (_pendingHover == null || _hoverFlushScheduled) return;
+    _hoverFlushScheduled = true;
+    // ScrollPosition can emit the settling edge from applyContentDimensions while Flutter is in
+    // layout. Calling setState synchronously there throws "Build scheduled during frame". Defer the
+    // one hover repaint to the next frame; the pointer state is still coalesced and never relayouts
+    // the moving scroll content.
+    // ScrollPosition 可能在 applyContentDimensions 的布局阶段发出滚停边沿;此时同步 setState 会炸
+    // “Build scheduled during frame”。把一次 hover 重绘推到下一帧,仍合并指针状态且不重排滚动内容。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _hoverFlushScheduled = false;
+      if (!mounted || hoverScrollActive) return;
+      final h = _pendingHover;
+      _pendingHover = null;
+      if (h == null || h == _hovered) return;
+      _set(() => _hovered = h);
+    });
   }
 
   @override

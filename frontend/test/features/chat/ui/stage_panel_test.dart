@@ -97,6 +97,99 @@ void main() {
   });
 
   testWidgets(
+    'failed live action does not pair the ledger success verb with Failed',
+    (tester) async {
+      final repo = _repo();
+      repo.touchpoints[_conv] = [
+        _tp(
+          'tp_skill_fail',
+          'skill',
+          'release-notes',
+          'release-notes',
+          TouchpointVerb.created,
+        ),
+      ];
+      await tester.pumpWidget(_host(repo));
+      await tester.pump(const Duration(milliseconds: 100));
+
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 1,
+          scope: _scope,
+          id: 'tc_skill_fail',
+          frame: FrameOpen(
+            node: StreamNode(
+              type: 'tool_call',
+              content: {'name': 'create_skill'},
+            ),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 0,
+          scope: _scope,
+          id: 'tc_skill_fail',
+          frame: FrameDelta(chunk: '{"name":"release-notes"}'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 2,
+          scope: _scope,
+          id: 'tc_skill_fail',
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_call',
+              content: {
+                'name': 'create_skill',
+                'arguments': '{"name":"release-notes"}',
+                'entityName': 'release-notes',
+              },
+            ),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 3,
+          scope: _scope,
+          id: 'tr_skill_fail',
+          frame: FrameOpen(
+            parentId: 'tc_skill_fail',
+            node: StreamNode(type: 'tool_result', content: {}),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 4,
+          scope: _scope,
+          id: 'tr_skill_fail',
+          frame: FrameClose(
+            status: 'error',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {'content': 'skill name already exists'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text(t.chat.stage.rowFailed), findsOneWidget);
+      expect(find.text(t.feedback.cast.verb.created), findsNothing);
+    },
+  );
+
+  testWidgets(
     'a streamed create_document auto-expands its live row, dwells on settle, then curtain-collapses',
     (tester) async {
       final repo = _repo();

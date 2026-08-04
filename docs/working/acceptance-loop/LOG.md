@@ -12,6 +12,92 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-04 19:47 · 第十一批统一长门禁通过，发现并修正 MCP danger-gate 场景缺口
+
+- 完整 `make testend` 首轮唯一红线为 `TestP4bMcp_ChatInstallErrorFaces`：`install_mcp_server` 的静态危险下限使真实 chat 回合停在 `streaming` 等待用户批准，旧剧本没有处理 interaction。这是验收剧本缺口，不是 MCP 安装挂死；产品安全门不降低。
+- stop-and-fix：场景现在逐次等待并断言 `danger/install_mcp_server` interaction，模拟用户批准两次后才验证 `MCP_ENV_MISSING`（`STRIPE_API_KEY`）与 `MCP_REGISTRY_NOT_FOUND` 回喂模型、且无 server 残留；MCP 领域文档同步写明安装/卸载即使最终前置失败也必须先过人在环。
+- 定向 `TestP4bMcp_ChatInstallErrorFaces` 通过（`5.78s`），完整 `make testend` 通过，scenarios `292.290s`，退出码 0。当前无 `anselm-testend`/`llama-server` 残留；本批 50/50 长门禁完成，进入最终 `make verify`、审计和提交。
+- 最终 `make verify` 四门全绿（backend/frontend/docs/demo）；`git diff --check` 通过，`anchors.py check` 恢复并通过 10/10，`alarms.py check` 为 `clean (585 judgments)`。锚点答卷留在台架 `RIG_HOME`，不进入仓库。
+
+# 2026-08-04 19:06 · 第十一批 TOOL-110 Subagent 正式收口，50/50
+
+- 首轮真实负向路径冻结为红：非法 `subagent_type=Nope` 在后端校验前没有启动子运行，但前端仍显示 `Spawned subagent Nope · failed`，并展示“轨迹仅流不落盘——用 get_subagent_trace 回放”，产品语义错误；红证据保留在 session `20260804-185546`，不计绿。
+- stop-and-fix：Subagent 卡片增加失败动词与未启动说明；校验失败不再展示轨迹回放提示，也不把错误结果重复渲成子代理回答；补双语 i18n、widget regression、frontend chat reference 与 backend subagent reference。`make gen`、Dart format 和 `tool_card_subagent_test.dart` 全绿。
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-190256` 使用修复后二进制、真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和窗口录屏。正向 Explore 只派一次，真实读取 `CLAUDE.md` 并返回 `Anselm — Agent 工作守则`；负向只一次校验错误，UI 明确 `Subagent validation failed · not started`。
+- 五通道封口：`rig-check.sh` 全绿，screen.mov 可读；正向 SSE 恰一个 `subagent:true` 子消息，负向为 0；LLM wire 全 200；backend 只有预期 validation WARN；frontend 无 Flutter/AX/Unhandled/断连红线。正式证据为 `evidence/TOOL-110.md`，警报重审为 `evidence/tool-110-ledger-alarm-reaudit.md`。
+- 锚点 10/10 校准有效，`judge.py` 五格 `G1/F2/A5/C4/G2` 已写入，COVERAGE `TOOL-110=✓✓✓✓✓`，中央账本 `580→585 judgments`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按真实录屏、负向红证据、五通道 journal 和回归测试重审并 ack，`alarms.py check` clean。第十一批达到 **50 / 50**，现执行唯一一次长门禁与提交；下一前线为 `TOOL-111 get_subagent_trace`。
+
+# 2026-08-04 18:10 · TOOL-108 delete_skill 正式收口，40/50
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-180135` 使用真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和 `564.176667s` 录屏。前置负向路径验证模型自报 `danger=safe` 不会越过静态危险下限；不存在目标 `missing-skill-108` 在危险闸上点击 Deny 后只形成一次 `Denied`，没有执行和重试。
+- 正向 fixture `delete-target-108` 在用户明确确认后点击 Allow，UI 逐帧显示一次 `Dangerous · Awaiting your approval`、一次 `Deleted skill … · deleted` activity 和成功反馈；目标目录消失，`GET /api/v1/skills` 不再列出目标，单项 GET 为 `404 SKILL_NOT_FOUND`，其余 fixture 不受影响。
+- 五通道封口：SSE 有一次 `skill.deleted`、一次 `deleted` touchpoint 和一次成功 `tool_result`；LLM wire 只有一次 `delete_skill` mutation 和一次最终报告；backend 无 WARN/ERROR/panic/fatal，frontend 无 Flutter/Dart/Unhandled/Build scheduled 红线；`rig-check.sh` 五通道全绿，`rig-down.sh` 成功停止全部观察器并保留 journals/录屏。
+- `judge.py` 已写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-108=✓✓✓✓✓`，中央账本 `570→575 judgments`。五格写入触发 `gap-too-fast` 与 `discovery-collapse`，已依据正式录屏、负向路径、五通道证据与 anchors 10/10 写入 `evidence/tool-108-ledger-alarm-reaudit.md` 并串行 ack；最终 `alarms.py check` 为 `clean (575 judgments)`。第十一批 **40 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-109 run_skill_script`。
+
+# 2026-08-04 18:00 · TOOL-107 edit_skill 正式收口，35/50
+
+- 本格先后冻结四条真实红线且全部不计账：`173117` 为 Computer Use 换行误提交；`173358` 为 Flutter `Build scheduled during frame`，栈落在 `AnInteractive.onHoverScrollSettled`；`174614` 为托管模型把 `disableModelInvocation:false` 字符串化后首次 edit 失败并违规重试；`175039` 为缺失 skill 的 `skill not found` 被重复执行两次并形成两张红卡。红证据均保留在对应 session 的 `evidence/`。
+- stop-and-fix：`AnInteractive` settle 改为 post-frame flush，增加布局阶段回归；Skill CRUD 增加精确 bool 字符串兼容，数字/模糊 truthy 仍拒绝；`EditSkill.HaltOnRepeat` 将 `skill not found` 标为本回合终局，后续重复只 ledger suppress；backend/frontend 领域文档与定向测试同步。
+- 最终正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-175428` 使用新 binary、真实 Flutter App、真实受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和窗口录屏 `130.763333s`。成功路径一次 `get_skill` + 一次 `edit_skill`，Activity 只有 `Edited`；缺失路径只有一张 `Failed`，错误为 `skill not found`，侧幕 `Draft unsaved · truth is still the last version`，无第二 tool call、无创建残留。
+- `rig-check.sh` 五通道全绿；backend 无 WARN/ERROR/panic（唯一失败行为是预期 missing-skill）；frontend 只有已知 foreground 诊断，无 Flutter exception；SSE/LLM wire/SQLite/文件系统/UI 一致。`judge.py` 已写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-107=✓✓✓✓✓`，中央账本 `565→570 judgments`。
+- 写账触发 `gap-too-fast` 与 `discovery-collapse`；anchor 10/10 校准、四条红证据、最终绿 session、回归结果和 `tool-107-ledger-alarm-reaudit.md` 已完成重审并串行 ack，最终 `alarms.py check` 为 `clean (570 judgments)`。第十一批 **35 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-108 delete_skill`。
+
+# 2026-08-04 17:19 · TOOL-106 create_skill 正式收口，30/50
+
+- 前置红 session 已保留并驱动修复：`170849` 记录托管模型将 `allowedTools`/`arguments` 发成 JSON 数组字符串，旧执行层拒绝后模型重复调用；`171251` 记录模型省略可选元数据；`171503` 记录重名失败时 Activity rail 错把成功动词与 `Failed` 并列。三份红证据均不计绿。
+- stop-and-fix 增加 create/edit skill 共用的精确数组字符串兼容解码，只接受原生字符串数组或完整 JSON 数组编码字符串，普通标量/对象/混合数组/非法编码继续拒绝；工具描述明确 required/optional 元数据。中心卡片和侧幕失败态统一使用明确失败语义；Go/Flutter 定向守卫测试与 skill/chat 文档同步。
+- 正式绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-171941` 使用新 binary、真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和 `333.665000s` 录屏。成功路径只创建一次 `release-notes-106e`，卡片展示完整元数据与正文，Activity 只有 `Created`；重名路径只调用一次，中心显示 `Create skill failed` 与 `skill name already exists`，侧幕只显示 `Failed` 和 `Draft unsaved · nothing was created`，无 retry、第二条 mutation 或矛盾成功卡。
+- 五通道封口：`rig-check.sh` 全绿；D1、backend、SSE 三流、Flutter runner、window recorder、LLM tap 均归属同一 session；backend 仅预期重名 WARN，无 panic/fatal；frontend 只有已知 foreground 诊断，无 Flutter/Dart/Unhandled 红线；SSE/SQLite/LLM wire/UI 一致。正式证据 `evidence/tool-106-formal-171941-green.md`，台架已收台且 journals/录屏保留。
+- 锚点因超过 4 小时先被 gate 正确拒绝，随后重新完成 10/10 校准；`judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，COVERAGE `TOOL-106` 为 `✓✓✓✓✓`，中央账本 `560→565 judgments`。五格写入触发的 `gap-too-fast` 与 `discovery-collapse` 已依据正式正负路径、三份红证据、五通道 session 和新锚点复审并 ack，说明为 `evidence/tool-106-ledger-alarm-reaudit.md`，`alarms.py check` clean。第十一批当前 **30 / 50**，下一原子前线为 `TOOL-107 edit_skill`，未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-04 17:02 · TOOL-105 get_skill 正式收口，25/50
+
+- existing 路径在真实 App 中严格执行一次 `get_skill(name=deploy-helper)`，禁止 activate/create/edit/mutate/retry。结构化 card 显示 identity、description/context/source、allowed-tools chips 和完整 Markdown body；逐帧展开 `raw result` 后核对未过滤的 opaque allowed-tool、workspace dir、ISO `updatedAt`、完整 frontmatter/body。助手 prose 中的机器值被全局法条脱敏，这是安全边界，不把 redaction 误判为数据损坏，也不放开全局 redactor。
+- missing 路径在隔离新 chat 中严格执行一次 `get_skill(name=missing-skill-105)`，禁止 retry/activate/create/edit/mutate。App 只显示一张 `Viewed skill missing-skill-105 · failed` 和清楚的 `skill not found`；SSE 是单次 `tool_call → error tool_result`，backend 唯一 WARN 是预期的工具失败审计，没有第二次调用或伪造成功。
+- 五通道封口：session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-165430` 的真实 Flutter/managed gateway/Computer Use 录屏为 `276.158333s / 2784x1808 / 60fps`；`rig-check` 全绿；SSE、SQLite、LLM wire、backend/frontend 与画面一致，frontend 只有已知 recorder 启动诊断而无 Flutter/Dart/Unhandled 红线；rig-down 后进程清零。正式证据 `evidence/tool-105-formal-165430-green.md`。
+- `judge.py` 写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-105` 为 `✓✓✓✓✓`，中央账本 `555→560 judgments`；`gap-too-fast`、`pass-burst`、`discovery-collapse` 已以 existing raw-result 展开、missing 负路径和五通道复审说明 ack，`alarms.py check` clean。第十一批当前 **25 / 50**，下一原子前线为 `TOOL-106 create_skill`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-04 16:52 · TOOL-104 activate_skill 正式收口，20/50
+
+- 首轮真实红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-164045` 暴露托管模型将 `arguments` 从公开 schema 的 `array<string>` 编成 JSON 数组字符串；旧执行层正确拒绝，App 显示失败卡，模型随后改发原生数组并重复执行。红证据 `evidence/tool-104-red-stringified-arguments.md` 保留，不计绿。Computer Use 当轮还用带换行的 `type_text` 编写 fixture，造成 prompt 分裂，作为仪器噪声单独记录。
+- stop-and-fix 增加窄兼容解码：原生数组和完整 JSON 数组字符串可用，null/省略仍可选；普通字符串、数字、对象、混合数组和非法编码明确拒绝，不做静默拆词。同步 `activate_test.go` 与 skill 领域文档，定向 Go 测试通过。
+- 正式绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-164732` 使用新 binary、真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和录屏。LLM wire 实际发字符串化数组但只执行一次；App 只有一张成功 `Activated skill activation-104` 卡，显示 `Audience: $audience`、`First positional: design`、`All positional: design review`，没有红色失败/重试卡。`$audience` 保持字面量是因为 fixture 没有 `arguments: audience` frontmatter，不属于本格缺陷。
+- 五通道封口：`rig-check.sh` 全部通过；screen recording `198.910000s / 2784x1808 / 60fps`；SSE 为单次 tool-call/result/touchpoint/assistant close，SQLite/工具结果一致；backend 无 WARN/ERROR/panic/fatal，frontend 只有已知 recorder 启动诊断而无 Flutter/Dart/Unhandled 红线；rig-down 后进程与录屏均封口。正式证据 `evidence/tool-104-formal-164732-green.md`。
+- `judge.py` 已写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-104` 为 `✓✓✓✓✓`，中央账本 `550→555 judgments`；`gap-too-fast` 与 `discovery-collapse` 按红绿双轮和五通道复审说明 ack，`alarms.py check` clean。第十一批当前 **20 / 50**，下一原子前线为 `TOOL-105 get_skill`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-04 16:36 · TOOL-103 get_mcp_call 正式收口，15/50
+
+- 首轮红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-163003` 真实走完 `get_mcp_call` 读回路径，但模型连续把记录里的 opaque `callId` 从 `...bfa41` 抄成 `...bba41`。后端正确返回 `mcp call not found`，App 显示红色失败卷宗，LLM 还错误声称已逐字复制；红证据 `evidence/tool-103-red-opaque-id-copy.md` 保留，不计绿。这是模型抄写负路径，不擅自改 API 做模糊匹配。
+- 正式绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-163620` 使用真实 Context7 历史调用，在干净台架中以 verbatim JSON 参数调用 `get_mcp_call` 一次。App 显示 `Opened MCP-call record · Completed · 2.0s`，dossier 展示 id、serverId、tool、status、triggeredBy、input、output、elapsedMs 与安全脱敏字段；SQLite 目标行为 `ok/chat/1990ms`，SSE messages 记录 exact tool argument、tool_result open/close 和 durable close，LLM tap 记录相同参数与结果。
+- 五通道封口：`rig-check.sh` 收台前通过；window recording `72.616667s / 2784x1808 / 60fps`；正式绿 backend journal 无 WARN/ERROR/panic/fatal，frontend console 无 Dart/Unhandled 红线，LLM upstream 全链路经 llmtap。正式证据 `evidence/tool-103-formal-163620-green.md`，红证据另存。
+- `judge.py` 已写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-103` 为 `✓✓✓✓✓`，中央账本 `545→550 judgments`；五格写入触发的 `gap-too-fast` 与 `discovery-collapse` 已依据负路径、正式绿 session、原始五通道证据和录屏复审并 ack，`alarms.py check` 为 `clean (550 judgments)`。
+- 第十一批当前 **15 / 50**，下一原子前线 `TOOL-104 activate_skill`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-04 16:17 · TOOL-102 search_mcp_calls 正式收口，10/50
+
+- 首轮真实红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-160132` 冻结托管模型发送 `limit:"1"` 后后端类型错误、模型重复发送 `limit:1` 的产品红：用户要求 exactly once，但 App 出现失败卡和成功卡。红证据 `evidence/tool-102-formal-160132-red-stringified-limit-retry.md` 保留，不计绿；同一 session 也确认 MCP 服务返回 `IsError=false` 的业务文本应保持 `status=ok`，不由产品猜测改成 failed。
+- stop-and-fix 在 `search_mcp_calls` 执行解码层复用现有 `search_handler_calls` / `search_activations` 先例：原生整数和精确十进制字符串可用，浮点、数组、布尔、对象和非整数文本拒绝；schema 描述、MCP 领域文档和单测同步。定向 Go 回归、`make -C docs verify`、gofmt、diff check 通过。
+- 正式绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-161720` 从 fresh onboarding 和真实 Context7 安装开始，完成合法/空参数两次真实 `resolve-library-id`、一次 `search_mcp_calls(limit=1)` 与一次 `nextCursor` 翻页。App 卡片显示一条有界记录、`hasMore=true`、`okCount:2/failedCount:0`，第二页唯一更旧记录后 `hasMore=false`；SQLite 两行均 `status=ok`，SSE/LLM/backend/frontend 与画面一致，无失败重试卡。
+- 五通道封口：`rig-check.sh` 收台前全绿，screen recording `255.123333s / 2784x1808 / 60fps`，ssetap/llmtap/backend/frontend/Flutter runner 归属完整；正式证据 `evidence/tool-102-formal-161720-green.md`，账本复审 `tool-102-ledger-alarm-reaudit.md`。`judge.py` 写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-102` 为 `✓✓✓✓✓`，中央账本 `540→545 judgments`；警报已复审 ack，`alarms.py check` 为 `clean (545 judgments)`。
+- 第十一批当前 **10 / 50**，下一原子前线 `TOOL-103 get_mcp_call`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-04 16:00 · TOOL-101 reconnect_mcp 正式收口，5/50
+
+- 三次真实红均保留并驱动修复：`152538` 缺少结构化 `connectedAt`，`153910` 暴露 label/value 形状，`154256` 暴露 Markdown 加粗标签跨 chunk 的 vague placeholder 泄漏；三份红证据不计绿。
+- 正式绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-155203` 从 fresh onboarding 和真实 Context7 安装/Allow 开始；外部终止 MCP 进程组后，真实 App 一次 reconnect 成功恢复 `disconnected → connecting → ready`，结构化卡片显示 `connected`、2 tools 与本地化 `Connected at · 2026-08-04 15:54`，正文明确指向 MCP status card。
+- 第二次 reconnect 未形成重复执行；`missing-server-101` 只产生一张明确失败卡与 `mcp server not found`，没有 retry。后端只留下这条预期负路径 WARN，没有外部 kill 的权限警告；前端无 Flutter/Dart/RenderFlex/Unhandled 红线。
+- 五通道封口：window recording `203.746667s / 2784x1808 / 60fps`；SSE messages durable `1..37`、notifications `1..6` 单调，entities 捕获生命周期信号；LLM tap 观察到的 upstream responses 全 HTTP 200；`rig-check` 收台前通过全部五个物理观察器，`rig-down` 后进程清零。正式证据 `evidence/tool-101-formal-155203-green.md`。
+- `go test ./internal/app/loop ./internal/infra/sandbox ./internal/app/mcp ./internal/app/tool/mcp`、Flutter 生态测试 `13/13`、gofmt、生成 i18n、diff check 全绿。anchors 10/10 重校后，`judge.py` 写入 `G1/F2/A5/C4/G2`，COVERAGE `TOOL-101` 为 `✓✓✓✓✓`，中央账本 `535→540 judgments`。
+- 五格批量写入触发 `gap-too-fast` 与 `discovery-collapse`；已依据三份红证据、正式绿 session、五通道日志和 `tool-101-ledger-alarm-reaudit.md` 复审并 ack，正式 `alarms.py check` 为 `clean (540 judgments)`。第十一批当前 **5 / 50**，下一原子前线 `TOOL-102 search_mcp_calls`；未到 50 格不跑统一长门禁、不提交。
+
+# 2026-08-04 · TOOL-101 reconnect_mcp 首轮红冻结与 stop-and-fix
+
+- 真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-152538` 从新 workspace onboarding 开始，安装 `io.github.upstash/context7` 后由台架外部终止旧 MCP 进程，再在真实 App 中严格执行一次 `reconnect_mcp(name=context7)`。重连成功，实体状态为 `disconnected → connecting → ready`，SSE 有对应 status signal/notification，REST 与 tool result 均为 ready、2 tools，LLM wire 全 HTTP 200。
+- 逐帧产品复核发现红：最终助手表格把 `Connected at` 渲成 `the recorded time`；结构化 MCP status card 没有展示后端已有的 `connectedAt`，用户无法知道重连完成时点。红证据 `evidence/tool-101-formal-152538-red-vague-connected-at.md` 已封存，TOOL-101 未写 `judge.py`，COVERAGE 仍为 `·····`。
+- stop-and-fix 保持全局 raw ISO 脱敏边界：MCP 表格改为明确指向状态卡，状态卡新增本地化绝对连接时间；Unix Sandbox cleanup 与 shell 回收器一致，在外部断连/进程组形状竞态时对 direct child 做幂等 fallback。同步 backend MCP/sandbox、frontend chat 文档和 i18n。
+- 回归已通过：`go test ./internal/app/loop ./internal/infra/sandbox ./internal/app/mcp ./internal/app/tool/mcp`、Sandbox 外部整组终止后再次 cleanup 测试、`flutter test test/features/chat/ui/tool_card_ecosystem_test.dart`（13 项）、`dart run slang`、`gofmt`、`git diff --check`。当前台架已收台，原始 journals/录屏/evidence 保留；下一步重新起 rig，用新 binary 完成成功重连、missing-name 失败不重试、最终 UI 与五通道健康复核。
+- 第二次新 binary session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-153910` 的安装 Allow 已完成，但逐帧发现安装结果是 label/value 形状而非 Markdown 表格，仍显示 `Connected at: the recorded time`；红证据 `evidence/tool-101-formal-153910-red-bullet-connected-at.md` 已封存，台架已收台，不计绿。随后将规则提升为 label/value 与表格双形状，并新增跨 chunk 回归；`go test ./internal/app/loop -count=1` 通过。必须再用新 binary 复验，不能把单测或前两次红 session 当作绿证据。
+
 # 2026-08-04 15:05 · TOOL-099/100 修复后正式成功，等待五级账本写入
 
 - 最终 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-144146` 使用修复后二进制、真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journals；录屏 `1172.000000s / 2784x1808 / 60fps`，台架已由 `rig-down.sh` 收台。
@@ -1331,3 +1417,11 @@ landed-into:
 - SQLite 对证：run `fr_72aedca131ce4031` 为 `completed/replay_count=1`，四节点 completed；flaky handler `failed=1, ok=1`，stable/finish function 各执行一次，已完成节点没有重跑。正向真实成功路径沿用 session `20260803-044843`，显示 `Replayed run … · Completed · 4 nodes`，marker `TOOL072_REPLAY_DONE`。
 - 台架卫生：专用 workspace `ws_f68e2c882a19940f` 通过真实 workspace DELETE=204 清除；`ws_23d0c85d912ce656` 的 workflow/functions/handler/conversation 均 DELETE=204、GET=404，四类 live 列表为空，SQLite 主行保留 `deleted_at` 审计，最后保留一个空 workspace。
 - 五级 `G1/F2/A5/C4/G2` 已落账，中央账本由 395 增至 **400 judgments**；`gap-too-fast`、`pass-burst`、`discovery-collapse` 均写复审结论后 ack，`alarms.py check` clean。第八批推进至 **10 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-073 list_approval_inbox`。证据：`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-045854/evidence/tool-072-postfix-acceptance.md`。
+
+## 2026-08-04 18:51 · 第十一批 TOOL-109 run_skill_script 正式收口
+
+- 首次 formal `20260804-181950` 冻结为红：托管模型把 `args`/`timeoutSec` 发成字符串，后端正确拒绝并留下可见失败卡，模型随后重复调用；兼容层只接受精确 JSON 数组/十进制整数字符串，保留其它畸形形状拒绝。formal `20260804-183735` 再冻结为红：lazy 目录摘要只给出 `name, script`，模型先漏掉可选参数而按默认值执行，随后补调用。
+- 修复后正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-184737` 继续暴露一轮真实产品问题：目录虽已显示 optional keys，但缺少 `name=skill slug` 与 `script=relative path` 语义映射，模型首轮漏掉 `name`，产生失败卡。stop-and-fix 将语义映射放入首行摘要并加回归测试；新 binary 重跑后正向只出现一次成功 `run_skill_script`，参数 `args=["alpha","beta"]`、`stdin=hello-109`、`timeoutSec=30` 贯穿 wire、SSE、沙箱 stdout 和 UI，最终回答严格为 `OK`。
+- 同一正式 session 的两个负向路径：`scripts/ghost.py` 只失败一次并显示 `script not found in the skill directory`；`scripts/host.sh` 只失败一次并显示无 sandbox runtime、指向 bash；两者均无 retry、无副作用。`backend.log` 两条 WARN 都是预期业务失败，`frontend.log` 无 Flutter/AX/Unhandled/断连红线。
+- `rig-check` 收台前五通道全绿；录屏封口、三路 SSE 均连接，三条 messages 对话各只有一个 `run_skill_script` tool call，LLM chat wire 全 200，backend/frontend/UI 与沙箱结果一致。正式证据为 `.../sessions/20260804-184737/evidence/TOOL-109.md`，警报复审为 `.../sessions/20260804-184737/evidence/tool-109-ledger-alarm-reaudit.md`。
+- 锚点 10/10 校准通过，`judge.py` 五级 `G1/F2/A5/C4/G2` 已落账，中央账本由 575 增至 **580 judgments**。写入期间 `gap-too-fast` 与 `discovery-collapse` 各触发两次；两轮都用红证据、正式绿 session、五通道 journal 和锚点结果复审后 ack，最终 `alarms.py check` clean。第十一批推进至 **45 / 50**，下一前线 `TOOL-110 Subagent`；未到 50 格不跑统一长门禁、不提交。

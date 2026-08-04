@@ -50,6 +50,28 @@ Inline Skill 渲染：
 - `${CLAUDE_SESSION_ID}`；
 - `${CLAUDE_SKILL_DIR}`。
 
+`activate_skill` 的公开 schema 将 `arguments` 定义为 `array<string>`。为兼容托管模型
+偶尔发出的标量形状，执行层也接受**精确 JSON 数组编码的字符串**（例如
+`"[\"design\",\"review\"]"`），再按数组解码；普通字符串、数字、对象、混合类型数组
+和非法 JSON 字符串仍明确拒绝，不做静默拆词或模糊转换。
+
+`create_skill` 与 `edit_skill` 的 `allowedTools`、`arguments` 同样公开为
+`array<string>`，执行层兼容精确 JSON 数组编码的字符串。该兼容只适用于数组的完整
+JSON 编码；普通字符串、数字、对象、混合类型数组和非法编码仍拒绝，避免一次托管模型
+调用先产生失败卡、再自行重试成第二次写入。
+
+`create_skill` 与 `edit_skill` 的 `disableModelInvocation` 公开为 `boolean`；执行层同时
+接受精确的字符串 `"true"`/`"false"`，以吸收托管模型的标量字符串化。数字、任意 truthy
+文本和对象仍拒绝，不把形状错误扩大成业务语义。
+
+`edit_skill` 对 `skill not found` 声明终局拒绝：同一回合后续完全相同的调用只返回 ledger
+抑制结果，不再次触碰文件系统或制造第二张红卡；下一条用户消息使用新台账，仍可在目标出现后
+有意重试。权限、临时文件系统等其他错误不被这一条吞掉。
+
+`create_skill` 的工具短描述同时列出必填字段 `name/description/body` 与可选的
+`allowedTools/context/agent/arguments/disableModelInvocation`；不能依赖模型从截断的
+工具摘要猜测这些字段。
+
 正文注入当前 Conversation，并把 allowed-tools 记为本次运行的预授权。Skill
 不是限制白名单；未预授权的 dangerous tool 仍进入逐次 HumanLoop。激活不执行
 反引号 shell substitution。
@@ -93,11 +115,14 @@ sidecar。
 
 ## 5. 脚本与投影
 
-`run_skill_script` 只运行 Files 列表中的脚本：
+`run_skill_script` 只运行 Files 列表中的脚本。调用时 `name` 是 skill slug（用户所说的
+skill 名），`script` 是相对该 skill 目录的脚本路径；这样在 lazy 工具尚未激活完整
+schema 时，目录摘要也能把用户语义映射到正确的必填键：
 
 - `.py`、`.js`、`.mjs`、`.cjs` 进入 Skill 专属 Sandbox env；
 - cwd 与 `CLAUDE_SKILL_DIR` 指向 Skill 目录；
 - Python requirements 可形成 env dependencies；
+- `args` 的公开类型是字符串数组，`timeoutSec` 的公开类型是整数；对真实托管 wire 为避免无意义的首呼失败，二者分别额外接受**精确 JSON 数组字符串**与**精确十进制整数字符串**；标量文本、混合数组、浮点、布尔、对象和其它模糊形状仍硬拒；
 - 其它脚本走 host shell，并继续受危险确认。
 
 Skill 进入 Catalog、Mention、Search 和 Relation。Search 只索引 manifest

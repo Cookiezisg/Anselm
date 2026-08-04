@@ -162,11 +162,12 @@ var (
 	// Hold a human-readable entity noun at the end of a delta until the following token arrives.
 	// Otherwise a provider chunk boundary between "workflow " and "wf_…" would make the later
 	// redaction unable to remove the duplicate noun from already-emitted SSE text.
-	entityNounPrefixPattern   = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+(?:\*{1,3}|_{1,3}|` + "`" + `)?$`)
-	isoTimestampPattern       = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}| UTC)?\b`)
-	longIntegerPattern        = regexp.MustCompile(`\b\d{10,}\b`)
-	longHexPattern            = regexp.MustCompile(`\b[0-9a-fA-F]{32,}\b`)
-	positionLinePrefixPattern = regexp.MustCompile(`(?i)^\s*[-*]?\s*position\s+[0-9]+\s*:`)
+	entityNounPrefixPattern            = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+(?:\*{1,3}|_{1,3}|` + "`" + `)?$`)
+	isoTimestampPattern                = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}| UTC)?\b`)
+	mcpConnectionTimestampLabelPattern = regexp.MustCompile(`(?im)^([ \t]*(?:[-•][ \t]+)?(?:\*\*connected at:\*\*|\*connected at:\*|connected at[ \t]*[:|]|connectedat[ \t]*[:|]|connection time[ \t]*[:|]|reconnected at[ \t]*[:|])[ \t]*)` + regexp.QuoteMeta(opaqueTimestampPlaceholder) + `([ \t]*)$`)
+	longIntegerPattern                 = regexp.MustCompile(`\b\d{10,}\b`)
+	longHexPattern                     = regexp.MustCompile(`\b[0-9a-fA-F]{32,}\b`)
+	positionLinePrefixPattern          = regexp.MustCompile(`(?i)^\s*[-*]?\s*position\s+[0-9]+\s*:`)
 )
 
 // redactOpaqueMachineValues protects the user-facing assistant prose. Tool blocks remain
@@ -176,6 +177,7 @@ func redactOpaqueMachineValues(text string) string {
 	// Keep old durable assistant blocks readable after the placeholder vocabulary changes.
 	text = strings.ReplaceAll(text, legacyEntityPlaceholder, opaqueEntityPlaceholder)
 	text = isoTimestampPattern.ReplaceAllString(text, opaqueTimestampPlaceholder)
+	text = redactMCPConnectionTimestampLabelLines(text)
 	text = opaqueWebhookEndpointPattern.ReplaceAllString(text, "See the exact webhook endpoint in the trigger card.")
 	text = opaqueWebhookEndpointPlaceholderPattern.ReplaceAllString(text, "See the exact webhook endpoint in the trigger card.")
 	text = opaqueFlowrunIDTableRowPattern.ReplaceAllString(text, "| **Run** | Current run |")
@@ -290,6 +292,12 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueEntityNounPlaceholderPattern.ReplaceAllString(text, "${1}${2}")
 	text = opaqueEntityIDClausePattern.ReplaceAllString(text, "")
 	text = opaqueEntitySearchBulletPattern.ReplaceAllString(text, "$1")
+	// A workspace id inside a filesystem path becomes a placeholder after the generic entity
+	// pass. Do not leave that placeholder embedded in a path-looking value: it is neither safe to
+	// copy nor honest to present as a path. Keep the field and point to the exact tool card.
+	// workspace id 经过通用实体脱敏后会落在文件路径中。不能把占位符嵌在路径里，既不可复制也不诚实；
+	// 保留字段语义并明确指向精确 tool card。
+	text = redactOpaquePathTableRows(text)
 	// A placeholder inside a Markdown table is still not a user-facing value. During streaming,
 	// replace the cell with an honest unavailable marker; the complete close pass below can remove
 	// an entirely unavailable ID column instead of leaving a misleading header behind.
@@ -299,12 +307,20 @@ func redactOpaqueMachineValues(text string) string {
 	// table cell that looks like a value but only says "the recorded time"; point the reader to the
 	// exact, copyable card instead while keeping the global timestamp redaction boundary intact.
 	text = redactAttachmentTimestampTableRows(text)
+	// MCP lifecycle metadata has the same exact value in the structured status card. Point the
+	// prose row there instead of leaving the vague global timestamp placeholder.
+	text = redactMCPConnectionTimestampTableRows(text)
 	text = removeOpaquePlaceholderIDColumns(text)
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	return longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
 }
 
 const attachmentTimestampTableHint = "See the exact upload time in the attachment card."
+const mcpConnectionTimestampTableHint = "See the exact connection time in the MCP status card."
+
+func redactMCPConnectionTimestampLabelLines(text string) string {
+	return mcpConnectionTimestampLabelPattern.ReplaceAllString(text, "${1}"+mcpConnectionTimestampTableHint+"${2}")
+}
 
 func redactAttachmentTimestampTableRows(text string) string {
 	lines := strings.Split(text, "\n")
@@ -356,6 +372,56 @@ func redactAttachmentTimestampTableRows(text string) string {
 	return strings.Join(lines, "\n")
 }
 
+func redactMCPConnectionTimestampTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := 0; i+2 < len(lines); {
+		header, ok := markdownTableCells(lines[i])
+		if !ok {
+			i++
+			continue
+		}
+		separator, ok := markdownTableCells(lines[i+1])
+		if !ok || len(separator) != len(header) || !isMarkdownTableSeparator(separator) {
+			i++
+			continue
+		}
+
+		timestampColumn := -1
+		for column, cell := range header {
+			label := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
+			if label == "connected at" || label == "connectedat" || label == "connection time" || label == "reconnected at" {
+				timestampColumn = column
+				break
+			}
+		}
+		if timestampColumn < 0 {
+			i += 2
+			continue
+		}
+
+		changed := false
+		lastRow := i + 1
+		for row := i + 2; row < len(lines); row++ {
+			cells, rowOK := markdownTableCells(lines[row])
+			if !rowOK || len(cells) != len(header) {
+				break
+			}
+			lastRow = row
+			if isOpaqueTimestampPlaceholderCell(cells[timestampColumn]) {
+				cells[timestampColumn] = mcpConnectionTimestampTableHint
+				lines[row] = formatMarkdownTableRow(cells)
+				changed = true
+			}
+		}
+		if !changed {
+			i = lastRow + 1
+			continue
+		}
+		i = lastRow + 1
+	}
+	return strings.Join(lines, "\n")
+}
+
 func isOpaqueTimestampPlaceholderCell(cell string) bool {
 	value := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
 	return value == opaqueTimestampPlaceholder
@@ -372,6 +438,34 @@ func redactOpaquePlaceholderTableCells(text string) string {
 		for j, cell := range cells {
 			if isOpaquePlaceholderTableCell(cell) {
 				cells[j] = "-"
+				changed = true
+			}
+		}
+		if changed {
+			lines[i] = formatMarkdownTableRow(cells)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+const opaquePathTableHint = "See the exact path in the tool card."
+
+func redactOpaquePathTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if !ok || len(cells) < 2 {
+			continue
+		}
+		label := strings.ToLower(strings.Trim(strings.TrimSpace(cells[0]), "`*_ "))
+		if label != "cwd" && label != "claude_skill_dir" && label != "skill_dir" && label != "path" && label != "directory" && label != "dir" {
+			continue
+		}
+		changed := false
+		for column := 1; column < len(cells); column++ {
+			value := cells[column]
+			if (strings.Contains(value, opaqueEntityPlaceholder) || strings.Contains(value, legacyEntityPlaceholder)) && strings.Contains(value, "/") {
+				cells[column] = opaquePathTableHint
 				changed = true
 			}
 		}
@@ -540,6 +634,14 @@ func (r *textRedactor) Write(delta string) string {
 	// bounded table until its row boundary is known so a provider chunk cannot strand the row without
 	// its header context.
 	if prefix, held, ok := splitAttachmentTimestampTablePrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	if prefix, held, ok := splitMCPConnectionTimestampTablePrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	if prefix, held, ok := splitMCPConnectionTimestampLabelPrefix(r.pending); ok {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
 	}
@@ -755,6 +857,91 @@ func splitAttachmentTimestampTablePrefix(text string) (prefix, held string, ok b
 		return text[:prefixEnd], text[prefixEnd:], true
 	}
 	return "", "", false
+}
+
+func splitMCPConnectionTimestampTablePrefix(text string) (prefix, held string, ok bool) {
+	lines := strings.SplitAfter(text, "\n")
+	for i := 0; i+1 < len(lines); i++ {
+		headerLine := strings.TrimSuffix(lines[i], "\n")
+		separatorLine := strings.TrimSuffix(lines[i+1], "\n")
+		header, headerOK := markdownTableCells(headerLine)
+		separator, separatorOK := markdownTableCells(separatorLine)
+		if !headerOK || !separatorOK || len(separator) != len(header) || !isMarkdownTableSeparator(separator) {
+			continue
+		}
+
+		timestampColumn := -1
+		for column, cell := range header {
+			label := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
+			if label == "connected at" || label == "connectedat" || label == "connection time" || label == "reconnected at" {
+				timestampColumn = column
+				break
+			}
+		}
+		if timestampColumn < 0 {
+			continue
+		}
+
+		row := i + 2
+		rowEnd := row
+		for rowEnd < len(lines) {
+			candidate := strings.TrimSuffix(lines[rowEnd], "\n")
+			cells, rowOK := markdownTableCells(candidate)
+			if !rowOK || len(cells) != len(header) {
+				break
+			}
+			rowEnd++
+		}
+		if rowEnd == row {
+			return "", text, true
+		}
+
+		prefixEnd := 0
+		for j := 0; j < rowEnd; j++ {
+			prefixEnd += len(lines[j])
+		}
+		if prefixEnd == len(text) {
+			return "", text, true
+		}
+		return text[:prefixEnd], text[prefixEnd:], true
+	}
+	return "", "", false
+}
+
+func splitMCPConnectionTimestampLabelPrefix(text string) (prefix, held string, ok bool) {
+	lineStart := strings.LastIndexByte(text, '\n') + 1
+	line := text[lineStart:]
+	if line == "" || len([]rune(line)) > 512 {
+		return "", "", false
+	}
+	lower := strings.ToLower(line)
+	// A Markdown label can be split before its final character (for example,
+	// "**Connected a" + "t:** ..."). Hold a plausible label prefix before the
+	// generic token flusher gets a chance to emit the partial line.
+	if !strings.Contains(line, "\n") && hasMCPConnectionTimestampLabelPrefix(line) {
+		return text[:lineStart], line, true
+	}
+	if !strings.Contains(lower, "connected at") && !strings.Contains(lower, "connectedat") &&
+		!strings.Contains(lower, "connection time") && !strings.Contains(lower, "reconnected at") {
+		return "", "", false
+	}
+	if !strings.ContainsAny(line, ":|") {
+		return "", "", false
+	}
+	if newline := strings.IndexByte(line, '\n'); newline >= 0 {
+		return text[:lineStart+newline+1], text[lineStart+newline+1:], true
+	}
+	return text[:lineStart], line, true
+}
+
+func hasMCPConnectionTimestampLabelPrefix(line string) bool {
+	normalized := strings.ToLower(strings.TrimSpace(strings.TrimLeft(line, "-•*_` \t")))
+	for _, prefix := range []string{"connected", "connection", "reconnected"} {
+		if strings.HasPrefix(normalized, prefix) {
+			return true
+		}
+	}
+	return false
 }
 
 func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {

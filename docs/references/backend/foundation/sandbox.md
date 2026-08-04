@@ -53,6 +53,8 @@ Bootstrap 只确保根目录/基础状态；失败进入 degraded，用户可
 
 Unix 子进程自成 process group，终止时杀整组，使 npx/uvx wrapper 的后代不会
 成为孤儿；Windows 使用 Job Object/task tree，无法建组时退回单进程。
+若 Unix 进程组已在外部断开或组形状已变化，live cleanup 幂等退回直接 child kill；这只处理
+清理动作的竞态，不放宽 Boot 回收器的整组存活与 PID 复用防护。
 
 Service 同时跟踪 long-lived 与 in-flight one-shot。Shutdown 显式收割两类，
 不能假定所有 caller context 都及时取消。

@@ -56,6 +56,108 @@ func TestTextRedactorDoesNotStreamAttachmentTimestampPlaceholder(t *testing.T) {
 	}
 }
 
+func TestRedactOpaqueMachineValuesPointsMCPConnectionTimestampToCard(t *testing.T) {
+	input := "| Server | Status | Connected at |\n|---|---|---|\n| context7 | ready | 2026-08-04T07:30:18Z |"
+	want := "| Server | Status | Connected at |\n|---|---|---|\n| context7 | ready | See the exact connection time in the MCP status card. |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("MCP connection timestamp redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesPointsMCPLabeledTimestampToCard(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "•\nConnected at: 2026-08-04T07:30:18Z",
+			want:  "•\nConnected at: See the exact connection time in the MCP status card.",
+		},
+		{
+			input: "**Connected at:** the recorded time",
+			want:  "**Connected at:** See the exact connection time in the MCP status card.",
+		},
+	} {
+		if got := redactOpaqueMachineValues(tc.input); got != tc.want {
+			t.Fatalf("MCP labeled timestamp redaction = %q, want %q", got, tc.want)
+		}
+	}
+}
+
+func TestRedactOpaqueMachineValuesDoesNotEmbedPlaceholderInPath(t *testing.T) {
+	input := "| 字段 | 值 |\n|---|---|\n| cwd | `/private/tmp/data/workspaces/ws_00112233445566/skills/script-runner` |\n| CLAUDE_SKILL_DIR | `/private/tmp/data/workspaces/ws_00112233445566/skills/script-runner` |"
+	want := "| 字段 | 值 |\n|---|---|\n| cwd | See the exact path in the tool card. |\n| CLAUDE_SKILL_DIR | See the exact path in the tool card. |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("path placeholder redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorDoesNotStreamPlaceholderInsidePath(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	input := "| 字段 | 值 |\n|---|---|\n| cwd | `/private/tmp/data/workspaces/ws_00112233445566/skills/script-runner` |\n"
+	for _, delta := range []string{input[:len(input)/2], input[len(input)/2:]} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("stream leaked placeholder inside path: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), legacyEntityPlaceholder) {
+		t.Fatalf("final stream still contains path placeholder: %q", got.String())
+	}
+	if !strings.Contains(got.String(), opaquePathTableHint) {
+		t.Fatalf("stream did not point to tool card: %q", got.String())
+	}
+}
+
+func TestTextRedactorDoesNotStreamMCPConnectionTimestampPlaceholder(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Server | Status | Connected at |\n|---|---|---|\n| context7 | ready | 2026-08-04T07:",
+		"30:18Z |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("stream leaked timestamp placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "2026-08-04T07:30:18Z") || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("stream leaked exact or vague timestamp: %q", got.String())
+	}
+	if !strings.Contains(got.String(), mcpConnectionTimestampTableHint) {
+		t.Fatalf("stream did not point to MCP status card: %q", got.String())
+	}
+}
+
+func TestTextRedactorDoesNotStreamMCPLabeledTimestampPlaceholder(t *testing.T) {
+	for _, deltas := range [][]string{
+		{"Connected at: 2026-08-04T07:", "30:18Z\n"},
+		{"**Connected a", "t:** the recorded time\n"},
+	} {
+		var r textRedactor
+		var got strings.Builder
+		for _, delta := range deltas {
+			piece := r.Write(delta)
+			if strings.Contains(piece, opaqueTimestampPlaceholder) {
+				t.Fatalf("stream leaked timestamp placeholder: %q", piece)
+			}
+			got.WriteString(piece)
+		}
+		got.WriteString(r.Flush())
+		if strings.Contains(got.String(), "2026-08-04T07:30:18Z") || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+			t.Fatalf("stream leaked exact or vague timestamp: %q", got.String())
+		}
+		if !strings.Contains(got.String(), mcpConnectionTimestampTableHint) {
+			t.Fatalf("stream did not point to MCP status card: %q", got.String())
+		}
+	}
+}
+
 func TestRedactOpaqueMachineValuesRemovesRedundantEntityParenthetical(t *testing.T) {
 	for _, input := range []string{
 		"The workflow nightly (wf_00112233445566) is staged.",

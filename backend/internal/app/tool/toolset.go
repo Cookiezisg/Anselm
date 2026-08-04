@@ -37,14 +37,15 @@ type Toolset struct {
 	Lazy []Tool
 }
 
-// ToolBrief is one line of the lazy-tool overview: name + required arg names + one-line
+// ToolBrief is one line of the lazy-tool overview: name + required/optional arg names + one-line
 // description (NOT the full Parameters schema). The host renders these into the system prompt as
-// name(args): purpose, so the LLM knows the full lazy inventory AND the right arg keys (avoiding
-// both blind search and wrong-key guesses) while the large Parameters schemas stay out of context.
+// name(required; optional: ...): purpose, so the LLM knows the full lazy inventory AND the usable
+// arg keys without activating the full schema first. This prevents a first call with defaults
+// followed by a corrective second call when the user explicitly supplied an optional bound.
 //
-// ToolBrief 是 lazy 工具概览的一行：name + 必填参数名 + 一句话 description（**非**完整 Parameters
-// schema）。host 渲成 name(args): purpose，使 LLM 既知 lazy 全集、又知该用哪些参数键（既免盲搜、又免猜错键），
-// 而大 Parameters schema 在需要前不进 context。
+// ToolBrief 是 lazy 工具概览的一行：name + 必填/可选参数名 + 一句话 description（**非**完整 Parameters
+// schema）。host 渲成 name(required; optional: ...): purpose，使 LLM 在激活完整 schema 前也知道可用参数键，
+// 避免用户已经给出可选边界时先按默认值执行、再补一次调用；大 schema 仍不进 context。
 type ToolBrief struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -55,37 +56,60 @@ type ToolBrief struct {
 	// Params 点名工具的**必填**业务参数（非全 schema），使概览行成 name(args): purpose——LLM 不必先
 	// search_tools 取全 schema 就能用对参数键（否则猜错键 = 一次失败调用 + 一个恢复回合）。
 	Params []string `json:"params,omitempty"`
+	// OptionalParams names optional properties as a compact schema hint. Defaults and validation
+	// details remain in Parameters; this field only prevents optional user constraints from being
+	// invisible in the lazy overview.
+	//
+	// OptionalParams 点名可选属性作为紧凑 schema 提示。默认值与校验细节仍在 Parameters；这里只防止用户
+	// 明确给出的可选约束在 lazy 概览中消失。
+	OptionalParams []string `json:"optionalParams,omitempty"`
 }
 
-// Overview projects each lazy tool to a ToolBrief (name + required arg names + one-line
-// Description) — the catalog card the host injects so the LLM sees what's on the shelf, and which
-// args each needs, without the full schemas.
+// Overview projects each lazy tool to a ToolBrief (name + required/optional arg names + one-line
+// Description) — the catalog card the host injects so the LLM sees what's on the shelf and which
+// keys are available, without the full schemas.
 //
-// Overview 把每个 lazy 工具投影成 ToolBrief（name + 必填参数名 + 一句话 Description）——host 注入的目录卡，
-// 使 LLM 看见书架上有什么、各需哪些参数，而不含完整 schema。
+// Overview 把每个 lazy 工具投影成 ToolBrief（name + 必填/可选参数名 + 一句话 Description）——host 注入的目录卡，
+// 使 LLM 看见书架上有什么、有哪些参数，而不含完整 schema。
 func (ts Toolset) Overview() []ToolBrief {
 	out := make([]ToolBrief, 0, len(ts.Lazy))
 	for _, t := range ts.Lazy {
-		out = append(out, ToolBrief{Name: t.Name(), Description: BriefDescription(t.Description(), 180), Params: requiredParams(t.Parameters())})
+		required, optional := parameterNames(t.Parameters())
+		out = append(out, ToolBrief{
+			Name:           t.Name(),
+			Description:    BriefDescription(t.Description(), 180),
+			Params:         required,
+			OptionalParams: optional,
+		})
 	}
 	return out
 }
 
-// requiredParams extracts the required business-arg names from a tool's Parameters JSON schema.
-// Foundation-level so every lazy tool's overview names its args uniformly — fixing param-name
-// guessing once, for all tools, instead of patching N descriptions (a wrong-key guess on a tool
-// called without search_tools otherwise costs a failed call + retry across the whole tool surface).
+// parameterNames extracts required parameters in schema order and optional properties in stable
+// lexical order. The distinction is intentional: required names belong in the call signature,
+// while optional names are a compact hint that preserves default semantics.
 //
-// requiredParams 从工具 Parameters schema 抽必填业务参数名。放地基层，使每个 lazy 工具概览统一点名其
-// 参数——一处修掉参数名瞎猜、覆盖全部工具，而非逐个改 N 份描述。
-func requiredParams(params json.RawMessage) []string {
+// parameterNames 从工具 Parameters schema 提取必填（保 schema 顺序）与可选（稳定字典序）参数名。
+func parameterNames(params json.RawMessage) (required, optional []string) {
 	var p struct {
-		Required []string `json:"required"`
+		Required   []string                   `json:"required"`
+		Properties map[string]json.RawMessage `json:"properties"`
 	}
 	if json.Unmarshal(params, &p) != nil {
-		return nil
+		return nil, nil
 	}
-	return p.Required
+	requiredSet := make(map[string]struct{}, len(p.Required))
+	for _, name := range p.Required {
+		requiredSet[name] = struct{}{}
+	}
+	optional = make([]string, 0, len(p.Properties))
+	for name := range p.Properties {
+		if _, ok := requiredSet[name]; !ok {
+			optional = append(optional, name)
+		}
+	}
+	sort.Strings(optional)
+	return p.Required, optional
 }
 
 // FindLazy returns the lazy tool with the given name, or nil — used by host

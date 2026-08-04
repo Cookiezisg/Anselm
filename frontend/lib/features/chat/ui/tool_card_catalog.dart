@@ -309,6 +309,12 @@ ToolCardSpec _build({
       : (live
             ? t.chat.tool.updatingKind(kind: kind(t))
             : t.chat.tool.updatedKind(kind: kind(t))),
+  // A failed create/update is an action that did not reach its terminal verb. Keep the target
+  // chip, but make the outcome explicit instead of showing "Created ... · failed".
+  // 创建/修改失败没有完成动作,保留目标 chip 但改用明确失败动词,不能显示“已创建…·失败”。
+  failedVerb: (t) => create
+      ? t.chat.tool.createFailedKind(kind: kind(t))
+      : t.chat.tool.updateFailedKind(kind: kind(t)),
   target: (s) => create
       ? toolCardCreatedName(s)
       : (editIdKey == null ? null : argString(s.argsText, editIdKey)),
@@ -1617,6 +1623,7 @@ final Map<String, ToolCardSpec> _catalog = {
   'Subagent': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.spawningSubagent : t.chat.tool.spawnedSubagent,
+    failedVerb: (t) => t.chat.tool.subagentValidationFailed,
     target: (s) => s.arg('subagent_type'),
     body: subagentBody,
   ),

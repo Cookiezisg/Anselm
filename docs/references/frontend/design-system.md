@@ -83,6 +83,7 @@ AppShell
 
 - 整行点击与行内按钮必须是不同命中节点；行内点击不得冒泡触发选中。
 - hover 揭示不能成为唯一入口：键盘 focus 同样揭示，或提供等价菜单。
+- 滚动中的 hover 由 `AnInteractive`/`AnHoverRegion` 冻结；`ScrollPosition` 可能在布局阶段发出 settle 通知，落定重绘必须推迟到 post-frame，不能在监听器中同步 `setState`。
 - 菜单项若会打开另一个抢焦点的 surface，必须先发起浮层退场，再在同一事件循环执行 action；退场收尾只能在浮层仍持焦时归还触发器，不得覆盖新 surface 的初始焦点。
 - 可编辑件在 pointer 完成后释放焦点，键盘 Enter/Esc 则回到稳定导航点。
 - 大型二维控件使用 roving focus：整个控件一个 Tab 停靠，方向键在内部移动，越界交还框架。

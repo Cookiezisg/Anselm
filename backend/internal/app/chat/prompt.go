@@ -144,8 +144,16 @@ func (s *Service) toolsOverview() string {
 	b.WriteString(toolsSection)
 	b.WriteString("\n\nSearchable tools:")
 	for _, t := range overview {
-		if len(t.Params) > 0 {
-			fmt.Fprintf(&b, "\n  - %s(%s): %s", t.Name, strings.Join(t.Params, ", "), t.Description)
+		args := strings.Join(t.Params, ", ")
+		if len(t.OptionalParams) > 0 {
+			if args != "" {
+				args += "; optional: " + strings.Join(t.OptionalParams, ", ")
+			} else {
+				args = "optional: " + strings.Join(t.OptionalParams, ", ")
+			}
+		}
+		if args != "" {
+			fmt.Fprintf(&b, "\n  - %s(%s): %s", t.Name, args, t.Description)
 		} else {
 			fmt.Fprintf(&b, "\n  - %s: %s", t.Name, t.Description)
 		}

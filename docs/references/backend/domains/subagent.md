@@ -71,6 +71,10 @@ Spawn 受 Chat turn wall-clock 约束。模型解析、类型或 loop 失败作�
 错误返回，不新增 HTTP 错误。被取消的子运行仍以 detached context 落终态，避免
 永久 streaming 行。
 
+类型校验发生在 `Spawn` 之前。校验失败只落父工具调用的错误结果，不创建子运行、
+不产生可回放轨迹；前端必须使用“校验失败 / 未启动”的语义，不能显示已派出或
+`get_subagent_trace` 回放提示，也不能把该错误当成子代理回答。
+
 无独立端点、表或错误码。依赖 Messages、Loop、dialogue model resolver、父工具
 集、能力工具与 AttachmentRenderer；被 Chat Task 工具和 Skill fork mode 调用。
 运行 ID：`subagt_`。

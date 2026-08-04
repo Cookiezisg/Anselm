@@ -27,11 +27,17 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-04 15:16）
+## 当前前线（2026-08-04，TOOL-110 已收口）
 
-统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。定向测试和完整 testend `go test ./...`（scenarios 319.089s）、`make verify`、backend `go test ./...`、锚点、警报、diff check 全绿。
+统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。第十一批收口时完整 `make testend` 又冻结了一个真实前置问题：`install_mcp_server` 的不可绕过 danger gate 没有被 chat 验收剧本处理，导致回合正确停在 `streaming`；场景现已逐次断言并批准两道人闸，定向场景与完整 testend `go test ./...`（scenarios 292.290s）均通过。最终 `make verify`、backend `go test ./...`、锚点、警报、diff check 待本次提交前执行。
 
-**当前更新（2026-08-04 15:16）。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50**，中央账本 **535 judgments**。两项 MCP 工具均为 `✓✓✓✓✓`，最终 session、五通道证据、前序红修复链和警报复审均已封存。第十批统一长门禁已通过：`make verify` backend/frontend/docs/demo、backend 与 testend 全量 `go test ./...`、anchors 10/10、alarms clean、残留进程和 diff check 均绿；本批已提交 `553fa150`。下一原子前线是 `TOOL-101 reconnect_mcp`，主验收循环继续 active。
+**当前更新。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50**，中央账本 **535 judgments**，长门禁与 `553fa150` 提交均已完成。第十一批 `TOOL-101..110` 已完成 **50 / 50 单格**；中央账本 **585 judgments**。`TOOL-110` 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-190256` 证明 Explore 子运行只派发一次且真实返回 `CLAUDE.md` 首标题；非法类型路径经 stop-and-fix 后显示 `validation failed · not started`，无轨迹回放提示，SSE 负向无 `subagent:true` 子消息。五通道、SSE、LLM wire、frontend console 与录屏一致，`rig-check` 全绿；正式证据 `evidence/TOOL-110.md`，警报复审 `evidence/tool-110-ledger-alarm-reaudit.md`。`judge.py` 已写入 `G1/F2/A5/C4/G2`，锚点 10/10，`alarms.py check` clean。完整 testend 已通过；收口时修正了 MCP chat danger-gate 验收剧本，并同步 `docs/references/backend/domains/mcp.md`。当前只剩最终 `make verify`、backend tests、工作树审计和提交，下一原子前线为 `TOOL-111 get_subagent_trace`。
+
+下方既有 TOOL-106 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行作为真相。
+
+`TOOL-106` 的前置红 session 已保留：托管模型数组字符串化导致重复调用、可选元数据省略、以及冲突 Activity rail 的成功/失败混合语义；stop-and-fix 已增加精确兼容解码、完整契约描述和统一失败动词/侧幕状态，定向 Go/Flutter 测试通过。正式证据为 `evidence/tool-106-formal-171941-green.md`；锚点因过期重新完成 10/10 校准，账本 gate 五格已写入，`gap-too-fast` 与 `discovery-collapse` 已用 `evidence/tool-106-ledger-alarm-reaudit.md` 复审并 ack，`alarms.py check` clean，未到 50 格不跑统一长门禁、不提交。
+
+下方既有 TOOL-099/100 与旧批次描述为历史过程记录；恢复执行时以上述当前前线、`README.md` §5.2 和 `LOG.md` 最新条目为准。
 
 `TOOL-098` green session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-100552` 的录屏为 `385.805000s / 2784x1808 / 60fps`；五级 `G1/F2/A5/C4/G2` 已写入 `COVERAGE.md`，行状态 `✓✓✓✓✓`。query `database query` 得 4、unmatchable 得 0 且显示 actionable recovery、unfiltered 得 96 且卡片 `first 30 of 96` 可打开有界 JSON tree；messages `1..48`、notifications `1..6`，LLM/REST/SQLite/UI 对齐，frontend/backend 红线为空。正式证据为 `tool-098-formal-100552-green.md`，账本复审为 `tool-098-ledger-alarm-reaudit.md`；观察器一次 30s timeout 已重取最终状态并单独归类，不算产品失败。
 

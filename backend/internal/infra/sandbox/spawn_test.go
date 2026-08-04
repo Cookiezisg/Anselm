@@ -8,6 +8,7 @@ import (
 	"os/exec"
 	"runtime"
 	"strings"
+	"syscall"
 	"testing"
 	"time"
 
@@ -197,6 +198,36 @@ func TestSpawnLongLived_KillTerminates(t *testing.T) {
 		// Wait 在 timeout 内返——Kill 工作。
 	case <-time.After(5 * time.Second):
 		t.Error("Wait did not return after Kill within 5s")
+	}
+}
+
+func TestSpawnLongLived_KillAfterExternalGroupTerminationIsIdempotent(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("POSIX process-group assertion")
+	}
+	bin, err := exec.LookPath("sleep")
+	if err != nil {
+		t.Fatalf("look up sleep: %v", err)
+	}
+	handle, err := SpawnLongLived(context.Background(), SpawnOptions{
+		Cmd:  bin,
+		Args: []string{"30"},
+	})
+	if err != nil {
+		t.Fatalf("SpawnLongLived: %v", err)
+	}
+	if err := syscall.Kill(-handle.PID(), syscall.SIGKILL); err != nil {
+		t.Fatalf("external process-group kill: %v", err)
+	}
+	if err := handle.Kill(); err != nil {
+		t.Fatalf("second cleanup after external termination: %v", err)
+	}
+	done := make(chan error, 1)
+	go func() { done <- handle.Wait() }()
+	select {
+	case <-done:
+	case <-time.After(5 * time.Second):
+		t.Fatal("Wait did not return after external group termination")
 	}
 }
 

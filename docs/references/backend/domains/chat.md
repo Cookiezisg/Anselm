@@ -71,7 +71,9 @@ assistant 不进入 prompt。
 - 当前请求有真实路由的 capability tools。
 
 Inactive inventory 只在 prompt 暴露紧凑名称/用途；完整 schema 在发现后的下一
-次 request tools 中出现。AgentState 使用有界 recency set；直接点名 lazy tool
+次 request tools 中出现。目录行同时列出 required 与 optional property 名称（后者只
+是键名提示，不改变默认值或校验规则），避免模型在用户已经给出可选边界时先按默认
+值执行，再补一遍修正调用。AgentState 使用有界 recency set；直接点名 lazy tool
 时 AutoActivator 可补发现步骤。
 
 每个 Chat ReAct 回合还维护一份内存内调用台账：同一业务调用在成功后不会跨步重复执行，避免
@@ -96,7 +98,7 @@ loop 只生成可审计的 suppression result 并收束本回合，不再次执�
 
 实体 ID 的前缀清单必须与当前领域命名保持同步；trigger 的真实 ID 前缀是 `trg_`，也必须经过同一条直接与流式脱敏路径，不能只兼容历史 `tr_` 缩写。
 
-普通实体表格如果只有脱敏后的机器值，系统提示明确禁止把 `the requested item` 或 `the referenced item` 当作 ID、路径、标签或表格单元格；服务端流式阶段把这类单元格标为不可用，完整 durable close 再将所有值都不可用的 ID 列整体移除。精确 ID 仍只保留在相邻 tool card 与审计线缆中，助手正文优先展示人名与路径。
+普通实体表格如果只有脱敏后的机器值，系统提示明确禁止把 `the requested item` 或 `the referenced item` 当作 ID、路径、标签或表格单元格；服务端流式阶段把这类单元格标为不可用，完整 durable close 再将所有值都不可用的 ID 列整体移除。精确 ID 仍只保留在相邻 tool card 与审计线缆中，助手正文优先展示人名与路径。若 workspace ID 经过脱敏后嵌入 `cwd`、`CLAUDE_SKILL_DIR`、`path` 等路径字段，不能把占位符留在看似可复制的路径里；改为 `See the exact path in the tool card.`，保留字段语义而不伪造路径。
 
 当模型把 opaque ID 放在位置/列表标签前、把人名放在括号内（例如 `Position 0: doc_… (Existing First)`）时，脱敏器必须保留括号中的人名，输出 `Position 0: Existing First`，不能留下 `the requested item`。
 

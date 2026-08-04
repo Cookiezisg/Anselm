@@ -1124,9 +1124,11 @@ class _StageRow extends ConsumerWidget {
           : AnCastRow.verbWord(t, p.verb);
       meta = spec.liveCount > 1
           ? '$settled · ${t.chat.stage.parallelRunning(n: spec.liveCount)}'
-          : (spec.state == _RowState.settled
-                ? settled
-                : '$settled · $stateWord');
+          : (spec.state == _RowState.failed
+                ? stateWord
+                : (spec.state == _RowState.settled
+                      ? settled
+                      : '$settled · $stateWord'));
     } else if (subNode != null) {
       meta = t
           .chat

@@ -254,6 +254,7 @@ void main() {
           node: _n('reconnect_mcp', '{"name":"acme"}', {
             'name': 'acme',
             'status': 'ready',
+            'connectedAt': '2026-08-04T07:30:18Z',
             'tools': [
               {'name': 'search_docs'},
               {'name': 'fetch_page'},
@@ -271,6 +272,8 @@ void main() {
     expect(find.text(t.chat.tool.mcpConnected), findsOneWidget);
     expect(find.text(t.chat.tool.mcpDisconnected), findsNothing);
     expect(find.text('search_docs'), findsOneWidget);
+    expect(find.text(t.chat.tool.mcpConnectedAt), findsOneWidget);
+    expect(find.text('2026-08-04 15:30'), findsOneWidget);
   });
 
   testWidgets('mcp install error auto-expands with the last error', (

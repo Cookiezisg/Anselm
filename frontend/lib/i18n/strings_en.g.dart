@@ -1983,6 +1983,12 @@ class Translations$chat$tool$en {
 	/// en: 'Updated $kind'
 	String updatedKind({required Object kind}) => 'Updated ${kind}';
 
+	/// en: 'Create $kind failed'
+	String createFailedKind({required Object kind}) => 'Create ${kind} failed';
+
+	/// en: 'Update $kind failed'
+	String updateFailedKind({required Object kind}) => 'Update ${kind} failed';
+
 	/// en: 'env ready'
 	String get envReady => 'env ready';
 
@@ -3014,6 +3020,12 @@ class Translations$chat$tool$en {
 	/// en: 'The trajectory streamed live only — replay it with get_subagent_trace'
 	String get subagentTraceNote => 'The trajectory streamed live only — replay it with get_subagent_trace';
 
+	/// en: 'Subagent validation failed · not started'
+	String get subagentValidationFailed => 'Subagent validation failed · not started';
+
+	/// en: 'Not started — the request was rejected before a subagent ran'
+	String get subagentNotStarted => 'Not started — the request was rejected before a subagent ran';
+
 	/// en: 'Opening subagent trace'
 	String get gettingSubTrace => 'Opening subagent trace';
 
@@ -3124,6 +3136,9 @@ class Translations$chat$tool$en {
 
 	/// en: '$n consecutive failures'
 	String mcpFailures({required Object n}) => '${n} consecutive failures';
+
+	/// en: 'Connected at'
+	String get mcpConnectedAt => 'Connected at';
 
 	/// en: 'Browsing marketplace'
 	String get browsingMarket => 'Browsing marketplace';
@@ -7373,6 +7388,8 @@ extension on Translations {
 			'chat.tool.createdKind' => ({required Object kind}) => 'Created ${kind}',
 			'chat.tool.updatingKind' => ({required Object kind}) => 'Updating ${kind}',
 			'chat.tool.updatedKind' => ({required Object kind}) => 'Updated ${kind}',
+			'chat.tool.createFailedKind' => ({required Object kind}) => 'Create ${kind} failed',
+			'chat.tool.updateFailedKind' => ({required Object kind}) => 'Update ${kind} failed',
 			'chat.tool.envReady' => 'env ready',
 			'chat.tool.envBuilding' => 'env building',
 			'chat.tool.envFailed' => 'env failed',
@@ -7705,10 +7722,10 @@ extension on Translations {
 			'chat.tool.gotFnExec' => 'Opened function-run record',
 			'chat.tool.gettingHdCall' => 'Opening handler-call record',
 			'chat.tool.gotHdCall' => 'Opened handler-call record',
-			'chat.tool.gettingMcpCall' => 'Opening MCP-call record',
-			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.gettingMcpCall' => 'Opening MCP-call record',
+			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
 			'chat.tool.gettingActivation' => 'Opening activation record',
 			'chat.tool.gotActivation' => 'Opened activation record',
 			'chat.tool.dossierStderr' => 'server stderr (may predate this call)',
@@ -7730,6 +7747,8 @@ extension on Translations {
 			'chat.tool.subagentTask' => 'Task',
 			'chat.tool.subagentAnswer' => 'Answer',
 			'chat.tool.subagentTraceNote' => 'The trajectory streamed live only — replay it with get_subagent_trace',
+			'chat.tool.subagentValidationFailed' => 'Subagent validation failed · not started',
+			'chat.tool.subagentNotStarted' => 'Not started — the request was rejected before a subagent ran',
 			'chat.tool.gettingSubTrace' => 'Opening subagent trace',
 			'chat.tool.gotSubTrace' => 'Opened subagent trace',
 			'chat.tool.subTraceRuns' => ({required Object n}) => '${n} subagent runs',
@@ -7767,6 +7786,7 @@ extension on Translations {
 			'chat.tool.mcpDegraded' => 'degraded',
 			'chat.tool.mcpToolCount' => ({required Object n}) => '${n} tools',
 			'chat.tool.mcpFailures' => ({required Object n}) => '${n} consecutive failures',
+			'chat.tool.mcpConnectedAt' => 'Connected at',
 			'chat.tool.browsingMarket' => 'Browsing marketplace',
 			'chat.tool.browsedMarket' => 'Browsed marketplace',
 			'chat.tool.marketCount' => ({required Object n}) => '${n} servers',
@@ -8216,13 +8236,13 @@ extension on Translations {
 			'scheduler.range.gridA11y' => 'Calendar',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
+			_ => null,
+		} ?? switch (path) {
 			'action.save' => 'Save',
 			'action.copy' => 'Copy',
 			'action.expand' => 'Expand',
 			'action.collapse' => 'Collapse',
 			'action.wrap' => 'Wrap',
-			_ => null,
-		} ?? switch (path) {
 			'action.delete' => 'Delete',
 			'feedback.info' => 'Info',
 			'feedback.success' => 'Success',
@@ -8730,13 +8750,13 @@ extension on Translations {
 			'library.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
 			'library.props.tools' => 'Allowed tools',
 			'library.props.addTool' => 'Add a tool',
+			_ => null,
+		} ?? switch (path) {
 			'library.props.toolPickerTitle' => 'Add a tool',
 			'library.props.toolPickerSearch' => 'Search tools, functions, MCP…',
 			'library.props.toolPickerBuiltin' => 'Builtin tools',
 			'library.props.toolPickerFunctions' => 'Functions',
 			'library.props.toolPickerHandlers' => 'Handlers',
-			_ => null,
-		} ?? switch (path) {
 			'library.props.toolPickerMcp' => 'MCP tools',
 			'library.props.toolPickerAddLiteral' => ({required Object q}) => 'Add "${q}" verbatim',
 			'library.props.toolPickerHint' => 'Pick from below, or type a scope like Bash(git:*) and press Enter.',
@@ -9244,13 +9264,13 @@ extension on Translations {
 			'settings.capsuleApprovalsDesc' => 'Pending approvals pop an actionable block on the band',
 			'settings.capsuleAttention' => 'Capsule: attention',
 			'settings.capsuleAttentionDesc' => 'Attention events (streaks, broken references) pop the band capsule',
+			_ => null,
+		} ?? switch (path) {
 			'settings.spend.title' => 'Your own keys',
 			'settings.spend.window' => 'Last 30 days (direct)',
 			'settings.spend.empty' => 'Nothing generated with your own keys in the last 30 days.',
 			'settings.spend.unavailable' => 'The spend ledger could not be read.',
 			'settings.spend.estimateNote' => 'Units are counted; money is an ESTIMATE from a hand-written price table — your provider\'s billing console is the authority. Managed free-tier usage is in the card above.',
-			_ => null,
-		} ?? switch (path) {
 			'settings.spend.catImage' => 'Images',
 			'settings.spend.catSpeech' => 'Speech',
 			'settings.spend.catVideo' => 'Video',

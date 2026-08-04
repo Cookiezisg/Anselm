@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -63,6 +64,7 @@ func TestRunSkillScript_ValidateInput(t *testing.T) {
 		{`{"name":"pdf","script":"run.sh"}`, ErrScriptUnsupported},
 		{`{"name":"pdf","script":"scripts/a.py"}`, nil},
 		{`{"name":"pdf","script":"scripts/a.mjs"}`, nil},
+		{`{"name":"pdf","script":"scripts/a.py","args":"[\"--fast\"]","timeoutSec":"30"}`, nil},
 	}
 	for _, c := range cases {
 		err := tool.ValidateInput(json.RawMessage(c.args))
@@ -71,6 +73,50 @@ func TestRunSkillScript_ValidateInput(t *testing.T) {
 		}
 		if c.want != nil && !errors.Is(err, c.want) {
 			t.Fatalf("ValidateInput(%s) = %v, want %v", c.args, err, c.want)
+		}
+	}
+}
+
+func TestRunSkillScript_ManagedArgumentEncodingIsExact(t *testing.T) {
+	tool, sbx, ctx, _ := runScriptSetup(t)
+	if _, err := tool.Execute(ctx, `{"name":"pdf","script":"scripts/fill.py","args":"[\"--fast\",\"two words\"]","timeoutSec":"30"}`); err != nil {
+		t.Fatalf("managed encoding should execute: %v", err)
+	}
+	if len(sbx.spawnOpts.Args) != 3 || sbx.spawnOpts.Args[1] != "--fast" || sbx.spawnOpts.Args[2] != "two words" {
+		t.Fatalf("decoded args = %+v", sbx.spawnOpts.Args)
+	}
+	if sbx.spawnOpts.Timeout != 30*time.Second {
+		t.Fatalf("decoded timeout = %s, want 30s", sbx.spawnOpts.Timeout)
+	}
+}
+
+func TestRunSkillScript_ManagedArgumentEncodingRejectsAmbiguousShapes(t *testing.T) {
+	tool := &RunSkillScript{}
+	for _, raw := range []string{
+		`{"name":"pdf","script":"scripts/a.py","args":"--fast"}`,
+		`{"name":"pdf","script":"scripts/a.py","args":["--fast",2]}`,
+		`{"name":"pdf","script":"scripts/a.py","args":"[a]"}`,
+		`{"name":"pdf","script":"scripts/a.py","timeoutSec":30.5}`,
+		`{"name":"pdf","script":"scripts/a.py","timeoutSec":true}`,
+		`{"name":"pdf","script":"scripts/a.py","timeoutSec":"30.5"}`,
+	} {
+		if err := tool.ValidateInput(json.RawMessage(raw)); err == nil {
+			t.Fatalf("ValidateInput(%s) unexpectedly accepted ambiguous shape", raw)
+		}
+	}
+}
+
+func TestRunSkillScriptSchemaDocumentsManagedCompatibility(t *testing.T) {
+	description := (&RunSkillScript{}).Description()
+	schema := string((&RunSkillScript{}).Parameters())
+	for _, text := range []string{"name is the skill slug", "script is its path relative to that skill"} {
+		if !strings.Contains(description, text) {
+			t.Fatalf("description must map the user-facing skill/script concepts to required keys: missing %q", text)
+		}
+	}
+	for _, text := range []string{"exact JSON array string", "exact decimal integer string"} {
+		if !strings.Contains(description, text) || !strings.Contains(schema, text) {
+			t.Fatalf("schema and description must document %q", text)
 		}
 	}
 }
@@ -126,6 +172,19 @@ func TestRunSkillScript_MissingAndEscapingScriptsRefused(t *testing.T) {
 	// 越界路径不在文件列表 → 同码拒（列表器天然不出目录）。
 	if _, err := tool.Execute(ctx, `{"name":"pdf","script":"../other/steal.py"}`); !errors.Is(err, ErrScriptNotFound) {
 		t.Fatalf("escaping script should be ScriptNotFound, got %v", err)
+	}
+}
+
+func TestRunSkillScript_HaltOnRepeatOnlyForTerminalScriptRejections(t *testing.T) {
+	tool := &RunSkillScript{}
+	if !tool.HaltOnRepeat("", "script not found in the skill directory (script=scripts/ghost.py)") {
+		t.Fatal("missing script must be terminal")
+	}
+	if !tool.HaltOnRepeat("", "script extension has no sandbox runtime") {
+		t.Fatal("unsupported extension must be terminal")
+	}
+	if tool.HaltOnRepeat("", "provision env: temporary network failure") {
+		t.Fatal("transient sandbox failure must remain retryable")
 	}
 }
 

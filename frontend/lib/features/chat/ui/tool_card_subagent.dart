@@ -29,6 +29,15 @@ Map<String, dynamic>? _obj(String s) {
   return null;
 }
 
+/// Validation fails before Spawn is entered, so the card must not imply that a child run or trace
+/// exists. The backend keeps the validation prefix stable for tool-level input errors.
+/// 参数校验发生在 Spawn 之前，卡片不能暗示子运行或轨迹已经存在；后端为工具输入错误保留此前缀。
+bool subagentWasNotStarted(ToolCardState state) {
+  const prefix = 'input validation failed:';
+  return state.resultText.startsWith(prefix) ||
+      state.errorText.startsWith(prefix);
+}
+
 // ── Subagent (spawn a focused sub-task) ──
 
 /// Subagent body — the task (prompt, in-flight readable) → the nested trajectory (LIVE: streaming
@@ -42,6 +51,7 @@ Widget subagentBody(BuildContext context, ToolCardState state) {
   final live = toolLive(state);
   final prompt = state.arg('prompt');
   final answer = state.resultText;
+  final notStarted = subagentWasNotStarted(state);
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
@@ -62,12 +72,17 @@ Widget subagentBody(BuildContext context, ToolCardState state) {
       ],
       if (state.nested.isNotEmpty)
         NestedRunPane(nested: state.nested, live: live)
+      else if (!live && notStarted)
+        Text(
+          t.chat.tool.subagentNotStarted,
+          style: AnText.meta.copyWith(color: c.inkFaint),
+        )
       else if (!live)
         Text(
           t.chat.tool.subagentTraceNote,
           style: AnText.meta.copyWith(color: c.inkFaint),
         ),
-      if (answer.isNotEmpty) ...[
+      if (answer.isNotEmpty && !notStarted) ...[
         const SizedBox(height: AnSpace.s6),
         Text(
           t.chat.tool.subagentAnswer,

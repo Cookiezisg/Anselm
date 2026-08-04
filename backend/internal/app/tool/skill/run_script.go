@@ -1,10 +1,12 @@
 package skill
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"path"
+	"strconv"
 	"strings"
 	"time"
 
@@ -63,7 +65,7 @@ type RunSkillScript struct {
 func (t *RunSkillScript) Name() string { return "run_skill_script" }
 
 func (t *RunSkillScript) Description() string {
-	return "Run one of a skill's bundled scripts (scripts/*.py, *.js) inside the skill's OWN sandboxed runtime — the default, safest way to execute skill scripts. cwd is the skill directory (relative references resolve), CLAUDE_SKILL_DIR is set, and a bundled requirements.txt is installed for python. First run may take a while (runtime install). For shell scripts or anything else, use the bash tool (host, confirmed per call)."
+	return "Run one bundled skill script in its sandbox: name is the skill slug (the user's skill name), script is its path relative to that skill; optional args, stdin, and timeoutSec are passed as supplied. cwd is the skill directory, CLAUDE_SKILL_DIR is set, and Python requirements.txt is installed. First run may install a runtime. args must be a string array; an exact JSON array string is also accepted from managed callers. timeoutSec must be an integer; an exact decimal integer string is also accepted. For shell scripts, use the host bash tool."
 }
 
 func (t *RunSkillScript) Parameters() json.RawMessage {
@@ -73,19 +75,74 @@ func (t *RunSkillScript) Parameters() json.RawMessage {
 		"properties": {
 			"name": {"type": "string", "description": "Skill name (slug)."},
 			"script": {"type": "string", "description": "Script path relative to the skill directory, e.g. scripts/fill_form.py."},
-			"args": {"type": "array", "items": {"type": "string"}, "description": "Arguments passed to the script."},
+			"args": {"type": "array", "items": {"type": "string"}, "description": "Arguments passed to the script. Prefer an array; an exact JSON array string is accepted from managed callers. Other shapes are invalid."},
 			"stdin": {"type": "string", "description": "Optional stdin fed to the script."},
-			"timeoutSec": {"type": "integer", "description": "Wall-clock cap in seconds (default 60, max 600)."}
+			"timeoutSec": {"type": "integer", "description": "Wall-clock cap in seconds (default 60, max 600). Prefer an integer; an exact decimal integer string is accepted from managed callers. Floats, booleans, arrays, and other strings are invalid."}
 		}
 	}`)
 }
 
 type runScriptArgs struct {
-	Name       string   `json:"name"`
-	Script     string   `json:"script"`
-	Args       []string `json:"args"`
-	Stdin      string   `json:"stdin"`
-	TimeoutSec int      `json:"timeoutSec"`
+	Name       string
+	Script     string
+	Args       []string
+	Stdin      string
+	TimeoutSec int
+}
+
+// UnmarshalJSON keeps the public schema strongly typed while tolerating the two exact scalar
+// encodings emitted by some managed callers. It never turns arbitrary text into script arguments
+// or a timeout, so a malformed call still fails before the sandbox or a retry can begin.
+//
+// UnmarshalJSON 保持公开 schema 的数组/整数类型，同时兼容部分托管调用方发出的两个精确字符串形状。
+// 不把任意文本变成脚本参数或超时，故畸形调用仍在进沙箱或重试前失败。
+func (a *runScriptArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Name       string          `json:"name"`
+		Script     string          `json:"script"`
+		Args       json.RawMessage `json:"args"`
+		Stdin      string          `json:"stdin"`
+		TimeoutSec json.RawMessage `json:"timeoutSec"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	args, err := decodeSkillStringArray(raw.Args)
+	if err != nil {
+		return fmt.Errorf("args: %w", err)
+	}
+	timeoutSec, err := decodeRunScriptInt(raw.TimeoutSec)
+	if err != nil {
+		return fmt.Errorf("timeoutSec: %w", err)
+	}
+	*a = runScriptArgs{
+		Name:       raw.Name,
+		Script:     raw.Script,
+		Args:       args,
+		Stdin:      raw.Stdin,
+		TimeoutSec: timeoutSec,
+	}
+	return nil
+}
+
+func decodeRunScriptInt(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be an integer or an exact decimal integer string, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be an integer or an exact decimal integer string, got %q", text)
+	}
+	return value, nil
 }
 
 func (t *RunSkillScript) ValidateInput(args json.RawMessage) error {
@@ -188,6 +245,18 @@ func (t *RunSkillScript) Execute(ctx context.Context, argsJSON string) (string, 
 		return "", fmt.Errorf("run_skill_script: %w", err)
 	}
 	return formatScriptResult(res), nil
+}
+
+// HaltOnRepeat makes a missing script or unsupported extension terminal for this turn. Neither
+// condition can be repaired by emitting the same call again; allowing that retry only duplicates
+// red cards. A later user turn may create the file or choose the host bash tool.
+//
+// HaltOnRepeat 将脚本缺失或扩展不支持视为本回合终局。重复发同一调用无法修复任一条件，只会制造重复红卡；
+// 后续用户回合仍可先补文件，或改用 host bash。
+func (*RunSkillScript) HaltOnRepeat(_ string, errorText string) bool {
+	text := strings.ToLower(errorText)
+	return strings.Contains(text, "script not found in the skill directory") ||
+		strings.Contains(text, "script extension has no sandbox runtime")
 }
 
 // formatScriptResult renders the execution outcome as the tool_result text — honest exit

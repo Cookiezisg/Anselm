@@ -5,6 +5,7 @@ import 'package:flutter/widgets.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/model/time_format.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
@@ -262,6 +263,8 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
   final degraded = status == 'degraded';
   final tools = (o['tools'] as List?)?.whereType<Map>().toList() ?? const [];
   final lastError = o['lastError'] as String?;
+  final connectedAt = o['connectedAt'] as String?;
+  final connectedAtLabel = connectedAt == null ? null : fmtStamp(connectedAt);
   final failures = o['consecutiveFailures'] is int
       ? o['consecutiveFailures'] as int
       : 0;
@@ -306,6 +309,15 @@ Widget mcpStatusBody(BuildContext context, ToolCardState state) {
             for (final tool in tools.take(20))
               AnChip('${tool['name']}', tone: AnTone.none),
           ],
+        ),
+      ],
+      if (connectedAtLabel != null && connectedAtLabel.isNotEmpty) ...[
+        const SizedBox(height: AnSpace.s6),
+        AnKv(
+          rows: [
+            AnKvRow(t.chat.tool.mcpConnectedAt, connectedAtLabel, meta: true),
+          ],
+          dense: true,
         ),
       ],
       if (!healthy && (lastError ?? '').isNotEmpty) ...[

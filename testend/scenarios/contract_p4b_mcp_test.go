@@ -272,6 +272,30 @@ func TestP4bMcp_ChatInstallErrorFaces(t *testing.T) {
 	)
 	convID := convCreate(t, wc, "install faces")
 	mid := sendMsg(t, wc, convID, "install stripe and a bogus one")
+	var pending []struct {
+		ToolCallID string `json:"toolCallId"`
+		Kind       string `json:"kind"`
+		Tool       string `json:"tool"`
+	}
+	approveInstall := func(label string) {
+		harness.Eventually(t, 15000, label+" danger interaction pends", func() bool {
+			pending = nil
+			wc.GET("/api/v1/conversations/"+convID+"/interactions").OK(t, &pending)
+			return len(pending) == 1
+		})
+		if pending[0].Kind != "danger" || pending[0].Tool != "install_mcp_server" {
+			t.Fatalf("%s interaction wrong: %+v", label, pending[0])
+		}
+		wc.POST("/api/v1/conversations/"+convID+"/interactions/"+pending[0].ToolCallID,
+			map[string]any{"action": "approve"}).OK(t, nil)
+	}
+	// install_mcp_server is a real dangerous operation even when the selected registry entry will
+	// fail before installation. Exercise the same human decision boundary a desktop user sees;
+	// otherwise the turn correctly remains streaming at the gate and never reaches the error faces.
+	// install_mcp_server 即使会在安装前失败，也是真正的 dangerous 操作。这里走真实用户看到的人闸；
+	// 否则回合会正确停在闸前 streaming，根本到不了要验证的错误面。
+	approveInstall("first install")
+	approveInstall("second install")
 	turn := waitTurn(t, wc, convID, mid, 30000)
 	if turn.Status != "completed" {
 		t.Fatalf("turn must complete, got %s %s", turn.Status, turn.ErrorMessage)

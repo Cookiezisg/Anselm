@@ -1,9 +1,12 @@
 package mcp
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
+	"strings"
 
 	mcpapp "github.com/sunweilin/anselm/backend/internal/app/mcp"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
@@ -35,7 +38,7 @@ func (t *SearchMCPCalls) Parameters() json.RawMessage {
 			"serverId": {"type": "string"},
 			"tool": {"type": "string", "description": "Optional tool-name filter."},
 			"status": {"type": "string", "description": "Optional: ok | failed | cancelled | timeout."},
-			"limit": {"type": "integer", "description": "Page size (default 50)."},
+			"limit": {"type": "integer", "description": "Optional page size (default 50); prefer a JSON integer such as 2. The exact decimal string \"2\" is also accepted from managed callers; other strings are invalid."},
 			"cursor": {"type": "string", "description": "Opaque pagination cursor."}
 		}
 	}`)
@@ -54,14 +57,64 @@ func (t *SearchMCPCalls) ValidateInput(args json.RawMessage) error {
 	return nil
 }
 
-func (t *SearchMCPCalls) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		ServerID string `json:"serverId"`
-		Tool     string `json:"tool"`
-		Status   string `json:"status"`
-		Limit    int    `json:"limit"`
-		Cursor   string `json:"cursor"`
+type searchMCPCallsArgs struct {
+	ServerID string `json:"serverId"`
+	Tool     string `json:"tool"`
+	Status   string `json:"status"`
+	Limit    int    `json:"limit"`
+	Cursor   string `json:"cursor"`
+}
+
+// UnmarshalJSON keeps the public schema strongly typed while tolerating the exact decimal-string
+// scalar emitted by some managed callers. A first-call type rejection creates a visible red card
+// and an avoidable retry; floats, arrays, booleans, and non-numeric strings remain invalid.
+func (a *searchMCPCallsArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		ServerID string          `json:"serverId"`
+		Tool     string          `json:"tool"`
+		Status   string          `json:"status"`
+		Limit    json.RawMessage `json:"limit"`
+		Cursor   string          `json:"cursor"`
 	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	limit, err := decodeSearchMCPCallsInt(raw.Limit)
+	if err != nil {
+		return fmt.Errorf("limit: %w", err)
+	}
+	*a = searchMCPCallsArgs{
+		ServerID: raw.ServerID,
+		Tool:     raw.Tool,
+		Status:   raw.Status,
+		Limit:    limit,
+		Cursor:   raw.Cursor,
+	}
+	return nil
+}
+
+func decodeSearchMCPCallsInt(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer or an exact decimal integer string, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer or an exact decimal integer string, got %q", text)
+	}
+	return value, nil
+}
+
+func (t *SearchMCPCalls) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var args searchMCPCallsArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_mcp_calls: bad args: %w", err)
 	}

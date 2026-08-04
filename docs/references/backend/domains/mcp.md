@@ -42,6 +42,10 @@ ready → degraded
 每个 Server 至多一个 live client/process，Boot 在各 workspace 最佳努力重连，
 `:reconnect` 原子替换连接，Shutdown 关闭全部实例。
 
+成功状态快照的 `connectedAt` 是连接成功时的 UTC 事实；客户端状态卡必须将其转换为本地化的
+绝对时间点。助手散文不得泄露原始 ISO 值，若模型把该字段写进表格，loop 应指向相邻 MCP
+状态卡，而不是退化成无信息量的占位语句。
+
 Stdio 由 Sandbox `EnsureEnv` + `SpawnLongLived` 管理进程，MCP client 只接管协议
 管道。stderr 写有界 ring buffer。Remote 使用配置的 URL/headers 或 OAuth
 RoundTripper。
@@ -120,6 +124,16 @@ Server 可调用时出现，并可通过 `search_tools` 发现；Agent 使用
 Call 使用统一 wall-clock，写状态 `ok|failed|cancelled|timeout`、输入/输出、
 conversation/tool-call/flowrun/node/iteration 溯源。List 不带大 output，单读
 提供完整详情。Server 存在但不可调用时返回 server-down，而不是 tool-not-found。
+
+`search_mcp_calls` 的 `limit` 公开 schema 仍是 integer。为避免托管模型把一个整数
+序列化为精确十进制字符串时制造可见的失败卡和重复查询，读取工具同时接受原生整数与
+精确十进制整数文本（首尾空白可忽略）；浮点数、数组、布尔值、对象和非整数文本仍拒绝。
+这只是等价标量的输入兼容，不改变分页边界或默认值。
+
+`install_mcp_server` 与 `uninstall_mcp_server` 都是不可绕过的 `dangerous` 操作；聊天中的
+调用即使会在真正安装前因缺少环境变量或找不到 registry 条目而失败，也必须先经过人在环确认，
+再把具体错误回喂模型。验收剧本不得跳过这道门，否则回合停在 `streaming` 是正确行为而不是 MCP
+安装挂死。
 
 MCP tool result 中的媒体先成为 Attachment/MediaRef，再由 Chat、Agent 或
 Subagent 的统一消费咽喉按模型能力展开。

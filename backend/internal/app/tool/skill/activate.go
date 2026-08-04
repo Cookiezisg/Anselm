@@ -1,6 +1,7 @@
 package skill
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -27,15 +28,13 @@ func (t *ActivateSkill) Parameters() json.RawMessage {
 		"required": ["name"],
 		"properties": {
 			"name": {"type": "string", "description": "Skill name (a slug, from the catalog)."},
-			"arguments": {"type": "array", "items": {"type": "string"}, "description": "Positional arguments for $1/$ARGUMENTS substitution."}
+			"arguments": {"type": "array", "items": {"type": "string"}, "description": "Positional arguments for $1/$ARGUMENTS substitution. Managed callers may send the exact JSON array as a string; other scalar/object values are invalid."}
 		}
 	}`)
 }
 
 func (t *ActivateSkill) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		Name string `json:"name"`
-	}
+	var a activateSkillArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("activate_skill: bad args: %w", err)
 	}
@@ -46,10 +45,7 @@ func (t *ActivateSkill) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *ActivateSkill) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		Name      string   `json:"name"`
-		Arguments []string `json:"arguments"`
-	}
+	var args activateSkillArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("activate_skill: bad args: %w", err)
 	}
@@ -58,6 +54,59 @@ func (t *ActivateSkill) Execute(ctx context.Context, argsJSON string) (string, e
 		return "", fmt.Errorf("activate_skill: %w", err)
 	}
 	return out, nil
+}
+
+type activateSkillArgs struct {
+	Name      string
+	Arguments []string
+}
+
+// UnmarshalJSON keeps the public schema array-shaped while tolerating the exact JSON-array string
+// emitted by some managed callers. It never turns arbitrary text, numbers, objects, or mixed
+// arrays into arguments.
+func (a *activateSkillArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Name      string          `json:"name"`
+		Arguments json.RawMessage `json:"arguments"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	arguments, err := decodeActivateSkillArguments(raw.Arguments)
+	if err != nil {
+		return fmt.Errorf("arguments: %w", err)
+	}
+	*a = activateSkillArgs{Name: raw.Name, Arguments: arguments}
+	return nil
+}
+
+func decodeActivateSkillArguments(raw json.RawMessage) ([]string, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+
+	if raw[0] == '[' {
+		var arguments []string
+		if err := json.Unmarshal(raw, &arguments); err != nil {
+			return nil, fmt.Errorf("must be an array of strings or an exact JSON array string, got %s", string(raw))
+		}
+		return arguments, nil
+	}
+
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err != nil {
+		return nil, fmt.Errorf("must be an array of strings or an exact JSON array string, got %s", string(raw))
+	}
+	encoded = strings.TrimSpace(encoded)
+	if encoded == "" {
+		return nil, fmt.Errorf("must be an array of strings or an exact JSON array string, got empty string")
+	}
+	var arguments []string
+	if err := json.Unmarshal([]byte(encoded), &arguments); err != nil {
+		return nil, fmt.Errorf("must be an array of strings or an exact JSON array string, got %q", encoded)
+	}
+	return arguments, nil
 }
 
 var _ toolapp.Tool = (*ActivateSkill)(nil)

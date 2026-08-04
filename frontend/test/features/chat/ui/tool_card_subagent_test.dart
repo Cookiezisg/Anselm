@@ -29,6 +29,7 @@ BlockNode _subagent(
   String? result,
   List<BlockNode> nested = const [],
   bool open = false,
+  bool error = false,
 }) {
   final node = BlockNode(id: 'tc_sub', kind: BlockKind.toolCall)
     ..status = open ? 'open' : 'completed'
@@ -39,7 +40,8 @@ BlockNode _subagent(
   if (result != null) {
     node.children.add(
       BlockNode(id: 'tr_sub', kind: BlockKind.toolResult)
-        ..status = 'completed'
+        ..status = error ? 'error' : 'completed'
+        ..error = error ? result : null
         ..content = {'content': result},
     );
   }
@@ -130,6 +132,38 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(NestedRunPane), findsNothing);
       expect(find.text(t.chat.tool.subagentTraceNote), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Subagent validation failure says not started and has no replay fiction',
+    (tester) async {
+      const error =
+          'input validation failed: subagent_type must be one of [Explore Plan general-purpose]';
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(
+            node: _subagent(
+              '{"subagent_type":"Nope","prompt":"Do nothing"}',
+              result: error,
+              error: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining(t.chat.tool.subagentValidationFailed),
+        findsOneWidget,
+      );
+      expect(find.text(t.chat.tool.subagentNotStarted), findsOneWidget);
+      expect(find.text(t.chat.tool.subagentTraceNote), findsNothing);
+      expect(find.text(t.chat.tool.subagentAnswer), findsNothing);
+      expect(
+        find.textContaining('subagent_type must be one of'),
+        findsOneWidget,
+      );
     },
   );
 

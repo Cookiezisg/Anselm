@@ -21,5 +21,11 @@ func killProcessGroup(cmd *exec.Cmd) error {
 	if cmd.Process == nil {
 		return nil
 	}
-	return syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL)
+	if err := syscall.Kill(-cmd.Process.Pid, syscall.SIGKILL); err == nil {
+		return nil
+	}
+	// The group leader may already be gone while a runtime wrapper has changed the
+	// group shape. Match the shell reaper: fall back to the direct child rather than
+	// turning an idempotent cleanup into a health warning.
+	return cmd.Process.Kill()
 }

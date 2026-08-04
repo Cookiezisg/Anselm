@@ -1,7 +1,62 @@
+import 'dart:ui' show PointerDeviceKind;
+
 import 'package:anselm/core/ui/an_interactive.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+
+class _StopScrollDuringLayout extends SingleChildRenderObjectWidget {
+  const _StopScrollDuringLayout({
+    required this.controller,
+    required this.armed,
+    super.child,
+  });
+
+  final ScrollController controller;
+  final bool armed;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _StopScrollDuringLayoutRenderBox(controller, armed);
+
+  @override
+  void updateRenderObject(
+    BuildContext context,
+    _StopScrollDuringLayoutRenderBox renderObject,
+  ) {
+    renderObject.armed = armed;
+  }
+}
+
+class _StopScrollDuringLayoutRenderBox extends RenderProxyBox {
+  _StopScrollDuringLayoutRenderBox(this.controller, this._armed);
+
+  final ScrollController controller;
+  bool _armed;
+  bool _fired = false;
+
+  set armed(bool value) {
+    if (_armed == value) return;
+    _armed = value;
+    if (value) _fired = false;
+    markNeedsLayout();
+  }
+
+  @override
+  void performLayout() {
+    super.performLayout();
+    if (_armed && !_fired && controller.hasClients) {
+      final position = controller.position;
+      if (position.isScrollingNotifier.value) {
+        _fired = true;
+        // This is the production callback timing: ScrollPosition can settle while the viewport is
+        // applying dimensions during layout. The AnInteractive listener must not setState here.
+        (position as ScrollPositionWithSingleContext).goIdle();
+      }
+    }
+  }
+}
 
 // AnInteractive is the activation substrate for every control — the key contract is that a DISABLED
 // surface activates by neither pointer nor keyboard (the demo matrix's disabled-passthrough gate).
@@ -147,6 +202,91 @@ void main() {
     await tester.tap(find.byType(AnInteractive));
     expect(taps, 1);
   });
+
+  testWidgets(
+    'scroll settle emitted during layout defers the hover repaint to the next frame',
+    (tester) async {
+      final previousHighlightStrategy = FocusManager.instance.highlightStrategy;
+      FocusManager.instance.highlightStrategy =
+          FocusHighlightStrategy.alwaysTraditional;
+      addTearDown(
+        () =>
+            FocusManager.instance.highlightStrategy = previousHighlightStrategy,
+      );
+      final controller = ScrollController();
+      final armed = ValueNotifier(false);
+      final interactiveKey = GlobalKey();
+      late Set<WidgetState> states;
+      addTearDown(controller.dispose);
+      addTearDown(armed.dispose);
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: SizedBox(
+            height: 120,
+            child: ValueListenableBuilder<bool>(
+              valueListenable: armed,
+              builder: (context, isArmed, _) => ListView(
+                controller: controller,
+                children: [
+                  _StopScrollDuringLayout(
+                    controller: controller,
+                    armed: isArmed,
+                    child: AnInteractive(
+                      key: interactiveKey,
+                      onTap: () {},
+                      builder: (_, next) {
+                        states = next;
+                        return const SizedBox(height: 80);
+                      },
+                    ),
+                  ),
+                  const SizedBox(height: 600),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      final row = tester.getCenter(find.byKey(interactiveKey));
+      await mouse.addPointer(location: row);
+      await mouse.moveTo(row);
+      await tester.pump();
+      expect(
+        states.contains(WidgetState.hovered),
+        isTrue,
+        reason: 'pointer enters the row',
+      );
+
+      final scrolling = controller.animateTo(
+        20,
+        duration: const Duration(seconds: 1),
+        curve: Curves.linear,
+      );
+      await tester.pump(const Duration(milliseconds: 40));
+      expect(controller.position.isScrollingNotifier.value, isTrue);
+      // Move outside the whole list content; (5,5) is still inside the first row after the scroll.
+      await mouse.moveTo(const Offset(400, 400));
+      await tester.pump();
+      expect(
+        states.contains(WidgetState.hovered),
+        isTrue,
+        reason: 'hover exit remains frozen while the scroll is active',
+      );
+
+      // Arm a render callback that settles the position from performLayout. Before the fix this
+      // throws Flutter's "Build scheduled during frame" assertion from AnInteractive._set.
+      armed.value = true;
+      await tester.pump();
+      await tester.pump();
+      await scrolling;
+      expect(states.contains(WidgetState.hovered), isFalse);
+      await mouse.removePointer();
+    },
+  );
 
   testWidgets('pressed state is surfaced while the pointer is down', (
     tester,

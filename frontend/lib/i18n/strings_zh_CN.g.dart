@@ -872,6 +872,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String createdKind({required Object kind}) => '已创建${kind}';
 	@override String updatingKind({required Object kind}) => '正在修改${kind}';
 	@override String updatedKind({required Object kind}) => '已更新${kind}';
+	@override String createFailedKind({required Object kind}) => '创建${kind}失败';
+	@override String updateFailedKind({required Object kind}) => '修改${kind}失败';
 	@override String get envReady => 'env 就绪';
 	@override String get envBuilding => 'env 构建中';
 	@override String get envFailed => 'env 失败';
@@ -1216,6 +1218,8 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get subagentTask => '任务';
 	@override String get subagentAnswer => '回答';
 	@override String get subagentTraceNote => '轨迹仅流不落盘——用 get_subagent_trace 回放';
+	@override String get subagentValidationFailed => '子代理校验失败 · 未启动';
+	@override String get subagentNotStarted => '未启动——请求在子代理运行前被拒绝';
 	@override String get gettingSubTrace => '正在调阅子代理轨迹';
 	@override String get gotSubTrace => '已调阅子代理轨迹';
 	@override String subTraceRuns({required Object n}) => '${n} 个子代理运行';
@@ -1253,6 +1257,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get mcpDegraded => '已降级';
 	@override String mcpToolCount({required Object n}) => '${n} 工具';
 	@override String mcpFailures({required Object n}) => '${n} 次连续失败';
+	@override String get mcpConnectedAt => '连接时间';
 	@override String get browsingMarket => '正在浏览市场';
 	@override String get browsedMarket => '已浏览市场';
 	@override String marketCount({required Object n}) => '${n} 个服务器';
@@ -3180,6 +3185,8 @@ extension on TranslationsZhCn {
 			'chat.tool.createdKind' => ({required Object kind}) => '已创建${kind}',
 			'chat.tool.updatingKind' => ({required Object kind}) => '正在修改${kind}',
 			'chat.tool.updatedKind' => ({required Object kind}) => '已更新${kind}',
+			'chat.tool.createFailedKind' => ({required Object kind}) => '创建${kind}失败',
+			'chat.tool.updateFailedKind' => ({required Object kind}) => '修改${kind}失败',
 			'chat.tool.envReady' => 'env 就绪',
 			'chat.tool.envBuilding' => 'env 构建中',
 			'chat.tool.envFailed' => 'env 失败',
@@ -3512,10 +3519,10 @@ extension on TranslationsZhCn {
 			'chat.tool.gotFnExec' => '已调阅函数执行档案',
 			'chat.tool.gettingHdCall' => '正在调阅处理器调用档案',
 			'chat.tool.gotHdCall' => '已调阅处理器调用档案',
-			'chat.tool.gettingMcpCall' => '正在调阅 MCP 调用档案',
-			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.gettingMcpCall' => '正在调阅 MCP 调用档案',
+			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
 			'chat.tool.gettingActivation' => '正在调阅活动档案',
 			'chat.tool.gotActivation' => '已调阅活动档案',
 			'chat.tool.dossierStderr' => 'server stderr(可能早于本次调用)',
@@ -3537,6 +3544,8 @@ extension on TranslationsZhCn {
 			'chat.tool.subagentTask' => '任务',
 			'chat.tool.subagentAnswer' => '回答',
 			'chat.tool.subagentTraceNote' => '轨迹仅流不落盘——用 get_subagent_trace 回放',
+			'chat.tool.subagentValidationFailed' => '子代理校验失败 · 未启动',
+			'chat.tool.subagentNotStarted' => '未启动——请求在子代理运行前被拒绝',
 			'chat.tool.gettingSubTrace' => '正在调阅子代理轨迹',
 			'chat.tool.gotSubTrace' => '已调阅子代理轨迹',
 			'chat.tool.subTraceRuns' => ({required Object n}) => '${n} 个子代理运行',
@@ -3574,6 +3583,7 @@ extension on TranslationsZhCn {
 			'chat.tool.mcpDegraded' => '已降级',
 			'chat.tool.mcpToolCount' => ({required Object n}) => '${n} 工具',
 			'chat.tool.mcpFailures' => ({required Object n}) => '${n} 次连续失败',
+			'chat.tool.mcpConnectedAt' => '连接时间',
 			'chat.tool.browsingMarket' => '正在浏览市场',
 			'chat.tool.browsedMarket' => '已浏览市场',
 			'chat.tool.marketCount' => ({required Object n}) => '${n} 个服务器',
@@ -4023,13 +4033,13 @@ extension on TranslationsZhCn {
 			'scheduler.range.gridA11y' => '日历',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
+			_ => null,
+		} ?? switch (path) {
 			'action.save' => '保存',
 			'action.copy' => '复制',
 			'action.expand' => '展开',
 			'action.collapse' => '收起',
 			'action.wrap' => '自动换行',
-			_ => null,
-		} ?? switch (path) {
 			'action.delete' => '删除',
 			'feedback.info' => '提示',
 			'feedback.success' => '成功',
@@ -4537,13 +4547,13 @@ extension on TranslationsZhCn {
 			'library.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
 			'library.props.tools' => '允许的工具',
 			'library.props.addTool' => '添加工具',
+			_ => null,
+		} ?? switch (path) {
 			'library.props.toolPickerTitle' => '添加工具',
 			'library.props.toolPickerSearch' => '搜索工具 / 函数 / MCP…',
 			'library.props.toolPickerBuiltin' => '内置工具',
 			'library.props.toolPickerFunctions' => '函数',
 			'library.props.toolPickerHandlers' => '处理器',
-			_ => null,
-		} ?? switch (path) {
 			'library.props.toolPickerMcp' => 'MCP 工具',
 			'library.props.toolPickerAddLiteral' => ({required Object q}) => '按原文添加 “${q}”',
 			'library.props.toolPickerHint' => '从下方挑选，或输入作用域如 Bash(git:*) 后回车。',
@@ -5051,13 +5061,13 @@ extension on TranslationsZhCn {
 			'settings.capsuleApprovalsDesc' => '待审批在顶带弹出可就地批复的块',
 			'settings.capsuleAttention' => '胶囊:需要关注',
 			'settings.capsuleAttentionDesc' => '需关注事件(连败、悬空引用)弹出顶带胶囊',
+			_ => null,
+		} ?? switch (path) {
 			'settings.spend.title' => '自带密钥支出',
 			'settings.spend.window' => '近 30 天(直连)',
 			'settings.spend.empty' => '这 30 天没有用自己的 key 生成过东西。',
 			'settings.spend.unavailable' => '读不到支出台账。',
 			'settings.spend.estimateNote' => '用量是数出来的;金额是**估算**——按手写价目表算,权威以供应商账单为准。免费档的用量在上面那张卡里。',
-			_ => null,
-		} ?? switch (path) {
 			'settings.spend.catImage' => '图像',
 			'settings.spend.catSpeech' => '语音',
 			'settings.spend.catVideo' => '视频',
