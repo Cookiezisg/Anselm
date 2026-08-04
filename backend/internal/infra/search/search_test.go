@@ -63,6 +63,25 @@ func TestSearch_ChineseTrigramAndSnippet(t *testing.T) {
 	}
 }
 
+func TestSearch_ExactHyphenQuerySnippetKeepsWholeTerm(t *testing.T) {
+	s := newStore(t)
+	ctx := wsCtx("ws_a")
+	must(t, s.ReplaceDocs(ctx, searchdomain.TypeConversation, "cv_1", []searchdomain.SourceDoc{
+		doc(0, "msg_1", "Launch plan notes", "ACK-SILVER-ORBITAL-112-FIX4"),
+	}))
+
+	hits, err := s.SearchLexical(ctx, lexical("ORBITAL-112-FIX4"))
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(hits) != 1 {
+		t.Fatalf("exact hyphen query hits = %d, want 1: %+v", len(hits), hits)
+	}
+	if want := "<mark>ORBITAL-112-FIX4</mark>"; !strings.Contains(hits[0].Snippet, want) {
+		t.Fatalf("snippet must preserve the whole exact term %q: %q", want, hits[0].Snippet)
+	}
+}
+
 func TestSearch_ShortQueryLikeFallback(t *testing.T) {
 	s := newStore(t)
 	ctx := wsCtx("ws_a")

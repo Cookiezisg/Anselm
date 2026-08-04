@@ -174,7 +174,7 @@ class _WorkspaceCreateControlState extends State<WorkspaceCreateControl> {
               child: Align(
                 alignment: Alignment.bottomLeft,
                 child: Text(
-                  _error ?? '',
+                  _error ?? (_saving ? t.coldStart.connecting : ''),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: AnText.meta.copyWith(color: c.inkMuted),

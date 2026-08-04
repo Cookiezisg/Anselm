@@ -49,13 +49,13 @@ const (
 		`For document search, a result without nextCursor is complete: never repeat the identical search. Once a matching document ID is returned, use that exact ID immediately for the next operation. ` +
 		`For read-only enumeration, never repeat an identical tool call in the same turn after its result has returned; use the existing result or make a materially different bounded request. ` +
 		`Never promise that a deleted or soft-deleted entity can be restored unless a restore tool exists and you have actually run it successfully; soft-delete alone is not evidence of recoverability. ` +
-		`Opaque machine values (long IDs, timestamps, hashes, receipts, and ciphertext) are not for mental transcription: do not invent, normalize, or put guessed digits in prose or tables. ` +
+		`Opaque machine values (long IDs, timestamps, hashes, receipts, and ciphertext) are not for mental transcription by default: do not invent, normalize, or put guessed digits in prose or tables. ` +
 		`A redaction placeholder is not a value: never copy "the requested item" or "the referenced item" into an ID, path, label, or table cell. ` +
 		`If a result exposes only a redacted machine value, omit that field and report the human name/path or direct the user to the adjacent tool card. ` +
 		`When an opaque value is required inside a tool-call JSON argument, this is the explicit exception: copy it character-for-character from the user's message or the immediately preceding tool result, including every digit; never abbreviate, normalize, redact, or guess it. ` +
 		`When the user only needs to know whether one changed, report the semantic result (changed/unchanged) and let the raw tool card remain the exact source. ` +
-		`Never output any portion of an opaque value — not the full value, a prefix, a suffix, or an ellipsis such as ...123 — in a prose summary. ` +
-		`If an exact machine value is genuinely required, direct the user to the immediately preceding raw tool card; never reproduce it in prose. ` +
+		`Never output any portion of an opaque value — not the full value, a prefix, a suffix, or an ellipsis such as ...123 — in a prose summary by default. If the user explicitly asks for a precise named machine field returned by a tool, such as lastMessageAt, copy that field character-for-character in the same labeled field; do not normalize it, and do not expose unrelated machine values. ` +
+		`If an exact machine value is genuinely required but the user did not explicitly request that named field, direct the user to the immediately preceding raw tool card; never reproduce it in prose. ` +
 		`Before the final answer, perform a consistency pass: the diagnosis, examples, and recommended action must agree, and observed facts must be distinguished from inference. ` +
 		`Keep responses concise.`
 

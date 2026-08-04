@@ -43,9 +43,23 @@ Attached document 与 ModelRef 在写入时 eager 校验，避免 dangling 配�
 用户发送时 unread=false；completed assistant finalize 时 unread=true；error 或
 cancelled 不置未读。`:seen` 幂等清除。运行态由 app 服务在 Get/List 时补齐。
 
-List 使用 keyset 分页，支持 active/archived、pin 与搜索投影。LLM 的
+List 使用 keyset 分页，支持 active/archived、pin 与搜索投影。`list_conversations` 的 `limit`
+接受原生整数及托管模型可能发出的精确十进制字符串；`includeArchived` 同样接受原生布尔或精确的
+`"true"`/`"false"` 字符串。浮点、任意字符串和数组仍拒绝。服务端生成的 cursor 是无填充
+base64url(JSON)；解码同时接受等价的标准填充形式，兼容托管模型对不透明字符串自动补齐 `=` 的
+规范化，但不会接受无法解码或无法解析的值。LLM 的
 `list_conversations` 是忠实分页枚举；`search_conversations` 是内容检索，不能
 代替全集。
+
+`search_conversations` 是“过去历史”的上下文检索：在对话回合中自动排除当前 thread，
+避免用户要求找旧内容时把正在提问的这条消息算成命中。每个命中返回
+`conversationId`、标题、`matchKind`、有界 `snippet` 与 `matchedChunks`；消息命中还返回
+命中消息的 `messageId`，标题卡命中则 `matchKind=conversation_title` 且 `messageId` 为空，
+不得伪造消息指针。它只作为回到历史的指针，绝不倾倒全文。`total` 是服务端真实命中总数，
+助手必须按它报告并保留每个命中的区分；搜索卡保留精确机器值，助手正文对 opaque ID 只指向
+搜索卡，不得露出 `the requested item` 这类坏占位符。
+部分托管模型会把 `limit` 发成精确十进制字符串；该窄兼容与原生整数等价，浮点、任意
+字符串、数组和其它形状仍拒绝。
 
 ## 3. 配置与删除
 
@@ -122,3 +136,6 @@ Conversation 只提供与“住在哪里”有关的三个 git 动作：
 
 LLM 工具为内容搜索、分页列举与当前 Conversation 的 archive/unarchive/
 pin/unpin/rename 管理。压缩是自动机制，不暴露手动 compact 动作。
+
+`list_conversations` 的 `lastMessageAt` 是权威 RFC3339 值；当用户要求报告该字段时，LLM 必须逐字保留，
+不得用「记录时间」等泛化短语替代。

@@ -18,7 +18,7 @@ audience: [human, ai]
 
 ## 1. 默认产品路径
 
-Anselm 桌面端默认使用受管 `anselm` provider 与逻辑模型 `anselm-auto`。新 workspace 由 Go sidecar best-effort 开通受管 install、创建不可编辑的 managed api-key 行，并只为尚未设置的 scenario 播种默认值。
+Anselm 桌面端默认使用受管 `anselm` provider 与逻辑模型 `anselm-auto`。新 workspace 由 Go sidecar best-effort 开通受管 install、创建不可编辑的 managed api-key 行，并只为尚未设置的 scenario 播种默认值。桌面端在首次创建或发现 dialogue 默认尚未落下时，会在释放 Chat 壳前调用既有 `POST /freetier:provision` 做一次前台就绪检查；同一 workspace 的后台 hook 与前台检查由 provisioner 单飞合并，避免首发竞态与重复登记。
 
 用户不需要为默认路径提供 OpenAI、Gemini、Qwen、DeepSeek 或其他 provider key。provider secret 只存在于部署网关，既不进入 Flutter，也不进入主仓 `.env`、数据库、日志或诊断复制。
 
@@ -81,7 +81,7 @@ Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接�
 
 ## 6. 失败与恢复
 
-- 开通是 best-effort：网关不可达不能阻塞本地启动或 onboarding。
+- 后端自动 hook 的开通是 best-effort：网关不可达不能阻塞本地启动或 API workspace 创建；桌面首启会在 Chat 壳内显示「正在准备工作区…」，等待前台检查返回，最多 20 秒，降级后仍释放本地壳供 BYOK/设置恢复。
 - 已有 managed 行只有在网关明确返回 `INVALID_INSTALL` 时才重新登记并原位轮换 install id；网络闪断、限流或临时 5xx 不得毁掉有效 install。
 - managed 行对用户不可编辑/删除；quota 与能力由 sidecar 代理读取。
 - 默认 live/evals 通过部署网关验证受管路径；BYOK 对照必须显式开启并自行提供测试 key，不能由 managed fallback 代跑。

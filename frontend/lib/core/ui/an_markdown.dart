@@ -261,6 +261,10 @@ class AnMarkdown extends StatelessWidget {
     lang: name.trim().isEmpty ? null : name.trim(),
     reading: !_embedded,
     live: !closed,
+    // Markdown answers are read in a bounded transcript column. Keep long diagnostic lines
+    // accessible by default; the editor still exposes its Wrap action for an explicit toggle.
+    // 消息答案在有界 transcript 栏内阅读，长诊断默认必须可读；编辑器仍保留 Wrap 操作供显式切换。
+    wrap: true,
   );
 
   // Inline `code` → [AnCodeChip] (mono on a sunken padded pill; the package default is bold-only — broken on the

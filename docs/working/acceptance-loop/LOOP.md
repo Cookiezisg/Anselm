@@ -27,11 +27,29 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-04，TOOL-110 已收口）
+## 当前前线（2026-08-05，TOOL-120 已收口，批次十二统一门禁已通过）
+
+**当前更新。** 第九批 `TOOL-081..090`、第十批 `TOOL-091..100`、第十一批 `TOOL-101..110` 均已完成 50/50 并分别提交 `32b33499`、`553fa150`、`de146b72`；当前正式账本为 **635 judgments**，警报在本次复审后为 clean。`TOOL-111 get_subagent_trace`、`TOOL-112 search_conversations`、`TOOL-113 list_conversations`、`TOOL-114 manage_conversation`、`TOOL-115 search_blocks`、`TOOL-116 get_relations`、`TOOL-117 WebFetch`、`TOOL-118 WebSearch`、`TOOL-119 generate_image`、`TOOL-120 generate_speech` 已各完成五级真实验收，COVERAGE 十行均为 `✓✓✓✓✓`；批次十二已达到 **50 / 50**，现在只执行统一长门禁、完整 testend、工作树审计和提交，未完成前不进入 `TOOL-121 generate_video`。
+
+`TOOL-113` 的首轮正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-220707` 保留了真实 SSE 中间帧的 `lastMessageAt → the recorded time` 红线；修复后 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-221418` 已由新 binary、真实 App、受管 gateway、Computer Use 和五通道台架复验。三次 cursor 调用取回三页，目标 text delta/close、UI、REST/tool result 和五通道一致；录屏 `162.765s / 2784x1808 / 60fps`，frontend/backend 无未解释红线，LLM wire 全 200。正式证据 `evidence/TOOL-113.md`，警报复审 `evidence/tool-113-ledger-alarm-reaudit.md`，anchors 10/10，最终 `alarms.py check` 为 `clean (600 judgments)`。
+
+`TOOL-114` 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-222259` 完成当前对话 rename/pin/unpin/archive/自动解档/显式解档以及空标题拒绝；六个 tool-call/result 对与 notifications 状态顺序逐帧一致，空标题没有 retry 或 mutation。录屏 `411.743333s / 2784x1808 / 60fps`，messages `1..96`、notifications `1..6` 单调，三路 SSE 连接，frontend 无 runtime 红线，backend 只有预期 validation WARN，LLM chat response 全 200。正式证据 `evidence/TOOL-114.md`，警报复审 `evidence/tool-114-ledger-alarm-reaudit.md`，anchors 10/10，最终 `alarms.py check` 为 `clean (605 judgments)`。
+
+`TOOL-115` 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-232754` 完成全量 kind 检索、handler 筛选、无匹配和空 query 四条真实 App 路径；一次调用约束、精确 ref 卡片、自然语言脱敏、字符串化 hosted 参数兼容、明确 validation failure 和无 mutation 均由 SQLite/SSE/UI/LLM/backend/frontend 五通道交叉核对。首轮泄漏和参数形状红证据保留，修复后二次 session 才判绿；录屏 `217.091667s / 2784x1808`，messages `1..42`、notifications `1..6` 单调，frontend 无运行时红线，backend 只有预期空 query WARN，LLM responses 全 200。正式证据 `evidence/TOOL-115.md`，警报复审 `evidence/tool-115-ledger-alarm-reaudit.md`，anchors 10/10，五级 `G1/F2/A5/C4/G2` 已落账，最终 `alarms.py check` 为 `clean (610 judgments)`。
+
+`TOOL-116` 首轮 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-014547` 冻结了真实端点展示泄露 `(fromId: deploy-helper)` 与中间 SSE 裸占位符；stop-and-fix 让关系表识别起点/终点列，并在 delta/close 统一去除机器字段，精确 ref 仅留工具卡与审计面。修复后二次 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-015059` 真实 App 只调用一次 `get_relations`，终帧显示 `技能 deploy-helper → 函数 greet`；assistant-only SSE 禁词扫描为空，五通道与 `rig-check`/`rig-down` 通过，证据 `evidence/TOOL-116.md`，警报复审 `tool-116-ledger-alarm-reaudit.md`，anchors 10/10，最终 `alarms.py check` 为 `clean (615 judgments)`。
+
+`TOOL-117` 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-020051` 完成 local 正向摘要、local JS shell 降级、loopback 安全拒绝和 Chat 设置切换 Jina 后的动态页面摘要；UI、SQLite、SSE、LLM wire、backend/frontend journal 与 336.700000s 录屏一致。messages durable `1..62`、notifications `1..2` 单调，LLM 28 个 HTTP response 全 200，五通道收台与 anchors 10/10 通过；证据 `evidence/TOOL-117.md`，警报复审 `tool-117-ledger-alarm-reaudit.md`，`alarms.py check` 为 `clean (620 judgments)`。
+
+`TOOL-118` 首轮真实正向路径暴露 managed model 把 `limit` 发成字符串，修复后又由抽帧发现 Markdown 错误代码块横向裁切；两条红线均保留并在新 binary 上 stop-and-fix。正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-023835` 重跑成功结果与 provider 401 失败：成功一次 WebSearch 返回两条有序结果和 `truncated:true`，失败一次 WebSearch 显示完整 401 且助手代码块自动换行；messages durable `1..40`、notifications `1..4` 单调，LLM body 无 validation retry，backend 仅预期 WARN，frontend 无异常，录屏 `244.275000s / 2784x1808 / 60fps`。证据 `evidence/TOOL-118.md`，警报复审 `tool-118-ledger-alarm-reaudit.md`，anchors `10/10`，五级已落账，`alarms.py check` 为 `clean (625 judgments)`。
+
+`TOOL-119` 首轮红证据来自媒体标签脱敏泄露和生成图卡横竖版占位跳变；修复后二进制在真实 App、受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和 60fps 录屏下完成 landscape 生图。最终真实 tool call 只调用一次 `generate_image`，wire 只做一次图片生成、一次媒体上传；SQLite、tool result、SSE 和 UI 对证，画面显示 `1344×768` 与真实附件。正式证据 `evidence/TOOL-119.md`，警报复审 `evidence/tool-119-ledger-alarm-reaudit.md`，anchors `10/10`，五级 `G1/F2/A5/C4/G2` 已落账，最终 `alarms.py check` 为 `clean (630 judgments)`。
+
+批次十二当前 **50 / 50**，`TOOL-120 generate_speech` 的正式证据为 `evidence/TOOL-120.md`，警报复审为 `evidence/tool-120-ledger-alarm-reaudit.md`；根 `make verify`、backend 全包测试、完整 `make -C backend testend`、锚点、警报和 `git diff --check` 已通过，当前只剩提交动作，提交后下一原子前线为 `TOOL-121 generate_video`。下方既有 TOOL-116 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行为真相。
 
 统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。第十一批收口时完整 `make testend` 又冻结了一个真实前置问题：`install_mcp_server` 的不可绕过 danger gate 没有被 chat 验收剧本处理，导致回合正确停在 `streaming`；场景现已逐次断言并批准两道人闸，定向场景与完整 testend `go test ./...`（scenarios 292.290s）均通过。最终 `make verify` 四门全绿，backend gate、锚点 10/10、警报 clean、diff check 均通过；批次已提交 `de146b72`。
 
-**当前更新。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50**，中央账本 **535 judgments**，长门禁与 `553fa150` 提交均已完成。第十一批 `TOOL-101..110` 已完成 **50 / 50 单格**；中央账本 **585 judgments**。`TOOL-110` 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-190256` 证明 Explore 子运行只派发一次且真实返回 `CLAUDE.md` 首标题；非法类型路径经 stop-and-fix 后显示 `validation failed · not started`，无轨迹回放提示，SSE 负向无 `subagent:true` 子消息。五通道、SSE、LLM wire、frontend console 与录屏一致，`rig-check` 全绿；正式证据 `evidence/TOOL-110.md`，警报复审 `evidence/tool-110-ledger-alarm-reaudit.md`。`judge.py` 已写入 `G1/F2/A5/C4/G2`，锚点 10/10，`alarms.py check` clean。完整 testend 与最终 `make verify` 已通过；收口时修正了 MCP chat danger-gate 验收剧本，并同步 `docs/references/backend/domains/mcp.md`。批次已提交 `de146b72`，下一原子前线为 `TOOL-111 get_subagent_trace`。
+**历史快照。** 第九批已完成统一长门禁并提交 `32b33499`；第十批 `TOOL-091..100` 已完成 **50 / 50** 并提交 `553fa150`；第十一批 `TOOL-101..110` 已完成 **50 / 50**，完整 testend、`make verify`、锚点与警报复核通过并提交 `de146b72`。当时中央账本为 `595 judgments`，批次十二为 **10 / 50**，下一原子前线为 `TOOL-113 list_conversations`；该段仅供追溯，当前前线以上方整体重述为准。
 
 下方既有 TOOL-106 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行作为真相。
 

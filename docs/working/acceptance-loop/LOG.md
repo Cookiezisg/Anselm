@@ -12,6 +12,75 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-05 03:33 · 第十二批 TOOL-120 generate_speech 正式收口，50/50，进入统一门禁
+
+- 真实 App + 真实受管网关 + Computer Use 完成一次语音合成：工具卡显示真实文件名、WAV、大小和精确时长；点击播放走一次 lease，Range 读取成功，播放自然结束后可重播。
+- 首轮产品复核先冻结并修复两条红线：收据提示丢失导致音频卡首帧事实不足；元数据失败泄露裸 `att_` 且在途骨架落地会发生几何跳变。补齐 filename/sizeBytes/durationMs、固定音频几何、失败人话重试和播放失败/离线/缺失分流；定向 Flutter 13/13 通过，Chat reference 同步。
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-032851`：录屏 `180.128333s`；messages durable `1..14`、notifications `1..2`；一次 `/v1/audio/speech` 200、一次 `generate_speech` tool call；SQLite 附件 `audio/wav`、`126764` bytes，blob 为 24kHz mono PCM WAV；backend/frontend 无未解释红线。
+- 五级 `G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本 `630→635 judgments`。写账触发的 `gap-too-fast`、`discovery-collapse` 以 10/10 anchor、正式绿 session、前置历史红 session、五通道证据复审并串行 ack；最终 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3 python3 testend/rig/alarms.py check` 为 `clean (635 judgments)`。
+- 批次十二达到 **50 / 50**。按 P15 现在运行统一长门禁、完整 `make verify`、完整 testend、已修场景回归、工作树审计；所有门禁完成前不进入 `TOOL-121`、不提交。
+
+# 2026-08-05 03:43 · 第十二批统一门禁通过，待提交
+
+- 根 `mise exec -- make verify` 全绿：backend、frontend、docs、demo；frontend verify 为 `5191 tests`，并修掉另一团队当前 conversation card 改动中 3 个 analyzer warning（只删除无效 `!`，语义不变）。
+- backend `mise exec -- make -C backend test` 全包通过；完整 `mise exec -- make -C backend testend` 通过，`github.com/sunweilin/anselm/testend/scenarios` 用时 `281.869s`，退出码 0。
+- 收口前复核：anchors `10/10`，`alarms.py check` 为 `clean (635 judgments)`，`git diff --check` 通过；工作树中的其他团队改动未回退，待统一纳入本次可追溯提交。
+- 当前只剩提交动作；提交完成后再把前线整体推进为 `TOOL-121 generate_video`，不在门禁未闭合时提前开始。
+
+# 2026-08-05 03:17 · 第十二批 TOOL-119 generate_image 正式收口，45/50
+
+- 首轮真实生成路径冻结为红：`**Attachment ID:** the requested item` 进入助手正文；随后两轮新 binary 又由独立 SSE witness 捕获 `Attachment ID` 标签和反引号半截在中间 delta 泄露。stop-and-fix 将媒体语义标签行从通用 opaque redaction 中窄化处理，并让 streaming redactor 跨 provider chunk 暂存整行；Go regression 覆盖真实 `att_...` 值边界，最终 user-facing delta/close 无 `Attachment ID`、`attachmentId`、`att_` 或坏占位。
+- 逐帧产品复核发现第二条红线：`generate_image` 解析了 receipt 的 `width/height`，但工具卡只传 `attachmentId`，landscape/portrait 在附件 metadata 到达前会先以方形占位，随后跳变。stop-and-fix 将 filename、mime、sizeBytes、width/height、source 完整传给统一 `AnMediaRefCard`，并新增 delayed-meta widget guard，证明 `1536×1024` 在 metadata 未到时即保持 1.5:1。
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-031323` 使用新 binary、真实 Flutter App、真实受管 gateway、Computer Use、独立三路 SSE witness、LLM tap、backend/frontend journal 和连续录屏完成 landscape 路径。最终 UI 显示真实 `1344×768` 图像、文件名和大小，助手确认文案与画面一致，composer 正常恢复；screen.mov `102.498333s / 2784x1808 / 60fps`。
+- 五通道交叉核对：messages durable `1..14`、notifications `1..2` 单调；tool_result 仅落真实 attachment receipt，assistant-only SSE 禁词扫描 clean；wire 恰一次 `/v1/images/generations`、一次 upload、一次 complete，三次 chat completion，全部响应成功；SQLite attachment 为 live `image/png`、`1083971` bytes、`1344×768`；backend/frontend journal 无 panic/error/Flutter/Dart/RenderFlex/Unhandled 红线。`rig-check` 运行中通过，`rig-down` 已收台且无孤儿。
+- 证据 `sessions/20260805-031323/evidence/TOOL-119.md`，警报复审 `tool-119-ledger-alarm-reaudit.md`；anchors `10/10`。`judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，中央账本 `625→630 judgments`；写账触发的 `gap-too-fast`、`discovery-collapse` 已基于正式录屏、三轮红证据、修复回归和五通道复核串行 ack，最终 `alarms.py check` 为 `clean (630 judgments)`。
+- 批次十二推进到 **45 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `TOOL-120 generate_speech`。
+
+# 2026-08-05 02:44 · 第十二批 TOOL-118 WebSearch 正式收口，40/50
+
+- 首轮真实成功路径冻结为红：托管模型把公开 schema 的 `limit` 发成字符串，后端拒绝后 App 出现 validation failure 和 retry。stop-and-fix 将公开 schema 保持 integer，同时在执行边界接受 native integer 与精确十进制字符串，浮点、任意字符串、数组、布尔继续拒绝；新增 Go validation/truncation regression。
+- 修复后二次真实 App 路径又冻结一条视觉红线：助手复述的 provider 401 长错误落成单行 fenced code，在 transcript 右侧被裁切。stop-and-fix 让 `AnMarkdown` 围栏代码默认 `wrap:true`，`AnCodeEditor` 钉住只读 `TextWidthBasis.parent`，新增 Markdown/代码组件回归；最终真实帧 `frame-195.jpg` 中错误完整折为两行，工具卡与助手复述都可读。
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-023835` 以新 binary、真实 Flutter App、真实受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和窗口录像完成成功/失败两路径。正向仅一次 WebSearch，Alpha/Beta 有序、`2+ hits`、`truncated:true`；401 负向仅一次 WebSearch，无 retry，工具卡红色且 assistant 原样错误可读。录像 `244.275000s / 2784x1808 / 60fps`；messages `1..40`、notifications `1..4` 单调，0 gap；LLM bodies 对两条路径均只有一个 WebSearch，HTTP responses 全 200；backend 只有预期 401 WARN，frontend 无异常。
+- 证据 `sessions/20260805-023835/evidence/TOOL-118.md`，警报复审 `tool-118-ledger-alarm-reaudit.md`；anchors `10/10`。`judge.py` 以 `G1/F2/A5/C4/G2` 写入 `TOOL-118=✓✓✓✓✓`，中央账本 `620→625 judgments`，两条统计警报经证据复审后串行 ack，最终 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3 alarms.py check` 为 `clean (625 judgments)`。台架已由 `rig-down.sh` 收台，临时 fake provider 已停止并删除，正式 journals/录像/evidence 保留。
+- 批次十二推进到 **40 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `TOOL-119 generate_image`。
+
+# 2026-08-05 02:09 · 第十二批 TOOL-117 WebFetch 正式收口，35/50
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-020051` 使用真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和窗口录屏。真实 onboarding 创建 `Web Acceptance` 工作区后，Chat 依次完成 RFC 9110 正向摘要、loopback 安全拒绝、`example.com` local JS-shell 降级，以及 Chat 设置切换 `Jina proxy` 后的同页真实摘要。
+- 正向 local 路径从 `Fetching...` 收口为 486 字 grounded 摘要；local shell 路径显示 `JS page`、127 字和可行动建议，不伪装成成功；Jina 路径持久化为 `web_fetch_mode=jina`，返回 133 字并准确回答 `Example Domain` 标题/用途。所有路径无 retry、无原始 HTML 灌入、无本地地址网络副作用。
+- 五通道封口：`screen.mov` `336.700000s / 2784x1808 / 60fps`，抽取正向 settled、local JS、Jina settled 和 in-progress 画面；SQLite 的 tool_call/progress/tool_result/text 与 UI 对齐；SSE messages durable `1..62`、notifications `1..2` 单调，四条 WebFetch tool-result close；LLM tap 42 行、28 个 HTTP response 全 200；backend 无 WARN/ERROR/panic/fatal，frontend 无 Flutter/Dart/Unhandled/RenderFlex/AX 红线，唯一 foreground launcher noise 按既知规则单独披露。
+- 正式证据为 `sessions/20260805-020051/evidence/TOOL-117.md`，警报复审为 `tool-117-ledger-alarm-reaudit.md`。anchors `10/10`；`judge.py` 已以 `G1/F2/A5/C4/G2` 写入五格，COVERAGE `TOOL-117=✓✓✓✓✓`，中央账本 `615→620 judgments`。五格写账触发的 `gap-too-fast`、`pass-burst`、`discovery-collapse` 已基于本格复核证据串行 ack，最终 `alarms.py check` 为 `clean (620 judgments)`。批次十二推进至 **35 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `TOOL-118 WebSearch`。
+
+# 2026-08-05 01:53 · 第十二批 TOOL-116 get_relations 正式收口，30/50
+
+- 首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-014547` 冻结为红：最终关系表在端点名称后泄露 `(fromId: deploy-helper)`，中间 SSE delta 还曾吐出裸关系占位符；该 session 不计绿，红 journal 保留。
+- stop-and-fix：关系表现在识别 `起点 (from)`/`终点 (to)`/`端点名称` 列，只在用户面展示 kind 与人名；`fromId`/`toId`/`edgeId` 等机器字段和裸占位符在流式 delta 与 durable close 统一收口，精确 ref 只留在 tool card、tool result 与 LLM 审计线缆。新增 Go 单测覆盖真实 hosted-model 表格形态，并同步 chat domain 法条。
+- 修复后二次正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-015059` 使用新 binary、真实 macOS App、真实受管 gateway、Computer Use、窗口录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap。真实请求只调用一次 `get_relations`，返回一条 `equip` 边；最终画面为 `技能 deploy-helper → 函数 greet`，关系引用显示为 `精确 ref 见关系卡`，无 retry、mutation 或矛盾卡片。
+- 五通道复核：`rig-check.sh` 五观察器全绿后收台，`screen.mov` 已由 `rig-down.sh` 封口；assistant-only SSE delta/reasoning/close 禁词扫描为空，messages/entities/notifications 均连接，LLM 状态全 200，backend/frontend 无 panic/fatal/error/warn/Flutter/Dart/RenderFlex/Unhandled 红线。正式证据为 `sessions/20260805-015059/evidence/TOOL-116.md`，警报复审为 `tool-116-ledger-alarm-reaudit.md`。
+- 锚点 `10/10`；`judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，COVERAGE `TOOL-116=✓✓✓✓✓`，中央账本 `610→615 judgments`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已用红/绿 session、完整五通道 journal、修复回归和锚点结果复审并串行 ack，最终 `alarms.py check` 为 `clean (615 judgments)`。第十二批推进至 **30 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `TOOL-117 WebFetch`。
+
+# 2026-08-04 22:35 · 第十二批 TOOL-114 manage_conversation 正式收口，20/50
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-222259` 使用真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和连续录屏。真实 App 完成当前对话 rename、pin、unpin、archive、发送新消息自动 unarchive、显式 unarchive；最后执行空标题 rename 负路径。
+- 六个真实 `manage_conversation` tool-call/result 对按 `rename → pin → unpin → archive → unarchive → 空标题 rename` 收口；空标题仅一次调用，服务端返回 `rename requires a non-empty title`，无 retry、fallback 或 mutation。notifications durable 顺序为 `updated → pinned → unpinned → archived → unarchived → updated`，与侧栏、顶栏和主内容 UI 一致。稳定画面中的失败卡、原始错误、标题未变化和 composer 均可读，没有裁切或布局红线。
+- 五通道封口：`screen.mov` `411.743333s / 2784x1808 / 60fps`；messages durable `1..96`、notifications `1..6` 单调，entities 已连接；LLM chat completion responses 全 200；backend 唯一 WARN 是刻意触发的空标题业务校验，frontend 无 Flutter/Dart/Unhandled/RenderFlex/AX 红线。正式证据为 `evidence/TOOL-114.md`，收尾画面为 `evidence/tool-114-frame-405.jpg`。
+- 定向 `go test ./internal/app/tool/conversation ./internal/app/chat ./internal/app/loop`、`make -C docs verify`、`git diff --check` 通过；`anchors.py check` 10/10。`judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，COVERAGE `TOOL-114=✓✓✓✓✓`，中央账本 `600→605 judgments`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已用完整录屏、五通道原始 journal、正/负路径和稳定画面复审，复审证据为 `evidence/tool-114-ledger-alarm-reaudit.md`，串行 ack 后最终 `alarms.py check` 为 `clean (605 judgments)`。批次十二推进至 **20 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `TOOL-115 search_blocks`。
+
+# 2026-08-04 22:20 · 第十二批 TOOL-113 list_conversations 正式收口，15/50
+
+- 首轮真实复验 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-220707` 冻结为红：provider raw response 与 durable close 的三条 RFC3339 正确，但真实 SSE 中间帧把 `Alpha planning` 的 `lastMessageAt` 改成 `the recorded time`；同时发现普通词尾 `ge` 被 partial `get_flowrun` matcher 误判。红 session、backend/SSE/frontend/LLM journals 全部保留，不计绿。
+- stop-and-fix：`redact.go` 将 partial tool name 收紧为 token-boundary；`lastMessageAt` Markdown 表格在无换行尾行、空目标列和孤立 `|` 行期间整体暂存，直到下一帧或 `Flush`；补真实 provider wire chunk regression，`chat.md` 同步流式法条。定向及相关 Go 回归、`make -C docs verify`、`git diff --check` 全部通过。
+- 修复后二次正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-221418` 使用新 binary、真实 macOS App、真实受管 gateway、Computer Use、窗口录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap。真实 App 只执行三次 `list_conversations`，逐 cursor 取回 Gamma/Alpha/Beta 三页；中间 text delta 与 durable close 无占位，最终稳定画面完整可读。`screen.mov` 封口 `162.765s / 2784x1808 / 60fps`，messages durable `1..20` 单调，backend/frontend 无未解释红线，LLM wire 全 200。正式证据 `evidence/TOOL-113.md`，稳定终帧为 `evidence/tool-113-final-frame.jpg`。
+- anchors `10/10`；`judge.py` 以 `G1/F2/A5/C4/G2` 写入五格，COVERAGE `TOOL-113=✓✓✓✓✓`，中央账本 `595→600 judgments`。写账触发 `gap-too-fast` 与 `discovery-collapse`，已在 `evidence/tool-113-ledger-alarm-reaudit.md` 中用红/绿 session、五通道证据和校准结果复审并串行 ack，最终 `alarms.py check` 为 `clean (600 judgments)`。批次十二推进至 **15 / 50**，不跑统一长门禁、不提交；下一原子前线为 `TOOL-114 manage_conversation`。
+
+# 2026-08-04 21:04 · 第十二批 TOOL-112 search_conversations 正式收口，10/50
+
+- 首轮真实 App session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-205354` 冻结为红：空 workspace 创建后，后台免费档 provisioning 与首条 Chat 消息竞态，画面出现 `LLM_RESOLVE_ERROR · no model configured for scenario`。红 session、backend/SSE/frontend/LLM journals 全部保留，不计绿。
+- stop-and-fix：后端 `Provisioner` 以 workspace 为键合并后台 hook 与前台 `POST /freetier:provision`；桌面 onboarding 在释放 Chat 前做既有 provision action 的 20s 前台就绪检查，并显示“正在准备工作区…”；FTS snippet 窗口由 16 扩到有界 64 token，补精确 `ORBITAL-112-FIX4` 连字符回归，backend managed-gateway/search 文档同步。
+- 修复后 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-210040` 从 fresh data 启动真实 App 与受管 gateway：workspace 创建、默认模型就绪、干净源回合、重命名 `Launch plan notes`、新对话真实调用 `search_conversations`、展开结果卡、复制指针入口、点击行深跳均完成。结果为 1 个 message hit，完整高亮 `ORBITAL-112-FIX4`、`matchedChunks=2`、`messageId` 芯片与目标消息画面一致。
+- 五通道封口：`rig-check.sh` 和 `rig-down.sh` 通过；screen.mov 窗口绑定可读；SSE 三流连接、durable close 与 DB 一致；LLM wire 含真实 search tool result；backend/frontend journal 无未解释 runtime 红线。正式证据 `evidence/TOOL-112.md`。
+- 锚点 `10/10`；`judge.py` 五格 `G1/F2/A5/C4/G2` 写入，COVERAGE `TOOL-112=✓✓✓✓✓`，中央账本 `590→595 judgments`。写账触发 `gap-too-fast` 与 `discovery-collapse`，已以红/绿 session、五通道证据和校准结果书面 ack，最终 `alarms.py check` 为 `clean (595 judgments)`。批次十二推进至 **10 / 50**，不跑统一长门禁、不提交；下一原子前线为 `TOOL-113 list_conversations`。
+
 # 2026-08-04 19:47 · 第十一批统一长门禁通过，发现并修正 MCP danger-gate 场景缺口
 
 - 完整 `make testend` 首轮唯一红线为 `TestP4bMcp_ChatInstallErrorFaces`：`install_mcp_server` 的静态危险下限使真实 chat 回合停在 `streaming` 等待用户批准，旧剧本没有处理 interaction。这是验收剧本缺口，不是 MCP 安装挂死；产品安全门不降低。
@@ -1417,6 +1486,20 @@ landed-into:
 - SQLite 对证：run `fr_72aedca131ce4031` 为 `completed/replay_count=1`，四节点 completed；flaky handler `failed=1, ok=1`，stable/finish function 各执行一次，已完成节点没有重跑。正向真实成功路径沿用 session `20260803-044843`，显示 `Replayed run … · Completed · 4 nodes`，marker `TOOL072_REPLAY_DONE`。
 - 台架卫生：专用 workspace `ws_f68e2c882a19940f` 通过真实 workspace DELETE=204 清除；`ws_23d0c85d912ce656` 的 workflow/functions/handler/conversation 均 DELETE=204、GET=404，四类 live 列表为空，SQLite 主行保留 `deleted_at` 审计，最后保留一个空 workspace。
 - 五级 `G1/F2/A5/C4/G2` 已落账，中央账本由 395 增至 **400 judgments**；`gap-too-fast`、`pass-burst`、`discovery-collapse` 均写复审结论后 ack，`alarms.py check` clean。第八批推进至 **10 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线 `TOOL-073 list_approval_inbox`。证据：`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260803-045854/evidence/tool-072-postfix-acceptance.md`。
+
+## 2026-08-04 20:08 · 第十二批 TOOL-111 get_subagent_trace 正式收口，5/50
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-195749` 使用修复后二进制、真实 Flutter App、真实受管 gateway、Computer Use、三路独立 SSE witness、LLM tap、backend/frontend journal 和窗口录屏；`rig-down.sh` 已封口，录屏 `377.088333s / 2784x1808 / 60fps`。
+- 负向路径真实覆盖无运行记录与未知 `subagentRunId`，均得到可解释的普通工具结果；正向只派发一次 `Subagent(Explore)`，子运行 `subagt_ef30ee8ffc46567e` 完成并持久化 5 个 block，随后无参列表和精确 ID 详情均真实回放。UI 展示运行状态、5 步轨迹、失败的 `Read` 结果与最终文本；稳定产品帧为 `frames/f000720.png`、`f000730.png`、`f000740.png`、`f000748.png`，收台后的黑帧明确排除。
+- 五通道核对：SQLite 正向 subagent message 与 5 个 block 和 UI 对齐；messages durable seq `1..80`、notifications `1..5` 连续，seq=0 delta 未推进游标；LLM challenge/install/models/chat 全 200，wire 含 `Subagent`、无参 `get_subagent_trace` 和精确 ID 详情；backend 无 WARN/ERROR/panic/FATAL，frontend 无 Flutter/Unhandled/AXTree 红线。唯一已知观察器启动噪声 `Failed to foreground app; open returned 1` 已单独披露，不计产品异常。
+- 正式证据为 `evidence/TOOL-111.md`，警报复审为 `evidence/TOOL-111-ledger-alarm-reaudit.md`。锚点 `10/10`，`judge.py` 五格 `G1/F2/A5/C4/G2` 已写入，COVERAGE `TOOL-111=✓✓✓✓✓`；写入期间的 `gap-too-fast` 与 `discovery-collapse` 均以五通道、红/绿路径和复审说明串行 ack，最终 `alarms.py check` 为 `clean (590 judgments)`。批次十二推进至 **5 / 50**，不跑统一长门禁、不提交；下一前线为 `TOOL-112 search_conversations`。
+
+## 2026-08-04 23:36 · 第十二批 TOOL-115 search_blocks 正式收口，25/50
+
+- 正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-232754` 使用新 binary、真实 macOS App、真实受管 gateway、Computer Use、217.091667s 录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap。全量 kind 检索一次返回 9 条 block，handler 筛选一次返回 3 条；无匹配一次给出下一步建议；空 query 一次给出 `search query is required`，没有 retry 或 mutation。
+- 首轮红证据保留了三类真实产品问题：助手摘要泄漏 opaque ref、跨 SSE chunk 短暂露出占位符、hosted model 将 `kinds`/`limit` 字符串化导致后端拒绝。stop-and-fix 增加 search_blocks 专用摘要归一化、换行前缓冲、严格字符串化参数兼容，并强化同一调用必须携带用户过滤条件。修复后二次正式 session 的工具卡保留精确 ref，助手表格不泄露机器标识，9 条结果、分类汇总和无匹配/校验失败均清晰可读。
+- 五通道：SQLite 与 tool result/UI 对齐；messages durable `1..42`、notifications `1..6` 单调，三路 SSE 已连接；`backend.log` 无 panic/ERROR/FATAL，唯一 WARN 是预期空 query 校验；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线，仅有已知启动器 `open returned 1`；LLM responses 全 200。录屏终帧为 `evidence/TOOL-115-final.jpg`，正式证据为 `evidence/TOOL-115.md`。
+- 锚点 `10/10`，`judge.py` 五级 `G1/F2/A5/C4/G2` 已落账，中央账本由 605 增至 **610 judgments**，COVERAGE `TOOL-115=✓✓✓✓✓`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已用正式录屏、首轮红证据、修复后二次绿 session 和五通道证据复审并 ack，阈值未变，最终 `alarms.py check` 为 `clean (610 judgments)`。批次十二推进至 **25 / 50**，下一前线为 `TOOL-116 get_relations`；未到 50 格不跑统一长门禁、不提交。
 
 ## 2026-08-04 18:51 · 第十一批 TOOL-109 run_skill_script 正式收口
 

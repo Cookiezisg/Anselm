@@ -29,15 +29,16 @@ class WorkspaceBootstrap extends AsyncNotifier<String?> {
     if (page.items.isEmpty) return null;
     final ws = page.items.first;
     _activate(ws);
+    if (ws.defaultDialogue == null) await _prepareManagedDefault();
     return ws.id;
   }
 
-  /// Create the first workspace through the onboarding-exempt standard client, then release the gate.
-  /// The backend's free-tier provisioning hook is best-effort and asynchronous; creation never waits on
-  /// network provisioning, so this method intentionally treats the durable Workspace row as success.
+  /// Create a workspace, then wait for the existing managed provision action before releasing Chat.
+  /// The backend hook remains best-effort for API callers, but the desktop's first-run path must not
+  /// let the user send a message into the short window before the default model is seeded.
   ///
-  /// 经 onboarding 豁免的标准 client 创建首个 workspace,再放 gate。后端免费档 hook 是 best-effort
-  /// 异步过程;创建绝不拿外网 provisioning 当闸,故这里以 durable Workspace 行落盘为成功。
+  /// 创建 workspace 后先等待既有受管开通动作再放 Chat。后端 hook 对 API caller 仍是 best-effort；
+  /// 但桌面首启不能让用户在默认模型播种前发消息，撞上短暂的无模型窗口。
   Future<Workspace> create(String name) async {
     final ws = await ref
         .read(apiClientProvider)
@@ -50,8 +51,26 @@ class WorkspaceBootstrap extends AsyncNotifier<String?> {
           },
         );
     _activate(ws);
+    if (ws.defaultDialogue == null) await _prepareManagedDefault();
     state = AsyncData(ws.id);
     return ws;
+  }
+
+  Future<void> _prepareManagedDefault() async {
+    // Provisioning is intentionally a foreground readiness check here, not a second implementation
+    // of the gateway flow. Offline/degraded free tier still releases the local app after the request
+    // returns; a later model setup can recover it through Settings.
+    // 这里是前台就绪检查，不复制网关开通逻辑。免费档离线/降级时请求返回后仍放本地 app，之后可从设置恢复。
+    try {
+      await ref
+          .read(apiClientProvider)
+          .postData('/api/v1/freetier:provision')
+          .timeout(const Duration(seconds: 20));
+    } on Object {
+      // The backend keeps provisioning best-effort. The shell must remain usable for BYOK and
+      // explicit model setup even when the managed gateway is unavailable.
+      // 后端开通保持 best-effort；网关不可用时仍让用户进入壳，通过 BYOK/设置显式配模。
+    }
   }
 
   void _activate(Workspace ws) {

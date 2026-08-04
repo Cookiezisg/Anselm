@@ -1,11 +1,13 @@
 package web
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -46,7 +48,7 @@ var ErrEmptyQuery = errorspkg.New(errorspkg.KindInvalid, "WEBSEARCH_EMPTY_QUERY"
 // ErrNegativeLimit：limit 不可为负。
 var ErrNegativeLimit = errorspkg.New(errorspkg.KindInvalid, "WEBSEARCH_NEGATIVE_LIMIT", "limit must be non-negative")
 
-const searchDescription = `Web search via the workspace's configured search key (BYOK: Brave/Serper/Tavily/Bocha — one explicit key). Returns JSON {query,source,results:[{title,url,snippet}],truncated}. If no search key is configured, returns setup guidance.`
+const searchDescription = `Web search via the workspace's configured search key (BYOK: Brave/Serper/Tavily/Bocha — one explicit key). Returns JSON {query,source,results:[{title,url,snippet}],truncated}. If no search key is configured, returns setup guidance. For managed callers, limit accepts an exact decimal integer string; floats and arbitrary strings remain invalid.`
 
 var searchSchema = json.RawMessage(`{
 	"type": "object",
@@ -57,8 +59,8 @@ var searchSchema = json.RawMessage(`{
 			"description": "Search query string."
 		},
 		"limit": {
-			"type": "number",
-			"description": "Maximum results to return (default 10, hard max 30)."
+			"type": "integer",
+			"description": "Maximum results to return (default 10, hard max 30). An exact decimal integer string is also accepted from managed callers; floats, booleans, arrays, and other strings are invalid."
 		}
 	}
 }`)
@@ -66,6 +68,45 @@ var searchSchema = json.RawMessage(`{
 type searchArgs struct {
 	Query string `json:"query"`
 	Limit int    `json:"limit"`
+}
+
+// UnmarshalJSON accepts native integers and the exact decimal-string variant emitted by some
+// hosted models. Floats, arbitrary strings, arrays, and other shapes remain invalid.
+// UnmarshalJSON 接受原生整数及部分托管模型发出的精确十进制字符串；浮点、任意字符串、数组等仍拒绝。
+func (a *searchArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Query string          `json:"query"`
+		Limit json.RawMessage `json:"limit"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	limit, err := decodeSearchInt(raw.Limit)
+	if err != nil {
+		return fmt.Errorf("limit: %w", err)
+	}
+	*a = searchArgs{Query: raw.Query, Limit: limit}
+	return nil
+}
+
+func decodeSearchInt(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer or an exact decimal integer string, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer or an exact decimal integer string, got %q", text)
+	}
+	return value, nil
 }
 
 func (a *searchArgs) normalize() {

@@ -58,6 +58,10 @@ Namer 批量 hydrate 当前名称；目标已删时退回原始 ID。孤立实�
 - workspace 全量 nodes + edges snapshot；
 - LLM `get_relations` 工具。
 
+`get_relations` 的 `depth` 公开 schema 是整数 1–3；为兼容部分 hosted model 的严格线缆形，边界
+也接受形如 `"2"` 的纯十进制整数字符串。任意文字、带小数的字符串和 JSON 浮点数仍拒绝；这不是
+把不确定输入猜成合法值。
+
 Filter 的 kind/id 必须成对提供；self-loop、未知 entity kind、未知 edge kind 和超界
 depth 在 domain 边界拒绝。
 

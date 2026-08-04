@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 
@@ -27,6 +28,7 @@ import (
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // provider / display constants — "anselm" MUST match the apikey catalog key and the llm registry.
@@ -94,6 +96,20 @@ type Provisioner struct {
 	installer Installer
 	fp        Fingerprint
 	log       *zap.Logger
+
+	// flights coalesces the boot/on-created hook and the foreground :provision action for one
+	// workspace. Without this, a fresh workspace can register two device installs before either
+	// request has persisted its managed row.
+	// flights 合并同一 workspace 的后台 hook 与前台 :provision；否则新 workspace 可能在任一请求落
+	// 受管行前重复登记两个 device install。
+	flightMu sync.Mutex
+	flights  map[string]*provisionFlight
+}
+
+type provisionFlight struct {
+	done        chan struct{}
+	provisioned bool
+	err         error
 }
 
 // NewProvisioner wires dependencies; panics on nil logger. defaults may be nil (seeding skipped).
@@ -103,7 +119,14 @@ func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Finger
 	if log == nil {
 		panic("freetier.NewProvisioner: logger is nil")
 	}
-	return &Provisioner{keys: keys, defaults: defaults, installer: installer, fp: fp, log: log.Named("freetierapp")}
+	return &Provisioner{
+		keys:      keys,
+		defaults:  defaults,
+		installer: installer,
+		fp:        fp,
+		log:       log.Named("freetierapp"),
+		flights:   make(map[string]*provisionFlight),
+	}
 }
 
 // EnsureForWorkspace idempotently guarantees the workspace has a managed anselm credential. It is
@@ -119,6 +142,12 @@ func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Finger
 // ProvisionNow 是用户侧变体(POST /freetier:provision,S-7):同一幂等 ensure,但**报告结果**——之后存在
 // 受管行(原有或新建)返 true,开通降级(离线/网关挂/无指纹)返 false。降级路径不是错误、不抛;仅存储失败冒泡。
 func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
+	return p.withFlight(ctx, func() (bool, error) {
+		return p.provisionNow(ctx)
+	})
+}
+
+func (p *Provisioner) provisionNow(ctx context.Context) (bool, error) {
 	// Branch FIRST on whether a row exists: the fresh path already probes once inside
 	// EnsureForWorkspace (refreshCapabilities), so running the heal probe there too would knock on
 	// the gateway twice per provision for nothing.
@@ -133,7 +162,7 @@ func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
 		p.healIfInstallDead(ctx, existing[0].ID)
 		return true, nil
 	}
-	if err := p.EnsureForWorkspace(ctx); err != nil {
+	if _, err := p.ensureForWorkspace(ctx); err != nil {
 		return false, err
 	}
 	after, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
@@ -141,6 +170,42 @@ func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
 		return false, fmt.Errorf("freetier.ProvisionNow: list: %w", err)
 	}
 	return len(after) > 0, nil
+}
+
+// withFlight makes concurrent provisioning requests for the same workspace share one result. A
+// missing workspace is only possible in narrow unit tests; those calls share one process-wide lane
+// rather than weakening production's workspace isolation.
+//
+// withFlight 让同一 workspace 的并发开通请求共享一个结果。缺 workspace 只会出现在少数单测；这些
+// 调用走进程级 lane，不削弱生产环境的 workspace 隔离。
+func (p *Provisioner) withFlight(ctx context.Context, work func() (bool, error)) (bool, error) {
+	key, ok := reqctxpkg.GetWorkspaceID(ctx)
+	if !ok {
+		key = "<unscoped>"
+	}
+
+	p.flightMu.Lock()
+	if flight := p.flights[key]; flight != nil {
+		p.flightMu.Unlock()
+		select {
+		case <-flight.done:
+			return flight.provisioned, flight.err
+		case <-ctx.Done():
+			return false, ctx.Err()
+		}
+	}
+	flight := &provisionFlight{done: make(chan struct{})}
+	p.flights[key] = flight
+	p.flightMu.Unlock()
+
+	provisioned, err := work()
+	p.flightMu.Lock()
+	flight.provisioned = provisioned
+	flight.err = err
+	delete(p.flights, key)
+	close(flight.done)
+	p.flightMu.Unlock()
+	return provisioned, err
 }
 
 // healIfInstallDead probes the existing managed key and, ONLY when the gateway answers
@@ -206,17 +271,24 @@ func (p *Provisioner) healIfInstallDead(ctx context.Context, keyID string) {
 // nil，使降级的免费档绝不挂 boot 或建 workspace。ctx 必须携带 workspace（受管行按 workspace 隔离——orm
 // 在 Save 时盖 workspace_id、List 时过滤）。
 func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
+	_, _ = p.withFlight(ctx, func() (bool, error) {
+		return p.ensureForWorkspace(ctx)
+	})
+	return nil
+}
+
+func (p *Provisioner) ensureForWorkspace(ctx context.Context) (bool, error) {
 	// Dedup at the app level — there is no (workspace_id, provider) UNIQUE, so a List is the check.
 	existing, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
 	if err != nil {
 		p.log.Warn("free-tier provision skipped: list failed", zap.Error(err))
-		return nil
+		return false, nil
 	}
 	if len(existing) > 0 {
 		// Already provisioned — still seed defaults (self-heal a workspace whose key predates the
 		// seeding, or whose defaults were cleared). SeedDefaultsIfUnset is a no-op when all three are set.
 		p.seedDefaults(ctx, existing[0].ID)
-		return nil
+		return true, nil
 	}
 
 	// Privacy: send a one-way hash of the machine fingerprint, never the raw serial. No stable
@@ -224,7 +296,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 	raw, err := p.fp()
 	if err != nil {
 		p.log.Info("free-tier provision skipped: no machine fingerprint", zap.Error(err))
-		return nil
+		return false, nil
 	}
 	sum := sha256.Sum256([]byte(raw))
 	fpHash := hex.EncodeToString(sum[:])
@@ -232,7 +304,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 	res, err := p.installer.Install(ctx, llminfra.AnselmGatewayBase(), fpHash, clientID)
 	if err != nil {
 		p.log.Warn("free-tier provision skipped: install failed", zap.Error(err))
-		return nil
+		return false, nil
 	}
 
 	k, err := p.keys.CreateManaged(ctx, apikeyapp.ManagedCreateInput{
@@ -246,10 +318,10 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 		// A display-name UNIQUE conflict means a concurrent provision won the race → idempotent no-op
 		// (that winner — or the next boot's self-heal above — seeds the defaults).
 		if errors.Is(err, apikeydomain.ErrDisplayNameConflict) {
-			return nil
+			return true, nil
 		}
 		p.log.Warn("free-tier provision: persisting managed key failed", zap.Error(err))
-		return nil
+		return false, nil
 	}
 	p.log.Info("free-tier provisioned (managed anselm key created)")
 	// The key row is visible to concurrent requests as soon as CreateManaged returns. Seed the
@@ -263,7 +335,7 @@ func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
 	// 没有」的窗口，导致无模型可解析。随 key 写入的占位档案已经足以播种；刷新只在之后丰富能力事实。
 	p.seedDefaults(ctx, k.ID)
 	p.refreshCapabilities(ctx, k.ID)
-	return nil
+	return true, nil
 }
 
 // seedDefaults points the workspace's unset scenario defaults at the managed model (best-effort). It

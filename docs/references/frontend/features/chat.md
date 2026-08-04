@@ -22,7 +22,7 @@ audience: [human, ai]
 | Composer | 文本、`@` 提及、文件选择/粘贴/拖放附件、模型选择；发送与停止；生成中 Enter 入队，队列可编辑、删除和取回 |
 | 回合操作 | 复制整回合、分叉、重试换模型、编辑重发、同一逻辑回合的版本翻页；历史版本仍可读，不把 `superseded_by` 当软删 |
 | 驻地 | 对话可挂工作目录；三态入口；在访达/终端打开、切换/退出驻地、切分支、新建分支、创建 worktree；脏区切分支直接拒绝 |
-| 工具与人在环 | 工具卡按工具族渲染，默认收起；失败与交互门自动展开；坏参数也必须安全降级并显示后端错误，不能把 transcript widget 树打崩，也不能因此回显敏感参数；危险调用、提问与审批都走同一 interaction broker；`replay_flowrun` 被后端拒绝时明确显示“未执行重放”，不得沿用“已重放运行”；可空 query 的实体搜索才可切到“列”声道，`search_documents` 的 query 必填，畸形空参数必须仍显示“搜索失败”；`delete_document` 的 not-found completed 软失败必须显示失败动词与原始证据，不得显示“已删除”或“软删除,可恢复”；`Subagent` 在 `subagent_type` 校验失败时必须显示“校验失败 · 未启动”，不展示 `get_subagent_trace` 回放提示，也不把校验错误当作子代理回答；终局拒绝后的重复工具调用保留在线缆与 durable 证据，但不在 transcript 追加第二条“未执行”噪音卡 |
+| 工具与人在环 | 工具卡按工具族渲染，默认收起；失败与交互门自动展开；坏参数也必须安全降级并显示后端错误，不能把 transcript widget 树打崩，也不能因此回显敏感参数；危险调用、提问与审批都走同一 interaction broker；`replay_flowrun` 被后端拒绝时明确显示“未执行重放”，不得沿用“已重放运行”；可空 query 的实体搜索才可切到“列”声道，`search_documents` 的 query 必填，畸形空参数必须仍显示“搜索失败”；`search_conversations` 命中卡逐项显示标题、snippet、匹配块数和消息锚点（消息 ID 芯片可复制，点击该行直接执行 transcript deep-jump；标题命中没有消息锚点时只打开对话），正文不能把 5 个命中压成 2 个，也不能把 opaque ID 脱敏成 `the requested item` 坏占位；`delete_document` 的 not-found completed 软失败必须显示失败动词与原始证据，不得显示“已删除”或“软删除,可恢复”；`Subagent` 在 `subagent_type` 校验失败时必须显示“校验失败 · 未启动”，不展示 `get_subagent_trace` 回放提示，也不把校验错误当作子代理回答；终局拒绝后的重复工具调用保留在线缆与 durable 证据，但不在 transcript 追加第二条“未执行”噪音卡 |
 | 右岛 | 触点台账 + 流式侧幕；只在存在 Activity 时可揭示，详见 [`chat-sidestage.md`](chat-sidestage.md) |
 
 ## 2. 数据与状态边界
@@ -34,7 +34,7 @@ audience: [human, ai]
 - **DB 行是真相、流只为实时**：`seq>0` 的 durable 帧可推进水位；`seq=0` 的 delta/tick/interaction 只改瞬时态。410 后重取 REST，再从新水位续流。
 - 流式正文与活尾的视觉树可以逐帧替换，但 macOS AX 只暴露一个稳定的外层语义节点；流式期间不把半成品 markdown 子节点交给读屏，落定后恢复完整的 markdown/链接语义，避免语义桥收到已移除的 child id。所有基于 `OverlayPortal` 的锚定菜单也必须在触发器所在树上常驻一个 `container + explicitChildNodes` 语义边界；开合只增删浮层子树，不得让瞬时菜单节点成为 AX 根。
 - transcript 以服务端行保留全部版本；LLM 装配和压缩读过滤被替代版本，前端读形态不过滤，故版本翻页与模型上下文都成立。
-- 附件上传、生成、MCP/function/handler 产物最终都以 attachment / `MediaRef` 投影进入同一媒体卡族；渲染按附件行 `mime`，不按 URL 或 receipt 自称猜类型。
+- 附件上传、生成、MCP/function/handler 产物最终都以 attachment / `MediaRef` 投影进入同一媒体卡族；渲染按附件行 `mime`，不按 URL 或 receipt 自称猜类型。生成回执中的 filename、mime、sizeBytes、width/height 作为提示完整传给卡族：附件行尚未到达时先用真实纵横比占位，避免 landscape/portrait 先渲成方形再跳变；语音回执另带精确 `durationMs`，音频卡在附件行在途时保持固定几何并先显示这些已知事实，附件行落地后仍以行数据为真相。附件元数据失败必须落为可重试的人话态，不能显示裸 `att_` ID；播放失败、离线和内容缺失沿用音频卡的对应状态。
 - `list_attachments` 的 settled 目录行展示 filename、kind、MIME、大小和本地化的 `createdAt` 上传时点；附件没有详情 panel 时保持惰性，不渲染死链接。
 - 用户消息附带的附件精确 ID 只进入模型专用的 `<uploaded_attachments_for_tools>` 目录，不进入可见 user bubble；模型因此可以直接用正确的 `read_attachment.id` 或 `inspect_media.attachmentId`，不会先把 `att_...` schema 示例当成真实文件而制造失败卡。
 - `get_model_config` 的 settled tool card 是配置事实的 durable projection：展示每个默认角色及安全的 key display name、key 的 provider/masked/status、端点、模型的 context/output/media 能力和 native options；不展示 `apiKeyId`、密文或依赖模型 prose 才能理解的 raw map。

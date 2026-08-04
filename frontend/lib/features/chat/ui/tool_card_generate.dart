@@ -3,11 +3,11 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/media/media_ref.dart';
 import '../../../core/media/media_cards.dart';
 
-import '../../../core/design/colors.dart';
-import '../../../core/design/typography.dart';
 import '../data/chat_providers.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import '../model/user_attachment.dart';
+import '../../../i18n/strings.g.dart';
 import '../../../core/ui/an_attachment_card.dart';
 import '../../../core/ui/an_audio_attachment_card.dart';
 import '../state/attachment_audio_player.dart';
@@ -45,7 +45,15 @@ Widget generatedImageBody(BuildContext context, ToolCardState state) {
   final r = parseGeneratedImage(state.resultText);
   if (r == null) return const SizedBox.shrink();
   return AnMediaRefCard(
-    mediaRef: AnMediaRef(attachmentId: r.attachmentId),
+    mediaRef: AnMediaRef(
+      attachmentId: r.attachmentId,
+      mime: r.mime,
+      filename: r.filename,
+      width: r.width,
+      height: r.height,
+      sizeBytes: r.sizeBytes,
+      source: r.source,
+    ),
     maxWidth: _maxW,
   );
 }
@@ -61,60 +69,111 @@ Widget generatedImageBody(BuildContext context, ToolCardState state) {
 Widget generatedSpeechBody(BuildContext context, ToolCardState state) {
   final r = parseGeneratedSpeech(state.resultText);
   if (r == null) return const SizedBox.shrink();
-  return _GeneratedSpeechBody(attachmentId: r.attachmentId, mime: r.mime);
+  return _GeneratedSpeechBody(
+    attachmentId: r.attachmentId,
+    mime: r.mime,
+    filenameHint: r.filename,
+    sizeBytesHint: r.sizeBytes,
+    durationMsHint: r.durationMs,
+  );
 }
 
 class _GeneratedSpeechBody extends ConsumerWidget {
-  const _GeneratedSpeechBody({required this.attachmentId, this.mime});
+  const _GeneratedSpeechBody({
+    required this.attachmentId,
+    this.mime,
+    this.filenameHint,
+    this.sizeBytesHint,
+    this.durationMsHint,
+  });
 
   final String attachmentId;
   final String? mime;
+  final String? filenameHint;
+  final int? sizeBytesHint;
+  final int? durationMsHint;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final meta = ref.watch(attachmentMetaProvider(attachmentId));
     final playback = ref.watch(attachmentAudioPlaybackProvider);
-    final c = context.colors;
-    // hasError, not the AsyncError class pattern (Riverpod auto-retries — see the image twin).
+    final t = Translations.of(context);
+    final hintedFilename = filenameHint?.trim() ?? '';
+    final hintedMeta = attachmentMetaLine(
+      filename: hintedFilename,
+      mimeType: mime,
+      sizeBytes: sizeBytesHint,
+    );
+    final hintedDuration = _durationLabel(durationMsHint);
+
+    // The receipt is enough to paint a stable first frame. The attachment row remains authoritative
+    // after it arrives; while it is in flight we keep the audio geometry instead of swapping in a
+    // shorter generic file skeleton and moving the transcript.
+    // 收据足以画出稳定首帧；附件行到达后覆盖它。在途期间保持音频几何，不换成更矮的通用文件骨架把 transcript 顶动。
     if (meta.hasError) {
-      return Text(
-        attachmentId,
-        style: AnText.label.copyWith(color: c.inkFaint),
+      return AnAudioAttachmentCard(
+        filename: hintedFilename,
+        metaLine: hintedMeta,
+        state: AnAttachmentState.failed,
+        durationLabel: hintedDuration,
+        onTap: () => ref.invalidate(attachmentMetaProvider(attachmentId)),
       );
     }
     return switch (meta) {
       AsyncData(value: final m) => AnAudioAttachmentCard(
-        filename: m.filename.isEmpty ? attachmentId : m.filename,
-        metaLine: _metaLine(m.sizeBytes),
+        filename: m.filename.isEmpty ? hintedFilename : m.filename,
+        metaLine: attachmentMetaLine(
+          filename: m.filename.isEmpty ? hintedFilename : m.filename,
+          mimeType: m.mimeType.isEmpty ? mime : m.mimeType,
+          sizeBytes: m.sizeBytes > 0 ? m.sizeBytes : sizeBytesHint,
+        ),
+        durationLabel: _durationLabel(
+          playback.durationFor(attachmentId)?.inMilliseconds ?? durationMsHint,
+        ),
         busy: playback.isLoading(attachmentId),
         progress: playback.progressFor(attachmentId),
         playing: playback.isPlaying(attachmentId),
-        onPlayTap: () => ref
-            .read(attachmentAudioPlaybackProvider.notifier)
-            .toggleUrl(
-              attachmentId,
-              loadUrl: () => ref
-                  .read(chatRepositoryProvider)
-                  .createAttachmentPlaybackLease(attachmentId)
-                  .then((lease) => lease.url),
-              mimeType: m.mimeType.isEmpty ? mime : m.mimeType,
-            ),
+        statusLine: _playbackStatusLine(t, playback.errorFor(attachmentId)),
+        state:
+            playback.errorFor(attachmentId) ==
+                AttachmentAudioError.attachmentMissing
+            ? AnAttachmentState.missing
+            : AnAttachmentState.ready,
+        onPlayTap:
+            playback.errorFor(attachmentId) ==
+                AttachmentAudioError.attachmentMissing
+            ? null
+            : () => ref
+                  .read(attachmentAudioPlaybackProvider.notifier)
+                  .toggleUrl(
+                    attachmentId,
+                    loadUrl: () => ref
+                        .read(chatRepositoryProvider)
+                        .createAttachmentPlaybackLease(attachmentId)
+                        .then((lease) => lease.url),
+                    mimeType: m.mimeType.isEmpty ? mime : m.mimeType,
+                  ),
       ),
-      _ => const AnAudioAttachmentCard(
-        filename: '',
-        metaLine: '',
-        state: AnAttachmentState.resolving,
+      _ => AnAudioAttachmentCard(
+        filename: hintedFilename,
+        metaLine: hintedMeta,
+        durationLabel: hintedDuration,
+        busy: true,
+        statusLine: t.attach.loadingAudio,
       ),
     };
   }
 
-  String _metaLine(int sizeBytes) {
-    if (sizeBytes <= 0) return '';
-    if (sizeBytes < 1024 * 1024) {
-      return '${(sizeBytes / 1024).toStringAsFixed(0)} KB';
-    }
-    return '${(sizeBytes / (1024 * 1024)).toStringAsFixed(1)} MB';
+  String? _durationLabel(int? durationMs) {
+    if (durationMs == null || durationMs <= 0) return null;
+    return audioDurationLabel(durationMs);
   }
+
+  String? _playbackStatusLine(Translations t, String? error) => switch (error) {
+    AttachmentAudioError.playbackFailed => t.attach.audioPlaybackFailed,
+    AttachmentAudioError.attachmentOffline => t.attach.audioPlaybackOffline,
+    _ => null,
+  };
 }
 
 /// generate_video family body. Inline playback arrives for free through the family — this body does

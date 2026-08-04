@@ -1,6 +1,8 @@
 import 'dart:convert';
 
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -15,6 +17,8 @@ import '../../../core/run/run_nav.dart';
 import 'tool_card_skins.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
+import '../state/selected_conversation.dart';
+import '../state/transcript_jump_provider.dart';
 import 'tool_hit_list.dart';
 
 // F17 conversation (B3.7) — the «thin card» family (constitution #9: restraint IS perfection). manage
@@ -38,6 +42,20 @@ String _shortId(String id) => truncate(id, AnTrunc.id);
 
 void _navConversation(BuildContext context, String kind, String id) =>
     goToPanel(context, kind, id);
+
+void _openConversationMessage(
+  BuildContext context,
+  String conversationId,
+  String messageId,
+) {
+  final container = ProviderScope.containerOf(context, listen: false);
+  context.go(conversationLocation(conversationId));
+  WidgetsBinding.instance.addPostFrameCallback((_) {
+    container
+        .read(transcriptJumpProvider(conversationId).notifier)
+        .request(messageId);
+  });
+}
 
 /// The manage_conversation verb — dispatched by ACTION (5 pairs + fallback). Settled reads
 /// `output.action` (the wire truth); live reads `args.action` (partial). A soft-fail (no conversation
@@ -117,7 +135,8 @@ Widget manageConversationBody(BuildContext context, ToolCardState state) {
 }
 
 /// A conversation hit row: a pin/chat glyph + title (id fallback) + snippet (search) + tail (archived
-/// badge · relative-ish time / ×N chunks). Tappable → /chat/:id. 对话命中行。
+/// badge · message anchor · ×N chunks). Message hits deep-jump to the exact message; title-only hits
+/// still open the conversation. 对话命中行；消息命中跳精确消息，标题命中打开对话。
 ToolHitRow conversationHitRow(
   BuildContext context,
   Translations t,
@@ -130,11 +149,24 @@ ToolHitRow conversationHitRow(
       : _shortId(id);
   final pinned = h['pinned'] == true;
   final archived = h['archived'] == true;
+  final messageId = h['messageId']?.toString().trim();
+  final hasMessageAnchor =
+      isSearch && messageId != null && messageId.isNotEmpty;
   final trailing = <Widget>[];
   if (archived) {
     trailing.add(AnChip(t.chat.tool.cvArchivedBadge, tone: AnTone.none));
   }
   if (isSearch) {
+    if (hasMessageAnchor) {
+      trailing.add(
+        AnChip(
+          _shortId(messageId),
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: messageId,
+        ),
+      );
+    }
     final chunks = h['matchedChunks'];
     if (chunks is int && chunks > 0) {
       trailing.add(
@@ -163,6 +195,9 @@ ToolHitRow conversationHitRow(
           ),
     kind: 'conversation',
     id: id.isEmpty ? null : id,
+    onOpen: hasMessageAnchor
+        ? () => _openConversationMessage(context, id, messageId)
+        : null,
   );
 }
 

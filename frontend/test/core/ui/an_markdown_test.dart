@@ -174,6 +174,22 @@ void main() {
         expect(find.textContaining('done'), findsOneWidget);
       },
     );
+
+    testWidgets('fenced code wraps long diagnostic lines in the transcript', (
+      tester,
+    ) async {
+      const line =
+          'Search via serper failed: HTTP 401: search provider authentication failed: forced acceptance failure';
+      await tester.pumpWidget(host(const AnMarkdown('```text\n$line\n```')));
+
+      final editor = tester.widget<AnCodeEditor>(find.byType(AnCodeEditor));
+      expect(editor.wrap, isTrue);
+      expect(
+        tester.getSize(find.byType(SelectableText)).height,
+        greaterThan(20),
+        reason: 'diagnostic code must reflow instead of clipping its tail',
+      );
+    });
   });
 
   // The DUAL SCALE (AnMarkdownScale) — the guard-style pins the gallery can't assert: embedded is 13 body +

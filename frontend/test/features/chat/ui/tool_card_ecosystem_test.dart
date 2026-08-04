@@ -200,6 +200,7 @@ void main() {
             'count': 1,
             'edges': [
               {
+                'kind': 'equip',
                 'fromKind': 'agent',
                 'fromId': 'ag_1',
                 'fromName': 'triager',
@@ -220,6 +221,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.textContaining('triager'), findsOneWidget);
     expect(find.textContaining('fetcher'), findsOneWidget);
+    expect(find.text(t.entities.graph.verb.equip), findsOneWidget);
     expect(find.text(t.chat.tool.relArrow), findsOneWidget);
   });
 

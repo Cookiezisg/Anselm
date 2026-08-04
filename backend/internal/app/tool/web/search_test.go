@@ -58,6 +58,14 @@ func TestWebSearch_ValidateInput(t *testing.T) {
 	if err := ws.ValidateInput([]byte(`{"query":"go"}`)); err != nil {
 		t.Fatalf("happy: %v", err)
 	}
+	if err := ws.ValidateInput([]byte(`{"query":"go","limit":"2"}`)); err != nil {
+		t.Fatalf("exact decimal limit string: %v", err)
+	}
+	for _, raw := range []string{`{"query":"go","limit":1.5}`, `{"query":"go","limit":"many"}`, `{"query":"go","limit":true}`, `{"query":"go","limit":[]}`} {
+		if err := ws.ValidateInput([]byte(raw)); err == nil {
+			t.Fatalf("invalid limit shape unexpectedly accepted: %s", raw)
+		}
+	}
 }
 
 func TestWebSearch_NoKey_Guidance(t *testing.T) {
@@ -169,6 +177,30 @@ func TestWebSearch_LimitTruncates(t *testing.T) {
 	out, _ := ws.Execute(context.Background(), `{"query":"go","limit":2}`)
 	var resp searchResponse
 	_ = json.Unmarshal([]byte(out), &resp)
+	if len(resp.Results) != 2 || !resp.Truncated {
+		t.Fatalf("want 2 results + truncated, got len=%d truncated=%v", len(resp.Results), resp.Truncated)
+	}
+}
+
+func TestWebSearch_LimitStringTruncatesWithoutRetry(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_, _ = w.Write([]byte(`{"web":{"results":[
+			{"title":"1","url":"u1","description":"d"},
+			{"title":"2","url":"u2","description":"d"},
+			{"title":"3","url":"u3","description":"d"}
+		]}}`))
+	}))
+	defer srv.Close()
+	ws := newWS(&fakeSearchKeys{id: "ak", ok: true},
+		&fakeKeys{creds: apikeydomain.Credentials{Provider: "brave", Key: "k", BaseURL: srv.URL}})
+	out, err := ws.Execute(context.Background(), `{"query":"go","limit":"2"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var resp searchResponse
+	if err := json.Unmarshal([]byte(out), &resp); err != nil {
+		t.Fatalf("output not JSON: %v\n%s", err, out)
+	}
 	if len(resp.Results) != 2 || !resp.Truncated {
 		t.Fatalf("want 2 results + truncated, got len=%d truncated=%v", len(resp.Results), resp.Truncated)
 	}

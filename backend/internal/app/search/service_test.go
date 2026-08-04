@@ -2,6 +2,7 @@ package search
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
 	"slices"
@@ -174,6 +175,25 @@ func TestSearch_FoldsChunksPerEntity(t *testing.T) {
 	}
 }
 
+func TestSearch_ExcludesEntitiesBeforeTotalAndPagination(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{
+		dh(searchdomain.TypeConversation, "cv_current", 1, "msg_current", "当前线程", 5.0),
+		dh(searchdomain.TypeConversation, "cv_past", 1, "msg_past", "过去线程", 4.0),
+	}
+	svc := NewService(repo, nil)
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{
+		Q: "回忆", Types: []searchdomain.EntityType{searchdomain.TypeConversation},
+		ExcludeEntityIDs: []string{"cv_current"}, IncludeArchived: true,
+	})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if page.Total != 1 || len(page.Hits) != 1 || page.Hits[0].EntityID != "cv_past" {
+		t.Fatalf("current conversation leaked into result: total=%d hits=%+v", page.Total, page.Hits)
+	}
+}
+
 func TestSearch_CursorPagination(t *testing.T) {
 	repo := newFakeRepo()
 	for i := range 30 {
@@ -201,6 +221,35 @@ func TestSearch_CursorPagination(t *testing.T) {
 	q2 := &searchdomain.Query{Q: "别的查询", Cursor: p1.NextCursor}
 	if _, err := svc.Search(ctxWS("ws_a"), q2); !errors.Is(err, searchdomain.ErrCursorInvalid) {
 		t.Fatalf("stale cursor must be ErrCursorInvalid, got %v", err)
+	}
+}
+
+func TestSearch_CursorPaginationAcceptsPaddedCursor(t *testing.T) {
+	repo := newFakeRepo()
+	for i := range 30 {
+		repo.hits = append(repo.hits, dh(searchdomain.TypeFunction, "fn_"+string(rune('a'+i)), 0, "", "工具函数", float64(30-i)))
+	}
+	svc := NewService(repo, nil)
+	q := &searchdomain.Query{Q: "工具", Limit: 1, IncludeArchived: true}
+	p1, err := svc.Search(ctxWS("ws_a"), q)
+	if err != nil || p1.NextCursor == "" {
+		t.Fatalf("page1: page=%+v err=%v", p1, err)
+	}
+	raw, err := base64.RawURLEncoding.DecodeString(p1.NextCursor)
+	if err != nil {
+		t.Fatalf("decode raw cursor: %v", err)
+	}
+	padded := base64.URLEncoding.EncodeToString(raw)
+	if padded == p1.NextCursor {
+		t.Fatalf("test cursor unexpectedly needs no padding: %q", p1.NextCursor)
+	}
+	q.Cursor = padded
+	p2, err := svc.Search(ctxWS("ws_a"), q)
+	if err != nil {
+		t.Fatalf("padded cursor: %v", err)
+	}
+	if len(p2.Hits) != 1 || p2.Hits[0].EntityID == p1.Hits[0].EntityID {
+		t.Fatalf("padded cursor did not continue: page1=%+v page2=%+v", p1.Hits, p2.Hits)
 	}
 }
 

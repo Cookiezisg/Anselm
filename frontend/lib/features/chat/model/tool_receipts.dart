@@ -680,13 +680,22 @@ parseGeneratedVideo(String? output) {
 }
 
 /// generate_speech——朗读/合成回执(后端 `tool/generate/speech.go`)。与图像回执同一条律:source
-/// 不符或 attachmentId 空即 null——回执绝不猜。
+/// 不符或 attachmentId 空即 null——回执绝不猜。文件名/大小/时长是卡片在附件行到达前可用的
+/// 事实提示；durationMs 为 0 时代表后端无法从格式测出，不代表一段零秒音频。
+///
+/// generate_speech — the receipt is pinned to the backend's exact shape. Filename, byte size and
+/// measured duration are hints for the first frame of the card; the attachment row remains the
+/// authority once it arrives. A zero duration means unknown, never a zero-length clip.
 ({
   String attachmentId,
   String? mime,
+  String? filename,
+  int? sizeBytes,
   int? characters,
+  int? durationMs,
   String? provider,
   String? model,
+  String? source,
 })?
 parseGeneratedSpeech(String? output) {
   if (output == null || output.isEmpty) return null;
@@ -697,11 +706,17 @@ parseGeneratedSpeech(String? output) {
   return (
     attachmentId: id,
     mime: o['mime'] is String ? o['mime'] as String : null,
+    filename: o['filename'] is String ? o['filename'] as String : null,
+    sizeBytes: (o['sizeBytes'] is num) ? (o['sizeBytes'] as num).toInt() : null,
     characters: (o['characters'] is num)
         ? (o['characters'] as num).toInt()
         : null,
+    durationMs: (o['durationMs'] is num)
+        ? (o['durationMs'] as num).toInt()
+        : null,
     provider: o['provider'] is String ? o['provider'] as String : null,
     model: o['model'] is String ? o['model'] as String : null,
+    source: o['source'] is String ? o['source'] as String : null,
   );
 }
 
@@ -710,10 +725,13 @@ parseGeneratedSpeech(String? output) {
 ({
   String attachmentId,
   String? mime,
+  String? filename,
+  int? sizeBytes,
   int? width,
   int? height,
   String? provider,
   String? model,
+  String? source,
 })?
 parseGeneratedImage(String? output) {
   if (output == null || output.isEmpty) return null;
@@ -724,9 +742,12 @@ parseGeneratedImage(String? output) {
   return (
     attachmentId: id,
     mime: o['mime'] is String ? o['mime'] as String : null,
+    filename: o['filename'] is String ? o['filename'] as String : null,
+    sizeBytes: (o['sizeBytes'] is num) ? (o['sizeBytes'] as num).toInt() : null,
     width: (o['width'] is num) ? (o['width'] as num).toInt() : null,
     height: (o['height'] is num) ? (o['height'] as num).toInt() : null,
     provider: o['provider'] is String ? o['provider'] as String : null,
     model: o['model'] is String ? o['model'] as String : null,
+    source: o['source'] is String ? o['source'] as String : null,
   );
 }

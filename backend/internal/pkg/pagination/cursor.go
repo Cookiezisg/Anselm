@@ -58,15 +58,18 @@ func EncodeCursor(v any) (string, error) {
 	return base64.RawURLEncoding.EncodeToString(raw), nil
 }
 
-// DecodeCursor reverses EncodeCursor into v. An empty cursor is a no-op (first page); a malformed
-// one returns ErrMalformedCursor.
+// DecodeCursor reverses EncodeCursor into v. An empty cursor is a no-op (first page). The encoder
+// emits unpadded base64url, but the decoder also accepts the equivalent padded form because hosted
+// model providers may normalize opaque strings while preserving their value. A malformed cursor
+// returns ErrMalformedCursor.
 //
-// DecodeCursor 把 cursor 解码进 v。空 cursor 为 no-op（首页）；格式错返 ErrMalformedCursor。
+// DecodeCursor 把 cursor 解码进 v。编码器发无填充 base64url，但解码器也接受等价的带填充形式，
+// 因为托管模型提供方可能在不改变值的情况下规范化不透明字符串。格式错返 ErrMalformedCursor。
 func DecodeCursor(cursor string, v any) error {
 	if cursor == "" {
 		return nil
 	}
-	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	raw, err := decodeBase64URL(cursor)
 	if err != nil {
 		return fmt.Errorf("%w: %v", ErrMalformedCursor, err)
 	}
@@ -74,4 +77,12 @@ func DecodeCursor(cursor string, v any) error {
 		return fmt.Errorf("%w: %v", ErrMalformedCursor, err)
 	}
 	return nil
+}
+
+func decodeBase64URL(cursor string) ([]byte, error) {
+	raw, err := base64.RawURLEncoding.DecodeString(cursor)
+	if err == nil {
+		return raw, nil
+	}
+	return base64.URLEncoding.DecodeString(cursor)
 }

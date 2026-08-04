@@ -53,19 +53,24 @@ ProviderContainer _container(ResponseBody Function(RequestOptions) respond) {
   return c;
 }
 
-Map<String, dynamic> _ws(String id, String name) => {
+Map<String, dynamic> _ws(String id, String name, {bool configured = false}) => {
   'id': id,
   'name': name,
   'language': 'en',
   'createdAt': '2026-06-26T00:00:00.000Z',
   'updatedAt': '2026-06-26T00:00:00.000Z',
+  if (configured)
+    'defaultDialogue': {'apiKeyId': 'aki_1', 'modelId': 'model_1'},
 };
 
 void main() {
   test('uses the first existing workspace + sets it active', () async {
     final c = _container(
       (o) => _json({
-        'data': [_ws('ws_1', 'Personal'), _ws('ws_2', 'Work')],
+        'data': [
+          _ws('ws_1', 'Personal', configured: true),
+          _ws('ws_2', 'Work', configured: true),
+        ],
       }),
     );
     final id = await c.read(workspaceBootstrapProvider.future);
@@ -76,24 +81,36 @@ void main() {
   test(
     'no workspace → waits for onboarding; explicit create settles the axis',
     () async {
-      var posts = 0;
+      var workspacePosts = 0;
+      var provisionPosts = 0;
       final c = _container((o) {
         if (o.method == 'POST') {
-          posts++;
-          return _json({'data': _ws('ws_new', 'Fresh')}, 201);
+          if (o.uri.path.endsWith('/workspaces')) {
+            workspacePosts++;
+            return _json({'data': _ws('ws_new', 'Fresh')}, 201);
+          }
+          provisionPosts++;
+          return _json({
+            'data': {'provisioned': true},
+          });
         }
         return _json({'data': const []});
       });
       final id = await c.read(workspaceBootstrapProvider.future);
       expect(id, isNull);
-      expect(posts, 0, reason: 'empty server truth must never silently POST');
+      expect(
+        workspacePosts,
+        0,
+        reason: 'empty server truth must never silently POST',
+      );
       expect(c.read(activeWorkspaceProvider), isNull);
 
       final row = await c
           .read(workspaceBootstrapProvider.notifier)
           .create('Fresh');
       expect(row.id, 'ws_new');
-      expect(posts, 1);
+      expect(workspacePosts, 1);
+      expect(provisionPosts, 1);
       expect(c.read(activeWorkspaceProvider), 'ws_new');
       expect(c.read(activeWorkspaceNameProvider), 'Fresh');
       expect(c.read(workspaceBootstrapProvider).value, 'ws_new');

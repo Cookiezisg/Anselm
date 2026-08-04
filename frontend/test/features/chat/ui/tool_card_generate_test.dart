@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/net/api_client.dart';
@@ -40,6 +42,26 @@ BlockNode _settledCall() {
   return node;
 }
 
+BlockNode _settledSpeechCall() {
+  final node = BlockNode(id: 'tc_speech', kind: BlockKind.toolCall)
+    ..status = 'completed'
+    ..content = {
+      'name': 'generate_speech',
+      'arguments': '{"text":"A short acceptance clip"}',
+    };
+  node.children.add(
+    BlockNode(id: 'tr_speech', kind: BlockKind.toolResult)
+      ..status = 'completed'
+      ..content = {
+        'content':
+            '{"attachmentId":"att_0011223344556677","filename":"generated-x.wav",'
+            '"mime":"audio/wav","sizeBytes":4096,"provider":"anselm",'
+            '"characters":24,"source":"generate_speech","durationMs":1250}',
+      },
+  );
+  return node;
+}
+
 Widget _host(Widget child, {List<Override> overrides = const []}) =>
     ProviderScope(
       overrides: overrides,
@@ -66,10 +88,13 @@ void main() {
     expect(r, isNotNull);
     expect(r!.attachmentId, 'att_0011223344556677');
     expect(r.mime, 'image/png');
+    expect(r.filename, 'generated-x.png');
+    expect(r.sizeBytes, 1234);
     expect(r.width, 1536);
     expect(r.height, 1024);
     expect(r.provider, 'openai');
     expect(r.model, 'gpt-image-2');
+    expect(r.source, 'generate_image');
   });
 
   test('parseGeneratedImage never guesses', () {
@@ -125,6 +150,40 @@ void main() {
     expect(find.textContaining('generated-x.png'), findsWidgets);
   });
 
+  testWidgets(
+    'landscape receipt holds its aspect before attachment metadata arrives',
+    (tester) async {
+      final source = _DelayedMedia(
+        AttachmentMeta(
+          id: 'att_0011223344556677',
+          filename: 'generated-x.png',
+          mimeType: 'image/png',
+          sizeBytes: 1234,
+          kind: 'image',
+        ),
+      );
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(node: _settledCall()),
+          overrides: [
+            chatRepositoryProvider.overrideWithValue(FixtureChatRepository()),
+            mediaSourceProvider.overrideWithValue(source),
+          ],
+        ),
+      );
+
+      await tester.tap(find.textContaining('已生成图像'), warnIfMissed: false);
+      await tester.pump();
+
+      final placeholder = tester.widget<AspectRatio>(find.byType(AspectRatio));
+      expect(placeholder.aspectRatio, closeTo(1.5, 0.001));
+
+      source.complete();
+      await tester.pump();
+      expect(find.textContaining('generated-x.png'), findsWidgets);
+    },
+  );
+
   testWidgets('missing attachment row is said out loud', (tester) async {
     await tester.pumpWidget(
       _host(
@@ -152,13 +211,17 @@ void main() {
     const receipt =
         '{"attachmentId":"att_0011223344556677","filename":"generated-x.wav",'
         '"mime":"audio/wav","sizeBytes":4096,"provider":"qwen","characters":11,'
-        '"source":"generate_speech","model":"qwen3-tts-flash"}';
+        '"source":"generate_speech","durationMs":1250,"model":"qwen3-tts-flash"}';
     final r = parseGeneratedSpeech(receipt);
     expect(r, isNotNull);
     expect(r!.attachmentId, 'att_0011223344556677');
     expect(r.mime, 'audio/wav');
+    expect(r.filename, 'generated-x.wav');
+    expect(r.sizeBytes, 4096);
     expect(r.characters, 11);
+    expect(r.durationMs, 1250);
     expect(r.provider, 'qwen');
+    expect(r.source, 'generate_speech');
 
     // The IMAGE receipt must not parse as speech and vice versa: the two families put different
     // bodies on screen, and a crossover would render an audio player over a picture.
@@ -171,6 +234,60 @@ void main() {
     );
     expect(parseGeneratedSpeech('not json'), isNull);
     expect(parseGeneratedSpeech(null), isNull);
+  });
+
+  testWidgets(
+    'generated speech keeps receipt facts and audio geometry while metadata is pending',
+    (tester) async {
+      final repo = _DelayedChatRepository(
+        const AttachmentMeta(
+          id: 'att_0011223344556677',
+          filename: 'generated-x.wav',
+          mimeType: 'audio/wav',
+          sizeBytes: 4096,
+          kind: 'audio',
+        ),
+      );
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(node: _settledSpeechCall()),
+          overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+        ),
+      );
+
+      await tester.tap(find.textContaining('已合成语音'), warnIfMissed: false);
+      await tester.pump();
+
+      expect(find.text('generated-x.wav'), findsOneWidget);
+      expect(find.text('正在加载音频…'), findsOneWidget);
+      expect(find.text('0:01'), findsOneWidget);
+      expect(find.textContaining('att_0011223344556677'), findsNothing);
+
+      repo.complete();
+      await tester.pump();
+      expect(find.text('generated-x.wav'), findsOneWidget);
+      expect(find.text('正在加载音频…'), findsNothing);
+      expect(find.text('暂不能播放'), findsNothing);
+    },
+  );
+
+  testWidgets('generated speech metadata failure is human and retryable', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(node: _settledSpeechCall()),
+        overrides: [
+          chatRepositoryProvider.overrideWithValue(_MissingChatRepository()),
+        ],
+      ),
+    );
+    await tester.tap(find.textContaining('已合成语音'), warnIfMissed: false);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.textContaining('att_0011223344556677'), findsNothing);
+    expect(find.text('点按重试'), findsOneWidget);
   });
 
   test(
@@ -263,4 +380,59 @@ class _FailingMedia implements MediaSource {
   @override
   Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
       throw UnimplementedError();
+}
+
+class _DelayedMedia implements MediaSource {
+  _DelayedMedia(this._meta);
+
+  final AttachmentMeta _meta;
+  final _completer = Completer<AttachmentMeta>();
+
+  void complete() => _completer.complete(_meta);
+
+  @override
+  Future<AttachmentMeta> meta(String id) => _completer.future;
+
+  @override
+  Future<List<int>> bytes(String id) async => const [];
+
+  @override
+  NativeFetchTarget nativeTarget(String id) =>
+      const NativeFetchTarget(uri: 'http://127.0.0.1:0/stub', headers: {});
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) async => throw UnimplementedError();
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) async =>
+      throw UnimplementedError();
+}
+
+class _DelayedChatRepository extends FixtureChatRepository {
+  _DelayedChatRepository(this._meta);
+
+  final AttachmentMeta _meta;
+  final _ready = Completer<void>();
+
+  void complete() => _ready.complete();
+
+  @override
+  Future<AttachmentMeta> getAttachment(String id) async {
+    await _ready.future;
+    return _meta;
+  }
+}
+
+class _MissingChatRepository extends FixtureChatRepository {
+  @override
+  Future<AttachmentMeta> getAttachment(String id) async {
+    throw StateError('attachment not found: $id');
+  }
 }

@@ -173,10 +173,14 @@ type RetrieveOpts struct {
 //
 // Query 是统一检索入参。Types 空 = 综搜；cursor/limit 遵循 N4。
 type Query struct {
-	Q               string
-	Types           []EntityType
-	Tags            []string
-	IncludeArchived bool
+	Q     string
+	Types []EntityType
+	// ExcludeEntityIDs removes entity-level hits before totals and pagination. This is used by
+	// contextual recall surfaces that mean "past" and must not return the thread being asked in.
+	// ExcludeEntityIDs 在总数与分页前移除实体级命中，供明确表示“过去”的上下文检索面排除当前线程。
+	ExcludeEntityIDs []string
+	Tags             []string
+	IncludeArchived  bool
 	// LexicalOnly disables semantic-only recall. Keyword-oriented surfaces use this when every
 	// returned row must carry lexical evidence for the query; RAG and omni-search keep hybrid recall.
 	// LexicalOnly 禁止纯语义召回。关键词面要求每一行都有词法证据时使用；RAG 与综搜仍保留混合召回。

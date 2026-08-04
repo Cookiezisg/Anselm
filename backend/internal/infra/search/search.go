@@ -337,7 +337,9 @@ func (s *Store) SearchLexical(ctx context.Context, q searchdomain.LexicalQuery) 
 func (s *Store) searchMatch(ctx context.Context, wsID string, q searchdomain.LexicalQuery, limit int) ([]*searchdomain.DocHit, error) {
 	var sb strings.Builder
 	sb.WriteString(`SELECT d.id, d.entity_type, d.entity_id, d.chunk_no, d.anchor, d.title, d.tags, d.archived, d.updated_at,
-		snippet(search_fts, 1, '<mark>', '</mark>', '…', 16),
+		-- Keep a hyphenated exact query visible as one readable evidence span. The
+		-- bounded 64-token window avoids stopping after only the first token.
+		snippet(search_fts, 1, '<mark>', '</mark>', '…', 64),
 		-bm25(search_fts, 4.0, 1.0)
 	FROM search_fts JOIN search_docs d ON d.rowid = search_fts.rowid
 	WHERE search_fts MATCH ? AND d.workspace_id = ?`)

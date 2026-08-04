@@ -13,9 +13,11 @@
 package blocks
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
@@ -38,7 +40,7 @@ type SearchBlocks struct{ engine *searchapp.Service }
 func (t *SearchBlocks) Name() string { return "search_blocks" }
 
 func (t *SearchBlocks) Description() string {
-	return "Find wireable workflow building blocks by describing the capability you need. Searches functions, handler METHODS, MCP TOOLS, agents, controls and approvals (names, descriptions AND code). Each hit carries a ref you can place directly into a workflow node (fn_<id> / hd_<id>.<method> / mcp:<server>/<tool> / agent, control, approval ids). Use get_* for full schemas."
+	return "Find wireable workflow building blocks by describing the capability you need. Searches functions, handler METHODS, MCP TOOLS, agents, controls and approvals (names, descriptions AND code). Each hit carries a ref you can place directly into a workflow node (fn_<id> / hd_<id>.<method> / mcp:<server>/<tool> / agent, control, approval ids). IMPORTANT: honor every user-supplied filter exactly; if the user names kinds or a limit, include it in THIS call and do not make an unfiltered preliminary call. Use get_* for full schemas."
 }
 
 func (t *SearchBlocks) Parameters() json.RawMessage {
@@ -47,8 +49,8 @@ func (t *SearchBlocks) Parameters() json.RawMessage {
 		"required": ["query"],
 		"properties": {
 			"query": {"type": "string", "description": "Describe the capability you need (e.g. \"send an email\", \"parse weather data\")."},
-			"kinds": {"type": "array", "items": {"type": "string", "enum": ["function","handler","mcp","agent","control","approval"]}, "description": "Restrict to these block kinds; omit for all six."},
-			"limit": {"type": "number", "description": "Max hits (default 8, max 20)."}
+		"kinds": {"type": "array", "items": {"type": "string", "enum": ["function","handler","mcp","agent","control","approval"]}, "description": "Restrict to these block kinds; omit for all six. Hosted models may send the same JSON array as a string; exact array contents are accepted, arbitrary strings are not."},
+			"limit": {"type": "integer", "description": "Max hits (default 8, max 20). Hosted models may send an exact decimal string; floats and arbitrary strings remain invalid."}
 		}
 	}`)
 }
@@ -57,6 +59,69 @@ type searchBlocksArgs struct {
 	Query string   `json:"query"`
 	Kinds []string `json:"kinds"`
 	Limit int      `json:"limit"`
+}
+
+// UnmarshalJSON accepts the native schema shape and the exact stringified scalar/container
+// encodings emitted by some hosted models. It does not guess arbitrary strings into tool values.
+// UnmarshalJSON 接受 schema 原生形状，以及部分托管模型发出的同值字符串编码；不把任意字符串猜成工具参数。
+func (a *searchBlocksArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Query string          `json:"query"`
+		Kinds json.RawMessage `json:"kinds"`
+		Limit json.RawMessage `json:"limit"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	kinds, err := decodeSearchBlocksKinds(raw.Kinds)
+	if err != nil {
+		return fmt.Errorf("kinds: %w", err)
+	}
+	limit, err := decodeSearchBlocksInt(raw.Limit)
+	if err != nil {
+		return fmt.Errorf("limit: %w", err)
+	}
+	*a = searchBlocksArgs{Query: raw.Query, Kinds: kinds, Limit: limit}
+	return nil
+}
+
+func decodeSearchBlocksKinds(raw json.RawMessage) ([]string, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	var kinds []string
+	if err := json.Unmarshal(raw, &kinds); err == nil {
+		return kinds, nil
+	}
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err != nil {
+		return nil, fmt.Errorf("must be an array or a JSON string holding one, got %s", string(raw))
+	}
+	if err := json.Unmarshal([]byte(encoded), &kinds); err != nil {
+		return nil, fmt.Errorf("must be an array or a JSON string holding one, got %q", encoded)
+	}
+	return kinds, nil
+}
+
+func decodeSearchBlocksInt(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var encoded string
+	if err := json.Unmarshal(raw, &encoded); err != nil {
+		return 0, fmt.Errorf("must be an integer or an exact decimal integer string, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(encoded))
+	if err != nil {
+		return 0, fmt.Errorf("must be an integer or an exact decimal integer string, got %q", encoded)
+	}
+	return value, nil
 }
 
 // ValidateInput rejects an empty query pre-Execute (S18).

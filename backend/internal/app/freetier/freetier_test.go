@@ -13,6 +13,7 @@ import (
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 type rotation struct {
@@ -81,10 +82,21 @@ type fakeInstaller struct {
 	gotBase   string
 	installID string
 	err       error
+	started   chan struct{}
+	release   <-chan struct{}
+	calls     int
 }
 
 func (f *fakeInstaller) Install(_ context.Context, baseURL, fingerprintHash, _ string) (llminfra.InstallResult, error) {
+	f.calls++
 	f.gotHash, f.gotBase = fingerprintHash, baseURL
+	if f.started != nil {
+		close(f.started)
+		f.started = nil
+	}
+	if f.release != nil {
+		<-f.release
+	}
 	if f.err != nil {
 		return llminfra.InstallResult{}, f.err
 	}
@@ -319,6 +331,46 @@ func TestEnsure_SeedsDefaultsBeforeLiveCapabilityProbe(t *testing.T) {
 	p := NewProvisioner(keys, defs, &fakeInstaller{installID: "ins_minted"}, okFP, zap.NewNop())
 	if err := p.EnsureForWorkspace(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+// The background on-created hook and the foreground first-run provision request share one flight;
+// otherwise both can register a device before either managed row is visible. 后台 hook 与首启前台请求
+// 必须共用一个单飞，否则双方都可能在受管行落盘前登记设备。
+func TestProvisioner_CoalescesConcurrentWorkspaceProvisioning(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	inst := &fakeInstaller{installID: "ins_minted", started: started, release: release}
+	keys := &fakeKeys{}
+	p := NewProvisioner(keys, nil, inst, okFP, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_same")
+
+	ensureDone := make(chan error, 1)
+	go func() { ensureDone <- p.EnsureForWorkspace(ctx) }()
+	<-started
+
+	provisionDone := make(chan struct {
+		ok  bool
+		err error
+	}, 1)
+	go func() {
+		ok, err := p.ProvisionNow(ctx)
+		provisionDone <- struct {
+			ok  bool
+			err error
+		}{ok: ok, err: err}
+	}()
+	close(release)
+
+	if err := <-ensureDone; err != nil {
+		t.Fatal(err)
+	}
+	result := <-provisionDone
+	if result.err != nil || !result.ok {
+		t.Fatalf("coalesced foreground provision = (%v,%v), want (true,nil)", result.ok, result.err)
+	}
+	if inst.calls != 1 || len(keys.created) != 1 {
+		t.Fatalf("concurrent provisioning installed %d times and created %d rows, want 1/1", inst.calls, len(keys.created))
 	}
 }
 

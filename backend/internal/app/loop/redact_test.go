@@ -19,10 +19,702 @@ func TestRedactOpaqueMachineValues(t *testing.T) {
 	}
 }
 
+func TestRedactRelationSummaryKeepsMeaningWithoutOpaqueRefs(t *testing.T) {
+	input := "以下是 `the requested item`（函数 **greet**）在 depth 1 下的全部关系边：\n\n" +
+		"| # | 方向 | 关系类型 | 端点 | 引用 |\n" +
+		"|---|------|----------|------|------|\n" +
+		"| 1 | ← 入边（from → to） | `equip` | from: **deploy-helper**（skill, `deploy-helper`） → to: **greet**（function, `the requested item`） | `rel_2ddb48708bc167e6` |"
+	want := "以下是函数 **greet** 在 depth 1 下的全部关系边：\n\n" +
+		"| # | 方向 | 关系类型 | 端点 | 引用 |\n" +
+		"|---|------|----------|------|------|\n" +
+		"| 1 | ← 入边（from → to） | `equip` | from: **deploy-helper**（skill, `deploy-helper`） → to: **greet**（function） | 精确 ref 见关系卡 |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("relation summary redaction = %q, want %q", got, want)
+	}
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "rel_"} {
+		if strings.Contains(redactOpaqueMachineValues(input), forbidden) {
+			t.Fatalf("relation summary leaked %q", forbidden)
+		}
+	}
+}
+
+func TestTextRedactorHoldsRelationSummaryAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是 `the requested ",
+		"item`（函数 **greet**）在 depth 1 下的全部关系边：\n",
+		"| # | 方向 | 关系类型 | 端点 | 引用 |\n|---|------|----------|------|------|\n",
+		"| 1 | ← 入边（from → to） | `equip` | from: **deploy-helper**（skill, `deploy-helper`） → to: **greet**（function, `the requested ",
+		"item`） | `rel_2ddb48708bc167e6` |\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) || strings.Contains(piece, "rel_") {
+			t.Fatalf("relation summary leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "rel_"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("stream relation summary leaked %q: %q", forbidden, got.String())
+		}
+	}
+	for _, want := range []string{"以下是函数 **greet** 在 depth 1 下的全部关系边：", "`equip`", "精确 ref 见关系卡", "deploy-helper"} {
+		if !strings.Contains(got.String(), want) {
+			t.Fatalf("stream relation summary missing %q: %q", want, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsActualRelationIntroAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是 \x60the requested item\x60（函数 **",
+		"greet**）在 depth=1 下的全部关系边：\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("actual relation intro leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), legacyEntityPlaceholder) {
+		t.Fatalf("actual relation intro leaked: %q", got.String())
+	}
+}
+
+func TestTextRedactorRedactsReasoningEdgePlaceholder(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"The function is \"greet\". It has one edge:\n\n- Edge ",
+		"the requested item: kind \"equip\", from skill \"deploy-helper\" to function \"greet\".",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("reasoning edge leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), legacyEntityPlaceholder) {
+		t.Fatalf("reasoning edge leaked: %q", got.String())
+	}
+}
+
+func TestRedactRelationReasoningPlaceholderLine(t *testing.T) {
+	input := "用户要求我调用 get_relations 并返回所有边。\n\n结果只有一条边：\n- the requested item\n- kind: equip\n"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
+		t.Fatalf("relation reasoning placeholder leaked: %q", got)
+	}
+	if !strings.Contains(got, "- 该关系") {
+		t.Fatalf("relation reasoning lost neutral label: %q", got)
+	}
+}
+
+func TestRedactRelationDetailsCurrentModelVariant(t *testing.T) {
+	input := "关系查询结果\n\n实体: the requested item (greet)\n类型: function\n" +
+		"创建时间: the recorded time\n更新时间: the recorded time\n\n" +
+		"以下是 get_relations 对 the requested item（function: greet）在 depth=1 下返回的全部边，共 1 条：\n\n" +
+		"详细字段\n\n" +
+		"• the requested item\n" +
+		"  • 方向：from → to\n" +
+		"  • to endpoint：kind=function，name=greet，id=the requested item\n" +
+		"  • createdAt：the recorded time\n" +
+		"  • updatedAt：the recorded time\n" +
+		"  - 含义：skill deploy-helper 装备（equip）了 function greet，即 deploy-helper 在其 allowedTools 中引用了 greet。\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		opaqueEntityPlaceholder,
+		legacyEntityPlaceholder,
+		opaqueTimestampPlaceholder,
+		"get_relations",
+		"id=the requested item",
+		"createdAt",
+		"updatedAt",
+		"创建时间",
+		"更新时间",
+		"allowedTools",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("current relation variant leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "实体: greet") ||
+		!strings.Contains(got, "以下是 函数 greet 在") ||
+		!strings.Contains(got, "• 目标函数") ||
+		!strings.Contains(got, "name=greet") {
+		t.Fatalf("current relation variant lost meaning: %q", got)
+	}
+}
+
+func TestTextRedactorHoldsCurrentRelationDetailsVariant(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是 get_relations 对 the requested ",
+		"item（function: greet）在 depth=1 下返回的全部边，共 1 条：\n\n",
+		"详细字段\n\n• the requested item\n",
+		"  • to endpoint：kind=function，name=greet，id=the requested item\n",
+		"  • createdAt：the recorded time\n",
+	} {
+		piece := r.Write(delta)
+		for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "get_relations", "createdAt"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("current relation stream leaked %q in %q", forbidden, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "get_relations", "createdAt"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("current relation stream leaked %q: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestNormalizeRelationEndpointDisplay(t *testing.T) {
+	cases := map[string]string{
+		"deploy-helper（skill，deploy-helper）": "deploy-helper（skill）",
+		"deploy-helper（deploy-helper）":       "deploy-helper",
+		"skill deploy-helper（deploy-helper）": "skill deploy-helper",
+		"greet（function，）":                   "greet（function）",
+	}
+	for input, want := range cases {
+		if got := normalizeRelationEndpointDisplay(input); got != want {
+			t.Fatalf("endpoint display %q = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestRedactRelationEndpointCellHidesMachineReferences(t *testing.T) {
+	cases := map[string]string{
+		"skill deploy-helper（fromId: deploy-helper）": "skill deploy-helper",
+		"function greet (toId: greet)":               "function greet",
+		"skill deploy-helper（deploy-helper）":         "skill deploy-helper",
+	}
+	for input, want := range cases {
+		if got := redactRelationEndpointCell(input, false); got != want {
+			t.Fatalf("endpoint cell %q = %q, want %q", input, got, want)
+		}
+	}
+}
+
+func TestRedactRelationTableHidesMachineReferencesFromNamedEndpoints(t *testing.T) {
+	input := "函数 `greet` 在 depth=1 下的全部关系边如下（共 1 条）：\n\n" +
+		"| # | 方向 | 关系类型 (kind) | 起点 (from) | 终点 (to) |\n" +
+		"|---|------|-----------------|-------------|-----------|\n" +
+		"| 1 | 入边 (into the function) | `equip` | skill **`deploy-helper`** (fromId: `deploy-helper`) | function **`greet`** ) |"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"fromId", "toId", opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("named endpoint table leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "skill **`deploy-helper`**") || strings.Contains(got, "(fromId") {
+		t.Fatalf("named endpoint table lost readable endpoint: %q", got)
+	}
+}
+
+func TestRedactRelationRemovesBarePlaceholderLine(t *testing.T) {
+	got := redactOpaqueMachineValues("根据关系查询结果：\nthe requested item\n")
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
+		t.Fatalf("bare relation placeholder leaked: %q", got)
+	}
+}
+
+func TestTextRedactorHoldsActualRelationMarkdownVariantAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是 \x60the requested item\x60（函数 **",
+		"greet**）在 depth=1 下的全部关系边：\n\n---\n\n### 关系边（共 1 条）\n\n",
+		"| 方向 | 关系类型 | 起点 | 终点 | 关系 ID |\n",
+		"|------|----------|------|------|---------|\n",
+		"| ← 入边 | **equip** | skill **deploy-helper** | function **",
+		"greet** | \x60the requested item\x60 |\n\n",
+		"---\n\n**解读：**",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("actual relation markdown leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), legacyEntityPlaceholder) {
+		t.Fatalf("actual relation markdown leaked: %q", got.String())
+	}
+}
+
+func TestRedactRelationSummaryDropsUnavailableCreationTime(t *testing.T) {
+	input := "- 创建时间：\nthe recorded time。\n- 创建/更新时间：\nthe recorded time\n- Created at: the recorded time."
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"创建时间", "创建/更新时间", "Created at", opaqueTimestampPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("unavailable relation creation time leaked %q: %q", forbidden, got)
+		}
+	}
+}
+
+func TestRedactRelationSummaryHandlesTargetFirstMultilineVariant(t *testing.T) {
+	input := "以下是\nthe requested item\n (function greet) 在 depth=1 下的全部关系边：\n\n" +
+		"起点：skill deploy-helper（fromName = deploy-helper，fromId = deploy-helper）\n" +
+		"终点：function greet（toName = greet，toId = the requested item）\n" +
+		"创建/更新时间：the recorded time"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "rel_"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("multiline relation summary leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{"以下是 function greet 在 depth=1 下的全部关系边：", "起点：skill deploy-helper", "终点：function greet"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("multiline relation summary missing %q: %q", want, got)
+		}
+	}
+}
+
+func TestRedactRelationSummaryHandlesTypedTargetFirstVariant(t *testing.T) {
+	input := "以下是函数 \nthe requested item\n（greet）在 depth=1 下的全部关系边："
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("typed relation intro leaked %q: %q", forbidden, got)
+		}
+	}
+	if got != "以下是函数 greet 在 depth=1 下的全部关系边：" {
+		t.Fatalf("typed relation intro = %q", got)
+	}
+}
+
+func TestRedactRelationSummaryHandlesBareTargetAndTimeVariant(t *testing.T) {
+	input := "以下是 \nthe requested item\n 在 depth 1 下的全部关系边：\n创建/更新时间均为 \n`the recorded time`\n- 该函数被技能 `deploy-helper` 通过 `equip` 关系装备（即 `deploy-helper` 在其 `allowedTools` 中挂载了 `greet`）。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "创建/更新时间", "allowedTools"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("bare relation summary leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "以下是该函数在 depth 1 下的全部关系边：") {
+		t.Fatalf("bare relation intro lost semantic fallback: %q", got)
+	}
+	if !strings.Contains(got, "该函数被技能 deploy-helper 通过 equip 关系装备。") {
+		t.Fatalf("malformed equip explanation was not normalized: %q", got)
+	}
+}
+
+func TestRedactRelationSummaryHandlesToolPrefixedTarget(t *testing.T) {
+	input := "`get_relations` 对 `the requested item`（函数 **greet**）在 depth 1 下返回 **1 条边**："
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "get_relations"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("tool-prefixed relation intro leaked %q: %q", forbidden, got)
+		}
+	}
+	if got != "函数 **greet** 在 depth 1 下返回 **1 条边**：" {
+		t.Fatalf("tool-prefixed relation intro = %q", got)
+	}
+}
+
+func TestRedactRelationSummaryHandlesFieldValueDetails(t *testing.T) {
+	input := "针对 `the requested item` (function: greet) 的关系查询返回 1 条边：\n\n" +
+		"| 字段 | 值 |\n|------|-----|\n" +
+		"| **边 ID** | `the requested item` |\n" +
+		"| **起点引用** | `fromId: deploy-helper` |\n" +
+		"| **终点引用** | `toId: the requested item` |\n" +
+		"| **创建时间** | `the recorded time` |\n" +
+		"| **更新时间** | `the recorded time` |"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "fromId:", "toId:", "创建时间", "更新时间"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("relation field table leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "针对 function: greet 的关系查询") || !strings.Contains(got, relationTableRefHint) {
+		t.Fatalf("relation field table lost semantic fallback: %q", got)
+	}
+}
+
+func TestRedactRelationSummaryHandlesDirectionAndRelationIDVariants(t *testing.T) {
+	input := "以下是 \x60the requested item\x60（函数 **greet**）在 depth 1 下的全部关系边（共 1 条）：\n\n" +
+		"| # | 方向 | 关系类型 | 端点名 | 精确引用 |\n|---|------|----------|--------|----------|\n" +
+		"| 1 | 入向 (→ the requested item) | equip | from: **deploy-helper** (skill, \x60deploy-helper\x60) → to: **greet** (function) | 精确 ref 见关系卡 |\n\n" +
+		"**说明：**\n- 关系 id：\x60the requested item\x60"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "rel_", "关系 id："} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("relation summary leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "| 1 | 入向 | equip |") || !strings.Contains(got, "精确关系引用见关系卡") {
+		t.Fatalf("relation summary lost semantic fallback: %q", got)
+	}
+}
+
+func TestRedactRelationReasoningDoesNotLeakTargetID(t *testing.T) {
+	input := "The user wants me to call get_relations exactly once with specific parameters: kind=\"function\", id=\"fn_e2273c21262f45db\", depth=1."
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "fn_e2273c21262f45db"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("relation reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "kind=\"function\", depth=1") {
+		t.Fatalf("relation reasoning lost useful parameters: %q", got)
+	}
+}
+
+func TestRedactRelationSummaryHandlesSplitEndpointIDColumns(t *testing.T) {
+	input := "以下是函数 greet 在 depth 1 下的全部关系边：\n\n" +
+		"| # | 方向 | 关系类型 | 端点 A（kind / name / id） | 端点 B（kind / name / id） | 关系引用 ID |\n" +
+		"|---|------|----------|----------------------------|----------------------------|-------------|\n" +
+		"| 1 | ← (入边) | equip | skill · \x60deploy-helper\x60 · deploy-helper | function · \x60greet\x60 · the requested item | - |"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, " / id", "关系引用 ID"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("split endpoint relation table leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{"端点 A（kind / name）", "端点 B（kind / name）", "skill · \x60deploy-helper\x60", "function · \x60greet\x60", relationTableRefHint} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("split endpoint relation table missing %q: %q", want, got)
+		}
+	}
+}
+
+func TestTextRedactorHoldsTargetFirstRelationVariantAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是\n",
+		"the requested ",
+		"item\n (function greet) 在 depth=1 下的全部关系边：\n",
+		"终点：function greet（toName = greet，toId = ",
+		"the requested item）\n创建/更新时间：\n",
+		"`the recorded time`\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) || strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("multiline relation variant leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("stream multiline relation variant leaked %q: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsBareRelationVariantAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是\n",
+		"the requested item\n 在 depth 1 下的全部关系边：\n",
+		"创建/更新时间均为\n",
+		"the recorded time\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) || strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("bare relation variant leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "创建/更新时间"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("stream bare relation variant leaked %q: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsToolPrefixedRelationVariantAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"`get_relations` 对 `the requested ",
+		"item`（函数 **greet**）在 depth 1 下返回 **1 条边**：\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) || strings.Contains(piece, "get_relations") {
+			t.Fatalf("tool-prefixed relation variant leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "get_relations"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("stream tool-prefixed relation variant leaked %q: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsRelationFieldRowsAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| 字段 | 值 |\n|------|-----|\n| **终点引用** | `toId: the requested ",
+		"item` |\n| **创建时间** | `the recorded time` |\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) || strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("relation field row leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, opaqueTimestampPlaceholder, "toId:", "创建时间"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("stream relation field row leaked %q: %q", forbidden, got.String())
+		}
+	}
+	if !strings.Contains(got.String(), relationTableRefHint) {
+		t.Fatalf("stream relation field row lost semantic fallback: %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsRelationIDAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"**说明：**\n- 关系 id：\x60",
+		"the requested item\x60\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("relation id leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "关系 id：") || !strings.Contains(got.String(), "精确关系引用见关系卡") {
+		t.Fatalf("relation id lost semantic fallback: %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsRelationReasoningIDAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"The user wants me to call get_relations exactly once with specific parameters: kind=\"function\", id=\"",
+		"fn_e2273c21262f45db\", depth=1.",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) || strings.Contains(piece, "fn_e2273c21262f45db") {
+			t.Fatalf("relation reasoning leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), "fn_e2273c21262f45db") || !strings.Contains(got.String(), "kind=\"function\", depth=1") {
+		t.Fatalf("relation reasoning stream result = %q", got.String())
+	}
+}
+
+func TestRedactSearchConversationPointerRows(t *testing.T) {
+	input := "Match\n- Conversation ID: cv_0123456789abcdef\n- conversationId: cv_0123456789abcdef\n- Title: Not returned for this hit.\n- Message pointer: msg_0123456789abcdef\n- messageId: msg_0123456789abcdef\n| **Conversation ID** | cv_0123456789abcdef |\n| **Message pointer** | msg_0123456789abcdef |"
+	want := "Match\n- Conversation ID: See the exact conversation in the search card.\n- conversationId: See the exact conversation in the search card.\n- Title: See the exact conversation in the search card.\n- Message pointer: See the exact matching message in the search card.\n- messageId: See the exact matching message in the search card.\n| **Conversation ID** | See the exact conversation in the search card. |\n| **Message pointer** | See the exact matching message in the search card. |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("search pointer rows must point to the adjacent card, got %q want %q", got, want)
+	}
+}
+
 func TestRedactOpaqueMachineValuesKeepsHumanSemantics(t *testing.T) {
 	input := "mode warm -> cool; prefix alpha; bootId changed; 7 steps"
 	if got := redactOpaqueMachineValues(input); got != input {
 		t.Fatalf("human-readable semantics changed: got %q, want %q", got, input)
+	}
+}
+
+func TestRedactOpaqueMachineValuesPreservesExplicitLastMessageAt(t *testing.T) {
+	input := "lastMessageAt: 2026-08-04T13:28:46Z; observed at 2026-08-04T13:29:01Z"
+	want := "lastMessageAt: 2026-08-04T13:28:46Z; observed at the recorded time"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("explicit lastMessageAt redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesPreservesLastMessageAtTableColumn(t *testing.T) {
+	input := "| Title | lastMessageAt | Created at |\n|---|---|---|\n| Gamma roadmap | 2026-08-04T13:28:46Z | 2026-08-04T13:18:31Z |"
+	want := "| Title | lastMessageAt | Created at |\n|---|---|---|\n| Gamma roadmap | 2026-08-04T13:28:46Z | See the exact upload time in the attachment card. |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("lastMessageAt table redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorPreservesLastMessageAtAcrossTableChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Title | lastMessa",
+		"geAt |\n",
+		"|---|---|\n| Gamma roadmap | 2026-08-04T13:",
+		"28:46Z |\n",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	want := "| Title | lastMessageAt |\n|---|---|\n| Gamma roadmap | 2026-08-04T13:28:46Z |\n"
+	if got.String() != want {
+		t.Fatalf("streamed lastMessageAt = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorPreservesLastMessageAtAcrossProviderTableChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Title | last",
+		"MessageAt",
+		" |\n|-------",
+		"|---------------|\n",
+		"| Gamma roadmap |",
+		" `2",
+		"026-",
+		"08-0",
+		"4T13",
+		":43:",
+		"32Z`",
+		" |\n| Alpha",
+		" planning | `2",
+		"026-",
+		"08-0",
+		"4T13",
+		":18:",
+		"50Z`",
+		" |\n| Beta",
+		" research | `2",
+		"026-",
+		"08-0",
+		"4T13",
+		":18:",
+		"31Z`",
+		" |\n\nWalk complete",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	want := "| Title | lastMessageAt |\n|-------|---------------|\n| Gamma roadmap | `2026-08-04T13:43:32Z` |\n| Alpha planning | `2026-08-04T13:18:50Z` |\n| Beta research | `2026-08-04T13:18:31Z` |\n\nWalk complete"
+	if got.String() != want {
+		t.Fatalf("provider-chunked lastMessageAt = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorPreservesLastMessageAtWhenTableEndsWithoutTrailingNewline(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Title | last",
+		"MessageAt",
+		" |\n|-------",
+		"|---------------|\n",
+		"| Gamma roadmap |",
+		" `2",
+		"026-",
+		"08-0",
+		"4T13",
+		":48:",
+		"57Z`",
+		" |\n| Alpha",
+		" planning | `2",
+		"026-0",
+		"8-04",
+		"T13:",
+		"18:",
+		"50Z`",
+		" |\n| Beta",
+		" research | `2",
+		"026-0",
+		"8-04",
+		"T13:",
+		"18:3",
+		"1",
+		"Z` |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("stream leaked timestamp placeholder before table ended: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "| Title | lastMessageAt |\n|-------|---------------|\n| Gamma roadmap | `2026-08-04T13:48:57Z` |\n| Alpha planning | `2026-08-04T13:18:50Z` |\n| Beta research | `2026-08-04T13:18:31Z` |"
+	if got.String() != want {
+		t.Fatalf("unterminated streamed lastMessageAt table = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorPreservesLastMessageAtWithoutMarkdownCodeSpans(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"|",
+		" Title | lastMessage",
+		"At |\n|",
+		"-------",
+		"|---------------|\n",
+		"| Gamma roadmap |",
+		" 202",
+		"6-08",
+		"-04T",
+		"1",
+		"3:56",
+		":20Z",
+		" |\n| Alpha",
+		" planning | 2",
+		"026-",
+		"08-0",
+		"4T13",
+		":18:",
+		"50Z |",
+		"\n| Beta research",
+		" | 20",
+		"26-0",
+		"8-04",
+		"T13:",
+		"18:3",
+		"1Z |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("stream leaked timestamp placeholder before table ended: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "| Title | lastMessageAt |\n|-------|---------------|\n| Gamma roadmap | 2026-08-04T13:56:20Z |\n| Alpha planning | 2026-08-04T13:18:50Z |\n| Beta research | 2026-08-04T13:18:31Z |"
+	if got.String() != want {
+		t.Fatalf("unquoted streamed lastMessageAt table = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorPreservesLastMessageAtAcrossLiveProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Title", " |", " lastMessageAt |", "\n|-------", "|---------------|\n",
+		"| Gamma", " roadmap | 2", "0", "26-0", "8-04", "T14:", "08:1", "0Z |\n",
+		"| Alpha planning |", " 20", "26-0", "8-04", "T13:", "18", ":50Z", " |\n|",
+		" Beta research | ", "2026", "-08-", "04T1", "3:18", ":31Z", " |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("live provider chunk leaked timestamp placeholder after %q: %q", delta, piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "| Title | lastMessageAt |\n|-------|---------------|\n| Gamma roadmap | 2026-08-04T14:08:10Z |\n| Alpha planning | 2026-08-04T13:18:50Z |\n| Beta research | 2026-08-04T13:18:31Z |"
+	if got.String() != want {
+		t.Fatalf("live provider chunked lastMessageAt = %q, want %q", got.String(), want)
 	}
 }
 
@@ -285,6 +977,96 @@ func TestRedactOpaqueMachineValuesKeepsEntitySearchReasoningFluent(t *testing.T)
 	want := "I found the document \"Edit Atlas\".\n- \"Edit Atlas\" at path `/Edit Atlas`"
 	if got := redactOpaqueMachineValues(input); got != want {
 		t.Fatalf("entity search reasoning redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesMakesSearchRefsActionable(t *testing.T) {
+	input := "这些 ref（如 `ag_00112233445566aa`、`hd_00112233445566aa.place`、`mcp:searchblocks115/route_order`）可以直接用于 workflow 节点中引用对应的构建块。如需查看某个块的详细配置，告诉我即可。"
+	want := "这些可接线 ref 的精确值见相邻 search_blocks 结果卡，可直接复制到 workflow 节点。如需查看某个块的详细配置，告诉我即可。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("search ref prose = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesMakesAbbreviatedSearchRefsActionable(t *testing.T) {
+	input := "handler 同时以实体级 ref（`hd_…`）和方法级 ref（`hd_….place` / `hd_….cancel`）出现，workflow 节点可按需引用整体或具体方法。"
+	want := "这些可接线 ref 的精确值见相邻 search_blocks 结果卡，可直接复制到 workflow 节点。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("abbreviated search ref prose = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesMakesTemplateSearchRefsActionable(t *testing.T) {
+	input := "handler 的方法级块（`order_desk.place`、`order_desk.cancel`）以 hd_<id>.<method> 形式返回，workflow 节点可按需引用。"
+	want := "这些可接线 ref 的精确值见相邻 search_blocks 结果卡，可直接复制到 workflow 节点。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("template search ref prose = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesMakesSearchBlocksSummaryActionable(t *testing.T) {
+	input := "**汇总：**\n- **agent** ×1：`the requested item`（报表助手）\n- **function** ×2：`the requested item`（sync_inventory）、`the requested item`（greet）\n- **handler** ×3：`the requested item`（order_desk）及其两个方法 `.place` / `.cancel`"
+	want := "**汇总：**\n- **agent** ×1：精确 ref 见相邻 search_blocks 结果卡（报表助手）\n- **function** ×2：精确 ref 见相邻 search_blocks 结果卡（sync_inventory）、精确 ref 见相邻 search_blocks 结果卡（greet）\n- **handler** ×3：精确 ref 见相邻 search_blocks 结果卡（order_desk）及其两个方法 `.place` / `.cancel`"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("search_blocks summary = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsSearchBlocksRefTableActionable(t *testing.T) {
+	input := "| # | ref | kind | name | snippet |\n|---|---|---|---|---|\n| 1 | `ag_00112233445566aa` | agent | 报表助手 | 整理周报 |\n| 2 | `hd_00112233445566aa.place` | handler | order_desk.place | 下单方法 |\n| 3 | `mcp:searchblocks115/route_order` | mcp tool | route_order | Route an order |"
+	want := "| # | ref | kind | name | snippet |\n|---|---|---|---|---|\n| 1 | See the exact ref in the search_blocks result card. | agent | 报表助手 | 整理周报 |\n| 2 | See the exact ref in the search_blocks result card. | handler | order_desk.place | 下单方法 |\n| 3 | See the exact ref in the search_blocks result card. | mcp tool | route_order | Route an order |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("search_blocks ref table = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesDoesNotConfuseSearchBlocksTableWithFlowrun(t *testing.T) {
+	input := "| # | ref | kind | name | snippet |\n|---|---|---|---|---|\n| 1 | the requested item | agent | 报表助手 | 整理周报 |"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "See the run card") {
+		t.Fatalf("search_blocks ref table was mislabeled as a flowrun row: %q", got)
+	}
+	if !strings.Contains(got, "See the exact ref in the search_blocks result card.") {
+		t.Fatalf("search_blocks ref table lost its actionable hint: %q", got)
+	}
+}
+
+func TestTextRedactorKeepsSearchRefsActionableAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"这些 ref（如 `ag_00112233445566aa`、`hd_00112233445566aa.",
+		"place`、`mcp:searchblocks115/route_order`）可以直接用于 workflow 节点中引用对应的构建块。",
+		"如需查看某个块的详细配置，告诉我即可。",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	want := "这些可接线 ref 的精确值见相邻 search_blocks 结果卡，可直接复制到 workflow 节点。如需查看某个块的详细配置，告诉我即可。"
+	if got.String() != want {
+		t.Fatalf("stream search ref prose = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorKeepsSearchBlocksSummaryActionableAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"**汇总：**\n- **",
+		"agent** ×",
+		"1：`the requested",
+		" item`（报表助手）\n- **function** ×2：`the requested item`（sync_inventory）、`the requested item`（greet）\n- **handler** ×3：`the requested item`（order_desk）及其两个方法 `.place` / `.cancel`\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("stream leaked search_blocks summary placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "**汇总：**\n- **agent** ×1：精确 ref 见相邻 search_blocks 结果卡（报表助手）\n- **function** ×2：精确 ref 见相邻 search_blocks 结果卡（sync_inventory）、精确 ref 见相邻 search_blocks 结果卡（greet）\n- **handler** ×3：精确 ref 见相邻 search_blocks 结果卡（order_desk）及其两个方法 `.place` / `.cancel`\n"
+	if got.String() != want {
+		t.Fatalf("stream search_blocks summary = %q, want %q", got.String(), want)
 	}
 }
 
@@ -555,7 +1337,6 @@ func TestRedactOpaqueMachineValuesCleansPreRedactedFlowrunPlaceholders(t *testin
 func TestRedactOpaqueMachineValuesCleansCurrentFlowrunReportPlaceholders(t *testing.T) {
 	input := "## Flowrun Report: `the requested item`\n| **Flowrun ID** | `the requested item` |\n| **Workflow Version** | `the requested item` |\n### Pinned References\n| Entity | Pinned Version |\n| `the requested item` (approval form) | `the requested item` |\n| **Node Record ID** | `the requested item` |"
 	got := redactOpaqueMachineValues(input)
-	t.Logf("redacted current flowrun report: %q", got)
 	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
 		t.Fatalf("current flowrun report placeholder leaked: %q", got)
 	}
@@ -1126,5 +1907,39 @@ func TestStreamLLM_ReappliesWholeBlockRedactionAtClose(t *testing.T) {
 	}
 	if !strings.Contains(blocks[0].Content, "the recorded time") || strings.Contains(blocks[0].Content, "2026-08-02 16:36:38") {
 		t.Fatalf("close snapshot timestamp redaction = %q", blocks[0].Content)
+	}
+}
+
+func TestRedactAttachmentPlaceholderLabeledLine(t *testing.T) {
+	input := "The image was saved successfully.\n\n**Attachment ID:** the requested item"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "Attachment ID") {
+		t.Fatalf("attachment placeholder leaked: %q", got)
+	}
+	if !strings.Contains(got, "The image was saved successfully.") {
+		t.Fatalf("readable result was removed with attachment placeholder: %q", got)
+	}
+}
+
+func TestTextRedactorHoldsAttachmentPlaceholderLabeledLine(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"The image was saved successfully.\n\n**",
+		"Attachment ID:** `att_0123456789abcdef",
+		"`\n**Filename:** `generated.png`",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "Attachment ID") {
+			t.Fatalf("attachment placeholder leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), "Attachment ID") {
+		t.Fatalf("attachment placeholder leaked in stream: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "The image was saved successfully.") {
+		t.Fatalf("readable result was removed with attachment placeholder: %q", got.String())
 	}
 }

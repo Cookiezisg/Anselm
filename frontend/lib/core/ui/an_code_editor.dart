@@ -761,6 +761,13 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
         style: _codeStyle(c),
         children: _highlight(codeOverride ?? widget.code, context.syntax),
       ),
+      // The embedded Markdown host can be a WidgetSpan with weaker width information than a page
+      // editor. Pin the wrapping face on the leaf instead of relying on inherited width defaults, or
+      // long tool errors silently become a clipped horizontal line in the chat transcript.
+      // Markdown 嵌入宿主的宽度约束可能弱于页面编辑器；在叶子上钉死换行面，避免长工具错误退化成横向裁切。
+      textWidthBasis: _wrap
+          ? TextWidthBasis.parent
+          : TextWidthBasis.longestLine,
     );
     // Read-only non-wrap scrolls horizontally; wrap lets the text reflow to the available width. 只读非 wrap 横滚。
     if (_wrap) return Padding(padding: pad, child: text);

@@ -59,11 +59,15 @@ exact name > name prefix > body match
 可接线积木相对内容实体有轻微 boost；tie 由 updated time 与 entity ID 稳定
 打破。
 
-融合分物化在有界窗口内。Cursor 包含 query hash 与 offset；不同 query 复用
-cursor 返回 `SEARCH_CURSOR_INVALID`，不能翻到另一结果集。
+融合分物化在有界窗口内。Cursor 包含 query hash 与 offset，服务端发无填充
+base64url(JSON)，解码也接受等价的标准填充形式，以兼容托管模型对不透明 cursor 补齐 `=`；
+不同 query 复用 cursor 仍返回 `SEARCH_CURSOR_INVALID`，不能翻到另一结果集。
 
 Omni search 按 entity 折叠，保留最佳 chunk 与 matched chunk 数。Blocks 按
 `(entity,anchor)` 折叠，使 Handler method、MCP tool 等可直接生成 ref hint。
+
+内容命中返回有界 snippet；精确查询中的连字符/复合 token 必须在可见窗口中保持为完整证据
+（例如 `ORBITAL-112-FIX4` 不能只显示 `ORBITAL`）。窗口仍有上限，绝不把全文转成搜索结果。
 
 ## 4. Semantic search
 
@@ -97,6 +101,12 @@ HTTP shape。
 3. Sifter 缺席/失败则使用索引排序。
 
 没有可直接接线 ref 的 hit 会从 blocks 结果剔除。
+
+`search_blocks` 的 `kinds` 原生形状是字符串数组、`limit` 原生形状是整数；为兼容部分托管模型，它们也接受**同一值的 JSON 字符串编码**（例如 `"[\"handler\"]"` 与 `"20"`）。服务端只在字符串能严格解回数组/精确十进制整数时接受；任意 kind 字符串、浮点、非数字字符串和数组以外的编码仍拒绝，不做猜测式转换。
+
+`WebSearch` 的 `limit` 公开 schema 是 integer。部分托管模型会把它编码成精确十进制字符串，执行边界可以接受这种窄兼容形状；浮点、任意文本、数组和布尔仍拒绝。WebSearch 只使用 workspace 明确选定的 search-category key，不在多个 provider 间静默轮换；未配置或 provider 失败时，tool result 必须返回可行动的配置/故障原因，不能伪造结果或重试成另一种搜索。
+
+若用户明确指定 `kinds` 或 `limit`，工具描述要求模型在同一次调用中带上这些过滤条件；不得先做一次未过滤搜索再补做过滤搜索。这样“只找某一类积木”的用户意图不会被一个看似相同但语义更宽的中间结果污染。
 
 实体 `search_*` tools 在 query 非空时使用同一内容引擎，并返回 count、total、
 nextCursor/hasMore；引擎缺席时退回实体原生 substring 搜索。Document 额外返回

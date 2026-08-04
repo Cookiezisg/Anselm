@@ -151,7 +151,7 @@ void main() {
             node: _node(
               'search_conversations',
               '{"query":"x"}',
-              '{"total":9,"hits":[{"conversationId":"cv_1","title":"alpha","snippet":"a snippet","matchedChunks":3}]}',
+              '{"total":9,"hits":[{"conversationId":"cv_1","title":"alpha","snippet":"a snippet","matchedChunks":3,"matchKind":"message","messageId":"msg_9"}]}',
             ),
           ),
         ),
@@ -160,6 +160,7 @@ void main() {
       await tester.tap(find.textContaining('已搜索对话'), warnIfMissed: false);
       await tester.pumpAndSettle();
       expect(find.text('a snippet'), findsOneWidget);
+      expect(find.text('msg_9'), findsOneWidget);
       expect(
         find.text(t.chat.tool.cvShownOfTotal(n: '1', total: '9')),
         findsOneWidget,

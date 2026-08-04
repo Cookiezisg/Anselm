@@ -14,6 +14,7 @@ import (
 	"go.uber.org/zap"
 
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
+	paginationpkg "github.com/sunweilin/anselm/backend/internal/pkg/pagination"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -281,6 +282,7 @@ func (s *Service) Search(ctx context.Context, q *searchdomain.Query) (*Page, err
 	if err != nil {
 		return nil, err
 	}
+	hits = excludeEntities(hits, q.ExcludeEntityIDs)
 
 	total := len(hits)
 	if offset >= total {
@@ -292,6 +294,28 @@ func (s *Service) Search(ctx context.Context, q *searchdomain.Query) (*Page, err
 		page.NextCursor = encodeCursor(queryHash(q), end)
 	}
 	return page, nil
+}
+
+func excludeEntities(hits []*searchdomain.Hit, excluded []string) []*searchdomain.Hit {
+	if len(excluded) == 0 {
+		return hits
+	}
+	blocked := make(map[string]struct{}, len(excluded))
+	for _, id := range excluded {
+		if id != "" {
+			blocked[id] = struct{}{}
+		}
+	}
+	if len(blocked) == 0 {
+		return hits
+	}
+	filtered := hits[:0]
+	for _, hit := range hits {
+		if _, ok := blocked[hit.EntityID]; !ok {
+			filtered = append(filtered, hit)
+		}
+	}
+	return filtered
 }
 
 // window produces the deterministic fused window: chunk hits → entity folding
@@ -429,6 +453,9 @@ func queryHash(q *searchdomain.Query) string {
 	for _, t := range q.Types {
 		sb.WriteString("|t:" + string(t))
 	}
+	for _, id := range q.ExcludeEntityIDs {
+		sb.WriteString("|x:" + id)
+	}
 	for _, t := range q.Tags {
 		sb.WriteString("|g:" + t)
 	}
@@ -456,12 +483,8 @@ func encodeCursor(hash string, offset int) string {
 }
 
 func decodeCursor(cursor, wantHash string) (int, error) {
-	raw, err := base64.RawURLEncoding.DecodeString(cursor)
-	if err != nil {
-		return 0, searchdomain.ErrCursorInvalid
-	}
 	var p cursorPayload
-	if err := json.Unmarshal(raw, &p); err != nil || p.H != wantHash || p.O < 0 {
+	if err := paginationpkg.DecodeCursor(cursor, &p); err != nil || p.H != wantHash || p.O < 0 {
 		return 0, searchdomain.ErrCursorInvalid
 	}
 	return p.O, nil

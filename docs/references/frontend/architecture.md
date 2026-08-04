@@ -87,6 +87,7 @@ app  →  features  →  core
 - REST/数据库行是 durable 真相。`seq>0` 推进续传水位；`seq=0` 的 delta、tick、interaction 只更新瞬时视图。
 - 断线或 410 后，消费方重取相应 REST 真相再续流；依赖某条 lifecycle signal 的 provider 同时订阅该流的 resync。
 - workspace 热切换先离开旧深链，再切 workspace 轴，使 repository、HTTP 与 SSE 一起换代，避免旧 id 在新 workspace 下重取。
+- `WorkspaceBootstrap` 在首次创建 workspace，或冷启动读到 `defaultDialogue` 尚未落下时，先调用既有 `POST /api/v1/freetier:provision` 再释放 Chat 壳；等待期间创建输入显示工作区准备状态。后端 API hook 仍保持 best-effort，前台检查失败或 20 秒超时不阻塞本地壳，用户可从 Models & Keys 配置 BYOK/修复受管档。
 - 流式高频面只重建活动叶；settled 子树保持 identity，并以 sliver、缓存、coalescing 与 `RepaintBoundary` 控制成本。
 
 ## 6. 装配与运行面

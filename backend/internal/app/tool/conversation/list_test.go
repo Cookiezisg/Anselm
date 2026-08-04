@@ -3,6 +3,7 @@ package conversation
 import (
 	"context"
 	"encoding/json"
+	"strings"
 	"testing"
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
@@ -73,5 +74,57 @@ func Test_listConversations_LimitClamp(t *testing.T) {
 	}
 	if fm.gotFilter.Limit != 20 {
 		t.Fatalf("default limit must be 20, got %d", fm.gotFilter.Limit)
+	}
+}
+
+func Test_listConversations_AcceptsHostedDecimalLimit(t *testing.T) {
+	fm := &fakeManager{}
+	tool := &ListConversations{mgr: fm}
+	if err := tool.ValidateInput(json.RawMessage(`{"limit":"1"}`)); err != nil {
+		t.Fatalf("exact decimal limit string must be accepted: %v", err)
+	}
+	if _, err := tool.Execute(context.Background(), `{"limit":"1"}`); err != nil {
+		t.Fatalf("execute exact decimal limit string: %v", err)
+	}
+	if fm.gotFilter.Limit != 1 {
+		t.Fatalf("hosted decimal limit must decode to 1, got %d", fm.gotFilter.Limit)
+	}
+}
+
+func Test_listConversations_AcceptsHostedBooleanString(t *testing.T) {
+	fm := &fakeManager{}
+	tool := &ListConversations{mgr: fm}
+	if err := tool.ValidateInput(json.RawMessage(`{"includeArchived":"true"}`)); err != nil {
+		t.Fatalf("exact boolean string must be accepted: %v", err)
+	}
+	if _, err := tool.Execute(context.Background(), `{"includeArchived":"true"}`); err != nil {
+		t.Fatalf("execute exact boolean string: %v", err)
+	}
+	if fm.gotFilter.Archive != conversationdomain.ArchiveAll {
+		t.Fatalf("hosted boolean string must enable archived rows, got %q", fm.gotFilter.Archive)
+	}
+}
+
+func Test_listConversations_RejectsNonIntegerLimitShapes(t *testing.T) {
+	tool := &ListConversations{mgr: &fakeManager{}}
+	for _, input := range []string{`{"limit":1.5}`, `{"limit":"1.5"}`, `{"limit":[]}`} {
+		if err := tool.ValidateInput(json.RawMessage(input)); err == nil || !strings.Contains(err.Error(), "limit") {
+			t.Fatalf("ValidateInput(%s) = %v, want limit error", input, err)
+		}
+	}
+	for _, input := range []string{`{"includeArchived":"yes"}`, `{"includeArchived":1}`, `{"includeArchived":[]}`} {
+		if err := tool.ValidateInput(json.RawMessage(input)); err == nil || !strings.Contains(err.Error(), "includeArchived") {
+			t.Fatalf("ValidateInput(%s) = %v, want includeArchived error", input, err)
+		}
+	}
+}
+
+func Test_listConversations_DescriptionProtectsTimestampFidelity(t *testing.T) {
+	tool := &ListConversations{mgr: &fakeManager{}}
+	description := tool.Description()
+	for _, want := range []string{"authoritative RFC3339 string", "copy the exact value verbatim", "the recorded time"} {
+		if !strings.Contains(description, want) {
+			t.Fatalf("description missing timestamp fidelity rule %q: %s", want, description)
+		}
 	}
 }

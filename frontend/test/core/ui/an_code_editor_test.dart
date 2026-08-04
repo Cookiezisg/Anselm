@@ -47,6 +47,30 @@ void main() {
     ); // the right-aligned multi-line gutter 行号槽
   });
 
+  testWidgets('wrapped read-only code grows for a long single line', (
+    tester,
+  ) async {
+    const line =
+        'Search via serper failed: HTTP 401: search provider authentication failed: forced acceptance failure';
+    await tester.pumpWidget(
+      host(
+        const AnCodeEditor(code: line, lang: 'text', wrap: true),
+        width: 220,
+      ),
+    );
+    final selectable = tester.widget<SelectableText>(
+      find.byType(SelectableText),
+    );
+    expect(selectable.textWidthBasis, TextWidthBasis.parent);
+    final code = tester.getSize(find.byType(SelectableText));
+    expect(
+      code.height,
+      greaterThan(20.0),
+      reason:
+          'a wrapped error line must grow instead of hiding its tail horizontally',
+    );
+  });
+
   testWidgets('inline is frameless: no bar (copy) / no gutter', (tester) async {
     await tester.pumpWidget(
       host(const AnCodeEditor(code: 'input.x > 0', lang: 'cel', inline: true)),

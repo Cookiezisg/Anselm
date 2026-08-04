@@ -96,9 +96,21 @@ loop 只生成可审计的 suppression result 并收束本回合，不再次执�
 
 ### Grounded final text
 
+当模型把已脱敏值放进带语义前缀的标签行（例如 `**Attachment ID:**`）时，整行移除而不是把
+`the requested item` 这类内部占位词渲染给用户；该规则同时作用于流式 delta 和 durable close，
+精确引用仍只留在相邻工具卡与内部审计面。
+
+流式工具名的半截暂存只允许发生在词元边界；普通单词内部的词尾（例如 `lastMessageAt` 中的 `ge`）不能被误判为分片的 `get_flowrun`，否则会把正常表头拆坏。该边界规则与跨 chunk 的整词缓冲一起适用于 SSE delta 和 durable close。
+
+带 `lastMessageAt` 列的 Markdown 表格在最后一行尚未收到换行时必须整体暂存，即使当前片段恰好看起来像完整的 `| Title |` 行；下一帧可能才会开始写目标时间列。不能先释放已完成的前置行，否则后续时间值会失去列语义并被通用规则误改为 `the recorded time`。
+
 实体 ID 的前缀清单必须与当前领域命名保持同步；trigger 的真实 ID 前缀是 `trg_`，也必须经过同一条直接与流式脱敏路径，不能只兼容历史 `tr_` 缩写。
 
 普通实体表格如果只有脱敏后的机器值，系统提示明确禁止把 `the requested item` 或 `the referenced item` 当作 ID、路径、标签或表格单元格；服务端流式阶段把这类单元格标为不可用，完整 durable close 再将所有值都不可用的 ID 列整体移除。精确 ID 仍只保留在相邻 tool card 与审计线缆中，助手正文优先展示人名与路径。若 workspace ID 经过脱敏后嵌入 `cwd`、`CLAUDE_SKILL_DIR`、`path` 等路径字段，不能把占位符留在看似可复制的路径里；改为 `See the exact path in the tool card.`，保留字段语义而不伪造路径。
+
+搜索积木的正文是同一条规则的可操作特例：若模型在“这些 ref 可以用于 workflow”之类的句子中重复 opaque ref，通用脱敏后不得留下 `the requested item` 或 `the requested item.method`，也不得留下 `hd_…` / `hd_….place`、`hd_<id>.<method>` 这类缩写或模板值。服务端只替换含坏占位的那一句为“精确值见相邻 `search_blocks` 结果卡，可直接复制到 workflow 节点”（英文同义句），保留后续提示语；即使模型没有写出 `ref` 一词，只要同句明确谈到 `workflow node(s)`/`workflow 节点` 并含上述坏值，也执行同一改写。若结果被模型整理成同时含 `ref`、`kind`、`name`、`snippet`/`description` 的 Markdown 表，按表头识别为 search_blocks 表，所有 ref 单元格统一改为“精确 ref 见相邻 search_blocks 结果卡”，不误套 flowrun 的 `See the run card`，也清理 `the requested item.method` 这类带方法后缀的坏值。表格行仍由结构化表格规则处理。精确 `ag_`、`hd_`、`mcp:` ref 只在相邻 tool card 和审计线缆中显示。
+
+若模型把 search_blocks 结果进一步压成 `agent/function/handler ×N` 这类汇总 bullet，汇总仍不能把 `the requested item`、`the requested item.method` 或同类占位当成名称展示；服务端保留类别、数量、用户可读名称和方法名，把不可复制的 ref 改为“精确 ref 见相邻 search_blocks 结果卡”（英文同义句）。该 bullet 在流式出口暂存到换行后再处理，确保 SSE 中间帧、durable close、数据库正文和 UI 重建都不会短暂露出半截或完整坏占位；普通 Markdown 表格不走这条规则。
 
 当模型把 opaque ID 放在位置/列表标签前、把人名放在括号内（例如 `Position 0: doc_… (Existing First)`）时，脱敏器必须保留括号中的人名，输出 `Position 0: Existing First`，不能留下 `the requested item`。
 
@@ -134,11 +146,11 @@ Reasoning 也在同一边界内：若 provider 把 `get_flowrun` 拆成 `ge` 与
 
 该归一化只在失败报告上下文行内触发，不改变普通实体句中已有的 `The requested flowrun` 语义测试；这样通用实体脱敏与 Flowrun 错误文案各自保持稳定边界。
 
-用户面可见的 reasoning block 也走同一条 delta + durable-close 脱敏边界，不能因它显示在「thinking」区域而泄露 flowrun、实体、版本或时间戳；ISO 与 `YYYY-MM-DD HH:MM:SS UTC` 两种时间写法都必须收敛为 `the recorded time`；带 flowrun 上下文的 workflow-agent reasoning 是下游数据边界，按 workflow-agent text 的规则保留原值。
+用户面可见的 reasoning block 也走同一条 delta + durable-close 脱敏边界，不能因它显示在「thinking」区域而泄露 flowrun、实体、版本或未被请求的时间戳；ISO 与 `YYYY-MM-DD HH:MM:SS UTC` 两种时间写法默认都必须收敛为 `the recorded time`。若用户明确要求工具返回的某个精确命名字段（例如 `lastMessageAt`），该字段是窄例外：在同名字段或表格列中逐字保留原值，不能规范化；附件、MCP 连接等无关时间戳仍按原规则脱敏。带 flowrun 上下文的 workflow-agent reasoning 是下游数据边界，按 workflow-agent text 的规则保留原值。
 
 附件清单的上传时点是例外的可用性语义：精确 `createdAt` 保留在相邻附件工具卡中；若模型把它放进用户正文表格，正文改为 `See the exact upload time in the attachment card.`，不得把 `the recorded time` 留成看似真实的字段值。
 
-System prompt 明确禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文。危险 HumanLoop
+System prompt 默认禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文；用户明确要求某个工具返回的精确命名字段时，只允许在同名字段中逐字回显该字段，其他机器值仍不得进入 prose。危险 HumanLoop
 批准句不采用模型的自报 summary 作为动作真相：它由实际解析的工具名生成，避免 `delete_workflow`
 被模型 prose 伪装成 `deactivate_workflow`；所有不可逆 delete 族还必须在门禁本体展示实际后果，不能
 退化成泛化的“运行某工具”。二者语义冲突时副作用在闸前终止并反馈模型改选。
@@ -239,3 +251,11 @@ system-prompt-preview 端点见 [`api.md`](../api.md)。表见
 broker；重启后不存在，Workflow durable approval 由 Scheduler 独立管理。
 
 当用户明确要求某个操作“必须被拒绝”时，模型必须先用最新工具结果验证拒绝前提；如果事实不满足该前提，不能为了迎合用户先执行再撤销，必须保持 durable state 不变并说明事实冲突。
+`get_relations` 的关系卡每一行必须同时显示两个端点、方向和关系动词（`equip/link/create/edit`）；
+只有箭头而没有动词时，用户无法判断这是挂载、文档链接还是创建/编辑溯源。精确机器 ref 仍只在
+工具结果卡中显示，自然语言摘要遵守 opaque-id 脱敏边界。
+关系表中的 `起点 (from)`、`终点 (to)`、`端点名称` 等列只展示 kind 与人类可读名称；
+`fromId`、`toId`、`edgeId`、时间戳和 `rel_...` 不能附在端点名称后进入 assistant prose 或用户画面。
+这一规则同时作用于 durable close 与每个 SSE delta：跨 chunk 的端点行、机器字段和裸占位符必须先暂存到
+行边界再做一次完整脱敏。精确 ref 保留在相邻 tool card、tool result 和 LLM 审计线缆中，不能因为 prose
+脱敏而篡改真实执行结果。

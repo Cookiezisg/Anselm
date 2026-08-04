@@ -41,6 +41,14 @@ ToolReceipt? relationsReceipt(Translations t, String output) {
       : (text: t.chat.tool.relCount(n: '$n'), tone: ToolReceiptTone.none);
 }
 
+String _relationVerb(Translations t, String raw) => switch (raw) {
+  'equip' => t.entities.graph.verb.equip,
+  'link' => t.entities.graph.verb.link,
+  'create' => t.entities.graph.verb.create,
+  'edit' => t.entities.graph.verb.edit,
+  _ => raw,
+};
+
 /// get_relations body — each edge as a navigable `fromName (kind) → toName (kind)` row. get_relations 体。
 Widget relationsBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
@@ -73,6 +81,7 @@ Widget relationsBody(BuildContext context, ToolCardState state) {
                   label: '${e['fromName'] ?? e['fromId']}',
                   id: e['fromId'] as String?,
                 ),
+                AnChip(_relationVerb(t, '${e['kind']}'), tone: AnTone.none),
                 Text(
                   t.chat.tool.relArrow,
                   style: AnText.meta.copyWith(color: c.inkFaint),
