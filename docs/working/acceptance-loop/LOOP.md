@@ -29,7 +29,7 @@ landed-into:
 
 ## 当前前线（2026-08-05，TOOL-120 已收口，批次十二统一门禁已通过）
 
-**当前更新。** 第九批 `TOOL-081..090`、第十批 `TOOL-091..100`、第十一批 `TOOL-101..110` 均已完成 50/50 并分别提交 `32b33499`、`553fa150`、`de146b72`；当前正式账本为 **635 judgments**，警报在本次复审后为 clean。`TOOL-111 get_subagent_trace`、`TOOL-112 search_conversations`、`TOOL-113 list_conversations`、`TOOL-114 manage_conversation`、`TOOL-115 search_blocks`、`TOOL-116 get_relations`、`TOOL-117 WebFetch`、`TOOL-118 WebSearch`、`TOOL-119 generate_image`、`TOOL-120 generate_speech` 已各完成五级真实验收，COVERAGE 十行均为 `✓✓✓✓✓`；批次十二已达到 **50 / 50**，现在只执行统一长门禁、完整 testend、工作树审计和提交，未完成前不进入 `TOOL-121 generate_video`。
+**当前更新。** 第九批 `TOOL-081..090`、第十批 `TOOL-091..100`、第十一批 `TOOL-101..110` 均已完成 50/50 并分别提交 `32b33499`、`553fa150`、`de146b72`；当前正式账本为 **635 judgments**，警报在本次复审后为 clean。`TOOL-111 get_subagent_trace`、`TOOL-112 search_conversations`、`TOOL-113 list_conversations`、`TOOL-114 manage_conversation`、`TOOL-115 search_blocks`、`TOOL-116 get_relations`、`TOOL-117 WebFetch`、`TOOL-118 WebSearch`、`TOOL-119 generate_image`、`TOOL-120 generate_speech` 已各完成五级真实验收，COVERAGE 十行均为 `✓✓✓✓✓`；批次十二已达到 **50 / 50**，统一长门禁、完整 testend、工作树审计和提交均已完成，提交为 `91cdd51c`；下一原子前线为 `TOOL-121 generate_video`，尚未开始。
 
 `TOOL-113` 的首轮正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-220707` 保留了真实 SSE 中间帧的 `lastMessageAt → the recorded time` 红线；修复后 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-221418` 已由新 binary、真实 App、受管 gateway、Computer Use 和五通道台架复验。三次 cursor 调用取回三页，目标 text delta/close、UI、REST/tool result 和五通道一致；录屏 `162.765s / 2784x1808 / 60fps`，frontend/backend 无未解释红线，LLM wire 全 200。正式证据 `evidence/TOOL-113.md`，警报复审 `evidence/tool-113-ledger-alarm-reaudit.md`，anchors 10/10，最终 `alarms.py check` 为 `clean (600 judgments)`。
 
@@ -45,7 +45,7 @@ landed-into:
 
 `TOOL-119` 首轮红证据来自媒体标签脱敏泄露和生成图卡横竖版占位跳变；修复后二进制在真实 App、受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和 60fps 录屏下完成 landscape 生图。最终真实 tool call 只调用一次 `generate_image`，wire 只做一次图片生成、一次媒体上传；SQLite、tool result、SSE 和 UI 对证，画面显示 `1344×768` 与真实附件。正式证据 `evidence/TOOL-119.md`，警报复审 `evidence/tool-119-ledger-alarm-reaudit.md`，anchors `10/10`，五级 `G1/F2/A5/C4/G2` 已落账，最终 `alarms.py check` 为 `clean (630 judgments)`。
 
-批次十二当前 **50 / 50**，`TOOL-120 generate_speech` 的正式证据为 `evidence/TOOL-120.md`，警报复审为 `evidence/tool-120-ledger-alarm-reaudit.md`；根 `make verify`、backend 全包测试、完整 `make -C backend testend`、锚点、警报和 `git diff --check` 已通过，当前只剩提交动作，提交后下一原子前线为 `TOOL-121 generate_video`。下方既有 TOOL-116 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行为真相。
+批次十二当前 **50 / 50**，`TOOL-120 generate_speech` 的正式证据为 `evidence/TOOL-120.md`，警报复审为 `evidence/tool-120-ledger-alarm-reaudit.md`；根 `make verify`、backend 全包测试、完整 `make -C backend testend`、锚点、警报和 `git diff --check` 已通过，提交为 `91cdd51c`，下一原子前线为 `TOOL-121 generate_video`，尚未开始。下方既有 TOOL-116 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行为真相。
 
 统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。第十一批收口时完整 `make testend` 又冻结了一个真实前置问题：`install_mcp_server` 的不可绕过 danger gate 没有被 chat 验收剧本处理，导致回合正确停在 `streaming`；场景现已逐次断言并批准两道人闸，定向场景与完整 testend `go test ./...`（scenarios 292.290s）均通过。最终 `make verify` 四门全绿，backend gate、锚点 10/10、警报 clean、diff check 均通过；批次已提交 `de146b72`。
 

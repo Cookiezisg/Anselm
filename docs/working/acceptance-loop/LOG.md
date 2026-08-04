@@ -12,6 +12,12 @@ landed-into:
 
 # WRK-092 · 验收战役日志
 
+# 2026-08-05 03:47 · 第十二批收口提交，下一前线 TOOL-121
+
+- 第十二批 `TOOL-111..120` 已完成 **50 / 50**，统一长门禁、完整 testend、anchors `10/10`、警报复核和工作树审计均通过。
+- 当前提交为 `91cdd51c`（`test(acceptance): close generate speech batch`）；未回退另一团队改动，当前工作树已干净。
+- 中央账本保持 **635 judgments**，`alarms.py check` 为 `clean`；下一原子前线为 `TOOL-121 generate_video`，尚未开始。
+
 # 2026-08-05 03:33 · 第十二批 TOOL-120 generate_speech 正式收口，50/50，进入统一门禁
 
 - 真实 App + 真实受管网关 + Computer Use 完成一次语音合成：工具卡显示真实文件名、WAV、大小和精确时长；点击播放走一次 lease，Range 读取成功，播放自然结束后可重播。
