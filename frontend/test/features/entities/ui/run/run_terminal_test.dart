@@ -65,6 +65,42 @@ FixtureEntityRepository _fix() => FixtureEntityRepository(
   ],
 );
 
+class _CountingFunctionRepository extends FixtureEntityRepository {
+  _CountingFunctionRepository()
+    : super(
+        runDelay: Duration.zero,
+        functions: [
+          FunctionEntity(
+            id: 'fn_1',
+            name: 'normalize',
+            createdAt: _t0,
+            updatedAt: _t0,
+            activeVersionId: 'fn_1_v1',
+            activeVersion: FunctionVersion(
+              id: 'fn_1_v1',
+              functionId: 'fn_1',
+              version: 1,
+              inputs: const [Field(name: 'text', type: 'string')],
+              createdAt: _t0,
+              updatedAt: _t0,
+            ),
+          ),
+        ],
+      );
+
+  int runCalls = 0;
+
+  @override
+  Future<FunctionRunResult> runFunction(
+    String id, {
+    required Map<String, dynamic> args,
+    int? version,
+  }) {
+    runCalls++;
+    return super.runFunction(id, args: args, version: version);
+  }
+}
+
 Widget _host(
   FixtureEntityRepository repo, {
   EntityRef? sel,
@@ -115,6 +151,38 @@ void main() {
     ); // live stderr from the run node
     expect(find.text(t.status.done), findsOneWidget); // ok badge
   });
+
+  testWidgets(
+    'invalid JSON stays visible, disables Run, and never calls the repository',
+    (tester) async {
+      final repo = _CountingFunctionRepository();
+      await tester.pumpWidget(
+        _host(repo, sel: const EntityRef(EntityKind.function, 'fn_1')),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      await tester.enterText(find.byType(TextField), '{"x":');
+      await tester.pump();
+
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        '{"x":',
+      );
+      expect(find.text(r.payloadInvalid), findsOneWidget);
+      final runButton = tester.widget<AnButton>(
+        find.widgetWithText(AnButton, t.entities.detail.verb.run),
+      );
+      expect(runButton.onPressed, isNull);
+
+      await tester.tap(
+        find.widgetWithText(AnButton, t.entities.detail.verb.run),
+        warnIfMissed: false,
+      );
+      await tester.pump();
+      expect(repo.runCalls, 0);
+      expect(find.text(t.status.done), findsNothing);
+    },
+  );
 
   testWidgets(
     'fn RUNNING streams through the bounded scrollback terminal — same component settled (批1)',

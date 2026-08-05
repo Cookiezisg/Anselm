@@ -4,7 +4,7 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-08-01
-reviewed: 2026-08-02
+reviewed: 2026-08-06
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
@@ -27,9 +27,29 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-05，TOOL-120 已收口，批次十二统一门禁已通过）
+## 当前前线（2026-08-06，EP-006 完成，批次十三 50/50）
 
-**当前更新。** 第九批 `TOOL-081..090`、第十批 `TOOL-091..100`、第十一批 `TOOL-101..110` 均已完成 50/50 并分别提交 `32b33499`、`553fa150`、`de146b72`；当前正式账本为 **635 judgments**，警报在本次复审后为 clean。`TOOL-111 get_subagent_trace`、`TOOL-112 search_conversations`、`TOOL-113 list_conversations`、`TOOL-114 manage_conversation`、`TOOL-115 search_blocks`、`TOOL-116 get_relations`、`TOOL-117 WebFetch`、`TOOL-118 WebSearch`、`TOOL-119 generate_image`、`TOOL-120 generate_speech` 已各完成五级真实验收，COVERAGE 十行均为 `✓✓✓✓✓`；批次十二已达到 **50 / 50**，统一长门禁、完整 testend、工作树审计和提交均已完成，提交为 `91cdd51c`；下一原子前线为 `TOOL-121 generate_video`，尚未开始。
+**当前更新。** 第九批 `TOOL-081..090`、第十批 `TOOL-091..100`、第十一批 `TOOL-101..110` 和第十二批 `TOOL-111..120` 均已完成 50/50，并分别提交 `32b33499`、`553fa150`、`de146b72`、`91cdd51c`。`TOOL-121 generate_video`、`TOOL-122 edit_image`、`TOOL-123 animate_image`、`TOOL-124 enroll_voice`、`EP-001 POST /api/v1/functions`、`EP-002 GET /api/v1/functions`、`EP-003 GET /api/v1/functions/{id}`、`EP-004 PATCH /api/v1/functions/{id}`、`EP-005 DELETE /api/v1/functions/{id}` 与 `EP-006 POST /api/v1/functions/{id}:run` 均已完成五级裁决，COVERAGE 当前 `EP-001=✓✓✓✓✓`、`EP-002=✓✓✓✓✓`、`EP-003=✓✓✓✓✓`、`EP-004=✓✓✓✓✓`、`EP-005=✓✓✓✓✓`、`EP-006=✓✓✓✓✓`，正式账本为 **690 judgments**，anchors `10/10`，EP-006 写账后警报复审并 ack，`alarms.py check` clean。批次十三已完成 **50 / 50**；EP-001 是最终代码重验证，不新增覆盖格，EP-002 至 EP-006 各是本批新增的一行五格；下一步运行统一长门禁，之后下一原子前线为 `EP-007`。
+
+EP-005 的红线、修复和证据在 `README.md` §5.2 与 formal evidence 中已完整记录：真实实体 rail 删除路径先冻结旧确认文案，再修复为明确不可撤销后重跑；后端 `204`、REST `404`/列表缺席、SQLite soft-delete/version/env/relation 真相、notifications seq `1..2` 与 UI 终态一致。前端只保留两条静态、5 秒不增长的已知 AXTree 观察器噪声；默认账本错路由与正式账本重放均有独立审计。
+
+`EP-006 POST /api/v1/functions/{id}:run` 的最终 session `/private/tmp/anselm-rig-ep006-functions-20260806/sessions/20260806-053154` 已封口 528.990000s。正向 Example → Run 两次成功，UI/REST/SQLite/backend 对齐；负向真实输入 `A` 显示 JSON 校验错误并禁用 Run，点击不产生执行。三路 SSE 在动作前均已连接；ready env 的同步 Function run 按实现不发布实体/消息帧，零帧是预期，未见断连或异常帧。前端仅静态 IMK 系统噪声，LLM tap 仅 ready；临时 fixture 由真实 DELETE=204、GET=404、列表为空清理。正式证据为 `/private/tmp/anselm-rig-ep006-functions-20260806/sessions/20260806-053154/evidence/EP-006-real-app.md`，账本复审为 `EP-006-ledger-alarm-reaudit.md`。批次已满 50/50，下一步统一长门禁，之后继续 `EP-007`。
+
+API Serve 修复提交 `0d06f6e58615fec2fd04e3c15d16aea2edaf4aef` 已成功通过 CI `31029509745` 与 production deploy `31029785594`，公网 healthz 为 `200`，设备证明边界按契约返回 `401`。真实受管 `/models` 明示 I2V 后才进入 App 轮次；部署成功不替代产品验收。
+
+`EP-002 GET /api/v1/functions` 的最终五通道 session 为 `/private/tmp/anselm-rig-ep002-functions-20260806/sessions/20260806-034541`：真实 App 中用 45 个真实 Function fixture 验证 `20+20+5` 分页、cursor continuation、filtered search、非法/上限 limit 和实体 rail 的 20→40→45 加载；no-match 空白 rail 已 stop-and-fix 为本地化解释。`EP-003 GET /api/v1/functions/{id}` 随后在 session `/private/tmp/anselm-rig-ep003-functions-20260806/sessions/20260806-035647` 完成真实实体详情、active version、代码/接口/环境元数据和 `FUNCTION_NOT_FOUND` 负路径；录屏 `163.976667s`，backend/frontend 无未解释应用红线，三路 SSE durable seq 单调，LLM completed responses 全 HTTP 200。EP-003 正式证据为 `ep-003-function-get-green.md`，账本复审为 `ep-003-ledger-reaudit.md`。下方旧 EP-001 及更早段落均为历史快照，恢复只以上述当前前线、`LOG.md` 和 COVERAGE 为准。
+
+`TOOL-123` 的真实 App session `/private/tmp/anselm-rig-tool123-live-20260806/sessions/20260806-020305` 完成静态图→危险批准→I2V提交/轮询/媒体上传→5秒MP4→播放结束→重播→全屏→退出全屏；首帧 `changedFrac=0.1009`，源图构图保持。647.886667s 屏幕录像、backend、三路 SSE、frontend console、LLM tap 和 `measure compare` 证据齐全，正式证据为 `sessions/20260806-020305/evidence/tool-123-animate-image-formal-20260806.md`。
+
+上一 session `/private/tmp/anselm-rig-tool123-live-20260806/sessions/20260806-015946` 的 AXTree 红证据仍保留；修复后二进制的 loading/error/retry 反馈由 34 项媒体定向测试和 `flutter analyze` 锁定。五级写账后的 `gap-too-fast` 与 `discovery-collapse` 通过独立复审文件 ack，阈值未放宽。一次未 export `RIG_HOME` 的 L1 误写到默认旧账本已留审计并重放到正式根；正式账本才是本战役水位。
+
+`TOOL-124 enroll_voice` 的真实 App session `/private/tmp/anselm-rig-tool124-live-20260806/sessions/20260806-022721` 完成短参考音频生成、有限库存解释、危险登记人闸批准、网关登记、登记音色复用生成、Settings 库存核对和真实删除清理；参考音频 `att_353b3737368b9dbf` 为 157484 bytes/3.280000s，复用音频 `att_e06c667a3db58ac3` 为 169004 bytes/3.520000s，网关句柄与本地音色行 ID 的创建/使用/删除边界一致。587.738333s 录屏、backend/frontend journal、三路 SSE witness、LLM tap、SQLite/REST 证据齐全；messages durable `1..52`、notifications `1..2` 单调，实体流已连接，frontend/backend 无未解释 runtime 红线。英文主路径完成；Computer Use 中文输入丢失被记录为仪器限制，不计产品红线。
+
+TOOL-124 首轮冻结了 Settings 将音色 GET 失败伪装成空库存的问题；修复为明确错误状态与 Retry，补双语文案、fixture failure hook、`voices_card_test.dart` 6/6 和 settings 文档规则。正式五级 `G1/F2/A5/C4/G2` 已写账，中央账本 **655 judgments**，anchors `10/10`，两项统计警报经独立复审后 clean。
+
+`EP-001` 的真实 App 前置红会话发现三条问题：外层 `ops` JSON 字符串化、嵌套 I/O schema 形状不兼容、成功正文把 ID 渲染成 `the requested item`。红证据均保留；修复后正式 session `/private/tmp/anselm-rig-ep001-green3-20260806/sessions/20260806-030648` 只执行一次创建，规范化参数落入 SQLite/SSE，函数 v1 与环境 `ready` 一致，展开工具卡可复制精确 ID，正文无坏占位。五通道录屏 `337.441667s`，三流 durable seq 单调，LLM/HTTP 全 200，frontend/backend 无未解释应用红线，证据与警报复审分别为 `evidence/ep-001-formal-green-provider-shapes.md`、`evidence/ep-001-ledger-alarm-reaudit.md`。正式账本 **655→660**，批次十三 **20→25 / 50**，下一原子前线为 `EP-002 GET /api/v1/functions`。
+
+代码审查随后发现通用 provider 参数归一化的 `argumentRepair` 错误借用了 `get_flowrun` 原因，且 `edit_function` 的畸形 `ops` 只在执行阶段失败；两项均已 stop-and-fix 并补回归。最终代码重跑 session `/private/tmp/anselm-rig-ep001-auditfix-20260806/sessions/20260806-032244` 的真实 provider wire 仍为外层字符串 `ops`，但 durable/SSE 已规范化为四项 native ops，attrs 为 `provider arguments normalized by tool boundary`；函数 v1/env `ready`，真实 `100 °C → 212 °F`，screen.mov `200.358333s` 可读，messages/entities/notifications durable seq 分别 `1..26`、`1..2`、`1..5` 单调，LLM 全 200，backend/frontend 无未解释应用红线。最终证据为 `evidence/ep-001-audit-fix-green.md`，警报复审为 `evidence/ep-001-auditfix-ledger-reaudit.md`；五级重验证使账本 **660→665**，覆盖批次仍 **25 / 50**，下一前线不变。
 
 `TOOL-113` 的首轮正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-220707` 保留了真实 SSE 中间帧的 `lastMessageAt → the recorded time` 红线；修复后 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260804-221418` 已由新 binary、真实 App、受管 gateway、Computer Use 和五通道台架复验。三次 cursor 调用取回三页，目标 text delta/close、UI、REST/tool result 和五通道一致；录屏 `162.765s / 2784x1808 / 60fps`，frontend/backend 无未解释红线，LLM wire 全 200。正式证据 `evidence/TOOL-113.md`，警报复审 `evidence/tool-113-ledger-alarm-reaudit.md`，anchors 10/10，最终 `alarms.py check` 为 `clean (600 judgments)`。
 
@@ -45,7 +65,7 @@ landed-into:
 
 `TOOL-119` 首轮红证据来自媒体标签脱敏泄露和生成图卡横竖版占位跳变；修复后二进制在真实 App、受管 gateway、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和 60fps 录屏下完成 landscape 生图。最终真实 tool call 只调用一次 `generate_image`，wire 只做一次图片生成、一次媒体上传；SQLite、tool result、SSE 和 UI 对证，画面显示 `1344×768` 与真实附件。正式证据 `evidence/TOOL-119.md`，警报复审 `evidence/tool-119-ledger-alarm-reaudit.md`，anchors `10/10`，五级 `G1/F2/A5/C4/G2` 已落账，最终 `alarms.py check` 为 `clean (630 judgments)`。
 
-批次十二当前 **50 / 50**，`TOOL-120 generate_speech` 的正式证据为 `evidence/TOOL-120.md`，警报复审为 `evidence/tool-120-ledger-alarm-reaudit.md`；根 `make verify`、backend 全包测试、完整 `make -C backend testend`、锚点、警报和 `git diff --check` 已通过，提交为 `91cdd51c`，下一原子前线为 `TOOL-121 generate_video`，尚未开始。下方既有 TOOL-116 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行为真相。
+该段以下既有 TOOL-116 及更早描述均为历史过程记录；恢复执行只以上述当前前线、`README.md` §5.2、`LOG.md` 最新条目和 COVERAGE 当前行为真相。
 
 统一长门禁首轮由旧的“一次返回 55 个子节点”契约断言失败；按现行 `/documents` cursor 分页实现修正 testend，保留 `/documents/tree` 一次整树 metadata 断言。第十一批收口时完整 `make testend` 又冻结了一个真实前置问题：`install_mcp_server` 的不可绕过 danger gate 没有被 chat 验收剧本处理，导致回合正确停在 `streaming`；场景现已逐次断言并批准两道人闸，定向场景与完整 testend `go test ./...`（scenarios 292.290s）均通过。最终 `make verify` 四门全绿，backend gate、锚点 10/10、警报 clean、diff check 均通过；批次已提交 `de146b72`。
 

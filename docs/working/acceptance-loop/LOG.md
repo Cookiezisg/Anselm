@@ -4,13 +4,174 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-08-01
-reviewed: 2026-08-02
+reviewed: 2026-08-06
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
 
 # WRK-092 · 验收战役日志
+
+## 2026-08-06 · EP-006 POST /api/v1/functions/{id}:run 五级收口，批次十三 50/50
+
+- 真实 App session `/private/tmp/anselm-rig-ep006-functions-20260806/sessions/20260806-053154` 完成 Example → Run 正向路径两次执行和非法 JSON 负向路径。正向 UI 显示 `Done`、73ms 与 `count=0/kind=args/value=""`；负向真实输入 `A` 显示 `Payload must be valid JSON.`，Run 置灰，点击不增加 Recent 执行数。
+- REST、SQLite 与 backend journal 对齐两条 `ok/manual` execution；三路 SSE 在动作前均连接。ready env 的同步 Function run 按代码只写执行审计、不发布实体/消息帧，因此 ssetap 零帧是预期结果而不是漏收；frontend 仅静态 macOS IMK 噪声，LLM tap 记录 ready，无模型请求。
+- 录屏封口 `528.990000s`，五通道证据为 `evidence/EP-006-real-app.md`；临时 fixture 随后真实 DELETE=204、GET=404、搜索为空。五级 `G1/F2/A5/C4/G2` 写入 COVERAGE，正式账本 `685→690`，写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按 `evidence/EP-006-ledger-alarm-reaudit.md` 重审并 ack，最终 `alarms.py check` clean。
+- 早先五次 judge 未显式导出 `RIG_HOME`，记录保留在默认账本作错路由审计；权威五格已用 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 正式重放。下一原子前线为 `EP-007 POST /api/v1/functions/{id}:revert`；批次十三达到 50/50，统一长门禁待运行。
+
+## 2026-08-06 · EP-005 DELETE /api/v1/functions/{id} 五级收口，批次十三 45/50
+
+- 首轮真实 App session `/private/tmp/anselm-rig-ep005-functions-20260806/sessions/20260806-045736` 发现确认框只说 `“ep004-meta-function-45” will be removed.`，没有告诉用户不可撤销；该次只打开后取消，红证据保留。stop-and-fix 将实体删除确认改为双语 active-catalog removal + irreversible consequence，并补精确 i18n widget assertion、entities 文档规则和生成代码。
+- 修复后二次真实 session `/private/tmp/anselm-rig-ep005-functions-20260806/sessions/20260806-050031` 用 Computer Use 走实体 rail → More actions → Delete → Confirm；固定确认帧和删除后 Overview 帧已封存，录屏 `209.958333s / 2784x1808 / 60fps`，UI 没有裁切、按钮拥挤或 stale detail route。删除后通过真实 API 创建替代 fixture，不编辑 SQLite。
+- 五通道对证：backend `DELETE` 为 `204` 且无应用 WARN/ERROR/panic/FATAL；REST 为目标 `404 FUNCTION_NOT_FOUND`、搜索空、live list 44 条不含目标；SQLite 保留软删 `deleted_at` 与 v1，环境/执行记录/关系边清理；notifications durable seq `1..2` 严格为 `sandbox.env_deleted` → `function.deleted`，三流均连接；LLM tap 为真实 upstream `ready`，deterministic menu 路径没有模型调用，不冒充 request/response。
+- frontend journal 仅有两条相同的 macOS AXTree bridge 观察器噪声，静置 5 秒不增长，零 Flutter/Dart/RenderFlex/Unhandled 应用红线；`rig-check` 的该失败输出保留并按 `testend/rig/README.md` 已知动态 AX 规则分流，没有隐瞒。正式证据为 `evidence/EP-005-formal-acceptance.md`，账本复审为 `evidence/ep-005-ledger-alarm-reaudit.md`。
+- 正式账本 `/private/tmp/anselm-rig-formal-20260801-3` 由 **680→685 judgments**，五级 `G1/F2/A5/C4/G2` 已写入 `COVERAGE` 的 `EP-005 DELETE /api/v1/functions/{id}` 行；写账触发的 `gap-too-fast` 与 `discovery-collapse` 经重新校准 anchors `10/10`、独立五通道复审后 ack，正式 `alarms.py check` clean。中途发现 shell wrapper 不导出结构化 env，五条初始命令误写默认账本；误路由行与默认警报均保留审计并销警，正式水位只认显式 `RIG_HOME` 重放。批次十三由 **40→45 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-006`。
+
+## 2026-08-06 · EP-004 PATCH /api/v1/functions/{id} 五级收口，批次十三 40/50
+
+- 真实 App session `/private/tmp/anselm-rig-ep004-functions-20260806/sessions/20260806-044310` 复用 `fn_23da72e9518042de` fixture，完成无效名称、有效名称和恢复 canonical name 三条路径；无效名称的 PATCH 为 `400 FUNCTION_INVALID_NAME`，有效名称与恢复均为 `200`，侧栏/详情最终都回到 `ep004-meta-function-45`，notifications durable seq `1..2` 单调。录屏、backend、SSE、frontend console 由同一 manifest 归属，`rig-down` 干净收台。
+- 首轮产品红线是异步 metadata PATCH 失败后编辑器仍退出并把错误伪装成保存成功。stop-and-fix 让 `AnInlineEdit` 等待 `Future` 完成：失败保留 draft 和编辑态，调用错误回调并展示完整规则；成功才退出并刷新 canonical truth。最终 notice 为 `Lowercase; a-z 0-9 - _; 1–64.`，截图 `ui-invalid-name.png`、`ui-valid-name.png`、`ui-restored.png` 已封存。
+- 独立 session `/private/tmp/anselm-rig-ep004-functions-20260806/sessions/20260806-044956` 校准 channel-5 recorder：真实 `llm.jsonl` 有 `event=ready` 与 `upstream=https://api.anselm.website`，同时保留 screen/backend/SSE/frontend journals。该 journey 没有模型调用，ready 只证明 recorder 在线和上游绑定，不冒充 LLM request/response；`rig-check` 五通道通过。
+- 正式证据为 `sessions/20260806-044956/evidence/ep-004-functions-patch-formal.md`，账本复审为 `ep-004-ledger-reaudit.md`。正式账本 `/private/tmp/anselm-rig-formal-20260801-3` 由 **675→680 judgments**，五级 `G1/F2/A5/C4/G2` 已写入 `COVERAGE` 的 `EP-004 PATCH /api/v1/functions/{id}` 行；`gap-too-fast` 与 `discovery-collapse` 按复审证据串行 ack，`alarms.py check` clean。批次十三由 **35→40 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-005`。
+
+## 2026-08-06 · EP-003 GET /api/v1/functions/{id} 实机五级收口，批次十三 35/50
+
+- 最终 session `/private/tmp/anselm-rig-ep003-functions-20260806/sessions/20260806-035647` 由同一 manifest 托管真实 Flutter App、窗口录屏、backend、三路 SSE witness、frontend console 和 LLM tap；复用 EP-002 的 45 个真实 Function fixture，D1 attribution 和五通道 `rig-check` 通过，`rig-down` 干净收台。
+- 真实产品路径从 Entities rail 打开 `ep002_function_45`，详情一次呈现 `v1 · ready`、描述、tags、完整 Python code、Inputs/Outputs 空值 em dash、Python 3.12、env ID、同步时间和 Dependencies；滚动检查 Environment 区域与右侧 run terminal 无覆盖、裁切或几何跳变。REST 同时证明成功 `200` 的 activeVersion 与缺失 `fn_missing_ep003` 的 `404 FUNCTION_NOT_FOUND`，无伪造详情。
+- 同一最终会话发送一次真实受管网关消息并收到精确 `function detail witness ready`。录屏 `163.976667s / 2784x1808`；backend 无 panic/FATAL/WARN/ERROR/validation/tool-execution failure；SSE messages durable `1..8`、notifications `1..2` 单调，entities 已连接；frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线，仅有已知 macOS IMK 系统诊断；LLM challenge 与两次 chat completion 完成响应全为 HTTP 200。
+- EP-003 没有发现产品或代码红线，不产生 stop-and-fix。正式证据为 `evidence/ep-003-function-get-green.md`，终帧为 `evidence/ep-003-final-detail.jpg`，API 摘要为 `evidence/function-probes-summary.json`。
+- anchors `10/10`；正式账本根 `/private/tmp/anselm-rig-formal-20260801-3` 五级 `G1/F2/A5/C4/G2` 由 **670→675 judgments**，COVERAGE `EP-003=✓✓✓✓✓`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 依据 `evidence/ep-003-ledger-reaudit.md` 复审并串行 ack，未放宽阈值，最终 `alarms.py check` clean。批次十三由 **30 / 50** 推进至 **35 / 50**；EP-003 是本批新增的一行五格，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-004 PATCH /api/v1/functions/{id}`。
+
+## 2026-08-06 · EP-002 GET /api/v1/functions 实机五级收口，批次十三 30/50
+
+- 最终 session `/private/tmp/anselm-rig-ep002-functions-20260806/sessions/20260806-034541` 由同一 manifest 托管真实 Flutter App、窗口录屏、backend、三路 SSE witness、frontend console 和 LLM tap；创建 45 个真实 Function fixture，收台后保留 45 条 fixture 回执，D1 attribution 和五通道 `rig-check` 通过。
+- 真实产品路径完成 Entities rail 的 20→40→45 加载、三页 `20+20+5` cursor 分页、filtered search、非法 limit、上限 limit 和 no-match 搜索。前置观察发现 no-match 变成无解释空白 rail；stop-and-fix 增加 `filterEmptyLabel` 与中英文 `No entities match your search.`，普通空 workspace 结构不变。
+- 同一最终会话又完成一次真实受管网关 chat，App 收到 `pagination witness ready.`。录屏 `151.576667s` 可读；backend 无 panic/FATAL/WARN/ERROR/validation/tool-execution failure；SSE 三流连接且 messages durable `1..8`、notifications `1..2` 单调；frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线；LLM tap 完成响应均 HTTP 200。
+- 定向 frontend tests `41/41`，`make -C frontend gen`、Dart format、`git diff --check` 通过。产品证据为 `evidence/ep-002-functions-green.md`，警报复审为 `evidence/ep-002-ledger-reaudit.md`。
+- anchors `10/10`；正式账本 `/private/tmp/anselm-rig-formal-20260801-3` 五级 `G1/F2/A5/C4/G2` 由 **665→670 judgments**，COVERAGE `EP-002=✓✓✓✓✓`。写账后 `gap-too-fast` 与 `discovery-collapse` 按复审证据串行 ack，未放宽任何阈值，最终 `alarms.py check` clean。批次十三由 **25 / 50** 推进至 **30 / 50**；EP-002 是本批新增的一行五格，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-003 GET /api/v1/functions/{id}`。
+
+## 2026-08-06 · EP-001 最终代码五通道重验证，批次十三仍 25/50
+
+- 代码审查发现 EP-001 绿会话之后仍有一个审计真相问题：通用 provider 参数归一化被记成 `get_flowrun` 专属 `argumentRepair`；同时 `edit_function` 已声明兼容形状但没有在 `ValidateInput` 阶段校验畸形 `ops`。stop-and-fix 已补通用审计原因、写前校验、`null`/重复 required 守卫及 Go 回归，未放宽公开 schema。
+- 最终代码 session `/private/tmp/anselm-rig-ep001-auditfix-20260806/sessions/20260806-032244` 由 conductor 同时托管真实 Flutter App、窗口录屏、backend、三路 SSE witness、frontend console 和 LLM tap，并重新完成 onboarding、受管免费网关、`create_function` 与真实 `run_function`。provider wire 的外层 `ops` 是 JSON 字符串；durable `message_blocks`/SSE 已规范化成四项 native ops，attrs 为 `argumentRepair=provider arguments normalized by tool boundary`；function v1/env `ready`，execution `ok`，输入 `{"celsius":100}`，输出 `{"fahrenheit":212}`。
+- 五通道结果：`rig-check` 通过 D1、health、SSE、LLM tap、Flutter runner 和录屏归属；`screen.mov` 封口 `200.358333s` 可读；messages/entities/notifications durable seq 分别 `1..26`、`1..2`、`1..5` 单调；LLM 完成响应全 200；backend/frontend 无未解释应用红线，仅有已知 macOS IMK 输入法诊断。最终证据为 `evidence/ep-001-audit-fix-green.md`。
+- 正式账本五格以 `G1/F2/A5/C4/G2` 追加最终代码证据，**660→665 judgments**；这是同一 `EP-001` 覆盖行的复验，不增加覆盖单元，批次十三保持 **25 / 50**。批写触发的 `gap-too-fast` 与 `discovery-collapse` 由 `evidence/ep-001-auditfix-ledger-reaudit.md` 记录复审后 ack，anchors `10/10`，最终 `alarms.py check` 为 `clean (665 judgments)`。`gen_coverage.py` 已携带新证据，下一原子前线为 `EP-002 GET /api/v1/functions`；未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-06 · EP-001 POST /api/v1/functions 实机五级收口，批次十三 25/50
+
+- 前置真实 App 会话连续发现并保留三条红证据：外层 `ops` JSON 字符串化导致首轮 retry；成功正文的 ID 行被脱敏成 `the requested item`；嵌套 `set_inputs/set_outputs` 字段形状不兼容导致 retry。三轮均停在红线上修复，未计入绿。
+- stop-and-fix 在 `create_function/edit_function` 执行边界加入窄兼容：合法 JSON 数组字符串、无歧义字段 map、完整覆盖 properties 的 JSON-Schema 均还原为 canonical flat fields；CSV/prose/歧义/不完整 required 继续拒绝。同步工具描述、function/API 文档、抽取清册和 Go 回归。opaque ID 表格行改为删除坏占位，精确 ID 保留在可展开、可复制的工具卡。
+- 正式绿 session `/private/tmp/anselm-rig-ep001-green3-20260806/sessions/20260806-030648` 由同一 manifest 托管真实 Flutter App、backend、三路 SSE witness、LLM tap、前端 console 和录屏；只调用一次 `create_function`，SQLite 只有一个函数/v1、`env_status=ready`，消息块中的 tool call 已是规范化 native arrays，助手正文无坏占位。五通道证据为 `evidence/ep-001-formal-green-provider-shapes.md`，录屏 `337.441667s`，收台无残留进程。
+- anchors `10/10`；正式账本根 `/private/tmp/anselm-rig-formal-20260801-3` 的五级裁决为 `G1/F2/A5/C4/G2`，账本 **655→660 judgments**，COVERAGE `EP-001=✓✓✓✓✓`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已以 `evidence/ep-001-ledger-alarm-reaudit.md` 独立复审并 ack，阈值未放宽，最终 `alarms.py check` clean(660)。`gen_coverage.py --check` clean(848 rows, 133 carried judgments, 0 tombstones)。批次十三由 **20 / 50** 推进至 **25 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-002 GET /api/v1/functions`。
+
+## 2026-08-06 · TOOL-124 enroll_voice 实机五级收口，批次十三 20/50
+
+- session `/private/tmp/anselm-rig-tool124-live-20260806/sessions/20260806-022721` 由同一 manifest 托管真实 Flutter App、backend、三路 SSE witness、LLM tap、窗口录像和 cleanup；`rig-check` 通过，`rig-down` 正常收台，`screen.mov` 可读且无残留进程。
+- 真实用户目的链路为：生成短参考音频 → 解释持久音色身份和有限库存 → `enroll_voice` 危险人闸批准 → 网关登记 → 用 `acceptance-narrator` 复用生成音频 → Settings 读取 `1 of 2 slots free` → 用本地音色行删除 → `/voices` 回到空集、remaining=2。参考附件 `att_353b3737368b9dbf` 为 WAV 157484 bytes/3.280000s；复用附件 `att_e06c667a3db58ac3` 为 WAV 169004 bytes/3.520000s；网关句柄 `vce_23b241a4e1789dd687ab954eef2dc39d` 与本地行 `vce_b905053ec7c7c2eb` 的边界已交叉核对。
+- 五通道证据封存于 `evidence/tool-124-enroll-voice-formal-20260806.md`：messages durable `1..52`、notifications `1..2` 单调，entities 已连接且 ephemeral delta 为 seq `0`；LLM wire 的 speech/create/upload/delete 状态与 SQLite、REST、tool result、UI 一致；backend/frontend 无未解释 runtime 红线。Computer Use 中文输入丢失作为仪器限制记录，英文主路径正常完成。
+- 首轮产品红线：Settings 将音色 GET 失败显示成空库存。stop-and-fix 改为明确错误状态 + `Retry`，补 fixture failure hook、双语文案、`voices_card_test.dart` 6/6、`flutter analyze` 和 settings 领域规则；不以空状态伪装连接失败。
+- 正式账本根 `/private/tmp/anselm-rig-formal-20260801-3` 的五级裁决为 `G1/F2/A5/C4/G2`，账本从 `650` 增至 **655 judgments**，anchors `10/10`；`gap-too-fast` 与 `discovery-collapse` 用 `evidence/tool-124-ledger-alarm-reaudit.md` 独立复审并 ack，未放宽阈值，最终 `alarms.py check` clean。COVERAGE 已由生成器携带为 `TOOL-124=✓✓✓✓✓`，`gen_coverage.py --check` clean(848 rows, 0 tombstones)。批次十三 **20/50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-001 POST /api/v1/functions`。
+
+## 2026-08-06 · TOOL-123 animate_image 实机五级收口，批次十三 15/50
+
+- API Serve 修复提交 `0d06f6e58615fec2fd04e3c15d16aea2edaf4aef` 已由 CI `31029509745` 与 production deploy `31029785594` 成功发布；真实受管 `/models` 明示 I2V 能力后，才启动本轮真实 App，不把部署绿当产品绿。
+- session `/private/tmp/anselm-rig-tool123-live-20260806/sessions/20260806-020305` 完成真实用户路径：生蓝色帆船图 → 危险 `animate_image` 人闸批准 → I2V 提交/轮询/媒体上传 → 保存 5 秒 MP4 → 播放至 `0:05 / 0:05` → 重播 → 全屏 → 退出全屏。源附件 `att_88a52e72d00ccc1f`、视频附件 `att_5863a6340ae60b18` 的 receipt、SQLite、SSE、UI 和 LLM 线缆一致。
+- 五通道正式证据为 `sessions/20260806-020305/evidence/tool-123-animate-image-formal-20260806.md`；647.886667 秒 `screen.mov` 可读，messages durable `1..38`、notifications `1..2` 按流单调，ephemeral delta 保持 seq=0，I2V `202`、轮询 `200`、媒体上传 `201`、最终对话 `200`，backend/frontend 无未解释 runtime 红线。首帧 `go run ./cmd/measure compare` 为 `changedFrac=0.1009`、pass=true，源图构图与首帧均保持帆船左侧、右侧开阔水面。
+- 首轮 session `/private/tmp/anselm-rig-tool123-live-20260806/sessions/20260806-015946` 的 AXTree 红证据保留；冷启动稳定等待后的 `/020305` 无 AXTree/Flutter/Dart 红线。前端 loading/error/retry 修复由 34 项定向媒体测试与 `flutter analyze` 锁定。
+- 正式 ledger 根为 `/private/tmp/anselm-rig-formal-20260801-3`：anchors `10/10`，五级 `G1/F2/A5/C4/G2` 已写入，正式账本 `645→650 judgments`，COVERAGE `TOOL-123=✓✓✓✓✓`。五级批写触发 `gap-too-fast` 与 `discovery-collapse`，独立复审证据为 `tool-123-ledger-alarm-reaudit.md`，两项均已 ack，阈值未放宽，最终 `alarms.py check` clean(650)。
+- 期间一次未 export `RIG_HOME` 的 L1 误写入默认旧账本；默认账本保留原始审计且已销账，正式 L1 已在 formal 根重放，后续只允许显式 formal 根。批次十三从 `10/50` 推进至 `15/50`，未到 50 格不跑统一长门禁、不提交；下一格为 `TOOL-124 enroll_voice`。
+
+## 2026-08-06 01:28 · TOOL-123 API Serve 精确 SHA 已成功部署，产品裁决仍冻结
+
+- 邻仓提交 `0d06f6e58615fec2fd04e3c15d16aea2edaf4aef` 已推送 `main`；CI run `31029509745` 的 hygiene、SBOM、frontend drift、race/integration/fuzz/coverage、vulnerability 与 lint 全绿。
+- 同一 SHA 触发 production deploy run `31029785594`：admission 通过，`build-test-deploy` 未被跳过并在 5m16s 内完成全部复验、静态 linux/amd64 构建和 pinned SSH schema-aware 发布。远端安装器报告 `deploy gate OK on 0d06f6e58615`、`public API healthz is green`、`public static site is green`。
+- 本机独立请求 `https://api.anselm.website/healthz` 返回 `200 {"status":"ok"}`；未带设备证明的 `/v1/models` 返回预期 `401 DEVICE_PROOF_REQUIRED`，公网入口与证明边界均在线。下一步用台架真实 install 响应跑 `check_i2v_contract.py`，通过后才进入 App 五通道和 exact-first-frame 复验。
+- 旧 `changedFrac=0.99601` 红证据不撤销，`TOOL-123=·····`、中央账本 645、批次十三 10/50 均不变；部署绿不等于产品绿，本次不提交主仓。
+
+## 2026-08-05 06:53 · TOOL-123 增加 I2V 实机前置哨兵，真实探针诚实拒绝
+
+- 新增 `testend/rig/check_i2v_contract.py`，读取 llmtap 保存的原始或 gzip `/models` 响应；只有 `video_generation.available=true`、`image_to_video=true`、`routing=content` 和有效 capability version 同时满足才返回 0，缺失契约返回 2，不写产品账本。
+- 对真实 session `/private/tmp/anselm-rig-tool123-probe/sessions/20260805-063224/llm-responses/00003_v1_models.bin` 执行结果为 `i2v: unavailable`，与先前五通道红证据和 API Serve clean 状态一致。该哨兵避免下一次 loop 在工具诚实缺席时盲起真实 App。
+- `test_i2v_contract.py`、`test_gen_coverage.py`、`test_judge.py` 共 6 项通过；`gen_coverage --check` clean(848 rows)、`make -C docs verify`、`git diff --check`、正式 `alarms.py check` clean(645) 通过。本轮没有 judge pass、没有推进 `10/50`、没有提交。
+
+## 2026-08-05 06:50 · 清册生成器只读校验与 848 行基线复核
+
+- 机械复核确认 `COVERAGE.md` 与生成器的真实基线为 **848 行 × 5 = 4240 格**，不是旧日志中的 827 行；`TOOL-121/122` 既有 `✓✓✓✓✓` 与 `TOOL-123` 的 `·····` 均保留，未写入账本。
+- 发现并修复台架自身的写入风险：原 `gen_coverage.py --help` 会直接重生成清册。现在默认无参数仍显式重生成，`--check` 只读检查漂移，`--help` 只显示帮助；新增 `test_gen_coverage.py` 覆盖帮助不写盘与漂移检查。
+- 本地验证：Python 回归 `3` 项通过，真实 `python3 testend/rig/gen_coverage.py --check` clean，帮助命令前后清册 hash 一致，`git diff --check` 通过；本轮不写 `judge.py`，批次十三仍 `10/50`。
+
+## 2026-08-05 06:46 · TOOL-123 上游模型边界一手文档复核，红线保持
+
+- 阿里云 Model Studio 一手文档将 `wan2.7-t2v` 明确列为文生视频；首帧图生视频使用独立的 `happyhorse-1.1-i2v` 或 `wan2.7-i2v`。因此 API Serve 当前把 `img_url` 送进 T2V 端点，不足以形成 I2V 或 exact-first-frame 契约；不能为了推进覆盖而放宽 Anselm 的能力闸。
+- 证据链接已同步到 `docs/references/backend/managed-gateway.md`。本轮没有改 API Serve，没有启动新的高成本 App 视频轮次，没有写 `judge.py`；`TOOL-123` 继续 `·····`，批次十三仍 `10/50`。
+- 本地验证：`mise exec -- go test ./internal/infra/llm ./internal/app/tool/generate` 通过，`make -C docs verify` 通过，`git diff --check` 通过，正式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3 python3 testend/rig/alarms.py check` 为 `clean (645 judgments)`；API Serve `main...origin/main` clean。
+
+## 2026-08-05 06:32 · TOOL-123 线上 I2V 能力声明复核，红线保持
+
+- 为避免把上一轮正式视频红证据当作静态历史，conductor 以独立数据目录启动真实 backend、llmtap 和 SSE tap（App/录像刻意关闭），真实创建 workspace 并完成受管 install/probe；session 为 `/private/tmp/anselm-rig-tool123-probe/sessions/20260805-063224`。
+- 原始网关响应 `llm-responses/00003_v1_models.bin` 是 gzip 保存，解压后的 `/v1/models` 明确包含 `video_generation.available=true`，但没有 `image_to_video`。同一时刻 API Serve 仓 `main...origin/main` 无 diff；源码存在 `/v1/videos/animations` 与 `img_url` 上游线缆，却没有在能力 catalog 发布 I2V 明示。
+- 同步复核厂商一手模型文档：`wan2.7-t2v` 被列为文生视频；首帧图生视频使用独立的 `happyhorse-1.1-i2v` 或 `wan2.7-i2v`。因此当前网关把 `img_url` 送进 `wan2.7-t2v` 不能证明 I2V，exact-first-frame 红线是上游模型/配置契约问题，不是 Anselm 可以靠放宽闸门修正的客户端问题（来源见 `docs/references/backend/managed-gateway.md`）。
+- 该探针没有启动真实 App、没有提交视频、没有产生五级裁决或账本写入；它只确认当前部署仍是 T2V-only 能力声明。Anselm 的 fail-closed 闸保持不变，`TOOL-123` 继续 `·····`，批次十三仍 `10/50`，中央账本仍 645，不能把缺少契约的路由猜成绿。
+- 探针由 `rig-down.sh` 正常收台，backend/ssetap/llmtap 无残留；探针 session 与原始线缆证据保留。
+- 同轮本地长回归随后完成：`mise exec -- go test ./...`（`testend/scenarios`）全绿，用时 `362.072s`；它覆盖真实二进制黑盒但不改变受管网关能力声明，也不替代 `TOOL-123` 的真实 App 五通道正式重跑。
+
+# 2026-08-05 06:16 · 关停红线 stop-and-fix 后真实收台通过，TOOL-123 仍红，10/50
+
+- 新 binary + 真实 Flutter App + 真实受管 Anselm gateway + Computer Use session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-061404`：从空数据目录创建 `Acceptance Shutdown QA`，发送 `shutdown lifecycle probe`，逐帧观察搜索、思考、最终回答和自动标题；窗口录屏、backend journal、三路 SSE witness、LLM tap 均由同一 manifest 归属。
+- 首次收台暴露真实生命周期问题：`chat.Shutdown()` 的 `wg.Wait()` 等待可选自动标题，10 秒 `autoTitleTimeout` 吃掉后端 6 秒 shutdown ctx，继而出现 `search embed worker did not stop before shutdown deadline`、`sandbox shutdown ... context deadline exceeded`。这不是可接受的“预期 WARN”。
+- stop-and-fix：`chat.Shutdown(ctx)` 接入剩余预算；自动标题移出主 queue wait group，绑定 chat lifecycle cancel，并在 provider 无视取消时于最终 `SetAutoTitle` 前再次检查；回合尾 compaction 绑定同一 lifecycle；补 `TestShutdown_DoesNotWaitForAutoTitle` 和 shutdown race guard。同步 chat/bootstrap/reqctx 文档。
+- 修复后 `rig-down.sh`：`shutting down gracefully`=`2026-08-05T06:16:12.720+0800`，`sandbox shutdown: all handles killed`=`06:16:12.722+0800`；backend 无 `WARN|ERROR|panic|FATAL`，frontend 无 `FlutterError|DartError|RenderFlex|Unhandled|Exception`，三路 SSE 正常收口。证据 `sessions/20260805-061404/evidence/shutdown-lifecycle.md`。
+- 本地验证：`go test ./internal/app/chat ./internal/bootstrap ./internal/app/search ./internal/app/sandbox`、`docs make verify`、`git diff --check` 全部通过；API Serve `main...origin/main` clean。该修复只清除关停红线，不写 `judge.py`，不改变 `TOOL-123` 的 `changedFrac=0.99601/pass=false` 产品红线，批次十三仍 **10 / 50**，不提交。
+
+# 2026-08-05 05:59 · TOOL-123 增加首帧独立测量与能力 fail-closed，红线保持，10/50
+
+- 对正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-053150` 的源图与视频首帧运行 `testend/cmd/measure compare`：确定性归一源图到首帧 `1920×1080` 栅格后，`changedFrac=0.99601`、包围盒覆盖全画面、`pass=false`，命令以非零退出码结束。该结果独立复核了“视频首帧被上游重新构图”的产品红线，不把分辨率差异误报成失败，也不把编码噪声误报成成功。
+- stop-and-fix 将受管 `animate_image` 能力改为 fail-closed：`video_generation.available=true` 只能证明文生视频；必须再有 `image_to_video=true` 才注入工具，探测缺失/损坏/失败均诚实缺席。新增 Anselm 能力解析单测、Router 闸单测，`go test ./internal/infra/llm ./internal/app/tool/generate`、`go test ./cmd/measure` 和 `git diff --check` 通过。
+- 同步 `stream-llm.md`、`managed-gateway.md`、README/LOOP；API Serve 仓库保持 clean/no diff。`TOOL-123` 仍不写 `judge.py`、COVERAGE 仍为 `·····`，批次十三保持 **10 / 50**，不提交，等待 API Serve 提供明确 I2V 契约后再用真实 App/网关重跑。
+
+# 2026-08-05 05:50 · TOOL-123 animate_image 正式复验冻结为红，批次十三 10/50
+
+- `TOOL-123 animate_image` 的正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-053150` 完成真实 App、真实受管网关、Computer Use、一次生图→用户批准→一次动画、播放到 `0:05 / 0:05` 的全链路。三路 SSE durable messages `1..32`、notifications `1..2` 连续，LLM wire 一次 `/v1/videos/animations` submit `202` 后成功轮询，backend/frontend journal 无未解释 runtime 红线；正式证据为 `evidence/TOOL-123.md`。
+- 前置静态红线已在正式运行前修复：旧 binary 曾在 `FirstFrame` 存在时同时发送 `aspect/resolution`；当前 wire 只有 `prompt/seconds/image`，Go 回归已覆盖。该问题不是本次红因。
+- 产品复核发现不可接受的语义红线：源图是近景、灯塔在左侧的 `1344×768` 画面，但视频首帧被重新构图为远景、灯塔在右侧的另一幅画面。`animation-source.png`、`animation-first-frame.png` 和 `animation-output.mp4` 均保留在 session evidence；“用那张原图作为第一帧”的用户目的未达成。
+- 因此 `TOOL-123` 不写 `judge.py`、不写五级绿灯，`COVERAGE.md` 保持空白；批次十三保持 **10 / 50**，前线冻结在 `TOOL-123`。API Serve 仓库保持 clean/no diff；需先解决上游模型/配置契约或重新裁定产品承诺，再重跑并做真实首帧对比。未到 50 格，不跑统一长门禁、不提交。
+
+# 2026-08-05 05:10 · TOOL-122 edit_image 第 1 格通过，6/50
+
+- `TOOL-122 edit_image` 的第 1 格以 `G1` 通过：正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-050103` 完成真实生图→改图用户目的，来源与改后附件分离，精确红→蓝结果保留原构图；无第二次生成、无 retry。证据为 `evidence/TOOL-122.md`。
+- `COVERAGE.md` 当前 `TOOL-122=✓····`，中央账本 `640→641 judgments`，警报 `clean`。批次十三当前 **6 / 50**；按 P15 继续逐格裁决，未到 50 格不跑统一长门禁、不提交。下一格为 `F2`。
+
+# 2026-08-05 05:12 · TOOL-122 edit_image 第 2 格通过，7/50
+
+- `TOOL-122 edit_image` 的第 2 格以 `F2` 通过；同一正式 session 的 manifest、SSE、backend/frontend journal 和 LLM wire 证据完整，UI、SSE、持久化结果与实际改图附件一致。错误 session 路径曾被 gate 拒绝，未写入账本；改用正确路径后通过。
+- `COVERAGE.md` 当前 `TOOL-122=✓✓···`，中央账本 `641→642 judgments`，警报 `clean`。批次十三当前 **7 / 50**；按 P15 继续逐格裁决，未到 50 格不跑统一长门禁、不提交。下一格为 `A5`。
+
+# 2026-08-05 05:14 · TOOL-122 edit_image 第 3 格通过，8/50
+
+- `TOOL-122 edit_image` 的第 3 格以 `A5` 通过：正式录屏与证据显示生图→改图链路没有几何跳变、重复生成、无谓 retry 或交互卡死。
+- `COVERAGE.md` 当前 `TOOL-122=✓✓✓··`，中央账本 `642→643 judgments`，警报 `clean`。批次十三当前 **8 / 50**；按 P15 继续逐格裁决，未到 50 格不跑统一长门禁、不提交。下一格为 `C4`。
+
+# 2026-08-05 05:16 · TOOL-122 edit_image 第 4 格通过，9/50
+
+- `TOOL-122 edit_image` 的第 4 格以 `C4` 通过：正式画面中来源/改后媒体卡、比例、尺寸和改图事实清楚且视觉一致，没有 generic fallback 或首帧几何跳变。
+- `COVERAGE.md` 当前 `TOOL-122=✓✓✓✓·`，中央账本 `643→644 judgments`，警报 `clean`。批次十三当前 **9 / 50**；按 P15 继续逐格裁决，未到 50 格不跑统一长门禁、不提交。下一格为 `G2`。
+
+# 2026-08-05 05:18 · TOOL-122 edit_image 五级收口，10/50，警报待复审
+
+- `TOOL-122 edit_image` 第 5 格以 `G2` 通过，五级 `G1/F2/A5/C4/G2` 全部落账，COVERAGE 为 `✓✓✓✓✓`；正式 session 和证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-050103/evidence/TOOL-122.md`。
+- 中央账本 `644→645 judgments`。写入后统计机制按设计打开 `gap-too-fast` 与 `discovery-collapse`；在独立复审证据写入并串行 ack 前，不接受下一项 pass、不跑统一长门禁、不提交。批次十三当前 **10 / 50**。
+
+# 2026-08-05 05:21 · TOOL-122 警报复审完成，前线移交 TOOL-123
+
+- 锚点复校 `10/10` 通过；独立复审证据 `sessions/20260805-050103/evidence/tool-122-ledger-alarm-reaudit.md` 对 `gap-too-fast` 的账本批写入解释、`discovery-collapse` 的历史红证据和五通道正式证据逐项交叉核验。
+- 两条警报已串行 ack，最终 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3 python3 testend/rig/alarms.py check` 为 `clean (645 judgments)`。批次十三仍为 **10 / 50**；未到 50 格不跑统一长门禁、不提交。下一原子前线为 `TOOL-123 animate_image`。
+
+# 2026-08-05 04:20 · 第十三批 TOOL-121 generate_video 正式收口，5/50
+
+- 首轮真实 landscape 路径后，产品复核冻结两条红线：generate_video receipt 的 filename/sizeBytes 被前端丢弃；视频卡在附件行迟到时默认 16:9，portrait/square 首帧可能发生几何跳变。stop-and-fix 补齐 `AnMediaRef` 的 filename/size/aspect hints、portrait/square/landscape 占位比例、native controller 实际几何覆盖和 delayed-meta widget guard；Flutter 21 项、analyze、Go generate/llm tests、diff check 通过。
+- 修复后正式 portrait session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260805-040847` 使用真实 Flutter App、真实受管网关、Computer Use、窗口录屏、三路 SSE witness、LLM tap、backend/frontend journal 完成。危险工具批准前未执行；批准后只调用一次 generate_video，UI 真实显示 `Generating video…`、`running…`、`generated in 1m43s, downloading…`，最终文件为 `generated-20260804-201201.mp4 · video/mp4 · 4.6 MB · 5s`。
+- 五通道交叉核对：blob 为 H.264/AAC `720×1280`、`5.038005s`、`4825115` bytes；messages durable `1..16`、notifications `1..2` 无 gap，entities 已连接；LLM 一次视频 submit 202、十次成功轮询、无 retry/第二次生成；backend/frontend 无未解释红线；录屏 `378.828333s`。播放自然结束后 AX 显示 `0:05 / 0:05`、`Replay`、`Fullscreen`，画面为真实灯塔帧。
+- 用户确认后的隔离 cleanup 对准确 conversation 执行 DELETE=204，GET=404，列表为空；唯一 workspace、正式录屏、journals 和 evidence 均保留。正式证据 `sessions/20260805-040847/evidence/TOOL-121.md`，警报复审 `tool-121-ledger-alarm-reaudit.md`；anchors 10/10，五级 `G1/F2/A5/C4/G2` 已写入 COVERAGE，中央账本 `635→640 judgments`。写账触发 `gap-too-fast` 与 `discovery-collapse`，经独立复审并串行 ack 后 `alarms.py check` 为 `clean (640 judgments)`。批次十三当前 **5 / 50**，未到 50 格不跑统一长门禁、不提交；下一前线为 `TOOL-122 edit_image`。
 
 # 2026-08-05 03:47 · 第十二批收口提交，下一前线 TOOL-121
 
@@ -1514,3 +1675,9 @@ landed-into:
 - 同一正式 session 的两个负向路径：`scripts/ghost.py` 只失败一次并显示 `script not found in the skill directory`；`scripts/host.sh` 只失败一次并显示无 sandbox runtime、指向 bash；两者均无 retry、无副作用。`backend.log` 两条 WARN 都是预期业务失败，`frontend.log` 无 Flutter/AX/Unhandled/断连红线。
 - `rig-check` 收台前五通道全绿；录屏封口、三路 SSE 均连接，三条 messages 对话各只有一个 `run_skill_script` tool call，LLM chat wire 全 200，backend/frontend/UI 与沙箱结果一致。正式证据为 `.../sessions/20260804-184737/evidence/TOOL-109.md`，警报复审为 `.../sessions/20260804-184737/evidence/tool-109-ledger-alarm-reaudit.md`。
 - 锚点 10/10 校准通过，`judge.py` 五级 `G1/F2/A5/C4/G2` 已落账，中央账本由 575 增至 **580 judgments**。写入期间 `gap-too-fast` 与 `discovery-collapse` 各触发两次；两轮都用红证据、正式绿 session、五通道 journal 和锚点结果复审后 ack，最终 `alarms.py check` clean。第十一批推进至 **45 / 50**，下一前线 `TOOL-110 Subagent`；未到 50 格不跑统一长门禁、不提交。
+## 2026-08-06 · TOOL-123 API Serve 根因修复，待部署实机复验
+
+- 旧生产红证据保持有效：`animation-source-scaled.png` 对 `animation-first-frame.png` 的 `changedFrac=0.99601`，COVERAGE 仍为 `TOOL-123=·····`，中央账本仍为 645。
+- 邻仓 `/Users/sunweilin/Developer/Anselm-API-Serve` 已将 T2V/I2V 拆为独立模型、应用端口、上游 wire 与冻结卡。I2V 钉死 `wan2.7-i2v-2026-04-25`、`input.media[type=first_frame]`、显式 720P，并由 `/models` 发布 `image_to_video=true`。
+- API Serve 完整 `make verify` 通过：vet、build、全仓 race、integration e2e、golangci-lint、docs lint 全绿。该事实只证明源码可部署，不证明生产已生效或产品目的已达成。
+- 下一步：部署后先用 `check_i2v_contract.py` 检查真实 `/models`；通过后重跑真实 App + 真实网关 + Computer Use + 五通道，重新测 exact first frame，再决定五级裁决。批次十三保持 10/50，不提前跑统一长门禁、不提交。
