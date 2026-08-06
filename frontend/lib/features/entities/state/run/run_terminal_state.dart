@@ -34,6 +34,8 @@ abstract class RunTerminalState with _$RunTerminalState {
     Object? output, // fn/hd/ag result output 结果输出
     String? errorCode,
     String? errorMsg,
+    Object?
+    errorDetails, // structured API details, such as a Python traceback 结构化错误细节
     String?
     inputError, // form validation (bad JSON in an object/array field) 入参校验错
     @Default(0) int elapsedMs,

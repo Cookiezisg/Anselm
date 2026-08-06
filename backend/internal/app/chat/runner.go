@@ -169,7 +169,15 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	ctx, cancel := context.WithTimeout(base, time.Duration(limitspkg.Current().Timeout.ChatTurnSec)*time.Second)
 	q.mu.Lock()
 	q.cancel = cancel
+	stopping := s.isStopping()
 	q.mu.Unlock()
+	if stopping {
+		// Shutdown may win the race between runQueue dequeuing this task and installing q.cancel.
+		// Cancel again after the install so a late-starting turn cannot keep the queue alive.
+		// Shutdown 可能赢在 runQueue 取走 task 与安装 q.cancel 之间。安装后再 cancel 一次，避免晚启动的
+		// 回合把 queue 卡住。
+		cancel()
+	}
 	defer cancel()
 
 	conv, err := s.deps.Conversations.Get(ctx, conversationID)
@@ -272,14 +280,21 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 
 	// Compact older history if this turn pushed the context near the model's window. Synchronous
 	// here (inside the per-conversation queue slot, so the next turn's LoadHistory can't race the
-	// summary/role writes), on a detached context so a cancelled turn still compacts. Best-effort:
+	// summary/role writes), on the service lifecycle context so a cancelled turn still compacts while
+	// Shutdown can stop the writer. Best-effort:
 	// a failure is non-fatal — the next turn just re-checks.
 	//
 	// 若本回合把上下文逼近模型 window 则压缩旧历史。此处同步（在 per-conversation queue 槽内，故下回合
-	// LoadHistory 不与 summary/角色写竞态），detached context 使被取消的回合仍压缩。best-effort：失败
-	// 非致命——下回合再查。
+	// LoadHistory 不与 summary/角色写竞态），service lifecycle context 使被取消的回合仍压缩、又让
+	// Shutdown 能停住 writer。best-effort：失败非致命——下回合再查。
 	if s.deps.Compactor != nil {
-		cctx := reqctxpkg.Detached(t.workspaceID)
+		// Compaction must outlive cancellation of THIS turn, but not the chat service itself. Using
+		// the service lifecycle context preserves both halves: a cancelled turn can still compact,
+		// while Shutdown can stop the writer before the database closes.
+		// 压缩必须活过**本回合**取消，但不能活过 chat service。使用 service lifecycle context 同时守住两半：
+		// 被取消的回合仍可压缩，而 Shutdown 能在数据库关闭前停住 writer。
+		cctx := s.lifecycleContext(t.workspaceID)
+		cctx = reqctxpkg.SetConversationID(cctx, conversationID)
 		if err := s.deps.Compactor.MaybeCompact(cctx, conversationID); err != nil {
 			s.log.Warn("chatapp: compaction failed (non-fatal)", zap.Error(err))
 		}

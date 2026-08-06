@@ -2,6 +2,7 @@ import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
+import 'package:anselm/features/entities/data/entity_format.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
@@ -91,10 +92,22 @@ void main() {
     () async {
       final page = await _repo().listFunctionExecutions('fn_1');
       expect(page.items, hasLength(4));
+      expect(page.aggregate.totalCount, 4);
       expect(page.aggregate.okCount, 3);
       expect(page.aggregate.failedCount, 1);
     },
   );
+
+  test('fmtTime presents API UTC timestamps in the device local timezone', () {
+    final raw = DateTime.utc(2026, 6, 26, 23, 45);
+    final local = raw.toLocal();
+    String two(int n) => n.toString().padLeft(2, '0');
+    expect(
+      fmtTime(raw),
+      '${local.year}-${two(local.month)}-${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}',
+    );
+  });
 
   test('scripted lifecycle signal flows to the kind stream', () async {
     final repo = _repo();

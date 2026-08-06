@@ -3,6 +3,7 @@ import 'dart:math' as math;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
@@ -214,6 +215,19 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                       ref.invalidate(entityDetailProvider(detail.ref));
                     },
                     _ => null,
+                  },
+                  onRenameError: (error) {
+                    final notices = ref.read(noticeCenterProvider.notifier);
+                    final state = context.t.entities.detail.state;
+                    final message = error is ApiException
+                        ? (error.code == 'FUNCTION_INVALID_NAME' ||
+                                  error.code == 'HANDLER_INVALID_NAME'
+                              ? state.invalidName
+                              : state.renameFailed(message: error.message))
+                        : state.renameFailed(
+                            message: context.t.entities.rail.actionFailed,
+                          );
+                    notices.show(message, tone: AnTone.danger);
                   },
                 ),
               ),

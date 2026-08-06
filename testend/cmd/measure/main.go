@@ -1,20 +1,22 @@
 // measure is the acceptance rig's measurement toolbox (WRK-087 §4.2): every visual judgment
 // that CAN be a number MUST be a number, because a measured law never drifts with the judge's
-// form. Four sub-commands over PNG frames/screenshots:
+// form. Five sub-commands over PNG frames/screenshots:
 //
 //	diff     — consecutive-frame changed-pixel fraction + bounding box (jump/flicker forensics)
 //	regions  — connected components of a target color: rect + per-row heights (highlight
 //	           uniformity: "等高吗、有缝吗" answered in pixels, not vibes)
 //	contrast — WCAG 2.x contrast ratio of two colors
 //	latency  — first frame after an action frame that differs beyond threshold → milliseconds
+//	compare  — source image versus a video first frame after deterministic raster normalization
 //
 // measure 是验收台架的测量脚本箱(WRK-087 §4.2):凡能成为数字的视觉判断必须成为数字——被测量的
-// 法条不随裁判当天状态漂移。四个子命令吃 PNG 帧/截图:
+// 法条不随裁判当天状态漂移。五个子命令吃 PNG 帧/截图:
 //
 //	diff     — 相邻帧变化像素占比 + 变化包围盒(跳变/闪的取证)
 //	regions  — 目标色连通域:矩形 + 逐行高度(高亮等高:「等高吗、有缝吗」用像素回答,不用感觉)
 //	contrast — WCAG 2.x 双色对比度
 //	latency  — 动作帧之后首个越阈变化帧 → 毫秒
+//	compare  — 源图与视频首帧先确定性归一栅格后比较
 package main
 
 import (
@@ -44,17 +46,20 @@ func main() {
 		cmdContrast(os.Args[2:])
 	case "latency":
 		cmdLatency(os.Args[2:])
+	case "compare":
+		cmdCompare(os.Args[2:])
 	default:
 		usage()
 	}
 }
 
 func usage() {
-	fmt.Fprintln(os.Stderr, `usage: measure <diff|regions|contrast|latency> [flags]
+	fmt.Fprintln(os.Stderr, `usage: measure <diff|regions|contrast|latency|compare> [flags]
 	  diff     -dir <frames/> [-roi x,y,w,h] [-threshold 0.0005]
 	  regions  -img <shot.png> -color '#RRGGBB' [-tol 24] [-min 16]
 	  contrast -fg '#RRGGBB' -bg '#RRGGBB'
-	  latency  -dir <frames/> -fps 60 -action <frameIndex> [-roi x,y,w,h] [-threshold 0.0005]`)
+	  latency  -dir <frames/> -fps 60 -action <frameIndex> [-roi x,y,w,h] [-threshold 0.0005]
+	  compare  -source <source.png> -frame <first-frame.png> [-threshold 0.20]`)
 	os.Exit(2)
 }
 
@@ -148,6 +153,28 @@ func pairDiffROI(a, b *image.RGBA, roi image.Rectangle) (frac float64, box image
 		return 0, image.Rectangle{}
 	}
 	return float64(changed) / float64(total), image.Rect(minX, minY, maxX+1, maxY+1)
+}
+
+// resizeNearest normalizes an image to the exact raster of another image. It is intentionally
+// deterministic and conservative: this is a gross source-loss guard, not an encoder-level
+// promise of pixel equality after video decode.
+//
+// resizeNearest 把图片确定性归一到另一张图的栅格。它故意保守:这是防止源图被整体换掉的
+// 粗粒度守卫,不是对视频编码/解码后逐像素相等的承诺。
+func resizeNearest(src *image.RGBA, bounds image.Rectangle) *image.RGBA {
+	dst := image.NewRGBA(bounds)
+	if src == nil || src.Bounds().Empty() || bounds.Empty() {
+		return dst
+	}
+	sb := src.Bounds()
+	for y := bounds.Min.Y; y < bounds.Max.Y; y++ {
+		sy := sb.Min.Y + (y-bounds.Min.Y)*sb.Dy()/bounds.Dy()
+		for x := bounds.Min.X; x < bounds.Max.X; x++ {
+			sx := sb.Min.X + (x-bounds.Min.X)*sb.Dx()/bounds.Dx()
+			dst.SetRGBA(x, y, src.RGBAAt(sx, sy))
+		}
+	}
+	return dst
 }
 
 func absInt(v int) int {
@@ -387,6 +414,59 @@ func cmdLatency(args []string) {
 		}
 	}
 	fmt.Println(`{"feedbackFrame":-1,"latencyMs":-1,"note":"no visible feedback in window"}`)
+}
+
+type compareRow struct {
+	Source      string  `json:"source"`
+	Frame       string  `json:"frame"`
+	ChangedFrac float64 `json:"changedFrac"`
+	Box         string  `json:"box,omitempty"`
+	Pass        bool    `json:"pass"`
+}
+
+// cmdCompare compares a supplied source image with the decoded first video frame. The source is
+// resized to the frame raster before comparison so a harmless resolution difference does not
+// masquerade as a product failure; a large composition change still fails the command.
+//
+// cmdCompare 比较源图与解码后的视频首帧。先把源图归一到首帧栅格,避免无害的分辨率差异伪造
+// 产品失败;构图发生大幅变化仍会令命令失败。
+func cmdCompare(args []string) {
+	fs := flag.NewFlagSet("compare", flag.ExitOnError)
+	sourcePath := fs.String("source", "", "source image PNG")
+	framePath := fs.String("frame", "", "decoded first-frame PNG")
+	threshold := fs.Float64("threshold", 0.20, "maximum changed-pixel fraction")
+	_ = fs.Parse(args)
+	if *sourcePath == "" || *framePath == "" {
+		usage()
+	}
+	if *threshold < 0 || *threshold > 1 {
+		fatal(fmt.Errorf("threshold must be between 0 and 1, got %v", *threshold))
+	}
+	source, err := loadPNG(*sourcePath)
+	if err != nil {
+		fatal(err)
+	}
+	frame, err := loadPNG(*framePath)
+	if err != nil {
+		fatal(err)
+	}
+	normalized := resizeNearest(source, frame.Bounds())
+	frac, box := pairDiff(normalized, frame)
+	row := compareRow{
+		Source:      filepath.Base(*sourcePath),
+		Frame:       filepath.Base(*framePath),
+		ChangedFrac: round5(frac),
+		Pass:        frac <= *threshold,
+	}
+	if !box.Empty() {
+		row.Box = box.String()
+	}
+	if err := json.NewEncoder(os.Stdout).Encode(row); err != nil {
+		fatal(err)
+	}
+	if !row.Pass {
+		os.Exit(1)
+	}
 }
 
 func parseROI(raw string, bounds image.Rectangle) (image.Rectangle, error) {

@@ -261,6 +261,22 @@ func (s *Store) GetVersion(ctx context.Context, versionID string) (*handlerdomai
 	return v, nil
 }
 
+// GetVersionForHandler reads an opaque version id only inside its parent handler. The route
+// supplies both ids, so a globally unique hdv_ id must not bypass the handler boundary.
+//
+// GetVersionForHandler 只在父 handler 内读取 opaque version id。路由同时提供两个 id，故即使
+// hdv_ id 全局唯一，也不能绕过 handler 边界读取另一实体的版本。
+func (s *Store) GetVersionForHandler(ctx context.Context, handlerID, versionID string) (*handlerdomain.Version, error) {
+	v, err := s.vers.WhereEq("handler_id", handlerID).WhereEq("id", versionID).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, handlerdomain.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("handlerstore.GetVersionForHandler: %w", err)
+	}
+	return v, nil
+}
+
 func (s *Store) GetVersionByNumber(ctx context.Context, handlerID string, versionN int) (*handlerdomain.Version, error) {
 	v, err := s.vers.WhereEq("handler_id", handlerID).WhereEq("version", versionN).First(ctx)
 	if errors.Is(err, ormpkg.ErrNotFound) {

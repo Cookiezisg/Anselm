@@ -1,9 +1,13 @@
 package generate
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"image"
+	"image/color"
+	"image/png"
 	"net/http"
 	"strings"
 	"testing"
@@ -164,6 +168,51 @@ func TestValidateInput_ClosedShape(t *testing.T) {
 	}
 	if err := tool.ValidateInput(json.RawMessage(`{"prompt":"a cat"}`)); err != nil {
 		t.Errorf("valid input rejected: %v", err)
+	}
+}
+
+func TestLocalizedEditPromptPreservesUnmentionedContent(t *testing.T) {
+	got := localizedEditPrompt("Change the red circle to blue")
+	if !strings.HasPrefix(got, "Change the red circle to blue\n\n") {
+		t.Fatalf("prompt lost the user's instruction: %q", got)
+	}
+	for _, phrase := range []string{"background", "composition", "texture", "object count", "only the requested change"} {
+		if !strings.Contains(strings.ToLower(got), phrase) {
+			t.Errorf("prompt missing preservation guard %q: %q", phrase, got)
+		}
+	}
+}
+
+func TestApplyPreciseColorSwapPreservesBackground(t *testing.T) {
+	const size = 32
+	src := image.NewRGBA(image.Rect(0, 0, size, size))
+	for y := 0; y < size; y++ {
+		for x := 0; x < size; x++ {
+			if x >= 8 && x < 24 && y >= 8 && y < 24 {
+				src.SetRGBA(x, y, color.RGBA{R: 220, G: 20, B: 20, A: 255})
+			} else {
+				src.SetRGBA(x, y, color.RGBA{R: 250, G: 250, B: 250, A: 255})
+			}
+		}
+	}
+	var input bytes.Buffer
+	if err := png.Encode(&input, src); err != nil {
+		t.Fatal(err)
+	}
+	got, applied, err := applyPreciseColorSwap(input.Bytes(), "Change only the red circle to blue")
+	if err != nil || !applied {
+		t.Fatalf("precision swap = applied %v, err %v", applied, err)
+	}
+	out, _, err := image.Decode(bytes.NewReader(got))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := color.NRGBAModel.Convert(out.At(0, 0)).(color.NRGBA); got != (color.NRGBA{R: 250, G: 250, B: 250, A: 255}) {
+		t.Fatalf("background changed: %+v", got)
+	}
+	center := color.NRGBAModel.Convert(out.At(16, 16)).(color.NRGBA)
+	if center.R > 40 || center.B < 100 {
+		t.Fatalf("red source was not recolored to blue: %+v", center)
 	}
 }
 

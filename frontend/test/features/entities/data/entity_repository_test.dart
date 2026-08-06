@@ -153,6 +153,31 @@ void main() {
     },
   );
 
+  test(
+    'getFunctionExecution fetches the full single record including logs',
+    () async {
+      final b = _build(
+        (_) => _json({
+          'data': {
+            'id': 'fne_1',
+            'functionId': 'fn_1',
+            'status': 'failed',
+            'input': {'n': 2},
+            'errorMessage': 'boom',
+            'logs': 'print from function',
+            'elapsedMs': 12,
+            'createdAt': '2026-06-26T00:00:00.000Z',
+          },
+        }),
+      );
+      final execution = await b.repo.getFunctionExecution('fne_1');
+      expect(b.adapter.last!.path, '/api/v1/function-executions/fne_1');
+      expect(execution.logs, 'print from function');
+      expect(execution.errorMessage, 'boom');
+      expect(execution.elapsedMs, 12);
+    },
+  );
+
   // WRK-083 L14 — the fixture now carries the ENVELOPE the server actually sends.
   //
   // It used to hand itself `{ok:true,…}` at the top level and assert that came back: a fixture written

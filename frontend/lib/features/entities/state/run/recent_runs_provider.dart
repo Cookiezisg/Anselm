@@ -39,81 +39,103 @@ class RecentRun {
   triggerId; // workflow only — restores the SOURCE on reproduce 仅 wf,重现还原来源
 }
 
+/// The bounded recent bench plus the authoritative aggregate returned by the same page request. The
+/// bench remains capped at five rows, but the glance must never infer a total from that cap.
+/// 最近工作台与同一次请求返回的权威聚合。工作台仍限制五行,但速览不能从这个上限猜总数。
+class RecentRunsSnapshot {
+  const RecentRunsSnapshot({required this.runs, required this.totalCount});
+
+  final List<RecentRun> runs;
+  final int totalCount;
+}
+
 /// The last five executions, newest first — the debugger's working-bench strip. The full archive
 /// stays in the Logs tab (档案馆/工作台分层: the island never carries history, only the bench).
 /// Re-fetched after every run settles (the controller invalidates this).
 ///
 /// 最近五次(新在前)——调试台工作台条。全史归 Logs tab(档案馆);每次运行落定由 controller 失效重取。
 final recentRunsProvider = FutureProvider.autoDispose
-    .family<List<RecentRun>, EntityRef>((ref, entity) async {
+    .family<RecentRunsSnapshot, EntityRef>((ref, entity) async {
       final repo = ref.watch(entityRepositoryProvider);
       const n = 5;
       switch (entity.kind) {
         case EntityKind.function:
           final page = await repo.listFunctionExecutions(entity.id, limit: n);
-          return [
-            for (final e in page.items)
-              RecentRun(
-                id: e.id,
-                status: e.status,
-                startedAt: e.startedAt,
-                elapsedMs: e.elapsedMs,
-                triggeredBy: e.triggeredBy,
-                input: e.input,
-                output: e.output,
-                errorMsg: e.errorMessage,
-              ),
-          ];
+          return RecentRunsSnapshot(
+            totalCount: page.aggregate.totalCount,
+            runs: [
+              for (final e in page.items)
+                RecentRun(
+                  id: e.id,
+                  status: e.status,
+                  startedAt: e.startedAt,
+                  elapsedMs: e.elapsedMs,
+                  triggeredBy: e.triggeredBy,
+                  input: e.input,
+                  output: e.output,
+                  errorMsg: e.errorMessage,
+                ),
+            ],
+          );
         case EntityKind.handler:
           final page = await repo.listHandlerCalls(entity.id, limit: n);
-          return [
-            for (final e in page.items)
-              RecentRun(
-                id: e.id,
-                status: e.status,
-                startedAt: e.startedAt,
-                elapsedMs: e.elapsedMs,
-                triggeredBy: e.triggeredBy,
-                input: e.input,
-                output: e.output,
-                errorMsg: e.errorMessage,
-                method: e.method,
-              ),
-          ];
+          return RecentRunsSnapshot(
+            totalCount: page.aggregate.totalCount,
+            runs: [
+              for (final e in page.items)
+                RecentRun(
+                  id: e.id,
+                  status: e.status,
+                  startedAt: e.startedAt,
+                  elapsedMs: e.elapsedMs,
+                  triggeredBy: e.triggeredBy,
+                  input: e.input,
+                  output: e.output,
+                  errorMsg: e.errorMessage,
+                  method: e.method,
+                ),
+            ],
+          );
         case EntityKind.agent:
           final page = await repo.listAgentExecutions(entity.id, limit: n);
-          return [
-            for (final e in page.items)
-              RecentRun(
-                id: e.id,
-                status: e.status,
-                startedAt: e.startedAt,
-                elapsedMs: e.elapsedMs,
-                triggeredBy: e.triggeredBy,
-                input: e.input,
-                output: e.output,
-                errorMsg: e.errorMessage,
-              ),
-          ];
+          return RecentRunsSnapshot(
+            totalCount: page.aggregate.totalCount,
+            runs: [
+              for (final e in page.items)
+                RecentRun(
+                  id: e.id,
+                  status: e.status,
+                  startedAt: e.startedAt,
+                  elapsedMs: e.elapsedMs,
+                  triggeredBy: e.triggeredBy,
+                  input: e.input,
+                  output: e.output,
+                  errorMsg: e.errorMessage,
+                ),
+            ],
+          );
         case EntityKind.workflow:
           final page = await repo.listFlowruns(workflowId: entity.id, limit: n);
-          return [
-            for (final r in page.items)
-              RecentRun(
-                id: r.id,
-                status: r.status,
-                startedAt: r.startedAt,
-                elapsedMs: (r.completedAt != null && r.startedAt != null)
-                    ? r.completedAt!.difference(r.startedAt!).inMilliseconds
-                    : 0,
-                triggeredBy: r.origin ?? '',
-                errorMsg: r.error,
-                triggerId: r.triggerId,
-              ),
-          ];
+          return RecentRunsSnapshot(
+            totalCount: 0,
+            runs: [
+              for (final r in page.items)
+                RecentRun(
+                  id: r.id,
+                  status: r.status,
+                  startedAt: r.startedAt,
+                  elapsedMs: (r.completedAt != null && r.startedAt != null)
+                      ? r.completedAt!.difference(r.startedAt!).inMilliseconds
+                      : 0,
+                  triggeredBy: r.origin ?? '',
+                  errorMsg: r.error,
+                  triggerId: r.triggerId,
+                ),
+            ],
+          );
         case EntityKind.control:
         case EntityKind.approval:
         case EntityKind.trigger:
-          return const []; // support kinds have no execution ledger 支撑 kind 无执行账
+          return const RecentRunsSnapshot(runs: [], totalCount: 0);
       }
     });

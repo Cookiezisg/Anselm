@@ -88,6 +88,19 @@ func TestIterate_EmptyRequestRejected(t *testing.T) {
 	}
 }
 
+// TestIterate_WhitespaceRequestRejected: a request that contains only formatting whitespace is
+// still empty from the user's point of view and must not create a conversation.
+func TestIterate_WhitespaceRequestRejected(t *testing.T) {
+	sd := &sender{}
+	svc := NewService(&starter{}, sd, nil, nil)
+	if _, err := svc.Iterate(context.Background(), mentiondomain.MentionAgent, "ag_1", " \n\t "); !errors.Is(err, ErrEmptyRequest) {
+		t.Fatalf("whitespace-only request should be rejected, got %v", err)
+	}
+	if sd.sent {
+		t.Fatal("whitespace-only request must not send a seed turn")
+	}
+}
+
 // TestTriage_RendersExecutionIntoSystemPrompt: triage renders the execution (resolved by id) into
 // the system prompt and opens the conversation; the execution kind is irrelevant to aispawn (the
 // renderer port handles prefix dispatch).

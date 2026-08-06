@@ -51,6 +51,12 @@ func TestSubmitVideoAnselm_UsesAnimationRouteForFirstFrame(t *testing.T) {
 	if gotBody["prompt"] != "slow push in" || gotBody["seconds"] != float64(5) {
 		t.Fatalf("payload lost animation intent: %#v", gotBody)
 	}
+	if _, ok := gotBody["aspect"]; ok {
+		t.Fatalf("animation payload must inherit first-frame geometry, got aspect: %#v", gotBody["aspect"])
+	}
+	if _, ok := gotBody["resolution"]; ok {
+		t.Fatalf("animation payload must inherit first-frame geometry, got resolution: %#v", gotBody["resolution"])
+	}
 }
 
 func TestSubmitVideoAnselm_TextRouteOmitsFirstFrame(t *testing.T) {
@@ -75,5 +81,9 @@ func TestSubmitVideoAnselm_TextRouteOmitsFirstFrame(t *testing.T) {
 	}
 	if strings.Contains(string(gotRaw), `"image"`) {
 		t.Fatalf("text route must not carry an image: %s", gotRaw)
+	}
+	if !strings.Contains(string(gotRaw), `"aspect":"landscape"`) ||
+		!strings.Contains(string(gotRaw), `"resolution":"720p"`) {
+		t.Fatalf("text route must carry its requested geometry: %s", gotRaw)
 	}
 }

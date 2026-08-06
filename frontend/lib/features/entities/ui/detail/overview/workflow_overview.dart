@@ -3,8 +3,10 @@ import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/contract/api_error.dart';
 import '../../../../../core/contract/entities/workflow.dart';
 import '../../../../../core/model/status_state.dart';
+import '../../../../../core/notice/notice_center.dart';
 import '../../../../../core/ui/an_kv.dart';
 import '../../../../../core/graph/graph_run_state.dart';
 import '../../../../../core/ui/an_graph_canvas.dart';
@@ -30,9 +32,31 @@ class WorkflowOverview extends ConsumerWidget {
 
   final WorkflowEntity wf;
 
-  Future<void> _patchMeta(WidgetRef ref, Map<String, dynamic> patch) async {
-    await ref.read(entityRepositoryProvider).patchWorkflowMeta(wf.id, patch);
-    ref.invalidate(entityDetailProvider(EntityRef(EntityKind.workflow, wf.id)));
+  Future<void> _patchMeta(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> patch,
+  ) async {
+    try {
+      await ref.read(entityRepositoryProvider).patchWorkflowMeta(wf.id, patch);
+    } catch (error) {
+      if (context.mounted) {
+        final message = error is ApiException
+            ? context.t.entities.detail.state.metaSaveFailed(
+                message: error.message,
+              )
+            : context.t.entities.detail.state.metaSaveFailed(
+                message: context.t.entities.rail.actionFailed,
+              );
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(message, tone: AnTone.danger);
+      }
+    } finally {
+      ref.invalidate(
+        entityDetailProvider(EntityRef(EntityKind.workflow, wf.id)),
+      );
+    }
   }
 
   @override
@@ -108,7 +132,7 @@ class WorkflowOverview extends ConsumerWidget {
                 final patch = <String, dynamic>{};
                 if (desc != wf.description) patch['description'] = desc;
                 if (!listEquals(tags, wf.tags)) patch['tags'] = tags;
-                if (patch.isNotEmpty) _patchMeta(ref, patch);
+                if (patch.isNotEmpty) _patchMeta(context, ref, patch);
               },
             ),
             kvList([

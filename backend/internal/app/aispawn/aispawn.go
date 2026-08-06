@@ -16,6 +16,7 @@ package aispawn
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -128,7 +129,7 @@ const triageSteer = "You are helping the user diagnose a Anselm execution. The e
 // Iterate 开一个 AI 工作对话以编辑一个实体：该实体被 @-mention 进首条消息（其当前定义经 mention resolver 冻结进来），
 // LLM 被引导去调对应 edit_* 工具。返回新对话 id（回合经 SSE 流式）。
 func (s *Service) Iterate(ctx context.Context, mentionType mentiondomain.MentionType, entityID, request string) (string, error) {
-	if request == "" {
+	if strings.TrimSpace(request) == "" {
 		return "", ErrEmptyRequest
 	}
 	// Validate the target exists BEFORE spawning — else a bogus/deleted id yields a 202 + a real

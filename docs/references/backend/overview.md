@@ -81,7 +81,7 @@ cron tick / webhook / 文件变化 / sensor 探测
 ### ③ 一次构建（AI 造实体）的一生
 
 ```
-LLM 调 create_function（ops 数组，jsonrepair 容错）
+LLM 调 create_function（ops 数组；外层 JSON 字符串与无歧义 I/O 字段形状在执行边界窄兼容还原）
  → ApplyOps：逐 op 应用 + 每步校验 + 终校验（词法检查 + import 黑名单：无状态/有状态边界）
  → 写 Function + v1（active 指针）——立即生效、无审批态
  → ensureEnv：envfix 自愈循环（装不上 → LLM 改依赖重试 ≤3）→ env 状态镜像回版本行

@@ -1,25 +1,63 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/contract/api_error.dart';
 import '../../../../../core/contract/entities/handler.dart';
 import '../../../../../core/contract/entities/values.dart';
 import '../../../../../core/model/status_state.dart';
+import '../../../../../core/notice/notice_center.dart';
 import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_info_card.dart';
+import '../../../../../core/ui/an_kv.dart';
 import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
 import '../../../../../core/ui/icons.dart';
 import '../../../../../i18n/strings.g.dart';
+import '../../../data/entity_kind.dart';
 import '../../../data/entity_format.dart';
+import '../../../data/entity_providers.dart';
+import '../../../state/detail/entity_detail_provider.dart';
+import '../../../state/selected_entity.dart';
 import '../detail_sections.dart';
 
 /// Handler 概览:说明 + KV → 常驻状态(运行时/配置完整度)→ init 参数(敏感默认遮蔽)→ 方法 + 类代码(只读)。
-class HandlerOverview extends StatelessWidget {
+class HandlerOverview extends ConsumerWidget {
   const HandlerOverview({required this.hd, super.key});
 
   final HandlerEntity hd;
 
+  Future<void> _patchMeta(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> patch,
+  ) async {
+    try {
+      await ref.read(entityRepositoryProvider).patchHandlerMeta(hd.id, patch);
+    } catch (error) {
+      if (context.mounted) {
+        final message = error is ApiException
+            ? context.t.entities.detail.state.metaSaveFailed(
+                message: error.message,
+              )
+            : context.t.entities.detail.state.metaSaveFailed(
+                message: context.t.entities.rail.actionFailed,
+              );
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(message, tone: AnTone.danger);
+      }
+    } finally {
+      // Re-read canonical metadata after both outcomes: a failed optimistic editor must never leave
+      // a stale local row looking authoritative. 成败都重读后端真相,不让本地乐观行冒充落盘。
+      ref.invalidate(
+        entityDetailProvider(EntityRef(EntityKind.handler, hd.id)),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final d = context.t.entities.detail;
     final v = hd.activeVersion;
     if (v == null) return noVersionGuide(context);
@@ -35,14 +73,36 @@ class HandlerOverview extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // The shared identity section (批6 A-055 — its own dartdoc names agent+handler, this was
-        // the verbatim hand-copy). 共享身份段(助手自述 agent+handler 共用,此处曾逐字重抄)。
-        identitySection(d.kv.desc, hd.description, [
-          (d.kv.id, hd.id),
-          (d.kv.activeVersion, 'v${v.version}'),
-          (d.kv.python, v.pythonVersion),
-          (d.kv.updated, fmtTime(hd.updatedAt)),
-        ]),
+        // Meta is the only hand-editable surface; class content stays AI-only and PATCH never bumps
+        // the active version or restarts the resident instance. meta 是唯一手编面;类内容仍 AI-only,
+        // PATCH 不升版本、不重启常驻实例。
+        AnSection(
+          variant: AnSectionVariant.plain,
+          children: [
+            AnKv(
+              rows: [
+                AnKvRow(d.kv.desc, hd.description, editable: true),
+                AnKvRow.tags(d.kv.tags, hd.tags, tagsPlaceholder: d.addTag),
+              ],
+              onChanged: (rows) {
+                final description = rows[0].value ?? '';
+                final tags = rows[1].tags ?? const [];
+                final patch = <String, dynamic>{};
+                if (description != hd.description) {
+                  patch['description'] = description;
+                }
+                if (!listEquals(tags, hd.tags)) patch['tags'] = tags;
+                if (patch.isNotEmpty) _patchMeta(context, ref, patch);
+              },
+            ),
+            kvList([
+              (d.kv.id, hd.id),
+              (d.kv.activeVersion, 'v${v.version}'),
+              (d.kv.python, v.pythonVersion),
+              (d.kv.updated, fmtTime(hd.updatedAt)),
+            ], meta: true),
+          ],
+        ),
         AnSection(
           label: d.sec.runtime,
           variant: AnSectionVariant.plain,

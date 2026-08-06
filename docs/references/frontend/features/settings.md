@@ -47,6 +47,7 @@ audience: [human, ai]
 - `SettingsRepository` 是唯一数据缝，Live/Fixture 同形；动态资源面不直接调用 `ApiClient`。
 - provider credential 按目录声明的类型收集；Vertex 使用服务账号 JSON，不伪装成 API key 文本框。
 - key 保存后走真实测试；鉴权失败、未验证 provider 与可疑自填 base URL 分开解释。
+- Cloned voices 是受管档的持久库存：列表与剩余槽位必须来自同一次 `GET /voices` 权威重读；读取失败显示错误态与重试，不得伪装成「暂无音色」。
 - master key 由系统 secure storage 管理；旧安装不能在缺 key 时静默铸新钥覆盖既有密文，详见 [`ADR 0008`](../../../decisions/0008-master-key-keychain.md)。
 - 危险删除与出厂重置使用精确 type-to-confirm；数据库 `VACUUM` 不删业务行，不伪装成危险删除。
 - 更新检查使用独立外网 client，不携带 loopback bearer 或 workspace header。

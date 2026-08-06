@@ -32,12 +32,14 @@ String handlerSourceOf(HandlerVersion v) {
 
 String _indent(String body) => body.split('\n').map((l) => '    $l').join('\n');
 
-/// Absolute timestamp `YYYY-MM-DD HH:MM` (deterministic — no timezone conversion, so tests are stable);
-/// null → em-dash. 绝对时间戳(确定性、不转时区);null → 破折号。
+/// Absolute local timestamp `YYYY-MM-DD HH:MM`; null → em-dash. The API timestamps are UTC, so
+/// presentation must convert them before showing a user-facing time. 绝对本地时间;API 时间戳为 UTC,
+/// 展示前必须转成本地时区;null → 破折号。
 String fmtTime(DateTime? t) {
   if (t == null) return '—';
+  final local = t.toLocal();
   String two(int n) => n.toString().padLeft(2, '0');
-  return '${t.year}-${two(t.month)}-${two(t.day)} ${two(t.hour)}:${two(t.minute)}';
+  return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
 }
 
 /// The decoded workflow graph for the overview stub. `graphParsed` is null in production (the backend
@@ -70,6 +72,24 @@ String prettyJson(Object? value) {
 /// 灌进单个不滚 Text 会卡死主线程)——超 [maxChars] 截断 + 尾注。
 String prettyJsonCapped(Object? value, {int maxChars = 4000}) {
   final full = prettyJson(value);
+  if (full.length <= maxChars) return full;
+  return '${full.substring(0, maxChars)}\n… (+${full.length - maxChars} chars)';
+}
+
+/// Render an API error's structured details for a human, preserving multiline values such as Python
+/// tracebacks instead of escaping their newlines inside a JSON string. 结构化错误细节给人读时保留
+/// traceback 的真实换行,不把它们塞进 JSON 字符串显示成一屏 `\\n`。
+String prettyErrorDetails(Object? value, {int maxChars = 8000}) {
+  final full = value is Map
+      ? value.entries
+            .map((e) {
+              final rendered = e.value is String
+                  ? e.value as String
+                  : prettyJson(e.value);
+              return '${e.key}:\n$rendered';
+            })
+            .join('\n\n')
+      : prettyJson(value);
   if (full.length <= maxChars) return full;
   return '${full.substring(0, maxChars)}\n… (+${full.length - maxChars} chars)';
 }

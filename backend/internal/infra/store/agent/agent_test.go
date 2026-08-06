@@ -132,7 +132,7 @@ func TestStore_ExecutionsPagingAggregates(t *testing.T) {
 		t.Fatalf("pages overlap at cursor boundary: page1=%v page2=%v", []string{rows[0].ID, rows[1].ID}, []string{page2[0].ID})
 	}
 	agg, err := s.ComputeExecutionAggregates(ctx, agentdomain.ExecutionFilter{AgentID: "ag_1"})
-	if err != nil || agg.OKCount != 2 || agg.FailedCount != 1 {
+	if err != nil || agg.TotalCount != 3 || agg.OKCount != 2 || agg.FailedCount != 1 {
 		t.Fatalf("aggregates: %v %+v", err, agg)
 	}
 }

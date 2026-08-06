@@ -1,5 +1,102 @@
 ---
 
+## 2026-08-06 14:00 · EP-026 GET /api/v1/handlers/{id}/config 五级收口，批次十五 50/50
+
+- 产品目的：用户读取 Handler 配置时，已配置、未配置、必填项缺失和敏感值必须可解释且安全；未知 Handler 必须明确 not-found，不能伪造配置。
+- 真实路径完成：配置 Handler `hd_e00e27a160934cff` 的 GET 为 `200`、`configState=ready`、`api_key=********`、region/retries 保真；未配置 Handler `hd_0ab292edeb52cef2` 的 GET 为 `200`、`configState=unconfigured`、`missingConfig=[api_key]`；未知 `hd_0000000000000000` 为 `404 HANDLER_NOT_FOUND`。真实 App 逐帧展示 ready/masked schema 与 stopped/unconfigured/missing api_key，未泄漏 secret、未裁切、未重叠、无视觉跳变。
+- 首个 PUT 探针得到 `405` 是测试命令漏写显式 `-X PUT` 的仪器构造错误；补正后产品 PUT 为 `204`。该事实进入证据和复审，不把台架错误伪装成产品红，也不降低负路径标准。
+- 固定 session `/private/tmp/anselm-rig-ep026-handler-config-20260806/sessions/20260806-134441` 由同一 conductor 托管真实 App、录屏、frontend console、backend、三路独立 SSE witness、LLM tap 和受管网关；录屏 `245.513333s / 2784x1808`，收台无残留。backend 无应用 WARN/ERROR/panic，三流 durable seq 单调，frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，gateway challenge/install/models 全 HTTP 200；REST/SQLite/UI/SSE/secret scan 一致。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-026-handler-config-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-026-handler-config-ledger-reaudit.md`。anchors `10/10` 后按 `G1/F2/A1/C4/G2` 写入五级裁决，正式账本 **790→795 judgments**，COVERAGE `EP-026=✓✓✓✓✓`；原阈值触发的统计警报已依据独立复审逐项 ack，`alarms.py check` clean；`gen_coverage.py --check` 为 `848 rows / 158 carried judgments / 0 tombstones`。
+- 批次十五由 **45→50 / 50**。统一长门禁已通过：anchors/alarms clean，根目录 `make verify` 全绿，`make -C backend testend` `305.314s`、`testend` 全包 `359.770s`、Handler 后端专项和实体详情 Flutter `7/7` 均通过，gofmt/diff clean，testend 进程组归零；批次提交前审计完成。下一原子前线为 `EP-027 PUT /api/v1/handlers/{id}/config`。
+
+## 2026-08-06 13:58 · EP-025 GET /api/v1/handlers/{id}/versions/{version} 五级收口，批次十五 45/50
+
+- 产品目的：用户从某个 Handler 的 Versions 面板读取数字版本或 opaque `hdv_...` 版本 ID 时，结果必须属于当前 Handler；跨父 ID 必须明确不存在，不能把别的 Handler 的代码伪装成当前版本。
+- 首轮真实路径冻结为红：A Handler 读取 B 的 opaque version ID 错误返回 B。红 session `/private/tmp/anselm-rig-ep025-handler-version-get-20260806/sessions/20260806-132936` 与跨父证据永久保留。
+- stop-and-fix 增加 parent-scoped repository lookup，数字与 opaque 单版本读取共用父 Handler 边界；同步 store/app/transport、回归测试和 Handler domain 文档。
+- 固定真实 session `/private/tmp/anselm-rig-ep025-handler-version-get-fixed-20260806/sessions/20260806-133348` 由 conductor 托管真实 App、Computer Use、录屏、frontend console、backend journal、三路 SSE witness、LLM tap 和受管网关。A 自有数字/opaque 与 B 自有 opaque 均 200；A/cross-parent、未知数字、未知 opaque 均 404 `HANDLER_VERSION_NOT_FOUND`。Versions 画面显示正确 owner 的 v1/stopped/ready/active/source/change reason 和完整代码，无错归属、裁切或跳变；录屏 186.876667s/30MB，收台无残留。
+- 五通道：backend 无 WARN/ERROR/panic；messages/entities/notifications 全连接且 durable seq 单调；frontend 无应用级 Flutter/Dart/RenderFlex/Unhandled 红线；llmtap 受管网关 bootstrap 全 200，本确定性路径不把 recorder ready 冒充 completion；REST/SQLite 与 UI 交叉一致。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-025-handler-version-final-green.md`，独立账本复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-025-handler-version-ledger-reaudit.md`。anchors 10/10 后按 G1/F2/A1/C4/G2 写入五级裁决，账本 **785→790 judgments**，COVERAGE EP-025=✓✓✓✓✓；gap-too-fast/discovery-collapse 按原阈值独立复审并 ack，alarms.py check clean，gen_coverage.py --check 为 848 rows / 157 carried judgments / 0 tombstones。
+- 批次十五由 **40→45 / 50**；未满 50 格不运行统一长门禁、不提交。下一原子前线为 `EP-026 GET /api/v1/handlers/{id}/config`。
+
+## 2026-08-06 13:27 · EP-024 GET /api/v1/handlers/{id}/versions 五级收口，批次十五 40/50
+
+- 产品目的：用户能在 Handler 详情中查看完整版本历史，首屏快速理解当前 active 版本，继续加载后仍能准确到达最早版本，并展开代码核对变更。
+- 真实 App 路径：22 个真实版本首屏 v22→v3，`Load more` 追加 v2/v1 后终止；active v22、v22 的 `v21 → v22` diff、v1 的 `earliest version` 和完整代码卡均可达，滚动时无裁切、重叠或异常跳变。录屏 `/private/tmp/anselm-rig-ep024-handler-versions-20260806/sessions/20260806-131758/screen.mov` 为 398.341667s/90MB。
+- REST/SQLite 真相：cursor 续页为 20+2、无重复、hasMore 正确；`limit=0/abc` 为 400 `INVALID_REQUEST`，坏 cursor 为 400 `MALFORMED_CURSOR`；SQLite 为 22 个 distinct versions、1..22、active=v22、全部环境 ready。未知父实体的空集合结果按现有版本集合读取语义记录，未擅自改变跨资源契约。
+- 五通道：backend journal 499 行且无 WARN/ERROR/panic；messages/entities/notifications 全连接，entities durable 44 帧至 seq 50、notifications 66 帧至 seq 81 且单调；frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线，仅有已知 macOS 调试宿主噪声；受管网关 challenge/install/models 全 HTTP 200，本只读切片无 chat completion。
+- 正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-024-handler-versions-final-green.md`，独立账本复审为 `EP-024-handler-versions-ledger-reaudit.md`；anchors 10/10 后按 G1/F2/A1/C4/G2 写入五级裁决，正式账本 780→785 judgments，COVERAGE EP-024=✓✓✓✓✓。原阈值触发的 gap-too-fast/discovery-collapse 已在重读同一五通道证据后 ack，阈值不变，alarms.py check clean；gen_coverage.py --check 为 848 rows / 156 carried judgments / 0 tombstones。
+- 批次十五由 35→40 / 50；未满 50 格不运行统一长门禁、不提交。下一原子前线为 `EP-025 GET /api/v1/handlers/{id}/versions/{version}`。
+
+## 2026-08-06 13:10 · EP-023 POST /api/v1/handlers/{id}:iterate 五级收口，批次十五 35/50
+
+- 产品目的：用户从 Handler actions 进入 Edit with AI，在对话中说明修改，模型应读取当前实体、处理 ask-user 回答，用正确的编辑操作铸造新版本，App 要呈现可理解的结果和触点。
+- 首轮真实路径先红：模型把既有 status 的 legacy set_methods 全量列表归一成 add_method，后端真实返回 method "status" already exists，UI 出现红色 Update handler failed。红 session /private/tmp/anselm-rig-ep023-handler-iterate-20260806/sessions/20260806-124805 和独立证据保留，不从账本历史抹除。
+- stop-and-fix：edit path 读取 active method 名称，既有方法归一为 update_method，新方法归一为 add_method；强化 edit_handler 描述，新增 legacy split regression test，并同步 Handler domain 文档。
+- 固定真实 session /private/tmp/anselm-rig-ep023-handler-iterate-fixed-20260806/sessions/20260806-130116 由 conductor 托管 App、Computer Use、录屏、frontend console、backend journal、三路 SSE witness 和 LLM tap。真实 UI 链路完成 ask-user 回答与一次 update_method，最终显示 v2/running、最终说明和 Activity 1 touched；录屏 400.173333s，收台无残留。
+- 五通道互证：LLM challenge/install/models 与 chat completions 全 200；wire 最终 mutation 无 set_methods；SSE messages/entities/notifications durable 单调且 close 与 DB 对齐；SQLite 仅有 v1/v2、active=v2；固定路径无应用级 WARN/ERROR/panic 或 Flutter/Dart/RenderFlex/Unhandled 红线，macOS runner/IMK 行单独归类为 host instrumentation noise。
+- 正式证据为 /private/tmp/anselm-rig-formal-20260801-3/evidence/EP-023-handler-iterate-final-green.md，独立账本复审为 EP-023-handler-iterate-ledger-reaudit.md；anchors 10/10 后按 G1/F2/A1/C4/G2 写入五级裁决，正式账本 775→780 judgments，COVERAGE EP-023=✓✓✓✓✓。
+- gap-too-fast 与 discovery-collapse 按原阈值触发后分别复审并 ack，未放宽阈值，最终 alarms.py check clean；gen_coverage.py --check 为 848 rows / 155 carried judgments / 0 tombstones。
+- 批次十五由 30→35 / 50；未满 50 格不运行统一长门禁、不提交。下一原子前线为 EP-024 GET /api/v1/handlers/{id}/versions。
+
+## 2026-08-06 12:46 · EP-022 POST /api/v1/handlers/{id}:edit 五级收口，批次十五 30/50
+
+- 产品目的：用户修改既有 Handler 方法后，系统应铸造新版本、让新版本 active、重建环境并重启 resident；App 不能把旧版本结果挂在新版本标题下，随后调用必须执行新代码；非法 method 必须无副作用地失败。
+- 最终真实 session `/private/tmp/anselm-rig-ep022-handler-edit-20260806/sessions/20260806-123828` 由 conductor 托管真实 Flutter App、受管 Anselm 网关、Computer Use、窗口录制、frontend console、backend journal、三路独立 SSE witness 和 LLM tap。fixture `hd_f3d9a96f278672d0` v1 首次 Call 后 App 显示 `v1 · running`；真实 `POST :edit` 用 canonical `update_method` 产生 v2 `hdv_6ff081d3ae49ebf6`，App 显示 `v2 · running`/`ready`，旧结果清除；随后 Call 返回 `{"edited":true,"revision":"v2"}`，Recent=2。
+- 负路径真实 `does_not_exist` edit 返回 `422 HANDLER_OP_INVALID`，details 明确指出 method 缺失；版本列表仍只有 v1/v2、active v2，无 v3、无重启/调用副作用。
+- 五通道：REST 200/422 与 SQLite active/version/call 对齐；两次成功调用钉住不同 resident instance；SSE notifications durable `16..21`、entities `7..10` 单调无 gap，messages/entities/notifications 均连接；受管网关 challenge/install/models 全 200；frontend 无 Dart/Flutter/Unhandled/RenderFlex/overflow 红线。Flutter 启动器的单条 `Failed to foreground app; open returned 1` 随后进入 resident 并完成所有 UI 动作，已在证据中单独归为仪器噪声，未知错误仍 fail-closed。
+- 录屏 `191.498333s / 2784x1808 / 60fps`，收台无 conductor 残留。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-022-handler-edit-final-green.md`，session 细节为 `.../evidence/EP-022-handler-edit-green.md`，独立 ledger/alarm 复审为 `EP-022-handler-edit-ledger-reaudit.md`。
+- anchors 重新校准 `10/10`；`judge.py` 按 `G1/F2/A1/C4/G2` 写入五级裁决，正式账本 **770→775 judgments**。原阈值触发的 `gap-too-fast`/`discovery-collapse` 已按独立复审分别 ack，未调整阈值，`alarms.py check` clean；`gen_coverage.py --check` 为 `848 rows / 154 carried judgments / 0 tombstones`。
+- 批次十五由 **25→30 / 50**；未满 50 格不运行统一长门禁、不提交。下一原子前线为 `EP-023 POST /api/v1/handlers/{id}:iterate`。
+
+## 2026-08-06 12:26 · EP-021 POST /api/v1/handlers/{id}:revert 五级收口，批次十五 25/50
+
+- 首轮真实 v2→v1 回退路径冻结为产品红：主详情已显示 `v1 · running`，但右岛 Run terminal 仍把刚才 v2 的结果卡挂在 v1 标题下。红 session `/private/tmp/anselm-rig-ep021-handler-revert-20260806/sessions/20260806-121633` 已封存；另有一条 fixture-only 的 Python `true`/`True` 构造错误，App 正确显示 `HANDLER_CLIENT_CALL_FAILED` 与 traceback，不计产品绿。
+- stop-and-fix 在 `entityDetailProvider` 观察到 active version 真正变化时清除 Run terminal 的已落定瞬时结果，保留方法/来源选择和 durable Recent 台账；同步 controller、RunTerminal 监听、回归测试与 frontend entities 文档。定向 controller 测试最终 **10/10**，目标 `flutter analyze` clean。
+- 最终 session `/private/tmp/anselm-rig-ep021-handler-revert-fixed-20260806/sessions/20260806-122413` 使用新 binary、真实 App、Computer Use、受管网关、三路独立 SSE witness、frontend console、backend journal、LLM tap 和录屏完成绿重跑。Versions → v1 → More actions → Set active 后画面显示 `v1 · running`、`ready`、`Active version: v1`，旧 v2 结果消失而 `Recent · 1` 保留；随后真实 Call 返回 `version=v1`，Recent 增至 2。
+- REST/SQLite 真相：两条不可变版本均保留，meta 不变；成功调用各自钉住 v2/`hdi_78d4625216b3e876` 与 v1/`hdi_74e7075fa48dee05`；`version=99` 返回 `404 HANDLER_VERSION_NOT_FOUND`，active pointer 不变。SSE durable `handler.created`/`handler.edited`/`handler.reverted` 为 seq `16/19/22`，三流无 gap；受管网关 challenge/install/models 全 HTTP 200。
+- 五通道封口：录屏 `145.865000s / 2784x1808 / 60fps`；rig-check 五通道全绿，frontend/backend 无 Dart/Flutter/Unhandled/RenderFlex/overflow/panic/FATAL/ERROR/WARN 红线；AXTree bridge churn 由 session-scoped review 归类为已知 macOS Flutter 调试仪器噪声，未知形状仍硬失败；rig-down 无残留进程。
+- 正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-021-handler-revert-final-green.md`，账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-021-handler-revert-ledger-reaudit.md`，红证据和五通道细节在两套 session evidence 中。anchors `10/10` 后写入 `G1/F2/A5/C4/G2`，中央账本 **765→770 judgments**，COVERAGE `EP-021=✓✓✓✓✓`；写账触发的 gap-too-fast/discovery-collapse 按独立复审逐项 ack，阈值未放宽，最终 `alarms.py check` clean。
+- 批次十五由 **20→25 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-022`。
+
+## 2026-08-06 12:04 · EP-020 POST /api/v1/handlers/{id}:restart 五级收口，批次十五 20/50
+
+- 首轮真实 Handler `:call` 成功后冻结为产品红：resident 已被惰性拉起，REST/SQLite 为 `runtimeState=running`，但 Handler detail 仍显示 `v1 · stopped`。stop-and-fix 在 Handler call 收尾后 invalidate detail provider，重新读取 server-owned runtime state；修复同步到 controller、回归测试和 frontend entities 文档。
+- 最终 session `/private/tmp/anselm-rig-ep020-handler-restart-fixed-20260806/sessions/20260806-120431` 使用最终 binary、真实 App、Computer Use、受管网关、三路独立 SSE witness、frontend console、backend journal、LLM tap 和录屏完成绿重跑。首次 Call 后 UI 显示 `v1 · running`、`ready`、`Done`；Restart instance 原地完成且不铸新版本；第二次 Call 的 Recent 为 2。REST/SQLite 为同一 active version `hdv_b075d14eefb8e00f`、两个真实 resident instance `hdi_51fd8207eeaa0161` 与 `hdi_da984cee7bc1fdf`、两次成功调用。
+- 负路径用真实未配置必填 `token` 的 `ep020_restart_blocked` Handler 执行 Restart，UI 显示 `Handler “ep020_restart_blocked” restart failed · View`，后端返回 `422 HANDLER_CONFIG_INCOMPLETE`，没有实例、调用行或成功事件伪影。
+- 五通道封口：录屏 `200.308333s / 2784x1808 / 60fps`；SSE `handler.restarted` 成功 durable seq `16`、失败 seq `20..22`，无 gap；backend/frontend/LLM tap 全部来自同一 manifest，受管网关 challenge/install/models 全 HTTP 200；AXTree bridge churn 作为 macOS Flutter 调试仪器噪声独立复核，应用红线扫描无 Dart/Flutter/Unhandled/overflow，收台无残留进程。
+- 正式证据为 `sessions/20260806-120431/evidence/EP-020-handler-restart-green.md`，独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-020-handler-restart-ledger-reaudit.md`。定向 controller 测试 `9/9`、目标 `flutter analyze` 通过；anchors `10/10` 后写入 `G1/F2/A5/C4/G2`，账本 **760→765 judgments**，`gen_coverage.py --check` 为 `848 rows / 152 carried judgments / 0 tombstones`。写账产生的 gap-too-fast/discovery-collapse 按独立复审逐项 ack，阈值未放宽，最终 `alarms.py check` clean。
+- 批次十五由 **15→20 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-021`。
+
+## 2026-08-06 11:53 · EP-019 POST /api/v1/handlers/{id}:call 五级收口，批次十五 15/50
+
+- 首轮真实 Handler `:call` 成功路径通过；失败路径冻结为红：后端 N1 `details` 中已有用户错误和 Python traceback，但右岛只显示通用 `HANDLER_CLIENT_CALL_FAILED`。stop-and-fix 将 `ApiException.details` 接入运行状态，并增加双语 details 标题；最终真实重跑又发现 JSON 字符串转义让 traceback 难读，继续修为结构化键值 + 真实换行 + 8000 字硬上限。
+- 最终 session `/private/tmp/anselm-rig-ep019-handler-call-final-20260806/sessions/20260806-114857` 使用新 binary、真实 App、Computer Use、受管网关、独立三路 SSE witness、frontend console、backend journal、LLM tap 和录屏完成。成功方法真实显示 `Done`、`ep019-call-start` 和 `{"ok":true,"value":7}`；失败方法真实显示 `Failed`、`HANDLER_CLIENT_CALL_FAILED`、`ep019-before-failure`，details 区域逐行呈现 `ValueError: ep019 expected failure`。录屏 `176.410000s / 2784x1808 / 60fps`，最终截图 `EP-019-handler-call-final-failure.jpeg`。
+- 五通道交叉核验：backend `POST ...:call` 成功 200、失败 502，SQLite/REST 调用聚合为 `1 ok/1 failed`、同一 resident instance、v1 不变；SSE entities `open/delta/close` durable seq `9..12` 单调且 delta 为 seq=0，messages/notifications 均已连接；LLM challenge/install/models 全 200，本确定性调用无 completion；frontend/backend 无未解释应用红线，收台无残留进程。
+- 修复同步到 `run_terminal_state`/controller/UI、`entity_format`、双语 i18n 与回归测试；证据为 session `evidence/EP-019-green.md`，独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-019-handler-call-ledger-reaudit.md`。定向 controller **8/8**、run terminal UI **7/7**、目标 analyze 通过；`rig-check.sh` 五通道全绿，`rig-down.sh` 正常封口。
+- 显式 formal root anchors `10/10` 后，`judge.py` 写入 `G1/F2/A5/C4/G2`，中央账本 **755→760 judgments**，COVERAGE `EP-019=✓✓✓✓✓`。写账触发 `gap-too-fast` 与 `discovery-collapse`；依据独立复审逐项 ack，阈值未放宽，最终 `alarms.py check` clean。
+- 批次十五由 **10→15 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-020 POST /api/v1/handlers/{id}:restart`。
+
+## 2026-08-06 11:35 · EP-018 DELETE /api/v1/handlers/{id} 五级收口，批次十五 10/50
+
+- 真实 App 首先通过 Handler rail 的 More actions 打开删除菜单；Computer Use 逐帧确认弹窗明确写出对象 `order_desk`、从 active catalog 移除和不可撤销。第一次 Escape 取消后 row/detail 保持不变；第二次确认后 Handler count 从 `1` 变 `0`，详情回 Overview，不留死详情。
+- 真实 session `/private/tmp/anselm-rig-ep018-handler-delete-20260806/sessions/20260806-112755` 由同一 conductor 托管 App、窗口录制、backend、三路 SSE witness、frontend console 和 llmtap。录屏 `246.323333s / 2784x1808 / 60fps`；确认截图和删除后 Overview 截图均已封存。
+- HTTP/SQLite 真相：DELETE `204`；live list `[]`；GET `404 HANDLER_NOT_FOUND`；重复 DELETE `404 HANDLER_NOT_FOUND`；versions 仍 `200` 保留单一 v1 审计行。Handler `deleted_at` 非空，sandbox env 行和 filesystem path 消失，relation 无残留。
+- durable 真相：notifications 表与 SSE 均记录 `sandbox.env_deleted` → `handler.deleted`；notifications durable seq `16,17` 连续无 gap。frontend/backend 扫描无 panic/FATAL/WARN/ERROR/Flutter/Dart/RenderFlex/Unhandled 红线；受管 gateway challenge/install/models 全部真实 HTTP 200，本确定性删除 slice 无模型 completion，未伪造 wire。
+- `rig-check.sh` 在收台前五通道全绿；`rig-down.sh` 优雅停止所有归属进程并封口录像。正式证据为 `evidence/EP-018-green.md`，警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-018-ledger-reaudit.md`。
+- 定向验证：`go test ./internal/app/handler ./internal/transport/httpapi/handlers` 通过；`entity_rail_test.dart` **27/27**；目标 Flutter analyze 无问题。显式 formal root 下 anchors `10/10`，`judge.py` 写入 `G1/F2/A5/C4/G2`，中央账本 **750→755 judgments**，COVERAGE `EP-018=✓✓✓✓✓`；两条统计警报经独立复审后 ack，`alarms.py check` clean。
+- 批次十五由 **5→10 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-019 POST /api/v1/handlers/{id}:call`。
+
+## 2026-08-06 11:09 · EP-017 PATCH /api/v1/handlers/{id} 五级收口，批次十五 5/50
+
+- 首轮真实 App 证据冻结为红：Handler Overview 只有只读 description，没有 tags 入口，用户不能完成 Handler 元数据维护；红截图保留在 `/private/tmp/anselm-rig-ep017-handler-patch-20260806/sessions/20260806-104925/evidence/EP-017-red-handler-meta.png`，不计绿。
+- stop-and-fix 将 Handler 接入与 Function/Workflow 一致的 `AnKv` meta surface：description 与 tags 可编辑，成败都重读 canonical detail；`HANDLER_INVALID_NAME` 在实体 rail 显示具体本地化错误；同步 `entities.md` 与 detail section 规则。
+- 修复后真实 session `/private/tmp/anselm-rig-ep017-handler-patch-20260806/sessions/20260806-105636` 由同一 conductor 托管 Flutter App、窗口录像、backend、三路独立 SSE witness、frontend console 和 llmtap。Computer Use 从空 description/tags 开始输入并提交，最终 UI 为 `edited from empty field`、`from-ui`、`v1 · running`、`ready`，无错误卡、假版本或重启跳变。
+- 五通道封口：`screen.mov` `559.990000s / 2784x1808 / 60fps` 可读；notifications durable `1..4` 单调无 gap，messages/entities 连接且本路径无额外 durable mutation；SQLite 只有 `hdv_9dd804b9b99233da` v1，最终 resident `bump` `status=ok` 返回 `{"count":1}`；HTTP 负路径保留非法名称 400 `HANDLER_INVALID_NAME` 和未知 ID 404；frontend 无未解释 Flutter/Dart 红线，llmtap 受管网关线缆 ready/wiring 通过。
+- 同类复查发现 description/tags 保存失败误用了 `renameFailed` 文案；stop-and-fix 增加 `metaSaveFailed` 双语键，并同步 Function/Workflow 的同类异常路径。新 binary 真实 session `/private/tmp/anselm-rig-ep017-handler-patch-20260806/sessions/20260806-111449` 重新从空 meta 完成 Computer Use 输入，最终为 `rechecked metadata`/`recheck-tag`，录屏 `159.730000s / 2784x1808 / 60fps`，notifications durable `1..3` 无 gap，SQLite 仍为单一 v1，resident `bump` 仍成功；frontend/backend 扫描无未解释应用红线。
+- 代码验证：目标 entity `flutter analyze` 无问题；`go test ./internal/domain/handler ./internal/transport/httpapi/handlers ./internal/app/handler` 通过；`an_kv_test.dart` 6/6 通过。首轮正式证据保留为 session 内 `evidence/EP-017-green.md`；最终证据为新 session 内 `evidence/EP-017-recheck-green.md`，最终独立警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-017-recheck-ledger-reaudit.md`。
+- 显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下先以 `anchors.py check` 重校 10/10，再由 `judge.py` 用新证据写入 `G1/F2/A5/C4/G2`，中央账本 **745→750 judgments**，COVERAGE `EP-017=✓✓✓✓✓`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 按新红绿历史、五通道证据和原阈值独立复审后 ack，`alarms.py check` clean；批次十五仍为 **5 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-018 DELETE /api/v1/handlers/{id}`。
+
 ## 2026-08-06 10:15 · EP-016 GET /api/v1/handlers/{id} 五级收口，批次十四 50/50
 
 - 真实 App session `/private/tmp/anselm-rig-ep016-handler-get-20260806/sessions/20260806-100548` 完成 Handler 详情用户路径：Computer Use 逐帧确认名称、v1、stopped、unconfigured、activeVersion、Python 3.12、必填 sensitive `api_key`、默认 `region`、`ping` 方法和 source，REST/SQLite 证明 configState、runtimeState、missingConfig、schema 与未知 ID 404 一致。

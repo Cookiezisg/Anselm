@@ -37,14 +37,18 @@
 /// 背书 API 的全部意义就在这儿。
 library;
 
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:video_player_media_kit/video_player_media_kit.dart';
 import 'package:video_player/video_player.dart';
 
+import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../ui/an_spinner.dart';
 import '../ui/icons.dart';
 import 'media_player_chrome.dart';
 import 'media_source.dart';
@@ -87,6 +91,7 @@ class AnVideoCard extends ConsumerStatefulWidget {
     required this.attachmentId,
     required this.filename,
     required this.metaLine,
+    this.aspectRatio = 16 / 9,
     this.maxWidth = 320,
     super.key,
   });
@@ -94,6 +99,10 @@ class AnVideoCard extends ConsumerStatefulWidget {
   final String attachmentId;
   final String filename;
   final String metaLine;
+
+  /// Receipt shape used for the poster before the native controller knows its real geometry.
+  /// controller 得到真实几何前,海报使用的 receipt 画幅。
+  final double aspectRatio;
   final double maxWidth;
 
   @override
@@ -103,6 +112,7 @@ class AnVideoCard extends ConsumerStatefulWidget {
 class _AnVideoCardState extends ConsumerState<AnVideoCard> {
   VideoPlayerController? _controller;
   bool _starting = false;
+  bool _failed = false;
 
   @override
   void dispose() {
@@ -115,19 +125,23 @@ class _AnVideoCardState extends ConsumerState<AnVideoCard> {
 
   Future<void> _start() async {
     if (_starting || _controller != null) return;
-    setState(() => _starting = true);
-    final target = ref
-        .read(mediaSourceProvider)
-        .nativeTarget(widget.attachmentId);
+    setState(() {
+      _starting = true;
+      _failed = false;
+    });
     // The headers are NOT optional: the sidecar is loopback-hardened (RequireBearerToken), so a bare
     // GET is refused. The player does its own fetching, which is exactly why it must be told.
     // 这些头**不是可选的**:sidecar 做了 loopback 加固(RequireBearerToken),裸 GET 会被拒。播放器自己
     // 去取,这正是必须告诉它的原因。
-    final controller = VideoPlayerController.networkUrl(
-      Uri.parse(target.uri),
-      httpHeaders: target.headers,
-    );
+    VideoPlayerController? controller;
     try {
+      final target = ref
+          .read(mediaSourceProvider)
+          .nativeTarget(widget.attachmentId);
+      controller = VideoPlayerController.networkUrl(
+        Uri.parse(target.uri),
+        httpHeaders: target.headers,
+      );
       await controller.initialize();
       if (!mounted) {
         await controller.dispose();
@@ -137,11 +151,31 @@ class _AnVideoCardState extends ConsumerState<AnVideoCard> {
       setState(() {
         _controller = controller;
         _starting = false;
+        _failed = false;
       });
     } catch (_) {
-      await controller.dispose();
-      if (mounted) setState(() => _starting = false);
+      if (controller != null) _disposeAfterFailure(controller);
+      if (mounted) {
+        setState(() {
+          _starting = false;
+          _failed = true;
+        });
+      }
     }
+  }
+
+  // video_player leaves its private creation completer pending when the platform rejects create.
+  // An unbounded dispose here would strand this card in "loading" forever, so cleanup is best effort
+  // and bounded; a controller that never received a native player id has nothing useful to release.
+  // video_player 在平台拒绝 create 时会留下未完成的内部 creation completer。这里若无限 await dispose,
+  // 卡片就会永远卡在「加载中」;清理必须有界。没有拿到 native player id 的 controller 没有可释放资源。
+  void _disposeAfterFailure(VideoPlayerController controller) {
+    unawaited(
+      controller
+          .dispose()
+          .timeout(const Duration(milliseconds: 250))
+          .catchError((_) {}),
+    );
   }
 
   @override
@@ -157,7 +191,7 @@ class _AnVideoCardState extends ConsumerState<AnVideoCard> {
           ClipRRect(
             borderRadius: BorderRadius.circular(AnRadius.button),
             child: AspectRatio(
-              aspectRatio: controller?.value.aspectRatio ?? 16 / 9,
+              aspectRatio: controller?.value.aspectRatio ?? widget.aspectRatio,
               child: controller == null ? _poster(c) : VideoPlayer(controller),
             ),
           ),
@@ -188,11 +222,44 @@ class _AnVideoCardState extends ConsumerState<AnVideoCard> {
       ? widget.metaLine
       : '${widget.filename} · ${widget.metaLine}';
 
-  Widget _poster(AnColors c) => GestureDetector(
-    onTap: _start,
-    child: ColoredBox(
-      color: c.surfaceSunken,
-      child: Center(child: Icon(AnIcons.run, size: 28, color: c.inkMuted)),
-    ),
-  );
+  Widget _poster(AnColors c) {
+    final t = Translations.of(context);
+    final label = _starting
+        ? t.attach.preparingMedia
+        : _failed
+        ? t.attach.failedRetry
+        : t.attach.playVideo;
+    final Widget body = _starting
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              const AnSpinner(size: 24),
+              const SizedBox(height: AnSpace.s4),
+              Text(label, style: AnText.label.copyWith(color: c.inkMuted)),
+            ],
+          )
+        : _failed
+        ? Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(AnIcons.refresh, size: 28, color: c.inkMuted),
+              const SizedBox(height: AnSpace.s4),
+              Text(label, style: AnText.label.copyWith(color: c.inkMuted)),
+            ],
+          )
+        : Icon(AnIcons.run, size: 28, color: c.inkMuted);
+    return Semantics(
+      button: !_starting,
+      label: label,
+      child: ExcludeSemantics(
+        child: GestureDetector(
+          onTap: _starting ? null : _start,
+          child: ColoredBox(
+            color: c.surfaceSunken,
+            child: Center(child: body),
+          ),
+        ),
+      ),
+    );
+  }
 }

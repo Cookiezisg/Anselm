@@ -91,7 +91,7 @@ func retryFixture(t *testing.T, answers ...string) (*Service, messagesdomain.Rep
 		Resolver:      resolver,
 		Bridge:        bridge,
 	}, zap.NewNop())
-	t.Cleanup(svc.Shutdown)
+	t.Cleanup(func() { svc.Shutdown(context.Background()) })
 	return svc, store, bridge, resolver
 }
 

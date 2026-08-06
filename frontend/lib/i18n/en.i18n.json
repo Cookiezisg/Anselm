@@ -626,12 +626,18 @@
       "generatingImage": "Generating image",
       "generatedImage": "Generated image",
       "generatedImageStored": "Saved as attachment",
+      "editingImage": "Editing image",
+      "editedImage": "Edited image",
+      "editedImageStored": "Saved edited image as an attachment",
       "generatingSpeech": "Synthesizing speech",
       "generatedSpeech": "Synthesized speech",
       "generatedSpeechStored": "Saved as an audio attachment",
       "generatingVideo": "Generating video",
       "generatedVideo": "Generated video",
-      "generatedVideoStored": "Saved as a video attachment"
+      "generatedVideoStored": "Saved as a video attachment",
+      "animatingImage": "Animating image",
+      "animatedImage": "Animated image",
+      "animatedImageStored": "Saved animated image as a video attachment"
     },
     "gate": {
       "dangerBadge": "Dangerous",
@@ -1264,6 +1270,7 @@
   "entities": {
     "new": "New",
     "filter": "Search entities…",
+    "noResults": "No entities match your search.",
     "errorTitle": "Couldn't load entities",
     "errorHint": "The local engine didn't return the entity list.",
     "retry": "Try again",
@@ -1290,9 +1297,9 @@
         "resume": "Resume",
         "iterate": "Edit with AI"
       },
-      "iterateRequest": "Help me make changes to this.",
+      "iterateRequest": "Help me edit “$name” with AI.",
       "deleteTitle": "Delete this entity?",
-      "deleteBody": "“$name” will be removed.",
+      "deleteBody": "“$name” will be removed from the active catalog. This can't be undone.",
       "actionFailed": "Action failed"
     },
     "detail": {
@@ -1414,6 +1421,7 @@
         "trigger": "Trigger",
         "input": "Input",
         "output": "Output",
+        "logs": "Logs",
         "ref": "Ref",
         "healthy": "Healthy",
         "method": "Method",
@@ -1486,7 +1494,11 @@
         "createFirstVersion": "No versions yet",
         "createFirstVersionHint": "Create a version to activate this entity.",
         "errorTitle": "Couldn't load this entity",
+        "executionDetailsFailed": "Couldn't load the full execution record",
         "errorHint": "The local engine didn't return it.",
+        "renameFailed": "Couldn't save the name: $message",
+        "metaSaveFailed": "Couldn't save the description or tags: $message",
+        "invalidName": "Lowercase; a-z 0-9 - _; 1–64.",
         "loadMore": "Load more",
         "loadFailed": "Load failed — tap to retry",
         "earliest": "earliest version"
@@ -1549,7 +1561,7 @@
       "cancel": "Cancel",
       "close": "Close run terminal",
       "cancelled": "Cancelled",
-      "glanceToday": "$n today",
+      "glanceTotal": "$n total runs",
       "glanceLastOk": "last ok",
       "glanceLastFailed": "last failed",
       "glanceLastCancelled": "last cancelled",
@@ -1564,6 +1576,7 @@
       "steps": "$n steps",
       "tokens": "$inT in · $outT out",
       "errorHeading": "error",
+      "detailsHeading": "details",
       "danger": {
         "cautious": "Cautious",
         "dangerous": "Dangerous"
@@ -1861,6 +1874,8 @@
     "keys": {
       "voices": "Cloned voices",
       "voicesEmpty": "No cloned voices yet. Ask the assistant to enroll one from an audio attachment.",
+      "voicesLoadFailed": "Could not load cloned voices. Check the connection and retry.",
+      "voicesRetry": "Retry",
       "voicesRemaining": "$n of $cap slots free",
       "voicesFull": "Both slots are taken — delete one to make room.",
       "voicesDelete": "Delete",

@@ -19,6 +19,9 @@ class LogRow {
     this.hint,
     this.detailRows = const [],
     this.run,
+    this.detailsLoading = false,
+    this.detailsError,
+    this.detailsLoaded = true,
   });
 
   final String id;
@@ -31,6 +34,33 @@ class LogRow {
   final String? meta;
   final String? hint;
   final List<(String, String)> detailRows;
+
+  /// A list row omits expensive fields such as logs; the detail panel owns this short-lived loading
+  /// state so opening a row never looks like a silent no-op. 列表省略重字段;展开面持有短暂加载态,
+  /// 绝不让点击看起来像无响应。
+  final bool detailsLoading;
+  final String? detailsError;
+  final bool detailsLoaded;
+
+  LogRow copyWith({
+    bool? detailsLoading,
+    Object? detailsError = _keepDetailsError,
+  }) => LogRow(
+    id: id,
+    dot: dot,
+    label: label,
+    meta: meta,
+    hint: hint,
+    detailRows: detailRows,
+    run: run,
+    detailsLoading: detailsLoading ?? this.detailsLoading,
+    detailsError: identical(detailsError, _keepDetailsError)
+        ? this.detailsError
+        : detailsError as String?,
+    detailsLoaded: detailsLoaded,
+  );
+
+  static const _keepDetailsError = Object();
 }
 
 /// The logs tab state: the loaded log page + ok/failed aggregate (zeros for workflow flowruns, which

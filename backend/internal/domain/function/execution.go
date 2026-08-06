@@ -104,13 +104,14 @@ type ExecutionFilter struct {
 	Limit          int
 }
 
-// ExecutionAggregates is a slim rollup beside a page of executions — just the ok vs
-// not-ok split for a status badge. (No p95 / avg: nobody consumed them, and the LLM
-// reads elapsedMs off individual rows when it cares.)
+// ExecutionAggregates is a slim rollup beside a page of executions — the total and ok vs
+// not-ok split for status badges and glance summaries. (No p95 / avg: nobody consumed them,
+// and the LLM reads elapsedMs off individual rows when it cares.)
 //
-// ExecutionAggregates 是分页旁的精简汇总——只 ok / 非 ok 计数供状态徽标。（无 p95/avg：无人
-// 消费，LLM 在意时自己读单行 elapsedMs。）
+// ExecutionAggregates 是分页旁的精简汇总——总数与 ok / 非 ok 计数供状态徽标和速览。（无
+// p95/avg：无人消费，LLM 在意时自己读单行 elapsedMs。）
 type ExecutionAggregates struct {
+	TotalCount  int `json:"totalCount"`
 	OKCount     int `json:"okCount"`
 	FailedCount int `json:"failedCount"`
 }

@@ -97,6 +97,13 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     final state = ref.watch(runTerminalProvider(sel));
     final controller = ref.read(runTerminalProvider(sel).notifier);
     final detail = ref.watch(entityDetailProvider(sel)).value;
+    ref.listen(entityDetailProvider(sel), (previous, next) {
+      final before = previous?.value?.activeVersionId;
+      final after = next.value?.activeVersionId;
+      if (before != null && after != null && before != after) {
+        controller.clearResultAfterVersionChange();
+      }
+    });
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -158,31 +165,21 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
     );
   }
 
-  /// §2 GLANCE STRIP — one quiet `v{N} · 今天 {n} 次执行 · 上次{结果} {耗时}` line: the active version
-  /// number, today's execution count and the last run's outcome + elapsed, all AGGREGATED from the
-  /// already-watched [recentRunsProvider] bench ledger (≤5 rows) + the detail. Each segment renders ONLY
-  /// on real data (缺段不渲: a fresh entity with no runs shows just 「v{N}」, or nothing); all empty →
-  /// null → [AnPanelHead] draws no band (全空不渲). 「今天」counts the bench rows whose start is the local
-  /// today (bounded by the ledger's 5, so a very busy day under-reports — the bench is a glance, the full
-  /// history lives in Logs). 速览带:版本·今日执行·上次结果,全从已监听的 recentRuns(≤5)+detail 聚合;有数据
-  /// 才在、全空→null;「今天」数的是账内当天行(≤5 有界)。
+  /// §2 GLANCE STRIP — one quiet `v{N} · 共 {n} 次执行 · 上次{结果} {耗时}` line: the active version
+  /// number, the authoritative total from the same page aggregate, and the last run's outcome + elapsed.
+  /// The bench stays bounded at five rows; only its last row is used for the last-result segment. Each
+  /// segment renders ONLY on real data (缺段不渲: a fresh entity with no runs shows just 「v{N}」, or
+  /// nothing); all empty → null → [AnPanelHead] draws no band (全空不渲)。速览不再从五行工作台猜总数。
   Widget? _glance(BuildContext context, EntityRef sel, EntityDetail? detail) {
     final c = context.colors;
     final t = context.t.entities.run;
     final segs = <String>[];
     final ver = detail?.activeVersionNumber;
     if (ver != null) segs.add('v$ver');
-    final runs =
-        ref.watch(recentRunsProvider(sel)).value ?? const <RecentRun>[];
-    final now = DateTime.now();
-    final today = runs.where((run) {
-      final s = run.startedAt?.toLocal();
-      return s != null &&
-          s.year == now.year &&
-          s.month == now.month &&
-          s.day == now.day;
-    }).length;
-    if (today > 0) segs.add(t.glanceToday(n: today));
+    final snapshot = ref.watch(recentRunsProvider(sel)).value;
+    final runs = snapshot?.runs ?? const <RecentRun>[];
+    final total = snapshot?.totalCount ?? 0;
+    if (total > 0) segs.add(t.glanceTotal(n: total));
     final last = runs.isNotEmpty ? runs.first : null;
     if (last != null) {
       // Only a SETTLED outcome speaks a 「上次…」 (ok/done · failed · cancelled) — a still-running last
@@ -283,6 +280,14 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
           const SizedBox(height: AnSpace.s12),
         ],
         ..._kindBody(context, sel, state, s),
+        if (state.errorDetails != null) ...[
+          const SizedBox(height: AnSpace.s12),
+          _section(
+            context,
+            context.t.entities.run.detailsHeading,
+            AnCodeBlock(prettyErrorDetails(state.errorDetails)),
+          ),
+        ],
         _RecentStrip(entityRef: sel),
       ],
     );
@@ -470,8 +475,8 @@ class _RecentStripState extends ConsumerState<_RecentStrip> {
   Widget build(BuildContext context) {
     final r = context.t.entities.run;
     if (!widget.entityRef.kind.executable) return const SizedBox.shrink();
-    final async = ref.watch(recentRunsProvider(widget.entityRef));
-    final rows = async.value ?? const <RecentRun>[];
+    final snapshot = ref.watch(recentRunsProvider(widget.entityRef)).value;
+    final rows = snapshot?.runs ?? const <RecentRun>[];
     // Quiet in every non-data state (加载/失败皆静默——工作台条是辅助面,失败不喊;档案有 Logs tab).
     // 非数据态一律安静。
     if (rows.isEmpty) return const SizedBox.shrink();

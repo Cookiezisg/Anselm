@@ -179,10 +179,8 @@ func SubmitVideoAnselm(ctx context.Context, httpc *http.Client, baseURL, install
 		return VideoJob{}, fmt.Errorf("%w: duration must be 2-%d seconds", ErrVideoGenFailed, VideoMaxDuration("anselm"))
 	}
 	payload := map[string]any{
-		"prompt":     req.Prompt,
-		"seconds":    req.DurationSec,
-		"aspect":     anselmAspect(req.Aspect),
-		"resolution": anselmResolution(req.Resolution),
+		"prompt":  req.Prompt,
+		"seconds": req.DurationSec,
 	}
 	endpoint := "/videos/generations"
 	if req.FirstFrame != nil {
@@ -193,6 +191,14 @@ func SubmitVideoAnselm(ctx context.Context, httpc *http.Client, baseURL, install
 		// animate_image 看起来像一次成功的文生视频，直到上游因意图不完整而拒绝。
 		payload["image"] = req.FirstFrame.String()
 		endpoint = "/videos/animations"
+	} else {
+		// Text-to-video owns its output geometry. Image-to-video deliberately does not: the
+		// managed gateway validates these fields at its boundary but drops them before the
+		// upstream call so the source frame cannot be cropped or letterboxed.
+		// 文生视频由本请求拥有输出几何；图生视频则刻意不拥有。受管网关会在边界校验这两个
+		// 字段，但在上游调用前丢弃它们，避免首帧被裁切或加边。
+		payload["aspect"] = anselmAspect(req.Aspect)
+		payload["resolution"] = anselmResolution(req.Resolution)
 	}
 	body, _ := json.Marshal(payload)
 	httpReq, err := newVideoRequest(ctx, strings.TrimRight(baseURL, "/")+endpoint, body)

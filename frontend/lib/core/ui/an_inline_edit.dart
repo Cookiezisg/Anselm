@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
@@ -31,6 +33,7 @@ class AnInlineEdit extends StatefulWidget {
     required this.value,
     required this.onCommit,
     this.onAbort,
+    this.onCommitError,
     this.enabled = true,
     this.startEditing = false,
     this.commitOnTapOutside = false,
@@ -42,7 +45,12 @@ class AnInlineEdit extends StatefulWidget {
   });
 
   final String value;
-  final ValueChanged<String> onCommit;
+  final FutureOr<void> Function(String) onCommit;
+
+  /// A failed async commit leaves the draft open and calls this hook. Hosts should surface the
+  /// failure through the shared notice band; the editor itself deliberately does not own product
+  /// copy or a second error layout. 异步提交失败时保留草稿并调用此钩子;宿主经顶带提示错误。
+  final ValueChanged<Object>? onCommitError;
 
   /// Empty-field GUIDE: when [value] is empty and idle, the row shows this text in [AnColors.inkFaint]
   /// and a tap on it opens the field (design-system 空字段引导律 — the guide is grey, clickable, and
@@ -87,6 +95,7 @@ class _AnInlineEditState extends State<AnInlineEdit> {
   );
   late String _committed = widget.value;
   late bool _editing = widget.startEditing;
+  bool _saving = false;
   bool _hovered = false; // pointer hovering the row → reveals the pencil 悬停揭示铅笔
   bool _focusWithin =
       false; // keyboard focus anywhere inside → also reveals (a11y) 键盘焦点在内也揭示
@@ -131,17 +140,31 @@ class _AnInlineEditState extends State<AnInlineEdit> {
   // (Save/Cancel click, blur) drop focus SYNCHRONOUSLY before the rebuild — else removing the focused
   // field/button restores focus to the pencil, pinning it revealed + focus-ringed (mirrors AnEditableValue._finish).
   // 键盘完成回落铅笔续导航;指针完成重建前同步卸焦,杜绝铅笔被恢复焦点卡显。
-  void _commit({bool returnFocus = true}) {
+  Future<void> _commit({bool returnFocus = true}) async {
+    if (_saving) return;
     final next = _ctl.text;
+    setState(() => _saving = true);
+    try {
+      await widget.onCommit(next);
+    } catch (error) {
+      if (!mounted) return;
+      // Keep the invalid draft visible so the user can correct it instead of losing work or
+      // seeing a title that the server did not accept. 保留非法草稿,让用户修正,不显示未落盘标题。
+      setState(() => _saving = false);
+      widget.onCommitError?.call(error);
+      return;
+    }
+    if (!mounted) return;
     if (!returnFocus) FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _committed = next;
       _editing = false;
+      _saving = false;
     });
-    widget.onCommit(next);
   }
 
   void _abort({bool returnFocus = true}) {
+    if (_saving) return;
     if (!returnFocus) FocusManager.instance.primaryFocus?.unfocus();
     setState(() {
       _ctl.text = _committed;
@@ -207,9 +230,13 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     final affordance = AnEditAffordance(
       editing: _editing,
       size: widget.affordanceSize,
-      onEdit: _begin,
-      onCommit: () => _commit(returnFocus: false), // Save click = pointer
-      onAbort: () => _abort(returnFocus: false), // Cancel click = pointer
+      onEdit: _saving ? null : _begin,
+      onCommit: _saving
+          ? null
+          : () => _commit(returnFocus: false), // Save click = pointer
+      onAbort: _saving
+          ? null
+          : () => _abort(returnFocus: false), // Cancel click = pointer
     );
     // Cancel-priority: with blur-commit ON, a tap on Cancel/Save must be "inside" the field's tap group so
     // it doesn't ALSO fire onTapOutside (a blur-commit). 取消优先:失焦提交时把 ✓✕ 纳入字段 tap 组,点它们不触发失焦提交。

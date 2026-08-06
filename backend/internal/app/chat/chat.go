@@ -322,9 +322,17 @@ type Service struct {
 	// 决定，经 ResolveInteraction 决议。
 	broker *humanloopapp.Broker
 
-	queues sync.Map // conversationID → *convQueue
-	wg     sync.WaitGroup
-	stop   chan struct{} // closed by Shutdown: short-circuits every runQueue loop
+	queues   sync.Map // conversationID → *convQueue
+	wg       sync.WaitGroup
+	stop     chan struct{} // closed by Shutdown: short-circuits every runQueue loop
+	stopOnce sync.Once
+	// lifecycleCtx cancels best-effort background work (auto-title and compaction) at service
+	// shutdown without coupling it to the request/turn context. A background task may outlive a
+	// turn, but it must not outlive the service's database.
+	// lifecycleCtx 在 service 关停时取消 best-effort 后台工作（自动标题、压缩），但不把它绑到请求/回合
+	// context。后台任务可以活过一个回合，但不能活过 service 所属的数据库。
+	lifecycleCtx    context.Context
+	lifecycleCancel context.CancelFunc
 }
 
 // New constructs the chat Service. nil messages / log is a wiring bug; Deps fields may be nil
@@ -337,6 +345,7 @@ func NewService(messages messagesdomain.Repository, deps Deps, log *zap.Logger) 
 	if messages == nil || log == nil {
 		panic("chatapp.New: nil messages repository or logger")
 	}
+	lifecycleCtx, lifecycleCancel := context.WithCancel(context.Background())
 	s := &Service{
 		messages:         messages,
 		deps:             deps,
@@ -344,9 +353,37 @@ func NewService(messages messagesdomain.Repository, deps Deps, log *zap.Logger) 
 		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
 		log:              log,
 		stop:             make(chan struct{}),
+		lifecycleCtx:     lifecycleCtx,
+		lifecycleCancel:  lifecycleCancel,
 	}
 	s.broker = humanloopapp.New(s.interactionSurface)
 	return s
+}
+
+// lifecycleContext seeds a service-owned, cancellable context for background work. The fallback
+// keeps hand-built Service values in focused tests safe; production services always come from
+// NewService and therefore always have a lifecycle cancel.
+//
+// lifecycleContext 为后台工作提供 service 自有、可取消且带 workspace 的 context。fallback 让聚焦测试中
+// 手写的 Service 仍安全；生产 service 都经 NewService 构造，恒有 lifecycle cancel。
+func (s *Service) lifecycleContext(workspaceID string) context.Context {
+	base := s.lifecycleCtx
+	if base == nil {
+		base = context.Background()
+	}
+	return reqctxpkg.SetWorkspaceID(base, workspaceID)
+}
+
+func (s *Service) isStopping() bool {
+	if s.stop == nil {
+		return false
+	}
+	select {
+	case <-s.stop:
+		return true
+	default:
+		return false
+	}
 }
 
 // SendInput is the user's turn: text plus referenced attachment ids. Mentions are deferred
@@ -628,26 +665,47 @@ func (s *Service) getOrCreateQueue(conversationID string) *convQueue {
 
 // Shutdown stops all conversation goroutines promptly: it cancels every running turn (loop
 // aborts; WriteFinalize lands a cancelled terminal on its detached context — no streaming
-// orphan), closes s.stop so every runQueue exits on its next select instead of waiting out the
-// 5-minute idle timer, then waits. Queued-but-unstarted tasks are NOT finalized here — the boot
+// orphan), cancels best-effort background work, closes s.stop so every runQueue exits on its next
+// select instead of waiting out the 5-minute idle timer, then waits up to ctx. Auto-title is not
+// part of this wait: it is optional work, observes lifecycle cancellation, and checks the closing
+// signal before its final write. Queued-but-unstarted tasks are NOT finalized here — the boot
 // sweep (SweepOrphans) reconciles their streaming rows on next start, same as a hard crash.
 //
 // Shutdown 立即停下所有对话 goroutine：先取消每个在跑回合（loop 中断；WriteFinalize 在 detached
-// context 落 cancelled 终态——无 streaming 孤儿），再 close s.stop 使每个 runQueue 在下次 select
-// 即退（而非等满 5 分钟 idle timer），最后等待。已入队未开始的 task 不在此落账——下次启动的
-// boot 对账（SweepOrphans）收拾其 streaming 行，与硬崩溃同一路径。
-func (s *Service) Shutdown() {
-	close(s.stop)
-	s.queues.Range(func(_, v any) bool {
-		q := v.(*convQueue)
-		q.mu.Lock()
-		if q.cancel != nil {
-			q.cancel()
+// context 落 cancelled 终态——无 streaming 孤儿），取消 best-effort 后台工作，再 close s.stop 使每个
+// runQueue 在下次 select 即退（而非等满 5 分钟 idle timer），最后最多等待 ctx。自动标题不参加此等待：
+// 它是可选工作、观察 lifecycle cancel，并在最后写盘前检查关停信号。已入队未开始的 task 不在此落账——
+// 下次启动的 boot 对账（SweepOrphans）收拾其 streaming 行，与硬崩溃同一路径。
+func (s *Service) Shutdown(ctx context.Context) {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+	s.stopOnce.Do(func() {
+		if s.lifecycleCancel != nil {
+			s.lifecycleCancel()
 		}
-		q.mu.Unlock()
-		return true
+		close(s.stop)
+		s.queues.Range(func(_, v any) bool {
+			q := v.(*convQueue)
+			q.mu.Lock()
+			if q.cancel != nil {
+				q.cancel()
+			}
+			q.mu.Unlock()
+			return true
+		})
 	})
-	s.wg.Wait()
+
+	done := make(chan struct{})
+	go func() {
+		s.wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-ctx.Done():
+		s.log.Warn("chatapp shutdown: conversation queues did not stop before deadline")
+	}
 }
 
 // ListMessages returns one keyset page of a conversation's turns (each with its blocks) for the

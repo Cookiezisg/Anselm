@@ -2,8 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/contract/api_error.dart';
 import '../../../../../core/contract/entities/function.dart';
 import '../../../../../core/design/tokens.dart';
+import '../../../../../core/model/status_state.dart';
+import '../../../../../core/notice/notice_center.dart';
 import '../../../../../core/ui/an_callout.dart';
 import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_fade_collapse.dart';
@@ -31,9 +34,33 @@ class FunctionOverview extends ConsumerWidget {
   /// Code longer than this many lines gets a fade-collapse (the single threshold source). 超此行数收合(阈值单源)。
   static const int _maxCollapsedLines = 50;
 
-  Future<void> _patchMeta(WidgetRef ref, Map<String, dynamic> patch) async {
-    await ref.read(entityRepositoryProvider).patchFunctionMeta(fn.id, patch);
-    ref.invalidate(entityDetailProvider(EntityRef(EntityKind.function, fn.id)));
+  Future<void> _patchMeta(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> patch,
+  ) async {
+    try {
+      await ref.read(entityRepositoryProvider).patchFunctionMeta(fn.id, patch);
+    } catch (error) {
+      if (context.mounted) {
+        final message = error is ApiException
+            ? context.t.entities.detail.state.metaSaveFailed(
+                message: error.message,
+              )
+            : context.t.entities.detail.state.metaSaveFailed(
+                message: context.t.entities.rail.actionFailed,
+              );
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(message, tone: AnTone.danger);
+      }
+    } finally {
+      // Re-read canonical metadata after both outcomes: a failed optimistic editor must never leave
+      // a stale local row looking authoritative. 成败都重读后端真相,不让本地乐观行冒充落盘。
+      ref.invalidate(
+        entityDetailProvider(EntityRef(EntityKind.function, fn.id)),
+      );
+    }
   }
 
   @override
@@ -62,7 +89,7 @@ class FunctionOverview extends ConsumerWidget {
                 final patch = <String, dynamic>{};
                 if (desc != fn.description) patch['description'] = desc;
                 if (!listEquals(tags, fn.tags)) patch['tags'] = tags;
-                if (patch.isNotEmpty) _patchMeta(ref, patch);
+                if (patch.isNotEmpty) _patchMeta(context, ref, patch);
               },
             ),
           ],

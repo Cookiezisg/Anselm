@@ -105,8 +105,19 @@ print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"A
   fi
   [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
   grep -q 'Flutter run key commands' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log never reached resident app"
-  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|accessibility_bridge\.cc.*Failed to update ui::AXTree' "$SESSION/frontend.log" 2>/dev/null; then
+  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)' "$SESSION/frontend.log" 2>/dev/null; then
     bad "✗ frontend.log contains an unreviewed Flutter failure"
+  fi
+  AX_PATTERN='accessibility_bridge\.cc.*Failed to update ui::AXTree, error: [0-9][0-9]* will not be in the tree and is not the new root'
+  if grep -Eq 'accessibility_bridge\.cc.*Failed to update ui::AXTree' "$SESSION/frontend.log" 2>/dev/null; then
+    AX_REVIEW="$SESSION/evidence/frontend-ax-review.md"
+    if grep -E 'accessibility_bridge\.cc.*Failed to update ui::AXTree' "$SESSION/frontend.log" | grep -Ev "$AX_PATTERN" >/dev/null 2>&1; then
+      bad "✗ frontend.log contains an unknown accessibility bridge failure"
+    elif [ -s "$AX_REVIEW" ] && grep -Eq '^classification: tooling-ax-tree$' "$AX_REVIEW" && grep -Eq '^status: reviewed$' "$AX_REVIEW"; then
+      note "· frontend AXTree bridge churn explicitly reviewed as tooling noise; evidence: $AX_REVIEW"
+    else
+      bad "✗ frontend.log contains AXTree bridge churn without a session review"
+    fi
   fi
 
   if [ -n "$AWID" ] && alive_as "$RPID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then

@@ -5,6 +5,7 @@ import '../../../../core/design/tokens.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
+import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_row_detail.dart';
@@ -78,7 +79,7 @@ class LogTab extends ConsumerWidget {
                   onToggle: () => notifier.toggle(row.id),
                   onSelect: () => notifier.toggle(row.id),
                 ),
-                detail: _detail(context, ref, st, row),
+                detail: _detail(context, ref, notifier, st, row),
               ),
             if (st.loadingMore)
               const AnSkeleton.row()
@@ -110,6 +111,7 @@ class LogTab extends ConsumerWidget {
   Widget _detail(
     BuildContext context,
     WidgetRef ref,
+    LogListNotifier notifier,
     LogListState st,
     LogRow row,
   ) {
@@ -117,13 +119,29 @@ class LogTab extends ConsumerWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
-        // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
-        kvList(
-          [for (final r in row.detailRows) (r.$1, r.$2)],
-          wrap: true,
-          dense: true,
-        ),
+        if (row.detailsLoading)
+          const AnSkeleton.lines(5)
+        else if (row.detailsError != null)
+          AnCallout(
+            row.detailsError!,
+            title: context.t.entities.detail.state.executionDetailsFailed,
+            severity: AnCalloutSeverity.danger,
+            actions: [
+              AnButton(
+                label: context.t.entities.detail.state.retry,
+                size: AnButtonSize.sm,
+                onPressed: () => notifier.retryDetails(row.id),
+              ),
+            ],
+          )
+        else
+          // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
+          // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
+          kvList(
+            [for (final r in row.detailRows) (r.$1, r.$2)],
+            wrap: true,
+            dense: true,
+          ),
         // The archive hands the bench a reproduce key (档案馆→工作台单向门, 0719 拍板): fill the
         // debugger from THIS execution and reveal the island. 从这次执行回填调试台并展开右岛。
         if (row.run != null)

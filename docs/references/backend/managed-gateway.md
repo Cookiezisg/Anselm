@@ -49,11 +49,13 @@ Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接�
 不复制上游 provider 名单、模型数量、价格或部署 secret。
 
 **源码 HEAD 不等于线上版本。** 主仓默认 base 当前指向
-`https://api.anselm.website/v1`，其公开 `/healthz` 已证实在线；但同级
-`Anselm-API-Serve` 当前 `main` 明确标记为尚未上线的候选实现。因此：
+`https://api.anselm.website/v1`。2026-08-06 的明确部署记录将 API Serve 提交
+`0d06f6e58615fec2fd04e3c15d16aea2edaf4aef` 发布到生产：CI run `31029509745` 与
+deploy run `31029785594` 均成功，部署器和独立公网请求均确认 `/healthz` 为 200。
+该记录只证明这个精确提交已发布和进程在线。因此：
 
 - 线上能力只能由 live wire / managed eval 与明确部署记录证明；
-- API Serve `main` 用于核对下一版公开契约和责任归属，不能自动冒充线上实现；
+- 只有被明确部署记录点名的 API Serve SHA 才能视作线上实现；其后的 `main` 仍不能自动冒充线上版本；
 - health 200 只证明进程在线，不证明 provider、费率、模型能力或部署 SHA；
 - 部署切换后必须在 Backend Evolution 重新跑受影响 managed lane，再把交集写回本页。
 
@@ -78,6 +80,19 @@ Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接�
 | 设备证明 | 必须 | 不使用 |
 
 生成能力与输入理解分开：BYOK 模型可以读取支持的文本/图片/视频/文档，并可作为 planner 消费 managed 生成产物；它不因此获得本仓未实现的 BYOK 生成工具。
+
+其中 `animate_image` 的受管能力门槛比 `generate_video` 更窄：`/models` 必须同时声明
+`anselm_capabilities.video_generation.available=true` 与 `image_to_video=true`。只有
+`video_generation.available=true` 时，网关仍可能提供文生视频，但桌面端必须隐藏
+`animate_image`，不把未知的图生视频契约猜成已支持。
+
+这不是桌面端对厂商模型名的臆测：上游模型目录将 `wan2.7-t2v` 列为文生视频，将首帧图生视频
+列为独立的 `wan2.7-i2v` 模型。Wan 2.7 I2V 的请求协议也独立：首帧必须是
+`input.media=[{"type":"first_frame","url":"data:..."}]`，不是旧版 `img_url`。因此网关若只配置
+`wan2.7-t2v`，即使提交端点相同，也不能向桌面宣告 `image_to_video=true`。参见阿里云
+[视频生成与编辑模型选择](https://help.aliyun.com/zh/model-studio/video-generate-edit-model)、
+[Wan 2.7 图生视频 API](https://help.aliyun.com/en/model-studio/image-to-video-general-api-reference)
+和 [Wan 2.7 文生视频 API](https://help.aliyun.com/en/model-studio/text-to-video-api-reference)。
 
 ## 6. 失败与恢复
 

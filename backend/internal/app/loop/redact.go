@@ -33,6 +33,12 @@ var (
 	// parenthesis). Remove the placeholder form too, so a chunk-boundary miss cannot leave
 	// "name (the referenced item)" in the final prose.
 	opaquePlaceholderParentheticalPattern = regexp.MustCompile(`\s*\(\s*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `\s*\)`)
+	// A media summary may keep useful human detail beside the opaque attachment id, e.g.
+	// "(red circle, `att_…`)". Once the id is redacted, remove only that list item rather than
+	// exposing "(red circle, the requested item)" as a broken user-facing template.
+	// 媒体摘要可能把人话描述与 opaque attachment id 放在同一括号里。脱敏后只删掉机器值这一项，
+	// 保留「red circle」等有用语义，避免用户看到坏占位符。
+	opaquePlaceholderParentheticalListPattern = regexp.MustCompile(`(?i)\([^()\r\n]*` + "`?" + `(?:` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `)` + "`?" + `[^()\r\n]*\)`)
 	// A model may put the opaque id first and the human name in parentheses, e.g.
 	// "Position 0: `doc_…` (Existing First)". Once the id is redacted, preserve the name
 	// and remove the unavailable machine-value fragment instead of exposing a placeholder.
@@ -63,9 +69,20 @@ var (
 	// whole subject prefix so the result remains a complete noun phrase.
 	opaqueTypedIDSubjectPattern       = regexp.MustCompile(`(?i)\b(the\s+)?(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+(?:with\s+)?id\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
 	opaqueTypedIDSubjectPrefixPattern = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+(?:with\s+)?id\s+` + "`?" + `$`)
-	flowRunSubjectPrefixPattern       = regexp.MustCompile(`(?i)\b(?:the\s+)?flow\s+$`)
-	opaqueReportForPattern            = regexp.MustCompile(`(?i)\b(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
-	opaqueReportForPrefixPattern      = regexp.MustCompile(`(?i)(?:\b(?:flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+)$`)
+	// Media reasoning often uses a possessive label instead of the generic "The ID …" form.
+	// Replace the whole sentence fragment before the generic id pass so it cannot become
+	// "The attachment ID is the requested item" after streaming redaction.
+	// 媒体 reasoning 常用带类型的 label。先整体改写再走通用 ID 脱敏，避免流式后变成坏占位句。
+	opaqueAttachmentIDAssignmentPattern       = regexp.MustCompile(`(?i)\b((?:the\s+)?(?:attachment|image|media))\s+id\s+(?:is|=|:)\s+` + "[\x60\"]?" + `(?:att_[A-Za-z0-9]+|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `)` + "[\x60\"]?")
+	opaqueAttachmentIDAssignmentPrefixPattern = regexp.MustCompile(`(?i)\b(?:the\s+)?(?:attachment|image|media)\s+id\s+(?:is|=|:)\s*`)
+	// The model may compare the two media outputs by repeating their opaque ids. Keep the
+	// comparison meaning without inventing a placeholder value in the user-facing stream.
+	// 模型可能在比较两件媒体时重复 opaque id；保留「已就绪」事实，不伪造 placeholder 值。
+	opaqueMediaAttachmentAssignmentPattern       = regexp.MustCompile(`(?i)\b((?:the\s+)?(?:original|edited|new|updated)\s+(?:attachment|one))\s+(?:is|was)\s+` + "[\x60\"]?" + `(?:att_[A-Za-z0-9]+|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `)` + "[\x60\"]?")
+	opaqueMediaAttachmentAssignmentPrefixPattern = regexp.MustCompile(`(?i)\b(?:the\s+)?(?:original|edited|new|updated)\s+(?:attachment|one)\s+(?:is|was)\s*`)
+	flowRunSubjectPrefixPattern                  = regexp.MustCompile(`(?i)\b(?:the\s+)?flow\s+$`)
+	opaqueReportForPattern                       = regexp.MustCompile(`(?i)\b(flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+` + "`?" + `(?:ws|fn|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|act|sk)_[A-Za-z0-9]+` + "`?")
+	opaqueReportForPrefixPattern                 = regexp.MustCompile(`(?i)(?:\b(?:flow\s+run|flowrun|workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|run|attachment)\s+report\s+for\s+)$`)
 	// A model may put the opaque run id in a Markdown table. Replacing only the cell with a generic
 	// placeholder makes the table look like a broken template; retain the semantic row instead.
 	//
@@ -123,7 +140,21 @@ var (
 	// field is more honest than showing "ID: -" or inventing a value; the adjacent tool card remains
 	// the exact-value surface.
 	// 普通的带标签字段也不能留下 placeholder。整行移除比显示「ID: -」或编造值更诚实；精确值仍在相邻工具卡。
-	opaquePlaceholderLabeledLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{0,2}|_{0,2})?(?:id|identifier|path|label|name)(?:\*{0,2}|_{0,2})?[ \t]*:[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*\r?$`)
+	opaquePlaceholderLabeledLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{0,2}|_{0,2})?(?:id|identifier|path|label|name)(?:\*{0,2}|_{0,2})?[ \t]*:[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*(?:\r?\n|$)`)
+	// Models also commonly put the colon inside the Markdown emphasis, e.g. `**ID:** value`.
+	// Treat that spelling as the same labeled machine field so the placeholder cannot survive the
+	// stream or durable close path.
+	// 模型也常把冒号放进 Markdown 加粗范围，例如 `**ID:** value`。两种写法都必须视为同一
+	// 个带标签机器字段，不能让 placeholder 穿过流式或耐久 close。
+	opaquePlaceholderBoldColonLabeledLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{2}|__)(?:id|identifier|path|label|name):(?:\*{2}|__)[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*(?:\r?\n|$)`)
+	// Version IDs are opaque too. Remove the whole field, including any model-added parenthetical,
+	// instead of showing a value-shaped placeholder in assistant prose.
+	// 版本 ID 同样是不透明机器值。整行连同模型附加的括号说明一起移除，不能渲染成像真实值的占位符。
+	opaqueVersionIDPlaceholderLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{0,2}|_{0,2})?version[ \t]+(?:id|identifier)(?:\*{0,2}|_{0,2})?[ \t]*:[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[^\r\n]*\r?$`)
+	// A reasoning sentence can expose the same value without a colon, e.g. "versionId changed to
+	// the requested item". Keep the fact that a new version exists while removing the unavailable
+	// machine-value claim.
+	opaqueVersionIDPlaceholderSentencePattern = regexp.MustCompile(`(?i)\bversion[ \t]*id[ \t]+(?:changed|updated|set|is|was)[ \t]+(?:to[ \t]+)?(?:the requested item|the referenced item)\b`)
 	// Media receipts commonly label their opaque reference as "Attachment ID". Keep this
 	// narrow so the generic field rule does not steal semantic rewrites for Conversation ID or
 	// Message ID rows handled by their dedicated search-card rules.
@@ -239,6 +270,8 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueFlowrunSummaryTargetPattern.ReplaceAllString(text, "${1}:")
 	text = opaquePinnedReferenceNaturalPattern.ReplaceAllString(text, "Pinned reference: The function version is pinned.")
 	text = opaqueTypedIDSubjectPattern.ReplaceAllString(text, "${1}requested ${2}")
+	text = opaqueAttachmentIDAssignmentPattern.ReplaceAllString(text, "${1} is ready")
+	text = opaqueMediaAttachmentAssignmentPattern.ReplaceAllString(text, "${1} is ready")
 	text = opaqueIDSubjectPattern.ReplaceAllStringFunc(text, func(match string) string {
 		if match != "" && unicode.IsUpper([]rune(match)[0]) {
 			return "The requested item"
@@ -248,6 +281,9 @@ func redactOpaqueMachineValues(text string) string {
 	text = entityIDPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
 	text = searchBlocksAbbreviatedRefPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
 	text = searchBlocksTemplateRefPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
+	text = opaqueVersionIDPlaceholderSentencePattern.ReplaceAllString(text, "version reference updated")
+	text = opaqueVersionIDPlaceholderLinePattern.ReplaceAllString(text, "")
+	text = redactOpaquePlaceholderParentheticalLists(text)
 	text = opaquePositionPlaceholderNamePattern.ReplaceAllString(text, "${1}${2}")
 	// A raw opaque ref can become the neutral placeholder only at the generic ID pass above;
 	// repeat the structured-row cleanup after that pass so the final close snapshot cannot retain
@@ -267,6 +303,7 @@ func redactOpaqueMachineValues(text string) string {
 		return line
 	})
 	text = opaqueVersionPlaceholderTableRowPattern.ReplaceAllString(text, "| **Version** | Current version |")
+	text = opaqueVersionIDPlaceholderLinePattern.ReplaceAllString(text, "")
 	text = opaqueRefPlaceholderTableRowPattern.ReplaceAllString(text, "| **Ref** | Internal reference |")
 	text = opaqueNodeRecordPlaceholderTableRowPattern.ReplaceAllString(text, "| **Node record** | Internal record |")
 	text = opaquePinnedRefsPlaceholderTableRowPattern.ReplaceAllString(text, "| Internal reference | Current version |")
@@ -302,6 +339,7 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueFlowrunIDFieldPlaceholderPattern.ReplaceAllString(text, "**Requested ID:** Supplied run ID")
 	text = opaquePlaceholderMediaLabeledLinePattern.ReplaceAllString(text, "")
 	text = opaquePlaceholderLabeledLinePattern.ReplaceAllString(text, "")
+	text = opaquePlaceholderBoldColonLabeledLinePattern.ReplaceAllString(text, "")
 	text = opaqueFlowrunCallIDPlaceholderPattern.ReplaceAllString(text, "${1}for the supplied run")
 	text = opaqueFlowrunIDColonPlaceholderPattern.ReplaceAllString(text, "run ID: supplied run ID")
 	text = opaqueFlowrunMissingTargetSentencePattern.ReplaceAllString(text, "The supplied run ID does not correspond to any flowrun in this workspace")
@@ -369,6 +407,12 @@ func redactOpaqueMachineValues(text string) string {
 	// an entirely unavailable ID column instead of leaving a misleading header behind.
 	// Markdown 表格里的 placeholder 仍不是用户值。流式阶段先替换为诚实的不可用标记；完整 close 再移除整列。
 	text = redactOpaquePlaceholderTableCells(text)
+	// A two-column Field/Value table encodes an ID as a row rather than a column. Remove an
+	// unavailable ID row too; otherwise the earlier cell pass turns it into `ID | -` and the
+	// user still sees a misleading machine-field placeholder row.
+	// 二列表格把 ID 编成行而不是列。不可用的 ID 行也要移除；否则上一步只会把它变成 `ID | -`，
+	// 用户仍会看到误导性的机器字段行。
+	text = redactOpaquePlaceholderFieldTableRows(text)
 	// Attachment metadata has a useful exact timestamp in the adjacent tool card. Do not leave a
 	// table cell that looks like a value but only says "the recorded time"; point the reader to the
 	// exact, copyable card instead while keeping the global timestamp redaction boundary intact.
@@ -380,6 +424,32 @@ func redactOpaqueMachineValues(text string) string {
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	text = longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
 	return restoreExactLastMessageAt(text)
+}
+
+func redactOpaquePlaceholderParentheticalLists(text string) string {
+	return opaquePlaceholderParentheticalListPattern.ReplaceAllStringFunc(text, func(parenthetical string) string {
+		inner := parenthetical[1 : len(parenthetical)-1]
+		if !strings.ContainsAny(inner, ",;") {
+			// The dedicated exact-placeholder rule below owns a parenthetical with no
+			// human list item; keeping it here preserves its leading-space cleanup.
+			return parenthetical
+		}
+		parts := strings.FieldsFunc(inner, func(r rune) bool { return r == ',' || r == ';' })
+		kept := make([]string, 0, len(parts))
+		for _, part := range parts {
+			part = strings.TrimSpace(part)
+			if strings.Trim(part, "`") == opaqueEntityPlaceholder || strings.Trim(part, "`") == legacyEntityPlaceholder {
+				continue
+			}
+			if part != "" {
+				kept = append(kept, part)
+			}
+		}
+		if len(kept) == 0 {
+			return ""
+		}
+		return "(" + strings.Join(kept, ", ") + ")"
+	})
 }
 
 // redactRelationIntro removes the duplicated opaque target from the natural-language summary.
@@ -1228,6 +1298,24 @@ func redactOpaquePlaceholderTableCells(text string) string {
 	return strings.Join(lines, "\n")
 }
 
+func redactOpaquePlaceholderFieldTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	kept := make([]string, 0, len(lines))
+	for _, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if ok && len(cells) >= 2 {
+			label := strings.ToLower(strings.Trim(strings.TrimSpace(cells[0]), "`*_ "))
+			if (label == "id" || label == "identifier") && isUnavailableOpaqueTableCell(cells[1]) {
+				// Physically remove the row. Leaving an empty line splits the Markdown table and
+				// makes the next meaningful row disappear from the rendered table.
+				continue
+			}
+		}
+		kept = append(kept, line)
+	}
+	return strings.Join(kept, "\n")
+}
+
 const opaquePathTableHint = "See the exact path in the tool card."
 
 func redactOpaquePathTableRows(text string) string {
@@ -1582,6 +1670,15 @@ func (r *textRedactor) Write(delta string) string {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
 	}
+	// Media reasoning can introduce an attachment id or repeat the original/edited
+	// attachment across provider chunks. Hold the bounded assignment until the opaque
+	// value is complete so the live SSE stream cannot expose a partial placeholder.
+	// 媒体 reasoning 可能跨 provider 分块介绍附件 ID 或重复原图/改图。暂存有限长度的赋值句，
+	// 确保实时 SSE 不会先吐出半截 placeholder。
+	if prefix, held, ok := splitMediaAttachmentAssignmentPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
 	// Markdown table rows carrying opaque values are semantic units, not ordinary prose. A
 	// provider can split the row after an opening backtick or between the two cells; holding the
 	// incomplete line prevents a bad placeholder from appearing in an intermediate SSE frame.
@@ -1727,6 +1824,38 @@ func splitPlaceholderPrefix(text string) (prefix, held string, ok bool) {
 				holdStart--
 			}
 			return text[:holdStart], text[holdStart:], true
+		}
+	}
+	return "", "", false
+}
+
+func splitMediaAttachmentAssignmentPrefix(text string) (prefix, held string, ok bool) {
+	for _, pair := range []struct {
+		prefix *regexp.Regexp
+		full   *regexp.Regexp
+	}{
+		{prefix: opaqueAttachmentIDAssignmentPrefixPattern, full: opaqueAttachmentIDAssignmentPattern},
+		{prefix: opaqueMediaAttachmentAssignmentPrefixPattern, full: opaqueMediaAttachmentAssignmentPattern},
+	} {
+		for _, loc := range pair.prefix.FindAllStringIndex(text, -1) {
+			suffix := text[loc[0]:]
+			if strings.Contains(suffix, "\n") || len([]rune(suffix)) > 256 {
+				continue
+			}
+			if match := pair.full.FindStringIndex(suffix); match != nil {
+				// The ID regex deliberately accepts opaque values of different lengths. If
+				// the match reaches the buffer end on a token character, it may still be a
+				// provider-split suffix rather than a complete value; wait for a delimiter.
+				tail := suffix[match[1]:]
+				if !strings.ContainsAny(tail, " \t\r\n") {
+					last, _ := utf8.DecodeLastRuneInString(suffix)
+					if match[1] == len(suffix) || !isTokenContinuation(last) || strings.ContainsAny(tail, ".,;:!?)]}\"'") {
+						return text[:loc[0]], suffix, true
+					}
+				}
+				continue
+			}
+			return text[:loc[0]], suffix, true
 		}
 	}
 	return "", "", false
@@ -2120,7 +2249,9 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 	if newline := strings.LastIndexByte(text, '\n'); newline >= 0 {
 		completed := text[:newline+1]
 		for _, line := range strings.Split(completed, "\n") {
-			if opaquePlaceholderLabeledLinePattern.MatchString(line) {
+			if opaquePlaceholderLabeledLinePattern.MatchString(line) ||
+				opaquePlaceholderBoldColonLabeledLinePattern.MatchString(line) ||
+				opaqueVersionIDPlaceholderLinePattern.MatchString(line) {
 				return completed, text[newline+1:], true
 			}
 		}
@@ -2197,7 +2328,7 @@ func hasOpaquePlaceholderLabeledPrefix(line string) bool {
 	lowerLabel := strings.ToLower(label)
 	isMediaLabel := lowerLabel == "attachment id" || lowerLabel == "attachment identifier" || lowerLabel == "image id" || lowerLabel == "image identifier" || lowerLabel == "media id" || lowerLabel == "media identifier"
 	switch lowerLabel {
-	case "id", "identifier", "path", "label", "name":
+	case "id", "identifier", "version id", "version identifier", "path", "label", "name":
 	default:
 		if !isMediaLabel {
 			return false

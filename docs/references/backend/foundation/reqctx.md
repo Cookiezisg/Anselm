@@ -52,12 +52,15 @@ workspace。
 
 ## 4. Detached
 
-需要比请求活得久的 finalize、audit 与后台工作使用
-`reqctx.Detached(workspaceID)`：
+需要比请求活得久、且必须完成的 finalize、audit 使用
+`reqctx.Detached(workspaceID)`。可取消、仍属于 service 生命周期的后台 writer 则从
+owner 自己的生命周期 context 派生并用 `reqctx.SetWorkspaceID` 播种，不使用永不取消
+的 Detached 基座：
 
-- 从 `context.Background()` 开始，真正脱离已取消请求；
+- Detached 从 `context.Background()` 开始，真正脱离已取消请求；
 - 重新播种 workspace，保证 ORM 隔离；
-- 只按需追加 conversation 等身份。
+- 只按需追加 conversation 等身份；可取消的后台 writer 必须继续观察 owner 的 shutdown cancel，
+  不能永远停在 Background。
 
 Trigger/Scheduler 等无原始请求的工作从 durable row 获得 workspace。可取消的
 后台循环不能把 loop context 换成 Background；应在调用方 context 上为每个

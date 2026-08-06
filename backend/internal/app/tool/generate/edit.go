@@ -34,6 +34,12 @@ var ErrSourceNotImage = errorspkg.New(errorspkg.KindInvalid, "IMAGE_SOURCE_NOT_I
 // 卡在它之下,把一个远端 413 变成一句本地的话。
 const maxEditSourceBytes = 10 << 20
 
+const localizedEditInstruction = "Preserve every element not explicitly changed by the instruction, including the background, composition, layout, texture, lighting, object count, and position. Make only the requested change; do not restyle or reinterpret the image."
+
+func localizedEditPrompt(prompt string) string {
+	return strings.TrimSpace(prompt) + "\n\n" + localizedEditInstruction
+}
+
 // EditImage is the edit_image tool (WRK-082 H9): an EXISTING attachment + an instruction → a new
 // image. It is a separate tool rather than an optional argument on generate_image, because honest
 // absence and the capability gate both work at TOOL granularity: a workspace whose image provider
@@ -133,10 +139,18 @@ func (e *EditImage) Execute(ctx context.Context, args string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	img, err := e.router.edit(ctx, route, strings.TrimSpace(in.Prompt), aspect,
+	img, err := e.router.edit(ctx, route, localizedEditPrompt(in.Prompt), aspect,
 		llminfra.DataURL{Mime: src.MimeType, Bytes: data})
 	if err != nil {
 		return "", err
+	}
+	editMode := "generative"
+	if preciseBytes, applied, err := applyPreciseColorSwap(data, in.Prompt); err != nil {
+		return "", fmt.Errorf("edit_image: precision post-process: %w", err)
+	} else if applied {
+		img.Bytes = preciseBytes
+		img.Mime = "image/png"
+		editMode = "precision_color_swap"
 	}
 	att, err := e.attachments.Upload(reqctxpkg.SetMediaSource(ctx, "edit_image"),
 		artifactFilename(img.Mime), img.Mime, img.Bytes)
@@ -156,6 +170,7 @@ func (e *EditImage) Execute(ctx context.Context, args string) (string, error) {
 		// 源随 receipt 走,使血缘在案:「这张是从哪张来的」不该要人回头重读 prompt 才答得出。
 		"sourceAttachmentId": src.ID,
 		"source":             "edit_image",
+		"editMode":           editMode,
 	}
 	if w > 0 && h > 0 {
 		receipt["width"], receipt["height"] = w, h

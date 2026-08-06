@@ -836,6 +836,81 @@ func titleTurn() []llminfra.StreamEvent {
 	}
 }
 
+// blockingTitleClient ignores cancellation until released. It models a provider that returns
+// after Shutdown has already cancelled the service lifecycle, which is the dangerous shape for a
+// detached best-effort task: the task must not write back after its database owner is closing.
+// blockingTitleClient 无视取消、直到 release 才返回。它模拟 provider 在 Shutdown 已取消 service 生命周期后
+// 才返回的危险形状：这个 detached best-effort 任务不能在数据库 owner 关停后再写回。
+type blockingTitleClient struct {
+	entered  chan struct{}
+	release  chan struct{}
+	finished chan struct{}
+}
+
+func (c *blockingTitleClient) Stream(_ context.Context, _ llminfra.Request) iter.Seq[llminfra.StreamEvent] {
+	return func(yield func(llminfra.StreamEvent) bool) {
+		select {
+		case c.entered <- struct{}{}:
+		default:
+		}
+		<-c.release
+		defer close(c.finished)
+		for _, ev := range titleTurn() {
+			if !yield(ev) {
+				return
+			}
+		}
+	}
+}
+
+func TestShutdown_DoesNotWaitForAutoTitle(t *testing.T) {
+	store := newStore(t)
+	ctx := ctxWS("ws_1")
+	if err := store.CreateMessage(ctx, &messagesdomain.Message{
+		ID: "msg_title_user", ConversationID: "cv_title", Role: messagesdomain.RoleUser, Status: messagesdomain.StatusCompleted,
+	}, []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: "A launch checklist"}}); err != nil {
+		t.Fatalf("seed message: %v", err)
+	}
+
+	client := &blockingTitleClient{
+		entered:  make(chan struct{}, 1),
+		release:  make(chan struct{}),
+		finished: make(chan struct{}),
+	}
+	titler := &fakeTitler{called: make(chan string, 1)}
+	svc := NewService(store, Deps{
+		Resolver:      fakeResolver{client: client},
+		Titler:        titler,
+		Conversations: fakeConvs{conv: &conversationdomain.Conversation{}},
+	}, zap.NewNop())
+	svc.maybeAutoTitle(&conversationdomain.Conversation{ID: "cv_title"}, "ws_1")
+	select {
+	case <-client.entered:
+	case <-time.After(time.Second):
+		t.Fatal("auto-title did not reach utility provider")
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	started := time.Now()
+	svc.Shutdown(shutdownCtx)
+	if elapsed := time.Since(started); elapsed > 500*time.Millisecond {
+		t.Fatalf("Shutdown waited for optional auto-title: %v", elapsed)
+	}
+
+	close(client.release)
+	select {
+	case <-client.finished:
+	case <-time.After(time.Second):
+		t.Fatal("auto-title provider did not finish after release")
+	}
+	select {
+	case title := <-titler.called:
+		t.Fatalf("auto-title wrote after service shutdown: %q", title)
+	default:
+	}
+}
+
 func TestAutoTitle_FirstTurn(t *testing.T) {
 	store := newStore(t)
 	titler := &fakeTitler{called: make(chan string, 1)}

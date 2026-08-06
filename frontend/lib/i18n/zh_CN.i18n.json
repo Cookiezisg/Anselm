@@ -626,12 +626,18 @@
       "generatingImage": "正在生成图像",
       "generatedImage": "已生成图像",
       "generatedImageStored": "已存为附件",
+      "editingImage": "正在改图",
+      "editedImage": "已改图",
+      "editedImageStored": "已存为改图附件",
       "generatingSpeech": "正在合成语音",
       "generatedSpeech": "已合成语音",
       "generatedSpeechStored": "已存为音频附件",
       "generatingVideo": "正在生成视频",
       "generatedVideo": "已生成视频",
-      "generatedVideoStored": "已存为视频附件"
+      "generatedVideoStored": "已存为视频附件",
+      "animatingImage": "正在让图片动起来",
+      "animatedImage": "已让图片动起来",
+      "animatedImageStored": "已存为图生视频附件"
     },
     "gate": {
       "dangerBadge": "危险",
@@ -1264,6 +1270,7 @@
   "entities": {
     "new": "新建",
     "filter": "搜索实体…",
+    "noResults": "没有匹配的实体。",
     "errorTitle": "无法加载实体",
     "errorHint": "本地引擎没有返回实体列表。",
     "retry": "重试",
@@ -1290,9 +1297,9 @@
         "resume": "恢复",
         "iterate": "AI 编辑"
       },
-      "iterateRequest": "帮我修改一下这个。",
+      "iterateRequest": "帮我用 AI 修改「$name」。",
       "deleteTitle": "删除这个实体?",
-      "deleteBody": "「$name」将被删除。",
+      "deleteBody": "「$name」将从当前目录移除，此操作无法撤销。",
       "actionFailed": "操作失败"
     },
     "detail": {
@@ -1414,6 +1421,7 @@
         "trigger": "触发器",
         "input": "输入",
         "output": "输出",
+        "logs": "日志",
         "ref": "引用",
         "healthy": "健康",
         "method": "方法",
@@ -1486,7 +1494,11 @@
         "createFirstVersion": "尚无版本",
         "createFirstVersionHint": "创建一个版本以激活该实体。",
         "errorTitle": "无法加载该实体",
+        "executionDetailsFailed": "完整执行记录加载失败",
         "errorHint": "本地引擎没有返回它。",
+        "renameFailed": "名称保存失败: $message",
+        "metaSaveFailed": "说明或标签保存失败: $message",
+        "invalidName": "小写开头; a-z 0-9 - _; 1–64。",
         "loadMore": "加载更多",
         "loadFailed": "加载失败,点此重试",
         "earliest": "最早版本"
@@ -1549,7 +1561,7 @@
       "cancel": "取消",
       "close": "关闭运行终端",
       "cancelled": "已取消",
-      "glanceToday": "今天 $n 次执行",
+      "glanceTotal": "共 $n 次执行",
       "glanceLastOk": "上次成功",
       "glanceLastFailed": "上次失败",
       "glanceLastCancelled": "上次取消",
@@ -1564,6 +1576,7 @@
       "steps": "$n 步",
       "tokens": "输入 $inT · 输出 $outT",
       "errorHeading": "错误",
+      "detailsHeading": "详细信息",
       "danger": {
         "cautious": "谨慎",
         "dangerous": "危险"
@@ -1861,6 +1874,8 @@
     "keys": {
       "voices": "克隆音色",
       "voicesEmpty": "还没有克隆音色。让助手用一段音频附件登记一个。",
+      "voicesLoadFailed": "读不到克隆音色。检查连接后重试。",
+      "voicesRetry": "重试",
       "voicesRemaining": "还能留 $n 个(共 $cap)",
       "voicesFull": "两个位置都占着了——删掉一个才能腾出地方。",
       "voicesDelete": "删除",

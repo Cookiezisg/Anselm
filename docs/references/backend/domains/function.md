@@ -30,6 +30,8 @@ Python 版本与 env 状态都在不可变 Version 上。
 
 - Edit 将 ops 应用于 active draft，写 `max(version)+1` 并切 active pointer；
 - Revert 只移动 pointer，不复制或重排版本；
+- 按 opaque version ID 单读或显式指定版本运行时，必须同时约束 parent `function_id`；跨 Function 的 ID 按
+  `FUNCTION_VERSION_NOT_FOUND` 处理，不能把另一个 Function 的 code/env 带入当前实体；
 - 每个版本有独立 `fnenv_` env，owner key 为 `functionID_envID`；
 - Version 镜像 `pending|syncing|ready|failed`、错误与同步时间；
 - 版本保留上限触发 trim 时，active version 不删，被裁版本的 env 最佳努力回收。
@@ -52,7 +54,9 @@ set_python_version
 
 LLM 工具、HTTP `:edit` 与直接 create 最终都进入 `ApplyOps`。每个 op 后做增量
 校验，完成后做终校验。工具输入可经过 JSON repair；非法 op 与非法最终代码
-仍分别大声失败。
+仍分别大声失败。HTTP `:edit` 的 ops 不是 JSON 数组、数组成员不能解码或缺少 `op`
+判别字段时，`ParseOps` 必须返回 `FUNCTION_OP_INVALID`（422，`details.reason` 带具体原因），
+而不是把用户输入错误降级成 500；任何失败都发生在 mutation 之前。
 
 代码校验是轻量词法边界：必须存在顶层 `def`，首个顶层函数是入口；禁止导入
 Handler SDK，以保持无状态/有状态执行边界。
@@ -80,6 +84,10 @@ flowrun、node 与 iteration 溯源从 request context 写入执行行。状态�
 Driver 在运行期间把用户 `print()` 导向 stderr，真实 stdout 只承载 JSON
 结果。stderr 同时进入 Chat tool progress、Entities run terminal 与有界日志；
 单条 Get 返回 logs，列表不复制大日志。
+
+Execution 列表的 `aggregates` 同时返回过滤集的 `totalCount`、`okCount` 与
+`failedCount`。`totalCount` 是完整过滤集计数，不受当前页大小限制；列表仍不携带
+单条的 `logs`，需要详情读取完整日志。
 
 ## 5. 媒体产物
 
@@ -121,3 +129,11 @@ Function 通过以下投影进入产品：
 
 LLM 工具覆盖搜索、读取、构建、revert、删除、运行和 Execution 查询。
 `update_function_meta` 只改主行，不铸版本或重建 env。
+
+## AI build 参数边界
+
+`create_function` / `edit_function` 的公开 schema 将 `ops` 声明为数组。部分托管模型会把整个数组
+错误编码成一个 JSON 字符串，或把 `set_inputs` / `set_outputs` 的平面字段列表误写成无歧义字段 map、
+顶层 JSON-Schema 对象；执行边界只接受这些可无损投影的窄兼容，并在验证、危险闸和执行前统一还原为原生
+数组与扁平 `schema.Field`，使工具卡、审计和实际执行一致。JSON-Schema wrapper 的 `required`（若存在）
+必须覆盖全部 properties；CSV、自然语言、歧义对象和坏 JSON 继续拒绝，不能把兼容缝误解为放宽公开契约。

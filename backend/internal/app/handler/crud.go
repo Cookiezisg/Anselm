@@ -347,6 +347,10 @@ func (s *Service) GetVersion(ctx context.Context, versionID string) (*handlerdom
 	return s.repo.GetVersion(ctx, versionID)
 }
 
+func (s *Service) GetVersionForHandler(ctx context.Context, handlerID, versionID string) (*handlerdomain.Version, error) {
+	return s.repo.GetVersionForHandler(ctx, handlerID, versionID)
+}
+
 func (s *Service) GetVersionByNumber(ctx context.Context, handlerID string, versionN int) (*handlerdomain.Version, error) {
 	return s.repo.GetVersionByNumber(ctx, handlerID, versionN)
 }

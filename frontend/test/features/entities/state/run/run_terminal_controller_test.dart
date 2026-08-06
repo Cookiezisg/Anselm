@@ -1,5 +1,7 @@
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/handler.dart';
+import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -7,6 +9,7 @@ import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_state.dart';
+import 'package:anselm/features/entities/state/detail/entity_detail_provider.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 const _fnRef = EntityRef(EntityKind.function, 'fn_1');
 const _agRef = EntityRef(EntityKind.agent, 'ag_1');
 const _wfRef = EntityRef(EntityKind.workflow, 'wf_1');
+const _hdRef = EntityRef(EntityKind.handler, 'hd_1');
 
 (ProviderContainer, RunTerminalController) _harness(
   EntityRepository repo,
@@ -68,8 +72,46 @@ class _ThrowRepo extends FixtureEntityRepository {
     code: 'FUNCTION_RUN_TIMEOUT',
     message: 'timed out',
     httpStatus: 504,
+    details: {'reason': 'deadline exceeded'},
   );
 }
+
+class _HandlerCallRefreshRepo extends FixtureEntityRepository {
+  _HandlerCallRefreshRepo()
+    : super(
+        handlers: [
+          HandlerEntity(
+            id: 'hd_1',
+            name: 'resident',
+            createdAt: _handlerTime,
+            updatedAt: _handlerTime,
+            configState: 'ready',
+            runtimeState: 'stopped',
+            activeVersion: HandlerVersion(
+              id: 'hdv_1',
+              handlerId: 'hd_1',
+              version: 1,
+              methods: [const MethodSpec(name: 'place')],
+              createdAt: _handlerTime,
+              updatedAt: _handlerTime,
+            ),
+          ),
+        ],
+        runDelay: Duration.zero,
+      );
+
+  @override
+  Future<dynamic> callHandler(
+    String id, {
+    required String method,
+    required Map<String, dynamic> args,
+  }) async {
+    upsertHandler((await getHandler(id)).copyWith(runtimeState: 'running'));
+    return super.callHandler(id, method: method, args: args);
+  }
+}
+
+final _handlerTime = DateTime.utc(2026, 6, 27);
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized(); // CoalescingNotifier touches SchedulerBinding.instance
@@ -138,7 +180,52 @@ void main() {
     expect(st.phase, RunPhase.failed);
     expect(st.errorCode, 'FUNCTION_RUN_TIMEOUT');
     expect(st.errorMsg, 'timed out');
+    expect(st.errorDetails, {'reason': 'deadline exceeded'});
   });
+
+  test('handler call → re-reads server-owned runtime state', () async {
+    final repo = _HandlerCallRefreshRepo();
+    final c = ProviderContainer(
+      overrides: [entityRepositoryProvider.overrideWithValue(repo)],
+    );
+    addTearDown(c.dispose);
+    c.listen(entityDetailProvider(_hdRef), (_, _) {});
+    c.listen(runTerminalProvider(_hdRef), (_, _) {});
+    await c.read(entityDetailProvider(_hdRef).future);
+    expect(
+      c.read(entityDetailProvider(_hdRef)).value?.handler?.runtimeState,
+      'stopped',
+    );
+
+    await c.read(runTerminalProvider(_hdRef).notifier).run();
+    await c.read(entityDetailProvider(_hdRef).future);
+
+    expect(
+      c.read(entityDetailProvider(_hdRef)).value?.handler?.runtimeState,
+      'running',
+    );
+  });
+
+  test(
+    'version switch clears transient result but preserves handler method',
+    () async {
+      final repo = FixtureEntityRepository(runDelay: Duration.zero);
+      final (c, ctl) = _harness(repo, _hdRef);
+      ctl.setMethod('place');
+      await ctl.run();
+
+      expect(c.read(runTerminalProvider(_hdRef)).phase, RunPhase.ok);
+      expect(c.read(runTerminalProvider(_hdRef)).output, isNotNull);
+
+      ctl.clearResultAfterVersionChange();
+
+      final state = c.read(runTerminalProvider(_hdRef));
+      expect(state.phase, RunPhase.idle);
+      expect(state.output, isNull);
+      expect(state.errorMsg, isNull);
+      expect(state.method, 'place');
+    },
+  );
 
   test(
     'cancel before completion drops the stale result (stays cancelled)',

@@ -92,6 +92,19 @@ func TestVideo_ManagedTierRoutesVideo(t *testing.T) {
 	if route.provider != "anselm" || route.installID != "ins_1" || route.model != "" || route.key != "" {
 		t.Fatalf("managed video route = %+v", route)
 	}
+	if managedOnly.VideoEditAvailable(context.Background()) {
+		t.Fatal("a managed gateway that only advertises video_generation must not expose animate_image")
+	}
+
+	i2v := routerWith(
+		fakePicker{err: modeldomain.ErrNotConfigured},
+		fakeKeys{creds: map[string]apikeydomain.Credentials{"k": {Provider: "anselm", Key: "ins_1", BaseURL: "https://gw.example/v1"}}},
+		fakeProbes{rows: []apikeydomain.ProbedKey{{ID: "k", Provider: "anselm", TestStatus: apikeydomain.TestStatusOK,
+			TestResponse: `{"data":[{"id":"anselm-auto","anselm_capabilities":{"version":1,"routing":"content","video_generation":{"available":true,"image_to_video":true}}}]}`}}},
+	)
+	if !i2v.VideoEditAvailable(context.Background()) {
+		t.Fatal("explicit managed image_to_video capability must expose animate_image")
+	}
 
 	tool := videoTool(t, managedOnly, &fakeUploader{})
 	if err := tool.ValidateInput(json.RawMessage(`{"prompt":"  "}`)); err == nil {

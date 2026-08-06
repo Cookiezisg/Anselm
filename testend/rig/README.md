@@ -16,7 +16,7 @@
 | ② 后端 | conductor 亲启的 sidecar,stdout 全量捕获 | `backend.log` |
 | ③ SSE | `cmd/ssetap` 动态发现全部 workspace 并独立订三条流(不经前端 demux) | `sse.jsonl` |
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
-| ⑤ LLM 线缆 | `cmd/llmtap` 透明代理在受管网关前 | `llm.jsonl` + 逐调用请求体/响应体文件 |
+| ⑤ LLM 线缆 | `cmd/llmtap` 透明代理在受管网关前 | `llm.jsonl` + 逐调用请求体/响应体文件；启动先落 `event=ready`，无模型调用的旅程仍能证明线缆在线 |
 
 所有会话落 `~/.anselm-rig/sessions/<时间戳>/`；conductor 初始化 `evidence/` 与各 channel journal，
 截图等证据可以直接写入该目录。`~/.anselm-rig/current` 软链指认活会话，`manifest.json` 是其余脚本唯一读的连接事实。
@@ -26,6 +26,11 @@ debug engine 在 AX 树正被替换时可能输出 `accessibility_bridge.cc ... 
 交互噪声，但仍属于未审阅前端红线：`rig-check` 会拒绝它，证据必须另行说明「流中不读 AX、静置不增长、无
 FlutterError/DartError/RenderFlex」后才可把它从产品缺陷中分流，不能用 grep 静默抹掉。菜单/锚定浮层另有
 产品代码守卫：触发器树必须保留常驻的显式语义边界；若开合后 AX 红线仍持续增长，先修代码，不得直接归类为观察噪声。
+
+审阅不是全局开关。若本 session 只出现 Flutter 固定格式的「旧 AX node 不在树中」行，须在该 session 的
+`evidence/frontend-ax-review.md` 写入 `classification: tooling-ax-tree` 与 `status: reviewed`，并说明观察时机、
+静置不增长、没有 Dart/Flutter/布局异常；`rig-check` 只按这两个精确字段放行。任何未知 AX 文字或应用级异常仍
+硬失败，不能靠删日志或环境变量消音。
 
 ## 起 / 检 / 停
 
@@ -61,6 +66,7 @@ Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝
   而 `llm.jsonl` 只是安静。rig-up 对错指针直接拒绝;rig-check 持续断言。
   (相关后端 env:`ANSELM_GATEWAY_URL` 指 tap;`ANSELM_PROOF_HOST` 让 device-proof 的 htu
   签**真实受众**——受管流量按 DPoP 式设计天生反代理,唯一正当例外是设备自己的录制代理。)
+  `llm.jsonl` 的 `event=ready` 只证明 recorder 已启动并绑定目标上游，不代表产生了模型流量；模型请求/响应仍必须逐条看真实 wire 记录。
 
 ## 测量(凡能成为数字的视觉判断必须成为数字)
 
@@ -70,7 +76,10 @@ go run ./cmd/measure diff -dir <frames/> -roi x,y,w,h
 go run ./cmd/measure regions -img <shot.png> -color '#RRGGBB'
 go run ./cmd/measure contrast -fg '#RRGGBB' -bg '#RRGGBB'
 go run ./cmd/measure latency -dir <frames/> -fps 30 -action <0-based帧号> -roi x,y,w,h
+go run ./cmd/measure compare -source <source.png> -frame <first-frame.png>
 ```
+
+`compare` 是 `animate_image` 的首帧硬证据:它先把源图确定性归一到视频首帧的栅格,再输出变化像素占比和包围盒;默认 `changedFrac <= 0.20` 才通过。它不是逐编码器像素相等,而是防止上游把图生视频静默降级成另一幅文生视频构图。
 
 先 `rig-down.sh` 封口录像，再抽帧：
 
@@ -130,7 +139,15 @@ python3 testend/rig/gen_coverage.py
 
 `check_journeys.py` 核验旅程对清册的认领覆盖(二期启用,基线自证过)。
 
+`TOOL-123` 进入真实 App 前，先对 llmtap 保存的 `/models` 响应运行
+`python3 testend/rig/check_i2v_contract.py <models-response.bin>`；它支持原始 JSON 和 gzip，只有
+`video_generation.available=true` 与 `image_to_video=true` 同时存在时才返回 0。缺失时返回 2，不能
+把 T2V-only 网关误当成 I2V 继续烧一轮实机额度。
+
 ## 快速自证(怀疑台架先于怀疑产品)
 
 任何异常先跑 `rig-check.sh`;它红了,一切产品裁决冻结——哑掉的通道读起来与干净的产品一模一样,
 这正是台架自检存在的理由(「先查夹具再报缺陷」)。
+清册生成器默认才会写盘；恢复上下文或做门禁前先用只读的
+`python3 testend/rig/gen_coverage.py --check`，它会验证当前 `COVERAGE.md` 是否与四份提取物一致。
+`--help` 也必须保持只读；不要把探查命令当作刷新命令执行。

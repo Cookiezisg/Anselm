@@ -298,6 +298,10 @@ func (s *Service) GetVersion(ctx context.Context, versionID string) (*functiondo
 	return s.repo.GetVersion(ctx, versionID)
 }
 
+func (s *Service) GetVersionForFunction(ctx context.Context, functionID, versionID string) (*functiondomain.Version, error) {
+	return s.repo.GetVersionForFunction(ctx, functionID, versionID)
+}
+
 func (s *Service) GetVersionByNumber(ctx context.Context, functionID string, versionN int) (*functiondomain.Version, error) {
 	return s.repo.GetVersionByNumber(ctx, functionID, versionN)
 }

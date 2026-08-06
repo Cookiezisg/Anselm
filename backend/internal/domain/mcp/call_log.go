@@ -91,11 +91,12 @@ type CallFilter struct {
 	Limit          int
 }
 
-// CallAggregates is the ok / not-ok rollup beside a page of calls (status-badge data,
+// CallAggregates is the total and ok / not-ok rollup beside a page of calls (status-badge data,
 // same shape as handler/function).
 //
-// CallAggregates 是分页旁的 ok / 非 ok 汇总（状态徽标数据，与 handler/function 同形）。
+// CallAggregates 是分页旁的总数与 ok / 非 ok 汇总（状态徽标数据，与 handler/function 同形）。
 type CallAggregates struct {
+	TotalCount  int `json:"totalCount"`
 	OKCount     int `json:"okCount"`
 	FailedCount int `json:"failedCount"`
 }

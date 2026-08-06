@@ -80,6 +80,114 @@ func TestRunFunctionArgs_RejectsNonIntegerVersion(t *testing.T) {
 	}
 }
 
+func TestBuildTools_AcceptHostedModelStringifiedOpsAndNormalizeBeforeExecution(t *testing.T) {
+	createArgs := json.RawMessage(`{"ops":"[{\"op\":\"set_meta\",\"name\":\"temperature\"}]","changeReason":"probe"}`)
+	editArgs := json.RawMessage(`{"functionId":"fn_1","ops":"[{\"op\":\"set_meta\",\"name\":\"temperature\"}]","changeReason":"probe"}`)
+	for _, tc := range []struct {
+		name string
+		tool toolapp.Tool
+		args json.RawMessage
+	}{
+		{name: "create_function", tool: &CreateFunction{}, args: createArgs},
+		{name: "edit_function", tool: &EditFunction{}, args: editArgs},
+	} {
+		if err := tc.tool.ValidateInput(tc.args); err != nil {
+			t.Fatalf("%s should accept a valid JSON-encoded ops array: %v", tc.name, err)
+		}
+		normalizer, ok := tc.tool.(toolapp.ArgumentNormalizer)
+		if !ok {
+			t.Fatalf("%s must normalize hosted-model arguments", tc.name)
+		}
+		normalized, changed := normalizer.NormalizeArguments(tc.args)
+		if !changed {
+			t.Fatalf("%s did not report the stringified array repair", tc.name)
+		}
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(normalized, &fields); err != nil {
+			t.Fatalf("%s normalized invalid JSON: %v", tc.name, err)
+		}
+		var ops []json.RawMessage
+		if err := json.Unmarshal(fields["ops"], &ops); err != nil || len(ops) != 1 {
+			t.Fatalf("%s normalized ops = %s, want one native array item", tc.name, fields["ops"])
+		}
+	}
+}
+
+func TestBuildTools_RejectNonArrayOpsStrings(t *testing.T) {
+	for _, raw := range []string{`{"ops":"temperature"}`, `{"ops":"{\"op\":\"set_meta\"}"}`, `{"ops":"not json"}`} {
+		if err := (&CreateFunction{}).ValidateInput(json.RawMessage(raw)); err == nil {
+			t.Errorf("ValidateInput(%s) unexpectedly accepted a non-array ops string", raw)
+		}
+	}
+}
+
+func TestBuildTools_EditValidatesOpsBeforeExecution(t *testing.T) {
+	tool := &EditFunction{}
+	for _, raw := range []string{
+		`{"functionId":"fn_1","ops":"not json"}`,
+		`{"functionId":"fn_1","ops":null}`,
+	} {
+		if err := tool.ValidateInput(json.RawMessage(raw)); err == nil {
+			t.Errorf("edit ValidateInput(%s) unexpectedly accepted malformed ops", raw)
+		}
+	}
+	if err := tool.ValidateInput(json.RawMessage(`{"functionId":"fn_1","ops":[]}`)); err != nil {
+		t.Fatalf("empty edit ops should remain valid for environment rebuild: %v", err)
+	}
+}
+
+func TestBuildTools_NormalizeHostedModelNestedFieldShapes(t *testing.T) {
+	args := json.RawMessage(`{"ops":"[{\"op\":\"set_meta\",\"name\":\"temperature\"},{\"op\":\"set_inputs\",\"inputs\":{\"celsius\":{\"type\":\"number\",\"description\":\"Temperature in Celsius\"}}},{\"op\":\"set_outputs\",\"outputs\":{\"type\":\"object\",\"properties\":{\"fahrenheit\":{\"type\":\"number\",\"description\":\"Temperature in Fahrenheit\"}},\"required\":[\"fahrenheit\"]}}]"}`)
+	tool := &CreateFunction{}
+	if err := tool.ValidateInput(args); err != nil {
+		t.Fatalf("nested field shapes should be accepted after normalization: %v", err)
+	}
+	normalized, changed := tool.NormalizeArguments(args)
+	if !changed {
+		t.Fatal("nested field shapes should report a normalization")
+	}
+	var envelope struct {
+		Ops []map[string]json.RawMessage `json:"ops"`
+	}
+	if err := json.Unmarshal(normalized, &envelope); err != nil {
+		t.Fatalf("normalized args invalid: %v", err)
+	}
+	if len(envelope.Ops) != 3 {
+		t.Fatalf("normalized ops count = %d, want 3", len(envelope.Ops))
+	}
+	for _, index := range []int{1, 2} {
+		var fields []map[string]json.RawMessage
+		key := "inputs"
+		if index == 2 {
+			key = "outputs"
+		}
+		if err := json.Unmarshal(envelope.Ops[index][key], &fields); err != nil {
+			t.Fatalf("normalized %s is not a field array: %v", key, err)
+		}
+		if len(fields) != 1 {
+			t.Fatalf("normalized %s length = %d, want 1", key, len(fields))
+		}
+		var name string
+		if err := json.Unmarshal(fields[0]["name"], &name); err != nil || name == "" {
+			t.Fatalf("normalized %s field has no name: %s", key, fields[0]["name"])
+		}
+	}
+}
+
+func TestBuildTools_RejectAmbiguousNestedSchema(t *testing.T) {
+	raw := json.RawMessage(`{"ops":[{"op":"set_outputs","outputs":{"type":"object","properties":{"value":{"type":"number"}},"required":[]}}]}`)
+	if err := (&CreateFunction{}).ValidateInput(raw); err == nil {
+		t.Fatal("schema with non-total required list should not be silently projected")
+	}
+}
+
+func TestBuildTools_RejectsDuplicateRequiredSchemaNames(t *testing.T) {
+	raw := json.RawMessage(`{"ops":[{"op":"set_outputs","outputs":{"properties":{"value":{"type":"number"}},"required":["value","value"]}}]}`)
+	if err := (&CreateFunction{}).ValidateInput(raw); err == nil {
+		t.Fatal("schema with duplicate required names should not be silently projected")
+	}
+}
+
 func TestSearchFunctionExecutions_DescriptionStatesPagingShape(t *testing.T) {
 	d := (&SearchFunctionExecutions{}).Description()
 	for _, want := range []string{"JSON integer", `exact decimal string "2"`, "nextCursor verbatim"} {

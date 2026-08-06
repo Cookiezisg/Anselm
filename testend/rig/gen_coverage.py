@@ -8,6 +8,7 @@
 # gen_coverage.py — 从 testend/rig/extracts/ 四份原始提取物重生成验收清册账本(WRK-087
 # COVERAGE.md)。**刻意 merge-aware**:行以「项名」为键,既有裁决/证据列逐字携带——重提取后
 # 重生成(如合并他队改动后的刷新)只把新行加为未判、消失行移进墓碑段,绝不静默删除已判历史。
+import argparse
 import re
 import sys
 from pathlib import Path
@@ -76,8 +77,7 @@ def esc(s: str) -> str:
     return s.replace("|", "\\|")
 
 
-def main():
-    existing = parse_existing(OUT)
+def render(existing):
     seen = set()
     out = [FRONT]
     grand = 0
@@ -105,10 +105,35 @@ def main():
         for (tag, name), (status, ev) in sorted(dead):
             out.append(f"| {tag} | {esc(name)} | {status} | {ev} |")
     out.append(f"\n**TOTAL: {grand} 行 × 5 级 = {grand * 5} 格**")
-    OUT.write_text("\n".join(out) + "\n")
     judged = sum(1 for v in existing.values() if v[0] != "·····")
-    print(f"gen_coverage: {grand} rows ({judged} carried judgments, {len(dead)} tombstones) → {OUT}")
+    return "\n".join(out) + "\n", grand, judged, len(dead)
+
+
+def main(argv=None):
+    parser = argparse.ArgumentParser(
+        description="Regenerate or verify the merge-aware WRK-087 COVERAGE.md ledger."
+    )
+    parser.add_argument(
+        "--check",
+        action="store_true",
+        help="verify that COVERAGE.md is up to date without writing it",
+    )
+    args = parser.parse_args(argv)
+
+    existing = parse_existing(OUT)
+    rendered, grand, judged, tombstones = render(existing)
+    if args.check:
+        current = OUT.read_text() if OUT.exists() else ""
+        if current != rendered:
+            print(f"gen_coverage: drift detected in {OUT}", file=sys.stderr)
+            return 1
+        print(f"gen_coverage: clean ({grand} rows, {judged} carried judgments, {tombstones} tombstones)")
+        return 0
+
+    OUT.write_text(rendered)
+    print(f"gen_coverage: {grand} rows ({judged} carried judgments, {tombstones} tombstones) → {OUT}")
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

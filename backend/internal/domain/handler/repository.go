@@ -52,6 +52,7 @@ type Repository interface {
 
 	SaveVersion(ctx context.Context, v *Version) error
 	GetVersion(ctx context.Context, versionID string) (*Version, error)
+	GetVersionForHandler(ctx context.Context, handlerID, versionID string) (*Version, error)
 	GetVersionByNumber(ctx context.Context, handlerID string, versionN int) (*Version, error)
 	ListVersions(ctx context.Context, handlerID string, filter VersionListFilter) ([]*Version, string, error)
 	MaxVersionNumber(ctx context.Context, handlerID string) (int, error)

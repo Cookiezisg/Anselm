@@ -18,8 +18,8 @@ TOOL | todo_read | todo | 读回当前任务清单含已完成项
 TOOL | search_tools | toolset | 按能力检索并激活 lazy 工具
 TOOL | search_function | function | 关键词+语义检索 function 库
 TOOL | get_function | function | 取 function 活跃版本全貌
-TOOL | create_function | function | ops 构建新 Python function,v1 立即生效
-TOOL | edit_function | function | 活跃版本叠 ops 出新版本
+TOOL | create_function | function | ops 构建新 Python function,v1 立即生效;公开为数组,窄兼容有效 JSON 编码数组字符串及 set_inputs/set_outputs 无歧义字段 map/全 required JSON-Schema 并在校验前还原,CSV/歧义/坏字符串拒绝
+TOOL | edit_function | function | 活跃版本叠 ops 出新版本;公开为数组,窄兼容有效 JSON 编码数组字符串及 set_inputs/set_outputs 无歧义字段 map/全 required JSON-Schema 并在校验前还原,CSV/歧义/坏字符串拒绝
 TOOL | revert_function | function | 活跃指针切到已有版本号
 TOOL | delete_function | function | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;软删 function 主行并回收 sandbox;不可逆版本历史保留供审计,主实体与动作随后 not-found
 TOOL | update_function_meta | function | 仅改 name/description/tags

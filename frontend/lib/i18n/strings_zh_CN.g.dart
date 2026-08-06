@@ -461,6 +461,7 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	// Translations
 	@override String get kNew => '新建';
 	@override String get filter => '搜索实体…';
+	@override String get noResults => '没有匹配的实体。';
 	@override String get errorTitle => '无法加载实体';
 	@override String get errorHint => '本地引擎没有返回实体列表。';
 	@override String get retry => '重试';
@@ -1298,12 +1299,18 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get generatingImage => '正在生成图像';
 	@override String get generatedImage => '已生成图像';
 	@override String get generatedImageStored => '已存为附件';
+	@override String get editingImage => '正在改图';
+	@override String get editedImage => '已改图';
+	@override String get editedImageStored => '已存为改图附件';
 	@override String get generatingSpeech => '正在合成语音';
 	@override String get generatedSpeech => '已合成语音';
 	@override String get generatedSpeechStored => '已存为音频附件';
 	@override String get generatingVideo => '正在生成视频';
 	@override String get generatedVideo => '已生成视频';
 	@override String get generatedVideoStored => '已存为视频附件';
+	@override String get animatingImage => '正在让图片动起来';
+	@override String get animatedImage => '已让图片动起来';
+	@override String get animatedImageStored => '已存为图生视频附件';
 }
 
 // Path: chat.gate
@@ -1810,9 +1817,9 @@ class _Translations$entities$rail$zh_CN extends Translations$entities$rail$en {
 
 	// Translations
 	@override late final _Translations$entities$rail$menu$zh_CN menu = _Translations$entities$rail$menu$zh_CN._(_root);
-	@override String get iterateRequest => '帮我修改一下这个。';
+	@override String iterateRequest({required Object name}) => '帮我用 AI 修改「${name}」。';
 	@override String get deleteTitle => '删除这个实体?';
-	@override String deleteBody({required Object name}) => '「${name}」将被删除。';
+	@override String deleteBody({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。';
 	@override String get actionFailed => '操作失败';
 }
 
@@ -1857,7 +1864,7 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String get cancel => '取消';
 	@override String get close => '关闭运行终端';
 	@override String get cancelled => '已取消';
-	@override String glanceToday({required Object n}) => '今天 ${n} 次执行';
+	@override String glanceTotal({required Object n}) => '共 ${n} 次执行';
 	@override String get glanceLastOk => '上次成功';
 	@override String get glanceLastFailed => '上次失败';
 	@override String get glanceLastCancelled => '上次取消';
@@ -1872,6 +1879,7 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String steps({required Object n}) => '${n} 步';
 	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
 	@override String get errorHeading => '错误';
+	@override String get detailsHeading => '详细信息';
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
@@ -2070,6 +2078,8 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	// Translations
 	@override String get voices => '克隆音色';
 	@override String get voicesEmpty => '还没有克隆音色。让助手用一段音频附件登记一个。';
+	@override String get voicesLoadFailed => '读不到克隆音色。检查连接后重试。';
+	@override String get voicesRetry => '重试';
 	@override String voicesRemaining({required Object n, required Object cap}) => '还能留 ${n} 个(共 ${cap})';
 	@override String get voicesFull => '两个位置都占着了——删掉一个才能腾出地方。';
 	@override String get voicesDelete => '删除';
@@ -2786,6 +2796,7 @@ class _Translations$entities$detail$kv$zh_CN extends Translations$entities$detai
 	@override String get trigger => '触发器';
 	@override String get input => '输入';
 	@override String get output => '输出';
+	@override String get logs => '日志';
 	@override String get ref => '引用';
 	@override String get healthy => '健康';
 	@override String get method => '方法';
@@ -2885,7 +2896,11 @@ class _Translations$entities$detail$state$zh_CN extends Translations$entities$de
 	@override String get createFirstVersion => '尚无版本';
 	@override String get createFirstVersionHint => '创建一个版本以激活该实体。';
 	@override String get errorTitle => '无法加载该实体';
+	@override String get executionDetailsFailed => '完整执行记录加载失败';
 	@override String get errorHint => '本地引擎没有返回它。';
+	@override String renameFailed({required Object message}) => '名称保存失败: ${message}';
+	@override String metaSaveFailed({required Object message}) => '说明或标签保存失败: ${message}';
+	@override String get invalidName => '小写开头; a-z 0-9 - _; 1–64。';
 	@override String get loadMore => '加载更多';
 	@override String get loadFailed => '加载失败,点此重试';
 	@override String get earliest => '最早版本';
@@ -3624,12 +3639,18 @@ extension on TranslationsZhCn {
 			'chat.tool.generatingImage' => '正在生成图像',
 			'chat.tool.generatedImage' => '已生成图像',
 			'chat.tool.generatedImageStored' => '已存为附件',
+			'chat.tool.editingImage' => '正在改图',
+			'chat.tool.editedImage' => '已改图',
+			'chat.tool.editedImageStored' => '已存为改图附件',
 			'chat.tool.generatingSpeech' => '正在合成语音',
 			'chat.tool.generatedSpeech' => '已合成语音',
 			'chat.tool.generatedSpeechStored' => '已存为音频附件',
 			'chat.tool.generatingVideo' => '正在生成视频',
 			'chat.tool.generatedVideo' => '已生成视频',
 			'chat.tool.generatedVideoStored' => '已存为视频附件',
+			'chat.tool.animatingImage' => '正在让图片动起来',
+			'chat.tool.animatedImage' => '已让图片动起来',
+			'chat.tool.animatedImageStored' => '已存为图生视频附件',
 			'chat.gate.dangerBadge' => '危险',
 			'chat.gate.awaitingDanger' => '等待你确认',
 			'chat.gate.awaitingAsk' => '等待你回答',
@@ -4027,14 +4048,14 @@ extension on TranslationsZhCn {
 			'scheduler.range.backToPresets' => '返回快捷范围',
 			'scheduler.range.backToToday' => '回到今天',
 			'scheduler.range.preciseTime' => '精确到时刻',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m} 月 ${d} 日',
 			'scheduler.range.dayTextYear' => ({required Object y, required Object m, required Object d}) => '${y} 年 ${m} 月 ${d} 日',
 			'scheduler.range.capsuleA11y' => '时间范围',
 			'scheduler.range.gridA11y' => '日历',
 			'action.edit' => '编辑',
 			'action.cancel' => '取消',
-			_ => null,
-		} ?? switch (path) {
 			'action.save' => '保存',
 			'action.copy' => '复制',
 			'action.expand' => '展开',
@@ -4199,6 +4220,7 @@ extension on TranslationsZhCn {
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',
+			'entities.noResults' => '没有匹配的实体。',
 			'entities.errorTitle' => '无法加载实体',
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
 			'entities.retry' => '重试',
@@ -4222,9 +4244,9 @@ extension on TranslationsZhCn {
 			'entities.rail.menu.pause' => '暂停',
 			'entities.rail.menu.resume' => '恢复',
 			'entities.rail.menu.iterate' => 'AI 编辑',
-			'entities.rail.iterateRequest' => '帮我修改一下这个。',
+			'entities.rail.iterateRequest' => ({required Object name}) => '帮我用 AI 修改「${name}」。',
 			'entities.rail.deleteTitle' => '删除这个实体?',
-			'entities.rail.deleteBody' => ({required Object name}) => '「${name}」将被删除。',
+			'entities.rail.deleteBody' => ({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。',
 			'entities.rail.actionFailed' => '操作失败',
 			'entities.detail.crumbRoot' => '实体',
 			'entities.detail.tab.overview' => '概览',
@@ -4325,6 +4347,7 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.trigger' => '触发器',
 			'entities.detail.kv.input' => '输入',
 			'entities.detail.kv.output' => '输出',
+			'entities.detail.kv.logs' => '日志',
 			'entities.detail.kv.ref' => '引用',
 			'entities.detail.kv.healthy' => '健康',
 			'entities.detail.kv.method' => '方法',
@@ -4389,7 +4412,11 @@ extension on TranslationsZhCn {
 			'entities.detail.state.createFirstVersion' => '尚无版本',
 			'entities.detail.state.createFirstVersionHint' => '创建一个版本以激活该实体。',
 			'entities.detail.state.errorTitle' => '无法加载该实体',
+			'entities.detail.state.executionDetailsFailed' => '完整执行记录加载失败',
 			'entities.detail.state.errorHint' => '本地引擎没有返回它。',
+			'entities.detail.state.renameFailed' => ({required Object message}) => '名称保存失败: ${message}',
+			'entities.detail.state.metaSaveFailed' => ({required Object message}) => '说明或标签保存失败: ${message}',
+			'entities.detail.state.invalidName' => '小写开头; a-z 0-9 - _; 1–64。',
 			'entities.detail.state.loadMore' => '加载更多',
 			'entities.detail.state.loadFailed' => '加载失败,点此重试',
 			'entities.detail.state.earliest' => '最早版本',
@@ -4447,7 +4474,7 @@ extension on TranslationsZhCn {
 			'entities.run.cancel' => '取消',
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.cancelled' => '已取消',
-			'entities.run.glanceToday' => ({required Object n}) => '今天 ${n} 次执行',
+			'entities.run.glanceTotal' => ({required Object n}) => '共 ${n} 次执行',
 			'entities.run.glanceLastOk' => '上次成功',
 			'entities.run.glanceLastFailed' => '上次失败',
 			'entities.run.glanceLastCancelled' => '上次取消',
@@ -4462,6 +4489,7 @@ extension on TranslationsZhCn {
 			'entities.run.steps' => ({required Object n}) => '${n} 步',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}',
 			'entities.run.errorHeading' => '错误',
+			'entities.run.detailsHeading' => '详细信息',
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
 			'entities.run.inboxEmpty' => '没有待审批',
@@ -4534,6 +4562,8 @@ extension on TranslationsZhCn {
 			'library.saveFailedGone' => '无法保存——此页面已被删除',
 			'library.props.title' => '属性',
 			'library.props.name' => '名称',
+			_ => null,
+		} ?? switch (path) {
 			'library.props.description' => '描述',
 			'library.props.tags' => '标签',
 			'library.props.addTag' => '添加标签',
@@ -4547,8 +4577,6 @@ extension on TranslationsZhCn {
 			'library.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
 			'library.props.tools' => '允许的工具',
 			'library.props.addTool' => '添加工具',
-			_ => null,
-		} ?? switch (path) {
 			'library.props.toolPickerTitle' => '添加工具',
 			'library.props.toolPickerSearch' => '搜索工具 / 函数 / MCP…',
 			'library.props.toolPickerBuiltin' => '内置工具',
@@ -4727,6 +4755,8 @@ extension on TranslationsZhCn {
 			'settings.langZh' => '简体中文',
 			'settings.keys.voices' => '克隆音色',
 			'settings.keys.voicesEmpty' => '还没有克隆音色。让助手用一段音频附件登记一个。',
+			'settings.keys.voicesLoadFailed' => '读不到克隆音色。检查连接后重试。',
+			'settings.keys.voicesRetry' => '重试',
 			'settings.keys.voicesRemaining' => ({required Object n, required Object cap}) => '还能留 ${n} 个(共 ${cap})',
 			'settings.keys.voicesFull' => '两个位置都占着了——删掉一个才能腾出地方。',
 			'settings.keys.voicesDelete' => '删除',
@@ -5046,6 +5076,8 @@ extension on TranslationsZhCn {
 			'settings.shortcuts.resetAll' => '全部恢复默认',
 			'settings.shortcuts.reset' => '恢复默认',
 			'settings.shortcuts.rebind' => '改绑',
+			_ => null,
+		} ?? switch (path) {
 			'settings.shortcuts.recording' => '按下新组合键…',
 			'settings.shortcuts.conflict' => ({required Object cmd}) => '与「${cmd}」冲突',
 			'settings.shortcuts.cmdToggleLeft' => '折叠/展开左岛',
@@ -5061,8 +5093,6 @@ extension on TranslationsZhCn {
 			'settings.capsuleApprovalsDesc' => '待审批在顶带弹出可就地批复的块',
 			'settings.capsuleAttention' => '胶囊:需要关注',
 			'settings.capsuleAttentionDesc' => '需关注事件(连败、悬空引用)弹出顶带胶囊',
-			_ => null,
-		} ?? switch (path) {
 			'settings.spend.title' => '自带密钥支出',
 			'settings.spend.window' => '近 30 天(直连)',
 			'settings.spend.empty' => '这 30 天没有用自己的 key 生成过东西。',

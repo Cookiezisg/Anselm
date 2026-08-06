@@ -83,9 +83,15 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
           // 长什么样不能有分歧。
           switch (inv) {
             AsyncData(:final value) => _body(t, c, value),
-            AsyncError() => Text(
-              t.settings.keys.voicesEmpty,
-              style: AnText.label.copyWith(color: c.inkMuted),
+            AsyncError() => AnState(
+              kind: AnStateKind.error,
+              title: t.settings.keys.voicesLoadFailed,
+              size: AnStateSize.inset,
+              action: AnButton(
+                label: t.settings.keys.voicesRetry,
+                outline: true,
+                onPressed: () => ref.invalidate(voicesProvider),
+              ),
             ),
             _ => const SizedBox(height: AnSpace.s16),
           },

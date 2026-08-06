@@ -658,24 +658,37 @@ String commandChip(String command) {
 ({
   String attachmentId,
   String? mime,
+  String? filename,
+  int? sizeBytes,
   int? seconds,
   String? aspect,
   String? provider,
   String? model,
+  String? source,
+  String? sourceAttachmentId,
 })?
 parseGeneratedVideo(String? output) {
   if (output == null || output.isEmpty) return null;
   final o = _obj(output);
-  if (o == null || o['source'] != 'generate_video') return null;
+  final source = o?['source'];
+  if (o == null || (source != 'generate_video' && source != 'animate_image')) {
+    return null;
+  }
   final id = o['attachmentId'];
   if (id is! String || id.isEmpty) return null;
   return (
     attachmentId: id,
     mime: o['mime'] is String ? o['mime'] as String : null,
+    filename: o['filename'] is String ? o['filename'] as String : null,
+    sizeBytes: (o['sizeBytes'] is num) ? (o['sizeBytes'] as num).toInt() : null,
     seconds: (o['seconds'] is num) ? (o['seconds'] as num).toInt() : null,
     aspect: o['aspect'] is String ? o['aspect'] as String : null,
     provider: o['provider'] is String ? o['provider'] as String : null,
     model: o['model'] is String ? o['model'] as String : null,
+    source: source is String ? source : null,
+    sourceAttachmentId: o['sourceAttachmentId'] is String
+        ? o['sourceAttachmentId'] as String
+        : null,
   );
 }
 
@@ -720,34 +733,44 @@ parseGeneratedSpeech(String? output) {
   );
 }
 
-/// generate_image——生成回执(后端 `tool/generate/image.go`,键逐字钉):source 不符或
-/// attachmentId 空即 null——回执绝不猜(文件头契约)。
+/// generate_image / edit_image——图像回执(后端 `tool/generate/image.go`、`edit.go`,键逐字钉):source
+/// 不符或 attachmentId 空即 null——回执绝不猜(文件头契约)。两者共享同一媒体卡,但 source 仍保留
+/// 以让工具目录显示「已改图」而不是误称「已生成」。
 ({
   String attachmentId,
   String? mime,
   String? filename,
+  String? aspect,
   int? sizeBytes,
   int? width,
   int? height,
   String? provider,
   String? model,
   String? source,
+  String? sourceAttachmentId,
 })?
 parseGeneratedImage(String? output) {
   if (output == null || output.isEmpty) return null;
   final o = _obj(output);
-  if (o == null || o['source'] != 'generate_image') return null;
+  final source = o?['source'];
+  if (o == null || (source != 'generate_image' && source != 'edit_image')) {
+    return null;
+  }
   final id = o['attachmentId'];
   if (id is! String || id.isEmpty) return null;
   return (
     attachmentId: id,
     mime: o['mime'] is String ? o['mime'] as String : null,
     filename: o['filename'] is String ? o['filename'] as String : null,
+    aspect: o['aspect'] is String ? o['aspect'] as String : null,
     sizeBytes: (o['sizeBytes'] is num) ? (o['sizeBytes'] as num).toInt() : null,
     width: (o['width'] is num) ? (o['width'] as num).toInt() : null,
     height: (o['height'] is num) ? (o['height'] as num).toInt() : null,
     provider: o['provider'] is String ? o['provider'] as String : null,
     model: o['model'] is String ? o['model'] as String : null,
-    source: o['source'] is String ? o['source'] as String : null,
+    source: source is String ? source : null,
+    sourceAttachmentId: o['sourceAttachmentId'] is String
+        ? o['sourceAttachmentId'] as String
+        : null,
   );
 }

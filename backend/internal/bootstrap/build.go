@@ -813,7 +813,7 @@ func (a *App) Shutdown(ctx context.Context) {
 	a.svc.scheduler.Shutdown()                               // cancel every still-in-flight Advance (pooled + manual :trigger)
 	a.svc.scheduler.StopPool()                               // close the queue + wait for workers to exit before db.Close
 	a.svc.trigger.Shutdown()
-	a.svc.chat.Shutdown()
+	a.svc.chat.Shutdown(ctx)
 	a.svc.search.Close(ctx) // bounded by the shutdown ctx — a first-demand model download can't stall shutdown (R14)
 	a.svc.mcp.Shutdown(ctx)
 	a.svc.handler.Shutdown(ctx)

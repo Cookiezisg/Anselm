@@ -59,7 +59,11 @@ func (s *Store) ComputeCallAggregates(ctx context.Context, filter mcpdomain.Call
 	if err != nil {
 		return mcpdomain.CallAggregates{}, fmt.Errorf("mcpstore.ComputeCallAggregates: ok: %w", err)
 	}
-	return mcpdomain.CallAggregates{OKCount: int(ok), FailedCount: int(total - ok)}, nil
+	return mcpdomain.CallAggregates{
+		TotalCount:  int(total),
+		OKCount:     int(ok),
+		FailedCount: int(total - ok),
+	}, nil
 }
 
 // callFilterQuery builds the shared WHERE set; includeStatus=false drops the status

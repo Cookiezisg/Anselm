@@ -840,8 +840,19 @@ class FixtureSettingsRepository implements SettingsRepository {
     remaining: 1,
   );
 
+  /// Script hook: fail one inventory read so the settings card can prove it does not fake an empty state.
+  /// 脚本钩:让一次库存读取失败,以证明设置卡不会伪装成空态。
+  Object? failNextVoices;
+
   @override
-  Future<VoiceInventory> voices() async => fixtureVoices;
+  Future<VoiceInventory> voices() async {
+    final failure = failNextVoices;
+    if (failure != null) {
+      failNextVoices = null;
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return fixtureVoices;
+  }
 
   @override
   Future<void> deleteVoice(String id) async {

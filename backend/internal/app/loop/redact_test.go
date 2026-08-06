@@ -878,6 +878,22 @@ func TestRedactOpaqueMachineValuesRemovesRedundantEntityParenthetical(t *testing
 	}
 }
 
+func TestRedactOpaqueMachineValuesRemovesMediaIDFromMixedParenthetical(t *testing.T) {
+	input := "The original attachment (red circle, `att_00112233445566`) and the edited attachment (blue circle, `att_ffeeddccbbaa99`) are distinct."
+	want := "The original attachment (red circle) and the edited attachment (blue circle) are distinct."
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("media parenthetical redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsMediaReasoningReadable(t *testing.T) {
+	input := "The attachment ID is `att_00112233445566`. The original attachment is att_00112233445566 and the edited one is att_ffeeddccbbaa99."
+	want := "The attachment is ready. The original attachment is ready and the edited one is ready."
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("media reasoning redaction = %q, want %q", got, want)
+	}
+}
+
 func TestRedactOpaqueMachineValuesKeepsNameAfterPositionID(t *testing.T) {
 	cases := map[string]string{
 		"- Position 0: `doc_00112233445566` (Existing First)": "- Position 0: Existing First",
@@ -947,6 +963,77 @@ func TestRedactOpaqueMachineValuesRemovesPlaceholderLabeledField(t *testing.T) {
 	want := "Ship Checklist\n- Path: /Release Atlas/Ship Checklist\n- Description: Release gates to run"
 	if got := redactOpaqueMachineValues(input); got != want {
 		t.Fatalf("placeholder labeled field redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesRemovesBoldColonPlaceholderLabeledField(t *testing.T) {
+	input := "Handler **ep014compat** has been created successfully:\n\n- **ID:** `the requested item`\n- **Python:** 3.12\n- **Status:** ready (v1)"
+	want := "Handler **ep014compat** has been created successfully:\n\n- **Python:** 3.12\n- **Status:** ready (v1)"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("bold-colon placeholder labeled field redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorDoesNotStreamBoldColonPlaceholderLabeledField(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"Handler **ep014compat** has been created successfully:\n\n- **ID:",
+		"** `the requested ",
+		"item`\n- **Python:** 3.12\n- **Status:** ready (v1)",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "the requested item") || strings.Contains(piece, "**ID:") {
+			t.Fatalf("stream leaked bold-colon placeholder labeled field: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "the requested item") || strings.Contains(got.String(), "**ID:") {
+		t.Fatalf("flush leaked bold-colon placeholder labeled field: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "**Python:** 3.12") || !strings.Contains(got.String(), "**Status:** ready (v1)") {
+		t.Fatalf("stream redaction lost neighboring fields: %q", got.String())
+	}
+}
+
+func TestRedactOpaqueMachineValuesRemovesUnavailableIDRowFromFieldTable(t *testing.T) {
+	input := "| **Field** | **Value** |\n|---|---|\n| **Name** | `convertcelsiustofahrenheit` |\n| **ID** | `the requested item` |\n| **Version** | 1 |"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "the requested item") || strings.Contains(got, "**ID**") {
+		t.Fatalf("unavailable ID row leaked: %q", got)
+	}
+	if !strings.Contains(got, "**Name**") || !strings.Contains(got, "**Version**") {
+		t.Fatalf("neighboring fields were lost: %q", got)
+	}
+	if strings.Contains(got, "|---|---|\n\n") {
+		t.Fatalf("redaction split the Markdown table with an empty row: %q", got)
+	}
+}
+
+func TestTextRedactorDoesNotStreamUnavailableIDRow(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| **Field** | **Value** |\n|---|---|\n| **Name** | `convertcelsiustofahrenheit` |\n",
+		"| **ID** | `the requested ",
+		"item` |\n| **Version** | 1 |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "the requested item") || strings.Contains(piece, "**ID**") {
+			t.Fatalf("stream leaked unavailable ID row: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "the requested item") || strings.Contains(got.String(), "**ID**") {
+		t.Fatalf("flush leaked unavailable ID row: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "**Name**") || !strings.Contains(got.String(), "**Version**") {
+		t.Fatalf("stream redaction lost neighboring fields: %q", got.String())
+	}
+	if strings.Contains(got.String(), "|---|---|\n\n") {
+		t.Fatalf("stream redaction split the Markdown table with an empty row: %q", got.String())
 	}
 }
 
@@ -1753,6 +1840,34 @@ func TestTextRedactorRemovesEntityParentheticalAcrossProviderChunks(t *testing.T
 	}
 }
 
+func TestTextRedactorRemovesMediaIDFromMixedParentheticalAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got string
+	got += r.Write("The original attachment (red circle, `att_001122")
+	got += r.Write("33445566`) and the edited attachment (blue circle, `att_ffeedd")
+	got += r.Write("ccbbaa99`) are distinct.")
+	got += r.Flush()
+
+	want := "The original attachment (red circle) and the edited attachment (blue circle) are distinct."
+	if got != want {
+		t.Fatalf("stream media parenthetical redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorKeepsMediaReasoningReadableAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got string
+	got += r.Write("The attachment ID is `att_001122")
+	got += r.Write("33445566`. The original attachment is att_001122")
+	got += r.Write("33445566 and the edited one is att_ffeeddccbbaa99.")
+	got += r.Flush()
+
+	want := "The attachment is ready. The original attachment is ready and the edited one is ready."
+	if got != want {
+		t.Fatalf("stream media reasoning redaction = %q, want %q", got, want)
+	}
+}
+
 func TestTextRedactorRemovesEntityNounAcrossProviderChunks(t *testing.T) {
 	var r textRedactor
 	var got string
@@ -1941,5 +2056,51 @@ func TestTextRedactorHoldsAttachmentPlaceholderLabeledLine(t *testing.T) {
 	}
 	if !strings.Contains(got.String(), "The image was saved successfully.") {
 		t.Fatalf("readable result was removed with attachment placeholder: %q", got.String())
+	}
+}
+
+func TestRedactOpaqueMachineValuesRemovesVersionIDPlaceholderLine(t *testing.T) {
+	input := "- **Version**: Updated to v2 (from v1)\n- **Version ID**: `fnv_00112233445566` (new version created)\n- **Environment Status**: ready\n"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "Version ID") || strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "fnv_") {
+		t.Fatalf("version ID placeholder leaked: %q", got)
+	}
+	for _, want := range []string{"Version", "Updated to v2", "Environment Status", "ready"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("version ID redaction lost %q: %q", want, got)
+		}
+	}
+}
+
+func TestTextRedactorHoldsVersionIDPlaceholderAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"- **Version**: Updated to v2\n- **Version ID**: the requested ",
+		"item (new version created)\n- **Environment Status**: ready\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "Version ID") || strings.Contains(piece, opaqueEntityPlaceholder) {
+			t.Fatalf("version ID placeholder leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "Version ID") || strings.Contains(got.String(), opaqueEntityPlaceholder) {
+		t.Fatalf("version ID placeholder leaked in stream: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "Version") || !strings.Contains(got.String(), "Environment Status") || !strings.Contains(got.String(), "ready") {
+		t.Fatalf("stream redaction lost readable fields: %q", got.String())
+	}
+}
+
+func TestRedactOpaqueMachineValuesRewritesVersionIDPlaceholderSentence(t *testing.T) {
+	input := "The edit succeeded; versionId changed to the requested item, and envStatus is ready."
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "versionId") {
+		t.Fatalf("version ID sentence leaked: %q", got)
+	}
+	if !strings.Contains(got, "version reference updated") || !strings.Contains(got, "envStatus is ready") {
+		t.Fatalf("version ID sentence lost readable facts: %q", got)
 	}
 }

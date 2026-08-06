@@ -354,7 +354,11 @@ void main() {
 
   group('Cross-entity common round-trip', () {
     test('ExecutionAggregates ok/failed tallies', () {
-      const agg = ExecutionAggregates(okCount: 10, failedCount: 2);
+      const agg = ExecutionAggregates(
+        totalCount: 12,
+        okCount: 10,
+        failedCount: 2,
+      );
       expect(ExecutionAggregates.fromJson(agg.toJson()), agg);
       expect(ExecutionAggregates.fromJson(const {}).okCount, 0);
     });

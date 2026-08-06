@@ -128,6 +128,18 @@ func TestAnselmDescribeModels_UsesLiveRouteProfiles(t *testing.T) {
 	}
 }
 
+func TestAnselmImageToVideoAvailableRequiresExplicitCapability(t *testing.T) {
+	if AnselmImageToVideoAvailable(`{"data":[{"id":"anselm-auto","anselm_capabilities":{"version":1,"routing":"content","video_generation":{"available":true}}}]}`) {
+		t.Fatal("video_generation alone must not make animate_image available")
+	}
+	if AnselmImageToVideoAvailable(`not-json`) {
+		t.Fatal("malformed capability data must fail closed")
+	}
+	if !AnselmImageToVideoAvailable(`{"data":[{"id":"anselm-auto","anselm_capabilities":{"version":1,"routing":"content","video_generation":{"available":true,"image_to_video":true}}}]}`) {
+		t.Fatal("explicit image_to_video capability must enable animate_image")
+	}
+}
+
 func TestRequestActiveInputBudgetTracksPromptModality(t *testing.T) {
 	req := Request{
 		InputBudgetTokens:           100,

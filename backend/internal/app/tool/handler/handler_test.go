@@ -54,9 +54,55 @@ func TestEditHandler_DescriptionPinsUpdateMethodShape(t *testing.T) {
 		`"name":"place"`,
 		`"patch":{"description":"..."}`,
 		`Do NOT use "methodName"`,
+		`Do NOT use set_methods`,
 	} {
 		if !strings.Contains(desc, want) {
 			t.Fatalf("edit_handler description missing %q: %s", want, desc)
+		}
+	}
+}
+
+func TestNormalizeHandlerOpsForEdit_SplitsLegacyMethodListByActiveNames(t *testing.T) {
+	items, err := normalizeHandlerOpsWithExistingMethods([]json.RawMessage{
+		[]byte(`{"op":"set_methods","methods":[{"name":"status","description":"Returns the current revision identifier","inputs":[],"outputs":[],"body":"return {\"revision\": self.revision}","streaming":false},{"name":"health","description":"Report health","inputs":[],"outputs":[],"body":"return {\"ok\": True}","streaming":false}]}`),
+	}, map[string]struct{}{"status": {}})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOpsWithExistingMethods: %v", err)
+	}
+	if len(items) != 2 {
+		t.Fatalf("normalized item count = %d, want 2", len(items))
+	}
+	var existing, added struct {
+		Op     string `json:"op"`
+		Name   string `json:"name"`
+		Method struct {
+			Name string `json:"name"`
+		} `json:"method"`
+	}
+	if err := json.Unmarshal(items[0], &existing); err != nil {
+		t.Fatalf("existing op: %v", err)
+	}
+	if err := json.Unmarshal(items[1], &added); err != nil {
+		t.Fatalf("new op: %v", err)
+	}
+	if existing.Op != "update_method" || existing.Name != "status" {
+		t.Fatalf("existing method op = %+v, want update_method/status", existing)
+	}
+	if added.Op != "add_method" || added.Method.Name != "health" {
+		t.Fatalf("new method op = %+v, want add_method/health", added)
+	}
+}
+
+func TestCreateHandler_DescriptionDisambiguatesFunctionOps(t *testing.T) {
+	desc := (&CreateHandler{}).Description()
+	for _, want := range []string{
+		"this is a HANDLER, not a stateless function",
+		"Never emit the function ops set_code",
+		"never emit set_methods",
+		`"op":"add_method","method"`,
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("create_handler description missing %q: %s", want, desc)
 		}
 	}
 }
@@ -206,6 +252,241 @@ func TestNormalizeHandlerOps_RepairsHostedSetMethodAlias(t *testing.T) {
 	}
 	if string(patch["description"]) != `"Revert probe v2"` || string(patch["body"]) == "" {
 		t.Fatalf("normalized patch = %s", got["patch"])
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsLegacyWholeClassHandlerBuild(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"set_meta","name":"legacy_probe"}`),
+		[]byte(`{"op":"set_code","language":"python","runtimeVersion":"3.12","code":"class Handler:\n    def __init__(self):\n        pass\n\n    def ping(self):\n        return {\"pong\": True}\n"}`),
+		[]byte(`{"op":"set_init_args","schema":{"type":"object","properties":{}}}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var got []string
+	for _, raw := range items {
+		var op struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(raw, &op); err != nil {
+			t.Fatalf("normalized op is invalid JSON: %v", err)
+		}
+		got = append(got, op.Op)
+	}
+	want := []string{"set_meta", "set_python_version", "set_init", "add_method", "set_init_args_schema"}
+	if strings.Join(got, ",") != strings.Join(want, ",") {
+		t.Fatalf("normalized ops = %v, want %v", got, want)
+	}
+	var method struct {
+		Method struct {
+			Name string `json:"name"`
+			Body string `json:"body"`
+		} `json:"method"`
+	}
+	if err := json.Unmarshal(items[3], &method); err != nil {
+		t.Fatalf("method op is invalid JSON: %v", err)
+	}
+	if method.Method.Name != "ping" || !strings.Contains(method.Method.Body, `return {"pong": True}`) {
+		t.Fatalf("translated method = %+v", method.Method)
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsLegacyMethodListAndInitSchema(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"set_code","runtimeVersion":"3.11","code":"class Handler:\n    def __init__(self):\n        self.ready = True\n\n    def ping(self):\n        return True\n"}`),
+		[]byte(`{"op":"set_methods","methods":[{"name":"ping","inputs":[],"outputs":[{"name":"ok","type":"boolean"}],"body":"return True","streaming":false}]}`),
+		[]byte(`{"op":"set_init_args","schema":{"type":"object","properties":{"token":{"type":"string","description":"access token","sensitive":true}},"required":["token"]}}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var ops []string
+	for _, raw := range items {
+		var op struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(raw, &op); err != nil {
+			t.Fatalf("normalized op is invalid JSON: %v", err)
+		}
+		ops = append(ops, op.Op)
+	}
+	if strings.Join(ops, ",") != "set_python_version,set_init,add_method,set_init_args_schema" {
+		t.Fatalf("normalized ops = %v", ops)
+	}
+	var schema struct {
+		Args []handlerdomain.InitArgSpec `json:"args"`
+	}
+	if err := json.Unmarshal(items[3], &schema); err != nil {
+		t.Fatalf("init schema op is invalid JSON: %v", err)
+	}
+	if len(schema.Args) != 1 || schema.Args[0].Name != "token" || !schema.Args[0].Required || !schema.Args[0].Sensitive {
+		t.Fatalf("translated init args = %+v", schema.Args)
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsLegacyTypeAndSingularMethod(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"type":"set_meta","name":"legacy_type_probe"}`),
+		[]byte(`{"type":"set_code","code":"class Handler:\n    def __init__(self):\n        pass\n\n    def ping(self):\n        return {\"pong\": True}"}`),
+		[]byte(`{"type":"set_init_args","config":{}}`),
+		[]byte(`{"type":"set_method","method":"ping","description":"Returns pong","parameters":{},"outputs":{"type":"object","properties":{"pong":{"type":"boolean"}},"required":["pong"]}}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var ops []string
+	for _, raw := range items {
+		var op struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(raw, &op); err != nil {
+			t.Fatalf("normalized op is invalid JSON: %v", err)
+		}
+		ops = append(ops, op.Op)
+	}
+	want := "set_meta,set_init,add_method,set_init_args_schema,update_method"
+	if strings.Join(ops, ",") != want {
+		t.Fatalf("normalized ops = %v, want %s", ops, want)
+	}
+	var update struct {
+		Name  string `json:"name"`
+		Patch struct {
+			Description string           `json:"description"`
+			Outputs     []map[string]any `json:"outputs"`
+		} `json:"patch"`
+	}
+	if err := json.Unmarshal(items[len(items)-1], &update); err != nil {
+		t.Fatalf("update op is invalid JSON: %v", err)
+	}
+	if update.Name != "ping" || update.Patch.Description != "Returns pong" || len(update.Patch.Outputs) != 1 {
+		t.Fatalf("translated update = %+v", update)
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsLegacyDeclaredMethodMetadata(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"set_meta","name":"legacy_declared_probe"}`),
+		[]byte(`{"op":"set_code","runtime":"python3.12","code":"class Handler:\n    def __init__(self):\n        pass\n\n    def ping(self):\n        return {\"pong\": True}"}`),
+		[]byte(`{"op":"declare_method","name":"ping","description":"Returns pong true"}`),
+		[]byte(`{"op":"set_method_outputs","method":"ping","outputs":{"type":"object","properties":{"pong":{"type":"boolean"}},"required":["pong"]}}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var ops []string
+	for _, raw := range items {
+		var op struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(raw, &op); err != nil {
+			t.Fatalf("normalized op is invalid JSON: %v", err)
+		}
+		ops = append(ops, op.Op)
+	}
+	want := "set_meta,set_python_version,set_init,add_method,update_method,update_method"
+	if strings.Join(ops, ",") != want {
+		t.Fatalf("normalized ops = %v, want %s", ops, want)
+	}
+	var update struct {
+		Name  string `json:"name"`
+		Patch struct {
+			Outputs []map[string]any `json:"outputs"`
+		} `json:"patch"`
+	}
+	if err := json.Unmarshal(items[len(items)-1], &update); err != nil {
+		t.Fatalf("output update is invalid JSON: %v", err)
+	}
+	if update.Name != "ping" || len(update.Patch.Outputs) != 1 || update.Patch.Outputs[0]["name"] != "pong" {
+		t.Fatalf("translated output update = %+v", update)
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsLegacyMethodArgsAndReturns(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"set_code","pythonVersion":"3.12","code":"class Handler:\n    def __init__(self):\n        pass\n\n    async def ping(self):\n        return {\"pong\": True}"}`),
+		[]byte(`{"op":"set_init_args","schema":[]}`),
+		[]byte(`{"op":"set_method","method":"ping","description":"Returns a pong response","args":[],"returns":{"type":"object","properties":{"pong":{"const":true,"type":"boolean"}},"required":["pong"]},"yields":null}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var ops []string
+	for _, raw := range items {
+		var op struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(raw, &op); err != nil {
+			t.Fatalf("normalized op is invalid JSON: %v", err)
+		}
+		ops = append(ops, op.Op)
+	}
+	want := "set_python_version,set_init,add_method,set_init_args_schema,update_method"
+	if strings.Join(ops, ",") != want {
+		t.Fatalf("normalized ops = %v, want %s", ops, want)
+	}
+	var update struct {
+		Name  string `json:"name"`
+		Patch struct {
+			Description string           `json:"description"`
+			Inputs      []map[string]any `json:"inputs"`
+			Outputs     []map[string]any `json:"outputs"`
+		} `json:"patch"`
+	}
+	if err := json.Unmarshal(items[len(items)-1], &update); err != nil {
+		t.Fatalf("method update is invalid JSON: %v", err)
+	}
+	if update.Name != "ping" || update.Patch.Description != "Returns a pong response" || update.Patch.Inputs == nil || len(update.Patch.Outputs) != 1 {
+		t.Fatalf("translated method update = %+v", update)
+	}
+}
+
+func TestNormalizeHandlerOps_RepairsLegacyMethodListMetadataAndInitArgs(t *testing.T) {
+	items, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"set_meta","name":"legacy_list_probe"}`),
+		[]byte(`{"op":"set_code","language":"python","runtimeVersion":"3.12","code":"class Handler:\n    def __init__(self):\n        pass\n\n    def ping(self):\n        return {\"pong\": True}"}`),
+		[]byte(`{"op":"set_methods","methods":[{"name":"ping","description":"Returns a pong response","parameters":{"type":"object","properties":{},"required":[]},"returns":{"type":"object","properties":{"pong":{"type":"boolean"}},"required":["pong"]}}]}`),
+		[]byte(`{"op":"set_init_args","initArgs":{"type":"object","properties":{},"required":[]}}`),
+	})
+	if err != nil {
+		t.Fatalf("normalizeHandlerOps: %v", err)
+	}
+	var ops []string
+	for _, raw := range items {
+		var op struct {
+			Op string `json:"op"`
+		}
+		if err := json.Unmarshal(raw, &op); err != nil {
+			t.Fatalf("normalized op is invalid JSON: %v", err)
+		}
+		ops = append(ops, op.Op)
+	}
+	want := "set_meta,set_python_version,set_init,add_method,update_method,set_init_args_schema"
+	if strings.Join(ops, ",") != want {
+		t.Fatalf("normalized ops = %v, want %s", ops, want)
+	}
+	var update struct {
+		Name  string `json:"name"`
+		Patch struct {
+			Description string           `json:"description"`
+			Inputs      []map[string]any `json:"inputs"`
+			Outputs     []map[string]any `json:"outputs"`
+		} `json:"patch"`
+	}
+	if err := json.Unmarshal(items[4], &update); err != nil {
+		t.Fatalf("method metadata update is invalid JSON: %v", err)
+	}
+	if update.Name != "ping" || update.Patch.Description != "Returns a pong response" || update.Patch.Inputs == nil || len(update.Patch.Outputs) != 1 {
+		t.Fatalf("translated method metadata = %+v", update)
+	}
+}
+
+func TestNormalizeHandlerOps_RejectsOpaqueLegacyClassCode(t *testing.T) {
+	_, err := normalizeHandlerOps([]json.RawMessage{
+		[]byte(`{"op":"set_code","code":"def ping(self):\n    return True"}`),
+	})
+	if err == nil || !strings.Contains(err.Error(), "needs a Python class") {
+		t.Fatalf("opaque legacy code error = %v", err)
 	}
 }
 

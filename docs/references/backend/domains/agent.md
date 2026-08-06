@@ -171,5 +171,7 @@ metadata 更新使用专用工具。Mount health 是按需 HTTP 投影。
 
 Execution 历史列表是轻量分页投影：每行保留 id、状态、触发来源、输入、输出、耗时和时间，
 不携带完整 `transcript`；完整 transcript 只由 `get_agent_execution` / 单条 HTTP 详情返回。
+同一响应的 `aggregates` 返回完整过滤集的 `totalCount`、`okCount` 与 `failedCount`，
+不受当前页大小限制。
 `nextCursor` 是不透明 token，续页必须逐字复制，不能解码、四舍五入或重新拼接；列表分页必须
 保证相邻页无重叠、无漏行。

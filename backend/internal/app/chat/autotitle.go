@@ -45,12 +45,14 @@ const autoTitleSystem = "Generate a concise title (5-10 words) for the conversat
 	"Output only the title text — no quotes, no surrounding punctuation, no preamble."
 
 // maybeAutoTitle kicks off a background title for a conversation's FIRST turn (still untitled and
-// not yet auto-titled). It is best-effort + detached — a title is never on the critical path, so
-// every failure is swallowed — and tracked by s.wg so Shutdown waits for it. No Titler/Resolver
-// wired → no-op.
+// not yet auto-titled). It is best-effort and outside the queue wait group — a title is never on the
+// critical path, so shutdown must not spend its whole grace period waiting for a slow utility model.
+// The lifecycle context cancels normal clients, and autoTitle checks it before its final write for
+// clients that ignore cancellation. No Titler/Resolver wired → no-op.
 //
-// maybeAutoTitle 为对话的**首回合**（仍无标题且未自动标题）起后台标题。best-effort + detached
-// ——标题不在关键路径，故所有失败吞掉——并被 s.wg 追踪使 Shutdown 等它。无 Titler/Resolver → no-op。
+// maybeAutoTitle 为对话的**首回合**（仍无标题且未自动标题）起后台标题。它是 best-effort 且不进 queue
+// 的等待组——标题不在关键路径，故关停不能把整个 grace 花在等慢 utility 模型上。lifecycle context 会
+// 取消正常 client；对无视取消的 client，autoTitle 会在最后写盘前再检查。无 Titler/Resolver → no-op。
 func (s *Service) maybeAutoTitle(conv *conversationdomain.Conversation, workspaceID string) {
 	if s.deps.Titler == nil || s.deps.Resolver == nil {
 		return
@@ -58,23 +60,22 @@ func (s *Service) maybeAutoTitle(conv *conversationdomain.Conversation, workspac
 	if conv.AutoTitled || strings.TrimSpace(conv.Title) != "" {
 		return
 	}
-	s.wg.Add(1)
 	go func() {
-		defer s.wg.Done()
 		s.autoTitle(conv.ID, workspaceID)
 	}()
 }
 
 // autoTitle generates and persists a conversation's auto title from its first exchange, on a
-// detached + time-boxed context. The utility model is preferred, but a local request-derived title
-// is the honest fallback when the utility route is unavailable, times out, or emits no text: a
-// one-turn conversation must not stay "New chat" forever because an optional background chore failed.
+// service-lifecycle-owned + time-boxed context. The utility model is preferred, but a local
+// request-derived title is the honest fallback when the utility route is unavailable, times out,
+// or emits no text: a one-turn conversation must not stay "New chat" forever because an optional
+// background chore failed.
 //
-// autoTitle 在 detached + 限时 context 上从对话首次交流生成并落标题。优先用 utility 模型；utility
-// 不可用、超时或只吐 reasoning 时，诚实回落到本地首条请求标题——一次性对话不能因为可选的后台杂活失败
-// 就永远叫「New chat」。
+// autoTitle 在 service lifecycle + 限时 context 上从对话首次交流生成并落标题。优先用 utility 模型；
+// utility 不可用、超时或只吐 reasoning 时，诚实回落到本地首条请求标题——一次性对话不能因为可选的后台
+// 杂活失败就永远叫「New chat」。
 func (s *Service) autoTitle(conversationID, workspaceID string) {
-	dctx := reqctxpkg.Detached(workspaceID)
+	dctx := s.lifecycleContext(workspaceID)
 	dctx = reqctxpkg.SetConversationID(dctx, conversationID)
 	ctx, cancel := context.WithTimeout(dctx, autoTitleTimeout)
 	defer cancel()
@@ -119,13 +120,20 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 		}
 		s.log.Info("chatapp.autoTitle: using local fallback", zap.String("reason", fallbackReason))
 	}
+	// A provider may ignore context cancellation and return after Shutdown. It is then too late
+	// to persist anything: the owning service may already be closing its database.
+	// provider 可能无视 context cancel、在 Shutdown 后才返回。此时已经不能再落盘：所属 service 可能已经
+	// 开始关闭数据库。
+	if dctx.Err() != nil {
+		return
+	}
 	// SetAutoTitle persists Title+AutoTitled AND emits conversation.auto_titled on the
 	// notifications stream (the frontend re-reads the row + arms the title typewriter). That is
 	// the sole emit — chat no longer double-notifies.
 	// SetAutoTitle 落 Title+AutoTitled 并在 notifications 流发 conversation.auto_titled（前端据此重读
 	// 行 + 触发标题打字机）。这是唯一发信——chat 不再重复通知。
-	// The persist gets a FRESH deadline off the DETACHED context — never the leftover of the generate
-	// budget (WRK-083 L11). 落盘从 **detached** context 取一个**新鲜的** deadline——绝不是生成预算的残额。
+	// The persist gets a FRESH deadline off the lifecycle context — never the leftover of the generate
+	// budget (WRK-083 L11). 落盘从 lifecycle context 取一个**新鲜的** deadline——绝不是生成预算的残额。
 	pctx, pcancel := context.WithTimeout(dctx, autoTitlePersistTimeout)
 	defer pcancel()
 	if err := s.deps.Titler.SetAutoTitle(pctx, conversationID, title); err != nil {

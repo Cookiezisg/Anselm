@@ -81,6 +81,7 @@ class AnMediaRefCard extends ConsumerWidget {
           attachmentId: id,
           filename: m.filename,
           metaLine: _metaLine(m.mimeType, m.sizeBytes),
+          aspectRatio: _hintAspectRatio(),
           maxWidth: maxWidth,
         ),
       AsyncData(value: final m) => AnAttachmentCard(
@@ -172,7 +173,9 @@ class AnMediaRefCard extends ConsumerWidget {
 
   Widget _placeholder(AnColors c) {
     final w = mediaRef.width, h = mediaRef.height;
-    final ratio = (w != null && h != null && w > 0 && h > 0) ? w / h : 1.0;
+    final ratio = (w != null && h != null && w > 0 && h > 0)
+        ? w / h
+        : _hintAspectRatio(fallback: 1.0);
     return ConstrainedBox(
       constraints: BoxConstraints(maxWidth: maxWidth),
       child: AspectRatio(
@@ -181,6 +184,14 @@ class AnMediaRefCard extends ConsumerWidget {
       ),
     );
   }
+
+  double _hintAspectRatio({double fallback = 16 / 9}) =>
+      switch (mediaRef.aspect?.trim().toLowerCase()) {
+        'portrait' => 9 / 16,
+        'square' => 1.0,
+        'landscape' => 16 / 9,
+        _ => fallback,
+      };
 
   String _metaLine(String mime, int sizeBytes, {String? filename}) {
     final parts = <String>[];

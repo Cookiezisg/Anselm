@@ -8,6 +8,7 @@ part 'common.g.dart';
 @freezed
 abstract class ExecutionAggregates with _$ExecutionAggregates {
   const factory ExecutionAggregates({
+    @Default(0) int totalCount,
     @Default(0) int okCount,
     @Default(0) int failedCount,
   }) = _ExecutionAggregates;

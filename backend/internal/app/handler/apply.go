@@ -236,6 +236,9 @@ func applyOne(state *VersionDraft, op Op) error {
 		}
 		state.PythonVersion = p.Version
 	default:
+		if op.Type == "set_code" || op.Type == "set_inputs" || op.Type == "set_outputs" || op.Type == "set_methods" {
+			return fmt.Errorf("unsupported handler op %q: handler code is not a whole class blob; use set_init/set_shutdown and add_method with the complete MethodSpec nested under method; set_code/set_inputs/set_outputs/set_methods belong to function builds", op.Type)
+		}
 		return fmt.Errorf("unknown op type: %q", op.Type)
 	}
 	return nil

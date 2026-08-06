@@ -63,6 +63,7 @@ class AnSidebarList extends StatefulWidget {
     this.showNew = true,
     this.newRowActions = const [],
     this.showFilter = true,
+    this.filterEmptyLabel,
     this.rowActionsBuilder,
     this.typeHeadActionsBuilder,
     this.labelWidgetFor,
@@ -105,6 +106,11 @@ class AnSidebarList extends StatefulWidget {
   /// directory). Default keeps the in-list filter. false=宿主在列表外自持搜索框(设置把它抽出,让同一
   /// 个框驱动替换目录的项级结果视图);默认保留列表内过滤。
   final bool showFilter;
+
+  /// Optional copy shown when an active filter produces no visible rows. A blank result is otherwise
+  /// ambiguous: it can look like a failed load.
+  /// 过滤有词但没有可见行时的可选提示。空白结果容易被误读成加载失败。
+  final String? filterEmptyLabel;
 
   /// Optional trailing actions per row (e.g. a ⋯ menu), keyed by row id. 行尾动作(⋯ 菜单),按 id。
   final List<Widget> Function(String rowId)? rowActionsBuilder;
@@ -334,6 +340,31 @@ class _AnSidebarListState extends State<AnSidebarList> {
                   ],
                 ),
               ),
+              if (_query.trim().isNotEmpty &&
+                  _flat.isEmpty &&
+                  widget.filterEmptyLabel != null)
+                Positioned.fill(
+                  child: IgnorePointer(
+                    child: Align(
+                      alignment: Alignment.topCenter,
+                      child: Padding(
+                        padding: const EdgeInsets.fromLTRB(
+                          AnSpace.s8,
+                          AnSpace.s12,
+                          AnSpace.s8,
+                          0,
+                        ),
+                        child: Text(
+                          widget.filterEmptyLabel!,
+                          textAlign: TextAlign.center,
+                          style: AnText.meta.copyWith(
+                            color: context.colors.inkFaint,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
               // The sticky ancestor overlay rebuilds EACH FRAME off the scroll position (AnimatedBuilder on
               // the controller), so the nearest head follows the finger + is pushed out by the next
               // sibling-level row — without rebuilding the virtualized list. During a DRAG it goes

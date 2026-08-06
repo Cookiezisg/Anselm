@@ -36,8 +36,8 @@ func TestNormalizeToolCallArgumentsUpdatesDurableToolBlock(t *testing.T) {
 	if gotBlocks[0].Content != `{"flowrunId":"fr_exact"}` {
 		t.Fatalf("durable block content = %q, want normalized JSON", gotBlocks[0].Content)
 	}
-	if gotBlocks[0].Attrs["argumentRepair"] == nil {
-		t.Fatal("durable block must record the compatibility repair")
+	if got := gotBlocks[0].Attrs["argumentRepair"]; got != "provider arguments normalized by tool boundary" {
+		t.Fatalf("generic repair reason = %#v", got)
 	}
 }
 

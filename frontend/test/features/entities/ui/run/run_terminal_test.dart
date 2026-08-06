@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/entities/agent.dart';
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
@@ -101,6 +102,45 @@ class _CountingFunctionRepository extends FixtureEntityRepository {
   }
 }
 
+class _DetailsFunctionRepository extends FixtureEntityRepository {
+  _DetailsFunctionRepository()
+    : super(
+        runDelay: Duration.zero,
+        functions: [
+          FunctionEntity(
+            id: 'fn_1',
+            name: 'normalize',
+            createdAt: _t0,
+            updatedAt: _t0,
+            activeVersionId: 'fn_1_v1',
+            activeVersion: FunctionVersion(
+              id: 'fn_1_v1',
+              functionId: 'fn_1',
+              version: 1,
+              inputs: const [Field(name: 'text', type: 'string')],
+              createdAt: _t0,
+              updatedAt: _t0,
+            ),
+          ),
+        ],
+      );
+
+  @override
+  Future<FunctionRunResult> runFunction(
+    String id, {
+    required Map<String, dynamic> args,
+    int? version,
+  }) async => throw const ApiException(
+    code: 'FUNCTION_RUN_FAILED',
+    message: 'function failed',
+    httpStatus: 502,
+    details: {
+      'error': 'invalid payload',
+      'traceback': 'ValueError: invalid payload',
+    },
+  );
+}
+
 Widget _host(
   FixtureEntityRepository repo, {
   EntityRef? sel,
@@ -150,6 +190,23 @@ void main() {
       findsWidgets,
     ); // live stderr from the run node
     expect(find.text(t.status.done), findsOneWidget); // ok badge
+  });
+
+  testWidgets('API error details remain visible in the run terminal', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        _DetailsFunctionRepository(),
+        sel: const EntityRef(EntityKind.function, 'fn_1'),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.tap(find.widgetWithText(AnButton, t.entities.detail.verb.run));
+    await tester.pumpAndSettle();
+
+    expect(find.text(r.detailsHeading), findsOneWidget);
+    expect(find.textContaining('ValueError: invalid payload'), findsOneWidget);
   });
 
   testWidgets(

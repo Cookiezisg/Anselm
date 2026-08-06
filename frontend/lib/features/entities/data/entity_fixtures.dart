@@ -146,8 +146,11 @@ class FixtureEntityRepository implements EntityRepository {
     );
   }
 
-  ExecutionAggregates _aggOf(int ok, int failed) =>
-      ExecutionAggregates(okCount: ok, failedCount: failed);
+  ExecutionAggregates _aggOf(int ok, int failed) => ExecutionAggregates(
+    totalCount: ok + failed,
+    okCount: ok,
+    failedCount: failed,
+  );
 
   // ── list / detail ─────────────────────────────────────────────────────────
   List<Map<String, dynamic>> _itemsOf(EntityKind kind) => switch (kind) {
@@ -335,6 +338,19 @@ class FixtureEntityRepository implements EntityRepository {
     limit,
     (e) => e.status == 'ok',
   );
+
+  @override
+  Future<FunctionExecution> getFunctionExecution(String id) async {
+    for (final executions in _functionExecutions.values) {
+      for (final execution in executions) {
+        if (execution.id == id) return execution;
+      }
+    }
+    throw StateError(
+      'FixtureEntityRepository: no function execution seeded for $id',
+    );
+  }
+
   @override
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
     String id, {

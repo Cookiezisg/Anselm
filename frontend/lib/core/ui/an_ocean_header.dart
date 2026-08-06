@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 
 import '../design/colors.dart';
@@ -23,6 +25,7 @@ class AnOceanHeader extends StatelessWidget {
     required this.title,
     this.crumbs = const [],
     this.onTitleChange,
+    this.onTitleCommitError,
     this.actions = const [],
     this.meta = const [],
     super.key,
@@ -36,7 +39,11 @@ class AnOceanHeader extends StatelessWidget {
   final List<AnCrumb> crumbs;
 
   /// Non-null → the title edits in place (H2 inline rename). 非空则标题就地改名。
-  final ValueChanged<String>? onTitleChange;
+  final FutureOr<void> Function(String)? onTitleChange;
+
+  /// Failed async title saves keep the editor open; the host supplies localized product feedback.
+  /// 标题异步保存失败时编辑器保持打开,由宿主提供本地化产品提示。
+  final ValueChanged<Object>? onTitleCommitError;
 
   /// Right-side actions (an [AnActionGroup]). 右侧动作。
   final List<Widget> actions;
@@ -81,6 +88,7 @@ class AnOceanHeader extends StatelessWidget {
                         titleStyle.fontSize! * (titleStyle.height ?? 1.0) +
                         AnSize.editBoxPadY * 2,
                     onCommit: onChange,
+                    onCommitError: onTitleCommitError,
                   )
                 // The page's PRIMARY heading — header semantics so screen readers can jump to it (rotor /
                 // H key); mirrors AnInfoCard's title. The editable branch's field can't carry it. 主标题=header 节点。

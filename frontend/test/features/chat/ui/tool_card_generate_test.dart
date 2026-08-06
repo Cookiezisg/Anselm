@@ -4,6 +4,7 @@ import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/media/media_source.dart';
+import 'package:anselm/core/media/media_video.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
 import 'package:anselm/features/chat/model/tool_receipts.dart';
@@ -27,6 +28,12 @@ const _receipt =
     '"mime":"image/png","sizeBytes":1234,"provider":"openai","aspect":"landscape",'
     '"source":"generate_image","model":"gpt-image-2","width":1536,"height":1024}';
 
+const _editReceipt =
+    '{"attachmentId":"att_8899aabbccddeeff","filename":"edited-x.png",'
+    '"mime":"image/png","sizeBytes":2345,"provider":"anselm","aspect":"portrait",'
+    '"sourceAttachmentId":"att_0011223344556677","source":"edit_image",'
+    '"width":720,"height":1280}';
+
 BlockNode _settledCall() {
   final node = BlockNode(id: 'tc_gen', kind: BlockKind.toolCall)
     ..status = 'completed'
@@ -38,6 +45,22 @@ BlockNode _settledCall() {
     BlockNode(id: 'tr_gen', kind: BlockKind.toolResult)
       ..status = 'completed'
       ..content = {'content': _receipt},
+  );
+  return node;
+}
+
+BlockNode _settledEditCall() {
+  final node = BlockNode(id: 'tc_edit_image', kind: BlockKind.toolCall)
+    ..status = 'completed'
+    ..content = {
+      'name': 'edit_image',
+      'arguments':
+          '{"attachmentId":"att_0011223344556677","prompt":"make it night","aspect":"portrait"}',
+    };
+  node.children.add(
+    BlockNode(id: 'tr_edit_image', kind: BlockKind.toolResult)
+      ..status = 'completed'
+      ..content = {'content': _editReceipt},
   );
   return node;
 }
@@ -57,6 +80,48 @@ BlockNode _settledSpeechCall() {
             '{"attachmentId":"att_0011223344556677","filename":"generated-x.wav",'
             '"mime":"audio/wav","sizeBytes":4096,"provider":"anselm",'
             '"characters":24,"source":"generate_speech","durationMs":1250}',
+      },
+  );
+  return node;
+}
+
+BlockNode _settledVideoCall() {
+  final node = BlockNode(id: 'tc_video', kind: BlockKind.toolCall)
+    ..status = 'completed'
+    ..content = {
+      'name': 'generate_video',
+      'arguments': '{"prompt":"a lighthouse at dusk","aspect":"portrait"}',
+    };
+  node.children.add(
+    BlockNode(id: 'tr_video', kind: BlockKind.toolResult)
+      ..status = 'completed'
+      ..content = {
+        'content':
+            '{"attachmentId":"att_0011223344556677","filename":"generated-x.mp4",'
+            '"mime":"video/mp4","sizeBytes":4096,"provider":"anselm",'
+            '"seconds":5,"aspect":"portrait","source":"generate_video"}',
+      },
+  );
+  return node;
+}
+
+BlockNode _settledAnimatedImageCall() {
+  final node = BlockNode(id: 'tc_animate_image', kind: BlockKind.toolCall)
+    ..status = 'completed'
+    ..content = {
+      'name': 'animate_image',
+      'arguments':
+          '{"attachmentId":"att_0011223344556677","prompt":"slow push in","seconds":5}',
+    };
+  node.children.add(
+    BlockNode(id: 'tr_animate_image', kind: BlockKind.toolResult)
+      ..status = 'completed'
+      ..content = {
+        'content':
+            '{"attachmentId":"att_ffeeddccbbaa0099","filename":"animated-x.mp4",'
+            '"mime":"video/mp4","sizeBytes":4096,"provider":"anselm",'
+            '"seconds":5,"sourceAttachmentId":"att_0011223344556677",'
+            '"source":"animate_image"}',
       },
   );
   return node;
@@ -108,6 +173,52 @@ void main() {
     expect(parseGeneratedImage('not json'), isNull);
     expect(parseGeneratedImage(null), isNull);
   });
+
+  test('parseGeneratedImage accepts edit_image without losing lineage', () {
+    final r = parseGeneratedImage(_editReceipt);
+    expect(r, isNotNull);
+    expect(r!.source, 'edit_image');
+    expect(r.aspect, 'portrait');
+    expect(r.sourceAttachmentId, 'att_0011223344556677');
+    expect(r.width, 720);
+    expect(r.height, 1280);
+  });
+
+  testWidgets(
+    'edit_image uses the shared image card and keeps portrait geometry',
+    (tester) async {
+      final source = _DelayedMedia(
+        AttachmentMeta(
+          id: 'att_8899aabbccddeeff',
+          filename: 'edited-x.png',
+          mimeType: 'image/png',
+          sizeBytes: 2345,
+          kind: 'image',
+        ),
+      );
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(node: _settledEditCall()),
+          overrides: [
+            chatRepositoryProvider.overrideWithValue(FixtureChatRepository()),
+            mediaSourceProvider.overrideWithValue(source),
+          ],
+        ),
+      );
+
+      expect(find.textContaining('已改图'), findsOneWidget);
+      expect(find.textContaining('已存为改图附件 · 720×1280'), findsOneWidget);
+      await tester.tap(find.textContaining('已改图'), warnIfMissed: false);
+      await tester.pump();
+      expect(
+        tester.widget<AspectRatio>(find.byType(AspectRatio)).aspectRatio,
+        closeTo(9 / 16, 0.001),
+      );
+      source.complete();
+      await tester.pump();
+      expect(find.textContaining('edited-x.png'), findsWidgets);
+    },
+  );
 
   testWidgets('settled card renders the artifact via the attachment pipeline', (
     tester,
@@ -304,7 +415,11 @@ void main() {
       // `seconds` 是路由**真正做出来**的长度——30 秒的请求会被钳到该家上限,而 receipt 必须报**存在的**那段。
       expect(r!.seconds, 8);
       expect(r.mime, 'video/mp4');
+      expect(r.filename, 'generated-x.mp4');
+      expect(r.sizeBytes, 900000);
+      expect(r.aspect, 'landscape');
       expect(r.provider, 'google');
+      expect(r.source, 'generate_video');
 
       // Three families, three bodies on screen. A crossover would render a video file card where a
       // picture belongs, or an audio player over one.
@@ -319,6 +434,78 @@ void main() {
       expect(parseGeneratedVideo(null), isNull);
     },
   );
+
+  test(
+    'parseGeneratedVideo accepts animation receipts and preserves lineage',
+    () {
+      final r = parseGeneratedVideo(
+        '{"attachmentId":"att_ffeeddccbbaa0099","source":"animate_image",'
+        '"sourceAttachmentId":"att_0011223344556677","seconds":5}',
+      );
+      expect(r, isNotNull);
+      expect(r!.source, 'animate_image');
+      expect(r.sourceAttachmentId, 'att_0011223344556677');
+      expect(r.seconds, 5);
+    },
+  );
+
+  testWidgets(
+    'generated video holds receipt aspect before attachment metadata arrives',
+    (tester) async {
+      final source = _DelayedMedia(
+        const AttachmentMeta(
+          id: 'att_0011223344556677',
+          filename: 'generated-x.mp4',
+          mimeType: 'video/mp4',
+          sizeBytes: 4096,
+          kind: 'video',
+        ),
+      );
+      await tester.pumpWidget(
+        _host(
+          ChatToolCard(node: _settledVideoCall()),
+          overrides: [mediaSourceProvider.overrideWithValue(source)],
+        ),
+      );
+
+      await tester.tap(find.textContaining('已生成视频'), warnIfMissed: false);
+      await tester.pump();
+
+      final placeholder = tester.widget<AspectRatio>(find.byType(AspectRatio));
+      expect(placeholder.aspectRatio, closeTo(9 / 16, 0.001));
+
+      source.complete();
+      await tester.pump();
+      expect(find.byType(AnVideoCard), findsOneWidget);
+    },
+  );
+
+  testWidgets('animate_image uses its dedicated video card grammar', (
+    tester,
+  ) async {
+    final source = _StubMedia(
+      const AttachmentMeta(
+        id: 'att_ffeeddccbbaa0099',
+        filename: 'animated-x.mp4',
+        mimeType: 'video/mp4',
+        sizeBytes: 4096,
+        kind: 'video',
+      ),
+    );
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(node: _settledAnimatedImageCall()),
+        overrides: [mediaSourceProvider.overrideWithValue(source)],
+      ),
+    );
+
+    expect(find.textContaining('已让图片动起来'), findsOneWidget);
+    await tester.tap(find.textContaining('已让图片动起来'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(AnVideoCard), findsOneWidget);
+    expect(find.textContaining('att_'), findsNothing);
+  });
 }
 
 /// The narrowest MediaSource these card tests need: answer `meta`, never fetch bytes.

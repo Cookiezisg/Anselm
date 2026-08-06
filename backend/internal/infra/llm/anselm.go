@@ -191,6 +191,41 @@ func (p *anselmProvider) DescribeModels(raw string) ([]ModelInfo, error) {
 	return models, nil
 }
 
+// AnselmImageToVideoAvailable reports the explicit image-to-video capability of a managed gateway
+// probe. `video_generation.available` is only the text-to-video capability and must not be widened
+// into animate_image: the two upstream models have different contracts and different wire shapes.
+// Missing or malformed capability data fails closed.
+//
+// AnselmImageToVideoAvailable 报告受管网关探测档案是否**明确**支持图生视频。`video_generation.available`
+// 只代表文生视频，绝不能把它扩大解释成 animate_image：两种上游模型的契约和线缆形状都不同。能力字段
+// 缺失或损坏时一律 fail-closed。
+func AnselmImageToVideoAvailable(raw string) bool {
+	type videoProfile struct {
+		Available    bool `json:"available"`
+		ImageToVideo bool `json:"image_to_video"`
+	}
+	var wire struct {
+		Data []struct {
+			Capabilities *struct {
+				Version         int          `json:"version"`
+				Routing         string       `json:"routing"`
+				VideoGeneration videoProfile `json:"video_generation"`
+			} `json:"anselm_capabilities"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal([]byte(raw), &wire); err != nil {
+		return false
+	}
+	for _, model := range wire.Data {
+		caps := model.Capabilities
+		if caps != nil && caps.Version >= 1 && caps.Routing == "content" &&
+			caps.VideoGeneration.Available && caps.VideoGeneration.ImageToVideo {
+			return true
+		}
+	}
+	return false
+}
+
 // AnselmModelID is the single logical model the free-tier gateway serves. Its name is the gateway's
 // public alias, not either internal upstream model. It is the source for anselmSpecs, the seeded
 // probe body, and the managed key's pinned model id.

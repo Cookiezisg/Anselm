@@ -34,30 +34,43 @@ void main() {
   const fnRef = EntityRef(EntityKind.function, 'fn_1');
   const wfRef = EntityRef(EntityKind.workflow, 'wf_1');
 
-  test('function logs carry ok/failed aggregate + expand', () async {
-    final c = _container(
-      FixtureEntityRepository(
-        functionExecutions: {
-          'fn_1': [
-            _exec('x1', 'ok'),
-            _exec('x2', 'ok'),
-            _exec('x3', 'ok'),
-            _exec('x4', 'failed'),
-          ],
-        },
-      ),
-      fnRef,
-    );
-    final st = await c.read(logListProvider(fnRef).future);
-    expect(st.rows, hasLength(4));
-    expect(st.hasAggregate, isTrue);
-    expect(st.aggregates.okCount, 3);
-    expect(st.aggregates.failedCount, 1);
-    expect(st.rows.first.detailRows, isNotEmpty);
+  test(
+    'function logs carry ok/failed aggregate and lazy-load full logs on expand',
+    () async {
+      final c = _container(
+        FixtureEntityRepository(
+          functionExecutions: {
+            'fn_1': [
+              _exec('x1', 'ok').copyWith(logs: 'printed by function'),
+              _exec('x2', 'ok'),
+              _exec('x3', 'ok'),
+              _exec('x4', 'failed'),
+            ],
+          },
+        ),
+        fnRef,
+      );
+      final st = await c.read(logListProvider(fnRef).future);
+      expect(st.rows, hasLength(4));
+      expect(st.hasAggregate, isTrue);
+      expect(st.aggregates.okCount, 3);
+      expect(st.aggregates.failedCount, 1);
+      expect(st.rows.first.detailRows, isNotEmpty);
+      expect(
+        st.rows.first.detailRows.any((r) => r.$2.contains('printed')),
+        isFalse,
+      );
 
-    await c.read(logListProvider(fnRef).notifier).toggle('x1');
-    expect(c.read(logListProvider(fnRef)).value!.openIds, contains('x1'));
-  });
+      await c.read(logListProvider(fnRef).notifier).toggle('x1');
+      final after = c.read(logListProvider(fnRef)).value!;
+      expect(after.openIds, contains('x1'));
+      expect(after.rows.first.detailsLoaded, isTrue);
+      expect(
+        after.rows.first.detailRows.any((r) => r.$2 == 'printed by function'),
+        isTrue,
+      );
+    },
+  );
 
   test(
     'workflow logs have no aggregate; first expand lazily fetches the flowrun node list',

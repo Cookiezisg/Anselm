@@ -12,7 +12,14 @@ import 'package:video_player_platform_interface/video_player_platform_interface.
 /// controller 的走带控件在构造上就不可测——本仓其余每一个视频测试都刻意不建 controller,而这正是
 /// 「**根本没有走带控件**」一直没被任何东西抓到的原因。
 class FakeVideoPlatform extends VideoPlayerPlatform {
+  FakeVideoPlatform({
+    this.initializationDelay = Duration.zero,
+    this.createError,
+  });
+
   final _events = StreamController<VideoEvent>.broadcast();
+  final Duration initializationDelay;
+  final Object? createError;
   Duration position = Duration.zero;
   int seeks = 0, plays = 0, pauses = 0;
 
@@ -26,9 +33,17 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   @override
   Future<void> dispose(int playerId) async {}
   @override
-  Future<int?> create(DataSource dataSource) async => 1;
+  Future<int?> create(DataSource dataSource) async {
+    if (createError != null) throw createError!;
+    return 1;
+  }
+
   @override
-  Future<int?> createWithOptions(VideoCreationOptions options) async => 1;
+  Future<int?> createWithOptions(VideoCreationOptions options) async {
+    if (createError != null) throw createError!;
+    return 1;
+  }
+
   Duration duration = const Duration(seconds: 12);
 
   // The `initialized` event must arrive ON SUBSCRIBE. `controller.initialize()` subscribes and then
@@ -38,6 +53,9 @@ class FakeVideoPlatform extends VideoPlayerPlatform {
   // 那个 await 之后再发事件是死锁——setUp 永不返回,整份文件挂住且没有任何失败可读。
   @override
   Stream<VideoEvent> videoEventsFor(int playerId) async* {
+    if (initializationDelay > Duration.zero) {
+      await Future<void>.delayed(initializationDelay);
+    }
     yield VideoEvent(
       eventType: VideoEventType.initialized,
       duration: duration,

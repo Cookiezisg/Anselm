@@ -970,6 +970,9 @@ class Translations$entities$en {
 	/// en: 'Search entities…'
 	String get filter => 'Search entities…';
 
+	/// en: 'No entities match your search.'
+	String get noResults => 'No entities match your search.';
+
 	/// en: 'Couldn't load entities'
 	String get errorTitle => 'Couldn\'t load entities';
 
@@ -3260,6 +3263,15 @@ class Translations$chat$tool$en {
 	/// en: 'Saved as attachment'
 	String get generatedImageStored => 'Saved as attachment';
 
+	/// en: 'Editing image'
+	String get editingImage => 'Editing image';
+
+	/// en: 'Edited image'
+	String get editedImage => 'Edited image';
+
+	/// en: 'Saved edited image as an attachment'
+	String get editedImageStored => 'Saved edited image as an attachment';
+
 	/// en: 'Synthesizing speech'
 	String get generatingSpeech => 'Synthesizing speech';
 
@@ -3277,6 +3289,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'Saved as a video attachment'
 	String get generatedVideoStored => 'Saved as a video attachment';
+
+	/// en: 'Animating image'
+	String get animatingImage => 'Animating image';
+
+	/// en: 'Animated image'
+	String get animatedImage => 'Animated image';
+
+	/// en: 'Saved animated image as a video attachment'
+	String get animatedImageStored => 'Saved animated image as a video attachment';
 }
 
 // Path: chat.gate
@@ -4518,14 +4539,14 @@ class Translations$entities$rail$en {
 	// Translations
 	late final Translations$entities$rail$menu$en menu = Translations$entities$rail$menu$en.internal(_root);
 
-	/// en: 'Help me make changes to this.'
-	String get iterateRequest => 'Help me make changes to this.';
+	/// en: 'Help me edit “$name” with AI.'
+	String iterateRequest({required Object name}) => 'Help me edit “${name}” with AI.';
 
 	/// en: 'Delete this entity?'
 	String get deleteTitle => 'Delete this entity?';
 
-	/// en: '“$name” will be removed.'
-	String deleteBody({required Object name}) => '“${name}” will be removed.';
+	/// en: '“$name” will be removed from the active catalog. This can't be undone.'
+	String deleteBody({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.';
 
 	/// en: 'Action failed'
 	String get actionFailed => 'Action failed';
@@ -4595,8 +4616,8 @@ class Translations$entities$run$en {
 	/// en: 'Cancelled'
 	String get cancelled => 'Cancelled';
 
-	/// en: '$n today'
-	String glanceToday({required Object n}) => '${n} today';
+	/// en: '$n total runs'
+	String glanceTotal({required Object n}) => '${n} total runs';
 
 	/// en: 'last ok'
 	String get glanceLastOk => 'last ok';
@@ -4639,6 +4660,9 @@ class Translations$entities$run$en {
 
 	/// en: 'error'
 	String get errorHeading => 'error';
+
+	/// en: 'details'
+	String get detailsHeading => 'details';
 
 	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
 
@@ -5049,6 +5073,12 @@ class Translations$settings$keys$en {
 
 	/// en: 'No cloned voices yet. Ask the assistant to enroll one from an audio attachment.'
 	String get voicesEmpty => 'No cloned voices yet. Ask the assistant to enroll one from an audio attachment.';
+
+	/// en: 'Could not load cloned voices. Check the connection and retry.'
+	String get voicesLoadFailed => 'Could not load cloned voices. Check the connection and retry.';
+
+	/// en: 'Retry'
+	String get voicesRetry => 'Retry';
 
 	/// en: '$n of $cap slots free'
 	String voicesRemaining({required Object n, required Object cap}) => '${n} of ${cap} slots free';
@@ -6730,6 +6760,9 @@ class Translations$entities$detail$kv$en {
 	/// en: 'Output'
 	String get output => 'Output';
 
+	/// en: 'Logs'
+	String get logs => 'Logs';
+
 	/// en: 'Ref'
 	String get ref => 'Ref';
 
@@ -6955,8 +6988,20 @@ class Translations$entities$detail$state$en {
 	/// en: 'Couldn't load this entity'
 	String get errorTitle => 'Couldn\'t load this entity';
 
+	/// en: 'Couldn't load the full execution record'
+	String get executionDetailsFailed => 'Couldn\'t load the full execution record';
+
 	/// en: 'The local engine didn't return it.'
 	String get errorHint => 'The local engine didn\'t return it.';
+
+	/// en: 'Couldn't save the name: $message'
+	String renameFailed({required Object message}) => 'Couldn\'t save the name: ${message}';
+
+	/// en: 'Couldn't save the description or tags: $message'
+	String metaSaveFailed({required Object message}) => 'Couldn\'t save the description or tags: ${message}';
+
+	/// en: 'Lowercase; a-z 0-9 - _; 1–64.'
+	String get invalidName => 'Lowercase; a-z 0-9 - _; 1–64.';
 
 	/// en: 'Load more'
 	String get loadMore => 'Load more';
@@ -7827,12 +7872,18 @@ extension on Translations {
 			'chat.tool.generatingImage' => 'Generating image',
 			'chat.tool.generatedImage' => 'Generated image',
 			'chat.tool.generatedImageStored' => 'Saved as attachment',
+			'chat.tool.editingImage' => 'Editing image',
+			'chat.tool.editedImage' => 'Edited image',
+			'chat.tool.editedImageStored' => 'Saved edited image as an attachment',
 			'chat.tool.generatingSpeech' => 'Synthesizing speech',
 			'chat.tool.generatedSpeech' => 'Synthesized speech',
 			'chat.tool.generatedSpeechStored' => 'Saved as an audio attachment',
 			'chat.tool.generatingVideo' => 'Generating video',
 			'chat.tool.generatedVideo' => 'Generated video',
 			'chat.tool.generatedVideoStored' => 'Saved as a video attachment',
+			'chat.tool.animatingImage' => 'Animating image',
+			'chat.tool.animatedImage' => 'Animated image',
+			'chat.tool.animatedImageStored' => 'Saved animated image as a video attachment',
 			'chat.gate.dangerBadge' => 'Dangerous',
 			'chat.gate.awaitingDanger' => 'Awaiting your approval',
 			'chat.gate.awaitingAsk' => 'Awaiting your answer',
@@ -8230,14 +8281,14 @@ extension on Translations {
 			'scheduler.range.backToPresets' => 'Back to quick ranges',
 			'scheduler.range.backToToday' => 'Back to today',
 			'scheduler.range.preciseTime' => 'Set exact times',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m}/${d}',
 			'scheduler.range.dayTextYear' => ({required Object m, required Object d, required Object y}) => '${m}/${d}/${y}',
 			'scheduler.range.capsuleA11y' => 'Time range',
 			'scheduler.range.gridA11y' => 'Calendar',
 			'action.edit' => 'Edit',
 			'action.cancel' => 'Cancel',
-			_ => null,
-		} ?? switch (path) {
 			'action.save' => 'Save',
 			'action.copy' => 'Copy',
 			'action.expand' => 'Expand',
@@ -8402,6 +8453,7 @@ extension on Translations {
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
 			'entities.kNew' => 'New',
 			'entities.filter' => 'Search entities…',
+			'entities.noResults' => 'No entities match your search.',
 			'entities.errorTitle' => 'Couldn\'t load entities',
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
 			'entities.retry' => 'Try again',
@@ -8425,9 +8477,9 @@ extension on Translations {
 			'entities.rail.menu.pause' => 'Pause',
 			'entities.rail.menu.resume' => 'Resume',
 			'entities.rail.menu.iterate' => 'Edit with AI',
-			'entities.rail.iterateRequest' => 'Help me make changes to this.',
+			'entities.rail.iterateRequest' => ({required Object name}) => 'Help me edit “${name}” with AI.',
 			'entities.rail.deleteTitle' => 'Delete this entity?',
-			'entities.rail.deleteBody' => ({required Object name}) => '“${name}” will be removed.',
+			'entities.rail.deleteBody' => ({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.',
 			'entities.rail.actionFailed' => 'Action failed',
 			'entities.detail.crumbRoot' => 'Entities',
 			'entities.detail.tab.overview' => 'Overview',
@@ -8528,6 +8580,7 @@ extension on Translations {
 			'entities.detail.kv.trigger' => 'Trigger',
 			'entities.detail.kv.input' => 'Input',
 			'entities.detail.kv.output' => 'Output',
+			'entities.detail.kv.logs' => 'Logs',
 			'entities.detail.kv.ref' => 'Ref',
 			'entities.detail.kv.healthy' => 'Healthy',
 			'entities.detail.kv.method' => 'Method',
@@ -8592,7 +8645,11 @@ extension on Translations {
 			'entities.detail.state.createFirstVersion' => 'No versions yet',
 			'entities.detail.state.createFirstVersionHint' => 'Create a version to activate this entity.',
 			'entities.detail.state.errorTitle' => 'Couldn\'t load this entity',
+			'entities.detail.state.executionDetailsFailed' => 'Couldn\'t load the full execution record',
 			'entities.detail.state.errorHint' => 'The local engine didn\'t return it.',
+			'entities.detail.state.renameFailed' => ({required Object message}) => 'Couldn\'t save the name: ${message}',
+			'entities.detail.state.metaSaveFailed' => ({required Object message}) => 'Couldn\'t save the description or tags: ${message}',
+			'entities.detail.state.invalidName' => 'Lowercase; a-z 0-9 - _; 1–64.',
 			'entities.detail.state.loadMore' => 'Load more',
 			'entities.detail.state.loadFailed' => 'Load failed — tap to retry',
 			'entities.detail.state.earliest' => 'earliest version',
@@ -8650,7 +8707,7 @@ extension on Translations {
 			'entities.run.cancel' => 'Cancel',
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.cancelled' => 'Cancelled',
-			'entities.run.glanceToday' => ({required Object n}) => '${n} today',
+			'entities.run.glanceTotal' => ({required Object n}) => '${n} total runs',
 			'entities.run.glanceLastOk' => 'last ok',
 			'entities.run.glanceLastFailed' => 'last failed',
 			'entities.run.glanceLastCancelled' => 'last cancelled',
@@ -8665,6 +8722,7 @@ extension on Translations {
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '${inT} in · ${outT} out',
 			'entities.run.errorHeading' => 'error',
+			'entities.run.detailsHeading' => 'details',
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
 			'entities.run.inboxEmpty' => 'No pending approvals',
@@ -8737,6 +8795,8 @@ extension on Translations {
 			'library.saveFailedGone' => 'Can\'t save — this page was deleted',
 			'library.props.title' => 'Properties',
 			'library.props.name' => 'Name',
+			_ => null,
+		} ?? switch (path) {
 			'library.props.description' => 'Description',
 			'library.props.tags' => 'Tags',
 			'library.props.addTag' => 'Add a tag',
@@ -8750,8 +8810,6 @@ extension on Translations {
 			'library.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
 			'library.props.tools' => 'Allowed tools',
 			'library.props.addTool' => 'Add a tool',
-			_ => null,
-		} ?? switch (path) {
 			'library.props.toolPickerTitle' => 'Add a tool',
 			'library.props.toolPickerSearch' => 'Search tools, functions, MCP…',
 			'library.props.toolPickerBuiltin' => 'Builtin tools',
@@ -8930,6 +8988,8 @@ extension on Translations {
 			'settings.langZh' => '简体中文',
 			'settings.keys.voices' => 'Cloned voices',
 			'settings.keys.voicesEmpty' => 'No cloned voices yet. Ask the assistant to enroll one from an audio attachment.',
+			'settings.keys.voicesLoadFailed' => 'Could not load cloned voices. Check the connection and retry.',
+			'settings.keys.voicesRetry' => 'Retry',
 			'settings.keys.voicesRemaining' => ({required Object n, required Object cap}) => '${n} of ${cap} slots free',
 			'settings.keys.voicesFull' => 'Both slots are taken — delete one to make room.',
 			'settings.keys.voicesDelete' => 'Delete',
@@ -9249,6 +9309,8 @@ extension on Translations {
 			'settings.shortcuts.resetAll' => 'Reset all to defaults',
 			'settings.shortcuts.reset' => 'Reset',
 			'settings.shortcuts.rebind' => 'Rebind',
+			_ => null,
+		} ?? switch (path) {
 			'settings.shortcuts.recording' => 'Press a new chord…',
 			'settings.shortcuts.conflict' => ({required Object cmd}) => 'Conflicts with “${cmd}”',
 			'settings.shortcuts.cmdToggleLeft' => 'Collapse / expand the left island',
@@ -9264,8 +9326,6 @@ extension on Translations {
 			'settings.capsuleApprovalsDesc' => 'Pending approvals pop an actionable block on the band',
 			'settings.capsuleAttention' => 'Capsule: attention',
 			'settings.capsuleAttentionDesc' => 'Attention events (streaks, broken references) pop the band capsule',
-			_ => null,
-		} ?? switch (path) {
 			'settings.spend.title' => 'Your own keys',
 			'settings.spend.window' => 'Last 30 days (direct)',
 			'settings.spend.empty' => 'Nothing generated with your own keys in the last 30 days.',

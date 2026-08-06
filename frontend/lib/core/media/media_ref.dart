@@ -45,6 +45,7 @@ class AnMediaRef {
     required this.attachmentId,
     this.mime,
     this.filename,
+    this.aspect,
     this.width,
     this.height,
     this.sizeBytes,
@@ -54,6 +55,10 @@ class AnMediaRef {
   final String attachmentId;
   final String? mime;
   final String? filename;
+
+  /// Producer-supplied frame shape hint, used only before the attachment row arrives.
+  /// 产出方提供的画幅提示,只在附件行到达前占位使用。
+  final String? aspect;
   final int? width;
   final int? height;
   final int? sizeBytes;
@@ -98,6 +103,7 @@ List<AnMediaRef> collectMediaRefs(Object? json) {
             attachmentId: id,
             mime: _str(v['mime']) ?? _str(v['mimeType']),
             filename: _str(v['filename']),
+            aspect: _str(v['aspect']),
             width: _int(v['width']),
             height: _int(v['height']),
             sizeBytes: _int(v['sizeBytes']),

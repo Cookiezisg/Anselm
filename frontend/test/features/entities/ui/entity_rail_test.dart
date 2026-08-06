@@ -84,6 +84,8 @@ class _FakeOverlay extends AnOverlayController {
   _FakeOverlay(this.result);
   final bool result;
   bool confirmCalled = false;
+  String? confirmTitle;
+  String? confirmMessage;
 
   @override
   Future<bool> confirm({
@@ -95,6 +97,8 @@ class _FakeOverlay extends AnOverlayController {
     AnDialogTone confirmTone = AnDialogTone.danger,
   }) async {
     confirmCalled = true;
+    confirmTitle = title;
+    confirmMessage = message;
     return result;
   }
 }
@@ -344,6 +348,23 @@ void main() {
 
     expect(find.text(t.entities.errorTitle), findsOneWidget);
     expect(find.text(t.entities.retry), findsOneWidget);
+  });
+
+  testWidgets('filter with no matches explains the empty result', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        FixtureEntityRepository(functions: [_fn('fn_1', 'normalize-input')]),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+
+    await tester.enterText(find.byType(TextField), 'no-such-entity');
+    await tester.pump(const Duration(milliseconds: 300));
+
+    expect(find.text(t.entities.noResults), findsOneWidget);
+    expect(find.text('normalize-input'), findsNothing);
   });
 
   testWidgets('loading → deferred skeleton (after the anti-flash delay)', (
@@ -735,6 +756,10 @@ void main() {
       expect(spy.iterateRequestSeen, isNotNull);
       expect(spy.iterateRequestSeen!.trim(), isNotEmpty); // never a blank body
       expect(
+        spy.iterateRequestSeen,
+        contains('normalize'),
+      ); // the new thread is identifiable in the rail
+      expect(
         container
             .read(goRouterProvider)
             .routerDelegate
@@ -761,6 +786,11 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(fake.confirmCalled, isTrue);
+      expect(fake.confirmTitle, t.entities.rail.deleteTitle);
+      expect(
+        fake.confirmMessage,
+        t.entities.rail.deleteBody(name: 'normalize'),
+      );
       expect(spy.deleteCalled, isTrue);
       expect(find.text('normalize'), findsNothing);
     },

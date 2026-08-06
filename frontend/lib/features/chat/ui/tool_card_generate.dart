@@ -49,6 +49,7 @@ Widget generatedImageBody(BuildContext context, ToolCardState state) {
       attachmentId: r.attachmentId,
       mime: r.mime,
       filename: r.filename,
+      aspect: r.aspect,
       width: r.width,
       height: r.height,
       sizeBytes: r.sizeBytes,
@@ -176,16 +177,24 @@ class _GeneratedSpeechBody extends ConsumerWidget {
   };
 }
 
-/// generate_video family body. Inline playback arrives for free through the family — this body does
-/// not know a player exists, and did not change when the playback backend was swapped (ADR 0018).
+/// generate_video/animate_image family body. Image rendering or inline playback arrives for free
+/// through the shared family — this body does not know which media widget is selected, and did not
+/// change when the playback backend was swapped (ADR 0018).
 ///
-/// generate_video 族体。内联播放**经一族卡免费到达**——本体**不知道**有播放器这回事,而在播放底座被
-/// 更换时(ADR 0018)它一行都没动。
+/// generate_video/animate_image 族体。内联播放**经一族卡免费到达**——本体**不知道**有播放器这回事,
+/// 而在播放底座被更换时(ADR 0018)它一行都没动。
 Widget generatedVideoBody(BuildContext context, ToolCardState state) {
   final r = parseGeneratedVideo(state.resultText);
   if (r == null) return const SizedBox.shrink();
   return AnMediaRefCard(
-    mediaRef: AnMediaRef(attachmentId: r.attachmentId),
+    mediaRef: AnMediaRef(
+      attachmentId: r.attachmentId,
+      mime: r.mime,
+      filename: r.filename,
+      aspect: r.aspect,
+      sizeBytes: r.sizeBytes,
+      source: r.source,
+    ),
     maxWidth: _maxW,
   );
 }

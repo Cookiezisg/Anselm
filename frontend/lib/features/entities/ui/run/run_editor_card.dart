@@ -218,7 +218,7 @@ class _RunEditorCardState extends ConsumerState<RunEditorCard> {
   Widget _payloadSourceChip(BuildContext context, RunTerminalController c) {
     final r = context.t.entities.run;
     final runs =
-        ref.watch(recentRunsProvider(widget.entityRef)).value ??
+        ref.watch(recentRunsProvider(widget.entityRef)).value?.runs ??
         const <RecentRun>[];
     // A workflow row does NOT project its entry payload — offering it as a payload source would fill an
     // empty object, so only fn/hd/ag runs appear as reusable inputs. wf 行未投影 payload,不作可复用源。

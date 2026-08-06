@@ -92,7 +92,8 @@ App Shutdown：
 
 1. 同时 stop 各 ticker/loop，再等待 done；
 2. 给 Scheduler pool 有界排空时间，再 cancel in-flight Advance 并停池；
-3. 停 Trigger 与 Chat queues；
+3. 停 Trigger 与 Chat queues；Chat 接收剩余关停预算，running turn 被取消，自动标题等可选
+   后台任务收到 chat lifecycle cancel 且不得在 DB close 后写入；
 4. 停 Search worker；
 5. 关闭 MCP/Handler resident instances；
 6. 停 Media worker；

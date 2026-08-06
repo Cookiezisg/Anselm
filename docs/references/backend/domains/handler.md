@@ -46,9 +46,16 @@ Function 每次调用启动隔离进程；Handler 在常驻进程上执行 RPC�
 纯 metadata 更新不铸版本、不重启，因此不会无故丢掉内存态。空 ops 表示重建
 active env 并重启；工具结果明确返回 restarted。
 
+版本单读支持路径内的数字版本号或 opaque `hdv_...` 版本 ID；两种形态都按路径中的
+handler 归属查询，跨 handler 的版本 ID 统一返回 `HANDLER_VERSION_NOT_FOUND`。
+
 ### LLM 构建 op 形状
 
 create_handler 与 edit_handler 的 ops 是带 op 判别字段的数组。
+create_handler 的工具说明必须明确区分 Function：Handler **不接受** `set_code`、
+`set_inputs`、`set_outputs`、`set_methods` 或整段 class/code blob；常驻类代码只能由
+`set_init`/`set_shutdown` 与 `add_method.method` 组合。执行边界对这些高频跨实体误用返回
+可直接修正的 canonical shape，而不是只报一个无上下文的 unknown op。
 update_method 是唯一使用 RFC 7396 merge patch 的 op，精确形状为：
 
 ~~~json
@@ -62,6 +69,17 @@ update_method 是唯一使用 RFC 7396 merge patch 的 op，精确形状为：
 `updateMethod` + `method/methodName` + 顶层 method 字段，以及完整的
 `kind:"set_method"` + 嵌套 MethodSpec，提供窄归一化；公开 schema 仍以
 canonical 形状为准，近似拼写、未知字段或空 patch 不因此获得通过。
+
+同一执行边界还保留一条有限的旧模型兼容线：`set_code` 只有在内容是可机械拆分的
+Python class 时，才转换为 `set_init`/`set_shutdown`/`add_method`/`set_python_version`；
+`set_methods` 在创建路径若带完整方法体则转成多个 `add_method`，在编辑路径则按当前
+active version 的 method 名逐项分流：已有名转 `update_method`，新名才转 `add_method`；
+若只带参数/返回声明则与 class 中已解析的方法体合并为 `update_method`；`declare_method`、`set_method_inputs`、
+`set_method_outputs` 只转换为既有 method 的 canonical metadata patch；`set_method`
+的 `args`/`returns`/`yields` 别名也只做同样的确定性映射；`set_init_args` 接受空数组或
+JSON Schema/`initArgs` 别名并转成 `set_init_args_schema`。这不是新的公开 Handler 协议，
+也不猜测任意代码；缺 class、缺方法体、混合未知字段或无法无损拆分时仍大声失败。目的
+只是避免托管模型把 Function 的旧 whole-class 形状带到 Handler 后制造一次用户可见的假失败。
 
 `revert_handler` 的 `version` 公开仍是 integer；执行边界额外接受只包含十进制整数的
 字符串，以兼容 hosted model 的标量字符串化。小数、数组、布尔、文字和非正数仍拒绝。
@@ -126,6 +144,9 @@ crashed：取消后迟到回复可能污染下一次读取，因此不能复用�
 Streaming method 的 progress yield 同时进入调用者 progress、Entities run
 terminal 与有界日志。Generator 的最后一个非-progress yield 或 return value
 作为终值。
+
+Call 列表的 `aggregates` 同时返回完整过滤集的 `totalCount`、`okCount` 与
+`failedCount`；列表行保持轻量，单条 `logs` 仍通过详情端点读取。
 
 所有入口汇入 `Call`：
 

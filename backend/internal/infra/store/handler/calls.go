@@ -59,7 +59,11 @@ func (s *Store) ComputeCallAggregates(ctx context.Context, filter handlerdomain.
 	if err != nil {
 		return handlerdomain.CallAggregates{}, fmt.Errorf("handlerstore.ComputeCallAggregates: ok: %w", err)
 	}
-	return handlerdomain.CallAggregates{OKCount: int(ok), FailedCount: int(total - ok)}, nil
+	return handlerdomain.CallAggregates{
+		TotalCount:  int(total),
+		OKCount:     int(ok),
+		FailedCount: int(total - ok),
+	}, nil
 }
 
 func (s *Store) callFilterQuery(filter handlerdomain.CallFilter, includeStatus bool) *ormpkg.Query[handlerdomain.Call] {

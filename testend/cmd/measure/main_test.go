@@ -66,6 +66,30 @@ func TestPairDiffROI_IgnoresMotionOutsideTarget(t *testing.T) {
 	}
 }
 
+func TestResizeNearestAndPairDiff_KnownSourceLoss(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	fill(source, source.Bounds(), color.RGBA{255, 255, 255, 255})
+	frame := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	fill(frame, frame.Bounds(), color.RGBA{0, 0, 0, 255})
+
+	frac, _ := pairDiff(resizeNearest(source, frame.Bounds()), frame)
+	if frac != 1 {
+		t.Fatalf("gross source loss = %v, want 1", frac)
+	}
+}
+
+func TestResizeNearestPreservesMatchingImageAcrossRasters(t *testing.T) {
+	source := image.NewRGBA(image.Rect(0, 0, 2, 2))
+	fill(source, source.Bounds(), color.RGBA{255, 255, 255, 255})
+	frame := image.NewRGBA(image.Rect(0, 0, 4, 4))
+	fill(frame, frame.Bounds(), color.RGBA{255, 255, 255, 255})
+
+	frac, box := pairDiff(resizeNearest(source, frame.Bounds()), frame)
+	if frac != 0 || !box.Empty() {
+		t.Fatalf("matching resized image = %v %v, want 0 and empty box", frac, box)
+	}
+}
+
 func TestParseROI(t *testing.T) {
 	bounds := image.Rect(0, 0, 100, 100)
 	got, err := parseROI("10,20,30,40", bounds)

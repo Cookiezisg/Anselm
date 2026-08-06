@@ -61,7 +61,7 @@ AppShell
 | 状态、空、错、加载 | `AnStatusDot`、`AnState`、`AnSkeleton`、`AnSpinner` |
 | 内容容器 | `AnWindow`、`AnCard`、`AnInfoCard`；避免窗套窗 |
 | 内联元数据 | `AnChip`、`AnRefPill`、`AnPathChip`、`AnKeycap` |
-| 编辑 | `AnInput`、`AnInlineEdit`、`AnCodeEditor`、`AnEditor` |
+| 编辑 | `AnInput`、`AnInlineEdit`、`AnEditableValue`、`AnCodeEditor`、`AnEditor` |
 | 展开与过渡 | `AnExpandReveal`、`AnFadeCollapse`、`AnContentIn` |
 | 菜单/浮层/确认 | `AnMenu`、`AnPopover`、`AnTooltip`、`AnDialog` / `core/overlay` |
 | 页面/壳/岛 | `AnPage`、`AnIsland`、`AnShell`、`AnOceanHeader`、`AnPanelHead` |
@@ -71,6 +71,8 @@ AppShell
 | 即时消息 | `AnNotice*` 族 + `NoticeCenter`，不用旧 toast |
 
 若 `ui.dart` 已有语义相同的件，先扩展它；新增原语前在 gallery 覆盖静息、hover、focus、disabled、loading、error、长文案和 reduced motion。
+
+就地编辑的提交回调允许返回 `Future`。`AnInlineEdit` 必须等待异步结果后才退出编辑态；失败时保留草稿并经宿主错误钩子进入共享顶带，不能先改本地静态值再等待 PATCH。宿主仍需在失败后重读服务端真相，避免兄弟投影与当前标题分裂。
 
 ## 5. 三岛语法
 

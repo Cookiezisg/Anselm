@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/contract/api_error.dart';
 import '../../../../core/state/keyset_paging.dart';
 import '../../../../core/contract/entities/agent.dart';
 import '../../../../core/contract/entities/common.dart';
@@ -78,8 +79,8 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     loadingMore: false,
   );
 
-  /// Toggle a row's expansion; for a workflow flowrun, lazily fetch its node list on first open.
-  /// 展开/收起一行;workflow flowrun 首次展开时懒取节点列表。
+  /// Toggle a row's expansion; workflow flowruns and function executions fetch their expensive detail
+  /// only on first open. 展开/收起一行;workflow flowrun 与 function execution 的重详情首次展开才懒取。
   Future<void> toggle(String id) async {
     final cur = state.value;
     if (cur == null) return;
@@ -102,7 +103,55 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         // leave the row expanded with summary rows only — the node list just won't appear
       }
     }
+
+    if (opening && entityRef.kind == EntityKind.function) {
+      final row = (state.value ?? cur).rows
+          .where((r) => r.id == id)
+          .firstOrNull;
+      if (row != null && !row.detailsLoaded && !row.detailsLoading) {
+        await _loadFunctionDetails(id);
+      }
+    }
   }
+
+  /// Retry a failed single-record fetch without collapsing the row. 保持行展开,只重试单条详情。
+  Future<void> retryDetails(String id) async {
+    if (entityRef.kind != EntityKind.function) return;
+    final row = state.value?.rows.where((r) => r.id == id).firstOrNull;
+    if (row == null || row.detailsLoading) return;
+    await _loadFunctionDetails(id);
+  }
+
+  Future<void> _loadFunctionDetails(String id) async {
+    _updateRow(
+      id,
+      (row) => row.copyWith(detailsLoading: true, detailsError: null),
+    );
+    try {
+      final execution = await _repo.getFunctionExecution(id);
+      if (!ref.mounted) return;
+      _replaceRow(id, _functionRow(execution, detailsLoaded: true));
+    } catch (error) {
+      if (!ref.mounted) return;
+      final message = error is ApiException ? error.message : '$error';
+      _updateRow(
+        id,
+        (row) => row.copyWith(detailsLoading: false, detailsError: message),
+      );
+    }
+  }
+
+  void _updateRow(String id, LogRow Function(LogRow) update) {
+    final cur = state.value;
+    if (cur == null) return;
+    final i = cur.rows.indexWhere((row) => row.id == id);
+    if (i < 0) return;
+    final rows = [...cur.rows]..[i] = update(cur.rows[i]);
+    state = AsyncData(cur.copyWith(rows: rows));
+  }
+
+  void _replaceRow(String id, LogRow replacement) =>
+      _updateRow(id, (_) => replacement);
 
   Future<
     ({List<LogRow> rows, ExecutionAggregates? agg, String? next, bool more})
@@ -167,7 +216,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     // unreachable — the switch is exhaustive over EntityKind
   }
 
-  LogRow _functionRow(FunctionExecution e) {
+  LogRow _functionRow(FunctionExecution e, {bool detailsLoaded = false}) {
     final kv = t.entities.detail.kv;
     return LogRow(
       id: e.id,
@@ -191,9 +240,11 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         (kv.input, prettyJson(e.input)),
         (kv.output, prettyJson(e.output)),
         (kv.error, e.errorMessage ?? '—'),
+        if (detailsLoaded) (kv.logs, e.logs ?? '—'),
         (kv.elapsed, '${e.elapsedMs}ms'),
         (kv.time, fmtTime(e.createdAt)),
       ],
+      detailsLoaded: detailsLoaded,
     );
   }
 

@@ -62,6 +62,12 @@ audience: [human, ai]
 
 `generate_image`、`edit_image`、`animate_image`、`generate_speech`、`generate_video` 与 `enroll_voice` 是逐请求注入的 capability tools，只在受管 route 对相应谓词可用时存在。
 
+`edit_image` 始终先把源附件经受管 `/v1/images/edits` 送出并生成 sibling；对明确可判定为颜色替换的窄指令，桌面端随后只旋转源图匹配颜色的像素并保留其余像素，回执以 `editMode=precision_color_swap` 记录该事实。夜景、风格、对象增删等宽编辑继续使用上游生成式结果，不能伪装成像素级保真。
+
+`animate_image` 走受管 `/v1/videos/animations`。桌面端必须发送 `prompt`、`seconds` 和首帧 `image` data URL；不得把桌面端的 `aspect`/`resolution` 继续带到该请求的上游形状，因为 API Serve 只在边界解析它们以校验词表，转发时会整体丢弃，视频继承首帧几何。文生视频 `/v1/videos/generations` 才发送这两个几何字段。
+
+`animate_image` 只在成功的受管 `/models` 探测明确返回 `anselm_capabilities.video_generation.available=true` **并且** `image_to_video=true` 时注入。前者单独只证明文生视频可用，不能推断图生视频；缺字段、探测失败或 JSON 损坏均 fail-closed，工具必须诚实缺席，不能让用户得到一段重新构图的视频后再声称它使用了原图首帧。
+
 BYOK 负责文本与受支持多模态输入读取，不提供本仓维护的生成方言。没有 managed route 时工具整族诚实缺席，而不是展示一个必然失败的按钮/工具。
 
 所有生成结果收敛为本地 attachment + `MediaRef`；是否回喂当前模型由模型输入能力和媒体 envelope 决定，不由产地决定。

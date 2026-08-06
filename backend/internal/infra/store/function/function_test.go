@@ -185,6 +185,23 @@ func TestVersion_MaxAndByNumber(t *testing.T) {
 	}
 }
 
+func TestVersion_OpaqueIDScopedToParentFunction(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkFn(t, s, ctx, "fn_a", "a", "")
+	mkFn(t, s, ctx, "fn_b", "b", "")
+	mkVer(t, s, ctx, "fnv_a1", "fn_a", 1)
+	mkVer(t, s, ctx, "fnv_b1", "fn_b", 1)
+
+	got, err := s.GetVersionForFunction(ctx, "fn_a", "fnv_a1")
+	if err != nil || got.FunctionID != "fn_a" {
+		t.Fatalf("own opaque version should resolve: got=%+v err=%v", got, err)
+	}
+	if _, err := s.GetVersionForFunction(ctx, "fn_a", "fnv_b1"); !errors.Is(err, functiondomain.ErrVersionNotFound) {
+		t.Fatalf("cross-function opaque version must be hidden, got %v", err)
+	}
+}
+
 func TestVersion_UpdateEnvRewritesDeps(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
@@ -273,7 +290,7 @@ func TestExecutions_SaveListAggregates(t *testing.T) {
 	if err != nil {
 		t.Fatalf("aggregates: %v", err)
 	}
-	if agg.OKCount != 2 || agg.FailedCount != 1 {
+	if agg.TotalCount != 3 || agg.OKCount != 2 || agg.FailedCount != 1 {
 		t.Fatalf("aggregates: %+v", agg)
 	}
 	one, err := s.GetExecutionByID(ctx, "fne_3")

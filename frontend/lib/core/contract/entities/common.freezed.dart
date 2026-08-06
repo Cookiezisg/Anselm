@@ -15,7 +15,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ExecutionAggregates {
 
- int get okCount; int get failedCount;
+ int get totalCount; int get okCount; int get failedCount;
 /// Create a copy of ExecutionAggregates
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -28,16 +28,16 @@ $ExecutionAggregatesCopyWith<ExecutionAggregates> get copyWith => _$ExecutionAgg
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExecutionAggregates&&(identical(other.okCount, okCount) || other.okCount == okCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ExecutionAggregates&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount)&&(identical(other.okCount, okCount) || other.okCount == okCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,okCount,failedCount);
+int get hashCode => Object.hash(runtimeType,totalCount,okCount,failedCount);
 
 @override
 String toString() {
-  return 'ExecutionAggregates(okCount: $okCount, failedCount: $failedCount)';
+  return 'ExecutionAggregates(totalCount: $totalCount, okCount: $okCount, failedCount: $failedCount)';
 }
 
 
@@ -48,7 +48,7 @@ abstract mixin class $ExecutionAggregatesCopyWith<$Res>  {
   factory $ExecutionAggregatesCopyWith(ExecutionAggregates value, $Res Function(ExecutionAggregates) _then) = _$ExecutionAggregatesCopyWithImpl;
 @useResult
 $Res call({
- int okCount, int failedCount
+ int totalCount, int okCount, int failedCount
 });
 
 
@@ -65,9 +65,10 @@ class _$ExecutionAggregatesCopyWithImpl<$Res>
 
 /// Create a copy of ExecutionAggregates
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? okCount = null,Object? failedCount = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? totalCount = null,Object? okCount = null,Object? failedCount = null,}) {
   return _then(_self.copyWith(
-okCount: null == okCount ? _self.okCount : okCount // ignore: cast_nullable_to_non_nullable
+totalCount: null == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
+as int,okCount: null == okCount ? _self.okCount : okCount // ignore: cast_nullable_to_non_nullable
 as int,failedCount: null == failedCount ? _self.failedCount : failedCount // ignore: cast_nullable_to_non_nullable
 as int,
   ));
@@ -154,10 +155,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int okCount,  int failedCount)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( int totalCount,  int okCount,  int failedCount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ExecutionAggregates() when $default != null:
-return $default(_that.okCount,_that.failedCount);case _:
+return $default(_that.totalCount,_that.okCount,_that.failedCount);case _:
   return orElse();
 
 }
@@ -175,10 +176,10 @@ return $default(_that.okCount,_that.failedCount);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int okCount,  int failedCount)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( int totalCount,  int okCount,  int failedCount)  $default,) {final _that = this;
 switch (_that) {
 case _ExecutionAggregates():
-return $default(_that.okCount,_that.failedCount);case _:
+return $default(_that.totalCount,_that.okCount,_that.failedCount);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -195,10 +196,10 @@ return $default(_that.okCount,_that.failedCount);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int okCount,  int failedCount)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( int totalCount,  int okCount,  int failedCount)?  $default,) {final _that = this;
 switch (_that) {
 case _ExecutionAggregates() when $default != null:
-return $default(_that.okCount,_that.failedCount);case _:
+return $default(_that.totalCount,_that.okCount,_that.failedCount);case _:
   return null;
 
 }
@@ -210,9 +211,10 @@ return $default(_that.okCount,_that.failedCount);case _:
 @JsonSerializable()
 
 class _ExecutionAggregates implements ExecutionAggregates {
-  const _ExecutionAggregates({this.okCount = 0, this.failedCount = 0});
+  const _ExecutionAggregates({this.totalCount = 0, this.okCount = 0, this.failedCount = 0});
   factory _ExecutionAggregates.fromJson(Map<String, dynamic> json) => _$ExecutionAggregatesFromJson(json);
 
+@override@JsonKey() final  int totalCount;
 @override@JsonKey() final  int okCount;
 @override@JsonKey() final  int failedCount;
 
@@ -229,16 +231,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExecutionAggregates&&(identical(other.okCount, okCount) || other.okCount == okCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ExecutionAggregates&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount)&&(identical(other.okCount, okCount) || other.okCount == okCount)&&(identical(other.failedCount, failedCount) || other.failedCount == failedCount));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,okCount,failedCount);
+int get hashCode => Object.hash(runtimeType,totalCount,okCount,failedCount);
 
 @override
 String toString() {
-  return 'ExecutionAggregates(okCount: $okCount, failedCount: $failedCount)';
+  return 'ExecutionAggregates(totalCount: $totalCount, okCount: $okCount, failedCount: $failedCount)';
 }
 
 
@@ -249,7 +251,7 @@ abstract mixin class _$ExecutionAggregatesCopyWith<$Res> implements $ExecutionAg
   factory _$ExecutionAggregatesCopyWith(_ExecutionAggregates value, $Res Function(_ExecutionAggregates) _then) = __$ExecutionAggregatesCopyWithImpl;
 @override @useResult
 $Res call({
- int okCount, int failedCount
+ int totalCount, int okCount, int failedCount
 });
 
 
@@ -266,9 +268,10 @@ class __$ExecutionAggregatesCopyWithImpl<$Res>
 
 /// Create a copy of ExecutionAggregates
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? okCount = null,Object? failedCount = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? totalCount = null,Object? okCount = null,Object? failedCount = null,}) {
   return _then(_ExecutionAggregates(
-okCount: null == okCount ? _self.okCount : okCount // ignore: cast_nullable_to_non_nullable
+totalCount: null == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
+as int,okCount: null == okCount ? _self.okCount : okCount // ignore: cast_nullable_to_non_nullable
 as int,failedCount: null == failedCount ? _self.failedCount : failedCount // ignore: cast_nullable_to_non_nullable
 as int,
   ));

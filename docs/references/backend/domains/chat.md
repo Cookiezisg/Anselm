@@ -36,7 +36,8 @@ turn：
 - generation 中再次 Send 返回 `STREAM_IN_PROGRESS`；
 - 可见回复已 finalize、同步 tail work 尚未结束时允许一个 follow-up 槽；
 - idle queue 自动释放；
-- Shutdown 取消所有 running turn 并停止 queue；
+- Shutdown 取消所有 running turn 并在传入的关停预算内停止 queue；可选的首轮自动标题不占用 queue
+  等待组，收到 service 生命周期取消后不得再写库；
 - Cancel 同时取消 running turn、清空 queued turn，并把所有 assistant 行收成
   cancelled。
 - LLM 建连阶段允许受管网关最多 120 秒返回响应头，以覆盖冷路由/上游唤醒；这不是整回合预算。
@@ -96,9 +97,13 @@ loop 只生成可审计的 suppression result 并收束本回合，不再次执�
 
 ### Grounded final text
 
-当模型把已脱敏值放进带语义前缀的标签行（例如 `**Attachment ID:**`）时，整行移除而不是把
-`the requested item` 这类内部占位词渲染给用户；该规则同时作用于流式 delta 和 durable close，
+当模型把已脱敏值放进带语义前缀的标签行（例如 `**Attachment ID:**` 或 `**Version ID:**`）时，整行移除而不是把
+`the requested item` 这类内部占位词渲染给用户；版本 ID 即使带有“new version created”等括号后缀也整行移除，
+该规则同时作用于流式 delta 和 durable close，
 精确引用仍只留在相邻工具卡与内部审计面。
+
+同一规则覆盖 reasoning 中的 `versionId changed to <opaque>` 句式：保留“版本引用已更新”的事实，
+但不让不可复制的版本值或占位词进入用户正文。
 
 流式工具名的半截暂存只允许发生在词元边界；普通单词内部的词尾（例如 `lastMessageAt` 中的 `ge`）不能被误判为分片的 `get_flowrun`，否则会把正常表头拆坏。该边界规则与跨 chunk 的整词缓冲一起适用于 SSE delta 和 durable close。
 
@@ -107,6 +112,8 @@ loop 只生成可审计的 suppression result 并收束本回合，不再次执�
 实体 ID 的前缀清单必须与当前领域命名保持同步；trigger 的真实 ID 前缀是 `trg_`，也必须经过同一条直接与流式脱敏路径，不能只兼容历史 `tr_` 缩写。
 
 普通实体表格如果只有脱敏后的机器值，系统提示明确禁止把 `the requested item` 或 `the referenced item` 当作 ID、路径、标签或表格单元格；服务端流式阶段把这类单元格标为不可用，完整 durable close 再将所有值都不可用的 ID 列整体移除。精确 ID 仍只保留在相邻 tool card 与审计线缆中，助手正文优先展示人名与路径。若 workspace ID 经过脱敏后嵌入 `cwd`、`CLAUDE_SKILL_DIR`、`path` 等路径字段，不能把占位符留在看似可复制的路径里；改为 `See the exact path in the tool card.`，保留字段语义而不伪造路径。
+
+二列表格把 `ID`/`Identifier` 作为字段行时遵守同一规则：当值不可用时，流式出口和 durable close 都必须物理移除整行，不能留下空行或 `ID | -`。空行会切断 Markdown 表格并可能让后续真实字段从渲染结果中消失；精确值仍只在相邻 tool card 与审计线缆中保留。
 
 搜索积木的正文是同一条规则的可操作特例：若模型在“这些 ref 可以用于 workflow”之类的句子中重复 opaque ref，通用脱敏后不得留下 `the requested item` 或 `the requested item.method`，也不得留下 `hd_…` / `hd_….place`、`hd_<id>.<method>` 这类缩写或模板值。服务端只替换含坏占位的那一句为“精确值见相邻 `search_blocks` 结果卡，可直接复制到 workflow 节点”（英文同义句），保留后续提示语；即使模型没有写出 `ref` 一词，只要同句明确谈到 `workflow node(s)`/`workflow 节点` 并含上述坏值，也执行同一改写。若结果被模型整理成同时含 `ref`、`kind`、`name`、`snippet`/`description` 的 Markdown 表，按表头识别为 search_blocks 表，所有 ref 单元格统一改为“精确 ref 见相邻 search_blocks 结果卡”，不误套 flowrun 的 `See the run card`，也清理 `the requested item.method` 这类带方法后缀的坏值。表格行仍由结构化表格规则处理。精确 `ag_`、`hd_`、`mcp:` ref 只在相邻 tool card 和审计线缆中显示。
 
@@ -209,7 +216,9 @@ message_stop。关闭页面或请求取消不能留下永久 streaming 行。
 
 完成回复原子更新 `last_message_at` 与 unread=true；用户 Send 更新 recency 且
 unread=false。首轮自动标题与 durable compaction 都是 best-effort，不改变已经
-落地的回答。
+落地的回答。它们可以活过单个 turn 的取消，但必须观察 chat service 的 lifecycle
+cancel，不能活过 DB close；自动标题即使遇到无视取消的 provider，也要在最终写入前
+再检查生命周期。
 
 ## 6. Retry
 

@@ -229,6 +229,23 @@ func (s *Store) GetVersion(ctx context.Context, versionID string) (*functiondoma
 	return v, nil
 }
 
+// GetVersionForFunction reads an opaque version id only inside its parent function. The
+// parent constraint is part of the route contract; a globally unique version id must not
+// let a caller cross the function boundary by guessing or replaying another id.
+//
+// GetVersionForFunction 只在父 function 内读取 opaque version id。父约束属于路由契约；即使
+// version id 全局唯一，也不能让调用方靠猜测或回放另一个 id 越过 function 边界。
+func (s *Store) GetVersionForFunction(ctx context.Context, functionID, versionID string) (*functiondomain.Version, error) {
+	v, err := s.vers.WhereEq("function_id", functionID).WhereEq("id", versionID).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, functiondomain.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("functionstore.GetVersionForFunction: %w", err)
+	}
+	return v, nil
+}
+
 func (s *Store) GetVersionByNumber(ctx context.Context, functionID string, versionN int) (*functiondomain.Version, error) {
 	v, err := s.vers.WhereEq("function_id", functionID).WhereEq("version", versionN).First(ctx)
 	if errors.Is(err, ormpkg.ErrNotFound) {

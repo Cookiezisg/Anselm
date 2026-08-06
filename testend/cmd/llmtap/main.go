@@ -28,6 +28,8 @@ import (
 
 type record struct {
 	TS           string `json:"ts"`
+	Event        string `json:"event,omitempty"`
+	Upstream     string `json:"upstream,omitempty"`
 	Method       string `json:"method"`
 	Path         string `json:"path"`
 	Size         int    `json:"size"`
@@ -78,6 +80,10 @@ func main() {
 		_, _ = journal.Write(append(b, '\n'))
 		mu.Unlock()
 	}
+	// A deterministic journey may legitimately make no model request (for example an inline
+	// metadata PATCH). Keep channel 5 observable without fabricating a request/response pair.
+	// 纯确定性旅程可能合法地不调模型(如就地 PATCH 元数据);保留通道五可见,但不伪造请求/响应对。
+	writeRec(record{Event: "ready", Upstream: u.String()})
 
 	// Request and response are journaled as two lines sharing method+path order rather than one
 	// merged record: ModifyResponse fires on a different goroutine schedule than the request hook,

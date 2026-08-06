@@ -257,6 +257,7 @@ type genRoute struct {
 	key       string // API key (direct) — never logged / API key(直连)——绝不入日志
 	baseURL   string
 	installID string // managed gateway only / 仅受管网关
+	apiKeyID  string // probe identity used for capability gates / 能力闸使用的探测 key id
 }
 
 // resolveImage picks the route. Explicit scenario config wins; otherwise managed-first fallback.
@@ -292,7 +293,7 @@ func (r *Router) resolveIn(
 		if err != nil {
 			return genRoute{}, fmt.Errorf("%s scenario key: %w", scenario, err)
 		}
-		return r.routeIn(specs, noRoute, creds.Provider, ref.ModelID, creds.Key, creds.BaseURL)
+		return r.routeIn(specs, noRoute, creds.Provider, ref.ModelID, creds.Key, creds.BaseURL, ref.APIKeyID)
 	}
 	probed, err := r.Probes.ListProbed(ctx)
 	if err != nil {
@@ -316,12 +317,12 @@ func (r *Router) resolveIn(
 		if err != nil {
 			continue // a stale probe row must not kill the whole fallback / 陈旧探测行不拖垮整条兜底
 		}
-		return r.routeIn(specs, noRoute, provider, "", creds.Key, creds.BaseURL)
+		return r.routeIn(specs, noRoute, provider, "", creds.Key, creds.BaseURL, pk.ID)
 	}
 	return genRoute{}, noRoute
 }
 
-func (r *Router) routeIn(specs map[string]providerSpec, noRoute error, provider, model, key, baseURL string) (genRoute, error) {
+func (r *Router) routeIn(specs map[string]providerSpec, noRoute error, provider, model, key, baseURL, apiKeyID string) (genRoute, error) {
 	spec, ok := specs[provider]
 	if !ok {
 		return genRoute{}, fmt.Errorf("%w: provider %q", noRoute, provider)
@@ -329,7 +330,7 @@ func (r *Router) routeIn(specs map[string]providerSpec, noRoute error, provider,
 	if provider == "anselm" {
 		// The managed row's "key" IS the public install id; the gateway owns model choice.
 		// 受管行的「key」即公开 install id;模型选择归网关。
-		return genRoute{provider: provider, baseURL: baseURL, installID: key}, nil
+		return genRoute{provider: provider, baseURL: baseURL, installID: key, apiKeyID: apiKeyID}, nil
 	}
 	if model == "" || model == llminfra.AnselmModelID {
 		model = spec.defaultModel
@@ -337,7 +338,7 @@ func (r *Router) routeIn(specs map[string]providerSpec, noRoute error, provider,
 	if spec.nativeFrom != nil {
 		baseURL = spec.nativeFrom(baseURL)
 	}
-	return genRoute{provider: provider, model: model, key: key, baseURL: baseURL}, nil
+	return genRoute{provider: provider, model: model, key: key, baseURL: baseURL, apiKeyID: apiKeyID}, nil
 }
 
 // ImageAvailable reports whether generate_image should exist for this request (honest absence).
@@ -666,10 +667,11 @@ func (r *Router) VoiceCloneAvailable(ctx context.Context) bool {
 }
 
 // VideoEditAvailable reports whether an image-to-video route resolves (honest-absence gate for
-// `animate_image`). Only qwen ships a reachable i2v dialect today.
+// `animate_image`). Managed routes additionally require the gateway to explicitly advertise the
+// image-to-video capability; a text-to-video route is never widened by inference.
 //
-// VideoEditAvailable 报告图生视频路由是否解析得出(`animate_image` 的诚实缺席闸)。今天只有 qwen 有
-// 够得着的 i2v 方言。
+// VideoEditAvailable 报告图生视频路由是否解析得出(`animate_image` 的诚实缺席闸)。受管路由还必须由
+// 网关明确宣称支持图生视频;绝不从文生视频能力推断出来。
 // **Managed only (WRK-085, 「写」留给自己).** Every generation capability needs a dialect we hand-write
 // and keep current — and every wire surprise this project has paid for landed on that side: one
 // vendor serving two tool-argument conventions from two hostnames, TTS available only over a duplex
@@ -683,7 +685,23 @@ func (r *Router) VoiceCloneAvailable(ctx context.Context) bool {
 // 它的能力来自目录、它的方言是所有供应商唯一一致的那个形状。
 func (r *Router) VideoEditAvailable(ctx context.Context) bool {
 	route, err := r.resolveVideo(ctx)
-	return err == nil && route.provider == "anselm"
+	return err == nil && route.provider == "anselm" && r.managedImageToVideoAvailable(ctx, route.apiKeyID)
+}
+
+func (r *Router) managedImageToVideoAvailable(ctx context.Context, apiKeyID string) bool {
+	if r == nil || r.Probes == nil || strings.TrimSpace(apiKeyID) == "" {
+		return false
+	}
+	probed, err := r.Probes.ListProbed(ctx)
+	if err != nil {
+		return false
+	}
+	for _, pk := range probed {
+		if pk.ID == apiKeyID && pk.Provider == "anselm" && pk.TestStatus == apikeydomain.TestStatusOK {
+			return llminfra.AnselmImageToVideoAvailable(pk.TestResponse)
+		}
+	}
+	return false
 }
 
 // generateVideo submits, polls to a terminal phase, and fetches the artifact. It is SYNCHRONOUS by

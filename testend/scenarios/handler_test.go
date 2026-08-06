@@ -169,11 +169,12 @@ func TestHandler_ResidentLifecycleAndCalls(t *testing.T) {
 			ID string `json:"id"`
 		} `json:"calls"`
 		Aggregates struct {
-			OKCount int `json:"okCount"`
+			TotalCount int `json:"totalCount"`
+			OKCount    int `json:"okCount"`
 		} `json:"aggregates"`
 	}
 	wc.GET("/api/v1/handlers/"+hdID+"/calls").OK(t, &page)
-	if page.Aggregates.OKCount != 3 || len(page.Calls) < 3 {
+	if page.Aggregates.TotalCount != 3 || page.Aggregates.OKCount != 3 || len(page.Calls) < 3 {
 		t.Fatalf("calls ledger wrong: %+v", page.Aggregates)
 	}
 	wc.GET("/api/v1/handler-calls/"+page.Calls[0].ID).OK(t, nil)

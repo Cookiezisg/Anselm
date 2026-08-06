@@ -115,6 +115,20 @@ func createOps(t *testing.T, name, code string, deps ...string) []Op {
 	return ops
 }
 
+func TestParseOpsRejectsNonArrayAsStructuredError(t *testing.T) {
+	_, err := ParseOps([]byte(`{"ops":"not-an-array"}`))
+	if !errors.Is(err, functiondomain.ErrOpInvalid) {
+		t.Fatalf("ParseOps error = %v, want FUNCTION_OP_INVALID", err)
+	}
+	var structured *errorspkg.Error
+	if !errors.As(err, &structured) {
+		t.Fatalf("ParseOps error = %T, want structured domain error", err)
+	}
+	if structured.Details["reason"] == nil || !strings.Contains(structured.Details["reason"].(string), "not a JSON array") {
+		t.Fatalf("ParseOps details = %#v, want actionable reason", structured.Details)
+	}
+}
+
 const goodCode = "def main():\n    return 1"
 
 // --- tests -----------------------------------------------------------------
@@ -288,6 +302,20 @@ func TestRun_RecordsExecution(t *testing.T) {
 	}
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("aggregates: %+v", page.Aggregates)
+	}
+}
+
+func TestRun_RejectsVersionFromAnotherFunction(t *testing.T) {
+	svc, runner, ctx := newSvc(t)
+	a, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "a", goodCode)})
+	_, bVersion, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "b", goodCode)})
+
+	_, err := svc.RunFunction(ctx, RunInput{FunctionID: a.ID, VersionID: bVersion.ID})
+	if !errors.Is(err, functiondomain.ErrVersionNotFound) {
+		t.Fatalf("cross-function version must be rejected, got %v", err)
+	}
+	if runner.ran != 0 {
+		t.Fatal("cross-function version must not reach the sandbox runner")
 	}
 }
 

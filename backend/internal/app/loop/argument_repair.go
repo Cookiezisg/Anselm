@@ -35,7 +35,10 @@ func normalizeToolCallArguments(
 			continue
 		}
 		normalized, changed := toolapp.NormalizeArguments(byName[calls[i].Name], raw)
-		reason := "provider file_path alias normalized to flowrunId"
+		reason := "provider arguments normalized by tool boundary"
+		if calls[i].Name == "get_flowrun" {
+			reason = "provider file_path alias normalized to flowrunId"
+		}
 		if calls[i].Name == "get_flowrun" && authoritativeFlowrunID != "" {
 			var fields map[string]any
 			if json.Unmarshal(normalized, &fields) == nil && fields != nil {

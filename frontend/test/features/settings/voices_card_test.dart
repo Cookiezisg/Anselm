@@ -14,9 +14,10 @@ import 'package:anselm/i18n/strings.g.dart';
 
 Future<Translations> pumpVoicesCard(
   WidgetTester tester,
-  VoiceInventory inv,
-) async {
-  final repo = FixtureSettingsRepository()..fixtureVoices = inv;
+  VoiceInventory inv, {
+  FixtureSettingsRepository? repository,
+}) async {
+  final repo = repository ?? (FixtureSettingsRepository()..fixtureVoices = inv);
   await tester.pumpWidget(
     ProviderScope(
       overrides: [
@@ -152,6 +153,38 @@ void main() {
     expect(find.text(t.settings.keys.voicesEmpty), findsOneWidget);
     expect(find.text(t.settings.keys.voicesDelete), findsNothing);
   });
+
+  testWidgets(
+    'a load failure is not disguised as an empty inventory and retries',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..fixtureVoices = const VoiceInventory(
+          items: [ClonedVoice(id: 'vce_1', name: '灯塔')],
+          capacity: 2,
+          remaining: 1,
+        )
+        ..failNextVoices = StateError('offline');
+      final t = await pumpVoicesCard(
+        tester,
+        const VoiceInventory(capacity: 2, remaining: 2),
+        repository: repo,
+      );
+
+      expect(find.text(t.settings.keys.voicesLoadFailed), findsOneWidget);
+      expect(find.text(t.settings.keys.voicesEmpty), findsNothing);
+      expect(find.text('灯塔'), findsNothing);
+
+      await tester.tap(find.text(t.settings.keys.voicesRetry));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t.settings.keys.voicesLoadFailed), findsNothing);
+      expect(find.text('灯塔'), findsOneWidget);
+      expect(
+        find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
+        findsOneWidget,
+      );
+    },
+  );
 
   testWidgets('deleting a voice frees the slot the sentence promised', (
     tester,

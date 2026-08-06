@@ -202,6 +202,21 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     state = state.copyWith(inputError: null);
   }
 
+  /// A version switch changes the meaning of the next run, so a settled result from the previous
+  /// version must not remain in the terminal under the new version header. Keep the selected method
+  /// and source, plus the durable Recent ledger; only clear this controller's transient result.
+  /// 版本指针切换后,旧版本的落定结果不能继续挂在新版本标题下;保留方法/来源与 Recent 台账,只清瞬时结果。
+  void clearResultAfterVersionChange() {
+    if (state.isRunning) return;
+    _stopFlowrunTimers();
+    stream.mutate((s) => s..reset());
+    state = RunTerminalState(
+      method: state.method,
+      source: state.source,
+      runSeq: state.runSeq + 1,
+    );
+  }
+
   /// Execute the verb for this entity using the current draft (the header CTA + the form button both land
   /// here). Coerces draft → request by declared field type, captures execution-time stream frames, and
   /// finalizes from the result. Takes a keep-alive so the run survives deselection (background streaming).
@@ -221,6 +236,7 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       output: null,
       errorCode: null,
       errorMsg: null,
+      errorDetails: null,
       logs: null,
       steps: 0,
       tokensIn: 0,
@@ -297,11 +313,20 @@ class RunTerminalController extends Notifier<RunTerminalState> {
         phase: RunPhase.failed,
         errorCode: e.code,
         errorMsg: e.message,
+        errorDetails: e.details,
       );
     } catch (e) {
       if (!ref.mounted || state.runSeq != seq) return;
       state = state.copyWith(phase: RunPhase.failed, errorMsg: e.toString());
     } finally {
+      // A handler call can lazily spawn the resident instance, so the selected detail must re-read
+      // its server-owned runtimeState after both success and failure. Without this, a successful
+      // first call leaves the overview saying "stopped" until some later lifecycle action happens.
+      // Handler 首调可能懒起常驻实例,故成功与失败都要重读服务端 runtimeState;否则首次调用成功后概览
+      // 仍会停在 stopped,直到下一次生命周期动作才纠正。
+      if (ref.mounted && entityRef.kind == EntityKind.handler) {
+        ref.invalidate(entityDetailProvider(entityRef));
+      }
       // Release the keep-alive once THIS run is the settled current one — a superseding run (seq bumped)
       // or a cancel keeps/handles it. A workflow still in flight (reconcile-driven) keeps the pin;
       // its terminal reconcile releases. Guarded by mounted so we never read a disposed notifier.

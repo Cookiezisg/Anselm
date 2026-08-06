@@ -45,7 +45,7 @@ func (s *Service) RunFunction(ctx context.Context, in RunInput) (*functiondomain
 	if versionID == "" {
 		return nil, fmt.Errorf("functionapp.RunFunction: %w", functiondomain.ErrNoActiveVersion)
 	}
-	v, err := s.repo.GetVersion(ctx, versionID)
+	v, err := s.repo.GetVersionForFunction(ctx, in.FunctionID, versionID)
 	if err != nil {
 		return nil, fmt.Errorf("functionapp.RunFunction: %w", err)
 	}

@@ -118,6 +118,23 @@ func TestVersion_TrimProtectsActive(t *testing.T) {
 	}
 }
 
+func TestHandler_GetVersionForHandler_ScopesOpaqueID(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkHandler(t, s, ctx, "hd_a", "a", "hdv_a1")
+	mkHandler(t, s, ctx, "hd_b", "b", "hdv_b1")
+	mkVer(t, s, ctx, "hdv_a1", "hd_a", 1)
+	mkVer(t, s, ctx, "hdv_b1", "hd_b", 1)
+
+	got, err := s.GetVersionForHandler(ctx, "hd_a", "hdv_a1")
+	if err != nil || got.HandlerID != "hd_a" {
+		t.Fatalf("own opaque version should resolve: got=%+v err=%v", got, err)
+	}
+	if _, err := s.GetVersionForHandler(ctx, "hd_a", "hdv_b1"); !errors.Is(err, handlerdomain.ErrVersionNotFound) {
+		t.Fatalf("cross-handler opaque version must be hidden, got %v", err)
+	}
+}
+
 // TestHandler_ListSearch — ?search is a case-insensitive name substring (WhereLike), same as the other 3 entity stores.
 //
 // TestHandler_ListSearch —— ?search 是大小写不敏感的 name 子串（WhereLike），与另 3 个实体 store 同键。
@@ -155,7 +172,7 @@ func TestCalls_SaveListAggregates(t *testing.T) {
 		t.Fatalf("list: rows=%d err=%v", len(rows), err)
 	}
 	agg, err := s.ComputeCallAggregates(ctx, handlerdomain.CallFilter{HandlerID: "hd_1"})
-	if err != nil || agg.OKCount != 1 || agg.FailedCount != 1 {
+	if err != nil || agg.TotalCount != 2 || agg.OKCount != 1 || agg.FailedCount != 1 {
 		t.Fatalf("aggregates: %+v err=%v", agg, err)
 	}
 	if _, err := s.GetCallByID(ctx, "hcl_missing"); !errors.Is(err, handlerdomain.ErrCallNotFound) {

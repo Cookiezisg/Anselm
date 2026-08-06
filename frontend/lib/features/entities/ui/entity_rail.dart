@@ -120,6 +120,7 @@ class _EntityRailState extends ConsumerState<EntityRail> {
           if (kind != null) context.go(entityLocation(kind, id));
         },
         onFilterChanged: _onFilter,
+        filterEmptyLabel: t.entities.noResults,
         onLoadMore: _onLoadMore,
         onRetryLoad: _onLoadMore, // retry = just page again 重试即再翻
         rowActionsBuilder: (id) {
@@ -182,15 +183,18 @@ class _EntityRailState extends ConsumerState<EntityRail> {
   // family keyed off [selectedEntityProvider] — mirrors the `reproduce` action in log_tab.dart). Only
   // truly parameter-free actions (restart / activate / deactivate / pause / resume / delete) execute in
   // place. `:iterate` sends a FIXED canned opening line (never free-typed user args, mirroring `:fire`'s
-  // synthesized `{manual:true}`) because the backend rejects an empty `request` — the real free-form ask
-  // happens in the chat conversation this opens, same as any new thread.
+  // synthesized `{manual:true}`) because the backend needs a non-blank `request`. The line includes
+  // the entity name deliberately: it makes the immediately-created conversation identifiable in the
+  // chat rail before the user has typed a more specific request. The real free-form ask happens in the
+  // chat conversation this opens, same as any new thread.
   //
   // 每 kind 共三项——打开(导航)· AI 编辑(`:iterate`,就地)· 删除(danger+确认)——外加 kind 专属项。诚实律
   // (最重要):需要用户自己填参数的动作(`:run`/`:call`/`:invoke` 都要 args/input 体;workflow `:trigger` 的
   // payload 虽可选,但理应享有本 app 唯一执行点给其余动词的同一份复核,0718 拍板)绝不在菜单里盲跑——这些项只
   // 导航到实体(此举据 selectedEntityProvider 揭示右岛调试台,镜像 log_tab.dart 的「用这份输入」)。只有真正
   // 无参的动作(重启/上线/下线/暂停/恢复/删除)就地执行。`:iterate` 发一句固定开场白(绝非用户自由参数,镜像
-  // `:fire` 合成的 `{manual:true}`)——因为后端拒绝空 request;真正的自由诉求在随后打开的对话里,如同任何新线程。
+  // `:fire` 合成的 `{manual:true}`)——因为后端需要非空 request;开场白刻意带实体名,让新会话在 chat rail
+  // 里立即可识别;真正的自由诉求在随后打开的对话里,如同任何新线程。
   Widget _rowMenu(Translations t, EntityKind kind, EntityRow row) {
     final rm = t.entities.rail.menu;
     return AnMenu(
@@ -260,7 +264,7 @@ class _EntityRailState extends ConsumerState<EntityRail> {
         AnMenuItem(
           label: rm.iterate,
           icon: AnIcons.iterate,
-          onTap: () => _iterate(kind, row.id),
+          onTap: () => _iterate(kind, row),
         ),
         AnMenuItem(
           label: t.action.delete,
@@ -322,13 +326,14 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     }
   }
 
-  Future<void> _iterate(EntityKind kind, String id) async {
+  Future<void> _iterate(EntityKind kind, EntityRow row) async {
     final t = context.t;
     try {
+      final name = row.name.trim().isEmpty ? row.id : row.name.trim();
       final convId = await _repo.iterateEntity(
         kind,
-        id,
-        request: t.entities.rail.iterateRequest,
+        row.id,
+        request: t.entities.rail.iterateRequest(name: name),
       );
       if (!mounted) return;
       // Cross-feature nav by literal path (features/* don't import each other, ADR 0004) — mirrors

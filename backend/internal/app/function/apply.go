@@ -147,7 +147,9 @@ func ParseOps(raw json.RawMessage) ([]Op, error) {
 	raw = jsonrepairpkg.RepairBytes(raw)
 	var arr []json.RawMessage
 	if err := json.Unmarshal(raw, &arr); err != nil {
-		return nil, fmt.Errorf("functionapp.ParseOps: ops array unmarshal: %w", err)
+		return nil, functiondomain.ErrOpInvalid.WithDetails(map[string]any{
+			"reason": fmt.Sprintf("ops is not a JSON array: %v", err),
+		})
 	}
 	ops := make([]Op, 0, len(arr))
 	for i, r := range arr {
@@ -155,10 +157,14 @@ func ParseOps(raw json.RawMessage) ([]Op, error) {
 			Op string `json:"op"`
 		}
 		if err := json.Unmarshal(r, &disc); err != nil {
-			return nil, fmt.Errorf("functionapp.ParseOps: ops[%d]: %w", i, err)
+			return nil, functiondomain.ErrOpInvalid.WithDetails(map[string]any{
+				"reason": fmt.Sprintf("ops[%d]: %v", i, err),
+			})
 		}
 		if disc.Op == "" {
-			return nil, fmt.Errorf("functionapp.ParseOps: ops[%d]: missing 'op' discriminator", i)
+			return nil, functiondomain.ErrOpInvalid.WithDetails(map[string]any{
+				"reason": fmt.Sprintf("ops[%d]: missing 'op' discriminator", i),
+			})
 		}
 		ops = append(ops, Op{Type: disc.Op, Raw: r})
 	}

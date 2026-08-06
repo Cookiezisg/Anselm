@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/widgets.dart';
 import 'package:go_router/go_router.dart';
 
@@ -21,6 +23,7 @@ class EntityOceanHeader extends StatelessWidget {
     required this.detail,
     this.onFire,
     this.onRename,
+    this.onRenameError,
     super.key,
   });
 
@@ -31,7 +34,11 @@ class EntityOceanHeader extends StatelessWidget {
   final VoidCallback? onFire;
 
   /// Non-null → the title renames in place (meta PATCH, no version bump). 非空则标题就地改名。
-  final ValueChanged<String>? onRename;
+  final FutureOr<void> Function(String)? onRename;
+
+  /// Failed metadata saves leave the title draft open; the ocean host owns localized feedback.
+  /// 元数据保存失败时标题草稿保持打开,由海洋宿主负责本地化提示。
+  final ValueChanged<Object>? onRenameError;
 
   @override
   Widget build(BuildContext context) {
@@ -40,6 +47,7 @@ class EntityOceanHeader extends StatelessWidget {
     return AnOceanHeader(
       title: detail.name,
       onTitleChange: onRename,
+      onTitleCommitError: onRenameError,
       // «Entities / <Kind>» — the root navigates to the Overview; the kind is a rail grouping with no
       // page of its own, so it's inert. The entity's OWN name is the big title, never a crumb (面包屑律)。
       // 根导航到总览;kind 是 rail 分组、无独立页故惰性;实体自己的名是大标题、绝不入面包屑。

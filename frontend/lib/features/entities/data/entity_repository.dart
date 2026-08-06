@@ -97,6 +97,12 @@ abstract interface class EntityRepository {
     int? limit,
     String? status,
   });
+
+  /// Fetch the full record for one execution. List rows intentionally omit logs to keep pages bounded;
+  /// the detail surface fetches this only when the user opens a row. 单条执行详情;列表为控体积刻意省略
+  /// logs,用户展开行时才懒取完整记录。
+  Future<FunctionExecution> getFunctionExecution(String id);
+
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
     String id, {
     String? cursor,
@@ -425,6 +431,13 @@ class LiveEntityRepository implements EntityRepository {
     _agg,
     query: _query(cursor, limit, {'status': ?status}),
   );
+
+  @override
+  Future<FunctionExecution> getFunctionExecution(String id) => _api.getEntity(
+    '/api/v1/function-executions/$id',
+    FunctionExecution.fromJson,
+  );
+
   @override
   Future<PageWithAggregate<HandlerCall, ExecutionAggregates>> listHandlerCalls(
     String id, {

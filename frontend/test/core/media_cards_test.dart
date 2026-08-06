@@ -12,6 +12,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 
+import '../support/fake_video_platform.dart';
+
 // The one card family (WRK-082 批B' 不变量④): dispatch comes from the attachment ROW's mime, a
 // payload with no refs costs nothing, an unreadable row is said out loud, and a non-image artifact
 // falls back to the file card instead of a broken image.
@@ -316,6 +318,75 @@ void _videoTests() {
     await tester.pump();
     expect(find.byType(AnVideoCard), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets(
+    'video tap exposes loading feedback before native player is ready',
+    (tester) async {
+      FakeVideoPlatform(
+        initializationDelay: const Duration(seconds: 1),
+      ).install();
+      await tester.pumpWidget(
+        _host(
+          const AnMediaRefStrip(payload: {'text': _receipt}),
+          overrides: [
+            mediaSourceProvider.overrideWithValue(
+              const _StubSource(
+                AttachmentMeta(
+                  id: _id,
+                  filename: 'clip.mp4',
+                  mimeType: 'video/mp4',
+                  sizeBytes: 2491742,
+                  kind: 'video',
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await tester.tap(find.bySemanticsLabel('播放视频'));
+      await tester.pump();
+
+      expect(find.bySemanticsLabel('正在准备媒体…'), findsOneWidget);
+      expect(find.bySemanticsLabel('播放视频'), findsNothing);
+
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump();
+      expect(find.bySemanticsLabel('播放视频'), findsNothing);
+      expect(find.text('0:00 / 0:12'), findsOneWidget);
+    },
+  );
+
+  testWidgets('video initialization failure is an explicit retry state', (
+    tester,
+  ) async {
+    final fake = FakeVideoPlatform(createError: StateError('unavailable'));
+    fake.install();
+    await tester.pumpWidget(
+      _host(
+        const AnMediaRefStrip(payload: {'text': _receipt}),
+        overrides: [
+          mediaSourceProvider.overrideWithValue(
+            const _StubSource(
+              AttachmentMeta(
+                id: _id,
+                filename: 'clip.mp4',
+                mimeType: 'video/mp4',
+                sizeBytes: 2491742,
+                kind: 'video',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.bySemanticsLabel('播放视频'));
+    await tester.pumpAndSettle();
+
+    expect(find.bySemanticsLabel('失败 — 点按重试'), findsOneWidget);
+    await tester.pump(const Duration(milliseconds: 250));
   });
 }
 

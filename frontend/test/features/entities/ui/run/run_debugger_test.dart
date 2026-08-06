@@ -434,11 +434,9 @@ void main() {
   // 调试台头=AnPanelHead + 速览带。
   group('head 三段式文法 (§1+§2)', () {
     FixtureEntityRepository glanceFix() {
-      // Anchor to LOCAL NOON of the current day, not raw now(): the two "today" runs are this one + one
-      // 2h earlier, and a now() within 2h of midnight pushed the earlier run into YESTERDAY — dropping the
-      // today count to 1 and failing the n=2 glance (a latent date-boundary flaky). Noon keeps both runs
-      // unambiguously the same calendar day at any wall-clock hour. 锚当天正午:近午夜时 -2h 会跨到昨天把
-      // 「今天」计数打成 1(潜伏的日界 flaky);正午让两跑任何时刻都同一天。
+      // Keep a stable local timestamp for the last-result ordering; the glance count comes from the
+      // aggregate, not from the five-row bench or from calendar arithmetic. 使用稳定本地时间;速览总数
+      // 来自聚合,不再从五行工作台或日历计算。
       final now = DateTime.now();
       final today = DateTime(now.year, now.month, now.day, 12);
       return FixtureEntityRepository(
@@ -475,8 +473,8 @@ void main() {
           ),
         ],
         functionExecutions: {
-          // Newest-first (the ledger order the provider pages): today ok 12ms, today ok 9ms, an OLD
-          // failed one. today count = 2; last = ok 12ms. 新在前:今天 ok/ok + 一条旧的 failed。
+          // Newest-first (the ledger order the provider pages): two ok runs and one old failed run.
+          // The aggregate total is three; the last result is the first row. 新在前:两条成功+一条旧失败。
           'fn_g': [
             FunctionExecution(
               id: 'g0',
@@ -529,7 +527,7 @@ void main() {
     );
 
     testWidgets(
-      'glance: v{N} · 今天 {n} 次执行 · 上次成功 {ms} (all three segments, real data)',
+      'glance: v{N} · 共 {n} 次执行 · 上次成功 {ms} (all three segments, real data)',
       (tester) async {
         await tester.pumpWidget(
           _host(glanceFix(), const EntityRef(EntityKind.function, 'fn_g')),
@@ -540,9 +538,9 @@ void main() {
         ); // recentRuns resolves
         expect(find.textContaining('v3'), findsOneWidget);
         expect(
-          find.textContaining(r.glanceToday(n: 2)),
+          find.textContaining(r.glanceTotal(n: 3)),
           findsOneWidget,
-        ); // 今天 2 次执行 (g2 is old)
+        ); // 共 3 次执行, independent of the bounded recent bench
         expect(
           find.textContaining(r.glanceLastOk),
           findsOneWidget,
@@ -561,8 +559,8 @@ void main() {
         expect(
           find.text('v5'),
           findsOneWidget,
-        ); // just the version — no today, no last (缺段不渲)
-        expect(find.textContaining('今天'), findsNothing);
+        ); // just the version — no aggregate total, no last (缺段不渲)
+        expect(find.textContaining(r.glanceTotal(n: 0)), findsNothing);
         expect(find.textContaining(r.glanceLastOk), findsNothing);
       },
     );

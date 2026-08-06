@@ -195,6 +195,37 @@ void main() {
     expect(find.text('World'), findsOneWidget); // resting text updated
   });
 
+  testWidgets(
+    'a failed async commit keeps the draft open and reports the error',
+    (tester) async {
+      var errors = 0;
+      await tester.pumpWidget(
+        host(
+          AnInlineEdit(
+            value: 'Hello',
+            startEditing: true,
+            onCommit: (_) async {
+              await Future<void>.delayed(const Duration(milliseconds: 1));
+              throw const FormatException('invalid name');
+            },
+            onCommitError: (_) => errors++,
+          ),
+        ),
+      );
+      await tester.enterText(find.byType(TextField), 'Invalid Name');
+      await tester.testTextInput.receiveAction(TextInputAction.done);
+      await tester.pumpAndSettle();
+
+      expect(errors, 1);
+      expect(find.byType(AnInput), findsOneWidget);
+      expect(
+        tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'Invalid Name',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('Esc aborts — reverts to the original, no commit', (
     tester,
   ) async {

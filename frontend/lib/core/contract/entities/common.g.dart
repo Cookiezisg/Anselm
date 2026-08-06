@@ -8,6 +8,7 @@ part of 'common.dart';
 
 _ExecutionAggregates _$ExecutionAggregatesFromJson(Map<String, dynamic> json) =>
     _ExecutionAggregates(
+      totalCount: (json['totalCount'] as num?)?.toInt() ?? 0,
       okCount: (json['okCount'] as num?)?.toInt() ?? 0,
       failedCount: (json['failedCount'] as num?)?.toInt() ?? 0,
     );
@@ -15,6 +16,7 @@ _ExecutionAggregates _$ExecutionAggregatesFromJson(Map<String, dynamic> json) =>
 Map<String, dynamic> _$ExecutionAggregatesToJson(
   _ExecutionAggregates instance,
 ) => <String, dynamic>{
+  'totalCount': instance.totalCount,
   'okCount': instance.okCount,
   'failedCount': instance.failedCount,
 };

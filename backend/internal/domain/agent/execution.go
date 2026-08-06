@@ -97,12 +97,13 @@ type ExecutionFilter struct {
 	Limit          int
 }
 
-// ExecutionAggregates is the slim ok/failed split beside a page of executions (mirrors function:
-// no p95/avg — nobody consumed them, and the LLM reads elapsedMs off individual rows).
+// ExecutionAggregates is the slim total and ok/failed split beside a page of executions (mirrors
+// function: no p95/avg — nobody consumed them, and the LLM reads elapsedMs off individual rows).
 //
-// ExecutionAggregates 是分页旁的精简 ok/failed 计数（对齐 function：无 p95/avg——无人消费，LLM
-// 在意时自读单行 elapsedMs）。
+// ExecutionAggregates 是分页旁的精简总数与 ok/failed 计数（对齐 function：无 p95/avg——无人
+// 消费，LLM 在意时自读单行 elapsedMs）。
 type ExecutionAggregates struct {
+	TotalCount  int `json:"totalCount"`
 	OKCount     int `json:"okCount"`
 	FailedCount int `json:"failedCount"`
 }

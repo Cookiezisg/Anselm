@@ -175,12 +175,13 @@ func TestFunction_RunLogsAndExecutions(t *testing.T) {
 			Logs   string `json:"logs"`
 		} `json:"executions"`
 		Aggregates struct {
+			TotalCount  int `json:"totalCount"`
 			OKCount     int `json:"okCount"`
 			FailedCount int `json:"failedCount"`
 		} `json:"aggregates"`
 	}
 	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &page)
-	if len(page.Executions) != 2 || page.Aggregates.OKCount != 1 || page.Aggregates.FailedCount != 1 {
+	if len(page.Executions) != 2 || page.Aggregates.TotalCount != 2 || page.Aggregates.OKCount != 1 || page.Aggregates.FailedCount != 1 {
 		t.Fatalf("ledger wrong: n=%d agg=%+v", len(page.Executions), page.Aggregates)
 	}
 	for _, e := range page.Executions {
@@ -267,6 +268,31 @@ func TestFunction_VersionsEditRevert(t *testing.T) {
 	if !strings.Contains(string(r.Data), `"version":2`) {
 		t.Fatalf("versions list missing v2: %s", r.Data)
 	}
+}
+
+// TestFunction_VersionIDScopedToParent: an opaque fnv_ id is only valid beneath its own fn_ route.
+// TestFunction_VersionIDScopedToParent：opaque fnv_ ID 只能在自己的 fn_ 路由下有效。
+func TestFunction_VersionIDScopedToParent(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-version-parent"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+	aID := fnCreate(t, wc, "version_parent_a", "def f() -> dict:\n    return {\"owner\": \"a\"}\n")
+	bID := fnCreate(t, wc, "version_parent_b", "def f() -> dict:\n    return {\"owner\": \"b\"}\n")
+
+	var aPage, bPage []struct {
+		ID string `json:"id"`
+	}
+	wc.GET("/api/v1/functions/"+aID+"/versions?limit=20").OK(t, &aPage)
+	wc.GET("/api/v1/functions/"+bID+"/versions?limit=20").OK(t, &bPage)
+	if len(aPage) != 1 || len(bPage) != 1 {
+		t.Fatalf("version pages: a=%+v b=%+v", aPage, bPage)
+	}
+	if r := wc.GET("/api/v1/functions/" + aID + "/versions/" + bPage[0].ID); r.Status != 404 || r.Code != "FUNCTION_VERSION_NOT_FOUND" {
+		t.Fatalf("cross-function opaque version must be hidden, got %d/%s: %s", r.Status, r.Code, r.Raw)
+	}
+	wc.GET("/api/v1/functions/"+aID+"/versions/"+aPage[0].ID).OK(t, nil)
 }
 
 // TestFunction_ConcurrentRuns: 并发 run 不串扰、台账计数全。

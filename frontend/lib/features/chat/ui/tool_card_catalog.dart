@@ -976,6 +976,27 @@ final Map<String, ToolCardSpec> _catalog = {
     },
     body: generatedImageBody,
   ),
+  'edit_image': ToolCardSpec(
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.editingImage : t.chat.tool.editedImage,
+    target: (s) {
+      final prompt = argString(s.argsText, 'prompt');
+      if (prompt == null || prompt.isEmpty) return null;
+      return prompt.length > 40 ? '${prompt.substring(0, 40)}…' : prompt;
+    },
+    receipt: (t, s) {
+      final r = parseGeneratedImage(s.resultText);
+      if (r == null || r.source != 'edit_image') return null;
+      final dims = (r.width != null && r.height != null)
+          ? ' · ${r.width}×${r.height}'
+          : '';
+      return (
+        text: '${t.chat.tool.editedImageStored}$dims',
+        tone: ToolReceiptTone.none,
+      );
+    },
+    body: generatedImageBody,
+  ),
   'generate_speech': ToolCardSpec(
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.generatingSpeech : t.chat.tool.generatedSpeech,
@@ -1009,6 +1030,25 @@ final Map<String, ToolCardSpec> _catalog = {
       final secs = r.seconds != null ? ' · ${r.seconds}s' : '';
       return (
         text: '${t.chat.tool.generatedVideoStored}$secs',
+        tone: ToolReceiptTone.none,
+      );
+    },
+    body: generatedVideoBody,
+  ),
+  'animate_image': ToolCardSpec(
+    verb: (t, {required bool live}) =>
+        live ? t.chat.tool.animatingImage : t.chat.tool.animatedImage,
+    target: (s) {
+      final prompt = argString(s.argsText, 'prompt');
+      if (prompt == null || prompt.isEmpty) return null;
+      return prompt.length > 40 ? '${prompt.substring(0, 40)}…' : prompt;
+    },
+    receipt: (t, s) {
+      final r = parseGeneratedVideo(s.resultText);
+      if (r == null || r.source != 'animate_image') return null;
+      final secs = r.seconds != null ? ' · ${r.seconds}s' : '';
+      return (
+        text: '${t.chat.tool.animatedImageStored}$secs',
         tone: ToolReceiptTone.none,
       );
     },

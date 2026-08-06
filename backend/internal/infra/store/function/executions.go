@@ -63,6 +63,7 @@ func (s *Store) ComputeExecutionAggregates(ctx context.Context, filter functiond
 		return functiondomain.ExecutionAggregates{}, fmt.Errorf("functionstore.ComputeExecutionAggregates: ok: %w", err)
 	}
 	return functiondomain.ExecutionAggregates{
+		TotalCount:  int(total),
 		OKCount:     int(ok),
 		FailedCount: int(total - ok),
 	}, nil

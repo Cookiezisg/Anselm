@@ -21,6 +21,9 @@ func (t *CreateHandler) Name() string { return "create_handler" }
 func (t *CreateHandler) Description() string {
 	return `Build a new stateful handler (a Python class that stays resident across calls, so self.xxx persists — for DB connections, API sessions, caches). v1 takes effect immediately (no separate accept). Required ops: set_meta + at least one add_method. The class is assembled as HandlerImpl with __init__(self, ...initArgs), shutdown(self), and your methods.
 
+IMPORTANT: this is a HANDLER, not a stateless function. Never emit the function ops set_code, set_inputs, or set_outputs; never emit set_methods or a whole class/code blob. Handler code is split into set_init/set_shutdown and add_method, with the complete method nested under the method key. For a one-method handler, use this shape exactly:
+  {"ops":[{"op":"set_meta","name":"ping_handler"},{"op":"add_method","method":{"name":"ping","inputs":[],"outputs":[{"name":"pong","type":"boolean"}],"body":"return {\\"pong\\": true}","streaming":false}}]}
+
 OP SHAPES:
   {"op":"set_meta", "name":"snake_case", "description":"one line", "tags":["..."]}
   {"op":"set_imports", "imports":"import requests"}
@@ -43,7 +46,7 @@ func (t *CreateHandler) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["ops"],
 		"properties": {
-			"ops": {"type": "array", "description": "Build ops; each has an 'op' discriminator + op-specific fields.", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "HANDLER ops only: set_meta, set_imports, set_init, set_shutdown, set_init_args_schema, add_method, update_method, delete_method, set_dependencies, set_python_version. Never use function set_code/set_inputs/set_outputs, set_methods, or a whole class code blob. add_method must nest its complete MethodSpec under method.", "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this creation."}
 		}
 	}`)
@@ -107,13 +110,60 @@ func parseHandlerOps(raw json.RawMessage) ([]handlerapp.Op, error) {
 // top-level patch fields; converting only the known fields avoids making
 // arbitrary malformed ops valid.
 func normalizeHandlerOps(items []json.RawMessage) ([]json.RawMessage, error) {
+	return normalizeHandlerOpsWithExistingMethods(items, nil)
+}
+
+// normalizeHandlerOpsWithExistingMethods applies the same compatibility rules as the create path,
+// but lets an edit distinguish a legacy full method list's existing methods from genuinely new ones.
+// Older hosted models still emit set_methods while editing; treating every complete method as
+// add_method produces a visible "already exists" tool failure before the model self-corrects.
+func normalizeHandlerOpsWithExistingMethods(items []json.RawMessage, existingMethods map[string]struct{}) ([]json.RawMessage, error) {
 	const opUpdateMethod = "update_method"
 	patchFields := []string{"description", "body", "inputs", "outputs", "streaming", "timeout"}
 	normalized := make([]json.RawMessage, 0, len(items))
+	// A few older hosted models still emit a whole-class Function-shaped build for a
+	// Handler. Know whether an explicit method list is present before translating
+	// set_code, so the class parser can supply init/shutdown without duplicating the
+	// later set_methods/add_method definitions.
+	hasExplicitMethods := false
+	hasLegacyMethodList := false
+	hasLegacyClassCode := false
+	legacyMethodsNeedClassMethods := false
+	for _, item := range items {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(item, &fields); err != nil {
+			continue
+		}
+		op := handlerOpName(fields)
+		switch op {
+		case "add_method":
+			hasExplicitMethods = true
+		case "set_methods":
+			hasLegacyMethodList = true
+			if legacyMethodListNeedsClassMethods(fields) {
+				legacyMethodsNeedClassMethods = true
+			}
+		case "set_code":
+			hasLegacyClassCode = true
+		}
+	}
 	for i, item := range items {
 		var fields map[string]json.RawMessage
 		if err := json.Unmarshal(item, &fields); err != nil {
 			return nil, fmt.Errorf("ops[%d] normalization: %w", i, err)
+		}
+		fields = canonicalizeLegacyDiscriminator(fields)
+		canonicalItem, err := json.Marshal(fields)
+		if err != nil {
+			return nil, fmt.Errorf("ops[%d] discriminator normalization: %w", i, err)
+		}
+		item = canonicalItem
+		includeLegacyClassMethods := !hasExplicitMethods && (!hasLegacyMethodList || legacyMethodsNeedClassMethods)
+		if legacyOps, err := normalizeLegacyHandlerOp(fields, includeLegacyClassMethods, hasLegacyClassCode, legacyMethodsNeedClassMethods, existingMethods); err != nil {
+			return nil, fmt.Errorf("ops[%d] legacy Handler compatibility: %w", i, err)
+		} else if legacyOps != nil {
+			normalized = append(normalized, legacyOps...)
+			continue
 		}
 		var op string
 		if err := json.Unmarshal(fields["op"], &op); err != nil {
@@ -269,7 +319,7 @@ func (t *EditHandler) Name() string { return "edit_handler" }
 func (t *EditHandler) Description() string {
 	return `Edit a handler: apply ops on top of its active version, producing a new version that takes effect immediately — the resident instance is restarted to load the new code (which WIPES in-memory state). EXCEPTION: a metadata-only edit (all ops are set_meta — just name/description/tags) does NOT mint a version or restart, so it preserves in-memory state; prefer it for pure renames.
 
-OP SHAPES (exact): update_method MUST be {"op":"update_method","name":"place","patch":{"description":"..."}}. Use the top-level "name" field to select the existing method and put every changed method field inside the RFC 7396 "patch" object. Do NOT use "methodName" and do NOT put "description", "body", "inputs", or "outputs" beside "patch". Other op shapes are the same as create_handler: add_method nests its MethodSpec under "method"; set_meta uses name/description/tags; delete_method uses name.
+OP SHAPES (exact): update_method MUST be {"op":"update_method","name":"place","patch":{"description":"..."}}. Use the top-level "name" field to select the existing method and put every changed method field inside the RFC 7396 "patch" object. Do NOT use "methodName" and do NOT put "description", "body", "inputs", or "outputs" beside "patch". Do NOT use set_methods for an edit; use update_method for an existing method and add_method only for a genuinely new method. Other op shapes are the same as create_handler: add_method nests its MethodSpec under "method"; set_meta uses name/description/tags; delete_method uses name.
 
 Empty ops rebuilds the environment + restarts the instance, which WIPES in-memory state (the result then carries restarted:true — it is not a no-op); if you only want to reset a misbehaving instance, prefer restart_handler. The result includes runtimeState: if it is not "running" after a code edit, the new version failed to spawn (broken __init__ or missing config) — call get_handler for details, fix the code, or revert_handler to the last good version. Use revert_handler to switch to an older version, restart_handler to just reset a misbehaving instance.`
 }
@@ -280,7 +330,7 @@ func (t *EditHandler) Parameters() json.RawMessage {
 		"required": ["handlerId", "ops"],
 		"properties": {
 			"handlerId": {"type": "string"},
-			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env + restart). For update_method use {op, name, patch}; name selects the existing method and patch is the RFC 7396 object. Do not use methodName or top-level method fields.", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env + restart). For update_method use {op, name, patch}; name selects the existing method and patch is the RFC 7396 object. Do not use methodName, set_methods, or top-level method fields; use add_method only for a new method.", "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)
@@ -314,7 +364,25 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 	}
 	var ops []handlerapp.Op
 	if len(bytes.TrimSpace(args.Ops)) > 0 && !bytes.Equal(bytes.TrimSpace(args.Ops), []byte("null")) {
-		parsed, perr := parseHandlerOps(args.Ops)
+		// Legacy hosted models sometimes send a complete `set_methods` list for an edit. Resolve the
+		// active method names first so the compatibility layer can map existing methods to
+		// update_method instead of issuing a real add_method failure and making the user watch a red
+		// retry card before the model corrects itself.
+		current, gerr := t.svc.Get(ctx, args.HandlerID)
+		if gerr != nil {
+			return "", fmt.Errorf("edit_handler: %w", gerr)
+		}
+		existingMethods := make(map[string]struct{})
+		if current.ActiveVersion != nil {
+			for _, method := range current.ActiveVersion.Methods {
+				existingMethods[method.Name] = struct{}{}
+			}
+		}
+		items, derr := decodeHandlerOps(args.Ops)
+		if derr != nil {
+			return "", fmt.Errorf("edit_handler: bad args: %w", derr)
+		}
+		parsed, perr := parseHandlerOpsWithExistingMethods(items, existingMethods)
 		if perr != nil {
 			return "", fmt.Errorf("edit_handler: bad args: %w", perr)
 		}
@@ -338,6 +406,21 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 	}
 	// Empty ops is the env-rebuild + restart path (no ops, no version) — flag the resulting state wipe.
 	return toolapp.ToJSON(buildOutput(args.HandlerID, v, len(ops), sink.attempts, runtimeState, len(ops) == 0)), nil
+}
+
+func parseHandlerOpsWithExistingMethods(items []json.RawMessage, existingMethods map[string]struct{}) ([]handlerapp.Op, error) {
+	if len(items) == 0 {
+		return nil, nil
+	}
+	normalized, err := normalizeHandlerOpsWithExistingMethods(items, existingMethods)
+	if err != nil {
+		return nil, err
+	}
+	encoded, err := json.Marshal(normalized)
+	if err != nil {
+		return nil, fmt.Errorf("ops normalization: %w", err)
+	}
+	return handlerapp.ParseOps(encoded)
 }
 
 func buildOutput(handlerID string, v *handlerdomain.Version, opsApplied int, attempts []envfixapp.Attempt, runtimeState string, restarted bool) map[string]any {
