@@ -7,7 +7,7 @@
 - 首个 PUT 探针得到 `405` 是测试命令漏写显式 `-X PUT` 的仪器构造错误；补正后产品 PUT 为 `204`。该事实进入证据和复审，不把台架错误伪装成产品红，也不降低负路径标准。
 - 固定 session `/private/tmp/anselm-rig-ep026-handler-config-20260806/sessions/20260806-134441` 由同一 conductor 托管真实 App、录屏、frontend console、backend、三路独立 SSE witness、LLM tap 和受管网关；录屏 `245.513333s / 2784x1808`，收台无残留。backend 无应用 WARN/ERROR/panic，三流 durable seq 单调，frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，gateway challenge/install/models 全 HTTP 200；REST/SQLite/UI/SSE/secret scan 一致。
 - 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-026-handler-config-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-026-handler-config-ledger-reaudit.md`。anchors `10/10` 后按 `G1/F2/A1/C4/G2` 写入五级裁决，正式账本 **790→795 judgments**，COVERAGE `EP-026=✓✓✓✓✓`；原阈值触发的统计警报已依据独立复审逐项 ack，`alarms.py check` clean；`gen_coverage.py --check` 为 `848 rows / 158 carried judgments / 0 tombstones`。
-- 批次十五由 **45→50 / 50**。统一长门禁已通过：anchors/alarms clean，根目录 `make verify` 全绿，`make -C backend testend` `305.314s`、`testend` 全包 `359.770s`、Handler 后端专项和实体详情 Flutter `7/7` 均通过，gofmt/diff clean，testend 进程组归零；批次提交前审计完成。下一原子前线为 `EP-027 PUT /api/v1/handlers/{id}/config`。
+- 批次十五由 **45→50 / 50**。统一长门禁已通过：anchors/alarms clean，根目录 `make verify` 全绿，`make -C backend testend` `305.314s`、`testend` 全包 `359.770s`、Handler 后端专项和实体详情 Flutter `7/7` 均通过，gofmt/diff clean，testend 进程组归零；批次已提交 `6ffc44bb`。下一原子前线为 `EP-027 PUT /api/v1/handlers/{id}/config`。
 
 ## 2026-08-06 13:58 · EP-025 GET /api/v1/handlers/{id}/versions/{version} 五级收口，批次十五 45/50
 
