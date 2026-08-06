@@ -1,4 +1,42 @@
 ---
+
+## 2026-08-06 10:15 · EP-016 GET /api/v1/handlers/{id} 五级收口，批次十四 50/50
+
+- 真实 App session `/private/tmp/anselm-rig-ep016-handler-get-20260806/sessions/20260806-100548` 完成 Handler 详情用户路径：Computer Use 逐帧确认名称、v1、stopped、unconfigured、activeVersion、Python 3.12、必填 sensitive `api_key`、默认 `region`、`ping` 方法和 source，REST/SQLite 证明 configState、runtimeState、missingConfig、schema 与未知 ID 404 一致。
+- 五通道来自同一 conductor manifest：封口 `screen.mov` `292.240000s / 2784x1808 / 60fps`，messages/entities/notifications 三路 SSE 已连接且 durable entities `7..8`、notifications `16..20` 无 gap，backend journal、frontend console、LLM tap 均无未解释应用红线。清理 DELETE=204 后 GET=404，SQLite 仅保留软删 handler/version 审计，临时 env 已回收。
+- 正式证据 `evidence/EP-016-green.md` 通过 `G1/F2/A5/C4/G2` 五级裁决，中央账本由 **735→740 judgments**；anchors `10/10`。`gap-too-fast` 与 `discovery-collapse` 以 `evidence/EP-016-alarm-reaudit.md` 独立重读后 ack，`alarms.py check` clean，阈值未放宽。
+- 批次十四由 **45→50 / 50**，因此进入统一长门禁、完整 testend、警报复核、工作树审计和提交阶段；下一原子前线为 `EP-017 GET /api/v1/handlers/{id}/config`。
+- 收口门禁结果：根 `make verify` 全绿（backend、frontend、docs、demo；Flutter 四组共 `5204` tests）；`make -C backend testend` 全量场景通过（`290.174s`）；`testend` module `go test -count=1 -timeout 30m ./...` 全包通过（场景 `327.947s`）；无 `anselm-server`、`llama-server` 或 testend 残留进程。复核 `gen_coverage.py --check`、anchors `10/10`、`alarms.py check` 和 `git diff --check` 均通过。
+
+## 2026-08-06 07:48 · EP-011 GET /api/v1/functions/{id}/versions/{version} 五级收口，批次十四 25/50
+
+- 首轮真实 App session `/private/tmp/anselm-rig-ep011-functions-20260806/sessions/20260806-073520` 冻结为红：A 的 opaque 版本详情接受了 B 的版本 ID 并返回 B；代码审查还发现 `:run` 显式版本 ID 没有 function parent scope。红证据保留，不计绿。
+- stop-and-fix 增加 parent-scoped version lookup，详情 opaque-ID 路由与显式 Function run 共用；同步 repository/store/app/transport、黑盒回归和 function API/domain 文档。fixed session `/private/tmp/anselm-rig-ep011-functions-20260806-fixed/sessions/20260806-074225` 用新 workspace、新 A/B fixture 和 A v2 真实重跑。
+- Computer Use 走 `Entities → Function → A → Versions`：v2 active、真实 change reason、`+1 −1` diff、v1 可展开并显示 `v1 · earliest version` 与完整代码；无错归属、裁切或视觉跳变。A/B own opaque ID 与数字版本 200，A/cross-parent B ID 与 unknown ID 404，A 显式 v1 run 返回 owner A。
+- 清理 DELETE A/B=204，之后 GET A/B=404；SQLite 保留 2 条 soft-deleted function、3 条 version、1 条 execution audit。五通道为 `screen.mov` `284.375s / 2784x1808 / 60fps`、SSE 三流各连接一次且 entities `1..6`/notifications `1..14` durable seq 单调、backend/frontend 无未解释应用红线、llmtap proof/install/models 全 HTTP 200；deterministic 路径无 completion，不冒充 recorder ready。
+- 正式证据为 `EP-011-green.md`，红绿账本复审为 `EP-011-ledger-alarm-reaudit.md`。显式正式根下五级 `G1/F2/A5/C4/G2` 使账本 **710→715 judgments**；anchors `10/10`，两条新警报经独立复审后 ack，最终 `alarms.py check` clean。批次十四由 **20→25 / 50**，下一原子前线为 `EP-012 GET /api/v1/functions/{id}/executions`。
+
+## 2026-08-06 07:30 · EP-010 GET /api/v1/functions/{id}/versions 五级收口，批次十四 20/50
+
+- 真实 App session `/private/tmp/anselm-rig-ep010-functions-20260806/sessions/20260806-072203` 构造 21 个真实 Function 版本并打开 Versions 页面；首屏显示 v21→v2 共 20 条和 Load more，续页唯一显示 v1，v21 active，v21 diff 为 `v20 → v21`、`+1 −1`，v1 展开显示 `v1 · earliest version` 和完整代码。三张稳定截图已封存，未发现裁切、错位或不可解释跳变。
+- REST 与 UI 交叉核验：首页 20 条、cursor 续页 1 条，顺序与 change reason/code 完全一致；`limit=0/abc` 为 400 `INVALID_REQUEST`，坏 cursor 为 400 `MALFORMED_CURSOR`。清理后 DELETE=204、主实体 GET=404、live list 移除；版本历史仍可读，符合 API 文档的不可变审计历史约定。
+- 五通道：封口 `screen.mov` 为 `456.258333s / 2784x1808 / 60fps`；messages/entities/notifications 三流均连接，entities durable `1..42`、notifications durable `1..85` 单调，entities delta 为 seq=0；backend 无 panic/FATAL/WARN/ERROR，frontend 无 Flutter/Dart/Unhandled/连接错误；llmtap 真实记录 proof challenge、install、models 全 HTTP 200，本旅程无模型 completion，不冒充 recorder ready。
+- 正式账本在显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下由 **705→710 judgments**，COVERAGE `EP-010=✓✓✓✓✓`；`gap-too-fast` 与 `discovery-collapse` 按 `EP-010-ledger-alarm-reaudit.md` 独立重审后 ack，anchors `10/10`，最终 `alarms.py check` clean。批次十四由 **15→20 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-011 GET /api/v1/functions/{id}/versions/{version}`。
+
+## 2026-08-06 07:17 · EP-009 POST /api/v1/functions/{id}:iterate 五级收口，批次十四 15/50
+
+- 首轮真实 App session `/private/tmp/anselm-rig-ep009-functions-20260806/sessions/20260806-065426` 冻结为红：实体 rail 的 `Edit with AI` 发出 generic opening，最终 chat 标题为 `Help me make changes to this`，用户无法确认正在编辑哪个 Function；红截图和完整 journal 保留，不计绿。
+- stop-and-fix 将前端固定 opening 改为带所选 Function 名称的双语请求，并在后端增加 whitespace-only request 守卫与 regression test；同步 i18n 生成物、entity rail 测试、aispawn 测试、API 文档。随后 fixed3 新 binary 的真实 App session `/private/tmp/anselm-rig-ep009-functions-20260806-fixed3/sessions/20260806-070454` 重新完成同一路径：真实 Function 名称同时出现在 user bubble、chat header 和 mention snapshot，助手读取同一 Function，composer 保持可继续编辑；没有 retry、第二个 conversation 或隐藏 mutation。
+- 负向边界逐一真实核对：未知 Function `404 FUNCTION_NOT_FOUND`、空/空白 request `400 EMPTY_ITERATE_REQUEST`、malformed JSON `400 INVALID_REQUEST`，conversation 数量在边界调用前后不变；清理阶段 Function 与 conversation 均 DELETE=204，随后 GET=404。REST/SQLite、touchpoint、tool call/result 和 UI 事实一致。
+- 五通道：`screen.mov` 封口 `408.985000s / 2784x1808 / 60fps`；backend 554 行、无 panic/FATAL/WARN/ERROR；SSE durable messages `1..18`、entities `1..2`、notifications `1..8` 单调，delta seq=0；LLM tap 12 个响应全 HTTP 200，4 个 request body 留档；frontend 无 Dart/Flutter/RenderFlex/Unhandled/Exception 红线。唯一 223 行精确 `accessibility_bridge.cc` AXTree 观察器提示在 `evidence/frontend-ax-review.md` 中作 session-scoped tooling review，未知格式仍硬失败。
+- 账本 gate 在显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下写入 `G1/F2/A5/C4/G2`，中央账本 **700→705 judgments**，COVERAGE `EP-009=✓✓✓✓✓`；写账触发 `gap-too-fast` 与 `discovery-collapse`，由 `evidence/EP-009-ledger-alarm-reaudit.md` 逐项复审并 ack，anchors `10/10`，最终 `alarms.py check` clean。批次十四由 **10→15 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-010 GET /api/v1/functions/{id}/versions`。
+
+## 2026-08-06 · EP-008 POST /api/v1/functions/{id}:edit 五级收口，批次十四 10/50
+
+- 首轮真实 App 发现助手正文把 opaque `Version ID` 脱敏成 `the requested item`；fixed2 负向又发现畸形 `ops` 被普通 Go error 映射为 HTTP 500。两份红证据均保留，不计绿；stop-and-fix 分别增加跨 provider chunk 的 Version ID 占位整行/句式脱敏，以及 `ParseOps` 到 `FUNCTION_OP_INVALID` 的结构化 422 映射，并补 loop/function 测试和 chat/function 领域文档。
+- fixed3 session `/private/tmp/anselm-rig-ep008-functions-20260806-fixed3/sessions/20260806-064400` 以新 binary、真实 onboarding、真实 Flutter App、Computer Use、三路 SSE witness、LLM tap、backend/frontend journal 和 174.058333s 录屏完成绿重跑：按名称定位已有 Function，保持 value，只把 version v1 改为 v2，`edit_function` 恰一次；UI 只显示一张 Updated v2 活动卡，环境 ready，正文无 placeholder 或错误卡。
+- 五通道交叉核验：screen `2784x1808/60fps`；messages/entities/notifications durable seq 分别 `1..42`、`1..8`、`1..9` 唯一单调；LLM 20 个响应全 HTTP 200；backend/frontend 无未解释应用红线。REST/SQLite 证明 active v2、历史恰有 v1/v2、v1 未变、执行数为 0；空 ops 200 只重建 env、畸形 ops 422 且 mutation 前真相不变。Function 与内置 conversation 已真实 DELETE=204 清理。
+- `judge.py` 已在显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 独立写入 `G1/F2/A5/C4/G2`，中央账本 **695→700 judgments**，COVERAGE `EP-008=✓✓✓✓✓`。写账触发 `gap-too-fast` 与 `discovery-collapse`，复审证据 `EP-008-ledger-alarm-reaudit.md` 已逐项 ack，anchors `10/10`，最终 `alarms.py check` 为 `clean (700 judgments)`；阈值未放宽。批次十四从 **5 / 50** 推进至 **10 / 50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-009 POST /api/v1/functions/{id}:iterate`。
 id: WRK-092
 type: working
 status: active
@@ -11,6 +49,49 @@ landed-into:
 ---
 
 # WRK-092 · 验收战役日志
+
+## 2026-08-06 10:00 · EP-015 GET /api/v1/handlers 五级收口，批次十四 45/50
+
+- 主真实 App session `/private/tmp/anselm-rig-ep015-handlers-20260806/sessions/20260806-094604` 用 44 个真实 Handler 加 seed 行验证了 Entities rail 的 `20+20+5` cursor 续页、顺序、末页和 45 行边界；Computer Use 真实输入 `ep015-handler-3` 得到 10 条 `ep015-handler-39..30`。
+- 独立干净 replay `/private/tmp/anselm-rig-ep015-handlers-20260806/sessions/20260806-095453` 从空字段真实输入 `ep015-no-such-handler`，AX 树显示精确查询和 `No entities match your search.`，无把空态伪装成加载失败。
+- REST 同一 workspace 交叉核验三页 `20/20/5`、`hasMore`、search、空结果、`limit=0 → 400 INVALID_REQUEST`；清理 44 个临时 Handler 全部 DELETE=204、搜索为空、已删 GET=404。SQLite 为 `handlers_total=45/live=1/ep015_deleted=44`、44 个版本保留、临时 env 回收。
+- 五通道：主 `screen.mov` `317.096667s`、两个 clean replay `66.646667s/37.375000s` 均 ffprobe 可读；SSE 独立连接三流，主 durable entities `7..94`、notifications `16..147` 连续无 gap，messages 无 durable 变更；llmtap bootstrap 全 200；backend/frontend 无未解释应用红线。
+- `set_value` 造成的隐藏输入串接被重复复现并作为 Computer Use 仪器限制隔离，未进入绿证据；精确搜索与精确空态均从 clean keyboard input 重跑。正式证据 `EP-015-green.md`，空态补证 `EP-015-empty-search.md`，警报复审 `EP-015-alarm-reaudit.md`。
+- 显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下 `G1/F2/A5/C4/G2` 使账本 **730→735 judgments**；anchors `10/10`，两条统计警报经独立五通道复审后 ack，`alarms.py check` clean。批次十四 **40→45 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-016 GET /api/v1/handlers/{id}`。
+
+## 2026-08-06 09:40 · EP-014 POST /api/v1/handlers 五级收口，批次十四 40/50
+
+- 首轮真实 App 与后端 journal 保留了多种 hosted model legacy Handler op 形状；stop-and-fix 增加有限、确定性的兼容翻译，明确 Handler 的 canonical `add_method` 协议，不把 Function 的 `set_code` 语义冒充成功。
+- compat8 绿路径又冻结一个产品视觉红线：脱敏器将不可用 ID 表格行变成空行，Flutter 表格因此隐藏真正的 `ping` 方法。修复为物理移除该行，补 durable close 与流式 redaction 回归；compat9 新 binary 重跑通过。
+- Computer Use 最终画面显示 `Handler ep014compat 已创建完成`、名称、Python 3.12、`ping` 无输入且返回 `{pong: true}`、Init 参数无、版本 v1，并明确说明未调用该方法；无 opaque ID、空表格断行、retry 或错误卡。
+- 同一 session `/private/tmp/anselm-rig-ep014-handlers-20260806-compat9/sessions/20260806-093450` 的 REST/SQLite 事实为 create `201`、GET env/config ready 与 runtime stopped、未知字段 `400 INVALID_REQUEST`、真实 `:call` 返回 `pong=true`、调用聚合 `1 ok/0 failed`，清理 DELETE `204` 后 GET `404`；版本/env/调用审计按约保留。
+- 五通道封口：`screen.mov` `189.793333s` 可读；messages/entities/notifications 三路均连接，durable seq 单调无 gap；llmtap 全 HTTP 200；backend/frontend 无未解释应用红线。正式证据 `EP-014-green.md`，独立警报复审 `EP-014-alarm-reaudit.md`。
+- 显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下 `G1/F2/A5/C4/G2` 使正式账本 **725→730 judgments**；anchors `10/10`，`alarms.py check` clean。批次十四 **35→40 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-015 GET /api/v1/handlers`。
+
+## 2026-08-06 08:32 · EP-013 GET /api/v1/function-executions/{id} 五级收口，批次十四 35/50
+
+- EP-012 已明确保留的边界在真实 App 中完成 stop-and-fix：执行列表保持轻量（2 条真实执行与 `1 ok/1 failed` aggregates，列表不携带 `logs`），展开 Logs 行时才调用单执行详情 GET。
+- 真实 Function `ep013_logs2` 跑出 `n=2` 成功和 `n=7` 失败两条执行。REST 单详情分别返回完整 input/output/logs/timing 与 traceback；伪造 ID 返回 404 `FUNCTION_EXECUTION_NOT_FOUND`。UI 的失败行显示 ID、trigger、version、input、error、logs、elapsed、local time；成功行的 Computer Use accessibility state 也包含 input/output/logs。
+- 五通道封口：session `/private/tmp/anselm-rig-ep013-functions-20260806/sessions/20260806-082436` 的 `screen.mov` 为 `346.728333s / 2784x1808`；SSE 三流连接并记录 function create/run/error/delete durable 帧，LLM tap proof/install/models 全 HTTP 200，frontend 无 Flutter/Dart/Unhandled/AXTree 红线，backend 无 panic/FATAL。收台后 `ffprobe` 可读。
+- 清理两枚临时 Function：DELETE 均为 204，live list 为空；SQLite 为 `live_functions=0`、`deleted_functions=2`、`execution_rows=2`。第一次 zsh 错误拼接 `:run` 产生的两个 `...fn...un` 404 保留在 backend journal，已明确归类为测试命令错误，不计产品红。
+- 正式证据 `EP-013-green.md`，账本复审 `EP-013-ledger-alarm-reaudit.md`。显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下五级 `G1/F2/A5/C4/G2` 使账本 **720→725 judgments**；anchors `10/10`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按复审证据 ack，`alarms.py check` clean。批次十四由 **30→35 / 50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EP-014 POST /api/v1/handlers`。
+
+## 2026-08-06 08:10 · EP-012 GET /api/v1/functions/{id}/executions 五级收口，批次十四 30/50
+
+- 首轮真实 App session `/private/tmp/anselm-rig-ep012-functions-20260806/sessions/20260806-075245` 冻结为红：真实 Function 产生 22 条执行（18 success、4 failed），REST aggregate 正确为 18/4，但 Overview 只显示最近 5 条推导出的 `5 today`，Logs 列的 UTC 时间也没有转换为本地时间；红截图和 backend/frontend/SSE/LLM journal 保留，不计绿。
+- stop-and-fix 将 `totalCount` 从 function/handler/agent/mcp domain/store 贯通到 API contract 和 frontend `RecentRunsSnapshot`，Overview 改用服务端总量，`fmtTime` 统一 `DateTime.toLocal()`；同步双语 i18n、生成物、回归测试和 API/domain 文档。
+- fixed session `/private/tmp/anselm-rig-ep012-functions-20260806-fixed/sessions/20260806-080821` 以新 binary + 真实 onboarding + 受管网关 + Computer Use 重跑：Overview 显示 `22 total runs`，Logs 显示 `18 Done`/`4 Failed`、本地 `2026-08-06 08:10`；失败行展开有 ID/trigger/version/input/error/elapsed/time，Load more 后 22 行完整可达，无重复活动、错误卡或视觉跳变。
+- 五通道封口：`screen.mov` `258.726667s / 2784x1808 / 60fps`；三路 SSE 均连接，entities durable `1..46`、notifications `1..5` 单调，messages 本路径无 durable 消息；llmtap 10 条 bootstrap/proof/install/models 记录；backend/frontend journal 无 panic/FATAL/WARN/ERROR/Flutter/Dart/Unhandled 红线。SQLite 保留 22 条 execution 审计；Function DELETE=204 后 GET=404，live function 为零。
+- 正式证据为 `evidence/EP-012-green.md`，独立警报复审为 `evidence/EP-012-ledger-alarm-reaudit.md`。显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 下五级 `G1/F2/A5/C4/G2` 使账本 **715→720 judgments**；anchors `10/10`，`alarms.py check` clean。批次十四由 **25→30 / 50**，未满 50 格不跑统一长门禁、不提交。
+- 刻意保留的下一格边界：列表接口不带每条 execution 的 `logs`，当前前端没有调用 `GET /api/v1/function-executions/{id}` 的懒加载路径；EP-013 专门验证单次详情的 logs/input/output/error 是否真正交付用户。下一原子前线为 `EP-013`。
+
+## 2026-08-06 · EP-007 POST /api/v1/functions/{id}:revert 五级收口，批次十四 5/50
+
+- 真实 App session `/private/tmp/anselm-rig-ep007-functions-20260806/sessions/20260806-060152` 在 Versions 面板通过 `Set active` 完成 v2→v1 回退。UI 保留 v1/v2 历史，active 标记、顶部状态和右侧运行结果均切到 v1；这是版本指针变化，不制造新版本，也不删除旧版本。
+- 五通道对证：REST 带参数执行返回 `rest-v1`/`version=v1`；非法 v99 返回 `FUNCTION_VERSION_NOT_FOUND` 且 active pointer 不变；SQLite 的 function/version/execution/notification 真相与 `function.reverted` durable SSE 帧一致。三路 SSE、backend、frontend console、LLM tap、录屏和 manifest 均保留；LLM tap 只记录真实网关 bootstrap/ready，没有伪造模型 completion。
+- 第二 session 通过真实 DELETE=204、GET=404、live list 为空完成清理；SQLite 保留 soft-delete，notifications 有 `function.deleted`，清理不改写第一台架的产品证据。录屏固定帧 `evidence/ep007-after-revert.jpg` 和 `evidence/ep007-final-clean.jpg` 可读；`ep007-run-v1.jpg` 的坐标输入中间非法 JSON 明确不作为绿证据。
+- Computer Use 的 `set_value` 绕过自定义编辑器回调，坐标输入还原 JSON 时出现中间错误；该现象被记录为仪器/输入限制，未借其生成正向断言，也未发现产品代码红线。frontend journal 中的 `accessibility_bridge` 是已知 AX 观察器噪声，除此之外无 Flutter/Dart/RenderFlex/Unhandled 应用红线；`rig-check` 保留该已知失败，不静默过滤。
+- 正式五级 `G1/F2/A5/C4/G2` 已用显式 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 写入，中央账本 **690→695 judgments**；`gap-too-fast` 与 `discovery-collapse` 已由 `evidence/EP-007-ledger-alarm-reaudit.md` 独立重审并 ack，阈值未放宽，`alarms.py check` clean。批次十四当前 **5 / 50**，未满批不跑统一长门禁、不提交；下一原子前线为 `EP-008 POST /api/v1/functions/{id}:edit`。
 
 ## 2026-08-06 · EP-006 POST /api/v1/functions/{id}:run 五级收口，批次十三 50/50
 
