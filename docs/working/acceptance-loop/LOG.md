@@ -5,7 +5,7 @@
 - 真实 App session `/private/tmp/anselm-rig-ep016-handler-get-20260806/sessions/20260806-100548` 完成 Handler 详情用户路径：Computer Use 逐帧确认名称、v1、stopped、unconfigured、activeVersion、Python 3.12、必填 sensitive `api_key`、默认 `region`、`ping` 方法和 source，REST/SQLite 证明 configState、runtimeState、missingConfig、schema 与未知 ID 404 一致。
 - 五通道来自同一 conductor manifest：封口 `screen.mov` `292.240000s / 2784x1808 / 60fps`，messages/entities/notifications 三路 SSE 已连接且 durable entities `7..8`、notifications `16..20` 无 gap，backend journal、frontend console、LLM tap 均无未解释应用红线。清理 DELETE=204 后 GET=404，SQLite 仅保留软删 handler/version 审计，临时 env 已回收。
 - 正式证据 `evidence/EP-016-green.md` 通过 `G1/F2/A5/C4/G2` 五级裁决，中央账本由 **735→740 judgments**；anchors `10/10`。`gap-too-fast` 与 `discovery-collapse` 以 `evidence/EP-016-alarm-reaudit.md` 独立重读后 ack，`alarms.py check` clean，阈值未放宽。
-- 批次十四由 **45→50 / 50**，因此进入统一长门禁、完整 testend、警报复核、工作树审计和提交阶段；下一原子前线为 `EP-017 GET /api/v1/handlers/{id}/config`。
+- 批次十四由 **45→50 / 50**，因此进入统一长门禁、完整 testend、警报复核、工作树审计和提交阶段；下一原子前线为 `EP-017 PATCH /api/v1/handlers/{id}`。
 - 收口门禁结果：根 `make verify` 全绿（backend、frontend、docs、demo；Flutter 四组共 `5204` tests）；`make -C backend testend` 全量场景通过（`290.174s`）；`testend` module `go test -count=1 -timeout 30m ./...` 全包通过（场景 `327.947s`）；无 `anselm-server`、`llama-server` 或 testend 残留进程。复核 `gen_coverage.py --check`、anchors `10/10`、`alarms.py check` 和 `git diff --check` 均通过。
 
 ## 2026-08-06 07:48 · EP-011 GET /api/v1/functions/{id}/versions/{version} 五级收口，批次十四 25/50
