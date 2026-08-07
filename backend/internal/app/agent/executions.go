@@ -21,6 +21,13 @@ type SearchExecutionsResult struct {
 //
 // SearchExecutions 返回匹配 filter 的一页 execution + 聚合。
 func (s *Service) SearchExecutions(ctx context.Context, filter agentdomain.ExecutionFilter) (*SearchExecutionsResult, error) {
+	// Resolve the parent first so an unknown Agent is not misreported as a valid empty history.
+	// 先确认父 Agent 存在，避免未知实体被伪装成合法的空执行历史。
+	if filter.AgentID != "" {
+		if _, err := s.repo.Get(ctx, filter.AgentID); err != nil {
+			return nil, fmt.Errorf("agentapp.SearchExecutions: agent: %w", err)
+		}
+	}
 	rows, next, err := s.repo.ListExecutions(ctx, filter)
 	if err != nil {
 		return nil, fmt.Errorf("agentapp.SearchExecutions: %w", err)

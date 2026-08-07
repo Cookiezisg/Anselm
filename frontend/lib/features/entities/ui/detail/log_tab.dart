@@ -10,15 +10,18 @@ import '../../../../core/ui/an_last_good.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_row_detail.dart';
 import '../../../../core/ui/an_skeleton.dart';
+import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../../../core/shell/right_panel.dart';
+import '../../data/entity_kind.dart';
 import '../../state/detail/log_list_provider.dart';
 import '../../state/detail/log_list_state.dart';
 import '../../state/run/run_terminal_controller.dart';
 import '../../state/selected_entity.dart';
 import 'detail_sections.dart';
+import '../run/block_tree_view.dart';
 
 /// The 日志 tab (kind-dispatched): the ok/failed aggregate header (function/handler/agent only) + the
 /// run history as expandable rows; a workflow flowrun expands to its node list (lazily fetched). Hold
@@ -135,12 +138,41 @@ class LogTab extends ConsumerWidget {
             ],
           )
         else
-          // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
-          // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
-          kvList(
-            [for (final r in row.detailRows) (r.$1, r.$2)],
-            wrap: true,
-            dense: true,
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Machine telemetry (ids / timestamps / raw JSON dumps) — chrome tier like its cockpit twin.
+              // 机器遥测(id/时间戳/原始 JSON)——与驾驶舱孪生同守 chrome 档。
+              kvList(
+                [for (final r in row.detailRows) (r.$1, r.$2)],
+                wrap: true,
+                dense: true,
+              ),
+              if (entityRef.kind == EntityKind.agent && row.detailsLoaded)
+                AnSection(
+                  label: context.t.entities.run.traceHeading,
+                  variant: AnSectionVariant.quiet,
+                  actions: row.transcriptBlockCount > 0
+                      ? [
+                          AnChip(
+                            context.t.entities.run.steps(
+                              n: row.transcriptBlockCount,
+                            ),
+                          ),
+                        ]
+                      : const [],
+                  children: [
+                    if (row.transcriptRoots.isEmpty)
+                      AnState(
+                        kind: AnStateKind.empty,
+                        size: AnStateSize.inset,
+                        title: context.t.entities.run.noTrace,
+                      )
+                    else
+                      BlockTreeView(roots: row.transcriptRoots),
+                  ],
+                ),
+            ],
           ),
         // The archive hands the bench a reproduce key (档案馆→工作台单向门, 0719 拍板): fill the
         // debugger from THIS execution and reveal the island. 从这次执行回填调试台并展开右岛。

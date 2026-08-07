@@ -75,6 +75,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   // 且无 result——DB 行是真相,每 tick 去抖重取,慢轮询兜底全丢;终态/取消/释放即停。
   Timer? _reconcileDebounce;
   Timer? _poll;
+  Timer? _recentRunsRefresh;
+  bool _observedPanelRun = false;
+  DateTime? _observedPanelStartedAt;
 
   void _stopFlowrunTimers() {
     _reconcileDebounce?.cancel();
@@ -152,6 +155,9 @@ class RunTerminalController extends Notifier<RunTerminalState> {
     ref.onDispose(() {
       _panelSub?.cancel();
       _stopFlowrunTimers();
+      _recentRunsRefresh?.cancel();
+      _observedPanelRun = false;
+      _observedPanelStartedAt = null;
       stream.dispose();
     });
     return const RunTerminalState();
@@ -370,6 +376,28 @@ class RunTerminalController extends Notifier<RunTerminalState> {
   }
 
   void _onPanel(StreamEnvelope env) {
+    final frame = env.frame;
+    if (_isEntityRunFrame(frame) &&
+        frame is FrameOpen &&
+        frame.parentId == null &&
+        !state.isRunning &&
+        state.phase != RunPhase.cancelled &&
+        !_observedPanelRun) {
+      _beginObservedPanelRun();
+    }
+    // A durable close is also the commit hint for runs started by another surface (REST, chat, or a
+    // workflow). The panel stream is only an observation line, so re-read the execution ledger rather
+    // than deriving Recent from frames. Debouncing absorbs the several block closes of one ReAct run.
+    // durable close 也是其他入口(REST/chat/workflow)运行落账的提示。面板流只是观察线，Recent 必须重读
+    // 执行台账而不是从帧推导；去抖吸收一次 ReAct 运行的多次 block close。
+    if (entityRef.kind.executable && env.durable && env.frame is FrameClose) {
+      _recentRunsRefresh?.cancel();
+      _recentRunsRefresh = Timer(const Duration(milliseconds: 120), () {
+        if (!ref.mounted) return;
+        ref.invalidate(recentRunsProvider(entityRef));
+        if (_observedPanelRun) unawaited(_adoptObservedPanelRun());
+      });
+    }
     switch (entityRef.kind) {
       case EntityKind.control:
       case EntityKind.approval:
@@ -493,6 +521,103 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       _applyFlowrun(comp, comp.nodes);
     } catch (_) {
       await _reconcileFlowrun(seq);
+    }
+  }
+
+  bool _isEntityRunFrame(StreamFrame frame) {
+    if (entityRef.kind == EntityKind.agent) {
+      // Agent build mirrors use the same entity scope, but are not executions. All run block types
+      // are open strings owned by the loop, so only exclude the build producer here.
+      return (frame is FrameOpen && frame.node.type != 'build') ||
+          frame is FrameDelta ||
+          frame is FrameClose;
+    }
+    return (entityRef.kind == EntityKind.function ||
+            entityRef.kind == EntityKind.handler) &&
+        ((frame is FrameOpen && frame.node.type == 'run') ||
+            frame is FrameDelta ||
+            frame is FrameClose);
+  }
+
+  void _beginObservedPanelRun() {
+    _observedPanelRun = true;
+    _observedPanelStartedAt = DateTime.now().toUtc();
+    stream.mutate((s) => s..reset());
+    state = RunTerminalState(
+      phase: RunPhase.running,
+      method: state.method,
+      source: state.source,
+      runSeq: state.runSeq + 1,
+    );
+  }
+
+  Future<void> _adoptObservedPanelRun() async {
+    final startedAt = _observedPanelStartedAt;
+    if (!ref.mounted || !_observedPanelRun || startedAt == null) return;
+    try {
+      DateTime? createdAt;
+      String? rawStatus;
+      Object? output;
+      String? error;
+      var elapsedMs = 0;
+      switch (entityRef.kind) {
+        case EntityKind.function:
+          final page = await _repo.listFunctionExecutions(
+            entityRef.id,
+            limit: 1,
+          );
+          if (page.items.isEmpty) return;
+          final latest = page.items.first;
+          createdAt = latest.createdAt;
+          rawStatus = latest.status;
+          output = latest.output;
+          error = latest.errorMessage;
+          elapsedMs = latest.elapsedMs;
+        case EntityKind.handler:
+          final page = await _repo.listHandlerCalls(entityRef.id, limit: 1);
+          if (page.items.isEmpty) return;
+          final latest = page.items.first;
+          createdAt = latest.createdAt;
+          rawStatus = latest.status;
+          output = latest.output;
+          error = latest.errorMessage;
+          elapsedMs = latest.elapsedMs;
+        case EntityKind.agent:
+          final page = await _repo.listAgentExecutions(entityRef.id, limit: 1);
+          if (page.items.isEmpty) return;
+          final latest = page.items.first;
+          createdAt = latest.createdAt;
+          rawStatus = latest.status;
+          output = latest.output;
+          error = latest.errorMessage;
+          elapsedMs = latest.elapsedMs;
+        case EntityKind.control:
+        case EntityKind.approval:
+        case EntityKind.trigger:
+        case EntityKind.workflow:
+          return;
+      }
+      if (!ref.mounted || !_observedPanelRun || createdAt.isBefore(startedAt)) {
+        return;
+      }
+      final status = switch (rawStatus.toLowerCase()) {
+        'ok' || 'completed' || 'done' => RunPhase.ok,
+        'cancelled' => RunPhase.cancelled,
+        _ => RunPhase.failed,
+      };
+      state = state.copyWith(
+        phase: status,
+        output: output,
+        errorMsg: error?.isEmpty == true ? null : error,
+        elapsedMs: elapsedMs,
+        steps: 0,
+        tokensIn: 0,
+        tokensOut: 0,
+      );
+      _observedPanelRun = false;
+      _observedPanelStartedAt = null;
+    } catch (_) {
+      // The ledger refresh is best effort; the next durable close or a later selection retries it.
     }
   }
 }

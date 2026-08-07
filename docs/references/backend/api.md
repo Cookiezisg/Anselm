@@ -98,9 +98,9 @@ audience: [human, ai]
 | `POST /agents/{id}:edit` | 全量 Config snapshot 替换 |
 | `POST /agents/{id}:revert` | 移 active pointer |
 | `POST /agents/{id}:iterate` | 打开 AI 构建 Conversation |
-| `GET /agents/{id}/versions[/{version}]` | 版本分页/单读 |
+| `GET /agents/{id}/versions[/{version}]` | 版本分页/单读；父 Agent 不存在时返回 `404 AGENT_NOT_FOUND`，不伪装成空历史；opaque version ID 必须属于路径中的 Agent，否则 `404 AGENT_VERSION_NOT_FOUND` |
 | `GET /agents/{id}/mount-health` | 全部 tool/knowledge 挂载健康；`data.mounts[]` 为 `{ref,name?,healthy,error?}`，健康 knowledge 挂载提供文档标题 `name`，缺失挂载诚实回退 `ref` 并带 `error` |
-| `GET /agents/{id}/executions` | Execution 轻量分页与 aggregates（`totalCount`、`okCount`、`failedCount`；列表不带 transcript；`nextCursor` 原样续传） |
+| `GET /agents/{id}/executions` | Execution 轻量分页与 aggregates（`totalCount`、`okCount`、`failedCount`；列表不带 transcript；`nextCursor` 原样续传）；父 Agent 不存在返回 `404 AGENT_NOT_FOUND`，不伪装成空历史 |
 | `GET /agent-executions/{id}` | 单条 Execution，含 transcript |
 
 所有实体的 `:iterate` 端点都接受 `{request}`。请求必须包含至少一个非空白字符；否则返回

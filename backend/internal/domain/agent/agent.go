@@ -180,6 +180,7 @@ type Repository interface {
 
 	CreateVersion(ctx context.Context, v *Version) error // version pre-set to max+1 by the Service
 	GetVersion(ctx context.Context, versionID string) (*Version, error)
+	GetVersionForAgent(ctx context.Context, agentID, versionID string) (*Version, error)
 	GetVersionByNumber(ctx context.Context, agentID string, version int) (*Version, error)
 	ListVersions(ctx context.Context, agentID string, filter VersionListFilter) ([]*Version, string, error)
 	NextVersionNumber(ctx context.Context, agentID string) (int, error) // max(version)+1

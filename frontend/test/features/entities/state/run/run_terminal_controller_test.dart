@@ -1,13 +1,18 @@
 import 'package:anselm/core/contract/api_error.dart';
+import 'package:anselm/core/contract/entities/agent.dart';
+import 'package:anselm/core/contract/entities/common.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/contract/page.dart';
+import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
+import 'package:anselm/features/entities/state/run/recent_runs_provider.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_state.dart';
 import 'package:anselm/features/entities/state/detail/entity_detail_provider.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
@@ -111,6 +116,51 @@ class _HandlerCallRefreshRepo extends FixtureEntityRepository {
   }
 }
 
+class _RecentRefreshRepo extends FixtureEntityRepository {
+  int agentListCalls = 0;
+
+  @override
+  Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
+  listAgentExecutions(
+    String id, {
+    String? cursor,
+    int? limit,
+    String? status,
+  }) async {
+    agentListCalls++;
+    return super.listAgentExecutions(
+      id,
+      cursor: cursor,
+      limit: limit,
+      status: status,
+    );
+  }
+}
+
+class _ObservedRunRepo extends FixtureEntityRepository {
+  AgentExecution? latest;
+
+  @override
+  Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
+  listAgentExecutions(
+    String id, {
+    String? cursor,
+    int? limit,
+    String? status,
+  }) async {
+    final item = latest;
+    return PageWithAggregate(
+      items: item == null ? const [] : [item],
+      aggregate: ExecutionAggregates(
+        totalCount: item == null ? 0 : 1,
+        okCount: item == null || item.status != 'ok' ? 0 : 1,
+        failedCount: item == null || item.status == 'ok' ? 0 : 1,
+      ),
+      hasMore: false,
+    );
+  }
+}
+
 final _handlerTime = DateTime.utc(2026, 6, 27);
 
 void main() {
@@ -148,6 +198,72 @@ void main() {
       );
       final tc = roots.firstWhere((b) => b.name == 'web-search');
       expect(tc.children.single.displayText, '3 results found');
+    },
+  );
+
+  test(
+    'durable external panel close refreshes the recent execution ledger',
+    () async {
+      final repo = _RecentRefreshRepo();
+      final (c, _) = _harness(repo, _agRef);
+      c.listen(recentRunsProvider(_agRef), (_, _) {});
+      await c.read(recentRunsProvider(_agRef).future);
+      final before = repo.agentListCalls;
+
+      final scope = EntityKind.agent.scope(_agRef.id);
+      repo.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 1,
+          scope: scope,
+          id: 'blk_external',
+          frame: const FrameClose(status: 'completed'),
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      expect(repo.agentListCalls, greaterThan(before));
+    },
+  );
+
+  test(
+    'external agent trace replaces the old terminal result and adopts its ledger row',
+    () async {
+      final repo = _ObservedRunRepo();
+      final (c, ctl) = _harness(repo, _agRef);
+      final scope = EntityKind.agent.scope(_agRef.id);
+      final started = DateTime.now().toUtc();
+      repo.latest = AgentExecution(
+        id: 'agx_external',
+        agentId: _agRef.id,
+        status: 'ok',
+        output: const {'total': 460},
+        elapsedMs: 44,
+        startedAt: started,
+        createdAt: started.add(const Duration(milliseconds: 20)),
+      );
+      repo.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 1,
+          scope: scope,
+          id: 'blk_external',
+          frame: const FrameOpen(node: StreamNode(type: 'reasoning')),
+        ),
+      );
+      repo.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 2,
+          scope: scope,
+          id: 'blk_external',
+          frame: const FrameClose(status: 'completed'),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      expect(c.read(runTerminalProvider(_agRef)).phase, RunPhase.ok);
+      expect(c.read(runTerminalProvider(_agRef)).output, {'total': 460});
+      expect(ctl.stream.value.tree.roots, isNotEmpty);
     },
   );
 

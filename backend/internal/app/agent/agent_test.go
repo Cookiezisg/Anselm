@@ -90,6 +90,60 @@ func TestService_CreateEditRevert(t *testing.T) {
 	}
 }
 
+func TestService_ListVersionsRequiresExistingAgent(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, _, err := svc.Create(ctx, CreateInput{Name: "versions probe", Config: Config{Prompt: "v1"}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if rows, _, err := svc.ListVersions(ctx, a.ID, agentdomain.VersionListFilter{}); err != nil || len(rows) != 1 {
+		t.Fatalf("known agent should return its version history, rows=%d err=%v", len(rows), err)
+	}
+	if _, _, err := svc.ListVersions(ctx, "ag_missing_versions", agentdomain.VersionListFilter{}); !errors.Is(err, agentdomain.ErrNotFound) {
+		t.Fatalf("unknown agent must be not-found, got %v", err)
+	}
+}
+
+func TestService_SearchExecutionsRequiresExistingAgent(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, _, err := svc.Create(ctx, CreateInput{Name: "executions probe", Config: Config{Prompt: "v1"}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if got, err := svc.SearchExecutions(ctx, agentdomain.ExecutionFilter{AgentID: a.ID}); err != nil || got.Aggregates.TotalCount != 0 {
+		t.Fatalf("known agent should return an empty execution history, got=%+v err=%v", got, err)
+	}
+	if _, err := svc.SearchExecutions(ctx, agentdomain.ExecutionFilter{AgentID: "ag_missing_executions"}); !errors.Is(err, agentdomain.ErrNotFound) {
+		t.Fatalf("unknown agent must be not-found, got %v", err)
+	}
+}
+
+func TestService_GetVersionForAgentScopesOpaqueID(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, v1, err := svc.Create(ctx, CreateInput{Name: "owner", Config: Config{Prompt: "owner prompt"}})
+	if err != nil {
+		t.Fatalf("create owner: %v", err)
+	}
+	other, _, err := svc.Create(ctx, CreateInput{Name: "other", Config: Config{Prompt: "other prompt"}})
+	if err != nil {
+		t.Fatalf("create other: %v", err)
+	}
+
+	got, err := svc.GetVersionForAgent(ctx, a.ID, v1.ID)
+	if err != nil || got.ID != v1.ID {
+		t.Fatalf("own opaque version should resolve: got=%+v err=%v", got, err)
+	}
+	if _, err := svc.GetVersionForAgent(ctx, other.ID, v1.ID); !errors.Is(err, agentdomain.ErrVersionNotFound) {
+		t.Fatalf("cross-agent opaque version must be hidden, got %v", err)
+	}
+	if _, err := svc.GetVersionForAgent(ctx, "ag_missing_version_owner", v1.ID); !errors.Is(err, agentdomain.ErrNotFound) {
+		t.Fatalf("unknown parent must be agent-not-found, got %v", err)
+	}
+	if _, err := svc.GetVersionByNumber(ctx, "ag_missing_version_owner", 1); !errors.Is(err, agentdomain.ErrNotFound) {
+		t.Fatalf("unknown parent must be agent-not-found for numeric reads, got %v", err)
+	}
+}
+
 func TestService_UpdateMetaDoesNotBumpVersion(t *testing.T) {
 	svc, ctx := newSvc(t)
 	a, v1, err := svc.Create(ctx, CreateInput{

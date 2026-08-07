@@ -178,7 +178,11 @@ LLM 工具覆盖构建、生命周期与运行观测：
   metadata 槽位；用户未提供时传空字符串/空数组，提供时原样传递。Hosted model 若将 `tags`
   整体 JSON 编码成字符串，工具边界只接受精确 JSON 数组字符串，不接受逗号分隔文本。这样可
   阻断模型静默丢失用户意图；`ValidateInput` 在写库前再次要求三个键实际出现，HTTP create
-  仍可省略这些可选字段。
+  仍可省略这些可选字段。`add_node` 优先使用嵌套的 `node.{id,kind,ref}`；执行边界另兼容
+  一种已观察的托管模型 trigger 简写 `nodeId/kind=trigger/triggerId`，以及顶层同时含 `nodes`
+  与 `edges` 数组的图快照。两种兼容形状都只做确定性映射：快照节点的 `type/triggerId` 映射
+  为 `kind/ref` 并展开为 add_node，快照边展开为 add_edge；字段冲突、未知键、非 trigger 使用
+  `triggerId` 或与规范字段/嵌套 body 混用均拒绝。
 - `revert_workflow` 的公开 `version` 仍为 integer；执行边界额外接受 hosted model 发出的精确
   十进制整数字符串，浮点、布尔、数组和畸形字符串继续拒绝。一次调用必须同时带上真实的
   `workflowId` 与 `version`，不得先 `get_workflow`、漏字段或自动 retry；工具结果本身就是失败

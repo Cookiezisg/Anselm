@@ -60,6 +60,10 @@ schema 都明确了这条保真约束，后端执行层会把收到的 metadata 
 Agent name 是展示身份，可包含中文与空格。版本保留上限为 50，active version
 不被 trim。
 
+版本单读的 opaque 路径必须同时约束父 Agent：`GET /agents/{id}/versions/{versionId}` 只返回该
+`id` 之下的版本；存在于同一 workspace 但属于另一 Agent 的 `agv_…` ID 也按
+`AGENT_VERSION_NOT_FOUND` 处理，不能把全局唯一 ID 当成跨父实体的授权。
+
 ## 3. 挂载
 
 ToolRef 支持：
@@ -82,6 +86,9 @@ Create/Edit 使用同一 resolver 做 eager 检查。按需
 `GET /agents/{id}/mount-health` 非 fail-fast 地返回全部 tool 与 knowledge
 挂载状态；碰撞也必须呈现 unhealthy。MCP server 存在但离线时报告
 server-down，而不是误报 tool-not-found。
+
+版本列表先确认父 Agent 仍存在，再执行版本分页；未知 Agent 必须返回
+`AGENT_NOT_FOUND`，不能把数据库的空版本页渲染成一个合法但没有历史的 Agent。
 
 Skill 通过 `Guide` 渲染后进入 system prompt，不写父对话 active-skill，也不
 触发 fork。Knowledge 作为 user message 前缀；任何 document 缺失都大声失败。
@@ -177,6 +184,8 @@ metadata 更新使用专用工具。Mount health 是按需 HTTP 投影。
 
 Execution 历史列表是轻量分页投影：每行保留 id、状态、触发来源、输入、输出、耗时和时间，
 不携带完整 `transcript`；完整 transcript 只由 `get_agent_execution` / 单条 HTTP 详情返回。
+查询 `GET /agents/{id}/executions` 先确认父 Agent 存在；未知 Agent 返回 `AGENT_NOT_FOUND`，不能把
+数据库中没有匹配行误报成合法的空历史。
 同一响应的 `aggregates` 返回完整过滤集的 `totalCount`、`okCount` 与 `failedCount`，
 不受当前页大小限制。
 `nextCursor` 是不透明 token，续页必须逐字复制，不能解码、四舍五入或重新拼接；列表分页必须

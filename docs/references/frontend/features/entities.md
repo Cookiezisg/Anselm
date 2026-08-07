@@ -48,9 +48,11 @@ audience: [human, ai]
 - Approval：审批模板与规则；运行期决定发生在具体 parked node。
 - Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。
 
-日志列表页保持轻量：列表行不携带可能达到 64 KiB 的 `logs`，用户展开 Function execution 时才请求
-`GET /api/v1/function-executions/{id}`；展开期间显示骨架，失败显示原始服务端解释与重试，成功后在同一行展示
-完整的 input/output/error/logs/timing。不能用列表页的缺省 logs 冒充“没有日志”，也不能在详情请求失败时静默留白。
+日志列表页保持轻量：列表行不携带可能达到 64 KiB 的 `logs`，也不携带 Agent 的完整 `transcript`。
+用户展开 Function execution、Handler call 或 Agent execution 时，分别请求对应的单条端点；展开期间显示骨架，
+失败显示原始服务端解释与重试，成功后在同一行展示完整的 input/output/error/timing。Agent 的 durable transcript
+经共享 `hydrateTranscriptTree` 水合，复用调试台的 `BlockTreeView` 显示嵌套 reasoning/text/tool-call/tool-result
+轨迹；列表页的轻量投影不能冒充“没有日志”，详情请求失败也不能静默留白。
 
 实体 rail 的删除确认必须说明对象会从当前目录移除且不可撤销；确认后才调用统一 `DELETE`，列表按 durable
 `deleted` 信号对账，打开中的详情回到实体首页。删除不会因入向关系阻塞，后端清边并保留适用的历史/审计事实；前端
@@ -59,6 +61,16 @@ audience: [human, ai]
 调试台始终展示一份可直接修改和运行的 JSON。schema 示例优先使用 example/default/enum，缺失时生成类型骨架；workflow 按触发源生成点火 payload。编辑器的可见文本、session 草稿、实时 JSON lint 和 Run CTA 必须共享同一份当前文本：非法 JSON 立即显示可解释的红色错误并禁用 Run，禁止把旧草稿静默送入 HTTP；只有合法对象才进入 `:run`。无执行历史时不制造 Idle 墓碑，只有真实结果、错误或在飞状态才出现。
 
 运行失败时，右岛保留错误码与服务端 message，并在有结构化 `details` 时以人类可读的键值代码区展示；多行 traceback 保留真实换行，正文有硬上限，不能只显示一个泛化“调用失败”或把 `\\n` 转义串直接交给用户。执行日志仍从同一调用审计事实读取，成功与失败都必须可在最近调用条和 Logs 面重查。
+
+实体面板的 `entities` 流是执行过程的观察线，不是执行历史的第二份真相。收到可重放的
+`close` 帧后，右岛以短去抖重取对应执行账本；因此 REST、Chat 或 Workflow 入口在另一个
+表面落账的运行也会进入「最近」与速览计数。若右岛正在显示旧的落定结果，新的顶层 run
+block 会先切换成独立的 observed run，终态再从执行账本收口；不会把旧结果卡与新 trace 混在
+同一面板里，也不会从流式帧自行拼出历史或猜测总数。
+
+Logs 档案面也订阅同一实体 scope：收到 durable `close` 后短去抖重取当前已加载窗口与聚合，
+不会把运行中的 delta 当成历史，也不会用缓存的旧计数盖住新落账。重取沿用最近可信快照，
+保留仍在当前窗口内的展开行；若网络瞬时失败，原有行继续可读，用户可用显式重试恢复。
 
 ## 4. 关键不变量
 

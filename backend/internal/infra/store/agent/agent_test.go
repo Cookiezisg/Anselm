@@ -69,6 +69,30 @@ func TestStore_AgentVersionRoundTrip(t *testing.T) {
 	}
 }
 
+func TestStore_GetVersionForAgentScopesOpaqueID(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	now := time.Now().UTC()
+	for _, a := range []*agentdomain.Agent{
+		{ID: "ag_a", Name: "a", CreatedAt: now, UpdatedAt: now},
+		{ID: "ag_b", Name: "b", CreatedAt: now, UpdatedAt: now},
+	} {
+		if err := s.Create(ctx, a); err != nil {
+			t.Fatalf("create %s: %v", a.ID, err)
+		}
+	}
+	v := &agentdomain.Version{ID: "agv_a1", AgentID: "ag_a", Version: 1, Prompt: "a", CreatedAt: now}
+	if err := s.CreateVersion(ctx, v); err != nil {
+		t.Fatalf("create version: %v", err)
+	}
+	if got, err := s.GetVersionForAgent(ctx, "ag_a", v.ID); err != nil || got.AgentID != "ag_a" {
+		t.Fatalf("own opaque version should resolve: got=%+v err=%v", got, err)
+	}
+	if _, err := s.GetVersionForAgent(ctx, "ag_b", v.ID); !errors.Is(err, agentdomain.ErrVersionNotFound) {
+		t.Fatalf("cross-agent opaque version must be hidden, got %v", err)
+	}
+}
+
 func TestStore_WorkspaceIsolation(t *testing.T) {
 	s := newStore(t)
 	now := time.Now().UTC()

@@ -41,7 +41,7 @@ type CreateWorkflow struct{ svc *workflowapp.Service }
 func (t *CreateWorkflow) Name() string { return "create_workflow" }
 
 func (t *CreateWorkflow) Description() string {
-	return "Build a new workflow graph from ops; v1 takes effect immediately (no separate accept step). The new workflow starts deactivated — activate it once its graph is sound. Provide name, description, tags, changeReason, and an ops array that builds at least a trigger node. The three metadata slots are always required: pass an empty string or [] only when the user supplied no value; otherwise pass each value verbatim at the TOP LEVEL. Never omit user-provided metadata and never put changeReason inside ops. Hosted-model compatibility: tags may arrive as an exact JSON-encoded array string, but never as comma-separated prose.\n\n" + opsDoc
+	return "Build a new workflow graph from ops; v1 takes effect immediately (no separate accept step). The new workflow starts deactivated — activate it once its graph is sound. Provide name, description, tags, changeReason, and an ops array that builds at least a trigger node. The three metadata slots are always required: pass an empty string or [] only when the user supplied no value; otherwise pass each value verbatim at the TOP LEVEL. Never omit user-provided metadata and never put changeReason inside ops. Hosted-model compatibility: tags may arrive as an exact JSON-encoded array string, but never as comma-separated prose. Always prefer the canonical op array and nested add_node node {id, kind, ref}; the execution boundary also accepts one exact graph snapshot with nodes/edges arrays and the observed trigger shorthand {nodeId, kind:\"trigger\", triggerId}, normalizing either deterministically without creating a duplicate trigger.\n\n" + opsDoc
 }
 
 func (t *CreateWorkflow) Parameters() json.RawMessage {
@@ -52,7 +52,13 @@ func (t *CreateWorkflow) Parameters() json.RawMessage {
 			"name": {"type": "string", "description": "Unique workflow name."},
 			"description": {"type": "string", "description": "Workflow description. Pass an empty string when the user supplied none; otherwise pass the supplied value verbatim at this top level."},
 			"tags": {"type": "array", "description": "Complete workflow tag list. Pass [] when the user supplied none; otherwise pass the complete list verbatim at this top level. Hosted-model compatibility accepts an exact JSON-encoded array string too; never use comma-separated prose.", "items": {"type": "string"}},
-			"ops": {"type": "array", "description": "Graph-edit ops; each has an 'op' discriminator. The body of add_node/add_edge is nested under node/edge.", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Graph-edit op array. Prefer the canonical nested body: add_node uses node.{id,kind,ref,input,retry,pos,notes}; add_edge uses edge.{id,from,fromPort,to}. The execution boundary also accepts one exact graph snapshot with top-level nodes/edges arrays and the observed trigger shorthand nodeId/kind=trigger/triggerId; do not mix compatibility forms with canonical fields.", "items": {"type": "object", "required": ["op"], "properties": {
+				"op": {"type": "string", "enum": ["set_meta", "add_node", "update_node", "delete_node", "add_edge", "update_edge", "delete_edge"]},
+				"node": {"type": "object", "description": "Canonical add_node body.", "required": ["id", "kind", "ref"], "properties": {"id": {"type": "string"}, "kind": {"type": "string", "enum": ["trigger", "action", "agent", "control", "approval"]}, "ref": {"type": "string"}, "input": {"type": "object"}, "retry": {"type": "object"}, "pos": {"type": "object"}, "notes": {"type": "string"}}},
+				"edge": {"type": "object", "description": "Canonical add_edge body.", "required": ["id", "from", "to"], "properties": {"id": {"type": "string"}, "from": {"type": "string"}, "fromPort": {"type": "string"}, "to": {"type": "string"}}},
+				"nodeId": {"type": "string", "description": "Hosted compatibility only for add_node; prefer node.id and never send with node or id."},
+				"triggerId": {"type": "string", "description": "Hosted compatibility only for add_node with kind=trigger; prefer node.ref and never send with node or ref."}
+			}}},
 			"changeReason": {"type": "string", "description": "One-line audit reason. Pass an empty string when the user supplied none; otherwise pass it verbatim at this top level, never inside ops."}
 		}
 	}`)

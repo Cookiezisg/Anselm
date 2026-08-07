@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/api_error.dart';
@@ -7,7 +9,10 @@ import '../../../../core/contract/entities/common.dart';
 import '../../../../core/contract/entities/function.dart';
 import '../../../../core/contract/entities/handler.dart';
 import '../../../../core/contract/entities/workflow.dart';
+import '../../../../core/messages/block_tree_reducer.dart';
+import '../../../../core/messages/transcript_hydration.dart';
 import '../../../../core/model/status_state.dart';
+import '../../../../core/sse/frame.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_kind.dart';
@@ -29,10 +34,22 @@ class LogListNotifier extends AsyncNotifier<LogListState>
   final EntityRef entityRef;
   late EntityRepository _repo;
   static const int _pageSize = 20;
+  StreamSubscription<StreamEnvelope>? _panelSub;
+  Timer? _refreshDebounce;
+  int _refreshGeneration = 0;
 
   @override
   Future<LogListState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
+    if (entityRef.kind.executable) {
+      _panelSub = _repo
+          .panelSignals(entityRef.kind.scope(entityRef.id))
+          .listen(_onPanel);
+      ref.onDispose(() {
+        _refreshDebounce?.cancel();
+        unawaited(_panelSub?.cancel());
+      });
+    }
     final page = await _fetch(null);
     return LogListState(
       rows: page.rows,
@@ -121,20 +138,91 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         await _loadHandlerDetails(id);
       }
     }
+
+    if (opening && entityRef.kind == EntityKind.agent) {
+      final row = (state.value ?? cur).rows
+          .where((r) => r.id == id)
+          .firstOrNull;
+      if (row != null && !row.detailsLoaded && !row.detailsLoading) {
+        await _loadAgentDetails(id);
+      }
+    }
   }
 
   /// Retry a failed single-record fetch without collapsing the row. 保持行展开,只重试单条详情。
   Future<void> retryDetails(String id) async {
     if (entityRef.kind != EntityKind.function &&
-        entityRef.kind != EntityKind.handler) {
+        entityRef.kind != EntityKind.handler &&
+        entityRef.kind != EntityKind.agent) {
       return;
     }
     final row = state.value?.rows.where((r) => r.id == id).firstOrNull;
     if (row == null || row.detailsLoading) return;
     if (entityRef.kind == EntityKind.function) {
       await _loadFunctionDetails(id);
-    } else {
+    } else if (entityRef.kind == EntityKind.handler) {
       await _loadHandlerDetails(id);
+    } else {
+      await _loadAgentDetails(id);
+    }
+  }
+
+  /// A durable panel close means that an execution may have landed, but the frame is not the history
+  /// itself. Re-read the ledger and keep the current expanded rows so the archive catches up without a
+  /// loading flash or a collapsed detail the user is inspecting. durable close 只是一张重取提示,日志历史
+  /// 仍以 REST 台账为真相;重取不闪屏且不折叠用户正在看的行。
+  void _onPanel(StreamEnvelope env) {
+    if (!env.durable || env.frame is! FrameClose) return;
+    _scheduleRefresh();
+  }
+
+  void _scheduleRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (ref.mounted) unawaited(_refreshFromLedger());
+    });
+  }
+
+  Future<void> _refreshFromLedger() async {
+    final cur = state.value;
+    if (cur == null) return;
+    final generation = ++_refreshGeneration;
+    // Re-fetch the whole visible window so load-more rows do not disappear when a newer execution
+    // arrives. The server clamps this to its normal 200-row maximum. 重取当前可见窗口,避免新执行到来
+    // 时用户已经翻出的行凭空消失;服务端会把它钳在正常 200 行上限内。
+    final limit = cur.rows.length > _pageSize ? cur.rows.length : _pageSize;
+    try {
+      final page = await _fetch(null, limit: limit);
+      if (!ref.mounted || generation != _refreshGeneration) return;
+      final latest = state.value;
+      if (latest == null) return;
+      if (latest.loadingMore) {
+        // Keyset load-more owns its cursor until it settles. Retry after it has appended instead of
+        // replacing the state underneath it. 分页加载持有游标期间不覆盖状态,等它追加完再重取。
+        _scheduleRefresh();
+        return;
+      }
+      final previous = {
+        for (final row in latest.rows)
+          if (row.detailsLoaded) row.id: row,
+      };
+      final refreshedRows = [
+        for (final row in page.rows) previous[row.id] ?? row,
+      ];
+      final ids = refreshedRows.map((row) => row.id).toSet();
+      state = AsyncData(
+        latest.copyWith(
+          rows: refreshedRows,
+          aggregates: page.agg ?? latest.aggregates,
+          hasAggregate: page.agg != null || latest.hasAggregate,
+          nextCursor: page.next,
+          hasMore: page.more,
+          openIds: latest.openIds.intersection(ids),
+        ),
+      );
+    } catch (_) {
+      // A transient refresh failure must not replace the last-known-good archive. The tab's explicit
+      // retry remains the visible recovery path. 短暂重取失败不覆盖最近可信快照,由页面重试恢复。
     }
   }
 
@@ -176,6 +264,25 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     }
   }
 
+  Future<void> _loadAgentDetails(String id) async {
+    _updateRow(
+      id,
+      (row) => row.copyWith(detailsLoading: true, detailsError: null),
+    );
+    try {
+      final execution = await _repo.getAgentExecution(id);
+      if (!ref.mounted) return;
+      _replaceRow(id, _agentRow(execution, detailsLoaded: true));
+    } catch (error) {
+      if (!ref.mounted) return;
+      final message = error is ApiException ? error.message : '$error';
+      _updateRow(
+        id,
+        (row) => row.copyWith(detailsLoading: false, detailsError: message),
+      );
+    }
+  }
+
   void _updateRow(String id, LogRow Function(LogRow) update) {
     final cur = state.value;
     if (cur == null) return;
@@ -191,7 +298,8 @@ class LogListNotifier extends AsyncNotifier<LogListState>
   Future<
     ({List<LogRow> rows, ExecutionAggregates? agg, String? next, bool more})
   >
-  _fetch(String? cursor) async {
+  _fetch(String? cursor, {int? limit}) async {
+    final pageLimit = limit ?? _pageSize;
     switch (entityRef.kind) {
       // Support kinds have no generic 日志 tab — control/approval have no execution; trigger's history is
       // its OWN observability tabs (活动/派发), not this one. 支撑 kind 无通用日志(trigger 走自己的观测面)。
@@ -203,7 +311,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         final p = await _repo.listFunctionExecutions(
           entityRef.id,
           cursor: cursor,
-          limit: _pageSize,
+          limit: pageLimit,
         );
         return (
           rows: p.items.map(_functionRow).toList(),
@@ -215,7 +323,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         final p = await _repo.listHandlerCalls(
           entityRef.id,
           cursor: cursor,
-          limit: _pageSize,
+          limit: pageLimit,
         );
         return (
           rows: p.items.map(_handlerRow).toList(),
@@ -227,7 +335,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         final p = await _repo.listAgentExecutions(
           entityRef.id,
           cursor: cursor,
-          limit: _pageSize,
+          limit: pageLimit,
         );
         return (
           rows: p.items.map(_agentRow).toList(),
@@ -239,7 +347,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         final p = await _repo.listFlowruns(
           workflowId: entityRef.id,
           cursor: cursor,
-          limit: _pageSize,
+          limit: pageLimit,
         );
         return (
           rows: p.items.map(_flowrunRow).toList(),
@@ -316,8 +424,19 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     );
   }
 
-  LogRow _agentRow(AgentExecution e) {
+  LogRow _agentRow(AgentExecution e, {bool detailsLoaded = false}) {
     final kv = t.entities.detail.kv;
+    final transcript = e.transcript is List
+        ? List<dynamic>.from(e.transcript as List)
+        : const <dynamic>[];
+    final roots = detailsLoaded
+        ? hydrateTranscriptTree(
+            transcript,
+            scopeId: e.conversationId?.isNotEmpty == true
+                ? e.conversationId!
+                : e.id,
+          )
+        : const <BlockNode>[];
     return LogRow(
       id: e.id,
       dot: AnStatus.fromRaw(e.status),
@@ -341,8 +460,15 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         (kv.input, prettyJson(e.input)),
         (kv.output, prettyJson(e.output)),
         (kv.error, e.errorMessage ?? '—'),
+        if (detailsLoaded) (kv.version, e.versionId),
+        if (detailsLoaded) (kv.elapsed, '${e.elapsedMs}ms'),
+        if (detailsLoaded) (kv.startedAt, fmtTime(e.startedAt)),
+        if (detailsLoaded) (kv.completedAt, fmtTime(e.endedAt)),
         (kv.time, fmtTime(e.createdAt)),
       ],
+      detailsLoaded: detailsLoaded,
+      transcriptRoots: roots,
+      transcriptBlockCount: detailsLoaded ? transcript.length : 0,
     );
   }
 

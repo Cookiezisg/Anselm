@@ -345,6 +345,9 @@ func TestDecodeWorkflowOps_HostedModelShapes(t *testing.T) {
 		{"native nested", `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`, `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`},
 		{"stringified native", `"[{\"op\":\"add_node\",\"node\":{\"id\":\"start\",\"kind\":\"trigger\",\"ref\":\"trg_fixture\"}}]"`, `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`},
 		{"top-level body aliases", alias, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"},{"node":{"id":"process","kind":"action","ref":"fn_fixture","input":{"value":"start.value"}},"op":"add_node"},{"edge":{"id":"start_to_process","from":"start","to":"process"},"op":"add_edge"}]`},
+		{"hosted trigger shorthand", `[{"op":"add_node","nodeId":"start","kind":"trigger","triggerId":"trg_fixture"}]`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"}]`},
+		{"hosted graph snapshot", `{"nodes":[{"id":"start","triggerId":"trg_fixture","type":"trigger"}],"edges":[]}`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"}]`},
+		{"stringified hosted graph snapshot", `"{\"nodes\":[{\"id\":\"start\",\"triggerId\":\"trg_fixture\",\"type\":\"trigger\"}],\"edges\":[]}"`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"}]`},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -369,11 +372,67 @@ func TestDecodeWorkflowOps_HostedModelShapes(t *testing.T) {
 	for _, raw := range []string{
 		`"{}"`,
 		`{"op":"add_node","node":{"id":"nested"},"id":"conflict"}`,
+		`{"op":"add_node","node":{"id":"nested"},"nodeId":"conflict"}`,
+		`{"op":"add_node","id":"canonical","nodeId":"conflict","kind":"trigger","triggerId":"trg_fixture"}`,
+		`{"op":"add_node","ref":"canonical","triggerId":"conflict","kind":"trigger"}`,
+		`{"op":"add_node","nodeId":"start","kind":"action","triggerId":"trg_fixture"}`,
+		`{"nodes":[{"id":"start","type":"trigger","triggerId":"trg_fixture"}]}`,
+		`{"nodes":[{"id":"start","type":"action","triggerId":"trg_fixture"}],"edges":[]}`,
+		`{"nodes":[{"id":"start","kind":"trigger","type":"trigger","ref":"trg_fixture"}],"edges":[]}`,
+		`{"nodes":[{"id":"start","type":"trigger","triggerId":"trg_fixture","extra":true}],"edges":[]}`,
 		`[{"op":"add_edge","edge":{"id":"e1"},"from":"start"}]`,
 		`[{"op":1}]`,
 	} {
 		if _, err := decodeWorkflowOps([]byte(raw)); err == nil {
 			t.Errorf("decodeWorkflowOps(%s) should reject malformed/conflicting shape", raw)
+		}
+	}
+}
+
+func TestCreateWorkflow_ExecutesHostedModelTriggerShorthand(t *testing.T) {
+	svc, ctx := newSvc(t)
+	create := &CreateWorkflow{svc: svc}
+	out, err := create.Execute(ctx, `{"name":"hosted_trigger_shorthand","description":"","tags":[],"changeReason":"contract test","ops":[{"op":"add_node","nodeId":"start","kind":"trigger","triggerId":"trg_fixture"}]}`)
+	if err != nil {
+		t.Fatalf("create hosted trigger shorthand: %v", err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &created); err != nil || created.ID == "" {
+		t.Fatalf("create result missing id: %v (%s)", err, out)
+	}
+	got, err := (&GetWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+created.ID+`"}`)
+	if err != nil {
+		t.Fatalf("get hosted trigger shorthand: %v", err)
+	}
+	for _, want := range []string{`"id":"start"`, `"kind":"trigger"`, `"ref":"trg_fixture"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("normalized graph missing %s: %s", want, got)
+		}
+	}
+}
+
+func TestCreateWorkflow_ExecutesHostedGraphSnapshot(t *testing.T) {
+	svc, ctx := newSvc(t)
+	create := &CreateWorkflow{svc: svc}
+	out, err := create.Execute(ctx, `{"name":"hosted_graph_snapshot","description":"","tags":[],"changeReason":"contract test","ops":"{\"nodes\":[{\"id\":\"start\",\"triggerId\":\"trg_fixture\",\"type\":\"trigger\"}],\"edges\":[]}"}`)
+	if err != nil {
+		t.Fatalf("create hosted graph snapshot: %v", err)
+	}
+	var created struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(out), &created); err != nil || created.ID == "" {
+		t.Fatalf("create result missing id: %v (%s)", err, out)
+	}
+	got, err := (&GetWorkflow{svc: svc}).Execute(ctx, `{"workflowId":"`+created.ID+`"}`)
+	if err != nil {
+		t.Fatalf("get hosted graph snapshot: %v", err)
+	}
+	for _, want := range []string{`"id":"start"`, `"kind":"trigger"`, `"ref":"trg_fixture"`} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("normalized graph missing %s: %s", want, got)
 		}
 	}
 }
@@ -463,6 +522,9 @@ func TestCreateWorkflow_DescriptionPinsUserMetadata(t *testing.T) {
 		"at the TOP LEVEL",
 		"Never omit user-provided metadata",
 		"Hosted-model compatibility",
+		"nodeId",
+		"triggerId",
+		"graph snapshot",
 		"comma-separated prose",
 		"never put changeReason inside ops",
 	} {

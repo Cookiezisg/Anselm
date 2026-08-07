@@ -297,6 +297,51 @@ void main() {
     },
   );
 
+  test(
+    'getAgentExecution fetches the full single record including transcript',
+    () async {
+      final b = _build(
+        (_) => _json({
+          'data': {
+            'id': 'agx_1',
+            'agentId': 'ag_1',
+            'versionId': 'agv_1',
+            'status': 'ok',
+            'triggeredBy': 'manual',
+            'input': {'number': 42},
+            'output': '1764',
+            'provider': 'anselm',
+            'modelId': 'anselm-auto',
+            'transcript': [
+              {
+                'id': 'blk_1',
+                'type': 'reasoning',
+                'content': 'Thinking',
+                'status': 'completed',
+              },
+              {
+                'id': 'blk_2',
+                'type': 'text',
+                'content': '1764',
+                'status': 'completed',
+              },
+            ],
+            'elapsedMs': 12,
+            'startedAt': '2026-06-26T00:00:00.000Z',
+            'endedAt': '2026-06-26T00:00:00.012Z',
+            'createdAt': '2026-06-26T00:00:00.012Z',
+          },
+        }),
+      );
+      final execution = await b.repo.getAgentExecution('agx_1');
+      expect(b.adapter.last!.path, '/api/v1/agent-executions/agx_1');
+      expect(execution.transcript, isA<List<dynamic>>());
+      expect((execution.transcript! as List<dynamic>), hasLength(2));
+      expect(execution.output, '1764');
+      expect(execution.elapsedMs, 12);
+    },
+  );
+
   // WRK-083 L14 — the fixture now carries the ENVELOPE the server actually sends.
   //
   // It used to hand itself `{ok:true,…}` at the top level and assert that came back: a fixture written

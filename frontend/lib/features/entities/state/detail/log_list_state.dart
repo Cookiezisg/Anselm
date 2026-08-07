@@ -2,6 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 
 import '../../../../core/contract/entities/common.dart';
 import '../../../../core/contract/entities/workflow.dart';
+import '../../../../core/messages/block_tree_reducer.dart';
 import '../../../../core/model/status_state.dart';
 import '../run/recent_runs_provider.dart';
 
@@ -22,6 +23,8 @@ class LogRow {
     this.detailsLoading = false,
     this.detailsError,
     this.detailsLoaded = true,
+    this.transcriptRoots = const [],
+    this.transcriptBlockCount = 0,
   });
 
   final String id;
@@ -42,6 +45,11 @@ class LogRow {
   final String? detailsError;
   final bool detailsLoaded;
 
+  /// Hydrated durable Agent trajectory. It is absent from list rows and populated only after the
+  /// single-record detail request succeeds. Agent 执行的 durable 轨迹水合树;列表行不带,单读成功后才填。
+  final List<BlockNode> transcriptRoots;
+  final int transcriptBlockCount;
+
   LogRow copyWith({
     bool? detailsLoading,
     Object? detailsError = _keepDetailsError,
@@ -58,6 +66,8 @@ class LogRow {
         ? this.detailsError
         : detailsError as String?,
     detailsLoaded: detailsLoaded,
+    transcriptRoots: transcriptRoots,
+    transcriptBlockCount: transcriptBlockCount,
   );
 
   static const _keepDetailsError = Object();

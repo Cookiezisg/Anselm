@@ -171,10 +171,14 @@ func (s *Service) knowledgeHealth(ctx context.Context, docIDs []string) []agentd
 	return out
 }
 
-// ListVersions returns one keyset page of an agent's versions (newest first, N4).
+// ListVersions returns one keyset page of an existing agent's versions (newest first, N4).
+// Resolve the parent first so an unknown agent is not misreported as a valid empty history.
 //
-// ListVersions 返 agent 版本的一页 keyset（新→旧，N4）。
+// ListVersions 先确认 agent 主实体存在，再返版本的一页 keyset（新→旧，N4）；未知 agent 不伪装成空历史。
 func (s *Service) ListVersions(ctx context.Context, agentID string, filter agentdomain.VersionListFilter) ([]*agentdomain.Version, string, error) {
+	if _, err := s.repo.Get(ctx, agentID); err != nil {
+		return nil, "", fmt.Errorf("agentapp.ListVersions: %w", err)
+	}
 	return s.repo.ListVersions(ctx, agentID, filter)
 }
 
@@ -185,10 +189,23 @@ func (s *Service) GetVersion(ctx context.Context, versionID string) (*agentdomai
 	return s.repo.GetVersion(ctx, versionID)
 }
 
+// GetVersionForAgent returns an opaque version only when it belongs to the route's parent Agent.
+//
+// GetVersionForAgent 先确认父 Agent 存在，再只返回属于它的 opaque 版本，防止跨 Agent 读取版本快照。
+func (s *Service) GetVersionForAgent(ctx context.Context, agentID, versionID string) (*agentdomain.Version, error) {
+	if _, err := s.repo.Get(ctx, agentID); err != nil {
+		return nil, fmt.Errorf("agentapp.GetVersionForAgent: %w", err)
+	}
+	return s.repo.GetVersionForAgent(ctx, agentID, versionID)
+}
+
 // GetVersionByNumber returns one version by (agentID, number).
 //
 // GetVersionByNumber 按 (agentID, 版本号) 返单个版本。
 func (s *Service) GetVersionByNumber(ctx context.Context, agentID string, version int) (*agentdomain.Version, error) {
+	if _, err := s.repo.Get(ctx, agentID); err != nil {
+		return nil, fmt.Errorf("agentapp.GetVersionByNumber: %w", err)
+	}
 	return s.repo.GetVersionByNumber(ctx, agentID, version)
 }
 

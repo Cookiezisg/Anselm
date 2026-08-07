@@ -117,6 +117,11 @@ abstract interface class EntityRepository {
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
   listAgentExecutions(String id, {String? cursor, int? limit, String? status});
 
+  /// Fetch the full Agent execution record, including its durable transcript. The history page is a
+  /// slim projection; Logs calls this only when a row is opened. 单条 Agent 执行详情含 durable transcript;
+  /// 历史页保持轻量, Logs 展开行时才懒取。
+  Future<AgentExecution> getAgentExecution(String id);
+
   // ── workflow runs (the workflow 日志 tab = flowruns, NOT executions) ───────
   Future<Page<Flowrun>> listFlowruns({
     required String workflowId,
@@ -478,6 +483,10 @@ class LiveEntityRepository implements EntityRepository {
     _agg,
     query: _query(cursor, limit, {'status': ?status}),
   );
+
+  @override
+  Future<AgentExecution> getAgentExecution(String id) =>
+      _api.getEntity('/api/v1/agent-executions/$id', AgentExecution.fromJson);
 
   @override
   Future<Page<Flowrun>> listFlowruns({

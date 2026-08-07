@@ -6,14 +6,14 @@ import (
 	"fmt"
 )
 
-// decodeWorkflowOps accepts the public array shape plus the two shape-preserving variants
-// observed from hosted models: an exact JSON-encoded array string, and legacy add_node/add_edge
-// objects whose body fields were emitted beside (rather than inside) node/edge. It deliberately
-// does not repair arbitrary JSON or merge conflicting nested and top-level fields.
+// decodeWorkflowOps accepts the public array shape plus the narrow variants observed from hosted
+// models: an exact JSON-encoded array string, legacy add_node/add_edge objects whose body fields
+// were emitted beside (rather than inside) node/edge, and an exact nodes/edges graph snapshot. It
+// deliberately does not repair arbitrary JSON or merge conflicting fields.
 //
-// decodeWorkflowOps 接受公开数组形状，以及托管模型实际发出的两种等价变体：精确 JSON 编码的
-// 数组字符串，和把 add_node/add_edge 的 body 字段放在 node/edge 外的旧形状。不修任意 JSON，
-// 也不合并互相冲突的内外字段。
+// decodeWorkflowOps 接受公开数组形状，以及托管模型实际发出的窄变体：精确 JSON 编码的数组
+// 字符串、把 add_node/add_edge 的 body 字段放在 node/edge 外的旧形状，以及精确的 nodes/edges
+// 图快照。不修任意 JSON，也不合并互相冲突的字段。
 func decodeWorkflowOps(raw json.RawMessage) (json.RawMessage, error) {
 	raw = bytes.TrimSpace(raw)
 	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
@@ -26,11 +26,20 @@ func decodeWorkflowOps(raw json.RawMessage) (json.RawMessage, error) {
 		}
 		raw = bytes.TrimSpace([]byte(encoded))
 		if len(raw) == 0 || raw[0] != '[' {
-			return nil, fmt.Errorf("ops string must contain a JSON array")
+			if len(raw) == 0 || raw[0] != '{' {
+				return nil, fmt.Errorf("ops string must contain a JSON array or an exact graph snapshot")
+			}
 		}
 	}
+	if raw[0] == '{' {
+		graphOps, err := normalizeHostedGraphSnapshot(raw)
+		if err != nil {
+			return nil, fmt.Errorf("ops graph snapshot: %w", err)
+		}
+		raw = graphOps
+	}
 	if raw[0] != '[' {
-		return nil, fmt.Errorf("ops must be a JSON array or an exact JSON-encoded array")
+		return nil, fmt.Errorf("ops must be a JSON array, an exact JSON-encoded array, or an exact graph snapshot")
 	}
 
 	var entries []json.RawMessage
@@ -46,6 +55,193 @@ func decodeWorkflowOps(raw json.RawMessage) (json.RawMessage, error) {
 		normalized = append(normalized, one)
 	}
 	return json.Marshal(normalized)
+}
+
+// normalizeHostedGraphSnapshot converts one observed hosted-model graph snapshot into the public
+// op list. The accepted vocabulary is intentionally finite: nodes/edges must both be arrays, node
+// type is the alias for kind, and triggerId is the alias for ref only on trigger nodes.
+//
+// normalizeHostedGraphSnapshot 把一种已观察到的托管模型图快照转换为公开 op 列表。词汇表刻意
+// 有限：nodes/edges 必须同时为数组，node.type 是 kind 别名，triggerId 只在 trigger 节点上
+// 作为 ref 别名；其余形状不猜测。
+func normalizeHostedGraphSnapshot(raw json.RawMessage) (json.RawMessage, error) {
+	var graph map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &graph); err != nil || graph == nil {
+		return nil, fmt.Errorf("must be an object with nodes and edges arrays")
+	}
+	for key := range graph {
+		if key != "nodes" && key != "edges" {
+			return nil, fmt.Errorf("unknown graph snapshot field %q", key)
+		}
+	}
+	nodesRaw, hasNodes := graph["nodes"]
+	edgesRaw, hasEdges := graph["edges"]
+	if !hasNodes || !hasEdges {
+		return nil, fmt.Errorf("nodes and edges arrays are required")
+	}
+	nodes, err := decodeSnapshotArray(nodesRaw, "nodes")
+	if err != nil {
+		return nil, err
+	}
+	edges, err := decodeSnapshotArray(edgesRaw, "edges")
+	if err != nil {
+		return nil, err
+	}
+
+	ops := make([]json.RawMessage, 0, len(nodes)+len(edges))
+	for i, nodeRaw := range nodes {
+		node, err := normalizeHostedSnapshotNode(nodeRaw)
+		if err != nil {
+			return nil, fmt.Errorf("nodes[%d]: %w", i, err)
+		}
+		ops = append(ops, node)
+	}
+	for i, edgeRaw := range edges {
+		edge, err := normalizeHostedSnapshotEdge(edgeRaw)
+		if err != nil {
+			return nil, fmt.Errorf("edges[%d]: %w", i, err)
+		}
+		ops = append(ops, edge)
+	}
+	return json.Marshal(ops)
+}
+
+func decodeSnapshotArray(raw json.RawMessage, name string) ([]json.RawMessage, error) {
+	if raw = bytes.TrimSpace(raw); len(raw) == 0 || raw[0] != '[' {
+		return nil, fmt.Errorf("%s must be an array", name)
+	}
+	var entries []json.RawMessage
+	if err := json.Unmarshal(raw, &entries); err != nil {
+		return nil, fmt.Errorf("%s must be an array: %w", name, err)
+	}
+	return entries, nil
+}
+
+func normalizeHostedSnapshotNode(raw json.RawMessage) (json.RawMessage, error) {
+	var source map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &source); err != nil || source == nil {
+		return nil, fmt.Errorf("must be an object")
+	}
+	for key := range source {
+		switch key {
+		case "id", "kind", "type", "ref", "triggerId", "input", "retry", "pos", "notes":
+		default:
+			return nil, fmt.Errorf("unknown node field %q", key)
+		}
+	}
+	id, err := requiredSnapshotString(source, "id")
+	if err != nil {
+		return nil, err
+	}
+	kind, kindRaw, err := snapshotAliasedString(source, "kind", "type")
+	if err != nil {
+		return nil, err
+	}
+	if kind == "" {
+		return nil, fmt.Errorf("kind/type is required")
+	}
+	ref, refRaw, err := snapshotAliasedString(source, "ref", "triggerId")
+	if err != nil {
+		return nil, err
+	}
+	if triggerID, hasTriggerID := source["triggerId"]; hasTriggerID {
+		if kind != "trigger" {
+			return nil, fmt.Errorf("triggerId alias requires kind/type \"trigger\", got %q", kind)
+		}
+		refRaw = triggerID
+	}
+	if ref == "" {
+		return nil, fmt.Errorf("ref/triggerId is required")
+	}
+
+	node := map[string]json.RawMessage{
+		"id":   id,
+		"kind": kindRaw,
+		"ref":  refRaw,
+	}
+	for _, key := range []string{"input", "retry", "pos", "notes"} {
+		if value, ok := source[key]; ok {
+			node[key] = value
+		}
+	}
+	nodeRaw, err := json.Marshal(node)
+	if err != nil {
+		return nil, fmt.Errorf("encode normalized node: %w", err)
+	}
+	return json.Marshal(map[string]json.RawMessage{
+		"op":   json.RawMessage(`"add_node"`),
+		"node": nodeRaw,
+	})
+}
+
+func normalizeHostedSnapshotEdge(raw json.RawMessage) (json.RawMessage, error) {
+	var source map[string]json.RawMessage
+	if err := json.Unmarshal(raw, &source); err != nil || source == nil {
+		return nil, fmt.Errorf("must be an object")
+	}
+	for key := range source {
+		switch key {
+		case "id", "from", "fromPort", "to":
+		default:
+			return nil, fmt.Errorf("unknown edge field %q", key)
+		}
+	}
+	edge := make(map[string]json.RawMessage, 4)
+	for _, key := range []string{"id", "from", "fromPort", "to"} {
+		if value, ok := source[key]; ok {
+			if key != "fromPort" {
+				if _, err := requiredSnapshotString(source, key); err != nil {
+					return nil, err
+				}
+			}
+			edge[key] = value
+		}
+	}
+	for _, key := range []string{"id", "from", "to"} {
+		if _, ok := edge[key]; !ok {
+			return nil, fmt.Errorf("%s is required", key)
+		}
+	}
+	edgeRaw, err := json.Marshal(edge)
+	if err != nil {
+		return nil, fmt.Errorf("encode normalized edge: %w", err)
+	}
+	return json.Marshal(map[string]json.RawMessage{
+		"op":   json.RawMessage(`"add_edge"`),
+		"edge": edgeRaw,
+	})
+}
+
+func requiredSnapshotString(source map[string]json.RawMessage, key string) (json.RawMessage, error) {
+	raw, ok := source[key]
+	if !ok {
+		return nil, fmt.Errorf("%s is required", key)
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil || value == "" {
+		return nil, fmt.Errorf("%s must be a non-empty string", key)
+	}
+	return raw, nil
+}
+
+func snapshotAliasedString(source map[string]json.RawMessage, canonical, alias string) (string, json.RawMessage, error) {
+	canonicalRaw, hasCanonical := source[canonical]
+	aliasRaw, hasAlias := source[alias]
+	if hasCanonical && hasAlias {
+		return "", nil, fmt.Errorf("fields %q and %q conflict", canonical, alias)
+	}
+	raw := canonicalRaw
+	if !hasCanonical {
+		raw = aliasRaw
+	}
+	if !hasCanonical && !hasAlias {
+		return "", nil, nil
+	}
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return "", nil, fmt.Errorf("%s/%s must be strings", canonical, alias)
+	}
+	return value, raw, nil
 }
 
 // decodeWorkflowTags accepts the declared string-array shape plus the exact JSON-encoded
@@ -139,6 +335,9 @@ func normalizeWorkflowOp(raw json.RawMessage) (json.RawMessage, error) {
 
 	switch op {
 	case "add_node":
+		if err := normalizeHostedNodeAliases(top); err != nil {
+			return nil, fmt.Errorf("add_node: %w", err)
+		}
 		if err := liftWorkflowBody(top, "node", workflowNodeFields); err != nil {
 			return nil, fmt.Errorf("add_node: %w", err)
 		}
@@ -148,6 +347,50 @@ func normalizeWorkflowOp(raw json.RawMessage) (json.RawMessage, error) {
 		}
 	}
 	return json.Marshal(top)
+}
+
+// normalizeHostedNodeAliases handles one observed hosted-model shorthand without turning the
+// decoder into a fuzzy repair layer. The aliases are only valid for a trigger node and any
+// canonical/alias or nested/top-level mix is rejected rather than guessed.
+//
+// normalizeHostedNodeAliases 只处理一种已观察到的托管模型简写，不把 decoder 变成模糊修复层。
+// 别名仅对 trigger 节点有效；规范字段与别名、嵌套与顶层混用时一律拒绝，不猜测。
+func normalizeHostedNodeAliases(top map[string]json.RawMessage) error {
+	if _, hasNode := top["node"]; hasNode {
+		if _, hasNodeID := top["nodeId"]; hasNodeID {
+			return fmt.Errorf("top-level field \"nodeId\" conflicts with the nested \"node\" object")
+		}
+		if _, hasTriggerID := top["triggerId"]; hasTriggerID {
+			return fmt.Errorf("top-level field \"triggerId\" conflicts with the nested \"node\" object")
+		}
+		return nil
+	}
+
+	if nodeID, ok := top["nodeId"]; ok {
+		if _, hasCanonicalID := top["id"]; hasCanonicalID {
+			return fmt.Errorf("top-level fields \"nodeId\" and \"id\" conflict")
+		}
+		top["id"] = nodeID
+		delete(top, "nodeId")
+	}
+
+	if triggerID, ok := top["triggerId"]; ok {
+		if _, hasCanonicalRef := top["ref"]; hasCanonicalRef {
+			return fmt.Errorf("top-level fields \"triggerId\" and \"ref\" conflict")
+		}
+		if kindRaw, hasKind := top["kind"]; hasKind {
+			var kind string
+			if err := json.Unmarshal(kindRaw, &kind); err != nil {
+				return fmt.Errorf("'kind' must be a string when using \"triggerId\": %w", err)
+			}
+			if kind != "trigger" {
+				return fmt.Errorf("\"triggerId\" alias requires kind \"trigger\", got %q", kind)
+			}
+		}
+		top["ref"] = triggerID
+		delete(top, "triggerId")
+	}
+	return nil
 }
 
 var workflowNodeFields = []string{"id", "kind", "ref", "input", "retry", "pos", "notes"}

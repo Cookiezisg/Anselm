@@ -1,6 +1,8 @@
+import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -44,6 +46,7 @@ ProviderContainer _container(FixtureEntityRepository repo, EntityRef ref) {
 void main() {
   const fnRef = EntityRef(EntityKind.function, 'fn_1');
   const hdRef = EntityRef(EntityKind.handler, 'hd_1');
+  const agRef = EntityRef(EntityKind.agent, 'ag_1');
   const wfRef = EntityRef(EntityKind.workflow, 'wf_1');
 
   test(
@@ -113,6 +116,115 @@ void main() {
       isTrue,
     );
   });
+
+  test(
+    'durable external close refreshes agent logs and preserves an expanded row',
+    () async {
+      final old = AgentExecution(
+        id: 'agx_old',
+        agentId: 'ag_1',
+        status: 'ok',
+        triggeredBy: 'manual',
+        output: 16,
+        elapsedMs: 20,
+        createdAt: _t,
+      );
+      final executions = <AgentExecution>[old];
+      final repo = FixtureEntityRepository(
+        agentExecutions: {'ag_1': executions},
+      );
+      final c = _container(repo, agRef);
+      await c.read(logListProvider(agRef).future);
+      await c.read(logListProvider(agRef).notifier).toggle(old.id);
+
+      executions.insert(
+        0,
+        AgentExecution(
+          id: 'agx_new',
+          agentId: 'ag_1',
+          status: 'ok',
+          triggeredBy: 'manual',
+          output: 49,
+          elapsedMs: 25,
+          createdAt: _t.add(const Duration(seconds: 1)),
+        ),
+      );
+      final scope = EntityKind.agent.scope(agRef.id);
+      repo.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 1,
+          scope: scope,
+          id: 'blk_external',
+          frame: const FrameClose(status: 'completed'),
+        ),
+      );
+
+      await Future<void>.delayed(const Duration(milliseconds: 180));
+      final after = c.read(logListProvider(agRef)).value!;
+      expect(after.rows.map((row) => row.id), ['agx_new', 'agx_old']);
+      expect(after.aggregates.totalCount, 2);
+      expect(after.aggregates.okCount, 2);
+      expect(after.openIds, contains(old.id));
+    },
+  );
+
+  test(
+    'agent logs lazy-load the single record and hydrate its durable transcript',
+    () async {
+      final execution = AgentExecution(
+        id: 'agx_detail',
+        agentId: 'ag_1',
+        versionId: 'agv_1',
+        status: 'ok',
+        triggeredBy: 'manual',
+        input: {'number': 42},
+        output: '1764',
+        provider: 'anselm',
+        modelId: 'anselm-auto',
+        elapsedMs: 12,
+        startedAt: _t,
+        endedAt: _t.add(const Duration(milliseconds: 12)),
+        transcript: [
+          {
+            'id': 'blk_reasoning',
+            'type': 'reasoning',
+            'content': 'Thinking',
+            'status': 'completed',
+          },
+          {
+            'id': 'blk_text',
+            'type': 'text',
+            'content': '1764',
+            'status': 'completed',
+          },
+        ],
+        createdAt: _t,
+      );
+      final repo = FixtureEntityRepository(
+        agentExecutions: {
+          'ag_1': [execution],
+        },
+      );
+      final c = _container(repo, agRef);
+
+      final initial = await c.read(logListProvider(agRef).future);
+      expect(initial.rows.single.detailsLoaded, isFalse);
+      expect(initial.rows.single.transcriptRoots, isEmpty);
+
+      await c.read(logListProvider(agRef).notifier).toggle(execution.id);
+      final after = c.read(logListProvider(agRef)).value!;
+      final row = after.rows.single;
+      expect(after.openIds, contains(execution.id));
+      expect(row.detailsLoaded, isTrue);
+      expect(row.transcriptBlockCount, 2);
+      expect(row.transcriptRoots.map((n) => n.displayText), [
+        'Thinking',
+        '1764',
+      ]);
+      expect(row.detailRows.any((r) => r.$2 == '12ms'), isTrue);
+    },
+  );
 
   test(
     'workflow logs have no aggregate; first expand lazily fetches the flowrun node list',

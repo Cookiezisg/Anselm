@@ -62,7 +62,7 @@ TOOL | revert_approval | approval | 切版本指针
 TOOL | delete_approval | approval | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;软删主行、清关系、版本历史保留,主行不可恢复
 TOOL | search_workflow | workflow | 直接关键词优先、无直接命中时补语义;返回 tags/生命周期态/active
 TOOL | get_workflow | workflow | 取活跃图+生命周期+并发策略
-TOOL | create_workflow | workflow | ops 构图,v1 初始 deactivated;LLM schema 与 ValidateInput 均强制显式 description/tags/changeReason 槽位(无值传空);用户值原样放顶层;窄兼容托管模型数组字符串(含 tags)与 add_node/add_edge 顶层 body 变体,逗号分隔文本和冲突仍拒绝
+TOOL | create_workflow | workflow | ops 构图,v1 初始 deactivated;LLM schema 与 ValidateInput 均强制显式 description/tags/changeReason 槽位(无值传空);用户值原样放顶层;窄兼容托管模型数组字符串(含 tags)、add_node/add_edge 顶层 body 变体、nodes+edges 图快照(type/triggerId→kind/ref)与已观察的 add_node nodeId/kind=trigger/triggerId 简写(未知/冲突仍拒绝),逗号分隔文本仍拒绝
 TOOL | edit_workflow | workflow | 叠 ops 出新版本
 TOOL | revert_workflow | workflow | 切图版本指针;version 公开 integer,执行边界兼容精确整数字符串;workflowId+version 同次调用,失败不重试;新版本保留历史
 TOOL | delete_workflow | workflow | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸且不可被 skill/approve_always 绕过;软删主行并停自动化;canonical 参数 workflowId(兼容 hosted model 的精确 id 别名,冲突拒绝),拒绝 file_path/old_string/new_string 等文件编辑字段;CallIdentity 按目标 workflow 收窄,参数修正不得为同一破坏性意图重开人闸;主行不可恢复且无 restore 操作;版本/flowrun 历史保留供审计;回执含 restorable=false,historyRetained=true;参数先于危险人闸校验

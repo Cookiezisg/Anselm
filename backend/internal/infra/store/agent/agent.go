@@ -244,6 +244,22 @@ func (s *Store) GetVersion(ctx context.Context, versionID string) (*agentdomain.
 	return v, nil
 }
 
+// GetVersionForAgent reads an opaque version id only inside its parent Agent. The route supplies
+// both ids, so a globally unique agv_ id must not bypass the Agent boundary.
+//
+// GetVersionForAgent 只在父 Agent 内读取 opaque version id。路由同时提供两个 id，故即使 agv_ id
+// 全局唯一，也不能绕过 Agent 边界读取另一实体的版本。
+func (s *Store) GetVersionForAgent(ctx context.Context, agentID, versionID string) (*agentdomain.Version, error) {
+	v, err := s.vers.WhereEq("agent_id", agentID).WhereEq("id", versionID).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, agentdomain.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("agentstore.GetVersionForAgent: %w", err)
+	}
+	return v, nil
+}
+
 func (s *Store) GetVersionByNumber(ctx context.Context, agentID string, version int) (*agentdomain.Version, error) {
 	v, err := s.vers.WhereEq("agent_id", agentID).WhereEq("version", version).First(ctx)
 	if errors.Is(err, ormpkg.ErrNotFound) {

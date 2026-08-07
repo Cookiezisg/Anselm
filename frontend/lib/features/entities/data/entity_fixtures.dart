@@ -397,6 +397,18 @@ class FixtureEntityRepository implements EntityRepository {
     (e) => e.status == 'ok',
   );
 
+  @override
+  Future<AgentExecution> getAgentExecution(String id) async {
+    for (final executions in _agentExecutions.values) {
+      for (final execution in executions) {
+        if (execution.id == id) return execution;
+      }
+    }
+    throw StateError(
+      'FixtureEntityRepository: no agent execution seeded for $id',
+    );
+  }
+
   // ── flowruns ──────────────────────────────────────────────────────────────
   @override
   Future<Page<Flowrun>> listFlowruns({
