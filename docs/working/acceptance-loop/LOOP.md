@@ -35,7 +35,7 @@ EP-066 `POST /api/v1/flowruns/{id}:cancel` 已完成五级验收。真实用户�
 
 REST/SQLite/SSE/UI 对证：正确 `POST :capability-check`=`200` 且 resolved；cancel=`202`，最终 run=`cancelled by user`，human=`cancelled`、start=`completed`、parked=`0`；二次 cancel=`422 FLOWRUN_NOT_CANCELLABLE`、replay=`422 FLOWRUN_NOT_REPLAYABLE`、inbox=`parked=[]`。SSE 三流连接，entities durable `1→2` 为 `run_started→run_terminal(cancelled)`，notification=`1`，无 gap/重复 terminal。五通道 journal 为 `335/17/8/1` 加可读 `275.491667s` 录像；LLM tap 在线但 deterministic graph 不伪造 completion。
 
-正式证据 `/private/tmp/anselm-rig-ep066-flowrun-cancel-fixed2-20260808/sessions/20260808-022851/evidence/EP-066-flowrun-cancel-real-session.md`，红证据和 cleanup 同 README；账本 `1015→1020 judgments`，COVERAGE `EP-066=✓✓✓✓✓`，alarms 独立复审后 clean(1020)，清册 `848/198/0`。三件夹具已按授权 `204×3→404×3` 删除，tombstone/version/run/node 审计保留、relations=0、seeded entities 未动。批次十九达到 **50/50**，现在执行统一长门禁、工作树审计和提交；通过后下一原子前线 EP-067 `GET /api/v1/flowrun-inbox`。
+正式证据 `/private/tmp/anselm-rig-ep066-flowrun-cancel-fixed2-20260808/sessions/20260808-022851/evidence/EP-066-flowrun-cancel-real-session.md`，红证据和 cleanup 同 README；账本 `1015→1020 judgments`，COVERAGE `EP-066=✓✓✓✓✓`，alarms 独立复审后 clean(1020)，清册 `848/198/0`。三件夹具已按授权 `204×3→404×3` 删除，tombstone/version/run/node 审计保留、relations=0、seeded entities 未动。批次十九达到 **50/50**；统一长门禁、工作树审计和提交已在下文收口，下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`。
 
 统一长门禁的前端阶段首轮发现 Subagent 参数校验失败卡没有显示 `subagent_type must be one of` 的可行动细节；Composer 尺寸测试单独和完整聊天组均通过，不计产品红。stop-and-fix 让失败卡在“未启动”说明下保留一次真实校验细节，同时不虚构轨迹/回答；既有回归测试通过。修复后前端 `verify` 全绿：生成、analyze、四组测试共 `5233` 项；根 `make verify` 的 backend/frontend/docs/demo 全绿；显式 `go test ./...` 全绿，44 项已修场景回归全绿。
 

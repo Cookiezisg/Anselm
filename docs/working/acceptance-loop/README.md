@@ -311,7 +311,7 @@ REST/SQLite/SSE 对证一致：取消 `202`；最终 `status=cancelled`、`error
 
 `judge.py` 按 `G1/F2/A5/C4/G2` 写入五格，账本 `1015→1020 judgments`，COVERAGE `EP-066=✓✓✓✓✓`，anchors 仍在有效窗内；集中写账触发的 `gap-too-fast` 与 `discovery-collapse` 已由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-066-flowrun-cancel-ledger-reaudit.md` 对照红/绿 session、五通道、SQLite 和锚点独立复审并 ack，`alarms.py check` clean(1020)，清册 `848 rows / 198 carried / 0 tombstones`。阈值、三曲线算法和锚点均未调整。
 
-按用户删除授权，独立 no-App cleanup 已对 workflow、webhook trigger、approval 精确执行 DELETE `204×3`、后续 GET `404×3`；tombstone、workflow version、flowrun/node 审计保留，fixture relations=0，seeded entities 未动。批次十九达到 **50/50**，现在执行本批统一长门禁、工作树审计和提交；长门禁通过后下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`。
+按用户删除授权，独立 no-App cleanup 已对 workflow、webhook trigger、approval 精确执行 DELETE `204×3`、后续 GET `404×3`；tombstone、workflow version、flowrun/node 审计保留，fixture relations=0，seeded entities 未动。批次十九达到 **50/50**；本批统一长门禁、工作树审计和提交已在下文收口，下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`。
 
 统一长门禁的前端阶段首轮在完整聊天组中发现 Subagent 参数校验失败卡缺少 `subagent_type must be one of` 的可行动细节；Composer 的尺寸条目单独复跑及完整聊天组均通过，未误改产品。stop-and-fix 仅修改 `frontend/lib/features/chat/ui/tool_card_subagent.dart`：继续明确“未启动”、不虚构子代理轨迹或回答，同时在底盘的本地化概括下显示一次真实校验细节；既有回归测试通过。修复后 `make -C frontend verify` 全绿（生成、analyze、四组测试共 **5233** 项），根 `make verify` 的 backend/frontend/docs/demo 四子门禁全绿；显式 `mise exec -- go test ./...` 全模块通过，Subagent、tool-error-display、Scheduler 修复回归共 **44** 项通过。
 
