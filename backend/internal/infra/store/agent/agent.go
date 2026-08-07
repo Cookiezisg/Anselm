@@ -159,6 +159,14 @@ func (s *Store) ListAgents(ctx context.Context, filter agentdomain.ListFilter) (
 	return rows, next, nil
 }
 
+func (s *Store) CountAgents(ctx context.Context, filter agentdomain.ListFilter) (int, error) {
+	n, err := s.agents.Query().WhereLike("name", filter.Search).Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("agentstore.CountAgents: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAll(ctx context.Context) ([]*agentdomain.Agent, error) {
 	rows, err := s.agents.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {

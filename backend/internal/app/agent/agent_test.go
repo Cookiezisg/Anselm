@@ -13,6 +13,7 @@ import (
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	agentstore "github.com/sunweilin/anselm/backend/internal/infra/store/agent"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
@@ -86,6 +87,111 @@ func TestService_CreateEditRevert(t *testing.T) {
 	}
 	if got, _ := svc.Get(ctx, a.ID); got.ActiveVersionID != v1.ID {
 		t.Fatalf("active should be v1 after revert")
+	}
+}
+
+func TestService_UpdateMetaDoesNotBumpVersion(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, v1, err := svc.Create(ctx, CreateInput{
+		Name:   "metadata probe",
+		Config: Config{Prompt: "keep this prompt"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	description := "updated description"
+	tags := []string{"reviewed", "agent"}
+	next, err := svc.UpdateMeta(ctx, UpdateMetaInput{
+		ID:          a.ID,
+		Description: &description,
+		Tags:        &tags,
+	})
+	if err != nil {
+		t.Fatalf("update meta: %v", err)
+	}
+	if next.Description != description || len(next.Tags) != 2 || next.Tags[0] != tags[0] {
+		t.Fatalf("metadata not updated: %+v", next)
+	}
+	got, err := svc.Get(ctx, a.ID)
+	if err != nil {
+		t.Fatalf("get after update meta: %v", err)
+	}
+	if got.ActiveVersionID != v1.ID || got.ActiveVersion == nil || got.ActiveVersion.ID != v1.ID {
+		t.Fatalf("metadata patch must preserve active version %q, got %+v", v1.ID, got)
+	}
+}
+
+type deleteRelationProbe struct{ purged []string }
+
+func (p *deleteRelationProbe) SyncOutgoing(context.Context, string, string, []string, []relationdomain.SyncEdge) error {
+	return nil
+}
+
+func (p *deleteRelationProbe) SyncIncoming(context.Context, string, string, []string, []relationdomain.SyncEdge) error {
+	return nil
+}
+
+func (p *deleteRelationProbe) PurgeEntity(_ context.Context, kind, id string) error {
+	p.purged = append(p.purged, kind+":"+id)
+	return nil
+}
+
+type deleteNotificationProbe struct{ events []string }
+
+func (p *deleteNotificationProbe) Emit(_ context.Context, eventType string, _ map[string]any) error {
+	p.events = append(p.events, eventType)
+	return nil
+}
+
+func (p *deleteNotificationProbe) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	return p.Emit(context.Background(), eventType, nil)
+}
+
+func TestService_DeleteSoftDeletesAndKeepsAudit(t *testing.T) {
+	svc, ctx := newSvc(t)
+	relations := &deleteRelationProbe{}
+	notifications := &deleteNotificationProbe{}
+	svc.SetRelationSyncer(relations)
+	svc.notif = notifications
+
+	a, v1, err := svc.Create(ctx, CreateInput{Name: "delete probe", Config: Config{Prompt: "v1"}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	v2, err := svc.Edit(ctx, EditInput{ID: a.ID, Config: Config{Prompt: "v2"}})
+	if err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	if err := svc.Delete(ctx, a.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+	if _, err := svc.Get(ctx, a.ID); !errors.Is(err, agentdomain.ErrNotFound) {
+		t.Fatalf("deleted agent must be absent from ordinary reads, got %v", err)
+	}
+	rows, _, err := svc.List(ctx, agentdomain.ListFilter{})
+	if err != nil {
+		t.Fatalf("list after delete: %v", err)
+	}
+	if len(rows) != 0 {
+		t.Fatalf("deleted agent must leave the live list, got %d rows", len(rows))
+	}
+	for _, want := range []*agentdomain.Version{v1, v2} {
+		got, err := svc.GetVersion(ctx, want.ID)
+		if err != nil || got.ID != want.ID {
+			t.Fatalf("version audit %s must remain readable, got=%+v err=%v", want.ID, got, err)
+		}
+	}
+	if got := relations.purged; len(got) != 1 || got[0] != "agent:"+a.ID {
+		t.Fatalf("delete must purge agent relations once, got %v", got)
+	}
+	if got := notifications.events; len(got) != 3 || got[2] != "agent.deleted" {
+		t.Fatalf("delete must append one durable lifecycle event, got %v", got)
+	}
+	if err := svc.Delete(ctx, a.ID); !errors.Is(err, agentdomain.ErrNotFound) {
+		t.Fatalf("repeated delete must remain not-found, got %v", err)
+	}
+	if len(relations.purged) != 1 || len(notifications.events) != 3 {
+		t.Fatalf("repeated delete must not purge or emit again: purges=%v events=%v", relations.purged, notifications.events)
 	}
 }
 

@@ -179,6 +179,14 @@ func (s *Store) ListFunctions(ctx context.Context, filter functiondomain.ListFil
 	return rows, next, nil
 }
 
+func (s *Store) CountFunctions(ctx context.Context, filter functiondomain.ListFilter) (int, error) {
+	n, err := s.fns.Query().WhereLike("name", filter.Search).Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("functionstore.CountFunctions: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAllFunctions(ctx context.Context) ([]*functiondomain.Function, error) {
 	rows, err := s.fns.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {

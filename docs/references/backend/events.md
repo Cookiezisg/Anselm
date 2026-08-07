@@ -76,7 +76,7 @@ buffer 满时断开该订阅者，由客户端重连重放，游标越过 ring �
 | 域 | 事件 |
 |---|---|
 | function | ⊞ `function.{created, edited, reverted, updated, deleted, env_rebuilt}` |
-| handler | ⊞ `handler.{created, edited, reverted, updated, deleted, env_rebuilt, config_updated, config_cleared, crashed}`；`handler.restarted` 失败 ⊞、成功 ⤳ |
+| handler | ⊞ `handler.{created, edited, reverted, updated, deleted, env_rebuilt, config_updated, config_cleared, crashed}`；`handler.restarted` 失败 ⊞、成功 ⤳；重复清 config 的 no-op 不发 `config_cleared` |
 | agent | ⊞ `agent.{created, edited, reverted, updated, deleted}` |
 | workflow | ⊞ `workflow.{created, edited, reverted, updated, deleted, lifecycle_changed, attention_changed, run_failed, approval_pending}` |
 | control | ⊞ `control.{created, edited, reverted, updated, deleted}` |

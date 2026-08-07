@@ -179,7 +179,13 @@ class FixtureEntityRepository implements EntityRepository {
     if (term.isNotEmpty) {
       rows = rows.where((r) => r.name.toLowerCase().contains(term)).toList();
     }
-    return _page(rows, cursor, limit);
+    final page = _page(rows, cursor, limit);
+    return Page(
+      items: page.items,
+      nextCursor: page.nextCursor,
+      hasMore: page.hasMore,
+      total: rows.length,
+    );
   }
 
   @override
@@ -366,6 +372,17 @@ class FixtureEntityRepository implements EntityRepository {
     limit,
     (e) => e.status == 'ok',
   );
+
+  @override
+  Future<HandlerCall> getHandlerCall(String id) async {
+    for (final calls in _handlerCalls.values) {
+      for (final call in calls) {
+        if (call.id == id) return call;
+      }
+    }
+    throw StateError('FixtureEntityRepository: no handler call seeded for $id');
+  }
+
   @override
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
   listAgentExecutions(
@@ -827,6 +844,29 @@ class FixtureEntityRepository implements EntityRepository {
     emitLifecycle(
       EntitySignal(
         kind: EntityKind.handler,
+        id: id,
+        action: EntityAction.updated,
+        durable: true,
+      ),
+    );
+    return next;
+  }
+
+  @override
+  Future<AgentEntity> patchAgentMeta(
+    String id,
+    Map<String, dynamic> patch,
+  ) async {
+    final e = await getAgent(id);
+    final next = e.copyWith(
+      name: (patch['name'] as String?) ?? e.name,
+      description: (patch['description'] as String?) ?? e.description,
+      tags: (patch['tags'] as List?)?.cast<String>() ?? e.tags,
+    );
+    upsertAgent(next);
+    emitLifecycle(
+      EntitySignal(
+        kind: EntityKind.agent,
         id: id,
         action: EntityAction.updated,
         durable: true,

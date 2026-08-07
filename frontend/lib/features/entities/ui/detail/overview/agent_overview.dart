@@ -1,17 +1,26 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../../core/contract/api_error.dart';
 import '../../../../../core/contract/entities/agent.dart';
 import '../../../../../core/model/status_state.dart';
+import '../../../../../core/notice/notice_center.dart';
 import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_info_card.dart';
+import '../../../../../core/ui/an_kv.dart';
 import '../../../../../core/ui/an_row.dart';
 import '../../../../../core/ui/an_section.dart';
 import '../../../../../core/ui/icons.dart';
 import '../../../../../i18n/strings.g.dart';
+import '../../../data/entity_kind.dart';
+import '../../../data/entity_providers.dart';
+import '../../../state/detail/entity_detail_provider.dart';
+import '../../../state/selected_entity.dart';
 import '../detail_sections.dart';
 
-/// Agent 概览:说明 + KV → 提示词(只读)→ 能力挂载(工具/技能/知识/模型覆盖 4 卡)→ 挂载健康 → 输入/输出。
-class AgentOverview extends StatelessWidget {
+/// Agent 概览:可编辑 meta → 提示词(只读)→ 能力挂载(工具/技能/知识/模型覆盖 4 卡)→ 挂载健康 → 输入/输出。
+class AgentOverview extends ConsumerWidget {
   const AgentOverview({
     required this.agent,
     required this.mountHealth,
@@ -21,32 +30,88 @@ class AgentOverview extends StatelessWidget {
   final AgentEntity agent;
   final MountHealthReport? mountHealth;
 
+  Future<void> _patchMeta(
+    BuildContext context,
+    WidgetRef ref,
+    Map<String, dynamic> patch,
+  ) async {
+    try {
+      await ref.read(entityRepositoryProvider).patchAgentMeta(agent.id, patch);
+    } catch (error) {
+      if (context.mounted) {
+        final message = error is ApiException
+            ? context.t.entities.detail.state.metaSaveFailed(
+                message: error.message,
+              )
+            : context.t.entities.detail.state.metaSaveFailed(
+                message: context.t.entities.rail.actionFailed,
+              );
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(message, tone: AnTone.danger);
+      }
+    } finally {
+      // Re-read canonical metadata after both outcomes: a failed optimistic editor must never leave
+      // a stale local row looking authoritative. 成败都重读后端真相,不让本地乐观行冒充落盘。
+      ref.invalidate(
+        entityDetailProvider(EntityRef(EntityKind.agent, agent.id)),
+      );
+    }
+  }
+
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final d = context.t.entities.detail;
     final v = agent.activeVersion;
     if (v == null) return noVersionGuide(context);
     final mo = v.modelOverride;
     final mh = mountHealth;
     final unhealthy = mh?.mounts.where((m) => !m.healthy).length ?? 0;
+    final knowledgeNames = <String, String>{
+      for (final m in mh?.mounts ?? const <MountHealth>[])
+        if (v.knowledge.contains(m.ref) &&
+            m.name != null &&
+            m.name!.trim().isNotEmpty)
+          m.ref: m.name!,
+    };
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Identity keeps pure metadata only — the Model row was a verbatim dupe of the Model
-        // card below rendered at the OTHER tier (13 vs 15 for one datum on one page).
-        // 身份段只留纯元数据——Model 行与下方 Model 卡同数据异档(同页一数据两档),删重复。
-        identitySection(d.kv.desc, agent.description, [
-          (d.kv.id, agent.id),
-          (d.kv.activeVersion, 'v${v.version}'),
-          if (mh != null)
-            (
-              d.sec.mountHealth,
-              mh.allHealthy
-                  ? d.mounts.healthy
-                  : d.mounts.unhealthy(count: unhealthy),
+        // Metadata is the only hand-editable surface; version content stays read-only and PATCH
+        // never bumps the active version. meta 是唯一手编面;版本内容仍只读,PATCH 不升 active version。
+        AnSection(
+          variant: AnSectionVariant.plain,
+          children: [
+            AnKv(
+              rows: [
+                AnKvRow(d.kv.desc, agent.description, editable: true),
+                AnKvRow.tags(d.kv.tags, agent.tags, tagsPlaceholder: d.addTag),
+              ],
+              onChanged: (rows) {
+                final description = rows[0].value ?? '';
+                final tags = rows[1].tags ?? const [];
+                final patch = <String, dynamic>{};
+                if (description != agent.description) {
+                  patch['description'] = description;
+                }
+                if (!listEquals(tags, agent.tags)) patch['tags'] = tags;
+                if (patch.isNotEmpty) _patchMeta(context, ref, patch);
+              },
             ),
-        ]),
+            kvList([
+              (d.kv.id, agent.id),
+              (d.kv.activeVersion, 'v${v.version}'),
+              if (mh != null)
+                (
+                  d.sec.mountHealth,
+                  mh.allHealthy
+                      ? d.mounts.healthy
+                      : d.mounts.unhealthy(count: unhealthy),
+                ),
+            ], meta: true),
+          ],
+        ),
         AnSection(
           label: d.sec.prompt,
           variant: AnSectionVariant.plain,
@@ -101,7 +166,8 @@ class AgentOverview extends StatelessWidget {
                         for (final k in v.knowledge)
                           AnRow(
                             icon: AnIcons.byKey('doc'),
-                            label: k,
+                            label: knowledgeNames[k] ?? k,
+                            meta: knowledgeNames.containsKey(k) ? k : null,
                             passive: true,
                           ),
                       ],

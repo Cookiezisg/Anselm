@@ -20,6 +20,9 @@ audience: [human, ai]
   `{"error":{"code","message","details"}}`。
 - Wire 字段使用 camelCase；Path variable 也使用 camelCase。
 - 无界集合使用 keyset `cursor` + `limit`，返回顶层 `nextCursor`、`hasMore`。
+- 七类实体 rail 列表（functions/handlers/agents/workflows/triggers/controls/approvals）另外在
+  `X-Anselm-Total-Count` 响应头携带同 workspace、同 `search` 过滤下的精确总数；这是传输元数据，
+  不改变 N4 JSON body，也不把游标分页伪装成 offset 分页。
 - 明确有界批查、静态枚举和单对象派生投影不使用 cursor。
 - Create/单读/Patch 的 `data` 是实体；复合响应使用具名 keys。
 - 创建新资源的异步动作返回 `202 {"data":{"id":"..."}}`。
@@ -48,7 +51,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /functions` | 创建 v1，201 |
-| `GET /functions` | 分页；`search` 按 name 子串 |
+| `GET /functions` | 分页；`search` 按 name 子串；响应头带精确过滤总数 |
 | `GET /functions/{id}` | 单读，含 activeVersion |
 | `PATCH /functions/{id}` | 更新 metadata，不铸版本 |
 | `DELETE /functions/{id}` | 软删主行并回收 sandbox；不可变版本历史保留供审计，主实体与动作随后按 not-found 处理 |
@@ -66,7 +69,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /handlers` | 创建 v1，不立即 spawn |
-| `GET /handlers` | 分页；`search` 按 name 子串 |
+| `GET /handlers` | 分页；`search` 按 name 子串；响应头带精确过滤总数 |
 | `GET /handlers/{id}` | 含 activeVersion、config/runtime state |
 | `PATCH /handlers/{id}` | metadata；不重启 |
 | `DELETE /handlers/{id}` | 停实例并软删主行；不可变版本历史保留供审计，环境尽力回收，relation 边清理，主实体与动作随后按 not-found 处理 |
@@ -78,25 +81,25 @@ audience: [human, ai]
 | `GET /handlers/{id}/versions[/{version}]` | 版本分页/单读 |
 | `GET /handlers/{id}/config` | masked config |
 | `PUT /handlers/{id}/config` | JSON Merge Patch 并重启 |
-| `DELETE /handlers/{id}/config` | 清 config 并停实例 |
-| `GET /handlers/{id}/calls` | Call 分页与 aggregates（`totalCount`、`okCount`、`failedCount`） |
-| `GET /handler-calls/{id}` | 单条 Call，含 logs |
+| `DELETE /handlers/{id}/config` | 清 config 并停实例；幂等返回 204，已为空时不重复发 `handler.config_cleared` |
+| `GET /handlers/{id}/calls` | Call 分页与 aggregates（`totalCount`、`okCount`、`failedCount`）；空页的 `data.calls` 固定为 `[]`（不为 `null`） |
+| `GET /handler-calls/{id}` | 单条 Call，含 logs；Handler Logs 展开时懒取详情 |
 
 ### Agent
 
 | Method · Path | 语义 |
 |---|---|
 | `POST /agents` | identity + Config snapshot 创建 v1 |
-| `GET /agents` | 分页；`search` 按 name 子串 |
+| `GET /agents` | 分页；`search` 按 name 子串；响应头带精确过滤总数 |
 | `GET /agents/{id}` | 含 activeVersion |
-| `PATCH /agents/{id}` | metadata |
+| `PATCH /agents/{id}` | 更新 `name`、`description`、`tags` metadata；未提供的字段保持不变，不铸新版本、不改变 active pointer |
 | `DELETE /agents/{id}` | 删除 |
 | `POST /agents/{id}:invoke` | `{input,version?}`，manual invoke |
 | `POST /agents/{id}:edit` | 全量 Config snapshot 替换 |
 | `POST /agents/{id}:revert` | 移 active pointer |
 | `POST /agents/{id}:iterate` | 打开 AI 构建 Conversation |
 | `GET /agents/{id}/versions[/{version}]` | 版本分页/单读 |
-| `GET /agents/{id}/mount-health` | 全部 tool/knowledge 挂载健康 |
+| `GET /agents/{id}/mount-health` | 全部 tool/knowledge 挂载健康；`data.mounts[]` 为 `{ref,name?,healthy,error?}`，健康 knowledge 挂载提供文档标题 `name`，缺失挂载诚实回退 `ref` 并带 `error` |
 | `GET /agents/{id}/executions` | Execution 轻量分页与 aggregates（`totalCount`、`okCount`、`failedCount`；列表不带 transcript；`nextCursor` 原样续传） |
 | `GET /agent-executions/{id}` | 单条 Execution，含 transcript |
 
@@ -109,7 +112,7 @@ audience: [human, ai]
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /workflows` · `GET /workflows` | 创建 / 分页 |
+| `POST /workflows` · `GET /workflows` | 创建 / 分页；列表响应头带精确过滤总数 |
 | `GET /workflows/{id}` · `PATCH /workflows/{id}` · `DELETE /workflows/{id}` | 单读 / metadata / 删除 |
 | `POST /workflows/{id}:edit` · `:revert` | Graph ops / 移 pointer |
 | `POST /workflows/{id}:capability-check` | 返回阻断 problems 与 advisory warnings |
@@ -145,7 +148,7 @@ unknown IDs 缺席，cells 按 `(flowrun,node)` 聚合 iterations。
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /triggers` · `GET /triggers` | 创建 / 分页 |
+| `POST /triggers` · `GET /triggers` | 创建 / 分页；列表响应头带精确过滤总数 |
 | `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | 单读 / 热编辑 / 删除 |
 | `POST /triggers/{id}:fire` | 手动 fan-out |
 | `POST /triggers/{id}:pause` · `:resume` | 持久暂停 / 恢复 |
@@ -171,6 +174,8 @@ POST /controls|approvals/{id}:revert
 POST /controls|approvals/{id}:iterate
 GET /controls|approvals/{id}/versions[/{version}]
 ```
+
+`GET /controls` 与 `GET /approvals` 的列表响应也在 `X-Anselm-Total-Count` 携带精确过滤总数；分页 JSON body 仍遵守 N4。
 
 `DELETE /approvals/{id}` 与 `delete_approval` 均为软删除：普通实体读/搜索返回 not-found、关系边
 被清理，但 `approval_form_versions` 作为不可变审计历史保留；工具调用必须先查关系并经

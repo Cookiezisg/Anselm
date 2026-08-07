@@ -18,5 +18,6 @@ abstract class EntityListState with _$EntityListState {
     String? nextCursor,
     @Default(false) bool hasMore,
     @Default(false) bool loadingMore,
+    int? totalCount,
   }) = _EntityListState;
 }

@@ -1,6 +1,7 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -36,6 +37,37 @@ func (c configArgs) toConfig() agentapp.Config {
 	}
 }
 
+// decodeAgentTags accepts the declared string-array shape plus the exact JSON-encoded
+// array-string variant observed from hosted models. It deliberately rejects comma-joined
+// prose so a malformed model response cannot silently invent tag boundaries.
+//
+// decodeAgentTags 接受声明的字符串数组，以及托管模型实际发出的精确 JSON 数组字符串变体。
+// 刻意拒绝逗号拼接 prose，避免模型格式错误时静默猜测标签边界。
+func decodeAgentTags(raw json.RawMessage) ([]string, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+	if raw[0] == '"' {
+		var encoded string
+		if err := json.Unmarshal(raw, &encoded); err != nil {
+			return nil, fmt.Errorf("tags must be a JSON array or an exact JSON-encoded array: %w", err)
+		}
+		raw = bytes.TrimSpace([]byte(encoded))
+		if len(raw) == 0 || raw[0] != '[' {
+			return nil, fmt.Errorf("tags string must contain a JSON array")
+		}
+	}
+	if raw[0] != '[' {
+		return nil, fmt.Errorf("tags must be a JSON array or an exact JSON-encoded array")
+	}
+	var tags []string
+	if err := json.Unmarshal(raw, &tags); err != nil {
+		return nil, fmt.Errorf("tags must be a JSON array of strings: %w", err)
+	}
+	return tags, nil
+}
+
 // configProps is the shared JSON-schema fragment for the mounted config fields.
 const configProps = `
 		"prompt": {"type": "string", "description": "System prompt defining the agent's role and behaviour."},
@@ -64,15 +96,16 @@ func (t *CreateAgent) Parameters() json.RawMessage {
 		"properties": {
 			"name": {"type": "string", "description": "Unique agent name."},
 			"description": {"type": "string", "description": "One-line role summary. If the user supplied one, pass it exactly; never omit it."},
-			"tags": {"type": "array", "items": {"type": "string"}, "description": "Tags supplied by the user. Pass them exactly; never silently omit explicit tags."},` + configProps + `
+			"tags": {"type": "array", "items": {"type": "string"}, "description": "Tags supplied by the user. Pass them exactly; never silently omit explicit tags. If your wire encoder stringifies arrays, use only an exact JSON-encoded array string such as [\"acceptance\",\"planner\"], never comma-joined prose."},` + configProps + `
 		}
 	}`)
 }
 
 func (t *CreateAgent) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		Name   string `json:"name"`
-		Prompt string `json:"prompt"`
+		Name   string          `json:"name"`
+		Prompt string          `json:"prompt"`
+		Tags   json.RawMessage `json:"tags"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("create_agent: bad args: %w", err)
@@ -80,21 +113,28 @@ func (t *CreateAgent) ValidateInput(args json.RawMessage) error {
 	if strings.TrimSpace(a.Name) == "" || strings.TrimSpace(a.Prompt) == "" {
 		return ErrNamePromptRequired
 	}
+	if _, err := decodeAgentTags(a.Tags); err != nil {
+		return fmt.Errorf("create_agent: bad args: %w", err)
+	}
 	return nil
 }
 
 func (t *CreateAgent) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var a struct {
-		Name        string   `json:"name"`
-		Description string   `json:"description"`
-		Tags        []string `json:"tags"`
+		Name        string          `json:"name"`
+		Description string          `json:"description"`
+		Tags        json.RawMessage `json:"tags"`
 		configArgs
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("create_agent: bad args: %w", err)
 	}
+	tags, err := decodeAgentTags(a.Tags)
+	if err != nil {
+		return "", fmt.Errorf("create_agent: bad args: %w", err)
+	}
 	ag, v, err := t.svc.Create(ctx, agentapp.CreateInput{
-		Name: a.Name, Description: a.Description, Tags: a.Tags, Config: a.configArgs.toConfig(),
+		Name: a.Name, Description: a.Description, Tags: tags, Config: a.configArgs.toConfig(),
 	})
 	if err != nil {
 		return "", fmt.Errorf("create_agent: %w", err)

@@ -1,17 +1,23 @@
-/// One keyset page of a List endpoint. Mirrors the N4/MD2 contract exactly: the
-/// response is `{data: [...], nextCursor?, hasMore}` — pagination coordinates sit at
-/// the TOP level (siblings of `data`), never inside it. `nextCursor` is omitted on the
-/// last page. Pass the next request `?cursor=<nextCursor>&limit=…` to page forward.
+/// One keyset page of a List endpoint. Mirrors the N4/MD2 body exactly: the response is
+/// `{data: [...], nextCursor?, hasMore}` — pagination coordinates sit at the TOP level (siblings of
+/// `data`), never inside it. `nextCursor` is omitted on the last page. [total] is optional transport
+/// metadata supplied by entity-list response headers; it is deliberately not part of the N4 JSON body.
 ///
 /// List 端点的一页 keyset。精确镜像 N4/MD2 契约:响应为 `{data:[...], nextCursor?, hasMore}`
 /// ——分页坐标在顶层(`data` 的兄弟),绝不在其内。`nextCursor` 末页省略。下次请求带
 /// `?cursor=<nextCursor>&limit=…` 翻页。
 class Page<T> {
-  const Page({required this.items, this.nextCursor, required this.hasMore});
+  const Page({
+    required this.items,
+    this.nextCursor,
+    required this.hasMore,
+    this.total,
+  });
 
   final List<T> items;
   final String? nextCursor;
   final bool hasMore;
+  final int? total;
 
   bool get isLastPage => !hasMore || nextCursor == null;
 
@@ -20,8 +26,9 @@ class Page<T> {
   /// 解析整个响应体。[item] 解一个 `data` 元素。
   factory Page.fromBody(
     Map<String, dynamic> body,
-    T Function(Map<String, dynamic>) item,
-  ) {
+    T Function(Map<String, dynamic>) item, {
+    int? total,
+  }) {
     final data = (body['data'] as List<dynamic>? ?? const [])
         .map((e) => item(e as Map<String, dynamic>))
         .toList(growable: false);
@@ -29,6 +36,7 @@ class Page<T> {
       items: data,
       nextCursor: body['nextCursor'] as String?,
       hasMore: body['hasMore'] as bool? ?? false,
+      total: total ?? body['total'] as int?,
     );
   }
 }

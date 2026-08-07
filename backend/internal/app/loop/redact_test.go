@@ -878,6 +878,64 @@ func TestRedactOpaqueMachineValuesRemovesRedundantEntityParenthetical(t *testing
 	}
 }
 
+func TestRedactOpaqueMachineValuesRemovesIDPlaceholderParenthetical(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+	}{
+		{
+			input: "Agent **EP031 Planner** created (id `the requested item`) with description \"Break tasks into executable steps\".",
+			want:  "Agent **EP031 Planner** created with description \"Break tasks into executable steps\".",
+		},
+		{
+			input: "Agent created (IDENTIFIER: the referenced item) and is ready.",
+			want:  "Agent created and is ready.",
+		},
+	}
+	for _, tt := range tests {
+		if got := redactOpaqueMachineValues(tt.input); got != tt.want {
+			t.Fatalf("ID placeholder parenthetical redaction = %q, want %q", got, tt.want)
+		}
+	}
+}
+
+func TestTextRedactorDoesNotStreamIDPlaceholderParenthetical(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"Created agent **EP",
+		"03",
+		"1 Planner** (",
+		"id:",
+		" ag_78",
+		"67c9",
+		"0",
+		"42fb8",
+		"4",
+		"b3a)",
+		" with tags",
+		" [acceptance,",
+		" planner",
+		"]. No tools,",
+		" skill, knowledge,",
+		" or model override configured",
+		".",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("stream leaked ID placeholder parenthetical: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), legacyEntityPlaceholder) {
+		t.Fatalf("flush leaked ID placeholder parenthetical: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "Planner** with tags") {
+		t.Fatalf("stream lost the human sentence after redaction: %q", got.String())
+	}
+}
+
 func TestRedactOpaqueMachineValuesRemovesMediaIDFromMixedParenthetical(t *testing.T) {
 	input := "The original attachment (red circle, `att_00112233445566`) and the edited attachment (blue circle, `att_ffeeddccbbaa99`) are distinct."
 	want := "The original attachment (red circle) and the edited attachment (blue circle) are distinct."

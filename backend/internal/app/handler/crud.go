@@ -57,6 +57,10 @@ func (s *Service) List(ctx context.Context, filter handlerdomain.ListFilter) ([]
 	return s.repo.ListHandlers(ctx, filter)
 }
 
+func (s *Service) Count(ctx context.Context, filter handlerdomain.ListFilter) (int, error) {
+	return s.repo.CountHandlers(ctx, filter)
+}
+
 func (s *Service) ListAll(ctx context.Context) ([]*handlerdomain.Handler, error) {
 	return s.repo.ListAllHandlers(ctx)
 }

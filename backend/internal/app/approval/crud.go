@@ -179,6 +179,10 @@ func (s *Service) List(ctx context.Context, filter approvaldomain.ListFilter) ([
 	return s.repo.ListForms(ctx, filter)
 }
 
+func (s *Service) Count(ctx context.Context, filter approvaldomain.ListFilter) (int, error) {
+	return s.repo.CountForms(ctx, filter)
+}
+
 // ListAll returns every live approval form (catalog source).
 func (s *Service) ListAll(ctx context.Context) ([]*approvaldomain.ApprovalForm, error) {
 	return s.repo.ListAllForms(ctx)

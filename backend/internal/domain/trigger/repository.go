@@ -42,6 +42,7 @@ type Repository interface {
 	GetTriggerByName(ctx context.Context, name string) (*Trigger, error)
 	GetTriggersByIDs(ctx context.Context, ids []string) ([]*Trigger, error)
 	ListTriggers(ctx context.Context, filter ListFilter) ([]*Trigger, string, error)
+	CountTriggers(ctx context.Context, filter ListFilter) (int, error)
 	ListAllTriggers(ctx context.Context) ([]*Trigger, error)
 	DeleteTrigger(ctx context.Context, id string) error
 	// SetTriggerPaused flips ONLY the persisted pause switch (:pause / :resume, scheduler 工单⑦) —

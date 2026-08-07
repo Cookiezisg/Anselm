@@ -30,11 +30,16 @@ class _FakeAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-ResponseBody _json(Object body, [int status = 200]) => ResponseBody.fromString(
+ResponseBody _json(
+  Object body, [
+  int status = 200,
+  Map<String, List<String>> extraHeaders = const {},
+]) => ResponseBody.fromString(
   jsonEncode(body),
   status,
   headers: {
     Headers.contentTypeHeader: [Headers.jsonContentType],
+    ...extraHeaders,
   },
 );
 
@@ -84,6 +89,29 @@ void main() {
     expect(page.nextCursor, 'c2');
     expect(page.isLastPage, isFalse);
   });
+
+  test(
+    'getPage reads entity total from response metadata, not the N4 body',
+    () async {
+      final b = _build(
+        (_) => _json(
+          {
+            'data': [
+              {'n': 1},
+            ],
+            'hasMore': true,
+          },
+          200,
+          {
+            'X-Anselm-Total-Count': ['45'],
+          },
+        ),
+      );
+      final page = await b.client.getPage('/agents', (m) => m['n'] as int);
+      expect(page.total, 45);
+      expect(page.items, [1]);
+    },
+  );
 
   test('postForId returns data.id (202 async action)', () async {
     final b = _build(

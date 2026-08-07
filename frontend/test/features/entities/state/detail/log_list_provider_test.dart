@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -21,6 +22,16 @@ FunctionExecution _exec(String id, String status) => FunctionExecution(
   createdAt: _t,
 );
 
+HandlerCall _call(String id, String status, {String? logs}) => HandlerCall(
+  id: id,
+  handlerId: 'hd_1',
+  method: 'ping',
+  status: status,
+  triggeredBy: 'user',
+  logs: logs,
+  createdAt: _t,
+);
+
 ProviderContainer _container(FixtureEntityRepository repo, EntityRef ref) {
   final c = ProviderContainer(
     overrides: [entityRepositoryProvider.overrideWithValue(repo)],
@@ -32,6 +43,7 @@ ProviderContainer _container(FixtureEntityRepository repo, EntityRef ref) {
 
 void main() {
   const fnRef = EntityRef(EntityKind.function, 'fn_1');
+  const hdRef = EntityRef(EntityKind.handler, 'hd_1');
   const wfRef = EntityRef(EntityKind.workflow, 'wf_1');
 
   test(
@@ -71,6 +83,36 @@ void main() {
       );
     },
   );
+
+  test('handler logs lazy-load the single call record on expand', () async {
+    final c = _container(
+      FixtureEntityRepository(
+        handlerCalls: {
+          'hd_1': [
+            _call('hcl_1', 'failed', logs: 'printed by handler'),
+            _call('hcl_2', 'ok'),
+          ],
+        },
+      ),
+      hdRef,
+    );
+    final st = await c.read(logListProvider(hdRef).future);
+    expect(st.rows, hasLength(2));
+    expect(st.rows.first.detailsLoaded, isFalse);
+    expect(
+      st.rows.first.detailRows.any((r) => r.$2.contains('printed')),
+      isFalse,
+    );
+
+    await c.read(logListProvider(hdRef).notifier).toggle('hcl_1');
+    final after = c.read(logListProvider(hdRef)).value!;
+    expect(after.openIds, contains('hcl_1'));
+    expect(after.rows.first.detailsLoaded, isTrue);
+    expect(
+      after.rows.first.detailRows.any((r) => r.$2 == 'printed by handler'),
+      isTrue,
+    );
+  });
 
   test(
     'workflow logs have no aggregate; first expand lazily fetches the flowrun node list',

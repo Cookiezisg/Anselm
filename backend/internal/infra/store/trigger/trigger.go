@@ -308,6 +308,14 @@ func (s *Store) ListTriggers(ctx context.Context, filter triggerdomain.ListFilte
 	return rows, next, nil
 }
 
+func (s *Store) CountTriggers(ctx context.Context, filter triggerdomain.ListFilter) (int, error) {
+	n, err := s.trgs.Query().Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("triggerstore.CountTriggers: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAllTriggers(ctx context.Context) ([]*triggerdomain.Trigger, error) {
 	rows, err := s.trgs.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {

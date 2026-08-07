@@ -16,6 +16,17 @@ class RailGroup {
   final EntityKind kind;
   final AsyncValue<EntityListState> state;
 
+  /// Exact filtered total from the backend response header. A cursor page's loaded row count is not a
+  /// total: keep it nullable so the UI never presents a partial page as a precise database count.
+  /// 后端响应头给的精确过滤总数。游标页已载行数不是总数，故保持可空，UI 绝不把半页冒充数据库计数。
+  int? get totalCount {
+    final s = state.value;
+    if (s == null) return null;
+    return s.totalCount ?? (s.hasMore ? null : s.rows.length);
+  }
+
+  /// Loaded rows remain useful for local projections, but are not a badge count.
+  /// 已载行仍供本地投影使用，但不再冒充徽标总数。
   int get count => state.value?.rows.length ?? 0;
 }
 

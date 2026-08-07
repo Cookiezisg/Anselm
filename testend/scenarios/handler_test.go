@@ -261,6 +261,8 @@ func TestHandler_ConfigFlow(t *testing.T) {
 	if r.Status < 400 {
 		t.Fatalf("cleared config must reject calls again: %d", r.Status)
 	}
+	// DELETE is idempotent, but a repeated no-op must not emit a second config_cleared event.
+	wc.DELETE("/api/v1/handlers/"+hdID+"/config").OK(t, nil)
 }
 
 // TestHandler_MethodTimeout: 方法级超时真触发——卡死方法不拖死调用方。

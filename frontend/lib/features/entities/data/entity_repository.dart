@@ -110,6 +110,10 @@ abstract interface class EntityRepository {
     String? status,
     String? method,
   });
+
+  /// Fetch the full Handler call record, including captured logs. The list deliberately omits logs;
+  /// Handler Logs fetches this only when a row is expanded. 单条 Handler 调用详情含 logs,展开时懒取。
+  Future<HandlerCall> getHandlerCall(String id);
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
   listAgentExecutions(String id, {String? cursor, int? limit, String? status});
 
@@ -195,6 +199,9 @@ abstract interface class EntityRepository {
 
   /// PATCH handler meta (name/description/tags) — no version bump, no instance restart. 改 handler meta。
   Future<HandlerEntity> patchHandlerMeta(String id, Map<String, dynamic> patch);
+
+  /// PATCH agent meta (name/description/tags) — no version bump. 改 agent meta,不升版本。
+  Future<AgentEntity> patchAgentMeta(String id, Map<String, dynamic> patch);
 
   /// Handler config (init-arg values, sensitive masked). Read the masked blob + schema + gate state;
   /// merge-patch it (null deletes a key); or clear it. A PUT or a clear RESTARTS the resident instance
@@ -452,6 +459,11 @@ class LiveEntityRepository implements EntityRepository {
     _agg,
     query: _query(cursor, limit, {'status': ?status, 'method': ?method}),
   );
+
+  @override
+  Future<HandlerCall> getHandlerCall(String id) =>
+      _api.getEntity('/api/v1/handler-calls/$id', HandlerCall.fromJson);
+
   @override
   Future<PageWithAggregate<AgentExecution, ExecutionAggregates>>
   listAgentExecutions(
@@ -618,6 +630,14 @@ class LiveEntityRepository implements EntityRepository {
     HandlerEntity.fromJson,
     body: patch,
   );
+
+  @override
+  Future<AgentEntity> patchAgentMeta(String id, Map<String, dynamic> patch) =>
+      _api.patchEntity(
+        EntityKind.agent.itemPath(id),
+        AgentEntity.fromJson,
+        body: patch,
+      );
 
   @override
   Future<HandlerConfig> getHandlerConfig(String id) => _api.getEntity(

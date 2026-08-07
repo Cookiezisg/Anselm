@@ -149,9 +149,20 @@ func (s *Service) knowledgeHealth(ctx context.Context, docIDs []string) []agentd
 			}
 		}
 	}
+	names := map[string]string{}
+	if namer, ok := s.invoke.Knowledge.(KnowledgeNamer); ok {
+		// Naming is presentation-only: a provider that cannot resolve names must not hide the
+		// authoritative health result. The row falls back to its stable ref below.
+		if resolved, err := namer.ResolveKnowledgeNames(ctx, docIDs); err == nil {
+			names = resolved
+		}
+	}
 	out := make([]agentdomain.MountHealth, 0, len(docIDs))
 	for _, id := range docIDs {
 		h := agentdomain.MountHealth{Ref: id, Healthy: !missing[id]}
+		if name := strings.TrimSpace(names[id]); name != "" {
+			h.Name = names[id]
+		}
 		if missing[id] {
 			h.Error = "knowledge document does not exist"
 		}
@@ -184,6 +195,10 @@ func (s *Service) GetVersionByNumber(ctx context.Context, agentID string, versio
 // List returns a cursor page of live agents.
 func (s *Service) List(ctx context.Context, filter agentdomain.ListFilter) ([]*agentdomain.Agent, string, error) {
 	return s.repo.ListAgents(ctx, filter)
+}
+
+func (s *Service) Count(ctx context.Context, filter agentdomain.ListFilter) (int, error) {
+	return s.repo.CountAgents(ctx, filter)
 }
 
 // ListAll returns every live agent (no pagination).

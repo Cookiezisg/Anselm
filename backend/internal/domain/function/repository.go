@@ -43,6 +43,7 @@ type Repository interface {
 	GetFunctionByName(ctx context.Context, name string) (*Function, error)
 	GetFunctionsByIDs(ctx context.Context, ids []string) ([]*Function, error)
 	ListFunctions(ctx context.Context, filter ListFilter) ([]*Function, string, error)
+	CountFunctions(ctx context.Context, filter ListFilter) (int, error)
 	ListAllFunctions(ctx context.Context) ([]*Function, error)
 	DeleteFunction(ctx context.Context, id string) error // soft-delete (tombstone)
 	SetActiveVersion(ctx context.Context, functionID, versionID string) error

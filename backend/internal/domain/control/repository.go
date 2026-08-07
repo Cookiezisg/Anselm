@@ -35,6 +35,7 @@ type Repository interface {
 	GetControl(ctx context.Context, id string) (*ControlLogic, error)
 	GetControlsByIDs(ctx context.Context, ids []string) ([]*ControlLogic, error)
 	ListControls(ctx context.Context, filter ListFilter) ([]*ControlLogic, string, error)
+	CountControls(ctx context.Context, filter ListFilter) (int, error)
 	ListAllControls(ctx context.Context) ([]*ControlLogic, error)
 	DeleteControl(ctx context.Context, id string) error // soft-delete (tombstone)
 	SetActiveVersion(ctx context.Context, controlID, versionID string) error

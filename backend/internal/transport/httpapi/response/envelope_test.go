@@ -79,6 +79,30 @@ func TestPagedEnvelope_EmptyIsArray(t *testing.T) {
 	}
 }
 
+// TestPagedEnvelope_NestedEmptyListIsArray protects log pages whose data object carries a typed-nil
+// list beside metadata. Nested null is just as unsafe for a client iterator as top-level null.
+// TestPagedEnvelope_NestedEmptyListIsArray 守嵌套 data 对象中与元数据并列的 typed-nil 列表；对客户端
+// iterator 来说，嵌套 null 与顶层 null 同样危险。
+func TestPagedEnvelope_NestedEmptyListIsArray(t *testing.T) {
+	w := httptest.NewRecorder()
+	items := map[string]any{
+		"calls":      []int(nil),
+		"aggregates": map[string]any{"totalCount": 0},
+	}
+	Paged(w, items, "", false)
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatalf("unmarshal %s: %v", w.Body.String(), err)
+	}
+	var data map[string]json.RawMessage
+	if err := json.Unmarshal(raw["data"], &data); err != nil {
+		t.Fatalf("data: %v", err)
+	}
+	if string(data["calls"]) != "[]" {
+		t.Fatalf("nested empty list must be [], got %s (full: %s)", data["calls"], w.Body.String())
+	}
+}
+
 // TestOffsetPagedEnvelope — WRK-070 B4: the offset/page-number envelope carries `total` (the full
 // row count under the filter) and computes hasMore = offset+len < total, but NO nextCursor. It is
 // the disjoint counterpart of Paged: offset mode adds total, cursor mode never does — the two shapes
@@ -155,6 +179,22 @@ func TestPagedEnvelope_NoTotal(t *testing.T) {
 	}
 	if _, ok := raw["total"]; ok {
 		t.Fatalf("cursor-mode Paged must NOT carry total, got %s", w.Body.String())
+	}
+}
+
+func TestSetTotalCountHeaderDoesNotChangePagedBody(t *testing.T) {
+	w := httptest.NewRecorder()
+	SetTotalCount(w, 45)
+	Paged(w, []int{1, 2}, "cur1", true)
+	if got := w.Header().Get(TotalCountHeader); got != "45" {
+		t.Fatalf("total header = %q, want 45", got)
+	}
+	var raw map[string]json.RawMessage
+	if err := json.Unmarshal(w.Body.Bytes(), &raw); err != nil {
+		t.Fatal(err)
+	}
+	if _, ok := raw["total"]; ok {
+		t.Fatalf("total must remain out of cursor body: %s", w.Body.String())
 	}
 }
 

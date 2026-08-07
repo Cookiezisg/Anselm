@@ -813,4 +813,37 @@ void main() {
       expect(find.text('normalize'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'Agent Delete → confirm accepted → selected detail route clears and row disappears',
+    (tester) async {
+      final spy = _SpyRepo(agents: [_ag('ag_1', 'planner')]);
+      final fake = _FakeOverlay(true);
+      await tester.pumpWidget(_host(spy, overlay: fake));
+      await tester.pump(const Duration(milliseconds: 50));
+      await tester.tap(find.text('planner'));
+      await tester.pumpAndSettle();
+      await _openRowMenu(tester, 'planner');
+
+      await tester.tap(find.text(t.action.delete));
+      await tester.pumpAndSettle();
+
+      expect(fake.confirmCalled, isTrue);
+      expect(fake.confirmMessage, t.entities.rail.deleteBody(name: 'planner'));
+      expect(spy.deleteCalled, isTrue);
+      expect(find.text('planner'), findsNothing);
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(EntityRail)),
+      );
+      expect(
+        container
+            .read(goRouterProvider)
+            .routerDelegate
+            .currentConfiguration
+            .uri
+            .path,
+        '/',
+      );
+    },
+  );
 }

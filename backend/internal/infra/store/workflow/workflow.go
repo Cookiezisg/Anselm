@@ -147,6 +147,14 @@ func (s *Store) ListWorkflows(ctx context.Context, filter workflowdomain.ListFil
 	return rows, next, nil
 }
 
+func (s *Store) CountWorkflows(ctx context.Context, filter workflowdomain.ListFilter) (int, error) {
+	n, err := s.wfs.Query().WhereLike("name", filter.Search).Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("workflowstore.CountWorkflows: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAllWorkflows(ctx context.Context) ([]*workflowdomain.Workflow, error) {
 	rows, err := s.wfs.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {

@@ -82,7 +82,9 @@ SidebarModel buildRailModel(
           SidebarType(
             label: labels.kindLabel(g.kind),
             icon: AnIcons.byKey(g.kind.scopeKind),
-            count: showCount && g.count > 0 ? g.count : null,
+            count: showCount && g.totalCount != null && g.totalCount! > 0
+                ? g.totalCount
+                : null,
             pageKey: g
                 .kind
                 .name, // pagination axis — onLoadMore maps this back to the kind 分页轴

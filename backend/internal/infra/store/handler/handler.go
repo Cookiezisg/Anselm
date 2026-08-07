@@ -176,6 +176,14 @@ func (s *Store) ListHandlers(ctx context.Context, filter handlerdomain.ListFilte
 	return rows, next, nil
 }
 
+func (s *Store) CountHandlers(ctx context.Context, filter handlerdomain.ListFilter) (int, error) {
+	n, err := s.hdls.Query().WhereLike("name", filter.Search).Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("handlerstore.CountHandlers: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAllHandlers(ctx context.Context) ([]*handlerdomain.Handler, error) {
 	rows, err := s.hdls.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {
@@ -230,15 +238,22 @@ func (s *Store) UpdateConfigEncrypted(ctx context.Context, handlerID, ciphertext
 	return nil
 }
 
-func (s *Store) ClearConfig(ctx context.Context, handlerID string) error {
-	n, err := s.hdls.WhereEq("id", handlerID).Update(ctx, "config_encrypted", "")
+func (s *Store) ClearConfig(ctx context.Context, handlerID string) (bool, error) {
+	current, err := s.GetConfigEncrypted(ctx, handlerID)
 	if err != nil {
-		return fmt.Errorf("handlerstore.ClearConfig: %w", err)
+		return false, fmt.Errorf("handlerstore.ClearConfig: %w", err)
 	}
-	if n == 0 {
-		return handlerdomain.ErrNotFound
+	if current == "" {
+		return false, nil
 	}
-	return nil
+
+	// Keep the no-op check inside the UPDATE predicate as well. This preserves the event
+	// contract if a concurrent clear wins after the read above.
+	n, err := s.hdls.WhereEq("id", handlerID).Where("config_encrypted <> ?", "").Update(ctx, "config_encrypted", "")
+	if err != nil {
+		return false, fmt.Errorf("handlerstore.ClearConfig: %w", err)
+	}
+	return n > 0, nil
 }
 
 // --- versions --------------------------------------------------------------

@@ -34,6 +34,7 @@ type Repository interface {
 	GetForm(ctx context.Context, id string) (*ApprovalForm, error)
 	GetFormsByIDs(ctx context.Context, ids []string) ([]*ApprovalForm, error)
 	ListForms(ctx context.Context, filter ListFilter) ([]*ApprovalForm, string, error)
+	CountForms(ctx context.Context, filter ListFilter) (int, error)
 	ListAllForms(ctx context.Context) ([]*ApprovalForm, error)
 	DeleteForm(ctx context.Context, id string) error // soft-delete (tombstone)
 	SetActiveVersion(ctx context.Context, formID, versionID string) error

@@ -53,6 +53,7 @@ type Repository interface {
 	GetWorkflowByName(ctx context.Context, name string) (*Workflow, error)
 	GetWorkflowsByIDs(ctx context.Context, ids []string) ([]*Workflow, error)
 	ListWorkflows(ctx context.Context, filter ListFilter) ([]*Workflow, string, error)
+	CountWorkflows(ctx context.Context, filter ListFilter) (int, error)
 	ListAllWorkflows(ctx context.Context) ([]*Workflow, error)
 
 	// ListActiveWorkflows returns every live workflow with active=true (the scheduler's

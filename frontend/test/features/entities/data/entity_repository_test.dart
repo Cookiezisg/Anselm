@@ -2,8 +2,10 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:anselm/core/net/api_client.dart';
+import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
+import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -37,11 +39,16 @@ class _FakeAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
-ResponseBody _json(Object body, [int status = 200]) => ResponseBody.fromString(
+ResponseBody _json(
+  Object body, [
+  int status = 200,
+  Map<String, List<String>> extraHeaders = const {},
+]) => ResponseBody.fromString(
   jsonEncode(body),
   status,
   headers: {
     Headers.contentTypeHeader: [Headers.jsonContentType],
+    ...extraHeaders,
   },
 );
 
@@ -61,23 +68,69 @@ ResponseBody _json(Object body, [int status = 200]) => ResponseBody.fromString(
 
 void main() {
   test(
+    'fixture agent metadata patch preserves version and emits durable signal',
+    () async {
+      final now = DateTime.utc(2026, 8, 6);
+      final version = AgentVersion(
+        id: 'agv_0011223344556677',
+        agentId: 'ag_0011223344556677',
+        version: 1,
+        prompt: 'Answer clearly',
+        createdAt: now,
+        updatedAt: now,
+      );
+      final agent = AgentEntity(
+        id: 'ag_0011223344556677',
+        name: 'researcher',
+        description: 'old description',
+        activeVersionId: version.id,
+        activeVersion: version,
+        createdAt: now,
+        updatedAt: now,
+      );
+      final repo = FixtureEntityRepository(agents: [agent]);
+      final signalFuture = repo
+          .lifecycleSignals(EntityKind.agent)
+          .take(1)
+          .toList();
+
+      final next = await repo.patchAgentMeta(agent.id, {
+        'description': 'updated description',
+        'tags': ['reviewed'],
+      });
+
+      expect(next.description, 'updated description');
+      expect(next.tags, ['reviewed']);
+      expect(next.activeVersionId, version.id);
+      expect((await repo.getAgent(agent.id)).activeVersion?.id, version.id);
+      expect((await signalFuture).single.durable, isTrue);
+    },
+  );
+
+  test(
     'listEntities decodes a bare list into rows with kind-specific badges',
     () async {
       final b = _build(
-        (_) => _json({
-          'data': [
-            {
-              'id': 'hd_1',
-              'name': 'slack',
-              'runtimeState': 'running',
-              'configState': 'partially_configured',
-              'missingConfig': ['token', 'channel'],
-              'createdAt': '2026-06-26T00:00:00.000Z',
-              'updatedAt': '2026-06-26T00:00:00.000Z',
-            },
-          ],
-          'hasMore': false,
-        }),
+        (_) => _json(
+          {
+            'data': [
+              {
+                'id': 'hd_1',
+                'name': 'slack',
+                'runtimeState': 'running',
+                'configState': 'partially_configured',
+                'missingConfig': ['token', 'channel'],
+                'createdAt': '2026-06-26T00:00:00.000Z',
+                'updatedAt': '2026-06-26T00:00:00.000Z',
+              },
+            ],
+            'hasMore': false,
+          },
+          200,
+          {
+            'X-Anselm-Total-Count': ['17'],
+          },
+        ),
       );
       final page = await b.repo.listEntities(EntityKind.handler, limit: 50);
       expect(b.adapter.last!.path, '/api/v1/handlers');
@@ -86,6 +139,49 @@ void main() {
       expect(row.kind, EntityKind.handler);
       expect(row.runtimeState, 'running');
       expect(row.missingConfigCount, 2);
+      expect(page.total, 17);
+    },
+  );
+
+  test(
+    'live agent metadata patch uses the agent endpoint and preserves the response shape',
+    () async {
+      final b = _build(
+        (options) => _json({
+          'data': {
+            'id': 'ag_0011223344556677',
+            'name': 'researcher',
+            'description': 'updated description',
+            'tags': ['reviewed'],
+            'activeVersionId': 'agv_0011223344556677',
+            'createdAt': '2026-08-06T00:00:00.000Z',
+            'updatedAt': '2026-08-06T00:01:00.000Z',
+            'activeVersion': {
+              'id': 'agv_0011223344556677',
+              'agentId': 'ag_0011223344556677',
+              'version': 1,
+              'prompt': 'Answer clearly',
+              'createdAt': '2026-08-06T00:00:00.000Z',
+              'updatedAt': '2026-08-06T00:00:00.000Z',
+            },
+          },
+        }),
+      );
+
+      final agent = await b.repo.patchAgentMeta('ag_0011223344556677', {
+        'description': 'updated description',
+        'tags': ['reviewed'],
+      });
+
+      expect(b.adapter.last?.method, 'PATCH');
+      expect(b.adapter.last?.uri.path, '/api/v1/agents/ag_0011223344556677');
+      expect(jsonDecode(b.adapter.lastBody!), {
+        'description': 'updated description',
+        'tags': ['reviewed'],
+      });
+      expect(agent.description, 'updated description');
+      expect(agent.tags, ['reviewed']);
+      expect(agent.activeVersion?.id, 'agv_0011223344556677');
     },
   );
 
@@ -175,6 +271,29 @@ void main() {
       expect(execution.logs, 'print from function');
       expect(execution.errorMessage, 'boom');
       expect(execution.elapsedMs, 12);
+    },
+  );
+
+  test(
+    'getHandlerCall fetches the full single record including logs',
+    () async {
+      final b = _build(
+        (_) => _json({
+          'data': {
+            'id': 'hcl_1',
+            'handlerId': 'hd_1',
+            'method': 'ping',
+            'status': 'failed',
+            'logs': 'print from handler',
+            'errorMessage': 'boom',
+            'createdAt': '2026-06-26T00:00:00.000Z',
+          },
+        }),
+      );
+      final call = await b.repo.getHandlerCall('hcl_1');
+      expect(b.adapter.last!.path, '/api/v1/handler-calls/hcl_1');
+      expect(call.logs, 'print from handler');
+      expect(call.errorMessage, 'boom');
     },
   );
 

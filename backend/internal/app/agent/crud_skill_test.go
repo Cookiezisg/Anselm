@@ -49,7 +49,10 @@ func TestCreateEdit_RejectsDanglingSkill(t *testing.T) {
 
 // fakeKnowledgeGuide errors on any unknown doc id (mirroring BuildKnowledgePrefix after F98 surfaces
 // GetBatch's silently-dropped missing ids).
-type fakeKnowledgeGuide struct{ known map[string]bool }
+type fakeKnowledgeGuide struct {
+	known map[string]bool
+	names map[string]string
+}
 
 func (f fakeKnowledgeGuide) BuildKnowledgePrefix(_ context.Context, ids []string) (string, error) {
 	for _, id := range ids {
@@ -58,6 +61,16 @@ func (f fakeKnowledgeGuide) BuildKnowledgePrefix(_ context.Context, ids []string
 		}
 	}
 	return "knowledge", nil
+}
+
+func (f fakeKnowledgeGuide) ResolveKnowledgeNames(_ context.Context, ids []string) (map[string]string, error) {
+	out := make(map[string]string, len(ids))
+	for _, id := range ids {
+		if name := f.names[id]; name != "" {
+			out[id] = name
+		}
+	}
+	return out, nil
 }
 
 // fakeMountResolver reports a mount unhealthy unless its ref is known (mirrors the real resolver
@@ -119,7 +132,7 @@ func TestMountHealth_CoversKnowledge(t *testing.T) {
 	known := map[string]bool{"doc_real": true}
 	svc.SetInvokeDeps(InvokeDeps{
 		Mounts:    fakeMountResolver{known: map[string]bool{}},
-		Knowledge: fakeKnowledgeGuide{known: known},
+		Knowledge: fakeKnowledgeGuide{known: known, names: map[string]string{"doc_real": "Research notes"}},
 	})
 	a, _, err := svc.Create(ctx, CreateInput{Name: "scholar", Config: Config{Prompt: "p", Knowledge: []string{"doc_real"}}})
 	if err != nil {
@@ -137,7 +150,7 @@ func TestMountHealth_CoversKnowledge(t *testing.T) {
 			row = &rep.Mounts[i]
 		}
 	}
-	if row == nil || !row.Healthy || !rep.AllHealthy {
+	if row == nil || !row.Healthy || row.Name != "Research notes" || !rep.AllHealthy {
 		t.Fatalf("knowledge doc must appear as a healthy mount-health row, got %+v", rep.Mounts)
 	}
 

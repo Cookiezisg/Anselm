@@ -65,6 +65,10 @@ func (s *Service) List(ctx context.Context, filter functiondomain.ListFilter) ([
 	return s.repo.ListFunctions(ctx, filter)
 }
 
+func (s *Service) Count(ctx context.Context, filter functiondomain.ListFilter) (int, error) {
+	return s.repo.CountFunctions(ctx, filter)
+}
+
 // ListAll returns every live function (no pagination).
 func (s *Service) ListAll(ctx context.Context) ([]*functiondomain.Function, error) {
 	return s.repo.ListAllFunctions(ctx)

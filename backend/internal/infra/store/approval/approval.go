@@ -133,6 +133,14 @@ func (s *Store) ListForms(ctx context.Context, filter approvaldomain.ListFilter)
 	return rows, next, nil
 }
 
+func (s *Store) CountForms(ctx context.Context, filter approvaldomain.ListFilter) (int, error) {
+	n, err := s.forms.Query().Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("approvalstore.CountForms: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAllForms(ctx context.Context) ([]*approvaldomain.ApprovalForm, error) {
 	rows, err := s.forms.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {

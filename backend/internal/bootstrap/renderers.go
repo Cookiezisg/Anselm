@@ -2,6 +2,7 @@ package bootstrap
 
 import (
 	"context"
+	"strings"
 
 	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
@@ -234,4 +235,24 @@ func (k knowledgeProvider) BuildKnowledgePrefix(ctx context.Context, docIDs []st
 		return "", agentdomain.ErrKnowledgeNotFound.WithDetails(map[string]any{"missing": missing})
 	}
 	return documentapp.RenderAttachedAsXML(docs, nil), nil // knowledge fails loud above, so no missing reaches here
+}
+
+// ResolveKnowledgeNames supplies the same document titles used by the library. It deliberately
+// returns only documents that still resolve; mount-health uses the absence of a title as the
+// visible, stable-ID fallback for a deleted document.
+//
+// ResolveKnowledgeNames 返回 library 使用的同一份文档标题。故意只返仍能解析的文档；mount-health
+// 以标题缺席作为已删文档的可见、稳定 ID 回退。
+func (k knowledgeProvider) ResolveKnowledgeNames(ctx context.Context, docIDs []string) (map[string]string, error) {
+	docs, err := k.svc.GetBatch(ctx, docIDs)
+	if err != nil {
+		return nil, err
+	}
+	names := make(map[string]string, len(docs))
+	for _, doc := range docs {
+		if strings.TrimSpace(doc.Name) != "" {
+			names[doc.ID] = doc.Name
+		}
+	}
+	return names, nil
 }

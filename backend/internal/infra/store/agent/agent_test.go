@@ -100,6 +100,14 @@ func TestStore_ListSearch(t *testing.T) {
 	if len(rows) != 1 || rows[0].ID != "ag_1" {
 		t.Fatalf("search 'REPORT' should match only ag_1, got %d rows", len(rows))
 	}
+	count, err := s.CountAgents(ctx, agentdomain.ListFilter{Search: "REPORT"})
+	if err != nil || count != 1 {
+		t.Fatalf("search count = %d, err=%v; want 1", count, err)
+	}
+	count, err = s.CountAgents(ctx, agentdomain.ListFilter{})
+	if err != nil || count != 2 {
+		t.Fatalf("unfiltered count = %d, err=%v; want 2", count, err)
+	}
 }
 
 func TestStore_ExecutionsPagingAggregates(t *testing.T) {

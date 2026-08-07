@@ -118,11 +118,18 @@ func (h *TriggerHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.List(r.Context(), triggerdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit})
+	filter := triggerdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit}
+	items, next, err := h.svc.List(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	total, err := h.svc.Count(r.Context(), filter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.SetTotalCount(w, total)
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 

@@ -170,6 +170,7 @@ type Repository interface {
 	GetByIDs(ctx context.Context, ids []string) ([]*Agent, error)
 	GetByName(ctx context.Context, name string) (*Agent, error)
 	ListAgents(ctx context.Context, filter ListFilter) ([]*Agent, string, error)
+	CountAgents(ctx context.Context, filter ListFilter) (int, error)
 	ListAll(ctx context.Context) ([]*Agent, error)
 	UpdateMeta(ctx context.Context, a *Agent) error                                // name/description/tags only — no version bump
 	SetActiveVersion(ctx context.Context, agentID, versionID string) error         // edit / revert: move the pointer

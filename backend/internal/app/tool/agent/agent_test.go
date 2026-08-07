@@ -3,6 +3,7 @@ package agent
 import (
 	"encoding/json"
 	"errors"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -41,6 +42,42 @@ func TestCreateAgent_ValidateInput(t *testing.T) {
 	}
 	if err := tl.ValidateInput(json.RawMessage(`{"prompt":"p"}`)); err == nil {
 		t.Fatal("missing name should fail")
+	}
+	if err := tl.ValidateInput(json.RawMessage(`{"name":"judge","prompt":"p","tags":"[\"acceptance\"]"}`)); err != nil {
+		t.Fatalf("stringified JSON tags should be accepted: %v", err)
+	}
+	if err := tl.ValidateInput(json.RawMessage(`{"name":"judge","prompt":"p","tags":"acceptance,planner"}`)); err == nil {
+		t.Fatal("comma-joined tags must remain invalid")
+	}
+}
+
+func TestDecodeAgentTags_HostedModelShapes(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want []string
+	}{
+		{"native", `["acceptance","planner"]`, []string{"acceptance", "planner"}},
+		{"stringified native", `"[\"acceptance\",\"planner\"]"`, []string{"acceptance", "planner"}},
+		{"empty", `[]`, []string{}},
+		{"missing", ``, nil},
+		{"null", `null`, nil},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := decodeAgentTags([]byte(tt.raw))
+			if err != nil {
+				t.Fatalf("decodeAgentTags: %v", err)
+			}
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Fatalf("decoded tags = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+	for _, raw := range []string{`"acceptance,planner"`, `"{}"`, `{"tag":"acceptance"}`, `["acceptance",1]`} {
+		if _, err := decodeAgentTags([]byte(raw)); err == nil {
+			t.Errorf("decodeAgentTags(%s) should reject malformed shape", raw)
+		}
 	}
 }
 

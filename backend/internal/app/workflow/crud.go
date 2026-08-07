@@ -383,6 +383,10 @@ func (s *Service) List(ctx context.Context, filter workflowdomain.ListFilter) ([
 	return s.repo.ListWorkflows(ctx, filter)
 }
 
+func (s *Service) Count(ctx context.Context, filter workflowdomain.ListFilter) (int, error) {
+	return s.repo.CountWorkflows(ctx, filter)
+}
+
 // ListAll returns every live workflow (catalog source).
 func (s *Service) ListAll(ctx context.Context) ([]*workflowdomain.Workflow, error) {
 	return s.repo.ListAllWorkflows(ctx)

@@ -36,6 +36,7 @@ type Repository interface {
 	GetHandlerByName(ctx context.Context, name string) (*Handler, error)
 	GetHandlersByIDs(ctx context.Context, ids []string) ([]*Handler, error)
 	ListHandlers(ctx context.Context, filter ListFilter) ([]*Handler, string, error)
+	CountHandlers(ctx context.Context, filter ListFilter) (int, error)
 	ListAllHandlers(ctx context.Context) ([]*Handler, error)
 	DeleteHandler(ctx context.Context, id string) error // soft-delete
 	SetActiveVersion(ctx context.Context, handlerID, versionID string) error
@@ -46,7 +47,10 @@ type Repository interface {
 
 	GetConfigEncrypted(ctx context.Context, handlerID string) (string, error)
 	UpdateConfigEncrypted(ctx context.Context, handlerID, ciphertext string) error
-	ClearConfig(ctx context.Context, handlerID string) error
+	// ClearConfig clears the config and reports whether state changed. A repeated clear is a
+	// successful no-op and must not cause a duplicate lifecycle event.
+	// ClearConfig 清空 config 并返回是否发生状态变化；重复清空是成功 no-op，不应重复发变更事件。
+	ClearConfig(ctx context.Context, handlerID string) (changed bool, err error)
 
 	// --- versions ---
 

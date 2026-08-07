@@ -10,10 +10,9 @@ import '../../../../i18n/strings.g.dart';
 /// Small shared builders the four per-kind overviews compose, so KV/field/empty rendering is written
 /// once. Pure presentation over the verified kit (AnKv / AnField / AnState). 概览共享小构件(KV/字段/空)。
 
-/// The read-only IDENTITY section used by agent and support overviews — an optional wrapped
-/// description field ([descLabel]/[desc]) over an id/version/… KV list. Executable entity overviews
-/// with a PATCH meta surface use [AnKv] directly. 只读身份段供 agent 与支撑实体概览使用;可 PATCH
-/// meta 的可执行实体直接使用 [AnKv]。
+/// The read-only IDENTITY section used by support overviews — an optional wrapped description field
+/// ([descLabel]/[desc]) over an id/version/… KV list. Executable entity overviews with a PATCH meta
+/// surface use [AnKv] directly. 只读身份段供支撑实体概览使用;有 PATCH meta 面的实体直接使用 [AnKv]。
 Widget identitySection(
   String descLabel,
   String desc,

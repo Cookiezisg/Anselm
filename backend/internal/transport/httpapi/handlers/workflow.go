@@ -89,11 +89,18 @@ func (h *WorkflowHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	items, next, err := h.svc.List(r.Context(), workflowdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit, Search: r.URL.Query().Get("search")})
+	filter := workflowdomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit, Search: r.URL.Query().Get("search")}
+	items, next, err := h.svc.List(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	total, err := h.svc.Count(r.Context(), filter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.SetTotalCount(w, total)
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 

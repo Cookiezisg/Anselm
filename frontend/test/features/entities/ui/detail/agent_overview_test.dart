@@ -18,28 +18,42 @@ import 'package:flutter_test/flutter_test.dart';
 
 final _t = DateTime.utc(2026, 7, 25);
 
-AgentVersion _v({ModelRef? modelOverride, List<ToolRef> tools = const []}) =>
-    AgentVersion(
-      id: 'ag_1_v1',
-      agentId: 'ag_1',
-      version: 1,
-      prompt: 'You are a helpful assistant.',
-      modelOverride: modelOverride,
-      tools: tools,
-      createdAt: _t,
-      updatedAt: _t,
-    );
+AgentVersion _v({
+  ModelRef? modelOverride,
+  List<ToolRef> tools = const [],
+  List<String> knowledge = const [],
+}) => AgentVersion(
+  id: 'ag_1_v1',
+  agentId: 'ag_1',
+  version: 1,
+  prompt: 'You are a helpful assistant.',
+  modelOverride: modelOverride,
+  tools: tools,
+  knowledge: knowledge,
+  createdAt: _t,
+  updatedAt: _t,
+);
 
-AgentEntity _agent({ModelRef? modelOverride, List<ToolRef> tools = const []}) =>
-    AgentEntity(
-      id: 'ag_1',
-      name: 'researcher',
-      description: 'Answers questions',
-      activeVersionId: 'ag_1_v1',
-      activeVersion: _v(modelOverride: modelOverride, tools: tools),
-      createdAt: _t,
-      updatedAt: _t,
-    );
+AgentEntity _agent({
+  ModelRef? modelOverride,
+  List<ToolRef> tools = const [],
+  List<String> knowledge = const [],
+  String description = 'Answers questions',
+  List<String> tags = const [],
+}) => AgentEntity(
+  id: 'ag_1',
+  name: 'researcher',
+  description: description,
+  tags: tags,
+  activeVersionId: 'ag_1_v1',
+  activeVersion: _v(
+    modelOverride: modelOverride,
+    tools: tools,
+    knowledge: knowledge,
+  ),
+  createdAt: _t,
+  updatedAt: _t,
+);
 
 Widget _host(Widget child) => TranslationProvider(
   child: MaterialApp(
@@ -130,6 +144,61 @@ void main() {
         .expand((kv) => kv.rows)
         .firstWhere((r) => r.label == d.kv.model);
     expect(modelRow.meta, isFalse);
+  });
+
+  testWidgets(
+    'healthy knowledge mounts show the document title and retain the ID as metadata',
+    (tester) async {
+      const docID = 'doc_0011223344556677';
+      await tester.pumpWidget(
+        _host(
+          AgentOverview(
+            agent: _agent(knowledge: const [docID]),
+            mountHealth: const MountHealthReport(
+              mounts: [
+                MountHealth(ref: docID, name: 'Research notes', healthy: true),
+              ],
+              allHealthy: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final namedRows = tester
+          .widgetList<AnRow>(find.byType(AnRow))
+          .where((row) => row.label == 'Research notes')
+          .toList();
+      expect(namedRows, hasLength(2));
+      expect(namedRows.every((row) => row.meta == docID), isTrue);
+    },
+  );
+
+  testWidgets('agent metadata uses the editable description and tags grammar', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        AgentOverview(
+          agent: _agent(tags: const ['research', 'daily']),
+          mountHealth: null,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final d = TranslationProvider.of(
+      tester.element(find.byType(AgentOverview)),
+    ).translations.entities.detail;
+    final meta = tester
+        .widgetList<AnKv>(find.byType(AnKv))
+        .firstWhere((kv) => kv.rows.any((row) => row.label == d.kv.desc));
+    final description = meta.rows.firstWhere((row) => row.label == d.kv.desc);
+    final tags = meta.rows.firstWhere((row) => row.label == d.kv.tags);
+    expect(description.editable, isTrue);
+    expect(tags.tags, const ['research', 'daily']);
+    expect(find.text('research'), findsOneWidget);
+    expect(find.text('daily'), findsOneWidget);
   });
 
   testWidgets(

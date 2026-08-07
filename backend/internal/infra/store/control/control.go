@@ -129,6 +129,14 @@ func (s *Store) ListControls(ctx context.Context, filter controldomain.ListFilte
 	return rows, next, nil
 }
 
+func (s *Store) CountControls(ctx context.Context, filter controldomain.ListFilter) (int, error) {
+	n, err := s.ctls.Query().Count(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("controlstore.CountControls: %w", err)
+	}
+	return int(n), nil
+}
+
 func (s *Store) ListAllControls(ctx context.Context) ([]*controldomain.ControlLogic, error) {
 	rows, err := s.ctls.Order("created_at DESC, id DESC").Find(ctx)
 	if err != nil {

@@ -9,7 +9,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"reflect"
+	"strconv"
 )
+
+// TotalCountHeader carries an exact count for a cursor-paged entity list without changing the N4 body
+// shape. It is optional transport metadata; the JSON envelope remains {data,nextCursor?,hasMore}.
+// TotalCountHeader 在不改变 N4 body 形状的前提下给游标分页实体列表携带精确总数；它是可选传输元数据，
+// JSON envelope 仍为 {data,nextCursor?,hasMore}。
+const TotalCountHeader = "X-Anselm-Total-Count"
+
+func SetTotalCount(w http.ResponseWriter, total int) {
+	w.Header().Set(TotalCountHeader, strconv.Itoa(total))
+}
 
 // envelope is the on-wire shape; exactly one of Data/Error is non-nil.
 //
@@ -71,11 +82,27 @@ func NoContent(w http.ResponseWriter) {
 //
 // Paged 写出分页列表；nextCursor 为空表示最后一页。
 func Paged(w http.ResponseWriter, items any, nextCursor string, hasMore bool) {
-	env := pagedEnvelope{Data: emptySliceIfNil(items), HasMore: hasMore}
+	env := pagedEnvelope{Data: normalizePagedBody(items), HasMore: hasMore}
 	if nextCursor != "" {
 		env.NextCursor = &nextCursor
 	}
 	writeJSON(w, http.StatusOK, env)
+}
+
+// normalizePagedBody applies the empty-list guarantee to the nested list fields used by log
+// endpoints (`data: {calls: [...], aggregates: ...}`). emptySliceIfNil alone only sees the outer
+// map and would let a typed-nil slice inside it encode as null, violating N4.
+//
+// normalizePagedBody 把空列表保证推进到日志端点的嵌套列表字段（`data: {calls: [...], aggregates: ...}`）。
+// 只调 emptySliceIfNil 只能看见外层 map，会让其中的 typed-nil slice 编成 null，违反 N4。
+func normalizePagedBody(body any) any {
+	if m, ok := body.(map[string]any); ok {
+		for key, value := range m {
+			m[key] = normalizePagedBody(value)
+		}
+		return m
+	}
+	return emptySliceIfNil(body)
 }
 
 // offsetPagedEnvelope is the on-wire shape for OFFSET (page-number) pagination: the paged list plus

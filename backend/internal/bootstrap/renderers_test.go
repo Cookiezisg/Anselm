@@ -5,6 +5,7 @@ import (
 	"strings"
 	"testing"
 
+	agentapp "github.com/sunweilin/anselm/backend/internal/app/agent"
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	chatapp "github.com/sunweilin/anselm/backend/internal/app/chat"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
@@ -91,5 +92,16 @@ func TestDocumentAndKnowledgeRenderers_ComposeXML(t *testing.T) {
 	}
 	if !strings.Contains(prefix, "the body") {
 		t.Fatalf("knowledge prefix missing content: %q", prefix)
+	}
+	namer, ok := kp.(agentapp.KnowledgeNamer)
+	if !ok {
+		t.Fatal("knowledge provider must expose optional document naming for mount health")
+	}
+	names, err := namer.ResolveKnowledgeNames(context.Background(), []string{"doc_1", "doc_missing"})
+	if err != nil {
+		t.Fatalf("ResolveKnowledgeNames: %v", err)
+	}
+	if names["doc_1"] != "Spec" || names["doc_missing"] != "" {
+		t.Fatalf("unexpected knowledge names: %#v", names)
 	}
 }

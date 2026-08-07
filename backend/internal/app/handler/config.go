@@ -71,8 +71,15 @@ func (s *Service) UpdateConfig(ctx context.Context, handlerID string, partial ma
 //
 // ClearConfig 清空 config 并停常驻实例（已无法运行）。
 func (s *Service) ClearConfig(ctx context.Context, handlerID string) error {
-	if err := s.repo.ClearConfig(ctx, handlerID); err != nil {
+	changed, err := s.repo.ClearConfig(ctx, handlerID)
+	if err != nil {
 		return fmt.Errorf("handlerapp.ClearConfig: %w", err)
+	}
+	if !changed {
+		// DELETE is idempotent, but a no-op must not create a second notification or
+		// make every subscriber refetch the same unchanged Handler row.
+		s.manager.Stop(ctx, handlerID)
+		return nil
 	}
 	h, _ := s.repo.GetHandler(ctx, handlerID)
 	s.publish(ctx, "config_cleared", handlerID, map[string]any{"name": nameOfHandler(h)})

@@ -51,6 +51,7 @@ void main() {
     expect(v.hasValue, isTrue);
     expect(v.value!.rows.map((r) => r.id), ['fn_1', 'fn_2']);
     expect(v.value!.hasMore, isFalse);
+    expect(v.value!.totalCount, 2);
   });
 
   test(
@@ -74,6 +75,7 @@ void main() {
       expect(p2.value!.rows, hasLength(25));
       expect(p2.value!.hasMore, isFalse);
       expect(p2.value!.loadingMore, isFalse);
+      expect(p2.value!.totalCount, 25);
     },
   );
 
@@ -91,6 +93,10 @@ void main() {
     await pumpEventQueue();
 
     expect(_ids(c), ['fn_9', 'fn_1', 'fn_2']);
+    expect(
+      c.read(entityListProvider(EntityKind.function)).value!.totalCount,
+      3,
+    );
   });
 
   test('durable deleted → drop by id', () async {
@@ -100,10 +106,14 @@ void main() {
     final c = _container(fixture);
     await c.read(entityListProvider(EntityKind.function).future);
 
-    fixture.emitLifecycle(_sig(EntityAction.deleted, 'fn_2'));
+    await fixture.deleteEntity(EntityKind.function, 'fn_2');
     await pumpEventQueue();
 
     expect(_ids(c), ['fn_1', 'fn_3']);
+    expect(
+      c.read(entityListProvider(EntityKind.function)).value!.totalCount,
+      2,
+    );
   });
 
   test(

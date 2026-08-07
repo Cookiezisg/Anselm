@@ -112,14 +112,30 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         await _loadFunctionDetails(id);
       }
     }
+
+    if (opening && entityRef.kind == EntityKind.handler) {
+      final row = (state.value ?? cur).rows
+          .where((r) => r.id == id)
+          .firstOrNull;
+      if (row != null && !row.detailsLoaded && !row.detailsLoading) {
+        await _loadHandlerDetails(id);
+      }
+    }
   }
 
   /// Retry a failed single-record fetch without collapsing the row. 保持行展开,只重试单条详情。
   Future<void> retryDetails(String id) async {
-    if (entityRef.kind != EntityKind.function) return;
+    if (entityRef.kind != EntityKind.function &&
+        entityRef.kind != EntityKind.handler) {
+      return;
+    }
     final row = state.value?.rows.where((r) => r.id == id).firstOrNull;
     if (row == null || row.detailsLoading) return;
-    await _loadFunctionDetails(id);
+    if (entityRef.kind == EntityKind.function) {
+      await _loadFunctionDetails(id);
+    } else {
+      await _loadHandlerDetails(id);
+    }
   }
 
   Future<void> _loadFunctionDetails(String id) async {
@@ -131,6 +147,25 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       final execution = await _repo.getFunctionExecution(id);
       if (!ref.mounted) return;
       _replaceRow(id, _functionRow(execution, detailsLoaded: true));
+    } catch (error) {
+      if (!ref.mounted) return;
+      final message = error is ApiException ? error.message : '$error';
+      _updateRow(
+        id,
+        (row) => row.copyWith(detailsLoading: false, detailsError: message),
+      );
+    }
+  }
+
+  Future<void> _loadHandlerDetails(String id) async {
+    _updateRow(
+      id,
+      (row) => row.copyWith(detailsLoading: true, detailsError: null),
+    );
+    try {
+      final call = await _repo.getHandlerCall(id);
+      if (!ref.mounted) return;
+      _replaceRow(id, _handlerRow(call, detailsLoaded: true));
     } catch (error) {
       if (!ref.mounted) return;
       final message = error is ApiException ? error.message : '$error';
@@ -248,7 +283,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     );
   }
 
-  LogRow _handlerRow(HandlerCall c) {
+  LogRow _handlerRow(HandlerCall c, {bool detailsLoaded = false}) {
     final kv = t.entities.detail.kv;
     return LogRow(
       id: c.id,
@@ -273,9 +308,11 @@ class LogListNotifier extends AsyncNotifier<LogListState>
         (kv.input, prettyJson(c.input)),
         (kv.output, prettyJson(c.output)),
         (kv.error, c.errorMessage ?? '—'),
+        if (detailsLoaded) (kv.logs, c.logs ?? '—'),
         (kv.elapsed, '${c.elapsedMs}ms'),
         (kv.time, fmtTime(c.createdAt)),
       ],
+      detailsLoaded: detailsLoaded,
     );
   }
 

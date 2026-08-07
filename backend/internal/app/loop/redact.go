@@ -33,6 +33,11 @@ var (
 	// parenthesis). Remove the placeholder form too, so a chunk-boundary miss cannot leave
 	// "name (the referenced item)" in the final prose.
 	opaquePlaceholderParentheticalPattern = regexp.MustCompile(`\s*\(\s*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `\s*\)`)
+	// A model may label the same unavailable value inside a parenthetical, e.g.
+	// "Agent created (id `the requested item`)". Remove the whole machine-value
+	// parenthetical rather than exposing a phrase that looks like an id.
+	// 模型也可能在括号内给不可用值加 id 标签。整段移除，不能把占位词伪装成 ID 留给用户。
+	opaquePlaceholderIDParentheticalPattern = regexp.MustCompile(`(?i)\s*\(\s*(?:id|identifier)\s*[:：]?\s*` + "`?" + `(?:` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + ")`?" + `\s*\)`)
 	// A media summary may keep useful human detail beside the opaque attachment id, e.g.
 	// "(red circle, `att_…`)". Once the id is redacted, remove only that list item rather than
 	// exposing "(red circle, the requested item)" as a broken user-facing template.
@@ -279,6 +284,7 @@ func redactOpaqueMachineValues(text string) string {
 		return "the requested item"
 	})
 	text = entityIDPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
+	text = opaquePlaceholderIDParentheticalPattern.ReplaceAllString(text, "")
 	text = searchBlocksAbbreviatedRefPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
 	text = searchBlocksTemplateRefPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
 	text = opaqueVersionIDPlaceholderSentencePattern.ReplaceAllString(text, "version reference updated")
@@ -1822,6 +1828,24 @@ func splitPlaceholderPrefix(text string) (prefix, held string, ok bool) {
 			}
 			if holdStart == start && start > 0 && text[start-1] == '`' {
 				holdStart--
+			}
+			// If the partial placeholder is inside an ID-labelled parenthetical, hold the
+			// opening parenthesis too. Otherwise the next chunk cannot remove the complete
+			// machine-value parenthetical after the placeholder arrives.
+			if open := strings.LastIndex(text[:holdStart], "("); open >= 0 && strings.LastIndex(text[:holdStart], ")") < open {
+				inner := strings.TrimSpace(text[open+1 : holdStart])
+				inner = strings.TrimSpace(strings.TrimLeft(inner, "`"))
+				label := strings.TrimSpace(strings.TrimSuffix(inner, ":"))
+				if strings.EqualFold(label, "id") || strings.EqualFold(label, "identifier") {
+					holdStart = open
+					for holdStart > 0 {
+						previous, size := utf8.DecodeLastRuneInString(text[:holdStart])
+						if !unicode.IsSpace(previous) {
+							break
+						}
+						holdStart -= size
+					}
+				}
 			}
 			return text[:holdStart], text[holdStart:], true
 		}

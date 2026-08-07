@@ -43,6 +43,12 @@ LLM `edit_agent` 在工具层采用“只覆盖显式字段”的 merge 便利�
 `update_agent_meta`，不进入版本 Config。两条入口的边界必须保持明确，不能用 HTTP
 全量语义去描述 LLM 工具，也不能让工具层静默抹掉未提及的挂载。
 
+HTTP `PATCH /agents/{id}` 是同一条 metadata 写面，接受 `name`、`description`、`tags`
+的任意非空子集；省略字段保持原值，显式空字符串或空数组用于清空对应 metadata。它只更新
+Agent 主行，不铸新版本、不移动 active pointer、不重算挂载关系。桌面详情页的描述与标签经
+`AnKv` 原地编辑，标题经实体壳层重命名；两者都汇入此 PATCH，并在成功或失败后重新读取后端
+真相。持久化更新发送 durable `entities` `updated` signal，列表与详情因此走同一条重取路径。
+
 LLM `revert_agent` 的公开参数仍是 `version: integer`；执行边界同时接受严格的整数字符串
 （例如 `"1"`），以兼容托管模型的标量字符串化，但拒绝小数、布尔值与非数字文本。它只
 移动 active pointer，不铸造新版本；name、description、tags 仍留在主行。

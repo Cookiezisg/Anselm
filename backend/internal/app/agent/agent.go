@@ -67,6 +67,16 @@ type KnowledgeProvider interface {
 	BuildKnowledgePrefix(ctx context.Context, docIDs []string) (string, error)
 }
 
+// KnowledgeNamer is an optional companion port for providers that can resolve the human-readable
+// names of attached knowledge documents. Mount health keeps this capability optional so existing
+// providers remain valid; an unavailable name only falls back to the opaque reference.
+//
+// KnowledgeNamer 是可选的伴随端口，供能解析知识文档人类可读名称的 provider 实现。挂载健康故意
+// 保持它可选，使已有 provider 仍然有效；名称不可得时诚实回退到 opaque ref。
+type KnowledgeNamer interface {
+	ResolveKnowledgeNames(ctx context.Context, docIDs []string) (map[string]string, error)
+}
+
 // MountResolver synthesizes the version's mounted ToolRefs (fn_/hd_…method/mcp:server/tool)
 // into bound, callable tools — one per mount, named after the target, executing through the
 // target's standard execution method. The agent NEVER sees the generic system-tool registry

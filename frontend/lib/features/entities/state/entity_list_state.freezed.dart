@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$EntityListState {
 
- List<EntityRow> get rows; String? get nextCursor; bool get hasMore; bool get loadingMore;
+ List<EntityRow> get rows; String? get nextCursor; bool get hasMore; bool get loadingMore; int? get totalCount;
 /// Create a copy of EntityListState
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -25,16 +25,16 @@ $EntityListStateCopyWith<EntityListState> get copyWith => _$EntityListStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityListState&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is EntityListState&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),nextCursor,hasMore,loadingMore);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),nextCursor,hasMore,loadingMore,totalCount);
 
 @override
 String toString() {
-  return 'EntityListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore)';
+  return 'EntityListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, totalCount: $totalCount)';
 }
 
 
@@ -45,7 +45,7 @@ abstract mixin class $EntityListStateCopyWith<$Res>  {
   factory $EntityListStateCopyWith(EntityListState value, $Res Function(EntityListState) _then) = _$EntityListStateCopyWithImpl;
 @useResult
 $Res call({
- List<EntityRow> rows, String? nextCursor, bool hasMore, bool loadingMore
+ List<EntityRow> rows, String? nextCursor, bool hasMore, bool loadingMore, int? totalCount
 });
 
 
@@ -62,13 +62,14 @@ class _$EntityListStateCopyWithImpl<$Res>
 
 /// Create a copy of EntityListState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? totalCount = freezed,}) {
   return _then(_self.copyWith(
 rows: null == rows ? _self.rows : rows // ignore: cast_nullable_to_non_nullable
 as List<EntityRow>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,totalCount: freezed == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 
@@ -153,10 +154,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<EntityRow> rows,  String? nextCursor,  bool hasMore,  bool loadingMore)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<EntityRow> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  int? totalCount)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _EntityListState() when $default != null:
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.totalCount);case _:
   return orElse();
 
 }
@@ -174,10 +175,10 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<EntityRow> rows,  String? nextCursor,  bool hasMore,  bool loadingMore)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<EntityRow> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  int? totalCount)  $default,) {final _that = this;
 switch (_that) {
 case _EntityListState():
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.totalCount);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -194,10 +195,10 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);cas
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<EntityRow> rows,  String? nextCursor,  bool hasMore,  bool loadingMore)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<EntityRow> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  int? totalCount)?  $default,) {final _that = this;
 switch (_that) {
 case _EntityListState() when $default != null:
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.totalCount);case _:
   return null;
 
 }
@@ -209,7 +210,7 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore);cas
 
 
 class _EntityListState implements EntityListState {
-  const _EntityListState({final  List<EntityRow> rows = const <EntityRow>[], this.nextCursor, this.hasMore = false, this.loadingMore = false}): _rows = rows;
+  const _EntityListState({final  List<EntityRow> rows = const <EntityRow>[], this.nextCursor, this.hasMore = false, this.loadingMore = false, this.totalCount}): _rows = rows;
   
 
  final  List<EntityRow> _rows;
@@ -222,6 +223,7 @@ class _EntityListState implements EntityListState {
 @override final  String? nextCursor;
 @override@JsonKey() final  bool hasMore;
 @override@JsonKey() final  bool loadingMore;
+@override final  int? totalCount;
 
 /// Create a copy of EntityListState
 /// with the given fields replaced by the non-null parameter values.
@@ -233,16 +235,16 @@ _$EntityListStateCopyWith<_EntityListState> get copyWith => __$EntityListStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityListState&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _EntityListState&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.totalCount, totalCount) || other.totalCount == totalCount));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),nextCursor,hasMore,loadingMore);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),nextCursor,hasMore,loadingMore,totalCount);
 
 @override
 String toString() {
-  return 'EntityListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore)';
+  return 'EntityListState(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, totalCount: $totalCount)';
 }
 
 
@@ -253,7 +255,7 @@ abstract mixin class _$EntityListStateCopyWith<$Res> implements $EntityListState
   factory _$EntityListStateCopyWith(_EntityListState value, $Res Function(_EntityListState) _then) = __$EntityListStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<EntityRow> rows, String? nextCursor, bool hasMore, bool loadingMore
+ List<EntityRow> rows, String? nextCursor, bool hasMore, bool loadingMore, int? totalCount
 });
 
 
@@ -270,13 +272,14 @@ class __$EntityListStateCopyWithImpl<$Res>
 
 /// Create a copy of EntityListState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? totalCount = freezed,}) {
   return _then(_EntityListState(
 rows: null == rows ? _self._rows : rows // ignore: cast_nullable_to_non_nullable
 as List<EntityRow>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
-as bool,
+as bool,totalCount: freezed == totalCount ? _self.totalCount : totalCount // ignore: cast_nullable_to_non_nullable
+as int?,
   ));
 }
 

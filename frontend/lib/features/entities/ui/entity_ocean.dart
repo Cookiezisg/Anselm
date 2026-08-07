@@ -208,6 +208,13 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                       );
                       ref.invalidate(entityDetailProvider(detail.ref));
                     },
+                    EntityKind.agent => (name) async {
+                      await ref.read(entityRepositoryProvider).patchAgentMeta(
+                        detail.ref.id,
+                        {'name': name},
+                      );
+                      ref.invalidate(entityDetailProvider(detail.ref));
+                    },
                     EntityKind.workflow => (name) async {
                       await ref
                           .read(entityRepositoryProvider)

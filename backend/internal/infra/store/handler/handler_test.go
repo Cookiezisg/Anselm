@@ -87,11 +87,17 @@ func TestHandler_ConfigEncryptedRoundTrip(t *testing.T) {
 	if ct, _ := s.GetConfigEncrypted(ctx, "hd_1"); ct != "CIPHERTEXT" {
 		t.Fatalf("config round-trip: got %q", ct)
 	}
-	if err := s.ClearConfig(ctx, "hd_1"); err != nil {
+	if changed, err := s.ClearConfig(ctx, "hd_1"); err != nil || !changed {
 		t.Fatalf("clear: %v", err)
 	}
 	if ct, _ := s.GetConfigEncrypted(ctx, "hd_1"); ct != "" {
 		t.Fatalf("cleared config should be empty, got %q", ct)
+	}
+	if changed, err := s.ClearConfig(ctx, "hd_1"); err != nil || changed {
+		t.Fatalf("repeated clear should be a successful no-op: changed=%v err=%v", changed, err)
+	}
+	if changed, err := s.ClearConfig(ctx, "missing"); !errors.Is(err, handlerdomain.ErrNotFound) || changed {
+		t.Fatalf("missing handler should remain not found: changed=%v err=%v", changed, err)
 	}
 }
 

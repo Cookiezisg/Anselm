@@ -186,6 +186,10 @@ func (s *Service) List(ctx context.Context, filter triggerdomain.ListFilter) ([]
 	return ts, next, nil
 }
 
+func (s *Service) Count(ctx context.Context, filter triggerdomain.ListFilter) (int, error) {
+	return s.repo.CountTriggers(ctx, filter)
+}
+
 // ListAll returns every trigger (used by the catalog source).
 //
 // ListAll 返回所有 trigger（catalog source 用）。

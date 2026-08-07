@@ -14,13 +14,16 @@ import 'entity_list_state.dart';
 /// One kind's rail list — first page on build, [loadMore] appends, and a live SSE subscription patches
 /// the durable list in place. The realtime contract (E2): only `durable` (seq>0) signals mutate the
 /// list (DB-row-is-truth); ephemeral frames never do. Created → fetch the new row + prepend; deleted →
-/// drop by id; edited/updated → refetch that one row + replace; a signal for an id not on the loaded
-/// pages is ignored (a later refetch/loadMore reconciles it). Re-reads `state` after every await so
-/// concurrent signals don't clobber each other.
+/// drop by id; edited/updated → refetch that one row + replace; lifecycle signals also refresh the
+/// exact filtered total from the same endpoint metadata, so badges do not drift behind the DB. A signal
+/// for an id not on the loaded pages is ignored for rows (a later refetch/loadMore reconciles it), but
+/// its count is still refreshed. Re-reads `state` after every await so concurrent signals don't clobber
+/// each other.
 ///
 /// 单 kind 的 rail 列表——build 取首页,loadMore 追加,SSE 订阅就地 patch 耐久列表。E2:仅 durable
 /// 信号改列表(DB 行是真相),ephemeral 永不。created→取新行前插 / deleted→按 id 删 / edited·updated→
-/// 重取该行替换;不在已载页的 id 忽略。每次 await 后重读 state 防并发互踩。
+/// 重取该行替换;生命周期信号同时从同一端点元数据刷新精确过滤总数,徽标不落后于 DB。未在已载页的
+/// id 行投影仍忽略(后续重翻/翻页收敛),但计数照样刷新。每次 await 后重读 state 防并发互踩。
 class EntityListNotifier extends AsyncNotifier<EntityListState>
     with KeysetQueryPaging<EntityListState, EntityRow> {
   EntityListNotifier(this.kind);
@@ -56,6 +59,7 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
       rows: page.items,
       nextCursor: page.nextCursor,
       hasMore: page.hasMore,
+      totalCount: page.total ?? (page.hasMore ? null : page.items.length),
     );
   }
 
@@ -88,6 +92,9 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
         nextCursor: page.nextCursor,
         hasMore: page.hasMore,
         loadingMore: false,
+        totalCount:
+            page.total ??
+            (page.hasMore ? s.totalCount : s.rows.length + page.items.length),
       );
 
   Future<void> _onSignal(EntitySignal s) async {
@@ -97,35 +104,62 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
     switch (s.action) {
       case EntityAction.deleted:
         _setRows(cur.rows.where((r) => r.id != s.id).toList());
+        await _refreshTotalCount();
       case EntityAction.created:
         if (cur.rows.any((r) => r.id == s.id)) return; // dedup
         final row = await _row(s.id);
-        if (row == null) return;
         final now = state.value;
-        if (now != null && !now.rows.any((r) => r.id == s.id)) {
+        if (row != null && now != null && !now.rows.any((r) => r.id == s.id)) {
           _setRows([row, ...now.rows]);
         }
+        await _refreshTotalCount();
       case EntityAction.edited:
       case EntityAction.updated:
       case EntityAction.unknown:
         if (!cur.rows.any((r) => r.id == s.id)) {
-          return; // not on loaded pages → ignore
+          await _refreshTotalCount();
+          return; // not on loaded pages → ignore the row, but not its count
         }
         final row = await _row(s.id);
-        if (row == null) return;
+        if (row == null) {
+          _setRows(cur.rows.where((r) => r.id != s.id).toList());
+          await _refreshTotalCount();
+          return;
+        }
         final now = state.value;
         if (now != null) {
+          final matchesSearch =
+              _search.isEmpty ||
+              row.name.toLowerCase().contains(_search.toLowerCase());
           _setRows([
             for (final r in now.rows)
-              if (r.id == s.id) row else r,
+              if (r.id == s.id && matchesSearch) row else if (r.id != s.id) r,
           ]);
         }
+        await _refreshTotalCount();
     }
   }
 
   void _setRows(List<EntityRow> rows) {
     final base = state.value;
     if (base != null) state = AsyncData(base.copyWith(rows: rows));
+  }
+
+  Future<void> _refreshTotalCount() async {
+    final search = _search;
+    try {
+      final page = await _repo.listEntities(
+        kind,
+        limit: 1,
+        search: search.isEmpty ? null : search,
+      );
+      final total = page.total;
+      if (total == null || search != _search) return;
+      final base = state.value;
+      if (base != null) state = AsyncData(base.copyWith(totalCount: total));
+    } catch (_) {
+      // A realtime count refresh is best effort; retain the last known exact value on transport error.
+    }
   }
 
   Future<EntityRow?> _row(String id) async {

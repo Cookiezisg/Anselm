@@ -70,7 +70,8 @@ class ApiClient {
     return parse(_data(r.data));
   });
 
-  /// GET a keyset page: `{data:[…], nextCursor?, hasMore}` → [Page].
+  /// GET a keyset page: `{data:[…], nextCursor?, hasMore}` → [Page]. Entity list endpoints may also
+  /// provide the exact filtered total in `X-Anselm-Total-Count`; it stays out of the N4 body.
   ///
   /// GET 一页 keyset → [Page]。
   Future<Page<T>> getPage<T>(
@@ -82,7 +83,8 @@ class ApiClient {
       path,
       queryParameters: query,
     );
-    return Page.fromBody(r.data ?? const {}, item);
+    final total = int.tryParse(r.headers.value('X-Anselm-Total-Count') ?? '');
+    return Page.fromBody(r.data ?? const {}, item, total: total);
   });
 
   /// GET an OFFSET page: `{data:[…], total, hasMore}` → [OffsetPage] (WRK-070 B4, flowruns only).

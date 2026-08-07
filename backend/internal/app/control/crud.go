@@ -184,6 +184,10 @@ func (s *Service) List(ctx context.Context, filter controldomain.ListFilter) ([]
 	return s.repo.ListControls(ctx, filter)
 }
 
+func (s *Service) Count(ctx context.Context, filter controldomain.ListFilter) (int, error) {
+	return s.repo.CountControls(ctx, filter)
+}
+
 // ListAll returns every live control logic (catalog source).
 func (s *Service) ListAll(ctx context.Context) ([]*controldomain.ControlLogic, error) {
 	return s.repo.ListAllControls(ctx)

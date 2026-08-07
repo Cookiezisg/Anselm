@@ -4,7 +4,7 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-07-27
-reviewed: 2026-08-06
+reviewed: 2026-08-07
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
@@ -297,7 +297,53 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-06 EP-026 完成,批次十五 50/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-07 EP-035 完成,批次十六 50/50,统一门禁已通过)
+
+**当前前线（2026-08-07，清册 EP-035 已完成，批次十六 50/50）。** `DELETE /api/v1/agents/{id}` 已按完整产品目的完成验收：真实用户从 Agent 详情的 More actions 进入删除，看到明确的不可逆确认，确认后 Agent 从 active catalog 消失，详情选区回到可用 Overview，关系清空，版本审计仍可读；重复删除不重复清边或发事件。上一格清册 EP-040 的临时错号已保留在历史记录，本段严格使用 `COVERAGE.md` 的机械编号。
+
+真实 session `/private/tmp/anselm-rig-ep035-agent-delete-20260807/sessions/20260807-114742` 由同一 conductor 托管真实 Flutter App、Computer Use、窗口录屏、backend、三路独立 SSE witness、frontend console 与受管网关 LLM tap。删除前 `EP034 Meta Edited` 有一条真实 equip 关系，用户确认后 DELETE 返回 204；画面最终回到 Overview，Agent count=46，目标行消失，右侧没有旧详情或空白选中态，关系图为 `0 entities, 0 relations`。此前 Cancel-only preflight 与错误 llmtap 归属的失败尝试均保留在各自 session，不混入绿证据。
+
+逐帧复核保留了一个真实中间状态：右岛首次挂载的标准 `AnCountUp` 在约 0.5 秒内从 0 揭示到 46，期间 rail 的权威徽标已是 46；这不是 DB 计数跳变，最终卡片、REST 和 SQLite 均为 46。该段按 CODEX B1/B3 作为新内容首次出现的有界动效审查，抽帧与判定写在 session evidence，没有只留终帧。
+
+五通道封口：录屏 `325.161667s / 2784x1808 / 60fps`；backend `411` 行无 panic/FATAL/WARN/ERROR，含 relation purge 与 DELETE=204；SSE 三流全连接，notifications durable seq 1 为 `agent.deleted`，messages/entities 本确定性删除路径无 mutation frame，不虚构事件且无 gap/error；frontend `26` 行仅有两条已复核的标准数字节点 AXTree bridge 观测器噪声，未知 AXTree 形状和 Dart/Flutter/RenderFlex/overflow/Unhandled/失联仍硬失败；LLM tap 记录真实受管网关 ready，本格不需要 completion 不虚构模型证据。`rig-check.sh` 操作前通过，`rig-down.sh` 封口录屏且无残留。
+
+正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-035-agent-delete-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-035-agent-delete-ledger-reaudit.md`；anchors `10/10` 后按 `G1/F2/A1/C4/G2` 写入 `COVERAGE.md` 为 `✓✓✓✓✓`，正式账本 **840→845 judgments**。集中写账触发的 `gap-too-fast`/`discovery-collapse` 已由独立复审 ack，阈值与算法未放宽，`alarms.py check` clean；`gen_coverage.py --check` 为 `848 rows / 168 carried judgments / 0 tombstones`。
+
+批次十六现已 **50/50**，统一收台已完成并通过：根目录 `make verify` 全绿（含 backend 完整 `go test ./...`、frontend、docs、demo），完整 testend `mise exec -- go test -count=1 -timeout 20m ./...` 全绿，`make -C backend testend` 全绿；Agent/实体后端专项与 Flutter 实体专项全绿，`gofmt`、`git diff --check`、`gen_coverage.py --check`、`alarms.py check` 全绿，验收台架进程组归零。工作树审计无未解释文件，已按 WRK-093/P15 将本批次代码、测试与工作记录一并固化；下一原子前线为 `EP-036`，不把门禁结果降级成“仅专项通过”。
+
+### 5.2 历史状态快照（EP-032，批次十六 30/50）
+
+**当前前线（2026-08-06，EP-032 已完成，批次十六 30/50）。** `GET /api/v1/agents` 已按完整产品目的完成验收：真实 App 首屏 Agent rail 与 Overview 都显示精确总数 45，真实逐字输入 `alpha` 显示 2，五次真实 Backspace 恢复 45，滚动加载 20/20/5 三页后计数仍为 45，45 个名称无重复。首轮真实 App session `/private/tmp/anselm-rig-ep032-agent-list-input-20260806/sessions/20260806-162636` 抓到真实产品缺陷：UI 把已加载行数 40 当成总数，翻页后跳成 45，冻结为红并保留；不是分页可接受副作用。
+
+stop-and-fix 不改变 N4 JSON body，后端七类实体列表增加 `X-Anselm-Total-Count` 精确过滤总数响应头；前端 `Page.total`、EntityListState、rail badge 和 Overview cards 消费该元数据。代码级复审又补上 durable created/deleted/edited lifecycle 的总数刷新，避免实时增删改后徽标落后于 DB；fixture、ApiClient、实体列表、Overview、rail 和 signal 回归均已补齐。中间 session `/private/tmp/anselm-rig-ep032-agent-list-count-fixed-20260806/sessions/20260806-164204` 因复用数据里的受管 key 仍指向旧 `8805` 而新 tap 为 `8807`，被 D1/channel-5 门禁拒绝报绿，不混入最终证据；最终 session `/private/tmp/anselm-rig-ep032-agent-list-count-fixed-20260806/sessions/20260806-165306` 换用既有 key 端口并由最新 binary 重跑通过。
+
+五通道封口：录屏 `72.431667s / 2784x1808 / 60fps`，终帧 `/private/tmp/anselm-rig-ep032-agent-list-count-fixed-20260806/sessions/20260806-165306/evidence/ep032-final-frame.png`；backend `162` 行、frontend `19` 行、SSE `8` 行、LLM witness `1` 行，应用级 panic/fatal/error/warn/Flutter/Dart/RenderFlex/Unhandled 红线均为零；三路 SSE 全连接并正常 EOF 收台，channel 5 经受管网关 tap，LLM completion 对只读列表不需要且未虚构。REST header 为 `45/2/1/0`，body 无 `total`；SQLite live Agent 为 `45`，REST/SQLite/UI/SSE/wire 与收台进程清零互证。正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-032-agent-list-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-032-agent-list-ledger-reaudit.md`；anchors `10/10` 后按 `G1/F2/A1/C4/G2` 写入五级裁决，正式账本 **820→825 judgments**，COVERAGE `EP-032=✓✓✓✓✓`，两条统计警报按独立复审 ack，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 164 carried judgments / 0 tombstones`。批次十六当前 **25→30 / 50**；未满 50 格，不运行统一长门禁、不提交，下一原子前线为 `EP-033 GET /api/v1/agents/{id}`。
+
+### 5.2 历史状态快照（EP-031，批次十六 25/50）
+
+**当前前线（2026-08-06，EP-031 已完成，批次十六 25/50）。** `POST /api/v1/agents` 已按完整产品目的完成验收：用户从真实 Chat 创建 Agent 后，能得到一个 identity、完整 Config 快照和 v1，名称、描述、tags、prompt 在 UI、REST、SQLite、SSE 与 LLM wire 上一致。首轮真实 App session `/private/tmp/anselm-rig-ep031-agent-create-20260806/sessions/20260806-154305` 抓到真实产品缺陷：托管模型把 `tags` 发成精确 JSON 数组字符串，旧执行边界按 `[]string` 解码失败，App 显示 `Create agent failed` 与 `Draft unsaved · nothing was created`，冻结为红并保留；中间修复 session `/private/tmp/anselm-rig-ep031-agent-create-fixed-20260806/sessions/20260806-155712` 又抓到流式脱敏残留句尾 `)`，继续冻结，不计绿。
+
+stop-and-fix 在 `create_agent` 执行边界加入窄兼容：接受原生 `[]string` 和精确 JSON 数组字符串，拒绝逗号 prose、非字符串数组和非数组值；同时让 `id`/`identifier` 括号的流式分片保持完整，最终整段移除。补 hosted-model shape、非法 tags、完整流式 chunk 边界回归测试与工具说明。最终真实 session `/private/tmp/anselm-rig-ep031-agent-create-final-20260806/sessions/20260806-160242` 由新 binary、真实 App、Computer Use、录屏、frontend console、backend journal、三路独立 SSE witness、LLM tap 和受管网关重跑：首次 create 成功，只产生 `ag_e093c9019b049a4e` 的 v1，最终文案为 `Agent created successfully: EP031 Planner with tags [acceptance, planner].`；模型追加的一次安全 `get_agent` 读取无副作用、无重复 create，明确保留在证据中。
+
+五通道封口：录屏 `157.588333s / 2784x1808 / 60fps`，终帧为 `/private/tmp/anselm-rig-ep031-agent-create-final-20260806/sessions/20260806-160242/evidence/ep031-final-frame.png`；backend `255` 行无应用级 panic/fatal/error/warn；三路 SSE 均连接、无 error，messages durable `1..22`、notifications `1..5` 单调，entities 本切片无 mutation frame 不虚构事件；frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，仅 macOS foreground/IMK 宿主噪声；LLM challenge/install/models/chat completion 全 `200`。REST `201/200/400/401/401/204`、SQLite、UI、SSE 与 wire 互证，收台无残留。正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-031-agent-create-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-031-agent-create-ledger-reaudit.md`；anchors `10/10` 后按 `G1/F2/A1/C4/G2` 写入五级裁决，正式账本 **815→820 judgments**，COVERAGE `EP-031=✓✓✓✓✓`，两条统计警报按独立复审 ack，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 163 carried judgments / 0 tombstones`。批次十六当前 **20→25 / 50**；未满 50 格，不运行统一长门禁、不提交，下一原子前线为 `EP-032 GET /api/v1/agents`。
+
+### 5.2 历史状态快照（EP-030，批次十六 20/50）
+
+EP-030 的完整红绿证据、五级裁决和批次状态保留如下：`GET /api/v1/handler-calls/{id}` 首轮真实 App 抓到前端未请求或呈现后端已有的 `logs`，stop-and-fix 增加详情懒加载与 UI 展示；最终失败行显示 logs/traceback、成功行显示 logs/output。正式证据、独立复审、五通道日志和 `810→815` 账本记录仍以 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-030-handler-call-final-green.md` 与 `EP-030-handler-call-ledger-reaudit.md` 为准；以上 EP-031 状态为当前恢复真相。
+
+### 5.2 历史状态快照（EP-029，批次十六 15/50）
+
+EP-029 的完整红绿证据、五级裁决和批次状态保留如下：`GET /api/v1/handlers/{id}/calls` 首轮固定版真实 session 抓到未知 Handler 的 `data.calls=null`，stop-and-fix 在共享 `response.Paged` 边界递归规范化嵌套 nil slice；修复后分页、筛选、aggregates、空列表和 Handler Logs 路径均通过。正式证据、独立复审、五通道日志和 `805→810` 账本记录仍以 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-029-handler-calls-final-green.md` 与 `EP-029-handler-calls-ledger-reaudit.md` 为准；以上 EP-030 状态为当前恢复真相。
+
+### 5.2 历史状态快照（EP-028，批次十六 10/50）
+
+EP-028 的完整红绿证据、五级裁决和批次状态保留如下：`DELETE /api/v1/handlers/{id}/config` 修复前真实 session `/private/tmp/anselm-rig-ep028-handler-config-20260806/sessions/20260806-143909` 抓到重复通知；修复 changed 保护后在 `/private/tmp/anselm-rig-ep028-handler-config-20260806/sessions/20260806-144550` 重跑，最终清 config、停 resident、清空后调用 422、未知 Handler 404、重复 DELETE 204/no-op。正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-028-handler-config-clear-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-028-handler-config-clear-ledger-reaudit.md`；账本 `800→805 judgments`，COVERAGE `EP-028=✓✓✓✓✓`，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 160 carried judgments / 0 tombstones`。批次十六由 `5→10/50`，下一原子当时为 EP-029。
+
+### 5.2 历史状态快照（EP-027，批次十六 5/50）
+
+**状态修订。** EP-027 `PUT /api/v1/handlers/{id}/config` 已完成 JSON Merge Patch、实例重启、敏感键保留、可选键删除/默认值回落和真实 Chat `update_handler_config` 产品路径。固定 session `/private/tmp/anselm-rig-ep027-handler-config-20260806/sessions/20260806-142114` 录屏 `583.983333s / 2784x1808`；backend `598` 行无应用红线，三流 durable `messages 1..66 / entities 7..8 / notifications 16..30` 单调，严格 Chat 只出现 update 工具；REST/SQLite/UI/secret scan 一致。正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-027-handler-config-update-final-green.md`，独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-027-handler-config-update-ledger-reaudit.md`；anchors `10/10` 后账本 **795→800 judgments**，COVERAGE `EP-027=✓✓✓✓✓`，alarms clean，gen coverage 为 `848 rows / 159 carried judgments / 0 tombstones`。早期 `...dball` 台架 URL 错误和探索性 Chat 越界调用均保留并排除，严格重跑通过；批次十六由 **0→5 / 50**，下一原子为 EP-028。
+
+### 5.2 历史状态快照（EP-026，批次十五 50/50）
 
 **当前前线（2026-08-06，EP-026 已完成，批次十五 50/50）。** `GET /api/v1/handlers/{id}/config` 已按真实配置、未配置、敏感值掩码和未知 Handler 四条边界完成验收。真实 session `/private/tmp/anselm-rig-ep026-handler-config-20260806/sessions/20260806-134441` 由 conductor 托管新 binary、真实 Flutter App、Computer Use、录屏、frontend console、backend journal、三路独立 SSE witness、LLM tap 与受管网关：已配置 Handler 返回 `200`、`configState=ready`、`api_key=********`、region/retries 原值；未配置 Handler 返回 `config=null`、`configState=unconfigured`、`missingConfig=[api_key]`；未知 ID 返回 `404 HANDLER_NOT_FOUND`。App 逐帧显示 configured 的 ready/masked schema 与 unconfigured 的 stopped/missing api_key 状态，无 secret 泄漏、裁切、重叠或视觉跳变。首个配置 PUT 探针因测试命令漏写显式 `-X PUT` 得到 `405`，确认是台架构造错误；补正后产品 PUT 为 `204`，不计产品红，也不降低门禁标准。
 

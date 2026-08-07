@@ -40,27 +40,31 @@ class OverviewCounts {
     required this.accessory,
   });
 
-  final int function;
-  final int handler;
-  final int agent;
-  final int workflow;
+  final int? function;
+  final int? handler;
+  final int? agent;
+  final int? workflow;
 
   /// trigger + control + approval combined — the three support kinds fold into one "Parts" tile. 配件合计。
-  final int accessory;
+  final int? accessory;
 }
 
 OverviewCounts overviewCounts(List<RailGroup> groups) {
-  int of(EntityKind k) =>
-      groups.where((g) => g.kind == k).fold(0, (a, g) => a + g.count);
+  int? of(EntityKind k) =>
+      groups.where((g) => g.kind == k).firstOrNull?.totalCount;
+  final accessoryCounts = [
+    of(EntityKind.trigger),
+    of(EntityKind.control),
+    of(EntityKind.approval),
+  ];
   return OverviewCounts(
     function: of(EntityKind.function),
     handler: of(EntityKind.handler),
     agent: of(EntityKind.agent),
     workflow: of(EntityKind.workflow),
-    accessory:
-        of(EntityKind.trigger) +
-        of(EntityKind.control) +
-        of(EntityKind.approval),
+    accessory: accessoryCounts.every((n) => n != null)
+        ? accessoryCounts.fold<int>(0, (sum, n) => sum + n!)
+        : null,
   );
 }
 

@@ -242,7 +242,7 @@ class _ClipTiles extends StatelessWidget {
     );
   }
 
-  Widget _tile(BuildContext context, IconData icon, String label, int count) {
+  Widget _tile(BuildContext context, IconData icon, String label, int? count) {
     final c = context.colors;
     return AnCard(
       child: Column(
@@ -264,7 +264,10 @@ class _ClipTiles extends StatelessWidget {
             ],
           ),
           const SizedBox(height: AnGap.stackTight),
-          AnCountUp(count, style: AnText.h2.copyWith(color: c.ink)),
+          if (count == null)
+            Text('—', style: AnText.h2.copyWith(color: c.inkFaint))
+          else
+            AnCountUp(count, style: AnText.h2.copyWith(color: c.ink)),
         ],
       ),
     );
