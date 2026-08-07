@@ -39,10 +39,11 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     // 留下信号,故重读,而不是展示一个已经和行悄悄分家的详情页。
     final resync = _repo.lifecycleResync().listen((_) => ref.invalidateSelf());
     ref.onDispose(resync.cancel);
-    // The entities (panel) stream is NOT subscribed here: the run terminal owns its own panel
-    // subscription, and the future build-mirror banner (create/edit streaming over the entity scope)
-    // will add one when it lands — a held no-op subscription was just a duplicate + wasted cost.
-    // panel 流不在此订阅:run 终端自管;未来 build 镜像横幅落地时再加——空持有订阅只是重复+浪费。
+    // The entities (panel) stream is NOT subscribed here: run terminal and the workflow Runs cockpit
+    // own their scoped subscriptions, and the future build-mirror banner (create/edit streaming over
+    // the entity scope) will add one when it lands — a held no-op subscription would be duplicate cost.
+    // panel 流不在此订阅:run 终端与 workflow Runs 驾驶舱各自管理 scope 订阅;未来 build 镜像横幅落地
+    // 时再加——空持有订阅会重复消耗。
     return _fetch();
   }
 

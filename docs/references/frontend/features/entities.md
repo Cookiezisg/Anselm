@@ -21,7 +21,8 @@ audience: [human, ai]
 | 左岛 rail | Function、Handler、Agent、Workflow 与 Control、Approval、Trigger 七类；过滤、排序、计数、分页与 lifecycle signal 更新；搜索无匹配时明确显示空结果提示，不把空白误作加载失败 |
 | 中心详情 | `/entities/:kind/:id`；同一阅读列承载头、概览、版本与日志/运行。Trigger 使用活动/派发观测面 |
 | 右岛调试台 | 对可执行实体提供 JSON-first 输入、示例、最近输入复用、实时执行流、停止与结果；是手工执行的唯一入口 |
-| Workflow 图 | 概览显示当前图和活态覆层；`/entities/workflow/:id/editor` 提供全屏图编辑、节点/边 inspector 与一次会话一版 |
+| Workflow 图 | 概览显示当前图、节点/边计数和活态覆层；`/entities/workflow/:id/editor` 提供全屏图编辑、节点/边 inspector 与一次会话一版 |
+| Workflow 治理 | 概览治理卡可直接选择五种并发策略（串行、运行时跳过、仅保留最新、替换当前、全部并行）；选择走 Workflow meta PATCH，不创建新版本 |
 | Workflow 运行 | 运行驾驶舱展示 run 列表、节点甘特、图覆层、ledger、approval、replay 与 kill；深链到 Scheduler run 卷宗 |
 | 审批收件箱 | 跨 run 汇总 parked approval，复用同一个 first-wins `:decide` 契约 |
 
@@ -30,9 +31,10 @@ audience: [human, ai]
 - `EntityRepository` 是唯一数据缝；`LiveEntityRepository` 接 HTTP/SSE，`FixtureEntityRepository` 驱动 demo 与测试。
 - 选中实体单向派生自 URL；切实体时整页以 last-known-good 换代，头、tab 与正文不会分别显示不同实体。
 - Function、Handler、Agent、Workflow 是版本化可执行实体；Control、Approval、Trigger 是支撑实体。Trigger 无版本，不能被硬塞进通用版本 tab。
+- rail 上的无参生命周期动作（Workflow 上线/下线、Trigger 暂停/恢复、Handler 重启）失败时保留服务端的可行动原因；Workflow `WORKFLOW_NOT_RUNNABLE` 还展示结构化问题的首条，不能把“图不可运行”压成没有下一步的泛化「操作失败」。非 API/传输异常仍使用通用兜底。
 - meta 修改不升版本；workflow 图 `:edit` 以一次编辑会话的一组 ops 生成一个新版本；`:revert` 只移动 active 指针。
 - 版本页执行 `:revert` 后，Handler 的详情与 resident 状态必须重读，Versions 页就地重算 active 标记；若右岛已有已落定的运行结果，版本指针改变后清掉这份瞬时结果但保留方法/来源选择与 Recent 审计，禁止把旧版本输出挂在新版本标题下。失败只显示具体错误，active 指针和既有结果不伪造改变。
-- Function/Handler/Workflow 的说明、标签和标题编辑都按异步 PATCH 的结果收口：请求未完成时不宣称已保存，失败保留可修正草稿、显示错误并重读后端真相；说明/标签失败必须说说明/标签，不得误称成名称失败；禁止把乐观本地标题当成已落盘实体名。Handler 的 PATCH 不升版本、不重启常驻实例。
+- Function/Handler/Workflow 的说明、标签和标题编辑都按异步 PATCH 的结果收口：请求未完成时不宣称已保存，失败保留可修正草稿、显示错误并重读后端真相；说明/标签失败必须说说明/标签，不得误称成名称失败；禁止把乐观本地标题当成已落盘实体名。Workflow 的并发策略也走同一条 meta PATCH，五种策略必须在界面上可发现并解释运行语义，且不升版本；Handler 的 PATCH 不升版本、不重启常驻实例。
 - 版本内容只读；前端不提供手写签名、代码或依赖的旁路。
 - flowrun 与节点行是运行真相。SSE tick 负责可见实时，终态仍以重取后的 durable 行裁决。
 - rail 的普通空名册保留完整结构；只有输入了搜索词且没有任何可见行时，才显示本地化的「无匹配」提示。
@@ -67,6 +69,12 @@ audience: [human, ai]
 表面落账的运行也会进入「最近」与速览计数。若右岛正在显示旧的落定结果，新的顶层 run
 block 会先切换成独立的 observed run，终态再从执行账本收口；不会把旧结果卡与新 trace 混在
 同一面板里，也不会从流式帧自行拼出历史或猜测总数。
+
+Workflow 详情的 Runs 驾驶舱也订阅本 workflow scope 的 `entities` 流：durable
+`run_started`/`run_terminal` 只作为重读当前可见 flowrun 窗口和选中 composite 的提示，行与节点
+仍由 REST 台账提供。`seq=0` 的节点 tick、trigger fire 和未知面板帧不改变历史；重读去抖 120ms，
+保留用户当前选中的 run/node，只有选中 run 自己的生命周期帧才重取它的完整节点。这样一个保持打开
+的 Runs 页会在真实 run 落账后自行从空态收敛，而不是要求用户离开再回来。
 
 Logs 档案面也订阅同一实体 scope：收到 durable `close` 后短去抖重取当前已加载窗口与聚合，
 不会把运行中的 delta 当成历史，也不会用缓存的旧计数盖住新落账。重取沿用最近可信快照，

@@ -297,35 +297,72 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-07 EP-046 完成,批次十七 50/50,统一门禁已通过)
+### 5.2 Day 0 当前状态(整体重述,2026-08-07 EP-056 五级收口,批次十八 50/50)
 
-**当前前线（2026-08-07，清册 EP-046 已完成，批次十七 50/50）。** `GET /api/v1/workflows` 已按完整产品目的完成验收：
-用户可以在真实 Entities 侧栏中查看全部 Workflow、通过前缀或精确名称缩小结果、得到诚实的零结果反馈，并滚动到列表末端而不丢失最后一项。
-列表总数、cursor 分页、搜索过滤、非法参数和数据库真相一致，没有把已加载行数冒充总数。
+**当前前线（2026-08-07，清册 EP-056 已完成，批次十八 50/50）。** `POST /api/v1/workflows/{id}:revert` 已按完整产品目的完成验收：用户在 Workflow 的 Versions 页面能看懂版本差异、明确选择历史版本并看到 active 指针切换；回退不删除版本历史、不制造新版本，非法版本号必须给出明确错误。
 
-真实 session `/private/tmp/anselm-rig-ep046-workflow-list-20260807/sessions/20260807-155947` 由 conductor 托管真实 Flutter App、
-Computer Use、窗口录制、frontend console、backend journal、三条独立 SSE witness、LLM tap 和受管网关。空查询显示 `Workflow 21`；
-`EP046` 前缀查询仍为 21；`EP046-Search-Target` 精确查询为 1；无结果查询显示 `No entities match your search.` 且计数为 0。
-侧栏实际滚动到末端后 `ep046-list-workflow-01` 可见，21 个 Workflow 全部可达，未出现裁切、布局溢出、重试卡或 stale row。
-Computer Use 中间曾把查询文本拼接成乱码，这是输入仪器选择失败，已排除出产品证据；稳定态和原始画面均按真实结果复核。
+最终真实 session `/private/tmp/anselm-rig-ep056-workflow-revert-20260807/sessions/20260807-214211` 由同一 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend console、backend journal、三条独立 SSE witness、LLM tap 和受管网关。真实 UI 从 v3 依次打开 More actions → Set active，先切到 v2、再切到 v1；每次 header、绿色 active marker 和版本历史立即一致，v3 的 diff 仍可读，未出现跳变、遮挡、截断或把历史版本从界面抹掉。最终录屏 `338.140000s / 2784x1808 / 60fps`，关键帧为 `EP-056-final-v2-active.jpg` 与 `EP-056-final-v1-active.jpg`。
 
-REST 分页用 `limit=5` 得到 5 页 `5+5+5+5+1`，首响应 `X-Anselm-Total-Count: 21`，无页间重叠且 21 名称唯一；
-前缀/精确/零结果搜索分别得到 21/1/0，`limit=0`、非数字 limit 和坏 cursor 均为结构化 400。SQLite 独立证明 21 条 live Workflow，
-完整顺序列表保存于 session evidence。SSE witness 三流均连接，notifications durable seq `16..36` 单调且唯一，21 条均为 distinct
-`workflow.created`。backend 无应用 WARN/ERROR/panic/FATAL；frontend 无 Flutter/Dart/RenderFlex/Unhandled/overflow 应用红线，
-65 条固定格式 AXTree 观察器噪声已按 `frontend-ax-review.md` 审阅，三秒静置不增长。LLM tap 记录真实 challenge/install/models 200；
-本确定性只读列表不需要 completion，不虚构模型调用。
+REST/SQLite/SSE 交叉一致：两次真实 UI revert 均返回 `200`；version `999` 与 `0` 均返回 `404 WORKFLOW_VERSION_NOT_FOUND`；最终 active version 为 `wfv_1da2f4946f7dee62`（v1），v1/v2/v3 三行版本历史完整保留，未产生 v4。notifications durable seq `16..20` 单调记录 workflow created/edited/reverted，三流连接和收台无 gap；LLM tap 记录真实 challenge/install/models readiness，不为确定性 revert 伪造模型 completion。
 
-正式证据为 `/private/tmp/anselm-rig-ep046-workflow-list-20260807/sessions/20260807-155947/evidence/EP-046-workflow-list-final-green.md`，
-账本警报复审为同目录 `EP-046-ledger-alarm-reaudit.md`；anchors `10/10` 后按 `G1/F2/A5/C4/G2` 写入 `COVERAGE.md` 为 `✓✓✓✓✓`，
-正式账本 **890→895 judgments**。五格写入触发的 `gap-too-fast`/`discovery-collapse` 已按完整录屏、负向分页/搜索证据、五通道原始 journal
-和 anchors 复审并 ack；阈值与算法未修改，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 178 carried / 0 tombstones`。
+五通道封口：backend journal `459` 行无 panic/FATAL/WARN/ERROR；frontend journal `76` 行仅有已审阅的固定 AXTree tooling pattern，没有 Dart/FlutterError/RenderFlex/overflow/Unhandled/lost-device 运行期红线；ssetap 的 `messages/entities/notifications` 三流均连接并正常 EOF；窗口录制可由 ffprobe 读取，`rig-check` 通过，`rig-down` 后 owned process groups 归零。正式绿证据为 `/private/tmp/anselm-rig-ep056-workflow-revert-20260807/sessions/20260807-214211/evidence/EP-056-workflow-revert-final-green.md`，ledger/alarm 独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-056-workflow-revert-ledger-alarm-reaudit.md`；正式账本 `965→970` 按 `G1/F2/A1/C4/G2` 写入五格绿，anchors `10/10`，`alarms.py check` clean(970)，`gen_coverage.py --check` 为 `848 rows / 188 carried / 0 tombstones`，阈值和算法未改。
 
-批次十七现已 **50/50**，并已完成统一收口：根目录 `make verify` 的 backend/frontend/docs/demo 全绿；
-`make -C backend testend` 与 `cd testend && mise exec -- go test -count=1 -timeout 20m ./...` 全绿；agent/workflow/loop
-后端专项和 EP-044 Flutter 三组回归全绿；`gofmt`、`git diff --check`、`gen_coverage.py --check`（848 rows / 178 carried /
-0 tombstones）、anchors `10/10`、`alarms.py check`（895 judgments）全绿；testend/台架进程组归零，工作树无未跟踪文件。
-本段及本批次改动现进入同一提交固化；下一原子前线为 `EP-047 GET /api/v1/workflows/{id}`，提交前不得推进。
+统一批次门禁已在 50/50 后一次完成：`make verify` 的 backend/frontend/docs/demo 全绿；backend `mise exec -- go test -count=1 -timeout 20m ./...` 全绿；本批修复涉及的前端定向回归 `79` 项与 `flutter analyze` 全绿；独立黑盒 `make -C backend testend` 全绿（`testend/scenarios 298.841s`）。证据与源码均通过 `git diff --check`、gofmt/仓库格式门禁，未放宽任何警报或裁决阈值。
+
+证据封存后按用户授权用独立无 App cleanup session `/private/tmp/anselm-rig-ep056-cleanup-20260807/sessions/20260807-220655` 删除专用 workflow/trigger：workflow 首次 DELETE `204`、幂等重试 `404`，trigger DELETE `204`，后续对象 GET 均 `404`；SQLite 保留 workflow 的 3 个版本，软删除主行、执行/节点历史保留，fixture relations 为 0，cleanup backend 无红线，收台后无残留进程。批次十八由 **45/50→50/50**，本批收口后下一原子前线为 EP-057 `POST /api/v1/workflows/{id}:capability-check`。
+
+### 5.2 历史状态快照（EP-055，批次十八 45/50）
+
+EP-055 `POST /api/v1/workflows/{id}:edit` 首轮暴露旧 viewport 未 fit 和全屏编辑器缺少错误 notice host 两个产品问题；stop-and-fix 后，pristine viewport 会在结构变更后 fit，用户主动变换的 viewport 保持，全屏 graph/editor 路由可见结构化 `WORKFLOW_INVALID_GRAPH`。最终真实 session `/private/tmp/anselm-rig-ep055-workflow-edit-20260807/sessions/20260807-212105` 完成合法保存与 invalid graph 反馈，REST/SQLite/SSE、前端运行期和清理证据均已封存；账本 `955→960` 红、`960→965` 绿，COVERAGE `EP-055=✓✓✓✓✓`，cleanup `/private/tmp/anselm-rig-ep055-cleanup-20260807/sessions/20260807-213318` 无残留。
+
+### 5.2 历史状态快照（EP-050，批次十八 20/50）
+
+**历史前线（2026-08-07，清册 EP-050 已完成，批次十八 20/50）。** `POST /api/v1/workflows/{id}:trigger` 已按完整产品目的完成验收：真实用户从 Scheduler workflow 详情页发现 `Run now`，点击后获得即时执行反馈，能在 Matrix、Runs 和旗舰详情继续追踪同一 run；手动执行不改变 workflow 的 `Inactive` 生命周期，也不伪装成触发器真实 fire。空 body 与带 payload 的手动执行都能收口，错误 payload 被明确拒绝且不会制造幽灵 run。
+
+正式 session `/private/tmp/anselm-rig-ep050-workflow-trigger-20260807/sessions/20260807-180921` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend console、backend journal、三条独立 SSE witness、LLM tap 和受管网关。真实 App 从 Scheduler Overview 进入 `ep050-manual-run`，页面可见 `Inactive`、`Run now`、最近 7 天统计、Matrix、Runs 与 Triggers；点击 `Run now` 后 toast 显示 `Run started · fr_e87daec34cb74b0a`，统计变为 `Success 100%`，出现绿色 `Manual · 18:12`。第二次合法 payload 执行后 UI 实时出现第二条绿色 `Manual · 18:15`，打开运行详情显示 `Done`、`Completed`、`0ms`、v1 pinned version、一个 completed trigger 节点；最终帧无截断、重叠、空白错误态或遮挡关键操作。
+
+后端/数据真相交叉一致：两次成功请求均为 `202`，flowrun 分别为 `fr_e87daec34cb74b0a` 与 `fr_58e12b1ffac09e2e`；两条 flowrun 均 `status=completed`、`origin=manual`、pin 到 `wfv_fa4de7baee6d78fe`。第二次 `start` trigger 节点结果在 REST 与 SQLite 均原样保留 `{"count":2,"message":"EP050 payload","nested":{"ok":true}}`。触发器仍显示 `never fired`，workflow 仍 inactive。错误请求 `{"payload":"not-an-object"}` 返回 `400 INVALID_REQUEST`，随后列表仍恰有两条 run。
+
+五通道已经封口：录屏 `427.206667s / 2784x1808 / 60fps`；backend `549` 行无应用 panic/WARN/ERROR；SSE `notifications/entities/messages` 三流均连接，entities durable seq `1..4` 严格记录两次 `run_started→run_terminal(completed)`，收台以 EOF 正常断开；frontend `17` 行没有 Dart、FlutterError、RenderFlex、overflow、Unhandled、lost-device 或运行期应用红线，唯一的启动阶段 Flutter runner `Failed to foreground app; open returned 1` 已在 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-frontend-runtime-review.md` 独立归因并保留；LLM tap 只有 readiness，因为本路径是确定性 trigger 节点，不虚构模型 completion。
+
+正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-workflow-trigger-final-green.md`，独立警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-ledger-alarm-reaudit.md`，最终 UI 帧为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-workflow-trigger-final-frame.png`；anchors 重新校验 `10/10` 后按 `G1/F2/A5/C4/G2` 写入 `COVERAGE.md` 为 `✓✓✓✓✓`，正式账本 **910→915 judgments**。五格写入触发的 `gap-too-fast`/`discovery-collapse` 已逐项复审并 ack，25 秒间隔阈值、5% discovery floor 与算法均未修改，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 182 carried / 0 tombstones`。
+
+EP-050 没有源代码修复；真实 session 在交互前 `rig-check` 通过，`rig-down` 后 Flutter/backend/ssetap/llmtap/recorder 进程组归零。批次十八当前 **20/50**；按既定规则未到 50 格不运行统一长门禁、不提交。下一原子前线为 `EP-051 POST /api/v1/workflows/{id}:stage`，本批累计到 50 格后再统一收台、跑完整门禁、审计并提交。
+
+### 5.2 历史状态快照（EP-048，批次十八 10/50）
+
+**当前前线（2026-08-07，清册 EP-048 已完成，批次十八 10/50）。** `PATCH /api/v1/workflows/{id}` 已按完整产品目的完成验收：
+真实用户从 Workflow 详情的 Run governance 卡直接编辑并发策略，不需要绕到 API；下拉内五种策略均有完整可读的运行语义，选择后通过既有 meta PATCH 收口，
+不创建新版本，失败路径仍由统一错误提示和后端重读负责。wire 值与人类文案明确分离：`buffer_one` 在界面显示为 `Keep latest`，而不是把机器枚举直接丢给用户。
+
+首轮真实 session `/private/tmp/anselm-rig-ep048-workflow-patch-20260807/sessions/20260807-171935` 冻结为红：详情治理卡只有静态 `Concurrency: serial`，
+AX 树没有按钮/下拉，用户只能用直接 PATCH 验证后端能力；红证据与录屏永久保留。第一修复 session
+`/private/tmp/anselm-rig-ep048-workflow-patch-fix-20260807/sessions/20260807-172937` 已能真实选择策略，但视觉复核发现菜单提示在实际宽度下被省略号截断，仍不计绿。
+stop-and-fix 将五条解释压缩到完整可读的短句，并同步中英文 i18n、生成字符串、fixture widget regression 与实体 feature 文档。
+
+最终 session `/private/tmp/anselm-rig-ep048-workflow-patch-fix-20260807/sessions/20260807-173308` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、
+frontend console、backend journal、三条独立 SSE witness、LLM tap 和受管网关。真实 App 从 `Entities → Workflow → ep048-workflow-patch` 进入详情，
+打开治理卡下拉后完整显示 `Serial / Queue each trigger`、`Skip while running / Drop while running`、`Keep latest / Keep newest pending`、
+`Replace current / Cancel current run`、`Run in parallel / Overlap runs`；选择 `Keep latest` 后详情稳定回显该策略，`v1`、图、生命周期、告警和右侧运行面板均无跳变、
+裁切、重叠或错误红面。
+
+真实后端记录 `PATCH /api/v1/workflows/wf_a51ce934d1b4c9e1` 为 `200`，随后详情 GET 为 `200`；SSE notifications 收到 durable `workflow.updated` 帧，
+seq 单调。SQLite 独立证明最终 wire 值为 `buffer_one`、`active_version_id=wfv_9520bac4b77eae9c` 且版本数仍为 `1`；并发策略改变没有版本 bump。
+未知实体负边界与初始直接 PATCH 探针均保留在 session evidence，不将后端能力误当作产品入口证据。
+
+五通道已经封口：最终录屏由 `rig-down` 封存，`backend.log`、`sse.jsonl`、`frontend.log`、`llm.jsonl` 与 manifest 齐全；启动时 `rig-check` 证明五通道物理归属，
+收台后 Flutter/backend/ssetap/llmtap/recorder 进程组全部归零。backend 无应用 `panic/FATAL/ERROR/WARN`，frontend 无 Dart/Flutter/RenderFlex/overflow/Unhandled 红线；
+启动器的已知 foreground 返回值已单独解释，不冒充 Flutter 错误。此项不触发模型调用，LLM tap 只记录 ready，不伪造 completion 证据。
+
+正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-048-workflow-patch-final-green.md`，红证据为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-048-red-no-concurrency-affordance.md`，独立警报复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-048-ledger-alarm-reaudit.md`；anchors 重新校验 `10/10` 后按 `G1/F2/A1/C4/G2` 写入 `COVERAGE.md` 为 `✓✓✓✓✓`，
+正式账本 **900→905 judgments**。五格写入触发的 `gap-too-fast`/`discovery-collapse` 已依红绿分离、完整录屏、五通道 journals、REST/SQLite 和 targeted regression 独立复审并 ack；
+25 秒间隔阈值、5% discovery floor 与算法均未修改，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 180 carried / 0 tombstones`。
+
+本格变更已通过 `make gen`、`mise exec -- flutter test test/features/entities/ui/detail/workflow_overview_test.dart`（11 tests）、目标文件 `flutter analyze`、
+`go test ./internal/app/workflow ./internal/transport/httpapi/handlers` 与 `git diff --check`。批次十八当前 **10/50**；按既定规则未到 50 格不运行统一长门禁、不提交。
+下一原子前线为 `EP-049 DELETE /api/v1/workflows/{id}`，本批累计到 50 格后再统一收台、跑完整门禁、审计并提交。
 
 ### 5.2 历史状态快照（EP-045，批次十七 45/50）
 

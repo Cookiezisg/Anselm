@@ -136,6 +136,8 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
   GraphLayout? _layout;
   Size _viewport = Size.zero;
   bool _fitted = false;
+  bool _writingTransform = false;
+  bool _userTransformed = false;
 
   // While a node/handle interaction owns the pointer, IV's pan switches OFF (panEnabled=false) so the
   // canvas doesn't slide under the drag; the drag itself runs on a raw Listener (arena-free) whose
@@ -197,7 +199,25 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
   }
 
   @override
+  void initState() {
+    super.initState();
+    _tc.addListener(_onTransformChanged);
+  }
+
+  void _onTransformChanged() {
+    if (!_writingTransform) _userTransformed = true;
+  }
+
+  void _setTransform(Matrix4 value, {required bool user}) {
+    if (user) _userTransformed = true;
+    _writingTransform = true;
+    _tc.value = value;
+    _writingTransform = false;
+  }
+
+  @override
   void dispose() {
+    _tc.removeListener(_onTransformChanged);
     _comet?.dispose();
     _pulse?.dispose();
     _dragScenePos.dispose();
@@ -211,14 +231,14 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
   @override
   void didUpdateWidget(AnGraphCanvas old) {
     super.didUpdateWidget(old);
-    // A real graph/dir change relayouts. In the READ/RUN planes it also re-fits (the demo's
-    // setGraph/setDir contract); in the EDIT plane it must NOT — every structural edit changes the
-    // graph, and re-fitting would yank the viewport the user is actively panning/zooming. freezed 深
-    // 比较:真换图/换向重布局;只读/运行面重 fit,编辑面绝不(每次结构编辑都改图,重 fit 会夺走用户
-    // 正在平移/缩放的视口)。
+    // A real graph/dir change relayouts. Read/run planes always re-fit. The edit plane re-fits only
+    // while the user has not touched the viewport; after a manual pan/zoom the user's view is sacred.
+    // This keeps a pristine editor usable after adding a node without yanking an intentional close-up.
+    // 真换图/换向重布局。只读/运行面恒 fit;编辑面仅在用户尚未碰过视口时 fit。用户手动平移/缩放后视口
+    // 神圣不可夺,但刚加节点的干净编辑器必须仍整图可用。
     if (old.graph != widget.graph || old.dir != widget.dir) {
       _layout = null;
-      if (!widget.editable) {
+      if (!widget.editable || !_userTransformed) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _fit();
         });
@@ -248,14 +268,17 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
     k = math.max(_fitMinScale, k);
     final x = (_viewport.width - content.width * k) / 2;
     final y = (_viewport.height - content.height * k) / 2;
-    _tc.value = Matrix4.identity()
-      ..translateByDouble(x, y, 0, 1)
-      ..scaleByDouble(
-        k,
-        k,
-        k,
-        1,
-      ); // z scaled too → IV's getMaxScaleOnAxis reads the true scale
+    _setTransform(
+      Matrix4.identity()
+        ..translateByDouble(x, y, 0, 1)
+        ..scaleByDouble(
+          k,
+          k,
+          k,
+          1,
+        ), // z scaled too → IV's getMaxScaleOnAxis reads the true scale
+      user: false,
+    );
   }
 
   /// Zoom by [factor] keeping the scene point under [anchor] (viewport coords) still:
@@ -274,7 +297,7 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
         1,
       ) // z in lockstep (see _scale) so IV's zoom clamp stays correct
       ..translateByDouble(-anchor.dx, -anchor.dy, 0, 1);
-    _tc.value = t.multiplied(_tc.value);
+    _setTransform(t.multiplied(_tc.value), user: true);
   }
 
   void _zoomBy(double factor) =>

@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/state/keyset_paging.dart';
+import '../../../../core/sse/frame.dart';
 import '../../data/entity_format.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
@@ -27,10 +30,21 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
   final EntityRef entityRef;
   late EntityRepository _repo;
   static const int _pageSize = 20;
+  StreamSubscription<StreamEnvelope>? _panelSub;
+  Timer? _refreshDebounce;
+  int _refreshGeneration = 0;
+  final Set<String> _pendingRunIds = {};
 
   @override
   Future<RunCockpitState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
+    _panelSub = _repo
+        .panelSignals(entityRef.kind.scope(entityRef.id))
+        .listen(_onPanel);
+    ref.onDispose(() {
+      _refreshDebounce?.cancel();
+      unawaited(_panelSub?.cancel());
+    });
     final page = await _repo.listFlowruns(
       workflowId: entityRef.id,
       limit: _pageSize,
@@ -47,6 +61,109 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       selectedRunId: firstId,
       selected: selected,
     );
+  }
+
+  /// Durable run lifecycle signals are only a prompt to re-read the ledger; the REST rows remain the
+  /// source of truth. Ephemeral ticks and other panel nodes must never reorder or invent history.
+  /// durable run 生命周期帧只是重读台账的提示;REST 行才是真相。ephemeral tick 与其它面板节点不得
+  /// 重排或凭空制造历史。
+  void _onPanel(StreamEnvelope env) {
+    if (!env.durable || env.frame is! FrameSignal) return;
+    final node = (env.frame as FrameSignal).node;
+    if (node.type != 'run_started' && node.type != 'run_terminal') return;
+    final id = node.content?['flowrunId'];
+    if (id is! String || id.isEmpty) return;
+    _pendingRunIds.add(id);
+    _scheduleRefresh();
+  }
+
+  void _scheduleRefresh() {
+    _refreshDebounce?.cancel();
+    _refreshDebounce = Timer(const Duration(milliseconds: 120), () {
+      if (!ref.mounted) return;
+      final changed = Set<String>.of(_pendingRunIds);
+      _pendingRunIds.clear();
+      unawaited(_refreshFromLedger(changed));
+    });
+  }
+
+  Future<void> _refreshFromLedger(Set<String> changedRunIds) async {
+    final cur = state.value;
+    if (cur == null) {
+      // A signal can arrive in the narrow initial-load window. Keep it for the next settled pass.
+      // 初始取数的窄窗口里可能先到帧;留给首载完成后的下一次对账。
+      _pendingRunIds.addAll(changedRunIds);
+      _scheduleRefresh();
+      return;
+    }
+    final generation = ++_refreshGeneration;
+    final limit = cur.runs.length > _pageSize ? cur.runs.length : _pageSize;
+    try {
+      final page = await _repo.listFlowruns(
+        workflowId: entityRef.id,
+        limit: limit,
+      );
+      if (!ref.mounted || generation != _refreshGeneration) return;
+      final latest = state.value;
+      if (latest == null) return;
+      if (latest.loadingMore) {
+        // The keyset cursor belongs to the user's load-more action. Reconcile after it appends.
+        // 翻页动作持有 keyset 游标;等追加完成后再对账,不覆盖用户已翻出的窗口。
+        _pendingRunIds.addAll(changedRunIds);
+        _scheduleRefresh();
+        return;
+      }
+
+      final firstId = page.items.isEmpty ? null : page.items.first.id;
+      var selectedId = latest.selectedRunId;
+      selectedId ??= firstId;
+      final selectionChanged = latest.selectedRunId != selectedId;
+      final selectedRow = selectedId == null
+          ? null
+          : page.items.where((row) => row.id == selectedId).firstOrNull;
+      final needsComposite =
+          selectedId != null &&
+          (selectionChanged ||
+              latest.selected == null ||
+              changedRunIds.contains(selectedId));
+      FlowrunComposite? retained;
+      if (!needsComposite && latest.selected != null) {
+        // Refresh the selected header from the list without throwing away its already loaded nodes.
+        // 列表头更新时保留已加载节点,只换掉选中 run 的轻量头。
+        retained = selectedRow == null
+            ? latest.selected
+            : latest.selected!.copyWith(flowrun: selectedRow);
+      }
+      state = AsyncData(
+        latest.copyWith(
+          runs: page.items,
+          nextCursor: page.nextCursor,
+          hasMore: page.hasMore,
+          selectedRunId: selectedId,
+          selected: retained,
+          loadingRun: needsComposite,
+          selectedNodeId: selectionChanged ? null : latest.selectedNodeId,
+        ),
+      );
+      if (!needsComposite) return;
+
+      try {
+        final comp = await _fetchFull(selectedId);
+        if (!ref.mounted || generation != _refreshGeneration) return;
+        final now = state.value;
+        if (now == null || now.selectedRunId != selectedId) return;
+        state = AsyncData(now.copyWith(selected: comp, loadingRun: false));
+      } catch (_) {
+        if (!ref.mounted || generation != _refreshGeneration) return;
+        final now = state.value;
+        if (now != null && now.selectedRunId == selectedId) {
+          state = AsyncData(now.copyWith(loadingRun: false));
+        }
+      }
+    } catch (_) {
+      // A transient re-read failure keeps the last-known-good cockpit; a later durable signal or an
+      // explicit tab retry can reconcile it. 瞬态重读失败保留最近可信驾驶舱,不闪成空态。
+    }
   }
 
   Future<FlowrunComposite> _fetchFull(String id) =>
@@ -104,6 +221,7 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
         !cur.loadingRun) {
       return;
     }
+    _refreshGeneration++;
     state = AsyncData(
       cur.copyWith(
         selectedRunId: id,

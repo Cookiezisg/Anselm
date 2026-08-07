@@ -191,12 +191,19 @@ Future<FlowrunComposite> fetchFlowrunFull(
 }) async {
   final first = await get(id, limit: 200);
   final nodes = [...first.nodes];
-  var cursor = first.nextCursor;
+  // The legacy composite endpoint serializes its terminal cursor as an empty string rather than
+  // omitting it. Treat both wire forms as end-of-history; otherwise a short run is fetched the
+  // maxPages times, adding latency and needless load while returning the same rows.
+  // 旧复合端点末页把游标写成空串而非省略;两种线缆形都代表历史结束,否则短 run 会被重复取满 maxPages 次。
+  String? endCursor(String? value) =>
+      value == null || value.isEmpty ? null : value;
+
+  var cursor = endCursor(first.nextCursor);
   var pages = 0;
   while (cursor != null && pages < maxPages) {
     final page = await get(id, cursor: cursor, limit: 200);
     nodes.addAll(page.nodes);
-    cursor = page.nextCursor;
+    cursor = endCursor(page.nextCursor);
     pages++;
   }
   return FlowrunComposite(

@@ -2,6 +2,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../core/design/tokens.dart';
 import '../core/router/navigation.dart';
 import '../features/entities/data/entity_kind.dart';
 import '../features/entities/ui/detail/workflow_editor_page.dart';
@@ -53,7 +54,7 @@ GoRouter buildAppRouter(Ref ref) {
         path: '/entities/graph',
         pageBuilder: (context, state) => const NoTransitionPage(
           key: ValueKey('anselm-entities-graph'),
-          child: EntitiesGraphPage(),
+          child: _FullPageNoticeLayer(child: EntitiesGraphPage()),
         ),
       ),
       GoRoute(
@@ -90,7 +91,9 @@ GoRouter buildAppRouter(Ref ref) {
         path: '/entities/workflow/:id/editor',
         pageBuilder: (context, state) => NoTransitionPage(
           key: const ValueKey('anselm-workflow-editor'),
-          child: WorkflowEditorPage(workflowId: state.pathParameters['id']!),
+          child: _FullPageNoticeLayer(
+            child: WorkflowEditorPage(workflowId: state.pathParameters['id']!),
+          ),
         ),
       ),
     ],
@@ -102,3 +105,27 @@ GoRouter buildAppRouter(Ref ref) {
 /// Both routes resolve to this ONE constant-key page so the shell never remounts. 两路由共用此常量页。
 Page<void> _shellPage(BuildContext context, GoRouterState state) =>
     const NoTransitionPage(key: ValueKey('anselm-shell'), child: AppShell());
+
+/// Full-screen routes do not mount [AppShell], so they need the same notice stage explicitly. The
+/// stage is title-band-sized but allows approval capsules to grow downward without clipping.
+/// 全屏路由不挂 [AppShell],故显式复用同一通知舞台。舞台占标题带高,审批块可向下长且不被裁掉。
+class _FullPageNoticeLayer extends StatelessWidget {
+  const _FullPageNoticeLayer({required this.child});
+
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) => Stack(
+    clipBehavior: Clip.none,
+    children: [
+      Positioned.fill(child: child),
+      Positioned(
+        top: 0,
+        left: 0,
+        right: 0,
+        height: AnSize.titlebar,
+        child: const BandNoticeHost(),
+      ),
+    ],
+  );
+}

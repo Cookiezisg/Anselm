@@ -1300,7 +1300,11 @@
       "iterateRequest": "帮我用 AI 修改「$name」。",
       "deleteTitle": "删除这个实体?",
       "deleteBody": "「$name」将从当前目录移除，此操作无法撤销。",
-      "actionFailed": "操作失败"
+      "actionFailed": "操作失败",
+      "actionFailedWithReason": "操作未完成：$reason",
+      "workflowNotRunnable": "这个工作流还不能上线，请先修复图结构。",
+      "workflowNotRunnableWithProblem": "这个工作流还不能上线：$problem",
+    "workflowMissingReference": "缺少：$ref"
     },
     "detail": {
       "crumbRoot": "实体",
@@ -1366,6 +1370,18 @@
         "lifecycle": "生命周期",
         "concurrency": "并发策略"
       },
+      "concurrency": {
+        "serial": "串行",
+        "serialHint": "逐个排队",
+        "skip": "运行时跳过",
+        "skipHint": "运行中丢弃",
+        "bufferOne": "仅保留最新",
+        "bufferOneHint": "仅保留最新待处理",
+        "replace": "替换当前",
+        "replaceHint": "取消当前运行",
+        "allowAll": "全部并行",
+        "allowAllHint": "允许运行重叠"
+      },
       "graph": {
         "nodes": "节点",
         "edges": "边",
@@ -1385,6 +1401,11 @@
         "nodeDetail": "节点 · $id",
         "replay": "重跑",
         "kill": "终止",
+        "killTitle": "终止这个 workflow",
+        "killWarning": "将取消 $n 个在途 run。",
+        "killBody": "停止监听、取消所有在途 run，并停用该 workflow；等待中的审批也会撤回。",
+        "killHint": "输入 $name 以确认",
+        "killConfirm": "终止 workflow",
         "runInfo": "运行信息",
         "iteration": "轮次 $n"
       },
@@ -1414,6 +1435,8 @@
         "flowrunId": "Flowrun id",
         "workflow": "工作流",
         "nodes": "节点",
+        "graph": "图",
+        "graphCounts": "节点 $nodes · 边 $edges",
         "lifecycle": "生命周期",
         "active": "在途",
         "lastAction": "最近操作",

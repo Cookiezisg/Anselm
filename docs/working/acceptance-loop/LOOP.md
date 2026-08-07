@@ -27,21 +27,49 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-07，清册 EP-046 完成，批次十七 50/50；统一长门禁已通过）
+## 当前前线（2026-08-07，清册 EP-056 五级收口，批次十八 50/50）
 
-**状态修订。** `GET /api/v1/workflows` 已完成真实 Entities 列表产品路径。真实 App 空查询显示 21 条 Workflow，`EP046` 前缀查询显示 21 条，
-`EP046-Search-Target` 精确查询显示 1 条，零结果显示 `No entities match your search.`；侧栏滚动到底后 21 个 Workflow（含最后的
-`ep046-list-workflow-01`）全部可达。REST cursor 分页为 `5+5+5+5+1`，总数 header=21，无重叠；精确/前缀/零结果为 1/21/0，非法
-limit/bad cursor 为结构化 400；SQLite live count=21。SSE 三流均连接，notifications durable seq `16..36` 连续唯一并对应 21 个
-`workflow.created`；backend 无应用红线，frontend 只有已审阅且静置不增长的固定 AXTree 观察器噪声，LLM tap 只有真实 provision 200，本确定性
-列表不虚构 completion。
+EP-056 `POST /api/v1/workflows/{id}:revert` 已完成五级验收。真实用户在 Workflow Versions 页面从 v3 依次选择 v2、v1 的 `Set active`，header、绿色 active marker 和历史 diff 均即时一致；版本历史不被删除、不产生 v4，非法 version `999`/`0` 均明确返回 `404 WORKFLOW_VERSION_NOT_FOUND`。
 
-最终 session 为 `/private/tmp/anselm-rig-ep046-workflow-list-20260807/sessions/20260807-155947`，录屏 `805.681667s / 2784x1808`，正式证据为
-`evidence/EP-046-workflow-list-final-green.md`，警报复审为 `evidence/EP-046-ledger-alarm-reaudit.md`。anchors `10/10` 后按 `G1/F2/A5/C4/G2`
-写账，COVERAGE `EP-046=✓✓✓✓✓`，账本 **890→895 judgments**；两条统计警报已按独立复审 ack，阈值算法未改，`alarms.py check` clean，
-`gen_coverage.py --check` 为 `848 rows / 178 carried / 0 tombstones`。
+最终 session `/private/tmp/anselm-rig-ep056-workflow-revert-20260807/sessions/20260807-214211` 由 conductor 托管真实 Flutter App、Computer Use、录屏、frontend console、backend、三路独立 SSE、LLM tap 和受管网关。录屏 `338.140000s / 2784x1808 / 60fps`，关键帧和五通道证据已封存；backend `459` 行、frontend `76` 行无未解释应用红线，notifications durable seq `16..20` 单调无 gap，收台后 owned process groups 归零。
 
-批次十七已 **50/50**。统一收口已完成：根目录 `make verify`、`make -C backend testend`、`cd testend && mise exec -- go test -count=1 -timeout 20m ./...`、agent/workflow/loop 后端专项、EP-044 Flutter 三组回归、`gofmt`、`git diff --check`、`gen_coverage.py --check`、anchors、`alarms.py check` 均通过；testend/台架进程组归零，工作树无未跟踪文件。当前进入同一提交固化，提交前不进入 EP-047。
+正式绿证据 `/private/tmp/anselm-rig-ep056-workflow-revert-20260807/sessions/20260807-214211/evidence/EP-056-workflow-revert-final-green.md`、ledger/alarm 独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-056-workflow-revert-ledger-alarm-reaudit.md` 已封存；账本 `965→970` 按 `G1/F2/A1/C4/G2` 五格，COVERAGE EP-056=`✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(970)，`gen_coverage.py --check` 为 `848 rows / 188 carried / 0 tombstones`。
+
+批次十八 50/50 后统一门禁一次完成：`make verify` 的 backend/frontend/docs/demo 全绿；完整 `go test -count=1 -timeout 20m ./...` 全绿；本批修复场景前端定向回归 `79` 项与 analyze 全绿；`make -C backend testend` 全绿（`testend/scenarios 298.841s`），未放宽阈值。按用户授权的无 App cleanup session `/private/tmp/anselm-rig-ep056-cleanup-20260807/sessions/20260807-220655` 已删除专用 workflow/trigger，版本 history 保留、relations=0、收台无残留。下一原子前线为 EP-057 `POST /api/v1/workflows/{id}:capability-check`。
+
+## 历史前线快照（EP-055，批次十八 45/50）
+
+EP-055 `POST /api/v1/workflows/{id}:edit` 首轮抓到旧 viewport 未 fit 和全屏编辑路由没有 notice host 两个产品缺陷；stop-and-fix 后 pristine viewport 会在结构变更后 fit，用户主动变换的 viewport 保持，结构化 `WORKFLOW_INVALID_GRAPH` 在顶层可见。最终真实 session、REST/SQLite/SSE、前端运行期、ledger/alarm 和 cleanup 证据均已封存；COVERAGE `EP-055=✓✓✓✓✓`，账本 `955→960` 红、`960→965` 绿，批次由 `40/50→45/50`。
+
+## 历史前线快照（EP-053，批次十八 35/50）
+
+EP-053 `POST /api/v1/workflows/{id}:deactivate` 已完成五级验收：真实用户从 Workflow 详情 Activate 后用真实 webhook 把流程停在 approval，在不离开 Runs 面板的情况下 Deactivate；App 明确呈现 `draining`，在途 parked run 不被杀掉，approval 决策完成后自动收口到 `inactive`。停用后的 webhook 返回 404，重复 Deactivate 为 200 且不重复 listener/run/history。首轮无产品缺陷；错误 capability 探针和错误 llmtap 端口 session 均被排除，不进入正式绿证据。
+
+最终 session `/private/tmp/anselm-rig-ep053-workflow-deactivate-20260807/sessions/20260807-200724` 由 conductor 托管真实 Flutter App、Computer Use、录屏、frontend console、backend、三路独立 SSE witness、LLM tap 和受管网关。真实画面 `inactive → active / Listening → webhook park → draining → approval yes → inactive`；录屏 `360.425000s / 2784x1808 / 60fps`，两张关键帧已封存。REST/SQLite 证明最终 workflow inactive、trigger 不监听，保留一条 completed webhook flowrun、两个 completed node、一个 firing、两类 v1 history；关系在清理后为 0。
+
+五通道封口：backend `476` 行无应用红线；frontend `114` 行，其中 96 条已逐条归类为固定 AXTree bridge tooling pattern，未知模式仍 fail-closed；SSE 记录 `active → draining → inactive` 与 `run_started(seq=1) → run_terminal(seq=2,completed)` 并正常 EOF；LLM 仅 readiness，不虚构 completion。正式账本 `940→945`，COVERAGE EP-053=`✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(945)，`gen_coverage.py --check` 为 `848 rows / 185 carried / 0 tombstones`。正式绿证据和 ledger/alarm 复审均已写入 `/private/tmp/anselm-rig-formal-20260801-3/evidence/`。
+
+按用户授权，独立无 App cleanup session `/private/tmp/anselm-rig-ep053-final-cleanup-20260807/sessions/20260807-201616` 已删除本格三件专用夹具：DELETE `204×3`、后续 GET `404×3`、flowruns `200`；软删除主行、flowrun/node/firing/version history 保留，关系边为 0，收台后无残留进程。批次十八由 **30/50→35/50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-054 `POST /api/v1/workflows/{id}:kill`。
+
+## 历史前线快照（EP-050，批次十八 20/50）
+
+**状态修订。** `POST /api/v1/workflows/{id}:trigger` 已在真实 App、Computer Use、受管网关和五通道台架下完成：用户从 Scheduler workflow 详情页发现 `Run now`，空 body 手动执行后得到 toast、绿色 run、Matrix 与详情入口；第二次带 payload 的真实请求在 UI 中汇聚为第二条绿色 Manual run。workflow 保持 inactive，trigger 仍 `never fired`，证明手动执行与监听触发没有混淆；错误 payload 返回 `400 INVALID_REQUEST` 且不创建 run。
+
+正式 session `/private/tmp/anselm-rig-ep050-workflow-trigger-20260807/sessions/20260807-180921` 录屏 `427.206667s / 2784x1808 / 60fps`，backend 549 行、frontend 17 行、LLM ready-only，三路 SSE 全连接并记录 entities durable seq `1..4`，收台无残留。REST/SQLite 交叉证明 `fr_e87daec34cb74b0a` 与 `fr_58e12b1ffac09e2e` 均 completed、manual、pinned v1；payload 在 trigger node result 中原样保留。前端唯一启动阶段 Flutter runner `open returned 1` 已单独记录，不作为运行期错误豁免；未知前端错误仍 fail-closed。
+
+正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-workflow-trigger-final-green.md`，前端运行期复核 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-frontend-runtime-review.md`，警报复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-050-ledger-alarm-reaudit.md`。anchors `10/10` 后按 `G1/F2/A5/C4/G2` 写入 `COVERAGE` 为 `✓✓✓✓✓`，正式账本 `910→915 judgments`；集中写账触发的两条统计警报已独立复审并 ack，阈值与算法未修改，`alarms.py check` clean，`gen_coverage.py --check` 为 `848 rows / 182 carried / 0 tombstones`。EP-050 没有源代码修复。批次十八当前 **20/50**，未到 50 格不运行统一长门禁、不提交；下一原子前线为 `EP-051 POST /api/v1/workflows/{id}:stage`。
+
+## 历史前线快照（EP-048，批次十八 10/50）
+
+**状态修订。** `PATCH /api/v1/workflows/{id}` 已在真实 App、Computer Use、受管网关和五通道台架下完成：首轮静态治理卡红证据、第一修复菜单文案截断红证据均保留；
+最终 binary 的治理卡下拉完整显示五种策略及短解释，真实选择 `Keep latest` 后 wire 值为 `buffer_one`，详情回读稳定，v1/active version 不变。
+REST PATCH/GET 均 200，SQLite 版本数为 1，notifications 收到 durable `workflow.updated`；最终 session
+`/private/tmp/anselm-rig-ep048-workflow-patch-fix-20260807/sessions/20260807-173308` 五通道齐全，录屏已封口，收台无残留，frontend/backend 无未解释应用级红线。
+正式账本 `900→905 judgments`，COVERAGE `EP-048=✓✓✓✓✓`，anchors `10/10`；两条统计警报经独立复审 ack 后 `alarms.py check clean`，
+`gen_coverage.py --check` 为 `848 rows / 180 carried / 0 tombstones`。
+
+批次十八当前 **10/50**。本格运行了 `make gen`、Workflow overview Flutter 11 项回归、目标 Flutter analyze、Workflow app/handler Go tests 与格式/差异检查；
+未到 50 格，不运行统一长门禁、不提交。下一原子前线为 `EP-049 DELETE /api/v1/workflows/{id}`。
 
 ## 历史前线快照（EP-045，批次十七 45/50；以下旧段为历史快照）
 

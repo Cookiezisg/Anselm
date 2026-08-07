@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_editable_value.dart';
+import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/core/ui/an_kv.dart';
 import 'package:anselm/core/ui/an_graph_canvas.dart';
 import 'package:anselm/core/ui/an_tags.dart';
@@ -96,6 +97,24 @@ void main() {
       );
     });
 
+    testWidgets('meta graph count uses complete localized units', (
+      tester,
+    ) async {
+      final originalLocale = LocaleSettings.currentLocale;
+      addTearDown(() => LocaleSettings.setLocaleSync(originalLocale));
+      await LocaleSettings.setLocale(AppLocale.en);
+      final repo = FixtureEntityRepository(workflows: [_wf()]);
+      await tester.pumpWidget(_host(WorkflowOverview(wf: _wf()), repo));
+      await tester.pump();
+      expect(find.text('Graph'), findsOneWidget);
+      expect(find.text('4 nodes · 4 edges'), findsOneWidget);
+
+      await LocaleSettings.setLocale(AppLocale.zhCn);
+      await tester.pump();
+      expect(find.text('图'), findsOneWidget);
+      expect(find.text('节点 4 · 边 4'), findsOneWidget);
+    });
+
     testWidgets(
       'meta: description pencil-edit PATCHes workflow meta (no version bump)',
       (tester) async {
@@ -125,6 +144,31 @@ void main() {
           (await repo.getWorkflow('wf_1')).activeVersion!.version,
           2,
         ); // no bump 不升版
+      },
+    );
+
+    testWidgets(
+      'governance: concurrency policy is discoverable and PATCHes without a version bump',
+      (tester) async {
+        final repo = FixtureEntityRepository(workflows: [_wf()]);
+        final before = (await repo.getWorkflow('wf_1')).activeVersion!.version;
+        await tester.pumpWidget(_host(WorkflowOverview(wf: _wf()), repo));
+        await tester.pump();
+
+        final dropdown = find.byType(AnDropdown<String>);
+        expect(dropdown, findsOneWidget);
+        await tester.ensureVisible(dropdown);
+        await tester.pumpAndSettle();
+        await tester.tap(dropdown);
+        await tester.pumpAndSettle();
+        expect(find.text('Keep latest'), findsOneWidget);
+        expect(find.text('Keep newest pending'), findsOneWidget);
+
+        await tester.tap(find.text('Keep latest'));
+        await tester.pumpAndSettle();
+        final next = await repo.getWorkflow('wf_1');
+        expect(next.concurrency, 'buffer_one');
+        expect(next.activeVersion!.version, before);
       },
     );
 

@@ -1,7 +1,9 @@
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_graph_canvas.dart';
+import 'package:anselm/core/ui/an_input.dart';
 import 'package:anselm/core/ui/an_run_board.dart';
+import 'package:anselm/core/ui/an_type_to_confirm.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
@@ -46,7 +48,7 @@ Flowrun _run(String id, String status) => Flowrun(
   versionId: 'wf_1_v1',
   status: status,
   startedAt: _t,
-  completedAt: _t,
+  completedAt: status == 'running' || status == 'parked' ? null : _t,
   updatedAt: _t,
 );
 
@@ -99,6 +101,36 @@ Widget _host(FixtureEntityRepository repo) => routedHost(
   repository: repo,
 );
 
+FixtureEntityRepository _liveRepo() => FixtureEntityRepository(
+  runDelay: Duration.zero,
+  workflows: [
+    WorkflowEntity(
+      id: 'wf_1',
+      name: 'pipe',
+      createdAt: _t,
+      updatedAt: _t,
+      activeVersionId: 'wf_1_v1',
+      activeVersion: WorkflowVersion(
+        id: 'wf_1_v1',
+        workflowId: 'wf_1',
+        version: 1,
+        graph: _graph,
+        createdAt: _t,
+        updatedAt: _t,
+      ),
+    ),
+  ],
+  flowruns: {
+    'wf_1': [_run('flr_live', 'running')],
+  },
+  flowrunDetail: {
+    'flr_live': FlowrunComposite(
+      flowrun: _run('flr_live', 'running'),
+      nodes: [_node('flr_live', 'c0', 'completed')],
+    ),
+  },
+);
+
 void main() {
   final d = t.entities.detail;
 
@@ -126,6 +158,40 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50));
     expect((await repo.getFlowrun('flr_fail')).flowrun.status, 'completed');
+  });
+
+  testWidgets('live run kill requires the workflow name before executing', (
+    tester,
+  ) async {
+    final repo = _liveRepo();
+    await tester.pumpWidget(_host(repo));
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.byType(AnTypeToConfirm), findsNothing);
+    await tester.tap(find.widgetWithText(AnButton, d.cockpit.kill));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 400));
+    expect(find.byType(AnTypeToConfirm), findsOneWidget);
+    expect(find.text(d.cockpit.killWarning(n: '1')), findsOneWidget);
+
+    final input = find.descendant(
+      of: find.byType(AnTypeToConfirm),
+      matching: find.byType(AnInput),
+    );
+    await tester.enterText(input, 'wrong');
+    await tester.pump();
+    await tester.ensureVisible(find.text(d.cockpit.killConfirm));
+    await tester.tap(find.text(d.cockpit.killConfirm));
+    await tester.pump();
+    expect((await repo.getFlowrun('flr_live')).flowrun.status, 'running');
+
+    await tester.enterText(input, 'pipe');
+    await tester.pump();
+    await tester.ensureVisible(find.text(d.cockpit.killConfirm));
+    await tester.tap(find.text(d.cockpit.killConfirm));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 80));
+    expect((await repo.getFlowrun('flr_live')).flowrun.status, 'cancelled');
   });
 
   testWidgets('pick a node → the debug card appears with its error', (

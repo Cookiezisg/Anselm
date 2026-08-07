@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
@@ -290,8 +291,8 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     try {
       await _repo.restartHandler(id);
       ref.invalidate(entityListProvider(EntityKind.handler));
-    } catch (_) {
-      _noticeFail();
+    } catch (error) {
+      _noticeFail(error);
     }
   }
 
@@ -303,8 +304,8 @@ class _EntityRailState extends ConsumerState<EntityRail> {
         await _repo.activateWorkflow(row.id);
       }
       ref.invalidate(entityListProvider(EntityKind.workflow));
-    } catch (_) {
-      _noticeFail();
+    } catch (error) {
+      _noticeFail(error);
     }
   }
 
@@ -321,8 +322,8 @@ class _EntityRailState extends ConsumerState<EntityRail> {
       // going stale. 不同于重启/上线/下线(还另有 durable 生命周期信号兜底,这里的 invalidate 是双保险);
       // :pause/:resume 只发 ephemeral 面板信号——这行 invalidate 是行标签不卡旧态的唯一保障。
       ref.invalidate(entityListProvider(EntityKind.trigger));
-    } catch (_) {
-      _noticeFail();
+    } catch (error) {
+      _noticeFail(error);
     }
   }
 
@@ -340,8 +341,8 @@ class _EntityRailState extends ConsumerState<EntityRail> {
       // scheduler_run.dart/scheduler_run_inspector.dart's own `context.go('/chat/$id')`. 跨 feature 走字面
       // 路径(features 互不依赖),镜像 scheduler 侧既有先例。
       context.go('/chat/$convId');
-    } catch (_) {
-      _noticeFail();
+    } catch (error) {
+      _noticeFail(error);
     }
   }
 
@@ -368,15 +369,54 @@ class _EntityRailState extends ConsumerState<EntityRail> {
       if (ref.read(selectedEntityProvider) == EntityRef(kind, row.id)) {
         context.go('/');
       }
-    } catch (_) {
-      _noticeFail();
+    } catch (error) {
+      _noticeFail(error);
     }
   }
 
-  void _noticeFail() {
+  void _noticeFail(Object error) {
     if (!mounted) return;
     ref
         .read(noticeCenterProvider.notifier)
-        .show(context.t.entities.rail.actionFailed, tone: AnTone.danger);
+        .show(_actionFailureCopy(context.t, error), tone: AnTone.danger);
   }
+}
+
+String _actionFailureCopy(Translations t, Object error) {
+  if (error is! ApiException) return t.entities.rail.actionFailed;
+
+  if (error.code == 'WORKFLOW_NOT_RUNNABLE') {
+    final problem = _firstWorkflowProblem(error.details);
+    return problem == null
+        ? t.entities.rail.workflowNotRunnable
+        : _workflowProblemCopy(t, problem);
+  }
+
+  final reason = error.message.trim();
+  return reason.isEmpty
+      ? t.entities.rail.actionFailed
+      : t.entities.rail.actionFailedWithReason(reason: reason);
+}
+
+String _workflowProblemCopy(Translations t, String problem) {
+  final ref = _missingReference(problem);
+  return ref == null
+      ? t.entities.rail.workflowNotRunnableWithProblem(problem: problem)
+      : t.entities.rail.workflowMissingReference(ref: ref);
+}
+
+String? _missingReference(String problem) {
+  final match = RegExp(r'ref "([^"]+)" not found').firstMatch(problem);
+  return match?.group(1);
+}
+
+String? _firstWorkflowProblem(Object? details) {
+  if (details is! Map) return null;
+  final problems = details['problems'];
+  if (problems is! List) return null;
+  for (final value in problems) {
+    final problem = '$value'.trim();
+    if (problem.isNotEmpty) return problem;
+  }
+  return null;
 }

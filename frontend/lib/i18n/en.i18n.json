@@ -1300,7 +1300,11 @@
       "iterateRequest": "Help me edit “$name” with AI.",
       "deleteTitle": "Delete this entity?",
       "deleteBody": "“$name” will be removed from the active catalog. This can't be undone.",
-      "actionFailed": "Action failed"
+      "actionFailed": "Action failed",
+      "actionFailedWithReason": "Action failed: $reason",
+      "workflowNotRunnable": "This workflow isn't ready to go live. Fix its graph first.",
+      "workflowNotRunnableWithProblem": "This workflow can't go live: $problem",
+    "workflowMissingReference": "Missing: $ref"
     },
     "detail": {
       "crumbRoot": "Entities",
@@ -1366,6 +1370,18 @@
         "lifecycle": "Lifecycle",
         "concurrency": "Concurrency"
       },
+      "concurrency": {
+        "serial": "Serial",
+        "serialHint": "Queue each trigger",
+        "skip": "Skip while running",
+        "skipHint": "Drop while running",
+        "bufferOne": "Keep latest",
+        "bufferOneHint": "Keep newest pending",
+        "replace": "Replace current",
+        "replaceHint": "Cancel current run",
+        "allowAll": "Run in parallel",
+        "allowAllHint": "Overlap runs"
+      },
       "graph": {
         "nodes": "Node",
         "edges": "Edge",
@@ -1385,6 +1401,11 @@
         "nodeDetail": "Node · $id",
         "replay": "Replay",
         "kill": "Kill",
+        "killTitle": "Kill this workflow",
+        "killWarning": "$n in-flight runs will be cancelled.",
+        "killBody": "Stops listening, cancels every in-flight run and deactivates the workflow. Parked approvals will be withdrawn.",
+        "killHint": "Type $name to confirm",
+        "killConfirm": "Kill workflow",
         "runInfo": "Run info",
         "iteration": "Iteration $n"
       },
@@ -1414,6 +1435,8 @@
         "flowrunId": "Flowrun id",
         "workflow": "Workflow",
         "nodes": "Nodes",
+        "graph": "Graph",
+        "graphCounts": "$nodes nodes · $edges edges",
         "lifecycle": "Lifecycle",
         "active": "Engaged",
         "lastAction": "Last action by",

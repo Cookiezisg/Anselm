@@ -1,7 +1,9 @@
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
+import '../../../../core/design/typography.dart';
 import '../../../../core/graph/flowrun_timeline.dart';
 import '../../../../core/contract/entities/workflow.dart';
 import '../../../../core/graph/graph_run_state.dart';
@@ -16,6 +18,8 @@ import '../../../../core/ui/an_run_board.dart';
 import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_skeleton.dart';
 import '../../../../core/ui/an_state.dart';
+import '../../../../core/ui/an_expand_reveal.dart';
+import '../../../../core/ui/an_type_to_confirm.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../core/run/approval_gate.dart';
 import '../../../../i18n/strings.g.dart';
@@ -122,7 +126,15 @@ class RunCockpitTab extends ConsumerWidget {
             if (st.selectedRun case final run?)
               AnSection(
                 variant: AnSectionVariant.plain,
-                children: [_runInfo(context, ref, st, run)],
+                children: [
+                  _runInfo(
+                    context,
+                    ref,
+                    st,
+                    run,
+                    workflowName: detail?.workflow?.name ?? run.workflowId,
+                  ),
+                ],
               ),
             // The run graph, lit by the selected run's derived overlay. 选中 run 派生覆层点亮的运行图。
             if (graph != null && st.selectedRunId != null)
@@ -154,13 +166,17 @@ class RunCockpitTab extends ConsumerWidget {
     BuildContext context,
     WidgetRef ref,
     RunCockpitState st,
-    Flowrun run,
-  ) {
+    Flowrun run, {
+    required String workflowName,
+  }) {
     final d = context.t.entities.detail;
     final kv = d.kv;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
     final failed = run.status == 'failed';
     final live = run.status == 'running' || run.status == 'parked';
+    final runningCount = st.runs
+        .where((r) => r.status == 'running' || r.status == 'parked')
+        .length;
     final elapsed = (run.completedAt != null && run.startedAt != null)
         ? fmtDuration(run.completedAt!.difference(run.startedAt!))
         : '—';
@@ -180,23 +196,29 @@ class RunCockpitTab extends ConsumerWidget {
           ], dense: true),
           if (failed || live) ...[
             const SizedBox(height: AnSpace.s8),
-            AnActionGroup([
-              if (failed)
+            if (failed)
+              AnActionGroup([
                 AnButton(
                   label: d.cockpit.replay,
                   icon: AnIcons.byKey('history'),
                   size: AnButtonSize.sm,
                   onPressed: st.busy ? null : notifier.replaySelected,
                 ),
-              if (live)
-                AnButton(
-                  label: d.cockpit.kill,
-                  icon: AnIcons.byKey('stop'),
-                  variant: AnButtonVariant.danger,
-                  size: AnButtonSize.sm,
-                  onPressed: st.busy ? null : notifier.kill,
+              ]),
+            if (live)
+              _KillWorkflowAction(
+                workflowName: workflowName,
+                label: d.cockpit.kill,
+                title: d.cockpit.killTitle,
+                warning: d.cockpit.killWarning(
+                  n: st.hasMore ? '$runningCount+' : '$runningCount',
                 ),
-            ]),
+                body: d.cockpit.killBody,
+                inputHint: d.cockpit.killHint(name: workflowName),
+                confirmLabel: d.cockpit.killConfirm,
+                busy: st.busy,
+                onConfirm: notifier.kill,
+              ),
           ],
         ],
       ),
@@ -260,6 +282,76 @@ class RunCockpitTab extends ConsumerWidget {
           ],
         ],
       ),
+    );
+  }
+}
+
+/// The cockpit's destructive action uses the same distributed danger-zone gate as Scheduler: the
+/// button only reveals the impact, and the workflow name is required before :kill can execute.
+/// 驾驶舱危险动作与 Scheduler 共用分布式危险区:先揭示影响面,再输入 workflow 名才可执行。
+class _KillWorkflowAction extends StatefulWidget {
+  const _KillWorkflowAction({
+    required this.workflowName,
+    required this.label,
+    required this.title,
+    required this.warning,
+    required this.body,
+    required this.inputHint,
+    required this.confirmLabel,
+    required this.busy,
+    required this.onConfirm,
+  });
+
+  final String workflowName;
+  final String label;
+  final String title;
+  final String warning;
+  final String body;
+  final String inputHint;
+  final String confirmLabel;
+  final bool busy;
+  final VoidCallback onConfirm;
+
+  @override
+  State<_KillWorkflowAction> createState() => _KillWorkflowActionState();
+}
+
+class _KillWorkflowActionState extends State<_KillWorkflowAction> {
+  bool _open = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnButton(
+          label: widget.label,
+          icon: AnIcons.byKey('stop'),
+          variant: AnButtonVariant.danger,
+          size: AnButtonSize.sm,
+          onPressed: widget.busy ? null : () => setState(() => _open = !_open),
+        ),
+        AnExpandReveal(
+          open: _open,
+          child: Padding(
+            padding: const EdgeInsets.only(top: AnGap.block),
+            child: AnTypeToConfirm(
+              title: widget.title,
+              warning: widget.warning,
+              body: Text(
+                widget.body,
+                style: AnText.label.copyWith(color: c.inkMuted),
+              ),
+              expected: widget.workflowName,
+              inputHint: widget.inputHint,
+              confirmLabel: widget.confirmLabel,
+              busy: widget.busy,
+              onConfirm: widget.onConfirm,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

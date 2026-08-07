@@ -1,7 +1,10 @@
 import 'dart:async';
 
 import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/contract/page.dart';
+import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
+import 'package:anselm/features/entities/data/entity_format.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/state/detail/run_cockpit_provider.dart';
@@ -199,6 +202,41 @@ class _ManyRunsRepo extends FixtureEntityRepository {
       );
 }
 
+/// A tiny server-state switch used to prove the open cockpit follows durable workflow signals rather
+/// than waiting for the user to leave and re-enter the tab. 模拟服务端行在 durable 帧后落地。
+class _RealtimeRepo extends FixtureEntityRepository {
+  _RealtimeRepo() : super(runDelay: Duration.zero, workflows: [_wf()]);
+
+  bool exposeRun = false;
+  bool terminal = false;
+
+  Flowrun get currentRun => _flr('flr_new', terminal ? 'completed' : 'running');
+
+  @override
+  Future<Page<Flowrun>> listFlowruns({
+    required String workflowId,
+    String? status,
+    String? cursor,
+    int? limit,
+  }) async => Page(items: exposeRun ? [currentRun] : const [], hasMore: false);
+
+  @override
+  Future<FlowrunComposite> getFlowrun(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _detail(id, terminal ? 'completed' : 'running');
+}
+
+StreamEnvelope _runSignal(String type, int seq) => StreamEnvelope(
+  seq: seq,
+  scope: EntityKind.workflow.scope('wf_1'),
+  id: 'sig_$type',
+  frame: FrameSignal(
+    node: StreamNode(type: type, content: const {'flowrunId': 'flr_new'}),
+  ),
+);
+
 void main() {
   test(
     'build: loads the run list, selects the newest, fetches its full composite',
@@ -387,4 +425,79 @@ void main() {
     expect(st.selectedRunId, isNull);
     expect(st.selected, isNull);
   });
+
+  test(
+    'durable run_started refreshes an open empty cockpit and selects the new run',
+    () async {
+      final repo = _RealtimeRepo();
+      final (c, _) = _harness(repo);
+      var st = await c.read(runCockpitProvider(_ref).future);
+      expect(st.runs, isEmpty);
+
+      repo.exposeRun = true;
+      repo.emitPanel(
+        EntityKind.workflow.scope('wf_1'),
+        _runSignal('run_started', 1),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await pumpEventQueue();
+
+      st = c.read(runCockpitProvider(_ref)).value!;
+      expect(st.runs.map((r) => r.id), ['flr_new']);
+      expect(st.selectedRunId, 'flr_new');
+      expect(st.selected?.flowrun.id, 'flr_new');
+      expect(st.selected?.flowrun.status, 'running');
+    },
+  );
+
+  test(
+    'ephemeral terminal is ignored; durable terminal reconciles the selected run',
+    () async {
+      final repo = _RealtimeRepo()..exposeRun = true;
+      final (c, _) = _harness(repo);
+      await c.read(runCockpitProvider(_ref).future);
+      var st = c.read(runCockpitProvider(_ref)).value!;
+      expect(st.selected?.flowrun.status, 'running');
+
+      repo.terminal = true;
+      repo.emitPanel(
+        EntityKind.workflow.scope('wf_1'),
+        _runSignal('run_terminal', 0),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await pumpEventQueue();
+      st = c.read(runCockpitProvider(_ref)).value!;
+      expect(st.selected?.flowrun.status, 'running');
+
+      repo.emitPanel(
+        EntityKind.workflow.scope('wf_1'),
+        _runSignal('run_terminal', 2),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+      await pumpEventQueue();
+      st = c.read(runCockpitProvider(_ref)).value!;
+      expect(st.selected?.flowrun.status, 'completed');
+      expect(st.selectedRun?.status, 'completed');
+    },
+  );
+
+  test(
+    'full flowrun fetch treats an empty terminal cursor as end-of-history',
+    () async {
+      var calls = 0;
+      final run = _flr('flr_cursor', 'completed');
+      final node = _node('flr_cursor', 'c0', 'completed');
+      final result = await fetchFlowrunFull((
+        String id, {
+        String? cursor,
+        int? limit,
+      }) async {
+        calls++;
+        return FlowrunComposite(flowrun: run, nodes: [node], nextCursor: '');
+      }, 'flr_cursor');
+
+      expect(calls, 1);
+      expect(result.nodes, [node]);
+    },
+  );
 }

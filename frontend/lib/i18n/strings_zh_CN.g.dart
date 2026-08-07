@@ -1821,6 +1821,10 @@ class _Translations$entities$rail$zh_CN extends Translations$entities$rail$en {
 	@override String get deleteTitle => '删除这个实体?';
 	@override String deleteBody({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。';
 	@override String get actionFailed => '操作失败';
+	@override String actionFailedWithReason({required Object reason}) => '操作未完成：${reason}';
+	@override String get workflowNotRunnable => '这个工作流还不能上线，请先修复图结构。';
+	@override String workflowNotRunnableWithProblem({required Object problem}) => '这个工作流还不能上线：${problem}';
+	@override String workflowMissingReference({required Object ref}) => '缺少：${ref}';
 }
 
 // Path: entities.detail
@@ -1838,6 +1842,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$codeToggle$zh_CN codeToggle = _Translations$entities$detail$codeToggle$zh_CN._(_root);
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
 	@override late final _Translations$entities$detail$card$zh_CN card = _Translations$entities$detail$card$zh_CN._(_root);
+	@override late final _Translations$entities$detail$concurrency$zh_CN concurrency = _Translations$entities$detail$concurrency$zh_CN._(_root);
 	@override late final _Translations$entities$detail$graph$zh_CN graph = _Translations$entities$detail$graph$zh_CN._(_root);
 	@override late final _Translations$entities$detail$cockpit$zh_CN cockpit = _Translations$entities$detail$cockpit$zh_CN._(_root);
 	@override late final _Translations$entities$detail$kv$zh_CN kv = _Translations$entities$detail$kv$zh_CN._(_root);
@@ -2721,6 +2726,25 @@ class _Translations$entities$detail$card$zh_CN extends Translations$entities$det
 	@override String get concurrency => '并发策略';
 }
 
+// Path: entities.detail.concurrency
+class _Translations$entities$detail$concurrency$zh_CN extends Translations$entities$detail$concurrency$en {
+	_Translations$entities$detail$concurrency$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get serial => '串行';
+	@override String get serialHint => '逐个排队';
+	@override String get skip => '运行时跳过';
+	@override String get skipHint => '运行中丢弃';
+	@override String get bufferOne => '仅保留最新';
+	@override String get bufferOneHint => '仅保留最新待处理';
+	@override String get replace => '替换当前';
+	@override String get replaceHint => '取消当前运行';
+	@override String get allowAll => '全部并行';
+	@override String get allowAllHint => '允许运行重叠';
+}
+
 // Path: entities.detail.graph
 class _Translations$entities$detail$graph$zh_CN extends Translations$entities$detail$graph$en {
 	_Translations$entities$detail$graph$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -2753,6 +2777,11 @@ class _Translations$entities$detail$cockpit$zh_CN extends Translations$entities$
 	@override String nodeDetail({required Object id}) => '节点 · ${id}';
 	@override String get replay => '重跑';
 	@override String get kill => '终止';
+	@override String get killTitle => '终止这个 workflow';
+	@override String killWarning({required Object n}) => '将取消 ${n} 个在途 run。';
+	@override String get killBody => '停止监听、取消所有在途 run，并停用该 workflow；等待中的审批也会撤回。';
+	@override String killHint({required Object name}) => '输入 ${name} 以确认';
+	@override String get killConfirm => '终止 workflow';
 	@override String get runInfo => '运行信息';
 	@override String iteration({required Object n}) => '轮次 ${n}';
 }
@@ -2789,6 +2818,8 @@ class _Translations$entities$detail$kv$zh_CN extends Translations$entities$detai
 	@override String get flowrunId => 'Flowrun id';
 	@override String get workflow => '工作流';
 	@override String get nodes => '节点';
+	@override String get graph => '图';
+	@override String graphCounts({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}';
 	@override String get lifecycle => '生命周期';
 	@override String get active => '在途';
 	@override String get lastAction => '最近操作';
@@ -4248,6 +4279,10 @@ extension on TranslationsZhCn {
 			'entities.rail.deleteTitle' => '删除这个实体?',
 			'entities.rail.deleteBody' => ({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。',
 			'entities.rail.actionFailed' => '操作失败',
+			'entities.rail.actionFailedWithReason' => ({required Object reason}) => '操作未完成：${reason}',
+			'entities.rail.workflowNotRunnable' => '这个工作流还不能上线，请先修复图结构。',
+			'entities.rail.workflowNotRunnableWithProblem' => ({required Object problem}) => '这个工作流还不能上线：${problem}',
+			'entities.rail.workflowMissingReference' => ({required Object ref}) => '缺少：${ref}',
 			'entities.detail.crumbRoot' => '实体',
 			'entities.detail.tab.overview' => '概览',
 			'entities.detail.tab.versions' => '版本',
@@ -4297,6 +4332,16 @@ extension on TranslationsZhCn {
 			'entities.detail.card.model' => '模型覆盖',
 			'entities.detail.card.lifecycle' => '生命周期',
 			'entities.detail.card.concurrency' => '并发策略',
+			'entities.detail.concurrency.serial' => '串行',
+			'entities.detail.concurrency.serialHint' => '逐个排队',
+			'entities.detail.concurrency.skip' => '运行时跳过',
+			'entities.detail.concurrency.skipHint' => '运行中丢弃',
+			'entities.detail.concurrency.bufferOne' => '仅保留最新',
+			'entities.detail.concurrency.bufferOneHint' => '仅保留最新待处理',
+			'entities.detail.concurrency.replace' => '替换当前',
+			'entities.detail.concurrency.replaceHint' => '取消当前运行',
+			'entities.detail.concurrency.allowAll' => '全部并行',
+			'entities.detail.concurrency.allowAllHint' => '允许运行重叠',
 			'entities.detail.graph.nodes' => '节点',
 			'entities.detail.graph.edges' => '边',
 			'entities.detail.graph.path' => '路径',
@@ -4313,6 +4358,11 @@ extension on TranslationsZhCn {
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => '节点 · ${id}',
 			'entities.detail.cockpit.replay' => '重跑',
 			'entities.detail.cockpit.kill' => '终止',
+			'entities.detail.cockpit.killTitle' => '终止这个 workflow',
+			'entities.detail.cockpit.killWarning' => ({required Object n}) => '将取消 ${n} 个在途 run。',
+			'entities.detail.cockpit.killBody' => '停止监听、取消所有在途 run，并停用该 workflow；等待中的审批也会撤回。',
+			'entities.detail.cockpit.killHint' => ({required Object name}) => '输入 ${name} 以确认',
+			'entities.detail.cockpit.killConfirm' => '终止 workflow',
 			'entities.detail.cockpit.runInfo' => '运行信息',
 			'entities.detail.cockpit.iteration' => ({required Object n}) => '轮次 ${n}',
 			'entities.detail.kv.name' => '名称',
@@ -4340,6 +4390,8 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
 			'entities.detail.kv.workflow' => '工作流',
 			'entities.detail.kv.nodes' => '节点',
+			'entities.detail.kv.graph' => '图',
+			'entities.detail.kv.graphCounts' => ({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}',
 			'entities.detail.kv.lifecycle' => '生命周期',
 			'entities.detail.kv.active' => '在途',
 			'entities.detail.kv.lastAction' => '最近操作',
@@ -4541,6 +4593,8 @@ extension on TranslationsZhCn {
 			'library.documents' => '文档',
 			'library.skills' => '技能',
 			'library.untitled' => '未命名',
+			_ => null,
+		} ?? switch (path) {
 			'library.editorHint' => '输入正文,按 / 唤起命令',
 			'library.addDescription' => '添加简介…',
 			'library.addTag' => '添加标签',
@@ -4562,8 +4616,6 @@ extension on TranslationsZhCn {
 			'library.saveFailedGone' => '无法保存——此页面已被删除',
 			'library.props.title' => '属性',
 			'library.props.name' => '名称',
-			_ => null,
-		} ?? switch (path) {
 			'library.props.description' => '描述',
 			'library.props.tags' => '标签',
 			'library.props.addTag' => '添加标签',
@@ -5055,6 +5107,8 @@ extension on TranslationsZhCn {
 			'settings.sandbox.deleteEnvTitle' => '删除环境',
 			'settings.sandbox.deleteEnvBody' => '将删除此环境。',
 			'settings.sandbox.ownerFunction' => '函数',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.ownerHandler' => '处理器',
 			'settings.sandbox.ownerMcp' => 'MCP',
 			'settings.sandbox.ownerSkill' => '技能',
@@ -5076,8 +5130,6 @@ extension on TranslationsZhCn {
 			'settings.shortcuts.resetAll' => '全部恢复默认',
 			'settings.shortcuts.reset' => '恢复默认',
 			'settings.shortcuts.rebind' => '改绑',
-			_ => null,
-		} ?? switch (path) {
 			'settings.shortcuts.recording' => '按下新组合键…',
 			'settings.shortcuts.conflict' => ({required Object cmd}) => '与「${cmd}」冲突',
 			'settings.shortcuts.cmdToggleLeft' => '折叠/展开左岛',

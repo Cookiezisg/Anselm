@@ -7,6 +7,7 @@ import '../../../../../core/contract/api_error.dart';
 import '../../../../../core/contract/entities/workflow.dart';
 import '../../../../../core/model/status_state.dart';
 import '../../../../../core/notice/notice_center.dart';
+import '../../../../../core/ui/an_dropdown.dart';
 import '../../../../../core/ui/an_kv.dart';
 import '../../../../../core/graph/graph_run_state.dart';
 import '../../../../../core/ui/an_graph_canvas.dart';
@@ -140,8 +141,11 @@ class WorkflowOverview extends ConsumerWidget {
               (d.kv.currentVersion, 'v${v.version}'),
               if (g != null)
                 (
-                  d.kv.nodes,
-                  '${g.nodes.length} · ${d.graph.edges} ${g.edges.length}',
+                  d.kv.graph,
+                  d.kv.graphCounts(
+                    nodes: g.nodes.length,
+                    edges: g.edges.length,
+                  ),
                 ),
             ], meta: true),
           ],
@@ -163,7 +167,42 @@ class WorkflowOverview extends ConsumerWidget {
             AnInfoCard(
               title: d.card.concurrency,
               icon: AnIcons.byKey('workflow'),
-              child: kvList([(d.kv.concurrency, wf.concurrency)]),
+              child: AnDropdown<String>(
+                block: true,
+                value: wf.concurrency,
+                options: [
+                  AnDropdownOption(
+                    value: 'serial',
+                    label: d.concurrency.serial,
+                    meta: d.concurrency.serialHint,
+                  ),
+                  AnDropdownOption(
+                    value: 'skip',
+                    label: d.concurrency.skip,
+                    meta: d.concurrency.skipHint,
+                  ),
+                  AnDropdownOption(
+                    value: 'buffer_one',
+                    label: d.concurrency.bufferOne,
+                    meta: d.concurrency.bufferOneHint,
+                  ),
+                  AnDropdownOption(
+                    value: 'replace',
+                    label: d.concurrency.replace,
+                    meta: d.concurrency.replaceHint,
+                  ),
+                  AnDropdownOption(
+                    value: 'allow_all',
+                    label: d.concurrency.allowAll,
+                    meta: d.concurrency.allowAllHint,
+                  ),
+                ],
+                onChanged: (policy) {
+                  if (policy != wf.concurrency) {
+                    _patchMeta(context, ref, {'concurrency': policy});
+                  }
+                },
+              ),
             ),
           ],
         ),

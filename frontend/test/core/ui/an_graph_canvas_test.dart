@@ -288,6 +288,70 @@ void main() {
     });
 
     testWidgets(
+      'a pristine editable viewport re-fits after a structural graph change',
+      (tester) async {
+        final small = Graph(
+          nodes: [n('a', NodeKind.trigger), n('b', NodeKind.action)],
+          edges: [e('e1', 'a', 'b')],
+        );
+        final long = Graph(
+          nodes: [
+            n('c0', NodeKind.trigger),
+            for (var i = 1; i < 8; i++) n('c$i', NodeKind.action),
+          ],
+          edges: [for (var i = 1; i < 8; i++) e('e$i', 'c${i - 1}', 'c$i')],
+        );
+        await tester.pumpWidget(
+          host(AnGraphCanvas(graph: small, editable: true)),
+        );
+        await tester.pump();
+        final smallK = scaleOf(tester);
+        await tester.pumpWidget(
+          host(AnGraphCanvas(graph: long, editable: true)),
+        );
+        await tester.pump();
+        expect(scaleOf(tester), lessThan(smallK));
+        expect(
+          tester
+              .getRect(find.byType(AnGraphCanvas))
+              .contains(tester.getCenter(find.text('c7'))),
+          isTrue,
+        );
+      },
+    );
+
+    testWidgets(
+      'a manually transformed editable viewport is not re-fitted by a graph change',
+      (tester) async {
+        Graph graph(String ref) => Graph(
+          nodes: [
+            n('a', NodeKind.trigger),
+            n('b', NodeKind.action, ref: ref),
+          ],
+          edges: [e('e1', 'a', 'b')],
+        );
+        await tester.pumpWidget(
+          host(AnGraphCanvas(graph: graph('fn_b'), editable: true)),
+        );
+        await tester.pump();
+        final rect = tester.getRect(find.byType(AnGraphCanvas));
+        await tester.dragFrom(
+          rect.bottomRight - const Offset(12, 12),
+          const Offset(-40, -25),
+        );
+        await tester.pump();
+        final panned = viewOf(tester).getTranslation();
+        await tester.pumpWidget(
+          host(AnGraphCanvas(graph: graph('fn_b_v2'), editable: true)),
+        );
+        await tester.pump();
+        final after = viewOf(tester).getTranslation();
+        expect(after.x, moreOrLessEquals(panned.x, epsilon: 1e-6));
+        expect(after.y, moreOrLessEquals(panned.y, epsilon: 1e-6));
+      },
+    );
+
+    testWidgets(
       'equal-value graph rebuild keeps the user viewport (freezed ==, not identical)',
       (tester) async {
         Graph makeGraph() => Graph(

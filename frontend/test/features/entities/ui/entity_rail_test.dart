@@ -7,7 +7,9 @@ import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/page.dart';
+import 'package:anselm/core/notice/notice_center.dart';
 import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/ui/an_dialog.dart';
@@ -209,6 +211,17 @@ class _SpyRepo extends FixtureEntityRepository {
   }) {
     iterateRequestSeen = request;
     return super.iterateEntity(kind, id, request: request);
+  }
+}
+
+class _FailingActivateRepo extends FixtureEntityRepository {
+  _FailingActivateRepo(this.failure, {super.workflows});
+
+  final Object failure;
+
+  @override
+  Future<WorkflowEntity> activateWorkflow(String id) async {
+    throw failure;
   }
 }
 
@@ -523,6 +536,39 @@ void main() {
 
     expect(find.text(rm.deactivate), findsOneWidget);
     expect(find.text(rm.activate), findsNothing); // 二选一,不并列
+  });
+
+  testWidgets('workflow activation failure keeps the actionable graph problem', (
+    tester,
+  ) async {
+    const failure = ApiException(
+      code: 'WORKFLOW_NOT_RUNNABLE',
+      message:
+          'workflow graph is not runnable; fix the listed problems before arming or activating',
+      httpStatus: 422,
+      details: {
+        'problems': ['node "start": ref "trg_missing" not found'],
+      },
+    );
+    await tester.pumpWidget(
+      _host(
+        _FailingActivateRepo(
+          failure,
+          workflows: [_wf('wf_1', 'broken', lifecycleState: 'inactive')],
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 50));
+    await _openRowMenu(tester, 'broken');
+    await tester.tap(find.text(rm.activate));
+    await tester.pump();
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(EntityRail)),
+    );
+    final notice = container.read(noticeCenterProvider).current;
+    expect(notice?.message.text, contains('trg_missing'));
+    expect(notice?.message.text, isNot(t.entities.rail.actionFailed));
   });
 
   testWidgets('control row menu: only Open · Edit with AI · Delete', (

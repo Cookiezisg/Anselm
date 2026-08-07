@@ -4550,6 +4550,18 @@ class Translations$entities$rail$en {
 
 	/// en: 'Action failed'
 	String get actionFailed => 'Action failed';
+
+	/// en: 'Action failed: $reason'
+	String actionFailedWithReason({required Object reason}) => 'Action failed: ${reason}';
+
+	/// en: 'This workflow isn't ready to go live. Fix its graph first.'
+	String get workflowNotRunnable => 'This workflow isn\'t ready to go live. Fix its graph first.';
+
+	/// en: 'This workflow can't go live: $problem'
+	String workflowNotRunnableWithProblem({required Object problem}) => 'This workflow can\'t go live: ${problem}';
+
+	/// en: 'Missing: $ref'
+	String workflowMissingReference({required Object ref}) => 'Missing: ${ref}';
 }
 
 // Path: entities.detail
@@ -4570,6 +4582,7 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$codeToggle$en codeToggle = Translations$entities$detail$codeToggle$en.internal(_root);
 	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
 	late final Translations$entities$detail$card$en card = Translations$entities$detail$card$en.internal(_root);
+	late final Translations$entities$detail$concurrency$en concurrency = Translations$entities$detail$concurrency$en.internal(_root);
 	late final Translations$entities$detail$graph$en graph = Translations$entities$detail$graph$en.internal(_root);
 	late final Translations$entities$detail$cockpit$en cockpit = Translations$entities$detail$cockpit$en.internal(_root);
 	late final Translations$entities$detail$kv$en kv = Translations$entities$detail$kv$en.internal(_root);
@@ -6584,6 +6597,45 @@ class Translations$entities$detail$card$en {
 	String get concurrency => 'Concurrency';
 }
 
+// Path: entities.detail.concurrency
+class Translations$entities$detail$concurrency$en {
+	Translations$entities$detail$concurrency$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Serial'
+	String get serial => 'Serial';
+
+	/// en: 'Queue each trigger'
+	String get serialHint => 'Queue each trigger';
+
+	/// en: 'Skip while running'
+	String get skip => 'Skip while running';
+
+	/// en: 'Drop while running'
+	String get skipHint => 'Drop while running';
+
+	/// en: 'Keep latest'
+	String get bufferOne => 'Keep latest';
+
+	/// en: 'Keep newest pending'
+	String get bufferOneHint => 'Keep newest pending';
+
+	/// en: 'Replace current'
+	String get replace => 'Replace current';
+
+	/// en: 'Cancel current run'
+	String get replaceHint => 'Cancel current run';
+
+	/// en: 'Run in parallel'
+	String get allowAll => 'Run in parallel';
+
+	/// en: 'Overlap runs'
+	String get allowAllHint => 'Overlap runs';
+}
+
 // Path: entities.detail.graph
 class Translations$entities$detail$graph$en {
 	Translations$entities$detail$graph$en.internal(this._root);
@@ -6648,6 +6700,21 @@ class Translations$entities$detail$cockpit$en {
 
 	/// en: 'Kill'
 	String get kill => 'Kill';
+
+	/// en: 'Kill this workflow'
+	String get killTitle => 'Kill this workflow';
+
+	/// en: '$n in-flight runs will be cancelled.'
+	String killWarning({required Object n}) => '${n} in-flight runs will be cancelled.';
+
+	/// en: 'Stops listening, cancels every in-flight run and deactivates the workflow. Parked approvals will be withdrawn.'
+	String get killBody => 'Stops listening, cancels every in-flight run and deactivates the workflow. Parked approvals will be withdrawn.';
+
+	/// en: 'Type $name to confirm'
+	String killHint({required Object name}) => 'Type ${name} to confirm';
+
+	/// en: 'Kill workflow'
+	String get killConfirm => 'Kill workflow';
 
 	/// en: 'Run info'
 	String get runInfo => 'Run info';
@@ -6738,6 +6805,12 @@ class Translations$entities$detail$kv$en {
 
 	/// en: 'Nodes'
 	String get nodes => 'Nodes';
+
+	/// en: 'Graph'
+	String get graph => 'Graph';
+
+	/// en: '$nodes nodes · $edges edges'
+	String graphCounts({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges';
 
 	/// en: 'Lifecycle'
 	String get lifecycle => 'Lifecycle';
@@ -8481,6 +8554,10 @@ extension on Translations {
 			'entities.rail.deleteTitle' => 'Delete this entity?',
 			'entities.rail.deleteBody' => ({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.',
 			'entities.rail.actionFailed' => 'Action failed',
+			'entities.rail.actionFailedWithReason' => ({required Object reason}) => 'Action failed: ${reason}',
+			'entities.rail.workflowNotRunnable' => 'This workflow isn\'t ready to go live. Fix its graph first.',
+			'entities.rail.workflowNotRunnableWithProblem' => ({required Object problem}) => 'This workflow can\'t go live: ${problem}',
+			'entities.rail.workflowMissingReference' => ({required Object ref}) => 'Missing: ${ref}',
 			'entities.detail.crumbRoot' => 'Entities',
 			'entities.detail.tab.overview' => 'Overview',
 			'entities.detail.tab.versions' => 'Versions',
@@ -8530,6 +8607,16 @@ extension on Translations {
 			'entities.detail.card.model' => 'Model override',
 			'entities.detail.card.lifecycle' => 'Lifecycle',
 			'entities.detail.card.concurrency' => 'Concurrency',
+			'entities.detail.concurrency.serial' => 'Serial',
+			'entities.detail.concurrency.serialHint' => 'Queue each trigger',
+			'entities.detail.concurrency.skip' => 'Skip while running',
+			'entities.detail.concurrency.skipHint' => 'Drop while running',
+			'entities.detail.concurrency.bufferOne' => 'Keep latest',
+			'entities.detail.concurrency.bufferOneHint' => 'Keep newest pending',
+			'entities.detail.concurrency.replace' => 'Replace current',
+			'entities.detail.concurrency.replaceHint' => 'Cancel current run',
+			'entities.detail.concurrency.allowAll' => 'Run in parallel',
+			'entities.detail.concurrency.allowAllHint' => 'Overlap runs',
 			'entities.detail.graph.nodes' => 'Node',
 			'entities.detail.graph.edges' => 'Edge',
 			'entities.detail.graph.path' => 'Path',
@@ -8546,6 +8633,11 @@ extension on Translations {
 			'entities.detail.cockpit.nodeDetail' => ({required Object id}) => 'Node · ${id}',
 			'entities.detail.cockpit.replay' => 'Replay',
 			'entities.detail.cockpit.kill' => 'Kill',
+			'entities.detail.cockpit.killTitle' => 'Kill this workflow',
+			'entities.detail.cockpit.killWarning' => ({required Object n}) => '${n} in-flight runs will be cancelled.',
+			'entities.detail.cockpit.killBody' => 'Stops listening, cancels every in-flight run and deactivates the workflow. Parked approvals will be withdrawn.',
+			'entities.detail.cockpit.killHint' => ({required Object name}) => 'Type ${name} to confirm',
+			'entities.detail.cockpit.killConfirm' => 'Kill workflow',
 			'entities.detail.cockpit.runInfo' => 'Run info',
 			'entities.detail.cockpit.iteration' => ({required Object n}) => 'Iteration ${n}',
 			'entities.detail.kv.name' => 'Name',
@@ -8573,6 +8665,8 @@ extension on Translations {
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
 			'entities.detail.kv.workflow' => 'Workflow',
 			'entities.detail.kv.nodes' => 'Nodes',
+			'entities.detail.kv.graph' => 'Graph',
+			'entities.detail.kv.graphCounts' => ({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges',
 			'entities.detail.kv.lifecycle' => 'Lifecycle',
 			'entities.detail.kv.active' => 'Engaged',
 			'entities.detail.kv.lastAction' => 'Last action by',
@@ -8774,6 +8868,8 @@ extension on Translations {
 			'library.documents' => 'Documents',
 			'library.skills' => 'Skills',
 			'library.untitled' => 'Untitled',
+			_ => null,
+		} ?? switch (path) {
 			'library.editorHint' => 'Start writing, or press / for commands',
 			'library.addDescription' => 'Add a description…',
 			'library.addTag' => 'Add a tag',
@@ -8795,8 +8891,6 @@ extension on Translations {
 			'library.saveFailedGone' => 'Can\'t save — this page was deleted',
 			'library.props.title' => 'Properties',
 			'library.props.name' => 'Name',
-			_ => null,
-		} ?? switch (path) {
 			'library.props.description' => 'Description',
 			'library.props.tags' => 'Tags',
 			'library.props.addTag' => 'Add a tag',
@@ -9288,6 +9382,8 @@ extension on Translations {
 			'settings.sandbox.deleteEnvTitle' => 'Delete environment',
 			'settings.sandbox.deleteEnvBody' => 'Deletes this environment.',
 			'settings.sandbox.ownerFunction' => 'Functions',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.ownerHandler' => 'Handlers',
 			'settings.sandbox.ownerMcp' => 'MCP',
 			'settings.sandbox.ownerSkill' => 'Skills',
@@ -9309,8 +9405,6 @@ extension on Translations {
 			'settings.shortcuts.resetAll' => 'Reset all to defaults',
 			'settings.shortcuts.reset' => 'Reset',
 			'settings.shortcuts.rebind' => 'Rebind',
-			_ => null,
-		} ?? switch (path) {
 			'settings.shortcuts.recording' => 'Press a new chord…',
 			'settings.shortcuts.conflict' => ({required Object cmd}) => 'Conflicts with “${cmd}”',
 			'settings.shortcuts.cmdToggleLeft' => 'Collapse / expand the left island',

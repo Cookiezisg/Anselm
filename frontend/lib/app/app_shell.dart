@@ -381,7 +381,7 @@ class _AppShellState extends ConsumerState<AppShell> {
     return _SessionServices(
       child: AnShell(
         sidebar: sidebar,
-        bandNotice: const _BandNoticeHost(),
+        bandNotice: const BandNoticeHost(),
         // The center ocean is a LAZY IndexedStack (C-009): a visited ocean stays MOUNTED behind the fold,
         // so switching away and back is instant AND keeps its scroll offset / expansion state (the ternary
         // it replaced tore the tree down on every switch, losing all of it — Riverpod keepAlive preserved
@@ -715,14 +715,14 @@ class _SessionServicesState extends ConsumerState<_SessionServices> {
 /// can never nudge the card left. The stage itself stays full-width for correct hit-testing while its
 /// transparent area falls through. 顶带全宽舞台:当前卡独立居中作 paint target,候场尾跟随其右缘但不参与
 /// 布局,故 1/2/+N 永不把卡往左挤;舞台全宽保证尾巴命中,透明处继续穿透。
-class _BandNoticeHost extends ConsumerStatefulWidget {
-  const _BandNoticeHost();
+class BandNoticeHost extends ConsumerStatefulWidget {
+  const BandNoticeHost({super.key});
 
   @override
-  ConsumerState<_BandNoticeHost> createState() => _BandNoticeHostState();
+  ConsumerState<BandNoticeHost> createState() => _BandNoticeHostState();
 }
 
-class _BandNoticeHostState extends ConsumerState<_BandNoticeHost> {
+class _BandNoticeHostState extends ConsumerState<BandNoticeHost> {
   final LayerLink _currentLink = LayerLink();
   final ValueNotifier<bool> _tailEngaged = ValueNotifier<bool>(false);
 
