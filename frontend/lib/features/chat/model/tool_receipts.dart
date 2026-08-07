@@ -23,6 +23,18 @@ enum ToolReceiptTone { none, warn, danger }
 /// 解析结果:后缀文本(调用方已本地化)+ 声调。
 typedef ToolReceipt = ({String text, ToolReceiptTone tone});
 
+/// Replace the stable backend validation wrapper with a localized, actionable sentence. The raw
+/// result remains in the durable block and LLM wire; only the human-facing projection is softened
+/// so internal field names and framework phrasing never become the product's error copy (E1).
+/// 把后端稳定的校验包装替换为本地化、可行动的人话。原始结果仍保留在 durable block 与 LLM 线缆，
+/// 只有面向人的投影变柔和，内部字段名和框架措辞不进入产品错误文案(E1)。
+String toolErrorForDisplay(Translations t, String raw) {
+  if (raw.trimLeft().startsWith('input validation failed:')) {
+    return t.chat.tool.inputValidationError;
+  }
+  return raw;
+}
+
 /// Bash (verified backend/…/shell/bash.go): the foreground result ALWAYS ends `[exit code: N]`,
 /// optionally preceded by a bracketed NOTE (`[command timed out after 2m0s]` / `[cancelled]` /
 /// `[exec failed: …]` / `[blocked: … (refused; rephrase if intentional)]`). A background spawn instead

@@ -1599,7 +1599,7 @@ final Map<String, ToolCardSpec> _catalog = {
     verb: (t, {required bool live}) =>
         live ? t.chat.tool.checkingCapability : t.chat.tool.checkedCapability,
     target: (s) {
-      final id = s.arg('workflowId');
+      final id = s.arg('workflowId') ?? s.arg('workflowName');
       return id == null ? null : (truncate(id, AnTrunc.id));
     },
     receipt: (t, s) => capabilityReceipt(t, s.resultText),

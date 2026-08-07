@@ -5,12 +5,14 @@ import (
 	"database/sql"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"strings"
 	"testing"
 
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
+	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 	workflowstore "github.com/sunweilin/anselm/backend/internal/infra/store/workflow"
@@ -85,6 +87,40 @@ func TestCreate_WritesV1Active(t *testing.T) {
 	}
 	if len(got.ActiveVersion.GraphParsed.Nodes) != 2 {
 		t.Fatalf("graph not round-tripped: %+v", got.ActiveVersion.GraphParsed)
+	}
+}
+
+func TestMentionResolverSnapshotsActiveGraph(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	w, v, err := svc.Create(ctx, CreateInput{
+		Name:         "mention-pipe",
+		Description:  "订单处理流程",
+		Ops:          linearOps(t),
+		ChangeReason: "mention contract",
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	ref, err := svc.AsMentionResolver().Resolve(ctx, w.ID)
+	if err != nil {
+		t.Fatalf("Resolve: %v", err)
+	}
+	if ref.Type != mentiondomain.MentionWorkflow || ref.ID != w.ID || ref.Name != w.Name {
+		t.Fatalf("reference identity = %+v", ref)
+	}
+	for _, want := range []string{
+		"订单处理流程",
+		fmt.Sprintf("version %d", v.Version),
+		fmt.Sprintf("versionId %s", v.ID),
+		`"id": "t"`,
+		`"kind": "trigger"`,
+		`"ref": "trg_a"`,
+		`"from": "t"`,
+		`"to": "a"`,
+	} {
+		if !strings.Contains(ref.Content, want) {
+			t.Errorf("workflow mention content missing %q: %s", want, ref.Content)
+		}
 	}
 }
 
@@ -198,6 +234,30 @@ func TestEdit_NewVersionPointerMoves(t *testing.T) {
 	}
 	if _, err := svc.GetVersionByNumber(ctx, w.ID, 1); err != nil {
 		t.Fatalf("v1 should be retained: %v", err)
+	}
+}
+
+func TestGetVersionForWorkflowScopesOpaqueIDAndDecodesGraph(t *testing.T) {
+	svc, ctx := newSvc(t, nil)
+	a, v1, err := svc.Create(ctx, CreateInput{Name: "version-a", Ops: opsJSON(t, `[
+		{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_a"}}
+	]`)})
+	if err != nil {
+		t.Fatalf("create A: %v", err)
+	}
+	b, _, err := svc.Create(ctx, CreateInput{Name: "version-b", Ops: opsJSON(t, `[
+		{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_b"}}
+	]`)})
+	if err != nil {
+		t.Fatalf("create B: %v", err)
+	}
+
+	got, err := svc.GetVersionForWorkflow(ctx, a.ID, v1.ID)
+	if err != nil || got.GraphParsed == nil || got.WorkflowID != a.ID {
+		t.Fatalf("same-parent read must decode graph: got=%+v err=%v", got, err)
+	}
+	if _, err := svc.GetVersionForWorkflow(ctx, b.ID, v1.ID); !errors.Is(err, workflowdomain.ErrVersionNotFound) {
+		t.Fatalf("cross-parent opaque read must be hidden, got %v", err)
 	}
 }
 

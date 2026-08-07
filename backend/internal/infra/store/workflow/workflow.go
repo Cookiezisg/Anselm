@@ -271,6 +271,22 @@ func (s *Store) GetVersion(ctx context.Context, versionID string) (*workflowdoma
 	return v, nil
 }
 
+// GetVersionForWorkflow reads an opaque version id only inside its parent workflow. The route
+// supplies both ids, so a globally unique wfv_ id must not bypass the workflow boundary.
+//
+// GetVersionForWorkflow 只在父 workflow 内读取 opaque version id。路由同时提供两个 id，故即使
+// wfv_ id 全局唯一，也不能绕过 workflow 边界读取另一实体的版本。
+func (s *Store) GetVersionForWorkflow(ctx context.Context, workflowID, versionID string) (*workflowdomain.Version, error) {
+	v, err := s.vers.WhereEq("workflow_id", workflowID).WhereEq("id", versionID).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, workflowdomain.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("workflowstore.GetVersionForWorkflow: %w", err)
+	}
+	return v, nil
+}
+
 func (s *Store) GetVersionByNumber(ctx context.Context, workflowID string, versionN int) (*workflowdomain.Version, error) {
 	v, err := s.vers.WhereEq("workflow_id", workflowID).WhereEq("version", versionN).First(ctx)
 	if errors.Is(err, ormpkg.ErrNotFound) {

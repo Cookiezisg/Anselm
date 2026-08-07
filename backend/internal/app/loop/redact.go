@@ -56,6 +56,13 @@ var (
 	// 模型把 opaque id 紧跟在已有人话实体名后时，替换成第二个名词会形成坏句子（"the workflow the
 	// referenced item"）。只在这个窄上下文移除 placeholder；独立 ID 仍保留诚实的中性替代。
 	opaqueEntityNounPlaceholderPattern = regexp.MustCompile(`(?i)\b(the\s+)?(workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `\b`)
+	// The same streamed redaction can happen in Chinese prose, where the English noun rule
+	// does not match. Remove a typed machine-value parenthetical entirely, or retain only the
+	// human type when it appears outside parentheses; never leave the placeholder visible.
+	// 中文 prose 也会出现同一类流式脱敏。英文名词规则匹配不到时，带类型的机器值括号整体移除；
+	// 若不在括号内只保留人话类型，绝不把 placeholder 留在画面上。
+	opaqueEntityTypedPlaceholderParentheticalPattern = regexp.MustCompile(`[（(][ \t]*(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment|工作流|函数|处理器|代理|触发器|对话|文档|技能|工作区|消息|运行|附件)[ \t]+` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `[ \t]*[）)]`)
+	opaqueEntityChineseNounPlaceholderPattern        = regexp.MustCompile(`(工作流|函数|处理器|代理|触发器|对话|文档|技能|工作区|消息|运行|附件)[ \t]+` + regexp.QuoteMeta(opaqueEntityPlaceholder))
 	// Markdown emphasis can sit between the noun and the opaque target, e.g. "workflow **wf_…**".
 	// Keep the emphasis attached to the meaningful noun by removing only the decoration around the
 	// placeholder. The plain pattern above intentionally handles "**workflow wf_…**" so its outer
@@ -393,8 +400,10 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueFlowrunLabelPattern.ReplaceAllString(text, "run ID")
 	text = opaqueEntityPrefixPhrasePattern.ReplaceAllString(text, "the ID prefix")
 	text = opaquePlaceholderParentheticalPattern.ReplaceAllString(text, "")
+	text = opaqueEntityTypedPlaceholderParentheticalPattern.ReplaceAllString(text, "")
 	text = opaqueEntityNounDecoratedPlaceholderPattern.ReplaceAllString(text, "${1}${2}${3}")
 	text = opaqueEntityNounPlaceholderPattern.ReplaceAllString(text, "${1}${2}")
+	text = opaqueEntityChineseNounPlaceholderPattern.ReplaceAllString(text, "${1}")
 	text = opaqueEntityIDClausePattern.ReplaceAllString(text, "")
 	text = opaqueEntitySearchBulletPattern.ReplaceAllString(text, "$1")
 	text = opaqueSearchConversationIDLinePattern.ReplaceAllString(text, "${1}See the exact conversation in the search card.")

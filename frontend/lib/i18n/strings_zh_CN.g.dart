@@ -839,6 +839,7 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get progressLabel => '进度';
 	@override String get resultLabel => '结果';
 	@override String get errorLabel => '错误';
+	@override String get inputValidationError => '这次工具调用没有执行，因为参数不完整。助手可以改正参数后重试。';
 	@override String get liveLabel => '实时';
 	@override String truncatedNote({required Object chars}) => '已截断 · 完整内容 ${chars} 字符';
 	@override String progressOmitted({required Object n}) => '…前 ${n} 行略';
@@ -3197,6 +3198,7 @@ extension on TranslationsZhCn {
 			'chat.tool.progressLabel' => '进度',
 			'chat.tool.resultLabel' => '结果',
 			'chat.tool.errorLabel' => '错误',
+			'chat.tool.inputValidationError' => '这次工具调用没有执行，因为参数不完整。助手可以改正参数后重试。',
 			'chat.tool.liveLabel' => '实时',
 			'chat.tool.truncatedNote' => ({required Object chars}) => '已截断 · 完整内容 ${chars} 字符',
 			'chat.tool.progressOmitted' => ({required Object n}) => '…前 ${n} 行略',
@@ -3564,9 +3566,9 @@ extension on TranslationsZhCn {
 			'chat.tool.gettingFnExec' => '正在调阅函数执行档案',
 			'chat.tool.gotFnExec' => '已调阅函数执行档案',
 			'chat.tool.gettingHdCall' => '正在调阅处理器调用档案',
-			'chat.tool.gotHdCall' => '已调阅处理器调用档案',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.gotHdCall' => '已调阅处理器调用档案',
 			'chat.tool.gettingMcpCall' => '正在调阅 MCP 调用档案',
 			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
 			'chat.tool.gettingActivation' => '正在调阅活动档案',
@@ -4078,9 +4080,9 @@ extension on TranslationsZhCn {
 			'scheduler.range.nextMonth' => '下个月',
 			'scheduler.range.backToPresets' => '返回快捷范围',
 			'scheduler.range.backToToday' => '回到今天',
-			'scheduler.range.preciseTime' => '精确到时刻',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.preciseTime' => '精确到时刻',
 			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m} 月 ${d} 日',
 			'scheduler.range.dayTextYear' => ({required Object y, required Object m, required Object d}) => '${y} 年 ${m} 月 ${d} 日',
 			'scheduler.range.capsuleA11y' => '时间范围',
@@ -4592,9 +4594,9 @@ extension on TranslationsZhCn {
 			'coldStart.artTitle' => 'Heemskerck 与 Barents 规划第二次远征极北之地',
 			'library.documents' => '文档',
 			'library.skills' => '技能',
-			'library.untitled' => '未命名',
 			_ => null,
 		} ?? switch (path) {
+			'library.untitled' => '未命名',
 			'library.editorHint' => '输入正文,按 / 唤起命令',
 			'library.addDescription' => '添加简介…',
 			'library.addTag' => '添加标签',
@@ -5106,9 +5108,9 @@ extension on TranslationsZhCn {
 			'settings.sandbox.envRebuild' => '下次执行时自动重建',
 			'settings.sandbox.deleteEnvTitle' => '删除环境',
 			'settings.sandbox.deleteEnvBody' => '将删除此环境。',
-			'settings.sandbox.ownerFunction' => '函数',
 			_ => null,
 		} ?? switch (path) {
+			'settings.sandbox.ownerFunction' => '函数',
 			'settings.sandbox.ownerHandler' => '处理器',
 			'settings.sandbox.ownerMcp' => 'MCP',
 			'settings.sandbox.ownerSkill' => '技能',

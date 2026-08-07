@@ -335,7 +335,7 @@ func (h *WorkflowHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.Success(w, http.StatusOK, v)
 		return
 	}
-	v, err := h.svc.GetVersion(r.Context(), versionStr)
+	v, err := h.svc.GetVersionForWorkflow(r.Context(), r.PathValue("id"), versionStr)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

@@ -331,6 +331,27 @@ func normalizeWorkflowOp(raw json.RawMessage) (json.RawMessage, error) {
 		if err := json.Unmarshal(value, &op); err != nil {
 			return nil, fmt.Errorf("'op' must be a string")
 		}
+		if alias, ok := top["type"]; ok {
+			var typeOp string
+			if err := json.Unmarshal(alias, &typeOp); err != nil {
+				return nil, fmt.Errorf("'type' must be a string when paired with 'op'")
+			}
+			if typeOp != op {
+				return nil, fmt.Errorf("fields \"op\" and \"type\" conflict")
+			}
+			delete(top, "type")
+		}
+	} else if value, ok := top["type"]; ok {
+		var typeOp string
+		if err := json.Unmarshal(value, &typeOp); err != nil {
+			return nil, fmt.Errorf("'type' must be a string")
+		}
+		if !isWorkflowOpType(typeOp) {
+			return nil, fmt.Errorf("unsupported operation discriminator %q", typeOp)
+		}
+		op = typeOp
+		top["op"] = value
+		delete(top, "type")
 	}
 
 	switch op {
@@ -347,6 +368,15 @@ func normalizeWorkflowOp(raw json.RawMessage) (json.RawMessage, error) {
 		}
 	}
 	return json.Marshal(top)
+}
+
+func isWorkflowOpType(value string) bool {
+	switch value {
+	case "set_meta", "add_node", "update_node", "delete_node", "add_edge", "update_edge", "delete_edge":
+		return true
+	default:
+		return false
+	}
 }
 
 // normalizeHostedNodeAliases handles one observed hosted-model shorthand without turning the

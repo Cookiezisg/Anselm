@@ -1409,7 +1409,7 @@ class _GenericStageState extends State<_GenericStage> {
         // tinted frame whose own h:s8 already lands its text at X=8) and the stat bar are real frames at X=0.
         stageFramed(
           Text(
-            state.errorText,
+            toolErrorForDisplay(t, state.errorText),
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
             style: AnText.meta.copyWith(color: c.danger),

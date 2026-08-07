@@ -106,25 +106,77 @@ type GetTrigger struct{ svc *triggerapp.Service }
 func (t *GetTrigger) Name() string { return "get_trigger" }
 
 func (t *GetTrigger) Description() string {
-	return "Get one trigger: kind, source config, and runtime state (how many active workflows listen to it / whether its listener is live)."
+	return "Get one trigger by its exact opaque triggerId (the trg_... id copied from a prior trigger result, mention, or search_triggers result): kind, source config, and runtime state (how many active workflows listen to it / whether its listener is live). This is not a name or pattern lookup. Use the triggerId key. A hosted-model compatibility alias accepts file_path only when its value is an unmistakable trg_... ID; never send a filesystem path, query, name, or placeholder. If you only know a name, call search_triggers first and copy its returned id."
 }
 
 func (t *GetTrigger) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
+		"additionalProperties": false,
 		"required": ["triggerId"],
-		"properties": {"triggerId": {"type": "string"}}
+		"properties": {"triggerId": {"type": "string", "description": "Required opaque trigger ID. Copy the trg_... value exactly. A file_path key is accepted only as a narrow hosted-model compatibility alias when it contains the same exact trg_... ID; never use a filesystem path."}}
 	}`)
 }
 
-func (t *GetTrigger) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		TriggerID string `json:"triggerId"`
+// NormalizeArguments repairs one observed hosted-model drift: some providers have emitted the
+// filesystem-shaped `file_path` key for an opaque trigger ID even though the schema requires
+// `triggerId`. Only a syntactically unmistakable trigger ID is eligible. An explicit triggerId
+// always wins; a conflicting alias remains untouched and is rejected by ValidateInput.
+//
+// NormalizeArguments 修复一次已观测到的 hosted model 漂移：尽管 schema 要求 `triggerId`，某些 provider
+// 曾把不透明 trigger ID 放进 filesystem 形状的 `file_path`。只有形状明确的 trigger ID 才可修复；显式
+// triggerId 永远优先；冲突别名保持原样并由 ValidateInput 拒绝。
+func (t *GetTrigger) NormalizeArguments(args json.RawMessage) (json.RawMessage, bool) {
+	var fields map[string]any
+	if json.Unmarshal(args, &fields) != nil || fields == nil {
+		return args, false
 	}
-	if err := json.Unmarshal(args, &a); err != nil {
+	if value, ok := fields["triggerId"].(string); ok && value != "" {
+		if alias, ok := fields["file_path"].(string); ok && alias == value {
+			delete(fields, "file_path")
+			normalized, err := json.Marshal(fields)
+			if err == nil {
+				return normalized, true
+			}
+		}
+		return args, false
+	}
+	value, ok := fields["file_path"].(string)
+	if !ok || !isOpaqueTriggerID(value) {
+		return args, false
+	}
+	delete(fields, "file_path")
+	fields["triggerId"] = value
+	normalized, err := json.Marshal(fields)
+	if err != nil {
+		return args, false
+	}
+	return normalized, true
+}
+
+func isOpaqueTriggerID(value string) bool {
+	const prefix = "trg_"
+	if !strings.HasPrefix(value, prefix) || len(value) == len(prefix) {
+		return false
+	}
+	for _, r := range value[len(prefix):] {
+		if (r < 'a' || r > 'z') && (r < 'A' || r > 'Z') && (r < '0' || r > '9') {
+			return false
+		}
+	}
+	return true
+}
+
+func (t *GetTrigger) ValidateInput(args json.RawMessage) error {
+	var fields map[string]any
+	if err := json.Unmarshal(args, &fields); err != nil {
 		return fmt.Errorf("get_trigger: bad args: %w", err)
 	}
-	if a.TriggerID == "" {
+	if _, ok := fields["file_path"]; ok {
+		return fmt.Errorf("get_trigger: file_path is not accepted; provide the trigger ID in triggerId")
+	}
+	triggerID, _ := fields["triggerId"].(string)
+	if triggerID == "" {
 		return ErrTriggerIDRequired
 	}
 	return nil

@@ -168,6 +168,26 @@ func TestWorkflow_VersionMaxAndByNumber(t *testing.T) {
 	}
 }
 
+func TestWorkflow_GetVersionForWorkflowScopesOpaqueID(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkWf(t, s, ctx, "wf_a", "a", "wfv_a1")
+	mkWf(t, s, ctx, "wf_b", "b", "wfv_b1")
+	mkVer(t, s, ctx, "wfv_a1", "wf_a", 1)
+	mkVer(t, s, ctx, "wfv_b1", "wf_b", 1)
+
+	got, err := s.GetVersionForWorkflow(ctx, "wf_a", "wfv_a1")
+	if err != nil || got.WorkflowID != "wf_a" {
+		t.Fatalf("same-parent opaque read: got=%+v err=%v", got, err)
+	}
+	if _, err := s.GetVersionForWorkflow(ctx, "wf_b", "wfv_a1"); !errors.Is(err, workflowdomain.ErrVersionNotFound) {
+		t.Fatalf("cross-parent opaque read must be hidden, got %v", err)
+	}
+	if _, err := s.GetVersionForWorkflow(ctx, "wf_missing", "wfv_a1"); !errors.Is(err, workflowdomain.ErrVersionNotFound) {
+		t.Fatalf("missing parent must not expose an opaque version, got %v", err)
+	}
+}
+
 func TestWorkflow_TrimProtectsActive(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

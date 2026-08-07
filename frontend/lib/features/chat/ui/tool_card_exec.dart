@@ -108,7 +108,7 @@ Widget runFunctionBody(BuildContext context, ToolCardState state) {
       if (!live) ...[
         const SizedBox(height: AnSpace.s6),
         if (!ok && errorMsg != null && errorMsg.isNotEmpty)
-          _errorLines(c, errorMsg)
+          _errorLines(c, toolErrorForDisplay(t, errorMsg))
         else
           ToolIOSection(label: t.run.ioOutput, value: out?['output']),
         if (out != null)

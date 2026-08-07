@@ -460,6 +460,12 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
         ),
         AnStatBar(
           status: AnStatus.fromRaw(run.status),
+          // Cancellation is neutral, not a failure, but "Idle" would falsely imply that the run
+          // never started. Keep the neutral tone and speak the domain terminal word.
+          // 取消是中性终态而非失败,但「Idle」会误导成从未启动;保留中性声调,明确说域终态。
+          statusLabel: run.status == 'cancelled'
+              ? context.t.run.runCancelled
+              : null,
           leading: [
             // The tombstone (§5.7): the host workflow was soft-deleted. The page stays — a run's
             // archive is not the workflow's to delete — but every action except replay is off.

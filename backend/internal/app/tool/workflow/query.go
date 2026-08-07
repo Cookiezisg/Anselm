@@ -112,38 +112,40 @@ type GetWorkflow struct{ svc *workflowapp.Service }
 func (t *GetWorkflow) Name() string { return "get_workflow" }
 
 func (t *GetWorkflow) Description() string {
-	return "Get one workflow with its active version's full graph (nodes + edges), lifecycle state, and concurrency policy."
+	return "Get one workflow with its active version's full graph (nodes + edges), lifecycle state, and concurrency policy. Pass exactly one of workflowId (the exact wf_... ID) or workflowName (the exact workflow name). If the user gives a name, use workflowName directly; do not guess an ID, do not use file_path, and do not call the filesystem tools."
 }
 
 func (t *GetWorkflow) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
-		"required": ["workflowId"],
-		"properties": {"workflowId": {"type": "string"}}
+		"additionalProperties": false,
+		"properties": {
+			"workflowId": {"type": "string", "description": "Exact workflow entity ID (wf_...). Use this OR workflowName."},
+			"workflowName": {"type": "string", "description": "Exact user-facing workflow name. Use this OR workflowId; do not use a filesystem path."}
+		}
 	}`)
 }
 
 func (t *GetWorkflow) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		WorkflowID string `json:"workflowId"`
-	}
-	if err := json.Unmarshal(args, &a); err != nil {
-		return fmt.Errorf("get_workflow: bad args: %w", err)
-	}
-	if a.WorkflowID == "" {
-		return ErrWorkflowIDRequired
-	}
-	return nil
+	_, err := decodeWorkflowTarget(args, "get_workflow")
+	return err
+}
+
+func (t *GetWorkflow) NormalizeArguments(args json.RawMessage) (json.RawMessage, bool) {
+	return normalizeWorkflowTargetArguments(args)
 }
 
 func (t *GetWorkflow) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		WorkflowID string `json:"workflowId"`
+	target, err := decodeWorkflowTarget([]byte(argsJSON), "get_workflow")
+	if err != nil {
+		return "", err
 	}
-	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
-		return "", fmt.Errorf("get_workflow: bad args: %w", err)
+	var w *workflowdomain.Workflow
+	if target.WorkflowID != "" {
+		w, err = t.svc.Get(ctx, target.WorkflowID)
+	} else {
+		w, err = t.svc.GetByName(ctx, target.WorkflowName)
 	}
-	w, err := t.svc.Get(ctx, args.WorkflowID)
 	if err != nil {
 		return "", fmt.Errorf("get_workflow: %w", err)
 	}

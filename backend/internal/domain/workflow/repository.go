@@ -85,6 +85,7 @@ type Repository interface {
 
 	SaveVersion(ctx context.Context, v *Version) error
 	GetVersion(ctx context.Context, versionID string) (*Version, error)
+	GetVersionForWorkflow(ctx context.Context, workflowID, versionID string) (*Version, error)
 	GetVersionByNumber(ctx context.Context, workflowID string, versionN int) (*Version, error)
 	ListVersions(ctx context.Context, workflowID string, filter VersionListFilter) ([]*Version, string, error)
 

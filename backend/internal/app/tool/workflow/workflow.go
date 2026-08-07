@@ -67,14 +67,14 @@ const opsDoc = `OP SHAPES (each has an "op" discriminator):
 
 HOSTED-MODEL SHAPE COMPATIBILITY: the public schema is the native array above, with add_node/add_edge
 body fields nested under "node"/"edge". At the execution boundary only, an exact JSON-encoded array
-string, the legacy form with those body fields at the op level, and one exact graph snapshot with
+string, one observed provider alias with a known operation name in "type" instead of "op", the legacy form with those body fields at the op level, and one exact graph snapshot with
 top-level "nodes" and "edges" arrays are accepted. Snapshot nodes use the observed "type"/"kind"
 and "triggerId"/"ref" vocabulary and are deterministically expanded to add_node ops; snapshot edges
 are expanded to add_edge ops. One observed add_node shorthand with top-level "nodeId", "kind":"trigger",
 and "triggerId" is also normalized to node.id/node.ref. Prefer the native nested form; aliases cannot
 be mixed with canonical or nested fields, triggerId is rejected for a non-trigger kind, and snapshot
 unknown keys are rejected. Conflicts, malformed strings, arbitrary objects, and non-array values remain
-errors. The domain parser stays strict after this narrow normalization.
+errors. Conflicts between "op" and "type", unknown operation names, malformed strings, arbitrary objects, and non-array values remain errors. The domain parser stays strict after this narrow normalization.
 
 NODE KINDS & REF PREFIXES: trigger→trg_, action→fn_ | hd_<id>.method | mcp:server/tool, agent→ag_, control→ctl_, approval→apf_.
 A node's "input" wires each field to a bare CEL expression that reads UPSTREAM NODES' RESULTS BY NODE ID — "<upstreamNodeId>.<field>", e.g. "start.amount" or "check_amount.score". There is NO payload/ctx/input root in a node's input CEL; address the producing node directly. A trigger node has no input. A referenced field must be present on EVERY branch path that can reach this node — a key absent on a taken branch (e.g. an upstream that emits it only on success) fails the WHOLE run fail-fast, and capability_check does NOT catch it. CONDITIONAL/DIAMOND READS: if a node reads "<X>.<field>" where X is on ONE side of a control/approval branch and this node ALSO has a live incoming edge from another branch (a diamond join), then on the run where X's branch was NOT taken X never ran and its result is empty — "X.field" then throws "no such key". GUARD it: "has(X.field) ? X.field : <fallback>" (same has() pattern as LOOP STATE below). capability_check passes the unguarded form (it only checks X is a structural ancestor, not that X is guaranteed to run), so this is YOUR responsibility, not a safety-net failure.

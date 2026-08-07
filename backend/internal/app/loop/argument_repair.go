@@ -10,6 +10,7 @@ import (
 )
 
 var authoritativeFlowrunIDPattern = regexp.MustCompile(`\bfr_[A-Za-z0-9]+\b`)
+var authoritativeTriggerIDPattern = regexp.MustCompile(`\btrg_[A-Za-z0-9]+\b`)
 
 // normalizeToolCallArguments applies a tool's conservative compatibility repair before the
 // assistant blocks enter durable history. The provider wire remains independently observable in
@@ -29,6 +30,7 @@ func normalizeToolCallArguments(
 	})
 	var repairedTools []string
 	authoritativeFlowrunID := latestUnambiguousFlowrunID(evidence)
+	authoritativeTriggerID := latestUnambiguousTriggerID(evidence)
 	for i := range calls {
 		raw, err := json.Marshal(calls[i].Arguments)
 		if err != nil {
@@ -49,6 +51,21 @@ func normalizeToolCallArguments(
 						normalized = exact
 						changed = true
 						reason = "flowrunId restored from one unambiguous user/tool evidence value"
+					}
+				}
+			}
+		}
+		if calls[i].Name == "get_trigger" && authoritativeTriggerID != "" {
+			var fields map[string]any
+			if json.Unmarshal(normalized, &fields) == nil && fields != nil {
+				current, hasCurrent := fields["triggerId"].(string)
+				_, hasAlias := fields["file_path"]
+				if (!hasCurrent || current == "") && !hasAlias {
+					fields["triggerId"] = authoritativeTriggerID
+					if exact, marshalErr := json.Marshal(fields); marshalErr == nil {
+						normalized = exact
+						changed = true
+						reason = "triggerId restored from one unambiguous user/tool evidence value"
 					}
 				}
 			}
@@ -83,6 +100,40 @@ func normalizeToolCallArguments(
 		}
 	}
 	return calls, blocks, repairedTools
+}
+
+// latestUnambiguousTriggerID returns one exact trigger id from the newest authoritative user/tool
+// message. It only repairs an omitted target when the evidence contains exactly one candidate;
+// a search result listing several triggers deliberately disables the repair.
+//
+// latestUnambiguousTriggerID 从最新的权威 user/tool message 取一个精确 trigger ID。只有证据中恰有一个候选
+// 时才修复漏传目标；搜索结果列出多个 trigger 时刻意关闭修复。
+func latestUnambiguousTriggerID(messages []llminfra.LLMMessage) string {
+	for i := len(messages) - 1; i >= 0; i-- {
+		message := messages[i]
+		if message.Role != llminfra.RoleUser && message.Role != llminfra.RoleTool {
+			continue
+		}
+		candidates := make(map[string]struct{})
+		for _, match := range authoritativeTriggerIDPattern.FindAllString(message.Content, -1) {
+			candidates[match] = struct{}{}
+		}
+		for _, part := range message.Parts {
+			for _, match := range authoritativeTriggerIDPattern.FindAllString(part.Text, -1) {
+				candidates[match] = struct{}{}
+			}
+		}
+		if len(candidates) != 1 {
+			if len(candidates) > 1 {
+				return ""
+			}
+			continue
+		}
+		for id := range candidates {
+			return id
+		}
+	}
+	return ""
 }
 
 // latestUnambiguousFlowrunID returns one exact run id from the newest authoritative user/tool

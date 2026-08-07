@@ -52,6 +52,9 @@ Widget subagentBody(BuildContext context, ToolCardState state) {
   final prompt = state.arg('prompt');
   final answer = state.resultText;
   final notStarted = subagentWasNotStarted(state);
+  final validationDetail = state.errorText.isEmpty
+      ? state.resultText
+      : state.errorText;
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
@@ -72,12 +75,16 @@ Widget subagentBody(BuildContext context, ToolCardState state) {
       ],
       if (state.nested.isNotEmpty)
         NestedRunPane(nested: state.nested, live: live)
-      else if (!live && notStarted)
+      else if (!live && notStarted) ...[
         Text(
           t.chat.tool.subagentNotStarted,
           style: AnText.meta.copyWith(color: c.inkFaint),
-        )
-      else if (!live)
+        ),
+        if (validationDetail.isNotEmpty) ...[
+          const SizedBox(height: AnSpace.s4),
+          Text(validationDetail, style: AnText.code.copyWith(color: c.danger)),
+        ],
+      ] else if (!live)
         Text(
           t.chat.tool.subagentTraceNote,
           style: AnText.meta.copyWith(color: c.inkFaint),

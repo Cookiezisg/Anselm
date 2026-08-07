@@ -120,7 +120,7 @@ audience: [human, ai]
 | `POST /workflows/{id}:stage` | 一次性待命；成功返回 workflow 实体快照（含名称与生命周期） |
 | `POST /workflows/{id}:activate` · `:deactivate` · `:kill` | 上线 / 排空下线 / 硬停；均返回动作后的 workflow 实体快照 |
 | `POST /workflows/{id}:iterate` | 打开 AI 构建 Conversation |
-| `GET /workflows/{id}/versions[/{version}]` | 版本分页/单读 |
+| `GET /workflows/{id}/versions[/{version}]` | 版本分页/单读；数字版本号与 opaque 版本 ID 均必须属于路径中的 workflow `{id}`，跨父或未知版本统一 `WORKFLOW_VERSION_NOT_FOUND` |
 
 ### Flowrun
 

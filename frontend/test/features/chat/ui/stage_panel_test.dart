@@ -310,6 +310,143 @@ void main() {
   );
 
   testWidgets(
+    'a successful same-target edit retires the prior failed red row',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 1,
+          scope: _scope,
+          id: 'tc_fail',
+          frame: FrameOpen(
+            node: StreamNode(
+              type: 'tool_call',
+              content: {'name': 'edit_workflow'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 2,
+          scope: _scope,
+          id: 'tc_fail',
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_call',
+              content: {
+                'name': 'edit_workflow',
+                'arguments': '{"workflowId":"wf_same"}',
+              },
+            ),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 3,
+          scope: _scope,
+          id: 'tr_fail',
+          frame: FrameOpen(
+            parentId: 'tc_fail',
+            node: StreamNode(type: 'tool_result', content: {}),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 4,
+          scope: _scope,
+          id: 'tr_fail',
+          frame: FrameClose(
+            status: 'error',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {'content': 'invalid workflow ops'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+      expect(find.text(t.chat.stage.rowFailed), findsOneWidget);
+
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 5,
+          scope: _scope,
+          id: 'tc_success',
+          frame: FrameOpen(
+            node: StreamNode(
+              type: 'tool_call',
+              content: {'name': 'edit_workflow'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 6,
+          scope: _scope,
+          id: 'tc_success',
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_call',
+              content: {
+                'name': 'edit_workflow',
+                'arguments': '{"workflowId":"wf_same"}',
+              },
+            ),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 7,
+          scope: _scope,
+          id: 'tr_success',
+          frame: FrameOpen(
+            parentId: 'tc_success',
+            node: StreamNode(type: 'tool_result', content: {}),
+          ),
+        ),
+      );
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 8,
+          scope: _scope,
+          id: 'tr_success',
+          frame: FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {'content': '{"id":"wf_same","version":2}'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text(t.chat.stage.rowFailed), findsNothing);
+      expect(find.text(t.chat.stage.rowSettling), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'load-more foot paginates WITHOUT a build-phase provider mutation (HIGH regression)',
     (tester) async {
       final repo = _repo();

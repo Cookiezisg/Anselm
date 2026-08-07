@@ -303,7 +303,7 @@ class McpStageBody extends StatelessWidget {
           // No-icon line → the text lands on the shared column (empty gutter), aligned with the shelf. 落同列。
           stageGutterRow(
             child: Text(
-              scene.state.errorText,
+              toolErrorForDisplay(t, scene.state.errorText),
               maxLines: 3,
               overflow: TextOverflow.ellipsis,
               style: AnText.meta.copyWith(color: c.danger),

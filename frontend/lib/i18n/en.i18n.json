@@ -153,6 +153,7 @@
       "progressLabel": "Progress",
       "resultLabel": "Result",
       "errorLabel": "Error",
+      "inputValidationError": "This tool call couldn't run because its inputs were incomplete. The assistant can retry with corrected arguments.",
       "liveLabel": "live",
       "truncatedNote": "Truncated · full content $chars chars",
       "progressOmitted": "…$n earlier lines omitted",

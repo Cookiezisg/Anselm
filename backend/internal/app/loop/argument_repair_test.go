@@ -85,3 +85,26 @@ func TestLatestUnambiguousFlowrunIDRejectsMultipleCandidates(t *testing.T) {
 		t.Fatalf("ambiguous evidence = %q, want no repair", got)
 	}
 }
+
+func TestNormalizeToolCallArgumentsRestoresExactTriggerEvidence(t *testing.T) {
+	calls := []messagesdomain.ToolCallData{{ID: "blk_call", Name: "get_trigger", Arguments: map[string]any{}}}
+	blocks := []messagesdomain.Block{{ID: "blk_call", Type: messagesdomain.BlockTypeToolCall, Content: `{}`}}
+	evidence := []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "Inspect trigger trg_19b3486793b3b754."}}
+	gotCalls, gotBlocks, repaired := normalizeToolCallArguments(calls, blocks, map[string]toolapp.Tool{"get_trigger": evidenceRepairTestTool{}}, evidence)
+	if len(repaired) != 1 || gotCalls[0].Arguments["triggerId"] != "trg_19b3486793b3b754" {
+		t.Fatalf("trigger evidence repair = calls=%#v repaired=%v", gotCalls, repaired)
+	}
+	if gotBlocks[0].Content != `{"triggerId":"trg_19b3486793b3b754"}` {
+		t.Fatalf("durable trigger evidence repair = %q", gotBlocks[0].Content)
+	}
+	if gotBlocks[0].Attrs["argumentRepair"] != "triggerId restored from one unambiguous user/tool evidence value" {
+		t.Fatalf("trigger repair reason = %#v", gotBlocks[0].Attrs["argumentRepair"])
+	}
+}
+
+func TestLatestUnambiguousTriggerIDRejectsMultipleCandidates(t *testing.T) {
+	messages := []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "Compare trg_one111 and trg_two222."}}
+	if got := latestUnambiguousTriggerID(messages); got != "" {
+		t.Fatalf("ambiguous trigger evidence = %q, want no repair", got)
+	}
+}

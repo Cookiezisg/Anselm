@@ -1884,6 +1884,9 @@ class Translations$chat$tool$en {
 	/// en: 'Error'
 	String get errorLabel => 'Error';
 
+	/// en: 'This tool call couldn't run because its inputs were incomplete. The assistant can retry with corrected arguments.'
+	String get inputValidationError => 'This tool call couldn\'t run because its inputs were incomplete. The assistant can retry with corrected arguments.';
+
 	/// en: 'live'
 	String get liveLabel => 'live';
 
@@ -7472,6 +7475,7 @@ extension on Translations {
 			'chat.tool.progressLabel' => 'Progress',
 			'chat.tool.resultLabel' => 'Result',
 			'chat.tool.errorLabel' => 'Error',
+			'chat.tool.inputValidationError' => 'This tool call couldn\'t run because its inputs were incomplete. The assistant can retry with corrected arguments.',
 			'chat.tool.liveLabel' => 'live',
 			'chat.tool.truncatedNote' => ({required Object chars}) => 'Truncated · full content ${chars} chars',
 			'chat.tool.progressOmitted' => ({required Object n}) => '…${n} earlier lines omitted',
@@ -7839,9 +7843,9 @@ extension on Translations {
 			'chat.tool.gettingFnExec' => 'Opening function-run record',
 			'chat.tool.gotFnExec' => 'Opened function-run record',
 			'chat.tool.gettingHdCall' => 'Opening handler-call record',
-			'chat.tool.gotHdCall' => 'Opened handler-call record',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.gotHdCall' => 'Opened handler-call record',
 			'chat.tool.gettingMcpCall' => 'Opening MCP-call record',
 			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
 			'chat.tool.gettingActivation' => 'Opening activation record',
@@ -8353,9 +8357,9 @@ extension on Translations {
 			'scheduler.range.nextMonth' => 'Next month',
 			'scheduler.range.backToPresets' => 'Back to quick ranges',
 			'scheduler.range.backToToday' => 'Back to today',
-			'scheduler.range.preciseTime' => 'Set exact times',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.preciseTime' => 'Set exact times',
 			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m}/${d}',
 			'scheduler.range.dayTextYear' => ({required Object m, required Object d, required Object y}) => '${m}/${d}/${y}',
 			'scheduler.range.capsuleA11y' => 'Time range',
@@ -8867,9 +8871,9 @@ extension on Translations {
 			'coldStart.artTitle' => 'Heemskerck and Barents Planning their Second Expedition to the Far North',
 			'library.documents' => 'Documents',
 			'library.skills' => 'Skills',
-			'library.untitled' => 'Untitled',
 			_ => null,
 		} ?? switch (path) {
+			'library.untitled' => 'Untitled',
 			'library.editorHint' => 'Start writing, or press / for commands',
 			'library.addDescription' => 'Add a description…',
 			'library.addTag' => 'Add a tag',
@@ -9381,9 +9385,9 @@ extension on Translations {
 			'settings.sandbox.envRebuild' => 'Rebuilt automatically on the next run',
 			'settings.sandbox.deleteEnvTitle' => 'Delete environment',
 			'settings.sandbox.deleteEnvBody' => 'Deletes this environment.',
-			'settings.sandbox.ownerFunction' => 'Functions',
 			_ => null,
 		} ?? switch (path) {
+			'settings.sandbox.ownerFunction' => 'Functions',
 			'settings.sandbox.ownerHandler' => 'Handlers',
 			'settings.sandbox.ownerMcp' => 'MCP',
 			'settings.sandbox.ownerSkill' => 'Skills',

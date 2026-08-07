@@ -315,6 +315,7 @@ class StageDirectorController extends Notifier<StageState> {
             _pollFlowrun.remove(parent);
             _pendingTerminals.remove(parent);
           }
+          if (ok) _director.onSuccessfulActivity(parent, now);
           _director.onToolClose(parent, now, ok: ok);
           if (workflowID != null) _reconcilePendingTerminal(parent);
           break;

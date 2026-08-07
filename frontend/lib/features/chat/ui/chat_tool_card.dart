@@ -494,7 +494,10 @@ Widget _errorSection(BuildContext context, ToolCardState state) {
       ),
       const SizedBox(height: AnSpace.s4),
       Text(
-        state.errorText.isEmpty ? state.resultText : state.errorText,
+        toolErrorForDisplay(
+          t,
+          state.errorText.isEmpty ? state.resultText : state.errorText,
+        ),
         style: AnText.code.copyWith(color: c.danger),
       ),
     ],
@@ -541,7 +544,10 @@ class _GenericToolBody extends StatelessWidget {
           context,
           t.chat.tool.errorLabel,
           Text(
-            state.errorText.isEmpty ? state.resultText : state.errorText,
+            toolErrorForDisplay(
+              t,
+              state.errorText.isEmpty ? state.resultText : state.errorText,
+            ),
             style: AnText.code.copyWith(color: c.danger),
           ),
           danger: true,

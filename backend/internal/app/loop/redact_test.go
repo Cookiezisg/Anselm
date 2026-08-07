@@ -1001,6 +1001,19 @@ func TestRedactOpaqueMachineValuesDoesNotDuplicateEntityNoun(t *testing.T) {
 	}
 }
 
+func TestRedactOpaqueMachineValuesCleansChineseTypedEntityPlaceholder(t *testing.T) {
+	for _, input := range []string{
+		"producer（函数 the requested item）的输出未声明。",
+		"producer (function the requested item) has an advisory warning.",
+		"函数 the requested item 的输出未声明。",
+	} {
+		got := redactOpaqueMachineValues(input)
+		if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
+			t.Fatalf("typed entity placeholder leaked: input=%q got=%q", input, got)
+		}
+	}
+}
+
 func TestRedactOpaqueMachineValuesRemovesUnavailableIDColumn(t *testing.T) {
 	input := "| Document | Path | ID |\n|---|---|---|\n| **Release Atlas** | `/Release Atlas` | `the requested item` |\n| **Ship Checklist** | `/Release Atlas/Ship Checklist` | `the requested item` |"
 	want := "| Document | Path |\n| --- | --- |\n| **Release Atlas** | `/Release Atlas` |\n| **Ship Checklist** | `/Release Atlas/Ship Checklist` |"

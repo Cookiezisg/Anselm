@@ -193,6 +193,14 @@ Unregister 不向 ServeMux 动态增删 pattern。
   HumanLoop 用户批准，且不能被 skill 或 `approve_always` 预授权绕过。删除前先用 `get_relations` 解释会
   失效的 workflow 依赖。
 
+`get_trigger` 是精确读取，不是名称搜索：规范字段是从 mention、工具回执或 `search_triggers` 结果复制的
+`triggerId`。为兼容已观测的 hosted-model 漂移，只有当 `file_path` 的值本身是明确的 `trg_...` 不透明 ID
+时才会在工具边界将其改名为 `triggerId`；普通文件路径、`query`、名称、占位词和冲突字段仍然拒绝。只知道
+名称时先搜索，再把返回的 `trg_...` id 原样传入。工具描述和 schema 都把这条边界直接告诉模型，避免把
+通用文件读取参数误套到实体查询上。
+若 hosted model 漏掉整个参数对象，loop 只在最新 user/tool 证据里恰有一个明确的 `trg_...` ID 时补回
+`triggerId`；证据没有候选或包含多个候选时不猜测，仍保留真实失败。
+
 Shutdown join cron、fsnotify、sensor 等 goroutine 后再关闭下游资源。Webhook
 listener 由 HTTP server 生命周期承载。
 

@@ -714,6 +714,23 @@ void main() {
           findsNothing,
           reason: 'status.run(运行中)曾错当标签——非在跑 run 的岛里不该有这词',
         );
+        final flagship = find.byType(SchedulerRunView);
+        expect(
+          find.descendant(
+            of: flagship,
+            matching: find.widgetWithText(AnChip, t.run.runCancelled),
+          ),
+          findsOneWidget,
+          reason: '主旗帜状态条也必须说域终态,不能把 cancelled 折成 Idle',
+        );
+        expect(
+          find.descendant(
+            of: flagship,
+            matching: find.widgetWithText(AnChip, t.status.idle),
+          ),
+          findsNothing,
+          reason: '取消后的 run 不能在主状态条伪装成尚未运行',
+        );
         expect(
           find.descendant(of: island, matching: find.text('v7')),
           findsOneWidget,

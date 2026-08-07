@@ -78,6 +78,16 @@ func TestExtract_OutputKeyedCreates(t *testing.T) {
 	}
 }
 
+func TestExtract_WorkflowReadToolsUseResolvedOutputID(t *testing.T) {
+	for _, tool := range []string{"get_workflow", "capability_check_workflow"} {
+		refs := ExtractTouches(tool, map[string]any{"workflowName": "nightly_rollup"}, `{"id":"wf_1","name":"nightly_rollup"}`)
+		r := one(t, refs)
+		if r.Kind != "workflow" || r.ID != "wf_1" || r.Verb != touchpointdomain.VerbViewed {
+			t.Errorf("%s: %+v", tool, r)
+		}
+	}
+}
+
 func TestExtract_CreateDocumentProse(t *testing.T) {
 	out := `Created document "规范" (id=doc_00ff00ff00ff00ff, path=/specs/规范)`
 	r := one(t, ExtractTouches("create_document", nil, out))

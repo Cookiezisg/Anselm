@@ -108,6 +108,11 @@ fallback、`has()` 守卫、无声明 output 的 producer 跳过。Resolver miss
 工具回执始终包含 `problems` 与 `warnings` 两个数组；没有问题时返回 `[]` 而不是 `null`，
 这样模型报告、Chat 工具卡和后续自动化都能把「已检查且为空」与「字段缺失」区分开。
 
+面向用户的 `get_workflow` 与 `capability_check_workflow` 读工具支持二选一的精确地址：
+`workflowId` 或 `workflowName`。名称路径仍在当前 workspace 内做精确查询，不做模糊猜测；
+若 hosted provider 把一个不含目录分隔符的名称误放进 `file_path`，工具边界只把这一个
+明确的单段值归一化为 `workflowName`，绝对路径、带目录的路径和冲突字段仍拒绝。
+
 Create/Edit 允许增量构建，不要求 capability report 全绿；`:stage` 和
 `:activate` 在承诺监听前调用 `ensureRunnable`，有 problem 时返回
 `WORKFLOW_NOT_RUNNABLE` 且不 Attach。显式单次 `:trigger` 直接运行，失败在
@@ -124,9 +129,12 @@ add_edge / update_edge / delete_edge
 ```
 
 Update 是顶层 merge patch；嵌套 `input` 对象整体替换。Node ID 不可变；
-delete node 级联删边。公开工具 schema 仍只声明原生数组与嵌套 `node`/`edge`。
-应用工具边界仅为已观测的托管模型形状提供两种窄兼容：精确 JSON 编码的数组字符串，或
-`add_node`/`add_edge` 把 body 字段放在 op 顶层；冲突、畸形字符串、对象和非数组值仍拒绝。
+delete node 级联删边。`create_workflow` 与 `edit_workflow` 的公开工具 schema 都显式枚举
+这些 op，并声明原生数组与嵌套 `node`/`edge`，因此 hosted model 不应生成 `set_nodes`/`set_edges`
+或文件系统 Edit 的字段；执行边界不把这些未定义操作猜成合法图变更。
+应用工具边界仅为已观测的托管模型形状提供三种窄兼容：精确 JSON 编码的数组字符串、一个已知
+操作名放在 `type` 而不是 `op`，或 `add_node`/`add_edge` 把 body 字段放在 op 顶层；冲突、未知
+操作名、畸形字符串、对象和非数组值仍拒绝。
 归一化之后进入 domain 的 `ParseOps` 仍是严格的，结构化编辑器与 HTTP 路径不自动修复非法 JSON。
 
 Active workflow Edit/Revert 改变入口 trigger 时，以旧/新 graph diff
@@ -164,7 +172,9 @@ Boot 在逐 workspace detached ctx 下 `ReattachActive`。
 
 HTTP：
 
-- CRUD、versions；
+- CRUD、versions；`GET /workflows/{id}/versions/{version}` 的数字版本号与 opaque 版本 ID 都必须属于
+  路由中的 `{id}` workflow。opaque ID 不能因为全局唯一而跨父 workflow 读取；不属于父 workflow 时统一
+  返回 `WORKFLOW_VERSION_NOT_FOUND`。
 - `:edit`、`:revert`、`:capability-check`、`:iterate`；
 - `:trigger`、`:stage`、`:activate`、`:deactivate`、`:kill`。
 
@@ -180,7 +190,7 @@ LLM 工具覆盖构建、生命周期与运行观测：
   阻断模型静默丢失用户意图；`ValidateInput` 在写库前再次要求三个键实际出现，HTTP create
   仍可省略这些可选字段。`add_node` 优先使用嵌套的 `node.{id,kind,ref}`；执行边界另兼容
   一种已观察的托管模型 trigger 简写 `nodeId/kind=trigger/triggerId`，以及顶层同时含 `nodes`
-  与 `edges` 数组的图快照。两种兼容形状都只做确定性映射：快照节点的 `type/triggerId` 映射
+  与 `edges` 数组的图快照。兼容形状都只做确定性映射：快照节点的 `type/triggerId` 映射
   为 `kind/ref` 并展开为 add_node，快照边展开为 add_edge；字段冲突、未知键、非 trigger 使用
   `triggerId` 或与规范字段/嵌套 body 混用均拒绝。
 - `revert_workflow` 的公开 `version` 仍为 integer；执行边界额外接受 hosted model 发出的精确
@@ -217,6 +227,10 @@ LLM 工具覆盖构建、生命周期与运行观测：
 
 Parked 是 node status，不是 run status，因此 approval inbox 是发现待审事项
 的权威入口。
+
+`@workflow` 的发送时快照包含 description 与 active version 的完整 `nodes`/`edges` 图（以及
+version/versionId）。图无法解码时 resolver 明确失败，绝不退化成只注入描述；这样 `:iterate`
+打开的普通 Conversation 具备足够的当前定义上下文，且仍遵守 freeze-on-send。
 
 ## 8. 跨域
 

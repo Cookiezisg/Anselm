@@ -131,7 +131,7 @@ type EditWorkflow struct{ svc *workflowapp.Service }
 func (t *EditWorkflow) Name() string { return "edit_workflow" }
 
 func (t *EditWorkflow) Description() string {
-	return "Edit a workflow graph: apply ops on top of its active graph, producing a new version that takes effect immediately. IMPORTANT: this is NOT the filesystem Edit tool. Never send file_path, old_string, or new_string. This tool requires the workflowId plus one non-empty ops array; metadata changes belong inside a set_meta op. If the workflowId does not exist, make this one valid call and report the returned error; do not create or retry. Same op shapes as create_workflow. Use revert_workflow to switch the active version to an older one.\n\n" + opsDoc
+	return "Edit a workflow graph: apply ops on top of its active graph, producing a new version that takes effect immediately. IMPORTANT: this is NOT the filesystem Edit tool. Never send file_path, old_string, or new_string. This tool requires the workflowId plus one non-empty ops array; metadata changes belong inside a set_meta op. If the workflowId does not exist, make this one valid call and report the returned error; do not create or retry. Same op shapes as create_workflow; the execution boundary also accepts the one observed exact alias type:<known operation> when a hosted model emits it instead of op. Use revert_workflow to switch the active version to an older one.\n\n" + opsDoc
 }
 
 func (t *EditWorkflow) Parameters() json.RawMessage {
@@ -139,8 +139,20 @@ func (t *EditWorkflow) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["workflowId", "ops"],
 		"properties": {
-			"workflowId": {"type": "string", "description": "Workflow entity ID, not a file path."},
-			"ops": {"type": "array", "description": "Non-empty workflow graph-edit ops. Do not use file_path, old_string, or new_string; those belong to the filesystem Edit tool.", "minItems": 1, "items": {"type": "object"}},
+			"workflowId": {"type": "string", "description": "Exact workflow entity ID (wf_...), not a file path."},
+			"ops": {"type": "array", "description": "Non-empty graph-edit op array. Prefer the canonical nested body: add_node uses node.{id,kind,ref,input,retry,pos,notes}; add_edge uses edge.{id,from,fromPort,to}. Do not use file_path, old_string, new_string, set_nodes, or set_edges.", "minItems": 1, "items": {"type": "object", "required": ["op"], "properties": {
+				"op": {"type": "string", "enum": ["set_meta", "add_node", "update_node", "delete_node", "add_edge", "update_edge", "delete_edge"]},
+				"name": {"type": "string", "description": "set_meta only."},
+				"description": {"type": "string", "description": "set_meta only."},
+				"tags": {"type": "array", "items": {"type": "string"}, "description": "set_meta only."},
+				"concurrency": {"type": "string", "enum": ["serial", "skip", "buffer_one", "replace", "allow_all"], "description": "set_meta only."},
+				"node": {"type": "object", "description": "Canonical add_node body.", "required": ["id", "kind", "ref"], "properties": {"id": {"type": "string"}, "kind": {"type": "string", "enum": ["trigger", "action", "agent", "control", "approval"]}, "ref": {"type": "string"}, "input": {"type": "object"}, "retry": {"type": "object"}, "pos": {"type": "object"}, "notes": {"type": "string"}}},
+				"edge": {"type": "object", "description": "Canonical add_edge body.", "required": ["id", "from", "to"], "properties": {"id": {"type": "string"}, "from": {"type": "string"}, "fromPort": {"type": "string"}, "to": {"type": "string"}}},
+				"id": {"type": "string", "description": "Node or edge id for update/delete operations."},
+				"patch": {"type": "object", "description": "Top-level patch for update_node/update_edge."},
+				"nodeId": {"type": "string", "description": "Hosted compatibility only for add_node; prefer node.id."},
+				"triggerId": {"type": "string", "description": "Hosted compatibility only for add_node with kind=trigger; prefer node.ref."}
+			}}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)

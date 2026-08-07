@@ -378,6 +378,24 @@ func (s *Service) Get(ctx context.Context, id string) (*workflowdomain.Workflow,
 	return w, nil
 }
 
+// GetByName resolves one exact workflow name and returns the same hydrated snapshot as Get.
+// Names are a user-facing address; the repository still enforces workspace isolation and
+// uniqueness, so this is not fuzzy lookup.
+//
+// GetByName 按**精确** workflow 名称解析，并返回与 Get 相同的完整快照。名称是用户侧地址；
+// repository 仍负责 workspace 隔离与唯一性，因此这不是模糊搜索。
+func (s *Service) GetByName(ctx context.Context, name string) (*workflowdomain.Workflow, error) {
+	name = strings.TrimSpace(name)
+	if name == "" {
+		return nil, workflowdomain.ErrNotFound
+	}
+	w, err := s.repo.GetWorkflowByName(ctx, name)
+	if err != nil {
+		return nil, fmt.Errorf("workflowapp.GetByName: %w", err)
+	}
+	return s.Get(ctx, w.ID)
+}
+
 // List returns a cursor page of live workflows.
 func (s *Service) List(ctx context.Context, filter workflowdomain.ListFilter) ([]*workflowdomain.Workflow, string, error) {
 	return s.repo.ListWorkflows(ctx, filter)
@@ -512,6 +530,23 @@ func (s *Service) ListVersions(ctx context.Context, workflowID string, filter wo
 
 func (s *Service) GetVersion(ctx context.Context, versionID string) (*workflowdomain.Version, error) {
 	v, err := s.repo.GetVersion(ctx, versionID)
+	if err != nil {
+		return nil, err
+	}
+	if g, perr := decodeGraph(v.Graph); perr == nil {
+		v.GraphParsed = g
+	}
+	return v, nil
+}
+
+// GetVersionForWorkflow returns an opaque version only when it belongs to the route's parent
+// Workflow. Numeric reads already use the parent-scoped repository method; opaque reads must do
+// the same or a valid ID from another workflow can cross the route boundary.
+//
+// GetVersionForWorkflow 只返回属于路由父 workflow 的 opaque 版本。数字读取已有父级查询；opaque
+// 读取也必须如此，否则另一 workflow 的合法 ID 会穿过 URL 父级边界。
+func (s *Service) GetVersionForWorkflow(ctx context.Context, workflowID, versionID string) (*workflowdomain.Version, error) {
+	v, err := s.repo.GetVersionForWorkflow(ctx, workflowID, versionID)
 	if err != nil {
 		return nil, err
 	}

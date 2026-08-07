@@ -139,6 +139,29 @@ void main() {
     },
   );
 
+  test(
+    'a successful retry clears the prior failed hold for the same entity',
+    () {
+      final d = StageDirector();
+      d.onToolOpen('failed', 'edit_workflow', _t(0));
+      d.advance(_t(500));
+      d.onItemResolved('failed', 'wf_same');
+      d.onToolClose('failed', _t(700), ok: false);
+      expect(d.state.phase, StagePhase.failedHold);
+
+      d.onToolOpen('retry', 'edit_workflow', _t(1000));
+      d.advance(_t(1500));
+      d.onItemResolved('retry', 'wf_same');
+      expect(d.state.subject!.blockId, 'retry');
+      expect(d.state.channels.single.failed, isTrue);
+
+      d.onSuccessfulActivity('retry', _t(1600));
+      expect(d.state.channels, isEmpty);
+      d.onToolClose('retry', _t(1700));
+      expect(d.state.subject!.failed, isFalse);
+    },
+  );
+
   test('curtain: close + breath → idle; live work preempts the curtain', () {
     final d = StageDirector();
     d.onToolOpen('b1', 'create_function', _t(0));

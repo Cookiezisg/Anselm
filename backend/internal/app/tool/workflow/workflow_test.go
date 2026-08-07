@@ -157,6 +157,60 @@ func TestGetFlowrunRejectsFilePathAfterNormalizationBoundary(t *testing.T) {
 	}
 }
 
+func TestWorkflowReadToolsAcceptExactNameAndConservativeHostedAlias(t *testing.T) {
+	for _, tool := range []interface {
+		Name() string
+		ValidateInput(json.RawMessage) error
+		NormalizeArguments(json.RawMessage) (json.RawMessage, bool)
+	}{
+		&GetWorkflow{},
+		&CapabilityCheckWorkflow{},
+	} {
+		if err := tool.ValidateInput(json.RawMessage(`{"workflowName":"nightly_rollup"}`)); err != nil {
+			t.Fatalf("%s should accept exact workflowName: %v", tool.Name(), err)
+		}
+		got, changed := tool.NormalizeArguments(json.RawMessage(`{"file_path":"nightly_rollup"}`))
+		if !changed || string(got) != `{"workflowName":"nightly_rollup"}` {
+			t.Fatalf("%s hosted name alias = %s, changed=%v", tool.Name(), got, changed)
+		}
+		if _, changed := tool.NormalizeArguments(json.RawMessage(`{"file_path":"/tmp/nightly_rollup"}`)); changed {
+			t.Fatalf("%s must not normalize an absolute path", tool.Name())
+		}
+		if err := tool.ValidateInput(json.RawMessage(`{"workflowId":"wf_1","workflowName":"nightly_rollup"}`)); err == nil {
+			t.Fatalf("%s must reject two canonical addresses", tool.Name())
+		}
+	}
+}
+
+func TestCapabilityCheckWorkflowExecuteByNameReturnsResolvedIdentity(t *testing.T) {
+	svc, ctx := newSvc(t)
+	created, err := (&CreateWorkflow{svc: svc}).Execute(ctx, `{"name":"capability_named","description":"","tags":[],"changeReason":"contract test","ops":[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_a"}}]}`)
+	if err != nil {
+		t.Fatalf("create workflow: %v", err)
+	}
+	var createdRow struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal([]byte(created), &createdRow); err != nil || createdRow.ID == "" {
+		t.Fatalf("decode created workflow: %v (%s)", err, created)
+	}
+	out, err := (&CapabilityCheckWorkflow{svc: svc}).Execute(ctx, `{"workflowName":"capability_named"}`)
+	if err != nil {
+		t.Fatalf("capability check by name: %v", err)
+	}
+	var result struct {
+		ID   string `json:"id"`
+		Name string `json:"name"`
+		OK   bool   `json:"ok"`
+	}
+	if err := json.Unmarshal([]byte(out), &result); err != nil {
+		t.Fatalf("decode capability result: %v (%s)", err, out)
+	}
+	if result.ID != createdRow.ID || result.Name != "capability_named" || !result.OK {
+		t.Fatalf("name lookup result = %+v, want resolved identity and ok", result)
+	}
+}
+
 func TestGetFlowrunNotFoundReasonIsActionable(t *testing.T) {
 	err := flowrundomain.ErrNotFound.WithDetails(map[string]any{
 		"reason": "No workflow run exists for the supplied flowrunId. Verify that the ID is correct and belongs to the current workspace.",
@@ -345,6 +399,7 @@ func TestDecodeWorkflowOps_HostedModelShapes(t *testing.T) {
 		{"native nested", `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`, `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`},
 		{"stringified native", `"[{\"op\":\"add_node\",\"node\":{\"id\":\"start\",\"kind\":\"trigger\",\"ref\":\"trg_fixture\"}}]"`, `[{"op":"add_node","node":{"id":"start","kind":"trigger","ref":"trg_fixture"}}]`},
 		{"top-level body aliases", alias, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"},{"node":{"id":"process","kind":"action","ref":"fn_fixture","input":{"value":"start.value"}},"op":"add_node"},{"edge":{"id":"start_to_process","from":"start","to":"process"},"op":"add_edge"}]`},
+		{"hosted type discriminator", `[{"type":"add_node","id":"start","kind":"trigger","ref":"trg_fixture"},{"type":"add_edge","id":"start_to_process","from":"start","to":"process"}]`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"},{"edge":{"id":"start_to_process","from":"start","to":"process"},"op":"add_edge"}]`},
 		{"hosted trigger shorthand", `[{"op":"add_node","nodeId":"start","kind":"trigger","triggerId":"trg_fixture"}]`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"}]`},
 		{"hosted graph snapshot", `{"nodes":[{"id":"start","triggerId":"trg_fixture","type":"trigger"}],"edges":[]}`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"}]`},
 		{"stringified hosted graph snapshot", `"{\"nodes\":[{\"id\":\"start\",\"triggerId\":\"trg_fixture\",\"type\":\"trigger\"}],\"edges\":[]}"`, `[{"node":{"id":"start","kind":"trigger","ref":"trg_fixture"},"op":"add_node"}]`},
@@ -382,6 +437,8 @@ func TestDecodeWorkflowOps_HostedModelShapes(t *testing.T) {
 		`{"nodes":[{"id":"start","type":"trigger","triggerId":"trg_fixture","extra":true}],"edges":[]}`,
 		`[{"op":"add_edge","edge":{"id":"e1"},"from":"start"}]`,
 		`[{"op":1}]`,
+		`[{"type":"unknown","id":"start","kind":"trigger","ref":"trg_fixture"}]`,
+		`[{"op":"add_node","type":"add_edge","id":"start","kind":"trigger","ref":"trg_fixture"}]`,
 	} {
 		if _, err := decodeWorkflowOps([]byte(raw)); err == nil {
 			t.Errorf("decodeWorkflowOps(%s) should reject malformed/conflicting shape", raw)
@@ -895,6 +952,25 @@ func TestEditWorkflow_DescriptionDisambiguatesFilesystemEdit(t *testing.T) {
 	} {
 		if !strings.Contains(description, want) {
 			t.Fatalf("edit_workflow description must disambiguate the filesystem Edit tool; missing %q", want)
+		}
+	}
+}
+
+func TestEditWorkflowParametersExposeCanonicalOps(t *testing.T) {
+	parameters := string((&EditWorkflow{}).Parameters())
+	var schema map[string]any
+	if err := json.Unmarshal([]byte(parameters), &schema); err != nil {
+		t.Fatalf("edit_workflow parameter schema must be valid JSON: %v", err)
+	}
+	for _, want := range []string{
+		`"enum": ["set_meta", "add_node", "update_node", "delete_node", "add_edge", "update_edge", "delete_edge"]`,
+		`"required": ["id", "kind", "ref"]`,
+		`"description": "Canonical add_edge body."`,
+		"set_nodes",
+		"set_edges",
+	} {
+		if !strings.Contains(parameters, want) {
+			t.Errorf("edit_workflow schema missing %q: %s", want, parameters)
 		}
 	}
 }

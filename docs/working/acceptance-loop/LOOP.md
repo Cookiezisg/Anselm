@@ -27,7 +27,115 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-07，清册 EP-056 五级收口，批次十八 50/50）
+## 当前前线（2026-08-08 03:13，EP-066 后统一长门禁收口，批次十九 50/50）
+
+EP-066 `POST /api/v1/flowruns/{id}:cancel` 已完成五级验收。真实用户在 Scheduler 打开停在 approval 的 running run，看到 `2 nodes · Completed 1 · waiting 1` 与取消审批的后果说明，确认后主状态条和右侧 dossier 都显示 `Cancelled`，审批节点退出 parked/inbox，重复取消和 replay 都给出明确终态拒绝。
+
+正式 fixed2 session `/private/tmp/anselm-rig-ep066-flowrun-cancel-fixed2-20260808/sessions/20260808-022851` 由同一 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journals、三路 SSE witness、真实 gateway tap；录屏 `275.491667s / 2784x1808`。首轮红 session 抓到 cancelled 被主 chip 显示成 Idle，已修复为中性声调 + 明确 `Cancelled` 标签并补 Flutter 回归测试；fixed2 逐帧复跑通过。
+
+REST/SQLite/SSE/UI 对证：正确 `POST :capability-check`=`200` 且 resolved；cancel=`202`，最终 run=`cancelled by user`，human=`cancelled`、start=`completed`、parked=`0`；二次 cancel=`422 FLOWRUN_NOT_CANCELLABLE`、replay=`422 FLOWRUN_NOT_REPLAYABLE`、inbox=`parked=[]`。SSE 三流连接，entities durable `1→2` 为 `run_started→run_terminal(cancelled)`，notification=`1`，无 gap/重复 terminal。五通道 journal 为 `335/17/8/1` 加可读 `275.491667s` 录像；LLM tap 在线但 deterministic graph 不伪造 completion。
+
+正式证据 `/private/tmp/anselm-rig-ep066-flowrun-cancel-fixed2-20260808/sessions/20260808-022851/evidence/EP-066-flowrun-cancel-real-session.md`，红证据和 cleanup 同 README；账本 `1015→1020 judgments`，COVERAGE `EP-066=✓✓✓✓✓`，alarms 独立复审后 clean(1020)，清册 `848/198/0`。三件夹具已按授权 `204×3→404×3` 删除，tombstone/version/run/node 审计保留、relations=0、seeded entities 未动。批次十九达到 **50/50**，现在执行统一长门禁、工作树审计和提交；通过后下一原子前线 EP-067 `GET /api/v1/flowrun-inbox`。
+
+统一长门禁的前端阶段首轮发现 Subagent 参数校验失败卡没有显示 `subagent_type must be one of` 的可行动细节；Composer 尺寸测试单独和完整聊天组均通过，不计产品红。stop-and-fix 让失败卡在“未启动”说明下保留一次真实校验细节，同时不虚构轨迹/回答；既有回归测试通过。修复后前端 `verify` 全绿：生成、analyze、四组测试共 `5233` 项；根 `make verify` 的 backend/frontend/docs/demo 全绿；显式 `go test ./...` 全绿，44 项已修场景回归全绿。
+
+完整 `make testend` 也已通过：`go test -count=1 -parallel 16 -timeout 15m ./scenarios/...` → `ok github.com/sunweilin/anselm/testend/scenarios 313.161s`，未开启 EVALS、未注入 provider secret。测试收台后没有存活的 testend/anselm-server/llama-server 或 pid/socket 残留；`git diff --check`、coverage `848/198/0`、alarms clean(1020) 和 anchor `10/10` 均通过，标准与算法未调整。批次十九已完成统一长门禁，当前只剩工作树审计、暂存和提交；提交后下一原子前线 EP-067 `GET /api/v1/flowrun-inbox`。
+
+## 历史前线（EP-065，批次十九 45/50）
+
+EP-065 `POST /api/v1/flowruns/{id}:replay` 已完成五级验收。真实用户在 Scheduler 打开失败 run，查看失败节点和 traceback，确认 `Re-runs 1 failed nodes · reuses 2 completed results.`，然后在同一 dossier 中看到 `Replay #1`、四节点 completed、finish 输出和 Overview 的 `Failed · 24h 0`；完成 run 再次 replay 返回 `422 FLOWRUN_NOT_REPLAYABLE`，没有第二次 mutation。
+
+正式 session `/private/tmp/anselm-rig-ep065-flowrun-replay-fixed-20260808/sessions/20260808-021122` 由同一 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journals、三路 SSE witness、真实 gateway LLM tap；录屏 `147.960000s / 2784x1808 / 60fps`。真实 webhook graph 为 `webhook → function → flaky handler → finish function`，capability-check clean。早先 test-only `trg_manual` 探索因悬空引用被排除，不计绿。
+
+REST/SQLite/UI 对证：`POST /flowruns`=`201`，直接 replay=`202`，同 run `replayCount=1`、`flaky.n=2`、`finish.final=2`、四节点完成；第二次 replay=`422 FLOWRUN_NOT_REPLAYABLE`。每个 run 的 stable/finish 只执行一次，flaky 为一次 failed 加一次 replay success，completed nodes 被复用。backend/frontend/SSE/LLM journals 为 `296/18/48/10`，notifications `16..32`、entities `7..18` 单调，gateway challenge/install/models 全 200，无应用级未解释红线；失败 dossier、确认框、成功 inspector 和 Overview 逐帧无视觉缺陷。
+
+正式证据 `/private/tmp/anselm-rig-ep065-flowrun-replay-fixed-20260808/sessions/20260808-021122/evidence/EP-065-flowrun-replay-final-green.md`，API probe 同目录 `EP-065-flowrun-replay-api-probes.md`，cleanup `/private/tmp/anselm-rig-ep065-cleanup-fixed-20260808/sessions/20260808-021437/evidence/EP-065-flowrun-replay-cleanup.md`。账本 `1010→1015 judgments` 按 `G1/F2/A5/C4/G2` 写入，COVERAGE `EP-065=✓✓✓✓✓`，anchors `10/10`；两条统计警报按原阈值独立复审并 ack，`alarms.py check` clean(1015)，`gen_coverage.py --check`=`848/197/0`。按授权 cleanup `204×5→404×5`，tombstone/version/run/node/execution 审计保留、relations=0、seeded entities 未动。批次十九当前 **45/50**，未到 50 格不跑统一长门禁、不提交；下一前线 EP-066 `POST /api/v1/flowruns/{id}:cancel`。
+
+## 历史前线快照（EP-064，批次十九 40/50）
+
+EP-064 `GET /api/v1/flowruns/{id}/activity` 已完成五级验收。真实用户在 Scheduler 打开完成 run，看到 function、handler、agent、MCP 四类真实执行组成的 Gantt，逐节点查看 output、排队/执行时长和 execution log；activity API 四表聚合、keyset 分页、空 run 和错误边界与 UI/SQLite 一致。
+
+最终 session `/private/tmp/anselm-rig-ep064-flowrun-activity-20260808b/sessions/20260808-014240` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journal、三路独立 SSE witness、真实 gateway LLM tap；录屏 `475.320000s / 2784x1808`，绑定窗口 id `26407`。真实 run `fr_c322e8cac2176f65` 返回 `function 29ms → handler 0ms → agent 9707ms → mcp 3ms` 四行，全部 `ok` 且 `readyAt ≤ startedAt`；`limit=2` 两页无重无漏，trigger-only run 返回空数组，坏 cursor/zero limit/ghost run 分别为 `MALFORMED_CURSOR`/`INVALID_REQUEST`/`FLOWRUN_NOT_FOUND`。SQLite 对证 `flowrun_nodes=5` 与四张执行表各 1 行。
+
+真实画面显示 `Done`、`9.8s`、`queued 0ms`、`ran 9.7s`、`v3 · pinned version`、`5 nodes · Completed 5`；Gantt 长 agent 条比例诚实，agent/MCP Inspector 均有 output 与 execution log ID。五通道 journal：backend 623 行、frontend 17 行、SSE 118 行、LLM 16 行；entities durable 到 14、notifications 到 22，真实 gateway `/v1/chat/completions` 200，前后端无未解释应用红线，`rig-check` 和 `rig-down` 通过。
+
+本格没有产品源代码修复；清理第一命令只因 zsh 变量错误请求 `/api/v1/` 并全部 404，逐条绝对 URL 重跑后 DELETE `204×4`、exact GET `404×4`，属于台架命令错误，不计产品红。正式证据 `/private/tmp/anselm-rig-ep064-flowrun-activity-20260808b/sessions/20260808-014240/evidence/EP-064-flowrun-activity-real-session.md`，cleanup `/private/tmp/anselm-rig-ep064-cleanup-20260808/sessions/20260808-015120/evidence/EP-064-flowrun-activity-cleanup.md`；真实 run/审计保留，seeded entities 未动，relations=0。
+
+正式账本 `1005→1010 judgments`，五级 `G1/F2/A5/C4/G2`，COVERAGE `EP-064=✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(1010)，清册 `848 rows / 196 carried / 0 tombstones`；gap-too-fast/discovery-collapse 按本格独立复核 ack，阈值和算法不变。批次十九当前 **40/50**，未到 50 格不跑统一长门禁、不提交；下一前线 EP-065 `POST /api/v1/flowruns/{id}:replay`。
+
+## 历史前线快照（EP-063，批次十九 35/50）
+
+EP-063 `GET /api/v1/flowruns/{id}` 已完成五级验收。真实用户从 Scheduler 进入完成 run inspector，看到 Manual/Done、pinned version、`26 nodes · Completed 26`，首屏受界限显示部分节点，点击 `Show remaining 14` 后展开全部 26 个节点，再点击 node25 查看 output `{"ok":true}` 和 Completed execution log；没有重复、截断、死 loading 或无界倾倒。
+
+最终 session `/private/tmp/anselm-rig-ep063-flowrun-get-20260808/sessions/20260808-012500` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journal、三路独立 SSE witness、真实 gateway LLM tap；录屏 `438.676667s / 2784x1808`，绑定窗口 id `26377`。API `limit=10` 三页为 `10+10+6`，节点 `node25..node16`、`node15..node06`、`node05..node01,start` 严格 newest-first、无重叠，三页 header 同一 run；unknown run、坏 cursor、`limit=0`、`limit=51` 和 cross-workspace lookup 均按契约处理。REST/SQLite/UI 一致，26 nodes/25 executions 全部 completed。
+
+五通道证据：backend 590 行、frontend 18 行、SSE 124 行、LLM 16 行；entities durable `7..60`、notifications `16..19` 分 stream 连续单调，frontend/backend 无应用级未解释红线，受管网关 challenge/install/models 全 200，deterministic function workflow 不伪造 completion。`rig-check` 五通道全绿，`rig-down` 无残留；正式证据 `/private/tmp/anselm-rig-ep063-flowrun-get-20260808/sessions/20260808-012500/evidence/EP-063-flowrun-get-real-session.md`，账本复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-063-flowrun-get-ledger-reaudit.md`。
+
+正式账本 `1000→1005 judgments`，五级 `G1/F2/A5/C4/G2`，COVERAGE `EP-063=✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(1005)；集中写账的 gap-too-fast 已独立复审 ack，阈值和算法不变，清册 `848 rows / 195 carried / 0 tombstones`。按用户授权 cleanup `/private/tmp/anselm-rig-ep063-cleanup-20260808/sessions/20260808-013308` 删除 workflow/function/隔离 workspace，DELETE `204×3`、精确 GET `404×3`，主 workspace 保留，SQLite 保留 run/node/execution/version 审计且 relations=0。批次十九当前 **35/50**，未到 50 格不跑统一长门禁、不提交；下一前线 EP-064 `GET /api/v1/flowruns/{id}/activity`。
+
+## 历史前线快照（EP-062，批次十九 30/50）
+
+EP-062 `POST /api/v1/flowruns` 已完成五级验收。真实用户从 `Entities → ep062-manual-run` 进入 workflow debugger，点击 `Trigger` 后看到 `Done`、`Completed 2`、`107ms` 和 `accepted: true / source: ui`，再由 `Open run →` 到 Scheduler inspector 查看 Manual origin、queued/ran timing、pinned version 和 execution log。API 侧单 trigger、multi trigger 显式 `entryNode=t2`、unknown/malformed/invalid entry 负路径均与 handler 契约一致。
+
+最终 session `/private/tmp/anselm-rig-ep062-flowrun-start-20260808/sessions/20260808-005702` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journal、三路 SSE witness、真实 gateway LLM tap；录屏 `1293.626667s / 2784x1808 / 60fps`。REST/SQLite/SSE/UI 交叉证明 `fr_0f741423bace74b4`、`fr_764f18dec3c769b1`、`fr_d7ea4365f1097af6`、`fr_8e32ab2d25642afb` 的状态、节点、输出和版本 pin 一致；负矩阵明确返回 `FLOWRUN_INVALID_ENTRY`、`INVALID_REQUEST`、`WORKFLOW_NOT_FOUND`，不创建幽灵 run。
+
+五通道证据：backend 1582 行、frontend 20 行、SSE 87 行/55 durable frame、LLM 10 行；真实 UI run 的 entities durable seq `37/39/40` 为 `run_started/function close/run_terminal(completed)`，frontend/backend 无未解释应用红线，managed gateway challenge/install/models 全 200。最终帧、AX 树、API probe、session evidence 和 cleanup proof 均已封存；首轮 shell fixture SyntaxError 与 AX set_value 限制已明确分类为构造/仪器问题，不计产品缺陷。
+
+正式账本 `995→1000`，五级 `G1/F2/A5/C4/G2`，COVERAGE `EP-062=✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(1000)，清册 `848 rows / 194 carried / 0 tombstones`。集中写账触发的 `gap-too-fast` 已独立复审 ack，阈值和算法不变。按用户授权的独立 cleanup `/private/tmp/anselm-rig-ep062-cleanup-20260808/sessions/20260808-011934` 已删除 2 workflow、1 function，DELETE `204×3`、exact GET `404×3`、live workflow list 空；SQLite 保留 tombstone、3 versions、8 flowruns、8 function executions，relations=0，seeded 数据未动。批次十九当前 **30/50**，未到 50 不跑统一长门禁、不提交；下一前线 EP-063 `GET /api/v1/flowruns/{id}`。
+
+## 历史前线快照（EP-061，批次十九 25/50）
+
+EP-061 `GET /api/v1/flowruns` 已完成五级验收。Workflow detail 的 Runs cockpit 真实走 keyset `20→28`；Scheduler 真实走 offset `29` 行、1/2/3 页及 Manual/Webhook 来源筛选；失败 workflow、Waiting approval、Running 和 Cancelled inspector 均可达且状态、traceback、Replay/Cancel/approval CTA 与 REST 一致。
+
+最终 session `/private/tmp/anselm-rig-ep061-flowruns-20260808/sessions/20260808-003250` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journal、三路 SSE witness、真实 gateway LLM tap；录屏 `630.583333s / 2784x1808 / 60fps`。API/SQLite 证明 cursor/offset 无重叠且顺序一致，半开时间窗、非法筛选、未知复合筛选和 completed/failed/running/cancelled 桶均正确；工作区 fixture 最终 34 条 flowrun 为 `30 completed / 2 failed / 2 cancelled`，主 workflow 29 条完成历史。
+
+五通道证据：backend 915 行、frontend 17 行、SSE 111 行/107 frame、LLM 10 行；notifications `16..37`、entities `7..77` durable seq 单调，受管网关 challenge/install/models 全 200，无虚构 completion；frontend/backend 无未解释应用红线，`rig-check` 和 `rig-down` 通过。正式证据、API probe、SSE summary 和 final frame 均在 session evidence 中，账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-061-flowruns-ledger-reaudit.md`。
+
+正式账本 `990→995`，五级 `G1/F2/A5/C4/G2`，COVERAGE `EP-061=✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(995)，清册 `848 rows / 193 carried / 0 tombstones`。`gap-too-fast` 仅按独立复审 ack，阈值和算法不变；本格没有产品源代码修复，针对性 Go/Flutter、coverage 和 diff 检查通过。按用户授权的独立 cleanup `/private/tmp/anselm-rig-ep061-cleanup-20260808/sessions/20260808-004956` 已删除 5 workflow、5 trigger、1 approval、1 function，全部 `204→404`，live lists 空，relations=0，34 flowruns/8 versions/4 firings 保留，seeded 数据未动。批次十九当前 **25/50**，未到 50 不跑统一长门禁、不提交；下一前线 EP-062。
+
+## 历史前线快照（EP-060，批次十九 20/50）
+
+EP-060 `GET /api/v1/workflows/{id}/versions/{version}` 已完成五级验收。首轮真实 session
+`/private/tmp/anselm-rig-ep060-workflow-version-20260808/sessions/20260808-001344` 发现并保留真实跨父泄漏：A 的 opaque version ID 放到 B 的 URL 仍返回 A 的 graph。修复新增父级 `(workflow_id,id)` 查询，保持 scheduler 的全局 pinned 读取不变，并补 store/app/handler regression。
+
+固定 session `/private/tmp/anselm-rig-ep060-workflow-version-fixed-20260808/sessions/20260808-001940`
+由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journal、三路 SSE
+witness、真实 gateway LLM tap。真实 App 在 `Entities → Workflow → Versions` 显示 v2 展开、v1→v2
+diff、完整 trigger graph，最终录屏 `106.916667s / 2784x1808 / 60fps`；backend/frontend 无未解释
+红线。REST 证明 A 自有数字/opaque 均 200，B 读取 A opaque、B v2、A 的 0/-1/999/unknown 均
+`404 WORKFLOW_VERSION_NOT_FOUND`；SSE notifications durable `16,17,18` 单调，LLM readiness
+challenge/install/models 全 200，read-only 路径不虚构 completion；`rig-check`、`rig-down` 通过。
+
+独立 cleanup `/private/tmp/anselm-rig-ep060-cleanup-20260808/sessions/20260808-002310` DELETE
+workflow/trigger=`204×4`、后续 GET=`404×4`、live lists 为空；SQLite 保留两条 workflow tombstone、
+3 条版本历史、两条 trigger tombstone、fixture relations=0，seeded `演示对话` 未动。正式证据
+`.../evidence/EP-060-workflow-version-final-green.md`，账本复审
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-060-workflow-version-ledger-reaudit.md`；
+账本 `985→990`，COVERAGE `EP-060=✓✓✓✓✓`，anchors `10/10`，alarms clean(990)，清册
+`848 rows / 192 carried / 0 tombstones`。批次十九当前 **20/50**，未到 50 不跑统一长门禁、不提交；
+下一原子前线为 EP-061 `GET /api/v1/flowruns`。
+
+## 历史前线快照（EP-059，批次十九 15/50）
+
+EP-059 `GET /api/v1/workflows/{id}/versions` 已完成五级验收。真实用户从 Entities 找到 `ep059-workflow-versions`，进入 Versions tab，首屏看到 v22..v3 与明确的 `Load more`，点击后追加 v2、v1；首行 v22 自动展开，差异、版本号、时间和变更原因可读，追加无重复且完成后无死控件。
+
+真实 session `/private/tmp/anselm-rig-ep059-workflow-versions-20260808/sessions/20260807-235745` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journal、三路独立 SSE witness、真实 gateway LLM tap；录像 `251.178333s / 2784x1808 / 60fps`，最终帧显示 v15..v1。fixture workflow `wf_e6a23f5c4c1e6ad0`、trigger `trg_dc40065b733c5085` 通过 21 次真实 `:edit` 形成 v1..v22。
+
+REST/SQLite/SSE/UI 交叉一致：分页页 1 为 `22..3`、页 2 为 `2..1` 严格无重叠；数字和 opaque ID 单读均指向 v22；`limit=0` 为 `400 INVALID_REQUEST`，坏 cursor 为 `400 MALFORMED_CURSOR`；SQLite 保留 22 个版本行；notifications durable seq `16..37` 严格单调无 gap；backend/frontend 无未解释运行期红线；`rig-check`、`rig-down` 全部通过，收台无残留。
+
+正式证据 `/private/tmp/anselm-rig-ep059-workflow-versions-20260808/sessions/20260807-235745/evidence/EP-059-workflow-versions-final-green.md`，账本复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-059-ledger-alarm-reaudit.md`；五级 `G1/F2/A5/C4/G2` 已写入，账本 `980→985`，COVERAGE 为 `EP-059=✓✓✓✓✓`，anchors `10/10`，`alarms.py check` clean(985)，清册 `848 rows / 191 carried / 0 tombstones`。集中写账触发的 `gap-too-fast` 已独立复审并 ack，阈值和算法未变。
+
+独立 cleanup `/private/tmp/anselm-rig-ep059-cleanup-20260808/sessions/20260808-000634` 已按用户授权软删 workflow/trigger：DELETE `204×2`、GET `404×2`、live lists 为空、22 个版本行和主行 deleted_at 保留、relations=0、seeded `演示对话` 未动。批次十九当前 **15/50**，未满 50 格不跑统一长门禁、不提交；下一前线为 EP-060。
+
+## 历史前线快照（EP-058，批次十九 10/50）
+
+EP-058 `POST /api/v1/workflows/{id}:iterate` 已完成五级验收。真实用户从 Workflow 行选择 `Edit with AI` 后进入持久 AI 编辑对话；模型读取精确 workflow、trigger、relations 和 agent，再用一次 canonical `edit_workflow` 将图从 v1 改到 v2。首轮、fixed2、fixed3 的真实红 session 分别保留了 malformed target/ops、重复 trigger/error 展示和空参 trigger 调用；这些红证据不计绿。最终 fixed4 中第一次 answer 输入失败形成 `Empty answer`，也保留为红观察；重新提交明确请求后 App 最终稳定显示 v2、`entry → summarize` 和三条成功 Activity，无红卡/retry/duplicate mutation。
+
+最终 session `/private/tmp/anselm-rig-ep058-workflow-iterate-fixed4-20260807/sessions/20260807-233816` 由同一 conductor 托管真实 Flutter App、Computer Use、录屏、frontend/backend journal、三路独立 SSE、真实 gateway LLM tap。录屏封口 `571.585000s / 2784x1808 / 60fps`；messages durable `1..94`、entities `7..8`、notifications `16..19` 无 gap；LLM chat responses 全 200，backend/frontend 无未解释应用红线，REST/SQLite 与 UI、tool result、SSE、LLM wire 一致。whitespace request 的 `400 EMPTY_ITERATE_REQUEST` 和 missing workflow 的 `404 WORKFLOW_NOT_FOUND` 均无新 conversation。
+
+正式绿证据 `/private/tmp/anselm-rig-ep058-workflow-iterate-fixed4-20260807/sessions/20260807-233816/evidence/EP-058-workflow-iterate-final-green.md`、ledger/alarm 复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-058-ledger-alarm-reaudit.md` 已封存；账本 `975→980` 按 `G1/F2/A5/C4/G2` 写入五格，COVERAGE EP-058=`✓✓✓✓✓`，anchors 10/10，`alarms.py check` clean(980)，`gen_coverage.py --check` 为 `848 rows / 190 carried / 0 tombstones`。按用户授权的独立无 App cleanup 已删除 conversation/workflow/trigger，DELETE `204×3`、GET `404×3`、版本/消息审计保留、relations=0、seeded 对话未动、收台无残留。批次十九当前 **10/50**，未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-059 `GET /api/v1/workflows/{id}/versions`。
+
+## 历史前线快照（EP-056，批次十八 50/50）
 
 EP-056 `POST /api/v1/workflows/{id}:revert` 已完成五级验收。真实用户在 Workflow Versions 页面从 v3 依次选择 v2、v1 的 `Set active`，header、绿色 active marker 和历史 diff 均即时一致；版本历史不被删除、不产生 v4，非法 version `999`/`0` 均明确返回 `404 WORKFLOW_VERSION_NOT_FOUND`。
 

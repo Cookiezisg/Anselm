@@ -390,6 +390,46 @@ class StageDirector {
     if (a.itemId == null || a.itemId!.isEmpty) a.itemId = itemId;
   }
 
+  /// A successful terminal for an entity supersedes an older failed attempt at that same entity.
+  /// Keep the failed tool block in the transcript for audit, but remove its red-hold projection so a
+  /// recovered edit cannot leave the current entity row saying Failed forever.
+  /// 同一实体成功终态覆盖旧失败尝试。失败 tool block 仍留在 transcript 供审计，但清掉红色投影，避免恢复成功后
+  /// 当前实体行永久显示 Failed。
+  void onSuccessfulActivity(String blockId, DateTime now) {
+    final current = _live[blockId];
+    final itemId = current?.itemId;
+    if (current == null || itemId == null || itemId.isEmpty) return;
+
+    final stale = [
+      for (final a in _live.values)
+        if (!identical(a, current) &&
+            !a.live &&
+            !a.closedOk &&
+            a.kind == current.kind &&
+            a.itemId == itemId)
+          a,
+    ];
+    for (final a in stale) {
+      _live.remove(a.blockId);
+      _order.remove(a.blockId);
+      _entranceDue.remove(a.blockId);
+      if (identical(a, _subject)) {
+        _subject = null;
+        _subjectStagedAt = null;
+        _curtainDue = null;
+        _phase = StagePhase.idle;
+      }
+    }
+    if (_subject == null) {
+      for (final a in _live.values) {
+        if (a.live && !_entranceDue.containsKey(a.blockId)) {
+          _entranceDue[a.blockId] = now.add(entranceDebounce);
+        }
+      }
+    }
+    _arbitrate(now);
+  }
+
   /// The activity's tool_call closed. [ok] false → failed/cancelled. 关帧。
   void onToolClose(String blockId, DateTime now, {bool ok = true}) {
     final a = _live[blockId];

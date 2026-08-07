@@ -51,6 +51,11 @@ Widget Function(BuildContext, ToolCardState) getEntityBody({
   )
   project,
 }) => (context, state) {
+  // Failed get calls are rendered once by the chassis error section. Do not also expose the raw
+  // validation sentence as if it were a successful entity payload.
+  if (state.phase == ToolCardPhase.failed) {
+    return const SizedBox.shrink();
+  }
   final out = _json(state.resultText);
   if (out == null) {
     return rawMonoWindow(
