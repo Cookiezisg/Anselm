@@ -27,7 +27,7 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-08 03:13，EP-066 后统一长门禁收口，批次十九 50/50）
+## 当前前线（2026-08-08 03:15，EP-066 后批次十九提交闭合，批次十九 50/50）
 
 EP-066 `POST /api/v1/flowruns/{id}:cancel` 已完成五级验收。真实用户在 Scheduler 打开停在 approval 的 running run，看到 `2 nodes · Completed 1 · waiting 1` 与取消审批的后果说明，确认后主状态条和右侧 dossier 都显示 `Cancelled`，审批节点退出 parked/inbox，重复取消和 replay 都给出明确终态拒绝。
 
@@ -39,7 +39,7 @@ REST/SQLite/SSE/UI 对证：正确 `POST :capability-check`=`200` 且 resolved�
 
 统一长门禁的前端阶段首轮发现 Subagent 参数校验失败卡没有显示 `subagent_type must be one of` 的可行动细节；Composer 尺寸测试单独和完整聊天组均通过，不计产品红。stop-and-fix 让失败卡在“未启动”说明下保留一次真实校验细节，同时不虚构轨迹/回答；既有回归测试通过。修复后前端 `verify` 全绿：生成、analyze、四组测试共 `5233` 项；根 `make verify` 的 backend/frontend/docs/demo 全绿；显式 `go test ./...` 全绿，44 项已修场景回归全绿。
 
-完整 `make testend` 也已通过：`go test -count=1 -parallel 16 -timeout 15m ./scenarios/...` → `ok github.com/sunweilin/anselm/testend/scenarios 313.161s`，未开启 EVALS、未注入 provider secret。测试收台后没有存活的 testend/anselm-server/llama-server 或 pid/socket 残留；`git diff --check`、coverage `848/198/0`、alarms clean(1020) 和 anchor `10/10` 均通过，标准与算法未调整。批次十九已完成统一长门禁，当前只剩工作树审计、暂存和提交；提交后下一原子前线 EP-067 `GET /api/v1/flowrun-inbox`。
+完整 `make testend` 也已通过：`go test -count=1 -parallel 16 -timeout 15m ./scenarios/...` → `ok github.com/sunweilin/anselm/testend/scenarios 313.161s`，未开启 EVALS、未注入 provider secret。测试收台后没有存活的 testend/anselm-server/llama-server 或 pid/socket 残留；`git diff --check`、coverage `848/198/0`、alarms clean(1020) 和 anchor `10/10` 均通过，标准与算法未调整。批次十九已完成统一长门禁并已创建提交 `fcbb4301`，提交后工作树 clean；下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`，等待下一轮 loop 唤醒。
 
 ## 历史前线（EP-065，批次十九 45/50）
 

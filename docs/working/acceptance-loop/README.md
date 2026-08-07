@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-08 03:13 EP-066 后统一长门禁收口,批次十九 50/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-08 03:15 EP-066 后批次十九提交闭合,批次十九 50/50)
 
 **当前前线（2026-08-08 02:38，清册 EP-066 已完成，批次十九 50/50）。** `POST /api/v1/flowruns/{id}:cancel` 已按完整产品目的完成验收：真实用户在 Scheduler 打开一个停在 approval 的 running run，能先看到 `2 nodes · Completed 1 · waiting 1` 和审批提示，再看到明确说明“parked approvals are withdrawn”的取消确认；确认后主状态条与 dossier 都明确说 `Cancelled`，审批节点收口、收件箱清空，不被错误地折成 `Idle` 或留下死任务。重复取消与 cancelled run 重放均明确拒绝。
 
@@ -315,7 +315,7 @@ REST/SQLite/SSE 对证一致：取消 `202`；最终 `status=cancelled`、`error
 
 统一长门禁的前端阶段首轮在完整聊天组中发现 Subagent 参数校验失败卡缺少 `subagent_type must be one of` 的可行动细节；Composer 的尺寸条目单独复跑及完整聊天组均通过，未误改产品。stop-and-fix 仅修改 `frontend/lib/features/chat/ui/tool_card_subagent.dart`：继续明确“未启动”、不虚构子代理轨迹或回答，同时在底盘的本地化概括下显示一次真实校验细节；既有回归测试通过。修复后 `make -C frontend verify` 全绿（生成、analyze、四组测试共 **5233** 项），根 `make verify` 的 backend/frontend/docs/demo 四子门禁全绿；显式 `mise exec -- go test ./...` 全模块通过，Subagent、tool-error-display、Scheduler 修复回归共 **44** 项通过。
 
-完整 backend 黑盒回归也已通过：`make testend` 执行 `go test -count=1 -parallel 16 -timeout 15m ./scenarios/...`，结果 `ok github.com/sunweilin/anselm/testend/scenarios 313.161s`；未开启 EVALS、未注入 provider secret。测试进程组收台后没有存活的 testend/anselm-server/llama-server 或 pid/socket 残留；`git diff --check` 通过，`gen_coverage.py --check`=`848 rows / 198 carried / 0 tombstones`，`alarms.py check`=`clean (1020)`，anchor `10/10` 仍在有效窗内。标准、阈值、算法、法典和裁决均未改变。批次十九的五十格及统一长门禁已完成，当前只剩工作树审计、暂存和提交；提交后下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`。
+完整 backend 黑盒回归也已通过：`make testend` 执行 `go test -count=1 -parallel 16 -timeout 15m ./scenarios/...`，结果 `ok github.com/sunweilin/anselm/testend/scenarios 313.161s`；未开启 EVALS、未注入 provider secret。测试进程组收台后没有存活的 testend/anselm-server/llama-server 或 pid/socket 残留；`git diff --check` 通过，`gen_coverage.py --check`=`848 rows / 198 carried / 0 tombstones`，`alarms.py check`=`clean (1020)`，anchor `10/10` 仍在有效窗内。标准、阈值、算法、法典和裁决均未改变。批次十九的五十格及统一长门禁已完成，并已创建提交 `fcbb4301`；提交后工作树 clean。下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`，等待下一轮 loop 唤醒。
 
 ### 5.2 历史状态快照（EP-065，批次十九 45/50）
 

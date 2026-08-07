@@ -9,6 +9,11 @@ review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
+## 2026-08-08 03:15 · 批次十九提交完成，工作树闭合
+
+- 统一长门禁、完整黑盒回归、资源卫生和工作树审计全部通过后，已创建提交 `fcbb4301` (`test(acceptance): close workflow lifecycle batch nineteen`)；提交包含 50 个文件、`1475 insertions(+), 96 deletions(-)`。
+- 提交后再次确认 branch `acceptance-loop` 工作树 clean；没有遗留台架进程、fixture 临时文件或未提交文档差异。批次十九正式闭合，下一原子前线为 EP-067 `GET /api/v1/flowrun-inbox`，等待下一轮 loop 唤醒。
+
 ## 2026-08-08 03:13 · 批次十九统一长门禁、完整黑盒回归与资源卫生收口
 
 - 前端修复后根 `make verify` 全绿：backend、frontend、docs、demo 四子门禁均通过；frontend 仍为生成成功、analyze clean、四组共 `5233` tests green。显式 `mise exec -- go test ./...` 全模块通过；Subagent、tool-error-display、Scheduler 修复回归合计 `44` 项通过。
