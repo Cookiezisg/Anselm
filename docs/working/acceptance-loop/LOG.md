@@ -10,6 +10,14 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-09 · 批次二十四统一门禁与提交收口，前线推进 EP-118
+
+- EP-117 `GET /api/v1/skills/{name}/files/{path...}` 已完成五级裁决，批次二十四达到 `50/50`。
+- 统一长门禁全部通过：`make verify`、backend 完整 `go test ./...`、完整 testend、EP-117 Flutter 回归、
+  `gen_coverage.py --check`、anchors、alarms 和工作树审计；正式账本为 `1280 judgments`，未改阈值、算法、法典或锚点。
+- 批次提交为 `dbea703b`，只包含验收台架/working 文档和 EP-117 raw-byte 错误修复；另一团队的未暂存改动没有被提交。
+- 下一原子前线为 EP-118 `PUT /api/v1/skills/{name}/files/{path...}`，在下一批满 `50` 格之前不重复跑统一长门禁。
+
 ## 2026-08-09 · EP-117 `GET /api/v1/skills/{name}/files/{path...}` 五级收口，批次二十四 50/50
 
 - 产品目的：真实 Library 必须能读取 Markdown/JSON 等裸字节文件，未知类型要诚实降级；超过 1 MB 在线读取护栏时必须解释

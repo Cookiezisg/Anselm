@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-117 已完成,批次二十四 50/50,统一门禁已通过)
+### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-117 已完成,批次二十四已收口,前线 EP-118)
 
 **当前前线（2026-08-09，清册 EP-117 已完成，批次二十四 50/50）。**
 EP-117 `GET /api/v1/skills/{name}/files/{path...}` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、
@@ -325,9 +325,9 @@ anchors `10/10`，`COVERAGE EP-117=✓✓✓✓✓`，正式绿证据和独立�
 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-117-skill-files-ledger-reaudit.md`。集中写账打开的两条统计警报已
 复审并 ack，最终 `alarms.py check`=`clean (1280 judgments on record)`，未改阈值、算法、法典或锚点。
 
-批次二十四已经达到 **50/50**。统一长门禁已通过：`make verify`、backend 完整 `go test ./...`、本批修复涉及的
-Flutter 回归、完整 testend、`gen_coverage.py --check`、anchors、alarms 和工作树审计均已完成；EP-117 的修复与验收记录
-现在进入提交收口。提交前不把 EP-118 设为前线；本次提交只包含本批验收台架/文档与 EP-117 修复，不包含另一团队的脏改动。
+批次二十四已经 **50/50** 收口。统一长门禁、完整 testend、清册/锚点/警报复核和工作树审计均通过，批次提交为
+`dbea703b`；提交只包含本批验收台架/文档与 EP-117 修复，没有带入另一团队的脏改动。下一原子前线为 EP-118
+`PUT /api/v1/skills/{name}/files/{path...}`，仍按每 50 格才统一长门禁的协议执行。
 
 ### 历史状态快照（EP-116，批次二十四 45/50）
 

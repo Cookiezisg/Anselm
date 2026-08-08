@@ -27,7 +27,7 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-09，EP-117 已完成，批次二十四 50/50，统一门禁已通过，提交待收口）
+## 当前前线（2026-08-09，EP-117 已完成，批次二十四已收口，前线 EP-118）
 
 EP-117 `GET /api/v1/skills/{name}/files/{path...}` 已完成真实 Flutter App、真实受管 gateway、Computer Use 和五通道验收。
 首轮真实 App 对 `1,048,577` 字节 `oversize.md` 暴露红：后端是 `422 SKILL_FILE_TOO_LARGE`，UI 却只说
@@ -44,7 +44,8 @@ managed gateway bootstrap 全 200。正式证据为
 
 正式账本 `1275→1280 judgments`，`G1/F2/A5/C4/G2`，anchors `10/10`，`COVERAGE EP-117=✓✓✓✓✓`，
 `gen_coverage.py --check`、`alarms.py check`、完整 `make verify`、backend 完整测试、完整 testend、定向 Flutter 回归和
-工作树审计均已通过；未改阈值、算法、法典或锚点。批次二十四已经 **50/50**，当前只允许完成提交；提交前不进入 EP-118。
+工作树审计均已通过；未改阈值、算法、法典或锚点。批次二十四已 **50/50** 收口并提交 `dbea703b`；下一原子前线为
+EP-118 `PUT /api/v1/skills/{name}/files/{path...}`。
 
 ### 历史状态快照（EP-116，批次二十四 45/50）
 
