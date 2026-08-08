@@ -529,6 +529,7 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String deleteSkillBody({required Object name}) => '技能“${name}”会被删除。';
 	@override String get actionFailed => '操作失败';
 	@override String get docGone => '此页面已被删除';
+	@override String get skillGone => '此技能已被删除';
 	@override String get saveFailedGone => '无法保存——此页面已被删除';
 	@override late final _Translations$library$props$zh_CN props = _Translations$library$props$zh_CN._(_root);
 	@override late final _Translations$library$slash$zh_CN slash = _Translations$library$slash$zh_CN._(_root);
@@ -4643,6 +4644,7 @@ extension on TranslationsZhCn {
 			'library.deleteSkillBody' => ({required Object name}) => '技能“${name}”会被删除。',
 			'library.actionFailed' => '操作失败',
 			'library.docGone' => '此页面已被删除',
+			'library.skillGone' => '此技能已被删除',
 			'library.saveFailedGone' => '无法保存——此页面已被删除',
 			'library.props.title' => '属性',
 			'library.props.name' => '名称',
@@ -5121,9 +5123,9 @@ extension on TranslationsZhCn {
 			'settings.sandbox.retry' => '重试',
 			'settings.sandbox.runtimes' => '运行时',
 			'settings.sandbox.install' => '安装',
-			'settings.sandbox.installing' => '安装中…',
 			_ => null,
 		} ?? switch (path) {
+			'settings.sandbox.installing' => '安装中…',
 			'settings.sandbox.installTitle' => '安装运行时',
 			'settings.sandbox.kind' => '类型',
 			'settings.sandbox.version' => '版本',

@@ -1701,6 +1701,7 @@
     "deleteSkillBody": "The “$name” skill will be removed.",
     "actionFailed": "Action failed",
     "docGone": "This page was deleted",
+    "skillGone": "This skill was deleted",
     "saveFailedGone": "Can't save — this page was deleted",
     "props": {
       "title": "Properties",

@@ -63,14 +63,14 @@ type GetApproval struct{ svc *approvalapp.Service }
 func (t *GetApproval) Name() string { return "get_approval" }
 
 func (t *GetApproval) Description() string {
-	return "Get one approval form with its active version (template + allowReason + timeout + timeoutBehavior)."
+	return "Get one approval form with its active version (template + allowReason + timeout + timeoutBehavior). approvalId must be copied character-for-character from the selected Approval mention or from a prior tool result; never reconstruct or guess an opaque apf_... id."
 }
 
 func (t *GetApproval) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
 		"required": ["approvalId"],
-		"properties": {"approvalId": {"type": "string"}}
+		"properties": {"approvalId": {"type": "string", "description": "Exact apf_... ID copied character-for-character from the selected Approval mention or a prior tool result; never reconstruct or guess it."}}
 	}`)
 }
 

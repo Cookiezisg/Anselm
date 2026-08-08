@@ -1127,6 +1127,9 @@ class Translations$library$en {
 	/// en: 'This page was deleted'
 	String get docGone => 'This page was deleted';
 
+	/// en: 'This skill was deleted'
+	String get skillGone => 'This skill was deleted';
+
 	/// en: 'Can't save — this page was deleted'
 	String get saveFailedGone => 'Can\'t save — this page was deleted';
 
@@ -8948,6 +8951,7 @@ extension on Translations {
 			'library.deleteSkillBody' => ({required Object name}) => 'The “${name}” skill will be removed.',
 			'library.actionFailed' => 'Action failed',
 			'library.docGone' => 'This page was deleted',
+			'library.skillGone' => 'This skill was deleted',
 			'library.saveFailedGone' => 'Can\'t save — this page was deleted',
 			'library.props.title' => 'Properties',
 			'library.props.name' => 'Name',
@@ -9426,9 +9430,9 @@ extension on Translations {
 			'settings.sandbox.retry' => 'Retry',
 			'settings.sandbox.runtimes' => 'Runtimes',
 			'settings.sandbox.install' => 'Install',
-			'settings.sandbox.installing' => 'Installing…',
 			_ => null,
 		} ?? switch (path) {
+			'settings.sandbox.installing' => 'Installing…',
 			'settings.sandbox.installTitle' => 'Install runtime',
 			'settings.sandbox.kind' => 'Kind',
 			'settings.sandbox.version' => 'Version',

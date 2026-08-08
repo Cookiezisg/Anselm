@@ -103,14 +103,29 @@ func NewService(conv ConversationStarter, chat TurnSender, renderer ExecutionRen
 // iterateSteer 是每个 iterate 流共用的一句通用引导——实体当前定义经首条消息的 @-mention 到达，故无需 per-entity prose。
 const iterateSteer = "You are helping the user iterate on the Anselm entity they have @-mentioned " +
 	"in the message below — its current definition is attached to that mention. Read it, briefly " +
-	"explain your plan, then call the matching edit_* tool (edit_function / edit_handler / edit_agent " +
-	"/ edit_workflow / edit_trigger / edit_control / edit_approval / edit_document) with that entity's id. " +
-	"The matching edit takes effect IMMEDIATELY; there is no pending/review gate. Versioned entities " +
-	"normally receive a new active version that can be switched back with the matching revert_* tool; " +
-	"trigger and document edits apply in place and have no version pointer. Treat the matching tool's " +
-	"own description as authoritative about its exact input and versioning semantics. Make the change " +
-	"correct, not provisional. Do NOT call any create_* tool, and do NOT modify any other entity. After " +
-	"the edit succeeds, summarize what changed."
+	"explain your understanding, and determine whether the user gave a concrete change request. " +
+	"The opening request may only ask to start editing; if it does not specify a concrete change, " +
+	"do NOT call any edit_* tool yet — summarize the current definition and ask what the user wants " +
+	"changed. Once the user gives a concrete change, call the matching edit_* tool (edit_function / " +
+	"edit_handler / edit_agent / edit_workflow / edit_trigger / edit_control / edit_approval / " +
+	"edit_document) with the exact target id supplied below. The matching edit takes effect " +
+	"IMMEDIATELY; for any versioned full-replacement edit, never send a delta: first copy every " +
+	"required field from the current definition, including fields the user did not change. For " +
+	"edit_approval specifically, the first call must include approvalId, inputs, template, " +
+	"allowReason, timeout, timeoutBehavior, and a non-empty changeReason. If any required value is " +
+	"unknown, read the current definition again before calling the edit; never rely on a retry to " +
+	"complete the snapshot. There is no pending/review gate. Versioned entities normally receive a new active " +
+	"version that can be switched back with the matching revert_* tool; trigger and document edits " +
+	"apply in place and have no version pointer. Treat the matching tool's own description as " +
+	"authoritative about its exact input and versioning semantics. Make the change correct, not " +
+	"provisional. Do NOT call any create_* tool, and do NOT modify any other entity. After the edit " +
+	"succeeds, summarize what changed."
+
+func iterateSteerFor(mentionType mentiondomain.MentionType, entityID string) string {
+	return iterateSteer + "\n\nTarget lock — copy these values character-for-character; never reconstruct an opaque id:\n" +
+		fmt.Sprintf("- type: %s\n- id: %s\n", mentionType, entityID) +
+		"Use this exact id for every tool call concerning the mentioned entity."
+}
 
 // triageSteer is the one generic instruction for every triage flow — the rendered execution record
 // is appended after it.
@@ -143,7 +158,7 @@ func (s *Service) Iterate(ctx context.Context, mentionType mentiondomain.Mention
 			return "", err
 		}
 	}
-	return s.spawn(ctx, iterateSteer, request, []mentiondomain.MentionInput{{Type: mentionType, ID: entityID}})
+	return s.spawn(ctx, iterateSteerFor(mentionType, entityID), request, []mentiondomain.MentionInput{{Type: mentionType, ID: entityID}})
 }
 
 // Triage opens an AI working conversation to diagnose one execution record: the record (resolved by

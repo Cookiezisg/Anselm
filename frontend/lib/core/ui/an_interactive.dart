@@ -172,20 +172,28 @@ class _AnInteractiveState extends State<AnInteractive>
 
   // POINTER activation only. A row's onTap beats the enclosing SelectableRegion in the gesture arena
   // (Flutter #141151 — the deeper competitor wins), so clicking a row never starts a selection gesture and
-  // the region is never focused; Cmd+A / Cmd+C then silently do nothing. Handing the region focus here
-  // costs nothing, because a mouse click does not focus this surface anyway (FocusableActionDetector shows
-  // its ring on KEYBOARD focus, and nothing here calls requestFocus on tap).
+  // the region is never focused; Cmd+A / Cmd+C then silently do nothing. Handing the region focus after the
+  // current frame keeps that semantic promise without asking SelectableRegion to synchronously clear its
+  // selectable children while the row's tap is also rebuilding them (Flutter's selection delegate can throw
+  // ConcurrentModificationError at that boundary).
   //
   // Deliberately NOT wired into [_activate]: that is the Enter/Space path, and moving focus to the region
   // there would throw the user out of the list they are navigating.
   //
   // 只走**指针**激活。行的 onTap 在手势竞技场里赢过外层 SelectableRegion(Flutter #141151——更深者赢),于是点击
-  // 一行永不开启选择手势、域也永不聚焦,Cmd+A / Cmd+C 随后静默失效。在此把焦点交给域是零代价的,因为鼠标点击本就
-  // 不会聚焦本面(FocusableActionDetector 的焦点环只在**键盘**聚焦时显,且这里没有任何地方在 tap 时 requestFocus)。
+  // 一行永不开启选择手势、域也永不聚焦,Cmd+A / Cmd+C 随后静默失效。把焦点交接延到当前帧之后,仍保留这条语义,
+  // 同时不让 SelectableRegion 在行的 tap 还要重建 selectable 子项时同步清理列表(该边界会抛 ConcurrentModificationError)。
   //
   // **刻意不**接进 [_activate]:那是 Enter/Space 路径,在那里把焦点搬到域上会把用户从他正在浏览的列表里甩出去。
   void _handlePointerTap() {
-    AnSelectionRegion.focusOf(context)?.requestFocus();
+    final focus = AnSelectionRegion.focusOf(context);
+    if (focus != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        // A tap can navigate away before this callback runs. Do not revive focus for a detached region.
+        if (!mounted || focus.context == null) return;
+        focus.requestFocus();
+      });
+    }
     widget.onTap?.call();
   }
 

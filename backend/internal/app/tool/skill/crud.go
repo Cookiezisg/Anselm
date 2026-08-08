@@ -26,6 +26,7 @@ type saveSkillArgs struct {
 	Agent                  string   `json:"agent"`
 	Arguments              []string `json:"arguments"`
 	DisableModelInvocation bool     `json:"disableModelInvocation"`
+	UserInvocable          bool     `json:"userInvocable"`
 }
 
 // UnmarshalJSON keeps the public schema array-shaped while tolerating the exact JSON-array string
@@ -44,6 +45,7 @@ func (a *saveSkillArgs) UnmarshalJSON(data []byte) error {
 		Agent                  string          `json:"agent"`
 		Arguments              json.RawMessage `json:"arguments"`
 		DisableModelInvocation json.RawMessage `json:"disableModelInvocation"`
+		UserInvocable          json.RawMessage `json:"userInvocable"`
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return err
@@ -60,6 +62,10 @@ func (a *saveSkillArgs) UnmarshalJSON(data []byte) error {
 	if err != nil {
 		return fmt.Errorf("disableModelInvocation: %w", err)
 	}
+	userInvocable, err := decodeSkillBool(raw.UserInvocable)
+	if err != nil {
+		return fmt.Errorf("userInvocable: %w", err)
+	}
 	*a = saveSkillArgs{
 		Name:                   raw.Name,
 		Description:            raw.Description,
@@ -69,6 +75,7 @@ func (a *saveSkillArgs) UnmarshalJSON(data []byte) error {
 		Agent:                  raw.Agent,
 		Arguments:              arguments,
 		DisableModelInvocation: disableModelInvocation,
+		UserInvocable:          userInvocable,
 	}
 	return nil
 }
@@ -140,6 +147,7 @@ func (a saveSkillArgs) toInput() skillapp.SaveInput {
 		Agent:                  a.Agent,
 		Arguments:              a.Arguments,
 		DisableModelInvocation: a.DisableModelInvocation,
+		UserInvocable:          a.UserInvocable,
 		Source:                 skilldomain.SourceAI,
 	}
 }
@@ -155,7 +163,8 @@ const saveSkillSchema = `{
 		"context": {"type": "string", "enum": ["inline", "fork"], "description": "inline injects into the current dialogue (default); fork runs in an isolated subagent."},
 		"agent": {"type": "string", "description": "Subagent type — required when context=fork."},
 		"arguments": {"type": "array", "items": {"type": "string"}, "description": "Named argument labels for $name substitution. Managed callers may send the exact JSON array as a string; other scalar/object values are invalid."},
-		"disableModelInvocation": {"type": "boolean", "description": "If true, the skill is hidden from the model's catalog (user-only trigger). Managed callers may send the exact string \"true\" or \"false\"; other shapes are invalid."}
+		"disableModelInvocation": {"type": "boolean", "description": "If true, the skill is hidden from the model's catalog (user-only trigger). Managed callers may send the exact string \"true\" or \"false\"; other shapes are invalid."},
+		"userInvocable": {"type": "boolean", "description": "If true, the skill is available for explicit user invocation. Managed callers may send the exact string \"true\" or \"false\"; other shapes are invalid."}
 	}
 }`
 
@@ -188,7 +197,7 @@ type CreateSkill struct{ svc *skillapp.Service }
 func (t *CreateSkill) Name() string { return "create_skill" }
 
 func (t *CreateSkill) Description() string {
-	return "Author a NEW skill — a reusable instruction pack you can later activate. Required: name, description, body. Optional: allowedTools (array of tool names to pre-approve), context (inline or fork), agent (for fork), arguments (array of named placeholders), disableModelInvocation. Use this to codify a workflow you just performed into a repeatable capability. Fails if the name already exists (use edit_skill to change one)."
+	return "Author a NEW skill — a reusable instruction pack you can later activate. Required: name, description, body. Optional: allowedTools (array of tool names to pre-approve), context (inline or fork), agent (for fork), arguments (array of named placeholders), disableModelInvocation, userInvocable. Use this to codify a workflow you just performed into a repeatable capability. Fails if the name already exists (use edit_skill to change one)."
 }
 
 func (t *CreateSkill) Parameters() json.RawMessage { return json.RawMessage(saveSkillSchema) }

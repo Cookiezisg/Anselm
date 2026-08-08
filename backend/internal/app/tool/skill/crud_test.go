@@ -13,18 +13,21 @@ func TestSaveSkillArgsAcceptsNativeAndExactEncodedArrays(t *testing.T) {
 		body        string
 		wantAllowed []string
 		wantArgs    []string
+		wantUser    bool
 	}{
 		{
 			name:        "native arrays",
-			body:        `{"name":"review","description":"d","body":"b","allowedTools":["Read"],"arguments":["audience"]}`,
+			body:        `{"name":"review","description":"d","body":"b","allowedTools":["Read"],"arguments":["audience"],"userInvocable":true}`,
 			wantAllowed: []string{"Read"},
 			wantArgs:    []string{"audience"},
+			wantUser:    true,
 		},
 		{
 			name:        "exact array strings",
-			body:        `{"name":"review","description":"d","body":"b","allowedTools":"[\"Read\"]","arguments":"[\"audience\"]"}`,
+			body:        `{"name":"review","description":"d","body":"b","allowedTools":"[\"Read\"]","arguments":"[\"audience\"]","userInvocable":"true"}`,
 			wantAllowed: []string{"Read"},
 			wantArgs:    []string{"audience"},
+			wantUser:    true,
 		},
 	}
 	for _, tt := range tests {
@@ -38,6 +41,9 @@ func TestSaveSkillArgsAcceptsNativeAndExactEncodedArrays(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got.Arguments, tt.wantArgs) {
 				t.Fatalf("arguments = %#v, want %#v", got.Arguments, tt.wantArgs)
+			}
+			if got.UserInvocable != tt.wantUser {
+				t.Fatalf("userInvocable = %v, want %v", got.UserInvocable, tt.wantUser)
 			}
 		})
 	}
@@ -94,6 +100,9 @@ func TestSaveSkillSchemaDocumentsManagedArrayCompatibility(t *testing.T) {
 	}
 	if !strings.Contains((&CreateSkill{}).Description(), "Optional: allowedTools") {
 		t.Fatalf("description must name optional skill metadata: %s", (&CreateSkill{}).Description())
+	}
+	if !strings.Contains(got, `"userInvocable"`) || !strings.Contains((&CreateSkill{}).Description(), "userInvocable") {
+		t.Fatalf("schema and description must expose userInvocable: schema=%s description=%s", got, (&CreateSkill{}).Description())
 	}
 }
 

@@ -51,10 +51,11 @@ AI `create_approval` / `edit_approval` 保持公开 schema 的强类型契约，
 托管模型形状：`allowReason` 的精确布尔字符串，`timeout` 的精确整数秒字符串/整数（例如 `"7200"`
 归一化为 `2h`），以及 `inputs` 的精确 JSON 编码数组或以字段名为 key 的 JSON 对象（两者也可作为
 字符串传入）。对象 key 会排序后转为稳定的 Field 列表；数字、任意 truthy 值、坏 JSON、非整数秒和
-冲突字段名仍在 mutation 前拒绝。`edit_approval` 是完整版本替换而不是 delta，
-因此 `approvalId`、`inputs`、`template`、`allowReason`、`timeout`、`timeoutBehavior` 与非空
-`changeReason` 均必须显式提供（timeout 空字符串和 inputs 空数组是合法值）；执行边界与 schema
-同时拒绝缺失或 null，防止零值或审计理由缺失静默写入错误版本。
+冲突字段名仍在 mutation 前拒绝。`edit_approval` 是完整版本替换而不是 delta；AI 调用前应先读取当前
+Approval，构造一份完整快照，即使字段没有变化也必须复制。尤其当前版本的 `allowReason` 为 `true` 时，
+仍须显式发送 `allowReason: true`，不能把未变化字段省略成 delta。`approvalId`、`inputs`、`template`、
+`allowReason`、`timeout`、`timeoutBehavior` 与非空 `changeReason` 均必须显式提供（timeout 空字符串和
+inputs 空数组是合法值）；执行边界与 schema 同时拒绝缺失或 null，防止零值或审计理由缺失静默写入错误版本。
 该兼容只修正 wire shape，不改变 approval 语义，也不放宽 HTTP/API 的公开 schema。
 
 HTTP metadata patch 只在 name/description 实际变化时保存；空 patch 或等值 patch 是成功 no-op，不刷新

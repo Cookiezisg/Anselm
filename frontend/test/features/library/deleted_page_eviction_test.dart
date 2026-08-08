@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/entities/document.dart';
+import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/notice/notice_center.dart';
@@ -65,6 +66,14 @@ FixtureLibraryRepository _repo() => FixtureLibraryRepository(
   skills: const [],
 );
 
+Skill _skill(String name) => Skill(
+  name: name,
+  description: 'A test skill',
+  context: 'inline',
+  body: '# $name',
+  updatedAt: DateTime.utc(2026, 1, 1),
+);
+
 class _FakeMentions implements MentionSource {
   @override
   Future<Map<String, String>> resolveNames(List<String> ids) async => const {};
@@ -98,7 +107,7 @@ void main() {
     final router = GoRouter(
       initialLocation: at,
       routes: [
-        for (final path in ['/', '/library/:id'])
+        for (final path in ['/', '/library/:id', '/library/skill/:name'])
           GoRoute(
             path: path,
             pageBuilder: (_, _) =>
@@ -199,6 +208,57 @@ void main() {
         ref.read(noticeCenterProvider).current?.message.text,
         isNot(t.library.docGone),
         reason: 'and it must not claim the page was deleted (L17)',
+      );
+    });
+  });
+
+  group('skill 删除后不该继续呈现', () {
+    testWidgets('删掉打开着的 skill → 离开它并明说', (tester) async {
+      final repo = FixtureLibraryRepository(
+        documents: const [],
+        skills: [_skill('skill_a')],
+      );
+      final ref = await pumpOcean(tester, repo, at: '/library/skill/skill_a');
+      expect(ref.read(selectedDocProvider), (isSkill: true, id: 'skill_a'));
+
+      // Delete out of band (another view / agent), then let the list reconcile against its source of truth.
+      await repo.deleteSkill('skill_a');
+      ref.invalidate(skillListProvider);
+      await tester.pumpAndSettle();
+
+      expect(
+        ref.read(selectedDocProvider),
+        isNull,
+        reason: 'the ocean must not keep presenting a skill that is gone',
+      );
+      expect(
+        ref.read(noticeCenterProvider).current?.message.text,
+        t.library.skillGone,
+      );
+    });
+
+    testWidgets('列表里从没见过的 skill → 绝不被踢走', (tester) async {
+      final repo = FixtureLibraryRepository(
+        documents: const [],
+        skills: const [],
+      );
+      final ref = await pumpOcean(
+        tester,
+        repo,
+        at: '/library/skill/skill_unseen',
+      );
+
+      ref.invalidate(skillListProvider);
+      await tester.pumpAndSettle();
+
+      expect(
+        ref.read(selectedDocProvider),
+        (isSkill: true, id: 'skill_unseen'),
+        reason: 'a deep link is not proof that the skill was deleted',
+      );
+      expect(
+        ref.read(noticeCenterProvider).current?.message.text,
+        isNot(t.library.skillGone),
       );
     });
   });

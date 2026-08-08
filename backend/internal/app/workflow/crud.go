@@ -367,14 +367,18 @@ func (s *Service) Get(ctx context.Context, id string) (*workflowdomain.Workflow,
 	if err != nil {
 		return nil, fmt.Errorf("workflowapp.Get: %w", err)
 	}
-	if w.ActiveVersionID != "" {
-		if v, verr := s.repo.GetVersion(ctx, w.ActiveVersionID); verr == nil {
-			if g, perr := decodeGraph(v.Graph); perr == nil {
-				v.GraphParsed = g
-			}
-			w.ActiveVersion = v
-		}
+	if w.ActiveVersionID == "" {
+		return nil, workflowdomain.ErrNoActiveVersion
 	}
+	v, err := s.repo.GetVersion(ctx, w.ActiveVersionID)
+	if err != nil {
+		// A dangling pointer is corrupted durable truth, not a valid empty detail. 悬空指针是耐久真相损坏，不是合法空详情。
+		return nil, fmt.Errorf("workflowapp.Get active version: %w", err)
+	}
+	if g, perr := decodeGraph(v.Graph); perr == nil {
+		v.GraphParsed = g
+	}
+	w.ActiveVersion = v
 	return w, nil
 }
 

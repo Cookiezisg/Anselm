@@ -93,6 +93,11 @@ class _LibraryOceanState extends ConsumerState<LibraryOcean> {
   /// 会在页面**刚建出来**那一刻就把人踢走(树重取有防抖,新页确实会短暂缺席)。只有「见过、又不见了」才叫删除。
   String? _seenInTree;
 
+  /// The selected skill name we have actually SEEN in the flat skill list. A skill can be opened by a
+  /// deep link or remain selected during the list's debounced refresh, so absence alone is not enough.
+  /// 已在扁平 skill 列表里**见过**的选中名。深链或列表防抖刷新期间可合法暂缺，故不能只凭缺席判删除。
+  String? _seenInSkills;
+
   /// Leave a page that no longer exists.
   ///
   /// The mechanism already existed for the ONE path the user drives themselves — the rail's own delete
@@ -111,13 +116,26 @@ class _LibraryOceanState extends ConsumerState<LibraryOcean> {
   /// 继续呈现一个**完全可编辑**却已不存在的页面——作者一直打字,而每一次保存都 404(WRK-083 L17)。
   void _evictIfGone() {
     final sel = ref.read(selectedDocProvider);
-    // Skills are not in the document tree; the uncreated/just-adopted draft is legitimately absent.
-    // skill 不在文档树里;未创建/刚认领的草稿本就合法缺席。
-    if (sel == null ||
-        sel.isSkill ||
-        sel.id == ref.read(adoptedDraftDocProvider)) {
+    if (sel == null || sel.id == ref.read(adoptedDraftDocProvider)) {
       return;
     }
+
+    if (sel.isSkill) {
+      final skills = ref.read(skillListProvider).value;
+      if (skills == null) return; // loading / error → no verdict 载入中/出错→不下判断
+      if (skills.any((s) => s.name == sel.id)) return; // still there 还在
+      // Never seen in the list → a deep link or just-created skill, not proof of deletion.
+      // 列表里从没见过→可能是深链或刚创建,不能据此判删除。
+      if (_seenInSkills != sel.id) return;
+      _seenInSkills = null;
+      if (!mounted) return;
+      context.go('/');
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(context.t.library.skillGone, tone: AnTone.danger);
+      return;
+    }
+
     final tree = ref.read(documentTreeProvider).value;
     if (tree == null) return; // loading / error → no verdict 载入中/出错→不下判断
     if (tree.any((n) => n.id == sel.id)) return; // still there 还在
@@ -145,6 +163,7 @@ class _LibraryOceanState extends ConsumerState<LibraryOcean> {
     // 「见过」,它日后被删会被误判成新建而放过。build 中写一个普通字段(不 setState)是安全的——它喂的是下一次判决,
     // 不是这一帧的输出。
     final tree = ref.watch(documentTreeProvider).value;
+    final skills = ref.watch(skillListProvider).value;
     if (tree != null &&
         selected != null &&
         !selected.isSkill &&
@@ -152,9 +171,16 @@ class _LibraryOceanState extends ConsumerState<LibraryOcean> {
         tree.any((n) => n.id == selected.id)) {
       _seenInTree = selected.id;
     }
+    if (skills != null &&
+        selected != null &&
+        selected.isSkill &&
+        skills.any((s) => s.name == selected.id)) {
+      _seenInSkills = selected.id;
+    }
     // Both axes feed the verdict: the tree changing (a delete landed) and the selection changing
     // (you opened a page — is it still there?). 两条轴都喂判决:树变了(删除落地)与选区变了(你打开一页,它还在吗)。
     ref.listen(documentTreeProvider, (_, _) => _evictIfGone());
+    ref.listen(skillListProvider, (_, _) => _evictIfGone());
     ref.listen(selectedDocProvider, (_, _) => _evictIfGone());
     // Deselection (navigating home / deleting the open node) clears the floating head + stale outline.
     // 取消选区即清浮层头 + 陈旧大纲。

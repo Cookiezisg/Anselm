@@ -106,6 +106,14 @@ audience: [human, ai]
 所有实体的 `:iterate` 端点都接受 `{request}`。请求必须包含至少一个非空白字符；否则返回
 `400 EMPTY_ITERATE_REQUEST`，不会创建 Conversation。
 
+`:iterate` 创建的是**编辑工作对话**，不是直接 mutation：实体的当前定义以 @-mention 快照种入首条消息，
+并把目标 type/id 作为不可变 target lock 注入 system prompt。模型必须逐字符复用该 opaque id；首轮若
+`request` 只是“帮我用 AI 编辑”而没有具体修改，不得调用 `edit_*`，应先展示当前定义并追问修改意图。
+真正的 edit 只在用户给出具体变更后执行，并仍遵守对应 `edit_*` 的完整替换/立即生效语义。
+对 versioned full-replacement entity，首个 edit 调用必须复制当前定义的全部 required fields，不能只发送
+用户改变的字段；Approval 特别要求 `approvalId`、`inputs`、`template`、`allowReason`、`timeout`、
+`timeoutBehavior` 和非空 `changeReason`。后端仍严格拒绝 delta，不把 retry 成功当作首调用通过。
+
 ## 4. Workflow execution
 
 ### Workflow
@@ -177,6 +185,11 @@ GET /controls|approvals/{id}/versions[/{version}]
 
 `GET /controls` 与 `GET /approvals` 均支持 `?search=` 的大小写不敏感 name 子串过滤；列表响应在
 `X-Anselm-Total-Count` 携带同一过滤条件下的精确总数，分页 JSON body 仍遵守 N4。
+
+六类带版本实体的单读（function/handler/agent/workflow/control/approval）必须把主行的
+`activeVersionId` hydrate 成同一响应内的 `activeVersion`；active 指针为空返回对应的
+`*_NO_ACTIVE_VERSION`，指向不存在版本返回对应的 `*_VERSION_NOT_FOUND`。数据损坏不得被
+伪装成 `200` 且省略版本的“空详情”。
 
 版本列表先解析路径中的父 Control/Approval；父实体不存在返回对应的 `*_NOT_FOUND`，不伪装成
 `200` 空历史。父实体存在但历史为空时才返回空分页；父实体已软删时，普通实体读仍为 not-found，但其

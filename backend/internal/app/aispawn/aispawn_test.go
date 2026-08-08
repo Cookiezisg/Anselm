@@ -74,7 +74,18 @@ func TestIterate_SeedsEntityMentionAndSteer(t *testing.T) {
 			t.Fatalf("system prompt should list matching %s, got: %q", tool, st.gotSystemPrompt)
 		}
 	}
-	for _, phrase := range []string{"Do NOT call any create_*", "trigger and document edits apply in place", "no pending/review gate"} {
+	for _, phrase := range []string{
+		"Do NOT call any create_*",
+		"trigger and document edits apply in place",
+		"no pending/review gate",
+		"opening request may only ask to start editing",
+		"copy these values character-for-character",
+		"- type: function",
+		"- id: fn_42",
+		"never send a delta",
+		"approvalId, inputs, template, allowReason, timeout, timeoutBehavior",
+		"never rely on a retry to complete the snapshot",
+	} {
 		if !strings.Contains(st.gotSystemPrompt, phrase) {
 			t.Fatalf("system prompt should preserve iterate safety rule %q, got: %q", phrase, st.gotSystemPrompt)
 		}

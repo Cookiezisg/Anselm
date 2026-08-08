@@ -108,6 +108,34 @@ func TestCreate_EmptyName(t *testing.T) {
 	}
 }
 
+func TestGet_DanglingActiveVersionFailsLoudly(t *testing.T) {
+	svc, ctx := newSvc(t)
+	f, _, err := svc.Create(ctx, CreateInput{Name: "dangling", Template: "ok?"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := svc.repo.SetActiveVersion(ctx, f.ID, "apfv_missing_get"); err != nil {
+		t.Fatalf("corrupt active pointer: %v", err)
+	}
+	if _, err := svc.Get(ctx, f.ID); !errors.Is(err, approvaldomain.ErrVersionNotFound) {
+		t.Fatalf("dangling active pointer must fail as version not found, got %v", err)
+	}
+}
+
+func TestGet_EmptyActiveVersionFailsLoudly(t *testing.T) {
+	svc, ctx := newSvc(t)
+	f, _, err := svc.Create(ctx, CreateInput{Name: "empty-active", Template: "ok?"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if err := svc.repo.SetActiveVersion(ctx, f.ID, ""); err != nil {
+		t.Fatalf("clear active pointer: %v", err)
+	}
+	if _, err := svc.Get(ctx, f.ID); !errors.Is(err, approvaldomain.ErrNoActiveVersion) {
+		t.Fatalf("empty active pointer must fail as no active version, got %v", err)
+	}
+}
+
 func TestCreate_DuplicateName(t *testing.T) {
 	svc, ctx := newSvc(t)
 	mk := func() error {

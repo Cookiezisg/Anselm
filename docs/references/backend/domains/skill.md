@@ -69,7 +69,7 @@ JSON 编码；普通字符串、数字、对象、混合类型数组和非法编
 有意重试。权限、临时文件系统等其他错误不被这一条吞掉。
 
 `create_skill` 的工具短描述同时列出必填字段 `name/description/body` 与可选的
-`allowedTools/context/agent/arguments/disableModelInvocation`；不能依赖模型从截断的
+`allowedTools/context/agent/arguments/disableModelInvocation/userInvocable`；不能依赖模型从截断的
 工具摘要猜测这些字段。
 
 正文注入当前 Conversation，并把 allowed-tools 记为本次运行的预授权。Skill

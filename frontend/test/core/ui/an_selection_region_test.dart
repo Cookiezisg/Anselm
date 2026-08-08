@@ -207,6 +207,46 @@ void main() {
   });
 
   testWidgets(
+    'pointer activation can rebuild selectable content without a selection exception',
+    (tester) async {
+      var revision = 0;
+      await tester.pumpWidget(
+        host(
+          StatefulBuilder(
+            builder: (context, setState) => AnSelectionRegion(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  AnInteractive(
+                    onTap: () => setState(() => revision++),
+                    builder: (_, _) => const Text('rebuild row'),
+                  ),
+                  Text('revision $revision'),
+                  for (var i = 0; i < revision + 2; i++)
+                    Text('selectable line $i'),
+                ],
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('rebuild row'));
+      await tester.pumpAndSettle();
+
+      expect(revision, 1);
+      expect(tester.takeException(), isNull);
+      expect(
+        AnSelectionRegion.focusOf(
+          tester.element(find.text('revision 1')),
+        )?.hasFocus,
+        isTrue,
+      );
+    },
+  );
+
+  testWidgets(
     'chrome text is NOT selectable — a button label stays out of the clipboard',
     (tester) async {
       await tester.pumpWidget(

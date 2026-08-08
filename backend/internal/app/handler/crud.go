@@ -97,21 +97,28 @@ func (s *Service) Get(ctx context.Context, id string) (*handlerdomain.Handler, e
 	if err != nil {
 		return nil, fmt.Errorf("handlerapp.Get: %w", err)
 	}
-	s.attach(ctx, h)
+	if err := s.attach(ctx, h); err != nil {
+		return nil, err
+	}
 	return h, nil
 }
 
-func (s *Service) attach(ctx context.Context, h *handlerdomain.Handler) {
-	if h.ActiveVersionID != "" {
-		if v, verr := s.repo.GetVersion(ctx, h.ActiveVersionID); verr == nil {
-			h.ActiveVersion = v
-			if state, missing, cerr := s.ComputeConfigState(ctx, h.ID, v.InitArgsSchema); cerr == nil {
-				h.ConfigState = state
-				h.MissingConfig = missing
-			}
-		}
+func (s *Service) attach(ctx context.Context, h *handlerdomain.Handler) error {
+	if h.ActiveVersionID == "" {
+		return handlerdomain.ErrNoActiveVersion
+	}
+	v, err := s.repo.GetVersion(ctx, h.ActiveVersionID)
+	if err != nil {
+		// A dangling pointer is corrupted durable truth, not a valid empty detail. 悬空指针是耐久真相损坏，不是合法空详情。
+		return fmt.Errorf("handlerapp.Get active version: %w", err)
+	}
+	h.ActiveVersion = v
+	if state, missing, cerr := s.ComputeConfigState(ctx, h.ID, v.InitArgsSchema); cerr == nil {
+		h.ConfigState = state
+		h.MissingConfig = missing
 	}
 	h.RuntimeState = s.manager.State(h.ID)
+	return nil
 }
 
 // Create applies ops, persists Handler + v1 (active), materializes its env. It does NOT

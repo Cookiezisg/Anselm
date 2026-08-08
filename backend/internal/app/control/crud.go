@@ -196,11 +196,15 @@ func (s *Service) Get(ctx context.Context, id string) (*controldomain.ControlLog
 	if err != nil {
 		return nil, fmt.Errorf("controlapp.Get: %w", err)
 	}
-	if c.ActiveVersionID != "" {
-		if v, verr := s.repo.GetVersion(ctx, c.ActiveVersionID); verr == nil {
-			c.ActiveVersion = v
-		}
+	if c.ActiveVersionID == "" {
+		return nil, controldomain.ErrNoActiveVersion
 	}
+	v, err := s.repo.GetVersion(ctx, c.ActiveVersionID)
+	if err != nil {
+		// A dangling pointer is corrupted durable truth, not a valid empty detail. 悬空指针是耐久真相损坏，不是合法空详情。
+		return nil, fmt.Errorf("controlapp.Get active version: %w", err)
+	}
+	c.ActiveVersion = v
 	return c, nil
 }
 

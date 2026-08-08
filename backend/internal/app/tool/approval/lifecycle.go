@@ -117,7 +117,7 @@ type EditApproval struct{ svc *approvalapp.Service }
 func (t *EditApproval) Name() string { return "edit_approval" }
 
 func (t *EditApproval) Description() string {
-	return "Replace an approval form with a complete new version, writing it active immediately (revert can switch back). Required full replacement fields: approvalId, inputs, template, allowReason, timeout, timeoutBehavior, changeReason; do not send a delta. Inputs and allowReason accept the public schema plus exact hosted-model JSON string variants; timeout also accepts an exact integer seconds string or integer number and normalizes it. Malformed or missing fields are rejected before mutation. changeReason is a non-empty audit explanation."
+	return "Replace an approval form with a complete new version, writing it active immediately (revert can switch back). First read the current approval and construct one complete snapshot: copy every required field, including fields that are unchanged. In particular, if the current version says allowReason=true, you must still send allowReason=true; omitting an unchanged boolean is not a valid delta and will be rejected. Required full replacement fields: approvalId, inputs, template, allowReason, timeout, timeoutBehavior, changeReason; do not send a delta. Inputs and allowReason accept the public schema plus exact hosted-model JSON string variants; timeout also accepts an exact integer seconds string or integer number and normalizes it. Malformed or missing fields are rejected before mutation. changeReason is a non-empty audit explanation."
 }
 
 func (t *EditApproval) Parameters() json.RawMessage {
@@ -125,13 +125,13 @@ func (t *EditApproval) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["approvalId", "inputs", "template", "allowReason", "timeout", "timeoutBehavior", "changeReason"],
 		"properties": {
-			"approvalId": {"type": "string"},
+			"approvalId": {"type": "string", "description": "Exact apf_... ID returned by get_approval; copy it character-for-character."},
 			"inputs": {"type": "array", "description": "Declared inputs (template reads input.*): each {name, type, description}. Hosted-model compatibility also accepts an exact JSON-encoded array string or exact field-name object JSON string; malformed shapes are rejected.", "items": {"type": "object"}},
 			"template": {"type": "string", "description": "Markdown prompt with {{ input.* }} interpolation."},
-			"allowReason": {"type": "boolean", "description": "Native boolean; exact strings \"true\"/\"false\" are accepted only for hosted-model compatibility."},
-			"timeout": {"type": "string", "description": "Duration like 30d / 2h; empty = never. Hosted-model compatibility also accepts an exact integer seconds string or integer number and normalizes it."},
-			"timeoutBehavior": {"type": "string", "enum": ["reject", "approve", "fail"]},
-			"changeReason": {"type": "string"}
+			"allowReason": {"type": "boolean", "description": "Required even when unchanged: copy the exact current active-version value from get_approval. If it is true, send true; if it is false, send false. Never omit this field. Exact strings \"true\"/\"false\" are accepted only for hosted-model compatibility."},
+			"timeout": {"type": "string", "description": "Required even when unchanged. Copy the current duration unless the user changes it; empty = never. Duration like 30d / 2h. Hosted-model compatibility also accepts an exact integer seconds string or integer number and normalizes it."},
+			"timeoutBehavior": {"type": "string", "enum": ["reject", "approve", "fail"], "description": "Required even when unchanged. Copy the current behavior unless the user changes it."},
+			"changeReason": {"type": "string", "description": "Non-empty audit explanation of this complete replacement."}
 		}
 	}`)
 }

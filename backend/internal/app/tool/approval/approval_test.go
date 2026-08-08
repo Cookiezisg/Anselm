@@ -292,6 +292,7 @@ func TestEditApproval_RequiresCompleteReplacement(t *testing.T) {
 		args string
 	}{
 		{name: "missing inputs", args: `{"approvalId":"apf_1","template":"new","allowReason":true,"timeout":"2h","timeoutBehavior":"approve"}`},
+		{name: "missing allow reason", args: `{"approvalId":"apf_1","inputs":[],"template":"new","timeout":"2h","timeoutBehavior":"approve","changeReason":"test"}`},
 		{name: "missing rules", args: `{"approvalId":"apf_1","inputs":[],"template":"new"}`},
 		{name: "null inputs", args: `{"approvalId":"apf_1","inputs":null,"template":"new","allowReason":true,"timeout":"2h","timeoutBehavior":"approve"}`},
 		{name: "missing change reason", args: `{"approvalId":"apf_1","inputs":[],"template":"new","allowReason":true,"timeout":"2h","timeoutBehavior":"approve"}`},
@@ -315,6 +316,30 @@ func TestEditApproval_ParametersRequireCompleteReplacement(t *testing.T) {
 	want := []string{"approvalId", "inputs", "template", "allowReason", "timeout", "timeoutBehavior", "changeReason"}
 	if !reflect.DeepEqual(schema.Required, want) {
 		t.Fatalf("required = %#v, want %#v", schema.Required, want)
+	}
+}
+
+func TestEditApproval_DescriptionPinsCompleteSnapshot(t *testing.T) {
+	tool := &EditApproval{}
+	for _, want := range []string{
+		"complete snapshot",
+		"including fields that are unchanged",
+		"if the current version says allowReason=true, you must still send allowReason=true",
+		"omitting an unchanged boolean is not a valid delta",
+	} {
+		if !strings.Contains(tool.Description(), want) {
+			t.Fatalf("edit description missing %q: %s", want, tool.Description())
+		}
+	}
+	var schema struct {
+		Properties map[string]map[string]any `json:"properties"`
+	}
+	if err := json.Unmarshal(tool.Parameters(), &schema); err != nil {
+		t.Fatalf("decode edit schema: %v", err)
+	}
+	allowReasonDescription, _ := schema.Properties["allowReason"]["description"].(string)
+	if !strings.Contains(allowReasonDescription, "Never omit this field") {
+		t.Fatalf("allowReason description does not pin omission rule: %q", allowReasonDescription)
 	}
 }
 

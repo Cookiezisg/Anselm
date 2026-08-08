@@ -10,10 +10,130 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-08 · EP-107 POST /api/v1/skills 五级收口，批次二十三 50/50
+
+- 产品目的：用户在真实 Chat 中用自然语言创建一个完整 skill；`create_skill` 工具 schema、REST 请求、持久化 frontmatter、durable SSE、Library Properties/Activity 与删除后的 UI 真相必须一致，结果要可理解、可继续使用，而不是只看一个 `201`。
+- 首轮真实 Chat 冻结产品红：schema 漏掉 `userInvocable`，用户明确要求 `true` 但工具不能发送，REST 读取也确认 frontmatter 缺失。stop-and-fix 修改 `backend/internal/app/tool/skill/crud.go` 的严格 bool 解码、映射和 schema/description，补 `crud_test.go` native/exact-string 回归并同步 `docs/references/backend/domains/skill.md`；红证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-107-user-invocable-red.md` 保留。
+- 固定真实 Chat session `/private/tmp/anselm-rig-ep107-skill-create-rerun-20260808/sessions/20260808-215429` 重跑成功：一次真实 `create_skill` 创建 `ep107-chat-notes-v2`，REST/LLM wire/UI 均确认 `userInvocable:true`、`disableModelInvocation:true`、`allowedTools:["Read"]`；Library Properties 显示 `Model can invoke Off` 和 `User-invocable On`，无裁切、重叠、loading 残留或视口跳变。
+- 回归继续冻结第二条产品红：REST/agent 路径删除当前选中 skill 后，rail 已刷新但中心详情仍显示已删除正文和属性。stop-and-fix 修改 `frontend/lib/features/library/ui/library_ocean.dart` 的“曾见过且已消失”选中态驱逐逻辑，补中英文 `skillGone` 文案、生成字符串和 `deleted_page_eviction_test.dart` 两个回归。
+- 最终真实 Flutter session `/private/tmp/anselm-rig-ep107-skill-create-rerun2-20260808/sessions/20260808-215933` 创建/选中 `ep107-delete-live2` 后 DELETE `204`；约 350ms 后 rail 移除、中心回到 `Untitled` 并显示 `This skill was deleted`。随后 GET `404 SKILL_NOT_FOUND`，workspace `ep107-*` 计数为 0；SSE notifications durable `seq=19` 为 `skill.deleted`。录屏 `259.116667s` 已由 `rig-down` 封片，五通道 `rig-check` 全绿，backend/frontend/llmtap/ssetap 无未解释应用红线。
+- 定向验证：`mise exec -- go test ./internal/app/tool/skill -count=1` 通过；`mise exec -- flutter test test/features/library/deleted_page_eviction_test.dart test/features/library/library_test.dart` 通过（51 tests）；anchors `10/10`；`gen_coverage.py --check`=`848 rows / 239 carried / 0 tombstones`。
+- formal `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 按 `G1/F2/A5/C4/G2` 将账本 `1225→1230 judgments` 写入五格，COVERAGE `EP-107=✓✓✓✓✓`。集中写账触发 `gap-too-fast`/`discovery-collapse`，独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-107-skill-create-ledger-reaudit.md`，按原阈值 ack 后 `alarms.py check`=`clean (1230 judgments on record)`，未改阈值/算法/法典/锚点。最终证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-107-skill-create-final-green.md`。
+- 批次二十三达到 **50/50**。尚未执行统一长门禁和提交；下一动作是完整 `make verify`、完整 `go test ./...`、已修场景回归、工作树审计和提交。全绿提交后才启动 EP-108。
+
+## 2026-08-08 · EP-106 GET /api/v1/skills 五级收口，批次二十三 45/50
+
+- 产品目的：用户在真实 Library → Skills 中看到完整、按名称排序、轻量且不泄露正文路径的 skill 列表；`disableModelInvocation=true` 不能错误隐藏用户 skill；外部创建/删除要经 durable signal 真实刷新。固定 session `/private/tmp/anselm-rig-ep106-skills-list-20260808/sessions/20260808-213055` 使用真实 Flutter App、受管 gateway、Computer Use、backend/frontend journal、三路 SSE witness、LLM tap 和窗口录屏。
+- REST/UI：基线 2 条；创建三个临时 skill 后 list 5 条且排序严格；list 无 `body`/`dir`/`provenance`，缺 workspace `401 UNAUTH_NO_WORKSPACE`，错误 body frontmatter `422 SKILL_INVALID_FRONTMATTER`；长名称 rail 等高省略，详情 Properties 可用；模型不可调用 skill 仍可见并显示 `Model can invoke Off`。App 打开期间 `ep106-live-refresh` 创建后出现，删除 `204→404 SKILL_NOT_FOUND`，其余 fixture 清理后回到两条 seeded skill。
+- 五通道：`rig-check` 全绿，`rig-down` 录屏 `267.278333s / 2784x1808 / 60fps`；backend/frontend/llmtap/recording 无应用红线；三路 ssetap 均连接，notifications durable seq `16..23` 单调唯一，四次 create + 四次 delete 完整；本格为确定性列表切片，不伪造 completion。完整证据 `/private/tmp/anselm-rig-ep106-skills-list-20260808/sessions/20260808-213055/evidence/EP-106-skills-list-final-green.md`，正式指针同名位于 `/private/tmp/anselm-rig-formal-20260801-3/evidence/`。
+- 正式账本 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 按 `G1/F1/B2/C5/G2` 写入 `1220→1225 judgments`，anchors `10/10`；独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-106-skills-list-ledger-reaudit.md`，gap-too-fast/discovery-collapse 按原阈值打开后复审并 ack，最终 `alarms.py check`=`clean (1225 judgments on record)`，未改阈值/算法/法典/锚点。`gen_coverage.py --check`=`848 rows / 238 carried / 0 tombstones`，COVERAGE `EP-106=✓✓✓✓✓`。
+- 仪器纪律：首轮账本命令漏 export `RIG_HOME`，五条初始 append 进入默认旁路 journal；未手改账本，随后用 `env RIG_HOME=...` 重新执行 formal gate，旁路记录隔离，formal journal 与 COVERAGE 对齐。批次二十三当前 45/50，下一前线 EP-107。
+
+## 2026-08-08 · EP-105 GET /api/v1/approvals/{id}/versions/{version} 五级收口，批次二十三 40/50
+
+- 产品目的：用户能按数字或 opaque version ID 读取 Approval 的单个历史快照，不能跨父、猜版本或在主行软删后丢审计。固定 session `/private/tmp/anselm-rig-ep105-approval-version-get-20260808/sessions/20260808-212032` 建立 A(v1/v2/v3) 与 B(v1)，真实 App 从 Entities → Approval A → Versions 看到 v3 active、v2 diff 与完整版本内容，逐帧无裁切、重叠、死 loading 或跳变。
+- REST/negative matrix：A numeric v2、opaque v1/v3→`200`；`0/-1/999/2.0`、跨父 opaque、未知父→`404 APPROVAL_VERSION_NOT_FOUND`；缺 workspace→`401 UNAUTH_NO_WORKSPACE`。A/B DELETE→`204`，exact entity GET→`404`，A 删除后 numeric v2/opaque v3 仍→`200`；SQLite 保留 A 3 条、B 1 条版本。
+- 五通道：`rig-check` 全绿，`rig-down` 录屏 `213.058333s / 2784x1808 / 60fps`；backend/frontend/llmtap 无应用红线；notifications durable seq `16..21` 单调唯一，A/B create/edit/delete 信号完整；本格是确定性读取，不伪造 completion。完整证据 `/private/tmp/anselm-rig-ep105-approval-version-get-20260808/sessions/20260808-212032/evidence/EP-105-approval-version-get-final-green.md`，正式指针同名位于 `/private/tmp/anselm-rig-formal-20260801-3/evidence/`。
+- 正式账本 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 按 `G1/F1/B2/C5/G2` 写入 `1215→1220 judgments`，anchors `10/10`；独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-105-approval-version-get-ledger-reaudit.md`，统计警报复审后 ack，未改阈值/算法/法典/锚点；`alarms.py check` clean，`gen_coverage.py --check`=`848 rows / 237 carried / 0 tombstones`，COVERAGE `EP-105=✓✓✓✓✓`。批次二十三当前 40/50，下一前线 EP-106。
+
+## 2026-08-08 · EP-104 GET /api/v1/approvals/{id}/versions 五级收口，批次二十三 35/50
+
+- 产品目的：让用户从真实 App 的 Approval Versions 入口审查完整 immutable history，而不是只得到一个 API 数组。固定 UI session `/private/tmp/anselm-rig-ep104-approval-versions-20260808/sessions/20260808-210508` 建立 25 个版本，首屏 v25 自动展开并显示 active marker 与 v24→v25 diff，分页加载 v5..v1，v1 可展开，行菜单显示 `Show diff / Show all / Set active`；逐帧无裁切、重叠、死 loading 或滚动跳变。
+- REST/negative matrix：`limit=20` 两页 cursor 得 v25..v6/v5..v1；`limit=0→400 INVALID_REQUEST`、malformed cursor→`400 MALFORMED_CURSOR`、unknown parent→`404 APPROVAL_NOT_FOUND`、缺 workspace→`401 UNAUTH_NO_WORKSPACE`；`limit=999` 有界成功。
+- 按用户授权删除临时 UI fixture `apf_f7d3208a5fceb8dc`：DELETE `204`，exact GET `404`，versions 仍返回 25 行 v25..v1；App 通过 durable delete signal 回到 Entities Overview，Approval 从 rail 消失，Parts `1→0`。初次 harness 的 zsh `$APPROVAL:edit` 误发 `/dit` 无 mutation，改 `${APPROVAL}:edit` 后重跑成功，噪声已单独记录。
+- 五通道：`rig-check` 收台全绿，`rig-down` 录屏 `518.151667s`；backend/frontend/llmtap 无应用红线；notifications durable seq `16..67` 单调唯一，UI fixture 信号为 `42..67`；本格是确定性读取，不伪造 completion。完整证据 `/private/tmp/anselm-rig-ep104-approval-versions-20260808/sessions/20260808-210508/evidence/EP-104-approval-versions-final-green.md`，正式指针同名位于 `/private/tmp/anselm-rig-formal-20260801-3/evidence/`。
+- 正式账本 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3` 按 `G1/F2/B2/C5/G2` 写入 `1210→1215 judgments`，anchors `10/10`；独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-104-approval-versions-ledger-reaudit.md`，统计警报复审后 ack，未改阈值/算法/法典/锚点；`alarms.py check` clean，`gen_coverage.py --check`=`848 rows / 236 carried / 0 tombstones`，COVERAGE `EP-104=✓✓✓✓✓`。批次二十三当前 35/50，下一前线 EP-105。
+
+## 2026-08-08 · EP-103 POST /api/v1/approvals/{id}:iterate 五级收口，批次二十三 30/50
+
+- 产品目的：从 Approval 行菜单进入一个带完整当前定义的 AI 编辑对话；首轮先澄清具体改动，第一次具体 edit 调用就复制完整 replacement snapshot 并产生正确 v2。不能把“先失败再 retry”算作用户可接受的成功旅程。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep103-approval-iterate-20260808/sessions/20260808-203834` 冻结为产品红：模型猜错 mention 中的 Approval opaque id，App 显示 `approval form not found` 后才用正确 id retry。stop-and-fix 在 aispawn steering、`get_approval` 描述和 API 契约加入 exact target lock，并补 prompt 回归测试。
+- 第二次真实 session `/private/tmp/anselm-rig-ep103-approval-iterate-fixed-20260808/sessions/20260808-204652` 冻结第二个产品红：模型向严格完整 replacement `edit_approval` 发送 delta，用户看见 `Edit failed`、`Draft unsaved` 和失败工具卡后才 retry。后端严格契约保持不变；stop-and-fix 要求首次调用带齐 `approvalId`、`inputs`、`template`、`allowReason`、`timeout`、`timeoutBehavior` 和非空 `changeReason`，未知字段先重读，绝不依赖 retry；同步 `docs/references/backend/api.md`。
+- 固定 green session `/private/tmp/anselm-rig-ep103-approval-iterate-fixed2-20260808/sessions/20260808-205246` 使用真实 Flutter App、Computer Use、窗口录制、backend/frontend journal、独立三路 SSE witness、managed gateway 和 LLM tap。真实路径为 Entities → Approval 行菜单 → `Edit with AI` → 首轮读取定义并提问 → 用户提交模板变更 → 第一次完整 `edit_approval` 产生 v2；终帧显示成功 v2、before/after diff、最终摘要和 Activity `1 touched / Edited`，无红卡、裁切、loading 残留、输入/视口跳变或重复 mutation。
+- 五通道对证：录屏 `356.106667s / 2784x1808 / 60fps`；backend 无 `WARN|ERROR|panic|fatal|exception`，frontend 无 Flutter/Dart/RenderFlex/Unhandled/overflow/concurrent-modification/assert 红线；SSE messages durable `1..33`、notifications `16..21` 单调，cleanup 的 `approval.deleted`/`conversation.deleted` 为 seq `20/21`；llmtap challenge/install/models/chat completions 全 `200`，首次 edit wire 为完整字段且无失败 retry。完整证据为同 session `evidence/EP-103-approval-iterate-final-green.md`，正式指针为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-103-approval-iterate-final-green.md`。
+- 负向矩阵：空/空白 request `400 EMPTY_ITERATE_REQUEST`、未知 Approval `404 APPROVAL_NOT_FOUND`、缺 workspace `401 UNAUTH_NO_WORKSPACE`。按用户授权删除 Approval 与专用 AI conversation，均 `DELETE 204 → GET 404`，列表为空，删除证据保留在 `evidence/ep103-cleanup-*`。
+- 正式账本使用 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3`，`judge.py` 按 `G1/F2/A5/C4/G2` 从 `1205→1210 judgments` 写入五格，anchors `10/10`。写账打开的 `gap-too-fast` 与 `discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-103-approval-iterate-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典或锚点；最终 `alarms.py check`=`clean (1210 judgments on record)`。
+- `gen_coverage.py --check`=`848 rows / 235 carried / 0 tombstones`，EP-103=`✓✓✓✓✓`。批次二十三由 **25/50→30/50**；未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-104 `GET /api/v1/approvals/{id}/versions`。
+
+## 2026-08-08 · EP-102 POST /api/v1/approvals/{id}:revert 五级收口，批次二十三 25/50
+
+- 产品目的：用户从 Approval 的 Versions 表面把历史版本设为 active 后，Overview、Versions、Activity、REST、SQLite 和 SSE 必须保持同一个真相；未知版本和畸形版本输入必须大声失败，不能切错版本、重复 mutation 或留下脏状态。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep102-approval-revert-20260808/sessions/20260808-201325` 冻结为产品红：正常点击版本动作触发 selectable 子树重建时，`frontend.log` 出现真实 Flutter `Concurrent modification during iteration`，栈落在 `MultiSelectableSelectionContainerDelegate._flushInactiveSelections`；红证据为同 session `evidence/EP-102-frontend-defect-and-fix.md`，不计绿。
+- stop-and-fix 修改 `frontend/lib/core/ui/an_interactive.dart`：业务点击即时执行，selection region focus handoff 延后一个 frame并加脱离守卫，避免同步改变 selectable 集合时并发遍历；新增 `frontend/test/core/ui/an_selection_region_test.dart` 回归。`mise exec -- flutter test test/core/ui/an_selection_region_test.dart` 为 6/6，定向 analyze 和 diff check 通过。
+- 固定真实 session `/private/tmp/anselm-rig-ep102-approval-revert-fixed-20260808/sessions/20260808-202631` 重跑 v2→v1、外部 REST v1→v2 resync、UI 再 v2→v1；最终 v1 active、Versions 保留 v2/v1、Overview 精确显示 v1，未知 `999→404 APPROVAL_VERSION_NOT_FOUND`、字符串 `"1"→400 INVALID_REQUEST`，无运行时异常、重复 mutation、裁切或视口跳变。录屏 `304.298333s` 已封片。
+- 五通道对证：backend journal 无应用 WARN/ERROR/panic/fatal；frontend 仅有已分类 AXTree stale-node 观察器消息，没有 `ConcurrentModificationError` 或 Flutter/Dart runtime 红线；ssetap notifications durable seq `16..21` 单调并包含 reverted/deleted；REST/SQLite、SSE close 快照、UI 截图逐项一致；llmtap 真实 managed gateway challenge/install/models 全部 200。最终绿证据为同 session `evidence/EP-102-approval-revert-final-green.md`。
+- 用户已授权 cleanup：DELETE `204`、GET `404 APPROVAL_NOT_FOUND`、列表总数 0，SSE 仅一条 `approval.deleted`；清理证据为同 session `EP-102-fixture-cleanup.md`。
+- 正式账本使用 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3`，按 `G1/F2/A5/C4/G2` 从 `1200→1205 judgments` 写入五格，anchors `10/10`；正式独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-102-approval-revert-ledger-reaudit.md`。集中写账打开的 gap/discovery 警报按原阈值复审并 ack，未改阈值、算法、法典或锚点，最终 `alarms.py check` clean。
+- `gen_coverage.py --check`=`848 rows / 234 carried / 0 tombstones`，EP-102=`✓✓✓✓✓`。批次二十三由 **20/50→25/50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-103 `POST /api/v1/approvals/{id}:iterate`。
+
+## 2026-08-08 · EP-101 POST /api/v1/approvals/{id}:edit 五级收口，批次二十三 20/50
+
+- 产品目的：用户从 Approval 的 `Edit with AI` 入口完成一次完整 replacement，新增
+  `refundReason:string`、精确替换模板，并保留未改变的 `allowReason=true`、`timeout=4h`、
+  `timeoutBehavior=reject`；不能以一次失败 retry 后的数据正确冒充流畅旅程。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep101-approval-edit-20260808/sessions/20260808-193907`
+  冻结为红：模型遗漏 unchanged `allowReason`，后端正确拒绝完整替换，用户看见红色工具结果、
+  “previous version remains active”和随后 retry 成功。红证据保留且不计绿。
+- stop-and-fix 强化 `edit_approval` description/schema，要求先读当前实体并复制所有 required fields，
+  特别是未改变的布尔值；补工具契约测试，同步 `docs/references/backend/domains/approval.md`。定向
+  `mise exec -- go test ./internal/app/tool/approval ./internal/app/approval`、
+  `mise exec -- go test ./internal/app/loop ./internal/app/chat`、gofmt 和 `git diff --check` 通过。
+- 固定真实 session
+  `/private/tmp/anselm-rig-ep101-approval-edit-fixed-20260808/sessions/20260808-195118` 使用真实 Flutter
+  App、受管 gateway、Computer Use、录屏、backend/frontend journal、三路独立 SSE witness 和 LLM tap
+  重跑。最终一次 `edit_approval` 产生 v3，REST/SSE/LLM wire/UI 逐项一致：三个输入字段、精确模板、
+  `allowReason=true`、`4h`、`reject`；终帧显示完整请求、单一成功工具卡、齐全字段表和
+  `EP101 Refund Review Edited ×2`，无红卡、裁切、loading 残留、视口跳变或重复 mutation。
+- Computer Use 的中文 `type_text` 会丢失部分中文字符，最终精确意图用 ASCII 等价请求从正常 composer
+  重走；该输入层限制单独记录，不把丢字结果冒充产品通过。证据为
+  `/private/tmp/anselm-rig-ep101-approval-edit-fixed-20260808/sessions/20260808-195118/evidence/EP-101-approval-edit-final-green.md`，
+  红证据和 `EP-101-final-frame.png`、录屏、五通道原始日志均保留。
+- 用户已授权清理临时夹具：DELETE `204`，随后 GET `404 APPROVAL_NOT_FOUND`，列表为空，SSE 仅一条
+  `approval.deleted`；清理细节见同 session 的 `EP-101-fixture-cleanup.md`。
+- 正式账本必须使用 `RIG_HOME=/private/tmp/anselm-rig-formal-20260801-3`：`judge.py` 按
+  `G1/F2/A5/C4/G2` 从 `1195→1200 judgments` 写入五格，anchors `10/10`。正式
+  `alarms.py check` 先打开 `gap-too-fast/discovery-collapse`，独立复审为
+  `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-101-approval-edit-ledger-reaudit.md`，
+  未改阈值/算法/法典/锚点后 ack，最终 clean。一次未带 formal `RIG_HOME` 的默认账本副本保留作错路由
+  审计，正式 working state 与 COVERAGE 只认 formal ledger。
+- `gen_coverage.py --check`=`848 rows / 233 carried / 0 tombstones`；rig-check、rig-down、五通道、
+  定向 Go tests、gofmt、diff check 均通过。批次二十三由 **15/50→20/50**，未到 50 格不跑统一长门禁、
+  不提交；下一原子前线为 EP-102 `POST /api/v1/approvals/{id}:revert`。
+
+## 2026-08-08 · EP-100 DELETE /api/v1/approvals/{id} 五级收口，批次二十三 15/50
+
+- EP-100 完成真实 App、真实受管 Anselm gateway、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和 LLM tap。固定 session 为 `/private/tmp/anselm-rig-ep100-approval-delete-20260808/sessions/20260808-192034`，录屏 `494.890000s`，真实 gateway upstream 为 `https://api.anselm.website`。
+- 产品目的为移除活动 Approval、清理关系边、保留 immutable version history，并让依赖 workflow 保持可见且可修复。真实 App 删除确认后，Approval 从 rail/Parts 消失，关系图清边，Notifications 显示删除与 `1 reference dangling`；workflow graph/editor 保留原始 dangling ref，不静默重绑。
+- REST 矩阵覆盖主删除 `204`、删除后 `404 APPROVAL_NOT_FOUND`、列表消失、三条 versions 历史保留、workflow/capability missing-ref、关系清理、重复/未知删除、缺 workspace、cross-owner 和同名复用；SQLite 证明软删主行带 `deleted_at`、三条版本保留且无目标关系行。
+- 五通道完整：backend 652 行无应用 WARN/ERROR/panic/FATAL；frontend 18 行只有已知 launcher 噪声；三路 SSE 均连接且主 notifications durable seq `16..24` 单调；llmtap challenge/install/models 全部物理经真实 gateway 返回 200；rig-check 前后全绿，rig-down 正常收台。最终绿证据为 `EP-100-approval-delete-final-green.md`。
+- 用户授权的独立 cleanup `/private/tmp/anselm-rig-ep100-cleanup-20260808/sessions/20260808-192941` 删除依赖 workflow、trigger 和 auxiliary workspace，DELETE `204` 后精确 GET `404`；主 workspace、seeded graph、journals、录像和证据保留。清理证据为 `EP-100-fixture-cleanup.md`。
+- 独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-100-approval-delete-ledger-reaudit.md`。`judge.py` 按 `G1/F2/A5/C4/G2` 将账本 `1190→1195 judgments`，COVERAGE `EP-100=✓✓✓✓✓`，anchors `10/10`；集中写账打开的 gap/discovery 警报经复审 ack，未改阈值、算法、法典或锚点，`alarms.py check`=`clean (1195)`，`gen_coverage.py --check`=`848 rows / 232 carried / 0 tombstones`。
+- 本格无产品源代码变更；anchors、alarms、coverage 与 `git diff --check` 已验证。pytest 不在当前 Python 环境中安装，已如实记录。批次二十三由 `10/50→15/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-101 `POST /api/v1/approvals/{id}:edit`。
+
+## 2026-08-08 · EP-099 PATCH /api/v1/approvals/{id} 五级收口，批次二十三 10/50
+
+- EP-099 完成真实 App、真实受管 Anselm gateway、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和 LLM tap。固定 session 为 `/private/tmp/anselm-rig-ep099-approval-patch-20260808/sessions/20260808-190922`，录屏 `280.013333s`，真实 gateway upstream 为 `https://api.anselm.website`。
+- REST 矩阵覆盖 name-only、description-only、name+description、等值/空 patch、`name:null`、空白名、重复名、未知字段、畸形 JSON、未知 ID、缺 workspace、cross-owner 与 valid cross-workspace。实际变化均 `200`；no-op 不刷新 `updatedAt`、不发 durable notification；错误分别为 `APPROVAL_INVALID_NAME`、`APPROVAL_NAME_DUPLICATE`、`INVALID_REQUEST`、`APPROVAL_NOT_FOUND`、`UNAUTH_NO_WORKSPACE`。
+- 真实 App rail 与 Overview 收敛到最终 `EP099 Approval Final` / `Final product description`；v1、输入、template、reason、timeout、reject behavior 完整可见，Versions 仅有 v1 / `Diff, 0 added, 0 removed`，无裁切、重叠、loading 残留或输入跳变。主 workspace notifications seq `16..20`、cross workspace `1..2` 各自在 workspace 内连续，SQLite 三个夹具各只有一行 v1。
+- backend journal 326 行无应用 WARN/ERROR/panic/FATAL；frontend 只有已知 launcher 噪声，无 Dart/Flutter/RenderFlex/Unhandled 红线；三路 SSE 已连接，llmtap challenge/install/models 全部物理经真实 gateway wiring。最终绿证据为 `EP-099-approval-patch-final-green.md`。
+- 用户授权的独立 cleanup session `/private/tmp/anselm-rig-ep099-cleanup-20260808/sessions/20260808-191456` 删除三个 Approval 和辅助 workspace：DELETE `204`，精确 GET `404`，主 workspace 保留且列表无 EP099；SQLite 保留软删主行与 v1 immutable version history。清理证据为 `EP-099-fixture-cleanup.md`。
+- 正式账本按 `G1/F2/A5/C4/G2` 从 `1185→1190 judgments`，COVERAGE `EP-099=✓✓✓✓✓`，anchors `10/10`。集中写账打开的 `gap-too-fast`/`discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-099-approval-patch-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典或锚点；formal `alarms.py check`=`clean (1190)`，`gen_coverage.py --check`=`848 rows / 231 carried / 0 tombstones`。
+- 定向 Go 回归、`make -C docs verify`、anchors、gofmt 与 `git diff --check` 全绿。批次二十三由 `5/50→10/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-100 `DELETE /api/v1/approvals/{id}`。
+
+## 2026-08-08 · EP-098 GET /api/v1/approvals/{id} 五级收口，批次二十三 5/50
+
+- 首轮真实对抗冻结数据真相红：真实 Approval 的 `active_version_id` 指向不存在版本时，旧二进制返回 `200` 但省略 `activeVersion`，前端会把损坏误解成“还没有版本”。红证据为 `/private/tmp/anselm-rig-ep098-approval-get-20260808/sessions/20260808-184502/evidence/EP-098-approval-get-red-dangling-active.md`，不计绿。
+- stop-and-fix 对 Approval/Control/Function/Handler/Agent/Workflow 六个同类单读服务统一 fail-closed：空 pointer 返回 `*_NO_ACTIVE_VERSION`，悬空 pointer 返回 `*_VERSION_NOT_FOUND`，成功响应始终 hydrate `activeVersion`；补 Approval 空/悬空回归测试与 API 契约。
+- 固定真实 session `/private/tmp/anselm-rig-ep098-approval-get-fixed-20260808/sessions/20260808-185307` 由同一 conductor 托管真实 Flutter App、Computer Use、窗口录制、frontend/backend journals、三路独立 SSE witness、managed gateway 和 LLM tap；录屏 `292.263333s / 46M`。REST 覆盖正常 v2、空/悬空 pointer、未知 ID、缺 workspace、cross-workspace 与 valid-owner 矩阵；App Overview、滚动底部和 Versions diff 均无产品红。
+- 五通道对证：backend 294 行无 WARN/ERROR/panic/fatal；frontend 只有已知 launcher `Failed to foreground app; open returned 1`，无 Dart/Flutter runtime 红线；SSE 三流连接并留下 8 个 durable frames；LLM tap 物理接到 `https://api.anselm.website`，确定性读路径不虚构 completion。最终绿证据为 `EP-098-approval-get-final-green.md`。
+- 用户授权的独立 cleanup session `/private/tmp/anselm-rig-ep098-cleanup-20260808/sessions/20260808-190106` 删除两个 Approval 和探针 workspace，DELETE 全部 `204`；主 workspace 保留、列表为空、删除后单读 `404`，SQLite 保留 soft-delete 行与 immutable version history。清理证据为 `EP-098-fixture-cleanup.md`。
+- 正式账本以 `G1/F2/A5/C4/G2` 从 `1180→1185 judgments`，`COVERAGE EP-098=✓✓✓✓✓`，anchors `10/10`；集中写账的 `gap-too-fast`/`discovery-collapse` 经封口录屏、五通道、红证据、修复测试与 cleanup 独立复审后 ack，正式 `alarms.py check` clean(1185)，`gen_coverage.py --check` clean(848 rows, 230 carried, 0 tombstones)。一次未 export `RIG_HOME` 的五条副本保留在默认 ledger 作错路由审计并已销账，formal ledger 才是权威。
+- 已 `gofmt`；定向 `mise exec -- go test ./internal/app/approval ./internal/app/control ./internal/app/function ./internal/app/agent ./internal/app/handler ./internal/app/workflow ./internal/transport/httpapi/handlers` 全绿。批次二十三由 `0/50→5/50`，未到 50 格不跑统一长门禁、不提交；下一前线为 EP-099 `PATCH /api/v1/approvals/{id}`。
+
 ## 2026-08-08 · 批次二十二统一长门禁与提交，批次二十三 0/50
 
 - EP-089..EP-097 累计变更已提交为 `20de5cea`（`test(acceptance): close approval list batch twenty-two`）。统一 `make verify` 的 backend/frontend/docs/demo 四门全绿；显式 `backend mise exec -- go test ./...` 全绿；本批 Approval/Control/entity/Conversation 相关回归 35 项全绿；`git diff --check` 与分批 `gofmt -l` 全绿。
-- Working 状态从批次二十二 `50/50` 迁移到批次二十三 `0/50`。当前 COVERAGE 下一原子前线为 EP-098 `GET /api/v1/approvals/{id}`（approval · 单读，附 activeVersion）。
+- Working 状态从批次二十二 `50/50` 迁移到批次二十三 `0/50`；这是历史快照，当前恢复应以上方 EP-099 记录为准。
 
 ## 2026-08-08 · EP-097 GET /api/v1/approvals 五级收口，批次二十二 50/50
 
