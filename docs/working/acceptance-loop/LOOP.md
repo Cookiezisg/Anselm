@@ -27,7 +27,7 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-08，EP-097 收口，批次二十二 50/50）
+## 当前前线（2026-08-08，EP-097 收口并提交，批次二十三 0/50）
 
 EP-097 `GET /api/v1/approvals` 已完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。用户目的不是得到一个列表状态码，
 而是进入 Entities 后能看见完整 Approval 名册，搜索、cursor 分页、滚动到尾部、进入详情，并在另一路删除后得到及时且不漂移的列表/详情状态。
@@ -48,8 +48,9 @@ cleanup 已完成：首轮删 1 条，独立 session `/private/tmp/anselm-rig-ep
 正确补录。复审记录为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-097-approval-list-ledger-reaudit.md`，`alarms.py check`=`clean (1180)`，
 `gen_coverage.py --check`=`848 rows / 229 carried / 0 tombstones`，无阈值/算法/法典/锚点变更。
 
-批次二十二已 **50/50**。现在执行统一长门禁：收台封存、警报复核、完整 `make verify`、完整 `go test ./...`、已修场景回归、工作树审计；全部通过后提交
-EP-089..EP-097 的累计代码、测试、契约文档和 working ledger。提交前不推进 EP-098。
+批次二十二已按机制完成统一长门禁并提交 `20de5cea`。`make verify` 四门、显式 `mise exec -- go test ./...`、本批 35 项相关
+Approval/Control/entity/Conversation 回归、`git diff --check` 和分批 `gofmt -l` 均全绿。批次二十三当前 **0/50**，下一原子前线为
+EP-098 `GET /api/v1/approvals/{id}`。
 
 ## 历史前线（2026-08-08，EP-096 收口，批次二十二 45/50）
 

@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-08 EP-097 收口,批次二十二 50/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-08 EP-097 收口并提交,批次二十三 0/50)
 
 **当前前线（2026-08-08，清册 EP-097 已完成，批次二十二 50/50）。**
 EP-097 `GET /api/v1/approvals` 已按完整产品目的完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。
@@ -335,8 +335,9 @@ rig-check 收台前五通道全绿，rig-down 后 owned processes 归零。最�
 SQLite、五通道和清理证据独立复审后 ack，没有修改阈值、算法、法典或锚点。正确 formal home 下 `alarms.py check`=`clean (1180)`，
 `gen_coverage.py --check`=`848 rows / 229 carried / 0 tombstones`。
 
-批次二十二已达到 **50/50**。按既定机制，下一步必须执行一次统一长门禁：封口录像、`alarms.py check`、完整 `make verify`、完整 `go test ./...`、
-已修场景回归和工作树审计；全部通过后将 EP-089..EP-097 的代码、测试、契约文档、证据、清理记录和 COVERAGE ledger 一并提交。统一门禁和提交完成前不推进 EP-098。
+批次二十二已按既定机制完成统一长门禁并提交为 `20de5cea`（`test(acceptance): close approval list batch twenty-two`）：
+`make verify` 四门全绿，显式 `mise exec -- go test ./...` 全绿，本批 Approval/Control/entity/Conversation 回归 35 项全绿，
+`git diff --check` 与分批 `gofmt -l` 全绿。批次二十三当前 **0/50**，下一原子前线为 EP-098 `GET /api/v1/approvals/{id}`；不得把已提交批次的计数重置为二十二。
 
 ### 5.2 历史状态快照（EP-096，批次二十二 45/50）
 

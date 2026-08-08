@@ -10,6 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-08 · 批次二十二统一长门禁与提交，批次二十三 0/50
+
+- EP-089..EP-097 累计变更已提交为 `20de5cea`（`test(acceptance): close approval list batch twenty-two`）。统一 `make verify` 的 backend/frontend/docs/demo 四门全绿；显式 `backend mise exec -- go test ./...` 全绿；本批 Approval/Control/entity/Conversation 相关回归 35 项全绿；`git diff --check` 与分批 `gofmt -l` 全绿。
+- Working 状态从批次二十二 `50/50` 迁移到批次二十三 `0/50`。当前 COVERAGE 下一原子前线为 EP-098 `GET /api/v1/approvals/{id}`（approval · 单读，附 activeVersion）。
+
 ## 2026-08-08 · EP-097 GET /api/v1/approvals 五级收口，批次二十二 50/50
 
 - EP-097 完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。用户实际目标是 Approval 名册可用而不是只有 200：23 条 fixture 后 Entities rail 显示 `Approval 23`，`APPROVAL-0` 搜索为 9 条，清空恢复 23 条，尾部无空白 seam；详情显示 v1、输入、模板、reason、timeout 和 timeout behavior；删除一条后 rail 23→22，当前详情仍连贯。没有发现需要 stop-and-fix 的产品或代码红。
