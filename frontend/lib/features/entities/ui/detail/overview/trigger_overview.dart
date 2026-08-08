@@ -113,6 +113,8 @@ class TriggerOverview extends StatelessWidget {
         '/api/v1/webhooks/${trigger.id}/${cfg('path')}',
         'url',
         [
+          if (cfg('signatureAlgo').isEmpty && cfg('secret').isNotEmpty)
+            (d.trigger.authentication, d.trigger.plainSecretCarriers),
           (d.trigger.signatureAlgo, opt('signatureAlgo')),
           (d.trigger.signatureHeader, opt('signatureHeader')),
         ],

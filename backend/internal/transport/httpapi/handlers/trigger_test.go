@@ -1,10 +1,14 @@
 package handlers
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"slices"
 	"testing"
+
+	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 )
 
 // TestListFirings_BothURLsReachOneHandler — the firing inbox answers on TWO URLs (scheduler 工单⑭):
@@ -27,7 +31,7 @@ import (
 // 的错误码）。
 func TestListFirings_BothURLsReachOneHandler(t *testing.T) {
 	// A nil service is safe here: an unparseable ?createdAfter is rejected before any read.
-	h := NewTriggerHandler(nil, nil, nil)
+	h := NewTriggerHandler(nil, nil, nil, nil)
 	mux := http.NewServeMux()
 	h.Register(mux)
 
@@ -63,5 +67,43 @@ func TestListFirings_BothURLsReachOneHandler(t *testing.T) {
 				t.Fatalf("%s: details must carry the offending param + value, got %+v", url, body.Error.Details)
 			}
 		})
+	}
+}
+
+type fakeFiringWorkflowNamer struct {
+	names map[string]string
+	ids   []string
+}
+
+func (f *fakeFiringWorkflowNamer) NamesByIDs(_ context.Context, ids []string) (map[string]string, error) {
+	f.ids = append([]string(nil), ids...)
+	return f.names, nil
+}
+
+func TestHydrateFiringNames_BatchesAndLeavesDeletedIDsHonest(t *testing.T) {
+	namer := &fakeFiringWorkflowNamer{
+		names: map[string]string{"wf_a": "Nightly sync"},
+	}
+	h := NewTriggerHandler(nil, nil, namer, nil)
+	rows := []*triggerdomain.Firing{
+		{WorkflowID: "wf_a"},
+		{WorkflowID: "wf_a"},
+		{WorkflowID: "wf_deleted"},
+	}
+
+	if err := h.hydrateFiringNames(context.Background(), rows); err != nil {
+		t.Fatalf("hydrateFiringNames: %v", err)
+	}
+	if got, want := rows[0].WorkflowName, "Nightly sync"; got != want {
+		t.Fatalf("workflow name = %q, want %q", got, want)
+	}
+	if rows[1].WorkflowName != "Nightly sync" {
+		t.Fatalf("duplicate workflow row was not hydrated: %+v", rows[1])
+	}
+	if rows[2].WorkflowName != "" {
+		t.Fatalf("deleted workflow must keep name absent, got %q", rows[2].WorkflowName)
+	}
+	if got, want := namer.ids, []string{"wf_a", "wf_deleted"}; !slices.Equal(got, want) {
+		t.Fatalf("NamesByIDs ids = %v, want %v", got, want)
 	}
 }

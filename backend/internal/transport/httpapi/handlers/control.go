@@ -103,7 +103,11 @@ func (h *ControlHandler) List(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	filter := controldomain.ListFilter{Cursor: p.Cursor, Limit: p.Limit}
+	filter := controldomain.ListFilter{
+		Cursor: p.Cursor,
+		Limit:  p.Limit,
+		Search: r.URL.Query().Get("search"),
+	}
 	items, next, err := h.svc.List(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)

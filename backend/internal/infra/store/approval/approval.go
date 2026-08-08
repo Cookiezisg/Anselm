@@ -126,7 +126,7 @@ func (s *Store) GetFormsByIDs(ctx context.Context, ids []string) ([]*approvaldom
 }
 
 func (s *Store) ListForms(ctx context.Context, filter approvaldomain.ListFilter) ([]*approvaldomain.ApprovalForm, string, error) {
-	rows, next, err := s.forms.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.forms.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("approvalstore.ListForms: %w", err)
 	}
@@ -134,7 +134,7 @@ func (s *Store) ListForms(ctx context.Context, filter approvaldomain.ListFilter)
 }
 
 func (s *Store) CountForms(ctx context.Context, filter approvaldomain.ListFilter) (int, error) {
-	n, err := s.forms.Query().Count(ctx)
+	n, err := s.forms.Query().WhereLike("name", filter.Search).Count(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("approvalstore.CountForms: %w", err)
 	}

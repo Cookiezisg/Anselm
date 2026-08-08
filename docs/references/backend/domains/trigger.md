@@ -49,6 +49,11 @@ skipped、superseded、shed、missed 都是“未执行”的中性处置，不�
 Scheduler 发现 active graph 已不再以该 trigger 为入口时，将 firing 收为 shed，
 避免永久重试。
 
+Firing 的列表响应在读时按页内去重的 `workflowId` 批量补 `workflowName`。这个字段是显示投影，
+不写回 firing 历史；workflow 已软删、不可读或名称为空时省略，调用方必须诚实回落到原始
+`workflowId`，不能从旧缓存或别的 workflow 猜一个名称。这样「为什么没跑」面默认给人看懂的
+workflow 名，同时保留 opaque ID 作为审计与深链钥匙。
+
 `idx_trf_dedup(workflow_id,trigger_id,dedup_key)` 保证同一物理事件对一个
 workflow 只入账一次。`AppendFiring` 冲突时返回既有行；调用者必须检查返回
 status，不能把 nil error 等同于“新建了可运行 firing”。
@@ -188,6 +193,10 @@ Unregister 不向 ServeMux 动态增删 pattern。
   的 Resume 控件或 `POST /api/v1/triggers/{id}:resume`，再执行 fire。
 - `:pause` / `:resume` 控制 source，不取消既有工作。
 - `:iterate` 打开 AI 编辑对话。
+- `get_activation` 是单条 activation 审计记录的精确读取：必须传逐字复制的 `activationId`，返回
+  `id`、`triggerId`、`kind`、`fired`、`returnValue`、`payload`、`error`、`detail`、`firingCount`、
+  `createdAt`。工具卡片是这些机器字段的精确、可复制真相面；模型正文若需隐藏不透明 ID 或时间，必须
+  指向相邻 activation 卡片，不能把占位词当成实际值。
 - Create/Edit/Delete 发 notifications durable lifecycle signal（`trigger.created`、`trigger.edited`、
   `trigger.deleted`），使已打开的 rail/detail 在 AI 或其它客户端写入后回读实体真相；Pause/Resume
   不写通知中心，只发 trigger scope 的 ephemeral `status`。
@@ -213,7 +222,7 @@ HTTP：
 
 - Trigger CRUD 与 `:fire|:pause|:resume|:iterate`；
 - activations 列表/单读；
-- workspace 与 per-trigger firings；
+- workspace 与 per-trigger firings（每行按读时 workflow hydration 可带 `workflowName`，缺席时保留 `workflowId`）；
 - `GET /trigger-schedule`。
 
 精确端点见 [`api.md`](../api.md)，表与状态见

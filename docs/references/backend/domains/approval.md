@@ -69,6 +69,7 @@ Inbox 的 `deadline` 由 `parkedAt + pinnedVersion.timeout` 派生，并与 time
 
 ## 4. 集成与契约
 
+Approval 列表支持 `?search=` 的大小写不敏感 name 子串过滤，`X-Anselm-Total-Count` 与当前过滤条件一致；
 Approval 参与 catalog、mention、relation、search 与 AI iterate。CRUD、versions、
 edit/revert/iterate 及 Flowrun decide 端点见 [`api.md`](../api.md)；表见
 [`database.md`](../database.md)；错误见 [`error-codes.md`](../error-codes.md)。

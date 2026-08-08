@@ -259,16 +259,19 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
 
   LogRow _row(Firing f) {
     final tt = t.entities.detail;
+    final workflowName = f.workflowName.trim();
+    final workflowLabel = workflowName.isEmpty ? f.workflowId : workflowName;
     return LogRow(
       dot: firingDot(f.status),
       id: f.id,
-      label: '${f.status.name} · ${f.workflowId}',
+      label: '${firingStatusWord(t, f.status)} · $workflowLabel',
       meta: f.flowrunId.isNotEmpty ? f.flowrunId : null,
       hint: fmtTime(f.createdAt),
       detailRows: [
         (tt.kv.id, f.id),
-        (tt.kv.status, f.status.name),
-        (tt.kv.workflow, f.workflowId),
+        (tt.kv.status, firingStatusWord(t, f.status)),
+        (tt.kv.workflow, workflowLabel),
+        if (workflowName.isNotEmpty) (tt.kv.workflowId, f.workflowId),
         (tt.trigger.activation, f.activationId),
         (tt.kv.flowrunId, f.flowrunId.isEmpty ? '—' : f.flowrunId),
         if (f.payload.isNotEmpty) (tt.trigger.payload, prettyJson(f.payload)),
@@ -277,6 +280,21 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
     );
   }
 }
+
+/// A user-facing word for every known firing disposition. The wire enum remains the filter value;
+/// the detail surface must not leak it when a localized domain word already exists. 每个派发处置的
+/// 用户词;筛选仍发送线缆枚举,详情不把已有的本地化域词漏成裸 status。
+String firingStatusWord(Translations t, FiringStatus status) =>
+    switch (status) {
+      FiringStatus.pending => t.chat.tool.firingPending,
+      FiringStatus.claimed => t.chat.tool.firingClaimed,
+      FiringStatus.started => t.chat.tool.firingStarted,
+      FiringStatus.skipped => t.chat.tool.firingSkipped,
+      FiringStatus.superseded => t.chat.tool.firingSuperseded,
+      FiringStatus.shed => t.chat.tool.firingShed,
+      FiringStatus.missed => t.chat.tool.firingMissed,
+      FiringStatus.unknown => status.name,
+    };
 
 /// A firing status → status-dot fold — [AnStatus.fromRaw] carries started/claimed now (批7 B-037), so
 /// the explicit parallel switch retired value-identical: started = ran (done); pending/claimed =

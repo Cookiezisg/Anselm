@@ -34,6 +34,11 @@ execution 表，由 durable interpreter 内联求值，不是 activity。
 `when == "true"` 的 catch-all，保证任何输入都有出口。图允许某个 port 连回上游，
 因此循环结构由 Workflow 表达，而不是由 Control 隐式实现。
 
+Version 的 `inputs` 是 workflow 节点可喂入的声明字段，沿用全局 schema 字段契约：每个字段名必须
+非空且组内唯一，`type` 必须是 `string`、`number`、`boolean`、`object` 或 `array`（常见别名会在
+写入时归一化）。Create/Edit 在任何持久化前拒绝不合法声明，返回 `CONTROL_INVALID_INPUTS`，因此坏
+字段不会进入版本线或被前端当作可接线输入展示。
+
 Create/Edit 先做结构校验，再以 author-time `input` 根编译所有 when/emit；无效 CEL
 不能进入版本线。Domain 不依赖 CEL runtime。
 
@@ -70,7 +75,8 @@ tick 同时投影所选 port，供 UI 显示真实路径。
 
 ## 4. 集成与契约
 
-Control 参与 catalog、mention、relation、search 与 AI iterate。CRUD、versions、
+Control 列表支持 `?search=` 的大小写不敏感 name 子串过滤，`X-Anselm-Total-Count` 与当前过滤条件一致；
+catalog、mention、relation、search 与 AI iterate。CRUD、versions、
 edit/revert/iterate 端点见 [`api.md`](../api.md)；表与 ID 见
 [`database.md`](../database.md)；错误见 [`error-codes.md`](../error-codes.md)。
 

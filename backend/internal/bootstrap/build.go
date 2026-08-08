@@ -242,7 +242,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, pr
 		handlershttpapi.NewFunctionHandler(s.function, s.aispawn, log),
 		handlershttpapi.NewHandlerHandler(s.handler, s.aispawn, log),
 		handlershttpapi.NewAgentHandler(s.agent, s.aispawn, log),
-		handlershttpapi.NewTriggerHandler(s.trigger, s.aispawn, log),
+		handlershttpapi.NewTriggerHandler(s.trigger, s.aispawn, s.workflow, log),
 		handlershttpapi.NewMCPHandler(s.mcp, log),
 		handlershttpapi.NewSkillHandler(s.skill, log),
 		handlershttpapi.NewControlHandler(s.control, s.aispawn, log),

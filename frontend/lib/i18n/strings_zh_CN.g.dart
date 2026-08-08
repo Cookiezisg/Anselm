@@ -1188,10 +1188,14 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get firingSkipped => '跳过';
 	@override String get firingSuperseded => '被顶替';
 	@override String get firingShed => '丢弃';
+	@override String get firingMissed => '错过';
 	@override String logCount({required Object n}) => '${n} 条';
 	@override String logCountMore({required Object n}) => '${n}+ 条';
 	@override String get parkRunCaption => 'park 在审批节点的 run,头仍为 running';
 	@override String get actReturnValue => '返回值';
+	@override String get actId => '活动 ID';
+	@override String get actTriggerId => '触发器 ID';
+	@override String get actCreatedAt => '创建时间';
 	@override String actFanout({required Object n}) => '扇出 ${n}';
 	@override String get gettingFnExec => '正在调阅函数执行档案';
 	@override String get gotFnExec => '已调阅函数执行档案';
@@ -2822,6 +2826,7 @@ class _Translations$entities$detail$kv$zh_CN extends Translations$entities$detai
 	@override String get replay => '重放';
 	@override String get flowrunId => 'Flowrun id';
 	@override String get workflow => '工作流';
+	@override String get workflowId => '工作流 ID';
 	@override String get nodes => '节点';
 	@override String get graph => '图';
 	@override String graphCounts({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}';
@@ -2894,6 +2899,8 @@ class _Translations$entities$detail$trigger$zh_CN extends Translations$entities$
 	@override String get refCount => '监听者';
 	@override String get lastFired => '最近触发';
 	@override String get nextFire => '下次触发';
+	@override String get authentication => '认证方式';
+	@override String get plainSecretCarriers => 'X-Webhook-Secret 请求头或 ?token= 查询参数';
 	@override String get signatureAlgo => '签名';
 	@override String get signatureHeader => '签名头';
 	@override String get events => '事件';
@@ -3565,16 +3572,20 @@ extension on TranslationsZhCn {
 			'chat.tool.firingSkipped' => '跳过',
 			'chat.tool.firingSuperseded' => '被顶替',
 			'chat.tool.firingShed' => '丢弃',
+			'chat.tool.firingMissed' => '错过',
 			'chat.tool.logCount' => ({required Object n}) => '${n} 条',
 			'chat.tool.logCountMore' => ({required Object n}) => '${n}+ 条',
 			'chat.tool.parkRunCaption' => 'park 在审批节点的 run,头仍为 running',
 			'chat.tool.actReturnValue' => '返回值',
+			'chat.tool.actId' => '活动 ID',
+			'chat.tool.actTriggerId' => '触发器 ID',
+			'chat.tool.actCreatedAt' => '创建时间',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.actFanout' => ({required Object n}) => '扇出 ${n}',
 			'chat.tool.gettingFnExec' => '正在调阅函数执行档案',
 			'chat.tool.gotFnExec' => '已调阅函数执行档案',
 			'chat.tool.gettingHdCall' => '正在调阅处理器调用档案',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.gotHdCall' => '已调阅处理器调用档案',
 			'chat.tool.gettingMcpCall' => '正在调阅 MCP 调用档案',
 			'chat.tool.gotMcpCall' => '已调阅 MCP 调用档案',
@@ -4083,12 +4094,12 @@ extension on TranslationsZhCn {
 			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
 			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m}',
 			'scheduler.range.months' => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.prevMonth' => '上个月',
 			'scheduler.range.nextMonth' => '下个月',
 			'scheduler.range.backToPresets' => '返回快捷范围',
 			'scheduler.range.backToToday' => '回到今天',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.preciseTime' => '精确到时刻',
 			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m} 月 ${d} 日',
 			'scheduler.range.dayTextYear' => ({required Object y, required Object m, required Object d}) => '${y} 年 ${m} 月 ${d} 日',
@@ -4402,6 +4413,7 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.replay' => '重放',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
 			'entities.detail.kv.workflow' => '工作流',
+			'entities.detail.kv.workflowId' => '工作流 ID',
 			'entities.detail.kv.nodes' => '节点',
 			'entities.detail.kv.graph' => '图',
 			'entities.detail.kv.graphCounts' => ({required Object nodes, required Object edges}) => '节点 ${nodes} · 边 ${edges}',
@@ -4447,6 +4459,8 @@ extension on TranslationsZhCn {
 			'entities.detail.trigger.refCount' => '监听者',
 			'entities.detail.trigger.lastFired' => '最近触发',
 			'entities.detail.trigger.nextFire' => '下次触发',
+			'entities.detail.trigger.authentication' => '认证方式',
+			'entities.detail.trigger.plainSecretCarriers' => 'X-Webhook-Secret 请求头或 ?token= 查询参数',
 			'entities.detail.trigger.signatureAlgo' => '签名',
 			'entities.detail.trigger.signatureHeader' => '签名头',
 			'entities.detail.trigger.events' => '事件',
@@ -4594,6 +4608,8 @@ extension on TranslationsZhCn {
 			'entities.graph.verb.equip' => '装备了',
 			'entities.graph.verb.link' => '链接了',
 			'entities.graph.verb.create' => '创建了',
+			_ => null,
+		} ?? switch (path) {
 			'entities.graph.verb.edit' => '编辑了',
 			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
 			'coldStart.connecting' => '正在准备工作区…',
@@ -4601,8 +4617,6 @@ extension on TranslationsZhCn {
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.createWorkspace' => 'Create a workspace',
 			'coldStart.nameLabel' => 'Workspace name',
-			_ => null,
-		} ?? switch (path) {
 			'coldStart.alreadyExists' => '该工作区已存在',
 			'coldStart.createFailed' => '无法创建工作区',
 			'coldStart.workIndex' => 'WORK №001',
@@ -5108,6 +5122,8 @@ extension on TranslationsZhCn {
 			'settings.sandbox.runtimes' => '运行时',
 			'settings.sandbox.install' => '安装',
 			'settings.sandbox.installing' => '安装中…',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.installTitle' => '安装运行时',
 			'settings.sandbox.kind' => '类型',
 			'settings.sandbox.version' => '版本',
@@ -5115,8 +5131,6 @@ extension on TranslationsZhCn {
 			'settings.sandbox.add' => '安装',
 			'settings.sandbox.delete' => '删除',
 			'settings.sandbox.deleteRtTitle' => '删除运行时',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => '将删除「${kind} ${version}」;仍被环境引用会被拒。',
 			'settings.sandbox.confirmDelete' => '删除',
 			'settings.sandbox.inUse' => '仍有环境引用此运行时,先清理环境',

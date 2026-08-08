@@ -9,12 +9,15 @@ import "context"
 // 它可能很老）。
 const VersionCap = 50
 
-// ListFilter is a cursor page request for control logics.
+// ListFilter is a cursor page request for control logics. Search is a
+// case-insensitive literal name substring; blank means no filter.
 //
-// ListFilter 是 control 逻辑的 cursor 分页请求。
+// ListFilter 是 control 逻辑的 cursor 分页请求。Search 是大小写不敏感的字面 name 子串；
+// 空白表示不过滤。
 type ListFilter struct {
 	Cursor string
 	Limit  int
+	Search string
 }
 
 // VersionListFilter is a cursor page request for one control logic's versions.

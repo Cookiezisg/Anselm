@@ -66,8 +66,18 @@ func TestIterate_SeedsEntityMentionAndSteer(t *testing.T) {
 	if convID != "cv_new" {
 		t.Fatalf("convID = %q", convID)
 	}
-	if !strings.Contains(st.gotSystemPrompt, "edit_function") || !strings.Contains(st.gotSystemPrompt, "Do NOT call any create_*") {
-		t.Fatalf("system prompt should carry the generic iterate steer, got: %q", st.gotSystemPrompt)
+	for _, tool := range []string{
+		"edit_function", "edit_handler", "edit_agent", "edit_workflow",
+		"edit_trigger", "edit_control", "edit_approval", "edit_document",
+	} {
+		if !strings.Contains(st.gotSystemPrompt, tool) {
+			t.Fatalf("system prompt should list matching %s, got: %q", tool, st.gotSystemPrompt)
+		}
+	}
+	for _, phrase := range []string{"Do NOT call any create_*", "trigger and document edits apply in place", "no pending/review gate"} {
+		if !strings.Contains(st.gotSystemPrompt, phrase) {
+			t.Fatalf("system prompt should preserve iterate safety rule %q, got: %q", phrase, st.gotSystemPrompt)
+		}
 	}
 	if sd.gotContent != "make it batch-capable" {
 		t.Fatalf("first message should be the user's request, got %q", sd.gotContent)

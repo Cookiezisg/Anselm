@@ -72,7 +72,11 @@ feed、mark read/all 与 unread count 只针对 durable 行；逐事件档位见
 
 ## AI Spawn
 
-`:iterate` 与 `:triage` 都创建一条预置上下文的普通对话，再交给标准 chat loop。前者携实体快照与修改目标，后者携失败执行证据；不另建第二套 AI 执行引擎。
+`:iterate` 与 `:triage` 都创建一条预置上下文的普通对话，再交给标准 chat loop。前者携实体快照与修改目标，
+并明确要求模型调用与被 @ 实体匹配的 `edit_function`、`edit_handler`、`edit_agent`、`edit_workflow`、
+`edit_trigger`、`edit_control`、`edit_approval` 或 `edit_document`，不得把编辑误变成 create。
+所有编辑立即生效且没有 pending/review 闸；版本化实体通常生成新的 active version，trigger/document 则原地编辑、
+没有版本指针。后者携失败执行证据；两者都不另建第二套 AI 执行引擎。
 
 ## Human Loop
 

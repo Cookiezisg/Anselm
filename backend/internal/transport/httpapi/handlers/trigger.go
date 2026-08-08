@@ -1,8 +1,10 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -26,16 +28,35 @@ import (
 // Edit 是普通 PATCH（config 立即生效）；:fire 手动触发。activation 日志回答「为什么没触发」。
 // 引用计数监听生命周期由 workflow 激活/停用驱动，不在此暴露。
 type TriggerHandler struct {
-	svc     *triggerapp.Service
-	aispawn *aispawnapp.Service
-	log     *zap.Logger
+	svc           *triggerapp.Service
+	aispawn       *aispawnapp.Service
+	workflowNames workflowNamer
+	log           *zap.Logger
 }
 
-func NewTriggerHandler(svc *triggerapp.Service, aispawn *aispawnapp.Service, log *zap.Logger) *TriggerHandler {
+// workflowNamer is the batch read port used to make durable firing rows legible. A missing name is
+// intentional for a deleted workflow; the caller keeps the opaque ID as the honest fallback.
+// workflowNamer 是让 durable firing 行可读的批量读端口。名称缺席可能是 workflow 已删除；调用方保留
+// opaque ID 作为诚实回落。
+type workflowNamer interface {
+	NamesByIDs(context.Context, []string) (map[string]string, error)
+}
+
+func NewTriggerHandler(
+	svc *triggerapp.Service,
+	aispawn *aispawnapp.Service,
+	workflowNames workflowNamer,
+	log *zap.Logger,
+) *TriggerHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &TriggerHandler{svc: svc, aispawn: aispawn, log: log.Named("handlers.trigger")}
+	return &TriggerHandler{
+		svc:           svc,
+		aispawn:       aispawn,
+		workflowNames: workflowNames,
+		log:           log.Named("handlers.trigger"),
+	}
 }
 
 func (h *TriggerHandler) Register(mux Registrar) {
@@ -312,7 +333,49 @@ func (h *TriggerHandler) ListFirings(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	if err := h.hydrateFiringNames(r.Context(), rows); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	responsehttpapi.Paged(w, rows, next, next != "")
+}
+
+// hydrateFiringNames resolves the page's distinct workflow IDs in one batch. The durable row keeps
+// the ID as the identity; a soft-deleted or otherwise unreadable workflow simply has no name field,
+// so clients can present the ID without inventing a stale label. 一页只做一次去重批量查询，避免每行
+// 一个 GET；软删/不可读 workflow 缺 name，客户端回落 ID，不伪造旧名称。
+func (h *TriggerHandler) hydrateFiringNames(ctx context.Context, rows []*triggerdomain.Firing) error {
+	if h.workflowNames == nil || len(rows) == 0 {
+		return nil
+	}
+	ids := make([]string, 0, len(rows))
+	seen := make(map[string]struct{}, len(rows))
+	for _, row := range rows {
+		if row == nil || row.WorkflowID == "" {
+			continue
+		}
+		if _, ok := seen[row.WorkflowID]; ok {
+			continue
+		}
+		seen[row.WorkflowID] = struct{}{}
+		ids = append(ids, row.WorkflowID)
+	}
+	if len(ids) == 0 {
+		return nil
+	}
+	names, err := h.workflowNames.NamesByIDs(ctx, ids)
+	if err != nil {
+		return err
+	}
+	for _, row := range rows {
+		if row == nil {
+			continue
+		}
+		if name := strings.TrimSpace(names[row.WorkflowID]); name != "" {
+			row.WorkflowName = name
+		}
+	}
+	return nil
 }
 
 func (h *TriggerHandler) GetActivation(w http.ResponseWriter, r *http.Request) {

@@ -89,15 +89,18 @@ class _TriggerDispatchTabState extends ConsumerState<TriggerDispatchTab> {
         value: _status,
         options: [
           AnDropdownOption(value: '', label: d.trigger.allDispatch),
-          // The sealed disposition set, minus the transient `claimed` (never a resting filter). 封闭处置集(去瞬态 claimed)。
+          // The user-meaningful dispositions; `claimed` is a transient claim phase, never a resting
+          // filter, while `missed` is a durable terminal ledger outcome. 用户可理解的处置集;claimed
+          // 是瞬态认领阶段不作为筛选,missed 是持久终态必须可达。
           for (final s in const [
             FiringStatus.pending,
             FiringStatus.started,
             FiringStatus.skipped,
             FiringStatus.superseded,
             FiringStatus.shed,
+            FiringStatus.missed,
           ])
-            AnDropdownOption(value: s.name, label: s.name),
+            AnDropdownOption(value: s.name, label: firingStatusWord(t, s)),
         ],
         onChanged: (v) => setState(() => _status = v),
         menuAlignEnd: true,

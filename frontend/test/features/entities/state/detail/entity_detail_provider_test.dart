@@ -30,6 +30,7 @@ TriggerEntity _trigger({
   bool listening = true,
   bool paused = false,
   bool hasNextFireAt = true,
+  DateTime? lastFiredAt,
 }) => TriggerEntity(
   id: _triggerRef.id,
   name: 'heartbeat',
@@ -38,6 +39,7 @@ TriggerEntity _trigger({
   updatedAt: _t,
   listening: listening,
   paused: paused,
+  lastFiredAt: lastFiredAt,
   nextFireAt: hasNextFireAt ? _t : null,
 );
 
@@ -236,6 +238,48 @@ void main() {
       expect(trigger?.paused, isTrue);
       expect(trigger?.listening, isFalse);
       expect(trigger?.nextFireAt, isNull);
+    },
+  );
+
+  test(
+    'trigger fire panel signal → refreshes last-fired detail from REST truth',
+    () async {
+      final fixture = FixtureEntityRepository(triggerEntities: [_trigger()]);
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(fixture)],
+      );
+      addTearDown(c.dispose);
+      c.listen(entityDetailProvider(_triggerRef), (_, _) {});
+
+      await c.read(entityDetailProvider(_triggerRef).future);
+      expect(
+        c.read(entityDetailProvider(_triggerRef)).value?.trigger?.lastFiredAt,
+        isNull,
+      );
+
+      final firedAt = _t.add(const Duration(minutes: 1));
+      fixture.upsertTrigger(_trigger(lastFiredAt: firedAt));
+      final scope = _triggerRef.kind.scope(_triggerRef.id);
+      fixture.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 0,
+          scope: scope,
+          id: _triggerRef.id,
+          frame: const FrameSignal(
+            node: StreamNode(
+              type: 'fire',
+              content: {'activationId': 'tra_1', 'fired': true},
+            ),
+          ),
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(
+        c.read(entityDetailProvider(_triggerRef)).value?.trigger?.lastFiredAt,
+        firedAt,
+      );
     },
   );
 }

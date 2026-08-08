@@ -7,6 +7,7 @@ import (
 
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -16,6 +17,19 @@ func TestRedactOpaqueMachineValues(t *testing.T) {
 	want := "bootId=the numeric value handler at the recorded time"
 	if got := redactOpaqueMachineValues(input); got != want {
 		t.Fatalf("redactOpaqueMachineValues() = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesCleansActivationReasoningFields(t *testing.T) {
+	input := "返回的字段有：\n- id: tra_f98331ff0472114c\n- triggerId: the requested item\n- kind: cron\n- fired: true\n- createdAt: the recorded time\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, opaqueTimestampPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("activation reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "精确触发器 ID 见旁边的触发器卡片。") {
+		t.Fatalf("activation reasoning missing trigger-card guidance: %q", got)
 	}
 }
 
@@ -723,6 +737,192 @@ func TestRedactOpaqueMachineValuesPointsAttachmentTimestampToCard(t *testing.T) 
 	want := "| Filename | Kind | Uploaded |\n|---|---|---|\n| report.txt | text | See the exact upload time in the attachment card. |"
 	if got := redactOpaqueMachineValues(input); got != want {
 		t.Fatalf("attachment timestamp redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesPointsActivationDetailsToCard(t *testing.T) {
+	input := "| Field | Value |\n|---|---|\n" +
+		"| **triggerId** | `trg_dcba2607dce9e2a9` |\n" +
+		"| **kind** | `cron` |\n" +
+		"| **fired** | `true` |\n" +
+		"| **payload** | {\"manual\":true} |\n" +
+		"| **firingCount** | `0` |\n" +
+		"| **createdAt** | 2026-08-08T01:32:14.898871Z |"
+	want := "| Field | Value |\n|---|---|\n" +
+		"| **triggerId** | See the exact activation ID in the adjacent activation card. |\n" +
+		"| **kind** | `cron` |\n" +
+		"| **fired** | `true` |\n" +
+		"| **payload** | {\"manual\":true} |\n" +
+		"| **firingCount** | `0` |\n" +
+		"| **createdAt** | See the exact creation time in the adjacent activation card. |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("activation detail redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorPointsActivationDetailsToCardAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Field | Value |\n|---|---|\n| **triggerId** | `trg_dcba",
+		"2607dce9e2a9` |\n| **kind** | `cron` |\n| **fired** | `true` |\n",
+		"| **createdAt** | 2026-08-08T01:32:14.",
+		"898871Z |\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "trg_") || strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("stream leaked activation opaque value: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "trg_") || strings.Contains(got.String(), "2026-08-08T01:32:14.898871Z") || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("activation details leaked exact or vague value: %q", got.String())
+	}
+	for _, want := range []string{activationIDTableRowHint, activationCreatedAtTableHint} {
+		if !strings.Contains(got.String(), want) {
+			t.Fatalf("stream activation details missing %q: %q", want, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsActivationTableContextAcrossWholeRowChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| Field | Value |\n",
+		"|---|---|\n",
+		"| **activationId** | `tra_dcba2607dce9e2a9` |\n",
+		"| **triggerId** | `the requested item` |\n",
+		"| **kind** | `cron` |\n",
+		"| **fired** | `true` |\n",
+		"| **payload** | `{\"manual\": true}` |\n",
+		"| **firingCount** | `0` |\n",
+		"\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) {
+			t.Fatalf("stream leaked activation placeholder after %q: %q", delta, piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) {
+		t.Fatalf("activation table retained placeholder: %q", got.String())
+	}
+	if !strings.Contains(got.String(), activationIDTableRowHint) {
+		t.Fatalf("activation table missing card guidance: %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsGatewayActivationTableWithChineseHeader(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是 `tra_dcba2607dce9e2a9` 这条激活审计记录的完整字段：\n\n",
+		"| 字段 | 值 |\n",
+		"|---|---|\n",
+		"| **id**（激活记录 ID） | `tra_dcba2607dce9e2a9` |\n",
+		"| **triggerId**（触发器 ID） | `the requested item` |\n",
+		"| **kind**（触发器类型） | `cron`（定时触发） |\n",
+		"| **fired**（是否已触发） | `true`（已触发） |\n",
+		"| **payload**（触发载荷） | `{\"manual\": true}`（手动触发） |\n",
+		"| **firingCount**（触发计数） | `0` |\n",
+		"| **createdAt**（创建时间） | `the recorded time` |\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("gateway activation table leaked placeholder after %q: %q", delta, piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("gateway activation table retained placeholder: %q", got.String())
+	}
+	if !strings.Contains(got.String(), activationTriggerIDTableHint) {
+		t.Fatalf("gateway activation table missing localized trigger guidance: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "精确创建时间见旁边的活动卡片。") {
+		t.Fatalf("gateway activation table missing localized creation-time guidance: %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsGatewayActivationTableWithInlineAnnotations(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是该激活记录的完整字段：\n\n",
+		"| 字段 | 值 |\n",
+		"|------|-----|\n",
+		"| **id（激活 ID）** | tra_f82182fcb7601442 |\n",
+		"| **triggerId（触发器 ID）** | the requested item |\n",
+		"| **kind（类型）** | cron（定时任务） |\n",
+		"| **fired（是否触发）** | true（已触发） |\n",
+		"| **payload（载荷）** | {\"manual\": true}（手动触发） |\n",
+		"| **firingCount（触发计数）** | 0 |\n",
+		"| **createdAt",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("inline-annotation activation table leaked placeholder after %q: %q", delta, piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("inline-annotation activation table retained placeholder: %q", got.String())
+	}
+	if !strings.Contains(got.String(), activationTriggerIDTableHint) {
+		t.Fatalf("inline-annotation activation table missing localized trigger guidance: %q", got.String())
+	}
+}
+
+func TestTextRedactorLocalizesActivationNarrativePlaceholdersAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"这是一条由 ",
+		"cron ",
+		"类型触发器（",
+		"`the requested item",
+		"`）在 ",
+		"the recorded time ",
+		"产生的激活记录，已触发。",
+	} {
+		piece := r.Write(delta)
+		for _, forbidden := range []string{opaqueEntityPlaceholder, opaqueTimestampPlaceholder} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("activation narrative leaked %q after %q: %q", forbidden, delta, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("activation narrative retained placeholder: %q", got.String())
+	}
+	if !strings.Contains(got.String(), opaqueTimestampChinesePlaceholder) {
+		t.Fatalf("activation narrative lost localized time: %q", got.String())
+	}
+	if strings.Contains(got.String(), "（") || strings.Contains(got.String(), "）") {
+		t.Fatalf("activation narrative retained unavailable ID parenthetical: %q", got.String())
+	}
+}
+
+func TestRedactActivationDetailsLocalizesCardGuidanceToResponseLanguage(t *testing.T) {
+	input := "以下是该激活记录的详情：\n\n| 字段 | 值 |\n|---|---|\n" +
+		"| **triggerId** | `trg_dcba2607dce9e2a9` |\n" +
+		"| **kind** | `cron` |\n" +
+		"| **fired** | `true` |\n" +
+		"| **createdAt** | 2026-08-08T01:32:14.898871Z |"
+	want := "以下是该激活记录的详情：\n\n| 字段 | 值 |\n|---|---|\n" +
+		"| **triggerId** | 精确触发器 ID 见旁边的活动卡片。 |\n" +
+		"| **kind** | `cron` |\n" +
+		"| **fired** | `true` |\n" +
+		"| **createdAt** | 精确创建时间见旁边的活动卡片。 |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("localized activation guidance = %q, want %q", got, want)
 	}
 }
 
@@ -2071,6 +2271,149 @@ func TestStreamLLM_RedactsOpaqueValuesForChat(t *testing.T) {
 	if len(blocks) != 1 || blocks[0].Content != "done the requested item" {
 		t.Fatalf("chat prose redaction changed: %+v", blocks)
 	}
+}
+
+func TestStreamLLM_DoesNotStreamActivationTablePlaceholder(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		textEv("以下是"),
+		textEv("该激活记录的完整"),
+		textEv("字段："),
+		textEv("\n\n| 字段"),
+		textEv(" | 值 |"),
+		textEv("\n|------|"),
+		textEv("-----"),
+		textEv("|\n| **"),
+		textEv("id（激活 ID"),
+		textEv("）** | tra_f"),
+		textEv("821"),
+		textEv("82fcb"),
+		textEv("7601"),
+		textEv("442"),
+		textEv(" |\n| **"),
+		textEv("triggerId（触发"),
+		textEv("器 ID）** |"),
+		textEv(" trg_76"),
+		textEv("4eb53"),
+		textEv("840f"),
+		textEv("0276"),
+		textEv("d |\n|"),
+		textEv(" **kind（类型"),
+		textEv("）** | cron（"),
+		textEv("定时任务） |"),
+		textEv("\n| **f"),
+		textEv("ired（是否触发"),
+		textEv("）** | true（"),
+		textEv("已触发）"),
+		textEv(" |\n| **"),
+		textEv("payload（载荷）**"),
+		textEv(" | {\"manual"),
+		textEv("\": true}（"),
+		textEv("手动触发） |"),
+		textEv("\n| **f"),
+		textEv("iringCount（触发"),
+		textEv("计数）** | "),
+		textEv("0"),
+		textEv(" |\n| **"),
+		textEv("createdAt（创建时间"),
+		textEv("）** | 2026-"),
+		textEv("08-08T02"),
+		textEv(":30:54"),
+		textEv(".690194Z"),
+		textEv(" |\n\n本次返回"),
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	_, _, _, _, _, _ = streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		if strings.Contains(delta.Chunk, opaqueEntityPlaceholder) || strings.Contains(delta.Chunk, opaqueTimestampPlaceholder) {
+			t.Fatalf("live messages delta leaked activation placeholder: %q", delta.Chunk)
+		}
+	}
+}
+
+func TestStreamLLM_DoesNotStreamChineseActivationTablePlaceholder(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		textEv("以下是该激活记录的完整字段：\n\n"),
+		textEv("| 字段 |"),
+		textEv(" 值 |\n|---|---|\n| 激活ID | tra_842dd55c696f9334 |\n| 触发器"),
+		textEv("ID | the requested item |\n| 类型 | cron |\n| 是否触发 | 是 |\n| 负载 | {\\\"manual\\\": true} |\n| 触发次数 | 0 |\n| 创建时间 | the recorded time |\n\n"),
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		if strings.Contains(delta.Chunk, opaqueEntityPlaceholder) || strings.Contains(delta.Chunk, opaqueTimestampPlaceholder) {
+			t.Fatalf("live Chinese activation delta leaked placeholder: %q", delta.Chunk)
+		}
+	}
+
+	var got strings.Builder
+	for _, block := range blocks {
+		if block.Type != messagesdomain.BlockTypeText {
+			continue
+		}
+		got.WriteString(block.Content)
+	}
+	if strings.Contains(got.String(), opaqueEntityPlaceholder) || strings.Contains(got.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("Chinese activation block retained placeholder: %q", got.String())
+	}
+	for _, want := range []string{"精确触发器 ID 见旁边的活动卡片。", "精确创建时间见旁边的活动卡片。"} {
+		if !strings.Contains(got.String(), want) {
+			t.Fatalf("Chinese activation block missing %q: %q", want, got.String())
+		}
+	}
+}
+
+func TestStreamLLM_DoesNotStreamActivationReasoningPlaceholder(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "返回的字段有：\n- id: tra_f98331ff0472114c\n- triggerId: the requested"},
+		{Type: llminfra.EventReasoning, Delta: " item\n- kind: cron\n- fired: true\n- createdAt: the recorded"},
+		{Type: llminfra.EventReasoning, Delta: " time\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+
+	var live strings.Builder
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		live.WriteString(delta.Chunk)
+		if strings.Contains(delta.Chunk, opaqueEntityPlaceholder) || strings.Contains(delta.Chunk, opaqueTimestampPlaceholder) {
+			t.Fatalf("live reasoning delta leaked activation placeholder: %q", delta.Chunk)
+		}
+	}
+	if strings.Contains(live.String(), opaqueEntityPlaceholder) || strings.Contains(live.String(), opaqueTimestampPlaceholder) {
+		t.Fatalf("live reasoning retained activation placeholder: %q", live.String())
+	}
+
+	for _, block := range blocks {
+		if block.Type != messagesdomain.BlockTypeReasoning {
+			continue
+		}
+		if strings.Contains(block.Content, opaqueEntityPlaceholder) || strings.Contains(block.Content, opaqueTimestampPlaceholder) {
+			t.Fatalf("durable reasoning retained activation placeholder: %q", block.Content)
+		}
+		if !strings.Contains(block.Content, "精确触发器 ID 见旁边的触发器卡片。") {
+			t.Fatalf("durable reasoning lost trigger-card guidance: %q", block.Content)
+		}
+		return
+	}
+	t.Fatal("durable reasoning block missing")
 }
 
 func TestRedactOpaqueMachineValuesKeepsFlowrunErrorProseNatural(t *testing.T) {

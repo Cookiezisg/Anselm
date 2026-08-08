@@ -84,7 +84,7 @@ TOOL | edit_trigger | trigger | 改 name/description/config(kind 不可变);conf
 TOOL | delete_trigger | trigger | 静态危险下限=dangerous,模型自报 safe 也必须过 HumanLoop 人闸;门禁本体说明 stop listener/主行不可恢复/history 保留/relation edges purge;软删主行,停 listener,清关系,activation/firing 历史保留,主行不可恢复
 TOOL | fire_trigger | trigger | 手动触发一次演练扇出;只合成 {manual:true},真实走 firing inbox/overlap 策略并回 activationId;暂停返回 TRIGGER_PAUSED,不可用 edit_trigger 清除 paused,必须经 Resume 控件或 :resume 后再 fire
 TOOL | search_activations | trigger | 查动作日志(触没触发都记);每行 firingCount=该次 activation 扇出的 workflow 数,不是历史累计次数;payload.manual=true 表示手动 fire 绕过 sensor condition,不是条件通过证据;支持 firedOnly/cursor/limit;托管模型发出的精确字符串布尔/十进制 limit 窄兼容,浮点/任意字符串/数组拒绝
-TOOL | get_activation | trigger | 取单条 activation
+TOOL | get_activation | trigger | 精确读取单条 activation 审计记录;必须逐字复制 opaque activationId(不是 triggerId,不省略参数);返回 id/triggerId/kind/fired/returnValue/payload/error/detail/firingCount/createdAt 原值,正文占位时指向相邻 activation 卡片
 TOOL | search_firings | trigger | 查扇出收件箱逐 workflow 处置(status=started/pending/skipped/superseded/shed);必须逐字复制 opaque triggerId,不是 name/pattern/placeholder,不知道 id 先 search_triggers;支持 cursor/limit,limit 接受原生整数或精确十进制字符串,浮点/任意字符串/数组拒绝
 TOOL | search_documents | document | 文档库关键词检索（query；非文件系统 path/pattern）；托管 provider 若误发显式 path/pattern 形状则非空 pattern/path 只作为文档 query、两者皆空返回一页有界文档列表，绝不读文件系统；返回正文/标题 snippet 与 durable path/description/tags、total/nextCursor（仅截断时出现）；无 nextCursor 即完整，匹配到 ID 后直接使用；用同一 query 原样携 cursor 续页
 TOOL | list_documents | document | 枚举已知父节点的 Notion 式直接子节点;按 sibling position 做 cursor 分页(默认50,最大200);返回本页 count/同父 total/complete/hasMore,有更多时返 nextCursor;必须逐字携 cursor,不能从 count 或全局上限猜完整性;同回合相同 parentId/cursor/limit 已返回后不得重复;用 search_documents 做关键词检索

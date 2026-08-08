@@ -544,8 +544,9 @@ bool activationRecordFailed(String output) =>
     (_obj(output)?['error'] as String?)?.isNotEmpty ?? false;
 
 /// get_activation body — a thin fire record (NO causal chain: the source is just a kind badge). Fire
-/// conclusion + kind + returnValue tree + payload window + error window + a trigger provenance pill.
-/// get_activation 薄卷宗:fire 结论 + returnValue + payload + error + 触发器出处。
+/// conclusion + exact copyable IDs/timestamp + returnValue tree + payload window + error window + a
+/// trigger provenance pill. get_activation 薄卷宗:fire 结论 + 可复制真相字段 + returnValue + payload +
+/// error + 触发器出处。
 Widget getActivationBody(BuildContext context, ToolCardState s) {
   final c = context.colors;
   final t = Translations.of(context);
@@ -556,6 +557,9 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
   final fired = o['fired'] == true;
   final err = o['error'] as String?;
   final detail = o['detail'] as String?;
+  final activationId = o['id'] as String?;
+  final triggerId = o['triggerId'] as String?;
+  final createdAt = o['createdAt'] as String?;
   return Column(
     crossAxisAlignment: CrossAxisAlignment.start,
     mainAxisSize: MainAxisSize.min,
@@ -578,6 +582,39 @@ Widget getActivationBody(BuildContext context, ToolCardState s) {
             ),
         ],
       ),
+      if (activationId != null || triggerId != null || createdAt != null) ...[
+        const SizedBox(height: AnSpace.s6),
+        Wrap(
+          spacing: AnGap.inline,
+          runSpacing: AnSpace.s4,
+          children: [
+            if (activationId != null && activationId.isNotEmpty)
+              AnChip(
+                '${t.chat.tool.actId} ${truncate(activationId, AnTrunc.id)}',
+                look: AnChipLook.outlined,
+                mono: true,
+                copyValue: activationId,
+                tooltip: activationId,
+              ),
+            if (triggerId != null && triggerId.isNotEmpty)
+              AnChip(
+                '${t.chat.tool.actTriggerId} ${truncate(triggerId, AnTrunc.id)}',
+                look: AnChipLook.outlined,
+                mono: true,
+                copyValue: triggerId,
+                tooltip: triggerId,
+              ),
+            if (createdAt != null && createdAt.isNotEmpty)
+              AnChip(
+                '${t.chat.tool.actCreatedAt} ${truncate(createdAt, AnTrunc.line)}',
+                look: AnChipLook.outlined,
+                mono: true,
+                copyValue: createdAt,
+                tooltip: createdAt,
+              ),
+          ],
+        ),
+      ],
       if (detail != null && detail.isNotEmpty)
         Padding(
           padding: const EdgeInsets.only(top: AnSpace.s4),

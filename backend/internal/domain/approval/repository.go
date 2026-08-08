@@ -8,12 +8,14 @@ import "context"
 // VersionCap 限制单审批表保留的版本数；超出裁最老的——但绝不裁 active 版本（revert 后它可能很老）。
 const VersionCap = 50
 
-// ListFilter is a cursor page request for approval forms.
+// ListFilter is a cursor page request for approval forms. Search is a
+// case-insensitive literal name substring; blank means no filter.
 //
-// ListFilter 是审批表的 cursor 分页请求。
+// ListFilter 是审批表的 cursor 分页请求。Search 是大小写不敏感的字面 name 子串；空白表示不过滤。
 type ListFilter struct {
 	Cursor string
 	Limit  int
+	Search string
 }
 
 // VersionListFilter is a cursor page request for one approval form's versions.

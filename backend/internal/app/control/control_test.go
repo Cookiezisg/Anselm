@@ -14,6 +14,7 @@ import (
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 func newSvc(t *testing.T) (*Service, context.Context) {
@@ -129,6 +130,25 @@ func TestCreate_EmptyName(t *testing.T) {
 	}
 }
 
+func TestCreate_InvalidInputs(t *testing.T) {
+	svc, ctx := newSvc(t)
+	_, _, err := svc.Create(ctx, CreateInput{
+		Name:     "bad-inputs",
+		Inputs:   []schemapkg.Field{{Name: "amount", Type: "money"}},
+		Branches: []controldomain.Branch{catchAll("fallback")},
+	})
+	if !errors.Is(err, controldomain.ErrInvalidInputs) {
+		t.Fatalf("want ErrInvalidInputs, got %v", err)
+	}
+	var ee *errorspkg.Error
+	if !errors.As(err, &ee) || ee.Details["reason"] != "field \"amount\" has invalid type \"money\" (use one of: string, number, boolean, object, array)" {
+		t.Fatalf("invalid-input error must carry actionable reason, got %+v", err)
+	}
+	if _, err := svc.Search(ctx, "bad-inputs"); err != nil {
+		t.Fatalf("search after rejected create: %v", err)
+	}
+}
+
 func TestCreate_DuplicateName(t *testing.T) {
 	svc, ctx := newSvc(t)
 	mk := func() error {
@@ -161,6 +181,25 @@ func TestEdit_NewVersionPointerMoves(t *testing.T) {
 	}
 	if _, err := svc.GetVersionByNumber(ctx, c.ID, 1); err != nil {
 		t.Fatalf("v1 should be retained: %v", err)
+	}
+}
+
+func TestEdit_InvalidInputsDoesNotCreateVersion(t *testing.T) {
+	svc, ctx := newSvc(t)
+	c, _, err := svc.Create(ctx, CreateInput{Name: "edit-inputs", Branches: []controldomain.Branch{catchAll("a")}})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	_, err = svc.Edit(ctx, EditInput{
+		ID:       c.ID,
+		Inputs:   []schemapkg.Field{{Name: "amount", Type: "money"}},
+		Branches: []controldomain.Branch{catchAll("b")},
+	})
+	if !errors.Is(err, controldomain.ErrInvalidInputs) {
+		t.Fatalf("want ErrInvalidInputs, got %v", err)
+	}
+	if n, err := svc.repo.MaxVersionNumber(ctx, c.ID); err != nil || n != 1 {
+		t.Fatalf("invalid edit must not create a version: n=%d err=%v", n, err)
 	}
 }
 

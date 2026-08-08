@@ -136,6 +136,40 @@ func TestApproval_ListPagination(t *testing.T) {
 	}
 }
 
+// TestApproval_ListSearch — ?search is a case-insensitive literal name substring, and the
+// count uses the same filter as the page so the rail badge cannot drift from its rows.
+//
+// TestApproval_ListSearch —— ?search 是大小写不敏感的字面 name 子串，计数与列表共用过滤条件，
+// 防止 rail badge 与实际行数漂移。
+func TestApproval_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkForm(t, s, ctx, "apf_1", "Publish Gate", "")
+	mkForm(t, s, ctx, "apf_2", "refund review", "")
+	mkForm(t, s, ctx, "apf_3", "Fallback", "")
+
+	rows, _, err := s.ListForms(ctx, approvaldomain.ListFilter{Search: "GATE"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "apf_1" {
+		t.Fatalf("search 'GATE' should match apf_1, got %+v", rows)
+	}
+	n, err := s.CountForms(ctx, approvaldomain.ListFilter{Search: "GATE"})
+	if err != nil || n != 1 {
+		t.Fatalf("filtered count = %d, err=%v; want 1", n, err)
+	}
+
+	all, _, err := s.ListForms(ctx, approvaldomain.ListFilter{Search: "  "})
+	if err != nil || len(all) != 3 {
+		t.Fatalf("blank search should return all rows, got %d err=%v", len(all), err)
+	}
+	missing, _, err := s.ListForms(ctx, approvaldomain.ListFilter{Search: "no-such-approval"})
+	if err != nil || len(missing) != 0 {
+		t.Fatalf("missing search should return no rows, got %d err=%v", len(missing), err)
+	}
+}
+
 func TestApproval_VersionMaxAndByNumber(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

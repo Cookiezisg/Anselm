@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
+import 'package:anselm/core/ui/an_chip.dart';
+import 'package:anselm/core/ui/an_ref_pill.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/log_drawer.dart';
 import 'package:anselm/features/chat/ui/run_dossier.dart';
@@ -318,8 +320,41 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(t.chat.tool.fireYes), findsWidgets);
       expect(find.textContaining(t.chat.tool.actReturnValue), findsOneWidget);
+      expect(find.textContaining(t.chat.tool.actId), findsOneWidget);
       expect(
-        find.textContaining(t.run.provTrigger),
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AnChip &&
+              widget.label.startsWith(t.chat.tool.actTriggerId),
+        ),
+        findsOneWidget,
+      );
+      expect(find.textContaining(t.chat.tool.actCreatedAt), findsOneWidget);
+      expect(
+        find.byWidgetPredicate(
+          (widget) => widget is AnChip && widget.copyValue == 'act_1',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AnChip && widget.copyValue == 'trg_7a8b9c0d1e2f3a4b',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AnChip && widget.copyValue == '2026-07-05T14:03:00Z',
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.byWidgetPredicate(
+          (widget) =>
+              widget is AnRefPill && widget.label.startsWith(t.run.provTrigger),
+        ),
         findsOneWidget,
       ); // navigable trigger pill
     },

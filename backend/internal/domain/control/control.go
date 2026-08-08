@@ -133,6 +133,10 @@ var (
 	// ErrInvalidBranches：branches 空，或 port 空 / 重复。
 	ErrInvalidBranches = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_INVALID_BRANCHES", "branches empty, or port empty/duplicate")
 
+	// ErrInvalidInputs: a declared input field has an empty/duplicate name or unknown type.
+	// ErrInvalidInputs：声明的输入字段存在空名/重名或未知类型。
+	ErrInvalidInputs = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_INVALID_INPUTS", "declared input fields are invalid")
+
 	// ErrNoCatchAll: the last branch is not the When=="true" catch-all.
 	// ErrNoCatchAll：末条不是 When=="true" 兜底。
 	ErrNoCatchAll = errorspkg.New(errorspkg.KindUnprocessable, "CONTROL_NO_CATCHALL", `last branch must be when:"true"`)

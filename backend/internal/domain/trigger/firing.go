@@ -16,10 +16,15 @@ import (
 // 一次 fire 按监听的 workflow 扇出成多条 Firing。scheduler 排空 pending、单事务 claim
 // 每条（pending→claimed→started），无 claimed-但-无-flowrun 残留态。终态 status 即 outcome。
 type Firing struct {
-	ID           string         `db:"id,pk"               json:"id"`
-	WorkspaceID  string         `db:"workspace_id,ws"     json:"-"`
-	TriggerID    string         `db:"trigger_id"          json:"triggerId"`
-	WorkflowID   string         `db:"workflow_id"         json:"workflowId"`
+	ID          string `db:"id,pk"               json:"id"`
+	WorkspaceID string `db:"workspace_id,ws"     json:"-"`
+	TriggerID   string `db:"trigger_id"          json:"triggerId"`
+	WorkflowID  string `db:"workflow_id"         json:"workflowId"`
+	// WorkflowName is a read-time display hydration. It is deliberately not persisted: firing
+	// history keeps the opaque workflow ID as its identity, while list consumers get a human label
+	// when the workflow is still readable. 仅读时补全，不落库；历史以 opaque workflow ID 为身份，
+	// workflow 仍可读时列表同时得到人类名称。
+	WorkflowName string         `db:"-"                  json:"workflowName,omitempty"`
 	ActivationID string         `db:"activation_id"       json:"activationId"`
 	Payload      map[string]any `db:"payload,json"        json:"payload,omitempty"`
 	DedupKey     string         `db:"dedup_key"           json:"dedupKey"`

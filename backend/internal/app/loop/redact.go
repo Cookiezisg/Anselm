@@ -14,11 +14,12 @@ const (
 	//
 	// 面向用户的 prose 不能泄露 opaque id，但字面「<opaque value omitted>」会让本来通顺的句子像坏模板。
 	// 改用按类型的中性人话；精确值仍保留在相邻 tool card 中。
-	opaqueEntityPlaceholder    = "the requested item"
-	legacyEntityPlaceholder    = "the referenced item"
-	opaqueTimestampPlaceholder = "the recorded time"
-	opaqueIntegerPlaceholder   = "the numeric value"
-	opaqueHashPlaceholder      = "the recorded digest"
+	opaqueEntityPlaceholder           = "the requested item"
+	legacyEntityPlaceholder           = "the referenced item"
+	opaqueTimestampPlaceholder        = "the recorded time"
+	opaqueTimestampChinesePlaceholder = "相应时间"
+	opaqueIntegerPlaceholder          = "the numeric value"
+	opaqueHashPlaceholder             = "the recorded digest"
 )
 
 var (
@@ -32,7 +33,8 @@ var (
 	// A streamed parenthetical can be redacted in two passes (the id arrives after the opening
 	// parenthesis). Remove the placeholder form too, so a chunk-boundary miss cannot leave
 	// "name (the referenced item)" in the final prose.
-	opaquePlaceholderParentheticalPattern = regexp.MustCompile(`\s*\(\s*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `\s*\)`)
+	opaquePlaceholderParentheticalPattern      = regexp.MustCompile(`\s*[（(]\s*` + "`?" + regexp.QuoteMeta(opaqueEntityPlaceholder) + "`?" + `\s*[）)]`)
+	localizedOpaqueTimestampPlaceholderPattern = regexp.MustCompile(`[ \t]*` + regexp.QuoteMeta(opaqueTimestampPlaceholder) + `[ \t]*`)
 	// A model may label the same unavailable value inside a parenthetical, e.g.
 	// "Agent created (id `the requested item`)". Remove the whole machine-value
 	// parenthetical rather than exposing a phrase that looks like an id.
@@ -165,7 +167,7 @@ var (
 	// deliberately narrower than the generic ID rule and does not expose the ID in prose.
 	// create_trigger 成功结果的精确 ID 在相邻工具卡中可复制。模型若在散文中重复该值，不能留下
 	// 坏掉的「Trigger ID: the requested item」；明确指向卡片。此规则刻意收窄，不放开散文泄露。
-	opaqueTriggerIDPlaceholderLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{2}|__)?(?:trigger[ \t]+id|触发器[ \t]*id|触发器标识)(?:\*{2}|__)?[ \t]*[:：][ \t]*(?:\*{2}|__)?[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*\r?$`)
+	opaqueTriggerIDPlaceholderLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{2}|__)?(?:trigger[ \t]+id|triggerid|触发器[ \t]*id|触发器标识)(?:\*{2}|__)?[ \t]*[:：][ \t]*(?:\*{2}|__)?[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*\r?$`)
 	// Version IDs are opaque too. Remove the whole field, including any model-added parenthetical,
 	// instead of showing a value-shaped placeholder in assistant prose.
 	// 版本 ID 同样是不透明机器值。整行连同模型附加的括号说明一起移除，不能渲染成像真实值的占位符。
@@ -298,6 +300,9 @@ func redactOpaqueMachineValues(text string) string {
 		return "the requested item"
 	})
 	text = entityIDPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
+	// Run before relation-field cleanup: relation tables also use Field/Value, but activation
+	// records have a separate structured card that can carry exact ID/time truth.
+	text = redactActivationDetailTableRows(text)
 	text = opaquePlaceholderIDParentheticalPattern.ReplaceAllString(text, "")
 	text = searchBlocksAbbreviatedRefPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
 	text = searchBlocksTemplateRefPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
@@ -354,7 +359,12 @@ func redactOpaqueMachineValues(text string) string {
 	text = relationRecordedTimePattern.ReplaceAllString(text, "")
 	text = redactRelationAllowedToolsLines(text)
 	text = relationMalformedEquipPattern.ReplaceAllString(text, "${1}该函数被技能 ${2} 通过 equip 关系装备。")
-	text = opaqueTriggerIDPlaceholderLinePattern.ReplaceAllStringFunc(text, redactTriggerIDPlaceholderLine)
+	text = opaqueTriggerIDPlaceholderLinePattern.ReplaceAllStringFunc(text, func(match string) string {
+		if containsHan(text) {
+			return "精确触发器 ID 见旁边的触发器卡片。"
+		}
+		return redactTriggerIDPlaceholderLine(match)
+	})
 	text = opaqueFlowrunSummaryTargetPattern.ReplaceAllString(text, "${1}:")
 	text = opaquePinnedReferenceNaturalPattern.ReplaceAllString(text, "Pinned reference: The function version is pinned.")
 	text = opaqueFlowrunIDFieldPlaceholderPattern.ReplaceAllString(text, "**Requested ID:** Supplied run ID")
@@ -429,6 +439,11 @@ func redactOpaqueMachineValues(text string) string {
 	// replace the cell with an honest unavailable marker; the complete close pass below can remove
 	// an entirely unavailable ID column instead of leaving a misleading header behind.
 	// Markdown 表格里的 placeholder 仍不是用户值。流式阶段先替换为诚实的不可用标记；完整 close 再移除整列。
+	// Activation detail tables are special: the exact trigger ID and creation time remain available
+	// in the adjacent structured activation card. Point those rows there before the generic trigger
+	// handler can send the user to the less-specific trigger card.
+	// activation 详情表的精确值仍在旁边的结构化活动卡片中，必须先于通用 trigger 行处理。
+	text = redactActivationDetailTableRows(text)
 	text = redactTriggerIDPlaceholderTableRows(text)
 	text = redactOpaquePlaceholderTableCells(text)
 	// A two-column Field/Value table encodes an ID as a row rather than a column. Remove an
@@ -447,6 +462,9 @@ func redactOpaqueMachineValues(text string) string {
 	text = removeOpaquePlaceholderIDColumns(text)
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	text = longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
+	if containsHan(text) {
+		text = localizedOpaqueTimestampPlaceholderPattern.ReplaceAllString(text, opaqueTimestampChinesePlaceholder)
+	}
 	return restoreExactLastMessageAt(text)
 }
 
@@ -916,7 +934,11 @@ func redactRelationFieldTableRows(text string) string {
 			case "创建时间", "更新时间", "createdat", "updatedat", "created/updated":
 				// These values are not rendered in the relation card; do not show a vague or
 				// partially redacted timestamp in the assistant narrative.
-				continue
+				if isActivationCreatedAtHint(cells[1]) {
+					result = append(result, formatMarkdownTableRow(cells))
+				} else {
+					continue
+				}
 			default:
 				result = append(result, lines[i])
 			}
@@ -936,7 +958,9 @@ func redactRelationFieldTableRows(text string) string {
 			cells[1] = relationFieldRefHint(text)
 			result[index] = formatMarkdownTableRow(cells)
 		case "创建时间", "更新时间", "createdat", "updatedat", "created/updated":
-			result[index] = ""
+			if !isActivationCreatedAtHint(cells[1]) {
+				result[index] = ""
+			}
 		}
 	}
 	return strings.Join(result, "\n")
@@ -970,6 +994,10 @@ func relationFieldRefHint(text string) string {
 		return relationTableRefHint
 	}
 	return relationTableRefHintEnglish
+}
+
+func isActivationCreatedAtHint(value string) bool {
+	return strings.Contains(value, activationCreatedAtTableHint) || strings.Contains(value, "精确创建时间见旁边的活动卡片。")
 }
 
 func removeRelationPlaceholder(cell string) string {
@@ -1513,10 +1541,115 @@ func isOpaquePlaceholderTableCell(cell string) bool {
 }
 
 const (
-	flowrunSearchRowHint   = "See the run card"
-	searchBlocksRefRowHint = "See the exact ref in the search_blocks result card."
-	triggerIDTableRowHint  = "See the exact trigger ID in the adjacent trigger card."
+	flowrunSearchRowHint         = "See the run card"
+	searchBlocksRefRowHint       = "See the exact ref in the search_blocks result card."
+	triggerIDTableRowHint        = "See the exact trigger ID in the adjacent trigger card."
+	activationIDTableRowHint     = "See the exact activation ID in the adjacent activation card."
+	activationCreatedAtTableHint = "See the exact creation time in the adjacent activation card."
+	activationTriggerIDTableHint = "精确触发器 ID 见旁边的活动卡片。"
 )
+
+func normalizeActivationFieldLabel(label string) string {
+	value := strings.TrimSpace(label)
+	if annotation := strings.IndexAny(value, "（("); annotation >= 0 {
+		value = strings.TrimSpace(value[:annotation])
+	}
+	value = strings.ToLower(strings.Trim(value, "`*_ "))
+	value = strings.Join(strings.Fields(value), " ")
+	value = strings.ReplaceAll(value, "triggerid", "trigger id")
+	value = strings.ReplaceAll(value, "createdat", "created at")
+	switch strings.ReplaceAll(value, " ", "") {
+	case "激活id", "激活记录id":
+		return "id"
+	case "触发器id", "触发器标识":
+		return "触发器 id"
+	case "类型", "触发器类型":
+		return "kind"
+	case "是否触发":
+		return "fired"
+	case "创建时间":
+		return "created at"
+	}
+	return value
+}
+
+// redactActivationDetailTableRows keeps the assistant's structured summary honest without
+// leaking opaque values into prose. It only touches a table with the activation-specific kind /
+// fired shape, so a generic Trigger ID table keeps its existing trigger-card guidance.
+func redactActivationDetailTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i := 0; i+2 < len(lines); {
+		header, ok := markdownTableCells(lines[i])
+		if !ok || len(header) != 2 {
+			i++
+			continue
+		}
+		separator, ok := markdownTableCells(lines[i+1])
+		if !ok || len(separator) != 2 || !isMarkdownTableSeparator(separator) {
+			i++
+			continue
+		}
+		headerKey := normalizeActivationFieldLabel(header[0])
+		headerValue := normalizeActivationFieldLabel(header[1])
+		if (headerKey != "field" && headerKey != "字段" && headerKey != "key") ||
+			(headerValue != "value" && headerValue != "值") {
+			i += 2
+			continue
+		}
+
+		lastRow := i + 1
+		rows := make([]int, 0, 8)
+		hasKind, hasFired, hasTriggerID, hasCreatedAt := false, false, false, false
+		for row := i + 2; row < len(lines); row++ {
+			cells, rowOK := markdownTableCells(lines[row])
+			if !rowOK || len(cells) != 2 {
+				break
+			}
+			rows = append(rows, row)
+			lastRow = row
+			switch normalizeActivationFieldLabel(cells[0]) {
+			case "kind":
+				hasKind = true
+			case "fired":
+				hasFired = true
+			case "trigger id", "trigger identifier", "触发器 id", "触发器标识":
+				hasTriggerID = true
+			case "created at", "created time", "creation time", "创建时间":
+				hasCreatedAt = true
+			}
+		}
+		if !hasKind || !hasFired || (!hasTriggerID && !hasCreatedAt) {
+			i = lastRow + 1
+			continue
+		}
+
+		for _, row := range rows {
+			cells, _ := markdownTableCells(lines[row])
+			switch normalizeActivationFieldLabel(cells[0]) {
+			case "trigger id", "trigger identifier", "触发器 id", "触发器标识":
+				if isUnavailableOpaqueTableCell(cells[1]) {
+					if containsHan(text) {
+						cells[1] = activationTriggerIDTableHint
+					} else {
+						cells[1] = activationIDTableRowHint
+					}
+					lines[row] = formatMarkdownTableRow(cells)
+				}
+			case "created at", "created time", "creation time", "创建时间":
+				if isOpaqueTimestampPlaceholderCell(cells[1]) {
+					if containsHan(text) {
+						cells[1] = "精确创建时间见旁边的活动卡片。"
+					} else {
+						cells[1] = activationCreatedAtTableHint
+					}
+					lines[row] = formatMarkdownTableRow(cells)
+				}
+			}
+		}
+		i = lastRow + 1
+	}
+	return strings.Join(lines, "\n")
+}
 
 func redactTriggerIDPlaceholderTableRows(text string) string {
 	lines := strings.Split(text, "\n")
@@ -1654,9 +1787,13 @@ func redactSearchBlocksTableRows(text string) string {
 type textRedactor struct {
 	pending       string
 	relationIntro string
+	hasHan        bool
 }
 
 func (r *textRedactor) Write(delta string) string {
+	if containsHan(delta) {
+		r.hasHan = true
+	}
 	if r.relationIntro != "" || (r.pending == "" && strings.HasPrefix(strings.TrimSpace(delta), "以下是") && !strings.Contains(delta, "\n")) {
 		r.relationIntro += delta
 		if newline := strings.IndexByte(r.relationIntro, '\n'); newline >= 0 {
@@ -1712,6 +1849,14 @@ func (r *textRedactor) Write(delta string) string {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
 	}
+	if prefix, held, ok := splitFieldValueTableHeaderPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	if prefix, held, ok := splitActivationDetailTablePrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
 	// Relation summaries and their Markdown rows are semantic units. Hold the current bounded
 	// line until its newline so a split placeholder or relation ref cannot leak to the messages
 	// stream before the relation-specific rewrite sees the complete context.
@@ -1743,6 +1888,14 @@ func (r *textRedactor) Write(delta string) string {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
 	}
+	// A Chinese response can receive the generic timestamp placeholder in a later provider
+	// chunk than the surrounding Han text. Keep the language decision on the redactor, not on
+	// the current chunk, so `the recorded time` cannot flash in an otherwise Chinese sentence.
+	if r.hasHan && strings.Contains(r.pending, opaqueTimestampPlaceholder) {
+		safe := redactOpaqueMachineValues(r.pending)
+		r.pending = ""
+		return safe
+	}
 	// Do not emit a partial legacy/current placeholder. Otherwise a provider split such as
 	// "the referenced" + " item" can briefly put the bad phrase on the live SSE stream before
 	// the durable close has a chance to normalize the complete block.
@@ -1765,7 +1918,15 @@ func (r *textRedactor) Write(delta string) string {
 	// impossible to recognize as a redundant target. The bound prevents an unclosed ordinary
 	// parenthesis from stalling the whole response indefinitely.
 	emitted := string(runes[:cut])
-	if open := strings.LastIndex(emitted, "("); open >= 0 && strings.LastIndex(emitted, ")") < open && len([]rune(emitted[open:])) <= 128 {
+	open := strings.LastIndex(emitted, "(")
+	if fullWidthOpen := strings.LastIndex(emitted, "（"); fullWidthOpen > open {
+		open = fullWidthOpen
+	}
+	close := strings.LastIndex(emitted, ")")
+	if fullWidthClose := strings.LastIndex(emitted, "）"); fullWidthClose > close {
+		close = fullWidthClose
+	}
+	if open >= 0 && close < open && len([]rune(emitted[open:])) <= 128 {
 		prefix := []rune(emitted[:open])
 		cut = len(prefix)
 		if cut > 0 && unicode.IsSpace(prefix[cut-1]) {
@@ -2123,6 +2284,131 @@ func splitAttachmentTimestampTablePrefix(text string) (prefix, held string, ok b
 	return "", "", false
 }
 
+func splitActivationDetailTablePrefix(text string) (prefix, held string, ok bool) {
+	lines := strings.SplitAfter(text, "\n")
+	lineCount := len(lines)
+	if lineCount > 0 && lines[lineCount-1] == "" {
+		// SplitAfter represents a trailing delimiter as an empty sentinel. It is not a
+		// table boundary; the next provider chunk may still contain another row.
+		lineCount--
+	}
+	for i := 0; i+1 < len(lines); i++ {
+		headerLine := strings.TrimSuffix(lines[i], "\n")
+		separatorLine := strings.TrimSuffix(lines[i+1], "\n")
+		header, headerOK := markdownTableCells(headerLine)
+		separator, separatorOK := markdownTableCells(separatorLine)
+		if headerOK && len(header) == 2 && isFieldValueTableHeader(header) &&
+			(!separatorOK || len(separator) != 2 || !isMarkdownTableSeparator(separator)) &&
+			i+1 == lineCount-1 && strings.HasPrefix(strings.TrimSpace(separatorLine), "|") {
+			// The provider can split the separator itself. Keep the Field/Value header
+			// attached to that partial line; otherwise the generic line streamer emits
+			// the header before activation context can be recognized.
+			prefixEnd := 0
+			for j := 0; j < i; j++ {
+				prefixEnd += len(lines[j])
+			}
+			return text[:prefixEnd], text[prefixEnd:], true
+		}
+		if !headerOK || !separatorOK || len(header) != 2 || len(separator) != 2 || !isMarkdownTableSeparator(separator) {
+			continue
+		}
+		if !isFieldValueTableHeader(header) {
+			continue
+		}
+
+		// Keep the whole Field/Value table together until its row boundary is known. The
+		// activation-specific rows arrive one provider chunk at a time in the real gateway;
+		// releasing the header or the first row early loses the context needed to rewrite an
+		// unavailable triggerId/createdAt cell before it reaches the live messages stream.
+		rowEnd := i + 2
+		hasID, hasKind, hasFired, hasTriggerID, hasCreatedAt := false, false, false, false, false
+		for rowEnd < lineCount {
+			candidate := strings.TrimSuffix(lines[rowEnd], "\n")
+			cells, rowOK := markdownTableCells(candidate)
+			if !rowOK || len(cells) != 2 {
+				break
+			}
+			switch normalizeActivationFieldLabel(cells[0]) {
+			case "id", "identifier", "activation id", "activation identifier":
+				hasID = true
+			case "kind":
+				hasKind = true
+			case "fired":
+				hasFired = true
+			case "trigger id", "trigger identifier", "触发器 id", "触发器标识":
+				hasTriggerID = true
+			case "created at", "created time", "creation time", "创建时间":
+				hasCreatedAt = true
+			}
+			rowEnd++
+		}
+		activationCandidate := hasID || hasKind || hasFired || hasTriggerID || hasCreatedAt
+		activationSignature := hasKind && hasFired && (hasTriggerID || hasCreatedAt)
+		if rowEnd < lineCount && strings.HasPrefix(strings.TrimSpace(lines[rowEnd]), "|") &&
+			!strings.HasSuffix(lines[rowEnd], "\n") {
+			// The first data row can begin in the same provider chunk that completes
+			// the separator. Keep the header and separator attached to that partial row.
+			return "", text, true
+		}
+		if rowEnd == i+2 {
+			if rowEnd == lineCount {
+				return "", text, true
+			}
+			continue
+		}
+		if rowEnd == lineCount {
+			return "", text, true
+		}
+		if activationCandidate && !activationSignature {
+			nextLine := strings.TrimSpace(lines[rowEnd])
+			if hasTriggerID || hasCreatedAt || strings.HasPrefix(nextLine, "|") {
+				return "", text, true
+			}
+			// A plain Field/Value table with only an ID row has reached a real
+			// non-table boundary; release it normally rather than stalling an
+			// unrelated table forever.
+		}
+		prefixEnd := 0
+		for j := 0; j < rowEnd; j++ {
+			prefixEnd += len(lines[j])
+		}
+		if prefixEnd == len(text) {
+			return "", text, true
+		}
+		return text[:prefixEnd], text[prefixEnd:], true
+	}
+	return "", "", false
+}
+
+func splitFieldValueTableHeaderPrefix(text string) (prefix, held string, ok bool) {
+	if text == "" || !strings.HasSuffix(text, "\n") {
+		return "", "", false
+	}
+	lineEnd := len(text) - 1
+	lineStart := strings.LastIndexByte(text[:lineEnd], '\n') + 1
+	line := text[lineStart:lineEnd]
+	if line == "" {
+		return "", "", false
+	}
+	header, headerOK := markdownTableCells(line)
+	if !headerOK || !isFieldValueTableHeader(header) {
+		return "", "", false
+	}
+	return text[:lineStart], text[lineStart:], true
+}
+
+func isFieldValueTableHeader(cells []string) bool {
+	if len(cells) != 2 {
+		return false
+	}
+	headerKey := normalizeActivationFieldLabel(cells[0])
+	if headerKey != "field" && headerKey != "字段" && headerKey != "key" {
+		return false
+	}
+	headerValue := normalizeActivationFieldLabel(cells[1])
+	return headerValue == "value" || headerValue == "值"
+}
+
 func splitMCPConnectionTimestampTablePrefix(text string) (prefix, held string, ok bool) {
 	lines := strings.SplitAfter(text, "\n")
 	for i := 0; i+1 < len(lines); i++ {
@@ -2327,7 +2613,9 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 			if opaquePlaceholderLabeledLinePattern.MatchString(line) ||
 				opaquePlaceholderBoldColonLabeledLinePattern.MatchString(line) ||
 				opaqueVersionIDPlaceholderLinePattern.MatchString(line) ||
-				opaqueTriggerIDPlaceholderLinePattern.MatchString(line) {
+				opaqueTriggerIDPlaceholderLinePattern.MatchString(line) ||
+				hasTriggerIDLinePrefix(line) ||
+				hasActivationTimestampLinePrefix(line) {
 				return completed, text[newline+1:], true
 			}
 		}
@@ -2337,7 +2625,7 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 	if line == "" || len([]rune(line)) > 512 {
 		return "", "", false
 	}
-	if hasOpaquePlaceholderLabeledPrefix(line) || hasTriggerIDLinePrefix(line) {
+	if hasOpaquePlaceholderLabeledPrefix(line) || hasTriggerIDLinePrefix(line) || hasActivationTimestampLinePrefix(line) {
 		return text[:lineStart], line, true
 	}
 	lower := strings.ToLower(line)
@@ -2391,10 +2679,24 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 func hasTriggerIDLinePrefix(line string) bool {
 	trimmed := strings.TrimSpace(strings.TrimLeft(line, "-*•_` \t"))
 	trimmed = strings.TrimLeft(trimmed, "*_")
-	if len(trimmed) >= len("trigger id") && strings.EqualFold(trimmed[:len("trigger id")], "trigger id") {
+	if colon := strings.IndexAny(trimmed, ":："); colon >= 0 && normalizeActivationFieldLabel(trimmed[:colon]) == "trigger id" {
 		return true
 	}
 	return strings.HasPrefix(trimmed, "触发器")
+}
+
+func hasActivationTimestampLinePrefix(line string) bool {
+	trimmed := strings.TrimSpace(strings.TrimLeft(line, "-*•_` \t"))
+	colon := strings.IndexAny(trimmed, ":：")
+	if colon < 0 {
+		return false
+	}
+	switch normalizeActivationFieldLabel(trimmed[:colon]) {
+	case "created at", "created time", "creation time":
+		return true
+	default:
+		return false
+	}
 }
 
 func hasOpaquePlaceholderLabeledPrefix(line string) bool {

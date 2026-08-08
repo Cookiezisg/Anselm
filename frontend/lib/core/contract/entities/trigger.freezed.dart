@@ -632,7 +632,7 @@ as DateTime,
 /// @nodoc
 mixin _$Firing {
 
- String get id; String get triggerId; String get workflowId; String get activationId; Map<String, dynamic> get payload; String get dedupKey;@JsonKey(unknownEnumValue: FiringStatus.unknown) FiringStatus get status; String get flowrunId; DateTime get createdAt; DateTime get updatedAt;
+ String get id; String get triggerId; String get workflowId; String get workflowName; String get activationId; Map<String, dynamic> get payload; String get dedupKey;@JsonKey(unknownEnumValue: FiringStatus.unknown) FiringStatus get status; String get flowrunId; DateTime get createdAt; DateTime get updatedAt;
 /// Create a copy of Firing
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -645,16 +645,16 @@ $FiringCopyWith<Firing> get copyWith => _$FiringCopyWithImpl<Firing>(this as Fir
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is Firing&&(identical(other.id, id) || other.id == id)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.activationId, activationId) || other.activationId == activationId)&&const DeepCollectionEquality().equals(other.payload, payload)&&(identical(other.dedupKey, dedupKey) || other.dedupKey == dedupKey)&&(identical(other.status, status) || other.status == status)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is Firing&&(identical(other.id, id) || other.id == id)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.workflowName, workflowName) || other.workflowName == workflowName)&&(identical(other.activationId, activationId) || other.activationId == activationId)&&const DeepCollectionEquality().equals(other.payload, payload)&&(identical(other.dedupKey, dedupKey) || other.dedupKey == dedupKey)&&(identical(other.status, status) || other.status == status)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,triggerId,workflowId,activationId,const DeepCollectionEquality().hash(payload),dedupKey,status,flowrunId,createdAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,triggerId,workflowId,workflowName,activationId,const DeepCollectionEquality().hash(payload),dedupKey,status,flowrunId,createdAt,updatedAt);
 
 @override
 String toString() {
-  return 'Firing(id: $id, triggerId: $triggerId, workflowId: $workflowId, activationId: $activationId, payload: $payload, dedupKey: $dedupKey, status: $status, flowrunId: $flowrunId, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'Firing(id: $id, triggerId: $triggerId, workflowId: $workflowId, workflowName: $workflowName, activationId: $activationId, payload: $payload, dedupKey: $dedupKey, status: $status, flowrunId: $flowrunId, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -665,7 +665,7 @@ abstract mixin class $FiringCopyWith<$Res>  {
   factory $FiringCopyWith(Firing value, $Res Function(Firing) _then) = _$FiringCopyWithImpl;
 @useResult
 $Res call({
- String id, String triggerId, String workflowId, String activationId, Map<String, dynamic> payload, String dedupKey,@JsonKey(unknownEnumValue: FiringStatus.unknown) FiringStatus status, String flowrunId, DateTime createdAt, DateTime updatedAt
+ String id, String triggerId, String workflowId, String workflowName, String activationId, Map<String, dynamic> payload, String dedupKey,@JsonKey(unknownEnumValue: FiringStatus.unknown) FiringStatus status, String flowrunId, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -682,11 +682,12 @@ class _$FiringCopyWithImpl<$Res>
 
 /// Create a copy of Firing
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? triggerId = null,Object? workflowId = null,Object? activationId = null,Object? payload = null,Object? dedupKey = null,Object? status = null,Object? flowrunId = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? triggerId = null,Object? workflowId = null,Object? workflowName = null,Object? activationId = null,Object? payload = null,Object? dedupKey = null,Object? status = null,Object? flowrunId = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,triggerId: null == triggerId ? _self.triggerId : triggerId // ignore: cast_nullable_to_non_nullable
 as String,workflowId: null == workflowId ? _self.workflowId : workflowId // ignore: cast_nullable_to_non_nullable
+as String,workflowName: null == workflowName ? _self.workflowName : workflowName // ignore: cast_nullable_to_non_nullable
 as String,activationId: null == activationId ? _self.activationId : activationId // ignore: cast_nullable_to_non_nullable
 as String,payload: null == payload ? _self.payload : payload // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,dedupKey: null == dedupKey ? _self.dedupKey : dedupKey // ignore: cast_nullable_to_non_nullable
@@ -779,10 +780,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String triggerId,  String workflowId,  String activationId,  Map<String, dynamic> payload,  String dedupKey, @JsonKey(unknownEnumValue: FiringStatus.unknown)  FiringStatus status,  String flowrunId,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String triggerId,  String workflowId,  String workflowName,  String activationId,  Map<String, dynamic> payload,  String dedupKey, @JsonKey(unknownEnumValue: FiringStatus.unknown)  FiringStatus status,  String flowrunId,  DateTime createdAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _Firing() when $default != null:
-return $default(_that.id,_that.triggerId,_that.workflowId,_that.activationId,_that.payload,_that.dedupKey,_that.status,_that.flowrunId,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.triggerId,_that.workflowId,_that.workflowName,_that.activationId,_that.payload,_that.dedupKey,_that.status,_that.flowrunId,_that.createdAt,_that.updatedAt);case _:
   return orElse();
 
 }
@@ -800,10 +801,10 @@ return $default(_that.id,_that.triggerId,_that.workflowId,_that.activationId,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String triggerId,  String workflowId,  String activationId,  Map<String, dynamic> payload,  String dedupKey, @JsonKey(unknownEnumValue: FiringStatus.unknown)  FiringStatus status,  String flowrunId,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String triggerId,  String workflowId,  String workflowName,  String activationId,  Map<String, dynamic> payload,  String dedupKey, @JsonKey(unknownEnumValue: FiringStatus.unknown)  FiringStatus status,  String flowrunId,  DateTime createdAt,  DateTime updatedAt)  $default,) {final _that = this;
 switch (_that) {
 case _Firing():
-return $default(_that.id,_that.triggerId,_that.workflowId,_that.activationId,_that.payload,_that.dedupKey,_that.status,_that.flowrunId,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.triggerId,_that.workflowId,_that.workflowName,_that.activationId,_that.payload,_that.dedupKey,_that.status,_that.flowrunId,_that.createdAt,_that.updatedAt);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -820,10 +821,10 @@ return $default(_that.id,_that.triggerId,_that.workflowId,_that.activationId,_th
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String triggerId,  String workflowId,  String activationId,  Map<String, dynamic> payload,  String dedupKey, @JsonKey(unknownEnumValue: FiringStatus.unknown)  FiringStatus status,  String flowrunId,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String triggerId,  String workflowId,  String workflowName,  String activationId,  Map<String, dynamic> payload,  String dedupKey, @JsonKey(unknownEnumValue: FiringStatus.unknown)  FiringStatus status,  String flowrunId,  DateTime createdAt,  DateTime updatedAt)?  $default,) {final _that = this;
 switch (_that) {
 case _Firing() when $default != null:
-return $default(_that.id,_that.triggerId,_that.workflowId,_that.activationId,_that.payload,_that.dedupKey,_that.status,_that.flowrunId,_that.createdAt,_that.updatedAt);case _:
+return $default(_that.id,_that.triggerId,_that.workflowId,_that.workflowName,_that.activationId,_that.payload,_that.dedupKey,_that.status,_that.flowrunId,_that.createdAt,_that.updatedAt);case _:
   return null;
 
 }
@@ -835,12 +836,13 @@ return $default(_that.id,_that.triggerId,_that.workflowId,_that.activationId,_th
 @JsonSerializable()
 
 class _Firing implements Firing {
-  const _Firing({required this.id, this.triggerId = '', this.workflowId = '', this.activationId = '', final  Map<String, dynamic> payload = const <String, dynamic>{}, this.dedupKey = '', @JsonKey(unknownEnumValue: FiringStatus.unknown) this.status = FiringStatus.unknown, this.flowrunId = '', required this.createdAt, required this.updatedAt}): _payload = payload;
+  const _Firing({required this.id, this.triggerId = '', this.workflowId = '', this.workflowName = '', this.activationId = '', final  Map<String, dynamic> payload = const <String, dynamic>{}, this.dedupKey = '', @JsonKey(unknownEnumValue: FiringStatus.unknown) this.status = FiringStatus.unknown, this.flowrunId = '', required this.createdAt, required this.updatedAt}): _payload = payload;
   factory _Firing.fromJson(Map<String, dynamic> json) => _$FiringFromJson(json);
 
 @override final  String id;
 @override@JsonKey() final  String triggerId;
 @override@JsonKey() final  String workflowId;
+@override@JsonKey() final  String workflowName;
 @override@JsonKey() final  String activationId;
  final  Map<String, dynamic> _payload;
 @override@JsonKey() Map<String, dynamic> get payload {
@@ -868,16 +870,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Firing&&(identical(other.id, id) || other.id == id)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.activationId, activationId) || other.activationId == activationId)&&const DeepCollectionEquality().equals(other._payload, _payload)&&(identical(other.dedupKey, dedupKey) || other.dedupKey == dedupKey)&&(identical(other.status, status) || other.status == status)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _Firing&&(identical(other.id, id) || other.id == id)&&(identical(other.triggerId, triggerId) || other.triggerId == triggerId)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.workflowName, workflowName) || other.workflowName == workflowName)&&(identical(other.activationId, activationId) || other.activationId == activationId)&&const DeepCollectionEquality().equals(other._payload, _payload)&&(identical(other.dedupKey, dedupKey) || other.dedupKey == dedupKey)&&(identical(other.status, status) || other.status == status)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,triggerId,workflowId,activationId,const DeepCollectionEquality().hash(_payload),dedupKey,status,flowrunId,createdAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,triggerId,workflowId,workflowName,activationId,const DeepCollectionEquality().hash(_payload),dedupKey,status,flowrunId,createdAt,updatedAt);
 
 @override
 String toString() {
-  return 'Firing(id: $id, triggerId: $triggerId, workflowId: $workflowId, activationId: $activationId, payload: $payload, dedupKey: $dedupKey, status: $status, flowrunId: $flowrunId, createdAt: $createdAt, updatedAt: $updatedAt)';
+  return 'Firing(id: $id, triggerId: $triggerId, workflowId: $workflowId, workflowName: $workflowName, activationId: $activationId, payload: $payload, dedupKey: $dedupKey, status: $status, flowrunId: $flowrunId, createdAt: $createdAt, updatedAt: $updatedAt)';
 }
 
 
@@ -888,7 +890,7 @@ abstract mixin class _$FiringCopyWith<$Res> implements $FiringCopyWith<$Res> {
   factory _$FiringCopyWith(_Firing value, $Res Function(_Firing) _then) = __$FiringCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String triggerId, String workflowId, String activationId, Map<String, dynamic> payload, String dedupKey,@JsonKey(unknownEnumValue: FiringStatus.unknown) FiringStatus status, String flowrunId, DateTime createdAt, DateTime updatedAt
+ String id, String triggerId, String workflowId, String workflowName, String activationId, Map<String, dynamic> payload, String dedupKey,@JsonKey(unknownEnumValue: FiringStatus.unknown) FiringStatus status, String flowrunId, DateTime createdAt, DateTime updatedAt
 });
 
 
@@ -905,11 +907,12 @@ class __$FiringCopyWithImpl<$Res>
 
 /// Create a copy of Firing
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? triggerId = null,Object? workflowId = null,Object? activationId = null,Object? payload = null,Object? dedupKey = null,Object? status = null,Object? flowrunId = null,Object? createdAt = null,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? triggerId = null,Object? workflowId = null,Object? workflowName = null,Object? activationId = null,Object? payload = null,Object? dedupKey = null,Object? status = null,Object? flowrunId = null,Object? createdAt = null,Object? updatedAt = null,}) {
   return _then(_Firing(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,triggerId: null == triggerId ? _self.triggerId : triggerId // ignore: cast_nullable_to_non_nullable
 as String,workflowId: null == workflowId ? _self.workflowId : workflowId // ignore: cast_nullable_to_non_nullable
+as String,workflowName: null == workflowName ? _self.workflowName : workflowName // ignore: cast_nullable_to_non_nullable
 as String,activationId: null == activationId ? _self.activationId : activationId // ignore: cast_nullable_to_non_nullable
 as String,payload: null == payload ? _self._payload : payload // ignore: cast_nullable_to_non_nullable
 as Map<String, dynamic>,dedupKey: null == dedupKey ? _self.dedupKey : dedupKey // ignore: cast_nullable_to_non_nullable

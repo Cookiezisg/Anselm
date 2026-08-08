@@ -155,7 +155,7 @@ unknown IDs 缺席，cells 按 `(flowrun,node)` 聚合 iterations。
 | `POST /triggers/{id}:iterate` | 打开 AI 构建 Conversation |
 | `GET /triggers/{id}/activations` | Activation 分页；每行 `firingCount` 是该次 activation 的 workflow 扇出数，不是历史累计 fire 次数 |
 | `GET /trigger-activations/{id}` | 单 Activation |
-| `GET /firings` · `GET /triggers/{id}/firings` | workspace / trigger Firing 分页；工具侧必须传精确 opaque triggerId（不是 name/pattern），`limit` 为整数，托管模型可用精确十进制字符串，错误形状拒绝 |
+| `GET /firings` · `GET /triggers/{id}/firings` | workspace / trigger Firing 分页；每行保留精确 `workflowId`，并在 workflow 仍可读时读时补 `workflowName`；工具侧必须传精确 opaque triggerId（不是 name/pattern），`limit` 为整数，托管模型可用精确十进制字符串，错误形状拒绝 |
 | `GET /trigger-schedule` | 有界 schedule window，截断时 `truncated=true` |
 | `ANY /webhooks/{triggerId}/{path...}` | webhook source 入口（catch-all 前缀挂载一次、registry 派发；可选 secret/HMAC、10MB body 上限；bearer 豁免）；成功 `202` 表示 Activation/Firing 已耐久写入，scheduler 排空异步——完整形状见 [`domains/trigger.md`](domains/trigger.md) |
 
@@ -175,7 +175,8 @@ POST /controls|approvals/{id}:iterate
 GET /controls|approvals/{id}/versions[/{version}]
 ```
 
-`GET /controls` 与 `GET /approvals` 的列表响应也在 `X-Anselm-Total-Count` 携带精确过滤总数；分页 JSON body 仍遵守 N4。
+`GET /controls` 与 `GET /approvals` 均支持 `?search=` 的大小写不敏感 name 子串过滤；列表响应在
+`X-Anselm-Total-Count` 携带同一过滤条件下的精确总数，分页 JSON body 仍遵守 N4。
 
 `DELETE /approvals/{id}` 与 `delete_approval` 均为软删除：普通实体读/搜索返回 not-found、关系边
 被清理，但 `approval_form_versions` 作为不可变审计历史保留；工具调用必须先查关系并经

@@ -2930,6 +2930,9 @@ class Translations$chat$tool$en {
 	/// en: 'shed'
 	String get firingShed => 'shed';
 
+	/// en: 'missed'
+	String get firingMissed => 'missed';
+
 	/// en: '$n'
 	String logCount({required Object n}) => '${n}';
 
@@ -2941,6 +2944,15 @@ class Translations$chat$tool$en {
 
 	/// en: 'Return value'
 	String get actReturnValue => 'Return value';
+
+	/// en: 'Activation ID'
+	String get actId => 'Activation ID';
+
+	/// en: 'Trigger ID'
+	String get actTriggerId => 'Trigger ID';
+
+	/// en: 'Created at'
+	String get actCreatedAt => 'Created at';
 
 	/// en: 'fan-out $n'
 	String actFanout({required Object n}) => 'fan-out ${n}';
@@ -6818,6 +6830,9 @@ class Translations$entities$detail$kv$en {
 	/// en: 'Workflow'
 	String get workflow => 'Workflow';
 
+	/// en: 'Workflow ID'
+	String get workflowId => 'Workflow ID';
+
 	/// en: 'Nodes'
 	String get nodes => 'Nodes';
 
@@ -6979,6 +6994,12 @@ class Translations$entities$detail$trigger$en {
 
 	/// en: 'Next fire'
 	String get nextFire => 'Next fire';
+
+	/// en: 'Authentication'
+	String get authentication => 'Authentication';
+
+	/// en: 'X-Webhook-Secret header or ?token= query'
+	String get plainSecretCarriers => 'X-Webhook-Secret header or ?token= query';
 
 	/// en: 'Signature'
 	String get signatureAlgo => 'Signature';
@@ -7856,16 +7877,20 @@ extension on Translations {
 			'chat.tool.firingSkipped' => 'skipped',
 			'chat.tool.firingSuperseded' => 'superseded',
 			'chat.tool.firingShed' => 'shed',
+			'chat.tool.firingMissed' => 'missed',
 			'chat.tool.logCount' => ({required Object n}) => '${n}',
 			'chat.tool.logCountMore' => ({required Object n}) => '${n}+',
 			'chat.tool.parkRunCaption' => 'a run parked on an approval node stays running at the header',
 			'chat.tool.actReturnValue' => 'Return value',
+			'chat.tool.actId' => 'Activation ID',
+			'chat.tool.actTriggerId' => 'Trigger ID',
+			'chat.tool.actCreatedAt' => 'Created at',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.actFanout' => ({required Object n}) => 'fan-out ${n}',
 			'chat.tool.gettingFnExec' => 'Opening function-run record',
 			'chat.tool.gotFnExec' => 'Opened function-run record',
 			'chat.tool.gettingHdCall' => 'Opening handler-call record',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.gotHdCall' => 'Opened handler-call record',
 			'chat.tool.gettingMcpCall' => 'Opening MCP-call record',
 			'chat.tool.gotMcpCall' => 'Opened MCP-call record',
@@ -8374,12 +8399,12 @@ extension on Translations {
 			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
 			'scheduler.range.monthTitle' => ({required Object m, required Object y}) => '${m} ${y}',
 			'scheduler.range.months' => 'January,February,March,April,May,June,July,August,September,October,November,December',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.prevMonth' => 'Previous month',
 			'scheduler.range.nextMonth' => 'Next month',
 			'scheduler.range.backToPresets' => 'Back to quick ranges',
 			'scheduler.range.backToToday' => 'Back to today',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.preciseTime' => 'Set exact times',
 			'scheduler.range.dayText' => ({required Object m, required Object d}) => '${m}/${d}',
 			'scheduler.range.dayTextYear' => ({required Object m, required Object d, required Object y}) => '${m}/${d}/${y}',
@@ -8693,6 +8718,7 @@ extension on Translations {
 			'entities.detail.kv.replay' => 'Replay',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
 			'entities.detail.kv.workflow' => 'Workflow',
+			'entities.detail.kv.workflowId' => 'Workflow ID',
 			'entities.detail.kv.nodes' => 'Nodes',
 			'entities.detail.kv.graph' => 'Graph',
 			'entities.detail.kv.graphCounts' => ({required Object nodes, required Object edges}) => '${nodes} nodes · ${edges} edges',
@@ -8738,6 +8764,8 @@ extension on Translations {
 			'entities.detail.trigger.refCount' => 'Listeners',
 			'entities.detail.trigger.lastFired' => 'Last fired',
 			'entities.detail.trigger.nextFire' => 'Next fire',
+			'entities.detail.trigger.authentication' => 'Authentication',
+			'entities.detail.trigger.plainSecretCarriers' => 'X-Webhook-Secret header or ?token= query',
 			'entities.detail.trigger.signatureAlgo' => 'Signature',
 			'entities.detail.trigger.signatureHeader' => 'Signature header',
 			'entities.detail.trigger.events' => 'Events',
@@ -8885,6 +8913,8 @@ extension on Translations {
 			'entities.graph.verb.equip' => 'equips',
 			'entities.graph.verb.link' => 'links',
 			'entities.graph.verb.create' => 'created',
+			_ => null,
+		} ?? switch (path) {
 			'entities.graph.verb.edit' => 'edited',
 			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
 			'coldStart.connecting' => 'Setting up your workspace…',
@@ -8892,8 +8922,6 @@ extension on Translations {
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.createWorkspace' => 'Create a workspace',
 			'coldStart.nameLabel' => 'Workspace name',
-			_ => null,
-		} ?? switch (path) {
 			'coldStart.alreadyExists' => 'This workspace already exists',
 			'coldStart.createFailed' => 'Couldn\'t create the workspace',
 			'coldStart.workIndex' => 'WORK №001',
@@ -9399,6 +9427,8 @@ extension on Translations {
 			'settings.sandbox.runtimes' => 'Runtimes',
 			'settings.sandbox.install' => 'Install',
 			'settings.sandbox.installing' => 'Installing…',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.installTitle' => 'Install runtime',
 			'settings.sandbox.kind' => 'Kind',
 			'settings.sandbox.version' => 'Version',
@@ -9406,8 +9436,6 @@ extension on Translations {
 			'settings.sandbox.add' => 'Install',
 			'settings.sandbox.delete' => 'Delete',
 			'settings.sandbox.deleteRtTitle' => 'Delete runtime',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => 'Deletes “${kind} ${version}”; rejected if envs still reference it.',
 			'settings.sandbox.confirmDelete' => 'Delete',
 			'settings.sandbox.inUse' => 'Envs still reference this runtime — clear them first',

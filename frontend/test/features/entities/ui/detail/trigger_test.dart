@@ -3,6 +3,7 @@ import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -134,6 +135,27 @@ void main() {
     });
 
     testWidgets(
+      'webhook: explains plain-secret carriers without exposing the secret',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            TriggerOverview(
+              trigger: _trigger(
+                kind: TriggerSource.webhook,
+                config: const {'path': 'plain', 'secret': 'do-not-render'},
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        final r = t.entities.detail.trigger;
+        expect(find.text(r.authentication), findsOneWidget);
+        expect(find.text(r.plainSecretCarriers), findsOneWidget);
+        expect(find.text('do-not-render'), findsNothing);
+      },
+    );
+
+    testWidgets(
       'sensor: condition headline + target/interval; no next-fire (non-cron)',
       (tester) async {
         await tester.pumpWidget(
@@ -221,6 +243,14 @@ void main() {
 
   group('observability tabs', () {
     FixtureEntityRepository repo() => FixtureEntityRepository(
+      workflows: [
+        WorkflowEntity(
+          id: 'wf_x',
+          name: 'Nightly sync',
+          createdAt: _t,
+          updatedAt: _t,
+        ),
+      ],
       activations: {
         'trg_1': [
           Activation(
@@ -247,6 +277,7 @@ void main() {
             id: 'trf_1',
             triggerId: 'trg_1',
             workflowId: 'wf_x',
+            workflowName: 'Nightly sync',
             activationId: 'tra_2',
             status: FiringStatus.started,
             flowrunId: 'flr_1',
@@ -286,7 +317,31 @@ void main() {
       await tester.pump();
       await tester.pump();
       expect(find.textContaining(FiringStatus.started.name), findsWidgets);
+      expect(find.textContaining('Nightly sync'), findsOneWidget);
+      expect(find.textContaining('wf_x'), findsNothing);
+
+      await tester.tap(find.textContaining('Nightly sync'));
+      await tester.pump();
+      expect(find.text(t.entities.detail.kv.workflowId), findsOneWidget);
       expect(find.textContaining('wf_x'), findsOneWidget);
+    });
+
+    testWidgets('dispatch filter exposes the durable missed disposition', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _hostProvider(repo(), const TriggerDispatchTab('trg_1')),
+      );
+      await tester.pump();
+      await tester.tap(find.text(t.entities.detail.trigger.allDispatch));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t.chat.tool.firingMissed), findsOneWidget);
+      expect(
+        find.text(t.chat.tool.firingClaimed),
+        findsNothing,
+        reason: 'claimed is a transient scheduler phase, not a resting filter',
+      );
     });
 
     testWidgets(

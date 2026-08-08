@@ -122,7 +122,7 @@ func (s *Store) GetControlsByIDs(ctx context.Context, ids []string) ([]*controld
 }
 
 func (s *Store) ListControls(ctx context.Context, filter controldomain.ListFilter) ([]*controldomain.ControlLogic, string, error) {
-	rows, next, err := s.ctls.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.ctls.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("controlstore.ListControls: %w", err)
 	}
@@ -130,7 +130,7 @@ func (s *Store) ListControls(ctx context.Context, filter controldomain.ListFilte
 }
 
 func (s *Store) CountControls(ctx context.Context, filter controldomain.ListFilter) (int, error) {
-	n, err := s.ctls.Query().Count(ctx)
+	n, err := s.ctls.Query().WhereLike("name", filter.Search).Count(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("controlstore.CountControls: %w", err)
 	}

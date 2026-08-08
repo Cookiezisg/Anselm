@@ -404,6 +404,7 @@ audience: [human, ai]
 |---|---|---|
 | `CONTROL_INVALID_BRANCHES` | 422 | branches empty, or port empty/duplicate |
 | `CONTROL_INVALID_CEL` | 422 | branch when/emit failed to compile |
+| `CONTROL_INVALID_INPUTS` | 422 | declared input fields are invalid |
 | `CONTROL_INVALID_NAME` | 422 | invalid control logic name |
 | `CONTROL_NAME_DUPLICATE` | 409 | control logic name already exists |
 | `CONTROL_NOT_FOUND` | 404 | control logic not found |

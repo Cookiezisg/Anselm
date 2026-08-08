@@ -104,10 +104,13 @@ func NewService(conv ConversationStarter, chat TurnSender, renderer ExecutionRen
 const iterateSteer = "You are helping the user iterate on the Anselm entity they have @-mentioned " +
 	"in the message below — its current definition is attached to that mention. Read it, briefly " +
 	"explain your plan, then call the matching edit_* tool (edit_function / edit_handler / edit_agent " +
-	"/ edit_workflow / edit_document) with that entity's id. The edit takes effect IMMEDIATELY as a new " +
-	"active version — there is no pending/review gate; if it is wrong the user reverts it (revert_*). So " +
-	"make the change correct, not provisional. Do NOT call any create_* tool, and do NOT modify any " +
-	"other entity. After the edit succeeds, summarize what changed."
+	"/ edit_workflow / edit_trigger / edit_control / edit_approval / edit_document) with that entity's id. " +
+	"The matching edit takes effect IMMEDIATELY; there is no pending/review gate. Versioned entities " +
+	"normally receive a new active version that can be switched back with the matching revert_* tool; " +
+	"trigger and document edits apply in place and have no version pointer. Treat the matching tool's " +
+	"own description as authoritative about its exact input and versioning semantics. Make the change " +
+	"correct, not provisional. Do NOT call any create_* tool, and do NOT modify any other entity. After " +
+	"the edit succeeds, summarize what changed."
 
 // triageSteer is the one generic instruction for every triage flow — the rendered execution record
 // is appended after it.

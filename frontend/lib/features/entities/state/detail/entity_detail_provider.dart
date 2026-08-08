@@ -12,6 +12,7 @@ import '../../data/entity_signal.dart';
 import '../selected_entity.dart';
 import 'entity_detail.dart';
 import 'log_list_provider.dart';
+import 'observability_list_provider.dart';
 import 'version_list_provider.dart';
 
 /// The selected entity's detail (family over [EntityRef]). Fetches the typed entity (+ agent
@@ -123,8 +124,22 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
   void _onPanel(StreamEnvelope env) {
     if (env.frame is! FrameSignal) return;
     final node = (env.frame as FrameSignal).node;
-    if (node.type != 'status') return;
+    if (node.type == 'status') {
+      unawaited(_refreshFromTruth());
+      return;
+    }
+    if (entityRef.kind != EntityKind.trigger || node.type != 'fire') return;
+
+    // A webhook/cron fire is ephemeral, but it is the trigger detail's live refresh hint. The
+    // payload only names the activation; the REST rows remain the truth for lastFiredAt and both
+    // observability tabs. Never patch the detail from the signal itself.
+    // webhook/cron fire 虽是 ephemeral,但它是 trigger 详情的实时刷新提示。payload 只带 activation
+    // 名称; lastFiredAt 与两条观测流仍以 REST 行为真,绝不据 signal 自行 patch 详情。
     unawaited(_refreshFromTruth());
+    ref.invalidate(
+      activationListProvider((triggerId: entityRef.id, firedOnly: false)),
+    );
+    ref.invalidate(firingListProvider((triggerId: entityRef.id, status: null)));
   }
 
   Future<void> _refreshFromTruth() async {

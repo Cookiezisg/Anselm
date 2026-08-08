@@ -48,9 +48,10 @@ audience: [human, ai]
 - Workflow：图、治理信息、版本 diff、运行驾驶舱与全屏图编辑器。
 - Control：输入与分支/端口规则。
 - Approval：审批模板与规则；运行期决定发生在具体 parked node。
-- Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。
+- Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。Webhook 概览必须同时说明挂载 URL 与认证携带方式：HMAC 显示算法/签名头，明文 secret 显示 `X-Webhook-Secret` 请求头或 `?token=` 查询参数，但永不回显 secret 本身。
 - Trigger 暂停时详情头仍保留 `Fire` 的空间位置，但按钮必须 inert，徽标显示 `Paused`，hover/focus 提示先恢复再催发；后端 `TRIGGER_PAUSED` 仍是最终防线。
-- Trigger 的 Dispatch 首次读取允许短暂显示 `pending`：firing 先落 durable 行，再由 scheduler 决定 `started`、`skipped`、`superseded` 或 `shed`。只要当前页仍有 pending，前端每 500ms 重读同一 REST 页并替换现有行；全部行进入终态后立即停止，不能让用户离开再回来才能看到真实处置。
+- Trigger 的 Dispatch 首次读取允许短暂显示 `pending`：firing 先落 durable 行，再由 scheduler 决定 `started`、`skipped`、`superseded`、`shed` 或 `missed`。只要当前页仍有 pending，前端每 500ms 重读同一 REST 页并替换现有行；全部行进入终态后立即停止，不能让用户离开再回来才能看到真实处置。筛选暴露全部用户可理解的处置词，`claimed` 只作为瞬态认领阶段留在全量/机器真相里，不作为停留筛选；`missed` 是持久错过台账，必须可直接筛选，且列表行使用 slang 双语词而不是裸 wire 枚举。列表主行使用 API 读时补全的 workflow 名，详情同时保留独立的 workflow ID；workflow 已删除时才回落裸 ID，避免首屏先闪出机器 ID 再跳名。
+- Trigger 详情打开期间收到本 trigger scope 的 `seq=0` `fire` 信号时，必须把它当作**重读提示**而不是第二份历史：详情重取 `GET /triggers/{id}` 以更新 `Last fired`，活动与派发两个分页 provider 也从各自 REST 端点重取。信号 payload 只用于唤醒，不得直接 patch `lastFiredAt`、firing 状态或计数；这样外部 webhook 在详情页到达时，Overview、Activity、Dispatch 会一起从 durable 真相收敛，而不要求用户离开再回来。
 
 日志列表页保持轻量：列表行不携带可能达到 64 KiB 的 `logs`，也不携带 Agent 的完整 `transcript`。
 用户展开 Function execution、Handler call 或 Agent execution 时，分别请求对应的单条端点；展开期间显示骨架，

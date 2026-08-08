@@ -102,6 +102,7 @@ _Firing _$FiringFromJson(Map<String, dynamic> json) => _Firing(
   id: json['id'] as String,
   triggerId: json['triggerId'] as String? ?? '',
   workflowId: json['workflowId'] as String? ?? '',
+  workflowName: json['workflowName'] as String? ?? '',
   activationId: json['activationId'] as String? ?? '',
   payload:
       json['payload'] as Map<String, dynamic>? ?? const <String, dynamic>{},
@@ -122,6 +123,7 @@ Map<String, dynamic> _$FiringToJson(_Firing instance) => <String, dynamic>{
   'id': instance.id,
   'triggerId': instance.triggerId,
   'workflowId': instance.workflowId,
+  'workflowName': instance.workflowName,
   'activationId': instance.activationId,
   'payload': instance.payload,
   'dedupKey': instance.dedupKey,

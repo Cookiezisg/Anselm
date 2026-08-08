@@ -146,14 +146,20 @@ type GetActivation struct{ svc *triggerapp.Service }
 func (t *GetActivation) Name() string { return "get_activation" }
 
 func (t *GetActivation) Description() string {
-	return "Get one activation log entry by id: whether it fired, the sensor return value it observed, the fired payload, any error/detail, and how many workflows it fanned out to."
+	return "Open exactly one activation audit record. Required: pass the exact opaque activationId copied byte-for-byte from fire_trigger, search_activations, or an activation tool card; never omit it, send an empty object, or substitute a triggerId. The result is the source of truth for id, triggerId, kind, fired, returnValue, payload, error, detail, firingCount, and createdAt; report those exact fields without inventing or replacing values."
 }
 
 func (t *GetActivation) Parameters() json.RawMessage {
 	return json.RawMessage(`{
 		"type": "object",
+		"additionalProperties": false,
 		"required": ["activationId"],
-		"properties": {"activationId": {"type": "string"}}
+		"properties": {
+			"activationId": {
+				"type": "string",
+				"description": "Required exact opaque activation id beginning with tra_; copy it byte-for-byte from the prior tool result or card. Never omit this field and never send triggerId."
+			}
+		}
 	}`)
 }
 

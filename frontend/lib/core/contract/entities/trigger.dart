@@ -94,7 +94,8 @@ abstract class Activation with _$Activation {
 
 /// Firing — the durable inbox row (运行面, persist-before-act): written the moment a trigger fires, one
 /// per listening workflow, before any flowrun starts. [status] is the sealed lifecycle + disposition
-/// (why a fire did / didn't run: skipped/superseded/shed); [flowrunId] is set once a run is created.
+/// (why a fire did / didn't run: skipped/superseded/shed); [workflowName] is a read-time display
+/// hydration and is absent when the workflow was deleted; [flowrunId] is set once a run is created.
 /// firing.go:18。
 @freezed
 abstract class Firing with _$Firing {
@@ -102,6 +103,7 @@ abstract class Firing with _$Firing {
     required String id,
     @Default('') String triggerId,
     @Default('') String workflowId,
+    @Default('') String workflowName,
     @Default('') String activationId,
     @Default(<String, dynamic>{}) Map<String, dynamic> payload,
     @Default('') String dedupKey,

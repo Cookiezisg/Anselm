@@ -297,41 +297,153 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-08 08:23 EP-078 收口,批次二十闭合,批次二十一 0/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-08 EP-087 收口,批次二十一 50/50)
 
-**当前前线（2026-08-08 08:23，清册 EP-078 已完成，批次二十已闭合，批次二十一 0/50）。**
-`POST /api/v1/triggers/{id}:resume` 已按完整产品目的完成验收：用户在同一 Trigger 详情的
-More actions 中从 Pause 进入 `Paused / Listening: No`，再从同一位置 Resume 回到
-`Listening / Listening: Yes`；workflow 引用保持为 1，listener 按当前 config 重新注册，恢复后的
-真实 sensor source 产生 `tra_91cb77260bc974a7 → trf_26e35d9eac90a5ec → fr_bc99453575eb1cc0`，
-flowrun 最终 completed。注册失败不会留下 `paused=false + cold listener`，由
-`TestResume_RegisterFailureRollsBackAndStaysRetryable` 锁定 rollback/retry 边界。
+**当前前线（2026-08-08，清册 EP-087 已完成，批次二十一 50/50）。**
+EP-087 `GET /api/v1/controls` 已按完整产品目的完成验收：用户输入一个存在但不在首页的实体名时，
+能直接找到目标，而不会被分页实现误导为空；跨 Control/Approval 的搜索行为一致；空结果有明确解释；
+总数与过滤结果一致，字面量 `%`/`_` 不会被当作 SQL 通配符。
 
-最终 session `/private/tmp/anselm-rig-ep078-resume-20260808/sessions/20260808-080107` 由同一
-conductor 托管真实 Flutter App、Computer Use、窗口录像、backend/frontend journal、三路独立
-SSE witness、真实 managed gateway wiring 和 LLM tap；录屏 `98.143333s / 2784x1808 / 60fps`，
-`rig-check`、录屏封口和 `rig-down` 通过，owned process/listener 全部收台。关键帧为
-`evidence/trigger-paused.png`、`evidence/trigger-resumed.png`，状态时序和 frontend AX review
-同目录留档。
+首轮真实 session `/private/tmp/anselm-rig-ep087-controls-20260808/sessions/20260808-134141` 发现
+`EP087 Control 05` 已存在但真实 App 搜索 `05` 显示空态，同时 `GET /controls?search=05` 返回未过滤首页
+与总数 55，冻结为产品红。stop-and-fix 补齐 Control 与 Approval 的 handler/domain/store list+count
+搜索链路，按大小写不敏感的 name 字面量子串过滤，并让 `X-Anselm-Total-Count` 使用同一条件；修复后
+targeted Go tests 和 fresh real session 均通过，红证据永久保留。
 
-REST/SQLite/SSE/UI 对证：最终 REST 为 `paused=false/listening=true/refCount=1`，SQLite 同一
-trigger `paused=0`；最新 activation/firing/flowrun ID 为上述链且 flowrun `origin=sensor,status=completed`。
-三路 SSE 均 connect，entities durable `seq=1..4` 单调，status `paused=true/false`、fire、
-run_started 和 run_terminal 均可重读；frontend/backend/LLM journal 为 `33/170/1`。frontend
-没有 Flutter/Dart/RenderFlex/Unhandled/assertion 红线；AXTree 报错由同 session review 分类为
-Computer Use 观察器噪声；deterministic workflow 的 LLM tap 只有 ready，不冒充 completion。
+fixed session `/private/tmp/anselm-rig-ep087-controls-20260808-fixed/sessions/20260808-135159` 由同一
+conductor 托管真实 Flutter App、Computer Use、录屏、frontend/backend journal、三路独立 SSE witness、
+managed gateway 和 LLM tap；录屏 `402.373333s`，58 个 fixture（55 Control+3 Approval）逐项清理，116 条
+lifecycle durable frame 无 gap，三流均连接，managed challenge/install/models 六条状态记录全 200，
+frontend/backend 无未解释应用红线。真实 UI 逐帧证明 `05` 命中 Control 05、`02` 同时命中两类实体、
+无结果显示明确空态，清理后 Parts 回到 0。
 
-正式红/绿/独立复审证据分别为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-078-trigger-resume-{red,green,ledger-reaudit}.md`。
-anchors=`10/10`；`judge.py` 按 `G1/F2/A5/C4/G2` 将账本 `1075→1080 judgments`，
-`COVERAGE EP-078=✓✓✓✓✓`；集中写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立复审 ack，
-阈值、算法、法典和锚点未改，`alarms.py check`=`clean (1080)`，
-`gen_coverage.py --check`=`848 rows / 210 carried / 0 tombstones`。定向 Go/Flutter 回归全绿。
+正式证据为 `/private/tmp/anselm-rig-ep087-controls-20260808-fixed/sessions/20260808-135159/evidence/EP-087-search-fixed.md`，
+独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-087-search-ledger-alarm-reaudit.md`；
+所有 fixture 均 DELETE=204→GET=404，Control/Approval 列表均回到 `total=0, rows=0`，workspace 保留，
+审计/通知事实保留。anchors=10/10；`judge.py` 按 `G1/F2/A5/C4/G2` 将正式账本 `1125→1130 judgments`，
+`COVERAGE EP-087=✓✓✓✓✓`。集中写账警报经独立复审 ack，阈值、算法、法典和锚点未改，
+`alarms.py check`=`clean (1130)`；`gen_coverage.py --check`=`848 rows / 219 carried / 0 tombstones`。
 
-批次二十已跨过第 50 格并闭合，累计 **52/50**。统一 `make verify`（backend/frontend/docs/demo）、
-`mise exec -- go test ./...`、`make -C backend testend`（完整场景 `312.251s`）、`git diff --check`、
-锚点/警报/清册和资源卫生审计全部通过；没有残留 testend/backend/llama 进程或监听端口，批次提交已在本次
-状态同步后创建。批次二十一从 **0/50** 开始，下一原子前线为 EP-079
-`POST /api/v1/triggers/{id}:iterate`。
+批次二十一已由 **45/50→50/50**，统一长门禁现已全部通过：backend/frontend/docs/demo 子门禁、根
+`make verify`、不带缓存的全量 Go 测试、完整 `make -C backend testend`（`269.878s`）、锚点/警报/清册和
+资源卫生审计均为绿。长门禁通过后本批次可提交，下一原子前线为 EP-088；提交前不再扩展本批次范围。
+
+### 5.2 历史状态快照（EP-086，批次二十一 45/50）
+
+**历史前线（2026-08-08 13:35，清册 EP-086 已完成，批次二十一 45/50）。**
+EP-086 `POST /api/v1/controls` 已按完整产品目的完成验收：用户可以创建带有输入 schema、条件分支、
+all-else 默认分支和 emit 映射的 Control，并在实体详情中读懂版本、输入类型、路由条件和输出；非法
+输入在落库前明确拒绝，重复名称保持冲突语义，删除后列表、详情、关系和 UI 都诚实收敛。
+
+首轮真实 session `/private/tmp/anselm-rig-ep086-control-20260808/sessions/20260808-132051` 发现
+unknown input type `money` 被错误接受并渲染，冻结为产品红；stop-and-fix 增加 schema 输入校验和
+`CONTROL_INVALID_INPUTS`，create/edit 均在持久化前拒绝未知类型、重复字段名等错误，并补 domain/app
+回归。修复后 fresh session `/private/tmp/anselm-rig-ep086-control-20260808-fixed/sessions/20260808-132726`
+重跑通过：空名、空分支、缺 catchall、非法 CEL、未知类型、重复字段名均为可解释 422；合法 control
+为 201，重复名称为 409。修复证据和首轮红证据均永久保留。
+
+最终 session 由同一 conductor 托管真实 Flutter App、Computer Use、录屏、frontend/backend journal、
+三路独立 SSE witness、managed gateway 和 LLM tap；录屏 `166.691667s`，rig-check/rig-down 通过并
+干净收台。notifications/entities/messages 三流均连接，control.created/deleted durable frame 与
+REST/SQLite 对齐；challenge/install/models 全 200；backend/frontend 无未解释应用红线。实体详情逐帧
+显示 `amount: number`、`region: string`、三条路由分支、默认分支和 emit keys，清理后回到空 Overview。
+所有临时 control 均 DELETE=204 → GET=404，workspace GET=200；SQLite 保留 tombstone、v1 版本和通知，
+relations=0，不误删 seeded 数据。
+
+正式证据为 `/private/tmp/anselm-rig-ep086-control-20260808-fixed/sessions/20260808-132726/evidence/EP-086-control-real-session.md`，
+独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-086-control-ledger-reaudit.md`。
+anchors=10/10；`judge.py` 按 `G1/F2/A5/C4/G2` 将正式账本 `1120→1125 judgments`，
+`COVERAGE EP-086=✓✓✓✓✓`。集中写账警报以复审证据 ack，阈值、算法、法典和锚点未改，
+`alarms.py check`=`clean (1125)`；`gen_coverage.py --check`=`848 rows / 218 carried / 0 tombstones`。
+
+批次二十一当时累计 **45/50**，尚未达到 50 格，因此不运行统一长门禁、不提交。EP-086 的
+`CONTROL_INVALID_INPUTS` 代码、测试、API/domain 文档、五通道证据和 COVERAGE ledger 随批次二十一第 50 格
+统一提交；下一原子前线为 EP-087 `GET /api/v1/controls`。
+
+### 5.2 历史状态快照（EP-085，批次二十一 40/50）
+
+**当前前线（2026-08-08，清册 EP-085 已完成，批次二十一 40/50）。**
+EP-085 ANY /api/v1/webhooks/{triggerId}/{path...} 已按完整产品目的完成验收：外部系统可以在不带
+Anselm bearer/workspace header 的情况下访问 catch-all webhook，按 HMAC 或 plain secret 正确认证，
+让绑定 workflow 真实执行；用户能从 Trigger 详情发现挂载 URL 和认证载体，在同一详情页看到
+Last fired、Activity 与 Dispatch 的真实回声；改 path 后旧地址立即 404、新地址立即 202，详情页
+同步展示新 URL。重复网络请求保留 Activation 审计但不重复建 Firing/run，满足可追溯与幂等两端。
+
+本轮使用 fresh data directory 和真实 onboarding 建立 workspace，创建并激活 HMAC webhook pipeline、
+plain-secret webhook pipeline 以及真实 Python Function action。真实 Computer Use 矩阵覆盖 wrong method、
+bad/missing/wrong auth、valid JSON、同 body retry、不同 JSON、纯文本 body、header/query secret、
+path edit 前后；UI 逐步核对了 URL/Copy、签名算法和自定义 header、Listening、Last fired、Activity、
+Dispatch，以及 plain-secret 的 X-Webhook-Secret header or ?token= query 引导。首轮真实路径发现
+外部 fire 后打开的 Overview 仍显示 Last fired: never，stop-and-fix 为 fire signal 触发 REST truth
+refresh 并失效 observability projection；第二轮又发现 plain-secret 详情缺少认证载体说明，补上双语
+引导且不渲染 secret，最终 session 重跑通过。两处红证据和修复后绿证据均保留，未把仪器错误或正确
+的 dedup 语义误报为产品红。
+
+正式 session 为 /private/tmp/anselm-rig-ep085-webhook-20260808-final/sessions/20260808-125703，
+证据为其 evidence/EP-085-webhook-real-session.md，独立账本复审为
+/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-085-webhook-ledger-reaudit.md；同一 conductor
+托管真实 Flutter App、窗口录制、backend/frontend journal、三路独立 SSE witness、managed gateway
+wiring 和 LLM tap。录屏 539.071667s；rig-check、rig-down 通过且进程/监听器全部收台。SSE
+独立 witness 连接 notifications/entities/messages，durable seq 分别 1..10、1..12 无 gap；
+backend/frontend 无未解释应用红线；challenge/install/models 全 HTTP 200，确定性 webhook slice
+没有伪造 LLM completion。SQLite 对证 HMAC 为 5 Activation / 4 Firing / 4 completed Flowrun，
+duplicate dedup group 为 0，plain-secret 为 2 Activation / 1 Firing。全部 fixture 均
+DELETE=204 → GET=404，三类 live 列表为空，workspace 保持 GET=200；录屏、journal、数据库和
+抽帧证据全部保留。
+
+anchors=10/10；judge.py 按 G1/F2/A5/C4/G2 将正式账本 1115→1120 judgments，
+COVERAGE EP-085=✓✓✓✓✓。集中写账打开的 gap-too-fast 与 discovery-collapse 已以独立
+复审证据逐项 ack，阈值、算法、法典和锚点未改，alarms.py check=clean (1120)。清册重生检查
+保持 848 rows / 217 carried / 0 tombstones。
+
+批次二十一当前累计 **40/50**，尚未达到 50 格，因此不运行统一长门禁、不提交。EP-085 的 trigger
+detail fire-refresh、plain-secret discoverability、实体契约/i18n/文档和 COVERAGE ledger 均留在当前
+工作树，随批次二十一第 50 格统一提交。下一原子前线为 EP-086 POST /api/v1/controls。
+
+### 5.2 历史状态快照（EP-084，批次二十一 35/50）
+
+**历史前线（2026-08-08 12:38，清册 EP-084 已完成，批次二十一 35/50）。**
+EP-084 `GET /api/v1/trigger-schedule` 已按完整产品目的完成验收：用户在真实 Scheduler Overview
+可以看到未来 cron 时间线，知道下一次自动化属于哪个 workflow，区分正常、暂停、无人引用和没有可预测
+下一次触发的来源，理解时间线被封顶时发生了什么，并从已有运行的时间格进入正确的 run/operations
+表面。真实 API、SQLite、SSE、Flutter 画面和五通道终端日志对同一批调度事实给出一致结论。
+
+本轮真实 App 使用 fresh data directory，先通过真实 onboarding 建立 workspace，再通过当前 LLM tap
+连通 managed Anselm gateway。夹具包含每分钟 dense cron、每小时 sparse cron、paused cron、无 workflow
+的 unreferenced cron 和 webhook。真实 dense cron 连续产生 9 条 `fire → run_started → run →
+run_terminal(completed)` 链；Overview 的 25 小时矩阵显示成功格，点格进入 workflow run/operations
+表面；hover card 显示小时内的时间、来源、耗时，并对隐藏的两条成功记录给出 `2 more all succeeded`。
+paused lane 保留在原位并显示 `Paused`，没有伪造 `nextFireAt`；webhook 和无人引用 cron 没有伪造未来点；
+`More is scheduled inside this window than the track can show.` 独立说明未来截断。清理后 durable delete
+通知驱动 App 收敛到 `No automation yet`，无幽灵泳道。
+
+本轮没有发现需要 stop-and-fix 的产品缺陷：真实视觉帧没有裁切改变语义、重叠、死 spinner、错误未来预测、
+不解释的跳变或机器 ID 泄露；长名称使用有界省略，AX tree 保留完整标签，时间/状态在未来句和 hover card
+中保持最高优先级。EP-084 的 setup-only 红 session 因复用数据库残留旧 gateway wiring，被 `rig-check`
+正确拒绝并单独保留，不计产品红；随后用 fresh data 重跑，不把仪器问题伪装成产品结论。
+
+正式证据为 `/private/tmp/anselm-rig-ep084-schedule-20260808-retry/sessions/20260808-122252/evidence/EP-084-schedule-real-session.md`，
+独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-084-trigger-schedule-ledger-reaudit.md`；
+同一 conductor 托管真实 Flutter App、Computer Use、窗口录像、backend/frontend journal、三路独立 SSE
+witness、managed gateway wiring 和 LLM tap。封口录屏 `667.105000s`，`rig-check`、`rig-down` 通过且 owned
+process/listener 全部收台；视觉帧保留 Overview、hover card 和清理后的空状态。
+
+五通道对证：SSE witness 共 73 条 JSONL，entities 44 条、durable seq `1..20`，notifications 29 条、
+durable seq `1..27`；backend 无 panic/WARN/ERROR/FATAL 应用红线，frontend 无 Dart/FlutterError/RenderFlex/
+Unhandled/lost-device/assertion 红线，LLM challenge/install/models 全 200。唯一 frontend 输出是已知
+Flutter runner `Failed to foreground app; open returned 1`，随后 App 正常构建并全程可观测；确定性 workflow
+正确没有伪造 completion。10 个临时 fixture 均 `DELETE=204` 后 `GET=404`，workspace 仍 `200`，session、
+journal 和录屏全部保留。
+
+定向黑盒 `TestTriggerSchedule_(Timeline|TruncatesHonestly)` 通过，Scheduler KPI/Overview Flutter 回归
+共 65 项通过。anchors=`10/10`；`judge.py` 按 `G1/F2/A5/C4/G2` 将账本 `1110→1115 judgments`，
+`COVERAGE EP-084=✓✓✓✓✓`；集中写账触发的 `gap-too-fast` 与 `discovery-collapse` 已用独立复审证据逐项
+ack，阈值、算法、法典和锚点未改，`alarms.py check`=`clean (1115)`。清册为
+`gen_coverage.py --check`=`848 rows / 216 carried / 0 tombstones`。
+
+批次二十一当时累计 **35/50**，尚未达到 50 格，因此不运行统一长门禁、不提交。EP-079/EP-081 修复、
+activation 修复、EP-083 workflow 名称修复、EP-084 本轮文档和 COVERAGE ledger 均留在当前工作树，随
+批次二十一第 50 格统一提交。当时下一原子前线为 EP-085 ANY /api/v1/webhooks/{triggerId}/{path...}。
 
 ### 5.2 历史状态快照（EP-077，批次二十 47/50）
 

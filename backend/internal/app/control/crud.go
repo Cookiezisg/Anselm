@@ -58,6 +58,9 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*controldomain.Co
 	if strings.TrimSpace(in.Name) == "" {
 		return nil, nil, controldomain.ErrInvalidName
 	}
+	if err := validateInputs(in.Inputs); err != nil {
+		return nil, nil, err
+	}
 	if err := s.validateBranches(in.Branches); err != nil {
 		return nil, nil, err
 	}
@@ -93,6 +96,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	c, err := s.repo.GetControl(ctx, in.ID)
 	if err != nil {
 		return nil, fmt.Errorf("controlapp.Edit: %w", err)
+	}
+	if err := validateInputs(in.Inputs); err != nil {
+		return nil, err
 	}
 	if err := s.validateBranches(in.Branches); err != nil {
 		return nil, err
@@ -273,6 +279,13 @@ func (s *Service) Resolve(ctx context.Context, id, versionID string) ([]controld
 // validateBranches 跑 domain 结构校验（非空、port 唯一、兜底），再用 pkg/cel 编译每个 when/emit
 // （domain 不能 import cel-go，原则 #3）——编译错映射 ErrInvalidCEL。create/edit 期快速失败，
 // 编写错绝不流到解释器。
+func validateInputs(inputs []schemapkg.Field) error {
+	if err := schemapkg.ValidateFields(inputs); err != nil {
+		return controldomain.ErrInvalidInputs.WithDetails(map[string]any{"reason": err.Error()}).WithCause(err)
+	}
+	return nil
+}
+
 func (s *Service) validateBranches(branches []controldomain.Branch) error {
 	if err := controldomain.ValidateBranches(branches); err != nil {
 		return err

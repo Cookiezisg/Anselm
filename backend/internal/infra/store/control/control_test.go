@@ -139,6 +139,40 @@ func TestControl_ListPagination(t *testing.T) {
 	}
 }
 
+// TestControl_ListSearch — ?search is a case-insensitive literal name substring, and the
+// count uses the same filter as the page so the rail badge cannot drift from its rows.
+//
+// TestControl_ListSearch —— ?search 是大小写不敏感的字面 name 子串，计数与列表共用过滤条件，
+// 防止 rail badge 与实际行数漂移。
+func TestControl_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkCtl(t, s, ctx, "ctl_1", "Priority Router", "")
+	mkCtl(t, s, ctx, "ctl_2", "standard route", "")
+	mkCtl(t, s, ctx, "ctl_3", "Fallback", "")
+
+	rows, _, err := s.ListControls(ctx, controldomain.ListFilter{Search: "ROUTER"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != "ctl_1" {
+		t.Fatalf("search 'ROUTER' should match ctl_1, got %+v", rows)
+	}
+	n, err := s.CountControls(ctx, controldomain.ListFilter{Search: "ROUTER"})
+	if err != nil || n != 1 {
+		t.Fatalf("filtered count = %d, err=%v; want 1", n, err)
+	}
+
+	all, _, err := s.ListControls(ctx, controldomain.ListFilter{Search: "  "})
+	if err != nil || len(all) != 3 {
+		t.Fatalf("blank search should return all rows, got %d err=%v", len(all), err)
+	}
+	missing, _, err := s.ListControls(ctx, controldomain.ListFilter{Search: "no-such-control"})
+	if err != nil || len(missing) != 0 {
+		t.Fatalf("missing search should return no rows, got %d err=%v", len(missing), err)
+	}
+}
+
 func TestControl_VersionMaxAndByNumber(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
