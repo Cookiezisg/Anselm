@@ -6,6 +6,7 @@ import '../../../../core/contract/mcp.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/runtime.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/mcp_providers.dart';
@@ -24,12 +25,33 @@ class McpPanel extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
     final detail = ref.watch(settingsDetailProvider);
+    final servers = ref.watch(mcpServersProvider);
+    if (detail?.kind == 'mcpServer' && detail?.id != null) {
+      final name = detail!.id!;
+      // A settled roster is the deletion truth. Do not evict while loading or after a list error;
+      // those states say nothing about whether the open server still exists.
+      // 落定名册才是删除真相;loading/error 不能证明详情对象消失。
+      final missing =
+          servers.hasValue && !servers.requireValue.any((s) => s.name == name);
+      if (missing) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!context.mounted) return;
+          final current = ref.read(settingsDetailProvider);
+          if (current?.kind != 'mcpServer' || current?.id != name) return;
+          ref.read(settingsDetailProvider.notifier).pop();
+          ref
+              .read(noticeCenterProvider.notifier)
+              .show(t.settings.mcp.removedNotice, tone: AnTone.warn);
+        });
+        return _McpServerGone(
+          onBack: () => ref.read(settingsDetailProvider.notifier).pop(),
+        );
+      }
+      return McpServerDetail(name: name, key: ValueKey(name));
+    }
     return switch (detail?.kind) {
-      'mcpServer' => McpServerDetail(
-        name: detail!.id!,
-        key: ValueKey(detail.id),
-      ),
       'mcpAdd' => const McpManualForm(),
       'mcpImport' => const McpImportForm(),
       'mcpMarket' => const McpMarket(),
@@ -42,6 +64,27 @@ class McpPanel extends ConsumerWidget {
   }
 }
 
+class _McpServerGone extends StatelessWidget {
+  const _McpServerGone({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    return AnState(
+      kind: AnStateKind.empty,
+      title: t.settings.mcp.removedTitle,
+      hint: t.settings.mcp.removedHint,
+      action: AnButton(
+        label: t.settings.mcp.backToList,
+        size: AnButtonSize.sm,
+        onPressed: onBack,
+      ),
+    );
+  }
+}
+
 /// status → dot. 五态映射。
 AnStatus? mcpDot(String status) => switch (status) {
   'ready' => AnStatus.done,
@@ -51,6 +94,12 @@ AnStatus? mcpDot(String status) => switch (status) {
   _ => null, // disconnected 未连接
 };
 
+/// Historical errors remain available in the API, but only an active unhealthy state should
+/// surface one as a red product warning. 恢复后不把旧错误继续投影成当前故障。
+bool mcpShowsActiveError(McpServerStatus server) =>
+    (server.status == 'failed' || server.status == 'degraded') &&
+    (server.lastError ?? '').isNotEmpty;
+
 class _Roster extends ConsumerWidget {
   const _Roster();
 
@@ -58,8 +107,10 @@ class _Roster extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
     final c = context.colors;
-    final rows =
-        ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[];
+    final snapshot = ref.watch(mcpServersProvider);
+    final rows = snapshot.hasValue
+        ? snapshot.value!
+        : const <McpServerStatus>[];
     final ready = rows.where((s) => s.status == 'ready').length;
     final failed = rows.where((s) => s.status == 'failed').length;
     // Zero counts are noise, not information — each segment renders only when n>0 (0719 P1-3);
@@ -71,7 +122,8 @@ class _Roster extends ConsumerWidget {
       if (failed > 0) t.settings.mcp.statFailed(n: failed),
     ];
 
-    final empty = rows.isEmpty;
+    // Empty is a settled server response, never the absence of a value. 空态必须是已落定的空数组,不能是还没值。
+    final hasServers = snapshot.hasValue && rows.isNotEmpty;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -88,7 +140,7 @@ class _Roster extends ConsumerWidget {
             // With nothing installed the marketplace IS the body below — the «浏览市场» button would only
             // push the same list as a detail, so it retires until there's an installed roster to sit above.
             // 空态市场即下方主体,浏览钮冗余 → 装了第一个后再现。
-            if (!empty) ...[
+            if (hasServers) ...[
               AnButton(
                 label: t.settings.mcp.browse,
                 variant: AnButtonVariant.primary,
@@ -116,30 +168,70 @@ class _Roster extends ConsumerWidget {
           ],
         ),
         const SizedBox(height: AnSpace.s16),
-        if (empty) ...[
-          // Zero MCP → the marketplace takes over the panel body (empty-state-as-target-shape): a quiet
-          // one-line lead, then the FULL market (search + hover-install cards) top under the panel head.
-          // The «Installed» section — its group head included — simply does not render (零计数律); it grows
-          // in once the first server lands and the market retreats behind 浏览市场 (the branch above).
-          // 零 MCP → 市场承接面板主体(空态穿目标形态律):一句安静引导 + 全列市场;「已安装」区含组头整个不渲
-          // (零计数律),装了第一个才长出、市场退居浏览钮之后。
+        AnLastGood<List<McpServerStatus>>(
+          value: snapshot,
+          resetKey: ref.watch(activeWorkspaceProvider),
+          placeholder: const _McpRosterSkeleton(),
+          errorBuilder: (context, _, _) => AnState(
+            kind: AnStateKind.error,
+            size: AnStateSize.inset,
+            title: t.settings.mcp.loadFailed,
+            action: AnButton(
+              label: t.settings.mcp.retry,
+              outline: true,
+              onPressed: () => ref.invalidate(mcpServersProvider),
+            ),
+          ),
+          builder: (context, rows) => _McpRosterBody(rows: rows),
+        ),
+      ],
+    );
+  }
+}
+
+class _McpRosterBody extends StatelessWidget {
+  const _McpRosterBody({required this.rows});
+
+  final List<McpServerStatus> rows;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    if (rows.isEmpty) {
+      // Zero MCP → the marketplace takes over the panel body (empty-state-as-target-shape): a quiet
+      // one-line lead, then the FULL market. The installed section stays absent until the first row lands.
+      // 零 MCP → 市场承接主体;已安装区在第一行真正落地前保持缺席。
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
           Text(
             t.settings.mcp.marketEmptyLead,
             style: AnText.label.copyWith(color: c.inkMuted),
           ),
           const SizedBox(height: AnSpace.s12),
           const McpMarket(),
-        ] else
-          // Installed = two-column brand cards (0719 重造): identity + status at the head, the
-          // stats line under it, the honest error line when failed, ⋯ for the verbs. 已装=双列
-          // 品牌卡:头行身份+状态点,下行统计,失败时诚实错误句,动词收 ⋯。
-          AnAutoGrid(
-            minColWidth: AnSize.block,
-            children: [for (final s in rows) _ServerCard(s: s)],
-          ),
-      ],
+        ],
+      );
+    }
+    return AnAutoGrid(
+      minColWidth: AnSize.block,
+      children: [for (final s in rows) _ServerCard(s: s)],
     );
   }
+}
+
+class _McpRosterSkeleton extends StatelessWidget {
+  const _McpRosterSkeleton();
+
+  @override
+  Widget build(BuildContext context) => AnAutoGrid(
+    minColWidth: AnSize.block,
+    children: const [
+      AnCard(child: AnSkeleton.lines(2)),
+      AnCard(child: AnSkeleton.lines(2)),
+    ],
+  );
 }
 
 class _ServerCard extends ConsumerWidget {
@@ -220,7 +312,7 @@ class _ServerCard extends ConsumerWidget {
             statParts.join(' · '),
             style: AnText.meta.copyWith(color: c.inkMuted),
           ),
-          if ((s.lastError ?? '').isNotEmpty) ...[
+          if (mcpShowsActiveError(s)) ...[
             const SizedBox(height: AnSpace.s4),
             Text(
               s.lastError!,
@@ -334,7 +426,7 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
             ),
           ],
         ),
-        if (s.lastError != null && s.lastError!.isNotEmpty) ...[
+        if (mcpShowsActiveError(s)) ...[
           const SizedBox(height: AnSpace.s8),
           Text(
             '${t.settings.mcp.lastError} · ${s.lastError}',
@@ -427,24 +519,26 @@ class _CallsPane extends ConsumerWidget {
         title: t.settings.mcp.noCalls,
       );
     }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        const SizedBox(height: AnSpace.s8),
-        Text(
-          t.settings.mcp.callsAgg(ok: page.okCount, failed: page.failedCount),
-          style: AnText.label.copyWith(color: c.inkMuted),
-        ),
-        const SizedBox(height: AnSpace.s8),
-        for (final call in page.calls)
-          AnRow(
-            dot: call.status == 'ok' ? AnStatus.done : AnStatus.err,
-            label: call.tool,
-            mono: true,
-            meta: '${call.triggeredBy} · ${call.elapsedMs}ms',
-            passive: true,
+    return SingleChildScrollView(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          const SizedBox(height: AnSpace.s8),
+          Text(
+            t.settings.mcp.callsAgg(ok: page.okCount, failed: page.failedCount),
+            style: AnText.label.copyWith(color: c.inkMuted),
           ),
-      ],
+          const SizedBox(height: AnSpace.s8),
+          for (final call in page.calls)
+            AnRow(
+              dot: call.status == 'ok' ? AnStatus.done : AnStatus.err,
+              label: call.tool,
+              mono: true,
+              meta: '${call.triggeredBy} · ${call.elapsedMs}ms',
+              passive: true,
+            ),
+        ],
+      ),
     );
   }
 }

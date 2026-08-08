@@ -226,11 +226,11 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /mcp-servers` | Server 状态列表 |
+| `GET /mcp-servers` | Server 状态列表；`lastError` 是最近一次失败的历史诊断，当前 `status=ready` 不代表仍有活动故障 |
 | `GET|PUT|DELETE /mcp-servers/{name}` | 单读 / upsert / 删除 |
 | `POST /mcp-servers/{name}:reconnect` | 重连 |
 | `GET /mcp-servers/{name}/stderr` | 有界 stderr tail |
-| `GET /mcp-servers/{name}/calls` | Call 分页 |
+| `GET /mcp-servers/{name}/calls` | Call 分页；`data` 内含 `calls` 与 `aggregates:{totalCount,okCount,failedCount}`，列表行省略 logs |
 | `POST /mcp-servers/{name}/tools/{tool}:invoke` | manual smoke call |
 | `POST /mcp-servers:import` | 导入配置；可选择覆盖 |
 | `GET /mcp-calls/{id}` | 单 Call |

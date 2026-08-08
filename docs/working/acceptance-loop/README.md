@@ -4,7 +4,7 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-07-27
-reviewed: 2026-08-08
+reviewed: 2026-08-09
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
@@ -297,37 +297,83 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-117 已完成,批次二十四已收口,前线 EP-118)
+### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-127 已完成,批次二十五 50/50,统一长门禁已通过)
 
-**当前前线（2026-08-09，清册 EP-117 已完成，批次二十四 50/50）。**
-EP-117 `GET /api/v1/skills/{name}/files/{path...}` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、
-窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 LLM wire 的五级验收。产品目的不是只返回裸字节，
-而是用户在 Library 中能打开 Markdown/JSON、看懂未知二进制的诚实降级，并在超过 1 MB 在线读取护栏时知道原因且仍有
-系统打开/Finder 逃生路径；MIME、长度、文件名、workspace 隔离、缺失和路径安全必须与后端真相一致。
+**当前前线（2026-08-09，清册 EP-127 已完成，批次二十五已达 50/50）。**
+EP-127 `POST /api/v1/mcp-servers/{name}/tools/{tool}:invoke` 已完成真实 Flutter App 安装 stdio MCP、真实受管 Anselm
+gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 LLM wire 的五级验收。产品目的
+不是只收到一个 `200`，而是直接试调必须绕过 chat/LLM 但仍留下可解释的 MCP 执行、健康状态、stderr 和 durable call ledger。
 
-首轮真实 App session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-023756` 冻结为红：`1,048,577` 字节的
-`oversize.md` 后端正确返回 `422 SKILL_FILE_TOO_LARGE`，但 UI 只显示泛化的 `Couldn't open this. The local engine didn't
-return it.`。stop-and-fix 沿统一 `ApiClient` 边界修复 `ResponseType.bytes` 错误信封被当作字节而丢失 wire code 的缺陷，
-再让 Markdown、代码/CSV 和 byte preview 共用具体错误组件；补中英文文案、系统打开/Finder 动作、widget 回归和 raw-byte
-网络回归。红画面永久保留，不计绿。
+真实 App 先建立 `ep127-invoke`，画面显示 `ready · 2 tools`。REST 矩阵覆盖成功 `200`、fixture error `502 MCP_RPC_ERROR`、未知
+tool `502`、坏 JSON `400 INVALID_REQUEST`、错误 action `400` 和未知 server `404 MCP_SERVER_NOT_FOUND`；连续三次失败真实触发
+`ready→degraded`，下一次成功恢复 `ready`，entities SSE 记录两次状态信号，失败单读 `/api/v1/mcp-calls/{id}` 与 stderr tab 均带
+真实 fixture stderr。SQLite 最终 durable ledger 为 13 条 manual calls，`5 ok / 8 failed`，App Call history 聚合与其一致。
 
-固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-025507` 使用修复后新 binary。真实 API 矩阵为：
-四个有效文件 `200`，正确 MIME/`Content-Length`/`Content-Disposition`；超限 `422 SKILL_FILE_TOO_LARGE`，缺失/未知
-`404`，缺 workspace `401`，编码 `..` 路径 `400 SKILL_FILE_PATH_INVALID`。真实 App 显示 `5 files`，Markdown、JSON、未知
-二进制和超限卡均可解释；超限卡逐帧显示 `File too large to preview`、`1 MB` 上限、`Open with system` 和 `Reveal in Finder`，
-不再出现 generic engine error。证据为该 session 下的 `EP-117-skill-file-read-final-green.md`。
+本格两次真实画面红均已 stop-and-fix 后重跑。第一处是恢复后的 `ready` 仍把历史 `lastError` 投影成红色活动错误；保留 API 历史诊断，
+前端改为只有当前 `failed/degraded` 才显示错误条，并补 recovered widget test。第二处是 13 条 Call history 直接纵向堆叠造成真实
+Flutter `BOTTOM OVERFLOWED BY 20 PIXELS`；改为固定详情 pane 内的 `SingleChildScrollView`，补 20 行 fixture 回归，最终滚到尾部
+无 overflow，长列表仍可达。
 
-五通道收台：录屏 `108.925000s / 2784x1808 / 60fps`；backend D1 归属且无 WARN/ERROR/panic/FATAL；SSE 三流连接，
-notifications durable seq `16..19` 对应 skill create 与三次文件写入；frontend 无 Flutter/Dart/RenderFlex/Unhandled/overflow
-红线；managed gateway challenge/install/models 全 `200`。统一账本由 `1275→1280 judgments`，五级法条为 `G1/F2/A5/C4/G2`，
-anchors `10/10`，`COVERAGE EP-117=✓✓✓✓✓`，正式绿证据和独立警报复审分别为：
-`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-025507/evidence/EP-117-skill-file-read-final-green.md`、
-`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-117-skill-files-ledger-reaudit.md`。集中写账打开的两条统计警报已
-复审并 ack，最终 `alarms.py check`=`clean (1280 judgments on record)`，未改阈值、算法、法典或锚点。
+最终修复版 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-065857` 录屏
+`119.625000s / 2784x1808 / 60fps`；顶部和尾部截图分别为该 session evidence 下的
+`EP-127-call-history-scroll-top.png` 与 `EP-127-call-history-scroll-bottom.png`。前一 session
+`20260809-065509` 保留了真实 invoke/status transition 矩阵；两者均未混入无效 tap 或旧 binary 证据。
 
-批次二十四已经 **50/50** 收口。统一长门禁、完整 testend、清册/锚点/警报复核和工作树审计均通过，批次提交为
-`dbea703b`；提交只包含本批验收台架/文档与 EP-117 修复，没有带入另一团队的脏改动。下一原子前线为 EP-118
-`PUT /api/v1/skills/{name}/files/{path...}`，仍按每 50 格才统一长门禁的协议执行。
+五通道收台：最终 `rig-check` 的 backend D1 为 `:8874`，channel 5 为 `:8810` 且真实 upstream 为
+`https://api.anselm.website`；messages/entities/notifications 三流连接，前一 invoke session 的 entities 有
+`ready→degraded→ready`，最终 session 无需伪造额外 durable frame；frontend/backend journal 无 overflow、RenderFlex、Dart、panic、
+FATAL、ERROR、WARN 红线；LLM 只记录真实 challenge/install/models readiness，本确定性 REST 格不冒充 chat completion。正式证据为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-127-mcp-invoke-final.md`，独立警报复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-127-ledger-alarm-reaudit.md`，清理回执为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-127-fixture-cleanup.md`；临时 fixture/data 已按授权移入 Trash，正式 session、录像、
+journals、截图和 REST/SQLite 回执保留。
+
+正式账本由 `1325→1330 judgments`，五级法条为 `G1/F2/A5/C4/G2`，anchors `10/10`，`COVERAGE EP-127=✓✓✓✓✓`；集中写账触发的
+`gap-too-fast` 与 `discovery-collapse` 已按原阈值独立复审并 ack，最终 `alarms.py check`=`clean (1330 judgments on record)`，
+未改阈值、算法、法典或锚点。批次二十五已 **50/50**。统一长门禁已通过：根目录 `make verify` 的 backend、frontend、docs、demo 四组全绿；
+`make -C backend testend` 全量黑盒回归通过（307.330s）；EP-127 定向 Flutter/Go 回归、`gen_coverage.py --check`、anchors `10/10`、
+`alarms.py check` 和 `git diff --check` 均通过。当前只剩选择性工作树审计与本批次提交，EP-128 尚未启动。
+
+### 历史状态快照（EP-125，批次二十五 40/50）
+
+EP-125 `GET /api/v1/mcp-servers/{name}/stderr` 已完成真实 stdio MCP bounded-tail 验收：300 条长噪声不撑爆详情页，终帧显示
+`show 4269 earlier lines` 与最新 marker，REST `data.size=262144` 命中 256 KiB 上限，unknown server 为 `404`。固定绿 session
+为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-061239`，录屏 `375.708333s / 2784x1808 / 60fps`，正式账本
+`1315→1320`，证据与清理回执均保留；当前前线以 EP-126 整体重述为准。
+
+### 历史状态快照（EP-119，批次二十五 10/50）
+
+**当前前线（2026-08-09，清册 EP-119 已完成，批次二十五 10/50）。**
+EP-119 `DELETE /api/v1/skills/{name}/files/{path...}` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、
+窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 LLM wire 的五级验收。产品目的不是只得到一个
+`204`，而是用户在 Library 删除附属文件后，确认语义、文件树、当前预览、后端真相和 SSE 事件全部收口；嵌套路径可删，
+`SKILL.md` 清单受保护，重复删除和跨客户端竞态必须给出可理解的下一步。
+
+首轮真实 App 竞态路径冻结为红：REST 先删除 `references/keep.md` 后，App 仍显示旧预览和幽灵文件行；用户再点击删除收到
+`404 SKILL_FILE_NOT_FOUND`，旧 UI 只显示泛化的 `Action failed`，没有刷新也没有离开失效预览。stop-and-fix 在
+`_SkillFilesGroup._deleteFile` 为所有 API 失败刷新文件树；对 `SKILL_FILE_NOT_FOUND` 回到 skill 概览并显示“文件已被删除、
+列表已刷新”，其他失败显示带路径的重试文案。新增错误常量、中英文文案和 stale-delete widget 回归后，用最终 binary
+重跑正负路径。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-043659` 完成真实 onboarding、受管免费档
+provision、附属文件和嵌套文件删除、取消确认、`SKILL.md` manifest 保护、重复删除及外部先删竞态。最终真实列表只有
+`SKILL.md`（164 bytes）和 `scripts/run.py`（39 bytes）；终帧 `evidence/EP-119-final.png` 显示 skill 概览、`2 files`、
+无幽灵行，完整审计证据为该 session 下的 `evidence/EP-119-skill-file-delete-final-green.md`。
+
+五通道收台：录屏 `364.575000s`；backend D1 归属到 `:8864`，创建 `201`、两次 App 删除 `204`、manifest 保护 `400`、
+竞态/重复删除 `404`、最终列表 `200`，无应用 panic/FATAL/ERROR/WARN；SSE 三流均连接，notifications durable seq `1..8`
+单调并覆盖 create、seed、两个 App delete 和竞态 delete；frontend 无 Dart/FlutterError/RenderFlex/overflow/Unhandled/
+lost-device 红线，AX 观察确认框、失效提示和最终文件树一致。managed gateway challenge/install/models 全 `200`，本格是
+确定性文件路径，不伪造模型 completion。
+
+正式账本由 `1285→1290 judgments`，五级法条为 `G1/F2/A1/C4/G2`，anchors `10/10`，`COVERAGE EP-119=✓✓✓✓✓`；独立
+账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-119-skill-file-delete-ledger-reaudit.md`。集中写账打开的
+`gap-too-fast` 与 `discovery-collapse` 已按原阈值独立复审并 ack，最终 `alarms.py check`=`clean (1290 judgments on record)`，
+未改阈值、算法、法典或锚点。临时数据目录按用户授权以 `trash` 清理，记录在
+`sessions/20260809-043659/evidence/EP-119-fixture-cleanup.md`；正式 session、录屏、journals 和账本保留。
+
+批次二十五由 **0→10/50**。本批未满 50 格，不跑统一长门禁、不提交；下一原子前线为 EP-120
+`GET /api/v1/mcp-servers`。
 
 ### 历史状态快照（EP-116，批次二十四 45/50）
 

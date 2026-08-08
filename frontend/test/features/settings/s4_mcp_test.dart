@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/mcp.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -33,8 +35,65 @@ Widget _host(FixtureSettingsRepository repo) => ProviderScope(
   ),
 );
 
+class _PendingMcpServers extends McpServersController {
+  @override
+  Future<List<McpServerStatus>> build() =>
+      Completer<List<McpServerStatus>>().future;
+}
+
+class _FailedMcpServers extends McpServersController {
+  @override
+  Future<List<McpServerStatus>> build() async =>
+      throw StateError('mcp list failed');
+}
+
+Widget _hostWithMcpProvider(
+  FixtureSettingsRepository repo,
+  McpServersController Function() provider,
+) => ProviderScope(
+  overrides: [
+    settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+    settingsRepositoryProvider.overrideWithValue(repo),
+    mcpServersProvider.overrideWith(provider),
+  ],
+  child: TranslationProvider(
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AnTheme.light(),
+      home: const Scaffold(body: SingleChildScrollView(child: McpPanel())),
+    ),
+  ),
+);
+
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
+
+  testWidgets('roster loading is not presented as an empty server list', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_hostWithMcpProvider(repo, _PendingMcpServers.new));
+    await tester.pump(const Duration(milliseconds: 200));
+    final t = Translations.of(tester.element(find.byType(McpPanel)));
+
+    expect(find.byType(AnSkeleton), findsWidgets);
+    expect(find.text(t.settings.mcp.empty), findsNothing);
+    expect(find.text(t.settings.mcp.marketEmptyLead), findsNothing);
+  });
+
+  testWidgets('roster load failure is actionable and not an empty state', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_hostWithMcpProvider(repo, _FailedMcpServers.new));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(McpPanel)));
+
+    expect(find.text(t.settings.mcp.loadFailed), findsOneWidget);
+    expect(find.text(t.settings.mcp.retry), findsOneWidget);
+    expect(find.text(t.settings.mcp.empty), findsNothing);
+    expect(find.text(t.settings.mcp.marketEmptyLead), findsNothing);
+  });
 
   testWidgets('roster: stats bar counts ready/failed; five-state dot mapping', (
     tester,
@@ -216,6 +275,106 @@ void main() {
       await tester.tap(find.text(t.settings.mcp.tabStderr));
       await tester.pumpAndSettle();
       expect(find.text(t.settings.mcp.noStderr), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'detail: a recovered server does not present its historical error as active',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..mcpServers.add(
+          const McpServerStatus(
+            id: 'mcp_1',
+            name: 'recovered',
+            status: 'ready',
+            lastError: 'old failure',
+            consecutiveFailures: 0,
+          ),
+        );
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final panelEl = tester.element(find.byType(McpPanel));
+      final container = ProviderScope.containerOf(panelEl, listen: false);
+
+      container
+          .read(settingsDetailProvider.notifier)
+          .push('mcpServer', id: 'recovered');
+      await tester.pumpAndSettle();
+
+      expect(find.textContaining('old failure'), findsNothing);
+      expect(
+        find.text(Translations.of(panelEl).settings.mcp.statusReady),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets('detail: long call history stays inside a scroll viewport', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..mcpServers.add(
+        const McpServerStatus(id: 'mcp_1', name: 'busy', status: 'ready'),
+      )
+      ..mcpCalls.addAll([
+        for (var i = 0; i < 20; i++)
+          McpCall(
+            id: 'mcl_$i',
+            tool: 'tool_$i',
+            status: i.isEven ? 'ok' : 'failed',
+            triggeredBy: 'manual',
+            elapsedMs: i,
+          ),
+      ]);
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final panelEl = tester.element(find.byType(McpPanel));
+    final container = ProviderScope.containerOf(panelEl, listen: false);
+    final t = Translations.of(panelEl);
+
+    container
+        .read(settingsDetailProvider.notifier)
+        .push('mcpServer', id: 'busy');
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.mcp.tabCalls));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(SingleChildScrollView), findsWidgets);
+    expect(find.text('tool_19'), findsOneWidget);
+  });
+
+  testWidgets(
+    'open detail leaves for the roster when the settled server row disappears',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..mcpServers.add(
+          const McpServerStatus(
+            id: 'mcp_1',
+            name: 'ephemeral',
+            status: 'ready',
+            tools: [McpToolDef(name: 'echo', description: 'echoes')],
+          ),
+        );
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final panelEl = tester.element(find.byType(McpPanel));
+      final container = ProviderScope.containerOf(panelEl, listen: false);
+      final t = Translations.of(panelEl);
+
+      container
+          .read(settingsDetailProvider.notifier)
+          .push('mcpServer', id: 'ephemeral');
+      await tester.pumpAndSettle();
+      expect(find.text('echo'), findsOneWidget);
+
+      repo.mcpServers.clear();
+      await container.read(mcpServersProvider.notifier).refresh();
+      await tester.pump();
+      await tester.pump();
+
+      expect(container.read(settingsDetailProvider), isNull);
+      expect(find.text(t.settings.mcp.empty), findsOneWidget);
+      expect(find.text(t.settings.mcp.removedTitle), findsNothing);
     },
   );
 

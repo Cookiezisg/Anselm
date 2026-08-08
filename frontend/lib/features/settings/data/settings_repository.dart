@@ -495,10 +495,16 @@ class LiveSettingsRepository implements SettingsRepository {
       '/api/v1/mcp-servers/$name/calls',
       'calls',
       McpCall.fromJson,
-      (agg) => (
-        ok: (agg['okCount'] as num?)?.toInt() ?? 0,
-        failed: (agg['failedCount'] as num?)?.toInt() ?? 0,
-      ),
+      (data) {
+        final raw = data['aggregates'];
+        final agg = raw is Map<String, dynamic>
+            ? raw
+            : const <String, dynamic>{};
+        return (
+          ok: (agg['okCount'] as num?)?.toInt() ?? 0,
+          failed: (agg['failedCount'] as num?)?.toInt() ?? 0,
+        );
+      },
       query: {'cursor': ?cursor},
     );
     return (
@@ -1033,6 +1039,7 @@ class FixtureSettingsRepository implements SettingsRepository {
   // ── S4b MCP (scriptable) ──
 
   final List<McpServerStatus> mcpServers = [];
+  final List<McpCall> mcpCalls = [];
   final List<McpRegistryEntry> mcpRegistry = [];
   McpRegistryPlan mcpPlan = const McpRegistryPlan(transport: 'stdio');
 
@@ -1083,8 +1090,12 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<
     ({List<McpCall> calls, int okCount, int failedCount, String? nextCursor})
   >
-  listMcpCalls(String name, {String? cursor}) async =>
-      (calls: <McpCall>[], okCount: 0, failedCount: 0, nextCursor: null);
+  listMcpCalls(String name, {String? cursor}) async => (
+    calls: List.of(mcpCalls),
+    okCount: mcpCalls.where((call) => call.status == 'ok').length,
+    failedCount: mcpCalls.where((call) => call.status != 'ok').length,
+    nextCursor: null,
+  );
 
   @override
   Future<List<McpRegistryEntry>> listMcpRegistry() async =>
