@@ -1779,6 +1779,8 @@
     "skillRichMode": "富文本",
     "skillModeTooltip": "切换清单的富文本 / 源码编辑",
     "skillFileBinary": "二进制文件——不支持在线编辑",
+    "skillFileTooLargeTitle": "文件太大,无法在线预览",
+    "skillFileTooLargeHint": "该文件超过 1 MB 在线预览上限,请改用系统应用打开。",
     "skillFileSaveFailed": "文件保存失败",
     "skillFiles": "文件",
     "skillProvenance": "来源",

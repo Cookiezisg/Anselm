@@ -40,6 +40,9 @@ testend/rig/rig-check.sh   # 五通道自检:权限/进程与端口归属/三流
 testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe MOV,journal 全保留
 ```
 
+`rig-up.sh` 不接受位置参数；`-h/--help` 只打印用法并退出，未知参数直接拒绝。不要用一个会把参数
+透传给启动器的探查命令代替 help，否则台架可能在未形成 manifest 前启动真实 App。
+
 环境旋钮(都有默认值):`RIG_PORT`(8742;被占就换)· `RIG_LLMTAP_PORT`(8788)· `RIG_DATA`·
 `RIG_HOME`· `RIG_SEED=0` 跳过播种并走真实首次 onboarding。`RIG_LLMTAP=0`、`RIG_RECORD=0`、
 `RIG_APP=0` 只用于诊断；缺任一通道的会话不能通过 `rig-check` 或 L2 gate。

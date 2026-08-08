@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:anselm/core/contract/entities/document.dart';
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
@@ -73,6 +74,30 @@ FixtureLibraryRepository _repo() => FixtureLibraryRepository(
   ],
   skills: [_skill('commit-helper'), _skill('triage')],
 );
+
+class _TooLargeSkillFileRepository extends FixtureLibraryRepository {
+  _TooLargeSkillFileRepository()
+    : super(
+        skills: [_skill('skill_a')],
+        skillFiles: const {
+          'skill_a': {'oversize.md': 'fixture placeholder'},
+        },
+      );
+
+  @override
+  Future<List<int>> readSkillFile(String name, String path) {
+    if (path == 'oversize.md') {
+      return Future.error(
+        const ApiException(
+          code: AnselmErr.skillFileTooLarge,
+          message: 'skill file exceeds size limit',
+          httpStatus: 422,
+        ),
+      );
+    }
+    return super.readSkillFile(name, path);
+  }
+}
 
 /// Selection is route-derived now, so rail hosts ride a real test router (the SAME instance is
 /// routerConfig AND the goRouterProvider override — context.go and selectedDocProvider share one truth).
@@ -642,6 +667,43 @@ void main() {
       ); // no @ mentions on skills. skill 不接 @。
     });
 
+
+    testWidgets(
+      'an oversized skill file explains the inline guard instead of showing a generic engine error',
+      (tester) async {
+        final repo = _TooLargeSkillFileRepository();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryRepositoryProvider.overrideWithValue(repo),
+              selectedDocProvider.overrideWith(
+                () => _PinnedSelection((isSkill: true, id: 'skill_a')),
+              ),
+              selectedSkillFileProvider.overrideWith(
+                () => _PinnedSkillFilePath('oversize.md'),
+              ),
+              mentionSourceProvider.overrideWithValue(_FakeMentions()),
+            ],
+            child: TranslationProvider(
+              child: MaterialApp(
+                theme: AnTheme.light(),
+                home: const Scaffold(body: LibraryOcean()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('File too large to preview'), findsOneWidget);
+        expect(
+          find.text(
+            'This file is over the 1 MB inline preview limit. Open it with the system instead.',
+          ),
+          findsOneWidget,
+        );
+        expect(find.text('Couldn\'t open this'), findsNothing);
+      },
+    );
     testWidgets(
       'an edit within the autosave window is FLUSHED on unmount — no data loss (P5, C-001 area)',
       (tester) async {
@@ -1631,4 +1693,13 @@ class _SignallingRepo extends FixtureLibraryRepository {
 class _PinnedSkillFile extends SelectedSkillFileController {
   @override
   String? build() => null;
+}
+
+class _PinnedSkillFilePath extends SelectedSkillFileController {
+  _PinnedSkillFilePath(this.path);
+
+  final String path;
+
+  @override
+  String? build() => path;
 }

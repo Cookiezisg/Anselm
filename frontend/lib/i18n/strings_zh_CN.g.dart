@@ -539,6 +539,8 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skillRichMode => '富文本';
 	@override String get skillModeTooltip => '切换清单的富文本 / 源码编辑';
 	@override String get skillFileBinary => '二进制文件——不支持在线编辑';
+	@override String get skillFileTooLargeTitle => '文件太大,无法在线预览';
+	@override String get skillFileTooLargeHint => '该文件超过 1 MB 在线预览上限,请改用系统应用打开。';
 	@override String get skillFileSaveFailed => '文件保存失败';
 	@override String get skillFiles => '文件';
 	@override String get skillProvenance => '来源';
@@ -4714,6 +4716,8 @@ extension on TranslationsZhCn {
 			'library.skillRichMode' => '富文本',
 			'library.skillModeTooltip' => '切换清单的富文本 / 源码编辑',
 			'library.skillFileBinary' => '二进制文件——不支持在线编辑',
+			'library.skillFileTooLargeTitle' => '文件太大,无法在线预览',
+			'library.skillFileTooLargeHint' => '该文件超过 1 MB 在线预览上限,请改用系统应用打开。',
 			'library.skillFileSaveFailed' => '文件保存失败',
 			'library.skillFiles' => '文件',
 			'library.skillProvenance' => '来源',

@@ -6,6 +6,22 @@
 # 必须启动它、记录 PID，并在它真实存活前拒绝报绿。
 set -euo pipefail
 
+usage() {
+  cat <<'EOF'
+Usage: testend/rig/rig-up.sh
+
+Start a complete acceptance rig. Configure the rig with environment variables such as
+RIG_HOME, RIG_PORT, RIG_DATA, RIG_SEED, RIG_LLMTAP, RIG_RECORD, and RIG_APP.
+The command takes no positional arguments; use --help only to print this message.
+EOF
+}
+
+case "${1:-}" in
+  "") ;;
+  -h|--help) usage; exit 0 ;;
+  *) usage >&2; exit 2 ;;
+esac
+
 cd "$(dirname "$0")/../.."
 ROOT="$(pwd)"
 PORT="${RIG_PORT:-8742}"

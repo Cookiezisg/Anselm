@@ -17,7 +17,9 @@ audience: [human, ai]
 
 - 后端 JSON 使用 camelCase；Dart 以 `freezed` + `json_serializable` 生成不可变 DTO。
 - 后端字段变化必须在同一提交更新 Dart 源 DTO、生成物与 golden。
-- `ApiClient` 统一处理 N1 `{data: ...}` 信封与标准错误；feature repository 不重复解包逻辑。
+- `ApiClient` 统一处理 N1 `{data: ...}` 信封与标准错误；feature repository 不重复解包逻辑。即使
+  请求是裸字节 (`ResponseType.bytes`)，失败响应仍先解码 N1 JSON，保留后端稳定错误码，不降级成
+  `CLIENT_UNKNOWN`。
 - DTO 只表达 wire 形状。状态折叠、文案、颜色、按钮可用性等属于 feature/core model。
 
 ## 2. 物理地图

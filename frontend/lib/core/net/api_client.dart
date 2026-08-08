@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:dio/dio.dart';
 
 import '../contract/api_error.dart';
@@ -333,14 +335,35 @@ class ApiClient {
     } on DioException catch (e) {
       final resp = e.response;
       if (resp != null) {
-        final body = resp.data;
-        final error = (body is Map<String, dynamic>)
-            ? body['error'] as Map<String, dynamic>?
-            : null;
+        final error = _errorEnvelope(resp.data);
         throw ApiException.fromEnvelope(error, resp.statusCode ?? 0);
       }
       throw ApiException.transport(e.message ?? 'transport failure');
     }
+  }
+
+  /// Raw-byte endpoints still use the N1 JSON error envelope on failure. Dio returns that body
+  /// as bytes because the request asked for [ResponseType.bytes], so decode it before falling back
+  /// to CLIENT_UNKNOWN. 裸字节端点失败时仍答 N1 JSON;ResponseType.bytes 会让 Dio 把信封交成字节,
+  /// 必须先解码,否则后端稳定错误码会被错误降级成 CLIENT_UNKNOWN。
+  static Map<String, dynamic>? _errorEnvelope(Object? body) {
+    Object? decoded = body;
+    if (body is List<int>) {
+      try {
+        decoded = jsonDecode(utf8.decode(body));
+      } catch (_) {
+        return null;
+      }
+    } else if (body is String) {
+      try {
+        decoded = jsonDecode(body);
+      } catch (_) {
+        return null;
+      }
+    }
+    if (decoded is! Map) return null;
+    final raw = decoded['error'];
+    return raw is Map ? Map<String, dynamic>.from(raw) : null;
   }
 }
 

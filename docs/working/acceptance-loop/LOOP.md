@@ -27,7 +27,149 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-08，EP-107 收口，批次二十三 50/50）
+## 当前前线（2026-08-09，EP-117 已完成，批次二十四 50/50，统一门禁已通过，提交待收口）
+
+EP-117 `GET /api/v1/skills/{name}/files/{path...}` 已完成真实 Flutter App、真实受管 gateway、Computer Use 和五通道验收。
+首轮真实 App 对 `1,048,577` 字节 `oversize.md` 暴露红：后端是 `422 SKILL_FILE_TOO_LARGE`，UI 却只说
+`Couldn't open this. The local engine didn't return it.`。stop-and-fix 修复了 `ResponseType.bytes` 错误信封丢码的统一
+`ApiClient` 缺陷，并让所有文件读取分支显示具体 1 MB 护栏与系统打开/Finder 逃生口；补齐中英文、widget 和网络回归。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-025507` 使用新 binary：四个有效文件的 MIME/
+长度/文件名与裸字节一致，超限 `422`、缺失/未知 `404`、缺 workspace `401`、编码 traversal `400`；真实 App 的 Markdown、
+JSON、未知二进制、超限错误卡均逐帧核对，错误卡明确显示 `File too large to preview` 和两个逃生动作。录屏
+`108.925000s / 2784x1808 / 60fps`，SSE 三流连接且 notifications durable seq `16..19`，backend/frontend 无应用红线，
+managed gateway bootstrap 全 200。正式证据为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-025507/evidence/EP-117-skill-file-read-final-green.md`，
+独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-117-skill-files-ledger-reaudit.md`。
+
+正式账本 `1275→1280 judgments`，`G1/F2/A5/C4/G2`，anchors `10/10`，`COVERAGE EP-117=✓✓✓✓✓`，
+`gen_coverage.py --check`、`alarms.py check`、完整 `make verify`、backend 完整测试、完整 testend、定向 Flutter 回归和
+工作树审计均已通过；未改阈值、算法、法典或锚点。批次二十四已经 **50/50**，当前只允许完成提交；提交前不进入 EP-118。
+
+### 历史状态快照（EP-116，批次二十四 45/50）
+
+EP-116 `GET /api/v1/skills/{name}/files` 已完成真实文件树、删除后选中态和 provenance sidecar 的五通道验收；固定绿
+session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-022720`，账本 `1270→1275`，COVERAGE 五格全绿，
+批次当时 `45/50`。当前前线以 EP-117 整体重述为准。
+
+### 历史状态快照（EP-115，批次二十四 40/50）
+
+EP-115 `POST /api/v1/skills:install` 已完成真实 Flutter App、真实受管 gateway、Computer Use 和五通道验收。
+真实 App 从 source 预览后只安装新的合法 `ep115-new`；已有 `ep115-existing` 显示 installed 且不可选，坏 manifest
+不可选。安装后的 Library、正文、2 个文件、provenance 和 `Pre-approval pending` 与 REST/SQLite 对齐；no-force existing
+和新 skill 重放只返回 skip，force 则显示 v2 正文与 replacement 文件，并且只发一次 update signal。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-021859` 的 durable SSE seq `16..20` 单调，
+覆盖 setup/create/update/delete；删除专用实体后 App 清掉当前选中详情并回到 `Untitled`。正式证据为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-115-skill-install-final-green.md`，警报复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-115-skill-install-ledger-reaudit.md`。
+
+正式账本 `1265→1270 judgments`，`G1/F2/A5/C4/G2`，anchors `10/10`，`COVERAGE EP-115=✓✓✓✓✓`，
+`gen_coverage.py --check`=`848/247/0`，最终 `alarms.py check` clean。source fixture/runtime 已按授权清理。
+该格使批次二十四达到 **40/50**；当前前线以 EP-116 整体重述为准。
+
+### 历史状态快照（EP-114，批次二十四 35/50）
+
+EP-114 `POST /api/v1/skills:inspect-source` 已完成真实 Flutter App、真实受管 gateway、Computer Use 和五通道验收。
+首轮红因已有 `commit-helper` 被 UI 默认选中但 no-force install 实际只会跳过；修复后默认仅选择
+`installable && !alreadyExists`，已有项保留可见但禁用，且文案明确说明已在库中。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-020745` 逐帧验证非法候选原因、已有项状态、
+新项 allowed-tools、选择开关和禁用安装按钮；API `200` 与 UI 完全一致，Cancel 后 skills 列表无新增，SSE 无伪造写帧。
+正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-114-skill-inspect-final-green.md`，红证据保留。
+
+正式账本 `1260→1265 judgments`，`G1/F2/A5/C4/G2`，anchors `10/10`，`COVERAGE EP-114=✓✓✓✓✓`，
+`gen_coverage.py --check`=`848/246/0`；警报复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-114-skill-inspect-ledger-reaudit.md`，最终 `alarms.py check` clean。
+source fixture/runtime 已按授权清理。批次二十四当前 **35/50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为
+EP-115 `POST /api/v1/skills:install`。
+
+### 历史状态快照（EP-113，批次二十四 30/50）
+
+EP-113 `POST /api/v1/skills/{name}:approve-tools` 已完成真实 Flutter App、真实受管 gateway、Computer Use 和五通道
+验收。产品目的不是收到 `200`，而是第三方 Skill 的 allowed-tools 信任门必须明确由用户打开，首次授权只产生一次
+真实 `skill.updated`，重复点击、网络重试和公开 API 重放都必须幂等，不制造假的生命周期信号。
+
+首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-013940` 冻结为红：首次 App 授权
+产生 `seq=17 skill.updated`，但重复 API 调用仍返回 `200` 时又产生 `seq=18 skill.updated`，即 REST no-op 却伪造
+durable signal。stop-and-fix 在 `backend/internal/app/skill/install.go` 让已批准状态直接返回当前实体，补
+`TestApproveTools_IsIdempotentAfterApproval` 和 Skill domain 文档，首次授权与安装/更新单事件回归仍保留。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-014829` 由真实 source fixture 走完
+Inspect、Install、App pending→active 审批、重复公开 API、未知/本地 Skill 负向矩阵。App 待授权/已授权静态帧与 AX
+树一致且稳定；首次授权只有 `seq=17 skill.updated`，重复请求前后 `updatedAt`、`toolsApproved` 完全一致且没有第二个
+SSE 更新事件。最终录屏 `189.115000s / 2784x1808`，正式证据为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-113-skill-approve-final-green.md`，红证据与 ledger re-audit
+均保留。
+
+定向 Go/race、`git diff --check` 全绿；formal ledger `1255→1260 judgments`，`G1/F2/A5/C4/G2`，anchors `10/10`，
+`COVERAGE EP-113=✓✓✓✓✓`，`gen_coverage.py --check`=`848/245/0`。集中写账打开的两条警报已按
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-113-skill-approve-ledger-reaudit.md` 独立复审并 ack，最终
+`alarms.py check`=`clean (1260)`；未改阈值、算法、法典或锚点。
+
+本轮 source fixture/runtime 已按用户授权删除，formal session、录像、journals 和证据保留。批次二十四当前 **30/50**；
+未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-114 `POST /api/v1/skills:inspect-source`。
+
+### 历史状态快照（EP-112，批次二十四 25/50）
+
+EP-112 `POST /api/v1/skills/{name}:update` 已完成真实 Flutter App、真实受管 gateway、Computer Use 和五通道
+验收。产品目的不是收到 `200`，而是上游 skill 更新后，中心正文、文件树、描述、provenance、allowed-tools 信任状态、
+通知和失败保护必须同代一致；本地改动非 force 时要明确阻断，force 更新也不能静默丢失未改变的信任配置。
+
+首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-011139` 冻结为红：后端 metadata、
+文件树和 provenance 已到 v2，但中心 native editor 仍是 v1 正文和已删除 guide，通知还重复发出 `skill.created`+
+`skill.updated`。stop-and-fix 重置正文变化时的内部 editor generation、保留页面滚动/大纲壳并阻断旧实例延迟保存，
+同时让一次安装/更新只发一个正确的 lifecycle event；Go/Flutter 回归和 frontend library 文档已同步。
+
+固定 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-012412` 重跑 v1→v2、local drift 409、
+Force update 正负路径。最终录屏 `405.186667s / 2784x1808`，中心与右岛一起切到 v2，3 文件收敛为 2 文件，
+`Read` pre-approval 保持；无 stale body、重复 mutation、loading 残留或 Flutter runtime 红线。backend、SSE、frontend、
+LLM wire 和 UI/REST 对证，正式绿证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-112-skill-update-final-green.md`，
+红证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-112-skill-update-red.md`。
+
+定向 Go/race/Flutter、`make -C docs verify` 和 `git diff --check` 全绿；formal ledger `1250→1255 judgments`，
+`G1/F2/A5/C4/G2`，anchors `10/10`，COVERAGE `EP-112=✓✓✓✓✓`，`gen_coverage.py --check`=`848/244/0`。
+集中写账打开的两条警报已按 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-112-skill-update-ledger-reaudit.md`
+复审并 ack，最终 `alarms.py check`=`clean (1255)`；未改阈值、算法、法典或锚点。
+
+本轮本地 source fixture/runtime 已按用户授权删除，formal session、录像、journals 和证据保留。当时批次二十四为 **25/50**；
+未到第 50 格不跑统一长门禁、不提交；随后前线进入 EP-113 `POST /api/v1/skills/{name}:approve-tools`。
+
+### 历史状态快照（EP-111，批次二十四 20/50）
+
+EP-111 `POST /api/v1/skills/{name}:activate` 已完成真实 App、真实受管 gateway、Computer Use 和五通道
+验收。最终 session `/private/tmp/anselm-rig-ep111-skill-activate-20260808/sessions/20260809-005230` 的
+正确 tap wiring 通过 `rig-check`；Computer Use 实时画面完成一次 fork 激活并输出诚实歧义结果，没有扩搜、
+越界读取、用户不可解释的失败或视觉跳变。录屏 `156.808333s / 2784x1808 / 60fps`，三路 SSE 连接同一 workspace，
+messages durable seq `1..41` 单调，backend 仅有预期范围拒绝 WARN，frontend 无 Flutter/Dart runtime 红线，
+LLM proof/chat 成功。
+
+代码已把 fork Explore 隔离从 prompt 提升为确定性 scope error：无 workdir 只读精确绝对路径，有 workdir
+所有 filesystem search 必须在挂载根内；fork 成功后 run-local `TurnControl` 移除父回合工具 schema并跳过
+AutoActivator，模型若仍发 tool call 则不查找、不执行，以 `TURN_TOOLS_DISABLED` 收尾。未知 agent
+`422 SKILL_FORK_AGENT_TYPE_INVALID`、旧坏清单 fail-closed、失败 fork 不污染 active skill 均已由定向测试和
+真实路径锁定。精确路径 session `003714` 与晚发工具对抗 session `004327` 作为补充证据；旧 prompt-only、
+旧 tap wiring、ReplayKit 重影均保留为负/仪器证据，不能改判为成功。
+
+正式账本 `1245→1250 judgments`，anchors `10/10`，alarms clean，COVERAGE `848 rows / 247 carried /
+0 tombstones`。批次二十四当前 **20/50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为 COVERAGE
+下一行。
+临时 `ep111-inline` / `ep111-fork` 已按授权清理，均为 `DELETE 204→GET 404`，文件树和
+relations 无残留；formal cleanup evidence 位于
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-111-fixture-cleanup.md`。formal anchor 答卷因临时清理
+误删已恢复并重新校准 10/10，未绕过或放宽 gate。
+
+### 历史状态快照（EP-110，批次二十四 15/50）
+
+EP-110 `DELETE /api/v1/skills/{name}` 已完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。用户目的不是收到一个 `204`，而是删除一个带 3 个文件和 1 个 function binding 的 skill 后，Library、REST、文件系统、relation、SSE、workspace 隔离和选中态必须一起回到可解释的真相。
+
+真实 App 路径打开 `ep110-delete-tree`，右岛显示 `3 files · 1 bindings`，从 row actions 打开 `Delete this skill?` 确认框并按授权删除；rail 移除 fixture，中心回到空 `Untitled`，无残留详情。删除后 REST 的 skill/files 均为 `404 SKILL_NOT_FOUND`，列表只剩两个 seeded skills，文件树与 equip relation 均清空；缺 workspace、非法名、未知/重复目标和跨 workspace 的负向矩阵也已实际核对。
+
+最终 session `/private/tmp/anselm-rig-ep110-skill-delete-20260808/sessions/20260808-231300` 录屏 `217.530000s`；三路 SSE durable notifications seq `16..19` 单调，backend/frontend 无应用红线，主 workspace gateway challenge/install/models 全 `200`。隔离 workspace 立即删除导致的 install cancellation 是预期生命周期清理，不作为主路径结果。完整证据为 session `evidence/EP-110-final-green.md`，正式指针为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-110-skill-delete-final-green.md`，独立复审为 `EP-110-approval-ledger-reaudit.md`。
+
+定向 Go、race 和 Flutter 测试全绿（Flutter 57 tests），formal ledger `1240→1245 judgments`，`G1/F2/A5/C4/G2`、anchors `10/10`，正式 `alarms.py check` clean，`gen_coverage.py --check`=`848 rows / 242 carried / 0 tombstones`。首个无 `RIG_HOME` 前缀的默认账本写入已排除，正式裁决只认 explicit formal root。批次二十四当前 **15/50**；未满批不跑统一长门禁、不提交。下一原子前线为 EP-111 `POST /api/v1/skills/{name}:activate`。
+
+### 历史状态快照（EP-107，批次二十三 50/50）
 
 EP-107 `POST /api/v1/skills` 已完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。产品目的不是只得到 `201`，而是让用户在真实 Chat 中用自然语言创建一个完整 skill，并让工具 schema、REST、持久化、SSE、Library Properties、Activity 和删除后的 UI 真相一致。
 

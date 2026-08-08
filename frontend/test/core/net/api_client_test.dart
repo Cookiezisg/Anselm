@@ -151,6 +151,28 @@ void main() {
   });
 
   test(
+    'raw byte error envelope stays typed instead of becoming CLIENT_UNKNOWN',
+    () async {
+      final b = _build(
+        (_) => _json({
+          'error': {
+            'code': 'SKILL_FILE_TOO_LARGE',
+            'message': 'skill file exceeds size limit',
+          },
+        }, 422),
+      );
+      expect(
+        () => b.client.getBytes('/skills/example/files/oversize.md'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', 'SKILL_FILE_TOO_LARGE')
+              .having((e) => e.httpStatus, 'httpStatus', 422),
+        ),
+      );
+    },
+  );
+
+  test(
     'transport failure (no response) → ApiException.transport (status 0)',
     () async {
       final b = _build((_) => throw Exception('connection refused'));

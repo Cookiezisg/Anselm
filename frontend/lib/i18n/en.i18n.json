@@ -1779,6 +1779,8 @@
     "skillRichMode": "Rich text",
     "skillModeTooltip": "Toggle rich / raw source editing of the manifest",
     "skillFileBinary": "Binary file — inline editing unsupported",
+    "skillFileTooLargeTitle": "File too large to preview",
+    "skillFileTooLargeHint": "This file is over the 1 MB inline preview limit. Open it with the system instead.",
     "skillFileSaveFailed": "Saving the file failed",
     "skillFiles": "Files",
     "skillProvenance": "Provenance",

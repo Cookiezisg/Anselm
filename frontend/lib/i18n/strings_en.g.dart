@@ -1153,6 +1153,12 @@ class Translations$library$en {
 	/// en: 'Binary file — inline editing unsupported'
 	String get skillFileBinary => 'Binary file — inline editing unsupported';
 
+	/// en: 'File too large to preview'
+	String get skillFileTooLargeTitle => 'File too large to preview';
+
+	/// en: 'This file is over the 1 MB inline preview limit. Open it with the system instead.'
+	String get skillFileTooLargeHint => 'This file is over the 1 MB inline preview limit. Open it with the system instead.';
+
 	/// en: 'Saving the file failed'
 	String get skillFileSaveFailed => 'Saving the file failed';
 
@@ -9021,6 +9027,8 @@ extension on Translations {
 			'library.skillRichMode' => 'Rich text',
 			'library.skillModeTooltip' => 'Toggle rich / raw source editing of the manifest',
 			'library.skillFileBinary' => 'Binary file — inline editing unsupported',
+			'library.skillFileTooLargeTitle' => 'File too large to preview',
+			'library.skillFileTooLargeHint' => 'This file is over the 1 MB inline preview limit. Open it with the system instead.',
 			'library.skillFileSaveFailed' => 'Saving the file failed',
 			'library.skillFiles' => 'Files',
 			'library.skillProvenance' => 'Provenance',

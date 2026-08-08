@@ -7,6 +7,7 @@ import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
@@ -95,6 +96,47 @@ IconData skillFileIcon(String path) => switch (skillFileKindOf(path)) {
   _ => AnIcons.file,
 };
 
+/// A file-read error explains a known size guard and keeps the same system escape hatch as the
+/// binary card. A generic engine sentence is not enough when the user can still open the file.
+/// 文件读取错误要解释已知大小护栏，并保留与二进制卡相同的系统逃生口；既然还能打开，就不能只说引擎失败。
+Widget _skillFileReadError(
+  BuildContext context, {
+  required Object error,
+  required String path,
+  required String skillDir,
+}) {
+  final t = context.t;
+  final tooLarge =
+      error is ApiException && error.code == AnselmErr.skillFileTooLarge;
+  final actions = skillDir.isEmpty
+      ? null
+      : Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            AnButton(
+              label: t.library.skillOpenSystem,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: () => openWithSystem('$skillDir/$path'),
+            ),
+            const SizedBox(width: AnSpace.s4),
+            AnButton(
+              label: t.library.skillRevealSystem,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: () => revealInSystem('$skillDir/$path'),
+            ),
+          ],
+        );
+  return AnState(
+    kind: AnStateKind.error,
+    size: AnStateSize.inset,
+    title: tooLarge ? t.library.skillFileTooLargeTitle : t.library.loadFailed,
+    hint: tooLarge ? t.library.skillFileTooLargeHint : t.library.errorHint,
+    action: actions,
+  );
+}
+
 /// One bundled file rendered in the center, by kind. [skillDir] powers the system-open actions
 /// (absolute path = dir + / + rel). Non-markdown views CLEAR the inspector outline on mount —
 /// the outline follows the open file (markdown feeds it, everything else leaves it absent).
@@ -174,6 +216,7 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         key: ValueKey('md:${widget.path}'),
         name: widget.name,
         path: widget.path,
+        skillDir: widget.skillDir,
         onSave: _saveText,
       ),
       SkillFileKind.code => _textEditor(),
@@ -187,7 +230,6 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
 
   // ── text / code(可编辑,防抖裸字节 PUT)──────────────────────────────────────
   Widget _textEditor() {
-    final t = context.t;
     // Last-known-good: a same-file refresh keeps content mounted; file switches rebuild the whole
     // preview via the upstream per-file ValueKey. last-known-good:同文件刷新不闪,切文件上游整树重建。
     return AnLastGood(
@@ -195,10 +237,11 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         skillFileTextProvider((name: widget.name, path: widget.path)),
       ),
       placeholder: const AnPage(child: AnSkeleton.lines(8)),
-      errorBuilder: (_, _, _) => AnState(
-        kind: AnStateKind.error,
-        title: t.library.loadFailed,
-        hint: t.library.errorHint,
+      errorBuilder: (_, error, _) => _skillFileReadError(
+        context,
+        error: error,
+        path: widget.path,
+        skillDir: widget.skillDir,
       ),
       builder: (context, text) => AnPage(
         child: SingleChildScrollView(
@@ -273,10 +316,11 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         skillFileTextProvider((name: widget.name, path: widget.path)),
       ),
       placeholder: const AnPage(child: AnSkeleton.lines(8)),
-      errorBuilder: (_, _, _) => AnState(
-        kind: AnStateKind.error,
-        title: t.library.loadFailed,
-        hint: t.library.errorHint,
+      errorBuilder: (_, error, _) => _skillFileReadError(
+        context,
+        error: error,
+        path: widget.path,
+        skillDir: widget.skillDir,
       ),
       builder: (context, text) {
         List<List<dynamic>> rows;
@@ -425,7 +469,12 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
       ),
       placeholder: const AnPage(child: AnSkeleton.lines(6)),
       // 超 1MB 读护栏等一切读错 → 信息卡 + 系统打开(诚实降级、永无死路)。
-      errorBuilder: (_, _, _) => _infoCard(),
+      errorBuilder: (_, error, _) => _skillFileReadError(
+        context,
+        error: error,
+        path: widget.path,
+        skillDir: widget.skillDir,
+      ),
       builder: (context, bytes) => AnPage(
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
@@ -501,12 +550,14 @@ class _MarkdownFileView extends ConsumerStatefulWidget {
   const _MarkdownFileView({
     required this.name,
     required this.path,
+    required this.skillDir,
     required this.onSave,
     super.key,
   });
 
   final String name;
   final String path;
+  final String skillDir;
   final void Function(String markdown) onSave;
 
   @override
@@ -545,7 +596,6 @@ class _MarkdownFileViewState extends ConsumerState<_MarkdownFileView> {
 
   @override
   Widget build(BuildContext context) {
-    final t = context.t;
     ref.listen(outlineJumpProvider, (prev, next) {
       if (next != null && next != prev) _jumpToHeading(next.index);
     });
@@ -554,10 +604,11 @@ class _MarkdownFileViewState extends ConsumerState<_MarkdownFileView> {
         skillFileTextProvider((name: widget.name, path: widget.path)),
       ),
       placeholder: const AnPage(child: AnSkeleton.lines(8)),
-      errorBuilder: (_, _, _) => AnState(
-        kind: AnStateKind.error,
-        title: t.library.loadFailed,
-        hint: t.library.errorHint,
+      errorBuilder: (_, error, _) => _skillFileReadError(
+        context,
+        error: error,
+        path: widget.path,
+        skillDir: widget.skillDir,
       ),
       builder: (context, text) {
         WidgetsBinding.instance.addPostFrameCallback((_) {

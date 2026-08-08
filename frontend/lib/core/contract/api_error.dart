@@ -115,4 +115,10 @@ abstract final class AnselmErr {
   /// 410 — SSE 续传游标比 durable buffer 现存的还旧(已淘汰)。此处登记入唯一错误目录,但**在
   /// SSE 层处置**:重取 REST 真相、再从最新 durable seq 重订(不作为用户错误呈现)。
   static const seqTooOld = 'SEQ_TOO_OLD';
+
+  /// 422 — a bundled skill file is larger than the inline read guard; the file remains available
+  /// through the system-open escape hatch.
+  ///
+  /// 422 — skill 捆绑文件超过在线读取护栏;文件仍可经系统打开逃生口访问。
+  static const skillFileTooLarge = 'SKILL_FILE_TOO_LARGE';
 }
