@@ -1,4 +1,6 @@
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/control.dart';
+import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -108,4 +110,80 @@ void main() {
     expect(p2.versions, hasLength(25));
     expect(p2.hasMore, isFalse);
   });
+
+  test(
+    'control versions use the typed paged repository and active marker',
+    () async {
+      const ref = EntityRef(EntityKind.control, 'ctl_1');
+      final c = ProviderContainer(
+        overrides: [
+          entityRepositoryProvider.overrideWithValue(
+            FixtureEntityRepository(
+              controlLogics: [
+                ControlLogic(
+                  id: 'ctl_1',
+                  name: 'route',
+                  activeVersionId: 'ctl_1_v2',
+                  createdAt: _t,
+                  updatedAt: _t,
+                  activeVersion: ControlVersion(
+                    id: 'ctl_1_v2',
+                    controlId: 'ctl_1',
+                    version: 2,
+                    branches: const [
+                      Branch(port: 'approve', when: 'input.score >= 0.8'),
+                      Branch(port: 'review', when: 'true'),
+                    ],
+                    createdAt: _t,
+                    updatedAt: _t,
+                  ),
+                ),
+              ],
+              controlVersions: {
+                'ctl_1': [
+                  ControlVersion(
+                    id: 'ctl_1_v2',
+                    controlId: 'ctl_1',
+                    version: 2,
+                    inputs: const [Field(name: 'score', type: 'number')],
+                    branches: const [
+                      Branch(port: 'approve', when: 'input.score >= 0.8'),
+                      Branch(port: 'review', when: 'true'),
+                    ],
+                    changeReason: 'tighten threshold',
+                    createdAt: _t,
+                    updatedAt: _t,
+                  ),
+                  ControlVersion(
+                    id: 'ctl_1_v1',
+                    controlId: 'ctl_1',
+                    version: 1,
+                    inputs: const [Field(name: 'score', type: 'number')],
+                    branches: const [
+                      Branch(port: 'approve', when: 'input.score >= 0.7'),
+                      Branch(port: 'review', when: 'true'),
+                    ],
+                    changeReason: 'initial gate',
+                    createdAt: _t,
+                    updatedAt: _t,
+                  ),
+                ],
+              },
+            ),
+          ),
+        ],
+      );
+      addTearDown(c.dispose);
+      c.listen(entityDetailProvider(ref), (_, _) {});
+      await c.read(entityDetailProvider(ref).future);
+
+      final st = await c.read(versionListProvider(ref).future);
+      expect(st.versions.map((row) => row.version), [2, 1]);
+      expect(st.versions.first.active, isTrue);
+      expect(st.versions.first.changeReason, 'tighten threshold');
+      expect(st.versions.first.src, contains('input.score >= 0.8'));
+      expect(st.versions.first.src, isNot(contains('ctl_1_v2')));
+      expect(st.expanded, {2});
+    },
+  );
 }

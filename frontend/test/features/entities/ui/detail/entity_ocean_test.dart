@@ -52,6 +52,25 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets(
+    'control → version history is reachable without an execution tab',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(sel: const EntityRef(EntityKind.control, 'ctl_quality')),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+      expect(find.text('quality-gate'), findsWidgets);
+      expect(find.text(d.tab.versions), findsOneWidget);
+      expect(find.text(d.tab.logs), findsNothing);
+
+      await tester.tap(find.text(d.tab.versions));
+      await tester.pumpAndSettle();
+      expect(find.text('v1'), findsNWidgets(2));
+      expect(find.text('initial gate'), findsOneWidget);
+      expect(tester.takeException(), isNull);
+    },
+  );
+
   testWidgets('agent → unhealthy mount badge in the header', (tester) async {
     await tester.pumpWidget(
       _host(sel: const EntityRef(EntityKind.agent, 'ag_researcher')),

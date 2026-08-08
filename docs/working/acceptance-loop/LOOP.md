@@ -27,33 +27,163 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-08，EP-087 收口，批次二十一 50/50）
+## 当前前线（2026-08-08，EP-097 收口，批次二十二 50/50）
 
-EP-087 `GET /api/v1/controls` 已完成真实 App、受管 Anselm gateway、Computer Use 和五通道验收。
-首轮真实路径证明已有但不在首页的 `EP087 Control 05` 被搜索成空，且 REST 返回未过滤首页与总数 55；
-stop-and-fix 补齐 Control 与同类 Approval 的 handler/domain/store list+count 搜索链路，按大小写不敏感的
-name 字面量子串过滤，并让 `X-Anselm-Total-Count` 与当前过滤条件一致。
+EP-097 `GET /api/v1/approvals` 已完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。用户目的不是得到一个列表状态码，
+而是进入 Entities 后能看见完整 Approval 名册，搜索、cursor 分页、滚动到尾部、进入详情，并在另一路删除后得到及时且不漂移的列表/详情状态。
+本切片没有产品或代码红：23 条 fixture 让 rail 显示 `Approval 23`，`APPROVAL-0` 搜索为 9 条，清空后恢复 23 条，尾部无空白 seam，
+详情完整显示 v1、输入、模板、reason、timeout 和 timeout behavior；删除 `ep097-approval-23` 后 rail 23→22，当前详情保持连贯。
 
-固定 session `/private/tmp/anselm-rig-ep087-controls-20260808-fixed/sessions/20260808-135159` 真实
-覆盖 55 个 Control、3 个 Approval、分页无重叠、`search=05`、跨实体 `search=02`、无结果、字面量 `%`、
-非法/上限 limit 和 cleanup。真实 App 逐帧显示 `Control 1 → EP087 Control 05`、跨实体匹配和明确空态；
-REST/SQLite/SSE/UI 对齐，116 条 lifecycle durable frame 无 gap，三流均连接，managed challenge/install/
-models 六条状态记录全 200，frontend/backend 无未解释应用红线。录屏 `402.373333s`，rig-check/rig-down
-干净收台。
+REST 对证覆盖 `20+3` cursor 续页、`limit=999` 上限、`limit=0 → 400 INVALID_REQUEST`、大小写不敏感搜索与准确总数、缺 workspace、坏 cursor、
+删除后旧 cursor，以及 `204 → exact GET 404`。固定 session
+`/private/tmp/anselm-rig-ep097-approval-list-20260808/sessions/20260808-182005` 使用 workspace `ws_14972f564f66a37d`，窗口 `28467`，
+录屏 `286.545000s / 49M`，由同一 conductor 托管 App、Computer Use、backend/frontend journals、三路 SSE、真实 gateway 和 LLM tap；确定性读取路径不虚构
+completion。backend 441 行、frontend 18 行无未解释应用红线，notifications durable seq `1..24` 连续，rig-check/rig-down 均闭合。
 
-58 个临时 fixture 均 DELETE=204→GET=404，Control/Approval 列表均回到 `total=0, rows=0`，真实 App
-Parts 回到 0，workspace 保留，审计和通知事实保留。正式证据为
-`/private/tmp/anselm-rig-ep087-controls-20260808-fixed/sessions/20260808-135159/evidence/EP-087-search-fixed.md`，
-红证据为 `/private/tmp/anselm-rig-ep087-controls-20260808/sessions/20260808-134141/evidence/EP-087-search-red.md`，
-账本独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-087-search-ledger-alarm-reaudit.md`。
+cleanup 已完成：首轮删 1 条，独立 session `/private/tmp/anselm-rig-ep097-cleanup-20260808/sessions/20260808-182627` 再删 22 条，23 个 DELETE 全部
+`204`、exact GET 全部 `404`、活动列表为 0；SQLite `23 deleted / 23 versions retained`，证据与录像保留。绿证据为固定 session 的
+`EP-097-approval-list-final-green.md`，清理证据为同 session 的 `EP-097-fixture-cleanup.md`。
 
-anchors=10/10；`judge.py` 按 `G1/F2/A5/C4/G2` 将正式账本 `1125→1130 judgments`，`COVERAGE
-EP-087=✓✓✓✓✓`。集中写账的 gap-too-fast/discovery-collapse 已以独立复审证据 ack，阈值、算法、法典和
-锚点未改，`alarms.py check`=`clean (1130)`；`gen_coverage.py --check`=`848 rows / 219 carried / 0 tombstones`。
+正式账本以 `G1/F2/A5/C4/G2` 从 `1175→1180 judgments`，COVERAGE `EP-097=✓✓✓✓✓`，anchors=10/10；L2 首次漏传 `--session` 被拒后已用真实 session
+正确补录。复审记录为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-097-approval-list-ledger-reaudit.md`，`alarms.py check`=`clean (1180)`，
+`gen_coverage.py --check`=`848 rows / 229 carried / 0 tombstones`，无阈值/算法/法典/锚点变更。
 
-批次二十一已由 **45/50→50/50**，统一长门禁现已全部通过：backend/frontend/docs/demo 子门禁、根
-`make verify`、不带缓存的全量 Go 测试、完整 `make -C backend testend`（`269.878s`）、锚点/警报/清册和
-资源卫生审计均为绿。长门禁通过后本批次可提交，下一原子前线为 EP-088；提交前不再扩展本批次范围。
+批次二十二已 **50/50**。现在执行统一长门禁：收台封存、警报复核、完整 `make verify`、完整 `go test ./...`、已修场景回归、工作树审计；全部通过后提交
+EP-089..EP-097 的累计代码、测试、契约文档和 working ledger。提交前不推进 EP-098。
+
+## 历史前线（2026-08-08，EP-096 收口，批次二十二 45/50）
+
+EP-096 `POST /api/v1/approvals` 已完成真实 App、真实受管 Anselm gateway、Computer Use 和五通道验收。用户目的不是得到
+一个成功状态码，而是自然语言创建带输入类型、reason、timeout 和 timeout behavior 的审批表单后，正文、Activity、审批预览、
+REST、SQLite 与 SSE 必须一致且可继续使用。
+
+首轮真实 App 发现红：真实受管模型把 `2h` 编码为 `"7200"`，旧边界先失败，随后模型重试成功，UI 同时显示失败工具行、
+`Draft unsaved · nothing was created` 和成功卡片。红证据为
+`/private/tmp/anselm-rig-ep096-approval-create-20260808/sessions/20260808-175421/evidence/EP-096-approval-create-red.md`。
+stop-and-fix 在工具边界只兼容精确整数秒字符串/整数并归一化为 duration（`7200`→`2h`），公开 HTTP/domain 契约仍拒绝
+零、负数、小数和坏形状；补正负解码、tool execution、domain/handler tests 并同步 approval reference。定向 Go tests 通过。
+
+固定 session `/private/tmp/anselm-rig-ep096-approval-create-20260808/sessions/20260808-180647` 由同一 conductor 托管
+真实 App、Computer Use、`28438` 窗口 `132.026667s` 录像、backend/frontend journal、三路独立 SSE witness、managed
+gateway 和 LLM tap。最终 UI 只有成功文本、Created v1、单一 Created Activity 与完整 approval preview：inputs、`2h`、
+自动 reject、reason 和 Approve/Reject 均可见，没有失败行、矛盾文案、裁切、重叠、loading 残留或跳变。五通道无未解释
+backend/frontend 错误，SSE durable seq 单调，LLM upstream 全 200 且真实参数仍为 `"timeout":"7200"`；HTTP/SQLite 均为
+`apf_c07e5096237e71db` v1 `2h/reject`。绿证据为同 session `EP-096-approval-create-final-green.md`。
+
+用户授权的 cleanup 已完成：独立 session `/private/tmp/anselm-rig-ep096-cleanup-20260808/sessions/20260808-181438` 通过
+API 删除三条审批和三条验收对话，DELETE `204×6`、exact GET `404×6`、列表无 `ep096-*`；SQLite 主行保留 `deleted_at`，
+三条 immutable v1 version 保留，证据、journals、录像未删。清理证据为 `EP-096-fixture-cleanup.md`。
+
+正式账本 `1170→1175 judgments`，按 `G1/F2/A5/C4/G2`，COVERAGE `EP-096=✓✓✓✓✓`，anchors=10/10；独立复审记录为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-096-approval-create-ledger-reaudit.md`。统计警报已按复审后 ack，
+没有改阈值/算法/法典/锚点；formal home 的 `alarms.py check`=`clean (1175)`，`gen_coverage.py --check`=`848 rows /
+228 carried / 0 tombstones`。批次二十二由 **40/50→45/50**，未到 50 格不跑统一长门禁、不提交；下一原子前线为
+EP-097 `GET /api/v1/approvals`。
+
+## 历史前线（2026-08-08，EP-092 收口，批次二十二 25/50）
+
+EP-092 `POST /api/v1/controls/{id}:revert` 已完成真实 App、受管 gateway、Computer Use 和五通道验收：只移动
+Control active pointer 到 v1，保留 name/description、不铸造新版本且保留 v2 历史。固定 session
+`/private/tmp/anselm-rig-ep092-control-revert-20260808/sessions/20260808-162625`，录屏 `474.791667s`；HTTP
+矩阵覆盖 v2/v1 成功回退及 zero/unknown 版本 404，SQLite/REST/UI/SSE 一致，cleanup 后 App 收敛到
+`0 entities, 0 relations`。账本 `1150→1155`，COVERAGE 五级全绿，anchors=10/10，`alarms.py check`=`clean (1155)`，
+清册 `848/224/0`；错误 shell quoting 只作为无副作用 harness 证据保留。
+
+## 历史前线（2026-08-08，EP-091 收口，批次二十二 20/50）
+
+EP-091 `POST /api/v1/controls/{id}:edit` 已完成真实 App、受管 Anselm gateway、Computer Use 和五通道验收。
+用户目的不是“得到一个新版本”，而是只改变明确要求的路由条件，同时保留输入声明、port、emit 与 catch-all；
+托管模型等值的 JSON 数组编码要能执行，显式清空要有语义，坏输入要在 mutation 前拒绝。最终真实画面显示
+active v5、`score:number`、approve `input.score >= 0.96`、review default 与两侧 emit。
+
+首轮真实 AI 编辑冻结出两层产品红：托管模型把 `inputs`/`branches` 作为精确 JSON 数组字符串传入，旧工具边界
+按原生数组解码失败；更严重的是模型省略可选 `inputs` 时，旧 `edit_control` 生成了 `inputs:null` 的 v3，擦除
+原有 `score` 输入声明。红证据永久保留；stop-and-fix 在 AI 工具、领域服务和 HTTP handler 共同加入 presence
+语义：省略保留 active declaration，显式 `[]` 才清空；原生数组和精确 JSON 数组字符串均有明确解码边界，坏
+字符串/object/non-array 不猜测。服务层与工具层回归测试、Control API/domain 文档同步。
+
+固定 session `/private/tmp/anselm-rig-ep091-control-edit-20260808/sessions/20260808-161138` 的录屏为
+`388.893333s / 2784x1808`。v2 基线经真实 App 确认后，Edit with AI 创建 v4 并保留 score 声明；LLM wire
+`00006_v1_chat_completions.bin` 证实真实托管模型传入 stringified inputs。HTTP 省略 inputs 创建 v5 仍保留
+score；malformed `inputs` 返回 `400 INVALID_REQUEST` 且随后 GET 证明没有部分 mutation。Computer Use 最终逐帧
+确认 Control 详情无裁切、重叠、跳变或残留 loading。
+
+REST/SQLite/SSE/UI/LLM 对证：三路 SSE 均连接，messages durable `1..35`、notifications durable `1..5` 严格
+单调，entities 完成连接；backend 494 行无应用 WARN/ERROR/FATAL/panic/tool execute failed，frontend 18 行无
+Flutter/Dart/RenderFlex/Unhandled 红线；challenge 与 5 次真实 chat completion 全 200。rig-check 收台前确认
+五通道物理归属，rig-down 后无残留进程。
+
+正式证据为 `/private/tmp/anselm-rig-ep091-control-edit-20260808/sessions/20260808-161138/evidence/EP-091-control-edit-final-green.md`，
+红证据为 `/private/tmp/anselm-rig-ep091-control-edit-20260808/sessions/20260808-160105/evidence/EP-091-control-edit-red-inputs-erased.md`，
+独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-091-control-edit-ledger-reaudit.md`。`judge.py`
+按 `G1/F2/A5/C4/G2` 将账本 `1145→1150 judgments`，`COVERAGE EP-091=✓✓✓✓✓`，anchors=10/10。两条统计警报已按
+复审记录 ack，未改阈值、算法、法典或锚点；`alarms.py check`=`clean (1150)`，`gen_coverage.py --check`=
+`848 rows / 223 carried / 0 tombstones`。批次二十二由 **15/50→20/50**，未到 50 格不跑统一长门禁、不提交；
+下一原子前线为 EP-092 `POST /api/v1/controls/{id}:revert`。
+
+## 历史前线（2026-08-08，EP-090 收口，批次二十二 15/50）
+
+EP-090 `DELETE /api/v1/controls/{id}` 已完成真实 App、受管 Anselm gateway、Computer Use 和五通道验收。
+用户目的不是拿到一个 `204`，而是删除后 rail、Parts 和关系图都与 REST/DB 真相收敛，被删实体和关系边消失，
+存活 workflow 保留，历史版本保留，悬空引用由 capability-check 明确呈现，重复/未知删除可解释失败。固定切片
+同时删除同类 Approval 以检查依赖通知对称性；Approval coverage 单格由 EP-100 管理，不在此重复计数。
+
+首轮真实 session 冻结出产品红：后端删除和 `/relgraph` 已正确变成 `4 relations`，但真实 App 等待约 `2.5s`
+仍呈 `8 entities, 6 relations`，保留已删除 Control/Approval ghost nodes。修复在 `EntityRepository` 增加不裁剪
+实体种类的 workspace-wide durable `relationSignals()`；`relGraphProvider` 监听该脉冲和 lifecycle resync，
+删除及聚合依赖通知用 `300ms` 合并刷新。ephemeral 帧不失效 durable snapshot，Fixture 与 3 项 provider 守卫同步，
+Flutter 定向 15 项全通过。
+
+红证据为 `/private/tmp/anselm-rig-ep090-control-delete-20260808/sessions/20260808-152528/evidence/EP-090-control-delete-red.md`；
+固定 session `/private/tmp/anselm-rig-ep090-control-delete-fixed-20260808/sessions/20260808-153741` 的录屏为
+`98.700000s / 2784x1808 / 60fps`。创建后真实 App 从 `6/4` 收敛到 `14/10`，删除后从 REST 的 `12/8` 收敛到
+`12/8`；Control/Approval rail 消失、Parts 回到 0、剩余节点保留。Control/Approval delete `204`，exact GET/
+重复 DELETE `404`，版本历史保留，capability-check 明确悬空引用。notifications durable `1..8` 连续，backend
+195 行无应用红线，frontend 18 行无 Flutter runtime 红线，三流连接且 rig-check/rig-down 干净；确定性 REST/UI
+切片没有伪造 LLM completion，llmtap 只保留真实 ready/wiring 记录。
+
+正式证据为 `/private/tmp/anselm-rig-ep090-control-delete-fixed-20260808/sessions/20260808-153741/evidence/EP-090-control-delete-final-green.md`，
+独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-090-control-delete-ledger-reaudit.md`；`judge.py`
+按 `G1/F2/A5/C4/G2` 将账本 `1140→1145 judgments`，`COVERAGE EP-090=✓✓✓✓✓`，anchors=10/10。两条统计警报已按
+复审记录 ack，未改阈值、算法、法典或锚点；`alarms.py check`=`clean (1145)`，`gen_coverage.py --check`=
+`848 rows / 222 carried / 0 tombstones`。批次二十二由 **10/50→15/50**，未到 50 格不跑统一长门禁、不提交；
+下一原子前线为 EP-091。
+
+## 历史前线（2026-08-08，EP-089 收口，批次二十二 10/50）
+
+EP-089 `PATCH /api/v1/controls/{id}` 已完成真实 App、受管 Anselm gateway、Computer Use 和五通道验收。
+真实用户目的不是“收到一个 200”，而是修改 Control 的 name/description 后，详情与列表准确反映变化，同时
+空 patch/等值 patch 可以安全重试而不伪造一次修改。固定版创建真实 Control `ctl_e5e6640b7767de8f`，
+实际 patch 后 App 详情显示 `EP089 Control Patched`、新 description、v1、inputs 和 ordered routing branches；
+版本线没有被 metadata patch 改写。
+
+首轮真实 session 冻结出产品红：空 `PATCH {}` 虽返回 200，却刷新 `updatedAt` 并发出 `control.updated` durable
+notification。stop-and-fix 让 Control 的 UpdateMeta 先比较实际值，no-op 直接返回，不 Save、不刷新时间、不 publish；
+同类 Approval 同步修复。API/domain 文档写明该契约，Control/Approval app 测试直接用 recording notifier 锁定
+空 patch 与等值 patch 不写盘、不发事件。修复前红证据永久保留在
+`/private/tmp/anselm-rig-ep089-control-patch-20260808/sessions/20260808-150028/evidence/EP-089-control-patch-red.md`。
+
+固定 session `/private/tmp/anselm-rig-ep089-control-patch-fixed-20260808/sessions/20260808-151021` 由同一 conductor
+托管真实 Flutter App、Computer Use、录屏、frontend/backend journal、三路独立 SSE witness、managed gateway 和
+LLM tap；录屏 `401.523333s / 2784x1808 / 60fps`。Control 实际 patch、空 patch、等值 patch，Approval 实际
+description patch、空 patch、等值 patch，正负 HTTP 矩阵及删除清理均已完成。SSE notifications durable seq
+`1..6` 严格为 Control created/updated、Approval created/updated、两次 deleted；no-op 没有幽灵帧。删除后真实
+Overview 显示两类 rail 无残留、Parts 0、关系图 0 entities/0 relations，空态文案完整。
+
+REST/SQLite/SSE/UI 对证：Control/Approval no-op 的 `updatedAt` 分别保持不变，实际变化各只发一条 updated；
+invalid name、unknown field、unknown id、缺 workspace header 均返回预期 422/400/404/401；DELETE=204 后 exact
+GET=404、live lists=0、workspace 保留。backend 511 行无应用 WARN/ERROR/panic/FATAL，frontend 19 行无 Flutter
+runtime 红线，managed challenge/install/models 全 200，三流连接且无 gap，rig-check/rig-down 干净收台。
+
+正式证据为 `/private/tmp/anselm-rig-ep089-control-patch-fixed-20260808/sessions/20260808-151021/evidence/EP-089-control-patch-final-green.md`，独立账本复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-089-control-patch-ledger-reaudit.md`；`judge.py` 按
+`G1/F2/A5/C4/G2` 将正式账本 `1135→1140 judgments`，`COVERAGE EP-089=✓✓✓✓✓`，anchors=10/10。集中写账
+触发的 `gap-too-fast`/`discovery-collapse` 已经独立重读红绿 session、REST、SSE、backend/frontend/LLM、UI
+和单元测试后 ack，未改阈值、算法、法典或锚点；`alarms.py check`=`clean (1140)`，`gen_coverage.py --check`=
+`848 rows / 221 carried / 0 tombstones`。
+
+批次二十二当前 **10/50**，未达到 50 格，因此不运行统一长门禁、不提交。EP-089 的 backend 修复、测试、契约文档、
+红绿证据、工作记录和 COVERAGE ledger 留在当前工作树，随批次二十二第 50 格统一提交。下一原子前线为 EP-090。
 
 ## 历史前线（2026-08-08 13:35，EP-086 收口，批次二十一 45/50）
 

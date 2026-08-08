@@ -125,14 +125,22 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*approval
 	if err != nil {
 		return nil, fmt.Errorf("approvalapp.UpdateMeta: %w", err)
 	}
+	changed := false
 	if in.Name != nil {
 		if strings.TrimSpace(*in.Name) == "" {
 			return nil, approvaldomain.ErrInvalidName
 		}
-		f.Name = *in.Name
+		if f.Name != *in.Name {
+			f.Name = *in.Name
+			changed = true
+		}
 	}
-	if in.Description != nil {
+	if in.Description != nil && f.Description != *in.Description {
 		f.Description = *in.Description
+		changed = true
+	}
+	if !changed {
+		return f, nil
 	}
 	if err := s.repo.SaveForm(ctx, f); err != nil {
 		return nil, fmt.Errorf("approvalapp.UpdateMeta: %w", err)
@@ -225,11 +233,27 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 // --- version reads ---
 
 func (s *Service) ListVersions(ctx context.Context, formID string, filter approvaldomain.VersionListFilter) ([]*approvaldomain.Version, string, error) {
+	// A missing parent is not an empty history; resolve it unscoped so a soft-deleted parent still
+	// exposes immutable audit history while an unknown id stays a not-found. 父实体不存在不是空历史；
+	// 用 unscoped 解析父行，使软删父仍可读不可变审计历史，而未知 id 仍是 not-found。
+	if _, err := s.repo.GetFormIncludingDeleted(ctx, formID); err != nil {
+		return nil, "", fmt.Errorf("approvalapp.ListVersions: %w", err)
+	}
 	return s.repo.ListVersions(ctx, formID, filter)
 }
 
 func (s *Service) GetVersion(ctx context.Context, versionID string) (*approvaldomain.Version, error) {
 	return s.repo.GetVersion(ctx, versionID)
+}
+
+// GetVersionForApproval returns an opaque version only when it belongs to the route's parent
+// Approval. Numeric reads already use the parent-scoped repository method; opaque reads must do
+// the same or a valid ID from another Approval can cross the route boundary.
+//
+// GetVersionForApproval 只返回属于路由父 Approval 的 opaque 版本。数字读取已有父级查询；opaque
+// 读取也必须如此，否则另一 Approval 的合法 ID 会穿过 URL 父级边界。
+func (s *Service) GetVersionForApproval(ctx context.Context, formID, versionID string) (*approvaldomain.Version, error) {
+	return s.repo.GetVersionForApproval(ctx, formID, versionID)
 }
 
 func (s *Service) GetVersionByNumber(ctx context.Context, formID string, versionN int) (*approvaldomain.Version, error) {

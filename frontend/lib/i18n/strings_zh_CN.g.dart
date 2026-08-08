@@ -466,7 +466,7 @@ class _Translations$entities$zh_CN extends Translations$entities$en {
 	@override String get errorHint => '本地引擎没有返回实体列表。';
 	@override String get retry => '重试';
 	@override String get selectTitle => '选择一个实体';
-	@override String get selectHint => '从左侧选择一个函数、处理器、智能体或工作流。';
+	@override String get selectHint => '从左侧选择一个实体查看详情。';
 	@override String get sortLabel => '排序';
 	@override String get sortRecent => '最近活跃';
 	@override String get sortCreated => '最近创建';
@@ -4276,7 +4276,7 @@ extension on TranslationsZhCn {
 			'entities.errorHint' => '本地引擎没有返回实体列表。',
 			'entities.retry' => '重试',
 			'entities.selectTitle' => '选择一个实体',
-			'entities.selectHint' => '从左侧选择一个函数、处理器、智能体或工作流。',
+			'entities.selectHint' => '从左侧选择一个实体查看详情。',
 			'entities.sortLabel' => '排序',
 			'entities.sortRecent' => '最近活跃',
 			'entities.sortCreated' => '最近创建',

@@ -43,7 +43,7 @@ audience: [human, ai]
 
 ## 3. 路由与生命周期
 
-- Chat 无选中时显示 landing；`/chat/:id` 是线程路由。首次发送才创建对话，并在发首条消息前写入 landing 选择的模型。
+- Chat 无选中时显示 landing；`/chat/:id` 是线程路由。首次发送才创建对话，并在发首条消息前写入 landing 选择的模型。另一个客户端发出 durable `conversation.deleted` 时，rail 同时移除列表行并把当前已选的死深链导航回 landing；notifications 流 410 resync 会重读当前行，仅在服务端明确返回 404 时离开深链。
 - 对话切换不重挂 `AppShell`；当前线程的列表、transcript 与侧幕各自按 id 换代，workspace 热切换先离开旧深链再翻鉴权轴。
 - 发送失败保留草稿；停止只取消当前在飞回合，不清后续队列；后台完成后 rail、标题、未读与侧幕以 durable 信号重取真相。
 - sidecar 或 SSE 重连不能恢复 ephemeral interaction，因此重连后必须补拉 pending interactions。

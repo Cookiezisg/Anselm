@@ -8,6 +8,8 @@ export '../../../core/model/time_format.dart' show fmtDuration;
 
 import '../../../core/contract/entities/function.dart';
 import '../../../core/contract/entities/handler.dart';
+import '../../../core/contract/entities/approval.dart';
+import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 
@@ -179,6 +181,41 @@ String prettyJsonSource(String raw) {
     return raw;
   }
 }
+
+/// Stable JSON source for the branch set a Control version owns. Excluding identity and audit fields
+/// keeps the diff about routing behavior, not the fact that a new row was created.
+/// Control 版本的稳定 JSON 源：排除身份与审计字段，让 diff 只回答路由行为改了什么。
+String controlVersionSource(ControlVersion v) => prettyJson({
+  'inputs': [
+    for (final f in v.inputs)
+      {
+        'name': f.name,
+        'type': f.type,
+        if (f.description?.isNotEmpty == true) 'description': f.description,
+      },
+  ],
+  'branches': [
+    for (final b in v.branches)
+      {'port': b.port, 'when': b.when, if (b.emit.isNotEmpty) 'emit': b.emit},
+  ],
+});
+
+/// Stable JSON source for an Approval version's prompt and timeout policy. 审批版本只比较模板、输入
+/// 声明和超时决策规则，不把版本身份混进 diff。
+String approvalVersionSource(ApprovalVersion v) => prettyJson({
+  'inputs': [
+    for (final f in v.inputs)
+      {
+        'name': f.name,
+        'type': f.type,
+        if (f.description?.isNotEmpty == true) 'description': f.description,
+      },
+  ],
+  'template': v.template,
+  'allowReason': v.allowReason,
+  'timeout': v.timeout,
+  'timeoutBehavior': v.timeoutBehavior,
+});
 
 /// Page through GET /flowruns/{id} to the FULL node history — the page is newest-first and one page
 /// is not the whole run (a long loop overflows it; WRK-055 W3 契约). Caps at [maxPages] pages.

@@ -8,6 +8,7 @@ import (
 
 	approvalapp "github.com/sunweilin/anselm/backend/internal/app/approval"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	approvaldomain "github.com/sunweilin/anselm/backend/internal/domain/approval"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 )
 
@@ -18,7 +19,7 @@ type CreateApproval struct{ svc *approvalapp.Service }
 func (t *CreateApproval) Name() string { return "create_approval" }
 
 func (t *CreateApproval) Description() string {
-	return "Create an approval-form entity that a workflow approval node references: a markdown prompt `template` (with `{{ input.* }}` interpolation over the inputs the workflow node feeds, e.g. `批准对 {{ input.user }} 的退款 {{ input.amount }} 元?`) which renders into a human-readable decision point, plus decision rules. `template` is REQUIRED — a button with no explanation is meaningless. `inputs` is an array of `{name,type,description}` fields; for hosted-model compatibility, an exact JSON-encoded array string or exact field-name object JSON string is also accepted, while malformed shapes are rejected. `allowReason` is a boolean; exact strings \"true\"/\"false\" are also accepted for hosted-model compatibility. `timeout` (a duration like `30d` / `2h`; empty = never times out) and `timeoutBehavior` (reject|approve|fail; required when timeout is set) govern what happens if nobody responds. The node has fixed yes/no exits the graph wires to downstream nodes. Its downstream result is {decision: \"yes\"|\"no\", reason} ONLY — an approval does NOT pass its input through, so a downstream node needing the original data (e.g. the amount) must read it from an upstream node, not from the approval node."
+	return "Create an approval-form entity that a workflow approval node references: a markdown prompt `template` (with `{{ input.* }}` interpolation over the inputs the workflow node feeds, e.g. `批准对 {{ input.user }} 的退款 {{ input.amount }} 元?`) which renders into a human-readable decision point, plus decision rules. `template` is REQUIRED — a button with no explanation is meaningless. `inputs` is an array of `{name,type,description}` fields; for hosted-model compatibility, an exact JSON-encoded array string or exact field-name object JSON string is also accepted, while malformed shapes are rejected. `allowReason` is a boolean; exact strings \"true\"/\"false\" are also accepted for hosted-model compatibility. `timeout` (a duration like `30d` / `2h`; empty = never times out) and `timeoutBehavior` (reject|approve|fail; required when timeout is set) govern what happens if nobody responds. At the tool boundary, an exact integer seconds string/number such as \"7200\" is normalized to 2h for hosted-model compatibility. The node has fixed yes/no exits the graph wires to downstream nodes. Its downstream result is {decision: \"yes\"|\"no\", reason} ONLY — an approval does NOT pass its input through, so a downstream node needing the original data (e.g. the amount) must read it from an upstream node, not from the approval node."
 }
 
 func (t *CreateApproval) Parameters() json.RawMessage {
@@ -31,7 +32,7 @@ func (t *CreateApproval) Parameters() json.RawMessage {
 			"inputs": {"type": "array", "description": "Declared inputs the workflow node feeds (template reads input.*): each {name, type, description}. Hosted-model compatibility also accepts an exact JSON-encoded array string or exact field-name object JSON string; malformed shapes are rejected.", "items": {"type": "object"}},
 			"template": {"type": "string", "description": "Markdown prompt with {{ input.* }} interpolation; shown to the user so they know what they're approving."},
 			"allowReason": {"type": "boolean", "description": "Allow an optional free-text note when deciding. Exact strings \"true\"/\"false\" are accepted only for hosted-model compatibility."},
-			"timeout": {"type": "string", "description": "Duration like 30d / 2h; empty = never times out."},
+			"timeout": {"type": "string", "description": "Duration like 30d / 2h; empty = never times out. Hosted-model compatibility also accepts an exact integer seconds string or integer number and normalizes it."},
 			"timeoutBehavior": {"type": "string", "enum": ["reject", "approve", "fail"], "description": "What happens on timeout; required when timeout is set."},
 			"changeReason": {"type": "string"}
 		}
@@ -40,10 +41,12 @@ func (t *CreateApproval) Parameters() json.RawMessage {
 
 func (t *CreateApproval) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		Name        string          `json:"name"`
-		Template    string          `json:"template"`
-		Inputs      json.RawMessage `json:"inputs"`
-		AllowReason json.RawMessage `json:"allowReason"`
+		Name            string          `json:"name"`
+		Template        string          `json:"template"`
+		Inputs          json.RawMessage `json:"inputs"`
+		AllowReason     json.RawMessage `json:"allowReason"`
+		Timeout         json.RawMessage `json:"timeout"`
+		TimeoutBehavior string          `json:"timeoutBehavior"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("create_approval: bad args: %w", err)
@@ -60,6 +63,13 @@ func (t *CreateApproval) ValidateInput(args json.RawMessage) error {
 	if _, err := decodeApprovalBool(a.AllowReason); err != nil {
 		return fmt.Errorf("create_approval: allowReason: %w", err)
 	}
+	timeout, err := decodeApprovalTimeout(a.Timeout)
+	if err != nil {
+		return fmt.Errorf("create_approval: timeout: %w", err)
+	}
+	if err := approvaldomain.ValidateForm(a.Template, timeout, a.TimeoutBehavior); err != nil {
+		return fmt.Errorf("create_approval: %w", err)
+	}
 	return nil
 }
 
@@ -70,7 +80,7 @@ func (t *CreateApproval) Execute(ctx context.Context, argsJSON string) (string, 
 		Inputs          json.RawMessage `json:"inputs"`
 		Template        string          `json:"template"`
 		AllowReason     json.RawMessage `json:"allowReason"`
-		Timeout         string          `json:"timeout"`
+		Timeout         json.RawMessage `json:"timeout"`
 		TimeoutBehavior string          `json:"timeoutBehavior"`
 		ChangeReason    string          `json:"changeReason"`
 	}
@@ -85,9 +95,13 @@ func (t *CreateApproval) Execute(ctx context.Context, argsJSON string) (string, 
 	if err != nil {
 		return "", fmt.Errorf("create_approval: bad args: allowReason: %w", err)
 	}
+	timeout, err := decodeApprovalTimeout(args.Timeout)
+	if err != nil {
+		return "", fmt.Errorf("create_approval: bad args: timeout: %w", err)
+	}
 	f, v, err := t.svc.Create(ctx, approvalapp.CreateInput{
 		Name: args.Name, Description: args.Description, Inputs: inputs, Template: args.Template,
-		AllowReason: allowReason, Timeout: args.Timeout, TimeoutBehavior: args.TimeoutBehavior,
+		AllowReason: allowReason, Timeout: timeout, TimeoutBehavior: args.TimeoutBehavior,
 		ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
@@ -103,7 +117,7 @@ type EditApproval struct{ svc *approvalapp.Service }
 func (t *EditApproval) Name() string { return "edit_approval" }
 
 func (t *EditApproval) Description() string {
-	return "Replace an approval form with a complete new version, writing it active immediately (revert can switch back). Required full replacement fields: approvalId, inputs, template, allowReason, timeout, timeoutBehavior, changeReason; do not send a delta. Inputs and allowReason accept the public schema plus exact hosted-model JSON string variants; malformed or missing fields are rejected before mutation. changeReason is a non-empty audit explanation."
+	return "Replace an approval form with a complete new version, writing it active immediately (revert can switch back). Required full replacement fields: approvalId, inputs, template, allowReason, timeout, timeoutBehavior, changeReason; do not send a delta. Inputs and allowReason accept the public schema plus exact hosted-model JSON string variants; timeout also accepts an exact integer seconds string or integer number and normalizes it. Malformed or missing fields are rejected before mutation. changeReason is a non-empty audit explanation."
 }
 
 func (t *EditApproval) Parameters() json.RawMessage {
@@ -115,7 +129,7 @@ func (t *EditApproval) Parameters() json.RawMessage {
 			"inputs": {"type": "array", "description": "Declared inputs (template reads input.*): each {name, type, description}. Hosted-model compatibility also accepts an exact JSON-encoded array string or exact field-name object JSON string; malformed shapes are rejected.", "items": {"type": "object"}},
 			"template": {"type": "string", "description": "Markdown prompt with {{ input.* }} interpolation."},
 			"allowReason": {"type": "boolean", "description": "Native boolean; exact strings \"true\"/\"false\" are accepted only for hosted-model compatibility."},
-			"timeout": {"type": "string", "description": "Duration like 30d / 2h; empty = never."},
+			"timeout": {"type": "string", "description": "Duration like 30d / 2h; empty = never. Hosted-model compatibility also accepts an exact integer seconds string or integer number and normalizes it."},
 			"timeoutBehavior": {"type": "string", "enum": ["reject", "approve", "fail"]},
 			"changeReason": {"type": "string"}
 		}
@@ -127,11 +141,13 @@ func (t *EditApproval) ValidateInput(args json.RawMessage) error {
 		return err
 	}
 	var a struct {
-		ApprovalID   string          `json:"approvalId"`
-		Template     string          `json:"template"`
-		Inputs       json.RawMessage `json:"inputs"`
-		AllowReason  json.RawMessage `json:"allowReason"`
-		ChangeReason string          `json:"changeReason"`
+		ApprovalID      string          `json:"approvalId"`
+		Template        string          `json:"template"`
+		Inputs          json.RawMessage `json:"inputs"`
+		AllowReason     json.RawMessage `json:"allowReason"`
+		Timeout         json.RawMessage `json:"timeout"`
+		TimeoutBehavior string          `json:"timeoutBehavior"`
+		ChangeReason    string          `json:"changeReason"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("edit_approval: bad args: %w", err)
@@ -151,6 +167,13 @@ func (t *EditApproval) ValidateInput(args json.RawMessage) error {
 	if _, err := decodeApprovalBool(a.AllowReason); err != nil {
 		return fmt.Errorf("edit_approval: allowReason: %w", err)
 	}
+	timeout, err := decodeApprovalTimeout(a.Timeout)
+	if err != nil {
+		return fmt.Errorf("edit_approval: timeout: %w", err)
+	}
+	if err := approvaldomain.ValidateForm(a.Template, timeout, a.TimeoutBehavior); err != nil {
+		return fmt.Errorf("edit_approval: %w", err)
+	}
 	return nil
 }
 
@@ -163,7 +186,7 @@ func (t *EditApproval) Execute(ctx context.Context, argsJSON string) (string, er
 		Inputs          json.RawMessage `json:"inputs"`
 		Template        string          `json:"template"`
 		AllowReason     json.RawMessage `json:"allowReason"`
-		Timeout         string          `json:"timeout"`
+		Timeout         json.RawMessage `json:"timeout"`
 		TimeoutBehavior string          `json:"timeoutBehavior"`
 		ChangeReason    string          `json:"changeReason"`
 	}
@@ -181,9 +204,13 @@ func (t *EditApproval) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", fmt.Errorf("edit_approval: bad args: allowReason: %w", err)
 	}
+	timeout, err := decodeApprovalTimeout(args.Timeout)
+	if err != nil {
+		return "", fmt.Errorf("edit_approval: bad args: timeout: %w", err)
+	}
 	v, err := t.svc.Edit(ctx, approvalapp.EditInput{
 		ID: args.ApprovalID, Inputs: inputs, Template: args.Template, AllowReason: allowReason,
-		Timeout: args.Timeout, TimeoutBehavior: args.TimeoutBehavior, ChangeReason: args.ChangeReason,
+		Timeout: timeout, TimeoutBehavior: args.TimeoutBehavior, ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
 		return "", fmt.Errorf("edit_approval: %w", err)

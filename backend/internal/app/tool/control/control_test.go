@@ -89,6 +89,8 @@ func TestControlTools_ValidateInput(t *testing.T) {
 		{"create no name", &CreateControl{}, `{"branches":[{"port":"a","when":"true"}]}`, true},
 		{"create no branches", &CreateControl{}, `{"name":"x"}`, true},
 		{"create ok", &CreateControl{}, `{"name":"x","branches":[{"port":"a","when":"true"}]}`, false},
+		{"create stringified inputs", &CreateControl{}, `{"name":"x","inputs":"[{\"name\":\"score\",\"type\":\"number\"}]","branches":[{"port":"a","when":"true"}]}`, false},
+		{"create malformed stringified inputs", &CreateControl{}, `{"name":"x","inputs":"not json","branches":[{"port":"a","when":"true"}]}`, true},
 		{"create stringified branches", &CreateControl{}, `{"name":"x","branches":"[{\"port\":\"a\",\"when\":\"true\"}]"}`, false},
 		{"create malformed stringified branches", &CreateControl{}, `{"name":"x","branches":"not json"}`, true},
 		{"edit no id", &EditControl{}, `{"branches":[{"port":"a","when":"true"}]}`, true},
@@ -96,6 +98,8 @@ func TestControlTools_ValidateInput(t *testing.T) {
 		{"edit missing change reason", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}]}`, true},
 		{"edit empty change reason", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}],"changeReason":"  "}`, true},
 		{"edit ok", &EditControl{}, `{"controlId":"ctl_1","branches":[{"port":"a","when":"true"}],"changeReason":"acceptance"}`, false},
+		{"edit stringified inputs", &EditControl{}, `{"controlId":"ctl_1","inputs":"[{\"name\":\"score\",\"type\":\"number\"}]","branches":[{"port":"a","when":"true"}],"changeReason":"acceptance"}`, false},
+		{"edit malformed stringified inputs", &EditControl{}, `{"controlId":"ctl_1","inputs":"not json","branches":[{"port":"a","when":"true"}],"changeReason":"acceptance"}`, true},
 		{"edit stringified branches", &EditControl{}, `{"controlId":"ctl_1","branches":"[{\"port\":\"a\",\"when\":\"true\"}]","changeReason":"acceptance"}`, false},
 		{"revert no id", &RevertControl{}, `{"version":1}`, true},
 		{"revert bad version", &RevertControl{}, `{"controlId":"ctl_1","version":0}`, true},
@@ -160,6 +164,50 @@ func TestControlTools_StringifiedBranches(t *testing.T) {
 	}
 }
 
+func TestControlTools_StringifiedInputs(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+
+	out, err := (&CreateControl{svc: svc}).Execute(ctx,
+		`{"name":"encoded-inputs","inputs":"[{\"name\":\"score\",\"type\":\"number\"}]","branches":[{"port":"pass","when":"true"}]}`)
+	if err != nil {
+		t.Fatalf("create stringified inputs: %v", err)
+	}
+	id := extractID(t, out)
+	if _, err := (&EditControl{svc: svc}).Execute(ctx,
+		`{"controlId":"`+id+`","inputs":"[{\"name\":\"score\",\"type\":\"number\"}]","branches":[{"port":"next","when":"true"}],"changeReason":"encoded inputs round trip"}`); err != nil {
+		t.Fatalf("edit stringified inputs: %v", err)
+	}
+	c, err := svc.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("get after stringified inputs edit: %v", err)
+	}
+	if c.ActiveVersion == nil || len(c.ActiveVersion.Inputs) != 1 || c.ActiveVersion.Inputs[0].Name != "score" {
+		t.Fatalf("stringified inputs not preserved: %+v", c.ActiveVersion)
+	}
+}
+
+func TestControlTools_OmittedInputsPreserveActiveDeclaration(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+
+	out, err := (&CreateControl{svc: svc}).Execute(ctx,
+		`{"name":"preserve-inputs","inputs":[{"name":"score","type":"number"}],"branches":[{"port":"pass","when":"true"}]}`)
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	id := extractID(t, out)
+	if _, err := (&EditControl{svc: svc}).Execute(ctx,
+		`{"controlId":"`+id+`","branches":[{"port":"next","when":"true"}],"changeReason":"preserve omitted inputs"}`); err != nil {
+		t.Fatalf("edit without inputs: %v", err)
+	}
+	c, err := svc.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("get after edit: %v", err)
+	}
+	if c.ActiveVersion == nil || len(c.ActiveVersion.Inputs) != 1 || c.ActiveVersion.Inputs[0].Name != "score" {
+		t.Fatalf("omitted inputs must preserve active declaration: %+v", c.ActiveVersion)
+	}
+}
+
 func TestControlTools_DescriptionPinsBranchEncoding(t *testing.T) {
 	for _, desc := range []string{(&CreateControl{}).Description(), (&EditControl{}).Description()} {
 		for _, want := range []string{
@@ -172,7 +220,15 @@ func TestControlTools_DescriptionPinsBranchEncoding(t *testing.T) {
 			}
 		}
 	}
+	if !strings.Contains((&CreateControl{}).Description(), "`inputs` must be a JSON array of field objects") {
+		t.Fatal("create description must require inputs array")
+	}
 	desc := (&EditControl{}).Description()
+	for _, want := range []string{"`inputs` is optional", "omit it to preserve", "[] to clear"} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("edit description missing %q: %s", want, desc)
+		}
+	}
 	if !strings.Contains(desc, "changeReason") || !strings.Contains(desc, "REQUIRED") {
 		t.Fatal("edit description must pin non-empty changeReason")
 	}

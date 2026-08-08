@@ -48,13 +48,17 @@ workflow/agent。
 但拒绝浮点、布尔、数组和无法解析的字符串。Revert 只移动 active pointer，不新建版本、不改写历史快照。
 
 AI `create_approval` / `edit_approval` 保持公开 schema 的强类型契约，同时在执行边界兼容已观测的
-托管模型形状：`allowReason` 的精确布尔字符串，以及 `inputs` 的精确 JSON 编码数组或以字段名为
-key 的 JSON 对象（两者也可作为字符串传入）。对象 key 会排序后转为稳定的 Field 列表；数字、任意
-truthy 值、坏 JSON 和冲突字段名仍在 mutation 前拒绝。`edit_approval` 是完整版本替换而不是 delta，
+托管模型形状：`allowReason` 的精确布尔字符串，`timeout` 的精确整数秒字符串/整数（例如 `"7200"`
+归一化为 `2h`），以及 `inputs` 的精确 JSON 编码数组或以字段名为 key 的 JSON 对象（两者也可作为
+字符串传入）。对象 key 会排序后转为稳定的 Field 列表；数字、任意 truthy 值、坏 JSON、非整数秒和
+冲突字段名仍在 mutation 前拒绝。`edit_approval` 是完整版本替换而不是 delta，
 因此 `approvalId`、`inputs`、`template`、`allowReason`、`timeout`、`timeoutBehavior` 与非空
 `changeReason` 均必须显式提供（timeout 空字符串和 inputs 空数组是合法值）；执行边界与 schema
 同时拒绝缺失或 null，防止零值或审计理由缺失静默写入错误版本。
 该兼容只修正 wire shape，不改变 approval 语义，也不放宽 HTTP/API 的公开 schema。
+
+HTTP metadata patch 只在 name/description 实际变化时保存；空 patch 或等值 patch 是成功 no-op，不刷新
+`updatedAt`，也不发送 `approval.updated` 通知。
 
 ## 3. Runtime
 
@@ -70,6 +74,9 @@ Inbox 的 `deadline` 由 `parkedAt + pinnedVersion.timeout` 派生，并与 time
 ## 4. 集成与契约
 
 Approval 列表支持 `?search=` 的大小写不敏感 name 子串过滤，`X-Anselm-Total-Count` 与当前过滤条件一致；
+版本列表先校验父 Approval 表单存在，未知 Approval 返回 `APPROVAL_NOT_FOUND` 而不是伪装成空历史；父 Approval 已软删时
+普通实体读仍为 not-found，但 immutable version history 仍可通过版本列表/单读端点审计。版本单读的数字版本号与
+opaque `apfv_...` ID 都按路径父 Approval 归属查询，跨父或未知版本统一返回 `APPROVAL_VERSION_NOT_FOUND`；
 Approval 参与 catalog、mention、relation、search 与 AI iterate。CRUD、versions、
 edit/revert/iterate 及 Flowrun decide 端点见 [`api.md`](../api.md)；表见
 [`database.md`](../database.md)；错误见 [`error-codes.md`](../error-codes.md)。

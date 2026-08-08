@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 
 	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
@@ -54,6 +55,79 @@ func decodeApprovalVersion(raw json.RawMessage) (int, error) {
 		return 0, fmt.Errorf("version must be a positive integer or an exact integer string, got %q", encoded)
 	}
 	return version, nil
+}
+
+// decodeApprovalTimeout preserves the public duration-string contract while accepting the exact
+// integer-seconds shape emitted by some hosted models (for example, "7200" for 2h). The value is
+// canonicalized before it reaches the domain so UI receipts and later timeout sweeps keep one readable
+// duration instead of persisting a provider-specific number.
+//
+// decodeApprovalTimeout 保持公开 duration 字符串契约，同时兼容部分托管模型发出的精确整数秒形状
+// (例如用 "7200" 表示 2h)。进入 domain 前先归一化，避免 UI 回执和后续超时扫描持久化 provider
+// 专属数字而失去人类可读口径。
+func decodeApprovalTimeout(raw json.RawMessage) (string, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return "", nil
+	}
+
+	var text string
+	if raw[0] == '"' {
+		if err := json.Unmarshal(raw, &text); err != nil {
+			return "", fmt.Errorf("timeout must be a duration string or an exact integer number of seconds")
+		}
+	} else {
+		var seconds int64
+		if err := json.Unmarshal(raw, &seconds); err != nil {
+			return "", fmt.Errorf("timeout must be a duration string or an exact integer number of seconds")
+		}
+		text = strconv.FormatInt(seconds, 10)
+	}
+
+	text = strings.TrimSpace(text)
+	if text == "" {
+		return "", nil
+	}
+	seconds, err := strconv.ParseInt(text, 10, 64)
+	if err != nil {
+		if isBareApprovalNumber(text) {
+			return "", fmt.Errorf("timeout seconds must be an exact integer")
+		}
+		// Unit-bearing durations remain the public form and are validated by the domain.
+		return text, nil
+	}
+	if seconds <= 0 || seconds > int64((time.Duration(1<<63-1))/time.Second) {
+		return "", fmt.Errorf("timeout seconds must be a positive integer")
+	}
+	return compactApprovalDuration(time.Duration(seconds) * time.Second), nil
+}
+
+func isBareApprovalNumber(s string) bool {
+	if s == "" {
+		return false
+	}
+	for _, r := range s {
+		if (r < '0' || r > '9') && r != '+' && r != '-' && r != '.' {
+			return false
+		}
+	}
+	return true
+}
+
+func compactApprovalDuration(d time.Duration) string {
+	if d%(24*time.Hour) == 0 {
+		return fmt.Sprintf("%dd", d/(24*time.Hour))
+	}
+	if d%time.Hour == 0 {
+		return fmt.Sprintf("%dh", d/time.Hour)
+	}
+	if d%time.Minute == 0 {
+		return fmt.Sprintf("%dm", d/time.Minute)
+	}
+	if d%time.Second == 0 {
+		return fmt.Sprintf("%ds", d/time.Second)
+	}
+	return d.String()
 }
 
 // decodeApprovalInputs accepts the public Field array plus two shape-preserving hosted-model

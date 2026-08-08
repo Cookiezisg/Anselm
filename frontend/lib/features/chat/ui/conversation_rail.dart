@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../core/contract/api_error.dart';
 import '../../../core/contract/conversation.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
@@ -19,6 +22,7 @@ import '../../../core/ui/an_time_pulse.dart';
 import '../../../i18n/strings.g.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
+import '../data/conversation_signal.dart';
 import '../state/chat_drafts.dart';
 import '../state/conversation_list_provider.dart';
 import '../state/conversation_list_state.dart';
@@ -79,9 +83,26 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   // Which row is mid-rename (its label slot becomes an AnInlineEdit). null = none. 哪行在改名中。
   String? _editingId;
   final _debounce = Debouncer(AnMotion.searchDebounce);
+  StreamSubscription<ConversationSignal>? _lifecycleSub;
+  StreamSubscription<void>? _lifecycleResyncSub;
+
+  @override
+  void initState() {
+    super.initState();
+    final repo = ref.read(chatRepositoryProvider);
+    _lifecycleSub = repo.lifecycleSignals().listen(_onLifecycleSignal);
+    // A notifications-stream gap can hide a deletion just as it can hide a rename. Re-read the open
+    // row on the same stream's resync and leave the deep link only when the server proves it is gone.
+    // notifications 流缺口可能吞掉删除,也可能吞掉改名。该流 resync 时重读当前行,只有服务端明确 404 才离开深链。
+    _lifecycleResyncSub = repo.lifecycleResync().listen((_) {
+      _verifySelectedConversation();
+    });
+  }
 
   @override
   void dispose() {
+    _lifecycleSub?.cancel();
+    _lifecycleResyncSub?.cancel();
     _debounce.dispose();
     super.dispose();
   }
@@ -89,6 +110,29 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
   ChatRepository get _repo => ref.read(chatRepositoryProvider);
   ConversationListNotifier get _list =>
       ref.read(conversationListProvider.notifier);
+
+  void _onLifecycleSignal(ConversationSignal signal) {
+    if (!signal.durable || signal.action != ConversationAction.deleted) return;
+    _navigateIfSelected(signal.id);
+  }
+
+  void _navigateIfSelected(String id) {
+    if (!mounted || ref.read(selectedConversationProvider)?.id != id) return;
+    // The URL is the selection source of truth. A deletion from another window must not leave a dead
+    // transcript mounted while the rail has already removed its row.
+    // URL 是选区唯一真相。另一个窗口删除后,rail 已去行时不能让死 transcript 继续挂着。
+    context.go('/');
+  }
+
+  Future<void> _verifySelectedConversation() async {
+    final id = ref.read(selectedConversationProvider)?.id;
+    if (id == null) return;
+    try {
+      await _repo.getConversation(id);
+    } on ApiException catch (error) {
+      if (error.isNotFound) _navigateIfSelected(id);
+    }
+  }
 
   void _newChat() {
     // New chat is an explicit discard boundary. Route navigation alone does not remount the landing

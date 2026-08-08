@@ -40,6 +40,8 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<HandlerVersion>>? handlerVersions,
     Map<String, List<AgentVersion>>? agentVersions,
     Map<String, List<WorkflowVersion>>? workflowVersions,
+    Map<String, List<ControlVersion>>? controlVersions,
+    Map<String, List<ApprovalVersion>>? approvalVersions,
     Map<String, List<FunctionExecution>>? functionExecutions,
     Map<String, List<HandlerCall>>? handlerCalls,
     Map<String, List<AgentExecution>>? agentExecutions,
@@ -68,6 +70,8 @@ class FixtureEntityRepository implements EntityRepository {
        _handlerVersions = handlerVersions ?? const {},
        _agentVersions = agentVersions ?? const {},
        _workflowVersions = Map.of(workflowVersions ?? const {}),
+       _controlVersions = Map.of(controlVersions ?? const {}),
+       _approvalVersions = Map.of(approvalVersions ?? const {}),
        _functionExecutions = functionExecutions ?? const {},
        _handlerCalls = handlerCalls ?? const {},
        _agentExecutions = agentExecutions ?? const {},
@@ -103,6 +107,8 @@ class FixtureEntityRepository implements EntityRepository {
   final Map<String, List<HandlerVersion>> _handlerVersions;
   final Map<String, List<AgentVersion>> _agentVersions;
   final Map<String, List<WorkflowVersion>> _workflowVersions;
+  final Map<String, List<ControlVersion>> _controlVersions;
+  final Map<String, List<ApprovalVersion>> _approvalVersions;
   final Map<String, List<FunctionExecution>> _functionExecutions;
   final Map<String, List<HandlerCall>> _handlerCalls;
   final Map<String, List<AgentExecution>> _agentExecutions;
@@ -120,9 +126,10 @@ class FixtureEntityRepository implements EntityRepository {
   final Map<String, List<Activation>> _activations;
   final Map<String, List<Firing>> _firings;
   final Map<String, HandlerConfig> _handlerConfigs;
-  final EntityRelGraph _relGraph;
+  EntityRelGraph _relGraph;
 
   final _lifecycle = <EntityKind, StreamController<EntitySignal>>{};
+  final _relationSignals = StreamController<void>.broadcast();
   final _panels = <String, StreamController<StreamEnvelope>>{};
 
   // ── paging helpers (cursor = the next start index, as a string) ────────────
@@ -321,6 +328,18 @@ class FixtureEntityRepository implements EntityRepository {
     String? cursor,
     int? limit,
   }) async => _page(_workflowVersions[id] ?? const [], cursor, limit);
+  @override
+  Future<Page<ControlVersion>> listControlVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _page(_controlVersions[id] ?? const [], cursor, limit);
+  @override
+  Future<Page<ApprovalVersion>> listApprovalVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) async => _page(_approvalVersions[id] ?? const [], cursor, limit);
 
   // ── logs ────────────────────────────────────────────────────────────────--
   // The fixture ignores the `status` filter (the public params exist for interface conformance); it
@@ -1203,15 +1222,28 @@ class FixtureEntityRepository implements EntityRepository {
   Stream<void> lifecycleResync() => _lifecycleResync.stream;
   final StreamController<void> _lifecycleResync = StreamController.broadcast();
 
+  @override
+  Stream<void> relationSignals() => _relationSignals.stream;
+
   /// Script a notifications-stream 410 (the gap that loses lifecycle signals). 脚本化 410 缺口。
   void emitLifecycleResync() => _lifecycleResync.add(null);
+
+  /// Replace the durable graph snapshot for a following refresh. 仅供 fixture 测试切换下一份快照。
+  void replaceRelGraph(EntityRelGraph graph) => _relGraph = graph;
+
+  /// Script a durable workspace-wide relation pulse without a rail row of its own (for example a
+  /// document or skill relation change). 脚本化没有 rail 行归属的关系快照变更。
+  void emitRelationSignal() => _relationSignals.add(null);
+
   @override
   Stream<StreamEnvelope> panelSignals(StreamScope scope) =>
       _lazyPanel(scope.key).stream;
 
   /// Script a lifecycle signal onto [kind]'s list stream (test/dev only). 脚本一条生命周期信号。
-  void emitLifecycle(EntitySignal signal) =>
-      _lazyLifecycle(signal.kind).add(signal);
+  void emitLifecycle(EntitySignal signal) {
+    _lazyLifecycle(signal.kind).add(signal);
+    if (signal.durable) _relationSignals.add(null);
+  }
 
   /// Script a panel-realtime frame onto one scope's stream (test/dev only). 脚本一条面板实时帧。
   void emitPanel(StreamScope scope, StreamEnvelope env) =>
@@ -1250,6 +1282,8 @@ class FixtureEntityRepository implements EntityRepository {
     for (final c in _lifecycle.values) {
       await c.close();
     }
+    await _relationSignals.close();
+    await _lifecycleResync.close();
     for (final c in _panels.values) {
       await c.close();
     }

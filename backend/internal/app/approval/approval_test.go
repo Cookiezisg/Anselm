@@ -32,6 +32,20 @@ func newSvc(t *testing.T) (*Service, context.Context) {
 	return svc, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
 }
 
+type recordingNotifier struct {
+	events []string
+}
+
+func (n *recordingNotifier) Emit(_ context.Context, eventType string, _ map[string]any) error {
+	n.events = append(n.events, eventType)
+	return nil
+}
+
+func (n *recordingNotifier) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	n.events = append(n.events, eventType)
+	return nil
+}
+
 func TestCreate_WritesV1Active(t *testing.T) {
 	svc, ctx := newSvc(t)
 	f, v, err := svc.Create(ctx, CreateInput{
@@ -127,6 +141,53 @@ func TestEdit_NewVersionPointerMoves(t *testing.T) {
 	}
 }
 
+func TestListVersionsRequiresParentAndRetainsDeletedHistory(t *testing.T) {
+	svc, ctx := newSvc(t)
+	f, _, err := svc.Create(ctx, CreateInput{Name: "history", Template: "ok?"})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	rows, _, err := svc.ListVersions(ctx, f.ID, approvaldomain.VersionListFilter{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("existing approval history: rows=%d err=%v", len(rows), err)
+	}
+	if err := svc.Delete(ctx, f.ID); err != nil {
+		t.Fatalf("soft-delete approval: %v", err)
+	}
+	if _, err := svc.Get(ctx, f.ID); !errors.Is(err, approvaldomain.ErrNotFound) {
+		t.Fatalf("deleted approval must remain absent from normal reads, got %v", err)
+	}
+	rows, _, err = svc.ListVersions(ctx, f.ID, approvaldomain.VersionListFilter{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("soft-deleted approval history must remain auditable: rows=%d err=%v", len(rows), err)
+	}
+	if _, _, err := svc.ListVersions(ctx, "apf_missing_versions", approvaldomain.VersionListFilter{}); !errors.Is(err, approvaldomain.ErrNotFound) {
+		t.Fatalf("missing approval history must be ErrNotFound, got %v", err)
+	}
+}
+
+func TestGetVersionForApprovalScopesOpaqueID(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, av, err := svc.Create(ctx, CreateInput{Name: "a", Template: "a?"})
+	if err != nil {
+		t.Fatalf("create a: %v", err)
+	}
+	b, bv, err := svc.Create(ctx, CreateInput{Name: "b", Template: "b?"})
+	if err != nil {
+		t.Fatalf("create b: %v", err)
+	}
+	if got, err := svc.GetVersionForApproval(ctx, a.ID, av.ID); err != nil || got.ApprovalID != a.ID {
+		t.Fatalf("same-parent opaque read: got=%+v err=%v", got, err)
+	}
+	if _, err := svc.GetVersionForApproval(ctx, a.ID, bv.ID); !errors.Is(err, approvaldomain.ErrVersionNotFound) {
+		t.Fatalf("cross-approval opaque version must be hidden, got %v", err)
+	}
+	if _, err := svc.GetVersionForApproval(ctx, "apf_missing_version_owner", av.ID); !errors.Is(err, approvaldomain.ErrVersionNotFound) {
+		t.Fatalf("missing approval must not expose an opaque version, got %v", err)
+	}
+	_ = b
+}
+
 func TestRevert_MovesPointer(t *testing.T) {
 	svc, ctx := newSvc(t)
 	f, v1, _ := svc.Create(ctx, CreateInput{Name: "r", Template: "v1?"})
@@ -155,6 +216,38 @@ func TestUpdateMeta_NoVersionBump(t *testing.T) {
 	}
 	if n, _ := svc.repo.MaxVersionNumber(ctx, f.ID); n != 1 {
 		t.Fatalf("UpdateMeta must not bump version, max=%d", n)
+	}
+}
+
+func TestUpdateMeta_NoOpDoesNotTouchUpdatedAt(t *testing.T) {
+	svc, ctx := newSvc(t)
+	f, _, _ := svc.Create(ctx, CreateInput{Name: "m", Description: "same", Template: "ok?"})
+	notifier := &recordingNotifier{}
+	svc.notif = notifier
+	before, err := svc.Get(ctx, f.ID)
+	if err != nil {
+		t.Fatalf("Get before: %v", err)
+	}
+	got, err := svc.UpdateMeta(ctx, UpdateMetaInput{ID: f.ID})
+	if err != nil {
+		t.Fatalf("UpdateMeta no-op: %v", err)
+	}
+	if !got.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("no-op must not touch updatedAt: before=%s after=%s", before.UpdatedAt, got.UpdatedAt)
+	}
+	after, err := svc.Get(ctx, f.ID)
+	if err != nil {
+		t.Fatalf("Get after: %v", err)
+	}
+	if !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("no-op must not persist an updatedAt change: before=%s after=%s", before.UpdatedAt, after.UpdatedAt)
+	}
+	name, description := before.Name, before.Description
+	if _, err := svc.UpdateMeta(ctx, UpdateMetaInput{ID: f.ID, Name: &name, Description: &description}); err != nil {
+		t.Fatalf("UpdateMeta equal no-op: %v", err)
+	}
+	if len(notifier.events) != 0 {
+		t.Fatalf("no-op must not publish notifications, got %v", notifier.events)
 	}
 }
 

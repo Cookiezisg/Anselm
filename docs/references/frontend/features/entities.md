@@ -30,7 +30,7 @@ audience: [human, ai]
 
 - `EntityRepository` 是唯一数据缝；`LiveEntityRepository` 接 HTTP/SSE，`FixtureEntityRepository` 驱动 demo 与测试。
 - 选中实体单向派生自 URL；切实体时整页以 last-known-good 换代，头、tab 与正文不会分别显示不同实体。
-- Function、Handler、Agent、Workflow 是版本化可执行实体；Control、Approval、Trigger 是支撑实体。Trigger 无版本，不能被硬塞进通用版本 tab。
+- Function、Handler、Agent、Workflow 是版本化可执行实体；Control、Approval 是版本化支撑实体，复用同一版本历史/差异面但没有执行台；Trigger 是唯一无版本支撑实体，不能被硬塞进通用版本 tab。
 - rail 上的无参生命周期动作（Workflow 上线/下线、Trigger 暂停/恢复、Handler 重启）失败时保留服务端的可行动原因；Workflow `WORKFLOW_NOT_RUNNABLE` 还展示结构化问题的首条，不能把“图不可运行”压成没有下一步的泛化「操作失败」。非 API/传输异常仍使用通用兜底。
 - meta 修改不升版本；workflow 图 `:edit` 以一次编辑会话的一组 ops 生成一个新版本；`:revert` 只移动 active 指针。
 - 版本页执行 `:revert` 后，Handler 的详情与 resident 状态必须重读，Versions 页就地重算 active 标记；若右岛已有已落定的运行结果，版本指针改变后清掉这份瞬时结果但保留方法/来源选择与 Recent 审计，禁止把旧版本输出挂在新版本标题下。失败只显示具体错误，active 指针和既有结果不伪造改变。
@@ -46,8 +46,8 @@ audience: [human, ai]
 - Handler 首次 `:call` 可能懒起常驻实例；调用成功或失败收尾后，详情必须重读服务端 `runtimeState`，不能让概览继续显示旧的 `stopped`。
 - Agent：定义、版本、执行日志与流式 block tree。
 - Workflow：图、治理信息、版本 diff、运行驾驶舱与全屏图编辑器。
-- Control：输入与分支/端口规则。
-- Approval：审批模板与规则；运行期决定发生在具体 parked node。
+- Control：输入与分支/端口规则；版本 tab 展示分页历史、路由行为 diff 和 active 标记。
+- Approval：审批模板与规则、版本 tab；运行期决定发生在具体 parked node。
 - Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。Webhook 概览必须同时说明挂载 URL 与认证携带方式：HMAC 显示算法/签名头，明文 secret 显示 `X-Webhook-Secret` 请求头或 `?token=` 查询参数，但永不回显 secret 本身。
 - Trigger 暂停时详情头仍保留 `Fire` 的空间位置，但按钮必须 inert，徽标显示 `Paused`，hover/focus 提示先恢复再催发；后端 `TRIGGER_PAUSED` 仍是最终防线。
 - Trigger 的 Dispatch 首次读取允许短暂显示 `pending`：firing 先落 durable 行，再由 scheduler 决定 `started`、`skipped`、`superseded`、`shed` 或 `missed`。只要当前页仍有 pending，前端每 500ms 重读同一 REST 页并替换现有行；全部行进入终态后立即停止，不能让用户离开再回来才能看到真实处置。筛选暴露全部用户可理解的处置词，`claimed` 只作为瞬态认领阶段留在全量/机器真相里，不作为停留筛选；`missed` 是持久错过台账，必须可直接筛选，且列表行使用 slang 双语词而不是裸 wire 枚举。列表主行使用 API 读时补全的 workflow 名，详情同时保留独立的 workflow ID；workflow 已删除时才回落裸 ID，避免首屏先闪出机器 ID 再跳名。

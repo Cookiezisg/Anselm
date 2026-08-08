@@ -248,14 +248,13 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                     label: d.tab.overview,
                     pane: _overview(detail),
                   ),
-                  // Support kinds (control) are overview-only in the pilot — versions (structured branch
-                  // diff) + no logs are a follow-up. 支撑 kind 暂概览-only(版本 diff 后续、无日志)。
-                  if (detail.ref.kind.executable) ...[
+                  if (detail.ref.kind.versioned)
                     AnTabsItem(
                       key: 'versions',
                       label: d.tab.versions,
                       pane: VersionTab(detail.ref),
                     ),
+                  if (detail.ref.kind.executable) ...[
                     // Workflow's log IS its flowruns → the 运行 cockpit (run board + gantt + run graph +
                     // node debug, WRK-055 W4); other kinds keep the generic 日志 tab.
                     // workflow 的日志就是 flowrun → 运行驾驶舱;余 kind 走通用日志 tab。

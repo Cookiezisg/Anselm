@@ -11,6 +11,7 @@ import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
+import 'package:anselm/features/chat/data/conversation_signal.dart';
 import 'package:anselm/features/chat/state/chat_drafts.dart';
 import 'package:anselm/features/chat/state/conversation_list_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
@@ -59,12 +60,16 @@ ChatMessage _m(String id, String role, String text) => ChatMessage(
   ],
 );
 
-Widget _host(ChatRepository repo, {AnOverlayController? overlay}) {
+Widget _host(
+  ChatRepository repo, {
+  AnOverlayController? overlay,
+  String initialLocation = '/',
+}) {
   const rail = Scaffold(
     body: SizedBox(width: 320, height: 600, child: ConversationRail()),
   );
   final router = GoRouter(
-    initialLocation: '/',
+    initialLocation: initialLocation,
     routes: [
       GoRoute(path: '/', builder: (_, _) => rail),
       GoRoute(path: '/chat/:id', builder: (_, _) => rail),
@@ -422,6 +427,46 @@ void main() {
       expect(container.read(selectedConversationProvider), isNull);
     },
   );
+
+  testWidgets('an external durable deletion clears the open deep link', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(conversations: [_c('cv_a', 'thread A')]);
+    await tester.pumpWidget(_host(repo, initialLocation: '/chat/cv_a'));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ConversationRail)),
+    );
+    expect(
+      container.read(selectedConversationProvider),
+      const ConversationRef('cv_a'),
+    );
+
+    // Simulate another window deleting the thread. The list and the open route consume the same
+    // durable notification, so the rail must remove the row AND leave the dead deep link.
+    // 模拟另一个窗口删除线程。列表与当前路由消费同一 durable 通知,必须同时去行并离开死深链。
+    repo.emitSignal(
+      const ConversationSignal(
+        id: 'cv_a',
+        action: ConversationAction.deleted,
+        durable: true,
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(
+      container
+          .read(goRouterProvider)
+          .routerDelegate
+          .currentConfiguration
+          .uri
+          .path,
+      '/',
+    );
+    expect(container.read(selectedConversationProvider), isNull);
+    expect(find.text('thread A'), findsNothing);
+  });
 
   // ── the left-island fork entry (CH-b) ──
 

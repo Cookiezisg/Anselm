@@ -178,6 +178,19 @@ GET /controls|approvals/{id}/versions[/{version}]
 `GET /controls` 与 `GET /approvals` 均支持 `?search=` 的大小写不敏感 name 子串过滤；列表响应在
 `X-Anselm-Total-Count` 携带同一过滤条件下的精确总数，分页 JSON body 仍遵守 N4。
 
+版本列表先解析路径中的父 Control/Approval；父实体不存在返回对应的 `*_NOT_FOUND`，不伪装成
+`200` 空历史。父实体存在但历史为空时才返回空分页；父实体已软删时，普通实体读仍为 not-found，但其
+immutable version history 仍可通过版本列表/单读端点审计。版本单读支持数字版本号或 opaque version ID；两种
+形态都必须属于路径中的父实体，跨父或未知 opaque ID 返回对应的 `*_VERSION_NOT_FOUND`。
+
+`PATCH /controls/{id}` 与 `PATCH /approvals/{id}` 只更新实际变化的 metadata 字段，且不铸造新版本。
+空 patch 或所有提供的字段都已等值时仍返回 `200` 当前实体，但不写盘、不刷新 `updatedAt`、也不发
+`*.updated` 生命周期通知；这保证重试或表单保存的 no-op 不伪造一次修改。
+
+Control 的 HTTP `:edit` 端点若提供 `inputs`，必须是 field object JSON array；省略该字段不应抹掉当前
+active version 的声明。仅 AI 工具边界另外兼容托管模型发出的完整 JSON 数组字符串，并在进入 domain
+前解码为同一原生形状；该兼容不改变 HTTP/domain 契约，也不接受坏字符串、对象或其他非数组值。
+
 `DELETE /approvals/{id}` 与 `delete_approval` 均为软删除：普通实体读/搜索返回 not-found、关系边
 被清理，但 `approval_form_versions` 作为不可变审计历史保留；工具调用必须先查关系并经
 `danger="dangerous"` 的人闸批准。

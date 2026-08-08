@@ -28,15 +28,18 @@ type CreateInput struct {
 	ChangeReason string
 }
 
-// EditInput writes a new version from a fresh branch set (a non-nil whole-set replace),
-// and moves the active pointer to it.
+// EditInput writes a new version from a fresh branch set and moves the active pointer to it.
+// PreserveInputsIfOmitted is used by the AI tool boundary: omitting the optional inputs field
+// means keep the active declaration, while an explicitly supplied empty array can clear it.
 //
-// EditInput 用一组新 branches 写新版本（整组替换）并把 active 指针移到它。
+// EditInput 用一组新 branches 写新版本并把 active 指针移到它。PreserveInputsIfOmitted
+// 供 AI 工具边界使用：省略可选 inputs 表示保留 active 声明，显式传空数组才清空。
 type EditInput struct {
-	ID           string
-	Inputs       []schemapkg.Field
-	Branches     []controldomain.Branch
-	ChangeReason string
+	ID                      string
+	Inputs                  []schemapkg.Field
+	PreserveInputsIfOmitted bool
+	Branches                []controldomain.Branch
+	ChangeReason            string
 }
 
 // UpdateMetaInput patches control metadata without a version bump; nil = unchanged.
@@ -97,7 +100,15 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	if err != nil {
 		return nil, fmt.Errorf("controlapp.Edit: %w", err)
 	}
-	if err := validateInputs(in.Inputs); err != nil {
+	inputs := in.Inputs
+	if in.PreserveInputsIfOmitted && c.ActiveVersionID != "" {
+		active, verr := s.repo.GetVersion(ctx, c.ActiveVersionID)
+		if verr != nil {
+			return nil, fmt.Errorf("controlapp.Edit: load active inputs: %w", verr)
+		}
+		inputs = active.Inputs
+	}
+	if err := validateInputs(inputs); err != nil {
 		return nil, err
 	}
 	if err := s.validateBranches(in.Branches); err != nil {
@@ -110,7 +121,7 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*controldomain.Versio
 	now := time.Now().UTC()
 	versionID := idgenpkg.New("ctlv")
 	v := &controldomain.Version{
-		ID: versionID, ControlID: in.ID, Version: max + 1, Inputs: in.Inputs, Branches: in.Branches,
+		ID: versionID, ControlID: in.ID, Version: max + 1, Inputs: inputs, Branches: in.Branches,
 		ChangeReason: in.ChangeReason, CreatedAt: now, UpdatedAt: now,
 	}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
@@ -135,14 +146,22 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*controld
 	if err != nil {
 		return nil, fmt.Errorf("controlapp.UpdateMeta: %w", err)
 	}
+	changed := false
 	if in.Name != nil {
 		if strings.TrimSpace(*in.Name) == "" {
 			return nil, controldomain.ErrInvalidName
 		}
-		c.Name = *in.Name
+		if c.Name != *in.Name {
+			c.Name = *in.Name
+			changed = true
+		}
 	}
-	if in.Description != nil {
+	if in.Description != nil && c.Description != *in.Description {
 		c.Description = *in.Description
+		changed = true
+	}
+	if !changed {
+		return c, nil
 	}
 	if err := s.repo.SaveControl(ctx, c); err != nil {
 		return nil, fmt.Errorf("controlapp.UpdateMeta: %w", err)
@@ -236,11 +255,27 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 // --- version reads ---
 
 func (s *Service) ListVersions(ctx context.Context, controlID string, filter controldomain.VersionListFilter) ([]*controldomain.Version, string, error) {
+	// A missing parent is not an empty history; resolve it unscoped so a soft-deleted parent still
+	// exposes immutable audit history while an unknown id stays a not-found. 父实体不存在不是空历史；
+	// 用 unscoped 解析父行，使软删父仍可读不可变审计历史，而未知 id 仍是 not-found。
+	if _, err := s.repo.GetControlIncludingDeleted(ctx, controlID); err != nil {
+		return nil, "", fmt.Errorf("controlapp.ListVersions: %w", err)
+	}
 	return s.repo.ListVersions(ctx, controlID, filter)
 }
 
 func (s *Service) GetVersion(ctx context.Context, versionID string) (*controldomain.Version, error) {
 	return s.repo.GetVersion(ctx, versionID)
+}
+
+// GetVersionForControl returns an opaque version only when it belongs to the route's parent
+// Control. Numeric reads already use the parent-scoped repository method; opaque reads must do
+// the same or a valid ID from another Control can cross the route boundary.
+//
+// GetVersionForControl 只返回属于路由父 Control 的 opaque 版本。数字读取已有父级查询；opaque
+// 读取也必须如此，否则另一 Control 的合法 ID 会穿过 URL 父级边界。
+func (s *Service) GetVersionForControl(ctx context.Context, controlID, versionID string) (*controldomain.Version, error) {
+	return s.repo.GetVersionForControl(ctx, controlID, versionID)
 }
 
 func (s *Service) GetVersionByNumber(ctx context.Context, controlID string, versionN int) (*controldomain.Version, error) {

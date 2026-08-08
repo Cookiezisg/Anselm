@@ -104,6 +104,22 @@ func (s *Store) GetForm(ctx context.Context, id string) (*approvaldomain.Approva
 	return f, nil
 }
 
+// GetFormIncludingDeleted resolves parent existence for immutable version history. Normal
+// entity reads stay soft-delete aware; only the audit-history path uses this unscoped lookup.
+//
+// GetFormIncludingDeleted 为不可变版本历史解析父行是否存在。普通实体读取仍过滤软删；只有
+// 审计历史路径使用这条 unscoped 查询。
+func (s *Store) GetFormIncludingDeleted(ctx context.Context, id string) (*approvaldomain.ApprovalForm, error) {
+	f, err := s.forms.Unscoped().WhereEq("id", id).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, approvaldomain.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("approvalstore.GetFormIncludingDeleted: %w", err)
+	}
+	return f, nil
+}
+
 func (s *Store) GetFormsByIDs(ctx context.Context, ids []string) ([]*approvaldomain.ApprovalForm, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -187,6 +203,22 @@ func (s *Store) GetVersion(ctx context.Context, versionID string) (*approvaldoma
 	}
 	if err != nil {
 		return nil, fmt.Errorf("approvalstore.GetVersion: %w", err)
+	}
+	return v, nil
+}
+
+// GetVersionForApproval reads an opaque version id only inside its parent approval form. The
+// route supplies both ids, so a globally unique apfv_ id must not bypass the approval boundary.
+//
+// GetVersionForApproval 只在父 Approval 内读取 opaque version id。路由同时提供两个 id，故即使
+// apfv_ id 全局唯一，也不能绕过 Approval 边界读取另一实体的版本。
+func (s *Store) GetVersionForApproval(ctx context.Context, formID, versionID string) (*approvaldomain.Version, error) {
+	v, err := s.vers.WhereEq("approval_id", formID).WhereEq("id", versionID).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, approvaldomain.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("approvalstore.GetVersionForApproval: %w", err)
 	}
 	return v, nil
 }

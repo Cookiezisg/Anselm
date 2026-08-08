@@ -204,6 +204,41 @@ func TestApprovalHostedModelShapeDecoders(t *testing.T) {
 	}
 }
 
+func TestApprovalTimeoutDecoder_NormalizesHostedSeconds(t *testing.T) {
+	cases := []struct {
+		name string
+		raw  string
+		want string
+	}{
+		{name: "duration string", raw: `"2h"`, want: "2h"},
+		{name: "stringified seconds", raw: `"7200"`, want: "2h"},
+		{name: "numeric seconds", raw: `7200`, want: "2h"},
+		{name: "empty", raw: `""`, want: ""},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got, err := decodeApprovalTimeout(json.RawMessage(tc.raw))
+			if err != nil || got != tc.want {
+				t.Fatalf("decodeApprovalTimeout(%s) = %q, %v; want %q", tc.raw, got, err, tc.want)
+			}
+		})
+	}
+	for _, raw := range []string{`"0"`, `0`, `-1`, `"-1"`, `7200.5`, `"7200.5"`} {
+		t.Run("reject "+raw, func(t *testing.T) {
+			got, err := decodeApprovalTimeout(json.RawMessage(raw))
+			if err != nil && got == "" {
+				return
+			}
+			if got == "7200.5" {
+				t.Fatal("non-integral seconds must not be passed through")
+			}
+			if err == nil {
+				t.Fatalf("decodeApprovalTimeout(%s) unexpectedly succeeded with %q", raw, got)
+			}
+		})
+	}
+}
+
 func TestCreateApproval_HostedModelStringifiedArgs(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	args := `{"name":"hosted","template":"Approve {{ input.amount }}?","inputs":"{\"amount\":{\"type\":\"number\",\"description\":\"Amount\"}}","allowReason":"true","timeout":"2h","timeoutBehavior":"reject"}`
@@ -226,6 +261,27 @@ func TestCreateApproval_HostedModelStringifiedArgs(t *testing.T) {
 	want := []schemapkg.Field{{Name: "amount", Type: "number", Description: "Amount"}}
 	if !reflect.DeepEqual(form.ActiveVersion.Inputs, want) {
 		t.Fatalf("inputs = %+v, want %+v", form.ActiveVersion.Inputs, want)
+	}
+}
+
+func TestCreateApproval_HostedModelSecondsTimeout(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	args := `{"name":"hosted-seconds","template":"Approve {{ input.amount }}?","timeout":"7200","timeoutBehavior":"reject"}`
+	tool := &CreateApproval{svc: svc}
+	if err := tool.ValidateInput([]byte(args)); err != nil {
+		t.Fatalf("validate hosted seconds args: %v", err)
+	}
+	out, err := tool.Execute(ctx, args)
+	if err != nil {
+		t.Fatalf("execute hosted seconds args: %v", err)
+	}
+	id := extractID(t, out)
+	form, err := svc.Get(ctx, id)
+	if err != nil {
+		t.Fatalf("get hosted seconds form: %v", err)
+	}
+	if form.ActiveVersion == nil || form.ActiveVersion.Timeout != "2h" {
+		t.Fatalf("timeout = %q, want 2h", form.ActiveVersion.Timeout)
 	}
 }
 

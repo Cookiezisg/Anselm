@@ -48,6 +48,11 @@ AI 工具的 `branches` 公开 schema 是 branch object 的 JSON array；每个 
 托管模型偶尔会把同一个 array 编成一个完整 JSON 字符串；`create_control` 与 `edit_control` 的
 工具边界只兼容这一种等值编码，仍拒绝 malformed string、object 和非 array，不猜测或改写分支内容。
 
+`create_control` 的 `inputs` 是必填 field object JSON array；`edit_control` 的 `inputs` 可省略，省略时
+保留 active version 的声明，显式传 `[]` 才清空。HTTP/domain 接口在提供该字段时只承认原生数组。
+为适配同一类托管模型编码，AI 工具边界接受一个完整、等值的 JSON 数组字符串，再进入同一套 schema
+校验；空字符串、坏 JSON、对象和非数组值在 mutation 前拒绝，不把字符串内容当作字段名或其他猜测形状。
+
 同一 assistant 响应内完全相同的工具调用只执行首个，后续调用返回 completed suppression 结果，防止
 模型修正参数时重复执行 mutation；跨回合用户主动重复仍按正常的名称冲突/业务规则处理。
 
@@ -64,6 +69,9 @@ AI 工具的 `branches` 公开 schema 是 branch object 的 JSON array；每个 
 `danger=dangerous`，并在 HumanLoop 用户批准后才可执行，不能被 skill 或 `approve_always` 预授权绕过；
 删除前应先用 `get_relations` 说明会失效的 workflow 依赖。
 
+HTTP metadata patch 只在 name/description 实际变化时保存；空 patch 或等值 patch 是成功 no-op，不刷新
+`updatedAt`，也不发送 `control.updated` 通知。
+
 ## 3. 版本与运行
 
 Create 产生 v1 并设为 active。Edit 追加版本，Revert 只移动 active pointer，不修改
@@ -76,6 +84,9 @@ tick 同时投影所选 port，供 UI 显示真实路径。
 ## 4. 集成与契约
 
 Control 列表支持 `?search=` 的大小写不敏感 name 子串过滤，`X-Anselm-Total-Count` 与当前过滤条件一致；
+版本列表先校验父 Control 存在，未知 Control 返回 `CONTROL_NOT_FOUND` 而不是伪装成空历史；父 Control 已软删时
+普通实体读仍为 not-found，但 immutable version history 仍可通过版本列表/单读端点审计。版本单读的数字版本号
+与 opaque `ctlv_...` ID 都按路径父 Control 归属查询，跨父或未知版本统一返回 `CONTROL_VERSION_NOT_FOUND`；
 catalog、mention、relation、search 与 AI iterate。CRUD、versions、
 edit/revert/iterate 端点见 [`api.md`](../api.md)；表与 ID 见
 [`database.md`](../database.md)；错误见 [`error-codes.md`](../error-codes.md)。

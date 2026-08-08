@@ -36,6 +36,7 @@ type VersionListFilter struct {
 type Repository interface {
 	SaveControl(ctx context.Context, c *ControlLogic) error
 	GetControl(ctx context.Context, id string) (*ControlLogic, error)
+	GetControlIncludingDeleted(ctx context.Context, id string) (*ControlLogic, error)
 	GetControlsByIDs(ctx context.Context, ids []string) ([]*ControlLogic, error)
 	ListControls(ctx context.Context, filter ListFilter) ([]*ControlLogic, string, error)
 	CountControls(ctx context.Context, filter ListFilter) (int, error)
@@ -47,6 +48,7 @@ type Repository interface {
 
 	SaveVersion(ctx context.Context, v *Version) error
 	GetVersion(ctx context.Context, versionID string) (*Version, error)
+	GetVersionForControl(ctx context.Context, controlID, versionID string) (*Version, error)
 	GetVersionByNumber(ctx context.Context, controlID string, versionN int) (*Version, error)
 	ListVersions(ctx context.Context, controlID string, filter VersionListFilter) ([]*Version, string, error)
 

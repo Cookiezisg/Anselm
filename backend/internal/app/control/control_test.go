@@ -38,6 +38,20 @@ func catchAll(port string) controldomain.Branch {
 	return controldomain.Branch{Port: port, When: "true"}
 }
 
+type recordingNotifier struct {
+	events []string
+}
+
+func (n *recordingNotifier) Emit(_ context.Context, eventType string, _ map[string]any) error {
+	n.events = append(n.events, eventType)
+	return nil
+}
+
+func (n *recordingNotifier) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	n.events = append(n.events, eventType)
+	return nil
+}
+
 func TestCreate_WritesV1Active(t *testing.T) {
 	svc, ctx := newSvc(t)
 	c, v, err := svc.Create(ctx, CreateInput{
@@ -184,6 +198,81 @@ func TestEdit_NewVersionPointerMoves(t *testing.T) {
 	}
 }
 
+func TestListVersionsRequiresParentAndRetainsDeletedHistory(t *testing.T) {
+	svc, ctx := newSvc(t)
+	c, _, err := svc.Create(ctx, CreateInput{
+		Name:     "history",
+		Branches: []controldomain.Branch{catchAll("done")},
+	})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	rows, _, err := svc.ListVersions(ctx, c.ID, controldomain.VersionListFilter{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("existing control history: rows=%d err=%v", len(rows), err)
+	}
+	if err := svc.Delete(ctx, c.ID); err != nil {
+		t.Fatalf("soft-delete control: %v", err)
+	}
+	if _, err := svc.Get(ctx, c.ID); !errors.Is(err, controldomain.ErrNotFound) {
+		t.Fatalf("deleted control must remain absent from normal reads, got %v", err)
+	}
+	rows, _, err = svc.ListVersions(ctx, c.ID, controldomain.VersionListFilter{})
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("soft-deleted control history must remain auditable: rows=%d err=%v", len(rows), err)
+	}
+	if _, _, err := svc.ListVersions(ctx, "ctl_missing_versions", controldomain.VersionListFilter{}); !errors.Is(err, controldomain.ErrNotFound) {
+		t.Fatalf("missing control history must be ErrNotFound, got %v", err)
+	}
+}
+
+func TestGetVersionForControlScopesOpaqueID(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, av, err := svc.Create(ctx, CreateInput{Name: "a", Branches: []controldomain.Branch{catchAll("a")}})
+	if err != nil {
+		t.Fatalf("create a: %v", err)
+	}
+	b, bv, err := svc.Create(ctx, CreateInput{Name: "b", Branches: []controldomain.Branch{catchAll("b")}})
+	if err != nil {
+		t.Fatalf("create b: %v", err)
+	}
+	if got, err := svc.GetVersionForControl(ctx, a.ID, av.ID); err != nil || got.ControlID != a.ID {
+		t.Fatalf("same-parent opaque read: got=%+v err=%v", got, err)
+	}
+	if _, err := svc.GetVersionForControl(ctx, a.ID, bv.ID); !errors.Is(err, controldomain.ErrVersionNotFound) {
+		t.Fatalf("cross-control opaque version must be hidden, got %v", err)
+	}
+	if _, err := svc.GetVersionForControl(ctx, "ctl_missing_version_owner", av.ID); !errors.Is(err, controldomain.ErrVersionNotFound) {
+		t.Fatalf("missing control must not expose an opaque version, got %v", err)
+	}
+	_ = b
+}
+
+func TestEdit_OmittedInputsPreserveActiveDeclaration(t *testing.T) {
+	svc, ctx := newSvc(t)
+	c, _, err := svc.Create(ctx, CreateInput{
+		Name:     "preserve-inputs",
+		Inputs:   []schemapkg.Field{{Name: "score", Type: "number"}},
+		Branches: []controldomain.Branch{catchAll("a")},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.Edit(ctx, EditInput{
+		ID: c.ID, PreserveInputsIfOmitted: true,
+		Branches: []controldomain.Branch{catchAll("b")},
+	}); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	got, err := svc.Get(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("get: %v", err)
+	}
+	if got.ActiveVersion == nil || len(got.ActiveVersion.Inputs) != 1 || got.ActiveVersion.Inputs[0].Name != "score" {
+		t.Fatalf("omitted inputs must preserve active declaration: %+v", got.ActiveVersion)
+	}
+}
+
 func TestEdit_InvalidInputsDoesNotCreateVersion(t *testing.T) {
 	svc, ctx := newSvc(t)
 	c, _, err := svc.Create(ctx, CreateInput{Name: "edit-inputs", Branches: []controldomain.Branch{catchAll("a")}})
@@ -231,6 +320,38 @@ func TestUpdateMeta_NoVersionBump(t *testing.T) {
 	}
 	if n, _ := svc.repo.MaxVersionNumber(ctx, c.ID); n != 1 {
 		t.Fatalf("UpdateMeta must not bump version, max=%d", n)
+	}
+}
+
+func TestUpdateMeta_NoOpDoesNotTouchUpdatedAt(t *testing.T) {
+	svc, ctx := newSvc(t)
+	c, _, _ := svc.Create(ctx, CreateInput{Name: "m", Description: "same", Branches: []controldomain.Branch{catchAll("a")}})
+	notifier := &recordingNotifier{}
+	svc.notif = notifier
+	before, err := svc.Get(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("Get before: %v", err)
+	}
+	got, err := svc.UpdateMeta(ctx, UpdateMetaInput{ID: c.ID})
+	if err != nil {
+		t.Fatalf("UpdateMeta no-op: %v", err)
+	}
+	if !got.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("no-op must not touch updatedAt: before=%s after=%s", before.UpdatedAt, got.UpdatedAt)
+	}
+	after, err := svc.Get(ctx, c.ID)
+	if err != nil {
+		t.Fatalf("Get after: %v", err)
+	}
+	if !after.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("no-op must not persist an updatedAt change: before=%s after=%s", before.UpdatedAt, after.UpdatedAt)
+	}
+	name, description := before.Name, before.Description
+	if _, err := svc.UpdateMeta(ctx, UpdateMetaInput{ID: c.ID, Name: &name, Description: &description}); err != nil {
+		t.Fatalf("UpdateMeta equal no-op: %v", err)
+	}
+	if len(notifier.events) != 0 {
+		t.Fatalf("no-op must not publish notifications, got %v", notifier.events)
 	}
 }
 

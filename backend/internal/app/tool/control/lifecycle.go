@@ -9,7 +9,6 @@ import (
 	controlapp "github.com/sunweilin/anselm/backend/internal/app/control"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
-	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // --- create_control --------------------------------------------------------
@@ -19,7 +18,7 @@ type CreateControl struct{ svc *controlapp.Service }
 func (t *CreateControl) Name() string { return "create_control" }
 
 func (t *CreateControl) Description() string {
-	return "Create a control-logic entity: an ordered list of routing branches that a workflow control node references. The workflow node referencing it feeds it `input` (via that node's input mapping, which is CEL over upstream node results); the branches then read `input.*` ONLY — `payload`/`ctx` are NOT in scope here. Each branch has a `port` (the exit name the graph wires to a downstream node — use the key `port`, NEVER `name`), a `when` (a boolean CEL guard over `input.*`, e.g. `input.temperature > 30`; branches are evaluated top-to-bottom and the FIRST whose when is true wins), and an optional `emit` (a field→CEL map over `input.*` that builds this branch's downstream payload; omit to pass `input` through unchanged). The LAST branch MUST be `when: \"true\"` as the catch-all. CEL reads `input.*` only — no side effects, no now(). A port may wire back to an upstream node to form a loop; use emit to carry loop state (e.g. `input.attempt + 1`). Use this exact branch shape: {\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}. `branches` must be a JSON array of branch objects; for hosted-model compatibility, an exact JSON-encoded array string is also accepted, while malformed strings, objects, and non-array values are rejected."
+	return "Create a control-logic entity: an ordered list of routing branches that a workflow control node references. The workflow node referencing it feeds it `input` (via that node's input mapping, which is CEL over upstream node results); the branches then read `input.*` ONLY — `payload`/`ctx` are NOT in scope here. Each branch has a `port` (the exit name the graph wires to a downstream node — use the key `port`, NEVER `name`), a `when` (a boolean CEL guard over `input.*`, e.g. `input.temperature > 30`; branches are evaluated top-to-bottom and the FIRST whose when is true wins), and an optional `emit` (a field→CEL map over `input.*` that builds this branch's downstream payload; omit to pass `input` through unchanged). The LAST branch MUST be `when: \"true\"` as the catch-all. CEL reads `input.*` only — no side effects, no now(). A port may wire back to an upstream node to form a loop; use emit to carry loop state (e.g. `input.attempt + 1`). Use this exact branch shape: {\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}. `inputs` must be a JSON array of field objects; for hosted-model compatibility, an exact JSON-encoded array string is also accepted, while malformed strings, objects, and non-array values are rejected. `branches` must be a JSON array of branch objects; for hosted-model compatibility, an exact JSON-encoded array string is also accepted, while malformed strings, objects, and non-array values are rejected."
 }
 
 func (t *CreateControl) Parameters() json.RawMessage {
@@ -29,7 +28,7 @@ func (t *CreateControl) Parameters() json.RawMessage {
 		"properties": {
 			"name": {"type": "string", "description": "Unique name within the workspace."},
 			"description": {"type": "string", "description": "One line on what this routing logic decides."},
-			"inputs": {"type": "array", "description": "Declared inputs the workflow node feeds (when/emit read input.*): each {name, type, description}.", "items": {"type": "object"}},
+			"inputs": {"type": "array", "description": "Declared inputs the workflow node feeds (when/emit read input.*): each {name, type, description}. For hosted-model compatibility, an exact JSON-encoded array string is also accepted; malformed strings, objects, and non-array values are rejected.", "items": {"type": "object"}},
 			"branches": {
 				"type": "array",
 				"description": "Ordered branch objects using the exact keys port (not name), when, and optional emit; first true when wins; the last branch must be when:\"true\". Example: {\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}. For hosted-model compatibility, an exact JSON-encoded array string is also accepted; malformed strings, objects, and non-array values are rejected.",
@@ -51,6 +50,7 @@ func (t *CreateControl) Parameters() json.RawMessage {
 func (t *CreateControl) ValidateInput(args json.RawMessage) error {
 	var a struct {
 		Name     string          `json:"name"`
+		Inputs   json.RawMessage `json:"inputs"`
 		Branches json.RawMessage `json:"branches"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
@@ -58,6 +58,9 @@ func (t *CreateControl) ValidateInput(args json.RawMessage) error {
 	}
 	if strings.TrimSpace(a.Name) == "" {
 		return ErrNameRequired
+	}
+	if _, err := decodeControlInputs(a.Inputs); err != nil {
+		return fmt.Errorf("create_control: %w", err)
 	}
 	branches, err := decodeControlBranches(a.Branches)
 	if err != nil {
@@ -71,13 +74,17 @@ func (t *CreateControl) ValidateInput(args json.RawMessage) error {
 
 func (t *CreateControl) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var args struct {
-		Name         string            `json:"name"`
-		Description  string            `json:"description"`
-		Inputs       []schemapkg.Field `json:"inputs"`
-		Branches     json.RawMessage   `json:"branches"`
-		ChangeReason string            `json:"changeReason"`
+		Name         string          `json:"name"`
+		Description  string          `json:"description"`
+		Inputs       json.RawMessage `json:"inputs"`
+		Branches     json.RawMessage `json:"branches"`
+		ChangeReason string          `json:"changeReason"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("create_control: bad args: %w", err)
+	}
+	inputs, err := decodeControlInputs(args.Inputs)
+	if err != nil {
 		return "", fmt.Errorf("create_control: bad args: %w", err)
 	}
 	branches, err := decodeControlBranches(args.Branches)
@@ -85,7 +92,7 @@ func (t *CreateControl) Execute(ctx context.Context, argsJSON string) (string, e
 		return "", fmt.Errorf("create_control: bad args: %w", err)
 	}
 	c, v, err := t.svc.Create(ctx, controlapp.CreateInput{
-		Name: args.Name, Description: args.Description, Inputs: args.Inputs,
+		Name: args.Name, Description: args.Description, Inputs: inputs,
 		Branches: toBranches(branches), ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
@@ -101,7 +108,7 @@ type EditControl struct{ svc *controlapp.Service }
 func (t *EditControl) Name() string { return "edit_control" }
 
 func (t *EditControl) Description() string {
-	return "Replace a control logic's branches with a new ordered set, writing a new version that takes effect immediately (revert can switch back). Pass the COMPLETE branch list (not a delta) — same branch shape and catch-all rule as create_control. Each branch uses `port` (NEVER `name`), `when`, and optional `emit`; for example {\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}. `branches` must be a JSON array; for hosted-model compatibility, an exact JSON-encoded array string is also accepted, while malformed strings, objects, and non-array values are rejected. `changeReason` is REQUIRED and must be a non-empty audit explanation in every call; do not omit it or send an empty string."
+	return "Replace a control logic's branches with a new ordered set, writing a new version that takes effect immediately (revert can switch back). Pass the COMPLETE branch list (not a delta) — same branch shape and catch-all rule as create_control. Each branch uses `port` (NEVER `name`), `when`, and optional `emit`; for example {\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}. `inputs` is optional: omit it to preserve the active version's declaration, or pass the complete replacement array (including [] to clear it). For hosted-model compatibility, an exact JSON-encoded array string is also accepted; malformed strings, objects, and non-array values are rejected. `branches` must be a JSON array; for hosted-model compatibility, an exact JSON-encoded array string is also accepted, while malformed strings, objects, and non-array values are rejected. `changeReason` is REQUIRED and must be a non-empty audit explanation in every call; do not omit it or send an empty string."
 }
 
 func (t *EditControl) Parameters() json.RawMessage {
@@ -110,7 +117,7 @@ func (t *EditControl) Parameters() json.RawMessage {
 		"required": ["controlId", "branches", "changeReason"],
 		"properties": {
 			"controlId": {"type": "string"},
-			"inputs": {"type": "array", "description": "Declared inputs (when/emit read input.*): each {name, type, description}.", "items": {"type": "object"}},
+			"inputs": {"type": "array", "description": "Optional declared inputs (when/emit read input.*): each {name, type, description}. Omit to preserve the active declaration; pass [] to clear. For hosted-model compatibility, an exact JSON-encoded array string is also accepted; malformed strings, objects, and non-array values are rejected.", "items": {"type": "object"}},
 			"branches": {
 				"type": "array",
 				"description": "The complete new ordered branch list using keys port (not name), when, and optional emit; last must be when:\"true\". Example: {\"port\":\"pass\",\"when\":\"input.score >= 0.8\",\"emit\":{\"decision\":\"input.score\"}}. For hosted-model compatibility, an exact JSON-encoded array string is also accepted; malformed strings, objects, and non-array values are rejected.",
@@ -130,8 +137,13 @@ func (t *EditControl) Parameters() json.RawMessage {
 }
 
 func (t *EditControl) ValidateInput(args json.RawMessage) error {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal(args, &fields); err != nil {
+		return fmt.Errorf("edit_control: bad args: %w", err)
+	}
 	var a struct {
 		ControlID    string          `json:"controlId"`
+		Inputs       json.RawMessage `json:"inputs"`
 		Branches     json.RawMessage `json:"branches"`
 		ChangeReason string          `json:"changeReason"`
 	}
@@ -144,6 +156,11 @@ func (t *EditControl) ValidateInput(args json.RawMessage) error {
 	if strings.TrimSpace(a.ChangeReason) == "" {
 		return ErrChangeReasonRequired
 	}
+	if raw, ok := fields["inputs"]; ok {
+		if _, err := decodeControlInputs(raw); err != nil {
+			return fmt.Errorf("edit_control: %w", err)
+		}
+	}
 	branches, err := decodeControlBranches(a.Branches)
 	if err != nil {
 		return fmt.Errorf("edit_control: %w", err)
@@ -155,13 +172,21 @@ func (t *EditControl) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *EditControl) Execute(ctx context.Context, argsJSON string) (string, error) {
+	var fields map[string]json.RawMessage
+	if err := json.Unmarshal([]byte(argsJSON), &fields); err != nil {
+		return "", fmt.Errorf("edit_control: bad args: %w", err)
+	}
 	var args struct {
-		ControlID    string            `json:"controlId"`
-		Inputs       []schemapkg.Field `json:"inputs"`
-		Branches     json.RawMessage   `json:"branches"`
-		ChangeReason string            `json:"changeReason"`
+		ControlID    string          `json:"controlId"`
+		Inputs       json.RawMessage `json:"inputs"`
+		Branches     json.RawMessage `json:"branches"`
+		ChangeReason string          `json:"changeReason"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
+		return "", fmt.Errorf("edit_control: bad args: %w", err)
+	}
+	inputs, err := decodeControlInputs(args.Inputs)
+	if err != nil {
 		return "", fmt.Errorf("edit_control: bad args: %w", err)
 	}
 	if strings.TrimSpace(args.ChangeReason) == "" {
@@ -172,12 +197,18 @@ func (t *EditControl) Execute(ctx context.Context, argsJSON string) (string, err
 		return "", fmt.Errorf("edit_control: bad args: %w", err)
 	}
 	v, err := t.svc.Edit(ctx, controlapp.EditInput{
-		ID: args.ControlID, Inputs: args.Inputs, Branches: toBranches(branches), ChangeReason: args.ChangeReason,
+		ID: args.ControlID, Inputs: inputs, PreserveInputsIfOmitted: !hasJSONField(fields, "inputs"),
+		Branches: toBranches(branches), ChangeReason: args.ChangeReason,
 	})
 	if err != nil {
 		return "", fmt.Errorf("edit_control: %w", err)
 	}
 	return toolapp.ToJSON(map[string]any{"id": args.ControlID, "activeVersionId": v.ID, "version": v.Version}), nil
+}
+
+func hasJSONField(fields map[string]json.RawMessage, name string) bool {
+	_, ok := fields[name]
+	return ok
 }
 
 // --- revert_control --------------------------------------------------------

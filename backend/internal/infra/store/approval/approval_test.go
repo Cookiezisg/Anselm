@@ -191,6 +191,23 @@ func TestApproval_VersionMaxAndByNumber(t *testing.T) {
 	}
 }
 
+func TestApproval_GetVersionForApprovalScopesOpaqueID(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkForm(t, s, ctx, "apf_a", "a", "")
+	mkForm(t, s, ctx, "apf_b", "b", "")
+	mkVer(t, s, ctx, "apfv_a1", "apf_a", 1)
+	mkVer(t, s, ctx, "apfv_b1", "apf_b", 1)
+
+	got, err := s.GetVersionForApproval(ctx, "apf_a", "apfv_a1")
+	if err != nil || got.ApprovalID != "apf_a" {
+		t.Fatalf("same-parent opaque read: got=%+v err=%v", got, err)
+	}
+	if _, err := s.GetVersionForApproval(ctx, "apf_a", "apfv_b1"); !errors.Is(err, approvaldomain.ErrVersionNotFound) {
+		t.Fatalf("cross-approval opaque version must be hidden, got %v", err)
+	}
+}
+
 func TestApproval_TrimProtectsActive(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

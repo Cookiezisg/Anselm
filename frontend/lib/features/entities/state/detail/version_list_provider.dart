@@ -183,10 +183,48 @@ class VersionListNotifier extends AsyncNotifier<VersionListState>
     final activeId =
         ref.read(entityDetailProvider(entityRef)).value?.activeVersionId ?? '';
     switch (entityRef.kind) {
-      // Support kinds have no version tab — control/approval unwired in the pilot; trigger is unversioned.
-      // 支撑 kind 无版本 tab(control/approval 暂未接;trigger 本就无版本)。
       case EntityKind.control:
+        final p = await _repo.listControlVersions(
+          entityRef.id,
+          cursor: cursor,
+          limit: _pageSize,
+        );
+        return (
+          rows: [
+            for (final v in p.items)
+              VersionRow(
+                version: v.version,
+                active: v.id == activeId,
+                createdAt: v.createdAt,
+                src: controlVersionSource(v),
+                lang: 'json',
+                changeReason: v.changeReason,
+              ),
+          ],
+          next: p.nextCursor,
+          more: p.hasMore,
+        );
       case EntityKind.approval:
+        final p = await _repo.listApprovalVersions(
+          entityRef.id,
+          cursor: cursor,
+          limit: _pageSize,
+        );
+        return (
+          rows: [
+            for (final v in p.items)
+              VersionRow(
+                version: v.version,
+                active: v.id == activeId,
+                createdAt: v.createdAt,
+                src: approvalVersionSource(v),
+                lang: 'json',
+                changeReason: v.changeReason,
+              ),
+          ],
+          next: p.nextCursor,
+          more: p.hasMore,
+        );
       case EntityKind.trigger:
         return (rows: const <VersionRow>[], next: null, more: false);
       case EntityKind.function:

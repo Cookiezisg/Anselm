@@ -1,6 +1,7 @@
 import 'package:anselm/core/ui/an_ledger_row.dart';
 import 'package:anselm/core/ui/an_relation_graph.dart';
 import 'package:anselm/features/entities/data/entity_demo_fixture.dart';
+import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/ui/entity_ocean.dart';
 import 'package:anselm/features/entities/ui/entity_rail.dart';
 import 'package:anselm/features/entities/ui/overview/entities_overview.dart';
@@ -46,6 +47,20 @@ void main() {
     expect(find.text(e.overview.recentHead), findsOneWidget);
     // The recent ledger rows. 最近更新行。
     expect(find.byType(AnLedgerRow), findsWidgets);
+  });
+
+  testWidgets('empty recent ledger names every entity kind', (tester) async {
+    await tester.pumpWidget(
+      routedHost(
+        const Scaffold(
+          body: SizedBox(width: 900, height: 900, child: EntityOcean()),
+        ),
+        repository: FixtureEntityRepository(),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 80));
+
+    expect(find.text(e.selectHint), findsOneWidget);
   });
 
   testWidgets('the rail carries the fixed «总览» row (route home entry)', (

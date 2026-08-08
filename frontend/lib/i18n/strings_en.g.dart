@@ -985,8 +985,8 @@ class Translations$entities$en {
 	/// en: 'Select an entity'
 	String get selectTitle => 'Select an entity';
 
-	/// en: 'Choose a function, handler, agent, or workflow from the rail.'
-	String get selectHint => 'Choose a function, handler, agent, or workflow from the rail.';
+	/// en: 'Choose an entity from the rail to inspect its details.'
+	String get selectHint => 'Choose an entity from the rail to inspect its details.';
 
 	/// en: 'Sort'
 	String get sortLabel => 'Sort';
@@ -8581,7 +8581,7 @@ extension on Translations {
 			'entities.errorHint' => 'The local engine didn\'t return the entity list.',
 			'entities.retry' => 'Try again',
 			'entities.selectTitle' => 'Select an entity',
-			'entities.selectHint' => 'Choose a function, handler, agent, or workflow from the rail.',
+			'entities.selectHint' => 'Choose an entity from the rail to inspect its details.',
 			'entities.sortLabel' => 'Sort',
 			'entities.sortRecent' => 'Recently active',
 			'entities.sortCreated' => 'Recently created',

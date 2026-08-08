@@ -100,6 +100,22 @@ func (s *Store) GetControl(ctx context.Context, id string) (*controldomain.Contr
 	return c, nil
 }
 
+// GetControlIncludingDeleted resolves parent existence for immutable version history. Normal
+// entity reads stay soft-delete aware; only the audit-history path uses this unscoped lookup.
+//
+// GetControlIncludingDeleted 为不可变版本历史解析父行是否存在。普通实体读取仍过滤软删；只有
+// 审计历史路径使用这条 unscoped 查询。
+func (s *Store) GetControlIncludingDeleted(ctx context.Context, id string) (*controldomain.ControlLogic, error) {
+	c, err := s.ctls.Unscoped().WhereEq("id", id).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, controldomain.ErrNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.GetControlIncludingDeleted: %w", err)
+	}
+	return c, nil
+}
+
 func (s *Store) GetControlsByIDs(ctx context.Context, ids []string) ([]*controldomain.ControlLogic, error) {
 	if len(ids) == 0 {
 		return nil, nil
@@ -183,6 +199,22 @@ func (s *Store) GetVersion(ctx context.Context, versionID string) (*controldomai
 	}
 	if err != nil {
 		return nil, fmt.Errorf("controlstore.GetVersion: %w", err)
+	}
+	return v, nil
+}
+
+// GetVersionForControl reads an opaque version id only inside its parent control. The route
+// supplies both ids, so a globally unique ctlv_ id must not bypass the control boundary.
+//
+// GetVersionForControl 只在父 Control 内读取 opaque version id。路由同时提供两个 id，故即使
+// ctlv_ id 全局唯一，也不能绕过 Control 边界读取另一实体的版本。
+func (s *Store) GetVersionForControl(ctx context.Context, controlID, versionID string) (*controldomain.Version, error) {
+	v, err := s.vers.WhereEq("control_id", controlID).WhereEq("id", versionID).First(ctx)
+	if errors.Is(err, ormpkg.ErrNotFound) {
+		return nil, controldomain.ErrVersionNotFound
+	}
+	if err != nil {
+		return nil, fmt.Errorf("controlstore.GetVersionForControl: %w", err)
 	}
 	return v, nil
 }

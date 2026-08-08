@@ -194,6 +194,23 @@ func TestControl_VersionMaxAndByNumber(t *testing.T) {
 	}
 }
 
+func TestControl_GetVersionForControlScopesOpaqueID(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkCtl(t, s, ctx, "ctl_a", "a", "")
+	mkCtl(t, s, ctx, "ctl_b", "b", "")
+	mkVer(t, s, ctx, "ctlv_a1", "ctl_a", 1)
+	mkVer(t, s, ctx, "ctlv_b1", "ctl_b", 1)
+
+	got, err := s.GetVersionForControl(ctx, "ctl_a", "ctlv_a1")
+	if err != nil || got.ControlID != "ctl_a" {
+		t.Fatalf("same-parent opaque read: got=%+v err=%v", got, err)
+	}
+	if _, err := s.GetVersionForControl(ctx, "ctl_a", "ctlv_b1"); !errors.Is(err, controldomain.ErrVersionNotFound) {
+		t.Fatalf("cross-control opaque version must be hidden, got %v", err)
+	}
+}
+
 func TestControl_TrimProtectsActive(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

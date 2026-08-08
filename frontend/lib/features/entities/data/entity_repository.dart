@@ -88,6 +88,16 @@ abstract interface class EntityRepository {
     String? cursor,
     int? limit,
   });
+  Future<Page<ControlVersion>> listControlVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  });
+  Future<Page<ApprovalVersion>> listApprovalVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  });
 
   // ── execution logs (日志 tab — list + ok/failed aggregate sidecar) ─────────
   Future<PageWithAggregate<FunctionExecution, ExecutionAggregates>>
@@ -300,6 +310,16 @@ abstract interface class EntityRepository {
   /// (WRK-083 L7):`SEQ_TOO_OLD` 丢游标、从新 head 重连,缺口里的信号永远没了,只听信号的列表会陈旧到会话结束。
   Stream<void> lifecycleResync();
 
+  /// Durable notification pulse for workspace-wide derived views such as `GET /relgraph`.
+  /// Unlike [lifecycleSignals], this intentionally does not project an entity kind: relation edges
+  /// may change when an accessory entity (document/skill/MCP/conversation) changes, even though those
+  /// kinds do not have an Entities rail list. Ephemeral frames never invalidate a durable snapshot.
+  ///
+  /// 全 workspace 派生视图（如 `/relgraph`）的耐久通知脉冲。刻意不投影实体 kind：配件实体
+  /// （document/skill/MCP/conversation）变化也可能改关系边，而这些 kind 不在 Entities rail；
+  /// ephemeral 帧永不让耐久快照失效。
+  Stream<void> relationSignals();
+
   /// Raw panel-realtime frames for ONE instance (run terminal / build mirror / flowrun tick), demuxed
   /// per scope (high-frequency entities stream). 单实例面板实时帧(按 scope demux)。
   Stream<StreamEnvelope> panelSignals(StreamScope scope);
@@ -426,6 +446,26 @@ class LiveEntityRepository implements EntityRepository {
   }) => _api.getPage(
     '${EntityKind.workflow.itemPath(id)}/versions',
     WorkflowVersion.fromJson,
+    query: _query(cursor, limit),
+  );
+  @override
+  Future<Page<ControlVersion>> listControlVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) => _api.getPage(
+    '${EntityKind.control.itemPath(id)}/versions',
+    ControlVersion.fromJson,
+    query: _query(cursor, limit),
+  );
+  @override
+  Future<Page<ApprovalVersion>> listApprovalVersions(
+    String id, {
+    String? cursor,
+    int? limit,
+  }) => _api.getPage(
+    '${EntityKind.approval.itemPath(id)}/versions',
+    ApprovalVersion.fromJson,
     query: _query(cursor, limit),
   );
 
@@ -836,6 +876,16 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Stream<void> lifecycleResync() =>
       _sse?.resync(StreamName.notifications) ?? const Stream.empty();
+
+  @override
+  Stream<void> relationSignals() {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    return sse
+        .rawStream(StreamName.notifications)
+        .where((env) => env.durable)
+        .map<void>((_) {});
+  }
 
   @override
   Stream<StreamEnvelope> panelSignals(StreamScope scope) =>

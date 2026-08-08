@@ -1,6 +1,8 @@
 package handlers
 
 import (
+	"bytes"
+	"encoding/json"
 	"net/http"
 	"strconv"
 
@@ -181,7 +183,7 @@ func (h *ControlHandler) postOnControl(w http.ResponseWriter, r *http.Request) {
 
 func (h *ControlHandler) edit(w http.ResponseWriter, r *http.Request, id string) {
 	var req struct {
-		Inputs       []schemapkg.Field    `json:"inputs"`
+		Inputs       json.RawMessage      `json:"inputs"`
 		Branches     []controlBranchInput `json:"branches"`
 		ChangeReason string               `json:"changeReason"`
 	}
@@ -189,8 +191,17 @@ func (h *ControlHandler) edit(w http.ResponseWriter, r *http.Request, id string)
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	inputs := []schemapkg.Field(nil)
+	inputsOmitted := len(bytes.TrimSpace(req.Inputs)) == 0
+	if !inputsOmitted {
+		if err := json.Unmarshal(req.Inputs, &inputs); err != nil {
+			responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest.WithCause(err))
+			return
+		}
+	}
 	v, err := h.svc.Edit(r.Context(), controlapp.EditInput{
-		ID: id, Inputs: req.Inputs, Branches: controlBranches(req.Branches), ChangeReason: req.ChangeReason,
+		ID: id, Inputs: inputs, PreserveInputsIfOmitted: inputsOmitted,
+		Branches: controlBranches(req.Branches), ChangeReason: req.ChangeReason,
 	})
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -243,7 +254,7 @@ func (h *ControlHandler) GetVersion(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.Success(w, http.StatusOK, v)
 		return
 	}
-	v, err := h.svc.GetVersion(r.Context(), versionStr)
+	v, err := h.svc.GetVersionForControl(r.Context(), r.PathValue("id"), versionStr)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return

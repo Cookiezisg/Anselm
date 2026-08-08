@@ -20,6 +20,7 @@ import (
 	searchapp "github.com/sunweilin/anselm/backend/internal/app/search"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	controldomain "github.com/sunweilin/anselm/backend/internal/domain/control"
+	schemapkg "github.com/sunweilin/anselm/backend/internal/pkg/schema"
 )
 
 // ControlTools constructs the control-logic system tools over the app service.
@@ -77,6 +78,42 @@ func decodeControlBranches(raw json.RawMessage) ([]branchArg, error) {
 		return nil, fmt.Errorf("branches must be a JSON array or an exact JSON-encoded array")
 	}
 	return branches, nil
+}
+
+// decodeControlInputs accepts the schema-correct array and the exact JSON-encoded array string
+// emitted by some hosted models. It deliberately mirrors decodeControlBranches: only an encoding
+// variant is tolerated, while objects, malformed strings, and non-array values remain invalid.
+//
+// decodeControlInputs 接受 schema 正确的数组，以及部分托管模型发出的完整 JSON 数组字符串。
+// 与 decodeControlBranches 对称：只兼容编码形态，不放宽值形状；对象、坏字符串和非数组仍拒绝。
+func decodeControlInputs(raw json.RawMessage) ([]schemapkg.Field, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return nil, nil
+	}
+
+	var inputs []schemapkg.Field
+	switch raw[0] {
+	case '[':
+		if err := json.Unmarshal(raw, &inputs); err != nil {
+			return nil, fmt.Errorf("inputs must be a JSON array: %w", err)
+		}
+	case '"':
+		var encoded string
+		if err := json.Unmarshal(raw, &encoded); err != nil {
+			return nil, fmt.Errorf("inputs must be a JSON array or an exact JSON-encoded array: %w", err)
+		}
+		encodedBytes := bytes.TrimSpace([]byte(encoded))
+		if len(encodedBytes) == 0 || encodedBytes[0] != '[' {
+			return nil, fmt.Errorf("inputs string must contain a JSON array")
+		}
+		if err := json.Unmarshal(encodedBytes, &inputs); err != nil {
+			return nil, fmt.Errorf("inputs string must contain a valid JSON array: %w", err)
+		}
+	default:
+		return nil, fmt.Errorf("inputs must be a JSON array or an exact JSON-encoded array")
+	}
+	return inputs, nil
 }
 
 // decodeControlVersion accepts a native integer and the exact decimal string variant emitted by

@@ -34,6 +34,7 @@ type VersionListFilter struct {
 type Repository interface {
 	SaveForm(ctx context.Context, f *ApprovalForm) error
 	GetForm(ctx context.Context, id string) (*ApprovalForm, error)
+	GetFormIncludingDeleted(ctx context.Context, id string) (*ApprovalForm, error)
 	GetFormsByIDs(ctx context.Context, ids []string) ([]*ApprovalForm, error)
 	ListForms(ctx context.Context, filter ListFilter) ([]*ApprovalForm, string, error)
 	CountForms(ctx context.Context, filter ListFilter) (int, error)
@@ -45,6 +46,7 @@ type Repository interface {
 
 	SaveVersion(ctx context.Context, v *Version) error
 	GetVersion(ctx context.Context, versionID string) (*Version, error)
+	GetVersionForApproval(ctx context.Context, formID, versionID string) (*Version, error)
 	GetVersionByNumber(ctx context.Context, formID string, versionN int) (*Version, error)
 	ListVersions(ctx context.Context, formID string, filter VersionListFilter) ([]*Version, string, error)
 

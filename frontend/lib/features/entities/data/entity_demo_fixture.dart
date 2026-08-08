@@ -357,6 +357,50 @@ FixtureEntityRepository demoEntityRepository() {
         wfVer('wf_digest', 1, graphV1, 'initial pipeline'),
       ],
     },
+    controlVersions: {
+      'ctl_quality': [
+        ControlVersion(
+          id: 'ctl_quality_v1',
+          controlId: 'ctl_quality',
+          version: 1,
+          inputs: const [
+            Field(
+              name: 'score',
+              type: 'number',
+              description: 'Reviewer score 0–1.',
+            ),
+          ],
+          branches: const [
+            Branch(port: 'pass', when: 'input.score >= 0.7'),
+            Branch(port: 'retry', when: 'true'),
+          ],
+          changeReason: 'initial gate',
+          createdAt: t0,
+          updatedAt: t1,
+        ),
+      ],
+    },
+    approvalVersions: {
+      'ap_publish': [
+        ApprovalVersion(
+          id: 'ap_publish_v1',
+          approvalId: 'ap_publish',
+          version: 1,
+          inputs: const [
+            Field(name: 'version', type: 'string'),
+            Field(name: 'fileCount', type: 'number'),
+          ],
+          template:
+              'Deploy **{{ input.version }}** to production?\n\n{{ input.fileCount }} files changed.',
+          allowReason: true,
+          timeout: '24h',
+          timeoutBehavior: 'reject',
+          changeReason: 'initial form',
+          createdAt: t0,
+          updatedAt: t1,
+        ),
+      ],
+    },
     // D-027 — handler/agent version-history tabs need a real trail (the active version alone leaves the
     // tab empty). Two handler revs + three agent revs, newest first. 版本历史 tab:多版本轨迹。
     handlerVersions: {
@@ -1047,6 +1091,8 @@ class DemoEntityRepository extends FixtureEntityRepository {
     super.handlerVersions,
     super.agentVersions,
     super.workflowVersions,
+    super.controlVersions,
+    super.approvalVersions,
     super.functionExecutions,
     super.handlerCalls,
     super.agentExecutions,

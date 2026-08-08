@@ -38,6 +38,12 @@ enum EntityKind {
   /// config/logic. 是否可执行(有 run 终端 + 动词 CTA + 日志);支撑 kind 否。
   bool get executable => verb != null;
 
+  /// Whether this kind owns an append-only version history. Trigger is the only unversioned rail
+  /// kind; control and approval expose the same history surface as executable entities without a
+  /// run terminal. 是否有只增版本历史。Trigger 是唯一无版本的 rail kind；control/approval 虽无执行台，
+  /// 仍与可执行实体共享版本历史面。
+  bool get versioned => this != EntityKind.trigger;
+
   String get base => '/api/v1/$collection';
   String itemPath(String id) => '$base/$id';
 
