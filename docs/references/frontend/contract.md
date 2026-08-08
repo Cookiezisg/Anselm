@@ -76,7 +76,9 @@ UI 通过纯映射把开放值折叠为已知语义；未知值必须可降级�
 - `WorkDirInfo` 是逐请求活投影；路径存在性、git branch、dirty、branches/worktrees 不能从 Conversation 行猜。
 - `AttachmentPreparation` 只说明模型代理准备度，不是“附件是否允许发送”的门。
 - workflow 历史图必须读 flowrun 钉住的 version id；当前 active version 不能替代。
-- Trigger 无版本；paused 时 listening/nextFireAt 的线缆含义由后端裁决。
+- Trigger 无版本；`listening` 是 active workflow 引用造成的真实热 listener，`nextFireAt` 只在
+  可解析 cron **正在监听且未暂停**时出现。冷态或 paused 的 trigger 不会产生未来事件，前端不得把
+  数学上的 cron 刻度渲染成即将执行。
 - Relation kind 与端点 kind 是开放产品图词表，前端不得假设只含 rail 七类。
 - provider secret 只写不回；DTO 只能携带掩码元数据，不能把密钥留在普通 state。
 

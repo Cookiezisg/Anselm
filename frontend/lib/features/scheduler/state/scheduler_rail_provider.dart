@@ -11,6 +11,8 @@ import '../../../core/contract/entities/trigger.dart';
 import '../../../core/runtime.dart';
 import '../../../core/sse/sse_gateway.dart';
 import '../../../core/ui/an_time_pulse.dart';
+import '../../entities/data/entity_kind.dart';
+import '../../entities/data/entity_signal.dart';
 import '../data/scheduler_repository.dart';
 
 /// Everything the Scheduler rail projects (WRK-069 §2) — workflows + per-workflow health + the
@@ -97,8 +99,20 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
         _debounce?.cancel();
         _debounce = Timer(const Duration(milliseconds: 300), refresh);
       });
+      // Workflow lifecycle rows live on notifications, not entities. The entities stream carries
+      // run/build frames; subscribing to it alone leaves a deleted workflow stranded in the rail.
+      // workflow 生命周期行在 notifications、不是 entities;只订后者会把已删 workflow 留在 rail。
+      final lifecycleSub = gateway
+          .rawStream(StreamName.notifications)
+          .map((env) => EntitySignal.fromEnvelope(EntityKind.workflow, env))
+          .where((signal) => signal != null && signal.durable)
+          .listen((_) {
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 300), refresh);
+          });
       ref.onDispose(() {
         sub.cancel();
+        lifecycleSub.cancel();
         _debounce?.cancel();
       });
     }

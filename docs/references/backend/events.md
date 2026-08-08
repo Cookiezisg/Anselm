@@ -103,8 +103,9 @@ buffer 满时断开该订阅者，由客户端重连重放，游标越过 ring �
   `{deletedKind,deletedId,dependents:[{kind,id,name,edge}]}`；删除前快照入向
   `equip`/`link` 依赖，删除后发送一条聚合通知。
 
-Trigger 生命周期不发 notifications；其活动由 activation/firing 记录与
-entities 流呈现。
+Trigger 的 CRUD 生命周期通过 notifications durable `trigger.created`、`trigger.edited`、
+`trigger.deleted` 发送，使实体 rail/detail 能回读数据库真相；其 source 活动仍由
+activation/firing 记录与 entities 流呈现，Pause/Resume 只发 trigger scope 的 ephemeral `status`。
 
 ## 4. Entities 流挂载
 
@@ -118,6 +119,7 @@ entities 流呈现。
 | workflow | durable `run_terminal`：`{flowrunId,status,error?}` |
 | trigger | ephemeral `fire`：`{activationId,kind,fired,firingCount,error}` |
 | trigger | ephemeral `status`：`{paused}`，只在 pause/resume 真转移时发 |
+| trigger | notifications durable `trigger.created` / `trigger.edited` / `trigger.deleted`：`{triggerId,name?,kind?}` |
 | control / approval | `build`：branches 或 template |
 | mcp | `run`：CallTool progress；ephemeral `status`：`{status,prevStatus,lastError}` |
 | skill / document | `build`：create/edit 内容镜像 |

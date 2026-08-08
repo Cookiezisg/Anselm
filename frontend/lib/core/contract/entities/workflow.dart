@@ -105,6 +105,12 @@ abstract class FlowrunNode with _$FlowrunNode {
     required DateTime createdAt,
     DateTime? completedAt,
     required DateTime updatedAt,
+    // The cross-run approval inbox enriches the parked node with its workflow context. These are
+    // optional because ordinary run-detail node rows do not carry the join. 收件箱 enrich 的流程上下文；
+    // 普通 run 详情节点没有 join，故可选且不制造零值。
+    String? workflowId,
+    String? workflowName,
+    DateTime? deadline,
   }) = _FlowrunNode;
   factory FlowrunNode.fromJson(Map<String, dynamic> json) =>
       _$FlowrunNodeFromJson(json);

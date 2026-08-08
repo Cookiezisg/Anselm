@@ -345,6 +345,47 @@ func TestAttachRuntime_PausedKeysMoveTogetherOffOneTruth(t *testing.T) {
 	}
 }
 
+// TestAttachRuntime_NextFireRequiresAHotListener — a cron expression is configuration, not a
+// promise of execution. With no active workflow there is no listener and no future event; the
+// detail must not display a mathematical tick that will never be delivered.
+//
+// TestAttachRuntime_NextFireRequiresAHotListener——cron 表达式是配置，不是执行承诺。没有 active
+// workflow 就没有 listener、也没有未来事件；详情不得展示一个永远不会投递的数学刻度。
+func TestAttachRuntime_NextFireRequiresAHotListener(t *testing.T) {
+	s, _ := newTestService(t)
+	ctx := ctxWS("ws_1")
+	s.cron = &fakeListener{}
+	tr := mkCron(t, s, ctx, "cold")
+
+	cold, err := s.Get(ctx, tr.ID)
+	if err != nil {
+		t.Fatalf("Get cold trigger: %v", err)
+	}
+	if cold.Listening || cold.RefCount != 0 || cold.NextFireAt != nil {
+		t.Fatalf("cold cron must not project a future fire: listening=%v refs=%d next=%v", cold.Listening, cold.RefCount, cold.NextFireAt)
+	}
+
+	if err := s.Attach(ctx, tr.ID, "wf_1"); err != nil {
+		t.Fatalf("Attach: %v", err)
+	}
+	hot, err := s.Get(ctx, tr.ID)
+	if err != nil {
+		t.Fatalf("Get hot trigger: %v", err)
+	}
+	if !hot.Listening || hot.RefCount != 1 || hot.NextFireAt == nil {
+		t.Fatalf("hot cron must project a future fire: listening=%v refs=%d next=%v", hot.Listening, hot.RefCount, hot.NextFireAt)
+	}
+
+	s.Detach(tr.ID, "wf_1")
+	coldAgain, err := s.Get(ctx, tr.ID)
+	if err != nil {
+		t.Fatalf("Get detached trigger: %v", err)
+	}
+	if coldAgain.Listening || coldAgain.RefCount != 0 || coldAgain.NextFireAt != nil {
+		t.Fatalf("detached cron must clear its future fire: listening=%v refs=%d next=%v", coldAgain.Listening, coldAgain.RefCount, coldAgain.NextFireAt)
+	}
+}
+
 // TestResume_RegisterFailureRollsBackAndStaysRetryable — 工单⑦: if the source refuses to come back
 // up, Resume must not leave the switch off with a cold listener. The old note claimed "the next
 // boot/activation retries the register" — it does not: attach only Registers on a 0→1 reference and

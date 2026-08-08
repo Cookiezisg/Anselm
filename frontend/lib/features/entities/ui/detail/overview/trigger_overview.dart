@@ -51,7 +51,12 @@ class TriggerOverview extends StatelessWidget {
               if (trigger.kind == TriggerSource.cron)
                 (
                   d.trigger.nextFire,
-                  trigger.nextFireAt == null
+                  // A stale or hand-built DTO must not make a cold trigger look scheduled. The
+                  // backend omits this projection when no listener is hot; keep the UI fail-closed
+                  // if an older cache still carries a timestamp. 冷 trigger 不得显示数学刻度。
+                  !trigger.listening ||
+                          trigger.paused ||
+                          trigger.nextFireAt == null
                       ? '—'
                       : fmtTime(trigger.nextFireAt),
                 ),

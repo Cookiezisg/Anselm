@@ -49,6 +49,8 @@ audience: [human, ai]
 - Control：输入与分支/端口规则。
 - Approval：审批模板与规则；运行期决定发生在具体 parked node。
 - Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。
+- Trigger 暂停时详情头仍保留 `Fire` 的空间位置，但按钮必须 inert，徽标显示 `Paused`，hover/focus 提示先恢复再催发；后端 `TRIGGER_PAUSED` 仍是最终防线。
+- Trigger 的 Dispatch 首次读取允许短暂显示 `pending`：firing 先落 durable 行，再由 scheduler 决定 `started`、`skipped`、`superseded` 或 `shed`。只要当前页仍有 pending，前端每 500ms 重读同一 REST 页并替换现有行；全部行进入终态后立即停止，不能让用户离开再回来才能看到真实处置。
 
 日志列表页保持轻量：列表行不携带可能达到 64 KiB 的 `logs`，也不携带 Agent 的完整 `transcript`。
 用户展开 Function execution、Handler call 或 Agent execution 时，分别请求对应的单条端点；展开期间显示骨架，
@@ -58,7 +60,10 @@ audience: [human, ai]
 
 实体 rail 的删除确认必须说明对象会从当前目录移除且不可撤销；确认后才调用统一 `DELETE`，列表按 durable
 `deleted` 信号对账，打开中的详情回到实体首页。删除不会因入向关系阻塞，后端清边并保留适用的历史/审计事实；前端
-不得用含糊的“已删除”成功文案掩盖软删与后续不可用状态。
+不得用含糊的“已删除”成功文案掩盖软删与后续不可用状态。Trigger 的确认框是更严格的专用预检：动作前刷新
+`GET /api/v1/relgraph`，列出入向 `equip/link` 使用者，并在 listener 热时明确说明删除会停止监听；关系快照读失败时
+不继续执行删除。这样用户在确认前能知道受影响的工作流，删除后的 `trigger.deleted` 与
+`relation.dependency_broken` 仍由 durable 流和 REST 真相收口。
 
 调试台始终展示一份可直接修改和运行的 JSON。schema 示例优先使用 example/default/enum，缺失时生成类型骨架；workflow 按触发源生成点火 payload。编辑器的可见文本、session 草稿、实时 JSON lint 和 Run CTA 必须共享同一份当前文本：非法 JSON 立即显示可解释的红色错误并禁用 Run，禁止把旧草稿静默送入 HTTP；只有合法对象才进入 `:run`。无执行历史时不制造 Idle 墓碑，只有真实结果、错误或在飞状态才出现。
 

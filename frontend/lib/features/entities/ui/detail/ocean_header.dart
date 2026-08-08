@@ -8,6 +8,7 @@ import '../../../../core/ui/an_chip.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_crumbs.dart';
 import '../../../../core/ui/an_ocean_header.dart';
+import '../../../../core/ui/an_tooltip.dart';
 import '../../../../core/ui/icons.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_kind.dart';
@@ -61,13 +62,22 @@ class EntityOceanHeader extends StatelessWidget {
       // not a run — different act, not a second door). 动词 CTA 退役(唯一执行点=右岛调试台;两扇 Run 门
       // 分不清点哪个);trigger 保留 Fire(那是催一发 activation,不是第二扇执行门)。
       actions: [
-        if (detail.ref.kind == EntityKind.trigger)
-          AnButton(
-            label: t.entities.detail.trigger.fire,
-            icon: AnIcons.byKey(EntityKind.trigger.scopeKind),
-            variant: AnButtonVariant.primary,
-            onPressed: onFire,
+        if (detail.ref.kind == EntityKind.trigger) ...[
+          // A paused trigger keeps its Fire door visible for spatial stability, but the door is inert:
+          // the source switch is the truth and the tooltip points to the only valid next action.
+          // 暂停 trigger 保留 Fire 门的位置稳定，但门必须惰性；暂停开关是真相，提示指向唯一有效下一步。
+          AnTooltip(
+            message: detail.trigger?.paused == true
+                ? t.entities.detail.trigger.resumeToFire
+                : t.entities.detail.trigger.fireHint,
+            child: AnButton(
+              label: t.entities.detail.trigger.fire,
+              icon: AnIcons.byKey(EntityKind.trigger.scopeKind),
+              variant: AnButtonVariant.primary,
+              onPressed: detail.trigger?.paused == true ? null : onFire,
+            ),
           ),
+        ],
       ],
     );
   }
@@ -147,7 +157,9 @@ class EntityOceanHeader extends StatelessWidget {
             tone: AnTone.none,
           ), // source kind (cron/webhook/fsnotify/sensor)
           // The live signal: is its listener hot (≥1 active workflow references it). 活信号:listener 热否。
-          tr.listening
+          tr.paused
+              ? AnChip(kv.trigger.paused, tone: AnTone.warn)
+              : tr.listening
               ? AnChip(kv.trigger.listening, tone: AnStatus.run.tone)
               : AnChip(kv.trigger.idle, tone: AnTone.none),
         ];

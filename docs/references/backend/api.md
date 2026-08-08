@@ -148,8 +148,8 @@ unknown IDs 缺席，cells 按 `(flowrun,node)` 聚合 iterations。
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /triggers` · `GET /triggers` | 创建 / 分页；列表响应头带精确过滤总数 |
-| `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | 单读 / 热编辑 / 删除 |
+| `POST /triggers` · `GET /triggers` | 创建 / 分页；支持 `?search=` 大小写不敏感的 name 子串过滤，列表响应头带同过滤条件的精确总数 |
+| `GET /triggers/{id}` · `PATCH /triggers/{id}` · `DELETE /triggers/{id}` | 单读（含同列表派生字段）/ 热编辑 / 删除；`nextFireAt` 仅在可解析 cron 正在监听且未暂停时出现 |
 | `POST /triggers/{id}:fire` | 手动 fan-out |
 | `POST /triggers/{id}:pause` · `:resume` | 持久暂停 / 恢复 |
 | `POST /triggers/{id}:iterate` | 打开 AI 构建 Conversation |

@@ -5,6 +5,7 @@ import 'package:anselm/core/contract/entities/approval.dart';
 import 'package:anselm/core/contract/entities/control.dart';
 import 'package:anselm/core/contract/entities/function.dart';
 import 'package:anselm/core/contract/entities/handler.dart';
+import 'package:anselm/core/contract/entities/relation.dart';
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/contract/api_error.dart';
@@ -62,14 +63,21 @@ ControlLogic _ctl(String id, String name) =>
     ControlLogic(id: id, name: name, createdAt: _t, updatedAt: _t);
 ApprovalForm _apf(String id, String name) =>
     ApprovalForm(id: id, name: name, createdAt: _t, updatedAt: _t);
-TriggerEntity _tr(String id, String name, {bool paused = false}) =>
-    TriggerEntity(
-      id: id,
-      name: name,
-      createdAt: _t,
-      updatedAt: _t,
-      paused: paused,
-    );
+TriggerEntity _tr(
+  String id,
+  String name, {
+  bool paused = false,
+  bool listening = false,
+  int refCount = 0,
+}) => TriggerEntity(
+  id: id,
+  name: name,
+  createdAt: _t,
+  updatedAt: _t,
+  refCount: refCount,
+  listening: listening,
+  paused: paused,
+);
 
 Widget _host(EntityRepository repo, {AnOverlayController? overlay}) =>
     routedHost(
@@ -117,6 +125,7 @@ class _SpyRepo extends FixtureEntityRepository {
     super.agents,
     super.workflows,
     super.triggerEntities,
+    super.relGraph,
   });
 
   bool runCalled = false;
@@ -857,6 +866,42 @@ void main() {
       expect(fake.confirmCalled, isTrue);
       expect(spy.deleteCalled, isFalse);
       expect(find.text('normalize'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'Trigger Delete → fresh dependency preflight explains listener and workflows',
+    (tester) async {
+      final spy = _SpyRepo(
+        triggerEntities: [_tr('trg_1', 'sensor', listening: true, refCount: 1)],
+        relGraph: const EntityRelGraph(
+          edges: [
+            EntityRelation(
+              id: 'rel_1',
+              kind: 'equip',
+              fromKind: 'workflow',
+              fromId: 'wf_1',
+              fromName: 'nightly sync',
+              toKind: 'trigger',
+              toId: 'trg_1',
+              toName: 'sensor',
+            ),
+          ],
+        ),
+      );
+      final fake = _FakeOverlay(true);
+      await tester.pumpWidget(_host(spy, overlay: fake));
+      await tester.pump(const Duration(milliseconds: 50));
+      await _openRowMenu(tester, 'sensor');
+
+      await tester.tap(find.text(t.action.delete));
+      await tester.pumpAndSettle();
+
+      expect(fake.confirmTitle, t.entities.rail.deleteTriggerTitle);
+      expect(fake.confirmMessage, contains('nightly sync'));
+      expect(fake.confirmMessage, contains('listener'));
+      expect(fake.confirmMessage, contains('repair'));
+      expect(spy.deleteCalled, isTrue);
     },
   );
 

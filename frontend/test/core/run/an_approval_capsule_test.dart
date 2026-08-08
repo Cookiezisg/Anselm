@@ -95,6 +95,25 @@ void main() {
     expect(find.text('Reject'), findsOneWidget);
   });
 
+  testWidgets(
+    'does not flex-overflow while a long approval question grows in',
+    (tester) async {
+      await tester.pumpWidget(host(cap(question: 'Awaiting approval')));
+      await tester.pump(const Duration(milliseconds: 80));
+      expect(tester.takeException(), isNull);
+
+      await tester.pumpWidget(
+        host(cap(question: 'Workflow “EP067发布审批流” is waiting for approval')),
+      );
+      for (var i = 0; i < 8; i++) {
+        await tester.pump(const Duration(milliseconds: 80));
+        expect(tester.takeException(), isNull);
+      }
+      expect(find.text('Approve'), findsOneWidget);
+      expect(find.text('Reject'), findsOneWidget);
+    },
+  );
+
   testWidgets('the dot is WARN amber — never danger red (分级点色铁律)', (
     tester,
   ) async {

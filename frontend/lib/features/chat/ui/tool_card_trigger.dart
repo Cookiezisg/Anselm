@@ -36,6 +36,13 @@ Widget triggerConfigBody(BuildContext context, ToolCardState state) {
 
   final rows = <Widget>[
     toolIntent(context, state),
+    if (state.toolName == 'create_trigger' && id.isNotEmpty)
+      AnChip(
+        '${t.entities.detail.kv.id} $id',
+        look: AnChipLook.outlined,
+        mono: true,
+        copyValue: id,
+      ),
     ..._faceOf(context, t, c, kind, config, id),
   ];
 

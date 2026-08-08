@@ -114,8 +114,13 @@ void main() {
       // The full URL is copyable, id woven in from the result. 完整 URL 可复制。
       expect(
         find.byWidgetPredicate((w) => w is AnChip && w.copyValue != null),
+        findsNWidgets(2),
+      ); // the ID and URL copy chips ID 与 URL 复制芯片
+      expect(find.text('ID trg_9'), findsOneWidget);
+      expect(
+        find.byWidgetPredicate((w) => w is AnChip && w.copyValue == 'trg_9'),
         findsOneWidget,
-      ); // the URL copy chip URL 复制芯片
+      );
       expect(find.text('POST /api/v1/webhooks/trg_9/invoice'), findsOneWidget);
       // The secret VALUE is never rendered — only the 🔒 marker. 密钥值绝不显。
       expect(find.textContaining('whsec_SUPER'), findsNothing);

@@ -83,7 +83,11 @@ class FixtureEntityRepository implements EntityRepository {
        _approvalForms = List.of(approvalForms ?? const []),
        _triggerEntities = List.of(triggerEntities ?? const []),
        _activations = activations ?? const {},
-       _firings = firings ?? const {},
+       _firings = Map.fromEntries([
+         for (final entry
+             in (firings ?? const <String, List<Firing>>{}).entries)
+           MapEntry(entry.key, List.of(entry.value)),
+       ]),
        _handlerConfigs = handlerConfigs ?? const {};
 
   /// Inter-frame delay for the scripted run-terminal streams (so `make demo` shows a live terminal).
@@ -1222,6 +1226,11 @@ class FixtureEntityRepository implements EntityRepository {
   void upsertWorkflow(WorkflowEntity e) => _upsert(_workflows, e, (x) => x.id);
   void upsertTrigger(TriggerEntity e) =>
       _upsert(_triggerEntities, e, (x) => x.id);
+  void upsertFiring(Firing f) => _upsert(
+    _firings.putIfAbsent(f.triggerId, () => <Firing>[]),
+    f,
+    (x) => x.id,
+  );
 
   static void _upsert<T>(List<T> list, T e, String Function(T) id) {
     final i = list.indexWhere((x) => id(x) == id(e));

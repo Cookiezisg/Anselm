@@ -67,6 +67,44 @@ func TestTrigger_DuplicateName_And_Isolation(t *testing.T) {
 	}
 }
 
+// TestTrigger_ListSearch — ?search is a case-insensitive literal name substring, and the
+// count uses the same filter as the page so the rail badge cannot drift from its rows.
+//
+// TestTrigger_ListSearch —— ?search 是大小写不敏感的字面 name 子串，计数与列表共用过滤条件，
+// 防止 rail badge 与实际行数漂移。
+func TestTrigger_ListSearch(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	mkTrigger(t, s, ctx, "trg_1", "Webhook Intake", triggerdomain.KindWebhook, map[string]any{})
+	mkTrigger(t, s, ctx, "trg_2", "daily report", triggerdomain.KindCron, map[string]any{})
+	mkTrigger(t, s, ctx, "trg_3", "webhook backup", triggerdomain.KindWebhook, map[string]any{})
+
+	rows, _, err := s.ListTriggers(ctx, triggerdomain.ListFilter{Search: "WEBHOOK"})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(rows) != 2 || rows[0].ID != "trg_3" || rows[1].ID != "trg_1" {
+		t.Fatalf("search 'WEBHOOK' should match the two webhook names in created-desc order, got %+v", rows)
+	}
+	n, err := s.CountTriggers(ctx, triggerdomain.ListFilter{Search: "WEBHOOK"})
+	if err != nil || n != 2 {
+		t.Fatalf("filtered count = %d, err=%v; want 2", n, err)
+	}
+
+	// Whitespace is a no-op; wildcard characters are literal, not SQL wildcards.
+	all, _, err := s.ListTriggers(ctx, triggerdomain.ListFilter{Search: "  "})
+	if err != nil || len(all) != 3 {
+		t.Fatalf("blank search should return all rows, got %d err=%v", len(all), err)
+	}
+	for _, name := range []string{"literal%", "literal_"} {
+		mkTrigger(t, s, ctx, "trg_"+name[len("literal"):], name, triggerdomain.KindWebhook, map[string]any{})
+	}
+	percent, _, err := s.ListTriggers(ctx, triggerdomain.ListFilter{Search: "literal%"})
+	if err != nil || len(percent) != 1 || percent[0].Name != "literal%" {
+		t.Fatalf("percent search must be literal, got %+v err=%v", percent, err)
+	}
+}
+
 func TestFiring_Dedup(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

@@ -1278,6 +1278,71 @@ func TestRedactOpaqueMachineValuesMakesWebhookEndpointHonest(t *testing.T) {
 	}
 }
 
+func TestRedactOpaqueMachineValuesPointsTriggerIDToCard(t *testing.T) {
+	for _, input := range []string{
+		"**Trigger ID:** `the requested item`",
+		"**Trigger ID：** `the requested item`",
+		"**触发器 ID：** `the requested item`",
+		"| **Trigger ID** | `the requested item` |",
+	} {
+		got := redactOpaqueMachineValues(input)
+		if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "trg_") {
+			t.Fatalf("trigger ID placeholder leaked for %q: %q", input, got)
+		}
+		if containsHan(input) {
+			if got != "精确触发器 ID 见旁边的触发器卡片。" {
+				t.Fatalf("Chinese trigger ID guidance = %q", got)
+			}
+		} else if strings.HasPrefix(input, "|") {
+			if got != "| **Trigger ID** | See the exact trigger ID in the adjacent trigger card. |" {
+				t.Fatalf("English trigger ID table guidance = %q", got)
+			}
+		} else if got != "See the exact trigger ID in the adjacent trigger card." {
+			t.Fatalf("English trigger ID guidance = %q", got)
+		}
+	}
+}
+
+func TestTextRedactorPointsTriggerIDTableToCardAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| **Trigger ID** | `the requested",
+		" item` |\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "trg_") {
+			t.Fatalf("stream leaked trigger ID table placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "| **Trigger ID** | See the exact trigger ID in the adjacent trigger card. |\n"
+	if got.String() != want {
+		t.Fatalf("stream trigger ID table guidance = %q, want %q", got.String(), want)
+	}
+}
+
+func TestTextRedactorPointsTriggerIDToCardAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"**Trigger ID：** `the requested",
+		" item`",
+		"\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "trg_") {
+			t.Fatalf("stream leaked trigger ID placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "See the exact trigger ID in the adjacent trigger card.\n" {
+		t.Fatalf("stream trigger ID guidance = %q", got.String())
+	}
+}
+
 func TestTextRedactorHidesWebhookEndpointAcrossProviderChunks(t *testing.T) {
 	var r textRedactor
 	var got strings.Builder

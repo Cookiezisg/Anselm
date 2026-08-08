@@ -1,6 +1,8 @@
 import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/router/navigation.dart';
+import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -22,6 +24,22 @@ final _t = DateTime.utc(2026, 6, 26);
 FunctionEntity _fn(String id, String name) =>
     FunctionEntity(id: id, name: name, createdAt: _t, updatedAt: _t);
 const _ref = EntityRef(EntityKind.function, 'fn_1');
+const _triggerRef = EntityRef(EntityKind.trigger, 'trg_1');
+
+TriggerEntity _trigger({
+  bool listening = true,
+  bool paused = false,
+  bool hasNextFireAt = true,
+}) => TriggerEntity(
+  id: _triggerRef.id,
+  name: 'heartbeat',
+  kind: TriggerSource.cron,
+  createdAt: _t,
+  updatedAt: _t,
+  listening: listening,
+  paused: paused,
+  nextFireAt: hasNextFireAt ? _t : null,
+);
 
 ProviderContainer _container(EntityRepository repo) {
   final c = ProviderContainer(
@@ -176,4 +194,48 @@ void main() {
 
     expect(identical(c.read(entityDetailProvider(_ref)).value, before), isTrue);
   });
+
+  test(
+    'trigger status panel signal → re-fetches the live detail projection',
+    () async {
+      final fixture = FixtureEntityRepository(triggerEntities: [_trigger()]);
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(fixture)],
+      );
+      addTearDown(c.dispose);
+      c.listen(entityDetailProvider(_triggerRef), (_, _) {});
+
+      await c.read(entityDetailProvider(_triggerRef).future);
+      expect(
+        c.read(entityDetailProvider(_triggerRef)).value?.trigger?.listening,
+        isTrue,
+      );
+      expect(
+        c.read(entityDetailProvider(_triggerRef)).value?.trigger?.nextFireAt,
+        _t,
+      );
+
+      fixture.upsertTrigger(
+        _trigger(listening: false, paused: true, hasNextFireAt: false),
+      );
+      final scope = _triggerRef.kind.scope(_triggerRef.id);
+      fixture.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 0,
+          scope: scope,
+          id: _triggerRef.id,
+          frame: const FrameSignal(
+            node: StreamNode(type: 'status', content: {'paused': true}),
+          ),
+        ),
+      );
+      await pumpEventQueue();
+
+      final trigger = c.read(entityDetailProvider(_triggerRef)).value?.trigger;
+      expect(trigger?.paused, isTrue);
+      expect(trigger?.listening, isFalse);
+      expect(trigger?.nextFireAt, isNull);
+    },
+  );
 }

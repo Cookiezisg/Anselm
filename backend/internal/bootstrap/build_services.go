@@ -220,6 +220,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	mcp.SetUploader(att) // 批B' MCP 媒体入口:二进制内容落一等附件 // SSE-C: CallTool tees progress to the server's run terminal
 	conv := conversationapp.NewService(st.conversation, notif, log)
 	trg := triggerapp.NewService(st.trigger, mux, NewSensorInvoker(fn, hd, mcp), log)
+	trg.SetNotifier(notif)                                              // lifecycle CRUD wakes trigger rail/detail
 	trg.SetEntitiesBridge(bus.entities)                                 // SSE-C: every fan-out emits a fire signal to the trigger panel
 	trg.SetSensorTargetValidator(NewSensorTargetValidator(fn, hd, mcp)) // F102: reject a sensor whose fn/hd/mcp target is dangling at create/edit
 	wf := workflowapp.NewService(st.workflow, nil, notif, log)          // resolver set below

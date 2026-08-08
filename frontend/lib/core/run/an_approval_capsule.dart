@@ -122,6 +122,7 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
 
   double _blockH = 120;
   double _questionH = 20;
+  String? _measuredQuestion;
   bool _started = false;
   bool _exiting = false;
   bool _entered = false;
@@ -251,6 +252,7 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
       maxWidth: _blockW - AnInset.noticeCoast * 2,
       read: (p) => p.height,
     );
+    _measuredQuestion = widget.question;
     _blockH =
         _barH + // shared title crown 共用标题冠部
         AnGap.stack + // crown → question 冠部→问题
@@ -289,6 +291,12 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
 
   @override
   Widget build(BuildContext context) {
+    // The host can resolve the parked node during the same frame as the first capsule build. The
+    // didUpdateWidget hook normally catches that change; this guard also covers a provider update
+    // that arrives after the dependency pass, before the animation's first constrained layout.
+    // 宿主可能在首帧同时解析 parked 节点；通常由 didUpdateWidget 捕获，这道守卫覆盖 provider 在依赖阶段
+    // 之后、动画首次紧约束布局之前才到的更新。
+    if (_measuredQuestion != widget.question) _measure();
     final c = context.colors;
     final statusTone = widget.errorLabel != null
         ? AnTone.danger
@@ -308,101 +316,109 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
     final content = SizedBox(
       width: _blockW,
       height: _blockH,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            height: _barH,
-            child: Padding(
-              padding: const EdgeInsetsDirectional.only(
-                start: AnInset.noticeCoast,
-                end: AnInset.noticeActionEdge,
+      child: OverflowBox(
+        alignment: AlignmentDirectional.topStart,
+        minWidth: _blockW,
+        maxWidth: _blockW,
+        minHeight: 0,
+        maxHeight: double.infinity,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: _barH,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.only(
+                  start: AnInset.noticeCoast,
+                  end: AnInset.noticeActionEdge,
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      width: AnSize.dot,
+                      height: AnSize.dot,
+                      decoration: BoxDecoration(
+                        color: statusTone.fg(c),
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: AnGap.inline),
+                    Expanded(
+                      child: Text.rich(
+                        TextSpan(
+                          text: status,
+                          style: AnText.meta.copyWith(color: statusColor),
+                          children: <InlineSpan>[
+                            TextSpan(
+                              text: '  ·  ${widget.title}',
+                              style: AnText.body
+                                  .weight(AnText.emphasisWeight)
+                                  .copyWith(color: c.ink),
+                            ),
+                          ],
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        softWrap: false,
+                      ),
+                    ),
+                    const SizedBox(width: AnGap.inlineLoose),
+                    AnNoticeCloseAffordance(
+                      semanticLabel: widget.closeLabel ?? widget.rejectLabel,
+                      onPressed: _close,
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: AnGap.stack),
+            Padding(
+              padding: const EdgeInsetsDirectional.symmetric(
+                horizontal: AnInset.noticeCoast,
+              ),
+              child: Text(
+                _plainQuestion,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.body.copyWith(color: c.ink),
+              ),
+            ),
+            const SizedBox(height: AnGap.block),
+            Padding(
+              padding: const EdgeInsetsDirectional.symmetric(
+                horizontal: AnInset.noticeCoast,
               ),
               child: Row(
                 children: [
-                  Container(
-                    width: AnSize.dot,
-                    height: AnSize.dot,
-                    decoration: BoxDecoration(
-                      color: statusTone.fg(c),
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: AnGap.inline),
-                  Expanded(
-                    child: Text.rich(
-                      TextSpan(
-                        text: status,
-                        style: AnText.meta.copyWith(color: statusColor),
-                        children: <InlineSpan>[
-                          TextSpan(
-                            text: '  ·  ${widget.title}',
-                            style: AnText.body
-                                .weight(AnText.emphasisWeight)
-                                .copyWith(color: c.ink),
-                          ),
-                        ],
-                      ),
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      softWrap: false,
-                    ),
+                  AnButton(
+                    label: widget.approveLabel,
+                    variant: AnButtonVariant.primary,
+                    size: AnButtonSize.sm,
+                    onPressed:
+                        !widget.decisionsEnabled ||
+                            widget.busy ||
+                            widget.verdict != null
+                        ? null
+                        : widget.onApprove,
                   ),
                   const SizedBox(width: AnGap.inlineLoose),
-                  AnNoticeCloseAffordance(
-                    semanticLabel: widget.closeLabel ?? widget.rejectLabel,
-                    onPressed: _close,
+                  AnButton(
+                    label: widget.rejectLabel,
+                    size: AnButtonSize.sm,
+                    onPressed:
+                        !widget.decisionsEnabled ||
+                            widget.busy ||
+                            widget.verdict != null
+                        ? null
+                        : widget.onReject,
                   ),
                 ],
               ),
             ),
-          ),
-          const SizedBox(height: AnGap.stack),
-          Padding(
-            padding: const EdgeInsetsDirectional.symmetric(
-              horizontal: AnInset.noticeCoast,
-            ),
-            child: Text(
-              _plainQuestion,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AnText.body.copyWith(color: c.ink),
-            ),
-          ),
-          const SizedBox(height: AnGap.block),
-          Padding(
-            padding: const EdgeInsetsDirectional.symmetric(
-              horizontal: AnInset.noticeCoast,
-            ),
-            child: Row(
-              children: [
-                AnButton(
-                  label: widget.approveLabel,
-                  variant: AnButtonVariant.primary,
-                  size: AnButtonSize.sm,
-                  onPressed:
-                      !widget.decisionsEnabled ||
-                          widget.busy ||
-                          widget.verdict != null
-                      ? null
-                      : widget.onApprove,
-                ),
-                const SizedBox(width: AnGap.inlineLoose),
-                AnButton(
-                  label: widget.rejectLabel,
-                  size: AnButtonSize.sm,
-                  onPressed:
-                      !widget.decisionsEnabled ||
-                          widget.busy ||
-                          widget.verdict != null
-                      ? null
-                      : widget.onReject,
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: AnInset.noticeCoast),
-        ],
+            const SizedBox(height: AnInset.noticeCoast),
+          ],
+        ),
       ),
     );
 

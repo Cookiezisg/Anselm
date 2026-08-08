@@ -27,6 +27,7 @@ TriggerEntity _trigger({
   List<Field> outputs = const [],
   bool listening = true,
   int refCount = 1,
+  bool paused = false,
   DateTime? lastFired,
   DateTime? nextFire,
 }) => TriggerEntity(
@@ -38,6 +39,7 @@ TriggerEntity _trigger({
   outputs: outputs,
   listening: listening,
   refCount: refCount,
+  paused: paused,
   lastFiredAt: lastFired,
   nextFireAt: nextFire,
   createdAt: _t,
@@ -89,6 +91,30 @@ void main() {
       expect(find.text(r.listening), findsWidgets); // runtime section label
       expect(find.text(r.nextFire), findsOneWidget); // cron-only next-fire row
     });
+
+    testWidgets(
+      'cron: a stale nextFireAt is hidden while the listener is cold',
+      (tester) async {
+        await tester.pumpWidget(
+          _wrap(
+            TriggerOverview(
+              trigger: _trigger(
+                kind: TriggerSource.cron,
+                listening: false,
+                refCount: 0,
+                nextFire: _t.add(const Duration(hours: 18)),
+              ),
+            ),
+          ),
+        );
+        await tester.pump();
+        expect(
+          find.text('—'),
+          findsNWidgets(2),
+        ); // last fired + next fire placeholders
+        expect(find.textContaining('03:00'), findsNothing);
+      },
+    );
 
     testWidgets('webhook: renders the mounted URL as the headline (copyable)', (
       tester,
@@ -170,6 +196,27 @@ void main() {
       await tester.tap(find.text(t.entities.detail.trigger.fire));
       expect(fired, isTrue);
     });
+
+    testWidgets('paused trigger shows Paused and makes Fire inert', (
+      tester,
+    ) async {
+      var fired = false;
+      final pausedDetail = detail().copyWith(
+        trigger: detail().trigger!.copyWith(paused: true, listening: false),
+      );
+      await tester.pumpWidget(
+        _wrap(
+          EntityOceanHeader(detail: pausedDetail, onFire: () => fired = true),
+        ),
+      );
+      await tester.pump();
+
+      expect(find.text(t.entities.detail.trigger.paused), findsOneWidget);
+      final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+      expect(tooltip.message, t.entities.detail.trigger.resumeToFire);
+      await tester.tap(find.text(t.entities.detail.trigger.fire));
+      expect(fired, isFalse);
+    });
   });
 
   group('observability tabs', () {
@@ -241,6 +288,51 @@ void main() {
       expect(find.textContaining(FiringStatus.started.name), findsWidgets);
       expect(find.textContaining('wf_x'), findsOneWidget);
     });
+
+    testWidgets(
+      'dispatch tab settles a pending firing without leaving it stale',
+      (tester) async {
+        final repo = FixtureEntityRepository(
+          firings: {
+            'trg_1': [
+              Firing(
+                id: 'trf_pending',
+                triggerId: 'trg_1',
+                workflowId: 'wf_x',
+                activationId: 'tra_2',
+                status: FiringStatus.pending,
+                createdAt: _t,
+                updatedAt: _t,
+              ),
+            ],
+          },
+        );
+        await tester.pumpWidget(
+          _hostProvider(repo, const TriggerDispatchTab('trg_1')),
+        );
+        await tester.pump();
+        await tester.pump();
+        expect(find.textContaining(FiringStatus.pending.name), findsOneWidget);
+
+        repo.upsertFiring(
+          Firing(
+            id: 'trf_pending',
+            triggerId: 'trg_1',
+            workflowId: 'wf_x',
+            activationId: 'tra_2',
+            status: FiringStatus.started,
+            flowrunId: 'flr_1',
+            createdAt: _t,
+            updatedAt: _t,
+          ),
+        );
+        await tester.pump(const Duration(milliseconds: 600));
+        await tester.pump();
+        expect(find.textContaining(FiringStatus.pending.name), findsNothing);
+        expect(find.textContaining(FiringStatus.started.name), findsOneWidget);
+        expect(find.textContaining('flr_1'), findsOneWidget);
+      },
+    );
 
     testWidgets('empty activity shows the inset empty state', (tester) async {
       await tester.pumpWidget(

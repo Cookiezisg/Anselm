@@ -106,6 +106,18 @@ StreamEnvelope _workflowFrame({required int seq, String type = 'run'}) =>
       frame: FrameSignal(node: StreamNode(type: type)),
     );
 
+StreamEnvelope _workflowLifecycleFrame({
+  required int seq,
+  required String type,
+}) => StreamEnvelope(
+  seq: seq,
+  scope: const StreamScope(kind: 'notification', id: 'noti_1'),
+  id: 'noti_1',
+  frame: FrameSignal(
+    node: StreamNode(type: type, content: const {'workflowId': 'wf_clean'}),
+  ),
+);
+
 void main() {
   test(
     'ticks (seq=0) never refetch; durable frames (seq>0) do — debounced',
@@ -145,6 +157,39 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 600));
       expect(repo.fetches, 2, reason: '两 durable 帧去抖成一次 refetch');
+    },
+  );
+
+  test(
+    'workflow lifecycle notifications refetch the rail — deleted rows cannot remain cached',
+    () async {
+      final conns = {for (final n in StreamName.values) n: _FakeConn()};
+      final gateway = SseGateway(
+        baseUrl: 'http://localhost:1',
+        workspaceId: () => null,
+        authToken: () => null,
+        connectionFactory: (n) => conns[n]!,
+      );
+      final repo = _CountingRepo();
+      final container = ProviderContainer(
+        overrides: [
+          sseGatewayProvider.overrideWithValue(gateway),
+          schedulerRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(schedulerRailProvider.future);
+      expect(repo.fetches, 1);
+
+      // The backend's workflow.deleted signal is a notifications-stream lifecycle frame. It must
+      // heal the scheduler rail even when no run frame arrived on entities.
+      // 后端 workflow.deleted 在 notifications 流;即使 entities 没有 run 帧,也必须治好 scheduler rail。
+      conns[StreamName.notifications]!.ctrl.add(
+        _workflowLifecycleFrame(seq: 9, type: 'workflow.deleted'),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(repo.fetches, 2);
     },
   );
 

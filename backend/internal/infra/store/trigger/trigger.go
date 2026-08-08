@@ -301,7 +301,7 @@ func (s *Store) GetTriggersByIDs(ctx context.Context, ids []string) ([]*triggerd
 }
 
 func (s *Store) ListTriggers(ctx context.Context, filter triggerdomain.ListFilter) ([]*triggerdomain.Trigger, string, error) {
-	rows, next, err := s.trgs.Query().Page(ctx, filter.Cursor, filter.Limit)
+	rows, next, err := s.trgs.Query().WhereLike("name", filter.Search).Page(ctx, filter.Cursor, filter.Limit)
 	if err != nil {
 		return nil, "", fmt.Errorf("triggerstore.ListTriggers: %w", err)
 	}
@@ -309,7 +309,7 @@ func (s *Store) ListTriggers(ctx context.Context, filter triggerdomain.ListFilte
 }
 
 func (s *Store) CountTriggers(ctx context.Context, filter triggerdomain.ListFilter) (int, error) {
-	n, err := s.trgs.Query().Count(ctx)
+	n, err := s.trgs.Query().WhereLike("name", filter.Search).Count(ctx)
 	if err != nil {
 		return 0, fmt.Errorf("triggerstore.CountTriggers: %w", err)
 	}

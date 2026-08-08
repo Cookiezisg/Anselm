@@ -159,6 +159,13 @@ var (
 	// 模型也常把冒号放进 Markdown 加粗范围，例如 `**ID:** value`。两种写法都必须视为同一
 	// 个带标签机器字段，不能让 placeholder 穿过流式或耐久 close。
 	opaquePlaceholderBoldColonLabeledLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{2}|__)(?:id|identifier|path|label|name):(?:\*{2}|__)[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*(?:\r?\n|$)`)
+	// A successful create_trigger result has an exact, copyable ID in its adjacent tool card. If the
+	// model repeats that value in prose, the global opaque-ID rule must not leave the user with a
+	// broken-looking "Trigger ID: the requested item" line; point to the card instead. This is
+	// deliberately narrower than the generic ID rule and does not expose the ID in prose.
+	// create_trigger 成功结果的精确 ID 在相邻工具卡中可复制。模型若在散文中重复该值，不能留下
+	// 坏掉的「Trigger ID: the requested item」；明确指向卡片。此规则刻意收窄，不放开散文泄露。
+	opaqueTriggerIDPlaceholderLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{2}|__)?(?:trigger[ \t]+id|触发器[ \t]*id|触发器标识)(?:\*{2}|__)?[ \t]*[:：][ \t]*(?:\*{2}|__)?[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[ \t]*\r?$`)
 	// Version IDs are opaque too. Remove the whole field, including any model-added parenthetical,
 	// instead of showing a value-shaped placeholder in assistant prose.
 	// 版本 ID 同样是不透明机器值。整行连同模型附加的括号说明一起移除，不能渲染成像真实值的占位符。
@@ -347,6 +354,7 @@ func redactOpaqueMachineValues(text string) string {
 	text = relationRecordedTimePattern.ReplaceAllString(text, "")
 	text = redactRelationAllowedToolsLines(text)
 	text = relationMalformedEquipPattern.ReplaceAllString(text, "${1}该函数被技能 ${2} 通过 equip 关系装备。")
+	text = opaqueTriggerIDPlaceholderLinePattern.ReplaceAllStringFunc(text, redactTriggerIDPlaceholderLine)
 	text = opaqueFlowrunSummaryTargetPattern.ReplaceAllString(text, "${1}:")
 	text = opaquePinnedReferenceNaturalPattern.ReplaceAllString(text, "Pinned reference: The function version is pinned.")
 	text = opaqueFlowrunIDFieldPlaceholderPattern.ReplaceAllString(text, "**Requested ID:** Supplied run ID")
@@ -421,6 +429,7 @@ func redactOpaqueMachineValues(text string) string {
 	// replace the cell with an honest unavailable marker; the complete close pass below can remove
 	// an entirely unavailable ID column instead of leaving a misleading header behind.
 	// Markdown 表格里的 placeholder 仍不是用户值。流式阶段先替换为诚实的不可用标记；完整 close 再移除整列。
+	text = redactTriggerIDPlaceholderTableRows(text)
 	text = redactOpaquePlaceholderTableCells(text)
 	// A two-column Field/Value table encodes an ID as a row rather than a column. Remove an
 	// unavailable ID row too; otherwise the earlier cell pass turns it into `ID | -` and the
@@ -439,6 +448,13 @@ func redactOpaqueMachineValues(text string) string {
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	text = longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
 	return restoreExactLastMessageAt(text)
+}
+
+func redactTriggerIDPlaceholderLine(line string) string {
+	if containsHan(line) {
+		return "精确触发器 ID 见旁边的触发器卡片。"
+	}
+	return "See the exact trigger ID in the adjacent trigger card."
 }
 
 func redactOpaquePlaceholderParentheticalLists(text string) string {
@@ -1499,7 +1515,33 @@ func isOpaquePlaceholderTableCell(cell string) bool {
 const (
 	flowrunSearchRowHint   = "See the run card"
 	searchBlocksRefRowHint = "See the exact ref in the search_blocks result card."
+	triggerIDTableRowHint  = "See the exact trigger ID in the adjacent trigger card."
 )
+
+func redactTriggerIDPlaceholderTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if !ok || len(cells) < 2 {
+			continue
+		}
+		label := strings.ToLower(strings.Trim(strings.TrimSpace(cells[0]), "`*_ "))
+		label = strings.Join(strings.Fields(label), " ")
+		if label != "trigger id" && label != "trigger identifier" && label != "触发器 id" && label != "触发器标识" {
+			continue
+		}
+		if !isUnavailableOpaqueTableCell(cells[1]) {
+			continue
+		}
+		if containsHan(line) {
+			cells[1] = "精确触发器 ID 见旁边的触发器卡片。"
+		} else {
+			cells[1] = triggerIDTableRowHint
+		}
+		lines[i] = formatMarkdownTableRow(cells)
+	}
+	return strings.Join(lines, "\n")
+}
 
 // redactFlowrunSearchRows applies the run-card hint only to a table whose header identifies a
 // Run ID column. A generic numeric table is not enough context: search_blocks tables also start
@@ -2284,7 +2326,8 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 		for _, line := range strings.Split(completed, "\n") {
 			if opaquePlaceholderLabeledLinePattern.MatchString(line) ||
 				opaquePlaceholderBoldColonLabeledLinePattern.MatchString(line) ||
-				opaqueVersionIDPlaceholderLinePattern.MatchString(line) {
+				opaqueVersionIDPlaceholderLinePattern.MatchString(line) ||
+				opaqueTriggerIDPlaceholderLinePattern.MatchString(line) {
 				return completed, text[newline+1:], true
 			}
 		}
@@ -2294,7 +2337,7 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 	if line == "" || len([]rune(line)) > 512 {
 		return "", "", false
 	}
-	if hasOpaquePlaceholderLabeledPrefix(line) {
+	if hasOpaquePlaceholderLabeledPrefix(line) || hasTriggerIDLinePrefix(line) {
 		return text[:lineStart], line, true
 	}
 	lower := strings.ToLower(line)
@@ -2343,6 +2386,15 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 		}
 	}
 	return text[:lineStart], line, true
+}
+
+func hasTriggerIDLinePrefix(line string) bool {
+	trimmed := strings.TrimSpace(strings.TrimLeft(line, "-*•_` \t"))
+	trimmed = strings.TrimLeft(trimmed, "*_")
+	if len(trimmed) >= len("trigger id") && strings.EqualFold(trimmed[:len("trigger id")], "trigger id") {
+		return true
+	}
+	return strings.HasPrefix(trimmed, "触发器")
 }
 
 func hasOpaquePlaceholderLabeledPrefix(line string) bool {

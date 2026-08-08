@@ -188,6 +188,9 @@ Unregister 不向 ServeMux 动态增删 pattern。
   的 Resume 控件或 `POST /api/v1/triggers/{id}:resume`，再执行 fire。
 - `:pause` / `:resume` 控制 source，不取消既有工作。
 - `:iterate` 打开 AI 编辑对话。
+- Create/Edit/Delete 发 notifications durable lifecycle signal（`trigger.created`、`trigger.edited`、
+  `trigger.deleted`），使已打开的 rail/detail 在 AI 或其它客户端写入后回读实体真相；Pause/Resume
+  不写通知中心，只发 trigger scope 的 ephemeral `status`。
 - Delete 停 listener、软删主行并清 relation；既有 activation/firing 日志保留。主行**不可恢复**，当前没有
   restore 操作；`delete_trigger` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe` 也必须先经过
   HumanLoop 用户批准，且不能被 skill 或 `approve_always` 预授权绕过。删除前先用 `get_relations` 解释会

@@ -65,7 +65,7 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*triggerdomain.Tr
 	if err := s.repo.SaveTrigger(ctx, t); err != nil {
 		return nil, err
 	}
-	s.notifySearch(ctx, t.ID)
+	s.publish(ctx, "created", t.ID, map[string]any{"name": t.Name, "kind": t.Kind})
 	s.syncSensorBinding(ctx, t)
 	s.syncBuiltEdge(ctx, t.ID)
 	return t, nil
@@ -113,7 +113,7 @@ func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdo
 	if err := s.repo.EditTrigger(ctx, t); err != nil {
 		return nil, err
 	}
-	s.notifySearch(ctx, t.ID)
+	s.publish(ctx, "edited", t.ID, map[string]any{"name": t.Name, "kind": t.Kind})
 	s.syncSensorBinding(ctx, t)
 	s.restartIfListening(t)
 	// Re-read the runtime axis rather than echoing the read-time copies: the write above deliberately
@@ -134,6 +134,7 @@ func (s *Service) Edit(ctx context.Context, id string, in EditInput) (*triggerdo
 //
 // Delete 停掉热 listener、软删 trigger、清除关系边。
 func (s *Service) Delete(ctx context.Context, id string) error {
+	old, _ := s.repo.GetTrigger(ctx, id)
 	s.mu.Lock()
 	if e, ok := s.listeners[id]; ok {
 		if l := s.listenerFor(e.kind); l != nil {
@@ -145,7 +146,12 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.repo.DeleteTrigger(ctx, id); err != nil {
 		return err
 	}
-	s.notifySearch(ctx, id)
+	extra := map[string]any{}
+	if old != nil {
+		extra["name"] = old.Name
+		extra["kind"] = old.Kind
+	}
+	s.publish(ctx, "deleted", id, extra)
 	s.purgeRelations(ctx, id)
 	return nil
 }

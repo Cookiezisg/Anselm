@@ -205,14 +205,16 @@ func (s *Service) attachRuntime(t *triggerdomain.Trigger) {
 		t.Listening = t.RefCount > 0 && !t.Paused
 	}
 	s.mu.RUnlock()
-	// Project the next scheduled fire for a cron trigger (read-time, like LastFiredAt) so the UI can
-	// show "next fire in N". Best-effort: a non-cron kind or unparseable expr leaves it nil. A paused
-	// trigger projects nil — nothing IS scheduled (its cron entry is removed), so a timestamp would lie.
+	// Project the next scheduled fire only while a cron listener is actually hot (read-time, like
+	// LastFiredAt) so the UI can show "next fire in N". A configured but unreferenced trigger has
+	// no listener and therefore no future event; exposing its mathematical cron tick would promise a
+	// run that cannot happen. Best-effort: a non-cron kind, cold listener, paused trigger, or
+	// unparseable expression leaves it nil.
 	//
-	// 对 cron 触发器投影下次调度触发时刻（读时派生，类比 LastFiredAt），使 UI 可显示「N 后触发」。
-	// best-effort：非 cron 或 expr 不可解析则留 nil。暂停时投影 nil——根本没有排程（cron entry 已摘），
-	// 给时间戳就是撒谎。
-	if t.Kind == triggerdomain.KindCron && !t.Paused {
+	// 只在 cron listener 真正热着时投影下次调度触发时刻（读时派生，类比 LastFiredAt），使 UI 可显示
+	// 「N 后触发」。已配置但无人引用的 trigger 没有 listener、不会产生未来事件；展示数学上的 cron 刻度
+	// 就是在承诺一个不会发生的运行。best-effort：非 cron、冷 listener、暂停或 expr 不可解析均留 nil。
+	if t.Kind == triggerdomain.KindCron && !t.Paused && t.Listening {
 		if next, err := croninfra.NextAfter(triggerdomain.CronExpression(t.Config), time.Now()); err == nil {
 			t.NextFireAt = &next
 		}

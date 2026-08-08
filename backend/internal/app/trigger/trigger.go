@@ -17,6 +17,7 @@ import (
 
 	"go.uber.org/zap"
 
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
@@ -79,7 +80,8 @@ type listenEntry struct {
 // Service 是统一的 trigger 入口。
 type Service struct {
 	repo   triggerdomain.Repository
-	search searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
+	search searchdomain.Notifier      // nil → search indexing disabled. nil → 不接搜索索引。
+	notif  notificationdomain.Emitter // nil → lifecycle notifications disabled. nil → 不接生命周期通知。
 
 	cron     triggerinfra.Listener
 	webhook  triggerinfra.Listener
@@ -124,6 +126,14 @@ type SensorTargetValidator interface {
 // SetEntitiesBridge 装配后装入 entities 流（SSE-C）：每次扇出发一条 trigger scope 的 fire 信号，使 trigger
 // 面板实时显示触发。
 func (s *Service) SetEntitiesBridge(b streamdomain.Bridge) { s.entities = b }
+
+// SetNotifier installs the notifications emitter post-construction. Trigger CRUD is an entity
+// lifecycle surface just like the other rail kinds: AI-created/edited/deleted rows must wake the
+// rail and any open detail. Pause/resume deliberately stays on the scoped ephemeral status signal.
+//
+// SetNotifier 装配后接入通知发射器。Trigger CRUD 与其它 rail 实体一样属于生命周期面：AI 创建/编辑/删除
+// 必须唤醒 rail 与已打开的详情。Pause/Resume 刻意仍只走作用域 ephemeral status 信号。
+func (s *Service) SetNotifier(n notificationdomain.Emitter) { s.notif = n }
 
 // SetSensorTargetValidator installs the eager sensor-target existence check post-construction.
 //

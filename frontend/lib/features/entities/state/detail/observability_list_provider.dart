@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/entities/trigger.dart';
@@ -122,15 +124,18 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
   final ({String triggerId, String? status}) arg;
   late EntityRepository _repo;
   static const int _pageSize = 20;
+  Timer? _pendingPoll;
 
   @override
   Future<LogListState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
+    ref.onDispose(() => _pendingPoll?.cancel());
     final p = await _repo.listFirings(
       arg.triggerId,
       status: arg.status,
       limit: _pageSize,
     );
+    _armPendingPoll(p.items);
     return LogListState(
       rows: p.items.map(_row).toList(),
       nextCursor: p.nextCursor,
@@ -178,6 +183,71 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
     hasMore: more,
     loadingMore: false,
   );
+
+  /// A firing is written pending before the scheduler claims it, so the first REST read after `:fire`
+  /// can legitimately precede the final disposition. Reconcile only while the current page contains
+  /// pending rows; once every row is terminal, the timer is gone. This is a bounded durable-row poll,
+  /// not a second history source, and covers scheduler paths that settle rows without a trigger-scoped
+  /// frame (skip/shed/buffer policies as well as the normal claim).
+  ///
+  /// `:fire` 后首次 REST 读取可能先于 scheduler claim，故先看到 pending 是合法中间态。仅当当前页仍有
+  /// pending 行时短轮询；所有行落到终态后立即停表。它是有界的 durable 行对账，不是第二份历史来源，
+  /// 同时覆盖没有 trigger scope 帧的 skip/shed/buffer 策略与普通 claim。
+  void _armPendingPoll(List<Firing> firings) {
+    _pendingPoll?.cancel();
+    _pendingPoll = null;
+    if (!ref.mounted || !firings.any((f) => f.status == FiringStatus.pending)) {
+      return;
+    }
+    _schedulePendingPoll();
+  }
+
+  void _schedulePendingPoll() {
+    if (!ref.mounted) return;
+    _pendingPoll?.cancel();
+    _pendingPoll = Timer(const Duration(milliseconds: 500), () {
+      _pendingPoll = null;
+      unawaited(_reconcilePending());
+    });
+  }
+
+  Future<void> _reconcilePending() async {
+    if (!ref.mounted) return;
+    final current = state.value;
+    if (current == null) return;
+    try {
+      final p = await _repo.listFirings(
+        arg.triggerId,
+        status: arg.status,
+        limit: _pageSize,
+      );
+      if (!ref.mounted) return;
+      final latest = state.value;
+      if (latest == null) return;
+
+      final fresh = {for (final firing in p.items) firing.id: _row(firing)};
+      final rows = arg.status == FiringStatus.pending.name
+          ? [
+              for (final row in latest.rows)
+                if (fresh.containsKey(row.id)) fresh[row.id]!,
+            ]
+          : [
+              for (final row in latest.rows) fresh[row.id] ?? row,
+              for (final row in p.items.map(_row))
+                if (!latest.rows.any((existing) => existing.id == row.id)) row,
+            ];
+      state = AsyncData(latest.copyWith(rows: rows));
+      _armPendingPoll(p.items);
+    } catch (_) {
+      // Keep the last-known-good rows and retry while a pending disposition remains visible.
+      // 短暂重取失败保留最近可信行，只要仍可能有 pending 就继续对账。
+      if (current.rows.any(
+        (row) => row.label.startsWith('${FiringStatus.pending.name} ·'),
+      )) {
+        _schedulePendingPoll();
+      }
+    }
+  }
 
   void toggle(String id) {
     final cur = state.value;

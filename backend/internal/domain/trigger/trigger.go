@@ -135,12 +135,15 @@ type Trigger struct {
 	NextFireAt *time.Time `db:"-" json:"nextFireAt,omitempty"`
 }
 
-// ListFilter paginates the trigger list.
+// ListFilter paginates the trigger list and optionally filters by a case-insensitive
+// name substring. Search is intentionally name-only, matching the other entity rail lists.
 //
-// ListFilter 分页 trigger 列表。
+// ListFilter 分页 trigger 列表，可选按大小写不敏感的 name 子串过滤。Search 刻意只查 name，
+// 与其他实体 rail 列表保持一致。
 type ListFilter struct {
 	Cursor string
 	Limit  int
+	Search string
 }
 
 // Domain errors. Wire codes are stable; Kind maps to HTTP status (errorspkg).

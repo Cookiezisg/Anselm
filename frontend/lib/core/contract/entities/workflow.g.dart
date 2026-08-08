@@ -139,6 +139,11 @@ _FlowrunNode _$FlowrunNodeFromJson(Map<String, dynamic> json) => _FlowrunNode(
       ? null
       : DateTime.parse(json['completedAt'] as String),
   updatedAt: DateTime.parse(json['updatedAt'] as String),
+  workflowId: json['workflowId'] as String?,
+  workflowName: json['workflowName'] as String?,
+  deadline: json['deadline'] == null
+      ? null
+      : DateTime.parse(json['deadline'] as String),
 );
 
 Map<String, dynamic> _$FlowrunNodeToJson(_FlowrunNode instance) =>
@@ -157,6 +162,9 @@ Map<String, dynamic> _$FlowrunNodeToJson(_FlowrunNode instance) =>
       'createdAt': instance.createdAt.toIso8601String(),
       'completedAt': instance.completedAt?.toIso8601String(),
       'updatedAt': instance.updatedAt.toIso8601String(),
+      'workflowId': instance.workflowId,
+      'workflowName': instance.workflowName,
+      'deadline': instance.deadline?.toIso8601String(),
     };
 
 _FlowrunActivityRow _$FlowrunActivityRowFromJson(Map<String, dynamic> json) =>

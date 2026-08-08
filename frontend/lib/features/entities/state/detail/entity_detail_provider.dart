@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../../core/contract/entities/agent.dart';
 import '../../../../core/router/navigation.dart';
+import '../../../../core/sse/frame.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
@@ -28,6 +31,7 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
 
   final EntityRef entityRef;
   late EntityRepository _repo;
+  StreamSubscription<StreamEnvelope>? _panelSub;
 
   @override
   Future<EntityDetail> build() async {
@@ -39,11 +43,18 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     // 留下信号,故重读,而不是展示一个已经和行悄悄分家的详情页。
     final resync = _repo.lifecycleResync().listen((_) => ref.invalidateSelf());
     ref.onDispose(resync.cancel);
-    // The entities (panel) stream is NOT subscribed here: run terminal and the workflow Runs cockpit
-    // own their scoped subscriptions, and the future build-mirror banner (create/edit streaming over
-    // the entity scope) will add one when it lands — a held no-op subscription would be duplicate cost.
-    // panel 流不在此订阅:run 终端与 workflow Runs 驾驶舱各自管理 scope 订阅;未来 build 镜像横幅落地
-    // 时再加——空持有订阅会重复消耗。
+    // Trigger pause/resume is an ephemeral scoped status signal rather than a durable lifecycle
+    // notification. The detail is still a read projection, so use the signal only as a prompt to
+    // re-fetch; never patch `paused`/`listening`/`nextFireAt` from its payload. Other entity kinds keep
+    // their scoped subscriptions in the tab that owns the high-frequency panel work.
+    // trigger 的 pause/resume 只发 ephemeral 作用域 status 信号,详情仍以 REST 读模型为真,故只借信号
+    // 触发重读,绝不据 payload patch paused/listening/nextFireAt。其它 kind 的高频面板仍由所属 tab 订阅。
+    if (entityRef.kind == EntityKind.trigger) {
+      _panelSub = _repo
+          .panelSignals(entityRef.kind.scope(entityRef.id))
+          .listen(_onPanel);
+      ref.onDispose(() => unawaited(_panelSub?.cancel()));
+    }
     return _fetch();
   }
 
@@ -105,15 +116,26 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
       case EntityAction.edited:
       case EntityAction.updated:
       case EntityAction.unknown:
-        final next = await AsyncValue.guard(_fetch);
-        // autoDispose: the user may have left this entity mid-fetch (provider disposed) — writing state
-        // after dispose throws. 已 autoDispose:取数途中可能已离开本实体(provider 释放),释放后写 state 会抛。
-        if (!ref.mounted) return;
-        state = next;
-        // The active version (and its logs) may have moved — let those tabs reconcile from truth.
-        ref.invalidate(versionListProvider(entityRef));
-        ref.invalidate(logListProvider(entityRef));
+        await _refreshFromTruth();
     }
+  }
+
+  void _onPanel(StreamEnvelope env) {
+    if (env.frame is! FrameSignal) return;
+    final node = (env.frame as FrameSignal).node;
+    if (node.type != 'status') return;
+    unawaited(_refreshFromTruth());
+  }
+
+  Future<void> _refreshFromTruth() async {
+    final next = await AsyncValue.guard(_fetch);
+    // autoDispose: the user may have left this entity mid-fetch (provider disposed) — writing state
+    // after dispose throws. 已 autoDispose:取数途中可能已离开本实体(provider 释放),释放后写 state 会抛。
+    if (!ref.mounted) return;
+    state = next;
+    // The active version (and its logs) may have moved — let those tabs reconcile from truth.
+    ref.invalidate(versionListProvider(entityRef));
+    ref.invalidate(logListProvider(entityRef));
   }
 }
 

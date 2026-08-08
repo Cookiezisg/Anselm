@@ -966,7 +966,10 @@ as DateTime,
 /// @nodoc
 mixin _$FlowrunNode {
 
- String get id; String get flowrunId; String get nodeId; int get iteration; String get kind; String get ref; String get status; Map<String, Object?> get result; String? get error; DateTime? get readyAt; DateTime? get startedAt; DateTime get createdAt; DateTime? get completedAt; DateTime get updatedAt;
+ String get id; String get flowrunId; String get nodeId; int get iteration; String get kind; String get ref; String get status; Map<String, Object?> get result; String? get error; DateTime? get readyAt; DateTime? get startedAt; DateTime get createdAt; DateTime? get completedAt; DateTime get updatedAt;// The cross-run approval inbox enriches the parked node with its workflow context. These are
+// optional because ordinary run-detail node rows do not carry the join. 收件箱 enrich 的流程上下文；
+// 普通 run 详情节点没有 join，故可选且不制造零值。
+ String? get workflowId; String? get workflowName; DateTime? get deadline;
 /// Create a copy of FlowrunNode
 /// with the given fields replaced by the non-null parameter values.
 @JsonKey(includeFromJson: false, includeToJson: false)
@@ -979,16 +982,16 @@ $FlowrunNodeCopyWith<FlowrunNode> get copyWith => _$FlowrunNodeCopyWithImpl<Flow
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunNode&&(identical(other.id, id) || other.id == id)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.iteration, iteration) || other.iteration == iteration)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.result, result)&&(identical(other.error, error) || other.error == error)&&(identical(other.readyAt, readyAt) || other.readyAt == readyAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is FlowrunNode&&(identical(other.id, id) || other.id == id)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.iteration, iteration) || other.iteration == iteration)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other.result, result)&&(identical(other.error, error) || other.error == error)&&(identical(other.readyAt, readyAt) || other.readyAt == readyAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.workflowName, workflowName) || other.workflowName == workflowName)&&(identical(other.deadline, deadline) || other.deadline == deadline));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,flowrunId,nodeId,iteration,kind,ref,status,const DeepCollectionEquality().hash(result),error,readyAt,startedAt,createdAt,completedAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,flowrunId,nodeId,iteration,kind,ref,status,const DeepCollectionEquality().hash(result),error,readyAt,startedAt,createdAt,completedAt,updatedAt,workflowId,workflowName,deadline);
 
 @override
 String toString() {
-  return 'FlowrunNode(id: $id, flowrunId: $flowrunId, nodeId: $nodeId, iteration: $iteration, kind: $kind, ref: $ref, status: $status, result: $result, error: $error, readyAt: $readyAt, startedAt: $startedAt, createdAt: $createdAt, completedAt: $completedAt, updatedAt: $updatedAt)';
+  return 'FlowrunNode(id: $id, flowrunId: $flowrunId, nodeId: $nodeId, iteration: $iteration, kind: $kind, ref: $ref, status: $status, result: $result, error: $error, readyAt: $readyAt, startedAt: $startedAt, createdAt: $createdAt, completedAt: $completedAt, updatedAt: $updatedAt, workflowId: $workflowId, workflowName: $workflowName, deadline: $deadline)';
 }
 
 
@@ -999,7 +1002,7 @@ abstract mixin class $FlowrunNodeCopyWith<$Res>  {
   factory $FlowrunNodeCopyWith(FlowrunNode value, $Res Function(FlowrunNode) _then) = _$FlowrunNodeCopyWithImpl;
 @useResult
 $Res call({
- String id, String flowrunId, String nodeId, int iteration, String kind, String ref, String status, Map<String, Object?> result, String? error, DateTime? readyAt, DateTime? startedAt, DateTime createdAt, DateTime? completedAt, DateTime updatedAt
+ String id, String flowrunId, String nodeId, int iteration, String kind, String ref, String status, Map<String, Object?> result, String? error, DateTime? readyAt, DateTime? startedAt, DateTime createdAt, DateTime? completedAt, DateTime updatedAt, String? workflowId, String? workflowName, DateTime? deadline
 });
 
 
@@ -1016,7 +1019,7 @@ class _$FlowrunNodeCopyWithImpl<$Res>
 
 /// Create a copy of FlowrunNode
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? flowrunId = null,Object? nodeId = null,Object? iteration = null,Object? kind = null,Object? ref = null,Object? status = null,Object? result = null,Object? error = freezed,Object? readyAt = freezed,Object? startedAt = freezed,Object? createdAt = null,Object? completedAt = freezed,Object? updatedAt = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? id = null,Object? flowrunId = null,Object? nodeId = null,Object? iteration = null,Object? kind = null,Object? ref = null,Object? status = null,Object? result = null,Object? error = freezed,Object? readyAt = freezed,Object? startedAt = freezed,Object? createdAt = null,Object? completedAt = freezed,Object? updatedAt = null,Object? workflowId = freezed,Object? workflowName = freezed,Object? deadline = freezed,}) {
   return _then(_self.copyWith(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,flowrunId: null == flowrunId ? _self.flowrunId : flowrunId // ignore: cast_nullable_to_non_nullable
@@ -1032,7 +1035,10 @@ as DateTime?,startedAt: freezed == startedAt ? _self.startedAt : startedAt // ig
 as DateTime?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,completedAt: freezed == completedAt ? _self.completedAt : completedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,workflowId: freezed == workflowId ? _self.workflowId : workflowId // ignore: cast_nullable_to_non_nullable
+as String?,workflowName: freezed == workflowName ? _self.workflowName : workflowName // ignore: cast_nullable_to_non_nullable
+as String?,deadline: freezed == deadline ? _self.deadline : deadline // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 
@@ -1117,10 +1123,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String flowrunId,  String nodeId,  int iteration,  String kind,  String ref,  String status,  Map<String, Object?> result,  String? error,  DateTime? readyAt,  DateTime? startedAt,  DateTime createdAt,  DateTime? completedAt,  DateTime updatedAt)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( String id,  String flowrunId,  String nodeId,  int iteration,  String kind,  String ref,  String status,  Map<String, Object?> result,  String? error,  DateTime? readyAt,  DateTime? startedAt,  DateTime createdAt,  DateTime? completedAt,  DateTime updatedAt,  String? workflowId,  String? workflowName,  DateTime? deadline)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _FlowrunNode() when $default != null:
-return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind,_that.ref,_that.status,_that.result,_that.error,_that.readyAt,_that.startedAt,_that.createdAt,_that.completedAt,_that.updatedAt);case _:
+return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind,_that.ref,_that.status,_that.result,_that.error,_that.readyAt,_that.startedAt,_that.createdAt,_that.completedAt,_that.updatedAt,_that.workflowId,_that.workflowName,_that.deadline);case _:
   return orElse();
 
 }
@@ -1138,10 +1144,10 @@ return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String flowrunId,  String nodeId,  int iteration,  String kind,  String ref,  String status,  Map<String, Object?> result,  String? error,  DateTime? readyAt,  DateTime? startedAt,  DateTime createdAt,  DateTime? completedAt,  DateTime updatedAt)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( String id,  String flowrunId,  String nodeId,  int iteration,  String kind,  String ref,  String status,  Map<String, Object?> result,  String? error,  DateTime? readyAt,  DateTime? startedAt,  DateTime createdAt,  DateTime? completedAt,  DateTime updatedAt,  String? workflowId,  String? workflowName,  DateTime? deadline)  $default,) {final _that = this;
 switch (_that) {
 case _FlowrunNode():
-return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind,_that.ref,_that.status,_that.result,_that.error,_that.readyAt,_that.startedAt,_that.createdAt,_that.completedAt,_that.updatedAt);case _:
+return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind,_that.ref,_that.status,_that.result,_that.error,_that.readyAt,_that.startedAt,_that.createdAt,_that.completedAt,_that.updatedAt,_that.workflowId,_that.workflowName,_that.deadline);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -1158,10 +1164,10 @@ return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String flowrunId,  String nodeId,  int iteration,  String kind,  String ref,  String status,  Map<String, Object?> result,  String? error,  DateTime? readyAt,  DateTime? startedAt,  DateTime createdAt,  DateTime? completedAt,  DateTime updatedAt)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( String id,  String flowrunId,  String nodeId,  int iteration,  String kind,  String ref,  String status,  Map<String, Object?> result,  String? error,  DateTime? readyAt,  DateTime? startedAt,  DateTime createdAt,  DateTime? completedAt,  DateTime updatedAt,  String? workflowId,  String? workflowName,  DateTime? deadline)?  $default,) {final _that = this;
 switch (_that) {
 case _FlowrunNode() when $default != null:
-return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind,_that.ref,_that.status,_that.result,_that.error,_that.readyAt,_that.startedAt,_that.createdAt,_that.completedAt,_that.updatedAt);case _:
+return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind,_that.ref,_that.status,_that.result,_that.error,_that.readyAt,_that.startedAt,_that.createdAt,_that.completedAt,_that.updatedAt,_that.workflowId,_that.workflowName,_that.deadline);case _:
   return null;
 
 }
@@ -1173,7 +1179,7 @@ return $default(_that.id,_that.flowrunId,_that.nodeId,_that.iteration,_that.kind
 @JsonSerializable()
 
 class _FlowrunNode implements FlowrunNode {
-  const _FlowrunNode({required this.id, required this.flowrunId, required this.nodeId, this.iteration = 0, this.kind = '', this.ref = '', this.status = '', final  Map<String, Object?> result = const <String, Object?>{}, this.error, this.readyAt, this.startedAt, required this.createdAt, this.completedAt, required this.updatedAt}): _result = result;
+  const _FlowrunNode({required this.id, required this.flowrunId, required this.nodeId, this.iteration = 0, this.kind = '', this.ref = '', this.status = '', final  Map<String, Object?> result = const <String, Object?>{}, this.error, this.readyAt, this.startedAt, required this.createdAt, this.completedAt, required this.updatedAt, this.workflowId, this.workflowName, this.deadline}): _result = result;
   factory _FlowrunNode.fromJson(Map<String, dynamic> json) => _$FlowrunNodeFromJson(json);
 
 @override final  String id;
@@ -1196,6 +1202,12 @@ class _FlowrunNode implements FlowrunNode {
 @override final  DateTime createdAt;
 @override final  DateTime? completedAt;
 @override final  DateTime updatedAt;
+// The cross-run approval inbox enriches the parked node with its workflow context. These are
+// optional because ordinary run-detail node rows do not carry the join. 收件箱 enrich 的流程上下文；
+// 普通 run 详情节点没有 join，故可选且不制造零值。
+@override final  String? workflowId;
+@override final  String? workflowName;
+@override final  DateTime? deadline;
 
 /// Create a copy of FlowrunNode
 /// with the given fields replaced by the non-null parameter values.
@@ -1210,16 +1222,16 @@ Map<String, dynamic> toJson() {
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunNode&&(identical(other.id, id) || other.id == id)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.iteration, iteration) || other.iteration == iteration)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._result, _result)&&(identical(other.error, error) || other.error == error)&&(identical(other.readyAt, readyAt) || other.readyAt == readyAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _FlowrunNode&&(identical(other.id, id) || other.id == id)&&(identical(other.flowrunId, flowrunId) || other.flowrunId == flowrunId)&&(identical(other.nodeId, nodeId) || other.nodeId == nodeId)&&(identical(other.iteration, iteration) || other.iteration == iteration)&&(identical(other.kind, kind) || other.kind == kind)&&(identical(other.ref, ref) || other.ref == ref)&&(identical(other.status, status) || other.status == status)&&const DeepCollectionEquality().equals(other._result, _result)&&(identical(other.error, error) || other.error == error)&&(identical(other.readyAt, readyAt) || other.readyAt == readyAt)&&(identical(other.startedAt, startedAt) || other.startedAt == startedAt)&&(identical(other.createdAt, createdAt) || other.createdAt == createdAt)&&(identical(other.completedAt, completedAt) || other.completedAt == completedAt)&&(identical(other.updatedAt, updatedAt) || other.updatedAt == updatedAt)&&(identical(other.workflowId, workflowId) || other.workflowId == workflowId)&&(identical(other.workflowName, workflowName) || other.workflowName == workflowName)&&(identical(other.deadline, deadline) || other.deadline == deadline));
 }
 
 @JsonKey(includeFromJson: false, includeToJson: false)
 @override
-int get hashCode => Object.hash(runtimeType,id,flowrunId,nodeId,iteration,kind,ref,status,const DeepCollectionEquality().hash(_result),error,readyAt,startedAt,createdAt,completedAt,updatedAt);
+int get hashCode => Object.hash(runtimeType,id,flowrunId,nodeId,iteration,kind,ref,status,const DeepCollectionEquality().hash(_result),error,readyAt,startedAt,createdAt,completedAt,updatedAt,workflowId,workflowName,deadline);
 
 @override
 String toString() {
-  return 'FlowrunNode(id: $id, flowrunId: $flowrunId, nodeId: $nodeId, iteration: $iteration, kind: $kind, ref: $ref, status: $status, result: $result, error: $error, readyAt: $readyAt, startedAt: $startedAt, createdAt: $createdAt, completedAt: $completedAt, updatedAt: $updatedAt)';
+  return 'FlowrunNode(id: $id, flowrunId: $flowrunId, nodeId: $nodeId, iteration: $iteration, kind: $kind, ref: $ref, status: $status, result: $result, error: $error, readyAt: $readyAt, startedAt: $startedAt, createdAt: $createdAt, completedAt: $completedAt, updatedAt: $updatedAt, workflowId: $workflowId, workflowName: $workflowName, deadline: $deadline)';
 }
 
 
@@ -1230,7 +1242,7 @@ abstract mixin class _$FlowrunNodeCopyWith<$Res> implements $FlowrunNodeCopyWith
   factory _$FlowrunNodeCopyWith(_FlowrunNode value, $Res Function(_FlowrunNode) _then) = __$FlowrunNodeCopyWithImpl;
 @override @useResult
 $Res call({
- String id, String flowrunId, String nodeId, int iteration, String kind, String ref, String status, Map<String, Object?> result, String? error, DateTime? readyAt, DateTime? startedAt, DateTime createdAt, DateTime? completedAt, DateTime updatedAt
+ String id, String flowrunId, String nodeId, int iteration, String kind, String ref, String status, Map<String, Object?> result, String? error, DateTime? readyAt, DateTime? startedAt, DateTime createdAt, DateTime? completedAt, DateTime updatedAt, String? workflowId, String? workflowName, DateTime? deadline
 });
 
 
@@ -1247,7 +1259,7 @@ class __$FlowrunNodeCopyWithImpl<$Res>
 
 /// Create a copy of FlowrunNode
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? flowrunId = null,Object? nodeId = null,Object? iteration = null,Object? kind = null,Object? ref = null,Object? status = null,Object? result = null,Object? error = freezed,Object? readyAt = freezed,Object? startedAt = freezed,Object? createdAt = null,Object? completedAt = freezed,Object? updatedAt = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? id = null,Object? flowrunId = null,Object? nodeId = null,Object? iteration = null,Object? kind = null,Object? ref = null,Object? status = null,Object? result = null,Object? error = freezed,Object? readyAt = freezed,Object? startedAt = freezed,Object? createdAt = null,Object? completedAt = freezed,Object? updatedAt = null,Object? workflowId = freezed,Object? workflowName = freezed,Object? deadline = freezed,}) {
   return _then(_FlowrunNode(
 id: null == id ? _self.id : id // ignore: cast_nullable_to_non_nullable
 as String,flowrunId: null == flowrunId ? _self.flowrunId : flowrunId // ignore: cast_nullable_to_non_nullable
@@ -1263,7 +1275,10 @@ as DateTime?,startedAt: freezed == startedAt ? _self.startedAt : startedAt // ig
 as DateTime?,createdAt: null == createdAt ? _self.createdAt : createdAt // ignore: cast_nullable_to_non_nullable
 as DateTime,completedAt: freezed == completedAt ? _self.completedAt : completedAt // ignore: cast_nullable_to_non_nullable
 as DateTime?,updatedAt: null == updatedAt ? _self.updatedAt : updatedAt // ignore: cast_nullable_to_non_nullable
-as DateTime,
+as DateTime,workflowId: freezed == workflowId ? _self.workflowId : workflowId // ignore: cast_nullable_to_non_nullable
+as String?,workflowName: freezed == workflowName ? _self.workflowName : workflowName // ignore: cast_nullable_to_non_nullable
+as String?,deadline: freezed == deadline ? _self.deadline : deadline // ignore: cast_nullable_to_non_nullable
+as DateTime?,
   ));
 }
 

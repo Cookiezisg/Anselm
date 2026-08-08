@@ -45,9 +45,33 @@ FlowrunComposite _parked({bool allowReason = true}) => FlowrunComposite(
   ],
 );
 
+FlowrunComposite _parkedWithInboxContext() => FlowrunComposite(
+  flowrun: Flowrun(
+    id: 'flr_context',
+    workflowId: 'wf_context',
+    status: 'running',
+    updatedAt: _t,
+  ),
+  nodes: [
+    FlowrunNode(
+      id: 'frn_context',
+      flowrunId: 'flr_context',
+      nodeId: 'human',
+      kind: 'approval',
+      status: 'parked',
+      result: {'rendered': 'Approve the release?', 'allowReason': true},
+      workflowId: 'wf_context',
+      workflowName: 'Release workflow',
+      deadline: DateTime.now().add(const Duration(hours: 2, minutes: 30)),
+      createdAt: _t,
+      updatedAt: _t,
+    ),
+  ],
+);
+
 FixtureEntityRepository _repo({FlowrunComposite? comp}) =>
     FixtureEntityRepository(
-      flowrunDetail: comp == null ? const {} : {'flr_1': comp},
+      flowrunDetail: comp == null ? const {} : {comp.flowrun.id: comp},
     );
 
 Widget _host(FixtureEntityRepository repo) => ProviderScope(
@@ -160,6 +184,20 @@ void main() {
     await tester.pump();
     expect(find.byType(AnInput), findsNothing);
   });
+
+  testWidgets(
+    'inbox context keeps the workflow name and deadline visible in the card head',
+    (tester) async {
+      await tester.pumpWidget(_host(_repo(comp: _parkedWithInboxContext())));
+      await tester.pump();
+      await tester.pump();
+
+      expect(find.text('Release workflow'), findsOneWidget);
+      expect(find.text(t.run.approvalTitle), findsOneWidget);
+      expect(find.text(t.run.countdownLeft(d: '2h')), findsOneWidget);
+      expect(find.text('Approve the release?'), findsOneWidget);
+    },
+  );
 
   testWidgets('deciding sends :decide with the reason', (tester) async {
     final repo = _repo(comp: _parked());

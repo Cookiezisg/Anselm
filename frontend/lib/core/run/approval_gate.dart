@@ -81,6 +81,8 @@ class _ApprovalGateState extends State<ApprovalGate> {
     final r = context.t.run;
     final c = context.colors;
     final prompt = widget.parked.result['rendered'] as String? ?? '';
+    final workflowName = widget.parked.workflowName;
+    final hasWorkflowContext = workflowName != null && workflowName.isNotEmpty;
     final media = AnMediaRefStrip.forPayload(
       widget.parked.result,
       maxWidth: 240,
@@ -167,21 +169,51 @@ class _ApprovalGateState extends State<ApprovalGate> {
               ),
               const SizedBox(width: AnSpace.s8),
               Expanded(
-                child: Semantics(
-                  header: true,
-                  child: Text(
-                    r.approvalTitle,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: AnText.label
-                        .weight(AnText.emphasisWeight)
-                        .copyWith(color: c.inkFaint),
-                  ),
-                ),
+                child: hasWorkflowContext
+                    ? Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Semantics(
+                            header: true,
+                            child: Text(
+                              workflowName,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: AnText.label
+                                  .weight(AnText.emphasisWeight)
+                                  .copyWith(color: c.ink),
+                            ),
+                          ),
+                          Text(
+                            r.approvalTitle,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: AnText.meta.copyWith(color: c.inkFaint),
+                          ),
+                        ],
+                      )
+                    : Semantics(
+                        header: true,
+                        child: Text(
+                          r.approvalTitle,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: AnText.label
+                              .weight(AnText.emphasisWeight)
+                              .copyWith(color: c.inkFaint),
+                        ),
+                      ),
               ),
+              if (widget.parked.deadline != null) ...[
+                const SizedBox(width: AnSpace.s8),
+                AnCountdown(deadline: widget.parked.deadline!),
+              ],
+              const SizedBox(width: AnSpace.s8),
               Text(
                 widget.parked.nodeId,
                 maxLines: 1,
+                overflow: TextOverflow.ellipsis,
                 style: AnText.meta.copyWith(color: c.inkFaint),
               ),
             ],

@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../core/contract/api_error.dart';
+import '../../../core/contract/entities/relation.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/model/status_state.dart';
 import '../../../core/notice/notice_center.dart';
@@ -348,13 +349,50 @@ class _EntityRailState extends ConsumerState<EntityRail> {
 
   Future<void> _confirmDelete(EntityKind kind, EntityRow row) async {
     final t = context.t;
+    final name = row.name.trim().isEmpty ? '…' : row.name;
+    var title = t.entities.rail.deleteTitle;
+    var message = t.entities.rail.deleteBody(name: name);
+
+    if (kind == EntityKind.trigger) {
+      // A trigger delete also stops its source listener and can strand workflows. Read the
+      // dependency snapshot immediately before the irreversible action so the warning is current.
+      // 触发器删除还会停止源监听并让工作流悬空。不可逆动作前现读关系快照,避免警告过期。
+      final EntityRelGraph graph;
+      try {
+        graph = await _repo.getRelGraph();
+      } catch (error) {
+        _noticeFail(error);
+        return;
+      }
+      final dependents = <String>{
+        for (final edge in graph.edges)
+          if (edge.toKind == kind.scopeKind &&
+              edge.toId == row.id &&
+              (edge.kind == 'equip' || edge.kind == 'link'))
+            (edge.fromName.trim().isEmpty ? edge.fromId : edge.fromName.trim()),
+      }.where((value) => value.isNotEmpty).toList();
+      const maxNames = 3;
+      final shownNames = dependents.take(maxNames).toList();
+      final remaining = dependents.length - shownNames.length;
+      final dependentSummary = [
+        ...shownNames,
+        if (remaining > 0) '+$remaining',
+      ].join(', ');
+      title = t.entities.rail.deleteTriggerTitle;
+      message = dependents.isNotEmpty
+          ? t.entities.rail.deleteTriggerBodyWithDependents(
+              name: name,
+              dependents: dependentSummary,
+            )
+          : row.listening == true
+          ? t.entities.rail.deleteTriggerBodyListening(name: name)
+          : t.entities.rail.deleteTriggerBody(name: name);
+    }
     final ok = await ref
         .read(overlayProvider.notifier)
         .confirm(
-          title: t.entities.rail.deleteTitle,
-          message: t.entities.rail.deleteBody(
-            name: row.name.trim().isEmpty ? '…' : row.name,
-          ),
+          title: title,
+          message: message,
           confirmLabel: t.action.delete,
           cancelLabel: t.action.cancel,
           barrierLabel: t.feedback.dialogBarrier,

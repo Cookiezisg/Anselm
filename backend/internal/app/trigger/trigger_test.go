@@ -10,6 +10,7 @@ import (
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
 
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 	triggerstore "github.com/sunweilin/anselm/backend/internal/infra/store/trigger"
 	triggerinfra "github.com/sunweilin/anselm/backend/internal/infra/trigger"
@@ -40,6 +41,23 @@ type nopInvoker struct{}
 func (nopInvoker) Invoke(context.Context, string, string, string) (map[string]any, error) {
 	return nil, nil
 }
+
+type recordingNotifier struct {
+	events   []string
+	payloads []map[string]any
+}
+
+func (n *recordingNotifier) Emit(_ context.Context, eventType string, payload map[string]any) error {
+	n.events = append(n.events, eventType)
+	n.payloads = append(n.payloads, payload)
+	return nil
+}
+
+func (n *recordingNotifier) Broadcast(_ context.Context, _ string, _ map[string]any) error {
+	return nil
+}
+
+var _ notificationdomain.Emitter = (*recordingNotifier)(nil)
 
 func ctxWS(id string) context.Context { return reqctxpkg.SetWorkspaceID(context.Background(), id) }
 
@@ -160,6 +178,44 @@ func TestCreate_RejectsBadConfig(t *testing.T) {
 	}})
 	if !errors.Is(err, triggerdomain.ErrInvalidCEL) {
 		t.Fatalf("invalid CEL condition should be ErrInvalidCEL, got %v", err)
+	}
+}
+
+// TestCRUD_EmitsLifecycleNotifications keeps trigger CRUD aligned with the other rail entities:
+// the notifications stream is what makes an AI-created/edited/deleted trigger converge in an
+// already-open rail/detail. Pause/resume intentionally has its own ephemeral panel signal.
+func TestCRUD_EmitsLifecycleNotifications(t *testing.T) {
+	s, _ := newTestService(t)
+	n := &recordingNotifier{}
+	s.SetNotifier(n)
+	ctx := ctxWS("ws_1")
+
+	tr, err := s.Create(ctx, CreateInput{
+		Name: "notify-me", Kind: triggerdomain.KindCron,
+		Config: map[string]any{"expression": "0 9 * * *"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	name := "notified"
+	if _, err := s.Edit(ctx, tr.ID, EditInput{Name: &name}); err != nil {
+		t.Fatalf("edit: %v", err)
+	}
+	if err := s.Delete(ctx, tr.ID); err != nil {
+		t.Fatalf("delete: %v", err)
+	}
+
+	want := []string{"trigger.created", "trigger.edited", "trigger.deleted"}
+	if len(n.events) != len(want) {
+		t.Fatalf("events = %v, want %v", n.events, want)
+	}
+	for i, event := range want {
+		if n.events[i] != event {
+			t.Errorf("event[%d] = %q, want %q", i, n.events[i], event)
+		}
+		if got := n.payloads[i]["triggerId"]; got != tr.ID {
+			t.Errorf("payload[%d].triggerId = %v, want %q", i, got, tr.ID)
+		}
 	}
 }
 

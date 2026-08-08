@@ -4551,6 +4551,18 @@ class Translations$entities$rail$en {
 	/// en: '“$name” will be removed from the active catalog. This can't be undone.'
 	String deleteBody({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.';
 
+	/// en: 'Delete this trigger?'
+	String get deleteTriggerTitle => 'Delete this trigger?';
+
+	/// en: '“$name” will be removed from the active catalog. This can't be undone.'
+	String deleteTriggerBody({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.';
+
+	/// en: '“$name” is used by $dependents. Deleting it will stop its listener and leave those workflows needing repair. This can't be undone.'
+	String deleteTriggerBodyWithDependents({required Object name, required Object dependents}) => '“${name}” is used by ${dependents}. Deleting it will stop its listener and leave those workflows needing repair. This can\'t be undone.';
+
+	/// en: '“$name” is currently listening. Deleting it will stop the listener. This can't be undone.'
+	String deleteTriggerBodyListening({required Object name}) => '“${name}” is currently listening. Deleting it will stop the listener. This can\'t be undone.';
+
 	/// en: 'Action failed'
 	String get actionFailed => 'Action failed';
 
@@ -6941,11 +6953,20 @@ class Translations$entities$detail$trigger$en {
 	/// en: 'Fire'
 	String get fire => 'Fire';
 
+	/// en: 'Trigger this source once now; downstream workflows receive a manual activation.'
+	String get fireHint => 'Trigger this source once now; downstream workflows receive a manual activation.';
+
+	/// en: 'This trigger is paused. Resume it before firing.'
+	String get resumeToFire => 'This trigger is paused. Resume it before firing.';
+
 	/// en: 'Listening'
 	String get listening => 'Listening';
 
 	/// en: 'Idle'
 	String get idle => 'Idle';
+
+	/// en: 'Paused'
+	String get paused => 'Paused';
 
 	/// en: 'Source'
 	String get source => 'Source';
@@ -8557,6 +8578,10 @@ extension on Translations {
 			'entities.rail.iterateRequest' => ({required Object name}) => 'Help me edit “${name}” with AI.',
 			'entities.rail.deleteTitle' => 'Delete this entity?',
 			'entities.rail.deleteBody' => ({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.',
+			'entities.rail.deleteTriggerTitle' => 'Delete this trigger?',
+			'entities.rail.deleteTriggerBody' => ({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.',
+			'entities.rail.deleteTriggerBodyWithDependents' => ({required Object name, required Object dependents}) => '“${name}” is used by ${dependents}. Deleting it will stop its listener and leave those workflows needing repair. This can\'t be undone.',
+			'entities.rail.deleteTriggerBodyListening' => ({required Object name}) => '“${name}” is currently listening. Deleting it will stop the listener. This can\'t be undone.',
 			'entities.rail.actionFailed' => 'Action failed',
 			'entities.rail.actionFailedWithReason' => ({required Object reason}) => 'Action failed: ${reason}',
 			'entities.rail.workflowNotRunnable' => 'This workflow isn\'t ready to go live. Fix its graph first.',
@@ -8704,8 +8729,11 @@ extension on Translations {
 			'entities.detail.mounts.healthy' => 'All mounts healthy',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} unhealthy',
 			'entities.detail.trigger.fire' => 'Fire',
+			'entities.detail.trigger.fireHint' => 'Trigger this source once now; downstream workflows receive a manual activation.',
+			'entities.detail.trigger.resumeToFire' => 'This trigger is paused. Resume it before firing.',
 			'entities.detail.trigger.listening' => 'Listening',
 			'entities.detail.trigger.idle' => 'Idle',
+			'entities.detail.trigger.paused' => 'Paused',
 			'entities.detail.trigger.source' => 'Source',
 			'entities.detail.trigger.refCount' => 'Listeners',
 			'entities.detail.trigger.lastFired' => 'Last fired',
@@ -8864,6 +8892,8 @@ extension on Translations {
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
 			'coldStart.createWorkspace' => 'Create a workspace',
 			'coldStart.nameLabel' => 'Workspace name',
+			_ => null,
+		} ?? switch (path) {
 			'coldStart.alreadyExists' => 'This workspace already exists',
 			'coldStart.createFailed' => 'Couldn\'t create the workspace',
 			'coldStart.workIndex' => 'WORK №001',
@@ -8871,8 +8901,6 @@ extension on Translations {
 			'coldStart.artTitle' => 'Heemskerck and Barents Planning their Second Expedition to the Far North',
 			'library.documents' => 'Documents',
 			'library.skills' => 'Skills',
-			_ => null,
-		} ?? switch (path) {
 			'library.untitled' => 'Untitled',
 			'library.editorHint' => 'Start writing, or press / for commands',
 			'library.addDescription' => 'Add a description…',
@@ -9378,6 +9406,8 @@ extension on Translations {
 			'settings.sandbox.add' => 'Install',
 			'settings.sandbox.delete' => 'Delete',
 			'settings.sandbox.deleteRtTitle' => 'Delete runtime',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => 'Deletes “${kind} ${version}”; rejected if envs still reference it.',
 			'settings.sandbox.confirmDelete' => 'Delete',
 			'settings.sandbox.inUse' => 'Envs still reference this runtime — clear them first',
@@ -9385,8 +9415,6 @@ extension on Translations {
 			'settings.sandbox.envRebuild' => 'Rebuilt automatically on the next run',
 			'settings.sandbox.deleteEnvTitle' => 'Delete environment',
 			'settings.sandbox.deleteEnvBody' => 'Deletes this environment.',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.ownerFunction' => 'Functions',
 			'settings.sandbox.ownerHandler' => 'Handlers',
 			'settings.sandbox.ownerMcp' => 'MCP',

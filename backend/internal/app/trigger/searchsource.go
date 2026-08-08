@@ -6,6 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"go.uber.org/zap"
+
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	triggerdomain "github.com/sunweilin/anselm/backend/internal/domain/trigger"
 )
@@ -17,6 +19,26 @@ func (s *Service) SetSearchNotifier(n searchdomain.Notifier) { s.search = n }
 
 func (s *Service) notifySearch(ctx context.Context, id string) {
 	searchdomain.Notify(ctx, s.search, searchdomain.TypeTrigger, id, "")
+}
+
+// publish emits a trigger lifecycle notification; the emitter is optional so small test and
+// command-line assemblies can use the trigger service without a notification center. Search is
+// updated in the same hook so every CRUD path has one canonical post-write fan-out.
+//
+// publish 发 trigger 生命周期通知；emitter 可选，使精简测试/命令行装配无需通知中心。搜索索引也在同一
+// hook 更新，保证所有 CRUD 路径只有一个统一的写后 fan-out。
+func (s *Service) publish(ctx context.Context, action, triggerID string, extra map[string]any) {
+	s.notifySearch(ctx, triggerID)
+	if s.notif == nil {
+		return
+	}
+	payload := map[string]any{"triggerId": triggerID}
+	for k, v := range extra {
+		payload[k] = v
+	}
+	if err := s.notif.Emit(ctx, "trigger."+action, payload); err != nil {
+		s.log.Warn("triggerapp.publish: emit failed", zap.String("action", action), zap.Error(err))
+	}
 }
 
 // SearchSource projects a trigger: name/description/kind/output field names.

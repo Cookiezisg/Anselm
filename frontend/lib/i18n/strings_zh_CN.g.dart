@@ -1821,6 +1821,10 @@ class _Translations$entities$rail$zh_CN extends Translations$entities$rail$en {
 	@override String iterateRequest({required Object name}) => '帮我用 AI 修改「${name}」。';
 	@override String get deleteTitle => '删除这个实体?';
 	@override String deleteBody({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。';
+	@override String get deleteTriggerTitle => '删除这个触发器?';
+	@override String deleteTriggerBody({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。';
+	@override String deleteTriggerBodyWithDependents({required Object name, required Object dependents}) => '「${name}」正在被 ${dependents} 使用。删除后会停止监听，并让这些工作流需要修复。此操作无法撤销。';
+	@override String deleteTriggerBodyListening({required Object name}) => '「${name}」当前正在监听。删除后会停止监听。此操作无法撤销。';
 	@override String get actionFailed => '操作失败';
 	@override String actionFailedWithReason({required Object reason}) => '操作未完成：${reason}';
 	@override String get workflowNotRunnable => '这个工作流还不能上线，请先修复图结构。';
@@ -2881,8 +2885,11 @@ class _Translations$entities$detail$trigger$zh_CN extends Translations$entities$
 
 	// Translations
 	@override String get fire => '催发';
+	@override String get fireHint => '现在手动催发一次；下游 workflow 会收到一条手动活动。';
+	@override String get resumeToFire => '该触发器已暂停，请先恢复后再催发。';
 	@override String get listening => '监听中';
 	@override String get idle => '空闲';
+	@override String get paused => '已暂停';
 	@override String get source => '源';
 	@override String get refCount => '监听者';
 	@override String get lastFired => '最近触发';
@@ -4280,6 +4287,10 @@ extension on TranslationsZhCn {
 			'entities.rail.iterateRequest' => ({required Object name}) => '帮我用 AI 修改「${name}」。',
 			'entities.rail.deleteTitle' => '删除这个实体?',
 			'entities.rail.deleteBody' => ({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。',
+			'entities.rail.deleteTriggerTitle' => '删除这个触发器?',
+			'entities.rail.deleteTriggerBody' => ({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。',
+			'entities.rail.deleteTriggerBodyWithDependents' => ({required Object name, required Object dependents}) => '「${name}」正在被 ${dependents} 使用。删除后会停止监听，并让这些工作流需要修复。此操作无法撤销。',
+			'entities.rail.deleteTriggerBodyListening' => ({required Object name}) => '「${name}」当前正在监听。删除后会停止监听。此操作无法撤销。',
 			'entities.rail.actionFailed' => '操作失败',
 			'entities.rail.actionFailedWithReason' => ({required Object reason}) => '操作未完成：${reason}',
 			'entities.rail.workflowNotRunnable' => '这个工作流还不能上线，请先修复图结构。',
@@ -4427,8 +4438,11 @@ extension on TranslationsZhCn {
 			'entities.detail.mounts.healthy' => '挂载正常',
 			'entities.detail.mounts.unhealthy' => ({required Object count}) => '${count} 项异常',
 			'entities.detail.trigger.fire' => '催发',
+			'entities.detail.trigger.fireHint' => '现在手动催发一次；下游 workflow 会收到一条手动活动。',
+			'entities.detail.trigger.resumeToFire' => '该触发器已暂停，请先恢复后再催发。',
 			'entities.detail.trigger.listening' => '监听中',
 			'entities.detail.trigger.idle' => '空闲',
+			'entities.detail.trigger.paused' => '已暂停',
 			'entities.detail.trigger.source' => '源',
 			'entities.detail.trigger.refCount' => '监听者',
 			'entities.detail.trigger.lastFired' => '最近触发',
@@ -4587,6 +4601,8 @@ extension on TranslationsZhCn {
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
 			'coldStart.createWorkspace' => 'Create a workspace',
 			'coldStart.nameLabel' => 'Workspace name',
+			_ => null,
+		} ?? switch (path) {
 			'coldStart.alreadyExists' => '该工作区已存在',
 			'coldStart.createFailed' => '无法创建工作区',
 			'coldStart.workIndex' => 'WORK №001',
@@ -4594,8 +4610,6 @@ extension on TranslationsZhCn {
 			'coldStart.artTitle' => 'Heemskerck 与 Barents 规划第二次远征极北之地',
 			'library.documents' => '文档',
 			'library.skills' => '技能',
-			_ => null,
-		} ?? switch (path) {
 			'library.untitled' => '未命名',
 			'library.editorHint' => '输入正文,按 / 唤起命令',
 			'library.addDescription' => '添加简介…',
@@ -5101,6 +5115,8 @@ extension on TranslationsZhCn {
 			'settings.sandbox.add' => '安装',
 			'settings.sandbox.delete' => '删除',
 			'settings.sandbox.deleteRtTitle' => '删除运行时',
+			_ => null,
+		} ?? switch (path) {
 			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => '将删除「${kind} ${version}」;仍被环境引用会被拒。',
 			'settings.sandbox.confirmDelete' => '删除',
 			'settings.sandbox.inUse' => '仍有环境引用此运行时,先清理环境',
@@ -5108,8 +5124,6 @@ extension on TranslationsZhCn {
 			'settings.sandbox.envRebuild' => '下次执行时自动重建',
 			'settings.sandbox.deleteEnvTitle' => '删除环境',
 			'settings.sandbox.deleteEnvBody' => '将删除此环境。',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.ownerFunction' => '函数',
 			'settings.sandbox.ownerHandler' => '处理器',
 			'settings.sandbox.ownerMcp' => 'MCP',
