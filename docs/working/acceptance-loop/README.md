@@ -297,9 +297,9 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-147 已完成,批次二十七 50/50,统一门禁已通过)
+### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-147 已完成,批次二十七 50/50,统一门禁已通过并提交)
 
-**当前前线（2026-08-09，清册 EP-147 已完成，批次二十七当前 50/50；本批统一长门禁、完整 testend、警报复核和工作树审计已通过，等待提交）。**
+**当前前线（2026-08-09，清册 EP-147 已完成，批次二十七当前 50/50；本批统一长门禁、完整 testend、警报复核和工作树审计已通过，已提交 `54dae950`）。**
 EP-147 `GET /api/v1/conversations/workdir-groups` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只返回四行 JSON，而是让 mounted conversation 在 Pinned、workdir group、Recents 中恰好出现一次；组头计数来自整个 workspace 的服务端投影；最新活跃组自动展开，用户明确的折叠/展开选择不被后续重排覆盖；归档态、路径碰撞和空驻地均体面可读。
 
 首轮真实绿候选场次发现了一个产品红：beta 组由服务端排到第一后，前端仍沿用稳定 `pageKey` 的旧折叠态，最新回复被藏在折叠组中且没有 loading/unread 引导。红证据保留在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-163937/evidence/EP-147-fold-state-red.md` 和对应截图；前线冻结并 stop-and-fix。修复在 `AnSidebarList` 中把自动默认折叠与用户明确选择分开，模型重排时只同步自动默认；补充侧栏重排/手动选择回归和聊天列表最近度回归，避免只修聊天表面。
@@ -312,7 +312,7 @@ REST/数据矩阵为 `sessions/20260809-164708/evidence/EP-147-rest-matrix-final
 
 门禁期间全量 Flutter 测试捕获并修复一个真实生命周期回归：transcript 深链分叉在没有 rail 监听时会触碰永久存活的 `conversationListProvider`，新增的计数防抖器留下 pending timer；修复为 rail 投影 `autoDispose`，无监听时释放 SSE/计时器，重新挂载从服务端真相重建，并同步 Chat 文档与 fork/rail 回归。修复后 fork 定向测试、provider 全套测试、前端静态分析和 5287 个 Flutter 测试均通过。
 
-EP-147 临时数据库与 workdir 夹具已在证据封存后按用户授权通过 `/usr/bin/trash` 移除，清理回执为 `sessions/20260809-164708/evidence/EP-147-fixture-cleanup.md`；formal session、录屏、journals、红绿证据和账本保留。P12 旅程 400+ 继续按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。批次二十七由 **45→50/50**，统一门禁已收口，下一动作是提交，不提前启动下一原子。
+EP-147 临时数据库与 workdir 夹具已在证据封存后按用户授权通过 `/usr/bin/trash` 移除，清理回执为 `sessions/20260809-164708/evidence/EP-147-fixture-cleanup.md`；formal session、录屏、journals、红绿证据和账本保留。P12 旅程 400+ 继续按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。批次二十七由 **45→50/50**，统一门禁已收口并提交 `54dae950`，不提前启动下一原子。
 下一原子前线（统一门禁通过并提交后）为 COVERAGE 的下一未完成 row。
 
 ### 5.2 历史状态快照（EP-146，批次二十七 45/50）

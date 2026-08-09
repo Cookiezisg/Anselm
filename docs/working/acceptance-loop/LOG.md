@@ -20,7 +20,7 @@ landed-into:
 - 五级裁决 `G1/F2/A1/C4/G2`，账本 `1425→1430 judgments`，`COVERAGE EP-147=✓✓✓✓✓`，anchors `10/10`；gap/discovery 警报经独立复审 ack，阈值/算法/法典/锚点未变，最终 `alarms.py check`=`clean (1430 judgments)`。
 - 统一长门禁已实际通过：`gen_coverage.py --check`=`848/279/0`，anchors calibration passed，`make -C docs verify`、`git diff --check`、根目录 `make verify`（backend/frontend/docs/demo）全绿；frontend `make verify` 为 `5287 tests` 全绿，`make -C backend testend` 全包 `382.092s` 通过。
 - 门禁期间全量 Flutter 测试捕获真实 pending timer 回归：transcript 深链分叉在无 rail 监听时会触碰永久存活的 list provider。修复为 `conversationListProvider` `autoDispose`，无监听时释放 SSE/合帧计时器，重新挂载从服务端真相重建；Chat 文档、fork/rail 回归和 48 个定向测试同步通过。
-- 批次二十七由 **45→50/50**；统一门禁、完整 testend 和警报复核已收口，下一动作是提交，不提前启动下一原子。P12 旅程 400+ 按用户裁定继续推迟二期。
+- 批次二十七由 **45→50/50**；统一门禁、完整 testend 和警报复核已收口，并已提交 `54dae950`，不提前启动下一原子。P12 旅程 400+ 按用户裁定继续推迟二期。
 
 ## 2026-08-09 — EP-146 `DELETE /api/v1/conversations/{id}` 五级收口，批次二十七 45/50
 
