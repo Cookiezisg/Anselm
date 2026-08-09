@@ -20,9 +20,9 @@ audience: [human, ai]
   `{"error":{"code","message","details"}}`。
 - Wire 字段使用 camelCase；Path variable 也使用 camelCase。
 - 无界集合使用 keyset `cursor` + `limit`，返回顶层 `nextCursor`、`hasMore`。
-- 七类实体 rail 列表（functions/handlers/agents/workflows/triggers/controls/approvals）另外在
+- 八类实体 rail 列表（functions/handlers/agents/workflows/triggers/controls/approvals/conversations）另外在
   `X-Anselm-Total-Count` 响应头携带同 workspace、同 `search` 过滤下的精确总数；这是传输元数据，
-  不改变 N4 JSON body，也不把游标分页伪装成 offset 分页。
+  对 conversations 还包含 archived/pinned/workDir 过滤；它不改变 N4 JSON body，也不把游标分页伪装成 offset 分页。
 - 明确有界批查、静态枚举和单对象派生投影不使用 cursor。
 - Create/单读/Patch 的 `data` 是实体；复合响应使用具名 keys。
 - 创建新资源的异步动作返回 `202 {"data":{"id":"..."}}`。
@@ -222,6 +222,10 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 | `GET /skills/{name}/files` | 文件树 |
 | `GET|PUT|DELETE /skills/{name}/files/{path...}` | Skill 文件单读/写/删 |
 
+`context=fork` 的 `agent` 必须是 runner 注册的区分大小写类型：`Explore`、`Plan` 或
+`general-purpose`。未知值在创建/替换时返回 `422 SKILL_FORK_AGENT_TYPE_INVALID`；历史或安装文件
+在激活时仍 fail-closed，详情见 Skill domain reference。
+
 ### MCP
 
 | Method · Path | 语义 |
@@ -248,15 +252,15 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 | `POST /documents` | 创建 |
 | `GET|PATCH|DELETE /documents/{id}` | 单读 / 部分更新 / 删除；PATCH 只持久化实际变化，空或等值 patch 返回当前实体但不刷新 `updatedAt`、重建索引或发送 `document.updated` |
 | `POST /documents/{id}:iterate` | 打开 AI 编辑 Conversation |
-| `POST /documents/{id}:move` | 移动 |
-| `POST /documents/{id}:duplicate` | 复制 |
+| `POST /documents/{id}:move` | `{parentId?: string|null, position?: non-negative integer}`；省略 `parentId` 移到根，省略 `position` 追加；显式位置必须在目标同级插入下标 `0..N`，否则 `DOCUMENT_INVALID_POSITION`；目标父级与解析后位置均未变化时成功 no-op，不刷新 `updatedAt`/不发 `document.moved`；自落/成环为 `DOCUMENT_INVALID_PARENT` |
+| `POST /documents/{id}:duplicate` | 深拷整棵子树，返回 `201` 的新根实体；空 body 或 `{parentId:null}` 将副本放在源的同级并自动给根名加 ` 2`/` 3` 后缀，显式 `parentId` 放到指定父级；每个节点铸新 ID、重映射 `parentId/path`，正文/描述/标签/wikilink 出边复制；逐节点写入，非跨子树原子 |
 
 ### Conversation / Chat
 
 | Method · Path | 语义 |
 |---|---|
-| `POST /conversations` · `GET /conversations` | 创建 / 分页 |
-| `GET|PATCH|DELETE /conversations/{id}` | 单读 / 配置更新 / 删除 |
+| `POST /conversations` · `GET /conversations` | 创建 / 分页；GET 默认只列 active、按 pinned-first + 最近活跃倒序，支持 `search`、`archived=true|1|archived|all`、`sort=activity|created|name`、`pinned=true|1|false|0`；`workDir` 按键 presence 区分缺席=不过滤、空值=仅未挂、非空=精确驻地。响应头 `X-Anselm-Total-Count` 是当前完整过滤轴的精确总数，供 rail 段头使用；游标是服务端 opaque keyset，内部携带当前 pinned 分区和完整查询 scope，置顶线程跨页也不会漏未置顶线程；复用到另一查询轴返回 `MALFORMED_CURSOR`，客户端仍必须在切轴时丢弃旧 cursor。 |
+| `GET|PATCH|DELETE /conversations/{id}` | 单读 / 配置更新 / 删除；PATCH 是部分更新：`modelOverride` 缺键=不变、对象=设置、显式 `null`=清除，`workDir` 空字符串=卸载；空 patch 或所有字段都已等值时返回当前实体，但不写盘、不刷新 `updatedAt`、不发 `conversation.*` 生命周期通知 |
 | `POST /conversations/{id}/messages` | Send |
 | `GET /conversations/{id}/messages` | older/newer keyset 或 `around` 窗 |
 | `POST /conversations/{id}:cancel` | 取消 running/queued turns |

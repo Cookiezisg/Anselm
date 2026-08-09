@@ -297,46 +297,204 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-137 已完成,批次二十六 50/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-147 已完成,批次二十七 50/50,统一门禁已通过)
 
-**当前前线（2026-08-09，清册 EP-137 已完成，批次二十六已达到 50/50；统一长门禁已通过，现做选择性工作树审计）。**
-EP-137 `PATCH /api/v1/documents/{id}` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、
-三路独立 SSE witness、frontend console 和 LLM wire 的五级验收。产品目的不是只得到一个 `200`，而是让文档编辑的用户目的完整成立：空 patch 不制造
-虚假的更新时间或生命周期信号，分部编辑不丢其它字段，正文保存后编辑器、树、路径、右岛属性和后端真相同帧一致，错误与删除恢复均诚实可见。
+**当前前线（2026-08-09，清册 EP-147 已完成，批次二十七当前 50/50；本批统一长门禁、完整 testend、警报复核和工作树审计已通过，等待提交）。**
+EP-147 `GET /api/v1/conversations/workdir-groups` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只返回四行 JSON，而是让 mounted conversation 在 Pinned、workdir group、Recents 中恰好出现一次；组头计数来自整个 workspace 的服务端投影；最新活跃组自动展开，用户明确的折叠/展开选择不被后续重排覆盖；归档态、路径碰撞和空驻地均体面可读。
 
-首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-102749` 冻结出两处产品红：后端 `PATCH {}` 会改变
-`updatedAt` 并发 `document.updated`；修复后的真实 App 又显示中心正文和 REST 已变为 `68 B`，右侧 Properties 仍停在旧 `61 B`。红证据分别保留为
-`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-137-documents-patch-first-red.md` 与
-`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-137-library-stale-properties-first-red.md`，前线冻结后才修复。
+首轮真实绿候选场次发现了一个产品红：beta 组由服务端排到第一后，前端仍沿用稳定 `pageKey` 的旧折叠态，最新回复被藏在折叠组中且没有 loading/unread 引导。红证据保留在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-163937/evidence/EP-147-fold-state-red.md` 和对应截图；前线冻结并 stop-and-fix。修复在 `AnSidebarList` 中把自动默认折叠与用户明确选择分开，模型重排时只同步自动默认；补充侧栏重排/手动选择回归和聊天列表最近度回归，避免只修聊天表面。
 
-修复直接落在原语边界：backend `Service.Update` 对空 patch/等值 patch 早返回，不 Save、不刷新 `updatedAt`、不重建关系、不发布
-`document.updated`；frontend `docLiveMetricsProvider` 增加文档身份和编辑态，正文变更同帧更新 metrics，旧 provider 播种不能覆盖同页编辑，切页主动清空活值。
-补充了 no-op publish/store Go 守卫、stale-seed/document-identity Flutter 守卫，并同步 backend API/domain 与 frontend Library 文档。
+最终真实 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-164708`，`screen.mov` 已由 rig-down 封口可读（`2784x1808 / 60fps / 317.476667s`）。Computer Use 通过真实 Composer 完成 alpha→beta 两次受管 gateway 回合：alpha 变为第一组并展开，随后 beta 变为第一组且 `EP147 Beta active` 立即可见，alpha 退为第二组；没有隐藏最新回复、旧值顶替或卡住 loading。打开真实 `Show archived` 后 beta/alpha 组头分别显示 `2`，归档行带灰点；随后恢复 active-only 默认视图。最终截图为 `EP-147-recency-reorder-fixed.png` 与 `EP-147-archived-counts-clean.png`。
 
-固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-104917` 从全新数据目录真实 onboarding，创建根/子/兄弟/空四类 fixture。
-API 矩阵覆盖 no-op（`updatedAt` 原值、SSE 行数不变）、description-only trim、tags-only replacement、content-only exact body、冲突改名无 mutation、
-成功改名的子树 path cascade、空名/斜杠名、错误 tags 类型、unknown id、坏 JSON、缺 workspace、超 1 MiB 正文；全部返回契约状态且无幽灵写入。
-真实 App 通过标题编辑与正文追加 ` UI 2`，中心正文、Library 树、路径和 Properties 同帧显示 `45 B` 与新 Modified；随后重开最终根页，REST/UI
-共同显示更新后的正文、tags、`/EP137 PATCH Root Final` 和 `66 B`。删除打开中的根页后，子页级联消失，App 显示 `This page was deleted` 并回到干净草稿。
-正式绿证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-137-documents-patch-final-green.md`，独立警报复审为
-`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-137-documents-patch-ledger-reaudit.md`。
+REST/数据矩阵为 `sessions/20260809-164708/evidence/EP-147-rest-matrix-final.jsonl`：分组接口返回 beta、alpha、right/anselm、left/anselm 四组，计数分别为 `1+1`、`1+1`、`1+0`、`1+0`；附加任意 cursor/limit 仍返回同一完整四行；`archived=all`、`archived=true`、默认 active、alpha workDir 和显式空 `workDir=` 均与 SQLite/列表真相一致，置顶 alpha 只在 Pinned，不污染 group count。五通道正式证据为 `sessions/20260809-164708/evidence/EP-147-final-green.md`，独立警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-147-workdir-groups-ledger-reaudit.md`。
 
-根/子/兄弟/空 fixture 均真实 `DELETE=204`，最终 tree 为 `data: []`；临时数据可清理，正式 session、红绿证据与账本均保留。
+五级裁决 `G1/F2/A1/C4/G2` 已写入，中央账本由 `1425→1430 judgments`，`COVERAGE EP-147=✓✓✓✓✓`，anchors `10/10`；写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立红绿证据复审并 ack，未修改阈值、算法、法典或锚点，最终 `alarms.py check`=`clean (1430 judgments on record)`。统一长门禁已实际通过：`gen_coverage.py --check`=`848 rows / 279 carried judgments / 0 tombstones`，anchors calibration passed，`make -C docs verify` 通过（仅保留既有 1 条 anchored DTO skip warning），`git diff --check` 通过，根目录 `make verify` 全绿（backend/frontend/docs/demo），frontend `make verify` 全绿（5287 tests），`make -C backend testend` 全包通过（`382.092s`）。
 
-五通道收台：backend D1 归属到 `:8891`（PID `21316`），无 panic/WARN/ERROR；ssetap 独立连接 messages/entities/notifications，notifications durable
-seq `1..13` 连续；channel 5 真实 upstream 为 `https://api.anselm.website`，challenge/install/models 全 HTTP `200`；Flutter runner 全程存活且 console
-无 Flutter/Dart/assert/overflow/unhandled 红线；窗口录屏封口为 H.264 `459.506667s / 2784x1808 / 60fps`。唯一 startup
-`Failed to foreground app; open returned 1` 是 runner 前台提示，随后 App 已 resident，不构成产品红。
+门禁期间全量 Flutter 测试捕获并修复一个真实生命周期回归：transcript 深链分叉在没有 rail 监听时会触碰永久存活的 `conversationListProvider`，新增的计数防抖器留下 pending timer；修复为 rail 投影 `autoDispose`，无监听时释放 SSE/计时器，重新挂载从服务端真相重建，并同步 Chat 文档与 fork/rail 回归。修复后 fork 定向测试、provider 全套测试、前端静态分析和 5287 个 Flutter 测试均通过。
 
-正式账本由 `1375→1380 judgments`，五级法条为 `G1/F2/A5/C4/G2`，`COVERAGE EP-137=✓✓✓✓✓`；anchors `10/10` 重新校准，统计警报按原阈值触发后
-独立复审并 ack，最终 `alarms.py check` 为 `clean (1380 judgments on record)`；阈值、算法、法典均未改。`gen_coverage.py --check` 为
-`848 rows / 269 carried / 0 tombstones`。`check_journeys.py` 仍按 P12 裁定报告 47 条一期路线未认领 848 清册行；400+ 路线扩写是二期工作，
-一期主循环以 COVERAGE 矩阵为覆盖真相，不以此阻塞。
+EP-147 临时数据库与 workdir 夹具已在证据封存后按用户授权通过 `/usr/bin/trash` 移除，清理回执为 `sessions/20260809-164708/evidence/EP-147-fixture-cleanup.md`；formal session、录屏、journals、红绿证据和账本保留。P12 旅程 400+ 继续按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。批次二十七由 **45→50/50**，统一门禁已收口，下一动作是提交，不提前启动下一原子。
+下一原子前线（统一门禁通过并提交后）为 COVERAGE 的下一未完成 row。
 
-EP-137 定向 backend document/store/transport Go 测试、Library 相关 Flutter `57` tests、`dart format` 和 `git diff --check` 已通过。按 P15，
-本批统一长门禁现已通过：根目录 `make verify` 的 backend/frontend/docs/demo 四组全绿；`make -C backend testend` 完整场景集全绿（`290.263s`）；正式
-`RIG_HOME` 下 anchors `10/10`、`alarms.py check`=`clean (1380)`、`gen_coverage.py --check`=`848/269/0`、相关 Go 回归、testend 进程组清理和
-`git diff --check` 均通过。现在只剩选择性工作树审计与本批 commit，未提前推进下一格。
+### 5.2 历史状态快照（EP-146，批次二十七 45/50）
+
+**历史前线（2026-08-09，清册 EP-146 已完成，批次二十七当时 45/50；未到 50 格，不跑统一长门禁、不提交）。**
+EP-146 `DELETE /api/v1/conversations/{id}` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、
+frontend console 和 llmtap 的五级验收。产品目的不是只返回一个 `204`，而是让用户能明确删除当前对话，删除后从 rail 和所有详情入口消失；其消息审计仍按 D1 保留，关系与触点不留下幽灵边，生成中的回合被安全取消，删除后应用仍能继续工作。
+
+正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-160637`，由 conductor 归属 backend、SSE tap、LLM tap、Flutter runner 和录屏，`screen.mov` 已封口可读（`2784x1808 / 60fps / 678.315s`）。真实 App 从 More actions 打开确认对话框，确认后目标 `EP146 DELETE target` 立即从 rail 消失并回到可用空 composer；同一测试通过受管 gateway 发送带 function mention 和附件的消息，真实回复精确为 `EP146-ACK`。REST/SQLite 交叉证明删除头为 `deleted_at` 软删，GET/list/messages 均为 `404/不出现`，消息与 blocks 仍保留，relations 与 conversation_touchpoints 均清零；附件和 function fixture 不被错误级联删除。
+
+关系路径又用真实 fork 验证：源对话到 fork 的 `create` relation 在删除 fork 后双向查询均为空，fork 头软删而消息审计仍在。随后真实受管长回合 `EP146 in-flight delete` 在 `isGenerating=true` 时从 App 删除，assistant 终态为 `cancelled`，取消后的部分 durable 文本不丢失；删除后新建 `EP146 post-delete health` 并得到精确 `EP146-POST-OK`，证明取消没有毒化 conversation queue 或后端。重复删除、missing id、跨 workspace、普通/生成中状态和删除后详情入口均纳入矩阵。
+
+五通道证据包括非空 `manifest.json`、`backend.log`、`sse.jsonl`、`frontend.log`、`llm.jsonl` 和上述已封口录屏；三路 SSE durable 序列均连续，notifications 观测到 `conversation.deleted`，messages 观测到取消回合的 assistant block/message close；llmtap 的 challenge、install、models、两次 chat completion 均为 `200`，真实请求体和上游响应均留存。backend/frontend 没有 panic、FATAL、未处理 Flutter/Dart/RenderFlex/overflow 红线；取消瞬间唯一的 `incremental block persistence failed: context canceled` 已逐行复核为可选增量写入与删除取消竞态，detached finalizer 随后成功完整落盘，故保留为可解释的预期取消噪声，不隐藏也不改阈值。启动包装器的已知 `Failed to foreground app; open returned 1` 仍单独分类。
+
+正式绿证据为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-160637/evidence/EP-146-final-green.md`，独立账本复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-146-conversations-delete-ledger-reaudit.md`；裁决 `G1/F2/A1/C4/G2` 已写入，账本由 `1420→1425 judgments`，
+`COVERAGE EP-146=✓✓✓✓✓`，anchors `10/10`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立复审逐项 ack，原阈值、算法、法典和锚点未变，最终 `alarms.py check`=`clean (1425 judgments on record)`。
+
+定向 conversation/chat/store/relation/touchpoint/httpapi 验证、`python3 testend/rig/gen_coverage.py --check`（848 rows / 278 carried judgments / 0 tombstones）、`make -C docs verify`、
+`git diff --check` 均通过。EP-146 临时数据目录按用户授权通过 `/usr/bin/trash` 移入 Trash，formal session、录屏、journals、红绿证据和账本保留；P12 旅程 400+ 仍按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。批次二十七由 **40→45/50**；未到 50 格不跑统一长门禁、不提交。
+下一原子前线为 EP-147。
+
+### 5.2 历史状态快照（EP-142，批次二十七 25/50）
+
+EP-142 `POST /api/v1/conversations` 的五级验收、REST 边界、真实 App 创建/首条消息/自动标题、五通道证据、fixture Trash、账本 `1400→1405` 和警报复审已在
+`LOG.md` 及其 session evidence 中封存；本快照保留其当时前线，当前推进以本节 EP-144 整体重述为准。
+
+### 5.2 历史状态快照（EP-141，批次二十七 20/50）
+
+**历史前线（2026-08-09，清册 EP-141 已完成，批次二十七当时 20/50；未到 50 格，不跑统一长门禁、不提交）。**
+EP-141 `POST /api/v1/documents/{id}:iterate` 已按完整产品目的完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、
+三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只返回一个 `202`，而是让用户能从 Library 文档行的 More actions 找到 `Edit with AI`，
+进入带当前文档 mention 的持久 Chat 对话，用自然语言提出精确修改，并看到真实文档被修改；标题、description、tags、Promise heading 和子页必须保持不变，
+空请求、坏输入、目标不存在和缺 workspace 必须给出真实错误且不产生幽灵 conversation。
+
+EP-141 的独立 REST/SQLite/SSE 矩阵固定在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-131242` 的
+`evidence/EP-141-rest-boundary-matrix.jsonl`：有效请求真实返回 `202` 并创建 conversation，模型随后真实调用 `read_document` 和 `edit_document`；空/空白请求为
+`400 EMPTY_ITERATE_REQUEST`，请求类型/坏 JSON 为 `400 INVALID_REQUEST`，缺文档为 `404 DOCUMENT_NOT_FOUND`，缺 workspace 为 `401 UNAUTH_NO_WORKSPACE`，所有负向
+均无幽灵文档或 conversation 行。REST 有效编辑只改变目标正文首句，子页、description 和 tags 与 SQLite/REST 真相一致。
+
+首轮产品走查发现后端 endpoint 已存在，但 Library 行菜单没有 affordance，用户无法发现能力；stop-and-fix 增加 `LibraryRepository.iterateDocument` 的 live 请求、
+fixture 同语义、行级 `Edit with AI` 菜单、中文/英文文案、精确 Dio wire test、真实 widget journey test 和 Library reference 文档。真实 App 通过
+Library → More actions → Edit with AI 进入 Chat，自动种下 `Help me edit “Product Brief UI” with AI.`；随后提出具体句子修改，模型只编辑目标 id，
+Activity 显示 `1 touched / Edited`，回到 Library 后正文、标题、description、tags、Promise heading、Path、size 和 outline 均正确。菜单终帧含 Rename、Duplicate、
+Edit with AI、Delete；中途 `Untitled` 是返回 Library 后尚未选择文档的正常空选区，不是数据丢失，之后两帧稳定终态逐像素一致。
+
+最终真实 App session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-131242` 的 backend D1 为 `:8742`/PID `48325`，ssetap PID `48339`，
+llmtap `:8788`/PID `48301`，Flutter runner `48341`，窗口 recorder `48961`；rig-down 后进程组和监听端口归零。录像封口为 H.264 `2784x1808 / 60fps /
+409.856667s`，messages/entities/notifications 三流均连接；backend 无应用 `WARN/ERROR/panic/FATAL`，frontend 无 Dart/Flutter/Unhandled/RenderFlex/overflow 红线。
+Flutter runner 的一次 `Failed to foreground app; open returned 1` 发生在启动阶段，随后 App 正常 resident，已作为 runner 提示而非产品错误记录。llmtap wire 确认真实
+gateway readiness、文档 mention、精确编辑请求、工具调用和最终确认一致。
+
+封口证据为 session 内 `evidence/EP-141-document-iterate-final-green.md`，临时 fixture 清理回执为同 session 的 `evidence/EP-141-fixture-cleanup.md`，
+独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-141-document-iterate-ledger-reaudit.md`；临时数据已按用户授权移入 macOS Trash，
+正式 session、录像、journal、矩阵和证据均保留。最终稳定画面 `395→405` 经 `measure compare` 为 `changedFrac=0, pass=true`。
+
+正式账本由 `1395→1400 judgments`，五级法条为 `G1/F2/A1/C4/G2`，`COVERAGE EP-141=✓✓✓✓✓`；anchors `10/10`。写账后 `gap-too-fast` 与
+`discovery-collapse` 按原阈值打开，独立复审确认真实 409 秒录像、五通道 journal、正负向 REST 矩阵、stop-and-fix 证据、视觉测量和定向测试齐全后 ack，未修改
+阈值、算法、法典或锚点；最终 `alarms.py check`=`clean (1400 judgments on record)`，`gen_coverage.py --check`=`848 rows / 273 carried / 0 tombstones`。
+P12 旅程 400+ 扩写仍按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。
+
+定向 Flutter Library/repository `57` tests、backend `aispawn/document/httpapi` 选择性回归、testend document iterate contract、`git diff --check`、
+`anchors.py check`、`alarms.py check` 和 `gen_coverage.py --check` 均通过。批次二十七由 **15→20/50**；未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-142
+`POST /api/v1/conversations`。
+
+### 5.2 历史状态快照（EP-140，批次二十七 15/50）
+
+**历史前线（2026-08-09，清册 EP-140 已完成，批次二十七当时 15/50；未到 50 格，不跑统一长门禁、不提交）。**
+EP-140 `POST /api/v1/documents/{id}:duplicate` 已按完整产品目的完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、
+三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只返回一个 `201`，而是让用户能从 Library 的行级 More actions 找到 Duplicate，
+得到一棵拥有新 ID、正确父子关系和路径的完整副本，保留正文/描述/标签/wikilink 出边，并在复制后立即打开新根，不用猜副本去了哪里；空 body/`parentId:null`
+按源同级放置并自动根名去重，显式 `parentId` 放到指定父级，坏输入、缺源、缺父和缺 workspace 必须给出真实错误且不产生幽灵成功。
+
+EP-140 的独立 REST/SQLite/SSE 矩阵固定在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-124218`：覆盖根级同级复制、显式父级、空 body、
+`{parentId:null}`、嵌套源、显式后代父级，以及 missing source/parent、空父、坏 JSON、unknown field、缺/错 workspace；成功响应均为 `201`，负向为预期的
+`404/422/400/401`。结构证据确认每个节点都是新 ID，`parentId/path/position` 正确重映射，正文、description、tags 和深层孙节点完整保留；关系证据确认
+复制出的 wikilink 出边使用新 relation ID。接口真实边界也写明：逐节点写入，不宣称跨整棵子树原子。
+
+为避免测试环境撒谎，fixture repository 的 duplicate 从浅复制改为与 live service 同语义的 BFS 深拷贝：新 ID、根名去重、目标父级、路径、位置和全部 metadata
+均覆盖；backend tests 增加显式父级、metadata、子孙和 wikilink relation 回归。API 与 Library reference 同步记录 `201`、空父语义、深拷贝字段和非原子边界。
+这轮没有发现 live backend duplicate 的产品源代码红；真正修复的是测试 fixture 与线上契约不一致这一测试基础设施缺陷。
+
+最终真实 App session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-124808` 从干净 fixture 起步。Computer Use 通过 More actions → Duplicate 创建
+`Duplicate Source 2`，新根自动打开；再进入 `Child One` 和 `Grandchild`，逐页确认 body、description、tags、breadcrumb、Path、size、modified 和层级均正确。
+侧栏树即时出现完整复制子树，画面无路径滞后、裁剪、光标跳变或未解释布局红线；notifications 只收到该 UI duplicate 的一个 durable
+`document.created`（seq=1）。
+
+最终五通道 session 的 backend D1 为 `:8895`/PID `44395`，ssetap PID `44412`，llmtap `:8795`/PID `44369`，Flutter runner `44414`，窗口 recorder `44811`；
+rig-down 后录像封口为 H.264 `2784x1808 / 60fps / 458.446667s`，监听端口和进程均归零。messages/entities/notifications 三流均连接，backend 无
+`WARN/ERROR/panic/FATAL`，frontend 无 `Unhandled exception/FlutterError/Lost connection/RenderFlex/overflow`；确定性 duplicate 不虚构 LLM completion，gateway
+challenge/install/models 的真实 wire 证据保留在 setup session `.../124107`。
+
+封口证据为 session 内 `evidence/EP-140-document-duplicate-final-green.md`，fixture 清理回执为同 session 的 `evidence/EP-140-fixture-cleanup.md`，独立账本复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-140-document-duplicate-ledger-reaudit.md`；临时数据已按用户授权提交 macOS Trash，正式 session、录像、journal、
+矩阵和证据均保留。
+
+正式账本由 `1390→1395 judgments`，五级法条为 `G1/F2/A1/C4/G2`，`COVERAGE EP-140=✓✓✓✓✓`；anchors `10/10`。写账后 `gap-too-fast` 与
+`discovery-collapse` 按原阈值打开，独立复审确认最终 458 秒录像、五通道 journal、负向 REST 矩阵和逐页 Computer Use 证据齐全后 ack，未修改阈值、算法、法典
+或锚点；最终 `alarms.py check`=`clean (1395 judgments on record)`，`gen_coverage.py --check`=`848 rows / 272 carried / 0 tombstones`。P12 旅程 400+
+扩写仍按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。
+
+定向 backend document/handler/store Go tests、Library + live-metrics Flutter `60` tests、fixture `dart format`、`gofmt`、`make -C docs verify`、
+`gen_coverage.py --check` 和 `git diff --check` 均通过。批次二十七当前由 **10→15/50**；未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-141
+`POST /api/v1/documents/{id}:iterate`。
+
+### 5.2 历史状态快照（EP-139，批次二十七 10/50）
+
+**历史前线（2026-08-09，清册 EP-139 已完成，批次二十七当时 10/50；未到 50 格，不跑统一长门禁、不提交）。**
+EP-139 `POST /api/v1/documents/{id}:move` 已按完整产品目的完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、
+三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只返回一个 `200`，而是让用户能在 Library 里把文档移到根级或嵌套父级、
+在同级上下缘重排、保留整棵后代子树，并且不重新选择页面就能从树、面包屑、正文和右岛 Path/Modified 看懂最终位置；非法位置、自落、成环和越界必须在
+mutation 前拒绝，重复同槽移动必须是真 no-op。
+
+首轮真实红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-115232` 发现负数/过大 position 被静默接受并发布移动，红证据
+`evidence/EP-139-document-move-red-negative-position.md` 永久保留、不计绿。stop-and-fix 增加 `DOCUMENT_INVALID_POSITION`，将显式位置收紧为目标同级
+插入下标 `0..N`（含末位），校验在任何写入/发布前完成；随后又补出同父同解析位置的 no-op 守卫，保持 `updatedAt`、顺序和 SSE 不变。后端补充 invalid/no-op
+单测，Document domain/API/error/events/endpoints 文档同步。
+
+固定版本又在真实拖拽中抓到右岛 Path 比树和面包屑落后一拍；修复后 Inspector 从最新 tree row 取结构元数据、正文 provider 继续冻结保光标，并补 Library widget
+regression。五通道重跑进一步抓到 Inspector `Modified` 把编辑器首次载入的 live seed 时间当成持久修改时间；修复为 seed 只提供字数/大小，真实编辑才可乐观提供本地时间，
+且后端较晚持久时间优先；补 `documentInspectorUpdatedAt` 守卫和文档说明。这个问题也已在最终真实画面中确认不再出现。
+
+最终 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-122441` 使用新 binary 从既有 EP-139 树开始。Computer Use 真实操作：选中
+`Source Section`，拖到 `EP139 Beta` 根级，再拖回 `Destination Section`；两次均同时看到侧栏层级、面包屑、正文、右岛 Path 一致，最终 Path 为
+`/EP139 Beta/Destination Section/Source Section`，`Deep Context` 仍挂在其下，正文 `## Source`、tags 和 description 未变，Modified 与持久时间显示为
+`12:26`。另以 REST 重跑显式 `position:0` 与省略 position 的 append no-op，`updatedAt`、path、position 和通知数均不变。
+
+独立 REST/SQLite/SSE 矩阵覆盖根↔嵌套、显式 0、inclusive end position、同父重排、nil parent、nil position append、后代 path/content/tags 保留，以及负数/越界/
+浮点/布尔/数组/字符串 position、自落、成环、missing parent/document、坏 JSON、缺/错 workspace、unknown action。最终 SQLite/REST 同真：
+`doc_1942443aabe8b4eb.parent_id=doc_b16767da037811f4`、`position=0`、path 为最终深路径。
+
+最终 session 的 backend D1 为 `:8894`/PID `38988`，ssetap PID `39015`，llmtap `:8829`/PID `38951`，Flutter runner PID `39023`，窗口 recorder PID `39524`；
+`rig-check` 在操作前、操作中、收台前均五通道全绿，rig-down 后进程组和监听端口归零。录屏 `176.760000s / 2784x1808 / 60fps`；SSE 三流均连接，
+notifications durable 只有真实两条 `document.moved` 且 seq `[1,2]` 单调；backend 250 行无应用 WARN/ERROR/panic/FATAL，frontend 18 行无 Flutter/Dart/overflow/
+Unhandled 红线；llmtap 记录 readiness，确定性 move 不虚构 completion。封口证据为 session 内 `evidence/EP-139-document-move-final-green.md`，独立账本复审为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-139-document-move-ledger-reaudit.md`，稳定画面抽帧也保留在 session evidence。
+
+正式账本由 `1385→1390 judgments`，五级法条为 `G1/F2/A5/C4/G2`，`COVERAGE EP-139=✓✓✓✓✓`；anchors `10/10`。写账后 `gap-too-fast` 与
+`discovery-collapse` 均按原阈值真实打开，独立复审确认红证据、修复链、五通道原始 journal 和最终帧齐全后 ack，未修改阈值、算法、法典或锚点；最终
+`alarms.py check`=`clean (1390 judgments on record)`，`gen_coverage.py --check`=`848 rows / 271 carried / 0 tombstones`。P12 旅程 400+ 扩写仍按用户裁定
+推迟二期，一期以 COVERAGE 矩阵为覆盖真相。
+
+定向 backend document/handler/store Go tests、Library + live-metrics Flutter `59` tests、`gofmt`、`make -C docs verify` 和 `git diff --check` 均通过。
+批次二十七当前由 **5→10/50**；未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-140 `POST /api/v1/documents/{id}:duplicate`。
+
+### 5.2 历史状态快照（EP-138，批次二十七 5/50）
+
+**历史前线（2026-08-09，清册 EP-138 已完成，批次二十七当时 5/50；未到 50 格，不跑统一长门禁、不提交）。**
+EP-138 `DELETE /api/v1/documents/{id}` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、
+三路独立 SSE witness、frontend console 和 LLM wire 的五级验收。产品目的不是只得到一个 `204`，而是让用户能从 Library 找到删除入口、理解级联后果、
+先取消不产生副作用，确认后整棵子树消失；另一个视图删除打开页或祖先时，当前编辑器不能继续伪装成可写，必须回到干净草稿并明确说出页面已删除。
+
+固定 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-112205` 从真实 onboarding 起步。首轮构造树覆盖根、子、双孙、兄弟和 link
+关系；真实 App 打开根页，More actions 显示 Rename/Duplicate/Delete，确认框显示 `Delete this page?` 及
+`“EP138 Delete Root” and everything nested inside it will be removed.`；先点 Cancel，选中页、正文、树和 inspector 均保持不变，再确认 Delete，
+页面从 rail 消失、右侧详情卸载、中心回到 `Untitled` 空白草稿。此路径没有产品源代码红，不把确认框或 204 单独冒充完整通过。
+
+独立 REST/SQLite/SSE 矩阵确认 DELETE 的真实语义：根、子、双孙、兄弟全部 `GET=404 DOCUMENT_NOT_FOUND`，重复删除和未知 id 均 `404`；软删主行
+保留 tombstone，子树共享删除时刻，live relation count 为 `0`；删除后用相同名字重新创建得到新的 `201`。跨 workspace 目标文档在其自身 workspace
+读为 `200`，从当前 workspace 删除为 `404`，没有跨隔离删写。打开子页后外部删除祖先，经过权威 tree resync 触发 `This page was deleted`，14 个 120ms
+采样从第 2 帧开始观察到提示，随后回到空白草稿；这不是静默跳转。
+
+正式绿证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-112205/evidence/EP-138-document-delete-final-green.md`，
+AXTree 独立复核为同 session 的 `evidence/frontend-ax-review.md`，统计警报独立复核为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-138-document-delete-ledger-reaudit.md`，清理回执为同 session 的
+`evidence/EP-138-fixture-cleanup.md`。原始 fixture 构造时有两次 shell JSON 传参错误，均只产生 `422`、无幽灵写入，按台架问题分类，没有伪造产品红。
+
+五通道收台：backend D1 归属到 `:8892`（PID `28732`），无应用 WARN/ERROR/panic/fatal/exception；ssetap 独立连接
+messages/entities/notifications，三流均有连接记录，notifications durable seq `1..18` 单调且包含 created/deleted 与
+`relation.dependency_broken`；channel 5 真实 upstream 为 `https://api.anselm.website`，challenge/install/models 全 HTTP `200`，本确定性 DELETE
+不虚构 completion；Flutter console 无 Dart/Flutter/RenderFlex/overflow/unhandled/concurrent-modification/lost-device 红线。日志中的固定格式
+macOS Flutter AXTree stale-node 行只在 `frontend-ax-review.md` 中按既有 tooling 规则复核，最后静置 3 秒不再增长；未知 AX 形状仍 fail-closed。
+窗口录屏已封口为 H.264 `1025.690000s`，进程组归零。
+
+正式账本由 `1380→1385 judgments`，五级法条为 `G1/F2/A5/C4/G2`，`COVERAGE EP-138=✓✓✓✓✓`；anchors `10/10`，两条统计警报按原阈值触发后
+独立复审并 ack，最终 `alarms.py check` 为 `clean (1385 judgments on record)`；阈值、算法、法典和锚点均未改。`gen_coverage.py --check` 为
+`848 rows / 270 carried / 0 tombstones`。`check_journeys.py` 仍按 P12 裁定报告一期路线未认领清册行；400+ 路线扩写是二期工作，一期主循环以
+COVERAGE 矩阵为覆盖真相，不以此阻塞。
+
+EP-138 无产品源代码修复，仅执行 backend/frontend/database/REST/SSE/Computer Use 五级验收。正式批次二十七从 **0→5/50**，未到 50 格不跑统一长门禁、
+不提交；下一原子前线为 EP-139 `POST /api/v1/documents/{id}:move`。
 
 ### 历史状态快照（EP-125，批次二十五 40/50）
 

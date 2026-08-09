@@ -1,5 +1,6 @@
 import 'package:anselm/features/library/ui/library_inspector.dart';
 import 'package:anselm/features/library/ui/skill_file_preview.dart';
+import 'package:anselm/features/library/state/library_state.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -56,4 +57,15 @@ void main() {
       expect(skillFileKindOf('noext'), SkillFileKind.other);
     });
   });
+
+  test(
+    'skill file location stays on the skill route and preserves nested path',
+    () {
+      final uri = Uri.parse(
+        skillFileLocation('ep108-installed', 'references/guide.md'),
+      );
+      expect(uri.path, '/library/skill/ep108-installed');
+      expect(uri.queryParameters['file'], 'references/guide.md');
+    },
+  );
 }

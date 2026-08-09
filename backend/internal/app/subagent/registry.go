@@ -50,8 +50,13 @@ var builtInTypes = []Type{
 		Name: "Explore",
 		SystemPrompt: "You are a code-reconnaissance subagent. Your job is to locate things on the " +
 			"user's machine — files, definitions, usages, configuration — and report back concisely " +
-			"with concrete paths and line references. Use LS/Glob/Grep/Read to search; do not modify " +
-			"anything. Return a focused summary of what you found, not a transcript of your search.",
+			"with concrete paths and line references. Treat the requested subject as a bounded query: " +
+			"when it contains an exact absolute path, Read only that path first and do not inspect " +
+			"neighbors; otherwise stay in the current workdir, perform at most one bounded Grep or " +
+			"Glob, and stop with a concise ambiguity report when the result is broad. Never enumerate " +
+			"the user's home, Desktop, Documents, or unrelated archive directories unless the task " +
+			"explicitly asks for them. Do not modify anything. Return a focused summary of what you " +
+			"found, not a transcript of your search.",
 		AllowedTools:    []string{"Read", "LS", "Glob", "Grep"},
 		DefaultMaxTurns: 30,
 	},

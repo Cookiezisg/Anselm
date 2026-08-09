@@ -350,6 +350,9 @@ func (s *Service) Move(ctx context.Context, id string, in MoveInput) (*documentd
 	if err != nil {
 		return nil, err
 	}
+	if in.Position != nil && *in.Position < 0 {
+		return nil, documentdomain.ErrInvalidPosition
+	}
 
 	if in.ParentID != nil {
 		if *in.ParentID == id {
@@ -404,13 +407,22 @@ func (s *Service) Move(ctx context.Context, id string, in MoveInput) (*documentd
 		}
 	}
 	idx := len(others)
-	if in.Position != nil && *in.Position >= 0 && *in.Position < idx {
+	if in.Position != nil && *in.Position > idx {
+		return nil, documentdomain.ErrInvalidPosition
+	}
+	if in.Position != nil {
 		idx = *in.Position
 	}
 	ordered := make([]*documentdomain.Document, 0, len(others)+1)
 	ordered = append(ordered, others[:idx]...)
 	ordered = append(ordered, d)
 	ordered = append(ordered, others[idx:]...)
+	// A repeated drag to the document's resolved current slot is a true no-op. Do not touch
+	// updated_at or emit a tree-refresh signal for a move that changes neither parent nor order.
+	// 重复拖回当前父级的当前落点是实质 no-op；不刷新 updated_at，也不发树刷新信号。
+	if !parentChanged && d.Position == idx {
+		return d, nil
+	}
 
 	if parentChanged {
 		parentPath, err := s.parentPath(ctx, d.ParentID)

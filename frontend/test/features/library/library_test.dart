@@ -7,11 +7,16 @@ import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/editor/an_editor.dart';
+import 'package:anselm/core/notice/notice_center.dart';
+import 'package:anselm/core/overlay/an_overlay.dart';
+import 'package:anselm/core/ui/an_dialog.dart';
 import 'package:anselm/features/library/model/doc_outline.dart';
 import 'package:anselm/features/library/state/doc_group_collapse.dart';
 import 'package:anselm/features/library/ui/an_document_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_switch.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart'
     show AnRowDropZone, AnSidebarList;
 import 'package:anselm/core/ui/an_state.dart';
@@ -23,7 +28,9 @@ import 'package:anselm/features/library/ui/library_ocean.dart';
 import 'package:anselm/features/library/ui/library_rail.dart';
 import 'package:anselm/features/library/ui/library_rail_model.dart';
 import 'package:anselm/features/library/ui/library_inspector.dart';
+import 'package:anselm/features/library/ui/skill_install_dialog.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -39,12 +46,14 @@ DocumentNode _doc(
   String name,
   int pos, {
   String content = '',
+  String path = '',
 }) => DocumentNode(
   id: id,
   parentId: parent,
   name: name,
   position: pos,
   content: content,
+  path: path,
   createdAt: _t,
   updatedAt: _t,
 );
@@ -99,6 +108,72 @@ class _TooLargeSkillFileRepository extends FixtureLibraryRepository {
   }
 }
 
+class _StaleSkillFileRepository extends FixtureLibraryRepository {
+  _StaleSkillFileRepository()
+    : super(
+        skills: [_skill('skill_a')],
+        skillFiles: const {
+          'skill_a': {
+            'references/keep.md': '# Keep this file',
+            'references/other.md': '# Other file',
+          },
+        },
+      );
+
+  bool externallyDeleted = false;
+
+  @override
+  Future<List<SkillFile>> listSkillFiles(String name) async {
+    final files = await super.listSkillFiles(name);
+    if (!externallyDeleted) return files;
+    return files.where((file) => file.path != 'references/keep.md').toList();
+  }
+
+  @override
+  Future<void> deleteSkillFile(String name, String path) {
+    return Future.error(
+      const ApiException(
+        code: AnselmErr.skillFileNotFound,
+        message: 'skill file not found',
+        httpStatus: 404,
+      ),
+    );
+  }
+}
+
+class _IteratingDocsRepo extends FixtureLibraryRepository {
+  _IteratingDocsRepo({super.documents});
+
+  String? iterateIdSeen;
+  String? iterateRequestSeen;
+
+  @override
+  Future<String> iterateDocument(String id, {required String request}) async {
+    iterateIdSeen = id;
+    iterateRequestSeen = request;
+    return super.iterateDocument(id, request: request);
+  }
+}
+
+/// A deterministic confirmation seam: the test exercises the destructive branch without
+/// coupling the library test to dialog animation or button placement. 用确定性确认缝走破坏分支,
+/// 不把 library 回归绑在 dialog 动画/按钮位置上。
+class _ConfirmOverlay extends AnOverlayController {
+  _ConfirmOverlay(this.result);
+
+  final bool result;
+
+  @override
+  Future<bool> confirm({
+    required String title,
+    String? message,
+    required String confirmLabel,
+    required String cancelLabel,
+    required String barrierLabel,
+    AnDialogTone confirmTone = AnDialogTone.danger,
+  }) async => result;
+}
+
 /// Selection is route-derived now, so rail hosts ride a real test router (the SAME instance is
 /// routerConfig AND the goRouterProvider override — context.go and selectedDocProvider share one truth).
 /// 选区由路由派生:rail 宿主挂真测试路由(同实例既是 routerConfig 又是 goRouterProvider override)。
@@ -106,10 +181,14 @@ Widget _host(
   FixtureLibraryRepository repo,
   Widget child, {
   String initialLocation = '/',
+  double width = 320,
+  double height = 640,
 }) {
   final router = buildTestRouter(
     initialLocation: initialLocation,
-    page: Scaffold(body: SizedBox(width: 320, height: 640, child: child)),
+    page: Scaffold(
+      body: SizedBox(width: width, height: height, child: child),
+    ),
   );
   return ProviderScope(
     overrides: [
@@ -126,6 +205,24 @@ Widget _host(
       ),
     ),
   );
+}
+
+// Library row actions are hover-revealed, so exercise the same mouse path a desktop user takes rather
+// than tapping an offscreen/inert action button. 文库行操作由 hover 揭示,用真实鼠标路径验桌面行为。
+Future<void> _openLibraryRowMenu(WidgetTester tester, String rowText) async {
+  WidgetsBinding.instance.focusManager.highlightStrategy =
+      FocusHighlightStrategy.alwaysTraditional;
+  final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+  await mouse.addPointer(location: Offset.zero);
+  addTearDown(() => mouse.removePointer());
+  await mouse.moveTo(tester.getCenter(find.text(rowText)));
+  await tester.pump();
+  final p = tester.getCenter(find.byIcon(AnIcons.more));
+  await mouse.moveTo(p);
+  await tester.pump();
+  await mouse.down(p);
+  await mouse.up();
+  await tester.pumpAndSettle();
 }
 
 void main() {
@@ -223,6 +320,113 @@ void main() {
     });
   });
 
+  group('FixtureLibraryRepository', () {
+    test(
+      'iterateDocument requires a non-empty request and an existing target',
+      () async {
+        final repo = FixtureLibraryRepository(
+          documents: [_doc('doc_iterate', null, 'Editable', 0)],
+        );
+
+        expect(
+          () => repo.iterateDocument('doc_iterate', request: '   '),
+          throwsArgumentError,
+        );
+        await expectLater(
+          repo.iterateDocument('doc_missing', request: 'Edit this'),
+          throwsA(isA<StateError>()),
+        );
+        expect(
+          await repo.iterateDocument('doc_iterate', request: 'Edit this'),
+          'cv_document_doc_iterate_iterate',
+        );
+      },
+    );
+
+    test(
+      'duplicateDocument deep-copies metadata, descendants, ids, and paths',
+      () async {
+        final root = DocumentNode(
+          id: 'doc_root',
+          name: 'Root',
+          description: 'root description',
+          content: '# root',
+          tags: const ['project'],
+          path: '/Root',
+          createdAt: _t,
+          updatedAt: _t,
+        );
+        final child = DocumentNode(
+          id: 'doc_child',
+          parentId: 'doc_root',
+          name: 'Child',
+          description: 'child description',
+          content: 'child body',
+          tags: const ['child'],
+          path: '/Root/Child',
+          createdAt: _t,
+          updatedAt: _t,
+        );
+        final grandchild = DocumentNode(
+          id: 'doc_grandchild',
+          parentId: 'doc_child',
+          name: 'Grandchild',
+          content: 'grand body',
+          path: '/Root/Child/Grandchild',
+          createdAt: _t,
+          updatedAt: _t,
+        );
+        final repo = FixtureLibraryRepository(
+          documents: [
+            root,
+            child,
+            grandchild,
+            DocumentNode(
+              id: 'doc_destination',
+              name: 'Destination',
+              path: '/Destination',
+              position: 1,
+              createdAt: _t,
+              updatedAt: _t,
+            ),
+          ],
+        );
+
+        final copy = await repo.duplicateDocument(root.id);
+        expect(copy.id, isNot(root.id));
+        expect(copy.name, 'Root 2');
+        expect(copy.parentId, isNull);
+        expect(copy.path, '/Root 2');
+        expect(copy.description, root.description);
+        expect(copy.content, root.content);
+        expect(copy.tags, root.tags);
+
+        final rows = await repo.getTree();
+        final childCopy = rows.singleWhere(
+          (d) => d.parentId == copy.id && d.name == 'Child',
+        );
+        final grandchildCopy = rows.singleWhere(
+          (d) => d.parentId == childCopy.id && d.name == 'Grandchild',
+        );
+        expect(childCopy.id, isNot(child.id));
+        expect(childCopy.path, '/Root 2/Child');
+        expect(childCopy.description, child.description);
+        expect(childCopy.tags, child.tags);
+        expect(grandchildCopy.id, isNot(grandchild.id));
+        expect(grandchildCopy.path, '/Root 2/Child/Grandchild');
+
+        final movedCopy = await repo.duplicateDocument(
+          root.id,
+          parentId: 'doc_destination',
+        );
+        expect(movedCopy.name, 'Root');
+        expect(movedCopy.parentId, 'doc_destination');
+        expect(movedCopy.path, '/Destination/Root');
+        expect(movedCopy.position, 0);
+      },
+    );
+  });
+
   group('LibraryRail', () {
     testWidgets('renders the document tree + skills', (tester) async {
       await tester.pumpWidget(_host(_repo(), const LibraryRail()));
@@ -232,6 +436,39 @@ void main() {
       expect(find.text('Playbooks'), findsOneWidget);
       expect(find.text('commit-helper'), findsOneWidget);
     });
+
+    testWidgets(
+      'document row More actions exposes Edit with AI and opens a seeded chat',
+      (tester) async {
+        final repo = _IteratingDocsRepo(
+          documents: [_doc('doc_a', null, 'Getting Started', 0)],
+        );
+        await tester.pumpWidget(_host(repo, const LibraryRail()));
+        await tester.pump(const Duration(milliseconds: 50));
+        final container = ProviderScope.containerOf(
+          tester.element(find.byType(LibraryRail)),
+        );
+
+        await _openLibraryRowMenu(tester, 'Getting Started');
+        expect(find.text(t.library.editWithAi), findsOneWidget);
+
+        await tester.tap(find.text(t.library.editWithAi));
+        await tester.pumpAndSettle();
+
+        expect(repo.iterateIdSeen, 'doc_a');
+        expect(repo.iterateRequestSeen, contains('Getting Started'));
+        expect(repo.iterateRequestSeen!.trim(), isNotEmpty);
+        expect(
+          container
+              .read(goRouterProvider)
+              .routerDelegate
+              .currentConfiguration
+              .uri
+              .path,
+          '/chat/cv_document_doc_a_iterate',
+        );
+      },
+    );
 
     testWidgets('selecting a document drives selectedDocProvider', (
       tester,
@@ -376,6 +613,41 @@ void main() {
         await tester.pumpAndSettle();
         expect(find.text(t.library.skillInstallTitle), findsOneWidget);
         expect(find.text(t.library.skillInstallExplainer), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'source preview keeps an existing skill visible but never preselects a no-op install',
+      (tester) async {
+        final repo = FixtureLibraryRepository(skills: [_skill('demo-pdf')]);
+        await tester.pumpWidget(
+          _host(repo, const SkillInstallDialog(), width: 900, height: 700),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        await tester.enterText(
+          find.byType(TextField),
+          'http://fixture.invalid/skills.tar.gz',
+        );
+        await tester.tap(find.text(t.library.skillInstallInspect));
+        await tester.pumpAndSettle();
+
+        final switches = tester
+            .widgetList<AnSwitch>(find.byType(AnSwitch))
+            .toList();
+        expect(switches, hasLength(2));
+        expect(switches.first.value, isFalse);
+        expect(switches.first.onChanged, isNull);
+        expect(
+          find.text(t.library.skillInstallAlreadyInstalled),
+          findsOneWidget,
+        );
+
+        final install = tester.widget<AnButton>(
+          find.widgetWithText(AnButton, t.library.skillInstallGo),
+        );
+        expect(install.onPressed, isNull);
       },
     );
 
@@ -667,6 +939,171 @@ void main() {
       ); // no @ mentions on skills. skill 不接 @。
     });
 
+    testWidgets(
+      'a stale skill-file delete refreshes the tree and returns from the dead preview',
+      (tester) async {
+        final repo = _StaleSkillFileRepository();
+        final page = Scaffold(
+          body: Column(
+            children: [
+              const Expanded(child: LibraryInspector()),
+              Consumer(
+                builder: (context, ref, _) => Text(
+                  ref.watch(noticeCenterProvider).current?.message.text ?? '',
+                ),
+              ),
+            ],
+          ),
+        );
+        final router = buildTestRouter(
+          initialLocation: '/library/skill/skill_a?file=references/keep.md',
+          page: page,
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryRepositoryProvider.overrideWithValue(repo),
+              goRouterProvider.overrideWithValue(router),
+              overlayProvider.overrideWith(() => _ConfirmOverlay(true)),
+            ],
+            child: TranslationProvider(
+              child: MaterialApp.router(
+                debugShowCheckedModeBanner: false,
+                theme: AnTheme.light(),
+                routerConfig: router,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final deleteButton = tester
+            .widgetList<AnButton>(find.byType(AnButton))
+            .firstWhere((button) => button.semanticLabel == 'Delete file');
+        repo.externallyDeleted = true;
+        deleteButton.onPressed!();
+        await tester.pumpAndSettle();
+
+        expect(
+          router.routerDelegate.currentConfiguration.uri.queryParameters,
+          isEmpty,
+          reason: 'a missing open file must return to the skill overview',
+        );
+        expect(find.text('keep.md'), findsNothing);
+        expect(
+          find.text(
+            'references/keep.md was already removed. The file list was refreshed.',
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'a changed source body replaces the native editor without remounting the page shell',
+      (tester) async {
+        var body = '# v1\n\nOld body';
+        late StateSetter setBody;
+        final changed = <String>[];
+        await tester.pumpWidget(
+          ProviderScope(
+            child: TranslationProvider(
+              child: MaterialApp(
+                theme: AnTheme.light(),
+                home: StatefulBuilder(
+                  builder: (context, setState) {
+                    setBody = setState;
+                    return Scaffold(
+                      body: AnDocumentEditor(
+                        crumbs: const [],
+                        name: 'refreshable',
+                        nameEditable: false,
+                        showTags: false,
+                        initialMarkdown: body,
+                        onChangedMarkdown: changed.add,
+                      ),
+                    );
+                  },
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final pageBefore = tester.state<AnDocumentEditorState>(
+          find.byType(AnDocumentEditor),
+        );
+        final editorBefore = tester.state<AnEditorState>(find.byType(AnEditor));
+
+        body = '# v2\n\nNew body';
+        setBody(() {});
+        await tester.pumpAndSettle();
+
+        final pageAfter = tester.state<AnDocumentEditorState>(
+          find.byType(AnDocumentEditor),
+        );
+        final editorAfter = tester.state<AnEditorState>(find.byType(AnEditor));
+        expect(identical(pageBefore, pageAfter), isTrue);
+        expect(identical(editorBefore, editorAfter), isFalse);
+        expect(
+          tester.widget<AnEditor>(find.byType(AnEditor)).initialMarkdown,
+          body,
+        );
+        expect(
+          changed,
+          isEmpty,
+          reason:
+              'replacing upstream content must not flush the retired editor',
+        );
+      },
+    );
+
+    testWidgets(
+      'a markdown skill file mounts in the sliver viewport and renders its body',
+      (tester) async {
+        final repo = FixtureLibraryRepository(
+          skills: [
+            Skill(
+              name: 'skill_a',
+              description: 'x',
+              context: 'inline',
+              body: '# skill_a',
+              updatedAt: _t,
+            ),
+          ],
+          skillFiles: const {
+            'skill_a': {
+              'references/guide.md': '# Installed reference\n\nReadable body',
+            },
+          },
+        );
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              libraryRepositoryProvider.overrideWithValue(repo),
+              selectedDocProvider.overrideWith(
+                () => _PinnedSelection((isSkill: true, id: 'skill_a')),
+              ),
+              selectedSkillFileProvider.overrideWith(
+                () => _PinnedSkillFilePath('references/guide.md'),
+              ),
+              mentionSourceProvider.overrideWithValue(_FakeMentions()),
+            ],
+            child: TranslationProvider(
+              child: MaterialApp(
+                theme: AnTheme.light(),
+                home: const Scaffold(body: LibraryOcean()),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(tester.takeException(), isNull);
+        expect(find.byType(AnEditor), findsOneWidget);
+        expect(find.text('Something went wrong'), findsNothing);
+      },
+    );
 
     testWidgets(
       'an oversized skill file explains the inline guard instead of showing a generic engine error',
@@ -704,6 +1141,7 @@ void main() {
         expect(find.text('Couldn\'t open this'), findsNothing);
       },
     );
+
     testWidgets(
       'an edit within the autosave window is FLUSHED on unmount — no data loss (P5, C-001 area)',
       (tester) async {
@@ -1133,6 +1571,24 @@ void main() {
           find.byType(EditableText),
           findsNothing,
         ); // nothing edits on this panel anymore 本岛无输入
+      },
+    );
+
+    testWidgets(
+      'a moved open page uses the refreshed tree path without remounting its body',
+      (tester) async {
+        final repo = _SignallingRepo.withNestedDocument();
+        await tester.pumpWidget(host(repo, (isSkill: false, id: 'doc_b')));
+        await tester.pumpAndSettle();
+        expect(find.text('/A/B'), findsOneWidget);
+
+        await repo.moveDocument('doc_b', parentId: null, position: 0);
+        repo.emit('document', action: 'moved', id: 'doc_b');
+        await tester.pump(const Duration(milliseconds: 500));
+        await tester.pumpAndSettle();
+
+        expect(find.text('/B'), findsOneWidget);
+        expect(find.text('/A/B'), findsNothing);
       },
     );
 
@@ -1646,6 +2102,15 @@ class _SignallingRepo extends FixtureLibraryRepository {
           DocumentNode(id: 'doc_a', name: 'A', createdAt: _t, updatedAt: _t),
         ],
         skills: [_skill('triage')],
+      );
+
+  _SignallingRepo.withNestedDocument()
+    : super(
+        documents: [
+          _doc('doc_a', null, 'A', 0, path: '/A'),
+          _doc('doc_b', 'doc_a', 'B', 0, path: '/A/B'),
+        ],
+        skills: const [],
       );
 
   final _signals = StreamController<LibrarySignal>.broadcast();

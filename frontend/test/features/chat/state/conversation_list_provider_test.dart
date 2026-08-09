@@ -64,11 +64,16 @@ void main() {
     final c = _container(FixtureChatRepository(conversations: many));
     final s1 = await c.read(conversationListProvider.future);
     expect(s1.rows.length, 30); // _pageSize
+    expect(
+      s1.recents.total,
+      35,
+    ); // exact server/fixture total, not the loaded window
     expect(s1.hasMore, true);
 
     await c.read(conversationListProvider.notifier).loadMore();
     final s2 = c.read(conversationListProvider).value!;
     expect(s2.rows.length, 35);
+    expect(s2.recents.total, 35); // paging never changes the section count
     expect(s2.hasMore, false);
     expect(
       s2.rows.map((r) => r.id).toSet().length,
@@ -78,6 +83,28 @@ void main() {
     // loadMore at the end is a no-op.
     await c.read(conversationListProvider.notifier).loadMore();
     expect(c.read(conversationListProvider).value!.rows.length, 35);
+  });
+
+  test('lifecycle pin move refreshes exact flat-axis totals', () async {
+    final repo = FixtureChatRepository(
+      conversations: [
+        _c('cv_pin', 'Pinned', pinned: true, hour: 11),
+        _c('cv_a', 'A', hour: 10),
+        _c('cv_b', 'B', hour: 9),
+      ],
+    );
+    final c = _container(repo);
+    await c.read(conversationListProvider.future);
+    expect(c.read(conversationListProvider).value!.pinned.total, 1);
+    expect(c.read(conversationListProvider).value!.recents.total, 2);
+
+    final moved = await repo.setPinned('cv_a', true);
+    c.read(conversationListProvider.notifier).applyUpdate(moved);
+    await Future<void>.delayed(const Duration(milliseconds: 450));
+
+    final state = c.read(conversationListProvider).value!;
+    expect(state.pinned.total, 2);
+    expect(state.recents.total, 1);
   });
 
   test('switching sort re-pages from the top with the new order', () async {
@@ -540,6 +567,35 @@ void main() {
       // No group's rows are fetched by build: a folded folder costs nothing, and its first page rides the
       // rail's own tail sentinel. build 不取任何组的行:收起的文件夹零成本,首页走 rail 自己的尾哨兵。
       expect(s.groupAxes, isEmpty);
+    },
+  );
+
+  test(
+    'a completed turn refreshes group recency order from the server projection',
+    () async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          _c('cv_alpha', 'alpha', workDir: '/w/alpha', hour: 9),
+          _c('cv_beta', 'beta', workDir: '/w/beta', hour: 10),
+        ],
+      );
+      final c = _container(repo);
+      await c.read(conversationListProvider.future);
+      expect(
+        c.read(conversationListProvider).value!.groups.map((g) => g.workDir),
+        ['/w/beta', '/w/alpha'],
+      );
+
+      // A real turn advances lastMessageAt without changing the row's residency. The projection, not the
+      // loaded group rows, must move alpha to the head. 真实回合只推进 lastMessageAt、不改变驻地；必须由投影重排。
+      await repo.sendMessage('cv_alpha', content: 'recency probe');
+      repo.emitTurnSignal('cv_alpha', TurnSignalKind.turnClose);
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+
+      expect(
+        c.read(conversationListProvider).value!.groups.map((g) => g.workDir),
+        ['/w/alpha', '/w/beta'],
+      );
     },
   );
 

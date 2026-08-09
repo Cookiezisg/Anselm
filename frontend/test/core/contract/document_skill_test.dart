@@ -62,7 +62,7 @@ void main() {
           'description': 'Writes conventional commits.',
           'allowedTools': ['Read', 'Bash(git:*)', 'fn_normalize'],
           'context': 'fork',
-          'agent': 'coder',
+          'agent': 'Explore',
           'arguments': ['scope'],
           'disableModelInvocation': false,
           'userInvocable': true,
@@ -81,7 +81,7 @@ void main() {
         'Bash(git:*)',
         'fn_normalize',
       ]);
-      expect(s.frontmatter.agent, 'coder');
+      expect(s.frontmatter.agent, 'Explore');
       expect(s.frontmatter.userInvocable, isTrue);
       expect(
         s.toJson()['frontmatter']['allowedTools'],

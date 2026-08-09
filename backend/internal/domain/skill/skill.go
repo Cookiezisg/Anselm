@@ -147,6 +147,7 @@ var (
 	ErrBodyTooLarge         = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_BODY_TOO_LARGE", "skill body exceeds size limit")
 	ErrNameConflict         = errorspkg.New(errorspkg.KindConflict, "SKILL_NAME_CONFLICT", "skill name already exists")
 	ErrForkRequiresAgent    = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FORK_REQUIRES_AGENT", "context=fork requires an agent type")
+	ErrForkAgentTypeInvalid = errorspkg.New(errorspkg.KindUnprocessable, "SKILL_FORK_AGENT_TYPE_INVALID", "context=fork agent type is not supported")
 	ErrSubagentUnavailable  = errorspkg.New(errorspkg.KindUnavailable, "SKILL_SUBAGENT_UNAVAILABLE", "fork skill requires a subagent runner (not wired)")
 	ErrFileNotFound         = errorspkg.New(errorspkg.KindNotFound, "SKILL_FILE_NOT_FOUND", "skill file not found")
 	ErrFilePathInvalid      = errorspkg.New(errorspkg.KindInvalid, "SKILL_FILE_PATH_INVALID", "invalid skill file path")
@@ -203,12 +204,20 @@ type Repository interface {
 }
 
 // SubagentRunner is the fork-mode port: a context:fork skill dispatches its rendered body as
-// an isolated subagent run. Kept self-contained (no subagentapp types) so skill carries no
-// dependency on the subagent layer; a nil runner makes fork degrade to ErrSubagentUnavailable.
+// an isolated subagent run. SupportedAgentTypes is the same registry used by Spawn, so callers
+// can reject a bad frontmatter value before a user reaches activation. Kept self-contained (no
+// subagentapp types) so skill carries no dependency on the subagent layer; a nil runner makes
+// fork degrade to ErrSubagentUnavailable.
 //
 // SubagentRunner 是 fork 模式端口：context:fork 的 skill 把渲染后的正文派给隔离 subagent 跑。
 // 自包含（不引 subagentapp 类型）使 skill 不依赖 subagent 层；nil runner
 // 时 fork 降级为 ErrSubagentUnavailable。
 type SubagentRunner interface {
 	Spawn(ctx context.Context, agentType, prompt string) (result string, err error)
+	SupportedAgentTypes() []string
 }
+
+// Subagent type names are part of the runner contract rather than a second Skill constant list.
+// The real runner exposes the same registry that validates and dispatches the fork, so creation,
+// activation, and the LLM-facing Subagent tool cannot silently drift apart.
+//

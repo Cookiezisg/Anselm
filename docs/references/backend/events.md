@@ -83,7 +83,7 @@ buffer 满时断开该订阅者，由客户端重连重放，游标越过 ring �
 | approval | ⊞ `approval.{created, edited, reverted, updated, deleted}` |
 | skill | ⊞ `skill.{created, updated, deleted}`；文件写删的 `updated` 另带 `path` |
 | mcp | ⊞ `mcp.{installed, updated, removed, reconnected}` |
-| document | ⤳ `document.{created, updated, moved}`；⊞ `document.deleted` |
+| document | ⤳ `document.{created, updated, moved}`（等值 PATCH/当前落点 move 均为 no-op，不发对应帧）；⊞ `document.deleted` |
 | conversation | ⤳ `conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, work_dir, compacted}` |
 | memory | ⊞ `memory.{created, deleted}`；内容写的 `memory.updated` 为 ⊞，pin 状态回声为 ⤳ |
 | sandbox | ⤳ `sandbox.env_status_changed` 的 `installing`，⊞ `ready`/`failed`；⤳ `sandbox.env_deleted` |

@@ -4,9 +4,11 @@
 // workspace-isolated (orm fills/filters workspace_id from ctx via the ,ws tag), so no method
 // hand-writes a workspace predicate.
 //
-// A turn is written in two phases — CreateMessage opens it (and writes a user turn's lone text
-// block), FinalizeMessage closes an assistant turn with terminal status + token accounting +
-// its blocks — each inside one transaction so the message row and its blocks land atomically.
+// A turn is written in two visible phases — CreateMessage opens it (and writes a user turn's lone
+// text block), FinalizeMessage closes an assistant turn with terminal status + token accounting +
+// its remaining blocks. Chat may also append an LLM sampling boundary before FinalizeMessage when
+// a turn parks on a human interaction; the final write filters those already-recorded block ids.
+// Each write is transactional so a message row and every block batch land atomically.
 // Block seq is allocated MAX+1 per conversation inside that transaction; correctness relies on
 // chat's per-conversation queue serializing writes (one AI goroutine per conversation), not on
 // a DB sequence.
@@ -15,8 +17,9 @@
 // 表（回合记录）+ `message_blocks`（Block 树）。两表皆 append-only（无 deleted_at，D1：对话内容
 // 永不删）、按 workspace 隔离（orm 据 ctx 经 ,ws tag 填/过滤），故无方法手写 workspace 谓词。
 //
-// 回合两段式写——CreateMessage 开（并写 user 回合的单个 text block）、FinalizeMessage 以终态 +
-// token 记账 + blocks 收 assistant 回合——各在一个事务内，使 message 行与其 blocks 原子落盘。
+// 回合的可见写路径——CreateMessage 开（并写 user 回合的单个 text block）、FinalizeMessage 以终态 +
+// token 记账 + 剩余 blocks 收 assistant 回合。若回合停在人在环，chat 还会在 finalize 前追加一次
+// LLM sampling 边界；终写按已落盘 block id 过滤。每批写各自事务化，使 message 行与 block 批原子落盘。
 // block seq 在该事务内按对话 MAX+1 分配；正确性靠 chat 的 per-conversation 队列串行写
 // （每对话一个 AI 协程）、而非 DB 序列。
 package messages
@@ -195,6 +198,30 @@ func (s *Store) CreateMessage(ctx context.Context, m *messagesdomain.Message, bl
 	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
 		if err := ormpkg.For[messagesdomain.Message](tx, "messages").Create(ctx, m); err != nil {
 			return fmt.Errorf("messagesstore.CreateMessage: insert message: %w", err)
+		}
+		return insertBlocks(ctx, tx, m, blocks)
+	})
+}
+
+// AppendBlocks durably appends blocks to an already-open assistant turn. It is intentionally a
+// store capability rather than part of the general repository contract: chat uses it to make a
+// parked tool_call visible to a cold-open REST reader, while other loop hosts retain their
+// finalize-only lifecycle. The message existence check carries the workspace filter, preventing
+// a cross-workspace append from creating orphan block rows.
+//
+// AppendBlocks 向一个已打开的 assistant 回合耐久追加 blocks。它刻意是 store capability 而非通用
+// repository contract：chat 用它让停在人闸上的 tool_call 对冷打开 REST 读者可见，其它 loop host
+// 仍保持只在 finalize 写入。先查 message 且自动带 workspace filter，避免跨 workspace 追加出孤儿块。
+func (s *Store) AppendBlocks(ctx context.Context, m *messagesdomain.Message, blocks []messagesdomain.Block) error {
+	if len(blocks) == 0 {
+		return nil
+	}
+	return s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		if _, err := ormpkg.For[messagesdomain.Message](tx, "messages").Get(ctx, m.ID); err != nil {
+			if errors.Is(err, ormpkg.ErrNotFound) {
+				return messagesdomain.ErrMessageNotFound
+			}
+			return fmt.Errorf("messagesstore.AppendBlocks: message lookup: %w", err)
 		}
 		return insertBlocks(ctx, tx, m, blocks)
 	})

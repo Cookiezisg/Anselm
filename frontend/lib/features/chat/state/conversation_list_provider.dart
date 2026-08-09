@@ -141,10 +141,18 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
   // 服务端本就有页上限;此处显式请求一窗,使 loadMore 真正生效。
   static const int _pageSize = 30;
 
+  // Count refreshes are cheap header-only list reads, but lifecycle signals can arrive in bursts (pin,
+  // archive, and residency changes often share one user action). Coalesce them without resetting the
+  // user's scroll position or discarding already loaded rows.
+  // 计数刷新只是读列表响应头，但生命周期信号可能成簇到达（置顶、归档、换驻地常由一次动作引起）。合帧而不重置
+  // 用户滚动位置，也不丢掉已经加载的行。
+  static const _axisTotalDebounce = Duration(milliseconds: 400);
+
   // A query switch re-runs build WITHOUT disposing the notifier, so an in-flight page must be droppable:
   // every axis fetch captures this counter and discards its result when build has moved on.
   // 查询切换会重跑 build 而**不**释放 notifier,故在途页必须可丢弃:每次轴取数捕获本计数器、build 已前进时丢结果。
   int _generation = 0;
+  Timer? _axisTotalRefresh;
 
   @override
   Future<ConversationListState> build() async {
@@ -187,6 +195,7 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
     ref.onDispose(lifecycleResyncSub.cancel);
     ref.onDispose(_cancelRefreshTimers);
     ref.onDispose(() => _groupsRefresh?.cancel());
+    ref.onDispose(() => _axisTotalRefresh?.cancel());
 
     // The three reads the rail needs before it can paint its structure: the two flat axes and the group
     // heads. They fail as ONE — the rail's error+retry screen is the honest surface for "the rail could not
@@ -242,7 +251,76 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
       rows: page.items,
       nextCursor: page.nextCursor,
       hasMore: page.hasMore,
+      total: page.total,
       loaded: true,
+    );
+  }
+
+  Future<int?> _fetchAxisTotal(ConvWorkDir workDir, ConvPin pinned) async {
+    try {
+      final page = await _repo.listConversations(
+        limit: 1,
+        sort: _sort,
+        archive: _archive,
+        search: _search.isEmpty ? null : _search,
+        workDir: workDir,
+        pinned: pinned,
+      );
+      return page.total;
+    } catch (_) {
+      // Keep the last known count on a transient refresh failure; replacing it with a loaded-row count
+      // would be a more misleading fallback than a briefly stale projection.
+      // 短暂刷新失败时保留上次总数；退回已加载行数会比短暂陈旧的投影更不诚实。
+      return null;
+    }
+  }
+
+  void _scheduleAxisTotalRefresh() {
+    _axisTotalRefresh?.cancel();
+    _axisTotalRefresh = Timer(_axisTotalDebounce, () {
+      _axisTotalRefresh = null;
+      _refreshAxisTotals();
+    });
+  }
+
+  Future<void> _refreshAxisTotals() async {
+    final cur = state.value;
+    if (cur == null) return;
+    final generation = _generation;
+    final queries = <String, (ConvWorkDir, ConvPin)>{};
+    if (cur.searching) {
+      queries[recentsAxisKey] = (ConvWorkDir.any, ConvPin.any);
+    } else {
+      queries[pinnedAxisKey] = (ConvWorkDir.any, ConvPin.pinnedOnly);
+      queries[recentsAxisKey] = (ConvWorkDir.unmounted, ConvPin.unpinnedOnly);
+      for (final entry in cur.groupAxes.entries) {
+        final dir = workDirOfAxis(entry.key);
+        if (entry.value.loaded && dir != null) {
+          queries[entry.key] = (ConvWorkDir.of(dir), ConvPin.unpinnedOnly);
+        }
+      }
+    }
+    final totals = <String, int>{};
+    await Future.wait([
+      for (final entry in queries.entries)
+        _fetchAxisTotal(entry.value.$1, entry.value.$2).then((total) {
+          if (total != null) totals[entry.key] = total;
+        }),
+    ]);
+    if (generation != _generation || !ref.mounted) return;
+    final latest = state.value;
+    if (latest == null || totals.isEmpty) return;
+    ConvAxis update(ConvAxis axis, String key) =>
+        totals[key] == null ? axis : axis.copyWith(total: totals[key]);
+    state = AsyncData(
+      latest.copyWith(
+        pinned: update(latest.pinned, pinnedAxisKey),
+        recents: update(latest.recents, recentsAxisKey),
+        groupAxes: {
+          for (final entry in latest.groupAxes.entries)
+            entry.key: update(entry.value, entry.key),
+        },
+      ),
     );
   }
 
@@ -329,6 +407,7 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
             hasMore: page.hasMore,
             loadingMore: false,
             loaded: true,
+            total: page.total ?? axisFor(axisKey).total,
           ),
         ),
       );
@@ -364,9 +443,9 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
   /// 重读组头,合帧。每次生命周期变更都可能移动一个组的计数、顺序或存在性(挂/退/归档/删/新回合刷 recency),而计数
   /// 正是客户端**绝不该**自己算的那一样东西——故投影是**重问**、不是 patch。一串信号(批量动作逐行发一条回声)塌成
   /// 一次读。
-  void _scheduleGroupsRefresh() {
+  void _scheduleGroupsRefresh({Duration? delay}) {
     _groupsRefresh?.cancel();
-    _groupsRefresh = Timer(_groupsDebounce, () {
+    _groupsRefresh = Timer(delay ?? _groupsDebounce, () {
       _groupsRefresh = null;
       _refreshGroups();
     });
@@ -540,13 +619,35 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
     final couldMoveAGroupCount =
         c.workDir.isNotEmpty ||
         (before?.workDir.isNotEmpty ?? cur.groups.isNotEmpty);
+    final recencyMoved =
+        before != null && before.lastMessageAt != c.lastMessageAt;
+    final mountedRowArrivedOutsideLoadedAxes =
+        before == null && c.workDir.isNotEmpty;
     if (couldMoveAGroupCount &&
         (before == null ||
             before.pinned != c.pinned ||
             before.workDir != c.workDir ||
             before.archived != c.archived ||
+            recencyMoved ||
             hidden)) {
-      _scheduleGroupsRefresh();
+      // A turn row refresh already waited for the durable boundary, and a mounted row can arrive from an
+      // unloaded group axis. Neither case should add the normal 400 ms burst debounce and leave the rail
+      // showing an old "most recent" group with no loading signal. Structural changes to an already-known
+      // row still use the burst debounce.
+      // 回合行重读已经等过 durable 边界，未加载组轴的驻地行也是直接带着权威值到达；这两种情况都不应再叠 400ms
+      // 合帧，让 rail 在没有加载提示时继续显示旧「最近」组。已知行的结构变化仍走普通合帧。
+      _scheduleGroupsRefresh(
+        delay: recencyMoved || mountedRowArrivedOutsideLoadedAxes
+            ? Duration.zero
+            : null,
+      );
+    }
+    if (before == null ||
+        before.title != c.title ||
+        before.archived != c.archived ||
+        before.pinned != c.pinned ||
+        before.workDir != c.workDir) {
+      _scheduleAxisTotalRefresh();
     }
   }
 
@@ -614,8 +715,15 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
   void applyDelete(String id) {
     final cur = state.value;
     final gone = _find(cur ?? const ConversationListState(), id);
-    if (cur == null || gone == null) return;
+    if (cur == null) return;
+    if (gone == null) {
+      // The row may be outside the loaded window; the signal still invalidates the exact header count.
+      // 该行可能在已加载窗口之外；信号仍会使响应头里的精确总数失效。
+      _scheduleAxisTotalRefresh();
+      return;
+    }
     state = AsyncData(_removeEverywhere(cur, id));
+    _scheduleAxisTotalRefresh();
     // Only a residency thread's departure can move a group's count (or empty the group out of existence).
     // 只有一条**驻地**线程的离去能移动某个组的计数(或把组清空到不存在)。
     if (gone.workDir.isNotEmpty) _scheduleGroupsRefresh();
@@ -687,7 +795,12 @@ class ConversationListNotifier extends AsyncNotifier<ConversationListState> {
 }
 
 final conversationListProvider =
-    AsyncNotifierProvider<ConversationListNotifier, ConversationListState>(
-      ConversationListNotifier.new,
-      retry: (_, _) => null,
-    );
+    // The rail is the owner of this live projection. A transcript action may touch the notifier while the
+    // rail is absent (for example, forking from a deep link); do not retain timers and SSE subscriptions for
+    // that unobserved, one-shot write. The next rail mount rebuilds from the server-authoritative axes.
+    // rail 才是这份活投影的所有者。transcript 深链动作可能在 rail 不在场时触碰 notifier（例如分叉）；不要为
+    // 这次无监听的一次性写入保留计时器和 SSE 订阅。下次 rail 挂载会从服务端权威轴重新构建。
+    AsyncNotifierProvider.autoDispose<
+      ConversationListNotifier,
+      ConversationListState
+    >(ConversationListNotifier.new, retry: (_, _) => null);

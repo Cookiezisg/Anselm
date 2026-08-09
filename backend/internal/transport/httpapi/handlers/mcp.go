@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 
@@ -237,12 +238,17 @@ func (h *MCPHandler) toolNameAction(w http.ResponseWriter, r *http.Request) {
 func (h *MCPHandler) Import(w http.ResponseWriter, r *http.Request) {
 	raw, err := io.ReadAll(http.MaxBytesReader(w, r.Body, mcpImportMaxBytes))
 	if err != nil {
+		var maxBytesErr *http.MaxBytesError
+		if errors.As(err, &maxBytesErr) {
+			responsehttpapi.FromDomainError(w, h.log, mcpdomain.ErrImportTooLarge.WithCause(err))
+			return
+		}
 		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest)
 		return
 	}
 	entries, err := mcpinfra.ParseImport(raw)
 	if err != nil {
-		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrInvalidRequest)
+		responsehttpapi.FromDomainError(w, h.log, mcpdomain.ErrImportInvalid.WithCause(err))
 		return
 	}
 	imported, skipped, err := h.svc.Import(r.Context(), entries, r.URL.Query().Get("overwrite") == "true")

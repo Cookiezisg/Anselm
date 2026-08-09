@@ -487,18 +487,20 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	keys.AddRefScanner(ws)
 	keys.AddRefScanner(ag)
 
-	// Workspace delete cascades: kill every workflow's automation (detach
+	// Workspace delete cascades: stop any in-flight free-tier provision first, then kill every
+	// workflow's automation (detach
 	// listeners + cancel in-flight runs + inactive — idempotent on already-inactive ones, and
 	// it also reaps manually-triggered runs), stop the workspace's resident handler/mcp
 	// processes, then remove its on-disk tree (skills / memories). All on a Detached(target)
 	// ctx — the DELETE request may arrive from a DIFFERENT workspace. Best-effort: the row
 	// delete that follows is what makes the data unreachable.
 	//
-	// workspace 删除级联：杀每个 workflow 的自动化（摘监听 + 取消在途 run +
+	// workspace 删除级联：先收束在途免费档开通，再杀每个 workflow 的自动化（摘监听 + 取消在途 run +
 	// inactive——对已 inactive 幂等，且连手动触发的 run 一并收割）、停本 workspace 常驻
 	// handler/mcp 进程、删盘上文件树（skills / memories）。全程用 Detached(目标) ctx——
 	// DELETE 请求可能来自**另一个** workspace。best-effort：随后的删行才是数据不可达的根因。
 	ws.SetReaper(func(_ context.Context, wsID string) {
+		freetier.StopWorkspace(wsID)
 		wsCtx := reqctxpkg.Detached(wsID)
 		if wfs, err := wf.ListAll(wsCtx); err == nil {
 			for _, w := range wfs {

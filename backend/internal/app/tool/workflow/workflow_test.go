@@ -93,7 +93,7 @@ func TestGetFlowrunParametersMakeIDFieldUnambiguous(t *testing.T) {
 
 func TestSearchFlowrunsDescriptionKeepsListAndDetailAsExplicitSteps(t *testing.T) {
 	d := (&SearchFlowruns{}).Description()
-	for _, want := range []string{"workflow name", "status, error and timing", "Do not automatically call get_flowrun", "explicitly asks", "one specific run"} {
+	for _, want := range []string{"workflow name", "status, error and timing", "hosted-model compatibility", "exact decimal integer string", "Do not automatically call get_flowrun", "explicitly asks", "one specific run"} {
 		if !strings.Contains(d, want) {
 			t.Errorf("search_flowruns description must state %q, got %q", want, d)
 		}
@@ -115,6 +115,41 @@ func TestSearchFlowrunsParametersConstrainStatusAndUnknownFields(t *testing.T) {
 	}
 	if got := schema.Properties["status"].Enum; !slices.Equal(got, []string{"running", "completed", "failed", "cancelled"}) {
 		t.Fatalf("status enum = %#v", got)
+	}
+}
+
+func TestSearchFlowrunsAcceptsHostedDecimalLimit(t *testing.T) {
+	for _, tc := range []struct {
+		name  string
+		input string
+		want  int
+	}{
+		{name: "native integer", input: `{"limit":7}`, want: 7},
+		{name: "hosted decimal string", input: `{"limit":"7"}`, want: 7},
+		{name: "omitted", input: `{}`, want: 0},
+		{name: "null", input: `{"limit":null}`, want: 0},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			var args searchFlowrunsArgs
+			if err := json.Unmarshal([]byte(tc.input), &args); err != nil {
+				t.Fatalf("decode %s: %v", tc.input, err)
+			}
+			if args.Limit != tc.want {
+				t.Fatalf("decoded limit = %d, want %d", args.Limit, tc.want)
+			}
+			if err := (&SearchFlowruns{}).ValidateInput(json.RawMessage(tc.input)); err != nil {
+				t.Fatalf("ValidateInput(%s) = %v", tc.input, err)
+			}
+		})
+	}
+}
+
+func TestSearchFlowrunsRejectsNonIntegerLimitShapes(t *testing.T) {
+	tool := &SearchFlowruns{}
+	for _, input := range []string{`{"limit":1.5}`, `{"limit":"1.5"}`, `{"limit":true}`, `{"limit":[]}`, `{"limit":{}}`} {
+		if err := tool.ValidateInput(json.RawMessage(input)); err == nil || !strings.Contains(err.Error(), "limit") {
+			t.Fatalf("ValidateInput(%s) = %v, want limit error", input, err)
+		}
 	}
 }
 

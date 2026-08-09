@@ -161,7 +161,7 @@ const saveSkillSchema = `{
 		"body": {"type": "string", "description": "Markdown instructions ONLY — do NOT begin the body with a YAML frontmatter block (--- ... ---). The platform builds the frontmatter from these arguments (name/description/allowedTools/...); a frontmatter embedded in the body is rejected (it would otherwise be silently treated as content, dropping its allowedTools). May use $ARGUMENTS / $1 / ${CLAUDE_SESSION_ID} placeholders."},
 		"allowedTools": {"type": "array", "items": {"type": "string"}, "description": "Tools pre-approved (skip per-call confirmation) while this skill is active. Managed callers may send the exact JSON array as a string; other scalar/object values are invalid."},
 		"context": {"type": "string", "enum": ["inline", "fork"], "description": "inline injects into the current dialogue (default); fork runs in an isolated subagent."},
-		"agent": {"type": "string", "description": "Subagent type — required when context=fork."},
+		"agent": {"type": "string", "description": "Case-sensitive built-in subagent type, required when context=fork: Explore (read-only), Plan (planning), or general-purpose (full parent tools)."},
 		"arguments": {"type": "array", "items": {"type": "string"}, "description": "Named argument labels for $name substitution. Managed callers may send the exact JSON array as a string; other scalar/object values are invalid."},
 		"disableModelInvocation": {"type": "boolean", "description": "If true, the skill is hidden from the model's catalog (user-only trigger). Managed callers may send the exact string \"true\" or \"false\"; other shapes are invalid."},
 		"userInvocable": {"type": "boolean", "description": "If true, the skill is available for explicit user invocation. Managed callers may send the exact string \"true\" or \"false\"; other shapes are invalid."}
@@ -197,7 +197,7 @@ type CreateSkill struct{ svc *skillapp.Service }
 func (t *CreateSkill) Name() string { return "create_skill" }
 
 func (t *CreateSkill) Description() string {
-	return "Author a NEW skill — a reusable instruction pack you can later activate. Required: name, description, body. Optional: allowedTools (array of tool names to pre-approve), context (inline or fork), agent (for fork), arguments (array of named placeholders), disableModelInvocation, userInvocable. Use this to codify a workflow you just performed into a repeatable capability. Fails if the name already exists (use edit_skill to change one)."
+	return "Author a NEW skill — a reusable instruction pack you can later activate. Required: name, description, body. Optional: allowedTools (array of tool names to pre-approve), context (inline or fork), agent (case-sensitive Explore, Plan, or general-purpose for fork), arguments (array of named placeholders), disableModelInvocation, userInvocable. Use this to codify a workflow you just performed into a repeatable capability. Fails if the name already exists (use edit_skill to change one)."
 }
 
 func (t *CreateSkill) Parameters() json.RawMessage { return json.RawMessage(saveSkillSchema) }

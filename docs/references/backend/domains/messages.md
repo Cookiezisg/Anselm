@@ -16,8 +16,10 @@ audience: [human, ai]
 Messages 是 Chat、Agent loop 与 Subagent 共用的中立内容模型。Stream 描述节点
 怎样传到客户端；Message/Block 描述一个回合由什么组成。
 
-Message 是 `user|assistant` 回合，拥有一棵 Block。Loop 只在内存中生成 Block，
-持久化由 Host 的 `CreateMessage` / `FinalizeMessage` 边界负责。
+Message 是 `user|assistant` 回合，拥有一棵 Block。Loop 在内存中生成 Block；通常由
+Host 的 `CreateMessage` / `FinalizeMessage` 边界持久化，Chat 在人在环停泊时可通过
+可选 `BlockRecorder` 把已结束的 LLM sampling block 先追加到 streaming assistant，
+以支持冷打开 REST 重建真实工具卡。
 
 ## 2. Block
 
@@ -51,8 +53,10 @@ pending → streaming → completed | error | cancelled
 ```
 
 User 回合通常在 Create 时连 text block 一起落盘。Assistant 先落空 streaming
-行以获得流锚点，Finalize 再以单事务写终态、token/provider/model 溯源、attrs
-和完整 blocks。Boot 的 `SweepNonTerminal` 将硬崩溃遗留行收为 cancelled。
+行以获得流锚点；Chat 若在 sampling 后停在人在环，会先追加该批已关闭的 blocks，
+随后由 Finalize 以单事务写终态、token/provider/model 溯源、attrs 和尚未追加的 blocks。
+Finalize 会跳过已追加的 block id，避免重复。Boot 的 `SweepNonTerminal` 将硬崩溃遗留行
+收为 cancelled，已落下的工具调用证据仍可从 REST 读到。
 
 `input_tokens` / `output_tokens` 是整次 ReAct 多轮 sampling 的累计计费量。
 Assistant `attrs.contextUsage` 另存最后成功 prompt 的输入预算、route、组件字节

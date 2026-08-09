@@ -1050,6 +1050,9 @@ class FixtureSettingsRepository implements SettingsRepository {
   /// shows the red line). 脚本钩:下次市场安装抛错(卡上红句诚实态测试)。
   Object? failNextMcpInstall;
 
+  /// Script hook: hold an import to assert the visible in-progress state. 导入忙态测试钩。
+  Completer<void>? mcpImportGate;
+
   @override
   Future<List<McpServerStatus>> listMcpServers() async => List.of(mcpServers);
 
@@ -1129,6 +1132,7 @@ class FixtureSettingsRepository implements SettingsRepository {
     String json, {
     bool overwrite = false,
   }) async {
+    if (mcpImportGate != null) await mcpImportGate!.future;
     final map =
         (jsonDecode(json) as Map<String, dynamic>)['mcpServers']
             as Map<String, dynamic>? ??

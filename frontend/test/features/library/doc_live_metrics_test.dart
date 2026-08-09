@@ -127,6 +127,43 @@ void main() {
     expect(c.read(docLiveMetricsProvider)!.sourceId, 'doc_b');
     expect(c.read(docLiveMetricsProvider)!.fromEdit, isFalse);
   });
+
+  test('a load seed never invents a modified timestamp', () {
+    final persisted = DateTime(2026, 8, 9, 12, 17);
+    final seeded = (
+      sourceId: 'doc_a',
+      chars: 4,
+      bytes: 4,
+      at: DateTime(2026, 8, 9, 12, 14),
+      fromEdit: false,
+    );
+    expect(
+      documentInspectorUpdatedAt(live: seeded, persisted: persisted),
+      persisted,
+    );
+  });
+
+  test('a real edit is optimistic only until persisted truth is newer', () {
+    final editAt = DateTime(2026, 8, 9, 12, 18);
+    final edited = (
+      sourceId: 'doc_a',
+      chars: 4,
+      bytes: 4,
+      at: editAt,
+      fromEdit: true,
+    );
+    final beforeSave = DateTime(2026, 8, 9, 12, 17);
+    final afterMove = DateTime(2026, 8, 9, 12, 19);
+
+    expect(
+      documentInspectorUpdatedAt(live: edited, persisted: beforeSave),
+      editAt,
+    );
+    expect(
+      documentInspectorUpdatedAt(live: edited, persisted: afterMove),
+      afterMove,
+    );
+  });
 }
 
 int _utf8Len(String s) {

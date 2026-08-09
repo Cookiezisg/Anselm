@@ -55,7 +55,8 @@ POST /conversations/{id}/messages
  → processTask 重建 ctx（Detached+locale+ids+AgentState+双流桥+humanloop broker+cancel）
  → loop.Run：流式 LLM →（danger 门→）派发工具（执行组并行）→ 扩历史 → 循环
      工具 progress 实时嵌 tool_call 下；build 工具的 arg delta 镜像 entities 流
- → WriteFinalize（Detached：关页也不留 streaming 孤儿）落 blocks + message_stop
+ → BlockRecorder（若回合停在人在环，先把 sampling 边界落到 streaming assistant）
+ → WriteFinalize（Detached：关页也不留 streaming 孤儿）补余下 blocks + message_stop
  → 回合后：首回合自动起标题 + 压缩检查（contextmgr 两步管线、水位幂等）
 ```
 

@@ -172,8 +172,8 @@ class _LibraryRailState extends ConsumerState<LibraryRail> {
     }
   }
 
-  /// A row's hover ⋯ menu. Pages: Rename / Duplicate / Delete. Skills: Delete only (no rename — the slug is
-  /// the identity). 行 ⋯ 菜单:页=改名/复制/删除;skill=仅删除(slug 即身份、不可改名)。
+  /// A row's hover ⋯ menu. Pages: Rename / Duplicate / Edit with AI / Delete. Skills: Delete only (no
+  /// rename — the slug is the identity). 行 ⋯ 菜单:页=改名/复制/AI 编辑/删除;skill=仅删除(slug 即身份、不可改名)。
   Widget _rowMenu(Translations t, String rowId, List<DocumentNode> tree) {
     final sel = docSelectionForRowId(rowId);
     return AnMenu(
@@ -202,6 +202,11 @@ class _LibraryRailState extends ConsumerState<LibraryRail> {
                 label: t.library.duplicate,
                 icon: AnIcons.copy,
                 onTap: () => _duplicate(sel.id),
+              ),
+              AnMenuItem(
+                label: t.library.editWithAi,
+                icon: AnIcons.iterate,
+                onTap: () => _iterate(sel.id, _docName(tree, sel.id)),
               ),
               AnMenuItem(
                 label: t.action.delete,
@@ -292,6 +297,19 @@ class _LibraryRailState extends ConsumerState<LibraryRail> {
       if (!mounted) return;
       ref.invalidate(documentTreeProvider);
       context.go(documentLocation(copy.id));
+    } catch (_) {
+      _noticeFail();
+    }
+  }
+
+  Future<void> _iterate(String id, String name) async {
+    try {
+      final convId = await _repo.iterateDocument(
+        id,
+        request: context.t.library.iterateRequest(name: name),
+      );
+      if (!mounted) return;
+      context.go('/chat/$convId');
     } catch (_) {
       _noticeFail();
     }

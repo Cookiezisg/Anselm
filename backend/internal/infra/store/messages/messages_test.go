@@ -187,6 +187,43 @@ func TestFinalizeMessage(t *testing.T) {
 	}
 }
 
+func TestAppendBlocksWhileMessageIsStreaming(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	m := &messagesdomain.Message{
+		ID:             "msg_streaming",
+		ConversationID: "cv_1",
+		Role:           messagesdomain.RoleAssistant,
+		Status:         messagesdomain.StatusStreaming,
+	}
+	if err := s.CreateMessage(ctx, m, nil); err != nil {
+		t.Fatalf("open turn: %v", err)
+	}
+	blocks := []messagesdomain.Block{{
+		ID:      "blk_ask",
+		Type:    messagesdomain.BlockTypeToolCall,
+		Content: `{"message":"Which environment?"}`,
+		Attrs:   map[string]any{"tool": "ask_user"},
+	}}
+	if err := s.AppendBlocks(ctx, m, blocks); err != nil {
+		t.Fatalf("append blocks: %v", err)
+	}
+	if blocks[0].Seq != 1 || blocks[0].MessageID != m.ID {
+		t.Fatalf("append did not assign durable coordinates: %+v", blocks[0])
+	}
+
+	got, err := s.GetMessage(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("get streaming turn: %v", err)
+	}
+	if got.Status != messagesdomain.StatusStreaming || len(got.Blocks) != 1 {
+		t.Fatalf("streaming turn hydration lost the appended block: status=%q blocks=%d", got.Status, len(got.Blocks))
+	}
+	if got.Blocks[0].ID != "blk_ask" || got.Blocks[0].Attrs["tool"] != "ask_user" {
+		t.Fatalf("appended block mismatch: %+v", got.Blocks[0])
+	}
+}
+
 func TestFinalizeMessage_NotFound(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

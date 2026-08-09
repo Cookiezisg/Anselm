@@ -48,3 +48,16 @@ func TestSearchMCPCallsParametersDocumentManagedStringCompatibility(t *testing.T
 		t.Fatal("limit schema must document managed decimal-string compatibility")
 	}
 }
+
+func TestGetMCPCallDescriptionProtectsExactTimingValues(t *testing.T) {
+	description := (&GetMCPCall{}).Description()
+	for _, phrase := range []string{
+		"omit them from prose unless the user asks for a named field",
+		"copy the returned string character-for-character",
+		"never use a field label or placeholder as its value",
+	} {
+		if !strings.Contains(description, phrase) {
+			t.Fatalf("get_mcp_call description missing %q: %s", phrase, description)
+		}
+	}
+}

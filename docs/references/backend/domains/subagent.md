@@ -51,6 +51,11 @@ deadline 与 HumanLoop 边界，但使用新的 AgentState，避免把父对话�
 工具按稳定 Name 过滤。Subagent/trace 无论类型都剔除，并在 `Spawn` 再做递归
 守卫，因此深度固定为 1。
 
+由 fork Skill 派出的 `Explore` 还有一层执行边界：任务参数给出精确绝对路径时允许 `Read` 该
+文件；`LS/Glob/Grep` 必须落在 Conversation 已挂载的驻地内，未挂驻地时直接返回边界提示。
+普通 Task/Subagent 的 Explore 不改变既有整机只读契约。这样 Skill 不会因模糊主题在用户机器上
+无界扩散，且不会把只读工具面误解为无限搜索授权。
+
 模型使用 workspace dialogue scenario。Conversation 的显式 model override
 不跨入 Subagent resolver。
 

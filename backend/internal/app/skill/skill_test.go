@@ -11,6 +11,7 @@ import (
 	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
 	skillfs "github.com/sunweilin/anselm/backend/internal/infra/fs/skill"
 	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -27,6 +28,10 @@ func (f *fakeRunner) Spawn(_ context.Context, agentType, prompt string) (string,
 	f.gotType = agentType
 	f.gotPrompt = prompt
 	return f.result, nil
+}
+
+func (f *fakeRunner) SupportedAgentTypes() []string {
+	return []string{"Explore", "Plan", "general-purpose"}
 }
 
 // fakeSyncer records relation sync calls.
@@ -71,6 +76,23 @@ func TestCreate_ForkRequiresAgent(t *testing.T) {
 	_, err := svc.Create(ctx, SaveInput{Name: "f", Description: "d", Body: "b", Context: skilldomain.ContextFork})
 	if !errors.Is(err, skilldomain.ErrForkRequiresAgent) {
 		t.Fatalf("fork without agent should be ErrForkRequiresAgent, got %v", err)
+	}
+}
+
+func TestCreate_ForkRejectsUnknownAgentType(t *testing.T) {
+	svc := newService(t, &fakeRunner{})
+	_, err := svc.Create(ctxWS("ws_1"), SaveInput{
+		Name: "bad-fork", Description: "d", Body: "b", Context: skilldomain.ContextFork, Agent: "explore",
+	})
+	if !errors.Is(err, skilldomain.ErrForkAgentTypeInvalid) {
+		t.Fatalf("unknown fork agent should be rejected at create, got %v", err)
+	}
+	var structured *errorspkg.Error
+	if !errors.As(err, &structured) {
+		t.Fatalf("unknown fork agent should carry structured details, got %T", err)
+	}
+	if got := structured.Details["validAgents"]; got == nil {
+		t.Fatalf("unknown fork agent details should list validAgents, got %#v", structured.Details)
 	}
 }
 
@@ -127,7 +149,7 @@ func TestActivate_Fork_WithRunner(t *testing.T) {
 	runner := &fakeRunner{result: "subagent did it"}
 	svc := newService(t, runner)
 	ctx := ctxWS("ws_1")
-	if _, err := svc.Create(ctx, SaveInput{Name: "f", Description: "d", Body: "task $ARGUMENTS", Context: skilldomain.ContextFork, Agent: "explore"}); err != nil {
+	if _, err := svc.Create(ctx, SaveInput{Name: "f", Description: "d", Body: "task $ARGUMENTS", Context: skilldomain.ContextFork, Agent: "Explore"}); err != nil {
 		t.Fatalf("create: %v", err)
 	}
 	out, err := svc.Activate(ctx, "f", []string{"x"})
@@ -137,11 +159,31 @@ func TestActivate_Fork_WithRunner(t *testing.T) {
 	if out != "subagent did it" {
 		t.Fatalf("fork should return runner result, got %q", out)
 	}
-	if runner.gotType != "explore" {
-		t.Fatalf("runner should get agent type 'explore', got %q", runner.gotType)
+	if runner.gotType != "Explore" {
+		t.Fatalf("runner should get agent type 'Explore', got %q", runner.gotType)
 	}
 	if runner.gotPrompt != "task x" {
 		t.Fatalf("runner should get substituted prompt, got %q", runner.gotPrompt)
+	}
+}
+
+func TestActivate_ForkRejectsLegacyUnknownTypeWithoutApplyingSkill(t *testing.T) {
+	repo := skillfs.New(t.TempDir())
+	runner := &fakeRunner{}
+	svc := NewService(repo, runner, nil, zap.NewNop())
+	state := agentstatepkg.New()
+	ctx := reqctxpkg.WithAgentState(ctxWS("ws_1"), state)
+	if err := repo.Save(ctx, "legacy-fork", skilldomain.Frontmatter{
+		Name: "legacy-fork", Description: "d", Context: skilldomain.ContextFork, Agent: "explore", AllowedTools: []string{"Write"},
+	}, "task"); err != nil {
+		t.Fatalf("seed legacy skill: %v", err)
+	}
+	_, err := svc.Activate(ctx, "legacy-fork", nil)
+	if !errors.Is(err, skilldomain.ErrForkAgentTypeInvalid) {
+		t.Fatalf("legacy unknown fork agent should fail closed, got %v", err)
+	}
+	if got := state.ActiveSkill(); got != "" {
+		t.Fatalf("failed fork must not apply active skill, got %q", got)
 	}
 }
 

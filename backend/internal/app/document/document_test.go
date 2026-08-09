@@ -3,6 +3,7 @@ package document
 import (
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"sync"
 	"testing"
@@ -189,9 +190,26 @@ func TestUpdate_NoOpDoesNotPersistOrPublish(t *testing.T) {
 
 func TestDuplicate_SubtreeDeepCopy(t *testing.T) {
 	svc, ctx := newSvc(t)
-	root, _ := svc.Create(ctx, CreateInput{Name: "Root", Content: "# root body"})
-	child, _ := svc.Create(ctx, CreateInput{Name: "Child", ParentID: &root.ID, Content: "child body"})
-	gc, _ := svc.Create(ctx, CreateInput{Name: "Grand", ParentID: &child.ID})
+	target, _ := svc.Create(ctx, CreateInput{Name: "Target"})
+	root, _ := svc.Create(ctx, CreateInput{
+		Name:        "Root",
+		Description: "root description",
+		Content:     "# root body [[" + target.ID + "]]",
+		Tags:        []string{"project", "copy"},
+	})
+	child, _ := svc.Create(ctx, CreateInput{
+		Name:        "Child",
+		ParentID:    &root.ID,
+		Description: "child description",
+		Content:     "child body",
+		Tags:        []string{"child"},
+	})
+	gc, _ := svc.Create(ctx, CreateInput{
+		Name:     "Grand",
+		ParentID: &child.ID,
+		Content:  "grand body",
+		Tags:     []string{"grand"},
+	})
 
 	dup, err := svc.Duplicate(ctx, root.ID, nil) // nil parent → sibling of root (root level)
 	if err != nil {
@@ -204,8 +222,11 @@ func TestDuplicate_SubtreeDeepCopy(t *testing.T) {
 	if dup.Name != "Root 2" || dup.ParentID != nil || dup.Path != "/Root 2" {
 		t.Fatalf("dup root = name:%q parent:%v path:%q, want Root 2 / nil / /Root 2", dup.Name, dup.ParentID, dup.Path)
 	}
-	if dup.Content != "# root body" {
+	if want := "# root body [[" + target.ID + "]]"; dup.Content != want {
 		t.Errorf("content not copied: %q", dup.Content)
+	}
+	if dup.Description != "root description" || !slices.Equal(dup.Tags, []string{"project", "copy"}) {
+		t.Errorf("root metadata not copied: description=%q tags=%v", dup.Description, dup.Tags)
 	}
 	// The whole subtree is copied with new ids + remapped paths; the original is untouched.
 	kids, _ := svc.ListByParent(ctx, &dup.ID)
@@ -226,6 +247,48 @@ func TestDuplicate_NotFound(t *testing.T) {
 	svc, ctx := newSvc(t)
 	if _, err := svc.Duplicate(ctx, "doc_ghost", nil); !errors.Is(err, documentdomain.ErrNotFound) {
 		t.Errorf("duplicate missing = %v, want ErrNotFound", err)
+	}
+}
+
+func TestDuplicate_ExplicitParentAndRelations(t *testing.T) {
+	svc, ctx := newSvc(t)
+	rels := &fakeRelSyncer{}
+	svc.SetRelationSyncer(rels)
+	target, _ := svc.Create(ctx, CreateInput{Name: "Target"})
+	source, _ := svc.Create(ctx, CreateInput{
+		Name:        "Source",
+		Description: "source description",
+		Content:     "body [[" + target.ID + "]]",
+		Tags:        []string{"one", "two"},
+	})
+	child, _ := svc.Create(ctx, CreateInput{
+		Name:        "Child",
+		ParentID:    &source.ID,
+		Description: "child description",
+		Content:     "child body",
+		Tags:        []string{"child"},
+	})
+	destination, _ := svc.Create(ctx, CreateInput{Name: "Destination"})
+
+	dup, err := svc.Duplicate(ctx, source.ID, &destination.ID)
+	if err != nil {
+		t.Fatalf("duplicate under explicit parent: %v", err)
+	}
+	if dup.ParentID == nil || *dup.ParentID != destination.ID || dup.Path != "/Destination/Source" {
+		t.Fatalf("duplicate placement = parent:%v path:%q", dup.ParentID, dup.Path)
+	}
+	if dup.Description != source.Description || dup.Content != source.Content || !slices.Equal(dup.Tags, source.Tags) {
+		t.Fatalf("duplicate metadata = %+v, want description/content/tags copied", dup)
+	}
+	if edges := rels.byID[dup.ID]; len(edges) != 1 || edges[0].OtherID != target.ID {
+		t.Fatalf("duplicate root relation = %+v, want one link to %s", edges, target.ID)
+	}
+	kids, err := svc.ListByParent(ctx, &dup.ID)
+	if err != nil || len(kids) != 1 {
+		t.Fatalf("duplicate children = %v, err=%v", kids, err)
+	}
+	if kids[0].ID == child.ID || kids[0].Path != "/Destination/Source/Child" || kids[0].Description != child.Description || !slices.Equal(kids[0].Tags, child.Tags) {
+		t.Fatalf("duplicate child = %+v", kids[0])
 	}
 }
 
@@ -272,6 +335,78 @@ func TestMove_StableReorder(t *testing.T) {
 	}
 	if strings.Join(order, ",") != "C,A,B" {
 		t.Errorf("order after moving C to 0 = %v, want [C A B]", order)
+	}
+}
+
+func TestMove_InvalidPositionDoesNotMutateOrPublish(t *testing.T) {
+	svc, ctx := newSvc(t)
+	a, _ := svc.Create(ctx, CreateInput{Name: "A"})
+	b, _ := svc.Create(ctx, CreateInput{Name: "B"})
+	c, _ := svc.Create(ctx, CreateInput{Name: "C"})
+	probe := &documentTestEmitter{}
+	svc.emitter = probe
+
+	negative := -1
+	tooLarge := 99
+	for _, position := range []*int{&negative, &tooLarge} {
+		if _, err := svc.Move(ctx, c.ID, MoveInput{Position: position}); !errors.Is(err, documentdomain.ErrInvalidPosition) {
+			t.Errorf("position %d: err = %v, want ErrInvalidPosition", *position, err)
+		}
+	}
+	if len(probe.broadcasts) != 0 {
+		t.Fatalf("invalid positions published move events: %v", probe.broadcasts)
+	}
+
+	kids, err := svc.ListByParent(ctx, nil)
+	if err != nil {
+		t.Fatalf("list after invalid positions: %v", err)
+	}
+	if len(kids) != 3 || kids[0].ID != a.ID || kids[1].ID != b.ID || kids[2].ID != c.ID {
+		t.Fatalf("invalid positions mutated sibling order: %+v", kids)
+	}
+	for i, doc := range kids {
+		if doc.Position != i {
+			t.Fatalf("%q position = %d, want %d", doc.Name, doc.Position, i)
+		}
+	}
+}
+
+func TestMove_NoOpDoesNotPersistOrPublish(t *testing.T) {
+	svc, ctx := newSvc(t)
+	first, _ := svc.Create(ctx, CreateInput{Name: "First"})
+	last, _ := svc.Create(ctx, CreateInput{Name: "Last"})
+	probe := &documentTestEmitter{}
+	svc.emitter = probe
+
+	lastPosition := last.Position
+	got, err := svc.Move(ctx, last.ID, MoveInput{Position: &lastPosition})
+	if err != nil {
+		t.Fatalf("same-slot move: %v", err)
+	}
+	if !got.UpdatedAt.Equal(last.UpdatedAt) {
+		t.Fatalf("same-slot move refreshed updatedAt: before=%s after=%s", last.UpdatedAt, got.UpdatedAt)
+	}
+	if len(probe.broadcasts) != 0 {
+		t.Fatalf("same-slot move published events: %v", probe.broadcasts)
+	}
+
+	got, err = svc.Move(ctx, last.ID, MoveInput{}) // nil position resolves to the current final slot.
+	if err != nil {
+		t.Fatalf("append-to-current-tail move: %v", err)
+	}
+	if !got.UpdatedAt.Equal(last.UpdatedAt) {
+		t.Fatalf("append-to-current-tail refreshed updatedAt: before=%s after=%s", last.UpdatedAt, got.UpdatedAt)
+	}
+	if len(probe.broadcasts) != 0 {
+		t.Fatalf("append-to-current-tail published events: %v", probe.broadcasts)
+	}
+
+	kids, err := svc.ListByParent(ctx, nil)
+	if err != nil {
+		t.Fatalf("list after no-op moves: %v", err)
+	}
+	if len(kids) != 2 || kids[0].ID != first.ID || kids[1].ID != last.ID {
+		t.Fatalf("no-op moves changed sibling order: %+v", kids)
 	}
 }
 
@@ -390,11 +525,16 @@ type fakeRelSyncer struct {
 	fromKind string
 	fromID   string
 	synced   []relationdomain.SyncEdge
+	byID     map[string][]relationdomain.SyncEdge
 	purged   []string
 }
 
 func (f *fakeRelSyncer) SyncOutgoing(_ context.Context, fromKind, fromID string, _ []string, edges []relationdomain.SyncEdge) error {
 	f.fromKind, f.fromID, f.synced = fromKind, fromID, edges
+	if f.byID == nil {
+		f.byID = make(map[string][]relationdomain.SyncEdge)
+	}
+	f.byID[fromID] = append([]relationdomain.SyncEdge(nil), edges...)
 	return nil
 }
 

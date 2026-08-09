@@ -77,8 +77,9 @@ class AnDocumentEditor extends ConsumerStatefulWidget {
 
 class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   final ScrollController _scroll = ScrollController();
-  final GlobalKey<AnEditorState> _editorKey = GlobalKey<AnEditorState>();
+  GlobalKey<AnEditorState> _editorKey = GlobalKey<AnEditorState>();
   final GlobalKey _headerKey = GlobalKey();
+  int _editorGeneration = 0;
 
   // The An reading text column — aligned pixel-for-pixel with the AnPage oceans (chat/entities/settings):
   // AnPage renders an [AnSize.content] (720) region with [AnInset.pageX] (24) padding, so its TEXT is
@@ -135,6 +136,19 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
         _headingThrottle.reset();
         _emitActiveHeading();
       });
+    }
+  }
+
+  @override
+  void didUpdateWidget(covariant AnDocumentEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.initialMarkdown != widget.initialMarkdown) {
+      // A provider refresh can replace the source of truth (for example, an installed skill update).
+      // Keep the page shell alive, but give the native editor a new state so it cannot display the old
+      // document after the header/files have already moved to the new generation. 若正文真换代,保页面壳
+      // 不闪,只换原生编辑器态,避免头/文件已是新代而中心仍渲旧正文。
+      _editorGeneration += 1;
+      _editorKey = GlobalKey<AnEditorState>();
     }
   }
 
@@ -227,6 +241,7 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
     // face over their reading styles (null = default sans). Watching here rebuilds the header + re-memoizes
     // the editor stylesheet on a live switch. 内容字体轴(热):正文+大标题覆盖衬线/系统脸(null=默认 sans);watch 即切换。
     final prose = ref.watch(contentFaceProvider);
+    final editorGeneration = _editorGeneration;
     return LayoutBuilder(
       builder: (context, box) {
         final side =
@@ -262,7 +277,14 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
                 initialMarkdown: widget.initialMarkdown,
                 resolvedNames: widget.resolvedNames,
                 mentionSource: widget.mentionSource,
-                onChangedMarkdown: widget.onChangedMarkdown,
+                onChangedMarkdown: (markdown) {
+                  // AnEditor flushes its debounce during dispose. If this editor was replaced because
+                  // upstream content changed, that flush is stale and must not write the old body back.
+                  // 普通离页时代际相同,末次编辑仍会 flush;正文换代时旧实例的 flush 丢弃,不反写旧正文。
+                  if (_editorGeneration == editorGeneration) {
+                    widget.onChangedMarkdown(markdown);
+                  }
+                },
                 shrinkWrap: true,
                 prose: prose,
                 pickAndUploadMedia: _pickAndUploadMedia,

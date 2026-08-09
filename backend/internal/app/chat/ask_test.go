@@ -55,6 +55,21 @@ func TestAsk_AcceptReturnsAnswer(t *testing.T) {
 	if pending[0].Kind != humanloopapp.KindAsk || pending[0].Tool != "ask_user" {
 		t.Fatalf("unexpected pending interaction: %+v", pending[0])
 	}
+	// The human may open the thread after the live SSE frames have passed. The parked assistant row
+	// must already expose its tool_call through REST, otherwise the UI can only show "thinking" and
+	// has no node to attach the pending interaction card to.
+	parked, err := store.GetMessage(ctx, asstID)
+	if err != nil {
+		t.Fatalf("get parked turn: %v", err)
+	}
+	if parked.Status != messagesdomain.StatusStreaming || len(parked.Blocks) != 1 {
+		t.Fatalf("parked ask turn should hydrate one tool_call: status=%q blocks=%d", parked.Status, len(parked.Blocks))
+	}
+	if parked.Blocks[0].ID != pending[0].ToolCallID ||
+		parked.Blocks[0].Type != messagesdomain.BlockTypeToolCall ||
+		parked.Blocks[0].Attrs["tool"] != "ask_user" {
+		t.Fatalf("parked ask tool_call mismatch: %+v", parked.Blocks[0])
+	}
 
 	if err := svc.ResolveInteraction(ctx, pending[0].ConversationID, pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); err != nil {
 		t.Fatalf("ResolveInteraction: %v", err)
@@ -68,6 +83,15 @@ func TestAsk_AcceptReturnsAnswer(t *testing.T) {
 	tr := toolResultUnder(got, pending[0].ToolCallID)
 	if tr == nil || tr.Content != "staging" {
 		t.Fatalf("ask_user tool_result should hold the answer, got %+v", tr)
+	}
+	toolCalls := 0
+	for _, block := range got.Blocks {
+		if block.Type == messagesdomain.BlockTypeToolCall && block.ID == pending[0].ToolCallID {
+			toolCalls++
+		}
+	}
+	if toolCalls != 1 {
+		t.Fatalf("parked tool_call must not be duplicated at finalize, count=%d blocks=%+v", toolCalls, got.Blocks)
 	}
 }
 

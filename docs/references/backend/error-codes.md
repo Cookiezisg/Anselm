@@ -92,6 +92,7 @@ audience: [human, ai]
 | `NO_PENDING_INTERACTION` | 404 | no pending interaction with that tool call id in this conversation |
 | `INTERACTION_INVALID_ACTION` | 422 | action must be one of: approve, approve_always, deny, accept, decline（details.validActions 带合法集） |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
+| `TURN_TOOLS_DISABLED` | — | the isolated fork already returned; no further tools are available in this turn（模型忽略空工具 schema 时由 loop 终止，非 HTTP 请求错误） |
 
 ### `app/media`
 
@@ -437,6 +438,7 @@ audience: [human, ai]
 | `DOCUMENT_CONTENT_TOO_LARGE` | 413 | content exceeds 1 MB limit |
 | `DOCUMENT_INVALID_NAME` | 400 | invalid name (empty, too long, or contains '/') |
 | `DOCUMENT_INVALID_PARENT` | 422 | invalid parent (cycle or self) |
+| `DOCUMENT_INVALID_POSITION` | 422 | position must be a non-negative sibling index |
 | `DOCUMENT_NAME_CONFLICT` | 409 | name already exists under same parent |
 | `DOCUMENT_NOT_FOUND` | 404 | document not found |
 | `DOCUMENT_PARENT_NOT_FOUND` | 422 | parent not found |
@@ -506,6 +508,8 @@ audience: [human, ai]
 |---|---|---|
 | `MCP_CALL_NOT_FOUND` | 404 | mcp call not found |
 | `MCP_ENV_MISSING` | 422 | required environment variables missing |
+| `MCP_IMPORT_INVALID` | 400 | mcp.json must contain a non-empty mcpServers object |
+| `MCP_IMPORT_TOO_LARGE` | 413 | mcp.json exceeds the 1 MiB import limit |
 | `MCP_INSTALL_FAILED` | 502 | mcp server install failed |
 | `MCP_NAME_CONFLICT` | 409 | mcp server name already exists |
 | `MCP_NO_RUNNABLE_PACKAGE` | 422 | no package with a supported runtime (node/python/docker/dotnet) and no remote endpoint |
@@ -606,6 +610,7 @@ audience: [human, ai]
 | `SKILL_FILE_PATH_INVALID` | 400 | invalid skill file path |
 | `SKILL_FILE_TOO_LARGE` | 422 | skill file exceeds size limit |
 | `SKILL_FORK_REQUIRES_AGENT` | 422 | context=fork requires an agent type |
+| `SKILL_FORK_AGENT_TYPE_INVALID` | 422 | context=fork agent type is not supported; details include the valid case-sensitive types |
 | `SKILL_INSTALL_FETCH_FAILED` | 502 | fetching the skill source failed |
 | `SKILL_INSTALL_NO_SKILLS` | 422 | no installable skills found in the source |
 | `SKILL_INSTALL_SOURCE_INVALID` | 400 | install source must be a github owner/repo[@ref][#subdir] or an http(s) tarball url |

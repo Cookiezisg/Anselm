@@ -6,6 +6,7 @@ import (
 	"encoding/hex"
 	"errors"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -87,7 +88,7 @@ type fakeInstaller struct {
 	calls     int
 }
 
-func (f *fakeInstaller) Install(_ context.Context, baseURL, fingerprintHash, _ string) (llminfra.InstallResult, error) {
+func (f *fakeInstaller) Install(ctx context.Context, baseURL, fingerprintHash, _ string) (llminfra.InstallResult, error) {
 	f.calls++
 	f.gotHash, f.gotBase = fingerprintHash, baseURL
 	if f.started != nil {
@@ -95,7 +96,11 @@ func (f *fakeInstaller) Install(_ context.Context, baseURL, fingerprintHash, _ s
 		f.started = nil
 	}
 	if f.release != nil {
-		<-f.release
+		select {
+		case <-f.release:
+		case <-ctx.Done():
+			return llminfra.InstallResult{}, ctx.Err()
+		}
 	}
 	if f.err != nil {
 		return llminfra.InstallResult{}, f.err
@@ -371,6 +376,58 @@ func TestProvisioner_CoalescesConcurrentWorkspaceProvisioning(t *testing.T) {
 	}
 	if inst.calls != 1 || len(keys.created) != 1 {
 		t.Fatalf("concurrent provisioning installed %d times and created %d rows, want 1/1", inst.calls, len(keys.created))
+	}
+}
+
+// Deleting a workspace before its async hook gets scheduled must leave a tombstone: the hook may
+// wake up later, but it must not register a remote install or create a managed row for a dead root.
+// 删除发生在异步 hook 尚未调度前也必须留下 tombstone：hook 即使晚醒，也不能为死 workspace
+// 登记远端 install 或创建 managed 行。
+func TestStopWorkspace_PreventsLateProvision(t *testing.T) {
+	keys := &fakeKeys{}
+	inst := &fakeInstaller{installID: "ins_should_not_exist"}
+	p := NewProvisioner(keys, nil, inst, okFP, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_deleted")
+
+	p.StopWorkspace("ws_deleted")
+	if err := p.EnsureForWorkspace(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if inst.calls != 0 || len(keys.created) != 0 {
+		t.Fatalf("late hook provisioned after stop: installs=%d managedRows=%d", inst.calls, len(keys.created))
+	}
+}
+
+// StopWorkspace cancels an in-flight installer and joins it before the caller can delete the
+// workspace row. The cancellation path is lifecycle noise, not a provisioning warning.
+// StopWorkspace 取消在途 installer 并在调用者删 workspace 行前收束；取消属于生命周期噪声，不是开通 WARN。
+func TestStopWorkspace_CancelsInFlightProvision(t *testing.T) {
+	started := make(chan struct{})
+	release := make(chan struct{})
+	inst := &fakeInstaller{installID: "ins_should_not_persist", started: started, release: release}
+	keys := &fakeKeys{}
+	p := NewProvisioner(keys, nil, inst, okFP, zap.NewNop())
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_deleting")
+
+	done := make(chan error, 1)
+	go func() { done <- p.EnsureForWorkspace(ctx) }()
+	<-started
+
+	stopped := make(chan struct{})
+	go func() {
+		p.StopWorkspace("ws_deleting")
+		close(stopped)
+	}()
+	select {
+	case <-stopped:
+	case <-time.After(time.Second):
+		t.Fatal("StopWorkspace did not join the cancelled provision flight")
+	}
+	if err := <-done; err != nil {
+		t.Fatal(err)
+	}
+	if len(keys.created) != 0 {
+		t.Fatalf("cancelled provision created %d managed rows", len(keys.created))
 	}
 }
 

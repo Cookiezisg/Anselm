@@ -29,8 +29,6 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 		SessionID: convID,
 	})
 
-	s.applyActiveSkill(ctx, sk)
-
 	if sk.Context == skilldomain.ContextFork {
 		agentType := strings.TrimSpace(sk.Frontmatter.Agent)
 		if agentType == "" {
@@ -39,13 +37,28 @@ func (s *Service) Activate(ctx context.Context, name string, arguments []string)
 		if s.subagent == nil {
 			return "", skilldomain.ErrSubagentUnavailable // subagent runner 未注入时 fork 降级
 		}
-		result, serr := s.subagent.Spawn(ctx, agentType, rendered)
+		if err := s.validateForkAgent(agentType); err != nil {
+			return "", err
+		}
+		forkCtx := reqctxpkg.SetSkillForkScope(ctx, true)
+		forkCtx = reqctxpkg.SetSkillForkReadPaths(forkCtx, arguments)
+		result, serr := s.subagent.Spawn(forkCtx, agentType, rendered)
 		if serr != nil {
 			return "", fmt.Errorf("skillapp.Activate fork: %w", serr)
 		}
+		// Do not leave a failed fork's requested tools pre-approved in the parent turn.
+		// 失败的 fork 不得把请求的工具留在父回合预授权状态里。
+		s.applyActiveSkill(ctx, sk)
+		// A fork result is already the isolated execution's answer. The parent may still
+		// produce a short textual response, but it must not react to ambiguity by using
+		// the main chat's filesystem tools after the fork returns.
+		// fork 已经是隔离执行的答案。父回合仍可生成简短文字，但不能在 fork 返回后因歧义
+		// 改用主聊天的文件工具继续搜索。
+		reqctxpkg.RequestToolsDisabled(ctx)
 		return result, nil
 	}
 
+	s.applyActiveSkill(ctx, sk)
 	return rendered, nil
 }
 

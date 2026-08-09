@@ -73,7 +73,7 @@ TOOL | activate_workflow | workflow | 上线持续监听;成功回执带workflow
 TOOL | deactivate_workflow | workflow | 优雅下线,在飞跑完;回执带workflowId/workflowName/lifecycleState(active/inactive/draining)/active
 TOOL | kill_workflow | workflow | 硬停+取消在飞;回执带workflowId/workflowName/lifecycleState=inactive/active=false/killed
 TOOL | get_flowrun | workflow | 严格使用flowrunId字段(不是file_path/id/workflowId);取运行头+节点记录+可解析时workflowName(身份仍是flowrun.workflowId);≤80行全量,大/循环run保留全部非completed与最新尾部至80并带真实总数nodeSummary;全量经GET /api/v1/flowruns/{id}分页
-TOOL | search_flowruns | workflow | 列运行,可限定 workflow
+TOOL | search_flowruns | workflow | 列运行,可限定 workflow;limit接受原生整数或精确十进制整数字符串,浮点/布尔/数组/任意字符串拒绝
 TOOL | replay_flowrun | workflow | 断点重跑失败运行
 TOOL | list_approval_inbox | workflow | 列全工作区待决审批
 TOOL | decide_approval | workflow | 先用list_approval_inbox发现parked行,逐字复制flowrunId+nodeId后批/拒;yes/no+可选reason;first-wins,后续决定/超时no-op;回更新run+nodes

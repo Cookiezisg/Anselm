@@ -14,7 +14,7 @@ T _$identity<T>(T value) => value;
 /// @nodoc
 mixin _$ConvAxis {
 
- List<Conversation> get rows; String? get nextCursor; bool get hasMore; bool get loadingMore; bool get loadFailed;/// Whether this axis has EVER resolved a page. A group axis starts unloaded with `hasMore: true` so the
+ List<Conversation> get rows; String? get nextCursor; bool get hasMore; int? get total; bool get loadingMore; bool get loadFailed;/// Whether this axis has EVER resolved a page. A group axis starts unloaded with `hasMore: true` so the
 /// rail renders its tail sentinel and fetches page one only when the section is actually expanded and
 /// scrolled into view — lazy by construction, not by a special "fetch on expand" callback.
 ///
@@ -31,16 +31,16 @@ $ConvAxisCopyWith<ConvAxis> get copyWith => _$ConvAxisCopyWithImpl<ConvAxis>(thi
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConvAxis&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.loadFailed, loadFailed) || other.loadFailed == loadFailed)&&(identical(other.loaded, loaded) || other.loaded == loaded));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is ConvAxis&&const DeepCollectionEquality().equals(other.rows, rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.total, total) || other.total == total)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.loadFailed, loadFailed) || other.loadFailed == loadFailed)&&(identical(other.loaded, loaded) || other.loaded == loaded));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),nextCursor,hasMore,loadingMore,loadFailed,loaded);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(rows),nextCursor,hasMore,total,loadingMore,loadFailed,loaded);
 
 @override
 String toString() {
-  return 'ConvAxis(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, loadFailed: $loadFailed, loaded: $loaded)';
+  return 'ConvAxis(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, total: $total, loadingMore: $loadingMore, loadFailed: $loadFailed, loaded: $loaded)';
 }
 
 
@@ -51,7 +51,7 @@ abstract mixin class $ConvAxisCopyWith<$Res>  {
   factory $ConvAxisCopyWith(ConvAxis value, $Res Function(ConvAxis) _then) = _$ConvAxisCopyWithImpl;
 @useResult
 $Res call({
- List<Conversation> rows, String? nextCursor, bool hasMore, bool loadingMore, bool loadFailed, bool loaded
+ List<Conversation> rows, String? nextCursor, bool hasMore, int? total, bool loadingMore, bool loadFailed, bool loaded
 });
 
 
@@ -68,12 +68,13 @@ class _$ConvAxisCopyWithImpl<$Res>
 
 /// Create a copy of ConvAxis
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? loadFailed = null,Object? loaded = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? total = freezed,Object? loadingMore = null,Object? loadFailed = null,Object? loaded = null,}) {
   return _then(_self.copyWith(
 rows: null == rows ? _self.rows : rows // ignore: cast_nullable_to_non_nullable
 as List<Conversation>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
-as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
+as bool,total: freezed == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int?,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
 as bool,loadFailed: null == loadFailed ? _self.loadFailed : loadFailed // ignore: cast_nullable_to_non_nullable
 as bool,loaded: null == loaded ? _self.loaded : loaded // ignore: cast_nullable_to_non_nullable
 as bool,
@@ -161,10 +162,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  bool loadFailed,  bool loaded)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  int? total,  bool loadingMore,  bool loadFailed,  bool loaded)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _ConvAxis() when $default != null:
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.loadFailed,_that.loaded);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.total,_that.loadingMore,_that.loadFailed,_that.loaded);case _:
   return orElse();
 
 }
@@ -182,10 +183,10 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  bool loadFailed,  bool loaded)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  int? total,  bool loadingMore,  bool loadFailed,  bool loaded)  $default,) {final _that = this;
 switch (_that) {
 case _ConvAxis():
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.loadFailed,_that.loaded);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.total,_that.loadingMore,_that.loadFailed,_that.loaded);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -202,10 +203,10 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  bool loadingMore,  bool loadFailed,  bool loaded)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Conversation> rows,  String? nextCursor,  bool hasMore,  int? total,  bool loadingMore,  bool loadFailed,  bool loaded)?  $default,) {final _that = this;
 switch (_that) {
 case _ConvAxis() when $default != null:
-return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.loadFailed,_that.loaded);case _:
+return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.total,_that.loadingMore,_that.loadFailed,_that.loaded);case _:
   return null;
 
 }
@@ -217,7 +218,7 @@ return $default(_that.rows,_that.nextCursor,_that.hasMore,_that.loadingMore,_tha
 
 
 class _ConvAxis implements ConvAxis {
-  const _ConvAxis({final  List<Conversation> rows = const <Conversation>[], this.nextCursor, this.hasMore = false, this.loadingMore = false, this.loadFailed = false, this.loaded = false}): _rows = rows;
+  const _ConvAxis({final  List<Conversation> rows = const <Conversation>[], this.nextCursor, this.hasMore = false, this.total, this.loadingMore = false, this.loadFailed = false, this.loaded = false}): _rows = rows;
   
 
  final  List<Conversation> _rows;
@@ -229,6 +230,7 @@ class _ConvAxis implements ConvAxis {
 
 @override final  String? nextCursor;
 @override@JsonKey() final  bool hasMore;
+@override final  int? total;
 @override@JsonKey() final  bool loadingMore;
 @override@JsonKey() final  bool loadFailed;
 /// Whether this axis has EVER resolved a page. A group axis starts unloaded with `hasMore: true` so the
@@ -249,16 +251,16 @@ _$ConvAxisCopyWith<_ConvAxis> get copyWith => __$ConvAxisCopyWithImpl<_ConvAxis>
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConvAxis&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.loadFailed, loadFailed) || other.loadFailed == loadFailed)&&(identical(other.loaded, loaded) || other.loaded == loaded));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _ConvAxis&&const DeepCollectionEquality().equals(other._rows, _rows)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.total, total) || other.total == total)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.loadFailed, loadFailed) || other.loadFailed == loadFailed)&&(identical(other.loaded, loaded) || other.loaded == loaded));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),nextCursor,hasMore,loadingMore,loadFailed,loaded);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_rows),nextCursor,hasMore,total,loadingMore,loadFailed,loaded);
 
 @override
 String toString() {
-  return 'ConvAxis(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, loadFailed: $loadFailed, loaded: $loaded)';
+  return 'ConvAxis(rows: $rows, nextCursor: $nextCursor, hasMore: $hasMore, total: $total, loadingMore: $loadingMore, loadFailed: $loadFailed, loaded: $loaded)';
 }
 
 
@@ -269,7 +271,7 @@ abstract mixin class _$ConvAxisCopyWith<$Res> implements $ConvAxisCopyWith<$Res>
   factory _$ConvAxisCopyWith(_ConvAxis value, $Res Function(_ConvAxis) _then) = __$ConvAxisCopyWithImpl;
 @override @useResult
 $Res call({
- List<Conversation> rows, String? nextCursor, bool hasMore, bool loadingMore, bool loadFailed, bool loaded
+ List<Conversation> rows, String? nextCursor, bool hasMore, int? total, bool loadingMore, bool loadFailed, bool loaded
 });
 
 
@@ -286,12 +288,13 @@ class __$ConvAxisCopyWithImpl<$Res>
 
 /// Create a copy of ConvAxis
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? loadFailed = null,Object? loaded = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? rows = null,Object? nextCursor = freezed,Object? hasMore = null,Object? total = freezed,Object? loadingMore = null,Object? loadFailed = null,Object? loaded = null,}) {
   return _then(_ConvAxis(
 rows: null == rows ? _self._rows : rows // ignore: cast_nullable_to_non_nullable
 as List<Conversation>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
 as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nullable_to_non_nullable
-as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
+as bool,total: freezed == total ? _self.total : total // ignore: cast_nullable_to_non_nullable
+as int?,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
 as bool,loadFailed: null == loadFailed ? _self.loadFailed : loadFailed // ignore: cast_nullable_to_non_nullable
 as bool,loaded: null == loaded ? _self.loaded : loaded // ignore: cast_nullable_to_non_nullable
 as bool,

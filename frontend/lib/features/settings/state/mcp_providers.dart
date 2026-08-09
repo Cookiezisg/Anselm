@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/mcp.dart';
 import '../../../core/runtime.dart';
+import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 import '../data/settings_repository.dart';
 
@@ -26,14 +27,26 @@ class McpServersController extends AsyncNotifier<List<McpServerStatus>> {
       final frames = gw
           .kindStream(StreamName.entities, 'mcp')
           .listen((_) => _schedule());
+      // Lifecycle changes arrive on notifications, while live status changes arrive on entities.
+      // MCP 生命周期在 notifications,实时状态在 entities;两条都要重取名册。
+      final lifecycle = gw
+          .kindStream(StreamName.notifications, 'notification')
+          .listen(_onLifecycle);
       final resync = gw.resync(StreamName.entities).listen((_) => _schedule());
       ref.onDispose(() {
         frames.cancel();
+        lifecycle.cancel();
         resync.cancel();
         _coalesce?.cancel();
       });
     }
     return repo.listMcpServers();
+  }
+
+  void _onLifecycle(StreamEnvelope envelope) {
+    if (!envelope.durable || envelope.frame is! FrameSignal) return;
+    final node = (envelope.frame as FrameSignal).node;
+    if (node.type.startsWith('mcp.')) _schedule();
   }
 
   void _schedule() {

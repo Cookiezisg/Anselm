@@ -104,10 +104,12 @@ type Provisioner struct {
 	// 受管行前重复登记两个 device install。
 	flightMu sync.Mutex
 	flights  map[string]*provisionFlight
+	stopped  map[string]struct{}
 }
 
 type provisionFlight struct {
 	done        chan struct{}
+	cancel      context.CancelFunc
 	provisioned bool
 	err         error
 }
@@ -126,6 +128,36 @@ func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Finger
 		fp:        fp,
 		log:       log.Named("freetierapp"),
 		flights:   make(map[string]*provisionFlight),
+		stopped:   make(map[string]struct{}),
+	}
+}
+
+// StopWorkspace cancels and joins any in-flight provisioning for a workspace. It also records a
+// tombstone so an on-created goroutine that has not started yet cannot begin after DELETE has won.
+// Workspace ids are never reused, so the small process-local set is deliberately monotonic.
+//
+// StopWorkspace 取消并收束 workspace 的在途开通；同时写入 tombstone，防止尚未调度的
+// on-created goroutine 在 DELETE 已胜出后才启动。workspace id 不复用，故进程内小集合刻意只增不减。
+func (p *Provisioner) StopWorkspace(workspaceID string) {
+	workspaceID = strings.TrimSpace(workspaceID)
+	if workspaceID == "" {
+		return
+	}
+
+	p.flightMu.Lock()
+	p.stopped[workspaceID] = struct{}{}
+	flight := p.flights[workspaceID]
+	if flight != nil && flight.cancel != nil {
+		flight.cancel()
+	}
+	p.flightMu.Unlock()
+
+	// InstallClient and the store both honor context cancellation. Joining here makes the workspace
+	// row deletion the linearization point: a cancelled flight cannot write a managed row afterward.
+	// InstallClient 与 store 都遵守 ctx 取消；此处等待使删 workspace 成为线性化点：被取消的
+	// flight 不会在删行后再写 managed row。
+	if flight != nil {
+		<-flight.done
 	}
 }
 
@@ -142,9 +174,7 @@ func NewProvisioner(keys Keys, defaults Defaults, installer Installer, fp Finger
 // ProvisionNow 是用户侧变体(POST /freetier:provision,S-7):同一幂等 ensure,但**报告结果**——之后存在
 // 受管行(原有或新建)返 true,开通降级(离线/网关挂/无指纹)返 false。降级路径不是错误、不抛;仅存储失败冒泡。
 func (p *Provisioner) ProvisionNow(ctx context.Context) (bool, error) {
-	return p.withFlight(ctx, func() (bool, error) {
-		return p.provisionNow(ctx)
-	})
+	return p.withFlight(ctx, p.provisionNow)
 }
 
 func (p *Provisioner) provisionNow(ctx context.Context) (bool, error) {
@@ -178,13 +208,17 @@ func (p *Provisioner) provisionNow(ctx context.Context) (bool, error) {
 //
 // withFlight 让同一 workspace 的并发开通请求共享一个结果。缺 workspace 只会出现在少数单测；这些
 // 调用走进程级 lane，不削弱生产环境的 workspace 隔离。
-func (p *Provisioner) withFlight(ctx context.Context, work func() (bool, error)) (bool, error) {
+func (p *Provisioner) withFlight(ctx context.Context, work func(context.Context) (bool, error)) (bool, error) {
 	key, ok := reqctxpkg.GetWorkspaceID(ctx)
 	if !ok {
 		key = "<unscoped>"
 	}
 
 	p.flightMu.Lock()
+	if _, stopped := p.stopped[key]; stopped {
+		p.flightMu.Unlock()
+		return false, context.Canceled
+	}
 	if flight := p.flights[key]; flight != nil {
 		p.flightMu.Unlock()
 		select {
@@ -194,11 +228,13 @@ func (p *Provisioner) withFlight(ctx context.Context, work func() (bool, error))
 			return false, ctx.Err()
 		}
 	}
-	flight := &provisionFlight{done: make(chan struct{})}
+	flightCtx, cancel := context.WithCancel(ctx)
+	flight := &provisionFlight{done: make(chan struct{}), cancel: cancel}
 	p.flights[key] = flight
 	p.flightMu.Unlock()
 
-	provisioned, err := work()
+	provisioned, err := work(flightCtx)
+	cancel()
 	p.flightMu.Lock()
 	flight.provisioned = provisioned
 	flight.err = err
@@ -271,9 +307,7 @@ func (p *Provisioner) healIfInstallDead(ctx context.Context, keyID string) {
 // nil，使降级的免费档绝不挂 boot 或建 workspace。ctx 必须携带 workspace（受管行按 workspace 隔离——orm
 // 在 Save 时盖 workspace_id、List 时过滤）。
 func (p *Provisioner) EnsureForWorkspace(ctx context.Context) error {
-	_, _ = p.withFlight(ctx, func() (bool, error) {
-		return p.ensureForWorkspace(ctx)
-	})
+	_, _ = p.withFlight(ctx, p.ensureForWorkspace)
 	return nil
 }
 
@@ -281,7 +315,7 @@ func (p *Provisioner) ensureForWorkspace(ctx context.Context) (bool, error) {
 	// Dedup at the app level — there is no (workspace_id, provider) UNIQUE, so a List is the check.
 	existing, _, err := p.keys.List(ctx, apikeydomain.ListFilter{Provider: providerName, Limit: 1})
 	if err != nil {
-		p.log.Warn("free-tier provision skipped: list failed", zap.Error(err))
+		p.logProvisionFailure("free-tier provision skipped: list failed", err)
 		return false, nil
 	}
 	if len(existing) > 0 {
@@ -303,7 +337,11 @@ func (p *Provisioner) ensureForWorkspace(ctx context.Context) (bool, error) {
 
 	res, err := p.installer.Install(ctx, llminfra.AnselmGatewayBase(), fpHash, clientID)
 	if err != nil {
-		p.log.Warn("free-tier provision skipped: install failed", zap.Error(err))
+		p.logProvisionFailure("free-tier provision skipped: install failed", err)
+		return false, nil
+	}
+	if err := ctx.Err(); err != nil {
+		p.logProvisionFailure("free-tier provision stopped before persisting the managed key", err)
 		return false, nil
 	}
 
@@ -320,7 +358,7 @@ func (p *Provisioner) ensureForWorkspace(ctx context.Context) (bool, error) {
 		if errors.Is(err, apikeydomain.ErrDisplayNameConflict) {
 			return true, nil
 		}
-		p.log.Warn("free-tier provision: persisting managed key failed", zap.Error(err))
+		p.logProvisionFailure("free-tier provision: persisting managed key failed", err)
 		return false, nil
 	}
 	p.log.Info("free-tier provisioned (managed anselm key created)")
@@ -350,7 +388,7 @@ func (p *Provisioner) seedDefaults(ctx context.Context, keyID string) {
 	}
 	ref := modeldomain.ModelRef{APIKeyID: keyID, ModelID: llminfra.AnselmModelID}
 	if err := p.defaults.SeedDefaultsIfUnset(ctx, ref); err != nil {
-		p.log.Warn("free-tier: seeding workspace default models failed", zap.Error(err))
+		p.logProvisionFailure("free-tier: seeding workspace default models failed", err)
 	}
 }
 
@@ -373,8 +411,15 @@ func (p *Provisioner) refreshCapabilities(ctx context.Context, keyID string) {
 		return
 	}
 	if _, err := p.keys.Test(ctx, keyID); err != nil {
-		p.log.Warn("free-tier: live capability probe failed; keeping the seeded placeholder archive "+
-			"(published limits may lag the gateway until the next successful probe)",
-			zap.Error(err))
+		p.logProvisionFailure("free-tier: live capability probe failed; keeping the seeded placeholder archive "+
+			"(published limits may lag the gateway until the next successful probe)", err)
 	}
+}
+
+func (p *Provisioner) logProvisionFailure(message string, err error) {
+	if errors.Is(err, context.Canceled) {
+		p.log.Debug(message+" (workspace lifecycle stopped)", zap.Error(err))
+		return
+	}
+	p.log.Warn(message, zap.Error(err))
 }

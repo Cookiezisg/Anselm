@@ -151,7 +151,32 @@ func (s *Service) validate(in SaveInput) error {
 	if in.Context == skilldomain.ContextFork && strings.TrimSpace(in.Agent) == "" {
 		return skilldomain.ErrForkRequiresAgent
 	}
+	if in.Context == skilldomain.ContextFork {
+		if err := s.validateForkAgent(strings.TrimSpace(in.Agent)); err != nil {
+			return err
+		}
+	}
 	return nil
+}
+
+// validateForkAgent keeps an invalid runner type from becoming a delayed activation surprise.
+// The runner owns the registry; Skill only consumes its snapshot through the domain port.
+//
+// validateForkAgent 防止无效 runner 类型拖到激活时才变成惊吓。注册表由 runner 持有，Skill
+// 只经 domain port 消费其快照。
+func (s *Service) validateForkAgent(agentType string) error {
+	if s.subagent == nil {
+		return nil // activation will report the more useful unavailable-runner error
+	}
+	for _, supported := range s.subagent.SupportedAgentTypes() {
+		if agentType == supported {
+			return nil
+		}
+	}
+	return skilldomain.ErrForkAgentTypeInvalid.WithDetails(map[string]any{
+		"agent":       agentType,
+		"validAgents": s.subagent.SupportedAgentTypes(),
+	})
 }
 
 // bodyHasLeadingFrontmatter reports whether body opens with a YAML frontmatter block (a "---" fence

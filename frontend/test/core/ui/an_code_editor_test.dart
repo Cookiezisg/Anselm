@@ -204,6 +204,42 @@ void main() {
     expect(find.byType(TextField), findsNothing);
   });
 
+  testWidgets('async save rejection keeps the draft open for retry', (
+    tester,
+  ) async {
+    var attempts = 0;
+    var allowSave = false;
+    await tester.pumpWidget(
+      host(
+        AnCodeEditor(
+          code: 'orig',
+          lang: 'py',
+          editable: true,
+          onSaveAsync: (value) async {
+            expect(value, 'changed');
+            attempts++;
+            return allowSave;
+          },
+        ),
+      ),
+    );
+    await tester.tap(find.byTooltip('Edit'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byType(TextField), 'changed');
+
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(attempts, 1);
+    expect(find.byType(TextField), findsOneWidget);
+    expect(find.text('changed'), findsOneWidget);
+
+    allowSave = true;
+    await tester.tap(find.text('Save'));
+    await tester.pumpAndSettle();
+    expect(attempts, 2);
+    expect(find.byType(TextField), findsNothing);
+  });
+
   testWidgets(
     'inline + editable is always editing (run-terminal args, no bar)',
     (tester) async {

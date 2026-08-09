@@ -19,7 +19,7 @@ audience: [human, ai]
 ```text
 LoadHistory
 → stream LLM
-→ persist/emit blocks
+→ emit blocks（Host 可选地增量 persist sampling 边界）
 → gate and dispatch tools
 → append tool results/media
 → next sampling
@@ -48,6 +48,7 @@ store。
 | ContextObserver | 记录 sampling 尺寸/route/恢复 |
 | RuntimeBudgetResolver | 按真实 route 读取已学习预算 |
 | MediaExpander | 将 tool-result MediaRef 展成 content parts |
+| BlockRecorder | 在工具派发前增量落盘 sampling blocks；Chat 用于冷打开的人在环 tool_call |
 
 Reminder 与媒体追加只进入后续 request，不污染 durable Message history。
 
@@ -94,6 +95,12 @@ step。不可再分的最新输入仍超限时才终态
 
 Assistant reasoning/tool-call/tool-result group 在裁剪时保持协议完整，不能制造
 孤立 tool result。
+
+面向用户的普通 Chat 文本会对 opaque machine values（ID、时间戳、hash、receipt）做确定性脱敏，
+结构化 tool card 保留精确原值作为审计面。若模型把 MCP 调用的 `startedAt`/`endedAt`/`createdAt` 放进
+详情 Markdown 表，脱敏器会保留字段行并把值改为「精确时间见旁边的 MCP 调用卡片。」（英文对应
+`See the exact timing in the MCP call card.`），不得留下「相应时间」或其他看似真实的占位值；用户明确
+点名某字段时，工具契约要求模型逐字复制返回字符串。
 
 ## 5. HumanLoop gate
 

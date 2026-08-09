@@ -64,7 +64,12 @@ class FixtureChatRepository implements ChatRepository {
     final end = (start + n).clamp(0, all.length);
     final slice = all.sublist(start.clamp(0, all.length), end);
     final more = end < all.length;
-    return Page(items: slice, nextCursor: more ? '$end' : null, hasMore: more);
+    return Page(
+      items: slice,
+      nextCursor: more ? '$end' : null,
+      hasMore: more,
+      total: all.length,
+    );
   }
 
   // pinned-first, then the sort's secondary key, then an id tiebreaker matching the backend

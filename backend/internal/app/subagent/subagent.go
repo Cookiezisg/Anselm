@@ -140,6 +140,13 @@ func NewService(deps Deps, log *zap.Logger) *Service {
 
 var _ skilldomain.SubagentRunner = (*Service)(nil)
 
+// SupportedAgentTypes returns a fresh snapshot of the exact registry names accepted by Spawn.
+//
+// SupportedAgentTypes 返回 Spawn 实际接受的注册表名称快照。
+func (s *Service) SupportedAgentTypes() []string {
+	return s.reg.Names()
+}
+
 // Registry exposes the built-in type registry (the Subagent tool reads Names() for its enum).
 //
 // Registry 暴露内置类型注册表（Subagent 工具读 Names() 作 enum）。
@@ -174,7 +181,11 @@ func (s *Service) composeTools(ctx context.Context, typ Type) []toolapp.Tool {
 	if s.capTools != nil {
 		parentTools = append(parentTools[:len(parentTools):len(parentTools)], s.capTools(ctx)...)
 	}
-	return filterTools(typ, parentTools)
+	tools := filterTools(typ, parentTools)
+	if typ.Name == "Explore" && reqctxpkg.IsSkillForkScope(ctx) {
+		return boundForkExploreTools(tools)
+	}
+	return tools
 }
 
 // Spawn runs one subagent over prompt and returns its final answer. Synchronous: it builds the

@@ -14,6 +14,7 @@ package conversation
 import (
 	"context"
 	"maps"
+	"slices"
 	"strings"
 	"time"
 
@@ -22,6 +23,7 @@ import (
 	modelrefapp "github.com/sunweilin/anselm/backend/internal/app/modelref"
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
+	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
@@ -391,6 +393,14 @@ func (s *Service) List(ctx context.Context, filter ListFilter) ([]*conversationd
 	return rows, next, nil
 }
 
+// Count returns the exact live-row count for the same filter axes as List. It is kept beside List so
+// transport can expose a truthful rail count without changing the cursor-paged response body.
+//
+// Count 返回与 List 同一过滤轴的存活行精确总数。它与 List 并列，使 transport 能暴露诚实的 rail 计数，而不改变游标分页 body。
+func (s *Service) Count(ctx context.Context, filter ListFilter) (int, error) {
+	return s.repo.Count(ctx, filter)
+}
+
 // TouchLastMessage records that a message just landed in a conversation — chat calls it when a
 // message is added so the list re-sorts by recent activity and the unread flag tracks whether there is
 // an unseen assistant reply. `unread` is the new unread state (false on the user's own send, true on a
@@ -425,21 +435,33 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	if err != nil {
 		return nil, err
 	}
+	changed := false
 	action := "updated"
 	if in.Title != nil {
-		c.Title = strings.TrimSpace(*in.Title)
+		title := strings.TrimSpace(*in.Title)
+		if title != c.Title {
+			c.Title = title
+			changed = true
+		}
 	}
 	if in.SystemPrompt != nil {
-		c.SystemPrompt = *in.SystemPrompt
+		if *in.SystemPrompt != c.SystemPrompt {
+			c.SystemPrompt = *in.SystemPrompt
+			changed = true
+		}
 	}
 	if in.AttachedDocuments != nil {
 		if err := s.validateAttachedDocs(ctx, *in.AttachedDocuments); err != nil {
 			return nil, err
 		}
-		c.AttachedDocuments = *in.AttachedDocuments
+		if !slices.Equal(*in.AttachedDocuments, c.AttachedDocuments) {
+			c.AttachedDocuments = *in.AttachedDocuments
+			changed = true
+		}
 	}
 	if in.Archived != nil && c.Archived != *in.Archived {
 		c.Archived = *in.Archived
+		changed = true
 		if c.Archived {
 			action = "archived"
 		} else {
@@ -448,6 +470,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	}
 	if in.Pinned != nil && c.Pinned != *in.Pinned {
 		c.Pinned = *in.Pinned
+		changed = true
 		if c.Pinned {
 			action = "pinned"
 		} else {
@@ -459,8 +482,11 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 		if err := modelrefapp.Validate(ctx, ref, conversationdomain.ErrInvalidModelOverride, s.keyChecker, s.optionValidator); err != nil {
 			return nil, err
 		}
-		c.ModelOverride = ref
-		action = "model_override"
+		if !equalModelOverride(c.ModelOverride, ref) {
+			c.ModelOverride = ref
+			action = "model_override"
+			changed = true
+		}
 	}
 	// The residency (WD1). Normalizing through fspath.Expand is what makes the column trustworthy for
 	// every downstream reader: `~/proj` is stored as a real absolute path, so ExpandIn / Inside / cmd.Dir
@@ -486,7 +512,14 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 			markerFrom, markerTo, workDirChanged = c.WorkDir, next, true
 			c.WorkDir = next
 			action = "work_dir"
+			changed = true
 		}
+	}
+	if !changed {
+		// Keep derived runtime flags accurate without turning a retry or form echo into a write.
+		// 保持派生运行态准确，但不让重试或表单回显伪造一次写入。
+		s.markRuntime(c)
+		return c, nil
 	}
 	if err := s.repo.Update(ctx, c); err != nil {
 		return nil, err
@@ -500,6 +533,19 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 	// 填派生标志，使 PATCH（如生成中置顶）返回与 List/Get 一致的准确 isGenerating，不返回过期 false。
 	s.markRuntime(c)
 	return c, nil
+}
+
+// equalModelOverride compares the value carried by the PATCH, not pointer identity. A nil and
+// empty options map are the same model selection on the wire, so maps.Equal deliberately treats
+// them as equal here.
+//
+// equalModelOverride 比较 PATCH 携带的值而非指针身份。线缆上 nil 与空 options map 是同一个模型选择，
+// 故这里刻意用 maps.Equal 将二者视为相等。
+func equalModelOverride(a, b *modeldomain.ModelRef) bool {
+	if a == nil || b == nil {
+		return a == b
+	}
+	return a.APIKeyID == b.APIKeyID && a.ModelID == b.ModelID && maps.Equal(a.Options, b.Options)
 }
 
 // Delete soft-deletes a conversation and purges its relation edges.

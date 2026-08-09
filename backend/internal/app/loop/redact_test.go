@@ -976,11 +976,178 @@ func TestRedactOpaqueMachineValuesPointsMCPLabeledTimestampToCard(t *testing.T) 
 	}
 }
 
+func TestRedactOpaqueMachineValuesPointsMCPCallTimingRowsToCallCard(t *testing.T) {
+	input := "以下是 MCP 调用详情：\n\n" +
+		"| 字段 | 值 |\n|---|---|\n" +
+		"| **服务器** | mcp-server |\n" +
+		"| **工具** | `fail_detail` |\n" +
+		"| **状态** | failed |\n" +
+		"| **开始时间** | `2026-08-09T00:17:33.520418Z` |\n" +
+		"| **结束时间** | `2026-08-09T00:17:33.523772Z` |"
+	want := "以下是 MCP 调用详情：\n\n" +
+		"| 字段 | 值 |\n|---|---|\n" +
+		"| **服务器** | mcp-server |\n" +
+		"| **工具** | `fail_detail` |\n" +
+		"| **状态** | failed |\n" +
+		"| **开始时间** | 精确时间见旁边的 MCP 调用卡片。 |\n" +
+		"| **结束时间** | 精确时间见旁边的 MCP 调用卡片。 |"
+	got := redactOpaqueMachineValues(input)
+	if got != want {
+		t.Fatalf("MCP call timing table redaction = %q, want %q", got, want)
+	}
+	if strings.Contains(got, "相应时间") || strings.Contains(got, "2026-08-09T00:17:33") {
+		t.Fatalf("MCP call timing table retained a misleading or opaque value: %q", got)
+	}
+}
+
+func TestTextRedactorPointsMCPCallTimingRowsToCallCardAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| 字段 | 值 |\n|---|---|\n",
+		"| **服务器** | mcp-server |\n| **工具** | `fail_detail` |\n",
+		"| **状态** | failed |\n| **开始时间** | `2026-08-09T00:17:",
+		"33.520418Z` |\n| **结束时间** | `2026-08-09T00:17:33.523772Z` |\n",
+	} {
+		piece := r.Write(delta)
+		for _, forbidden := range []string{"相应时间", "the recorded time", "2026-08-09T00:17:33"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("MCP call timing value leaked after %q: %q", delta, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	final := got.String()
+	for _, want := range []string{
+		"| **开始时间** | 精确时间见旁边的 MCP 调用卡片。 |",
+		"| **结束时间** | 精确时间见旁边的 MCP 调用卡片。 |",
+	} {
+		if !strings.Contains(final, want) {
+			t.Fatalf("streamed MCP call timing table missing %q: %q", want, final)
+		}
+	}
+}
+
 func TestRedactOpaqueMachineValuesDoesNotEmbedPlaceholderInPath(t *testing.T) {
 	input := "| 字段 | 值 |\n|---|---|\n| cwd | `/private/tmp/data/workspaces/ws_00112233445566/skills/script-runner` |\n| CLAUDE_SKILL_DIR | `/private/tmp/data/workspaces/ws_00112233445566/skills/script-runner` |"
 	want := "| 字段 | 值 |\n|---|---|\n| cwd | See the exact path in the tool card. |\n| CLAUDE_SKILL_DIR | See the exact path in the tool card. |"
 	if got := redactOpaqueMachineValues(input); got != want {
 		t.Fatalf("path placeholder redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsSkillContextLabelsHonest(t *testing.T) {
+	input := "The skill was activated.\nSession: the requested item\nDirectory: /private/tmp/data/workspaces/the requested item/skills/demo\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "/the requested item/"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("skill activation context leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{
+		"Session: See the exact session in the activation card.",
+		"Directory: See the exact path in the tool card.",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("skill activation context lost %q: %q", want, got)
+		}
+	}
+}
+
+func TestTextRedactorKeepsSkillContextLabelsHonestAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"Session: the requested ",
+		"item\nDirectory: /private/tmp/data/workspaces/the requested ",
+		"item/skills/demo\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("skill activation context placeholder leaked in stream: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	final := redactOpaqueMachineValues(got.String())
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder, "/the requested item/"} {
+		if strings.Contains(final, forbidden) {
+			t.Fatalf("skill activation context placeholder survived close: %q", final)
+		}
+	}
+	if !strings.Contains(final, "Directory: See the exact path in the tool card.") {
+		t.Fatalf("skill activation path did not point to the tool card: %q", final)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsSkillContextTablesTruthful(t *testing.T) {
+	input := "以下是激活结果的渲染字段：\n\n" +
+		"| 字段 | 渲染值 |\n|---|---|\n" +
+		"| **Session** | `the requested item` |\n" +
+		"| **Directory** | `/private/tmp/data/workspaces/the requested item/skills/ep111-inline` |\n\n" +
+		"以上所有值均从激活工具返回结果中原样引用，未做任何替换或臆造。"
+	want := "以下是激活结果的渲染字段：\n\n" +
+		"| 字段 | 渲染值 |\n|---|---|\n" +
+		"| **Session** | See the exact session in the activation card. |\n" +
+		"| **Directory** | See the exact path in the tool card. |\n\n" +
+		"可安全展示的人话字段已原样引用；精确的 Session 和 Directory 请查看相邻激活工具卡。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("skill activation table redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsEnglishSkillContextTablesTruthful(t *testing.T) {
+	input := "Activation result:\n\n" +
+		"| Field | Rendered value |\n|---|---|\n" +
+		"| **Session ID** | `the requested item` |\n" +
+		"| **Path** | `/private/tmp/data/workspaces/the requested item/skills/demo` |\n\n" +
+		"All values below are quoted verbatim from the activation result without substitution or fabrication."
+	want := "Activation result:\n\n" +
+		"| Field | Rendered value |\n|---|---|\n" +
+		"| **Session ID** | See the exact session in the activation card. |\n" +
+		"| **Path** | See the exact path in the tool card. |\n\n" +
+		"Human-readable fields are quoted above; exact Session and Directory values remain in the adjacent activation card."
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("English skill activation table redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorKeepsSkillContextTableAndTruthClaimHonestAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是激活结果的渲染字段：\n\n",
+		"| 字段 | 渲染值 |\n|---|---|\n",
+		"| **Session** | `the requested ",
+		"item` |\n",
+		"| **Directory** | `/private/tmp/data/workspaces/the requested ",
+		"item/skills/ep111-inline` |\n\n",
+		"以上所有值均从激活工具返回结果中原样引用，未做任何替换或臆造。\n",
+	} {
+		piece := r.Write(delta)
+		for _, forbidden := range []string{
+			opaqueEntityPlaceholder,
+			legacyEntityPlaceholder,
+			"/the requested item/",
+			"原样引用，未做任何替换或臆造",
+		} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("skill table or false truth claim leaked after %q: %q", delta, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	final := got.String()
+	for _, want := range []string{
+		"| **Session** | See the exact session in the activation card. |",
+		"| **Directory** | See the exact path in the tool card. |",
+		"可安全展示的人话字段已原样引用；精确的 Session 和 Directory 请查看相邻激活工具卡。",
+	} {
+		if !strings.Contains(final, want) {
+			t.Fatalf("streamed skill table missing %q: %q", want, final)
+		}
 	}
 }
 

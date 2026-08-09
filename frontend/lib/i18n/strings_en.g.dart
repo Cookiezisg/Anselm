@@ -1109,6 +1109,12 @@ class Translations$library$en {
 	/// en: 'Duplicate'
 	String get duplicate => 'Duplicate';
 
+	/// en: 'Edit with AI'
+	String get editWithAi => 'Edit with AI';
+
+	/// en: 'Help me edit “$name” with AI.'
+	String iterateRequest({required Object name}) => 'Help me edit “${name}” with AI.';
+
 	/// en: 'Delete this page?'
 	String get deleteDocTitle => 'Delete this page?';
 
@@ -1161,6 +1167,12 @@ class Translations$library$en {
 
 	/// en: 'Saving the file failed'
 	String get skillFileSaveFailed => 'Saving the file failed';
+
+	/// en: 'Your draft is still open. Fix it and save again.'
+	String get skillFileSaveRetryHint => 'Your draft is still open. Fix it and save again.';
+
+	/// en: 'The manifest name must match the skill folder (${directory}).'
+	String skillFileSaveInvalidManifest({required Object directory}) => 'The manifest name must match the skill folder (${directory}).';
 
 	/// en: 'Files'
 	String get skillFiles => 'Files';
@@ -1216,6 +1228,9 @@ class Translations$library$en {
 	/// en: 'No installable skills in this source'
 	String get skillInstallNone => 'No installable skills in this source';
 
+	/// en: 'All installable skills are already in your library.'
+	String get skillInstallAlreadyInstalled => 'All installable skills are already in your library.';
+
 	/// en: 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve'
 	String get skillInstallPreauthNote => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve';
 
@@ -1251,6 +1266,12 @@ class Translations$library$en {
 
 	/// en: 'Delete $path? This cannot be undone.'
 	String skillDeleteFileBody({required Object path}) => 'Delete ${path}? This cannot be undone.';
+
+	/// en: '$path was already removed. The file list was refreshed.'
+	String skillDeleteFileGone({required Object path}) => '${path} was already removed. The file list was refreshed.';
+
+	/// en: 'Couldn't delete $path. The file list was refreshed; try again.'
+	String skillDeleteFileFailed({required Object path}) => 'Couldn\'t delete ${path}. The file list was refreshed; try again.';
 
 	/// en: 'Bindings'
 	String get skillBindings => 'Bindings';
@@ -4860,8 +4881,8 @@ class Translations$library$props$en {
 	/// en: 'Agent'
 	String get agent => 'Agent';
 
-	/// en: 'Subagent type to dispatch — required for a fork skill.'
-	String get agentHint => 'Subagent type to dispatch — required for a fork skill.';
+	/// en: 'Case-sensitive: Explore (read-only), Plan (planning), or general-purpose (full tools). Required for a fork skill.'
+	String get agentHint => 'Case-sensitive: Explore (read-only), Plan (planning), or general-purpose (full tools). Required for a fork skill.';
 
 	/// en: 'Allowed tools'
 	String get tools => 'Allowed tools';
@@ -5711,6 +5732,27 @@ class Translations$settings$mcp$en {
 	/// en: 'No MCP servers yet'
 	String get empty => 'No MCP servers yet';
 
+	/// en: 'Loading MCP servers…'
+	String get loading => 'Loading MCP servers…';
+
+	/// en: 'Couldn't load MCP servers'
+	String get loadFailed => 'Couldn\'t load MCP servers';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'MCP server removed — the list was refreshed'
+	String get removedNotice => 'MCP server removed — the list was refreshed';
+
+	/// en: 'This MCP server was removed'
+	String get removedTitle => 'This MCP server was removed';
+
+	/// en: 'The roster was refreshed. Choose another server.'
+	String get removedHint => 'The roster was refreshed. Choose another server.';
+
+	/// en: 'Back to MCP servers'
+	String get backToList => 'Back to MCP servers';
+
 	/// en: 'Reconnect'
 	String get reconnect => 'Reconnect';
 
@@ -5795,8 +5837,17 @@ class Translations$settings$mcp$en {
 	/// en: 'Imported $n · skipped $m'
 	String importResult({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}';
 
+	/// en: 'Importing…'
+	String get importing => 'Importing…';
+
 	/// en: 'Couldn't parse the JSON'
 	String get importInvalid => 'Couldn\'t parse the JSON';
+
+	/// en: 'Add mcpServers to JSON'
+	String get importInvalidShape => 'Add mcpServers to JSON';
+
+	/// en: 'Keep the JSON under 1 MiB'
+	String get importTooLarge => 'Keep the JSON under 1 MiB';
 
 	/// en: 'Marketplace'
 	String get market => 'Marketplace';
@@ -5818,6 +5869,21 @@ class Translations$settings$mcp$en {
 
 	/// en: 'Install your first MCP server from the marketplace'
 	String get marketEmptyLead => 'Install your first MCP server from the marketplace';
+
+	/// en: 'Couldn't load the marketplace'
+	String get marketLoadFailed => 'Couldn\'t load the marketplace';
+
+	/// en: 'Check the connection and try again.'
+	String get marketLoadFailedHint => 'Check the connection and try again.';
+
+	/// en: 'Couldn't prepare the install'
+	String get planLoadFailed => 'Couldn\'t prepare the install';
+
+	/// en: 'The marketplace entry may have changed. Try again.'
+	String get planLoadFailedHint => 'The marketplace entry may have changed. Try again.';
+
+	/// en: 'Missing required environment variables: $names'
+	String missingEnv({required Object names}) => 'Missing required environment variables: ${names}';
 
 	/// en: 'Prerequisite'
 	String get prerequisite => 'Prerequisite';
@@ -8951,6 +9017,8 @@ extension on Translations {
 			'library.loadFailed' => 'Couldn\'t open this',
 			'library.rename' => 'Rename',
 			'library.duplicate' => 'Duplicate',
+			'library.editWithAi' => 'Edit with AI',
+			'library.iterateRequest' => ({required Object name}) => 'Help me edit “${name}” with AI.',
 			'library.deleteDocTitle' => 'Delete this page?',
 			'library.deleteDocBody' => ({required Object name}) => '“${name}” and everything nested inside it will be removed.',
 			'library.deleteSkillTitle' => 'Delete this skill?',
@@ -8971,7 +9039,7 @@ extension on Translations {
 			'library.props.contextInline' => 'Inline',
 			'library.props.contextFork' => 'Fork',
 			'library.props.agent' => 'Agent',
-			'library.props.agentHint' => 'Subagent type to dispatch — required for a fork skill.',
+			'library.props.agentHint' => 'Case-sensitive: Explore (read-only), Plan (planning), or general-purpose (full tools). Required for a fork skill.',
 			'library.props.tools' => 'Allowed tools',
 			'library.props.addTool' => 'Add a tool',
 			'library.props.toolPickerTitle' => 'Add a tool',
@@ -9030,6 +9098,8 @@ extension on Translations {
 			'library.skillFileTooLargeTitle' => 'File too large to preview',
 			'library.skillFileTooLargeHint' => 'This file is over the 1 MB inline preview limit. Open it with the system instead.',
 			'library.skillFileSaveFailed' => 'Saving the file failed',
+			'library.skillFileSaveRetryHint' => 'Your draft is still open. Fix it and save again.',
+			'library.skillFileSaveInvalidManifest' => ({required Object directory}) => 'The manifest name must match the skill folder (${directory}).',
 			'library.skillFiles' => 'Files',
 			'library.skillProvenance' => 'Provenance',
 			'library.skillInstalledFrom' => 'Installed from',
@@ -9048,6 +9118,7 @@ extension on Translations {
 			'library.skillInstallGo' => 'Install selected',
 			'library.skillInstallDone' => 'Install finished',
 			'library.skillInstallNone' => 'No installable skills in this source',
+			'library.skillInstallAlreadyInstalled' => 'All installable skills are already in your library.',
 			'library.skillInstallPreauthNote' => 'These tools will request confirmation-free pre-approval — inactive until you explicitly approve',
 			'library.skillInstalledBadge' => 'installed',
 			'library.skillPreviewMode' => 'Preview',
@@ -9060,6 +9131,8 @@ extension on Translations {
 			'library.skillNewFileHint' => 'Relative path, e.g. references/notes.md',
 			'library.skillDeleteFileTitle' => 'Delete file',
 			'library.skillDeleteFileBody' => ({required Object path}) => 'Delete ${path}? This cannot be undone.',
+			'library.skillDeleteFileGone' => ({required Object path}) => '${path} was already removed. The file list was refreshed.',
+			'library.skillDeleteFileFailed' => ({required Object path}) => 'Couldn\'t delete ${path}. The file list was refreshed; try again.',
 			'library.skillBindings' => 'Bindings',
 			'library.skillManifestSource' => 'Edit manifest source',
 			'library.glanceFiles' => ({required Object n}) => '${n} files',
@@ -9338,6 +9411,13 @@ extension on Translations {
 			'settings.mcp.manualAdd' => 'Add manually',
 			'settings.mcp.importJson' => 'Import mcp.json',
 			'settings.mcp.empty' => 'No MCP servers yet',
+			'settings.mcp.loading' => 'Loading MCP servers…',
+			'settings.mcp.loadFailed' => 'Couldn\'t load MCP servers',
+			'settings.mcp.retry' => 'Retry',
+			'settings.mcp.removedNotice' => 'MCP server removed — the list was refreshed',
+			'settings.mcp.removedTitle' => 'This MCP server was removed',
+			'settings.mcp.removedHint' => 'The roster was refreshed. Choose another server.',
+			'settings.mcp.backToList' => 'Back to MCP servers',
 			'settings.mcp.reconnect' => 'Reconnect',
 			'settings.mcp.detail' => 'Details',
 			'settings.mcp.deleteServer' => 'Delete',
@@ -9366,7 +9446,10 @@ extension on Translations {
 			'settings.mcp.overwrite' => 'Overwrite same names',
 			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
+			'settings.mcp.importing' => 'Importing…',
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
+			'settings.mcp.importInvalidShape' => 'Add mcpServers to JSON',
+			'settings.mcp.importTooLarge' => 'Keep the JSON under 1 MiB',
 			'settings.mcp.market' => 'Marketplace',
 			'settings.mcp.searchMarket' => 'Search the marketplace…',
 			'settings.mcp.installed' => 'Installed',
@@ -9374,6 +9457,11 @@ extension on Translations {
 			'settings.mcp.installNamed' => ({required Object name}) => 'Install ${name}',
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.marketEmptyLead' => 'Install your first MCP server from the marketplace',
+			'settings.mcp.marketLoadFailed' => 'Couldn\'t load the marketplace',
+			'settings.mcp.marketLoadFailedHint' => 'Check the connection and try again.',
+			'settings.mcp.planLoadFailed' => 'Couldn\'t prepare the install',
+			'settings.mcp.planLoadFailedHint' => 'The marketplace entry may have changed. Try again.',
+			'settings.mcp.missingEnv' => ({required Object names}) => 'Missing required environment variables: ${names}',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
@@ -9414,6 +9502,8 @@ extension on Translations {
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
 			'settings.storage.factoryTitle' => 'Factory reset',
 			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
 			'settings.storage.factoryConfirm' => 'Erase everything & relaunch',
 			'settings.limits.scopeNote' => 'Machine-wide — every workspace edits this machine\'s single set of limits',
@@ -9438,8 +9528,6 @@ extension on Translations {
 			'settings.sandbox.retry' => 'Retry',
 			'settings.sandbox.runtimes' => 'Runtimes',
 			'settings.sandbox.install' => 'Install',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.installing' => 'Installing…',
 			'settings.sandbox.installTitle' => 'Install runtime',
 			'settings.sandbox.kind' => 'Kind',

@@ -1,10 +1,12 @@
 package workflow
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	stderrors "errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	schedulerapp "github.com/sunweilin/anselm/backend/internal/app/scheduler"
@@ -131,7 +133,7 @@ type SearchFlowruns struct {
 func (t *SearchFlowruns) Name() string { return "search_flowruns" }
 
 func (t *SearchFlowruns) Description() string {
-	return "List workflow runs (most recent first), optionally filtered to one workflow. Each row carries the workflow name when still available, status, error and timing. Do not automatically call get_flowrun after this result: only call get_flowrun when the user explicitly asks for per-node detail or selects one specific run to diagnose."
+	return "List workflow runs (most recent first), optionally filtered to one workflow. Each row carries the workflow name when still available, status, error and timing. For hosted-model compatibility, limit accepts a native integer or an exact decimal integer string; floats, arbitrary strings, arrays, and other shapes remain invalid. Do not automatically call get_flowrun after this result: only call get_flowrun when the user explicitly asks for per-node detail or selects one specific run to diagnose."
 }
 
 func (t *SearchFlowruns) Parameters() json.RawMessage {
@@ -141,14 +143,67 @@ func (t *SearchFlowruns) Parameters() json.RawMessage {
 		"properties": {
 			"workflowId": {"type": "string", "description": "Optional: only this workflow's runs."},
 			"status": {"type": "string", "enum": ["running", "completed", "failed", "cancelled"], "description": "Optional run status filter."},
-			"limit": {"type": "integer", "description": "Page size (default 50)."},
+			"limit": {"type": "integer", "description": "Page size (default 50). An exact decimal integer string is also accepted from hosted callers; floats, booleans, arrays, and other strings are invalid."},
 			"cursor": {"type": "string", "description": "Opaque pagination cursor."}
 		}
 	}`)
 }
 
+type searchFlowrunsArgs struct {
+	WorkflowID string
+	Status     string
+	Limit      int
+	Cursor     string
+}
+
+// UnmarshalJSON accepts native integers and the exact decimal-string variant emitted by some
+// hosted models. Floats, arbitrary strings, arrays, and other shapes remain invalid.
+// UnmarshalJSON 接受原生整数及部分托管模型发出的精确十进制字符串；浮点、任意字符串、数组等仍拒绝。
+func (a *searchFlowrunsArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		WorkflowID string          `json:"workflowId"`
+		Status     string          `json:"status"`
+		Limit      json.RawMessage `json:"limit"`
+		Cursor     string          `json:"cursor"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	limit, err := decodeSearchFlowrunsInt(raw.Limit)
+	if err != nil {
+		return fmt.Errorf("limit: %w", err)
+	}
+	*a = searchFlowrunsArgs{
+		WorkflowID: raw.WorkflowID,
+		Status:     raw.Status,
+		Limit:      limit,
+		Cursor:     raw.Cursor,
+	}
+	return nil
+}
+
+func decodeSearchFlowrunsInt(raw json.RawMessage) (int, error) {
+	raw = bytes.TrimSpace(raw)
+	if len(raw) == 0 || bytes.Equal(raw, []byte("null")) {
+		return 0, nil
+	}
+	var value int
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err != nil {
+		return 0, fmt.Errorf("must be integer or an exact decimal integer string, got %s", string(raw))
+	}
+	value, err := strconv.Atoi(strings.TrimSpace(text))
+	if err != nil {
+		return 0, fmt.Errorf("must be integer or an exact decimal integer string, got %q", text)
+	}
+	return value, nil
+}
+
 func (t *SearchFlowruns) ValidateInput(args json.RawMessage) error {
-	var a struct{}
+	var a searchFlowrunsArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("search_flowruns: bad args: %w", err)
 	}
@@ -156,12 +211,7 @@ func (t *SearchFlowruns) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *SearchFlowruns) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var args struct {
-		WorkflowID string `json:"workflowId"`
-		Status     string `json:"status"`
-		Limit      int    `json:"limit"`
-		Cursor     string `json:"cursor"`
-	}
+	var args searchFlowrunsArgs
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_flowruns: bad args: %w", err)
 	}

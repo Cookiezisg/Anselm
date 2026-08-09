@@ -49,7 +49,8 @@ class SidebarType {
   final List<SidebarRow> rows;
 
   /// Starts collapsed (the scheduler rail's sunk «never ran (n)» / «inactive (n)» sections, WRK-069 §2).
-  /// The user's toggle wins thereafter — this seeds first paint only. 首绘即收起(沉底段);此后用户手翻为准。
+  /// The user's toggle wins thereafter; without an explicit choice, a model rebuild may reconcile this
+  /// default when sections reorder. 首绘即收起(沉底段);此后用户手翻为准;未明确操作时重排可同步默认态。
   final bool initiallyFolded;
 
   /// Pagination axis id — non-null makes this section infinite-scrollable: a tail sentinel drives

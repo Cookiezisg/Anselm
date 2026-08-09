@@ -73,6 +73,8 @@ class AnCodeEditor extends StatefulWidget {
     this.autofocus = false,
     this.maxHeight,
     this.onChanged,
+    this.onSaveAsync,
+    this.onCancel,
     this.onInput,
     this.copyPayload,
     super.key,
@@ -149,6 +151,15 @@ class AnCodeEditor extends StatefulWidget {
 
   /// Commit callback (demo `an-change`) — fired on Save with the edited text. 保存提交。
   final ValueChanged<String>? onChanged;
+
+  /// Async commit callback. Return `true` only after the durable write succeeds; `false` keeps the
+  /// editor open with the draft intact so the user can fix and retry. 异步提交:只有持久写成功才返 true;
+  /// 失败返 false,编辑器保留草稿并留在编辑态,用户可修正后重试。
+  final Future<bool> Function(String text)? onSaveAsync;
+
+  /// Called when the user cancels an edit, so an owner can discard its draft/error projection.
+  /// 用户取消编辑时通知持有者,由持有者清掉草稿/错误投影。
+  final VoidCallback? onCancel;
 
   /// Per-keystroke callback (demo `an-input`). 逐键输入。
   final ValueChanged<String>? onInput;
@@ -331,16 +342,22 @@ class _AnCodeEditorState extends State<AnCodeEditor> {
     );
   }
 
-  void _save() {
+  Future<void> _save() async {
     final v = _controller?.text ?? widget.code;
+    if (widget.onSaveAsync != null) {
+      final saved = await widget.onSaveAsync!(v);
+      if (!mounted || !saved) return;
+    }
+    if (!mounted) return;
     setState(() => _editing = false);
     _disposeController();
-    widget.onChanged?.call(v);
+    if (widget.onSaveAsync == null) widget.onChanged?.call(v);
   }
 
   void _cancel() {
     setState(() => _editing = false);
     _disposeController();
+    widget.onCancel?.call();
   }
 
   void _disposeController() {

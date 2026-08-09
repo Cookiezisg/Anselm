@@ -47,6 +47,7 @@ const MaxNameLength = 256
 var (
 	ErrNotFound        = errorspkg.New(errorspkg.KindNotFound, "DOCUMENT_NOT_FOUND", "document not found")
 	ErrInvalidParent   = errorspkg.New(errorspkg.KindUnprocessable, "DOCUMENT_INVALID_PARENT", "invalid parent (cycle or self)")
+	ErrInvalidPosition = errorspkg.New(errorspkg.KindUnprocessable, "DOCUMENT_INVALID_POSITION", "position must be a non-negative sibling index")
 	ErrNameConflict    = errorspkg.New(errorspkg.KindConflict, "DOCUMENT_NAME_CONFLICT", "name already exists under same parent")
 	ErrContentTooLarge = errorspkg.New(errorspkg.KindTooLarge, "DOCUMENT_CONTENT_TOO_LARGE", "content exceeds 1 MB limit")
 	ErrInvalidName     = errorspkg.New(errorspkg.KindInvalid, "DOCUMENT_INVALID_NAME", "invalid name (empty, too long, or contains '/')")
@@ -76,8 +77,10 @@ type UpdateInput struct {
 }
 
 // MoveInput identifies a relocation; nil ParentID moves to root; nil Position appends to end.
+// A provided position is an insertion index in the inclusive range 0..sibling count.
 //
 // MoveInput 描述一次移动；nil ParentID 移到根；nil Position 追加到末尾。
+// 显式 position 必须是 0..同级数量（含末位）的插入下标。
 type MoveInput struct {
 	ParentID *string
 	Position *int

@@ -478,13 +478,21 @@ class _DocProperties extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
     final doc = ref.watch(openDocumentProvider(id));
+    // Structural signals refresh the metadata-only tree but deliberately leave the open document provider
+    // frozen so an editor never loses its caret. The inspector must therefore source path/metadata from the
+    // latest tree row while keeping body/name from the open document. 结构信号刷新树元数据，但为保光标刻意
+    // 冻结正文 provider；检查器取最新树行的 path/元数据，正文/名称仍取打开页。
+    final treeDoc = ref
+        .watch(documentTreeProvider)
+        .value
+        ?.where((row) => row.id == id)
+        .firstOrNull;
     final loaded = doc.value;
     final name = loaded?.name.trim() ?? '';
-    // Live metrics OVERRIDE the loaded doc's numbers (WRK-083 L16): openDocumentProvider is frozen
-    // mid-edit to protect the caret, so `loaded.content`/`updatedAt` go stale the instant the writer
-    // types. The edit view feeds char/byte/at live on the same channel as the outline. Null (nothing
-    // typed yet) → the loaded doc's own fields. 活度量覆盖 loaded doc 的数(L16):open provider 编辑中冻结保光标,
-    // loaded 一打字就陈旧;编辑视图与大纲同通道实时喂字数/字节/时刻。null(还没打字)→回退 loaded 自身字段。
+    // Live metrics keep char/byte values fresh (WRK-083 L16): openDocumentProvider is frozen mid-edit to
+    // protect the caret, so `loaded.content` becomes stale the instant the writer types. The shared
+    // timestamp rule separately decides whether a local edit time may outrank persisted metadata. Null
+    // (nothing typed yet) → the loaded doc's own fields. 活度量保持字数/字节新鲜;修改时间另走统一真相规则。
     final live = ref.watch(docLiveMetricsProvider);
     final liveForDoc = live?.sourceId == id ? live : null;
     // The glance rides the LOADED doc + the (separately-async) backlink count; null while loading. 速览带走已载 doc + 反链数。
@@ -495,7 +503,10 @@ class _DocProperties extends ConsumerWidget {
         context,
         chars: liveForDoc?.chars ?? _charCount(loaded.content),
         backlinks: backlinks.length,
-        updatedAt: liveForDoc?.at ?? loaded.updatedAt,
+        updatedAt: documentInspectorUpdatedAt(
+          live: liveForDoc,
+          persisted: treeDoc?.updatedAt ?? loaded.updatedAt,
+        ),
       );
     }
     return _InspectorShell(
@@ -520,7 +531,7 @@ class _DocProperties extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             const _OutlineGroup(),
-            _DocMetaGroup(doc: doc),
+            _DocMetaGroup(doc: doc, treeDoc: treeDoc),
             _BacklinksGroup(id: doc.id),
           ],
         ),
@@ -532,29 +543,36 @@ class _DocProperties extends ConsumerWidget {
 /// The page's PROPERTIES group (三段式文法 §3) — the read-only file meta (path · size · modified) as a family
 /// KV list (the page's editable name/description/tags live in the center header). 页属性组:只读文件 meta 键值列。
 class _DocMetaGroup extends ConsumerWidget {
-  const _DocMetaGroup({required this.doc});
+  const _DocMetaGroup({required this.doc, this.treeDoc});
 
   final DocumentNode doc;
+  final DocumentNode? treeDoc;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = context.t;
-    // Size + modified prefer the LIVE metrics over the frozen doc (WRK-083 L16) — same reason as the
-    // glance above. Path never changes mid-edit, so it stays on the loaded doc. 大小+修改时间优先活度量、
-    // path 编辑中不变故仍读 loaded doc。
+    // Size prefers the live metrics; modified uses the shared timestamp rule so a load seed cannot invent
+    // a new edit and a newer persisted structural event cannot be masked by an older local edit time.
+    // 大小优先活度量;修改时间走统一规则,载入 seed 不伪造新编辑,后端较新的结构事件也不被旧本地时刻遮住。
     final live = ref.watch(docLiveMetricsProvider);
     final liveForDoc = live?.sourceId == doc.id ? live : null;
+    final metadata = treeDoc ?? doc;
     // The family KV list (批6 A-082): path wraps (a flush-right ellipsis would cut its most useful tail).
     // 族键值列(path 换行,贴右省略会砍最有用的尾段)。
     final rows = [
-      AnKvRow(t.library.props.path, doc.path, mono: true, wrap: true),
+      AnKvRow(t.library.props.path, metadata.path, mono: true, wrap: true),
       AnKvRow(
         t.library.props.size,
-        formatBytes(liveForDoc?.bytes ?? doc.sizeBytes),
+        formatBytes(liveForDoc?.bytes ?? metadata.sizeBytes),
       ),
       AnKvRow(
         t.library.props.modified,
-        fmtDateTime(liveForDoc?.at ?? doc.updatedAt),
+        fmtDateTime(
+          documentInspectorUpdatedAt(
+            live: liveForDoc,
+            persisted: metadata.updatedAt,
+          ),
+        ),
       ),
     ];
     return _GroupSection(
@@ -998,11 +1016,32 @@ class _SkillFilesGroup extends ConsumerWidget {
       if (context.mounted && ref.read(selectedSkillFileProvider) == path) {
         context.go(skillLocation(name)); // 删的是打开中的文件 → 回清单
       }
+    } on ApiException catch (error) {
+      // A stale row is expected when another client deleted the file first. Refresh the
+      // tree on every API failure, and leave the user on the skill overview if the open
+      // preview no longer exists. 失败也要刷新真相树,避免把幽灵行留在屏幕上。
+      ref.invalidate(skillFilesProvider(name));
+      if (context.mounted &&
+          error.code == AnselmErr.skillFileNotFound &&
+          ref.read(selectedSkillFileProvider) == path) {
+        context.go(skillLocation(name));
+      }
+      if (!context.mounted) return;
+      final message = error.code == AnselmErr.skillFileNotFound
+          ? context.t.library.skillDeleteFileGone(path: path)
+          : context.t.library.skillDeleteFileFailed(path: path);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(message, tone: AnTone.danger);
     } catch (_) {
+      ref.invalidate(skillFilesProvider(name));
       if (context.mounted) {
         ref
             .read(noticeCenterProvider.notifier)
-            .show(context.t.library.actionFailed, tone: AnTone.danger);
+            .show(
+              context.t.library.skillDeleteFileFailed(path: path),
+              tone: AnTone.danger,
+            );
       }
     }
   }

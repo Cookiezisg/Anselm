@@ -294,7 +294,7 @@ FixtureLibraryRepository demoLibraryRepository() {
           description: 'Writes conventional commits from a diff.',
           allowedTools: ['Read', 'Bash(git:*)'],
           context: 'fork',
-          agent: 'coder',
+          agent: 'Explore',
           source: 'user',
         ),
         updatedAt: t,

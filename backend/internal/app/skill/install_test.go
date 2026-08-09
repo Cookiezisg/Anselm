@@ -6,7 +6,11 @@ import (
 	"strings"
 	"testing"
 
+	"go.uber.org/zap"
+
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
+	skillfs "github.com/sunweilin/anselm/backend/internal/infra/fs/skill"
 	skillfetch "github.com/sunweilin/anselm/backend/internal/infra/skillfetch"
 	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -20,6 +24,22 @@ func fakeCands(cands ...skillfetch.Candidate) fetchFunc {
 		return cands, nil
 	}
 }
+
+type recordingSkillEmitter struct {
+	events []string
+}
+
+func (r *recordingSkillEmitter) Emit(_ context.Context, eventType string, _ map[string]any) error {
+	r.events = append(r.events, eventType)
+	return nil
+}
+
+func (r *recordingSkillEmitter) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	r.events = append(r.events, eventType)
+	return nil
+}
+
+var _ notificationdomain.Emitter = (*recordingSkillEmitter)(nil)
 
 func installTestSetup(t *testing.T) (*Service, context.Context) {
 	t.Helper()
@@ -121,6 +141,35 @@ func TestApproveTools_RefusedForLocalSkills(t *testing.T) {
 	}
 }
 
+func TestApproveTools_IsIdempotentAfterApproval(t *testing.T) {
+	emitter := &recordingSkillEmitter{}
+	svc := NewService(skillfs.New(t.TempDir()), nil, emitter, zap.NewNop())
+	svc.SetFetcher(fakeCands(skillfetch.Candidate{
+		Name: "pdf",
+		Files: map[string][]byte{
+			"SKILL.md": []byte("---\nname: pdf\ndescription: handles pdfs\nallowed-tools:\n  - Read\n---\nDo pdf things.\n"),
+		},
+	}))
+	ctx := ctxWS("ws_1")
+	if _, err := svc.Install(ctx, "owner/repo", nil, false); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	emitter.events = nil
+	if _, err := svc.ApproveTools(ctx, "pdf"); err != nil {
+		t.Fatalf("first approval: %v", err)
+	}
+	if got := strings.Join(emitter.events, ","); got != "skill.updated" {
+		t.Fatalf("first approval events = %q, want one update", got)
+	}
+	emitter.events = nil
+	if _, err := svc.ApproveTools(ctx, "pdf"); err != nil {
+		t.Fatalf("repeated approval: %v", err)
+	}
+	if len(emitter.events) != 0 {
+		t.Fatalf("repeated approval emitted events: %v", emitter.events)
+	}
+}
+
 func TestUpdateInstalled_DriftRefusalAndToolChangeResetsGate(t *testing.T) {
 	svc, ctx := installTestSetup(t)
 	if _, err := svc.Install(ctx, "owner/repo", nil, false); err != nil {
@@ -192,6 +241,40 @@ func TestUpdateInstalled_UnchangedToolsKeepApproval(t *testing.T) {
 	}
 	if !state.IsToolPreApprovedBySkill("run_function") {
 		t.Fatal("unchanged allowed-tools must keep the user's approval across update")
+	}
+}
+
+func TestInstallAndUpdate_EmitOneLifecycleEventForOperation(t *testing.T) {
+	emitter := &recordingSkillEmitter{}
+	svc := NewService(skillfs.New(t.TempDir()), nil, emitter, zap.NewNop())
+	svc.SetFetcher(fakeCands(skillfetch.Candidate{
+		Name: "pdf",
+		Files: map[string][]byte{
+			"SKILL.md": []byte("---\nname: pdf\ndescription: v1\n---\nbody\n"),
+		},
+	}))
+	ctx := ctxWS("ws_1")
+	if _, err := svc.Install(ctx, "owner/repo", nil, false); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if got := strings.Join(emitter.events, ","); got != "skill.created" {
+		t.Fatalf("fresh install events = %q, want one create", got)
+	}
+
+	emitter.events = nil
+	if _, err := svc.Install(ctx, "owner/repo", nil, true); err != nil {
+		t.Fatalf("force reinstall: %v", err)
+	}
+	if got := strings.Join(emitter.events, ","); got != "skill.updated" {
+		t.Fatalf("force reinstall events = %q, want one update", got)
+	}
+
+	emitter.events = nil
+	if _, err := svc.UpdateInstalled(ctx, "pdf", false); err != nil {
+		t.Fatalf("update: %v", err)
+	}
+	if got := strings.Join(emitter.events, ","); got != "skill.updated" {
+		t.Fatalf("update events = %q, want one update", got)
 	}
 }
 

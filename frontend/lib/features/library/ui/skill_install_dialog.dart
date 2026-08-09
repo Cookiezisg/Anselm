@@ -58,7 +58,14 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
         _previews = previews;
         _picked
           ..clear()
-          ..addAll(previews.where((p) => p.installable).map((p) => p.name));
+          // An existing skill cannot be installed through this dialog: the request has no force
+          // action, and the backend deliberately returns a skip. Keep it visible for comparison,
+          // but never make a no-op look selected.
+          ..addAll(
+            previews
+                .where((p) => p.installable && !p.alreadyExists)
+                .map((p) => p.name),
+          );
       });
     } catch (e) {
       setState(() => _error = _reason(e));
@@ -108,6 +115,8 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
     final t = context.t;
     final c = context.colors;
     final previews = _previews;
+    final hasNewCandidates =
+        previews?.any((p) => p.installable && !p.alreadyExists) ?? false;
     // Material(transparency): this dialog lives in a RawDialogRoute (anPanelRoute), outside any
     // Scaffold — its AnInput/TextField (the source field below) needs a Material ancestor (else the
     // debug yellow underline / no-Material assert). Mirrors skill_tool_picker.dart's same fix for the
@@ -180,7 +189,9 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
                       previews.any((p) => p.installable)) ...[
                     const SizedBox(height: AnSpace.s8),
                     Text(
-                      t.library.skillInstallPreauthNote,
+                      hasNewCandidates
+                          ? t.library.skillInstallPreauthNote
+                          : t.library.skillInstallAlreadyInstalled,
                       style: AnText.meta.copyWith(color: c.warn),
                     ),
                     const SizedBox(height: AnSpace.s12),
@@ -215,14 +226,15 @@ class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
     final c = context.colors;
     final t = context.t;
     final picked = _picked.contains(p.name);
+    final selectable = p.installable && !p.alreadyExists;
     return Padding(
       padding: const EdgeInsets.only(bottom: AnSpace.s8),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           AnSwitch(
-            value: picked && p.installable,
-            onChanged: p.installable
+            value: picked && selectable,
+            onChanged: selectable
                 ? (v) => setState(
                     () => v ? _picked.add(p.name) : _picked.remove(p.name),
                   )

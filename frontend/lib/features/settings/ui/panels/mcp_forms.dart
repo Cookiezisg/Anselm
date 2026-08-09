@@ -228,7 +228,12 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
     } on FormatException {
       notices.show(t.settings.mcp.importInvalid, tone: AnTone.danger);
     } on ApiException catch (e) {
-      notices.show(e.message, tone: AnTone.danger);
+      final message = switch (e.code) {
+        'MCP_IMPORT_INVALID' => t.settings.mcp.importInvalidShape,
+        'MCP_IMPORT_TOO_LARGE' => t.settings.mcp.importTooLarge,
+        _ => e.message,
+      };
+      notices.show(message, tone: AnTone.danger);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -240,48 +245,66 @@ class _McpImportFormState extends ConsumerState<McpImportForm> {
     final c = context.colors;
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidthWide),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          AnInput(
-            controller: _json,
-            multiline: true,
-            mono: true,
-            placeholder: t.settings.mcp.importHint,
-            autofocus: true,
-            onChanged: (_) => setState(() {}),
-          ),
-          const SizedBox(height: AnSpace.s8),
-          Row(
-            children: [
-              AnSwitch(
-                value: _overwrite,
-                onChanged: (v) => setState(() => _overwrite = v),
+      child: SizedBox(
+        width: double.infinity,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(
+              height: AnSize.jsonViewport,
+              child: AnInput(
+                controller: _json,
+                multiline: true,
+                mono: true,
+                block: true,
+                placeholder: t.settings.mcp.importHint,
+                autofocus: true,
+                onChanged: (_) => setState(() {}),
               ),
-              const SizedBox(width: AnSpace.s8),
-              Text(
-                t.settings.mcp.overwrite,
-                style: AnText.label.copyWith(color: c.inkMuted),
-              ),
-            ],
-          ),
-          const SizedBox(height: AnSpace.s16),
-          Row(
-            children: [
-              AnButton(
-                label: t.settings.mcp.doImport,
-                variant: AnButtonVariant.primary,
-                onPressed: _busy || _json.text.trim().isEmpty ? null : _import,
-              ),
-              const SizedBox(width: AnSpace.s8),
-              AnButton(
-                label: t.settings.keys.cancel,
-                onPressed: () =>
-                    ref.read(settingsDetailProvider.notifier).pop(),
-              ),
-            ],
-          ),
-        ],
+            ),
+            const SizedBox(height: AnSpace.s8),
+            Row(
+              children: [
+                AnSwitch(
+                  value: _overwrite,
+                  onChanged: (v) => setState(() => _overwrite = v),
+                ),
+                const SizedBox(width: AnSpace.s8),
+                Text(
+                  t.settings.mcp.overwrite,
+                  style: AnText.label.copyWith(color: c.inkMuted),
+                ),
+              ],
+            ),
+            const SizedBox(height: AnSpace.s16),
+            Row(
+              children: [
+                if (_busy) ...[
+                  AnSpinner(
+                    size: AnSize.iconSm,
+                    semanticLabel: t.settings.mcp.importing,
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                ],
+                AnButton(
+                  label: _busy
+                      ? t.settings.mcp.importing
+                      : t.settings.mcp.doImport,
+                  variant: AnButtonVariant.primary,
+                  onPressed: _busy || _json.text.trim().isEmpty
+                      ? null
+                      : _import,
+                ),
+                const SizedBox(width: AnSpace.s8),
+                AnButton(
+                  label: t.settings.keys.cancel,
+                  onPressed: () =>
+                      ref.read(settingsDetailProvider.notifier).pop(),
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -304,52 +327,80 @@ class _McpMarketState extends ConsumerState<McpMarket> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
-    final entries =
-        ref.watch(mcpRegistryProvider).value ?? const <McpRegistryEntry>[];
-    final installed = {
-      for (final s
-          in ref.watch(mcpServersProvider).value ?? const <McpServerStatus>[])
-        s.name,
-    };
-    final q = _query.toLowerCase();
-    final rows = entries
-        .where(
-          (e) =>
-              q.isEmpty ||
-              e.name.toLowerCase().contains(q) ||
-              e.description.toLowerCase().contains(q),
-        )
-        .toList();
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        AnInput(
-          placeholder: t.settings.mcp.searchMarket,
-          autofocus: true,
-          onChanged: (v) => setState(() => _query = v.trim()),
+    final registry = ref.watch(mcpRegistryProvider);
+    return registry.when(
+      loading: () => const _McpMarketLoading(),
+      error: (_, _) => AnState(
+        kind: AnStateKind.error,
+        size: AnStateSize.inset,
+        title: t.settings.mcp.marketLoadFailed,
+        hint: t.settings.mcp.marketLoadFailedHint,
+        action: AnButton(
+          label: t.settings.mcp.retry,
+          outline: true,
+          onPressed: () => ref.invalidate(mcpRegistryProvider),
         ),
-        const SizedBox(height: AnSpace.s12),
-        AnAutoGrid(
-          minColWidth: AnSize.block,
+      ),
+      data: (entries) {
+        final installed = {
+          for (final s
+              in ref.watch(mcpServersProvider).value ??
+                  const <McpServerStatus>[])
+            s.name,
+        };
+        final q = _query.toLowerCase();
+        final rows = entries
+            .where(
+              (e) =>
+                  q.isEmpty ||
+                  e.name.toLowerCase().contains(q) ||
+                  e.description.toLowerCase().contains(q),
+            )
+            .toList();
+
+        return Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            for (final e in rows)
-              _MarketCard(
-                key: ValueKey(e.name),
-                entry: e,
-                installed: installed.contains(e.name.split('/').last),
+            AnInput(
+              placeholder: t.settings.mcp.searchMarket,
+              autofocus: true,
+              onChanged: (v) => setState(() => _query = v.trim()),
+            ),
+            const SizedBox(height: AnSpace.s12),
+            AnAutoGrid(
+              minColWidth: AnSize.block,
+              children: [
+                for (final e in rows)
+                  _MarketCard(
+                    key: ValueKey(e.name),
+                    entry: e,
+                    installed: installed.contains(e.name.split('/').last),
+                  ),
+              ],
+            ),
+            if (rows.isEmpty)
+              AnState(
+                kind: AnStateKind.empty,
+                size: AnStateSize.inset,
+                title: t.settings.mcp.empty,
               ),
           ],
-        ),
-        if (rows.isEmpty)
-          AnState(
-            kind: AnStateKind.empty,
-            size: AnStateSize.inset,
-            title: t.settings.mcp.empty,
-          ),
-      ],
+        );
+      },
     );
   }
+}
+
+class _McpMarketLoading extends StatelessWidget {
+  const _McpMarketLoading();
+
+  @override
+  Widget build(BuildContext context) => AnAutoGrid(
+    minColWidth: AnSize.block,
+    children: [
+      for (var i = 0; i < 6; i++) const AnCard(child: AnSkeleton.lines(3)),
+    ],
+  );
 }
 
 /// One marketplace card (App-Store grammar). The whole card taps into the `:plan` install form (env
@@ -404,7 +455,9 @@ class _MarketCardState extends ConsumerState<_MarketCard> {
     } on ApiException catch (e) {
       // MCP_INSTALL_FAILED etc — the honest red line on the card (the row may still have landed failed).
       // 安装失败:卡上红句诚实(行可能已落 failed)。
-      if (mounted) setState(() => _error = e.message);
+      if (mounted) {
+        setState(() => _error = _mcpInstallError(Translations.of(context), e));
+      }
     } finally {
       if (mounted) setState(() => _installing = false);
     }
@@ -505,6 +558,20 @@ class _MarketCardState extends ConsumerState<_MarketCard> {
   }
 }
 
+String _mcpInstallError(Translations t, ApiException error) {
+  final details = error.details;
+  final rawMissing = details is Map ? details['missing'] : null;
+  if (error.code == 'MCP_ENV_MISSING' && rawMissing is List) {
+    final missing = rawMissing
+        .whereType<String>()
+        .map((name) => name.trim())
+        .where((name) => name.isNotEmpty)
+        .join(', ');
+    if (missing.isNotEmpty) return t.settings.mcp.missingEnv(names: missing);
+  }
+  return error.message;
+}
+
 /// The install form — :plan-driven (工单⑨): the backend says which env vars to collect (isSecret →
 /// masked, required → starred) and whether this is an OAuth entry (button becomes «connect &
 /// authorize», waits on the browser). 安装表单::plan 驱动;OAuth 条目=「连接并授权」等浏览器。
@@ -546,7 +613,9 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
       });
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      if (mounted) {
+        setState(() => _error = _mcpInstallError(Translations.of(context), e));
+      }
     } finally {
       if (mounted) setState(() => _installing = false);
     }
@@ -558,6 +627,10 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
     final c = context.colors;
     final planAsync = ref.watch(mcpPlanProvider(widget.fullName));
     final plan = planAsync.value;
+    final cancel = AnButton(
+      label: t.settings.keys.cancel,
+      onPressed: () => ref.read(settingsDetailProvider.notifier).pop(),
+    );
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
@@ -567,16 +640,39 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
           Text(widget.fullName, style: AnText.mono.copyWith(color: c.ink)),
           const SizedBox(height: AnSpace.s8),
           if (planAsync.hasError)
-            // An honest error face — a dead :plan must never look like eternal loading. 诚实错误面。
-            Text(
-              planAsync.error is ApiException
+            // A stale marketplace entry must be recoverable without using the breadcrumb. 过期条目可重试且可退出。
+            AnState(
+              kind: AnStateKind.error,
+              size: AnStateSize.inset,
+              title: t.settings.mcp.planLoadFailed,
+              hint: t.settings.mcp.planLoadFailedHint,
+              detail: planAsync.error is ApiException
                   ? (planAsync.error as ApiException).message
                   : '${planAsync.error}',
-              style: AnText.label.copyWith(color: c.danger),
+              action: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  AnButton(
+                    label: t.settings.mcp.retry,
+                    outline: true,
+                    onPressed: () =>
+                        ref.invalidate(mcpPlanProvider(widget.fullName)),
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  cancel,
+                ],
+              ),
             )
           else if (plan == null)
-            // :plan resolving = the deferred-skeleton idiom, not a prose sentinel. 取回中走骨架。
-            const AnDeferredLoading(child: AnSkeleton.lines(3))
+            // :plan resolving = the deferred-skeleton idiom, with an escape hatch. 取回中走骨架且可退出。
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const AnDeferredLoading(child: AnSkeleton.lines(3)),
+                const SizedBox(height: AnSpace.s12),
+                cancel,
+              ],
+            )
           else ...[
             Row(
               children: [
@@ -636,11 +732,7 @@ class _McpInstallFormState extends ConsumerState<McpInstallForm> {
                   onPressed: _installing ? null : () => _install(plan),
                 ),
                 const SizedBox(width: AnSpace.s8),
-                AnButton(
-                  label: t.settings.keys.cancel,
-                  onPressed: () =>
-                      ref.read(settingsDetailProvider.notifier).pop(),
-                ),
+                cancel,
               ],
             ),
           ],

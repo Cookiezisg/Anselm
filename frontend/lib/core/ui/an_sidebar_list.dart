@@ -161,6 +161,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
   final TextEditingController _filter = TextEditingController();
   final Set<String> _collapsed =
       {}; // collapsed fold keys (default: all open) 折叠键(默认全开)
+  // Keep explicit user choices separate from automatic defaults. A stable fold key must preserve a
+  // user's choice, while a model reorder may legitimately change which section gets the default open
+  // slot. 用户选择与自动默认分开记:稳定折叠键要保留用户选择,但模型重排可以合法改变默认展开段。
+  final Set<String> _manuallyCollapsed = {};
+  final Set<String> _manuallyExpanded = {};
   final ScrollController _scroll = ScrollController();
   String _query = '';
 
@@ -217,13 +222,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
   @override
   void initState() {
     super.initState();
-    // Seed initially-folded sections (first paint only — the user's toggle wins thereafter, and a model
-    // rebuild never re-seeds an unfolded key). 首绘播种默认收起段;此后用户手翻为准,重建不复播。
-    for (final g in widget.model.groups) {
-      for (final t in g.types) {
-        if (t.initiallyFolded) _collapsed.add('t:${t.foldKey}');
-      }
-    }
+    _syncAutomaticFolds();
     _flat = flattenSidebar(widget.model, collapsed: _collapsed, query: _query);
     _branchSpan = _computeBranchSpans(_flat);
   }
@@ -233,7 +232,38 @@ class _AnSidebarListState extends State<AnSidebarList> {
     super.didUpdateWidget(old);
     // A model change (loadMore append / SSE patch / sort) rebuilds instantly — the fold TWEEN is only for
     // user toggles, not data churn. model 变(loadMore/SSE/sort)瞬时重建——折叠补间只给用户 toggle。
-    if (!identical(old.model, widget.model)) _rebuildFlat();
+    if (!identical(old.model, widget.model)) {
+      _syncAutomaticFolds();
+      _rebuildFlat();
+    }
+  }
+
+  /// Reconcile only automatic fold state. Explicit user choices win over a model's default, but a
+  /// reordered model must be allowed to move its default-open section with the new first section.
+  /// 只同步自动折叠态。用户明确选择优先于模型默认,但模型重排后默认展开段必须跟随新的第一段移动。
+  void _syncAutomaticFolds() {
+    final current = <String>{};
+    for (final g in widget.model.groups) {
+      for (final t in g.types) {
+        final key = 't:${t.foldKey}';
+        current.add(key);
+        if (_manuallyCollapsed.contains(key) ||
+            _manuallyExpanded.contains(key)) {
+          continue;
+        }
+        if (t.initiallyFolded) {
+          _collapsed.add(key);
+        } else {
+          _collapsed.remove(key);
+        }
+      }
+    }
+    // Keep explicit choices for temporarily absent sections, but discard automatic stale keys so a
+    // later section with the same semantic identity cannot inherit a vanished default accidentally.
+    // 暂时消失的段保留用户选择;清掉过期自动键,避免同语义段回来时继承已消失的默认态。
+    _collapsed.removeWhere(
+      (key) => !current.contains(key) && !_manuallyCollapsed.contains(key),
+    );
   }
 
   void _rebuildFlat() {
@@ -277,6 +307,8 @@ class _AnSidebarListState extends State<AnSidebarList> {
     // since a section head's rows share its depth). 头的子孙是 key 翻转时增删的连续区间:重展平与当前只差该区间长度
     // (depth 无法界定——段头的行与其同深)。
     if (!_collapsed.contains(key)) {
+      _manuallyCollapsed.add(key);
+      _manuallyExpanded.remove(key);
       _collapsed.add(key);
       final newFlat = flattenSidebar(
         widget.model,
@@ -296,6 +328,8 @@ class _AnSidebarListState extends State<AnSidebarList> {
         );
       }
     } else {
+      _manuallyExpanded.add(key);
+      _manuallyCollapsed.remove(key);
       _collapsed.remove(key);
       final newFlat = flattenSidebar(
         widget.model,

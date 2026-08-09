@@ -99,6 +99,7 @@ func TestUpdate_WorkDirNoopsAndAbsentKey(t *testing.T) {
 	if _, err := svc.Update(ctx, c.ID, UpdateInput{WorkDir: &dir}); err != nil {
 		t.Fatalf("mount: %v", err)
 	}
+	em.events = nil
 
 	// Same value again. 同一个值再来一次。
 	if _, err := svc.Update(ctx, c.ID, UpdateInput{WorkDir: &dir}); err != nil {
@@ -107,8 +108,8 @@ func TestUpdate_WorkDirNoopsAndAbsentKey(t *testing.T) {
 	if len(marker.calls) != 1 {
 		t.Fatalf("re-patching the same path must not mark again, calls=%v", marker.calls)
 	}
-	if em.last() == "conversation.work_dir" {
-		t.Fatal("a no-op residency patch must not claim a work_dir change")
+	if len(em.events) != 0 {
+		t.Fatalf("a no-op residency patch must not emit lifecycle events: %v", em.events)
 	}
 
 	// Absent key: another field changes, the residency does not. 缺键：别的字段变、驻地不变。

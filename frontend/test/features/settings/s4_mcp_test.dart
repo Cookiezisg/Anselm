@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/mcp.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
@@ -46,6 +47,43 @@ class _FailedMcpServers extends McpServersController {
   Future<List<McpServerStatus>> build() async =>
       throw StateError('mcp list failed');
 }
+
+Widget _hostWithMcpRegistry(
+  FixtureSettingsRepository repo,
+  Future<List<McpRegistryEntry>> Function() registry,
+) => ProviderScope(
+  overrides: [
+    settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+    settingsRepositoryProvider.overrideWithValue(repo),
+    mcpRegistryProvider.overrideWith((_) => registry()),
+  ],
+  child: TranslationProvider(
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AnTheme.light(),
+      home: const Scaffold(body: SingleChildScrollView(child: McpPanel())),
+    ),
+  ),
+);
+
+Widget _hostWithMcpPlan(
+  FixtureSettingsRepository repo,
+  String fullName,
+  Future<McpRegistryPlan> Function() plan,
+) => ProviderScope(
+  overrides: [
+    settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+    settingsRepositoryProvider.overrideWithValue(repo),
+    mcpPlanProvider(fullName).overrideWith((_) => plan()),
+  ],
+  child: TranslationProvider(
+    child: MaterialApp(
+      debugShowCheckedModeBanner: false,
+      theme: AnTheme.light(),
+      home: const Scaffold(body: SingleChildScrollView(child: McpPanel())),
+    ),
+  ),
+);
 
 Widget _hostWithMcpProvider(
   FixtureSettingsRepository repo,
@@ -93,6 +131,115 @@ void main() {
     expect(find.text(t.settings.mcp.retry), findsOneWidget);
     expect(find.text(t.settings.mcp.empty), findsNothing);
     expect(find.text(t.settings.mcp.marketEmptyLead), findsNothing);
+  });
+
+  testWidgets('market loading is not presented as an empty registry', (
+    tester,
+  ) async {
+    final gate = Completer<List<McpRegistryEntry>>();
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_hostWithMcpRegistry(repo, () => gate.future));
+    await tester.pump(const Duration(milliseconds: 200));
+    final t = Translations.of(tester.element(find.byType(McpPanel)));
+
+    expect(find.byType(AnSkeleton), findsWidgets);
+    expect(find.text(t.settings.mcp.empty), findsNothing);
+
+    gate.complete(const [McpRegistryEntry(name: 'io.github.x/weather')]);
+    await tester.pumpAndSettle();
+    expect(find.text('weather'), findsOneWidget);
+  });
+
+  testWidgets('install plan loading keeps an escape action', (tester) async {
+    final gate = Completer<McpRegistryPlan>();
+    const name = 'io.github.x/weather';
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_hostWithMcpPlan(repo, name, () => gate.future));
+    await tester.pumpAndSettle();
+    final panelEl = tester.element(find.byType(McpPanel));
+    final container = ProviderScope.containerOf(panelEl, listen: false);
+    final t = Translations.of(panelEl);
+
+    container
+        .read(settingsDetailProvider.notifier)
+        .push('mcpInstall', id: name);
+    await tester.pump();
+    await tester.pump(AnMotion.loaderDelay + const Duration(milliseconds: 20));
+
+    expect(find.byType(AnSkeleton), findsOneWidget);
+    expect(find.text(t.settings.keys.cancel), findsOneWidget);
+
+    gate.complete(const McpRegistryPlan(transport: 'stdio'));
+    await tester.pumpAndSettle();
+    expect(find.text(t.settings.mcp.install), findsOneWidget);
+  });
+
+  testWidgets('install plan failure is actionable and preserves the detail', (
+    tester,
+  ) async {
+    const name = 'io.github.x/missing';
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(
+      _hostWithMcpPlan(
+        repo,
+        name,
+        () async => throw const ApiException(
+          code: 'MCP_REGISTRY_NOT_FOUND',
+          message: 'mcp registry entry not found',
+          httpStatus: 404,
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    final panelEl = tester.element(find.byType(McpPanel));
+    final container = ProviderScope.containerOf(panelEl, listen: false);
+    final t = Translations.of(panelEl);
+
+    container
+        .read(settingsDetailProvider.notifier)
+        .push('mcpInstall', id: name);
+    await tester.pumpAndSettle();
+
+    expect(find.text(t.settings.mcp.planLoadFailed), findsOneWidget);
+    expect(find.text(t.settings.mcp.retry), findsOneWidget);
+    expect(find.text(t.settings.keys.cancel), findsOneWidget);
+    expect(find.text('mcp registry entry not found'), findsOneWidget);
+  });
+
+  testWidgets('install missing env error names the fields to fill', (
+    tester,
+  ) async {
+    const name = 'io.github.x/secret-server';
+    const plan = McpRegistryPlan(
+      transport: 'stdio',
+      envVars: [McpEnvVar(name: 'API_KEY', required: true, isSecret: true)],
+    );
+    final repo = FixtureSettingsRepository()
+      ..failNextMcpInstall = const ApiException(
+        code: 'MCP_ENV_MISSING',
+        message: 'required environment variables missing',
+        httpStatus: 422,
+        details: {
+          'missing': ['API_KEY'],
+        },
+      );
+    await tester.pumpWidget(_hostWithMcpPlan(repo, name, () async => plan));
+    await tester.pumpAndSettle();
+    final panelEl = tester.element(find.byType(McpPanel));
+    final container = ProviderScope.containerOf(panelEl, listen: false);
+    final t = Translations.of(panelEl);
+
+    container
+        .read(settingsDetailProvider.notifier)
+        .push('mcpInstall', id: name);
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.mcp.install));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(t.settings.mcp.missingEnv(names: 'API_KEY')),
+      findsOneWidget,
+    );
   });
 
   testWidgets('roster: stats bar counts ready/failed; five-state dot mapping', (
@@ -240,6 +387,43 @@ void main() {
   });
 
   testWidgets(
+    'import form keeps long JSON in a full-width viewport and exposes busy state',
+    (tester) async {
+      final repo = FixtureSettingsRepository();
+      final gate = Completer<void>();
+      repo.mcpImportGate = gate;
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final panelEl = tester.element(find.byType(McpPanel));
+      final container = ProviderScope.containerOf(panelEl, listen: false);
+      final t = Translations.of(panelEl);
+
+      container.read(settingsDetailProvider.notifier).push('mcpImport');
+      await tester.pumpAndSettle();
+
+      final input = find.byType(AnInput);
+      expect(tester.getSize(input).width, greaterThan(500));
+      expect(tester.getSize(input).height, AnSize.jsonViewport);
+
+      await tester.enterText(
+        find.byType(TextField),
+        '{"mcpServers":{"long":{"command":"${'x' * 2000}"}}}',
+      );
+      await tester.pump();
+      expect(tester.getSize(input).height, AnSize.jsonViewport);
+      expect(find.text(t.settings.mcp.doImport), findsOneWidget);
+
+      await tester.tap(find.text(t.settings.mcp.doImport));
+      await tester.pump();
+      expect(find.text(t.settings.mcp.importing), findsOneWidget);
+      expect(find.byType(AnSpinner), findsOneWidget);
+
+      gate.complete();
+      await tester.pumpAndSettle();
+    },
+  );
+
+  testWidgets(
     'detail: status card + three tabs; failed server leads with the error',
     (tester) async {
       final repo = FixtureSettingsRepository()
@@ -371,6 +555,8 @@ void main() {
       await container.read(mcpServersProvider.notifier).refresh();
       await tester.pump();
       await tester.pump();
+      await tester
+          .pump(); // the zero-server roster mounts the marketplace future after the pop
 
       expect(container.read(settingsDetailProvider), isNull);
       expect(find.text(t.settings.mcp.empty), findsOneWidget);

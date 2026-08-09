@@ -191,6 +191,20 @@ void main() {
       },
     );
 
+    test('flat heads use the exact axis total, not the loaded window', () {
+      final types = _types(
+        _state(
+          pinned: [
+            _cAt('cv_pin_1', DateTime(2026, 6, 26, 11), pinned: true),
+            _cAt('cv_pin_2', DateTime(2026, 6, 26, 10), pinned: true),
+          ],
+          pinnedTotal: 32,
+        ),
+      );
+      expect(types.single.count, 32);
+      expect(types.single.rows.length, 2);
+    });
+
     test(
       'show-archived sums the two counts; otherwise the head counts only the active ones',
       () {
@@ -465,11 +479,13 @@ List<SidebarType> _types(
 ConversationListState _state({
   List<Conversation> pinned = const [],
   List<Conversation> recents = const [],
+  int? pinnedTotal,
+  int? recentsTotal,
   List<WorkDirGroup> groups = const [],
   Map<String, List<Conversation>> groupRows = const {},
 }) => ConversationListState(
-  pinned: ConvAxis(rows: pinned, loaded: true),
-  recents: ConvAxis(rows: recents, loaded: true),
+  pinned: ConvAxis(rows: pinned, total: pinnedTotal, loaded: true),
+  recents: ConvAxis(rows: recents, total: recentsTotal, loaded: true),
   groups: groups,
   groupAxes: {
     for (final e in groupRows.entries)

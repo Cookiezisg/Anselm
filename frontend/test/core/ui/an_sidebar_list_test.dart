@@ -95,6 +95,109 @@ void main() {
   );
 
   testWidgets(
+    'model reorder moves the automatic open slot to the new first section',
+    (tester) async {
+      SidebarModel ordered({required bool betaFirst}) => SidebarModel(
+        newLabel: 'New',
+        filterPlaceholder: 'Filter…',
+        groups: [
+          SidebarGroup(
+            types: [
+              SidebarType(
+                label: betaFirst ? 'BETA' : 'ALPHA',
+                icon: AnIcons.function,
+                initiallyFolded: false,
+                rows: [
+                  SidebarRow(
+                    id: betaFirst ? 'b1' : 'a1',
+                    label: betaFirst ? 'beta-row' : 'alpha-row',
+                  ),
+                ],
+              ),
+              SidebarType(
+                label: betaFirst ? 'ALPHA' : 'BETA',
+                icon: AnIcons.history,
+                initiallyFolded: true,
+                rows: [
+                  SidebarRow(
+                    id: betaFirst ? 'a1' : 'b1',
+                    label: betaFirst ? 'alpha-row' : 'beta-row',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        host(AnSidebarList(model: ordered(betaFirst: false))),
+      );
+      expect(find.text('alpha-row'), findsOneWidget);
+      expect(find.text('beta-row'), findsNothing);
+
+      await tester.pumpWidget(
+        host(AnSidebarList(model: ordered(betaFirst: true))),
+      );
+      await tester.pump();
+      expect(find.text('beta-row'), findsOneWidget);
+      expect(find.text('alpha-row'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'an explicit fold choice wins while another section takes the automatic open slot',
+    (tester) async {
+      SidebarModel ordered({required bool betaFirst}) => SidebarModel(
+        newLabel: 'New',
+        filterPlaceholder: 'Filter…',
+        groups: [
+          SidebarGroup(
+            types: [
+              SidebarType(
+                label: betaFirst ? 'BETA' : 'ALPHA',
+                icon: AnIcons.function,
+                initiallyFolded: false,
+                rows: [
+                  SidebarRow(
+                    id: betaFirst ? 'b1' : 'a1',
+                    label: betaFirst ? 'beta-row' : 'alpha-row',
+                  ),
+                ],
+              ),
+              SidebarType(
+                label: betaFirst ? 'ALPHA' : 'BETA',
+                icon: AnIcons.history,
+                initiallyFolded: true,
+                rows: [
+                  SidebarRow(
+                    id: betaFirst ? 'a1' : 'b1',
+                    label: betaFirst ? 'alpha-row' : 'beta-row',
+                  ),
+                ],
+              ),
+            ],
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        host(AnSidebarList(model: ordered(betaFirst: false))),
+      );
+      await tester.tap(find.text('ALPHA'));
+      await tester.pumpAndSettle();
+      expect(find.text('alpha-row'), findsNothing);
+
+      await tester.pumpWidget(
+        host(AnSidebarList(model: ordered(betaFirst: true))),
+      );
+      await tester.pump();
+      expect(find.text('beta-row'), findsOneWidget);
+      expect(find.text('alpha-row'), findsNothing);
+    },
+  );
+
+  testWidgets(
     'typeHeadActionsBuilder wires trailing actions onto the type head, keyed by SidebarType.foldKey '
     '(mirrors rowActionsBuilder\'s per-row grammar, just for the head)',
     (tester) async {

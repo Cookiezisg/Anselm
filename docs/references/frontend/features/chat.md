@@ -17,7 +17,7 @@ audience: [human, ai]
 
 | 面 | 当前事实 |
 |---|---|
-| 左岛 rail | 新对话与搜索、置顶、按驻地分组、最近对话；服务端分页、搜索、驻地计数和批量归档/删除；行级重命名、置顶、归档、删除 |
+| 左岛 rail | 新对话与搜索、置顶、按驻地分组、最近对话；服务端分页、精确轴总数、搜索、驻地计数和批量归档/删除；行级重命名、置顶、归档、删除。每条 rail 轴独立 keyset 分页，服务端 cursor 记住 pinned 分区，置顶跨页仍完整；段头总数来自 `X-Anselm-Total-Count`，不使用已加载 rows 数；sort/archive/search/pinned/workDir 变更都从首屏重置 cursor；驻地组按自身最近活跃排序，自动默认展开最新组，重排时默认展开位跟随新首组，用户明确的折叠/展开选择优先。rail 投影是 `autoDispose`：无 rail 监听时释放其 SSE 订阅与合帧计时器，深链 transcript 动作不会制造孤儿后台工作；重新挂载时从服务端重新水化。 |
 | 中心 transcript | REST 水化 + `messages` SSE 增量合并；终态、在飞、乐观回声三层；老页向上加载不跳位；流式跟随可脱离和归队 |
 | Composer | 文本、`@` 提及、文件选择/粘贴/拖放附件、模型选择；发送与停止；生成中 Enter 入队，队列可编辑、删除和取回 |
 | 回合操作 | 复制整回合、分叉、重试换模型、编辑重发、同一逻辑回合的版本翻页；历史版本仍可读，不把 `superseded_by` 当软删 |
@@ -27,7 +27,7 @@ audience: [human, ai]
 
 ## 2. 数据与状态边界
 
-- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。
+- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。列表 provider 对每条 pinned/驻地轴独立保存 cursor 和 `total`，任何查询轴变化都丢弃旧 cursor 后重新取首屏；生命周期变更只合帧刷新响应头总数，不用已加载 rows 猜段头；驻地组的 `lastMessageAt` 变化（包括一条回合完成）也会合帧重读服务端投影，保证“最近活跃”组头不会停在旧位置。
 - 侧幕失败丝带按动作语义分流：`create_*` 只说明未创建实体，`edit_*` 才说明上一版仍是真相，执行类工具（例如 `invoke_agent`、`run_function`、`call_handler`）只说明运行失败并指向下方错误；执行失败不得复用草稿/版本文案。`edit_approval` 失败时，侧幕与中心工具卡都必须明确上一版仍有效，禁止把未保存 payload 渲染成带批准/拒绝按钮的审批预览。
 - 对话列表、当前选区、transcript、草稿、附件准备、队列、interaction、驻地与侧幕分别持有最小状态；跨面只经 provider 或路由意图，不让 widget 互相持有。
 - 创建/修改类工具卡的失败终态必须使用明确的失败动词（例如 `Create skill failed` / `创建技能失败`），目标名称仍可作为 chip 保留；禁止把成功过去式与 `failed` 回执并列，造成用户无法判断实体是否已经落盘。
@@ -40,6 +40,7 @@ audience: [human, ai]
 - `get_model_config` 的 settled tool card 是配置事实的 durable projection：展示每个默认角色及安全的 key display name、key 的 provider/masked/status、端点、模型的 context/output/media 能力和 native options；不展示 `apiKeyId`、密文或依赖模型 prose 才能理解的 raw map。
 - `list_mcp_marketplace` 使用共享目录卡：行内保留 full registry name、description、runtime 和 required-env 数量；大目录明确显示 `first N of M`，点击后进入有界 JSON tree，不静默丢弃未显示的 server。模型正文可以补充每个 env 的精确名称与 required/optional 说明，但卡片的目录事实不依赖它。
 - MCP 生命周期卡的安装/重连失败也可能是 loop 浮出的纯文本（例如 `required environment variables missing (missing=[ENTRA_CLIENT_ID])`），不能沿用成功语气：必须红色回执、自动展开，并保留具体缺失变量；失败帧的纯文本由底盘错误区唯一承载，族体不重复渲染；卸载成功的普通文本回执不误判为失败。结构化状态以后端 `ready` 为正常、`degraded` 为可调用警告，旧 `connected` 仅作兼容别名；不能把 `ready` 投影成 `disconnected`，也不能把 `degraded` 当成失败。成功状态卡必须显示后端 `connectedAt` 转换后的本地化绝对时间点；助手的 `Connected at` label/value 行或表格只能显示指向该卡的明确提示，不得显示 raw ISO 或 `the recorded time`。`uninstall_mcp_server` 是受危险闸保护的持久化删除：最终卡片必须能区分拒绝、失败和成功，不能在一次失败后静默追加第二次模型重试。
+- MCP 调用详情的结构化卡必须保留输入、输出/错误、stderr 尾部和精确 timing；助手正文未被用户点名时不重复抄写 `startedAt`/`endedAt`/`createdAt`。若模型仍把时间字段写进 Markdown 表，loop 必须把值投影为明确的“精确时间见旁边的 MCP 调用卡片。”，不得出现字段名作为值的“相应时间”坏表格。
 
 ## 3. 路由与生命周期
 

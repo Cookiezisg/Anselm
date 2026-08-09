@@ -68,7 +68,8 @@ Misfire 必须在 Workflow reattach 后，因为 listener registry 决定哪些 
 上传窗口竞态。
 
 Search worker 可在 workspace list 为空时启动；Media worker 必须等 Boot GC 完成，但两者都由
-后续变更驱动。新 Workspace 通过 OnCreated hook best-effort provision managed default。
+后续变更驱动。新 Workspace 通过 OnCreated hook best-effort provision managed default；workspace
+删除时 reaper 先取消并收束同 workspace 的异步 provision flight，确保删除行是其持久化线性化点。
 
 ## 4. Background workspace
 

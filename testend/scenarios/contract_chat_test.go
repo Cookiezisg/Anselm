@@ -20,6 +20,7 @@ import (
 	"strings"
 	"syscall"
 	"testing"
+	"time"
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
@@ -259,7 +260,8 @@ func TestContractChat_ModelOverrideTristateAndActivityOrder(t *testing.T) {
 	// --- B-conv-1: 三态矩阵 ---
 	convID := convCreate(t, wc, "tristate")
 	type convDetail struct {
-		Title         string `json:"title"`
+		Title         string    `json:"title"`
+		UpdatedAt     time.Time `json:"updatedAt"`
 		ModelOverride *struct {
 			APIKeyID string `json:"apiKeyId"`
 			ModelID  string `json:"modelId"`
@@ -289,6 +291,15 @@ func TestContractChat_ModelOverrideTristateAndActivityOrder(t *testing.T) {
 	wc.GET("/api/v1/conversations/"+convID).OK(t, &d)
 	if d.ModelOverride != nil {
 		t.Fatalf("explicit null must clear the override, got %+v", d.ModelOverride)
+	}
+	// Empty PATCH is a true no-op: it returns the current entity but must not refresh updatedAt.
+	// 空 PATCH 是真正的 no-op：返回当前实体，但不得刷新 updatedAt。
+	beforeNoOp := d.UpdatedAt
+	wc.PATCH("/api/v1/conversations/"+convID, map[string]any{}).OK(t, nil)
+	d = convDetail{}
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &d)
+	if !d.UpdatedAt.Equal(beforeNoOp) {
+		t.Fatalf("empty PATCH must not refresh updatedAt: before=%s after=%s", beforeNoOp, d.UpdatedAt)
 	}
 	// 写时校验：部分对象（缺 modelId）→ 422；引用不存在 key → 404 API_KEY_NOT_FOUND（F153）。
 	wc.Do("PATCH", "/api/v1/conversations/"+convID,

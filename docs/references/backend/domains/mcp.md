@@ -56,7 +56,7 @@ RoundTripper。
 
 - Registry install：从 curated registry item 选择可运行 package/remote；
 - Manual PUT：直接 upsert 一个 Server；
-- Import：导入 Claude Desktop 风格配置，可选择覆盖。
+- Import：导入 Claude Desktop 风格配置，可选择覆盖；响应中的 `imported` 与 `skipped` 名称按字典序返回，连接失败但已成功落库的条目仍计入 `imported`，其状态卡诚实显示 `failed`。缺少或为空的 `mcpServers` 返回 `MCP_IMPORT_INVALID`，超过 1 MiB 返回 `MCP_IMPORT_TOO_LARGE`；两者都不改名册。
 
 `POST /mcp-registry:plan` 无副作用返回：
 
@@ -124,6 +124,9 @@ Server 可调用时出现，并可通过 `search_tools` 发现；Agent 使用
 Call 使用统一 wall-clock，写状态 `ok|failed|cancelled|timeout`、输入/输出、
 conversation/tool-call/flowrun/node/iteration 溯源。List 不带大 output，单读
 提供完整详情。Server 存在但不可调用时返回 server-down，而不是 tool-not-found。
+`get_mcp_call` 的 `startedAt`/`endedAt`/`createdAt` 是精确机器时间：工具描述要求模型在用户未点名时省略，
+点名时逐字复制；loop 的用户面脱敏器若把它们投影进 Markdown 详情表，则改为明确指向旁边的 MCP 调用卡，
+不会把通用占位词（中文「相应时间」）留成看似值的单元格。
 
 `search_mcp_calls` 的 `limit` 公开 schema 仍是 integer。为避免托管模型把一个整数
 序列化为精确十进制字符串时制造可见的失败卡和重复查询，读取工具同时接受原生整数与

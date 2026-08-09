@@ -222,7 +222,10 @@ SidebarModel buildConversationRailModel(
   }) => SidebarType(
     label: label,
     icon: icon,
-    count: count(headCount ?? axis.rows.length),
+    // Group heads already carry their own projection count. Flat axes use the exact list total from the
+    // response header; falling back to loaded rows is only for fixtures or an older non-conforming source.
+    // 组头已有自己的投影计数。平轴使用响应头里的精确总数；只有 fixture 或旧数据源缺头时才回退到已加载行数。
+    count: count(headCount ?? axis.total ?? axis.rows.length),
     pageKey: axisKey,
     hasMore: axis.hasMore,
     loadingMore: axis.loadingMore,

@@ -82,8 +82,16 @@ JSON 编码；普通字符串、数字、对象、混合类型数组和非法编
 
 ### Fork
 
-`context=fork` 将渲染后的任务交给指定 Subagent type；缺 agent 或 runner 时
-大声失败。Subagent 深度与工具隔离见 [`subagent.md`](subagent.md)。
+`context=fork` 将渲染后的任务交给指定 Subagent type。当前 runner 注册的、区分大小写的类型为
+`Explore`（只读探索）、`Plan`（制定计划）和 `general-purpose`（继承父工具集）；创建/替换时
+未知类型直接返回 `422 SKILL_FORK_AGENT_TYPE_INVALID`，错误 details 带 `agent` 与 `validAgents`。
+安装或旧文件绕过写入校验时，激活仍在任何 active-skill 预授权之前 fail-closed。缺 agent 或 runner
+时分别返回 `SKILL_FORK_REQUIRES_AGENT` / `SKILL_SUBAGENT_UNAVAILABLE`。Subagent 深度与工具隔离见
+[`subagent.md`](subagent.md)。
+
+`Explore` 对 fork skill 的 `$1` 主题执行有界探索：精确绝对路径只读该路径；`LS/Glob/Grep` 只能在
+Conversation 已挂载的驻地内执行，未挂驻地时直接返回可解释边界提示；结果过宽时不枚举 home、Desktop、
+Documents 或无关归档目录。这是用户等待时间与误读范围的产品边界，不削弱普通 Chat/Task 的整机只读工具面。
 
 ### Mention 与 Agent Guide
 
@@ -112,6 +120,11 @@ sidecar。
 更新前比较 hash baseline；有本地修改且未 force 时返回
 `SKILL_LOCALLY_MODIFIED`。Allowed-tools 变化会重置信任门，未变化时保留授权。
 第三方 Skill 未批准前仍可注入正文，但其 allowed-tools 不成为预授权。
+
+`POST /skills/{name}:approve-tools` 打开已安装 Skill 的信任门，将 provenance 的
+`toolsApproved` 置为 `true`，并发出一次 `skill.updated` durable signal。重复授权是
+幂等 no-op：若已经为 `true`，只返回当前 Skill，不重写 provenance、不刷新
+`updatedAt`、也不发假的 `skill.updated`。
 
 ## 5. 脚本与投影
 

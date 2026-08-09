@@ -113,6 +113,12 @@ loop 只生成可审计的 suppression result 并收束本回合，不再次执�
 
 普通实体表格如果只有脱敏后的机器值，系统提示明确禁止把 `the requested item` 或 `the referenced item` 当作 ID、路径、标签或表格单元格；服务端流式阶段把这类单元格标为不可用，完整 durable close 再将所有值都不可用的 ID 列整体移除。精确 ID 仍只保留在相邻 tool card 与审计线缆中，助手正文优先展示人名与路径。若 workspace ID 经过脱敏后嵌入 `cwd`、`CLAUDE_SKILL_DIR`、`path` 等路径字段，不能把占位符留在看似可复制的路径里；改为 `See the exact path in the tool card.`，保留字段语义而不伪造路径。
 
+Skill 激活的普通文本字段也遵守同一条规则：`Session:`/`Session ID:` 保留为
+`See the exact session in the activation card.`，`Directory:`/`CLAUDE_SKILL_DIR:` 等路径字段保留为
+`See the exact path in the tool card.`。这覆盖模型先把真实值自行替换为 `the requested item` 的情形；不能让该占位符进入可复制的路径，也不能为了满足“逐字引用”而放开 opaque 值的散文泄露。
+
+该规则同样覆盖激活摘要的二列表格：表中 `Session`/`Session ID` 行若值不可用，统一指向相邻激活卡；`Directory`/`Path`/`CWD`/`CLAUDE_SKILL_DIR` 行统一指向精确路径 tool card，不保留 `the requested item` 或嵌入占位符的伪路径。若助手随后声称“所有值均原样/逐字引用、未做替换或臆造”，而表中已有字段被安全重定向，服务端会将整句改写为诚实的人话，避免最终正文与画面事实冲突。若技能已完成显式指令且用户没有后续任务，prompt 也要求助手停下，不得为了“继续”而无谓检查技能目录或发起额外工具调用。
+
 二列表格把 `ID`/`Identifier` 作为字段行时遵守同一规则：当值不可用时，流式出口和 durable close 都必须物理移除整行，不能留下空行或 `ID | -`。空行会切断 Markdown 表格并可能让后续真实字段从渲染结果中消失；精确值仍只在相邻 tool card 与审计线缆中保留。
 
 搜索积木的正文是同一条规则的可操作特例：若模型在“这些 ref 可以用于 workflow”之类的句子中重复 opaque ref，通用脱敏后不得留下 `the requested item` 或 `the requested item.method`，也不得留下 `hd_…` / `hd_….place`、`hd_<id>.<method>` 这类缩写或模板值。服务端只替换含坏占位的那一句为“精确值见相邻 `search_blocks` 结果卡，可直接复制到 workflow 节点”（英文同义句），保留后续提示语；即使模型没有写出 `ref` 一词，只要同句明确谈到 `workflow node(s)`/`workflow 节点` 并含上述坏值，也执行同一改写。若结果被模型整理成同时含 `ref`、`kind`、`name`、`snippet`/`description` 的 Markdown 表，按表头识别为 search_blocks 表，所有 ref 单元格统一改为“精确 ref 见相邻 search_blocks 结果卡”，不误套 flowrun 的 `See the run card`，也清理 `the requested item.method` 这类带方法后缀的坏值。表格行仍由结构化表格规则处理。精确 `ag_`、`hd_`、`mcp:` ref 只在相邻 tool card 和审计线缆中显示。
@@ -208,8 +214,13 @@ warning 并保留 durable textual result。
 ## 5. Finalize 与恢复
 
 Loop 恰调用一次 `WriteFinalize`，在 detached workspace context 单事务写
-assistant 状态、blocks、usage、model/provider 与 attrs，再发送 durable
-message_stop。关闭页面或请求取消不能留下永久 streaming 行。
+assistant 状态、余下 blocks、usage、model/provider 与 attrs，再发送 durable
+`message_stop`。Chat host 另实现可选 `BlockRecorder`：每次 LLM sampling
+结束后先把该批 blocks 追加到仍为 streaming 的 assistant 行。这样人在环停泊后，用户
+稍晚冷打开线程时，REST history 仍有对应 `tool_call`，`GET interactions` 提供的
+问题/按钮可以挂到真实节点上，而不是只显示一行无意义的 `thinking`。最终
+`WriteFinalize` 按已落盘 block id 过滤，绝不重复插入。关闭页面或请求取消不能留下永久
+streaming 行；未接增量 writer 的其它 loop host 仍保持只在 finalize 落盘。
 
 模型解析在 loop 前失败时，`failTurn` 走相同终态纪律。Boot 的
 `SweepOrphans` 将进程硬崩溃留下的 pending/streaming Message 收成 cancelled。
@@ -258,6 +269,10 @@ system-prompt-preview 端点见 [`api.md`](../api.md)。表见
 最大 steps 从 live limits 读取；触顶以 `max_steps` /
 `MAX_STEPS_REACHED` 诚实终止。HumanLoop interaction 是回合内 ephemeral
 broker；重启后不存在，Workflow durable approval 由 Scheduler 独立管理。
+
+Fork Skill 返回后，父回合最多再做一次纯文本收尾采样；工具 schema 被移除。若模型仍吐出 tool
+call，loop 跳过 AutoActivator、不执行该调用，补齐明确的 `toolsDisabled` tool-result 后以
+`TURN_TOOLS_DISABLED` 终止，避免父模型绕回主聊天文件工具或再次派 fork。
 
 当用户明确要求某个操作“必须被拒绝”时，模型必须先用最新工具结果验证拒绝前提；如果事实不满足该前提，不能为了迎合用户先执行再撤销，必须保持 durable state 不变并说明事实冲突。
 `get_relations` 的关系卡每一行必须同时显示两个端点、方向和关系动词（`equip/link/create/edit`）；

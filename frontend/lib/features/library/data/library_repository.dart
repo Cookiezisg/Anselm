@@ -52,6 +52,10 @@ abstract interface class LibraryRepository {
   /// Deep-copy a subtree (`:duplicate` → 201, new root; null parentId → sibling of the source).
   Future<DocumentNode> duplicateDocument(String id, {String? parentId});
 
+  /// Open an AI editing conversation for this document (`:iterate` → 202, conversation id).
+  /// 为这篇文档打开 AI 编辑对话(`:iterate` → 202,返回 conversation id)。
+  Future<String> iterateDocument(String id, {required String request});
+
   // ── skills (flat, name-keyed SKILL.md files) ──────────────────────────────
   /// Every skill as light metadata (NO body). 全部 skill 轻元数据(无 body)。
   Future<List<Skill>> listSkills();
@@ -207,6 +211,10 @@ class LiveLibraryRepository implements LibraryRepository {
         DocumentNode.fromJson,
         body: {'parentId': ?parentId},
       );
+
+  @override
+  Future<String> iterateDocument(String id, {required String request}) =>
+      _api.postForId('$_docs/$id:iterate', body: {'request': request});
 
   @override
   Future<List<Skill>> listSkills() async =>

@@ -39,7 +39,8 @@ Move 支持：
 
 - `parentId = nil` 移到根；
 - `position = nil` 追加到目标 sibling 尾部；
-- `position` 优先使用 JSON 非负整数；托管 provider 若发出严格十进制整数字符串（如 `"0"`）也窄兼容，浮点、布尔、数组与任意字符串拒绝；
+- 显式 `position` 必须是目标 sibling 列表的插入下标 `0..N`（含末位），负数或超过 `N` 返回 `DOCUMENT_INVALID_POSITION`；托管 provider 若发出严格十进制整数字符串（如 `"0"`）也窄兼容，浮点、布尔、数组与任意字符串拒绝；
+- 若目标父级和解析后的插入位置都与当前相同，移动是成功 no-op：保留 `updatedAt`，不写盘、不发 `document.moved`；
 - 拒绝移到自身或自身后裔；这种循环拒绝是该精确文档/父节点组合的终局结果，本回合不得原样重试；
 - 把目标 sibling 重排为连续 position；跨父移动同时压缩旧父剩余 sibling 的 position，不留下空洞；
 - 级联重写整棵子树的物化 path。

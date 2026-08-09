@@ -4,17 +4,19 @@ import '../../../core/contract/conversation.dart';
 
 part 'conversation_list_state.freezed.dart';
 
-/// ONE paginated axis of the conversation rail: the rows loaded so far + its keyset cursor + the tail's
-/// in-flight / failed flags. `loadingMore` lives INSIDE the data so appending a page never flips the axis
-/// back to a spinner; `loadFailed` (WRK-059 M9) swaps the auto-firing tail sentinel for a manual retry row,
-/// because a persistent server error must not become a per-RTT retry storm.
+/// ONE paginated axis of the conversation rail: the rows loaded so far + its keyset cursor + the exact
+/// server count for the current query + the tail's in-flight / failed flags. `loadingMore` lives INSIDE the
+/// data so appending a page never flips the axis back to a spinner; `loadFailed` (WRK-059 M9) swaps the
+/// auto-firing tail sentinel for a manual retry row, because a persistent server error must not become a
+/// per-RTT retry storm.
 ///
 /// The rail has 2 + N of these (Pinned, Recents, and one per residency group). They are separate axes rather
 /// than one list sliced client-side because each is its own SERVER query — that is what keeps a group's
 /// membership from drifting as the user scrolls.
 ///
-/// 对话 rail 的**一个**分页轴:已得行 + 它的 keyset 游标 + 尾部在途/失败标志。`loadingMore` 在 data 内,故翻页不会
-/// 把该轴打回 spinner;`loadFailed`(M9)把自动触发的尾哨兵换成手动重试行——持久服务端错误绝不该成 per-RTT 风暴。
+/// 对话 rail 的**一个**分页轴:已得行 + keyset 游标 + 当前查询的服务端精确总数 + 尾部在途/失败标志。`loadingMore`
+/// 在 data 内,故翻页不会把该轴打回 spinner;`loadFailed`(M9)把自动触发的尾哨兵换成手动重试行——持久服务端错误绝不该
+/// 成 per-RTT 风暴。
 ///
 /// rail 有 2 + N 个这样的轴(置顶、最近、每个驻地组一个)。它们是**分开的轴**、而不是一个列表在客户端切片,因为每个
 /// 都是它自己的**服务端**查询——正是这一点让一个组的成员不随用户滚动而漂移。
@@ -24,6 +26,7 @@ abstract class ConvAxis with _$ConvAxis {
     @Default(<Conversation>[]) List<Conversation> rows,
     String? nextCursor,
     @Default(false) bool hasMore,
+    int? total,
     @Default(false) bool loadingMore,
     @Default(false) bool loadFailed,
 

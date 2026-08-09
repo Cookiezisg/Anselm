@@ -230,6 +230,52 @@ func TestUpdate_ModelOverride_SetThenClear(t *testing.T) {
 	}
 }
 
+// TestUpdate_NoOpDoesNotPersistOrEmit locks the PATCH no-op contract: an empty patch and an
+// equal-value patch return the current entity without refreshing updated_at or broadcasting.
+//
+// TestUpdate_NoOpDoesNotPersistOrEmit 锁住 PATCH no-op 契约：空 patch 与等值 patch 返回当前实体，
+// 不刷新 updated_at，也不广播生命周期事件。
+func TestUpdate_NoOpDoesNotPersistOrEmit(t *testing.T) {
+	svc, em, _, ctx := newSvc(t)
+	c, err := svc.Create(ctx, "same")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	assertNoOp := func(label string, in UpdateInput) {
+		t.Helper()
+		before, err := svc.Get(ctx, c.ID)
+		if err != nil {
+			t.Fatalf("%s before: %v", label, err)
+		}
+		em.events = nil
+		got, err := svc.Update(ctx, c.ID, in)
+		if err != nil {
+			t.Fatalf("%s update: %v", label, err)
+		}
+		if !got.UpdatedAt.Equal(before.UpdatedAt) {
+			t.Fatalf("%s changed updated_at: before=%s after=%s", label, before.UpdatedAt, got.UpdatedAt)
+		}
+		if len(em.events) != 0 {
+			t.Fatalf("%s emitted lifecycle events: %v", label, em.events)
+		}
+	}
+
+	assertNoOp("empty patch", UpdateInput{})
+	sameTitle := c.Title
+	assertNoOp("equal title", UpdateInput{Title: &sameTitle})
+	dir := t.TempDir()
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{WorkDir: &dir}); err != nil {
+		t.Fatalf("seed workDir: %v", err)
+	}
+	assertNoOp("equal workDir", UpdateInput{WorkDir: &dir})
+	sameModel := &modeldomain.ModelRef{APIKeyID: "aki_1", ModelID: "m1"}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{ModelOverride: &sameModel}); err != nil {
+		t.Fatalf("seed model override: %v", err)
+	}
+	assertNoOp("equal model", UpdateInput{ModelOverride: &sameModel})
+}
+
 func TestUpdate_InvalidModelOverride(t *testing.T) {
 	svc, _, _, ctx := newSvc(t)
 	c, _ := svc.Create(ctx, "t")

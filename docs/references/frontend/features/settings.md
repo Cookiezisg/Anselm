@@ -48,6 +48,7 @@ audience: [human, ai]
 - provider credential 按目录声明的类型收集；Vertex 使用服务账号 JSON，不伪装成 API key 文本框。
 - key 保存后走真实测试；鉴权失败、未验证 provider 与可疑自填 base URL 分开解释。
 - MCP 名册的 loading、error、empty 是三个不同的产品状态：请求未落定时显示内容骨架，读取失败显示可重试错误，只有后端确实返回空数组时才显示无服务器市场入口；不能用空列表兜底掩盖断线。名册同时监听 entities 上的实时状态和 notifications 上的 `mcp.*` 生命周期事件，两者都只触发对 REST 真相的重取。已打开的 server 详情也以落定名册对账：对象从名册消失时下一帧自动回到名册并给出“已删除/列表已刷新”反馈，loading/error 不触发误驱逐。
+- MCP `mcp.json` 导入面使用完整的设置阅读列，JSON 粘贴区固定为 `AnSize.jsonViewport` 并在自身内部滚动；合法的长配置不能把表单变成窄高长条，也不能把 Import/Cancel 推出视口。导入需要物化运行时或建立连接时，提交按钮显示 spinner 与“导入中”并锁住重复提交；完成后以服务端返回的 imported/skipped 计数反馈，解析错误或 `MCP_IMPORT_INVALID` 留在当前表单且不改名册，提示必须以完整可见的短句告诉用户补上非空的 `mcpServers` 对象；`MCP_IMPORT_TOO_LARGE` 同样显示完整的尺寸修复提示。
 - MCP 详情的 Call history 读取 `data.calls` 与同一 `data` 下的 `aggregates` sidecar；聚合与当前过滤集的真实 ok/failed 数一致，列表行只显示工具、触发来源和耗时，完整 logs 通过单条调用详情读取，不能把缺失的聚合默认为成功或空记录。历史行在固定高的详情 pane 内通过滚动视口承载，不能因调用数量增长产生 Flutter overflow。ServerStatus 的 `lastError` 保留为历史诊断，但只有当前 `failed`/`degraded` 才投影为红色错误条；恢复到 `ready` 后撤掉旧错误，避免「已恢复」与「仍报错」同屏。
 - Cloned voices 是受管档的持久库存：列表与剩余槽位必须来自同一次 `GET /voices` 权威重读；读取失败显示错误态与重试，不得伪装成「暂无音色」。
 - master key 由系统 secure storage 管理；旧安装不能在缺 key 时静默铸新钥覆盖既有密文，详见 [`ADR 0008`](../../../decisions/0008-master-key-keychain.md)。

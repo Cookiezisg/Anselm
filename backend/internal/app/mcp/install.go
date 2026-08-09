@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -151,7 +152,16 @@ func (s *Service) AddServer(ctx context.Context, srv *mcpdomain.Server) (*mcpdom
 //
 // Import 把 Claude Desktop mcp.json 片段折叠进存储；overwrite=false 跳过同名。返回 imported + skipped。
 func (s *Service) Import(ctx context.Context, entries map[string]mcpinfra.ImportEntry, overwrite bool) (imported, skipped []string, err error) {
-	for name, e := range entries {
+	// Map iteration is deliberately randomized; the response is user-visible and must be stable
+	// so the same mcp.json does not produce a different imported/skipped order on each run.
+	// map 遍历顺序刻意随机;响应会被用户和审计读取,必须稳定,同一份 mcp.json 不能每次返回不同顺序。
+	names := make([]string, 0, len(entries))
+	for name := range entries {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	for _, name := range names {
+		e := entries[name]
 		if existing, _ := s.repo.GetByName(ctx, name); existing != nil && !overwrite {
 			skipped = append(skipped, name)
 			continue

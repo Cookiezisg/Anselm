@@ -101,6 +101,9 @@ func TestSaveSkillSchemaDocumentsManagedArrayCompatibility(t *testing.T) {
 	if !strings.Contains((&CreateSkill{}).Description(), "Optional: allowedTools") {
 		t.Fatalf("description must name optional skill metadata: %s", (&CreateSkill{}).Description())
 	}
+	if !strings.Contains(got, "Explore") || !strings.Contains(got, "general-purpose") {
+		t.Fatalf("schema must document the exact fork agent types: %s", got)
+	}
 	if !strings.Contains(got, `"userInvocable"`) || !strings.Contains((&CreateSkill{}).Description(), "userInvocable") {
 		t.Fatalf("schema and description must expose userInvocable: schema=%s description=%s", got, (&CreateSkill{}).Description())
 	}

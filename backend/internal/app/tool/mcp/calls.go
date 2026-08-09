@@ -138,7 +138,7 @@ type GetMCPCall struct{ svc *mcpapp.Service }
 func (t *GetMCPCall) Name() string { return "get_mcp_call" }
 
 func (t *GetMCPCall) Description() string {
-	return "Get one MCP tool-call record (input, output, error, logs, timing) by its id."
+	return "Get one MCP tool-call record (input, output, error, logs, timing) by its id. The timing fields are exact machine timestamps: omit them from prose unless the user asks for a named field; if asked, copy the returned string character-for-character and never use a field label or placeholder as its value."
 }
 
 func (t *GetMCPCall) Parameters() json.RawMessage {

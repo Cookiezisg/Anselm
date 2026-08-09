@@ -160,15 +160,13 @@ func (q *Query[T]) Page(ctx context.Context, cursor string, limit int) ([]*T, st
 		q.Where("("+ks.name+", "+q.meta.pk.name+") < (?, ?)", c.Key, c.ID)
 	}
 	// Default keyset order is (keyset, pk) DESC — matching the cursor's tuple comparison. A caller
-	// MAY prepend a leading clause via a prior .Order() (kept intentionally): conversation lists are
-	// pinned-first ("pinned DESC, last_message_at DESC, id DESC"). The cursor keys only (keyset, pk),
-	// so the leading pinned partition relies on all pins landing on page one (few, single-user) —
-	// that assumption, not the default order, is what makes pinned-first safe. Whatever column the
-	// .Order() sorts by MUST match PageKeyset, or pages skip/duplicate rows.
+	// MAY prepend a leading clause via a prior .Order(), but that leading clause must either be fixed
+	// within the query or be represented by the caller's outer cursor protocol. Page itself only owns
+	// the (keyset, pk) tuple. Whatever column the .Order() sorts by MUST match PageKeyset, or pages
+	// skip/duplicate rows.
 	//
-	// 默认 keyset 排序 (keyset, pk) DESC，与游标元组比较一致。调用方可用先前 .Order() 前置一个引导子句
-	// （有意保留）：conversation 置顶优先（"pinned DESC, last_message_at DESC, id DESC"）。游标只键
-	// (keyset, pk)，故置顶分区靠"所有置顶都落首页"（少、单用户）——是这个假设而非默认序让置顶优先安全。
+	// 默认 keyset 排序 (keyset, pk) DESC，与游标元组比较一致。调用方可以用先前的 .Order() 前置引导子句，
+	// 但该引导子句必须在查询内固定，或由调用方的外层 cursor 协议表达；Page 自身只拥有 (keyset, pk) 元组。
 	// .Order() 所按的列必须与 PageKeyset 一致，否则跨页漏行/重行。
 	if q.order == "" {
 		q.order = ks.name + " DESC, " + q.meta.pk.name + " DESC"

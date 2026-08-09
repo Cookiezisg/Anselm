@@ -13,6 +13,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	paginationpkg "github.com/sunweilin/anselm/backend/internal/pkg/pagination"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -181,6 +182,56 @@ func TestList_ArchivedFilter(t *testing.T) {
 	}
 }
 
+// TestCount_MirrorsListAxes proves the rail's total header uses the same archive, pin, residency, search,
+// and workspace filters as the paged rows. A count that ignores the pinned partition or soft-delete scope
+// makes the section head contradict the rows it owns.
+//
+// TestCount_MirrorsListAxes 证明 rail 总数头与分页行使用同一归档、置顶、驻地、搜索和 workspace 过滤。忽略置顶分区或
+// 软删范围的计数会让段头与它实际拥有的行互相矛盾。
+func TestCount_MirrorsListAxes(t *testing.T) {
+	s := newStore(t)
+	ws1 := ctxWS("ws_1")
+	seed(t, s, ws1, "cv_pin", "Alpha pin", true, false, t1)
+	seed(t, s, ws1, "cv_unpin", "Alpha unpin", false, false, t2)
+	seed(t, s, ws1, "cv_arch_pin", "Archived pin", true, true, t3)
+	seed(t, s, ws1, "cv_arch", "Beta archive", false, true, t1)
+	seed(t, s, ws1, "cv_dir", "Directory match", false, false, t2)
+	dirRow, err := s.Get(ws1, "cv_dir")
+	if err != nil {
+		t.Fatalf("get workdir row: %v", err)
+	}
+	dirRow.WorkDir = "/tmp/anselm-count"
+	if err := s.Update(ws1, dirRow); err != nil {
+		t.Fatalf("update workdir: %v", err)
+	}
+	if err := s.Insert(ctxWS("ws_2"), &conversationdomain.Conversation{ID: "cv_other", Title: "Other workspace"}); err != nil {
+		t.Fatalf("insert other workspace: %v", err)
+	}
+
+	tests := []struct {
+		name   string
+		filter conversationdomain.ListFilter
+		want   int
+	}{
+		{name: "active any", filter: conversationdomain.ListFilter{}, want: 3},
+		{name: "active pinned", filter: conversationdomain.ListFilter{Pinned: conversationdomain.PinPinned}, want: 1},
+		{name: "active unpinned", filter: conversationdomain.ListFilter{Pinned: conversationdomain.PinUnpinned}, want: 2},
+		{name: "archived any", filter: conversationdomain.ListFilter{Archive: conversationdomain.ArchiveArchived}, want: 2},
+		{name: "all", filter: conversationdomain.ListFilter{Archive: conversationdomain.ArchiveAll}, want: 5},
+		{name: "workdir", filter: conversationdomain.ListFilter{WorkDir: stringPtr("/tmp/anselm-count")}, want: 1},
+		{name: "search", filter: conversationdomain.ListFilter{Search: "alpha"}, want: 2},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got, err := s.Count(ws1, tt.filter); err != nil || got != tt.want {
+				t.Fatalf("Count(%+v) = %d, %v; want %d", tt.filter, got, err, tt.want)
+			}
+		})
+	}
+}
+
+func stringPtr(v string) *string { return &v }
+
 func TestList_SearchTitle(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
@@ -220,6 +271,85 @@ func TestList_CursorPaging(t *testing.T) {
 	}
 	if next2 != "" {
 		t.Errorf("unexpected next2: %q", next2)
+	}
+}
+
+// TestList_CursorRejectsChangedQueryAxes proves a cursor is bound to the complete list query, not
+// only its row key. Reusing one after changing sort/archive/search/pin/workDir would otherwise return
+// a 200 page that silently starts in the wrong result set.
+//
+// TestList_CursorRejectsChangedQueryAxes 证明 cursor 绑定完整列表查询而不只是行键。切换排序/归档/搜索/置顶/驻地后
+// 若仍复用它，旧实现会返回 200 却从错误结果集开始，形成静默漏行。
+func TestList_CursorRejectsChangedQueryAxes(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seed(t, s, ctx, "cv_alpha", "alpha", false, false, t1)
+	seed(t, s, ctx, "cv_beta", "beta", false, false, t2)
+	seed(t, s, ctx, "cv_archived", "archived", false, true, t3)
+	workDir := "/tmp/ep143-cursor-workdir"
+	if _, err := s.db.Exec(ctx, "UPDATE conversations SET work_dir = ? WHERE id = ?", workDir, "cv_beta"); err != nil {
+		t.Fatalf("set work dir: %v", err)
+	}
+	_, cursor, err := s.List(ctx, conversationdomain.ListFilter{Limit: 1})
+	if err != nil || cursor == "" {
+		t.Fatalf("seed cursor: err=%v cursor=%q", err, cursor)
+	}
+
+	workDirEmpty := ""
+	for _, tt := range []struct {
+		name   string
+		filter conversationdomain.ListFilter
+	}{
+		{name: "sort", filter: conversationdomain.ListFilter{Sort: conversationdomain.ListSortCreated}},
+		{name: "archive", filter: conversationdomain.ListFilter{Archive: conversationdomain.ArchiveAll}},
+		{name: "search", filter: conversationdomain.ListFilter{Search: "alpha"}},
+		{name: "pin", filter: conversationdomain.ListFilter{Pinned: conversationdomain.PinPinned}},
+		{name: "workdir", filter: conversationdomain.ListFilter{WorkDir: &workDirEmpty}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.filter.Cursor = cursor
+			tt.filter.Limit = 1
+			_, _, err := s.List(ctx, tt.filter)
+			if !errors.Is(err, paginationpkg.ErrMalformedCursor) {
+				t.Fatalf("changed %s query error = %v, want ErrMalformedCursor", tt.name, err)
+			}
+		})
+	}
+}
+
+// TestList_PinnedPartitionCursorDoesNotDropPins proves that pinned-first remains a complete
+// keyset walk even when the pinned partition itself spans a page. A cursor that only carries the
+// secondary time/id key lets an unpinned row with a newer timestamp disappear after the last pinned
+// row; the cursor must carry which partition it is still walking.
+//
+// TestList_PinnedPartitionCursorDoesNotDropPins 证明置顶优先在**置顶分区自身跨页**时仍是完整 keyset
+// 遍历。若游标只带次键时间/id，最后一条置顶之后带更晚时间的未置顶行会凭空消失；故游标必须带正在走的分区。
+func TestList_PinnedPartitionCursorDoesNotDropPins(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seed(t, s, ctx, "cv_pin_1", "pin 1", true, false, t1)
+	seed(t, s, ctx, "cv_pin_2", "pin 2", true, false, t2)
+	seed(t, s, ctx, "cv_pin_3", "pin 3", true, false, t3)
+	// This row is newer than the oldest pinned row but must still come after all pins.
+	seed(t, s, ctx, "cv_unpin", "unpin", false, false, t3)
+
+	var got []string
+	cursor := ""
+	for {
+		rows, next, err := s.List(ctx, conversationdomain.ListFilter{Limit: 2, Cursor: cursor})
+		if err != nil {
+			t.Fatalf("page cursor=%q: %v", cursor, err)
+		}
+		got = append(got, ids(rows)...)
+		if next == "" {
+			break
+		}
+		cursor = next
+	}
+
+	want := []string{"cv_pin_3", "cv_pin_2", "cv_pin_1", "cv_unpin"}
+	if !equal(got, want) {
+		t.Fatalf("full pinned-first walk = %v, want %v", got, want)
 	}
 }
 
@@ -340,12 +470,12 @@ func TestList_SortByName_Order(t *testing.T) {
 // TestList_SortByName_CursorPaging proves the title keyset cursor walks the same NOCASE-collated
 // title order with no skip/duplicate, and crucially that the same-title id tiebreaker survives a page
 // boundary: limit=4 splits the two "delta" rows (cv_d1 ends page 1, cv_d2 must be the sole page-2
-// row — not skipped, not re-served). No pins here: the cursor keys only (title, id), so pinned-first
-// pagination relies on the documented "all pins on page one" assumption, tested separately above.
+// row — not skipped, not re-served). No pins here keeps this test focused on the title/id keyset;
+// the partition-aware pinned-first boundary is covered by TestList_PinnedPartitionCursorAllSorts.
 //
 // TestList_SortByName_CursorPaging 证明 title keyset 游标按同一 NOCASE 序行进、不漏/不重，关键是同名 id
 // tiebreaker 跨页存活：limit=4 把两条 "delta" 切开（cv_d1 收尾首页，cv_d2 须为第二页唯一行——不漏、不重发）。
-// 此处无置顶：游标只键 (title,id)，置顶优先分页靠上面单测的「所有置顶落首页」假设。
+// 此处无置顶，专注 title/id keyset；置顶分区边界由 TestList_PinnedPartitionCursorAllSorts 覆盖。
 func TestList_SortByName_CursorPaging(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
@@ -374,6 +504,105 @@ func TestList_SortByName_CursorPaging(t *testing.T) {
 	}
 	if next2 != "" {
 		t.Errorf("unexpected next2: %q", next2)
+	}
+}
+
+// TestList_PinnedPartitionCursorAllSorts proves that a pinned partition crossing a page boundary
+// remains complete for every public sort. The unpinned row deliberately has a newer activity/created
+// key than the oldest pinned row; it must still appear after every pinned row, not disappear behind a
+// cursor that only knows the secondary key.
+//
+// TestList_PinnedPartitionCursorAllSorts 证明置顶分区跨页时，所有公开排序都能完整遍历。未置顶行刻意拥有比最老
+// 置顶行更新的 activity/created 键，但仍必须排在所有置顶行之后，不能被只知道次键的旧游标吞掉。
+func TestList_PinnedPartitionCursorAllSorts(t *testing.T) {
+	tests := []struct {
+		name string
+		sort conversationdomain.ListSort
+		want []string
+	}{
+		{name: "activity", sort: conversationdomain.ListSortActivity, want: []string{"cv_pin_3", "cv_pin_2", "cv_pin_1", "cv_unpin"}},
+		{name: "created", sort: conversationdomain.ListSortCreated, want: []string{"cv_pin_3", "cv_pin_2", "cv_pin_1", "cv_unpin"}},
+		{name: "name", sort: conversationdomain.ListSortName, want: []string{"cv_pin_1", "cv_pin_2", "cv_pin_3", "cv_unpin"}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			s := newStore(t)
+			ctx := ctxWS("ws_1")
+			seedTimes(t, s, ctx, "cv_pin_1", t1, t1)
+			seedTimes(t, s, ctx, "cv_pin_2", t2, t2)
+			seedTimes(t, s, ctx, "cv_pin_3", t3, t3)
+			seedTimes(t, s, ctx, "cv_unpin", t3, t3)
+			for _, id := range []string{"cv_pin_1", "cv_pin_2", "cv_pin_3"} {
+				if _, err := s.db.Exec(ctx, "UPDATE conversations SET pinned = 1 WHERE id = ?", id); err != nil {
+					t.Fatalf("pin %s: %v", id, err)
+				}
+			}
+			if _, err := s.db.Exec(ctx, "UPDATE conversations SET title = CASE id WHEN 'cv_pin_1' THEN 'alpha' WHEN 'cv_pin_2' THEN 'bravo' WHEN 'cv_pin_3' THEN 'charlie' ELSE 'zulu' END"); err != nil {
+				t.Fatalf("titles: %v", err)
+			}
+
+			var got []string
+			cursor := ""
+			for {
+				rows, next, err := s.List(ctx, conversationdomain.ListFilter{Sort: tt.sort, Limit: 2, Cursor: cursor})
+				if err != nil {
+					t.Fatalf("page cursor=%q: %v", cursor, err)
+				}
+				got = append(got, ids(rows)...)
+				if next == "" {
+					break
+				}
+				cursor = next
+			}
+			if !equal(got, tt.want) {
+				t.Fatalf("full %s walk = %v, want %v", tt.name, got, tt.want)
+			}
+		})
+	}
+}
+
+// TestList_PinScopesPageIndependently proves the exact pinned/unpinned filters retain their own
+// complete keyset walks. These are the two queries the grouped rail uses, so neither may inherit the
+// old assumption that the opposite partition fits on page one.
+//
+// TestList_PinScopesPageIndependently 证明 pinned/unpinned 精确过滤各自完整分页。分组 rail 正是用这两条查询，不能
+// 再继承「另一分区能放进首页」的旧假设。
+func TestList_PinScopesPageIndependently(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	seed(t, s, ctx, "cv_pin_1", "pin 1", true, false, t1)
+	seed(t, s, ctx, "cv_pin_2", "pin 2", true, false, t2)
+	seed(t, s, ctx, "cv_pin_3", "pin 3", true, false, t3)
+	seed(t, s, ctx, "cv_unpin_1", "unpin 1", false, false, t1)
+	seed(t, s, ctx, "cv_unpin_2", "unpin 2", false, false, t2)
+	seed(t, s, ctx, "cv_unpin_3", "unpin 3", false, false, t3)
+
+	for _, tt := range []struct {
+		name  string
+		scope conversationdomain.PinScope
+		want  []string
+	}{
+		{name: "pinned", scope: conversationdomain.PinPinned, want: []string{"cv_pin_3", "cv_pin_2", "cv_pin_1"}},
+		{name: "unpinned", scope: conversationdomain.PinUnpinned, want: []string{"cv_unpin_3", "cv_unpin_2", "cv_unpin_1"}},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			var got []string
+			cursor := ""
+			for {
+				rows, next, err := s.List(ctx, conversationdomain.ListFilter{Pinned: tt.scope, Limit: 2, Cursor: cursor})
+				if err != nil {
+					t.Fatalf("page cursor=%q: %v", cursor, err)
+				}
+				got = append(got, ids(rows)...)
+				if next == "" {
+					break
+				}
+				cursor = next
+			}
+			if !equal(got, tt.want) {
+				t.Fatalf("full %s walk = %v, want %v", tt.name, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -218,7 +218,7 @@ LLM 工具覆盖构建、生命周期与运行观测：
   通过 `GET /api/v1/flowruns/{id}` 分页读取。REST/数据库不受该 LLM 投影上限影响；不存在的 `flowrunId`
   在 LLM 工具面保留稳定的 `FLOWRUN_NOT_FOUND`，并补充确认 ID 正确且属于当前 workspace 的 reason，REST 404 message 不变。
   若 hosted model 把明确的 `fr_...` run ID 错放进 `file_path`，或把同值同时放入 `file_path` 与 `flowrunId`，loop 只在执行和落盘前做这一种无歧义的别名修复，逐字保留 ID，并在 tool-call attrs 记录修复来源；显式 `flowrunId` 与冲突的 `file_path`、普通文件路径和其他模糊值不修复而明确拒绝，不做近似 ID 查找；schema 同时关闭额外字段；
-- `search_flowruns` 按稳定过滤器查历史；结果行在 workflow 仍存在时带人话 `workflowName`，并带 status、error 与 timing，模型不得把列表查询自动升级成逐条 `get_flowrun`，只有用户明确要节点详情或选定一条 run 诊断时才继续取详情；其 schema 关闭额外字段并把 status 限定为 `running`、`completed`、`failed`、`cancelled`；
+- `search_flowruns` 按稳定过滤器查历史；结果行在 workflow 仍存在时带人话 `workflowName`，并带 status、error 与 timing，模型不得把列表查询自动升级成逐条 `get_flowrun`，只有用户明确要节点详情或选定一条 run 诊断时才继续取详情；其 schema 关闭额外字段并把 status 限定为 `running`、`completed`、`failed`、`cancelled`；`limit` 在线缆上仍声明为 integer，但执行边界同时接受托管模型发出的精确十进制整数字符串，浮点、布尔、数组和任意字符串仍拒绝，校验与执行共用同一解码器，避免首个调用只在执行阶段产生失败告警；
 - `replay_flowrun` 使用原 pin 从断点重走；
 - `list_approval_inbox` 返回 slim parked 行；
 - `decide_approval` 走与 HTTP 相同的 first-wins app service；LLM 侧必须先调用 `list_approval_inbox`，

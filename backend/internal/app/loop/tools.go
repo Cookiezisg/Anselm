@@ -352,6 +352,32 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	return append(pcap.take(), result)
 }
 
+// toolDisabledResults closes provider-emitted calls that arrived after a run-local tool
+// shutdown request. No resolved Tool is consulted and no Execute path is reachable here.
+//
+// toolDisabledResults 收束「本次 run 已请求停用工具」之后 provider 仍吐出的调用。这里不解析任何
+// 真实 Tool，也不进入 Execute 路径，故模型无法绕过这道终止闸。
+func toolDisabledResults(ctx context.Context, calls []messagesdomain.ToolCallData, log *zap.Logger) []messagesdomain.Block {
+	const message = "No tools are available in this turn because the isolated fork already returned; provide the final textual response instead."
+	blocks := make([]messagesdomain.Block, 0, len(calls))
+	for _, tc := range calls {
+		blockID := idgenpkg.New("blk")
+		em := newEmitter(ctx, log)
+		em.open(ctx, blockID, tc.ID, messagesdomain.BlockTypeToolResult, streamdomain.JSONContent(toolResultContent{}))
+		em.close(ctx, blockID, messagesdomain.StatusError,
+			&streamdomain.Node{Type: messagesdomain.BlockTypeToolResult, Content: streamdomain.JSONContent(toolResultContent{Content: message})}, message)
+		blocks = append(blocks, messagesdomain.Block{
+			ID:            blockID,
+			Type:          messagesdomain.BlockTypeToolResult,
+			Content:       message,
+			ParentBlockID: tc.ID,
+			Error:         message,
+			Attrs:         map[string]any{"tool": tc.Name, "toolsDisabled": true},
+		})
+	}
+	return blocks
+}
+
 // dispatchWithGate runs the tool, first gating it on human approval when a humanloop broker is in ctx
 // (chat / nested agent runs seed one; subagent / workflow do not → pure trust). TWO things open the gate:
 //

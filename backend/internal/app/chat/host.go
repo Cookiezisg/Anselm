@@ -28,12 +28,13 @@ import (
 // agent 的静态白名单）。它还实现可选 AutoActivator（lazy 工具激活）与 ReminderProvider（live todo
 // 清单）；**不**实现 StepRecorder（持久重放是 workflow-agent 的事）。
 type chatHost struct {
-	svc            *Service
-	conversationID string
-	assistantMsgID string                  // the in-flight assistant turn (streaming, finalized at end)
-	assistantMsg   *messagesdomain.Message // mutated + persisted by WriteFinalize
-	caps           ContentCapabilities     // the resolved model's content capabilities (attachment gating)
-	summary        string                  // conversation.Summary — compacted older history, prepended
+	svc              *Service
+	conversationID   string
+	assistantMsgID   string                  // the in-flight assistant turn (streaming, finalized at end)
+	assistantMsg     *messagesdomain.Message // mutated + persisted by WriteFinalize
+	recordedBlockIDs map[string]struct{}     // blocks already appended before the terminal finalize
+	caps             ContentCapabilities     // the resolved model's content capabilities (attachment gating)
+	summary          string                  // conversation.Summary — compacted older history, prepended
 	// summaryCoversUpToSeq is the compaction watermark: blocks with seq ≤ it are folded into
 	// summary and dropped from LLM history. The source of truth (crash-safe: contextmgr writes
 	// the summary+watermark before the archived flag, so a crash can't double-count).
@@ -68,6 +69,7 @@ var (
 	_ loopapp.PromptCompactor       = (*chatHost)(nil)
 	_ loopapp.ContextObserver       = (*chatHost)(nil)
 	_ loopapp.RuntimeBudgetResolver = (*chatHost)(nil)
+	_ loopapp.BlockRecorder         = (*chatHost)(nil)
 )
 
 // RuntimeInputBudget asks the learned-profile service for the exact rendered
@@ -324,7 +326,14 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Bl
 	h.assistantMsg.InputTokens = in
 	h.assistantMsg.OutputTokens = out
 
-	if err := h.svc.messages.FinalizeMessage(dctx, h.assistantMsg, blocks); err != nil {
+	remaining := make([]messagesdomain.Block, 0, len(blocks))
+	for _, block := range blocks {
+		if _, recorded := h.recordedBlockIDs[block.ID]; recorded && block.ID != "" {
+			continue
+		}
+		remaining = append(remaining, block)
+	}
+	if err := h.svc.messages.FinalizeMessage(dctx, h.assistantMsg, remaining); err != nil {
 		h.svc.log.Warn("chatapp.WriteFinalize: persist failed (turn lost from history)",
 			zap.String("messageId", h.assistantMsgID), zap.Error(err))
 	}
@@ -339,4 +348,60 @@ func (h *chatHost) WriteFinalize(ctx context.Context, blocks []messagesdomain.Bl
 	if err := h.svc.deps.Conversations.TouchLastMessage(dctx, h.conversationID, time.Now().UTC(), status == messagesdomain.StatusCompleted); err != nil {
 		h.svc.log.Warn("chatapp.WriteFinalize: touch last_message failed", zap.String("conversation", h.conversationID), zap.Error(err))
 	}
+}
+
+// RecordBlocks appends one LLM sampling boundary while the assistant turn is still streaming. The
+// concrete messages store exposes this as an optional capability so lightweight chat fakes keep
+// finalize-only behavior. A successful append mutates blocks in place with their durable id/seq;
+// loop deliberately appends the slice to its final history only after this hook returns, so the
+// finalizer can filter exactly these rows and never insert them twice.
+//
+// RecordBlocks 在 assistant 仍 streaming 时增量追加一次 LLM sampling 边界。具体 messages store 以可选
+// capability 提供它，使轻量 chat fake 仍保持只在 finalize 落盘。成功追加会原地回填 durable id/seq；
+// loop 刻意等此 hook 返回后才把切片并入最终 history，故 finalize 能精确滤掉这些行、绝不重复插入。
+func (h *chatHost) RecordBlocks(ctx context.Context, blocks []messagesdomain.Block) error {
+	if len(blocks) == 0 {
+		return nil
+	}
+	appender, ok := h.svc.messages.(interface {
+		AppendBlocks(context.Context, *messagesdomain.Message, []messagesdomain.Block) error
+	})
+	if !ok {
+		return nil
+	}
+	if h.recordedBlockIDs == nil {
+		h.recordedBlockIDs = make(map[string]struct{})
+	}
+	pending := make([]messagesdomain.Block, 0, len(blocks))
+	for _, block := range blocks {
+		if block.ID != "" {
+			if _, recorded := h.recordedBlockIDs[block.ID]; recorded {
+				continue
+			}
+		}
+		pending = append(pending, block)
+	}
+	if len(pending) == 0 {
+		return nil
+	}
+	if err := appender.AppendBlocks(ctx, h.assistantMsg, pending); err != nil {
+		return err
+	}
+	// Copy the store-assigned values back to the caller's slice. Text/reasoning blocks do not have
+	// an id until insertBlocks assigns one; matching by position is safe because pending preserves
+	// the original order and no other writer can touch this conversation queue.
+	p := 0
+	for i := range blocks {
+		if blocks[i].ID != "" {
+			if _, recorded := h.recordedBlockIDs[blocks[i].ID]; recorded {
+				continue
+			}
+		}
+		blocks[i] = pending[p]
+		if blocks[i].ID != "" {
+			h.recordedBlockIDs[blocks[i].ID] = struct{}{}
+		}
+		p++
+	}
+	return nil
 }

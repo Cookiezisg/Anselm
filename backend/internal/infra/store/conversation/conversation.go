@@ -11,12 +11,14 @@ package conversation
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"time"
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	paginationpkg "github.com/sunweilin/anselm/backend/internal/pkg/pagination"
 )
 
 // Schema is the conversations DDL, exported as ordered idempotent statements for bootstrap to
@@ -118,6 +120,31 @@ type Store struct {
 	repo *ormpkg.Repo[conversationdomain.Conversation]
 }
 
+// conversationTimeCursor carries the secondary time/id key, the pinned partition it belongs to, and
+// the normalized list-query scope. The partition is part of the opaque cursor because pinned-first is
+// a two-part order; the scope is part of it because a cursor from another filter can silently skip rows.
+//
+// conversationTimeCursor 载次键时间/id、所属置顶分区及归一化的列表查询 scope。置顶优先是两段式排序，分区必须进入
+// opaque cursor；scope 也必须进入，因为另一个过滤器铸出的 cursor 可能静默漏行。
+type conversationTimeCursor struct {
+	Key    time.Time `json:"c"`
+	ID     string    `json:"i"`
+	Pinned *bool     `json:"p,omitempty"`
+	Start  bool      `json:"s,omitempty"`
+	Scope  string    `json:"f"`
+}
+
+// conversationStringCursor is the same partition-aware cursor for sort=name's string keyset.
+//
+// conversationStringCursor 是 sort=name 字符串 keyset 的同款分区游标。
+type conversationStringCursor struct {
+	Key    string `json:"c"`
+	ID     string `json:"i"`
+	Pinned *bool  `json:"p,omitempty"`
+	Start  bool   `json:"s,omitempty"`
+	Scope  string `json:"f"`
+}
+
 // New constructs a Store bound to the conversations table.
 //
 // New 构造绑定 conversations 表的 Store。
@@ -156,20 +183,15 @@ func (s *Store) GetBatch(ctx context.Context, ids []string) ([]*conversationdoma
 	return rows, nil
 }
 
-// List returns one page, pinned-first, with the secondary key chosen by filter.Sort (default
-// activity). The cursor keys only (sortColumn, id) — the leading pinned partition relies on all pins
-// landing on page one (few, single-user), so it never drifts across pages. PageKeyset aligns the
-// cursor column with the ORDER BY's sort column (the keyset invariant); the name path additionally
-// keeps that alignment collation-sensitive (COLLATE NOCASE on column, ORDER BY, and index alike).
+// listQuery applies the filters shared by one pinned partition. The partition predicate is deliberately
+// added here rather than in ListFilter: a complete pinned-first page walk queries the true and false
+// partitions independently, then joins them in order without asking the generic ORM cursor to understand
+// a leading boolean sort key.
 //
-// List 返一页，置顶优先，次键由 filter.Sort 选（默认 activity）。游标只键 (sortColumn, id)——置顶分区靠
-// 「所有置顶都落首页」（少、单用户）故不跨页漂移。PageKeyset 让游标列与 ORDER BY 排序列对齐（keyset 不变量）；
-// name 路径另把这个对齐做成对 collation 敏感（列 / ORDER BY / 索引同 COLLATE NOCASE）。
-func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) ([]*conversationdomain.Conversation, string, error) {
-	q := s.repo.Query()
-	// Exactly one archived predicate per scope (or none for ArchiveAll). ArchiveAll is the rail's
-	// "show archived" mode — active + archived in one list, each row carrying its archived flag.
-	// 每个 scope 恰好一个 archived 谓词（ArchiveAll 不加）。ArchiveAll = rail「显示已归档」：活跃+归档同列、各带 archived 标志。
+// listQuery 应用一个置顶分区共用的过滤条件。分区谓词刻意在这里追加而非塞进 ListFilter：完整的置顶优先分页分别
+// 查询 true/false 两段，再按顺序拼接，不要求通用 ORM cursor 理解一个前置布尔排序键。
+func (s *Store) listQuery(filter conversationdomain.ListFilter, pinned bool) *ormpkg.Query[conversationdomain.Conversation] {
+	q := s.repo.Query().WhereEq("pinned", pinned)
 	switch filter.Archive {
 	case conversationdomain.ArchiveArchived:
 		q = q.WhereEq("archived", true)
@@ -178,56 +200,261 @@ func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) 
 	default: // ArchiveActive
 		q = q.WhereEq("archived", false)
 	}
-	// Exactly one pin predicate per scope (or none for PinAny). The grouped rail asks for the two halves
-	// separately so each thread is rendered exactly once. 每个 scope 恰一个置顶谓词（PinAny 不加）。
-	switch filter.Pinned {
-	case conversationdomain.PinPinned:
-		q = q.WhereEq("pinned", true)
-	case conversationdomain.PinUnpinned:
-		q = q.WhereEq("pinned", false)
-	default: // PinAny
-	}
-	// The residency filter's three states (see ListFilter.WorkDir): nil adds nothing, &"" asks for the
-	// unmounted ones — an equality on the empty string, NOT "no filter", which is exactly why the field is a
-	// pointer — and &path narrows to one group.
-	// 驻地过滤的三态（见 ListFilter.WorkDir）:nil 什么都不加、&"" 要未挂的那些（对**空串**的等值比较、**不是**
-	// 「不过滤」，这正是该字段是指针的原因）、&path 收窄到一个组。
 	if filter.WorkDir != nil {
 		q = q.WhereEq("work_dir", *filter.WorkDir)
 	}
-	q = q.WhereLike("title", filter.Search)
-	// Sort is always pinned-first; the secondary key is recency (default) or creation order. The
-	// keyset cursor MUST key the same column the ORDER BY sorts by — PageKeyset aligns them, so the
-	// cursor's WHERE/encode track the chosen column (else pages skip/duplicate). Unknown/empty sort
-	// → activity (no 400 on a sort typo).
-	//
-	// 排序恒置顶优先；次键为最近活跃（默认）或创建序。keyset 游标必须键 ORDER BY 所按的同一列——PageKeyset
-	// 对齐之，使游标 WHERE/encode 跟选定列（否则跨页漏/重）。未知/空 sort → activity（不为 sort 笔误报 400）。
-	var (
-		rows []*conversationdomain.Conversation
-		next string
-		err  error
-	)
+	return q.WhereLike("title", filter.Search)
+}
+
+// listPartitionPage pages one pinned state with the generic, single-partition keyset. Since the query
+// already has `pinned = ?`, Page's secondary cursor is now a complete order key within that partition.
+//
+// listPartitionPage 在一个置顶态内分页。查询已经带 `pinned = ?`，故 Page 的次键游标在该分区内就是完整排序键。
+func (s *Store) listPartitionPage(ctx context.Context, filter conversationdomain.ListFilter, pinned bool, cursor string, limit int) ([]*conversationdomain.Conversation, string, error) {
+	q := s.listQuery(filter, pinned)
 	if filter.Sort == conversationdomain.ListSortName {
-		// Title A–Z (case-insensitive), pinned-first, id ASC tiebreaker — a STRING keyset via PageAsc
-		// (ascending). Order, keyset column, and the idx_conversations_ws_title index all agree on
-		// COLLATE NOCASE + direction (the keyset invariant, collation-sensitive here).
-		// title A–Z（大小写不敏感）、置顶优先、id 升序 tiebreaker——经 PageAsc 的字符串升序 keyset。Order / keyset 列 /
-		// idx_conversations_ws_title 索引三处在 COLLATE NOCASE + 方向上一致（keyset 不变量，此处对 collation 敏感）。
-		rows, next, err = q.Order("pinned DESC, title COLLATE NOCASE ASC, id ASC").PageKeyset("title").PageAsc(ctx, filter.Cursor, filter.Limit)
-	} else {
-		// activity (default) / created: time-keyed, pinned-first, descending via Page.
-		// activity（默认）/ created：时间键、置顶优先、降序，经 Page。
-		keyset := "last_message_at"
-		if filter.Sort == conversationdomain.ListSortCreated {
-			keyset = "created_at"
+		return q.Order("title COLLATE NOCASE ASC, id ASC").PageKeyset("title").PageAsc(ctx, cursor, limit)
+	}
+	keyset := "last_message_at"
+	if filter.Sort == conversationdomain.ListSortCreated {
+		keyset = "created_at"
+	}
+	return q.Order(keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, cursor, limit)
+}
+
+func pinnedPartitions(scope conversationdomain.PinScope) []bool {
+	switch scope {
+	case conversationdomain.PinPinned:
+		return []bool{true}
+	case conversationdomain.PinUnpinned:
+		return []bool{false}
+	default:
+		return []bool{true, false}
+	}
+}
+
+func malformedConversationCursor(reason string) error {
+	return fmt.Errorf("%w: conversation list cursor %s", paginationpkg.ErrMalformedCursor, reason)
+}
+
+// conversationCursorScopeKey normalizes the public list axes into a stable opaque scope. A cursor
+// from another sort/filter is not merely suboptimal: applying it can silently skip rows, so the store
+// rejects it instead of relying on every caller to remember the reset rule.
+//
+// conversationCursorScopeKey 将公开列表轴归一成稳定的 opaque scope。另一个排序/过滤铸出的 cursor 不是「略差」而是
+// 可能静默漏行，故 store 主动拒绝，不把完整性寄托在每个调用方都记住重置规则。
+type conversationCursorScope struct {
+	Archive string  `json:"a"`
+	Sort    string  `json:"s"`
+	Search  string  `json:"q"`
+	Pinned  string  `json:"p"`
+	WorkDir *string `json:"w,omitempty"`
+}
+
+func conversationCursorScopeKey(filter conversationdomain.ListFilter) string {
+	sort := string(conversationdomain.ListSortActivity)
+	switch filter.Sort {
+	case conversationdomain.ListSortCreated, conversationdomain.ListSortName:
+		sort = string(filter.Sort)
+	}
+	archive := string(conversationdomain.ArchiveActive)
+	switch filter.Archive {
+	case conversationdomain.ArchiveArchived, conversationdomain.ArchiveAll:
+		archive = string(filter.Archive)
+	}
+	pinned := string(conversationdomain.PinAny)
+	switch filter.Pinned {
+	case conversationdomain.PinPinned, conversationdomain.PinUnpinned:
+		pinned = string(filter.Pinned)
+	}
+	raw, _ := json.Marshal(conversationCursorScope{
+		Archive: archive,
+		Sort:    sort,
+		Search:  filter.Search,
+		Pinned:  pinned,
+		WorkDir: filter.WorkDir,
+	})
+	return string(raw)
+}
+
+func encodeTimeConversationCursor(raw string, pinned bool, scope string) (string, error) {
+	var c paginationpkg.Cursor
+	if err := paginationpkg.DecodeCursor(raw, &c); err != nil {
+		return "", err
+	}
+	return paginationpkg.EncodeCursor(conversationTimeCursor{Key: c.Key, ID: c.ID, Pinned: &pinned, Scope: scope})
+}
+
+func encodeStringConversationCursor(raw string, pinned bool, scope string) (string, error) {
+	var c paginationpkg.StringCursor
+	if err := paginationpkg.DecodeCursor(raw, &c); err != nil {
+		return "", err
+	}
+	return paginationpkg.EncodeCursor(conversationStringCursor{Key: c.Key, ID: c.ID, Pinned: &pinned, Scope: scope})
+}
+
+func encodeStartConversationCursor(pinned bool, scope string) (string, error) {
+	return paginationpkg.EncodeCursor(conversationTimeCursor{Pinned: &pinned, Start: true, Scope: scope})
+}
+
+func encodeStartConversationStringCursor(pinned bool, scope string) (string, error) {
+	return paginationpkg.EncodeCursor(conversationStringCursor{Pinned: &pinned, Start: true, Scope: scope})
+}
+
+// List returns one complete pinned-first page. The cursor carries the partition because a cursor made
+// at the end of a pinned page must not filter out newer unpinned rows. The same partition walk is used
+// for activity, created, and name sorts; a page is filled across the partition boundary when needed.
+//
+// List 返一页**完整**的置顶优先结果。游标带分区信息，因为置顶页末的游标不能把时间更新的未置顶行过滤掉。
+// activity、created、name 三种排序共用同一分区遍历；需要时会跨分区补满一页。
+func (s *Store) List(ctx context.Context, filter conversationdomain.ListFilter) ([]*conversationdomain.Conversation, string, error) {
+	limit := filter.Limit
+	if limit <= 0 {
+		limit = 50
+	}
+	partitions := pinnedPartitions(filter.Pinned)
+	scope := conversationCursorScopeKey(filter)
+
+	var timeCursor *conversationTimeCursor
+	var stringCursor *conversationStringCursor
+	if filter.Cursor != "" {
+		if filter.Sort == conversationdomain.ListSortName {
+			var c conversationStringCursor
+			if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
+				return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+			}
+			if c.Pinned == nil {
+				return nil, "", malformedConversationCursor("is missing its pinned partition")
+			}
+			if c.Scope != scope {
+				return nil, "", malformedConversationCursor("belongs to a different list query")
+			}
+			stringCursor = &c
+		} else {
+			var c conversationTimeCursor
+			if err := paginationpkg.DecodeCursor(filter.Cursor, &c); err != nil {
+				return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+			}
+			if c.Pinned == nil {
+				return nil, "", malformedConversationCursor("is missing its pinned partition")
+			}
+			if c.Scope != scope {
+				return nil, "", malformedConversationCursor("belongs to a different list query")
+			}
+			timeCursor = &c
 		}
-		rows, next, err = q.Order("pinned DESC, "+keyset+" DESC, id DESC").PageKeyset(keyset).Page(ctx, filter.Cursor, filter.Limit)
 	}
-	if err != nil {
-		return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+
+	start := 0
+	if timeCursor != nil {
+		found := false
+		for i, pinned := range partitions {
+			if pinned == *timeCursor.Pinned {
+				start, found = i, true
+				break
+			}
+		}
+		if !found {
+			return nil, "", malformedConversationCursor("does not match the requested pin scope")
+		}
+	} else if stringCursor != nil {
+		found := false
+		for i, pinned := range partitions {
+			if pinned == *stringCursor.Pinned {
+				start, found = i, true
+				break
+			}
+		}
+		if !found {
+			return nil, "", malformedConversationCursor("does not match the requested pin scope")
+		}
 	}
-	return rows, next, nil
+
+	items := make([]*conversationdomain.Conversation, 0, limit)
+	for i := start; i < len(partitions); i++ {
+		pinned := partitions[i]
+		partitionCursor := ""
+		if i == start {
+			if timeCursor != nil && !timeCursor.Start {
+				var err error
+				partitionCursor, err = paginationpkg.EncodeCursor(paginationpkg.Cursor{Key: timeCursor.Key, ID: timeCursor.ID})
+				if err != nil {
+					return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+				}
+			}
+			if stringCursor != nil && !stringCursor.Start {
+				var err error
+				partitionCursor, err = paginationpkg.EncodeCursor(paginationpkg.StringCursor{Key: stringCursor.Key, ID: stringCursor.ID})
+				if err != nil {
+					return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+				}
+			}
+		}
+		rows, next, err := s.listPartitionPage(ctx, filter, pinned, partitionCursor, limit-len(items))
+		if err != nil {
+			return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+		}
+		items = append(items, rows...)
+		if next != "" {
+			if filter.Sort == conversationdomain.ListSortName {
+				next, err = encodeStringConversationCursor(next, pinned, scope)
+			} else {
+				next, err = encodeTimeConversationCursor(next, pinned, scope)
+			}
+			if err != nil {
+				return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+			}
+			return items, next, nil
+		}
+		if len(items) < limit {
+			continue
+		}
+
+		// The current partition ended exactly at the page boundary. Probe later partitions so we only
+		// advertise a next page when a row really exists; its start cursor replays that first row.
+		// 当前分区恰好填满页面且已结束。探测后续分区，只有确有行才发 next；start cursor 会重放该首行。
+		for j := i + 1; j < len(partitions); j++ {
+			probe, _, err := s.listPartitionPage(ctx, filter, partitions[j], "", 1)
+			if err != nil {
+				return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+			}
+			if len(probe) == 0 {
+				continue
+			}
+			if filter.Sort == conversationdomain.ListSortName {
+				next, err := encodeStartConversationStringCursor(partitions[j], scope)
+				if err != nil {
+					return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+				}
+				return items, next, nil
+			}
+			next, err := encodeStartConversationCursor(partitions[j], scope)
+			if err != nil {
+				return nil, "", fmt.Errorf("conversationstore.List: %w", err)
+			}
+			return items, next, nil
+		}
+		return items, "", nil
+	}
+	return items, "", nil
+}
+
+// Count returns the exact live-row count for the public list axes. The pinned-first list is physically
+// two partition queries, so Count sums the same partitions List walks instead of counting a broader set
+// and asking the client to infer the pin scope.
+//
+// Count 返回公开列表轴下的存活行精确总数。置顶优先列表物理上是两个分区查询，故 Count 求和与 List 相同的分区，
+// 不先数一个更宽的集合再让客户端猜置顶范围。
+func (s *Store) Count(ctx context.Context, filter conversationdomain.ListFilter) (int, error) {
+	total := int64(0)
+	for _, pinned := range pinnedPartitions(filter.Pinned) {
+		n, err := s.listQuery(filter, pinned).Count(ctx)
+		if err != nil {
+			return 0, fmt.Errorf("conversationstore.Count: %w", err)
+		}
+		total += n
+	}
+	return int(total), nil
 }
 
 // TouchLastMessage sets last_message_at and the unread flag on one conversation in ONE UPDATE (chat

@@ -16,6 +16,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // --- fakes -----------------------------------------------------------------
@@ -152,6 +153,22 @@ type countingTool struct {
 	calls *int
 }
 
+type disableToolsAfterExecution struct {
+	calls *int
+}
+
+func (disableToolsAfterExecution) Name() string        { return "fork" }
+func (disableToolsAfterExecution) Description() string { return "requests a textual-only follow-up" }
+func (disableToolsAfterExecution) Parameters() json.RawMessage {
+	return json.RawMessage(`{"type":"object"}`)
+}
+func (disableToolsAfterExecution) ValidateInput(json.RawMessage) error { return nil }
+func (t disableToolsAfterExecution) Execute(ctx context.Context, _ string) (string, error) {
+	*t.calls++
+	reqctxpkg.RequestToolsDisabled(ctx)
+	return "isolated result", nil
+}
+
 type terminalResultTool struct {
 	name  string
 	calls *int
@@ -251,6 +268,54 @@ func TestRun_ToolThenText(t *testing.T) {
 	}
 	if !sawToolResult || !sawText {
 		t.Fatalf("blocks missing pieces: toolResult=%v text=%v (%+v)", sawToolResult, sawText, host.fin.blocks)
+	}
+}
+
+func TestRun_ForkResultDisablesParentToolsForFinalSample(t *testing.T) {
+	runCount := 0
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{toolStartEv(0, "tc_fork", "fork"), toolDeltaEv(0, `{"summary":"run isolated skill","danger":"safe"}`), finishEv()},
+		{textEv("final answer"), finishEv()},
+	}}
+	host := &fakeHost{
+		history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "run the fork"}},
+		tools:   []toolapp.Tool{disableToolsAfterExecution{calls: &runCount}},
+	}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+	if res.Steps != 2 || runCount != 1 {
+		t.Fatalf("steps=%d tool executions=%d, want 2 and 1", res.Steps, runCount)
+	}
+	if len(client.requests) != 2 || len(client.requests[1].Tools) != 0 {
+		t.Fatalf("final sample tools=%d, want zero; requests=%d", len(client.requests[1].Tools), len(client.requests))
+	}
+	if host.fin.status != messagesdomain.StatusCompleted || res.LastMessage != "final answer" {
+		t.Fatalf("status=%q last=%q, want completed/final answer", host.fin.status, res.LastMessage)
+	}
+}
+
+func TestRun_ForkResultRejectsToolCallsAfterToolsAreDisabled(t *testing.T) {
+	runCount := 0
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{toolStartEv(0, "tc_fork", "fork"), toolDeltaEv(0, `{"summary":"run isolated skill","danger":"safe"}`), finishEv()},
+		{toolStartEv(0, "tc_late", "echo"), toolDeltaEv(0, `{"summary":"search more","danger":"safe"}`), finishEv()},
+	}}
+	host := &fakeHost{
+		history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "run the fork"}},
+		tools:   []toolapp.Tool{disableToolsAfterExecution{calls: &runCount}, fakeTool{name: "echo", result: "must not run"}},
+	}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+	if res.Status != messagesdomain.StatusError || res.ErrCode != "TURN_TOOLS_DISABLED" || host.fin.errCode != res.ErrCode {
+		t.Fatalf("result=%+v finalize=%+v, want TURN_TOOLS_DISABLED error", res, host.fin)
+	}
+	if runCount != 1 || len(client.requests) != 2 || len(client.requests[1].Tools) != 0 {
+		t.Fatalf("fork=%d requests=%d finalTools=%d, want 1/2/0", runCount, len(client.requests), len(client.requests[1].Tools))
+	}
+	for _, block := range host.fin.blocks {
+		if block.ParentBlockID == "tc_late" && (block.Error == "" || block.Attrs["toolsDisabled"] != true) {
+			t.Fatalf("late call block=%+v, want explicit disabled boundary", block)
+		}
 	}
 }
 

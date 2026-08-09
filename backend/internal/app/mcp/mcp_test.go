@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"io"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -173,6 +174,23 @@ func TestInstall_ConnectsAndReportsTools(t *testing.T) {
 	}
 	if len(st.Tools) != 1 || st.Tools[0].Name != "get-library-docs" {
 		t.Fatalf("want 1 tool get-library-docs, got %v", st.Tools)
+	}
+}
+
+func TestImport_ReturnsNamesInStableOrder(t *testing.T) {
+	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{})
+	imported, skipped, err := svc.Import(ctxWS("ws_1"), map[string]mcpinfra.ImportEntry{
+		"zeta":  {Command: "npx"},
+		"alpha": {Command: "npx"},
+	}, false)
+	if err != nil {
+		t.Fatalf("import: %v", err)
+	}
+	if !reflect.DeepEqual(imported, []string{"alpha", "zeta"}) {
+		t.Fatalf("imported order must be stable, got %v", imported)
+	}
+	if len(skipped) != 0 {
+		t.Fatalf("unexpected skipped entries: %v", skipped)
 	}
 }
 

@@ -152,11 +152,16 @@ func (s *Service) Install(ctx context.Context, source string, names []string, fo
 			res.Skipped[c.Name] = pv.Reason
 			continue
 		}
-		if exists, _ := s.repo.Exists(ctx, c.Name); exists && !force {
+		exists, _ := s.repo.Exists(ctx, c.Name)
+		if exists && !force {
 			res.Skipped[c.Name] = "already exists (pass force to overwrite)"
 			continue
 		}
-		if err := s.landCandidate(ctx, src, c); err != nil {
+		action := "created"
+		if exists {
+			action = "updated"
+		}
+		if err := s.landCandidate(ctx, src, c, action); err != nil {
 			res.Skipped[c.Name] = errorspkgSurface(err)
 			continue
 		}
@@ -168,10 +173,12 @@ func (s *Service) Install(ctx context.Context, source string, names []string, fo
 	return res, nil
 }
 
-// landCandidate writes one candidate: wipe-on-force, bundled files, manifest, sidecar, edges.
+// landCandidate writes one candidate: wipe-on-force, bundled files, manifest, sidecar, edges, and one
+// lifecycle event matching the operation. An update must not briefly look like a create to observers.
 //
-// landCandidate 落一个候选：force 先清、附属文件、清单、sidecar、关系边。
-func (s *Service) landCandidate(ctx context.Context, src skillfetch.Source, c skillfetch.Candidate) error {
+// landCandidate 落一个候选：force 先清、附属文件、清单、sidecar、关系边，并只发与操作相符的一条
+// 生命周期事件。更新绝不能先伪装成 created 再补 updated。
+func (s *Service) landCandidate(ctx context.Context, src skillfetch.Source, c skillfetch.Candidate, action string) error {
 	if exists, _ := s.repo.Exists(ctx, c.Name); exists {
 		if err := s.repo.Delete(ctx, c.Name); err != nil {
 			return fmt.Errorf("wipe before reinstall: %w", err)
@@ -205,7 +212,7 @@ func (s *Service) landCandidate(ctx context.Context, src skillfetch.Source, c sk
 	if err := s.repo.WriteProvenance(ctx, c.Name, prov); err != nil {
 		return err
 	}
-	s.notify(ctx, "created", c.Name)
+	s.notify(ctx, action, c.Name)
 	if sk, gErr := s.repo.Get(ctx, c.Name); gErr == nil {
 		s.syncEquipEdges(ctx, c.Name, sk.Frontmatter.AllowedTools)
 	}
@@ -250,7 +257,7 @@ func (s *Service) UpdateInstalled(ctx context.Context, name string, force bool) 
 		if c.Name != name {
 			continue
 		}
-		if err := s.landCandidate(ctx, src, c); err != nil {
+		if err := s.landCandidate(ctx, src, c, "updated"); err != nil {
 			return nil, fmt.Errorf("skillapp.UpdateInstalled: %w", err)
 		}
 		sk, gErr := s.repo.Get(ctx, name)
@@ -264,7 +271,6 @@ func (s *Service) UpdateInstalled(ctx context.Context, name string, force bool) 
 				_ = s.repo.WriteProvenance(ctx, name, np)
 			}
 		}
-		s.notify(ctx, "updated", name)
 		return s.repo.Get(ctx, name)
 	}
 	return nil, skilldomain.ErrInstallNoSkills.WithDetails(map[string]any{
@@ -283,6 +289,11 @@ func (s *Service) ApproveTools(ctx context.Context, name string) (*skilldomain.S
 	}
 	if prov == nil {
 		return nil, skilldomain.ErrNotInstalled
+	}
+	if prov.ToolsApproved {
+		// Approval is a one-way trust decision. Retries must not rewrite provenance
+		// or emit a lifecycle signal for a state that did not change.
+		return s.repo.Get(ctx, name)
 	}
 	prov.ToolsApproved = true
 	if err := s.repo.WriteProvenance(ctx, name, prov); err != nil {

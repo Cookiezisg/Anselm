@@ -179,14 +179,71 @@ class FixtureLibraryRepository implements LibraryRepository {
   @override
   Future<DocumentNode> duplicateDocument(String id, {String? parentId}) async {
     final src = _byId(id);
-    final copy = src.copyWith(
-      id: _newId(),
-      name: '${src.name} copy',
-      parentId: parentId ?? src.parentId,
-      updatedAt: _t,
-    );
-    _docs.add(copy);
-    return copy;
+    final targetParent = parentId ?? src.parentId;
+    final parentPath = targetParent == null ? '' : _byId(targetParent).path;
+
+    // Mirror the live service: walk parents before children, remap every id/path, and only
+    // auto-uniquify the copied root. The fixture must not turn a deep-copy contract into a shallow
+    // demo-only fake. 镜像线上服务:父先子后、重映射全部 id/path,仅副本根自动去重。
+    final sourceOrder = <DocumentNode>[];
+    final pending = <String>[src.id];
+    while (pending.isNotEmpty) {
+      final current = pending.removeAt(0);
+      final node = _byId(current);
+      sourceOrder.add(node);
+      final children = _docs.where((d) => d.parentId == current).toList()
+        ..sort((a, b) => a.position.compareTo(b.position));
+      pending.addAll(children.map((d) => d.id));
+    }
+
+    final idMap = <String, String>{};
+    final pathMap = <String, String>{};
+    final rootSiblings = _docs.where((d) => d.parentId == targetParent);
+    final rootPosition =
+        rootSiblings.fold<int>(
+          -1,
+          (max, d) => d.position > max ? d.position : max,
+        ) +
+        1;
+    final baseName = src.name;
+    var rootName = baseName;
+    var suffix = 1;
+    while (_docs.any((d) => d.parentId == targetParent && d.name == rootName)) {
+      rootName = '$baseName ${++suffix}';
+    }
+
+    DocumentNode? copyRoot;
+    for (final original in sourceOrder) {
+      final copyID = _newId();
+      idMap[original.id] = copyID;
+      final isRoot = original.id == src.id;
+      final copyParent = isRoot ? targetParent : idMap[original.parentId]!;
+      final copyName = isRoot ? rootName : original.name;
+      final copyPath = '${isRoot ? parentPath : pathMap[copyParent]}/$copyName';
+      final copy = original.copyWith(
+        id: copyID,
+        parentId: copyParent,
+        name: copyName,
+        path: copyPath,
+        position: isRoot ? rootPosition : original.position,
+        tags: List.of(original.tags),
+        createdAt: _t,
+        updatedAt: _t,
+      );
+      _docs.add(copy);
+      pathMap[copyID] = copyPath;
+      if (isRoot) copyRoot = copy;
+    }
+    return copyRoot!;
+  }
+
+  @override
+  Future<String> iterateDocument(String id, {required String request}) async {
+    if (request.trim().isEmpty) {
+      throw ArgumentError('iterateDocument: request must be non-empty');
+    }
+    _byId(id);
+    return 'cv_document_${id}_iterate';
   }
 
   // ── skills ───────────────────────────────────────────────────────────────

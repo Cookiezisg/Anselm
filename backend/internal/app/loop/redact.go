@@ -300,6 +300,14 @@ func redactOpaqueMachineValues(text string) string {
 		return "the requested item"
 	})
 	text = entityIDPattern.ReplaceAllString(text, opaqueEntityPlaceholder)
+	// Skill activation can render session and directory values as labeled prose rather than a
+	// Markdown table. Once the generic ID pass turns a workspace/session id into a placeholder,
+	// leaving that placeholder inside a path creates a value-shaped path that cannot be copied or
+	// trusted. Keep the label, and point to the adjacent activation card instead.
+	// Skill 激活也可能把 session/目录值渲染成带标签的普通文本而非 Markdown 表格。通用 ID 脱敏把
+	// workspace/session id 换成 placeholder 后，若仍把它留在路径里，就会变成既不可复制又不诚实的
+	// 「看起来像值」路径。保留字段语义，指向相邻 activation card。
+	text = redactOpaqueSkillContextLines(text)
 	// Run before relation-field cleanup: relation tables also use Field/Value, but activation
 	// records have a separate structured card that can carry exact ID/time truth.
 	text = redactActivationDetailTableRows(text)
@@ -435,6 +443,18 @@ func redactOpaqueMachineValues(text string) string {
 	// workspace id 经过通用实体脱敏后会落在文件路径中。不能把占位符嵌在路径里，既不可复制也不诚实；
 	// 保留字段语义并明确指向精确 tool card。
 	text = redactOpaquePathTableRows(text)
+	// Skill activation summaries may use a two-column semantic table instead of labeled prose.
+	// Handle Session/Directory rows before the generic table-cell fallback, so a placeholder
+	// cannot survive as a value-shaped cell or as a fake path.
+	// skill 激活摘要也可能用二列表格表达字段。先处理 Session/Directory 行，再走通用表格兜底，
+	// 不能让 placeholder 以值或伪路径的形状留在助手正文。
+	text = redactOpaqueSkillContextTableRows(text)
+	// A model must not claim that every field was copied verbatim when opaque fields were
+	// intentionally redirected to the adjacent activation card. Rewrite that contradiction at
+	// the same deterministic user-facing boundary as the value redaction.
+	// 如果 opaque 字段已被指向相邻激活卡，模型不能再声称「全部逐字原样、未替换」。在同一出口
+	// 把这类自相矛盾的声明改成可验证的人话。
+	text = redactSkillVerbatimClaimLines(text)
 	// A placeholder inside a Markdown table is still not a user-facing value. During streaming,
 	// replace the cell with an honest unavailable marker; the complete close pass below can remove
 	// an entirely unavailable ID column instead of leaving a misleading header behind.
@@ -459,6 +479,7 @@ func redactOpaqueMachineValues(text string) string {
 	// MCP lifecycle metadata has the same exact value in the structured status card. Point the
 	// prose row there instead of leaving the vague global timestamp placeholder.
 	text = redactMCPConnectionTimestampTableRows(text)
+	text = redactMCPCallTimingTableRows(text)
 	text = removeOpaquePlaceholderIDColumns(text)
 	text = longIntegerPattern.ReplaceAllString(text, opaqueIntegerPlaceholder)
 	text = longHexPattern.ReplaceAllString(text, opaqueHashPlaceholder)
@@ -466,6 +487,111 @@ func redactOpaqueMachineValues(text string) string {
 		text = localizedOpaqueTimestampPlaceholderPattern.ReplaceAllString(text, opaqueTimestampChinesePlaceholder)
 	}
 	return restoreExactLastMessageAt(text)
+}
+
+func redactOpaqueSkillContextLines(text string) string {
+	lines := strings.Split(text, "\n")
+	for index, line := range lines {
+		if !strings.Contains(line, opaqueEntityPlaceholder) && !strings.Contains(line, legacyEntityPlaceholder) {
+			continue
+		}
+		colon := strings.IndexAny(line, ":：")
+		if colon < 0 {
+			continue
+		}
+		label := strings.ToLower(strings.Trim(strings.TrimSpace(line[:colon]), "`*_ "))
+		label = strings.ReplaceAll(label, " ", "")
+		prefix := line[:colon+1]
+		switch label {
+		case "session", "sessionid", "会话", "会话id":
+			lines[index] = prefix + " See the exact session in the activation card."
+		case "directory", "dir", "path", "cwd", "claude_skill_dir", "skill_dir", "目录", "路径":
+			lines[index] = prefix + " " + opaquePathTableHint
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func redactOpaqueSkillContextTableRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if !ok || len(cells) < 2 {
+			continue
+		}
+		label := normalizeSkillContextFieldLabel(cells[0])
+		hint := ""
+		switch label {
+		case "session", "sessionid", "会话", "会话id":
+			hint = "See the exact session in the activation card."
+		case "directory", "dir", "path", "cwd", "claude_skill_dir", "skill_dir", "目录", "路径":
+			hint = opaquePathTableHint
+		}
+		if hint == "" {
+			continue
+		}
+		changed := false
+		for column := 1; column < len(cells); column++ {
+			value := cells[column]
+			if !strings.Contains(value, opaqueEntityPlaceholder) && !strings.Contains(value, legacyEntityPlaceholder) {
+				continue
+			}
+			cells[column] = hint
+			changed = true
+			break
+		}
+		if changed {
+			lines[i] = formatMarkdownTableRow(cells)
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func normalizeSkillContextFieldLabel(label string) string {
+	value := strings.ToLower(strings.Trim(strings.TrimSpace(label), "`*_ "))
+	return strings.ReplaceAll(value, " ", "")
+}
+
+func redactSkillVerbatimClaimLines(text string) string {
+	lines := strings.Split(text, "\n")
+	for index, line := range lines {
+		if !isSkillVerbatimClaimLine(line) {
+			continue
+		}
+		prefix := line[:len(line)-len(strings.TrimLeft(line, " \t"))]
+		if containsHan(text) {
+			lines[index] = prefix + "可安全展示的人话字段已原样引用；精确的 Session 和 Directory 请查看相邻激活工具卡。"
+		} else {
+			lines[index] = prefix + "Human-readable fields are quoted above; exact Session and Directory values remain in the adjacent activation card."
+		}
+	}
+	return strings.Join(lines, "\n")
+}
+
+func isSkillVerbatimClaimLine(line string) bool {
+	lower := strings.ToLower(line)
+	hasActivationContext := strings.Contains(lower, "activation") || strings.Contains(line, "激活")
+	if !hasActivationContext {
+		return false
+	}
+	for _, marker := range []string{
+		"verbatim",
+		"quoted exactly",
+		"quoted raw",
+		"without substitution",
+		"without replacing",
+		"without fabrication",
+		"原样",
+		"逐字",
+		"未做任何替换",
+		"未做替换",
+		"未臆造",
+	} {
+		if strings.Contains(lower, marker) || strings.Contains(line, marker) {
+			return true
+		}
+	}
+	return false
 }
 
 func redactTriggerIDPlaceholderLine(line string) string {
@@ -1150,6 +1276,8 @@ func containsHan(s string) bool {
 
 const attachmentTimestampTableHint = "See the exact upload time in the attachment card."
 const mcpConnectionTimestampTableHint = "See the exact connection time in the MCP status card."
+const mcpCallTimingTableHint = "See the exact timing in the MCP call card."
+const mcpCallTimingTableHintChinese = "精确时间见旁边的 MCP 调用卡片。"
 
 const exactLastMessageAtMarker = "__ANSELM_EXACT_LAST_MESSAGE_AT__"
 
@@ -1331,9 +1459,90 @@ func redactMCPConnectionTimestampTableRows(text string) string {
 	return strings.Join(lines, "\n")
 }
 
+func redactMCPCallTimingTableRows(text string) string {
+	// The structured call card remains the exact source; prose can only point to it after the
+	// generic timestamp pass. This avoids a label-looking placeholder in a field/value table.
+	// 结构化调用卡才是精确来源；普通文本先经过通用时间脱敏，再指回调用卡，避免表格里出现像字段名的占位值。
+	lines := strings.Split(text, "\n")
+	for i := 0; i+2 < len(lines); {
+		header, ok := markdownTableCells(lines[i])
+		if !ok {
+			i++
+			continue
+		}
+		separator, ok := markdownTableCells(lines[i+1])
+		if !ok || len(separator) != len(header) || !isMarkdownTableSeparator(separator) {
+			i++
+			continue
+		}
+
+		lastRow := i + 1
+		labels := make(map[string]bool)
+		for row := i + 2; row < len(lines); row++ {
+			cells, rowOK := markdownTableCells(lines[row])
+			if !rowOK || len(cells) != len(header) {
+				break
+			}
+			lastRow = row
+			if len(cells) > 0 {
+				labels[normalizeMCPCallFieldLabel(cells[0])] = true
+			}
+		}
+		if !isMCPCallDetailTable(labels) {
+			i = lastRow + 1
+			continue
+		}
+
+		tableHasHan := containsHan(strings.Join(lines[i:lastRow+1], "\n"))
+		for row := i + 2; row <= lastRow; row++ {
+			cells, rowOK := markdownTableCells(lines[row])
+			if !rowOK || len(cells) < 2 || !isMCPCallTimingField(cells[0]) {
+				continue
+			}
+			for column := 1; column < len(cells); column++ {
+				if !isOpaqueTimestampPlaceholderCell(cells[column]) {
+					continue
+				}
+				if tableHasHan {
+					cells[column] = mcpCallTimingTableHintChinese
+				} else {
+					cells[column] = mcpCallTimingTableHint
+				}
+				lines[row] = formatMarkdownTableRow(cells)
+				break
+			}
+		}
+		i = lastRow + 1
+	}
+	return strings.Join(lines, "\n")
+}
+
+func normalizeMCPCallFieldLabel(label string) string {
+	value := strings.ToLower(strings.Trim(strings.TrimSpace(label), "`*_ "))
+	value = strings.ReplaceAll(value, " ", "")
+	value = strings.ReplaceAll(value, "-", "")
+	return value
+}
+
+func isMCPCallDetailTable(labels map[string]bool) bool {
+	server := labels["server"] || labels["服务器"] || labels["serverid"]
+	tool := labels["tool"] || labels["工具"]
+	status := labels["status"] || labels["状态"]
+	return server && tool && status
+}
+
+func isMCPCallTimingField(label string) bool {
+	switch normalizeMCPCallFieldLabel(label) {
+	case "startedat", "starttime", "开始时间", "endedat", "endtime", "结束时间", "createdat", "createdtime", "创建时间":
+		return true
+	default:
+		return false
+	}
+}
+
 func isOpaqueTimestampPlaceholderCell(cell string) bool {
 	value := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
-	return value == opaqueTimestampPlaceholder
+	return value == opaqueTimestampPlaceholder || value == opaqueTimestampChinesePlaceholder
 }
 
 func redactOpaquePlaceholderTableCells(text string) string {
@@ -2614,6 +2823,8 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 				opaquePlaceholderBoldColonLabeledLinePattern.MatchString(line) ||
 				opaqueVersionIDPlaceholderLinePattern.MatchString(line) ||
 				opaqueTriggerIDPlaceholderLinePattern.MatchString(line) ||
+				isSkillVerbatimClaimLine(line) ||
+				hasSkillContextLinePrefix(line) ||
 				hasTriggerIDLinePrefix(line) ||
 				hasActivationTimestampLinePrefix(line) {
 				return completed, text[newline+1:], true
@@ -2625,7 +2836,7 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 	if line == "" || len([]rune(line)) > 512 {
 		return "", "", false
 	}
-	if hasOpaquePlaceholderLabeledPrefix(line) || hasTriggerIDLinePrefix(line) || hasActivationTimestampLinePrefix(line) {
+	if hasOpaquePlaceholderLabeledPrefix(line) || isSkillVerbatimClaimLine(line) || hasSkillContextLinePrefix(line) || hasTriggerIDLinePrefix(line) || hasActivationTimestampLinePrefix(line) {
 		return text[:lineStart], line, true
 	}
 	lower := strings.ToLower(line)
@@ -2674,6 +2885,22 @@ func splitStructuredLinePrefix(text string) (prefix, held string, ok bool) {
 		}
 	}
 	return text[:lineStart], line, true
+}
+
+func hasSkillContextLinePrefix(line string) bool {
+	trimmed := strings.TrimSpace(strings.TrimLeft(line, "-*•_` \t"))
+	colon := strings.IndexAny(trimmed, ":：")
+	if colon < 0 {
+		return false
+	}
+	label := strings.ToLower(strings.Trim(strings.TrimSpace(trimmed[:colon]), "`*_ "))
+	label = strings.ReplaceAll(label, " ", "")
+	switch label {
+	case "session", "sessionid", "directory", "dir", "path", "cwd", "claude_skill_dir", "skill_dir", "会话", "会话id", "目录", "路径":
+		return true
+	default:
+		return false
+	}
 }
 
 func hasTriggerIDLinePrefix(line string) bool {

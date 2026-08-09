@@ -20,6 +20,20 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
+)
+
+// ErrToolsDisabled is the honest terminal state after a fork skill has returned. It is a
+// loop result rather than an HTTP response, but still needs one structured source of truth so
+// the durable error code and the documented wire vocabulary cannot drift apart.
+//
+// ErrToolsDisabled 是 fork skill 返回后的诚实终态。它是 loop 结果而非 HTTP 响应，但仍须有
+// 结构化唯一来源，避免 durable error code 与文档 wire 词汇漂移。
+var ErrToolsDisabled = errorspkg.New(
+	errorspkg.KindConflict,
+	"TURN_TOOLS_DISABLED",
+	"the isolated fork already returned; no further tools are available in this turn",
 )
 
 // maxConsecutiveAllFailTurns caps how many turns in a row may end with every tool call
@@ -81,6 +95,19 @@ type Host interface {
 	WriteFinalize(ctx context.Context, blocks []messagesdomain.Block, status, stopReason, errCode, errMsg string, in, out int)
 }
 
+// BlockRecorder is an OPTIONAL Host capability (type-asserted): it durably records the blocks
+// emitted by one LLM sampling step before the loop dispatches its tools. This is needed for a
+// parked human interaction: a client that opens the conversation after the live SSE frames have
+// passed must still get the tool_call from REST while the assistant row is streaming. Hosts that do
+// not support incremental persistence keep the historical finalize-only behavior.
+//
+// BlockRecorder 是 Host 的可选能力（type-asserted）：在 loop 派发工具前，先把一次 LLM sampling
+// 产出的 blocks 耐久落盘。人在环停泊时，用户可能在 live SSE 帧已经过去后才打开对话；此时 REST
+// 必须仍能从 streaming assistant 行取到 tool_call。未实现的 host 保持历史上的只在 finalize 落盘。
+type BlockRecorder interface {
+	RecordBlocks(ctx context.Context, blocks []messagesdomain.Block) error
+}
+
 // ReminderProvider is an OPTIONAL Host capability (type-asserted): when implemented, Run
 // injects its system-reminders ahead of each step as transient user messages — the
 // mechanism that keeps live state (the todo checklist) in front of the model without
@@ -133,7 +160,7 @@ type Result struct {
 	Blocks      []messagesdomain.Block
 	Status      string
 	StopReason  string
-	ErrCode     string // on a Status=error turn: the wire code (LLM_STREAM_ERROR / MAX_STEPS_REACHED / TOOL_ERROR_STORM)
+	ErrCode     string // on a Status=error turn: the wire code (LLM_STREAM_ERROR / MAX_STEPS_REACHED / TOOL_ERROR_STORM / TURN_TOOLS_DISABLED)
 	ErrMsg      string // on a Status=error turn: the real, human-facing cause (e.g. the provider error) — not a generic placeholder
 	TokensIn    int
 	TokensOut   int
@@ -160,6 +187,9 @@ func Run(
 	if log == nil {
 		log = zap.NewNop()
 	}
+	// This control object is per ReAct run, not per conversation. Tools may request a
+	// textual-only follow-up without poisoning the next user turn.
+	ctx = reqctxpkg.SetTurnControl(ctx, reqctxpkg.NewTurnControl())
 
 	history, err := host.LoadHistory(ctx)
 	if err != nil {
@@ -183,6 +213,21 @@ func Run(
 		handledCalls  = make(map[string]handledCall)
 		contextTrack  contextTracker
 	)
+	recordBlocks := func(blocks []messagesdomain.Block) {
+		if len(blocks) == 0 {
+			return
+		}
+		recorder, ok := host.(BlockRecorder)
+		if !ok {
+			return
+		}
+		if err := recorder.RecordBlocks(ctx, blocks); err != nil {
+			// Incremental persistence is a resilience improvement, not a second terminal path:
+			// WriteFinalize still receives the complete in-memory history and can retry the write.
+			log.Warn("incremental block persistence failed; finalize will retry",
+				zap.Int("blocks", len(blocks)), zap.Error(err))
+		}
+	}
 
 	for step := range maxSteps {
 		stepsRun = step + 1
@@ -204,6 +249,9 @@ func Run(
 			// Recompute per attempt: a prior search_tools may have widened the
 			// set. byName MUST match the definitions shown to the model.
 			tools := host.Tools(ctx)
+			if reqctxpkg.ToolsDisabled(ctx) {
+				tools = nil
+			}
 			req.Tools = toolapp.ToLLMDefs(tools)
 			byName = toolsByName(tools)
 			req.Messages = injectReminders(ctx, host, history)
@@ -308,7 +356,6 @@ func Run(
 				zap.Int("budget", budget), zap.Int("predicted_input", predicted))
 		}
 
-		allBlocks = append(allBlocks, aBlocks...)
 		totalIn += iT
 		totalOut += oT
 		if sr != "" {
@@ -316,6 +363,8 @@ func Run(
 		}
 
 		if stopReason == messagesdomain.StopReasonCancelled || stopReason == messagesdomain.StopReasonError {
+			recordBlocks(aBlocks)
+			allBlocks = append(allBlocks, aBlocks...)
 			status := messagesdomain.StatusCancelled
 			if stopReason == messagesdomain.StopReasonError {
 				status = messagesdomain.StatusError
@@ -343,7 +392,27 @@ func Run(
 		}
 
 		if len(toolCalls) == 0 {
+			recordBlocks(aBlocks)
+			allBlocks = append(allBlocks, aBlocks...)
 			host.WriteFinalize(ctx, allBlocks, messagesdomain.StatusCompleted, stopReason, "", "", totalIn, totalOut)
+			finalWritten = true
+			break
+		}
+
+		// A completed fork may leave the parent one final, textual sample, but it must
+		// never re-enable or execute a tool if the model ignores the empty tool schema.
+		// Persist a matching error result for every emitted call so the durable block tree
+		// remains protocol-complete, then end the turn honestly.
+		if reqctxpkg.ToolsDisabled(ctx) {
+			recordBlocks(aBlocks)
+			allBlocks = append(allBlocks, aBlocks...)
+			boundaryBlocks := toolDisabledResults(ctx, toolCalls, log)
+			allBlocks = append(allBlocks, boundaryBlocks...)
+			stopReason = messagesdomain.StopReasonError
+			finalStatus = messagesdomain.StatusError
+			errCode = ErrToolsDisabled.Code
+			errMsg = ErrToolsDisabled.Message
+			host.WriteFinalize(ctx, allBlocks, messagesdomain.StatusError, messagesdomain.StopReasonError, errCode, errMsg, totalIn, totalOut)
 			finalWritten = true
 			break
 		}
@@ -371,10 +440,13 @@ func Run(
 		toolCalls, aBlocks, repairedTools = normalizeToolCallArguments(toolCalls, aBlocks, byName, injectReminders(ctx, host, history))
 		if len(repairedTools) > 0 {
 			log.Info("normalized provider tool arguments", zap.Strings("tools", repairedTools))
-			// Replace the just-appended assistant blocks with their normalized durable form.
-			allBlocks = allBlocks[:len(allBlocks)-len(aBlocks)]
-			allBlocks = append(allBlocks, aBlocks...)
 		}
+		// Record the assistant boundary only after argument normalization, so a repaired tool call
+		// has one durable snapshot rather than a stale pre-repair copy. The append below intentionally
+		// follows RecordBlocks: the store may assign ids/seqs to text and reasoning blocks in place,
+		// and allBlocks must carry those assigned values into the eventual finalize filter.
+		recordBlocks(aBlocks)
+		allBlocks = append(allBlocks, aBlocks...)
 
 		rBlocks, repeatedCall := runToolsWithLedger(ctx, toolCalls, byName, handledCalls, log)
 		allBlocks = append(allBlocks, rBlocks...)

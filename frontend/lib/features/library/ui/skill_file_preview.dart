@@ -17,11 +17,13 @@ import '../../../core/notice/notice_center.dart';
 import '../../../core/perf/debouncer.dart';
 import '../../../core/platform/open_in_system.dart';
 import '../../../core/ui/an_button.dart';
+import '../../../core/ui/an_callout.dart';
 import '../../../core/ui/an_code_editor.dart';
 import '../../../core/ui/an_deferred_loading.dart';
 import '../../../core/ui/an_last_good.dart';
 import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_content_in.dart';
+import '../../../core/ui/an_scroll_behavior.dart';
 import '../../../core/ui/an_skeleton.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../core/ui/icons.dart';
@@ -169,6 +171,8 @@ class SkillFilePreview extends ConsumerStatefulWidget {
 class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
   final _save = Debouncer(AnMotion.autosave);
   bool _sourceMode = false; // svg/csv 的「源码」切换(默认渲染预览)
+  String? _draftText;
+  Object? _saveError;
 
   SkillFileKind get _kind => skillFileKindOf(widget.path);
 
@@ -191,20 +195,73 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
     super.dispose();
   }
 
-  void _saveText(String text) {
+  String? _errorDetail(ApiException error, String key) {
+    final details = error.details;
+    if (details is! Map) return null;
+    final value = details[key];
+    return value is String && value.trim().isNotEmpty ? value.trim() : null;
+  }
+
+  String _saveErrorMessage(BuildContext context, Object error) {
+    final t = context.t;
+    if (error is ApiException &&
+        error.code == AnselmErr.skillInvalidFrontmatter) {
+      final directory = _errorDetail(error, 'directory');
+      return directory == null
+          ? t.library.skillFileSaveRetryHint
+          : t.library.skillFileSaveInvalidManifest(directory: directory);
+    }
+    if (error is ApiException && error.message.trim().isNotEmpty) {
+      return '${t.library.skillFileSaveRetryHint}\n${error.message.trim()}';
+    }
+    return t.library.skillFileSaveRetryHint;
+  }
+
+  void _showSaveError(Object error) {
+    if (!mounted) return;
+    setState(() => _saveError = error);
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(context.t.library.skillFileSaveFailed, tone: AnTone.danger);
+  }
+
+  Future<bool> _persistText(String text) async {
     final repo = ref.read(libraryRepositoryProvider);
-    _save.run(() async {
-      try {
-        await repo.writeSkillFile(widget.name, widget.path, utf8.encode(text));
-        widget.onManifestSaved?.call();
-        ref.invalidate(skillFilesProvider(widget.name));
-      } catch (_) {
-        if (mounted) {
-          ref
-              .read(noticeCenterProvider.notifier)
-              .show(context.t.library.skillFileSaveFailed, tone: AnTone.danger);
-        }
-      }
+    try {
+      await repo.writeSkillFile(widget.name, widget.path, utf8.encode(text));
+      if (!mounted) return false;
+      setState(() {
+        _draftText = null;
+        _saveError = null;
+      });
+      widget.onManifestSaved?.call();
+      ref.invalidate(skillFilesProvider(widget.name));
+      return true;
+    } catch (error) {
+      _showSaveError(error);
+      return false;
+    }
+  }
+
+  void _saveText(String text) {
+    _draftText = text;
+    _save.run(() => _persistText(text));
+  }
+
+  void _rememberDraft(String text) {
+    if (!mounted) return;
+    if (_draftText == text && _saveError == null) return;
+    setState(() {
+      _draftText = text;
+      _saveError = null;
+    });
+  }
+
+  void _discardDraft() {
+    if (!mounted) return;
+    setState(() {
+      _draftText = null;
+      _saveError = null;
     });
   }
 
@@ -251,12 +308,23 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
             children: [
               if (_kind == SkillFileKind.svg || _kind == SkillFileKind.csv)
                 _modeToggleRow(preview: false),
+              if (_saveError != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: AnSpace.s12),
+                  child: AnCallout(
+                    _saveErrorMessage(context, _saveError!),
+                    title: context.t.library.skillFileSaveFailed,
+                    severity: AnCalloutSeverity.danger,
+                  ),
+                ),
               AnCodeEditor(
-                code: text,
+                code: _draftText ?? text,
                 lang: skillFileLang(widget.path),
                 editable: true,
                 wrap: true,
-                onChanged: _saveText,
+                onInput: _rememberDraft,
+                onSaveAsync: _persistText,
+                onCancel: _discardDraft,
               ),
             ],
           ),
@@ -614,22 +682,51 @@ class _MarkdownFileViewState extends ConsumerState<_MarkdownFileView> {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (mounted) _feedOutline(text);
         });
-        return AnPage(
-          child: SingleChildScrollView(
-            controller: _scroll,
-            padding: const EdgeInsets.symmetric(vertical: AnSpace.s12),
-            child: AnEditor(
-              key: _editorKey,
-              shrinkWrap: true,
-              initialMarkdown: text,
-              onChangedMarkdown: (md) {
-                widget.onSave(md);
-                _outline.run(() {
-                  if (mounted) _feedOutline(md);
-                });
-              },
-            ),
-          ),
+        // AnEditor is a sliver when shrink-wrapped. Keep it directly under a sliver viewport;
+        // putting it in SingleChildScrollView makes Flutter pair a RenderBox with a RenderSliver
+        // and turns a valid file selection into the generic error page.
+        // AnEditor 在 shrinkWrap 时是 sliver，必须直接挂在 sliver viewport 下；不能塞进
+        // SingleChildScrollView，否则 RenderBox/RenderSliver 协议冲突，合法文件会落通用错误页。
+        return LayoutBuilder(
+          builder: (context, box) {
+            final side = box.maxWidth > AnSize.content
+                ? (box.maxWidth - (AnSize.content - AnInset.pageX * 2)) / 2
+                : AnInset.pageX;
+            return RawScrollbar(
+              controller: _scroll,
+              thumbColor: context.colors.lineStrong,
+              radius: const Radius.circular(AnRadius.pill),
+              thickness: AnSpace.s4,
+              minThumbLength: AnSize.controlSm,
+              child: ScrollConfiguration(
+                behavior: const AnScrollBehavior(),
+                child: CustomScrollView(
+                  controller: _scroll,
+                  slivers: [
+                    SliverPadding(
+                      padding: EdgeInsets.only(
+                        top: AnSize.islandHead + AnSpace.s12,
+                        left: side,
+                        right: side,
+                        bottom: AnInset.pageBottom,
+                      ),
+                      sliver: AnEditor(
+                        key: _editorKey,
+                        shrinkWrap: true,
+                        initialMarkdown: text,
+                        onChangedMarkdown: (md) {
+                          widget.onSave(md);
+                          _outline.run(() {
+                            if (mounted) _feedOutline(md);
+                          });
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          },
         );
       },
     );

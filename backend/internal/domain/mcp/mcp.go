@@ -194,6 +194,11 @@ type Repository interface {
 var (
 	ErrServerNotFound     = errorspkg.New(errorspkg.KindNotFound, "MCP_SERVER_NOT_FOUND", "mcp server not found")
 	ErrServerNotConnected = errorspkg.New(errorspkg.KindUnavailable, "MCP_SERVER_DOWN", "mcp server not connected")
+	// Import errors are user-correctable input failures; keep them distinct from the generic
+	// INVALID_REQUEST so the import form can explain the exact repair without mutating the roster.
+	// Import 错误是用户可修复的输入失败；不要抹成通用 INVALID_REQUEST，导入表单才能明确指路且不改名册。
+	ErrImportInvalid  = errorspkg.New(errorspkg.KindInvalid, "MCP_IMPORT_INVALID", "mcp.json must contain a non-empty mcpServers object")
+	ErrImportTooLarge = errorspkg.New(errorspkg.KindTooLarge, "MCP_IMPORT_TOO_LARGE", "mcp.json exceeds the 1 MiB import limit")
 	// ErrInvalidCallStatus: a list filter passed a status outside CallStatuses — 422 with the allowed set
 	// in Details so the caller self-corrects instead of silently getting an empty page (F168-M2).
 	// ErrInvalidCallStatus：list 过滤传了 CallStatuses 外的状态——返 422、Details 带合法集自纠（F168-M2）。

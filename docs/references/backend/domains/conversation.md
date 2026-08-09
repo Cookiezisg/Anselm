@@ -43,7 +43,15 @@ Attached document 与 ModelRef 在写入时 eager 校验，避免 dangling 配�
 用户发送时 unread=false；completed assistant finalize 时 unread=true；error 或
 cancelled 不置未读。`:seen` 幂等清除。运行态由 app 服务在 Get/List 时补齐。
 
-List 使用 keyset 分页，支持 active/archived、pin 与搜索投影。`list_conversations` 的 `limit`
+List 使用 keyset 分页，支持 active/archived、pin、驻地与搜索投影；GET rail 的默认序是 pinned-first
+再按 `last_message_at` 倒序，也可切到 `created` 或 `name`。服务端 cursor 除了排序键与 id，还携带当前
+pinned 分区和完整查询 scope，因此置顶线程超过一页时仍能完整走到 unpinned 分区，不依赖“所有置顶都在首页”的假设；
+把 cursor 复用到另一查询轴会得到 `MALFORMED_CURSOR`，而不是静默跳页。客户端切换 sort、archive、search、pinned 或
+workDir 任一轴时仍必须丢弃旧 cursor。
+GET 列表同时以 `X-Anselm-Total-Count` 响应头返回当前完整过滤轴的精确总数；它与分页 body 分离，不参与 cursor，
+但必须与 `archived`、`pinned`、`workDir`、`search` 和 workspace 隔离使用完全相同的过滤。前端段头显示这个总数，
+不能用已加载窗口的 `rows.length` 代替，否则滚动会让“置顶/最近”计数漂移。
+`list_conversations` 的 `limit`
 接受原生整数及托管模型可能发出的精确十进制字符串；`includeArchived` 同样接受原生布尔或精确的
 `"true"`/`"false"` 字符串。浮点、任意字符串和数组仍拒绝。服务端生成的 cursor 是无填充
 base64url(JSON)；解码同时接受等价的标准填充形式，兼容托管模型对不透明字符串自动补齐 `=` 的
@@ -65,6 +73,9 @@ base64url(JSON)；解码同时接受等价的标准填充形式，兼容托管�
 
 PATCH 可修改 title、system prompt、attached documents、model override、
 archived、pinned 与 workdir。给 archived thread 发送新消息会自动 unarchive。
+PATCH 只持久化实际变化；空 patch 或所有提供字段都已等值时返回当前实体，但不刷新
+`updatedAt`、不写 workdir marker，也不发 `conversation.*` 生命周期通知。ModelOverride
+遵守缺键=不变、对象=设置、显式 `null`=清除的三态；workdir 空字符串表示卸载。
 
 Delete 先取消在途生成，再软删主行，并清 relation、touchpoint 与 Chat
 per-conversation ephemeral state。Messages 的耐久边界不由 Conversation 主行

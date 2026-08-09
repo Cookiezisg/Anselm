@@ -121,4 +121,14 @@ abstract final class AnselmErr {
   ///
   /// 422 — skill 捆绑文件超过在线读取护栏;文件仍可经系统打开逃生口访问。
   static const skillFileTooLarge = 'SKILL_FILE_TOO_LARGE';
+
+  /// 422 — a raw SKILL.md manifest failed the directory/name consistency check.
+  /// 422 — SKILL.md 原文清单未通过目录名一致性校验。
+  static const skillInvalidFrontmatter = 'SKILL_INVALID_FRONTMATTER';
+
+  /// 404 — a skill file disappeared before a mutation completed; refresh the tree
+  /// and explain that the requested deletion is already reflected in the library.
+  ///
+  /// 404 — skill 文件在变更完成前已被另一处删除;刷新文件树并明确说明删除结果已生效。
+  static const skillFileNotFound = 'SKILL_FILE_NOT_FOUND';
 }

@@ -96,6 +96,22 @@ func TestRegistry_BuiltInTypes(t *testing.T) {
 	}
 }
 
+func TestRegistry_ExploreBoundsSubjectSearch(t *testing.T) {
+	explore, ok := NewRegistry().Get("Explore")
+	if !ok {
+		t.Fatal("Explore type missing")
+	}
+	for _, phrase := range []string{
+		"exact absolute path",
+		"at most one bounded Grep or Glob",
+		"Never enumerate the user's home",
+	} {
+		if !strings.Contains(explore.SystemPrompt, phrase) {
+			t.Fatalf("Explore prompt must contain bounded-search guard %q", phrase)
+		}
+	}
+}
+
 // TestAnnotateTerminal — F150: a subagent that did NOT finish cleanly must flag the terminal condition
 // to the parent (not read as a clean completion carrying only its preamble text); a clean run passes through.
 func TestAnnotateTerminal(t *testing.T) {

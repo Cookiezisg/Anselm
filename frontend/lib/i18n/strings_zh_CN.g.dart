@@ -523,6 +523,8 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get loadFailed => '打不开这个';
 	@override String get rename => '改名';
 	@override String get duplicate => '创建副本';
+	@override String get editWithAi => 'AI 编辑';
+	@override String iterateRequest({required Object name}) => '帮我用 AI 修改「${name}」。';
 	@override String get deleteDocTitle => '删除这个页面?';
 	@override String deleteDocBody({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。';
 	@override String get deleteSkillTitle => '删除这个技能?';
@@ -542,6 +544,8 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skillFileTooLargeTitle => '文件太大,无法在线预览';
 	@override String get skillFileTooLargeHint => '该文件超过 1 MB 在线预览上限,请改用系统应用打开。';
 	@override String get skillFileSaveFailed => '文件保存失败';
+	@override String get skillFileSaveRetryHint => '草稿仍保留在编辑器里,修正后可以再次保存。';
+	@override String skillFileSaveInvalidManifest({required Object directory}) => '清单的 name 必须与 skill 文件夹名一致(${directory})。';
 	@override String get skillFiles => '文件';
 	@override String get skillProvenance => '来源';
 	@override String get skillInstalledFrom => '安装自';
@@ -560,6 +564,7 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skillInstallGo => '安装所选';
 	@override String get skillInstallDone => '安装完成';
 	@override String get skillInstallNone => '来源里没有可安装的 skill';
+	@override String get skillInstallAlreadyInstalled => '可安装的 skill 都已在你的库中。';
 	@override String get skillInstallPreauthNote => '安装后这些工具将请求免确认预授权——需你显式授权才生效';
 	@override String get skillInstalledBadge => '已装';
 	@override String get skillPreviewMode => '预览';
@@ -572,6 +577,8 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skillNewFileHint => '相对路径,如 references/notes.md';
 	@override String get skillDeleteFileTitle => '删除文件';
 	@override String skillDeleteFileBody({required Object path}) => '删除 ${path}?此操作不可撤销。';
+	@override String skillDeleteFileGone({required Object path}) => '${path} 已被删除,文件列表已刷新。';
+	@override String skillDeleteFileFailed({required Object path}) => '删除 ${path} 失败,文件列表已刷新,请重试。';
 	@override String get skillBindings => '绑定';
 	@override String get skillManifestSource => '清单源码编辑';
 	@override String glanceFiles({required Object n}) => '${n} 文件';
@@ -1971,7 +1978,7 @@ class _Translations$library$props$zh_CN extends Translations$library$props$en {
 	@override String get contextInline => '内联';
 	@override String get contextFork => '分叉';
 	@override String get agent => 'Agent';
-	@override String get agentHint => '要派发的子 agent 类型——分叉技能必填。';
+	@override String get agentHint => '区分大小写：Explore（只读探索）、Plan（制定计划）或 general-purpose（完整工具）。分叉技能必填。';
 	@override String get tools => '允许的工具';
 	@override String get addTool => '添加工具';
 	@override String get toolPickerTitle => '添加工具';
@@ -2315,6 +2322,13 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get manualAdd => '手动添加';
 	@override String get importJson => '导入 mcp.json';
 	@override String get empty => '还没有 MCP 服务器';
+	@override String get loading => '正在加载 MCP 服务器…';
+	@override String get loadFailed => 'MCP 服务器加载失败';
+	@override String get retry => '重试';
+	@override String get removedNotice => 'MCP 服务器已删除,列表已刷新';
+	@override String get removedTitle => '这个 MCP 服务器已被删除';
+	@override String get removedHint => '名册已刷新,请选择另一台服务器。';
+	@override String get backToList => '返回 MCP 服务器';
 	@override String get reconnect => '重连';
 	@override String get detail => '详情';
 	@override String get deleteServer => '删除';
@@ -2343,7 +2357,10 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get overwrite => '覆盖同名';
 	@override String get doImport => '导入';
 	@override String importResult({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}';
+	@override String get importing => '导入中…';
 	@override String get importInvalid => 'JSON 无法解析';
+	@override String get importInvalidShape => 'JSON 中需要 mcpServers';
+	@override String get importTooLarge => '请将 JSON 控制在 1 MiB 以内';
 	@override String get market => '市场';
 	@override String get searchMarket => '搜索市场…';
 	@override String get installed => '已安装';
@@ -2351,6 +2368,11 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String installNamed({required Object name}) => '安装 ${name}';
 	@override String get installing => '安装中…';
 	@override String get marketEmptyLead => '从市场安装第一个 MCP 服务器';
+	@override String get marketLoadFailed => '市场加载失败';
+	@override String get marketLoadFailedHint => '请检查连接后重试。';
+	@override String get planLoadFailed => '安装准备失败';
+	@override String get planLoadFailedHint => '市场条目可能已变化,请重试。';
+	@override String missingEnv({required Object names}) => '缺少必填环境变量:${names}';
 	@override String get prerequisite => '前置';
 	@override String get requiredMark => '必填';
 	@override String get oauthConnect => '连接并授权';
@@ -4640,6 +4662,8 @@ extension on TranslationsZhCn {
 			'library.loadFailed' => '打不开这个',
 			'library.rename' => '改名',
 			'library.duplicate' => '创建副本',
+			'library.editWithAi' => 'AI 编辑',
+			'library.iterateRequest' => ({required Object name}) => '帮我用 AI 修改「${name}」。',
 			'library.deleteDocTitle' => '删除这个页面?',
 			'library.deleteDocBody' => ({required Object name}) => '“${name}”及其下嵌套的所有内容都会被删除。',
 			'library.deleteSkillTitle' => '删除这个技能?',
@@ -4660,7 +4684,7 @@ extension on TranslationsZhCn {
 			'library.props.contextInline' => '内联',
 			'library.props.contextFork' => '分叉',
 			'library.props.agent' => 'Agent',
-			'library.props.agentHint' => '要派发的子 agent 类型——分叉技能必填。',
+			'library.props.agentHint' => '区分大小写：Explore（只读探索）、Plan（制定计划）或 general-purpose（完整工具）。分叉技能必填。',
 			'library.props.tools' => '允许的工具',
 			'library.props.addTool' => '添加工具',
 			'library.props.toolPickerTitle' => '添加工具',
@@ -4719,6 +4743,8 @@ extension on TranslationsZhCn {
 			'library.skillFileTooLargeTitle' => '文件太大,无法在线预览',
 			'library.skillFileTooLargeHint' => '该文件超过 1 MB 在线预览上限,请改用系统应用打开。',
 			'library.skillFileSaveFailed' => '文件保存失败',
+			'library.skillFileSaveRetryHint' => '草稿仍保留在编辑器里,修正后可以再次保存。',
+			'library.skillFileSaveInvalidManifest' => ({required Object directory}) => '清单的 name 必须与 skill 文件夹名一致(${directory})。',
 			'library.skillFiles' => '文件',
 			'library.skillProvenance' => '来源',
 			'library.skillInstalledFrom' => '安装自',
@@ -4737,6 +4763,7 @@ extension on TranslationsZhCn {
 			'library.skillInstallGo' => '安装所选',
 			'library.skillInstallDone' => '安装完成',
 			'library.skillInstallNone' => '来源里没有可安装的 skill',
+			'library.skillInstallAlreadyInstalled' => '可安装的 skill 都已在你的库中。',
 			'library.skillInstallPreauthNote' => '安装后这些工具将请求免确认预授权——需你显式授权才生效',
 			'library.skillInstalledBadge' => '已装',
 			'library.skillPreviewMode' => '预览',
@@ -4749,6 +4776,8 @@ extension on TranslationsZhCn {
 			'library.skillNewFileHint' => '相对路径,如 references/notes.md',
 			'library.skillDeleteFileTitle' => '删除文件',
 			'library.skillDeleteFileBody' => ({required Object path}) => '删除 ${path}?此操作不可撤销。',
+			'library.skillDeleteFileGone' => ({required Object path}) => '${path} 已被删除,文件列表已刷新。',
+			'library.skillDeleteFileFailed' => ({required Object path}) => '删除 ${path} 失败,文件列表已刷新,请重试。',
 			'library.skillBindings' => '绑定',
 			'library.skillManifestSource' => '清单源码编辑',
 			'library.glanceFiles' => ({required Object n}) => '${n} 文件',
@@ -5027,6 +5056,13 @@ extension on TranslationsZhCn {
 			'settings.mcp.manualAdd' => '手动添加',
 			'settings.mcp.importJson' => '导入 mcp.json',
 			'settings.mcp.empty' => '还没有 MCP 服务器',
+			'settings.mcp.loading' => '正在加载 MCP 服务器…',
+			'settings.mcp.loadFailed' => 'MCP 服务器加载失败',
+			'settings.mcp.retry' => '重试',
+			'settings.mcp.removedNotice' => 'MCP 服务器已删除,列表已刷新',
+			'settings.mcp.removedTitle' => '这个 MCP 服务器已被删除',
+			'settings.mcp.removedHint' => '名册已刷新,请选择另一台服务器。',
+			'settings.mcp.backToList' => '返回 MCP 服务器',
 			'settings.mcp.reconnect' => '重连',
 			'settings.mcp.detail' => '详情',
 			'settings.mcp.deleteServer' => '删除',
@@ -5055,7 +5091,10 @@ extension on TranslationsZhCn {
 			'settings.mcp.overwrite' => '覆盖同名',
 			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
+			'settings.mcp.importing' => '导入中…',
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
+			'settings.mcp.importInvalidShape' => 'JSON 中需要 mcpServers',
+			'settings.mcp.importTooLarge' => '请将 JSON 控制在 1 MiB 以内',
 			'settings.mcp.market' => '市场',
 			'settings.mcp.searchMarket' => '搜索市场…',
 			'settings.mcp.installed' => '已安装',
@@ -5063,6 +5102,11 @@ extension on TranslationsZhCn {
 			'settings.mcp.installNamed' => ({required Object name}) => '安装 ${name}',
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.marketEmptyLead' => '从市场安装第一个 MCP 服务器',
+			'settings.mcp.marketLoadFailed' => '市场加载失败',
+			'settings.mcp.marketLoadFailedHint' => '请检查连接后重试。',
+			'settings.mcp.planLoadFailed' => '安装准备失败',
+			'settings.mcp.planLoadFailedHint' => '市场条目可能已变化,请重试。',
+			'settings.mcp.missingEnv' => ({required Object names}) => '缺少必填环境变量:${names}',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
 			'settings.mcp.oauthConnect' => '连接并授权',
@@ -5103,6 +5147,8 @@ extension on TranslationsZhCn {
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
 			'settings.storage.factoryTitle' => '恢复出厂设置',
 			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
 			'settings.storage.factoryConfirm' => '抹掉一切并重启',
 			'settings.limits.scopeNote' => '全机生效——任一工作区修改的都是这台机器的同一份上限',
@@ -5127,8 +5173,6 @@ extension on TranslationsZhCn {
 			'settings.sandbox.retry' => '重试',
 			'settings.sandbox.runtimes' => '运行时',
 			'settings.sandbox.install' => '安装',
-			_ => null,
-		} ?? switch (path) {
 			'settings.sandbox.installing' => '安装中…',
 			'settings.sandbox.installTitle' => '安装运行时',
 			'settings.sandbox.kind' => '类型',

@@ -189,7 +189,7 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		v := q.Get("workDir")
 		workDir = &v
 	}
-	items, next, err := h.svc.List(r.Context(), conversationdomain.ListFilter{
+	filter := conversationdomain.ListFilter{
 		Cursor:  p.Cursor,
 		Limit:   p.Limit,
 		Search:  q.Get("search"),
@@ -197,11 +197,18 @@ func (h *ConversationHandler) List(w http.ResponseWriter, r *http.Request) {
 		Sort:    conversationdomain.ListSort(q.Get("sort")),
 		Pinned:  pinned,
 		WorkDir: workDir,
-	})
+	}
+	items, next, err := h.svc.List(r.Context(), filter)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	total, err := h.svc.Count(r.Context(), filter)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.SetTotalCount(w, total)
 	responsehttpapi.Paged(w, items, next, next != "")
 }
 

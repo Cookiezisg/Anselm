@@ -136,11 +136,11 @@ EP | GET /api/v1/documents/tree | document | 整树 metadata（无正文，每�
 EP | GET /api/v1/documents/{id} | document | 单读（含 content）
 EP | PATCH /api/v1/documents/{id} | document | 更新文档 meta/正文
 EP | DELETE /api/v1/documents/{id} | document | 删除（含子树），204
-EP | POST /api/v1/documents/{id}:move | document | 移动（防环；nil parent=根）
+EP | POST /api/v1/documents/{id}:move | document | 移动（防环；nil parent=根；position 为 0..N 插入下标，越界返回 DOCUMENT_INVALID_POSITION；目标父级与位置均不变时 no-op，不刷新时间/不发 moved）
 EP | POST /api/v1/documents/{id}:duplicate | document | 深拷整子树，201 返新根裸实体
 EP | POST /api/v1/documents/{id}:iterate | document | 开 AI 编辑对话
 EP | POST /api/v1/conversations | conversation | 创建对话
-EP | GET /api/v1/conversations | conversation | 列表（`?search&archived&sort&workDir&pinned`）
+EP | GET /api/v1/conversations | conversation | 列表（`?search&archived&sort&workDir&pinned`；`X-Anselm-Total-Count` 返回完整过滤轴总数；keyset cursor 携带 pinned 分区与查询 scope，跨页不漏、异轴复用拒绝）
 EP | GET /api/v1/conversations/{id} | conversation | 单读（含 isGenerating/awaitingInput/hasUnread）
 EP | PATCH /api/v1/conversations/{id} | conversation | 改 meta（ModelOverride 三态 + workDir）
 EP | DELETE /api/v1/conversations/{id} | conversation | 软删 + 级联清边与触点台账，204

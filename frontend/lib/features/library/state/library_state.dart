@@ -334,7 +334,7 @@ String skillLocation(String name) => '/library/skill/$name';
 /// The route location for one bundled file inside a skill (query-addressed — a multi-segment
 /// rel path needs no new route). skill 内单文件路由位置(query 寻址,多段相对路径零新路由)。
 String skillFileLocation(String name, String rel) =>
-    "/documents/skill/$name?file=${Uri.encodeQueryComponent(rel)}";
+    "/library/skill/$name?file=${Uri.encodeQueryComponent(rel)}";
 
 /// The open document WITH content (fetched on select; autoDispose releases it on deselect). 打开的文档(带正文)。
 final openDocumentProvider = FutureProvider.autoDispose
@@ -370,12 +370,15 @@ class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
 /// invalidated mid-edit (that would rebuild the editor and drop the caret), so the loaded doc goes stale
 /// the moment the writer types — the properties panel used to show the open-time numbers until a full
 /// remount. The outline already re-feeds live from the edit view; the metrics ride the same channel, so
-/// the panel is honest without touching the frozen provider. Null while nothing is open / before the
-/// first edit → the panel falls back to the loaded doc's own fields.
+/// the panel is honest without touching the frozen provider. A loaded-content seed is deliberately not a
+/// modification timestamp: it only supplies the initial char/byte values. Only a real edit may provide an
+/// optimistic local time, and a newer persisted timestamp still wins. Null while nothing is open / before
+/// the first edit → the panel falls back to the loaded doc's own fields.
 /// 打开文档的**活**字数+字节大小——右岛「字数/大小/修改时间」所显。与 [docOutlineProvider] 同理(WRK-083 L16):
 /// [openDocumentProvider] 编辑中刻意不失效(否则重建编辑器丢光标),故 loaded doc 一打字就陈旧——属性面板原本要
-/// 到整树重挂才更新。大纲已从编辑视图实时重喂,度量走同一条通道,面板因此诚实、且不碰那个冻结的 provider。无打开/
-/// 首次编辑前为 null → 面板回退到 loaded doc 自身字段。
+/// 到整树重挂才更新。大纲已从编辑视图实时重喂,度量走同一条通道,面板因此诚实、且不碰那个冻结的 provider。
+/// 载入播种绝不是「修改时间」,只提供首帧字数/字节;只有真实编辑可提供乐观本地时刻,且后端更晚的持久时刻优先。
+/// 无打开/首次编辑前为 null → 面板回退到 loaded doc 自身字段。
 typedef DocLiveMetrics = ({
   String? sourceId,
   int chars,
@@ -426,6 +429,24 @@ class DocLiveMetricsController extends Notifier<DocLiveMetrics?> {
   }
 
   void clear() => state = null;
+}
+
+/// Select the timestamp the document inspector may show.
+///
+/// A seed is emitted when an editor first loads and is not a user modification. An edit may optimistically
+/// show its local timestamp before the save round-trip finishes, but a later persisted event (for example a
+/// move received through the document tree) is the newer truth and must not be masked by that local value.
+///
+/// 选择右岛可以展示的文档时间:编辑器首次载入的 seed 不是用户修改;真实编辑在保存往返完成前可乐观显示本地时刻,
+/// 但后端后来落盘的事件(例如文档树收到 move)是真正较新的事实,不能被旧的本地值遮住。
+DateTime documentInspectorUpdatedAt({
+  required DocLiveMetrics? live,
+  required DateTime persisted,
+}) {
+  if (live?.fromEdit == true && live!.at.isAfter(persisted)) {
+    return live.at;
+  }
+  return persisted;
 }
 
 /// The outline entry the CENTER viewport is currently reading — the LAST heading scrolled up past the
