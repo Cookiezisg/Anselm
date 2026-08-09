@@ -376,7 +376,13 @@ class DocOutlineController extends Notifier<List<DocOutlineEntry>> {
 /// [openDocumentProvider] 编辑中刻意不失效(否则重建编辑器丢光标),故 loaded doc 一打字就陈旧——属性面板原本要
 /// 到整树重挂才更新。大纲已从编辑视图实时重喂,度量走同一条通道,面板因此诚实、且不碰那个冻结的 provider。无打开/
 /// 首次编辑前为 null → 面板回退到 loaded doc 自身字段。
-typedef DocLiveMetrics = ({int chars, int bytes, DateTime at});
+typedef DocLiveMetrics = ({
+  String? sourceId,
+  int chars,
+  int bytes,
+  DateTime at,
+  bool fromEdit,
+});
 
 final docLiveMetricsProvider =
     NotifierProvider<DocLiveMetricsController, DocLiveMetrics?>(
@@ -394,11 +400,28 @@ class DocLiveMetricsController extends Notifier<DocLiveMetrics?> {
   /// 每次编辑用当前 markdown 喂。`chars` 走 [documentCharCount]——**唯一**那份公式,与 inspector 的
   /// 已载入回退共用,因为抄第二份会让面板在活值/回退之间切换时数字**跳**;`bytes` 是完整 utf8 长度
   /// (即存储大小);`at` 本地取时。
-  void feed(String markdown) {
+  /// Seed loaded content without allowing a stale same-document provider refresh to overwrite an edit
+  /// that is already visible. 同页旧 provider 重取不得覆盖已经显出的编辑。
+  void seed(String sourceId, String markdown) {
+    if (state?.sourceId == sourceId && state?.fromEdit == true) return;
+    _set(sourceId, markdown, fromEdit: false);
+  }
+
+  /// `sourceId` is optional only for controller tests; real document views always provide it.
+  /// `sourceId` 仅为控制器测试保留可选;真实文档视图必传。
+  void feed(String markdown, {String? sourceId}) =>
+      _set(sourceId, markdown, fromEdit: sourceId != null);
+
+  bool hasEdited(String sourceId) =>
+      state?.sourceId == sourceId && state?.fromEdit == true;
+
+  void _set(String? sourceId, String markdown, {required bool fromEdit}) {
     state = (
+      sourceId: sourceId,
       chars: documentCharCount(markdown),
       bytes: utf8.encode(markdown).length,
       at: DateTime.now(),
+      fromEdit: fromEdit,
     );
   }
 

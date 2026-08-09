@@ -101,6 +101,32 @@ void main() {
       greaterThan(documentCharCount(withMedia)),
     );
   });
+
+  test('a stale same-document seed cannot overwrite a newer edit', () {
+    final c = container();
+    final ctrl = c.read(docLiveMetricsProvider.notifier);
+
+    ctrl.seed('doc_a', 'old body');
+    expect(c.read(docLiveMetricsProvider)!.fromEdit, isFalse);
+    ctrl.feed('new body with 中文', sourceId: 'doc_a');
+    final edited = c.read(docLiveMetricsProvider)!;
+
+    ctrl.seed('doc_a', 'old body');
+    expect(c.read(docLiveMetricsProvider), edited);
+    expect(c.read(docLiveMetricsProvider)!.sourceId, 'doc_a');
+    expect(c.read(docLiveMetricsProvider)!.fromEdit, isTrue);
+  });
+
+  test('metrics identify their document', () {
+    final c = container();
+    final ctrl = c.read(docLiveMetricsProvider.notifier);
+
+    ctrl.feed('page A body', sourceId: 'doc_a');
+    expect(c.read(docLiveMetricsProvider)!.sourceId, 'doc_a');
+    ctrl.seed('doc_b', 'page B body');
+    expect(c.read(docLiveMetricsProvider)!.sourceId, 'doc_b');
+    expect(c.read(docLiveMetricsProvider)!.fromEdit, isFalse);
+  });
 }
 
 int _utf8Len(String s) {

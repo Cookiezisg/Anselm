@@ -10,6 +10,121 @@ audience: [human, ai]
 landed-into:
 ---
 
+
+## 2026-08-09 — EP-137 `PATCH /api/v1/documents/{id}`（50/50）
+
+- 首轮真实 Library 路径冻结两处产品红：空 patch 会改变 `updatedAt` 并发布伪 `document.updated`；修复后二次真实 App 仍发现右岛 Properties 在正文保存后停留旧 `61 B`，而中心/REST 已是新正文 `68 B`。
+- stop-and-fix：backend no-op/等值 patch 在 Save、updatedAt、关系同步和发布前早返回，并补 Go no-op publish/store 守卫；frontend live metrics 带文档身份、编辑同帧喂入、旧 provider 播种不得覆盖同页编辑、切页清空，补 stale-seed/document-identity Flutter 守卫；backend/frontend 文档同步。
+- 绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-104917` 从全新 onboarding 起步。API 矩阵覆盖 no-op、四种分部更新、冲突/成功改名级联、非法名/tags、unknown、坏 JSON、缺 workspace、超 1 MiB；真实 App 标题编辑+正文追加后 Properties 与 REST 同步 `45 B`，重开最终根页同步 `66 B`，删除当前页显示 `This page was deleted`。
+- 五通道：录屏 `459.506667s / 2784x1808 / 60fps`；backend D1 `:8891`/PID `21316` 无应用红线；SSE 三流连接、notifications durable `1..13` 连续；LLM challenge/install/models 全 `200`；Flutter console 无应用红线。startup 的 `Failed to foreground app; open returned 1` 为 runner 提示，App 随后正常 resident。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-137-documents-patch-final-green.md`，红证据与独立复审分别在 formal evidence 目录；fixture `DELETE=204` 后 tree 为空。五级 `G1/F2/A5/C4/G2` 写入账本 `1375→1380`，anchors `10/10`，警报复审 ack 后 clean；`gen_coverage.py --check`=`848/269/0`。
+- 定向 backend document/store/transport Go 测试、Library 相关 Flutter `57` tests、格式化与 `git diff --check` 通过；批次二十六达到 `50/50`。
+- 统一长门禁已通过：根目录 `make verify` 的 backend/frontend/docs/demo 四组全绿；`make -C backend testend` 完整场景集全绿（`290.263s`）；正式 `RIG_HOME` 下 anchors `10/10`、`alarms.py check`=`clean (1380)`、`gen_coverage.py --check`=`848/269/0`、相关 Go 回归、testend 进程组清理与 `git diff --check` 均通过。现在只剩选择性工作树审计与本批 commit，未提前推进下一格。
+
+## 2026-08-09 — EP-136 `GET /api/v1/documents/{id}`（45/50）
+
+- 真实 App 打开根/子/空三类单读：中文多行 markdown、独立子正文、empty body、description/tags、字节大小、面包屑和深 Path 全部一致；删除当前打开页后显示 `This page was deleted` 并回到干净草稿态。
+- API 负向覆盖 unknown、跨 workspace、缺 workspace；根级级联删除后根/子/空三条单读均为 `404 DOCUMENT_NOT_FOUND`，无残留读穿。SSE durable `16..20` 连续记录 3 created + 2 deleted。
+- 固定 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-101828`；录屏 `163.011667s / 2784x1808 / 60fps`。backend D1 `:8888`/PID `15559`，LLM challenge/install/models 全 `200`，frontend/backend 无应用红线。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-136-documents-get-final-green.md`，cleanup 回执在固定 session evidence；五级 `G1/F2/A5/C4/G2` 写入账本 `1370→1375`，警报按原阈值触发、独立复审、ack 后 clean；`COVERAGE` `✓✓✓✓✓`，`gen_coverage.py --check`=`848/268/0`。
+- 定向 Go 测试、相关 Library/eviction Flutter `56` tests、`git diff --check` 通过；未到 50 格，不跑统一长门禁、不提交。下一前线 EP-137。
+
+## 2026-08-09 — EP-135 `GET /api/v1/documents/tree`（40/50）
+
+- 真实 App 通过 `/tree` metadata 投影渲染父子 Library 树；构造空页、正常正文页、三个空格正文页和两层子树，空/已写图标、`hasContent`、size、description/tags、缩进、面包屑和深 Path 全部一致。
+- API 返回 `200`/7 行；所有行无 `content` 而带显式 `hasContent`，断言 `hasContent == sizeBytes>0`；`?limit=1&cursor=bogus` 仍返回完整同字节结果；缺 workspace `401`、错误 POST `404`；SQLite id/parent/position/content bytes 对账一致。
+- 固定 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-100933`；录屏 `296.061667s / 2784x1808 / 60fps`。backend D1 `:8887`/PID `13897`，SSE notifications durable `16..23` 连续覆盖 5 created + 3 deleted，LLM challenge/install/models 全 `200`，frontend/backend 无应用红线。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-135-documents-tree-final-green.md`，cleanup 回执在固定 session evidence；五级 `G1/F2/A5/C4/G2` 写入账本 `1365→1370`，警报按原阈值触发、独立复审、ack 后 clean；`COVERAGE` `✓✓✓✓✓`，`gen_coverage.py --check`=`848/267/0`。
+- 定向 Go 测试、Library Flutter `56` tests、`make -C docs verify`、`git diff --check` 通过；一次 SQLite shell 引号错误已如实记录为台架命令问题；未到 50 格，不跑统一长门禁、不提交。下一前线 EP-136。
+
+## 2026-08-09 — EP-134 `POST /api/v1/documents`（35/50）
+
+- 真实 Flutter App 从 Library `New page` 创建根页，编辑并保存完整字段；再从行级 `New sub-page` 创建真实子页，App、REST、backend journal 和树路径一致。最终画面保存为 `EP-134-ui-full-metadata.png` / `EP-134-ui-final.png`。
+- 完整 API 矩阵覆盖 root/nested create、完整字段、同名自动后缀、省略字段默认值、256/257 标题边界、空名/斜杠名、缺父、坏 JSON、超 1 MiB 正文和缺 workspace；负向均无幽灵行。精确删除 UI 临时子页 `doc_854ff4ce20aa279c` 得 `204`，复查子列表为空。
+- 固定 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-095218`；录屏 `732.240000s / 2784x1808 / 60fps`。backend D1 `:8886`/PID `11871`，SSE notifications durable `16..27` 无 gap，LLM challenge/install/models 全 `200`，frontend/backend 无应用红线。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-134-documents-create-final-green.md`，cleanup 回执在固定 session evidence；五级 `G1/F2/A5/C4/G2` 写入账本 `1360→1365`，警报按原阈值触发、独立复审、ack 后 clean；`COVERAGE` `✓✓✓✓✓`，`gen_coverage.py --check`=`848/266/0`。
+- 定向 Go 测试、`make -C docs verify`、`git diff --check` 通过；台架输入 modifier/select-all 误操作已单独记录，未计产品红；未到 50 格，不跑统一长门禁、不提交。下一前线 EP-135。
+
+## 2026-08-09 — EP-133 `GET /api/v1/documents`（30/50）
+
+- 首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-093715` 发现跨父节点复用 opaque cursor 会 `200` 但静默跳过当前父节点前几行；按 stop-and-fix 冻结为红，保留红轮录屏、HTTP body 和日志。
+- 修复 `siblingCursor` 绑定 `parentId`，跨父 cursor 返回 `400 INVALID_REQUEST`；新增 store 回归测试，同步 API/domain reference。固定二进制 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-094240` 重跑真实 App、受管 gateway、Computer Use、窗口录屏、backend/SSE/frontend/LLM 五通道。
+- 最终真实矩阵覆盖根级三页无重无漏、`parentId=` 根级等价、子节点两页、跨父双向拒绝、未知 parent 空页、坏 cursor/坏 limit、无 workspace；App 显示父子缩进、面包屑、Path 和空正文提示，无应用红线。录屏 `154.291667s / 2784x1808 / 60fps`，SSE notifications seq `16..21`，LLM challenge/install/models 全 200。
+- 正式证据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-133-documents-list-final-green.md`；临时数据按用户授权移入 Trash，回执在固定 session evidence。五级 `G1/F2/A5/C4/G2` 写入账本 `1355→1360`，告警按原阈值触发、复审、ack 后 clean；`COVERAGE` `✓✓✓✓✓`，`gen_coverage.py --check`=`848/265/0`。
+- 定向 Go 测试、`gofmt`、`git diff --check`、`make -C docs verify` 均通过；未到 50 格，不跑统一长门禁、不提交。下一前线 EP-134。
+
+## 2026-08-09 · EP-132 `POST /api/v1/mcp-registry:install` 五级收口，批次二十六 25/50
+
+- 真实固定 App 从 marketplace 安装 `microsoft/markitdown`，经历真实 Python runtime provisioning 和 `Installing…` 状态后，名册
+  从空态变为 `1 servers · 1 ready`，server 为 `markitdown`、`ready · 1 tools`；真实 UI screenshot 与 REST row 一致。
+- 首轮真实 App 暴露产品红：Firecrawl 空提交只显示笼统 `required environment variables missing`，没有投影后端已经返回的
+  `details.missing` 字段名。stop-and-fix 在 `mcp_forms.dart` 统一表单/市场卡错误投影为字段化文案，新增中英文 key 和回归测试；
+  修复前红 frame 保留，不计绿。
+- 固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-092607`，录屏 `162.711667s / 2784x1808 / 60fps`，
+  `EP-132-markitdown-ready.png` 与 `EP-132-missing-env-after-fix.png` 已保存；正式证据为
+  `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-132-mcp-registry-install-final-green.md`。
+- 真实 API 负向矩阵：duplicate `409 MCP_NAME_CONFLICT`、missing `422 MCP_ENV_MISSING` + `missing=[FIRECRAWL_API_KEY]`、unknown
+  `404 MCP_REGISTRY_NOT_FOUND`、malformed `400 INVALID_REQUEST`、no workspace `401 UNAUTH_NO_WORKSPACE`；删除清理 `204` 后 REST `data=[]`，
+  App 回到市场空名册。raw headers/bodies 随 session 封存。
+- 五通道：backend D1 `:8883`/PID `6192`；SSE 三流连接、notifications durable `16..19`，entities status connecting→ready；LLM
+  challenge/install/models 全 `200` 且真实 upstream 为 `https://api.anselm.website`；frontend 无 Flutter runtime 红线。backend 只有已解释的
+  markitdown 上游 pydantic warning，未隐藏。
+- formal `judge.py` 按 `G1/F2/A5/C4/G2` 将 `1350→1355 judgments` 写入五格，`COVERAGE EP-132=✓✓✓✓✓`；集中写账打开的两条统计警报经
+  `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-132-ledger-alarm-reaudit.md` 独立复审并 ack，最终 `alarms.py check`=`clean (1355)`。
+- `mise exec -- flutter test test/features/settings/s4_mcp_test.dart`=`18/18 passed`，`make -C frontend gen` 通过；临时数据目录按授权移入
+  Trash。批次二十六完成 **25/50**，未跑统一长门禁、完整 testend 或提交。下一原子前线为 EP-133。
+
+## 2026-08-09 · EP-131 `POST /api/v1/mcp-registry:plan` 五级收口，批次二十六 20/50
+
+- 真实固定 App 从 marketplace 打开 context7、Firecrawl、Notion 三种安装计划：`stdio/node` + secret env、required 星标、以及
+  `streamable-http` + `Connect & authorize` 均与后端 plan 投影一致；本格只做零副作用预检，未点击 OAuth、未安装 server。
+- 首轮产品审查发现 plan 失败分支只有 raw red line，没有 Retry/Cancel，loading 分支也只能依赖 breadcrumb 离开；停止并修成标准 `AnState`
+  error + detail + Retry/Cancel，loading skeleton 也有 Cancel。这个 stale-entry 失败由 widget test 真实诱发，未伪装成 gateway 红线。
+- 固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-091054` 录屏 `137.875000s / 2784x1808 / 60fps`；四张
+  UI frame、代表性 plan 200、unknown/empty 404、malformed 400、no-workspace 401、安装前后名册字节不变和五通道 evidence 均封存于
+  `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-131-mcp-registry-plan-final-green.md`。backend/frontend 无应用红线，宿主
+  `Failed to foreground app; open returned 1` 明示为台架噪声，真实 managed gateway challenge/install/models 均经 llmtap 200。
+- formal `judge.py` 按 `G1/F2/A5/C4/G2` 将 `1345→1350 judgments` 写入五格，`COVERAGE EP-131=✓✓✓✓✓`；集中写账触发的
+  `gap-too-fast`/`discovery-collapse` 经独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-131-ledger-alarm-reaudit.md`
+  ack，`alarms.py check`=`clean (1350)`，阈值/算法/法典/锚点不变。
+- 发现后新增定向测试，`mise exec -- flutter test test/features/settings/s4_mcp_test.dart`=`17/17 passed`，`make -C frontend gen`、
+  `gen_coverage.py --check`（848 rows / 263 carried / 0 tombstones）通过；批次二十六仍未到 50 格，未跑统一长门禁、完整 testend 或提交。
+  下一原子前线为 EP-132 `POST /api/v1/mcp-registry:install`。
+
+## 2026-08-09 · EP-130 `GET /api/v1/mcp-registry` 五级收口，批次二十六 15/50
+
+- 真实 App 在 Settings > MCP servers 展示完整 curated 市场：96 张卡片、名称/描述、适用 prerequisite chip、真实键盘搜索
+  `database` 得到 `dbhub` 与 `mcp-server-neon`，清空后恢复完整列表，继续滚动可到最后两张卡片；市场浏览没有安装副作用。
+- 首轮真实运行发现产品红：registry 真实请求耗时 `2983ms` 时，未完成请求的界面先显示 `No MCP servers yet`，把等待误报成空态。
+  stop-and-fix 将 loading 改为明确六卡 skeleton、失败改为可 Retry 的错误态，只有 settled empty 才显示空态；英语/中文文案与 15-case
+  Flutter 测试同步更新。红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-084332` 保留。
+- 固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-084847` 录屏 `369.315000s / 2784x1808 / 60fps`；三张
+  UI 截图、API 200/96 unique、query body 相等、缺 workspace 401、五通道 journals 和正式证据均封存于
+  `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-130-mcp-registry-final-green.md`。backend/frontend 无应用红线，已明示宿主
+  `Failed to foreground app; open returned 1` 噪声；真实 managed gateway challenge/install/models 均经 llmtap 200。
+- formal `judge.py` 按 `G1/F2/A5/C4/G2` 将 `1340→1345 judgments` 写入五格，`COVERAGE EP-130=✓✓✓✓✓`；集中写账触发的
+  `gap-too-fast`/`discovery-collapse` 经独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-130-ledger-alarm-reaudit.md`
+  ack，`alarms.py check`=`clean (1345)`，阈值/算法/法典/锚点不变。
+- `mise exec -- flutter test test/features/settings/s4_mcp_test.dart`=`15/15 passed`、`make -C frontend gen`、`gen_coverage.py --check`
+  （848 rows / 262 carried / 0 tombstones）通过；批次二十六仍未到 50 格，未跑统一长门禁、完整 testend 或提交。下一原子前线为
+  EP-131 `POST /api/v1/mcp-registry:plan`。
+
+## 2026-08-09 · EP-129 `GET /api/v1/mcp-calls/{id}` 五级收口，批次二十六 10/50
+
+- 真实 App 通过受管 gateway 调阅成功与失败 MCP 调用详情：状态、工具名、错误、stderr、输入/输出、耗时和 exact timing 均与
+  REST/SQLite 对齐；未知 ID 与跨 workspace 读取均为 `404 MCP_CALL_NOT_FOUND`。最终 Chat 只调用一次 `get_mcp_call`，画面显示
+ 失败诊断和 stderr，结构化调用卡片保留精确时间。
+- 首轮红证据发现正文表格将 exact `startedAt` 渲成 `相应时间`，与卡片真相冲突。stop-and-fix 增加 MCP-call 专用表格脱敏、工具描述
+ 约束、跨 chunk redactor 测试，并同步 MCP/loop/chat 文档；新 binary 重跑后正文不再出现占位时间。红 session 不删除。
+- 绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-083017` 录屏 `188.761667s`；五通道、修复前红证据和
+ 负向矩阵均封存于 formal evidence。Flutter debug runner 的宿主 `Failed to foreground app; open returned 1` 明示为台架噪声，未发现
+ 任何 Flutter/Dart/RenderFlex/Unhandled 或 backend 应用红线。
+- formal `judge.py` 按 `G1/F2/A5/C4/G2` 将 `1335→1340 judgments` 写入五格，anchors `10/10`，`COVERAGE EP-129=✓✓✓✓✓`；
+  `gap-too-fast`/`discovery-collapse` 经独立复审后 ack，`alarms.py check`=`clean (1340)`。一次漏带 `RIG_HOME` 的默认账本误路由已
+  独立审计并排除，不改变 formal 数字或阈值。fixture 脚本和数据按授权移入 Trash，session/证据保留。
+- 定向 Go、gofmt、`make -C docs verify`、`gen_coverage.py --check`（848 rows / 261 carried / 0 tombstones）与 diff check 通过；批次二十六
+  仍未到 50 格，未跑统一长门禁、完整 testend 或提交。下一原子前线为 EP-130。
+
 ## 2026-08-09 · EP-127 `POST /api/v1/mcp-servers/{name}/tools/{tool}:invoke` 五级收口，批次二十五 50/50
 
 - 真实 App 安装 `ep127-invoke` 后显示 `ready · 2 tools`；REST 直调覆盖成功 200、fixture error/未知 tool 502、坏 JSON/错误 action

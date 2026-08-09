@@ -12,6 +12,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"slices"
 	"strings"
 
 	"go.uber.org/zap"
@@ -278,6 +279,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*docum
 		return nil, err
 	}
 
+	changed := false
 	renamed := false
 	if in.Name != nil {
 		newName := strings.TrimSpace(*in.Name)
@@ -286,6 +288,7 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*docum
 		}
 		if newName != d.Name {
 			d.Name = newName
+			changed = true
 			renamed = true
 		}
 	}
@@ -293,14 +296,27 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*docum
 		if err := validateContent(*in.Content); err != nil {
 			return nil, err
 		}
-		d.Content = *in.Content
-		d.SizeBytes = int64(len(*in.Content))
+		if *in.Content != d.Content {
+			d.Content = *in.Content
+			d.SizeBytes = int64(len(*in.Content))
+			changed = true
+		}
 	}
 	if in.Description != nil {
-		d.Description = strings.TrimSpace(*in.Description)
+		description := strings.TrimSpace(*in.Description)
+		if description != d.Description {
+			d.Description = description
+			changed = true
+		}
 	}
 	if in.Tags != nil {
-		d.Tags = *in.Tags
+		if !slices.Equal(*in.Tags, d.Tags) {
+			d.Tags = *in.Tags
+			changed = true
+		}
+	}
+	if !changed {
+		return d, nil
 	}
 
 	if renamed {

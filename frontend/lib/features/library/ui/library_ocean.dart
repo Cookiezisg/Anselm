@@ -193,6 +193,9 @@ class _LibraryOceanState extends ConsumerState<LibraryOcean> {
             .clear(); // L16: don't carry a doc's metrics to none 别把旧度量带到空
         ref.read(docOutlineActiveProvider.notifier).set(null);
       } else if (prev != null && prev != next) {
+        // Live metrics are keyed defensively too, but clear on a real switch so the new page starts from
+        // its loaded truth before its own seed arrives. 页面切换时主动清空,让新页先回退到自身真相。
+        ref.read(docLiveMetricsProvider.notifier).clear();
         // Doc-to-doc switch: a fresh page opens at the top with its big title visible. 换文档从顶部开。
         ref.read(shellHeadProvider.notifier).setCollapsed(false);
       }
@@ -266,15 +269,23 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
 
   /// Feed the inspector's outline LIST (post-frame — a Notifier must not mutate mid-build), deduped by
   /// source markdown. 喂右岛大纲(帧后),按源 markdown 去重。
-  void seedOutline(String markdown) {
+  void seedOutline(String markdown, {String? liveKey}) {
     if (_seededOutlineFor == markdown) return;
     _seededOutlineFor = markdown;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (mounted) {
+        // A same-page content edit wins over a stale provider rebuild. Check at callback time because a
+        // keystroke can arrive during the frame. 同页编辑优先于旧重取,并在回调时检查本帧内的键入。
+        if (liveKey != null &&
+            ref.read(docLiveMetricsProvider.notifier).hasEdited(liveKey)) {
+          return;
+        }
         ref.read(docOutlineProvider.notifier).set(extractDocOutline(markdown));
         // Seed the live metrics from the loaded content too, so the panel is right from first paint
         // (WRK-083 L16). 也从载入内容播种度量,使面板首帧即准。
-        ref.read(docLiveMetricsProvider.notifier).feed(markdown);
+        if (liveKey != null) {
+          ref.read(docLiveMetricsProvider.notifier).seed(liveKey, markdown);
+        }
       }
     });
   }
@@ -283,10 +294,14 @@ mixin _DocPageChrome<T extends ConsumerStatefulWidget> on ConsumerState<T> {
   void feedOutlineOnEdit(String markdown) {
     _seededOutlineFor = markdown;
     ref.read(docOutlineProvider.notifier).set(extractDocOutline(markdown));
-    // The inspector's 字数/大小/修改时间 ride the SAME live channel as the outline (WRK-083 L16) — the
-    // frozen openDocumentProvider can't be the source. 右岛字数/大小/时间与大纲走同一条活通道,冻结的 open
-    // provider 当不了源。
-    ref.read(docLiveMetricsProvider.notifier).feed(markdown);
+  }
+
+  /// Metrics are cheap and must react in the same frame as the editor change; only the O(doc) outline
+  /// extraction stays debounced. 度量计算便宜,必须与编辑同帧;只有 O(doc) 大纲提取继续防抖。
+  void feedLiveMetrics(String markdown, {required String sourceId}) {
+    ref
+        .read(docLiveMetricsProvider.notifier)
+        .feed(markdown, sourceId: sourceId);
   }
 
   void listenOutlineJumps() {
@@ -346,6 +361,9 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
   }
 
   void _onChanged(String markdown) {
+    // Metrics are cheap; update them now while the O(doc) outline remains debounced.
+    // 度量便宜,先即时更新;O(doc) 大纲继续防抖。
+    feedLiveMetrics(markdown, sourceId: widget.id);
     // C-008: extractDocOutline is O(doc) — a keystroke burst used to re-scan the whole doc each key.
     // Debounce it (the outline is a right-panel display; a ~250ms lag is imperceptible). 大纲重扫防抖。
     _outline.run(() {
@@ -446,7 +464,7 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
       builder: (context, doc) {
         final title = doc.name.isEmpty ? t.library.untitled : doc.name;
         bindHead(title);
-        seedOutline(doc.content);
+        seedOutline(doc.content, liveKey: widget.id);
         // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
         // (the editor reads names once at initState). A skeleton covers the batch. 载入前先解析提及名。
         return ref
@@ -557,6 +575,7 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
       );
       if (!mounted) return;
       setState(() => _liveId = doc.id);
+      feedLiveMetrics(_draftMarkdown, sourceId: doc.id);
       // Adopt BEFORE navigating: the ocean keeps THIS view mounted (selected.id == adopted). 先认领后导航。
       ref.read(adoptedDraftDocProvider.notifier).set(doc.id);
       ref.invalidate(documentTreeProvider);
@@ -574,6 +593,9 @@ class _DraftDocViewState extends ConsumerState<_DraftDocView>
 
   void _onChanged(String markdown) {
     _draftMarkdown = markdown;
+    if (_liveId != null) {
+      feedLiveMetrics(markdown, sourceId: _liveId!);
+    }
     _outline.run(() {
       if (mounted) feedOutlineOnEdit(markdown);
     });

@@ -132,6 +132,32 @@ func TestListByParentPage_CursorTotalAndStableOrder(t *testing.T) {
 	}
 }
 
+func TestListByParentPage_RejectsCursorFromAnotherParent(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	ins(t, s, ctx, "doc_root_a", nil, "Root A", "/Root A")
+	ins(t, s, ctx, "doc_root_b", nil, "Root B", "/Root B")
+	ins(t, s, ctx, "doc_parent", ptr("doc_root_a"), "Parent", "/Root A/Parent")
+	ins(t, s, ctx, "doc_child_a", ptr("doc_parent"), "Child A", "/Root A/Parent/Child A")
+	ins(t, s, ctx, "doc_child_b", ptr("doc_parent"), "Child B", "/Root A/Parent/Child B")
+
+	_, _, rootCursor, err := s.ListByParentPage(ctx, nil, "", 1)
+	if err != nil || rootCursor == "" {
+		t.Fatalf("root page = cursor %q, err %v; want a cursor", rootCursor, err)
+	}
+	if _, _, _, err := s.ListByParentPage(ctx, ptr("doc_parent"), rootCursor, 1); !errors.Is(err, errorspkg.ErrInvalidRequest) {
+		t.Fatalf("root cursor on child list = %v, want ErrInvalidRequest", err)
+	}
+
+	_, _, childCursor, err := s.ListByParentPage(ctx, ptr("doc_parent"), "", 1)
+	if err != nil || childCursor == "" {
+		t.Fatalf("child page = cursor %q, err %v; want a cursor", childCursor, err)
+	}
+	if _, _, _, err := s.ListByParentPage(ctx, nil, childCursor, 1); !errors.Is(err, errorspkg.ErrInvalidRequest) {
+		t.Fatalf("child cursor on root list = %v, want ErrInvalidRequest", err)
+	}
+}
+
 func TestSubtreeBFS_And_CountDescendants(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

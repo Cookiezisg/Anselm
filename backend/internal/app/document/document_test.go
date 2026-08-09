@@ -17,6 +17,20 @@ import (
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
+type documentTestEmitter struct {
+	broadcasts []string
+}
+
+func (e *documentTestEmitter) Emit(_ context.Context, eventType string, _ map[string]any) error {
+	e.broadcasts = append(e.broadcasts, "emit:"+eventType)
+	return nil
+}
+
+func (e *documentTestEmitter) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	e.broadcasts = append(e.broadcasts, "broadcast:"+eventType)
+	return nil
+}
+
 func newSvc(t *testing.T) (*Service, context.Context) {
 	t.Helper()
 	db, err := dbinfra.Open(dbinfra.Config{})
@@ -127,6 +141,49 @@ func TestUpdate_PathCascade(t *testing.T) {
 	child2, _ := svc.Get(ctx, child.ID)
 	if child2.Path != "/Renamed/Child" {
 		t.Errorf("path cascade failed: child path = %q, want /Renamed/Child", child2.Path)
+	}
+}
+
+func TestUpdate_NoOpDoesNotPersistOrPublish(t *testing.T) {
+	svc, ctx := newSvc(t)
+	doc, err := svc.Create(ctx, CreateInput{
+		Name:        "No-op",
+		Description: "description",
+		Content:     "body",
+		Tags:        []string{"one", "two"},
+	})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	probe := &documentTestEmitter{}
+	svc.emitter = probe
+
+	tags := append([]string(nil), doc.Tags...)
+	got, err := svc.Update(ctx, doc.ID, UpdateInput{
+		Name:        strp(doc.Name),
+		Description: strp(doc.Description),
+		Content:     strp(doc.Content),
+		Tags:        &tags,
+	})
+	if err != nil {
+		t.Fatalf("equal update: %v", err)
+	}
+	if !got.UpdatedAt.Equal(doc.UpdatedAt) {
+		t.Fatalf("equal update refreshed updatedAt: before=%s after=%s", doc.UpdatedAt, got.UpdatedAt)
+	}
+	if len(probe.broadcasts) != 0 {
+		t.Fatalf("equal update published events: %v", probe.broadcasts)
+	}
+
+	got, err = svc.Update(ctx, doc.ID, UpdateInput{})
+	if err != nil {
+		t.Fatalf("empty update: %v", err)
+	}
+	if !got.UpdatedAt.Equal(doc.UpdatedAt) {
+		t.Fatalf("empty update refreshed updatedAt: before=%s after=%s", doc.UpdatedAt, got.UpdatedAt)
+	}
+	if len(probe.broadcasts) != 0 {
+		t.Fatalf("empty update published events: %v", probe.broadcasts)
 	}
 }
 

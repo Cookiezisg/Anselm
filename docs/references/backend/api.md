@@ -244,9 +244,9 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /documents` · `GET /documents/tree` | `GET /documents` 是 `?parentId&cursor&limit` 的直接子节点 cursor 分页（默认 50、最大 200，响应 `data/nextCursor?/hasMore`）；`tree` 是整树 metadata 投影 |
+| `GET /documents` · `GET /documents/tree` | `GET /documents` 是 `?parentId&cursor&limit` 的直接子节点 cursor 分页（默认 50、最大 200，响应 `data/nextCursor?/hasMore`）；游标绑定铸造它的 `parentId`，跨父节点复用返回 `INVALID_REQUEST`；`tree` 是整树 metadata 投影 |
 | `POST /documents` | 创建 |
-| `GET|PATCH|DELETE /documents/{id}` | 单读 / 更新 / 删除 |
+| `GET|PATCH|DELETE /documents/{id}` | 单读 / 部分更新 / 删除；PATCH 只持久化实际变化，空或等值 patch 返回当前实体但不刷新 `updatedAt`、重建索引或发送 `document.updated` |
 | `POST /documents/{id}:iterate` | 打开 AI 编辑 Conversation |
 | `POST /documents/{id}:move` | 移动 |
 | `POST /documents/{id}:duplicate` | 复制 |

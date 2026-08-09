@@ -29,7 +29,7 @@ audience: [human, ai]
 - `AnEditor` 是原生 Flutter WYSIWYG markdown 门面，后端保存 markdown 真相。
 - 支持标题/列表/引用/分隔线/任务、行内格式与链接、slash 命令、`@` mention、可编辑表格和围栏代码块。
 - `[[id]]` wikilink、代码围栏语言标与表格必须往返保真；代码块使用嵌入式 `AnCodeEditor`。
-- document 正文以防抖 PATCH 保存，meta 分部 PATCH；保存不整体 invalidate 当前文档，避免光标跳动。
+- document 正文以防抖 PATCH 保存，meta 分部 PATCH；保存不整体 invalidate 当前文档，避免光标跳动。右岛 live metrics 带文档身份，编辑时即时更新；旧 provider 重取不得覆盖当前编辑，切页时清空活值再从新页真相播种。
 - skill 清单以读—改—写 PUT 保存；附属 markdown 用只读/可编辑富文本，代码与文本用代码编辑器，图片/SVG/CSV/字体走专用预览。
 - 文件读取有大小护栏；未知类型显示诚实信息卡，超限文件明确说明 `1 MB` 在线预览上限并保留系统打开/Finder 逃生口，绝不假装成功预览。
 

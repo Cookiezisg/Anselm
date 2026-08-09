@@ -31,6 +31,10 @@ position、物化 path、正文、描述与 tags，可被：
 Create 对同父重名自动尝试 `name 2` 等后缀；显式 Rename 则严格返回 name conflict。
 新节点的 sibling position 在同一事务中计算并插入，避免并发创建拿到相同位置。
 
+HTTP PATCH 是部分更新：省略字段保持原值，description 去首尾空格，content 与 tags 分别按正文和
+字符串数组全量替换。空 patch 或所有提供字段都已等值时返回当前实体，但不写盘、不刷新 `updatedAt`、
+不重建搜索/Relation 索引，也不发送 `document.updated`；重复 autosave 因而不会伪造一次修改。
+
 Move 支持：
 
 - `parentId = nil` 移到根；
@@ -83,6 +87,8 @@ Document 行补齐路径和元数据。该出口只接受有词法证据的文�
 `list_documents` 是已知父节点下的直接子节点枚举，不是关键词检索。它按 sibling `position`
 稳定 cursor 分页：默认每页 50、最大 200，返回本页 `count`、同一父节点下的 `total`、`hasMore`
 与 `complete`；有下一页时还返回不透明 `nextCursor`，必须逐字复制到下一次调用的 `cursor`。
+游标绑定铸造它的 `parentId`（根级为空）；若把另一个父节点的游标带来，服务端返回
+`INVALID_REQUEST`，绝不静默跳过当前父节点的前几行。
 `complete=true` 才能称为完整枚举，不能从本页 `count` 或某个全局上限推断。HTTP 的
 同一回合已经返回过相同 `parentId/cursor/limit` 的枚举不得重复调用；需要不同视图时再显式改变边界或过滤。
 `GET /documents` 使用同一 `?parentId&cursor&limit` 契约；`GET /documents/tree` 是单独的 metadata

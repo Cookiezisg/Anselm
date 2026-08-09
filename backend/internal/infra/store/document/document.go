@@ -150,6 +150,7 @@ type siblingCursor struct {
 	Position  int       `json:"p"`
 	CreatedAt time.Time `json:"c"`
 	ID        string    `json:"i"`
+	ParentID  string    `json:"parentId"`
 }
 
 // ListByParentPage is the bounded sibling-list path used by the API and list_documents tool.
@@ -173,6 +174,15 @@ func (s *Store) ListByParentPage(ctx context.Context, parentID *string, cursor s
 		if err := paginationpkg.DecodeCursor(cursor, &c); err != nil {
 			return nil, 0, "", fmt.Errorf("%w: document sibling cursor: %v", errorspkg.ErrInvalidRequest, err)
 		}
+		// A sibling cursor is a continuation of one exact parent view; accepting it under another parent silently drops rows.
+		// sibling 游标只续接一个确定的父节点视图；若放到另一个父节点下会静默漏行，必须明确拒绝。
+		expectedParent := ""
+		if parentID != nil {
+			expectedParent = *parentID
+		}
+		if c.ParentID != expectedParent {
+			return nil, 0, "", fmt.Errorf("%w: document sibling cursor belongs to another parent", errorspkg.ErrInvalidRequest)
+		}
 		q.Where("(position, created_at, id) > (?, ?, ?)", c.Position, c.CreatedAt, c.ID)
 	}
 
@@ -183,7 +193,11 @@ func (s *Store) ListByParentPage(ctx context.Context, parentID *string, cursor s
 	var next string
 	if len(rows) > limit {
 		last := rows[limit-1]
-		next, err = paginationpkg.EncodeCursor(siblingCursor{Position: last.Position, CreatedAt: last.CreatedAt, ID: last.ID})
+		parent := ""
+		if parentID != nil {
+			parent = *parentID
+		}
+		next, err = paginationpkg.EncodeCursor(siblingCursor{Position: last.Position, CreatedAt: last.CreatedAt, ID: last.ID, ParentID: parent})
 		if err != nil {
 			return nil, 0, "", fmt.Errorf("documentstore.ListByParentPage cursor encode: %w", err)
 		}

@@ -486,15 +486,16 @@ class _DocProperties extends ConsumerWidget {
     // typed yet) → the loaded doc's own fields. 活度量覆盖 loaded doc 的数(L16):open provider 编辑中冻结保光标,
     // loaded 一打字就陈旧;编辑视图与大纲同通道实时喂字数/字节/时刻。null(还没打字)→回退 loaded 自身字段。
     final live = ref.watch(docLiveMetricsProvider);
+    final liveForDoc = live?.sourceId == id ? live : null;
     // The glance rides the LOADED doc + the (separately-async) backlink count; null while loading. 速览带走已载 doc + 反链数。
     Widget? sub;
     if (loaded != null) {
       final backlinks = ref.watch(backlinksProvider(id)).value ?? const [];
       sub = _glance(
         context,
-        chars: live?.chars ?? _charCount(loaded.content),
+        chars: liveForDoc?.chars ?? _charCount(loaded.content),
         backlinks: backlinks.length,
-        updatedAt: live?.at ?? loaded.updatedAt,
+        updatedAt: liveForDoc?.at ?? loaded.updatedAt,
       );
     }
     return _InspectorShell(
@@ -542,12 +543,19 @@ class _DocMetaGroup extends ConsumerWidget {
     // glance above. Path never changes mid-edit, so it stays on the loaded doc. 大小+修改时间优先活度量、
     // path 编辑中不变故仍读 loaded doc。
     final live = ref.watch(docLiveMetricsProvider);
+    final liveForDoc = live?.sourceId == doc.id ? live : null;
     // The family KV list (批6 A-082): path wraps (a flush-right ellipsis would cut its most useful tail).
     // 族键值列(path 换行,贴右省略会砍最有用的尾段)。
     final rows = [
       AnKvRow(t.library.props.path, doc.path, mono: true, wrap: true),
-      AnKvRow(t.library.props.size, formatBytes(live?.bytes ?? doc.sizeBytes)),
-      AnKvRow(t.library.props.modified, fmtDateTime(live?.at ?? doc.updatedAt)),
+      AnKvRow(
+        t.library.props.size,
+        formatBytes(liveForDoc?.bytes ?? doc.sizeBytes),
+      ),
+      AnKvRow(
+        t.library.props.modified,
+        fmtDateTime(liveForDoc?.at ?? doc.updatedAt),
+      ),
     ];
     return _GroupSection(
       groupKey: kDocGroupProps,
