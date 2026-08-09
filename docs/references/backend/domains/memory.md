@@ -35,7 +35,9 @@ Source 是 `user | ai`。Description 与正文都必须非空。
 非 pinned 内容由模型按需调用 `read_memory`。这样用户可把稳定规则置顶，同时避免全部
 长期记忆永久占满上下文。
 
-LLM 工具为 `read_memory`、`write_memory`、`forget_memory`，通过 lazy discovery 提供。
+LLM 工具为 `read_memory`、`write_memory`、`forget_memory`，通过 lazy discovery 提供；没有
+`search_memory` 工具。模型需要查记忆时，应从当前 memory section 的 name+description 索引选出
+准确 name，再调用 `read_memory`，不能猜一个搜索工具名。
 `write_memory` 写入 AI source，不能自行 pin。
 
 ## 3. 更新与策展

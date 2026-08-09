@@ -659,6 +659,8 @@ func TestBuildSystemPrompt_Sections(t *testing.T) {
 		"Reply in Chinese.",
 		`<section name="critical_rules">`,
 		"Tool-call JSON arguments must match each parameter schema exactly",
+		"Call only a tool name present in the resident schemas or searchable inventory",
+		"there is no search_memory tool",
 		"Validate the user's stated precondition against the latest tool results",
 		"never mutate then undo it",
 		"For document editing, treat one user request as one canonical edit_document call",

@@ -748,6 +748,7 @@
     "actions": {
       "fork": "Fork from here",
       "forkBefore": "Fork before this message",
+      "forking": "Forking…",
       "retry": "Retry",
       "retryWithModel": "Retry with another model",
       "retryBusy": "Wait for the current reply to finish",

@@ -17,6 +17,7 @@ import (
 	attachmentapp "github.com/sunweilin/anselm/backend/internal/app/attachment"
 	mediaapp "github.com/sunweilin/anselm/backend/internal/app/media"
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
+	mediadomain "github.com/sunweilin/anselm/backend/internal/domain/media"
 	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	attachmentstore "github.com/sunweilin/anselm/backend/internal/infra/store/attachment"
@@ -585,6 +586,43 @@ func TestInspectMedia_ManagedGatewayStagesBoundedProxy(t *testing.T) {
 	}
 }
 
+func TestInspectMedia_ManagedProxyOverBudgetFallsBackToOriginal(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	original := testPNG(t, color.NRGBA{R: 255, A: 255})
+	a, err := svc.Upload(ctx, "red.png", "image/png", original)
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	client.PushScript(llminfra.MockScript{Events: []llminfra.StreamEvent{{Type: llminfra.EventText, Delta: "red"}}})
+	uploader := &fakeUploader{url: "https://media.example/lease"}
+	tool := &InspectMedia{
+		svc: svc,
+		imageProcessor: fakeImageDeriver{result: mediaapp.DerivativeResult{
+			Data: bytes.Repeat([]byte("x"), len(original)+1), MimeType: "image/png", Width: 2048, Height: 2048,
+		}},
+		resolver: fakeInspectResolver{bundle: InspectMediaBundle{
+			Client: client, Request: llminfra.Request{ModelID: "anselm-auto"}, Vision: true, MaxMediaBytes: int64(len(original)),
+			RemoteMedia: &attachmentapp.RemoteMedia{
+				BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader,
+			},
+		}},
+	}
+	out, err := tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"describe it"}`)
+	if err != nil {
+		t.Fatalf("inspect: %v", err)
+	}
+	if !strings.Contains(out, "exceeded") || !strings.Contains(out, "answer") {
+		t.Fatalf("inspect output should explain original fallback: %q", out)
+	}
+	if !bytes.Equal(uploader.data, original) {
+		t.Fatalf("uploader received %d bytes, want original %d bytes", len(uploader.data), len(original))
+	}
+	if !strings.Contains(client.LastRequest().Messages[0].Parts[0].Text, "original image fallback") {
+		t.Fatalf("vision prompt must name the fallback source: %+v", client.LastRequest().Messages[0].Parts[0])
+	}
+}
+
 func TestInspectMedia_ImageTilesReturnsCropMapWithoutCallingModel(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	img := image.NewNRGBA(image.Rect(0, 0, 20, 100))
@@ -766,6 +804,14 @@ type fakeUploader struct {
 	url  string
 	mime string
 	data []byte
+}
+
+type fakeImageDeriver struct {
+	result mediaapp.DerivativeResult
+}
+
+func (f fakeImageDeriver) Derive(context.Context, *attachmentdomain.Attachment, []byte, *mediadomain.Derivative) (mediaapp.DerivativeResult, error) {
+	return f.result, nil
 }
 
 func (f *fakeUploader) Upload(_ context.Context, _, _, mime string, data []byte) (string, error) {

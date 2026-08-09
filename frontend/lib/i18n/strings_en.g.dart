@@ -3609,6 +3609,9 @@ class Translations$chat$actions$en {
 	/// en: 'Fork before this message'
 	String get forkBefore => 'Fork before this message';
 
+	/// en: 'Forking…'
+	String get forking => 'Forking…';
+
 	/// en: 'Retry'
 	String get retry => 'Retry';
 
@@ -8175,6 +8178,7 @@ extension on Translations {
 			'chat.stage.rtStopped' => 'stopped',
 			'chat.actions.fork' => 'Fork from here',
 			'chat.actions.forkBefore' => 'Fork before this message',
+			'chat.actions.forking' => 'Forking…',
 			'chat.actions.retry' => 'Retry',
 			'chat.actions.retryWithModel' => 'Retry with another model',
 			'chat.actions.retryBusy' => 'Wait for the current reply to finish',
@@ -8473,9 +8477,9 @@ extension on Translations {
 			'scheduler.range.endBeforeStart' => 'End is before start',
 			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
 			'scheduler.range.monthTitle' => ({required Object m, required Object y}) => '${m} ${y}',
-			'scheduler.range.months' => 'January,February,March,April,May,June,July,August,September,October,November,December',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.months' => 'January,February,March,April,May,June,July,August,September,October,November,December',
 			'scheduler.range.prevMonth' => 'Previous month',
 			'scheduler.range.nextMonth' => 'Next month',
 			'scheduler.range.backToPresets' => 'Back to quick ranges',
@@ -8987,9 +8991,9 @@ extension on Translations {
 			'entities.graph.selectHint' => 'Select a node to inspect its relations.',
 			'entities.graph.verb.equip' => 'equips',
 			'entities.graph.verb.link' => 'links',
-			'entities.graph.verb.create' => 'created',
 			_ => null,
 		} ?? switch (path) {
+			'entities.graph.verb.create' => 'created',
 			'entities.graph.verb.edit' => 'edited',
 			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
 			'coldStart.connecting' => 'Setting up your workspace…',
@@ -9501,9 +9505,9 @@ extension on Translations {
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
 			'settings.storage.factoryTitle' => 'Factory reset',
-			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			_ => null,
 		} ?? switch (path) {
+			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
 			'settings.storage.factoryConfirm' => 'Erase everything & relaunch',
 			'settings.limits.scopeNote' => 'Machine-wide — every workspace edits this machine\'s single set of limits',

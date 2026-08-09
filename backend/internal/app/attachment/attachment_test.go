@@ -326,6 +326,33 @@ func TestToContentParts_ManagedImageStagesModelDefaultProxyWhenReady(t *testing.
 	}
 }
 
+func TestToContentParts_ManagedImageProxyObeysEnvelope(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	// The compressed original fits, but the ready model proxy does not. The gateway receives the
+	// proxy bytes, so the renderer must fall back to the original instead of staging the proxy.
+	// 原图压缩后能装下,但已 ready 的模型代理装不下。网关收到的是代理字节,所以 renderer 必须退回原图,
+	// 不能把代理 staging 出去。
+	image, _ := svc.Upload(ctx, "detailed.png", "image/png", []byte("small original"))
+	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	parts, err := svc.ToContentParts(ctx, []string{image.ID}, Capabilities{
+		Vision:        true,
+		MaxMediaBytes: 1024,
+		RemoteMedia: &RemoteMedia{
+			BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader,
+			Images: fakeImageProxy{data: bytes.Repeat([]byte("x"), 1025), mime: "image/png", ready: true},
+		},
+	})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 1 || parts[0].Type != llminfra.PartImageURL || parts[0].ImageURL != uploader.url {
+		t.Fatalf("parts = %+v, want one managed image part using the original fallback", parts)
+	}
+	if uploader.calls != 1 || !bytes.Equal(uploader.got[0].data, []byte("small original")) {
+		t.Fatalf("uploads = %d data=%q, want one upload of the fitting original", uploader.calls, uploader.got)
+	}
+}
+
 func TestToContentParts_ManagedMediaFailureStopsTurn(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	image, _ := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG image"))

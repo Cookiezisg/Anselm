@@ -479,6 +479,46 @@ func TestRetry_CloseSnapshotCarriesTheVersionPointer(t *testing.T) {
 	}
 }
 
+// TestRetry_OpenFramesCarryTheVersionPointer pins the live half of the same contract. The user echo is
+// especially important here: edit-resend publishes it before the new assistant starts, so an open frame
+// without retryOf briefly renders the edited sentence as a separate round while the answer streams.
+// TestRetry_OpenFramesCarryTheVersionPointer 钉住同一契约的实时半边。user 回声尤其重要:编辑重发先发布它、再启动
+// 新 assistant；open 缺 retryOf 会在回答流入时先把编辑句渲成独立新回合。
+func TestRetry_OpenFramesCarryTheVersionPointer(t *testing.T) {
+	svc, store, bridge, _ := retryFixture(t, "ANSWER TO ORIGINAL", "ANSWER TO EDIT")
+	ctx := ctxWS("ws_1")
+
+	firstAsst, err := svc.Send(ctx, "cv_1", SendInput{Content: "original question"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	waitClose(t, bridge, firstAsst)
+	firstUser := retryRoleIDs(t, store, "cv_1", messagesdomain.RoleUser)[0]
+
+	secondAsst, err := svc.Retry(ctx, "cv_1", RetryInput{Content: "edited question"})
+	if err != nil {
+		t.Fatalf("Retry: %v", err)
+	}
+	waitClose(t, bridge, secondAsst)
+	users := retryRoleIDs(t, store, "cv_1", messagesdomain.RoleUser)
+	if len(users) != 2 {
+		t.Fatalf("edit-resend must create two user versions, got %d", len(users))
+	}
+	secondUser := users[1]
+	if got := openRetryOf(t, bridge, secondUser); got != firstUser {
+		t.Errorf("edited user open retryOf = %q, want %q", got, firstUser)
+	}
+	if got := closeRetryOf(t, bridge, secondUser); got != firstUser {
+		t.Errorf("edited user close retryOf = %q, want %q", got, firstUser)
+	}
+	if got := openRetryOf(t, bridge, secondAsst); got != firstAsst {
+		t.Errorf("retried assistant open retryOf = %q, want %q", got, firstAsst)
+	}
+	if got := closeRetryOf(t, bridge, secondAsst); got != firstAsst {
+		t.Errorf("retried assistant close retryOf = %q, want %q", got, firstAsst)
+	}
+}
+
 // closeRetryOf reads `retryOf` out of a turn's message_stop snapshot — through the JSON the client
 // actually receives, not through the Go struct, so a field that never marshals cannot pass.
 // closeRetryOf 从某回合的 message_stop 快照里读 `retryOf`——**穿过客户端真正收到的那份 JSON**、而不是 Go
@@ -508,6 +548,36 @@ func closeRetryOf(t *testing.T, b *recordBridge, id string) string {
 		return got.RetryOf
 	}
 	t.Fatalf("no close frame for %s", id)
+	return ""
+}
+
+// openRetryOf reads `retryOf` through the JSON payload of a message_start event, not the Go value.
+// openRetryOf 穿过 message_start 的真实 JSON 读取 retryOf，而不是读取 Go 值。
+func openRetryOf(t *testing.T, b *recordBridge, id string) string {
+	t.Helper()
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	for _, e := range b.events {
+		if e.ID != id {
+			continue
+		}
+		o, ok := e.Frame.(streamdomain.Open)
+		if !ok {
+			continue
+		}
+		raw, err := json.Marshal(o.Node.Content)
+		if err != nil {
+			t.Fatalf("marshal open snapshot: %v", err)
+		}
+		var got struct {
+			RetryOf string `json:"retryOf"`
+		}
+		if err := json.Unmarshal(raw, &got); err != nil {
+			t.Fatalf("unmarshal open snapshot: %v", err)
+		}
+		return got.RetryOf
+	}
+	t.Fatalf("no open frame for %s", id)
 	return ""
 }
 

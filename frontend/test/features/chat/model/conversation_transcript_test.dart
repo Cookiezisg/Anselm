@@ -807,6 +807,25 @@ void main() {
       },
     );
 
+    test('a live retry open frame joins its version group before close arrives', () {
+      // The backend publishes the version pointer on message open as well as close. The transcript must
+      // classify the new live turn immediately, so the reader never sees a duplicate round during the
+      // short interval before its durable close snapshot arrives.
+      // 后端在 message open 与 close 都发布版本指针。transcript 必须立即归组，不能在 durable close 到达前的短窗口
+      // 把同一回合渲成重复的新轮次。
+      final old = ConversationTranscript.hydrateTurn(
+        _turn('m1', 'user', blocks: [_blk('b1', 'text', 'old ask')]),
+      );
+      final liveOpen = BlockNode(id: 'm2', kind: BlockKind.message)
+        ..content = {'role': 'user', 'retryOf': 'm1'};
+
+      final groups = ConversationTranscript.groupVersions([old, liveOpen]);
+
+      expect(groups.length, 1);
+      expect(groups.single.versions.map((n) => n.id), ['m1', 'm2']);
+      expect(groups.single.current.id, 'm2');
+    });
+
     test('a version whose predecessor is not loaded becomes its own root', () {
       // The paged reality: a `?around=` window can hold v2 without v1. Grouping must describe what IS loaded
       // (a group of one) rather than drop the row or dangle at a node it does not have.

@@ -69,6 +69,19 @@ class ChatHead extends ConsumerWidget {
     final titleStyle = AnText.meta
         .weight(AnText.emphasisWeight)
         .copyWith(color: context.colors.inkMuted);
+    final displayTitle = conv.title.isEmpty ? t.chat.kNew : conv.title;
+    // The reveal child is intrinsically only as wide as the characters typed so far. Reserve the
+    // finished title footprint for BOTH faces, otherwise the model picker visibly walks right on
+    // every character and left again when the typewriter is replaced by Text.
+    // 揭示子树的固有宽度只有当前已打出的字。两种脸都预留完整标题槽，否则模型选择器会随每个字向右走，
+    // 打完切回 Text 时又向左跳。
+    final titlePainter = TextPainter(
+      text: TextSpan(text: displayTitle, style: titleStyle),
+      maxLines: 1,
+      textDirection: Directionality.of(context),
+    )..layout();
+    final titleFootprint =
+        titlePainter.width + AnSpace.s2 + AnSize.caret + AnSize.caretEndPad;
     return Row(
       // min: the head hugs its content (title + model) at the left; the scene/outline nav moved to the
       // shell's head-trailing slot so it sits beside the panel-right toggle. min:头收紧到内容(题+模型)靠左;场次钮已挪到 shell 头尾槽。
@@ -82,14 +95,14 @@ class ChatHead extends ConsumerWidget {
         ChatWorkDirButton(conversationId: id),
         const SizedBox(width: AnSpace.s4),
         Flexible(
-          child: revealing
-              ? SizedBox(
-                  height: AnSize
-                      .control, // stable footprint — reveal→resting never jumps 定高,揭示→静止不跳
-                  child: Center(
-                    widthFactor: 1,
+          child: SizedBox(
+            width: titleFootprint,
+            height: AnSize.control,
+            child: revealing
+                ? Align(
+                    alignment: Alignment.centerLeft,
                     child: AnTypewriter(
-                      [conv.title],
+                      [displayTitle],
                       loop: false,
                       // No caret — matched with the rail's twin player. 与 rail 同款无 caret。
                       showCaret: false,
@@ -97,14 +110,17 @@ class ChatHead extends ConsumerWidget {
                       onDone: () =>
                           ref.read(titleRevealsProvider.notifier).remove(id),
                     ),
+                  )
+                : Align(
+                    alignment: Alignment.centerLeft,
+                    child: Text(
+                      displayTitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: titleStyle,
+                    ),
                   ),
-                )
-              : Text(
-                  conv.title.isEmpty ? t.chat.kNew : conv.title,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: titleStyle,
-                ),
+          ),
         ),
         const SizedBox(width: AnSpace.s8),
         // The lineage line rides INSIDE the head row rather than becoming a second line: the head is a

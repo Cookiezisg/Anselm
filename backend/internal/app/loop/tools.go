@@ -31,6 +31,14 @@ type toolResultContent struct {
 	Content string `json:"content,omitempty"`
 }
 
+// toolCancelledProse is the neutral result shown when the user wins the cancellation race while a
+// tool is executing. The underlying context error stays in the backend journal, never in the
+// tool_result wire error field or the user's transcript.
+//
+// toolCancelledProse 是用户在工具执行中赢得取消竞态时看到的中性结果。底层 context 错误仍进后端
+// journal，但绝不进入 tool_result wire error 或用户转录。
+const toolCancelledProse = "The tool was cancelled before it finished."
+
 // runTools executes calls in execution-group batches and returns tool_result blocks aligned
 // to the input order. Same-group calls run concurrently (one WaitGroup per batch); groups
 // run in ascending order. The result slice is index-aligned so a parallel batch's writes
@@ -319,7 +327,16 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	output, errMsg, ok, executed, humanApproved := dispatchWithGate(ctx, t, tc, argsJSON, log)
 
 	status := messagesdomain.StatusCompleted
-	if !ok {
+	if ctx.Err() != nil {
+		// A user cancellation is a distinct product outcome, not a failed tool. In particular,
+		// search/shell implementations may return the raw context error; never leak that internal
+		// executor detail into the transcript. The execution journal still contains the WARN.
+		status = messagesdomain.StatusCancelled
+		if executed {
+			output = toolCancelledProse
+		}
+		errMsg = ""
+	} else if !ok {
 		status = messagesdomain.StatusError
 	}
 	recordTouches(ctx, t, tc, output, ok && executed)
@@ -340,6 +357,7 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 		ID:            blockID,
 		Type:          messagesdomain.BlockTypeToolResult,
 		Content:       output,
+		Status:        status,
 		ParentBlockID: tc.ID,
 		Error:         errVal,
 		Attrs:         attrs,
@@ -698,7 +716,10 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 		// The LLM named a tool not in this turn's set — a wiring bug or a stale catalog.
 		// LLM 点了本回合工具集外的工具——接线 bug 或过期 catalog。
 		log.Warn("executeTool: tool not in registry — likely wiring bug or stale catalog", zap.String("tool", name))
-		msg := fmt.Sprintf("tool %q not found", name)
+		msg := fmt.Sprintf("Tool %q is not available in this turn, so nothing was executed. Use a tool from the current catalog, or tell the user that the requested operation is unavailable.", name)
+		if name == "search_memory" {
+			msg += " Memory lookup uses a listed memory name with read_memory; there is no search_memory tool."
+		}
 		return msg, msg, false
 	}
 

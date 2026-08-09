@@ -14,9 +14,9 @@ BlockNode _call({String status = 'completed', Map<String, dynamic>? content}) =>
       ..status = status
       ..content = content ?? {'name': 'run_function'};
 
-BlockNode _result(String text, {bool error = false}) =>
+BlockNode _result(String text, {bool error = false, String? status}) =>
     BlockNode(id: 'tr_1', kind: BlockKind.toolResult)
-      ..status = error ? 'error' : 'completed'
+      ..status = status ?? (error ? 'error' : 'completed')
       ..error = error ? text : null
       ..content = {'content': text};
 
@@ -104,6 +104,22 @@ void main() {
     () {
       final s = ToolCardState.of(_call(status: 'cancelled'));
       expect(s.phase, ToolCardPhase.cancelled);
+    },
+  );
+
+  test(
+    'cancelled tool_result wins after tool_call completed, without an error card',
+    () {
+      final interrupted = _call()
+        ..children.add(
+          _result(
+            'The tool was cancelled before it finished.',
+            status: 'cancelled',
+          ),
+        );
+      final s = ToolCardState.of(interrupted);
+      expect(s.phase, ToolCardPhase.cancelled);
+      expect(s.errorText, isEmpty);
     },
   );
 

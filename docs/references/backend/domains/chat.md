@@ -163,7 +163,7 @@ Reasoning 也在同一边界内：若 provider 把 `get_flowrun` 拆成 `ge` 与
 
 附件清单的上传时点是例外的可用性语义：精确 `createdAt` 保留在相邻附件工具卡中；若模型把它放进用户正文表格，正文改为 `See the exact upload time in the attachment card.`，不得把 `the recorded time` 留成看似真实的字段值。
 
-System prompt 默认禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文；用户明确要求某个工具返回的精确命名字段时，只允许在同名字段中逐字回显该字段，其他机器值仍不得进入 prose。危险 HumanLoop
+System prompt 默认禁止模型臆造工具名，也禁止模型臆造或凭记忆抄写长 ID、时间戳、哈希、receipt 与密文；工具调用只能使用 resident schema 或 searchable inventory 中出现的精确名字。用户明确要求某个工具返回的精确命名字段时，只允许在同名字段中逐字回显该字段，其他机器值仍不得进入 prose。若模型仍发出当前工具集没有的名字，loop 不执行副作用，tool card 和回喂模型的结果必须同时说明「未执行、当前回合不可用、下一步使用目录内工具或告知用户能力缺席」；memory 只有 `read_memory`、`write_memory`、`forget_memory`，没有 `search_memory`。危险 HumanLoop
 批准句不采用模型的自报 summary 作为动作真相：它由实际解析的工具名生成，避免 `delete_workflow`
 被模型 prose 伪装成 `deactivate_workflow`；所有不可逆 delete 族还必须在门禁本体展示实际后果，不能
 退化成泛化的“运行某工具”。二者语义冲突时副作用在闸前终止并反馈模型改选。

@@ -297,23 +297,54 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-147 已完成,批次二十七 50/50,统一门禁已通过并提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-160 已完成,批次二十八 53/50,统一长门禁已通过)
 
-**当前前线（2026-08-09，清册 EP-147 已完成，批次二十七当前 50/50；本批统一长门禁、完整 testend、警报复核和工作树审计已通过，已提交 `54dae950`）。**
-EP-147 `GET /api/v1/conversations/workdir-groups` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只返回四行 JSON，而是让 mounted conversation 在 Pinned、workdir group、Recents 中恰好出现一次；组头计数来自整个 workspace 的服务端投影；最新活跃组自动展开，用户明确的折叠/展开选择不被后续重排覆盖；归档态、路径碰撞和空驻地均体面可读。
+**当前前线（2026-08-09，清册 EP-160 已完成，批次二十八已由 48/50 越过用户规定的 50 格门槛；统一长门禁、完整 testend、警报复核和工作树审计均已通过，待本批提交后进入 EP-161）。**
+EP-160 `GET /api/v1/conversations/{id}/system-prompt-preview` 验证的不是一个能返回 `200` 的调试接口，而是用户能看到与真实模型回合一致、且只属于当前 workspace/conversation 的系统提示：空对话、默认提示、自定义提示、驻地上下文、语言投影、跨 workspace 和缺失资源都必须有可解释结果，preview、SQLite、真实 LLM wire、SSE 和 App 不能互相矛盾。
 
-首轮真实绿候选场次发现了一个产品红：beta 组由服务端排到第一后，前端仍沿用稳定 `pageKey` 的旧折叠态，最新回复被藏在折叠组中且没有 loading/unread 引导。红证据保留在 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-163937/evidence/EP-147-fold-state-red.md` 和对应截图；前线冻结并 stop-and-fix。修复在 `AnSidebarList` 中把自动默认折叠与用户明确选择分开，模型重排时只同步自动默认；补充侧栏重排/手动选择回归和聊天列表最近度回归，避免只修聊天表面。
+真实 session `/private/tmp/anselm-rig-ep160-20260809/sessions/20260809-225559` 由 conductor 归属真实 Flutter App、真实受管 Anselm gateway、Computer Use、60fps 窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap；`screen.mov` 已由 rig-down 封口（`2784x1808 / 60fps / 312.325s`）。Computer Use 完成真实 onboarding 和 Composer 回合，用户输入 `EP160 HISTORY MARKER. Reply exactly EP160-REPLY and do not call tools.`，最终 UI 精确显示 `EP160-REPLY`，Copy/Fork/Retry/Read aloud 与 Composer 均可用，无死 spinner、重复消息、布局溢出或隐藏 CTA。
 
-最终真实 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260809-164708`，`screen.mov` 已由 rig-down 封口可读（`2784x1808 / 60fps / 317.476667s`）。Computer Use 通过真实 Composer 完成 alpha→beta 两次受管 gateway 回合：alpha 变为第一组并展开，随后 beta 变为第一组且 `EP147 Beta active` 立即可见，alpha 退为第二组；没有隐藏最新回复、旧值顶替或卡住 loading。打开真实 `Show archived` 后 beta/alpha 组头分别显示 `2`，归档行带灰点；随后恢复 active-only 默认视图。最终截图为 `EP-147-recency-reorder-fixed.png` 与 `EP-147-archived-counts-clean.png`。
+REST 负向与边界矩阵已真实执行：主 conversation、空 conversation、自定义 `systemPrompt`、自定义 `workDir`、第二 workspace 的 `zh-CN` 投影均为预期 `200`；unknown conversation 为 `404 CONVERSATION_NOT_FOUND`，缺失/非法 workspace 为 `401 UNAUTH_NO_WORKSPACE`，用另一 workspace 访问首 workspace conversation 为 `404`；自定义 prompt 与驻地路径通过 PATCH 后在 preview 中可读，`Accept-Language` 与 workspace language 的组合分别得到 `Reply in English.` / `Reply in Chinese.`，没有把请求头语言错误地当成 workspace 真相。
 
-REST/数据矩阵为 `sessions/20260809-164708/evidence/EP-147-rest-matrix-final.jsonl`：分组接口返回 beta、alpha、right/anselm、left/anselm 四组，计数分别为 `1+1`、`1+1`、`1+0`、`1+0`；附加任意 cursor/limit 仍返回同一完整四行；`archived=all`、`archived=true`、默认 active、alpha workDir 和显式空 `workDir=` 均与 SQLite/列表真相一致，置顶 alpha 只在 Pinned，不污染 group count。五通道正式证据为 `sessions/20260809-164708/evidence/EP-147-final-green.md`，独立警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-147-workdir-groups-ledger-reaudit.md`。
+preview 正文与真实 llmtap request 的 system message 均为 `31,415` bytes，SHA-256 都是 `bb8e2b5ffd715b9c5800421d1b7cd97714df1a7f0f078374117b435db43f03cd`；preview GET 不产生虚假的 completion，真正的 managed challenge/install/models/chat 请求全为 HTTP `200`。SQLite 最终主回合为 user completed、assistant completed、`stop_reason=end_turn`，blocks seq 连续；messages、entities、notifications 三路均由独立 witness 物理连接，durable seq 单调且 seq=0 delta 不污染游标。
 
-五级裁决 `G1/F2/A1/C4/G2` 已写入，中央账本由 `1425→1430 judgments`，`COVERAGE EP-147=✓✓✓✓✓`，anchors `10/10`；写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立红绿证据复审并 ack，未修改阈值、算法、法典或锚点，最终 `alarms.py check`=`clean (1430 judgments on record)`。统一长门禁已实际通过：`gen_coverage.py --check`=`848 rows / 279 carried judgments / 0 tombstones`，anchors calibration passed，`make -C docs verify` 通过（仅保留既有 1 条 anchored DTO skip warning），`git diff --check` 通过，根目录 `make verify` 全绿（backend/frontend/docs/demo），frontend `make verify` 全绿（5287 tests），`make -C backend testend` 全包通过（`382.092s`）。
+逐帧与五通道证据完整保存在 session：`evidence/EP-160-final-green.md`、`EP-160-sse-summary.txt`、`EP-160-db-final.txt`、`EP-160-llm-summary.txt`、`EP-160-frontend-terminal-review.md`、`EP-160-latency.txt` 和 `EP-160-final-ui.png`；frontend 只有已知 runner 的 `Failed to foreground app; open returned 1` 启动噪声，随后无 Dart/Flutter/RenderFlex/overflow/Unhandled/lost-device/panic/fatal 红线，backend journal 无应用 WARN/ERROR/panic/FATAL。独立 backend-only latency session 测得 30 次 preview median=`4.921ms`、max=`23.555ms`，满足 CODEX A1。
 
-门禁期间全量 Flutter 测试捕获并修复一个真实生命周期回归：transcript 深链分叉在没有 rail 监听时会触碰永久存活的 `conversationListProvider`，新增的计数防抖器留下 pending timer；修复为 rail 投影 `autoDispose`，无监听时释放 SSE/计时器，重新挂载从服务端真相重建，并同步 Chat 文档与 fork/rail 回归。修复后 fork 定向测试、provider 全套测试、前端静态分析和 5287 个 Flutter 测试均通过。
+本格后的定向回归为 backend `internal/app/chat`、Flutter `chat_transcript_test.dart` `30/30`、testend prompt/chat 场景，均通过。统一门禁完整通过：根 `make verify` 的 backend/frontend/docs/demo 全绿（frontend 四组约 `4,878` 项），独立 `mise exec -- go test ./...` 全绿，`make -C backend testend` 全量场景 `309.754s` 通过；testend 后未发现残留 `anselm-server`、`llama-server` 或测试进程，`gen_coverage.py --check`=`848 rows / 292 carried judgments / 0 tombstones`，`git diff --check` 通过。
 
-EP-147 临时数据库与 workdir 夹具已在证据封存后按用户授权通过 `/usr/bin/trash` 移除，清理回执为 `sessions/20260809-164708/evidence/EP-147-fixture-cleanup.md`；formal session、录屏、journals、红绿证据和账本保留。P12 旅程 400+ 继续按用户裁定推迟二期，一期以 COVERAGE 矩阵为覆盖真相。批次二十七由 **45→50/50**，统一门禁已收口并提交 `54dae950`，不提前启动下一原子。
-下一原子前线（统一门禁通过并提交后）为 COVERAGE 的下一未完成 row。
+账本写入前 anchors=`10/10`、`alarms.py check`=`clean (1490 judgments)`；五级裁决 `G1/F2/A1/C4/G2` 由脚本写入，中央账本 `1490→1495 judgments`，`COVERAGE EP-160=✓✓✓✓✓`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-160-prompt-preview-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或账本规则；最终 `alarms.py check`=`clean (1495 judgments)`。
+
+批次二十八由 **48→53/50**，统一门禁已收口，当前下一原子前线为 EP-161 `GET /api/v1/conversations/{id}/usage`；提交后才开始下一批。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
+
+### 5.2 历史状态快照（EP-154，批次二十八 35/50）
+
+**历史前线（2026-08-09，清册 EP-154 已完成，批次二十八当时 35/50；按用户裁定未到 50 格，不跑批次统一长门禁、完整 testend 或提交）。**
+EP-154 `POST /api/v1/conversations/{id}/messages` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只得到一个 `202`，而是让用户在真实 Composer 中只附一张图也能完成一个完整回合：user 行先落库并回声，assistant 流式行打开并闭合，模型真实看见图片并返回可读答案；随后同一真实对话显式命中 `inspect_media`，在代理图超过受管网关 3 MiB 解码预算时诚实回退原图，不把上游 400 暴露给用户。
+
+最终 session 为 `/private/tmp/anselm-rig-ep154-20260809/sessions/20260809-195358`，`screen.mov` 已由 rig-down 封口可读（`2784x1808 / 60fps / 432.191667s`），稳定终帧为 `accepted-frame.png`。Computer Use 真实走过附件菜单、macOS 文件选择器、`Preparing media...`、原图缩略图、发送、助手完成态以及第二轮 `inspect_media` 工具调用；最终 UI 有完整结构化表格、历史背景、操作行和可用 Composer，没有红色工具失败、死 spinner、重复错误、布局跳变或隐藏 CTA。
+
+本场首个真实附件 session 曾抓到一条真实红线，保留在 `/private/tmp/anselm-rig-ep154-20260809/sessions/20260809-194419`：1,111,731-byte JPEG 的 model-default PNG proxy 为 5,238,623 bytes，网关返回 `BAD_REQUEST media exceeds the per-request decoded size limit`。stop-and-fix 将预算依据改为最终 staging bytes；受管图片 proxy 超预算但原图可交付时回退原图，`inspect_media` 同样使用该规则，proxy 与原图都不可交付时返回结构化 budget-degraded 说明而不是发出必败请求。定向 `internal/app/attachment`、`internal/app/tool/attachment`、`internal/bootstrap` Go tests 已通过。
+
+五通道正式证据为 session 内 `evidence/EP-154-final-green.md`，SSE 汇总、DB 真相、LLM wire、前端终端复核和清理回执分别为 `EP-154-sse-summary.txt`、`EP-154-db-final.txt`、`EP-154-llm-summary.txt`、`EP-154-frontend-terminal-review.md` 与 `EP-154-fixture-cleanup.md`。三路 SSE 均物理连接；messages durable `seq=1..24` 单调，完整记录 attachment-only user echo、assistant close、`inspect_media` tool_call/tool_result 和最终 `message close`；notifications 观测到 conversation 创建与自动标题，entities 连接正常。SQLite 中四条 message 和九条 block 全为 `completed`，无 pending/streaming/error/cancelled 残留；工具结果含 `width=2560,height=1970` 与“proxy 超预算、改检原图”note。
+
+backend journal 无应用 WARN/ERROR/panic/FATAL；frontend 只有已知 runner 启动器 `Failed to foreground app; open returned 1`，随后 Flutter resident 正常且无 Dart/Flutter/RenderFlex/overflow/Unhandled/lost-device 红线，启动器噪声被单独归类并保留。llmtap 的 challenge/install/models、两次图片 staging、primary chat、nested vision 和外层收尾均为 HTTP `200/201`，无 4xx/5xx 或 `BAD_REQUEST`。发送动作到首个可见反馈的 `testend/cmd/measure latency` 为 `100.0ms`，满足 CODEX A1；稳定终帧人工复核通过产品视觉标准。收台后 Flutter、后端、ssetap、llmtap、recorder、llama runtime 和监听均归零。
+
+本场账本写入前 anchors=`10/10`，`alarms.py check`=`clean (1460 judgments)`；五级裁决 `G1/F2/A1/C4/G2` 已写入，中央账本由 `1460→1465 judgments`，`COVERAGE EP-154=✓✓✓✓✓`。写账后按机制打开 `gap-too-fast` 与 `discovery-collapse`；独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-154-messages-ledger-reaudit.md`，确认红线、修复链、五通道原始 journal、视觉测量和最终帧齐全后逐条 ack，未修改阈值、算法、法典、锚点或账本规则；最终 `alarms.py check`=`clean (1465 judgments)`。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
+当时下一原子前线为 EP-155 `GET /api/v1/conversations/{id}/messages`；批次二十八由 **30→35/50**，未到 50 格不跑统一门禁、不提交。
+
+### 5.2 历史状态快照（EP-153，批次二十八 30/50）
+
+**历史前线（2026-08-09，清册 EP-153 已完成，批次二十八当时 30/50；按用户裁定未到 50 格，不跑批次统一长门禁、完整 testend 或提交）。**
+EP-153 `POST /api/v1/conversations/{id}/workdir:add-worktree` 已完成真实 Flutter App、真实受管 Anselm gateway、Computer Use、窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap 的五级验收。产品目的不是只执行一次 `git worktree add`，而是让用户在当前对话中发现并理解“平行工作树”这一能力，看到它会创建在仓库旁、绑定 `wt/<name>` 分支、把对话迁移到新的真实工作目录；冲突、非法名称和复用既有分支时都给出可行动结果，而不是接管或污染用户已有目录。
+
+EP-153 真实 session 为 `/private/tmp/anselm-rig-ep153-20260809/sessions/20260809-190946`，`screen.mov` 已由 rig-down 封口可读（`2784x1808 / 60fps / 512.488333s`）。Computer Use 在真实 App 中打开 workdir 菜单，先看到当前 `Branch main`、`No uncommitted changes`、本地分支和既有 worktree；初始菜单较长，真实滚动后 Git 操作区和 `Open a worktree…` 可见，随后打开对话框。对话框明确说明平行 checkout、`wt/<name>` 命名、对话会迁移以及不会自动 commit/push；真实输入 `session` 并确认后，App、REST projection、外部 Git 和当前对话 residency 一致变为 `/private/tmp/ep153-repo.ZkdbHn-session` / `wt/session`。第二次用同一真实菜单和 REST 创建 `reopen`，成功复用预先存在但未被 checkout 的 `wt/reopen` 分支，App 刷新为 `/private/tmp/ep153-repo.ZkdbHn-reopen`；Worktrees 区正确列出其他工作树且不把当前项重复列入。两次 Composer 均经真实受管 gateway 精确返回 `EP153-ACK`、`EP153-REOPEN-ACK`。
+
+REST/SQLite/fixture 交叉证据固定在该 session evidence：首次创建返回 200，路径为仓库旁的平面 sibling，branch=`wt/session`、`dirty=false`，外部 `git worktree list` 与 UI projection 一致；`taken` 冲突返回 409 `CONVERSATION_WORKTREE_EXISTS` 并给出具体阻挡路径 `/private/tmp/ep153-repo.ZkdbHn-taken`，碰撞目录 `SENTINEL.txt` 的 SHA-256 前后保持 `70e85898d13a5318b2a0c59dad361eb2d9cd5be94208b5b16a3e1c21cc31c4cb`。`../escape`、`/absolute`、`nested/deep`、`..`、`-b` 均返回 422 `CONVERSATION_INVALID_WORKTREE_NAME`；复用 `reopen` 返回 200 并新建 sibling worktree，不接管碰撞目录、不改变 main HEAD。第二次 residency 变化在已有 transcript 后落下恰好一个 `kind=workdir` marker；第一次空线程迁移不伪造 marker。最终 REST 与 SQLite 都保留七条消息块、marker、当前 workdir 和两次精确回复。
+
+五通道正式证据为 `/private/tmp/anselm-rig-ep153-20260809/sessions/20260809-190946/evidence/EP-153-final-green.md`，SSE 汇总、DB 真相、前端统计、AX/终端复核和清理回执分别为同 session 的 `evidence/EP-153-sse-summary.txt`、`evidence/EP-153-db-final.txt`、`evidence/EP-153-frontend-stats.txt`、`evidence/frontend-terminal-review.md` 与 `evidence/EP-153-fixture-cleanup.md`。三路 SSE 均物理连接，messages 共 29 条记录、16 条 durable、max seq=`16`，notifications 共 6 条记录、4 条 durable、max seq=`4`，entities 已连接且本旅程无 durable entity event；llmtap proof/install/models/chat 全部 HTTP 200。backend journal 无应用 WARN/ERROR/panic/FATAL；frontend 只有启动器 `Failed to foreground app; open returned 1` 一行，随后 Flutter resident 正常、无 Dart/Flutter/RenderFlex/overflow/Unhandled/lost-device/panic/fatal，独立终端复核在 8 秒 idle 内零增长；该启动器噪声被单独归类，没有从证据中静默删除。收台后 Flutter、后端、ssetap、llmtap、recorder 和 8902/8903 监听均归零。
+
+本场账本写入前，统计检查按机制打开 `gap-too-fast` 与 `discovery-collapse`；独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-153-conversations-add-worktree-ledger-reaudit.md`，anchors=`10/10` 后逐条 ack，写入前 `alarms.py check`=`clean (1455 judgments)`。五级裁决 `G1/F2/A1/C4/G2` 已写入，中央账本由 `1455→1460 judgments`，`COVERAGE EP-153=✓✓✓✓✓`。写账后统计警报按新 evidenceThrough 再次打开，第二次独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-153-post-judgment-alarm-reaudit.md`，anchors 仍为 `10/10`，逐条 ack 后最终 `alarms.py check`=`clean (1460 judgments)`；没有手改阈值、算法、法典、锚点或账本规则。定向 Go conversation/gitinfo/httpapi handler tests、Flutter workdir menu tests（23 项）、`gen_coverage --check`（848 rows / 285 carried / 0 tombstones）、`git diff --check`、`make -C docs verify` 已通过。所有 EP-153 临时 fixture 与隔离数据已在证据封存和裁决后按用户授权通过 `/usr/bin/trash` 移入 Trash，session 证据保留。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
+下一原子前线为 EP-154 `POST /api/v1/conversations/{id}/messages`；批次二十八由 **25→30/50**，未到 50 格不跑统一门禁、不提交。
 
 ### 5.2 历史状态快照（EP-146，批次二十七 45/50）
 

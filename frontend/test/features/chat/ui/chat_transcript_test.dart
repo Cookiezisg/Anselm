@@ -1550,6 +1550,59 @@ void main() {
   });
 
   testWidgets(
+    'a newly streamed retry resets a stale pager choice to the current version',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            _turn('m1', 'user', blocks: [_blk('b1', 'text', 'ASK')]),
+            _turn('m2', 'assistant', blocks: [_blk('b2', 'text', 'V1')]),
+          ],
+        },
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+
+      // Simulate a reader paging away from the current answer before asking for a retry. The action stores
+      // the about-to-exist index, just as the real row does.
+      // 模拟读者先离开当前答案再点重试;动作行会先记下「即将存在」的下标,与真 UI 一致。
+      await tester.tap(find.byTooltip(t.chat.actions.retry));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.chat.actions.retry).last);
+      await tester.pumpAndSettle();
+
+      repo.emitFrame(
+        'cv_1',
+        _open('m3', 'message', content: {'role': 'assistant', 'retryOf': 'm2'}),
+      );
+      repo.emitFrame(
+        'cv_1',
+        _open('b3', 'text', parentId: 'm3', content: {'content': ''}),
+      );
+      await _settle(tester);
+      repo.emitFrame('cv_1', _delta('b3', 'V2'));
+      repo.emitFrame('cv_1', _close('b3', 'text', {'content': 'V2'}));
+      repo.emitFrame(
+        'cv_1',
+        _close('m3', 'message', {
+          'role': 'assistant',
+          'status': 'completed',
+          'stopReason': 'end_turn',
+          'retryOf': 'm2',
+        }),
+      );
+      await _settle(tester);
+
+      expect(find.text('V2'), findsOneWidget);
+      expect(find.text('V1'), findsNothing);
+      expect(find.text('2/2'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'edit-resend puts the sentence back in place and resends it as a new version',
     (tester) async {
       final repo = retryRepo();

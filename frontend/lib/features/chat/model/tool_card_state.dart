@@ -231,7 +231,14 @@ class ToolCardState {
     bool awaitingConfirm,
   ) {
     if (node.isOpen) return ToolCardPhase.argsStreaming;
-    if (node.status == 'cancelled') return ToolCardPhase.cancelled;
+    // Cancellation can win while the tool_call itself is already completed: the child tool_result
+    // is the execution lifecycle's terminal node. Trust either anchor so a raw executor
+    // `context canceled` can never turn a user stop into a red failure card.
+    // 取消可能发生在 tool_call 已 completed 之后，此时真正的执行终态在子 tool_result。两处任一为 cancelled
+    // 都以取消为真相，避免底层 `context canceled` 把用户主动停止渲成红色失败卡。
+    if (node.status == 'cancelled' || result?.status == 'cancelled') {
+      return ToolCardPhase.cancelled;
+    }
     if (result == null || result.isOpen) {
       return awaitingConfirm
           ? ToolCardPhase.awaitingConfirm

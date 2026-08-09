@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 
@@ -74,8 +76,10 @@ class TurnActions extends StatefulWidget {
   final bool alwaysVisible;
 
   /// Branch from this turn into a new conversation. Null disables the button (kept rendered, so the
-  /// row's shape never moves). 从本回合分叉出新对话;null 即禁用(仍渲出,故动作排形状恒定)。
-  final VoidCallback? onFork;
+  /// row's shape never moves). The Future keeps the action visibly busy until navigation or an error
+  /// settles it, so a slow network never looks like a dead tap. 从本回合分叉出新对话;null 即禁用(仍渲出,故动作排
+  /// 形状恒定)。Future 让动作直到导航或错误收口前保持可见忙碌态,慢网络不再像「点了没反应」。
+  final FutureOr<void> Function()? onFork;
 
   /// Regenerate this answer, optionally with a different model (null = keep whatever the thread is set to).
   /// Null omits the retry affordance entirely — only the last assistant turn can be retried.
@@ -122,6 +126,17 @@ class _TurnActionsState extends State<TurnActions> {
   bool _hovered = false;
   bool _copied = false;
   bool _copyFailed = false;
+  bool _forking = false;
+
+  Future<void> _runFork() async {
+    if (_forking || widget.onFork == null) return;
+    setState(() => _forking = true);
+    try {
+      await widget.onFork!();
+    } finally {
+      if (mounted) setState(() => _forking = false);
+    }
+  }
 
   Future<void> _copy() async {
     final text = widget.copyText;
@@ -174,11 +189,15 @@ class _TurnActionsState extends State<TurnActions> {
             ),
             const SizedBox(width: AnSpace.s4),
             _action(
-              icon: AnIcons.control,
-              tip: widget.role == TurnActionsRole.user
-                  ? t.chat.actions.forkBefore
-                  : t.chat.actions.fork,
-              onTap: widget.onFork,
+              icon: _forking ? AnIcons.spin : AnIcons.control,
+              tip: _forking
+                  ? t.chat.actions.forking
+                  : (widget.role == TurnActionsRole.user
+                        ? t.chat.actions.forkBefore
+                        : t.chat.actions.fork),
+              onTap: widget.onFork == null || _forking
+                  ? null
+                  : () => unawaited(_runFork()),
             ),
             if (widget.onEdit != null) ...[
               const SizedBox(width: AnSpace.s4),

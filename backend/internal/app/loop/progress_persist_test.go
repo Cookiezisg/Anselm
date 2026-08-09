@@ -101,6 +101,54 @@ func TestRunOneTool_ResultFramesBracketRealExecution(t *testing.T) {
 	}
 }
 
+// TestRunOneTool_CancelledExecutionIsNeutral locks the user-facing cancellation boundary: a tool
+// that returns context.Canceled after the user stops the run closes as cancelled, with fixed neutral
+// prose and no stream error field. The executor's raw context error belongs in the backend journal.
+//
+// TestRunOneTool_CancelledExecutionIsNeutral 钉住取消的用户面边界：用户停止后返回 context.Canceled 的工具
+// 必须以 cancelled 收尾，使用固定中性文案且没有 stream error 字段；底层 context 错误只留后端 journal。
+func TestRunOneTool_CancelledExecutionIsNeutral(t *testing.T) {
+	b := &captureBridge{}
+	ctx, cancel := context.WithCancel(context.Background())
+	ctx = reqctxpkg.SetConversationID(WithBridge(ctx, b), "c1")
+
+	started := make(chan struct{})
+	resultCh := make(chan []messagesdomain.Block, 1)
+	go func() {
+		resultCh <- runOneTool(ctx, cancelledTool{started: started}, messagesdomain.ToolCallData{ID: "tc1", Name: "cancelled"}, zap.NewNop())
+	}()
+	<-started
+	cancel()
+	blocks := <-resultCh
+	if len(blocks) != 1 {
+		t.Fatalf("want one tool_result block, got %+v", blocks)
+	}
+	if blocks[0].Status != messagesdomain.StatusCancelled || blocks[0].Error != "" || blocks[0].Content != toolCancelledProse {
+		t.Fatalf("cancelled result = %+v, want neutral cancelled result", blocks[0])
+	}
+	if len(b.events) != 2 {
+		t.Fatalf("want result open + close, got %d: %+v", len(b.events), b.events)
+	}
+	close, ok := b.events[1].Frame.(streamdomain.Close)
+	if !ok || close.Status != streamdomain.StatusCancelled || close.Error != "" {
+		t.Fatalf("cancel close = %+v, want status=cancelled with no error", b.events[1])
+	}
+}
+
+type cancelledTool struct {
+	started chan<- struct{}
+}
+
+func (cancelledTool) Name() string                        { return "cancelled" }
+func (cancelledTool) Description() string                 { return "" }
+func (cancelledTool) Parameters() json.RawMessage         { return json.RawMessage(`{"type":"object"}`) }
+func (cancelledTool) ValidateInput(json.RawMessage) error { return nil }
+func (t cancelledTool) Execute(ctx context.Context, _ string) (string, error) {
+	close(t.started)
+	<-ctx.Done()
+	return "", ctx.Err()
+}
+
 type silentTool struct{}
 
 func (silentTool) Name() string                        { return "silent" }

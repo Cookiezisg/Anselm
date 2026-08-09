@@ -137,6 +137,11 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
   /// 每个版本组正在显示第几版,按组的**根** message id 键住。缺席 = 现行版(翻页默认)。它住在这里而非住在行里,因为落定行
   /// 按 id 记忆化——存在行里的选择会在缓存下一次作答时消失。
   final Map<String, int> _versionChoice = {};
+
+  /// The latest version id observed for each group. A manual pager choice is meaningful only until a new
+  /// retry arrives; once the chain grows, the reader must see the reply they just asked for, not the older
+  /// version they happened to be viewing before the retry. 最新版 id。版本链一增长,旧的手动翻页落点失效。
+  final Map<String, String> _versionLatest = {};
   CoalescingNotifier<ConversationTranscript>? _attached;
   bool _pinned = true;
   int _lastPendingCount = 0;
@@ -161,6 +166,7 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
       _settledRowCache.clear();
       _versionChoice
           .clear(); // page selections belong to the thread that was open 翻页选择属于刚才那条线程
+      _versionLatest.clear();
     }
   }
 
@@ -505,12 +511,18 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
     // that is off screen — the pager would be showing an old answer while the new one arrived invisibly.
     // 存下的选择只有一个覆盖:**正在生成**的那一版恒是你看到的那一版。否则一个在按重试前往回翻过页的读者,会看着回复流进
     // 一个屏上不存在的行——翻页显示着旧回答,而新回答无形中抵达。
+    final rootId = group.root.id;
+    final latestId = group.current.id;
+    // A retry is a new version of the same group. Do not let a pager position selected before that retry
+    // keep the reader on an obsolete answer after the new version closes.
+    // 重试是同一组的新版本。新版本落定后,此前手动翻到的旧版位置必须失效,否则读者看不到刚请求的回答。
+    if (_versionLatest[rootId] != null && _versionLatest[rootId] != latestId) {
+      _versionChoice.remove(rootId);
+    }
+    _versionLatest[rootId] = latestId;
     final index = group.current.isOpen
         ? group.count - 1
-        : (_versionChoice[group.root.id] ?? group.count - 1).clamp(
-            0,
-            group.count - 1,
-          );
+        : (_versionChoice[rootId] ?? group.count - 1).clamp(0, group.count - 1);
     final turn = group.at(index);
     Widget row;
     // The LAST turn is deliberately not cached. Its action row is always-visible while a historical

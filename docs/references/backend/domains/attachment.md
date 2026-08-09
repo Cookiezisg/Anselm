@@ -95,7 +95,9 @@ composition root 注入 `RemoteMedia`，经 device proof 把不可变字节暂�
 再传短期 HTTPS lease；Attachment 层不依赖具体网关客户端。
 
 受管图片优先使用 Media worker 的 `model-default` 代理。代理尚未 ready 时可短暂等待，
-随后退回原件且让后台继续处理。同一回合的重复 Attachment 只上传一次。
+随后退回原件且让后台继续处理。同一回合的重复 Attachment 只上传一次。媒体 envelope
+以**最终要 staging 的代理/原件字节**计量，而不是以原始附件行计量；代理可能比压缩原图更大，
+此时在本地变成 size-budget 注记且不创建 lease，不能把错误推迟到网关 400。
 
 受管 staging 接受的闭集为 JPEG/PNG/WebP、MP4、WAV/MP3。上传被归为 image、但网关不
 接受且本地无法生成代理的格式，会降级为明确说明；真正的 staging/回执失败则使本轮
@@ -116,7 +118,7 @@ workspace 与 Attachment；只有 audio kind 可签发。
 - `list_attachments`：按新到旧列 metadata，不读 blob；每行的 `createdAt` 是精确 ISO-8601 上传时点，并在相邻附件卡中展示。用户询问上传时间时，正文应指向该精确卡片，不能编造、规范化或用「记录时间」等占位话术冒充字段值；
 - `read_attachment`：文本/文档支持索引、分页和 literal query；二进制只返回描述符。规范参数键是 `id`；受管模型误用 `attachmentId` 时后端兼容这一别名，但工具描述和 schema 以 `id` 为唯一 canonical wire key；
 - `inspect_media`：
-  - image：有界代理/crop 进入默认视觉路由，或返回 tile map；
+  - image：有界代理/crop 进入默认视觉路由，代理超 envelope 但原图可交付时退回原图；两者都超限时返回结构化说明而不发起上游请求，或返回 tile map；
   - text/document：复用本地抽取并返回有界页、窗口或匹配；
   - audio/video：只返回本地 metadata capsule 与时间范围意图。
 

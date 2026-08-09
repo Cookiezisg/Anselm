@@ -138,6 +138,9 @@ void main() {
       await tester.pumpWidget(w);
       await tester.pump(); // header fetch 头部取数
       await tester.pump(const Duration(milliseconds: 20));
+      final t = Translations.of(tester.element(find.byType(ChatHead)));
+      final auto = find.text(t.chat.modelAuto);
+      final autoXBeforeReveal = tester.getTopLeft(auto).dx;
       // The head title is a plain READ-ONLY Text now (rename goes through the rail's ⋯ → rename) — not
       // an inline-edit. 顶栏标题=纯只读 Text(改名走 rail 的 ⋯→改名),不再内联编辑。
       expect(find.text('新标题'), findsOneWidget); // static read-only title 静态只读标题
@@ -147,6 +150,11 @@ void main() {
       await tester.pump();
       expect(find.byType(AnTypewriter), findsOneWidget); // the fake stream 假流式
       expect(find.byType(AnInlineEdit), findsNothing);
+      expect(
+        (tester.getTopLeft(auto).dx - autoXBeforeReveal).abs(),
+        lessThan(0.5),
+        reason: 'auto picker must not move while the title typewriter reveals',
+      );
 
       // type (4 chars) + hold + post-frame → done: dequeued, renameable title back. 播完出队回标题。
       await tester.pump(const Duration(milliseconds: 2000));
@@ -158,6 +166,11 @@ void main() {
         findsOneWidget,
       ); // back to the static read-only title 回静态只读标题
       expect(find.byType(AnTypewriter), findsNothing);
+      expect(
+        (tester.getTopLeft(auto).dx - autoXBeforeReveal).abs(),
+        lessThan(0.5),
+        reason: 'auto picker must keep its slot after reveal settles',
+      );
     },
   );
 

@@ -106,6 +106,7 @@ func (r inspectMediaResolver) ResolveInspectMedia(ctx context.Context) (attachme
 	}
 	out := attachmenttool.InspectMediaBundle{
 		Client: b.Client, Request: b.Request, Vision: b.Caps.Vision, Provider: b.Provider,
+		MaxMediaBytes: b.Caps.MaxMediaBytes,
 	}
 	if b.Caps.ManagedGateway != nil && r.media != nil {
 		out.RemoteMedia = &attachmentapp.RemoteMedia{

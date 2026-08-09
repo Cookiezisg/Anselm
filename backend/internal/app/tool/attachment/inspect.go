@@ -79,17 +79,19 @@ type InspectMediaResolver interface {
 	ResolveInspectMedia(ctx context.Context) (InspectMediaBundle, error)
 }
 
-// InspectMediaBundle is the minimal LLM bundle inspect_media needs. RemoteMedia is set only for
-// the managed gateway path; BYOK routes receive a bounded data URL instead.
+// InspectMediaBundle is the minimal LLM bundle inspect_media needs. MaxMediaBytes is the resolved
+// route envelope; RemoteMedia is set only for the managed gateway path, while BYOK routes receive a
+// bounded data URL instead.
 //
-// InspectMediaBundle 是 inspect_media 所需的最小 LLM bundle。RemoteMedia 仅在受管网关路径下存在；
-// BYOK 路由退回有界 data URL。
+// InspectMediaBundle 是 inspect_media 所需的最小 LLM bundle。MaxMediaBytes 是解析出的路由信封；
+// RemoteMedia 仅在受管网关路径下存在，BYOK 路由退回有界 data URL。
 type InspectMediaBundle struct {
-	Client      llminfra.Client
-	Request     llminfra.Request
-	Vision      bool
-	Provider    string
-	RemoteMedia *attachmentapp.RemoteMedia
+	Client        llminfra.Client
+	Request       llminfra.Request
+	Vision        bool
+	Provider      string
+	MaxMediaBytes int64
+	RemoteMedia   *attachmentapp.RemoteMedia
 }
 
 // InspectMedia implements the inspect_media system tool.
@@ -208,6 +210,31 @@ func (t *InspectMedia) Execute(ctx context.Context, argsJSON string) (string, er
 	if err != nil {
 		return "", err
 	}
+	notes := ignoredInspectFields(args)
+	if bundle.MaxMediaBytes > 0 && int64(len(rendered.Data)) > bundle.MaxMediaBytes {
+		if imageMIMEAccepted(meta.MimeType) && int64(len(original)) <= bundle.MaxMediaBytes {
+			fallback, fallbackErr := originalInspectImage(meta, original)
+			if fallbackErr != nil {
+				return "", fallbackErr
+			}
+			fallback.FallbackOriginal = true
+			rendered = fallback
+			notes = append(notes, fmt.Sprintf("model-default proxy exceeded the %d-byte media budget; inspected the original image instead", bundle.MaxMediaBytes))
+		} else {
+			return toolappJSON(inspectMediaResult{
+				AttachmentID: meta.ID,
+				Filename:     meta.Filename,
+				Mime:         rendered.MimeType,
+				Width:        rendered.Width,
+				Height:       rendered.Height,
+				Crop:         args.Crop,
+				Detail:       normalizedDetail(args.Detail),
+				Transport:    "budget-degraded",
+				Notes:        append(notes, fmt.Sprintf("rendered image exceeds the %d-byte media budget; use a smaller image or a crop", bundle.MaxMediaBytes)),
+				Answer:       "The image is available, but it is too large for the current model media budget. Use a smaller image or inspect a crop.",
+			}), nil
+		}
+	}
 	imageURL, transport, err := inspectImageSource(ctx, bundle, meta, rendered.MimeType, rendered.Data)
 	if err != nil {
 		return "", err
@@ -230,7 +257,7 @@ func (t *InspectMedia) Execute(ctx context.Context, argsJSON string) (string, er
 		Crop:         args.Crop,
 		Detail:       normalizedDetail(args.Detail),
 		Transport:    transport,
-		Notes:        ignoredInspectFields(args),
+		Notes:        notes,
 		Answer:       answer,
 	}), nil
 }
@@ -345,10 +372,11 @@ type inspectCrop struct {
 }
 
 type renderedInspectImage struct {
-	Data     []byte
-	MimeType string
-	Width    int
-	Height   int
+	Data             []byte
+	MimeType         string
+	Width            int
+	Height           int
+	FallbackOriginal bool
 }
 
 type inspectMediaResult struct {
@@ -591,6 +619,33 @@ func (t *InspectMedia) renderImage(ctx context.Context, meta *attachmentdomain.A
 	return renderedInspectImage{Data: result.Data, MimeType: result.MimeType, Width: result.Width, Height: result.Height}, nil
 }
 
+func originalInspectImage(meta *attachmentdomain.Attachment, original []byte) (renderedInspectImage, error) {
+	img, err := imaging.Decode(bytes.NewReader(original), imaging.AutoOrientation(true))
+	if err != nil {
+		return renderedInspectImage{}, fmt.Errorf("inspect_media: decode original image fallback: %w", err)
+	}
+	bounds := img.Bounds()
+	return renderedInspectImage{
+		Data: original, MimeType: normalizedImageMIME(meta.MimeType), Width: bounds.Dx(), Height: bounds.Dy(),
+	}, nil
+}
+
+func imageMIMEAccepted(mime string) bool {
+	switch normalizedImageMIME(mime) {
+	case "image/jpeg", "image/png", "image/webp":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizedImageMIME(mime string) string {
+	if i := strings.IndexByte(mime, ';'); i >= 0 {
+		mime = mime[:i]
+	}
+	return strings.ToLower(strings.TrimSpace(mime))
+}
+
 func inspectImageSource(ctx context.Context, bundle InspectMediaBundle, meta *attachmentdomain.Attachment, mime string, data []byte) (string, string, error) {
 	if bundle.RemoteMedia != nil && bundle.RemoteMedia.Uploader != nil && bundle.RemoteMedia.BaseURL != "" && bundle.RemoteMedia.InstallID != "" {
 		url, err := bundle.RemoteMedia.Uploader.Upload(ctx, bundle.RemoteMedia.BaseURL, bundle.RemoteMedia.InstallID, mime, data)
@@ -621,7 +676,11 @@ func inspectRequest(base llminfra.Request, meta *attachmentdomain.Attachment, ar
 
 func inspectPrompt(meta *attachmentdomain.Attachment, args inspectMediaArgs, rendered renderedInspectImage, transport string) string {
 	var b strings.Builder
-	fmt.Fprintf(&b, "Attachment: %s (%s), rendered proxy: %dx%d %s via %s.\n", meta.Filename, meta.ID, rendered.Width, rendered.Height, rendered.MimeType, transport)
+	label := "rendered proxy"
+	if rendered.FallbackOriginal {
+		label = "original image fallback"
+	}
+	fmt.Fprintf(&b, "Attachment: %s (%s), %s: %dx%d %s via %s.\n", meta.Filename, meta.ID, label, rendered.Width, rendered.Height, rendered.MimeType, transport)
 	if args.Crop != nil {
 		fmt.Fprintf(&b, "Crop: normalized x=%.4f y=%.4f width=%.4f height=%.4f.\n", args.Crop.X, args.Crop.Y, args.Crop.Width, args.Crop.Height)
 	}

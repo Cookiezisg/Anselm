@@ -859,8 +859,20 @@ func (identityCountingTool) CallIdentity(args json.RawMessage) string {
 
 func TestExecuteTool_NotFound(t *testing.T) {
 	out, errMsg, ok := executeTool(context.Background(), nil, "ghost", []byte(`{}`), zap.NewNop())
-	if ok || !strings.Contains(out, "not found") || errMsg == "" {
+	if ok || !strings.Contains(out, "nothing was executed") || !strings.Contains(out, "current catalog") || errMsg == "" {
 		t.Fatalf("nil tool: out=%q errMsg=%q ok=%v", out, errMsg, ok)
+	}
+}
+
+func TestExecuteTool_NotFound_MemoryGuidanceNamesRealTool(t *testing.T) {
+	out, errMsg, ok := executeTool(context.Background(), nil, "search_memory", []byte(`{}`), zap.NewNop())
+	for _, want := range []string{"nothing was executed", "read_memory", "there is no search_memory tool"} {
+		if !strings.Contains(out, want) {
+			t.Fatalf("unknown memory tool result missing %q: %q", want, out)
+		}
+	}
+	if ok || errMsg != out {
+		t.Fatalf("unknown memory tool: out=%q errMsg=%q ok=%v", out, errMsg, ok)
 	}
 }
 

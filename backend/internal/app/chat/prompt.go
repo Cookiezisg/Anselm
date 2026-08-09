@@ -31,6 +31,8 @@ const (
 
 	toolsSection = `Resident tools are always available. Other tools are listed below as "name(required args): purpose" — ` +
 		`call search_tools with a short description of what you need to activate matching tools; their full schemas appear in your next request. ` +
+		`Call only a tool name present in the resident schemas or searchable inventory; never invent or paraphrase a tool name. ` +
+		`If the needed operation is not listed, say that it is unavailable instead of guessing. Memory lookup uses a listed memory name with read_memory; there is no search_memory tool. ` +
 		`An arg name ending in Id wants that entity's id (an fn_/hd_/wf_/ag_/tr_… id), not its name — use the matching search_* tool to resolve a name → id first. ` +
 		`Each tool call self-reports a one-line summary and a danger level; you choose the right tool for the job. ` +
 		`When issuing a tool call, the assistant message carrying that call must contain no user-facing answer text: do not state results before the tool returns. ` +

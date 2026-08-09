@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
@@ -252,6 +254,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(taps, 1, reason: 'the fork button must be live, not a placeholder');
   });
+
+  testWidgets(
+    'a fork shows immediate busy feedback and blocks duplicate taps',
+    (tester) async {
+      final pending = Completer<void>();
+      var taps = 0;
+      await tester.pumpWidget(
+        host(
+          TurnActions(
+            copyText: 'body',
+            role: TurnActionsRole.assistant,
+            alwaysVisible: true,
+            onFork: () {
+              taps++;
+              return pending.future;
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byTooltip('Fork from here'));
+      await tester.pump();
+      expect(taps, 1);
+      expect(find.byTooltip('Forking…'), findsOneWidget);
+      expect(find.byTooltip('Fork from here'), findsNothing);
+
+      await tester.tap(find.byTooltip('Forking…'));
+      expect(taps, 1, reason: 'a second tap must not create a second fork');
+
+      pending.complete();
+      await tester.pumpAndSettle();
+      expect(find.byTooltip('Fork from here'), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'a user row says "Fork before this message" — the two roles mean different cuts',

@@ -1434,6 +1434,7 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	// Translations
 	@override String get fork => '从这里分叉';
 	@override String get forkBefore => '在这条消息之前分叉';
+	@override String get forking => '正在分叉…';
 	@override String get retry => '重试';
 	@override String get retryWithModel => '换个模型重试';
 	@override String get retryBusy => '等这条回复结束';
@@ -3820,6 +3821,7 @@ extension on TranslationsZhCn {
 			'chat.stage.rtStopped' => '已停止',
 			'chat.actions.fork' => '从这里分叉',
 			'chat.actions.forkBefore' => '在这条消息之前分叉',
+			'chat.actions.forking' => '正在分叉…',
 			'chat.actions.retry' => '重试',
 			'chat.actions.retryWithModel' => '换个模型重试',
 			'chat.actions.retryBusy' => '等这条回复结束',
@@ -4118,9 +4120,9 @@ extension on TranslationsZhCn {
 			'scheduler.range.endBeforeStart' => '终点早于起点',
 			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
 			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m}',
-			'scheduler.range.months' => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.months' => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月',
 			'scheduler.range.prevMonth' => '上个月',
 			'scheduler.range.nextMonth' => '下个月',
 			'scheduler.range.backToPresets' => '返回快捷范围',
@@ -4632,9 +4634,9 @@ extension on TranslationsZhCn {
 			'entities.graph.selectHint' => '选择一个节点查看其关系。',
 			'entities.graph.verb.equip' => '装备了',
 			'entities.graph.verb.link' => '链接了',
-			'entities.graph.verb.create' => '创建了',
 			_ => null,
 		} ?? switch (path) {
+			'entities.graph.verb.create' => '创建了',
 			'entities.graph.verb.edit' => '编辑了',
 			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
 			'coldStart.connecting' => '正在准备工作区…',
@@ -5146,9 +5148,9 @@ extension on TranslationsZhCn {
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
 			'settings.storage.factoryTitle' => '恢复出厂设置',
-			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			_ => null,
 		} ?? switch (path) {
+			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
 			'settings.storage.factoryConfirm' => '抹掉一切并重启',
 			'settings.limits.scopeNote' => '全机生效——任一工作区修改的都是这台机器的同一份上限',

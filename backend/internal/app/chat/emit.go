@@ -83,7 +83,9 @@ type messageStopContent struct {
 // 客户端立即看到。无 bridge 时 no-op（REST 历史仍有）。
 func (s *Service) emitUserMessage(ctx context.Context, conversationID string, m *messagesdomain.Message, text string) {
 	s.publishFrame(ctx, conversationID, m.ID, streamdomain.Open{
-		Node: streamdomain.Node{Type: nodeTypeMessage, Content: streamdomain.JSONContent(messageOpenContent{Role: messagesdomain.RoleUser})},
+		Node: streamdomain.Node{Type: nodeTypeMessage, Content: streamdomain.JSONContent(
+			messageOpenContent{Role: messagesdomain.RoleUser, RetryOf: retryOfOf(m)},
+		)},
 	})
 	s.publishFrame(ctx, conversationID, m.ID, streamdomain.Close{
 		Status: messagesdomain.StatusCompleted,

@@ -61,6 +61,14 @@ Reminder 与媒体追加只进入后续 request，不污染 durable Message hist
 Tool 执行前 Open 空 tool_result，progress 作为子块实时/持久化，完成后 Close
 完整 result。
 
+用户停止回合时，若 tool 已进入执行并因 `context.Canceled` 返回，loop 必须以
+`tool_result status=cancelled` 收束，使用固定的中性结果并清空 wire `error`；底层 context
+错误只进后端 journal。不得把用户主动停止显示成工具失败，也不得把 `context canceled`
+等 executor 内部字样泄露到 transcript。工具调用已经在执行前被取消时，沿用既有的
+「The run was cancelled before this tool ran.」结果。
+
+若 provider 发出的工具名不在本回合解析出的 registry 中，loop 必须在副作用前终止该调用，落一张 error tool_result，并同时把「没有执行」「当前回合不可用」和下一步恢复建议交给模型与用户；不得只显示裸的 `tool "..." not found`。这既覆盖 stale catalog/wiring 也覆盖模型臆造工具名，不能把未知名当作 lazy 工具成功激活。
+
 同一 `Run` 内，已经执行、参数校验失败或被人拒绝的 `dangerous`/静态危险下限/驻地越界写调用若在后续 ReAct
 step 以相同工具名和规范化业务参数再次出现，Loop 在 dispatch 前产生已完成的
 suppression tool_result，不再开第二次人闸或产生第二次副作用，并结束当前回合。
