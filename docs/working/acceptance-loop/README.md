@@ -299,7 +299,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 
 ### 5.2 Day 0 当前状态(整体重述,2026-08-10 EP-174 已完成,批次二十九 50/50)
 
-**当前前线（2026-08-10，清册 EP-174 已完成，批次二十九由 49→50/50；单格五级裁决、根门禁、独立完整 testend、警报复核和残留进程审计均已通过，当前只剩提交前工作树审计与提交，批次证据保留一次未复现的 testend 异常）。**
+**当前前线（2026-08-10，清册 EP-174 已完成，批次二十九由 49→50/50；单格五级裁决、根门禁、独立完整 testend、警报复核、残留进程审计和提交均已通过，批次二十九已关闭；下一原子前线为 EP-175，批次三十从 0/50 开始）。**
 EP-174 `GET /api/v1/sandbox/disk-usage` 验证的是用户在 Settings → Sandbox / Storage 看到机器级沙箱占用的完整产品目的：两个入口必须显示同一真实 manifest projection；loading、error、settled-empty 不能互相伪装；设置海洋常驻挂载时重新进入也必须刷新；删除环境后 REST、SQLite、前端投影与 SSE 必须有可解释的收敛关系。
 
 首轮真实 App/REST 冻结为红：REST 已返回 `totalBytes=475033055` 且 `ep174_disk_probe` env manifest 存在，但 Sandbox 和 Storage 都显示 `0 B`，切换面板和重新进入设置也没有修复。红证据保留在 `/private/tmp/anselm-rig-ep174-20260810/sessions/20260810-053705/evidence/EP-174-red-stale-disk.png` 及其 session。stop-and-fix 严格解析非负整数 `totalBytes`（合法零仍保留），两个面板共用 `AnLastGood` 的 loading/error+Retry/data 三态，并在 Sandbox/Storage 进入和 Settings 重入时失效全机 provider；同步补 Flutter fixture/widget 回归、testend 精确 manifest-sum 断言和 backend/frontend reference 文档。修复没有把错误或空机伪装成 `0 B`。
@@ -310,7 +310,7 @@ EP-174 `GET /api/v1/sandbox/disk-usage` 验证的是用户在 Settings → Sandb
 
 逐帧/测量证据只记录能证明的事实：两次 REST exact byte projection 与 `30464` delta 已重算，UI 的 `453.0 MB` 不被错误解读为没有刷新；稳定帧没有 blank/loading/error 伪装。正式裁决写入 `G1 / F2 / measure:sandbox-disk-refresh / C4 / G2`，`COVERAGE EP-174=✓✓✓✓✓`；formal ledger `1560→1565 judgments`。每次写账触发的 `gap-too-fast`/`discovery-collapse` 都按 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-174-sandbox-disk-usage-ledger-reaudit.md` 独立复审并逐条 ack；anchors=`10/10`，未修改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1565 judgments)`；`gen_coverage.py --check`=`848 rows / 306 carried judgments / 0 tombstones`。
 
-本轮代码与文档落点为 `frontend/lib/features/settings/{data/settings_repository.dart,ui/panels/{sandbox_panel.dart,storage_panel.dart},ui/settings_ocean.dart}`、中英文 i18n 及生成文件、`frontend/test/features/settings/{s5_sandbox_test.dart,s5_storage_limits_test.dart}`、`testend/scenarios/{platform_test.go,platform_r4_test.go}` 和 `docs/references/{backend/api.md,backend/foundation/sandbox.md,frontend/features/settings.md}`；工作证据与 formal ledger 均保留在 `/private/tmp`，不把录屏或临时数据带进仓库。根 `make verify` 第二轮全绿；完整 testend 第二、三轮全绿，第三轮 JSON 为 `356` 个 pass、`0` 个 fail；第一次 `287.787s` 异常保留在 `EP-174-batch29-gate.md`，未复现且未被删除。批次二十九当前 **50/50，统一门禁已通过**，只剩提交前工作树审计与提交；通过后才进入下一批。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
+本轮代码与文档落点为 `frontend/lib/features/settings/{data/settings_repository.dart,ui/panels/{sandbox_panel.dart,storage_panel.dart},ui/settings_ocean.dart}`、中英文 i18n 及生成文件、`frontend/test/features/settings/{s5_sandbox_test.dart,s5_storage_limits_test.dart}`、`testend/scenarios/{platform_test.go,platform_r4_test.go}` 和 `docs/references/{backend/api.md,backend/foundation/sandbox.md,frontend/features/settings.md}`；工作证据与 formal ledger 均保留在 `/private/tmp`，不把录屏或临时数据带进仓库。根 `make verify` 第二轮全绿；完整 testend 第二、三轮全绿，第三轮 JSON 为 `356` 个 pass、`0` 个 fail；第一次 `287.787s` 异常保留在 `EP-174-batch29-gate.md`，未复现且未被删除。批次二十九 **50/50 已关闭**，提交为 `ad64c505`；下一原子前线为 EP-175 `GET /api/v1/sandbox/bootstrap-status`，批次三十从 **0/50** 开始。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
 
 ### 5.2 历史状态快照（EP-154，批次二十八 35/50）
 
