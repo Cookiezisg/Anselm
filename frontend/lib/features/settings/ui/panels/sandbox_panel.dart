@@ -12,7 +12,8 @@ import '../../../../i18n/strings.g.dart';
 import '../../data/settings_repository.dart';
 import '../../state/sandbox_providers.dart';
 import '../../state/settings_detail_provider.dart';
-import '../panels/storage_panel.dart' show sandboxDiskProvider;
+import '../panels/storage_panel.dart'
+    show SandboxDiskUsageValue, sandboxDiskProvider;
 
 /// ⑦ 沙箱 (WRK-062 §3, S5): the bootstrap health gate, the machine-wide runtime list (install /
 /// delete, 409-in-use honest), the per-owner env tabs (five owner kinds), the disk figure and GC.
@@ -29,9 +30,7 @@ class SandboxPanel extends ConsumerWidget {
     }
     final t = Translations.of(context);
     final boot = ref.watch(sandboxBootstrapProvider).value;
-    final runtimes =
-        ref.watch(sandboxRuntimesProvider).value ?? const <SandboxRuntime>[];
-    final disk = ref.watch(sandboxDiskProvider).value;
+    final runtimeSnapshot = ref.watch(sandboxRuntimesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -56,19 +55,10 @@ class SandboxPanel extends ConsumerWidget {
               ),
             ],
           ),
-        // Disk — an absolute byte figure has no denominator, so no meter track (a hollow bar under a
-        // number was theater, 0719 P0); nothing renders until the wire answers. 磁盘——绝对字节数无
-        // 分母,不渲进度轨(数字下挂空轨是剧场);未解析前不渲。
+        // Disk — one shared projection with explicit loading/error states. 磁盘共用同一投影,保留加载/错误态。
         AnSettingRow(
           label: t.settings.sandbox.disk,
-          child: disk == null
-              ? const SizedBox.shrink()
-              : Text(
-                  formatBytes(disk),
-                  style: AnText.metaTabular().copyWith(
-                    color: context.colors.inkMuted,
-                  ),
-                ),
+          child: const SandboxDiskUsageValue(),
         ),
         const SizedBox(height: AnSpace.s16),
         // Runtimes. 运行时。
@@ -89,30 +79,49 @@ class SandboxPanel extends ConsumerWidget {
             ),
           ],
           children: [
-            if (runtimes.isEmpty)
-              // One quiet line, no promise prose — the install affordance above IS the guidance
-              // (零人话律). 一行安静句,不写承诺文案——上方安装入口即引导。
-              AnState(
-                kind: AnStateKind.empty,
-                title: t.settings.sandbox.noRuntimes,
+            AnLastGood<List<SandboxRuntime>>(
+              value: runtimeSnapshot,
+              placeholder: const AnSkeleton.lines(2),
+              errorBuilder: (context, _, _) => AnState(
+                kind: AnStateKind.error,
+                title: t.settings.sandbox.runtimesLoadFailed,
                 size: AnStateSize.inset,
-              )
-            else
-              for (final r in runtimes)
-                AnRow(
-                  leadless: true,
-                  label: '${r.kind} ${r.version}',
-                  mono: true,
-                  meta: formatBytes(r.sizeBytes),
-                  actions: [
-                    AnButton(
-                      label: t.settings.sandbox.delete,
-                      size: AnButtonSize.sm,
-                      variant: AnButtonVariant.danger,
-                      onPressed: () => _deleteRuntime(context, ref, r),
-                    ),
-                  ],
+                action: AnButton(
+                  label: t.settings.sandbox.retry,
+                  outline: true,
+                  onPressed: () => ref.invalidate(sandboxRuntimesProvider),
                 ),
+              ),
+              builder: (context, runtimes) {
+                if (runtimes.isEmpty) {
+                  // Only a settled empty response may say there are no runtimes. 仅服务端落定空数组才能进入空态。
+                  return AnState(
+                    kind: AnStateKind.empty,
+                    title: t.settings.sandbox.noRuntimes,
+                    size: AnStateSize.inset,
+                  );
+                }
+                return Column(
+                  children: [
+                    for (final r in runtimes)
+                      AnRow(
+                        leadless: true,
+                        label: '${r.kind} ${r.version}',
+                        mono: true,
+                        meta: formatBytes(r.sizeBytes),
+                        actions: [
+                          AnButton(
+                            label: t.settings.sandbox.delete,
+                            size: AnButtonSize.sm,
+                            variant: AnButtonVariant.danger,
+                            onPressed: () => _deleteRuntime(context, ref, r),
+                          ),
+                        ],
+                      ),
+                  ],
+                );
+              },
+            ),
           ],
         ),
         // Envs — five owner tabs; the section rhythm belongs to AnSection like every other section
@@ -149,6 +158,8 @@ class SandboxPanel extends ConsumerWidget {
     if (!ok) return;
     try {
       await ref.read(sandboxRuntimesProvider.notifier).remove(r.id);
+      // Deleting a runtime changes the same machine-wide total shown above. 删除运行时会改变上方全机总量。
+      ref.invalidate(sandboxDiskProvider);
     } on ApiException catch (e) {
       final msg = e.code == 'SANDBOX_ENV_IN_USE'
           ? t.settings.sandbox.inUse
@@ -170,15 +181,8 @@ class _InstallForm extends ConsumerStatefulWidget {
 class _InstallFormState extends ConsumerState<_InstallForm> {
   String? _kind;
   String _version = '';
-  final _freeVersion = TextEditingController();
   bool _busy = false;
   String? _error;
-
-  @override
-  void dispose() {
-    _freeVersion.dispose();
-    super.dispose();
-  }
 
   Future<void> _submit() async {
     if (_busy || _kind == null || _version.isEmpty) return;
@@ -190,12 +194,42 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
       await ref
           .read(sandboxRuntimesProvider.notifier)
           .install(kind: _kind!, version: _version);
+      // Runtime bytes are machine-wide truth too; refresh the figure before leaving the form.
+      // runtime 字节也是全机真相;离开安装表单前同步重取磁盘数。
+      ref.invalidate(sandboxDiskProvider);
       if (mounted) ref.read(settingsDetailProvider.notifier).pop();
     } on ApiException catch (e) {
-      setState(() => _error = e.message);
+      setState(() => _error = _installError(e));
     } finally {
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  String _installError(ApiException error) {
+    final details = error.details is Map
+        ? (error.details as Map).cast<Object?, Object?>()
+        : const <Object?, Object?>{};
+    final kind = details['kind']?.toString();
+    final version = details['version']?.toString();
+    if (kind != null && version != null) {
+      if (error.code == AnselmErr.sandboxRuntimeVersionUnsupported) {
+        final hint = details['hint']?.toString();
+        if (hint != null && hint.isNotEmpty) {
+          return context.t.settings.sandbox.versionUnsupported(
+            kind: kind,
+            version: version,
+            hint: hint,
+          );
+        }
+      }
+      if (error.code == AnselmErr.sandboxRuntimeInstallFailed) {
+        return context.t.settings.sandbox.installFailed(
+          kind: kind,
+          version: version,
+        );
+      }
+    }
+    return error.message;
   }
 
   @override
@@ -244,7 +278,8 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
               ],
               onChanged: (v) => setState(() {
                 _kind = v;
-                _version = avail.firstWhere((a) => a.kind == v).defaultVersion;
+                final next = avail.firstWhere((a) => a.kind == v);
+                _version = next.defaultVersion;
               }),
             ),
           ),
@@ -265,10 +300,11 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
                     onChanged: (v) => setState(() => _version = v),
                   )
                 : AnInput(
-                    controller: _freeVersion
-                      ..text = _freeVersion.text.isEmpty
-                          ? _version
-                          : _freeVersion.text,
+                    // A kind change must create a fresh field so an open runtime cannot inherit
+                    // the previous kind's version text.  Runtime kind is the field's identity.
+                    // 切 kind 必须换一只新输入框，开放 runtime 不得继承上一个 kind 的版本文字。
+                    key: ValueKey('sandbox-version-${sel.kind}'),
+                    initialValue: _version,
                     placeholder: t.settings.sandbox.versionHint,
                     onChanged: (v) => _version = v.trim(),
                   ),
@@ -290,8 +326,9 @@ class _InstallFormState extends ConsumerState<_InstallForm> {
               const SizedBox(width: AnSpace.s8),
               AnButton(
                 label: t.settings.keys.cancel,
-                onPressed: () =>
-                    ref.read(settingsDetailProvider.notifier).pop(),
+                onPressed: _busy
+                    ? null
+                    : () => ref.read(settingsDetailProvider.notifier).pop(),
               ),
             ],
           ),
@@ -354,38 +391,70 @@ class _EnvList extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final t = Translations.of(context);
-    final envs = ref.watch(sandboxEnvsProvider(ownerKind)).value;
-    if (envs == null || envs.isEmpty) {
-      return AnState(
-        kind: AnStateKind.empty,
+    final snapshot = ref.watch(sandboxEnvsProvider(ownerKind));
+    return AnLastGood<List<SandboxEnv>>(
+      value: snapshot,
+      resetKey: ownerKind,
+      placeholder: const AnSkeleton.lines(2),
+      errorBuilder: (context, _, _) => AnState(
+        kind: AnStateKind.error,
         size: AnStateSize.inset,
-        title: t.settings.sandbox.noEnvs,
-      );
-    }
-    return ListView(
-      children: [
-        const SizedBox(height: AnSpace.s8),
-        for (final e in envs)
-          AnRow(
-            dot: switch (e.status) {
-              'ready' => AnStatus.done,
-              'failed' => AnStatus.err,
-              _ => AnStatus.run,
-            },
-            label: e.ownerName.isEmpty ? e.ownerId : e.ownerName,
-            meta:
-                '${e.deps.length} deps · ${formatBytes(e.sizeBytes)}${(e.runningPid ?? 0) > 0 ? ' · ${t.settings.sandbox.running}' : ''}',
-            actions: [
-              AnButton(
-                label: t.settings.sandbox.delete,
-                size: AnButtonSize.sm,
-                variant: AnButtonVariant.danger,
-                onPressed: () => _delete(context, ref, e),
+        title: t.settings.sandbox.envsLoadFailed,
+        action: AnButton(
+          label: t.settings.sandbox.retry,
+          outline: true,
+          onPressed: () => ref.invalidate(sandboxEnvsProvider(ownerKind)),
+        ),
+      ),
+      builder: (context, envs) {
+        if (envs.isEmpty) {
+          // Only a settled empty response may say there are no environments. 仅服务端落定空数组才能进入空态。
+          return AnState(
+            kind: AnStateKind.empty,
+            size: AnStateSize.inset,
+            title: t.settings.sandbox.noEnvs,
+          );
+        }
+        return ListView(
+          children: [
+            const SizedBox(height: AnSpace.s8),
+            for (final e in envs)
+              AnRow(
+                dot: switch (e.status) {
+                  'ready' => AnStatus.done,
+                  'failed' => AnStatus.err,
+                  _ => AnStatus.run,
+                },
+                label: e.ownerName.isEmpty ? e.ownerId : e.ownerName,
+                hint: _errorHint(e),
+                meta: [
+                  '${e.deps.length} deps',
+                  formatBytes(e.sizeBytes),
+                  if (e.status == 'failed') t.settings.sandbox.statusFailed,
+                  if (e.status == 'installing')
+                    t.settings.sandbox.statusInstalling,
+                  if ((e.runningPid ?? 0) > 0) t.settings.sandbox.running,
+                ].join(' · '),
+                actions: [
+                  AnButton(
+                    label: t.settings.sandbox.delete,
+                    size: AnButtonSize.sm,
+                    variant: AnButtonVariant.danger,
+                    onPressed: () => _delete(context, ref, e),
+                  ),
+                ],
               ),
-            ],
-          ),
-      ],
+          ],
+        );
+      },
     );
+  }
+
+  String? _errorHint(SandboxEnv e) {
+    if (e.status != 'failed') return null;
+    final message = (e.errorMsg ?? '').trim().replaceAll(RegExp(r'\s+'), ' ');
+    if (message.isEmpty) return null;
+    return message.length > 160 ? '${message.substring(0, 160)}…' : message;
   }
 
   Future<void> _delete(
@@ -398,8 +467,7 @@ class _EnvList extends ConsumerWidget {
         .read(overlayProvider.notifier)
         .confirm(
           title: t.settings.sandbox.deleteEnvTitle,
-          message:
-              '${t.settings.sandbox.deleteEnvBody} ${t.settings.sandbox.envRebuild}',
+          message: t.settings.sandbox.deleteEnvBody,
           confirmLabel: t.settings.sandbox.confirmDelete,
           cancelLabel: t.settings.keys.cancel,
           barrierLabel: t.settings.sandbox.deleteEnvTitle,
@@ -408,10 +476,13 @@ class _EnvList extends ConsumerWidget {
     try {
       await ref.read(settingsRepositoryProvider).deleteEnv(e.id);
       ref.invalidate(sandboxEnvsProvider(ownerKind));
+      // Env deletion changes the same machine-wide total shown above. 删除环境会改变上方全机总量。
+      ref.invalidate(sandboxDiskProvider);
     } on ApiException catch (err) {
-      ref
-          .read(noticeCenterProvider.notifier)
-          .show(err.message, tone: AnTone.danger);
+      final msg = err.code == 'SANDBOX_ENV_IN_USE'
+          ? t.settings.sandbox.envInUse
+          : err.message;
+      ref.read(noticeCenterProvider.notifier).show(msg, tone: AnTone.danger);
     }
   }
 }

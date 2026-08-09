@@ -588,6 +588,7 @@ audience: [human, ai]
 | `SANDBOX_RUNTIME_INSTALL_FAILED` | 502 | runtime install failed |
 | `SANDBOX_RUNTIME_NOT_FOUND` | 404 | runtime not found |
 | `SANDBOX_RUNTIME_NOT_SUPPORTED` | 422 | runtime kind not registered |
+| `SANDBOX_RUNTIME_VERSION_UNSUPPORTED` | 422 | runtime version is not supported; details carry kind/version/hint |
 | `SANDBOX_SPAWN_FAILED` | 502 | spawn process failed |
 | `SANDBOX_SPAWN_TIMEOUT` | 504 | spawn process timeout |
 

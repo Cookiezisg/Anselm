@@ -1868,6 +1868,12 @@ class Translations$chat$toc$en {
 
 	/// en: 'Nothing to jump to yet'
 	String get empty => 'Nothing to jump to yet';
+
+	/// en: 'Attachment'
+	String get attachment => 'Attachment';
+
+	/// en: 'Couldn't load the full scene list. Reopen this menu to try again.'
+	String get loadFailed => 'Couldn\'t load the full scene list. Reopen this menu to try again.';
 }
 
 // Path: chat.tool
@@ -5960,6 +5966,9 @@ class Translations$settings$storage$en {
 	/// en: 'Sandbox runtimes & envs'
 	String get diskSandbox => 'Sandbox runtimes & envs';
 
+	/// en: 'Couldn't read sandbox disk usage'
+	String get diskLoadFailed => 'Couldn\'t read sandbox disk usage';
+
 	/// en: 'Open logs folder'
 	String get openLogs => 'Open logs folder';
 
@@ -6113,6 +6122,12 @@ class Translations$settings$sandbox$en {
 	/// en: 'Runtimes'
 	String get runtimes => 'Runtimes';
 
+	/// en: 'Failed to load runtimes'
+	String get runtimesLoadFailed => 'Failed to load runtimes';
+
+	/// en: 'Failed to load environments'
+	String get envsLoadFailed => 'Failed to load environments';
+
 	/// en: 'Install'
 	String get install => 'Install';
 
@@ -6131,6 +6146,12 @@ class Translations$settings$sandbox$en {
 	/// en: 'e.g. 22 / 3.12'
 	String get versionHint => 'e.g. 22 / 3.12';
 
+	/// en: '$kind $version isn't supported. Use $hint, then try again.'
+	String versionUnsupported({required Object kind, required Object version, required Object hint}) => '${kind} ${version} isn\'t supported. Use ${hint}, then try again.';
+
+	/// en: 'Couldn't install $kind $version. Check the version and your connection, then try again.'
+	String installFailed({required Object kind, required Object version}) => 'Couldn\'t install ${kind} ${version}. Check the version and your connection, then try again.';
+
 	/// en: 'Install'
 	String get add => 'Install';
 
@@ -6140,8 +6161,8 @@ class Translations$settings$sandbox$en {
 	/// en: 'Delete runtime'
 	String get deleteRtTitle => 'Delete runtime';
 
-	/// en: 'Deletes “$kind $version”; rejected if envs still reference it.'
-	String deleteRtBody({required Object kind, required Object version}) => 'Deletes “${kind} ${version}”; rejected if envs still reference it.';
+	/// en: 'Permanently removes “$kind $version” and its files from this machine. Environments that still reference it must be cleared first; you can reinstall it later.'
+	String deleteRtBody({required Object kind, required Object version}) => 'Permanently removes “${kind} ${version}” and its files from this machine. Environments that still reference it must be cleared first; you can reinstall it later.';
 
 	/// en: 'Delete'
 	String get confirmDelete => 'Delete';
@@ -6152,14 +6173,14 @@ class Translations$settings$sandbox$en {
 	/// en: 'Environments'
 	String get envs => 'Environments';
 
-	/// en: 'Rebuilt automatically on the next run'
-	String get envRebuild => 'Rebuilt automatically on the next run';
-
 	/// en: 'Delete environment'
 	String get deleteEnvTitle => 'Delete environment';
 
-	/// en: 'Deletes this environment.'
-	String get deleteEnvBody => 'Deletes this environment.';
+	/// en: 'Permanently removes this environment and its files from this machine. The owning item is not deleted; the environment is rebuilt automatically on the next run.'
+	String get deleteEnvBody => 'Permanently removes this environment and its files from this machine. The owning item is not deleted; the environment is rebuilt automatically on the next run.';
+
+	/// en: 'This environment is still running. Stop its owner before deleting it.'
+	String get envInUse => 'This environment is still running. Stop its owner before deleting it.';
 
 	/// en: 'Functions'
 	String get ownerFunction => 'Functions';
@@ -6211,6 +6232,9 @@ class Translations$settings$sandbox$en {
 
 	/// en: 'failed'
 	String get statusFailed => 'failed';
+
+	/// en: 'building…'
+	String get statusInstalling => 'building…';
 }
 
 // Path: settings.shortcuts
@@ -7577,6 +7601,8 @@ extension on Translations {
 			'chat.toc.compaction' => 'Context compacted',
 			'chat.toc.abnormal' => 'Ended abnormally',
 			'chat.toc.empty' => 'Nothing to jump to yet',
+			'chat.toc.attachment' => 'Attachment',
+			'chat.toc.loadFailed' => 'Couldn\'t load the full scene list. Reopen this menu to try again.',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
@@ -7961,10 +7987,10 @@ extension on Translations {
 			'chat.tool.parkRunCaption' => 'a run parked on an approval node stays running at the header',
 			'chat.tool.actReturnValue' => 'Return value',
 			'chat.tool.actId' => 'Activation ID',
-			'chat.tool.actTriggerId' => 'Trigger ID',
-			'chat.tool.actCreatedAt' => 'Created at',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.actTriggerId' => 'Trigger ID',
+			'chat.tool.actCreatedAt' => 'Created at',
 			'chat.tool.actFanout' => ({required Object n}) => 'fan-out ${n}',
 			'chat.tool.gettingFnExec' => 'Opening function-run record',
 			'chat.tool.gotFnExec' => 'Opened function-run record',
@@ -8475,10 +8501,10 @@ extension on Translations {
 			'scheduler.range.to' => 'To',
 			'scheduler.range.apply' => 'Apply',
 			'scheduler.range.endBeforeStart' => 'End is before start',
-			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
-			'scheduler.range.monthTitle' => ({required Object m, required Object y}) => '${m} ${y}',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
+			'scheduler.range.monthTitle' => ({required Object m, required Object y}) => '${m} ${y}',
 			'scheduler.range.months' => 'January,February,March,April,May,June,July,August,September,October,November,December',
 			'scheduler.range.prevMonth' => 'Previous month',
 			'scheduler.range.nextMonth' => 'Next month',
@@ -8989,10 +9015,10 @@ extension on Translations {
 			'entities.graph.legend' => 'Kinds',
 			'entities.graph.back' => 'Back to overview',
 			'entities.graph.selectHint' => 'Select a node to inspect its relations.',
-			'entities.graph.verb.equip' => 'equips',
-			'entities.graph.verb.link' => 'links',
 			_ => null,
 		} ?? switch (path) {
+			'entities.graph.verb.equip' => 'equips',
+			'entities.graph.verb.link' => 'links',
 			'entities.graph.verb.create' => 'created',
 			'entities.graph.verb.edit' => 'edited',
 			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
@@ -9487,6 +9513,7 @@ extension on Translations {
 			'settings.storage.revealFinder' => 'Reveal in Finder',
 			'settings.storage.diskUsage' => 'Disk usage',
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
+			'settings.storage.diskLoadFailed' => 'Couldn\'t read sandbox disk usage',
 			'settings.storage.openLogs' => 'Open logs folder',
 			'settings.storage.retention' => 'Run history retention',
 			'settings.storage.retentionDesc' => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.',
@@ -9502,11 +9529,11 @@ extension on Translations {
 			'settings.storage.compacting' => 'Compacting…',
 			'settings.storage.compacted' => ({required Object mb}) => 'Reclaimed ${mb}',
 			'settings.storage.resetPrefs' => 'Reset local preferences',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
 			'settings.storage.factoryTitle' => 'Factory reset',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
 			'settings.storage.factoryConfirm' => 'Erase everything & relaunch',
@@ -9531,22 +9558,26 @@ extension on Translations {
 			'settings.sandbox.bootstrapFail' => 'Sandbox bootstrap failed',
 			'settings.sandbox.retry' => 'Retry',
 			'settings.sandbox.runtimes' => 'Runtimes',
+			'settings.sandbox.runtimesLoadFailed' => 'Failed to load runtimes',
+			'settings.sandbox.envsLoadFailed' => 'Failed to load environments',
 			'settings.sandbox.install' => 'Install',
 			'settings.sandbox.installing' => 'Installing…',
 			'settings.sandbox.installTitle' => 'Install runtime',
 			'settings.sandbox.kind' => 'Kind',
 			'settings.sandbox.version' => 'Version',
 			'settings.sandbox.versionHint' => 'e.g. 22 / 3.12',
+			'settings.sandbox.versionUnsupported' => ({required Object kind, required Object version, required Object hint}) => '${kind} ${version} isn\'t supported. Use ${hint}, then try again.',
+			'settings.sandbox.installFailed' => ({required Object kind, required Object version}) => 'Couldn\'t install ${kind} ${version}. Check the version and your connection, then try again.',
 			'settings.sandbox.add' => 'Install',
 			'settings.sandbox.delete' => 'Delete',
 			'settings.sandbox.deleteRtTitle' => 'Delete runtime',
-			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => 'Deletes “${kind} ${version}”; rejected if envs still reference it.',
+			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => 'Permanently removes “${kind} ${version}” and its files from this machine. Environments that still reference it must be cleared first; you can reinstall it later.',
 			'settings.sandbox.confirmDelete' => 'Delete',
 			'settings.sandbox.inUse' => 'Envs still reference this runtime — clear them first',
 			'settings.sandbox.envs' => 'Environments',
-			'settings.sandbox.envRebuild' => 'Rebuilt automatically on the next run',
 			'settings.sandbox.deleteEnvTitle' => 'Delete environment',
-			'settings.sandbox.deleteEnvBody' => 'Deletes this environment.',
+			'settings.sandbox.deleteEnvBody' => 'Permanently removes this environment and its files from this machine. The owning item is not deleted; the environment is rebuilt automatically on the next run.',
+			'settings.sandbox.envInUse' => 'This environment is still running. Stop its owner before deleting it.',
 			'settings.sandbox.ownerFunction' => 'Functions',
 			'settings.sandbox.ownerHandler' => 'Handlers',
 			'settings.sandbox.ownerMcp' => 'MCP',
@@ -9564,6 +9595,7 @@ extension on Translations {
 			'settings.sandbox.running' => 'running',
 			'settings.sandbox.statusReady' => 'ready',
 			'settings.sandbox.statusFailed' => 'failed',
+			'settings.sandbox.statusInstalling' => 'building…',
 			'settings.shortcuts.section' => 'Shortcuts',
 			'settings.shortcuts.scope' => 'This machine',
 			'settings.shortcuts.resetAll' => 'Reset all to defaults',

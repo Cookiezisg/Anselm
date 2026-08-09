@@ -70,6 +70,33 @@ func TestCreateDocument_ToolAndAutoSuffix(t *testing.T) {
 	}
 }
 
+func TestCreateDocumentAcceptsOnlyJSONEncodedTagsArrayCompatibilityShape(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	tool := &CreateDocument{svc: svc}
+
+	out, err := tool.Execute(ctx, `{"name":"Tagged","content":"body","tags":"[\"release\",\"accepted\"]"}`)
+	if err != nil {
+		t.Fatalf("JSON-encoded tags array should be accepted: %v", err)
+	}
+	if !strings.Contains(out, `Created document "Tagged"`) {
+		t.Fatalf("create output = %q", out)
+	}
+	rows, err := svc.Search(ctx, "Tagged", 10)
+	if err != nil || len(rows) != 1 {
+		t.Fatalf("search created document: rows=%d err=%v", len(rows), err)
+	}
+	if strings.Join(rows[0].Tags, ",") != "release,accepted" {
+		t.Fatalf("decoded tags = %#v", rows[0].Tags)
+	}
+
+	if _, err := tool.Execute(ctx, `{"name":"Rejected","content":"body","tags":"release,accepted"}`); err == nil {
+		t.Fatal("comma-joined tags string must remain invalid")
+	}
+	if rows, err := svc.Search(ctx, "Rejected", 10); err != nil || len(rows) != 0 {
+		t.Fatalf("invalid tags input changed durable documents: rows=%d err=%v", len(rows), err)
+	}
+}
+
 func TestReadDocument_RoundTrip(t *testing.T) {
 	svc, ctx := newToolSvc(t)
 	d, err := svc.Create(ctx, documentapp.CreateInput{Name: "PRD", Description: "product req", Content: "# Goals\nship it"})
@@ -222,11 +249,15 @@ func TestSearchDocuments(t *testing.T) {
 	if err != nil || !strings.Contains(pattern, "Alpha") {
 		t.Fatalf("non-empty provider pattern should become a document query: err=%v result=%q", err, pattern)
 	}
+	limited, err := (&SearchDocuments{svc: svc}).Execute(ctx, `{"query":"alpha","limit":"1"}`)
+	if err != nil || !strings.Contains(limited, `"count":1`) {
+		t.Fatalf("hosted decimal limit should be accepted: err=%v result=%q", err, limited)
+	}
 }
 
 func TestSearchDocumentsContractSeparatesFilesystemGrep(t *testing.T) {
 	description := (&SearchDocuments{}).Description()
-	for _, want := range []string{"document library", "NOT filesystem", "path/pattern", "Markdown body", "nextCursor only when results are truncated", "result is complete", "use that exact ID", "byte-for-byte", "FIRST call", "default/unbounded", "Hosted-provider compatibility", "bounded library page"} {
+	for _, want := range []string{"document library", "NOT filesystem", "path/pattern", "Markdown body", "nextCursor only when results are truncated", "result is complete", "use that exact ID", "byte-for-byte", "FIRST call", "default/unbounded", "Hosted-provider compatibility", "exact decimal integer string", "floats", "arbitrary strings", "arrays", "bounded library page"} {
 		if !strings.Contains(description, want) {
 			t.Errorf("description must contain %q; got %q", want, description)
 		}
@@ -245,6 +276,14 @@ func TestSearchDocumentsContractSeparatesFilesystemGrep(t *testing.T) {
 	}
 	if err := (&SearchDocuments{}).ValidateInput([]byte(`{"query":"heliograph","cursor":"opaque_cursor"}`)); err != nil {
 		t.Fatalf("opaque cursor should be accepted for unified search, got %v", err)
+	}
+	if err := (&SearchDocuments{}).ValidateInput([]byte(`{"query":"heliograph","limit":"5"}`)); err != nil {
+		t.Fatalf("hosted decimal limit should pass validation, got %v", err)
+	}
+	for _, raw := range []string{`{"query":"heliograph","limit":"1.5"}`, `{"query":"heliograph","limit":"five"}`, `{"query":"heliograph","limit":[]}`} {
+		if err := (&SearchDocuments{}).ValidateInput([]byte(raw)); err == nil {
+			t.Errorf("invalid hosted limit %s should fail validation", raw)
+		}
 	}
 }
 

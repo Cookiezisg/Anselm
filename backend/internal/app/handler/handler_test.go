@@ -720,3 +720,26 @@ func TestDriverScript_IsValidPython(t *testing.T) {
 		t.Fatalf("driver.py does not compile:\n%s", out)
 	}
 }
+
+func TestNamesByOwnerIDs_ResolvesParentHandler(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	h, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "reporter", false)})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	names, err := svc.NamesByOwnerIDs(ctx, []string{
+		h.ID + "_hdenv_old",
+		"hd_missing_hdenv_old",
+		"not-a-handler-owner",
+	})
+	if err != nil {
+		t.Fatalf("NamesByOwnerIDs: %v", err)
+	}
+	if names[h.ID+"_hdenv_old"] != "reporter" {
+		t.Fatalf("resolved names = %#v, want parent handler name", names)
+	}
+	if _, ok := names["hd_missing_hdenv_old"]; ok {
+		t.Fatalf("missing parent unexpectedly resolved: %#v", names)
+	}
+}

@@ -11,7 +11,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const editDocumentDescription = `Update a document's fields; only supplied fields change. For one user request, put every requested field in this single edit_document call; never split one edit across multiple calls. content and tags are full replacements (no diff/patch). tags must be a JSON array of strings, never a single string; for example, tags:["release","accepted"]. Renaming cascades the path to all descendants. To change parent, use move_document. To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
+const editDocumentDescription = `Update a document's fields; only supplied fields change. For one user request, put every requested field in this single edit_document call; never split one edit across multiple calls. content and tags are full replacements (no diff/patch). tags must be a JSON array of strings, never a single string, comma-joined string, or arbitrary string; for hosted-provider compatibility, the only accepted string exception is an exact JSON-encoded array when one extra string layer is present. For example, tags:["release","accepted"]. Renaming cascades the path to all descendants. To change parent, use move_document. To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
 
 var editDocumentSchema = json.RawMessage(`{
 	"type": "object",
@@ -21,29 +21,9 @@ var editDocumentSchema = json.RawMessage(`{
 		"name":        {"type": "string", "description": "Renaming cascades path to all descendants."},
 		"description": {"type": "string"},
 		"content":     {"type": "string", "description": "Full replacement; no diff/patch semantics. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
-		"tags":        {"type": "array", "items": {"type": "string"}, "description": "Full replacement. Must be a JSON array of strings, for example [\"release\",\"accepted\"]; never a single string or comma-joined value."}
+		"tags":        {"type": "array", "items": {"type": "string"}, "description": "Full replacement. Must be a JSON array of strings, for example [\"release\",\"accepted\"]. never a single string; the only hosted compatibility exception is one exact JSON-encoded array string. Comma-joined or arbitrary strings remain invalid."}
 	}
 }`)
-
-func decodeEditTags(raw json.RawMessage) (*[]string, error) {
-	if len(raw) == 0 || strings.TrimSpace(string(raw)) == "null" {
-		return nil, nil
-	}
-
-	var tags []string
-	if err := json.Unmarshal(raw, &tags); err == nil {
-		return &tags, nil
-	}
-
-	// Some providers JSON-encode an array one level too deep. Decode only that exact shape;
-	// comma-joined or arbitrary strings remain invalid instead of being guessed into tags.
-	// 部分 provider 会把数组多包一层 JSON 字符串。只解这一种确定形状；逗号拼接或任意字符串仍拒绝，避免猜测。
-	var encoded string
-	if err := json.Unmarshal(raw, &encoded); err != nil || json.Unmarshal([]byte(encoded), &tags) != nil {
-		return nil, fmt.Errorf("edit_document: tags must be a JSON array of strings")
-	}
-	return &tags, nil
-}
 
 // EditDocument implements the edit_document system tool (calls Service.Update).
 //
@@ -78,9 +58,9 @@ func (t *EditDocument) Execute(ctx context.Context, argsJSON string) (string, er
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("edit_document: %w", err)
 	}
-	tags, err := decodeEditTags(a.Tags)
+	tags, err := decodeDocumentTags(a.Tags)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("edit_document: %w", err)
 	}
 	if a.Name == nil && a.Description == nil && a.Content == nil && tags == nil {
 		return "edit_document: nothing to update (provide at least one of name / description / content / tags).", nil

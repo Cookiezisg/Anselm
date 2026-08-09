@@ -116,6 +116,17 @@ abstract final class AnselmErr {
   /// SSE 层处置**:重取 REST 真相、再从最新 durable seq 重订(不作为用户错误呈现)。
   static const seqTooOld = 'SEQ_TOO_OLD';
 
+  /// 422 — the selected runtime version is not in the installer's supported release shape/set.
+  ///
+  /// 422 — 所选 runtime 版本不在 installer 支持的发行版格式/集合内。
+  static const sandboxRuntimeVersionUnsupported =
+      'SANDBOX_RUNTIME_VERSION_UNSUPPORTED';
+
+  /// 502 — an otherwise valid runtime could not be downloaded, verified, or installed.
+  ///
+  /// 502 — 合法 runtime 在下载、校验或安装阶段失败。
+  static const sandboxRuntimeInstallFailed = 'SANDBOX_RUNTIME_INSTALL_FAILED';
+
   /// 422 — a bundled skill file is larger than the inline read guard; the file remains available
   /// through the system-open escape hatch.
   ///

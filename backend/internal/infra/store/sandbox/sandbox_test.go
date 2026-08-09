@@ -124,6 +124,20 @@ func TestEnv_CreateFindByOwner_DepsRoundTrip(t *testing.T) {
 	}
 }
 
+func TestEnv_EmptyDepsNormalizesToEmptySlice(t *testing.T) {
+	s := newStore(t)
+	seedRuntime(t, s, "sr_1", "python", "3.12")
+	seedEnv(t, s, "se_empty", sandboxdomain.OwnerKindFunction, "fn_empty", "sr_1", nil)
+
+	env, err := s.GetEnv(context.Background(), "se_empty")
+	if err != nil {
+		t.Fatalf("get env: %v", err)
+	}
+	if env.Deps == nil || len(env.Deps) != 0 {
+		t.Fatalf("empty deps must be a non-nil empty slice, got %#v", env.Deps)
+	}
+}
+
 func TestEnv_Miss_ErrEnvNotFound(t *testing.T) {
 	s := newStore(t)
 	ctx := context.Background()

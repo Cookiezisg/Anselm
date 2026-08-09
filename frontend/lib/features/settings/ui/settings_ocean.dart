@@ -8,6 +8,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/perf/frame_safe.dart';
+import '../../../core/shell/oceans.dart';
 import '../../../core/shell/shell_chrome.dart';
 import '../../../core/ui/an_crumbs.dart';
 import '../../../core/ui/an_page.dart';
@@ -17,6 +18,7 @@ import '../model/settings_catalog.dart';
 import '../state/settings_detail_provider.dart';
 import '../state/settings_panel_provider.dart';
 import 'panels/settings_panels.dart';
+import 'panels/storage_panel.dart' show sandboxDiskProvider;
 
 /// The settings ocean center — ONE [AnPage] document per panel: a grey parent-path crumb over a big
 /// title + the panel body from the panel registry ([buildSettingsPanelBody]). Thin chrome, the
@@ -122,6 +124,12 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     // Panel switch: pop any pushed detail + fresh page opens at the top. 换面板弹出详情+回顶。
     ref.listen(settingsPanelProvider, (prev, next) {
       if (prev != next) {
+        if (next == SettingsPanel.sandbox || next == SettingsPanel.storage) {
+          // SettingsOcean is kept in the app's lazy IndexedStack. Entering either disk panel must
+          // therefore invalidate the machine projection instead of trusting a prior visit. 设置海洋
+          // 在懒 IndexedStack 中常驻,进入任一磁盘面必须失效重取,不能信上一轮访问的缓存。
+          ref.invalidate(sandboxDiskProvider);
+        }
         ref.read(settingsDetailProvider.notifier).pop();
         // No-op in a safe phase (runs inline); only defers if a frame is in flight — jumpTo notifies
         // scroll listeners SYNCHRONOUSLY (CR-1b). 安全相位下同步直执行,只在帧在飞时延后——jumpTo 会**同步**通知滚动监听器。
@@ -130,6 +138,13 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
           if (_scroll.hasClients) _scroll.jumpTo(0);
           ref.read(shellHeadProvider.notifier).setCollapsed(false);
         });
+      }
+    });
+    ref.listen(selectedOceanProvider, (prev, next) {
+      if (next == OceanKind.settings && prev != next) {
+        // Leaving and re-entering Settings is another panel-open boundary even though the ocean
+        // widget itself remains mounted. 离开再进入设置也是一次打开边界,即使海洋 widget 没卸载。
+        ref.invalidate(sandboxDiskProvider);
       }
     });
     return CallbackShortcuts(

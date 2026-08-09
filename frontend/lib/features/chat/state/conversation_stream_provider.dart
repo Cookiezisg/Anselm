@@ -13,6 +13,11 @@ import 'conversation_list_provider.dart';
 import 'conversation_stream_state.dart';
 import 'selected_conversation.dart';
 
+/// The three honest outcomes of a transcript jump. [present] keeps the current live viewport intact;
+/// [near] only moves the already-loaded history anchor; [deep] replaces it with an `?around=` window.
+/// transcript 跳转的三种真实结果:[present] 保持现场视口,[near] 只移动已载历史锚,[deep] 才替换为 `?around=` 窗。
+enum TranscriptJumpResult { present, near, deep }
+
 /// The live pipeline of ONE open conversation (autoDispose family by id) — hydration, the frame fold,
 /// optimistic sends, cancel, upward pagination, 410 resync, and the unread/:seen contract.
 ///
@@ -166,21 +171,24 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
 
   // ── deep jump (W6 re-anchor) 深跳 ──
 
-  /// Jump the transcript to [messageId]. A NEAR jump (the row is already loaded) just re-centers the
-  /// anchor — no fetch, no mode change. A DEEP jump fetches the `?around=` window and REPLACES the
-  /// transcript window (re-anchor; both directions page on). Returns false when the jump could not
-  /// run (already jumping / fetch failed / unknown target — the backend 404s identity anchors).
+  /// Jump the transcript to [messageId]. A live target is already in the present and is only highlighted;
+  /// a NEAR jump (the row is already loaded) just re-centers the anchor; a DEEP jump fetches the `?around=`
+  /// window and REPLACES the transcript window. Returns null when the jump could not run (already jumping /
+  /// fetch failed / unknown target — the backend 404s identity anchors).
   ///
-  /// 跳转到 [messageId]。近跳(行已加载)只移锚——零拉取零换模;深跳拉 `?around=` 窗**整扇替换**
-  /// (re-anchor,双向可续翻)。跳不动返 false(在跳/拉失败/目标未知——身份锚点后端 404)。
-  Future<bool> jumpTo(String messageId) async {
+  /// 跳转到 [messageId]。现场目标只高亮、不换窗;近跳(行已加载)只移锚;深跳才拉 `?around=` 窗并整扇替换。
+  /// 跳不动返 null(在跳/拉失败/目标未知——身份锚点后端 404)。
+  Future<TranscriptJumpResult?> jumpTo(String messageId) async {
+    if (transcript.value.containsLiveTurn(messageId)) {
+      return TranscriptJumpResult.present;
+    }
     var retargeted = false;
     transcript.mutate((t) {
       retargeted = t.retargetCenter(messageId);
       return t;
     });
-    if (retargeted) return true;
-    if (state.jumping) return false;
+    if (retargeted) return TranscriptJumpResult.near;
+    if (state.jumping) return null;
     state = state.copyWith(jumping: true);
     try {
       final win = await _repo.messagesAround(
@@ -188,7 +196,7 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
         messageId,
         limit: _pageSize,
       );
-      if (!ref.mounted) return false;
+      if (!ref.mounted) return null;
       transcript.mutate((t) => t..setWindow(win.messages, messageId));
       state = state.copyWith(
         jumping: false,
@@ -198,10 +206,10 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
         newerCursor: win.newerCursor.isEmpty ? null : win.newerCursor,
         hasMoreNewer: win.hasNewer,
       );
-      return true;
+      return TranscriptJumpResult.deep;
     } catch (_) {
       if (ref.mounted) state = state.copyWith(jumping: false);
-      return false;
+      return null;
     }
   }
 

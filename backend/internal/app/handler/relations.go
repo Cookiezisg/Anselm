@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -20,6 +21,46 @@ func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]stri
 	out := make(map[string]string, len(rows))
 	for _, h := range rows {
 		out[h.ID] = h.Name
+	}
+	return out, nil
+}
+
+// NamesByOwnerIDs resolves the composite owner ids used by per-version handler envs. The
+// persisted owner id is <handlerId>_hdenv_<envId>; resolving the parent handler at read time
+// keeps old env rows and renamed handlers readable without a migration.
+//
+// NamesByOwnerIDs 解析 handler 版本 env 使用的复合 owner id。持久 owner id 是
+// <handlerId>_hdenv_<envId>；读时解析父 handler，使旧 env 行和改名后的 handler 无需迁移也可读。
+func (s *Service) NamesByOwnerIDs(ctx context.Context, ownerIDs []string) (map[string]string, error) {
+	const marker = "_hdenv_"
+	parentByOwner := make(map[string]string, len(ownerIDs))
+	parentIDs := make([]string, 0, len(ownerIDs))
+	seen := make(map[string]struct{}, len(ownerIDs))
+	for _, ownerID := range ownerIDs {
+		idx := strings.LastIndex(ownerID, marker)
+		if idx <= 0 || idx+len(marker) >= len(ownerID) {
+			continue
+		}
+		parentID := ownerID[:idx]
+		parentByOwner[ownerID] = parentID
+		if _, ok := seen[parentID]; !ok {
+			seen[parentID] = struct{}{}
+			parentIDs = append(parentIDs, parentID)
+		}
+	}
+	rows, err := s.repo.GetHandlersByIDs(ctx, parentIDs)
+	if err != nil {
+		return nil, err
+	}
+	nameByParent := make(map[string]string, len(rows))
+	for _, h := range rows {
+		nameByParent[h.ID] = h.Name
+	}
+	out := make(map[string]string, len(parentByOwner))
+	for ownerID, parentID := range parentByOwner {
+		if name := nameByParent[parentID]; name != "" {
+			out[ownerID] = name
+		}
 	}
 	return out, nil
 }

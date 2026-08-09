@@ -2,6 +2,7 @@ package function
 
 import (
 	"context"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -21,6 +22,46 @@ func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]stri
 	out := make(map[string]string, len(rows))
 	for _, f := range rows {
 		out[f.ID] = f.Name
+	}
+	return out, nil
+}
+
+// NamesByOwnerIDs resolves the composite owner ids used by per-version function envs. The
+// persisted owner id is <functionId>_fnenv_<envId>; resolving the parent function at read time
+// keeps old env rows and renamed functions readable without a migration.
+//
+// NamesByOwnerIDs 解析 function 版本 env 使用的复合 owner id。持久 owner id 是
+// <functionId>_fnenv_<envId>；读时解析父 function，使旧 env 行和改名后的 function 无需迁移也可读。
+func (s *Service) NamesByOwnerIDs(ctx context.Context, ownerIDs []string) (map[string]string, error) {
+	const marker = "_fnenv_"
+	parentByOwner := make(map[string]string, len(ownerIDs))
+	parentIDs := make([]string, 0, len(ownerIDs))
+	seen := make(map[string]struct{}, len(ownerIDs))
+	for _, ownerID := range ownerIDs {
+		idx := strings.LastIndex(ownerID, marker)
+		if idx <= 0 || idx+len(marker) >= len(ownerID) {
+			continue
+		}
+		parentID := ownerID[:idx]
+		parentByOwner[ownerID] = parentID
+		if _, ok := seen[parentID]; !ok {
+			seen[parentID] = struct{}{}
+			parentIDs = append(parentIDs, parentID)
+		}
+	}
+	rows, err := s.repo.GetFunctionsByIDs(ctx, parentIDs)
+	if err != nil {
+		return nil, err
+	}
+	nameByParent := make(map[string]string, len(rows))
+	for _, f := range rows {
+		nameByParent[f.ID] = f.Name
+	}
+	out := make(map[string]string, len(parentByOwner))
+	for ownerID, parentID := range parentByOwner {
+		if name := nameByParent[parentID]; name != "" {
+			out[ownerID] = name
+		}
 	}
 	return out, nil
 }

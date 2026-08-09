@@ -182,22 +182,27 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
 
   // ── the jump (W6 re-anchor) 跳转 ──
 
-  /// Execute one jump command: near = the anchor re-centers on the loaded row; deep = the
-  /// `?around=` window replaces the transcript (re-anchor). Either way the target lands at scroll
-  /// offset 0 — the center anchor's first row — so there is NO extent estimation; we then seat it
-  /// just below the floating head and wash it briefly (hold + fade, the Slack-permalink rhythm).
-  /// The pin is released first: a jump means READING HISTORY, and streaming frames must never
-  /// yank the viewport back to the bottom (the 抢镜 covenant).
+  /// Execute one jump command: present = the live target is already on the current head and is only
+  /// washed; near = the anchor re-centers on the loaded row; deep = the `?around=` window replaces the
+  /// transcript. Only near/deep release the pin and move the viewport — clicking the current scene must
+  /// never manufacture a historical window or a misleading “jump to present” affordance.
   ///
-  /// 执行一次跳转:近跳=锚移到已加载行;深跳=`?around=` 窗整扇替换(重锚)。两径目标都落在 offset 0
-  /// (center 锚首行)——零 extent 估算;随后把它安放在浮层头下、短暂洗亮(hold+fade,Slack permalink
-  /// 节奏)。先解钉:跳转即读史,流式帧绝不许把视口拽回底(抢镜公约)。
+  /// 执行一次跳转:现场=目标已在当前头部、只洗亮;近跳=锚移到已载行;深跳=替换 `?around=` 窗。只有近/深跳解钉并
+  /// 移动视口——点击当前场次绝不能凭空制造历史窗口或误导性的「回到现场」按钮。
   Future<void> _executeJump(TranscriptJumpRequest req) async {
     ref.read(transcriptJumpProvider(widget.conversationId).notifier).clear();
-    final ok = await ref
+    final result = await ref
         .read(conversationStreamProvider(widget.conversationId).notifier)
         .jumpTo(req.messageId);
-    if (!ok || !mounted) return;
+    if (result == null || !mounted) return;
+    if (result == TranscriptJumpResult.present) {
+      setState(() => _highlightId = req.messageId);
+      _highlightTimer?.cancel();
+      _highlightTimer = Timer(AnMotion.wash, () {
+        if (mounted) setState(() => _highlightId = null);
+      });
+      return;
+    }
     _pinned = false;
     // Offset 0 (= the anchor) is always in range on a center-anchored list; refine after layout.
     // offset 0(=锚)在 center 锚列表上恒有效;布局后再精调。

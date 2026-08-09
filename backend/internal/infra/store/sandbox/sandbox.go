@@ -134,6 +134,7 @@ func (s *Store) DeleteRuntime(ctx context.Context, id string) error {
 // ---- envs ----
 
 func (s *Store) CreateEnv(ctx context.Context, e *sandboxdomain.Env) error {
+	normalizeEnv(e)
 	if err := s.envs.Create(ctx, e); err != nil {
 		return fmt.Errorf("sandboxstore.CreateEnv: %w", err)
 	}
@@ -148,7 +149,7 @@ func (s *Store) GetEnv(ctx context.Context, id string) (*sandboxdomain.Env, erro
 	if err != nil {
 		return nil, fmt.Errorf("sandboxstore.GetEnv: %w", err)
 	}
-	return e, nil
+	return normalizeEnv(e), nil
 }
 
 func (s *Store) FindEnvByOwner(ctx context.Context, ownerKind, ownerID string) (*sandboxdomain.Env, error) {
@@ -159,7 +160,7 @@ func (s *Store) FindEnvByOwner(ctx context.Context, ownerKind, ownerID string) (
 	if err != nil {
 		return nil, fmt.Errorf("sandboxstore.FindEnvByOwner: %w", err)
 	}
-	return e, nil
+	return normalizeEnv(e), nil
 }
 
 func (s *Store) ListEnvsByRuntime(ctx context.Context, runtimeID string) ([]*sandboxdomain.Env, error) {
@@ -167,7 +168,7 @@ func (s *Store) ListEnvsByRuntime(ctx context.Context, runtimeID string) ([]*san
 	if err != nil {
 		return nil, fmt.Errorf("sandboxstore.ListEnvsByRuntime: %w", err)
 	}
-	return rows, nil
+	return normalizeEnvs(rows), nil
 }
 
 func (s *Store) ListEnvsByOwnerKind(ctx context.Context, ownerKind string) ([]*sandboxdomain.Env, error) {
@@ -175,10 +176,11 @@ func (s *Store) ListEnvsByOwnerKind(ctx context.Context, ownerKind string) ([]*s
 	if err != nil {
 		return nil, fmt.Errorf("sandboxstore.ListEnvsByOwnerKind: %w", err)
 	}
-	return rows, nil
+	return normalizeEnvs(rows), nil
 }
 
 func (s *Store) UpdateEnv(ctx context.Context, e *sandboxdomain.Env) error {
+	normalizeEnv(e)
 	if err := s.envs.Save(ctx, e); err != nil {
 		return fmt.Errorf("sandboxstore.UpdateEnv: %w", err)
 	}
@@ -222,7 +224,7 @@ func (s *Store) ListEnvsLastUsedBefore(ctx context.Context, t time.Time) ([]*san
 	if err != nil {
 		return nil, fmt.Errorf("sandboxstore.ListEnvsLastUsedBefore: %w", err)
 	}
-	return rows, nil
+	return normalizeEnvs(rows), nil
 }
 
 // ---- running-pid leak tracking ----
@@ -246,5 +248,21 @@ func (s *Store) ListEnvsWithRunningPID(ctx context.Context) ([]*sandboxdomain.En
 	if err != nil {
 		return nil, fmt.Errorf("sandboxstore.ListEnvsWithRunningPID: %w", err)
 	}
-	return rows, nil
+	return normalizeEnvs(rows), nil
+}
+
+// normalizeEnv keeps the collection-shaped deps field stable at the persistence boundary.
+// normalizeEnv 在持久化边界保持集合形 deps 字段稳定。
+func normalizeEnv(e *sandboxdomain.Env) *sandboxdomain.Env {
+	if e != nil && e.Deps == nil {
+		e.Deps = []string{}
+	}
+	return e
+}
+
+func normalizeEnvs(rows []*sandboxdomain.Env) []*sandboxdomain.Env {
+	for _, e := range rows {
+		normalizeEnv(e)
+	}
+	return rows
 }

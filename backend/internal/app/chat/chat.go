@@ -805,9 +805,9 @@ func (s *Service) SystemPromptPreview(ctx context.Context, conversationID string
 }
 
 // Usage returns a conversation's total input + output token cost across all turns — the
-// GET /usage endpoint (the tokensUsed the conversation detail shows).
+// API-only GET /usage observability endpoint.
 //
-// Usage 返回一个对话所有回合的 input + output token 总成本——GET /usage 端点（对话详情的 tokensUsed）。
+// Usage 返回一个对话所有回合的 input + output token 总成本——API-only 的 GET /usage 观测端点。
 func (s *Service) Usage(ctx context.Context, conversationID string) (inputTokens, outputTokens int, err error) {
 	// Same ownership pre-check as ListMessages: a foreign/nonexistent id → 404, not 200-with-0-tokens.
 	// 与 ListMessages 同款归属前置校验：外部 / 不存在 id → 404，而非 200-零-token。

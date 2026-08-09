@@ -2,10 +2,43 @@ package sandbox
 
 import (
 	"context"
+	"errors"
 	"testing"
 
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
+
+// TestDestroy_RejectsRunningEnv keeps a resident process and its manifest intact.
+// 删除仍有常驻进程的 env 必须保留进程/目录/manifest，不能静默杀进程或删目录。
+func TestDestroy_RejectsRunningEnv(t *testing.T) {
+	svc, owner := newServiceWithEnv(t, "fake-py")
+	ctx := context.Background()
+	if err := svc.repo.SetEnvRunningPID(ctx, "se_test", 4242); err != nil {
+		t.Fatalf("set running pid: %v", err)
+	}
+
+	err := svc.Destroy(ctx, owner)
+	if !errors.Is(err, sandboxdomain.ErrEnvInUse) {
+		t.Fatalf("Destroy running env: %v, want ErrEnvInUse", err)
+	}
+	env, err := svc.repo.GetEnv(ctx, "se_test")
+	if err != nil {
+		t.Fatalf("running env disappeared after rejected Destroy: %v", err)
+	}
+	if env.RunningPID != 4242 {
+		t.Fatalf("running pid changed after rejected Destroy: %d", env.RunningPID)
+	}
+	if !svc.HasOwnerLockForTest(owner) {
+		t.Fatal("owner lock must remain while the env is still resident")
+	}
+
+	if err := svc.repo.ClearEnvRunningPID(ctx, "se_test"); err != nil {
+		t.Fatalf("clear running pid: %v", err)
+	}
+	if err := svc.Destroy(ctx, owner); err != nil {
+		t.Fatalf("Destroy after process stopped: %v", err)
+	}
+}
 
 // TestDestroy_EvictsOwnerLock — R7: the per-owner keyed mutex in envLocks must be
 // deleted when the env is destroyed, else the map grows one *sync.Mutex per distinct

@@ -37,11 +37,20 @@ Runtime 首用安装，不要求宿主预装。Direct installer：
 - 原子 rename 到正式目录；
 - 写 runtime manifest。
 
+安装输入错误不会伪装成一次上游下载失败：固定 runtime 的未知版本，以及 uv/dotnet
+明显不是发行版格式的版本，在联网前返回 `SANDBOX_RUNTIME_VERSION_UNSUPPORTED`，其
+`details` 带 `kind`、`version` 和可读 `hint`；下载、校验或原子落盘失败才返回
+`SANDBOX_RUNTIME_INSTALL_FAILED`，并带同样的 `kind/version` 细节供设置页给出可行动提示。
+
 Python、Node、uv、dotnet、Docker 与 Search engine artifact 使用 installer
 registry；用户可安装目录只投影明确实现 UserFacing/AvailableVersions 的类型。
 
 Env 由 `(owner_kind,owner_id)` 唯一确定。Ensure/Destroy/GC 使用 per-key lock，
 Destroy 同时逐出 lock，避免长期构建过的 owner 无限累积 mutex。
+
+Destroy 先检查 manifest 的 `running_pid`：只要仍有常驻进程，就返回
+`409 SANDBOX_ENV_IN_USE`，保留进程、目录和 manifest，要求所属实体先停止；不会为了满足设置页
+的删除动作而静默杀掉常驻进程。进程停止后，Destroy 才删除 env 行及其派生目录。
 
 Bootstrap 只确保根目录/基础状态；失败进入 degraded，用户可
 `:retry-bootstrap`。Runtime/Env 是可再生派生物，因此表与磁盘镜像可硬删。
@@ -84,5 +93,14 @@ Function/Handler 额外拒绝通过删除声明依赖来制造假 ready；这一
 [`api.md`](../api.md)。表见 [`database.md`](../database.md)，错误见
 [`error-codes.md`](../error-codes.md)。ID：runtime `sr_`、env `se_`。
 
+Env manifest 的 `deps` 是集合字段，读写边界统一归一为 JSON 数组；空依赖在线上表现为
+`[]` 而非 `null`。单读与列表返回同一份 manifest，且两张 manifest 表都是机器级资源，
+不按 workspace 过滤。`ownerName` 是可读投影：Function/Handler 的复合 owner id 读时按当前
+workspace 解析父实体名，兼容旧空名行和实体改名；实体缺失时保留空值，前端再回退 owner id。
+
 Runtime 直接安装取舍见
 [`ADR 0001`](../../../decisions/0001-sandbox-runtime-direct-install.md)。
+
+机器级磁盘投影 `TotalSizeBytes` 汇总 runtime 与 env manifest 的 `size_bytes`，供
+`GET /sandbox/disk-usage` 返回 `totalBytes`。它不按 workspace 隔离，也不在每次读取时做物理目录扫描；
+两类 manifest 都为空时返回 `0`。

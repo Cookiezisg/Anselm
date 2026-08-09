@@ -85,6 +85,8 @@ Document 行补齐路径和元数据。该出口只接受有词法证据的文�
 用户明确给出最大结果数时，模型必须在**首次**调用就传 `limit`，禁止先用默认上限探测后
 再重复同一查询；这样避免额外等待和活动轨迹噪声。
 
+`search_documents.limit` 的标准线缆形状是整数。为兼容托管 provider 偶尔多包一层的确定性错误，工具边界也接受严格十进制整数字符串（如 `"5"`）；浮点数、数组、布尔值和任意字符串拒绝，不做猜测或四舍五入。
+
 `list_documents` 是已知父节点下的直接子节点枚举，不是关键词检索。它按 sibling `position`
 稳定 cursor 分页：默认每页 50、最大 200，返回本页 `count`、同一父节点下的 `total`、`hasMore`
 与 `complete`；有下一页时还返回不透明 `nextCursor`，必须逐字复制到下一次调用的 `cursor`。
@@ -104,7 +106,7 @@ LLM 工具覆盖 create/read/list/search/edit/move/delete。`create_document` �
 `search_documents` 或 `list_documents` 返回的 opaque `doc_` ID；文档 name/path 不是身份，不能拿来
 直接读取。工具把可修复的 domain 错误转为
 软失败文本，允许模型修正参数。HTTP 还提供 iterate，以当前文档为目标启动 AI 编辑。
-`edit_document` 的一次用户编辑意图必须由一个 canonical call 完成，不能把 name、description、content、tags 拆成多次调用；`content` 与 `tags` 是全量替换，其中 `tags` 在线缆上必须是 JSON 字符串数组，不能传单个字符串或逗号拼接值。为兼容少数 provider 的多包一层错误，工具边界只额外接受“字符串内容本身仍是合法 JSON 字符串数组”的形状，绝不猜测或拆分任意字符串。
+`edit_document` 的一次用户编辑意图必须由一个 canonical call 完成，不能把 name、description、content、tags 拆成多次调用；`content` 与 `tags` 是全量替换，其中 `tags` 的标准线缆形状是 JSON 字符串数组，不能传逗号拼接或任意字符串。为兼容少数 provider 的多包一层错误，`create_document` 与 `edit_document` 的工具边界额外接受“字符串内容本身仍是合法 JSON 字符串数组”的形状，绝不猜测或拆分任意字符串。
 
 ## 5. 契约
 

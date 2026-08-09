@@ -409,3 +409,26 @@ func TestCreate_EmptyName_IsNameError(t *testing.T) {
 		t.Fatalf("empty name on valid code should be ErrInvalidName, got %v", err)
 	}
 }
+
+func TestNamesByOwnerIDs_ResolvesParentFunction(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	f, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "inventory_sync", goodCode)})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+
+	names, err := svc.NamesByOwnerIDs(ctx, []string{
+		f.ID + "_fnenv_old",
+		"fn_missing_fnenv_old",
+		"not-a-function-owner",
+	})
+	if err != nil {
+		t.Fatalf("NamesByOwnerIDs: %v", err)
+	}
+	if names[f.ID+"_fnenv_old"] != "inventory_sync" {
+		t.Fatalf("resolved names = %#v, want parent function name", names)
+	}
+	if _, ok := names["fn_missing_fnenv_old"]; ok {
+		t.Fatalf("missing parent unexpectedly resolved: %#v", names)
+	}
+}

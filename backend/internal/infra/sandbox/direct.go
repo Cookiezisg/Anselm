@@ -264,7 +264,7 @@ func pythonRecipe() runtimeRecipe {
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
 			p, ok := patch[version]
 			if !ok {
-				return downloadSpec{}, fmt.Errorf("python %s unsupported (pinned: 3.11/3.12/3.13): %w", version, sandboxdomain.ErrRuntimeNotSupported)
+				return downloadSpec{}, runtimeVersionError("python", version, "3.11 / 3.12 / 3.13")
 			}
 			tr, ok := triple[goos+"/"+goarch]
 			if !ok {
@@ -304,7 +304,7 @@ func nodeRecipe() runtimeRecipe {
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
 			full, ok := pin[version]
 			if !ok {
-				return downloadSpec{}, fmt.Errorf("node %s unsupported (pinned: 22): %w", version, sandboxdomain.ErrRuntimeNotSupported)
+				return downloadSpec{}, runtimeVersionError("node", version, "22")
 			}
 			pl, ok := plat[goos+"/"+goarch]
 			if !ok {
@@ -344,6 +344,9 @@ func uvRecipe() runtimeRecipe {
 		kind: "uv", defVersion: "0.11.4", userFacing: true, // open: the release tag is the version
 		normalize: func(v string) string { return strings.TrimPrefix(stripRange(v), "v") },
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
+			if !isReleaseVersion(version) {
+				return downloadSpec{}, runtimeVersionError("uv", version, "a release version such as 0.11.4")
+			}
 			tr, ok := triple[goos+"/"+goarch]
 			if !ok {
 				return downloadSpec{}, fmt.Errorf("uv: no build for %s/%s: %w", goos, goarch, sandboxdomain.ErrRuntimeNotSupported)
@@ -382,6 +385,9 @@ func dotnetRecipe() runtimeRecipe {
 		kind: "dotnet", defVersion: "10.0.300", userFacing: true, // open: the version templates directly
 		normalize: func(v string) string { return strings.TrimPrefix(stripRange(v), "v") },
 		resolve: func(version, goos, goarch string) (downloadSpec, error) {
+			if !isReleaseVersion(version) {
+				return downloadSpec{}, runtimeVersionError("dotnet", version, "a release version such as 10.0.300")
+			}
 			r, ok := rid[goos+"/"+goarch]
 			if !ok {
 				return downloadSpec{}, fmt.Errorf("dotnet: no build for %s/%s: %w", goos, goarch, sandboxdomain.ErrRuntimeNotSupported)
@@ -416,6 +422,43 @@ func stripRange(v string) string {
 		}
 	}
 	return strings.TrimSpace(v)
+}
+
+// isReleaseVersion accepts numeric release versions plus an optional prerelease/build suffix.
+// It rejects values that would only become a confusing upstream 404 after a long download attempt.
+//
+// isReleaseVersion 接受数字发行版及可选 prerelease/build 后缀；明显不是版本的输入在联网前拒绝，
+// 避免用户等完一次无意义的上游 404。
+func isReleaseVersion(v string) bool {
+	if v == "" || v[0] < '0' || v[0] > '9' {
+		return false
+	}
+	dots := 0
+	suffix := false
+	last := byte(0)
+	for i := 0; i < len(v); i++ {
+		c := v[i]
+		switch {
+		case c >= '0' && c <= '9':
+		case c == '.' && !suffix:
+			dots++
+		case (c == '-' || c == '+') && !suffix && i > 0 && last != '.':
+			suffix = true
+		case suffix && ((c >= 'a' && c <= 'z') || (c >= 'A' && c <= 'Z') || c == '.' || c == '-' || c == '+'):
+		default:
+			return false
+		}
+		last = c
+	}
+	return dots >= 2 && last != '.' && last != '-' && last != '+'
+}
+
+func runtimeVersionError(kind, version, hint string) error {
+	return sandboxdomain.ErrRuntimeVersionUnsupported.WithDetails(map[string]any{
+		"kind":    kind,
+		"version": version,
+		"hint":    hint,
+	})
 }
 
 func majorMinor(v string) string {

@@ -159,6 +159,22 @@ func (b *Broker) Resolve(toolCallID string, resp Response) bool {
 	}
 }
 
+// PendingByToolCall returns the request currently waiting for this tool-call id. Callers that
+// expose a conversation-scoped resolve endpoint use it to bind the opaque id to its conversation
+// before delivering a response; a global Resolve alone would permit cross-conversation decisions.
+//
+// PendingByToolCall 返回该 tool-call id 当前等待中的请求。对外暴露 conversation-scope resolve 端点的调用方
+// 用它先把 opaque id 绑定到所属对话，再投递响应；单独调用全局 Resolve 会允许跨对话作答。
+func (b *Broker) PendingByToolCall(toolCallID string) (Request, bool) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	w := b.pending[toolCallID]
+	if w == nil {
+		return Request{}, false
+	}
+	return w.req, true
+}
+
 // IsAllowed reports whether the tool was session-whitelisted (always-allow) in this conversation.
 //
 // IsAllowed 报告该工具在本对话是否会话白名单（always-allow）。

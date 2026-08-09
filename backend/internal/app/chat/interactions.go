@@ -76,7 +76,17 @@ func (s *Service) ResolveInteraction(ctx context.Context, conversationID, toolCa
 	if !validInteractionActions[action] {
 		return ErrInvalidInteractionAction
 	}
-	if s.broker == nil || !s.broker.Resolve(toolCallID, humanloopapp.Response{Action: action, Answer: answer}) {
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return err
+	}
+	if s.broker == nil {
+		return ErrNoPendingInteraction
+	}
+	pending, ok := s.broker.PendingByToolCall(toolCallID)
+	if !ok || pending.ConversationID != conversationID {
+		return ErrNoPendingInteraction
+	}
+	if !s.broker.Resolve(toolCallID, humanloopapp.Response{Action: action, Answer: answer}) {
 		return ErrNoPendingInteraction
 	}
 	// Symmetric ephemeral "interaction cleared" signal (same scope + node.type, resolved:true).
@@ -102,6 +112,19 @@ func (s *Service) PendingInteractions(_ context.Context, conversationID string) 
 		return nil
 	}
 	return s.broker.Pending(conversationID)
+}
+
+// ListInteractions is the REST-facing reconnect snapshot. It performs the same workspace
+// ownership pre-check as the other conversation-scoped reads before exposing broker state;
+// a foreign or nonexistent conversation must be 404, not a misleading 200-empty response.
+//
+// ListInteractions 是 REST 侧重连快照。它在暴露 broker 状态前做与其它 conversation-scope 读一致的
+// workspace 归属前置校验；跨 workspace 或不存在的对话必须 404，不能伪装成 200-空数组。
+func (s *Service) ListInteractions(ctx context.Context, conversationID string) ([]humanloopapp.Request, error) {
+	if _, err := s.deps.Conversations.Get(ctx, conversationID); err != nil {
+		return nil, err
+	}
+	return s.PendingInteractions(ctx, conversationID), nil
 }
 
 // HasAwaitingInteraction reports whether a conversation has ≥1 pending human interaction — the

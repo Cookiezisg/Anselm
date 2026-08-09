@@ -1,6 +1,8 @@
 package chat
 
 import (
+	"context"
+	"errors"
 	"testing"
 
 	"go.uber.org/zap"
@@ -116,6 +118,53 @@ func TestAsk_Decline(t *testing.T) {
 	if tr == nil || tr.Content != humanloopapp.DeclineFeedback {
 		t.Fatalf("decline should feed the re-route hint, got %+v", tr)
 	}
+}
+
+// TestResolveInteraction_ConversationScoped prevents a tool-call id from one conversation being
+// resolved through another conversation's URL. The broker is app-global, so this binding belongs
+// at the chat service boundary rather than in the HTTP handler.
+//
+// TestResolveInteraction_ConversationScoped 防止一个对话的 tool-call id 通过另一个对话的 URL 被决议。
+// broker 是 app-global，因此归属绑定必须在 chat service 边界完成，而不是只靠 HTTP handler。
+func TestResolveInteraction_ConversationScoped(t *testing.T) {
+	bridge := newRecordBridge()
+	client := &scriptedClient{scripts: [][]llminfra.StreamEvent{askCall("tc-scoped"), textTurn()}}
+	svc, _ := newAskSvc(t, client, bridge)
+	ctx := ctxWS("ws_1")
+
+	asstID, err := svc.Send(ctx, "cv_1", SendInput{Content: "choose"})
+	if err != nil {
+		t.Fatalf("Send: %v", err)
+	}
+	pending := waitPending(t, svc, "cv_1", 1)
+
+	if err := svc.ResolveInteraction(ctx, "cv_other", pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); !errors.Is(err, ErrNoPendingInteraction) {
+		t.Fatalf("cross-conversation resolve = %v, want NO_PENDING_INTERACTION", err)
+	}
+	if got := len(svc.PendingInteractions(ctx, "cv_1")); got != 1 {
+		t.Fatalf("cross-conversation resolve consumed pending interaction: count=%d", got)
+	}
+
+	svc.deps.Conversations = fakeConvs{
+		conv: &conversationdomain.Conversation{SystemPrompt: "be concise", Title: "t"},
+		getErr: func(_ context.Context, id string) error {
+			if id == "cv_wrong_workspace" {
+				return conversationdomain.ErrNotFound
+			}
+			return nil
+		},
+	}
+	if err := svc.ResolveInteraction(ctx, "cv_wrong_workspace", pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); !errors.Is(err, conversationdomain.ErrNotFound) {
+		t.Fatalf("foreign-workspace resolve = %v, want CONVERSATION_NOT_FOUND", err)
+	}
+	if got := len(svc.PendingInteractions(ctx, "cv_1")); got != 1 {
+		t.Fatalf("foreign-workspace resolve consumed pending interaction: count=%d", got)
+	}
+
+	if err := svc.ResolveInteraction(ctx, "cv_1", pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); err != nil {
+		t.Fatalf("same-conversation resolve: %v", err)
+	}
+	waitClose(t, bridge, asstID)
 }
 
 // toolResultUnder finds the tool_result block whose parent is the given tool_call id.

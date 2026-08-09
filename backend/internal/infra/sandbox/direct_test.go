@@ -1,10 +1,13 @@
 package sandbox
 
 import (
+	"errors"
 	"path/filepath"
 	"slices"
 	"strings"
 	"testing"
+
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
 
 func TestDirectInstallers_Kinds(t *testing.T) {
@@ -158,11 +161,17 @@ func TestRecipe_ResolveWindowsZip(t *testing.T) {
 }
 
 func TestRecipe_UnsupportedErrors(t *testing.T) {
-	if _, err := pythonRecipe().resolve("3.9", "darwin", "arm64"); err == nil {
+	if _, err := pythonRecipe().resolve("3.9", "darwin", "arm64"); !errors.Is(err, sandboxdomain.ErrRuntimeVersionUnsupported) {
 		t.Error("python 3.9 (unpinned minor) should error")
 	}
-	if _, err := nodeRecipe().resolve("20", "darwin", "arm64"); err == nil {
+	if _, err := nodeRecipe().resolve("20", "darwin", "arm64"); !errors.Is(err, sandboxdomain.ErrRuntimeVersionUnsupported) {
 		t.Error("node 20 (unpinned major) should error")
+	}
+	if _, err := uvRecipe().resolve("not-a-version", "darwin", "arm64"); !errors.Is(err, sandboxdomain.ErrRuntimeVersionUnsupported) {
+		t.Error("uv malformed version should error before download")
+	}
+	if _, err := dotnetRecipe().resolve("not-a-version", "darwin", "arm64"); !errors.Is(err, sandboxdomain.ErrRuntimeVersionUnsupported) {
+		t.Error("dotnet malformed version should error before download")
 	}
 	if _, err := pythonRecipe().resolve("3.12", "plan9", "mips"); err == nil {
 		t.Error("unknown platform should error")

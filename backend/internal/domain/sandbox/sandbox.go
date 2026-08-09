@@ -183,8 +183,9 @@ type ProgressFunc func(stage, message string, percent int)
 // Sentinel 错误。用 errorspkg.New 构造，使 transport 直接读 Kind→HTTP + 稳定 wire
 // code（§S20）。KindBadGateway (502) 是"外包给的上游工具失败"的标准类别。
 var (
-	ErrRuntimeNotSupported  = errorspkg.New(errorspkg.KindUnprocessable, "SANDBOX_RUNTIME_NOT_SUPPORTED", "runtime kind not registered")
-	ErrRuntimeInstallFailed = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_RUNTIME_INSTALL_FAILED", "runtime install failed")
+	ErrRuntimeNotSupported       = errorspkg.New(errorspkg.KindUnprocessable, "SANDBOX_RUNTIME_NOT_SUPPORTED", "runtime kind not registered")
+	ErrRuntimeVersionUnsupported = errorspkg.New(errorspkg.KindUnprocessable, "SANDBOX_RUNTIME_VERSION_UNSUPPORTED", "runtime version is not supported")
+	ErrRuntimeInstallFailed      = errorspkg.New(errorspkg.KindBadGateway, "SANDBOX_RUNTIME_INSTALL_FAILED", "runtime install failed")
 	// ErrOwnerKindRequired / ErrInvalidOwnerKind: transport-validation for the envs list query.
 	// ErrOwnerKindRequired / ErrInvalidOwnerKind：envs 列表查询的传输层校验。
 	ErrOwnerKindRequired = errorspkg.New(errorspkg.KindInvalid, "SANDBOX_OWNER_KIND_REQUIRED", "ownerKind query parameter is required")

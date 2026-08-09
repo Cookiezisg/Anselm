@@ -37,9 +37,6 @@ class StoragePanel extends ConsumerWidget {
     // null = not resolved yet — the TYPE carries availability (buttons/factory gate key off it);
     // no '…' sentinel string doubling as a logic value. null=未解析,可用性由类型承载、不设哨兵串。
     final String? dir = ref.watch(dataDirProvider).value;
-    final disk = ref.watch(sandboxDiskProvider).value;
-    final c = context.colors;
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -84,15 +81,7 @@ class StoragePanel extends ConsumerWidget {
               child: AnSettingRow(
                 label: t.settings.storage.diskUsage,
                 desc: t.settings.storage.diskSandbox,
-                // An absolute byte figure has no denominator — a meter track would be theater; the
-                // honest face is the number itself (and nothing while unresolved). 绝对字节数无分母,
-                // 渲进度轨是剧场;诚实脸=数字本身(未解析时不渲空轨)。
-                child: disk == null
-                    ? const SizedBox.shrink()
-                    : Text(
-                        formatBytes(disk),
-                        style: AnText.metaTabular().copyWith(color: c.inkMuted),
-                      ),
+                child: const SandboxDiskUsageValue(),
               ),
             ),
             SettingsAnchor(
@@ -346,6 +335,54 @@ final dataDirProvider = FutureProvider<String>(
 final sandboxDiskProvider = FutureProvider.autoDispose<int>(
   (ref) => ref.watch(settingsRepositoryProvider).sandboxDiskUsage(),
 );
+
+/// Shared machine-wide disk projection used by Sandbox and Storage. It deliberately has explicit
+/// loading and error faces: a cached settings ocean can outlive the panel that first fetched it, and
+/// a failed read must never look like an empty machine. Sandbox 与 Storage 共用的全机磁盘投影。
+/// 刻意保留明确的加载/错误面:常驻设置海洋会活过首次读取的面板,失败绝不能长得像空机。
+class SandboxDiskUsageValue extends ConsumerWidget {
+  const SandboxDiskUsageValue({super.key});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final t = Translations.of(context);
+    return AnLastGood<int>(
+      value: ref.watch(sandboxDiskProvider),
+      placeholder: const SizedBox(
+        width: 88,
+        height: AnSize.controlSm,
+        child: AnSkeleton.text(),
+      ),
+      errorBuilder: (context, _, _) => ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: AnSize.ctlSlot),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Flexible(
+              child: Text(
+                t.settings.storage.diskLoadFailed,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: AnText.meta.copyWith(color: context.colors.inkMuted),
+              ),
+            ),
+            const SizedBox(width: AnSpace.s8),
+            AnButton(
+              label: t.settings.sandbox.retry,
+              size: AnButtonSize.sm,
+              outline: true,
+              onPressed: () => ref.invalidate(sandboxDiskProvider),
+            ),
+          ],
+        ),
+      ),
+      builder: (context, disk) => Text(
+        formatBytes(disk),
+        style: AnText.metaTabular().copyWith(color: context.colors.inkMuted),
+      ),
+    );
+  }
+}
 
 /// The machine-level run-history retention line (scheduler 工单⑬). 机器级 run 保留线(⑬)。
 final retentionConfigProvider = FutureProvider<RetentionConfig>(

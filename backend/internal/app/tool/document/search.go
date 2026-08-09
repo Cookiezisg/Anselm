@@ -27,7 +27,7 @@ type docHit struct {
 	Snippet     string   `json:"snippet,omitempty"`
 }
 
-const searchDocumentsDescription = `Search the Anselm document library by keyword. This is NOT filesystem search: send query, never Grep's path/pattern fields. The unified index searches document name, description, tags, and Markdown body/headings. Returns id, name, path, description, tags, a matching snippet, total, and nextCursor only when results are truncated. If nextCursor is absent, the result is complete: do not repeat the identical query. As soon as a matching document ID appears, use that exact ID for the next operation instead of searching again. If the user specifies a maximum result count, pass that limit in the FIRST call; never make a default/unbounded call first and then redo it. To continue, repeat the same query with the returned cursor copied byte-for-byte; do not invent or edit a cursor. Use list_documents only to enumerate a known folder; do not call it to answer a keyword search. Hosted-provider compatibility: if a provider mistakenly sends a filesystem-shaped path/pattern object, a non-empty pattern (or path) is treated only as a document-library query; if both are empty, return one bounded library page. This never reads the filesystem.`
+const searchDocumentsDescription = `Search the Anselm document library by keyword. This is NOT filesystem search: send query, never Grep's path/pattern fields. The unified index searches document name, description, tags, and Markdown body/headings. Returns id, name, path, description, tags, a matching snippet, total, and nextCursor only when results are truncated. If nextCursor is absent, the result is complete: do not repeat the identical query. As soon as a matching document ID appears, use that exact ID for the next operation instead of searching again. If the user specifies a maximum result count, pass that limit in the FIRST call; never make a default/unbounded call first and then redo it. To continue, repeat the same query with the returned cursor copied byte-for-byte; do not invent or edit a cursor. Use list_documents only to enumerate a known folder; do not call it to answer a keyword search. Hosted-provider compatibility accepts an exact decimal integer string for limit (such as "5") when a provider adds a string layer; floats, arbitrary strings, and arrays remain invalid. If a provider mistakenly sends a filesystem-shaped path/pattern object, a non-empty pattern (or path) is treated only as a document-library query; if both are empty, return one bounded library page. This never reads the filesystem.`
 
 const searchDocumentsDefaultLimit = 10
 
@@ -41,7 +41,7 @@ var searchDocumentsSchema = json.RawMessage(`{
 		},
 		"limit": {
 			"type": "integer",
-			"description": "Maximum matching documents to return (default 10, hard maximum 50). If the user gives a maximum, pass it on the first call; do not probe with the default first.",
+			"description": "Maximum matching documents to return (default 10, hard maximum 50). An exact decimal integer string is also accepted from hosted callers; floats, arbitrary strings, and arrays are invalid. If the user gives a maximum, pass it on the first call; do not probe with the default first.",
 			"default": 10,
 			"maximum": 50
 		},
@@ -51,6 +51,33 @@ var searchDocumentsSchema = json.RawMessage(`{
 		}
 	}
 }`)
+
+type searchDocumentsArgs struct {
+	Query   string
+	Limit   int
+	Cursor  string
+	Path    string
+	Pattern string
+}
+
+func (a *searchDocumentsArgs) UnmarshalJSON(data []byte) error {
+	var raw struct {
+		Query   string          `json:"query"`
+		Limit   json.RawMessage `json:"limit"`
+		Cursor  string          `json:"cursor"`
+		Path    string          `json:"path"`
+		Pattern string          `json:"pattern"`
+	}
+	if err := json.Unmarshal(data, &raw); err != nil {
+		return err
+	}
+	limit, err := decodeListDocumentsInt(raw.Limit)
+	if err != nil {
+		return fmt.Errorf("limit: %w", err)
+	}
+	*a = searchDocumentsArgs{Query: raw.Query, Limit: limit, Cursor: raw.Cursor, Path: raw.Path, Pattern: raw.Pattern}
+	return nil
+}
 
 // SearchDocuments implements the search_documents system tool.
 //
@@ -65,13 +92,7 @@ func (t *SearchDocuments) Description() string         { return searchDocumentsD
 func (t *SearchDocuments) Parameters() json.RawMessage { return searchDocumentsSchema }
 
 func (t *SearchDocuments) ValidateInput(args json.RawMessage) error {
-	var a struct {
-		Query   string `json:"query"`
-		Limit   int    `json:"limit"`
-		Path    string `json:"path"`
-		Pattern string `json:"pattern"`
-		Cursor  string `json:"cursor"`
-	}
+	var a searchDocumentsArgs
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("search_documents: bad args: %w", err)
 	}
@@ -100,13 +121,7 @@ func (t *SearchDocuments) ValidateInput(args json.RawMessage) error {
 }
 
 func (t *SearchDocuments) Execute(ctx context.Context, argsJSON string) (string, error) {
-	var a struct {
-		Query   string `json:"query"`
-		Limit   int    `json:"limit"`
-		Cursor  string `json:"cursor"`
-		Path    string `json:"path"`
-		Pattern string `json:"pattern"`
-	}
+	var a searchDocumentsArgs
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("search_documents: %w", err)
 	}

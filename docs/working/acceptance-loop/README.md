@@ -4,7 +4,7 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-07-27
-reviewed: 2026-08-09
+reviewed: 2026-08-10
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
@@ -297,24 +297,20 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-09 EP-160 已完成,批次二十八 53/50,统一长门禁已通过)
+### 5.2 Day 0 当前状态(整体重述,2026-08-10 EP-174 已完成,批次二十九 50/50)
 
-**当前前线（2026-08-09，清册 EP-160 已完成，批次二十八已由 48/50 越过用户规定的 50 格门槛；统一长门禁、完整 testend、警报复核和工作树审计均已通过，待本批提交后进入 EP-161）。**
-EP-160 `GET /api/v1/conversations/{id}/system-prompt-preview` 验证的不是一个能返回 `200` 的调试接口，而是用户能看到与真实模型回合一致、且只属于当前 workspace/conversation 的系统提示：空对话、默认提示、自定义提示、驻地上下文、语言投影、跨 workspace 和缺失资源都必须有可解释结果，preview、SQLite、真实 LLM wire、SSE 和 App 不能互相矛盾。
+**当前前线（2026-08-10，清册 EP-174 已完成，批次二十九由 49→50/50；单格五级裁决、根门禁、独立完整 testend、警报复核和残留进程审计均已通过，当前只剩提交前工作树审计与提交，批次证据保留一次未复现的 testend 异常）。**
+EP-174 `GET /api/v1/sandbox/disk-usage` 验证的是用户在 Settings → Sandbox / Storage 看到机器级沙箱占用的完整产品目的：两个入口必须显示同一真实 manifest projection；loading、error、settled-empty 不能互相伪装；设置海洋常驻挂载时重新进入也必须刷新；删除环境后 REST、SQLite、前端投影与 SSE 必须有可解释的收敛关系。
 
-真实 session `/private/tmp/anselm-rig-ep160-20260809/sessions/20260809-225559` 由 conductor 归属真实 Flutter App、真实受管 Anselm gateway、Computer Use、60fps 窗口录屏、backend journal、三路独立 SSE witness、frontend console 和 llmtap；`screen.mov` 已由 rig-down 封口（`2784x1808 / 60fps / 312.325s`）。Computer Use 完成真实 onboarding 和 Composer 回合，用户输入 `EP160 HISTORY MARKER. Reply exactly EP160-REPLY and do not call tools.`，最终 UI 精确显示 `EP160-REPLY`，Copy/Fork/Retry/Read aloud 与 Composer 均可用，无死 spinner、重复消息、布局溢出或隐藏 CTA。
+首轮真实 App/REST 冻结为红：REST 已返回 `totalBytes=475033055` 且 `ep174_disk_probe` env manifest 存在，但 Sandbox 和 Storage 都显示 `0 B`，切换面板和重新进入设置也没有修复。红证据保留在 `/private/tmp/anselm-rig-ep174-20260810/sessions/20260810-053705/evidence/EP-174-red-stale-disk.png` 及其 session。stop-and-fix 严格解析非负整数 `totalBytes`（合法零仍保留），两个面板共用 `AnLastGood` 的 loading/error+Retry/data 三态，并在 Sandbox/Storage 进入和 Settings 重入时失效全机 provider；同步补 Flutter fixture/widget 回归、testend 精确 manifest-sum 断言和 backend/frontend reference 文档。修复没有把错误或空机伪装成 `0 B`。
 
-REST 负向与边界矩阵已真实执行：主 conversation、空 conversation、自定义 `systemPrompt`、自定义 `workDir`、第二 workspace 的 `zh-CN` 投影均为预期 `200`；unknown conversation 为 `404 CONVERSATION_NOT_FOUND`，缺失/非法 workspace 为 `401 UNAUTH_NO_WORKSPACE`，用另一 workspace 访问首 workspace conversation 为 `404`；自定义 prompt 与驻地路径通过 PATCH 后在 preview 中可读，`Accept-Language` 与 workspace language 的组合分别得到 `Reply in English.` / `Reply in Chinese.`，没有把请求头语言错误地当成 workspace 真相。
+最终真实 session `/private/tmp/anselm-rig-ep174-20260810/sessions/20260810-055332` 使用真实 Flutter macOS App、Computer Use、真实受管 Anselm gateway wiring、独立三路 ssetap、llmtap、backend/frontend journals 和 `2784x1808 / 60fps / 197.005000s` 封口录屏。Sandbox 真实显示 `453.0 MB` 与 `ep174_disk_probe`；Storage 显示同一数值；切换和离开/重入 Settings 后不再回到红态。确认删除 env 后 Sandbox 显示 `No environments`，REST/SQLite 精确从 `475033055` 收敛到 `475002591`，delta=`30464` bytes，正好等于 env manifest；因为 delta 小于一位小数的显示阈值，Storage 仍诚实显示 `453.0 MB`，不是 stale provider。之后通过 API cleanup session `/private/tmp/anselm-rig-ep174-cleanup-20260810/sessions/20260810-060148` 删除临时 Function，DELETE=`204`、后续 GET=`404 FUNCTION_NOT_FOUND`、function env list 为空；没有直接改 SQLite。
 
-preview 正文与真实 llmtap request 的 system message 均为 `31,415` bytes，SHA-256 都是 `bb8e2b5ffd715b9c5800421d1b7cd97714df1a7f0f078374117b435db43f03cd`；preview GET 不产生虚假的 completion，真正的 managed challenge/install/models/chat 请求全为 HTTP `200`。SQLite 最终主回合为 user completed、assistant completed、`stop_reason=end_turn`，blocks seq 连续；messages、entities、notifications 三路均由独立 witness 物理连接，durable seq 单调且 seq=0 delta 不污染游标。
+五通道封口：`rig-check` 收台前五通道全绿，messages/entities/notifications 三流连接并 clean EOF；删除产生的 `sandbox.env_deleted` 是 notifications stream 的 frame-only `Broadcast` reconciliation echo，不是 notifications inbox durable row，REST/SQLite 仍是删除真相；本只读/删除路径没有伪造 message/entity 业务帧。managed challenge/install/models 穿过 llmtap，确定性 settings 路径没有伪造模型 completion；backend journal 无 WARN/ERROR/panic/FATAL，frontend 除已知 launcher foreground 噪声外无 Flutter/Dart/layout/Unhandled 红线。证据集中在 fixed session 内 `EP-174-final-green.md`、`EP-174-rest-db-sse.md`、`EP-174-frontend-terminal-review.md`、`EP-174-llm-summary.txt`、`EP-174-latency.txt`、五张视觉帧和录屏，红 session 与 cleanup session 保留。
 
-逐帧与五通道证据完整保存在 session：`evidence/EP-160-final-green.md`、`EP-160-sse-summary.txt`、`EP-160-db-final.txt`、`EP-160-llm-summary.txt`、`EP-160-frontend-terminal-review.md`、`EP-160-latency.txt` 和 `EP-160-final-ui.png`；frontend 只有已知 runner 的 `Failed to foreground app; open returned 1` 启动噪声，随后无 Dart/Flutter/RenderFlex/overflow/Unhandled/lost-device/panic/fatal 红线，backend journal 无应用 WARN/ERROR/panic/FATAL。独立 backend-only latency session 测得 30 次 preview median=`4.921ms`、max=`23.555ms`，满足 CODEX A1。
+逐帧/测量证据只记录能证明的事实：两次 REST exact byte projection 与 `30464` delta 已重算，UI 的 `453.0 MB` 不被错误解读为没有刷新；稳定帧没有 blank/loading/error 伪装。正式裁决写入 `G1 / F2 / measure:sandbox-disk-refresh / C4 / G2`，`COVERAGE EP-174=✓✓✓✓✓`；formal ledger `1560→1565 judgments`。每次写账触发的 `gap-too-fast`/`discovery-collapse` 都按 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-174-sandbox-disk-usage-ledger-reaudit.md` 独立复审并逐条 ack；anchors=`10/10`，未修改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1565 judgments)`；`gen_coverage.py --check`=`848 rows / 306 carried judgments / 0 tombstones`。
 
-本格后的定向回归为 backend `internal/app/chat`、Flutter `chat_transcript_test.dart` `30/30`、testend prompt/chat 场景，均通过。统一门禁完整通过：根 `make verify` 的 backend/frontend/docs/demo 全绿（frontend 四组约 `4,878` 项），独立 `mise exec -- go test ./...` 全绿，`make -C backend testend` 全量场景 `309.754s` 通过；testend 后未发现残留 `anselm-server`、`llama-server` 或测试进程，`gen_coverage.py --check`=`848 rows / 292 carried judgments / 0 tombstones`，`git diff --check` 通过。
-
-账本写入前 anchors=`10/10`、`alarms.py check`=`clean (1490 judgments)`；五级裁决 `G1/F2/A1/C4/G2` 由脚本写入，中央账本 `1490→1495 judgments`，`COVERAGE EP-160=✓✓✓✓✓`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-160-prompt-preview-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或账本规则；最终 `alarms.py check`=`clean (1495 judgments)`。
-
-批次二十八由 **48→53/50**，统一门禁已收口，当前下一原子前线为 EP-161 `GET /api/v1/conversations/{id}/usage`；提交后才开始下一批。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
+本轮代码与文档落点为 `frontend/lib/features/settings/{data/settings_repository.dart,ui/panels/{sandbox_panel.dart,storage_panel.dart},ui/settings_ocean.dart}`、中英文 i18n 及生成文件、`frontend/test/features/settings/{s5_sandbox_test.dart,s5_storage_limits_test.dart}`、`testend/scenarios/{platform_test.go,platform_r4_test.go}` 和 `docs/references/{backend/api.md,backend/foundation/sandbox.md,frontend/features/settings.md}`；工作证据与 formal ledger 均保留在 `/private/tmp`，不把录屏或临时数据带进仓库。根 `make verify` 第二轮全绿；完整 testend 第二、三轮全绿，第三轮 JSON 为 `356` 个 pass、`0` 个 fail；第一次 `287.787s` 异常保留在 `EP-174-batch29-gate.md`，未复现且未被删除。批次二十九当前 **50/50，统一门禁已通过**，只剩提交前工作树审计与提交；通过后才进入下一批。P12 旅程 400+ 继续按用户裁定推迟二期，一期仍以 COVERAGE 矩阵为覆盖真相。
 
 ### 5.2 历史状态快照（EP-154，批次二十八 35/50）
 

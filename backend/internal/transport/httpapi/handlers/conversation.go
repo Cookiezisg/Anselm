@@ -16,14 +16,14 @@ import (
 
 // ConversationHandler serves the 5 /api/v1/conversations/* CRUD endpoints plus the whole residency surface:
 // the projection (`GET /{id}/workdir`), the rail's grouping and its two bulk actions, and the three git
-// actions (`workdir:switch-branch` / `:create-branch` / `:add-worktree`). The tokensUsed enrichment + the
-// system-prompt-preview endpoint are chat data (message_blocks token sum / prompt assembly) and live on
-// ChatHandler, not here.
+// actions (`workdir:switch-branch` / `:create-branch` / `:add-worktree`). The conversation-scoped usage
+// aggregate and system-prompt-preview are chat data (message_blocks token sum / prompt assembly) and live
+// on ChatHandler, not here.
 //
 // ConversationHandler 提供 /api/v1/conversations/* 的 5 个 CRUD 端点 + 驻地的**整个**面:投影
 // （`GET /{id}/workdir`）、rail 的分组与它那两个批量动作、以及三个 git 动作（`workdir:switch-branch` /
-// `:create-branch` / `:add-worktree`）。tokensUsed 富化 + system-prompt-preview 端点属 chat 数据
-// （message_blocks token 求和 / prompt 拼装），归 ChatHandler。
+// `:create-branch` / `:add-worktree`）。conversation-scoped usage 汇总 + system-prompt-preview 端点属
+// chat 数据（message_blocks token 求和 / prompt 拼装），归 ChatHandler。
 type ConversationHandler struct {
 	svc *conversationapp.Service
 	log *zap.Logger

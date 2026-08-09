@@ -281,21 +281,32 @@ func (h *ChatHandler) SystemPromptPreview(w http.ResponseWriter, r *http.Request
 }
 
 // ListInteractions returns the human interactions this conversation is currently awaiting — the
-// front end's reconnect/refresh re-sync (the live surface signal is ephemeral).
+// front end's reconnect/refresh re-sync (the live surface signal is ephemeral). The service checks
+// conversation ownership first, so a foreign or nonexistent id is an honest 404.
 //
 // ListInteractions 返回本对话当前在等的人机交互——前端重连/刷新的重新同步（live surface signal 是 ephemeral）。
+// service 先校验对话归属，跨 workspace 或不存在的 id 诚实返回 404。
 func (h *ChatHandler) ListInteractions(w http.ResponseWriter, r *http.Request) {
-	responsehttpapi.Success(w, http.StatusOK, h.svc.PendingInteractions(r.Context(), r.PathValue("id")))
+	interactions, err := h.svc.ListInteractions(r.Context(), r.PathValue("id"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	responsehttpapi.Success(w, http.StatusOK, interactions)
 }
 
 // ResolveInteraction delivers a human decision (approve / approve_always / deny / accept / decline) to
-// a tool blocked awaiting input in this conversation. 204 (pure state change, no new product; the gated
+// a tool blocked awaiting input in this conversation. The conversation is first ownership-checked against the
+// current workspace; a foreign or nonexistent conversation is 404 CONVERSATION_NOT_FOUND, while a mismatched or
+// unknown tool-call id in a known conversation is 404 NO_PENDING_INTERACTION. 204 (pure state change, no new product; the gated
 // tool resuming + streaming over the messages SSE is an async side effect, not the HTTP response).
 // An out-of-enum action → 422 INTERACTION_INVALID_ACTION; nothing waiting on that tool_call → 404
 // NO_PENDING_INTERACTION.
 //
 // ResolveInteraction 把人的决定（approve / approve_always / deny / accept / decline）送给本对话中阻塞等输入的
-// 工具。204（纯状态变更、无新产物；被门工具续跑 + 经 messages SSE 流式是异步副作用、非 HTTP 响应）。枚举外 action
+// 工具。先校验对话属于当前 workspace；跨 workspace/不存在会话为 404 CONVERSATION_NOT_FOUND，已知会话中
+// tool-call id 不匹配或未知才是 404 NO_PENDING_INTERACTION。204（纯状态变更、无新产物；
+// 被门工具续跑 + 经 messages SSE 流式是异步副作用、非 HTTP 响应）。枚举外 action
 // → 422 INTERACTION_INVALID_ACTION；该 tool_call 无等待项则 404 NO_PENDING_INTERACTION。
 func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request) {
 	var req struct {
@@ -313,9 +324,9 @@ func (h *ChatHandler) ResolveInteraction(w http.ResponseWriter, r *http.Request)
 	responsehttpapi.NoContent(w) // 纯状态变更、无新产物
 }
 
-// Usage returns a conversation's total token cost (the tokensUsed the detail view shows).
+// Usage returns a conversation's total token cost for API consumers.
 //
-// Usage 返回一个对话的 token 总成本（详情视图显示的 tokensUsed）。
+// Usage 返回一个对话的 token 总成本，供 API 调用方读取。
 func (h *ChatHandler) Usage(w http.ResponseWriter, r *http.Request) {
 	in, out, err := h.svc.Usage(r.Context(), r.PathValue("id"))
 	if err != nil {

@@ -22,6 +22,7 @@ import (
 
 	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 )
 
@@ -32,6 +33,10 @@ type Service struct {
 	repo        sandboxdomain.Repository
 	sandboxRoot string
 	log         *zap.Logger
+
+	// ownerNameResolvers hydrate names for legacy env rows whose persisted owner_name is empty.
+	// ownerNameResolvers 为历史上 owner_name 为空的 env 行补当前所属实体名。
+	ownerNameResolvers map[string]OwnerNameResolver
 
 	// emitter raises env state-change notifications; nil disables them (degraded).
 	// emitter 发 env 状态变更通知；nil 时禁用（degraded）。
@@ -59,6 +64,16 @@ type Service struct {
 	nextOneShot atomic.Uint64
 }
 
+// OwnerNameResolver resolves display names from sandbox owner ids without changing the
+// machine-level sandbox repository contract. Resolvers are optional and best-effort: a missing
+// name keeps the persisted value, while a successful lookup repairs the read projection.
+//
+// OwnerNameResolver 按 sandbox owner id 解析显示名，不改变机器级 sandbox repository 契约。
+// resolver 可选且尽力而为：缺名保留持久值，成功查询则修正读投影。
+type OwnerNameResolver interface {
+	NamesByOwnerIDs(ctx context.Context, ownerIDs []string) (map[string]string, error)
+}
+
 // New constructs a Service; Bootstrap must succeed before EnsureRuntime/Spawn.
 // A nil emitter disables notifications (best-effort everywhere).
 //
@@ -69,13 +84,27 @@ func NewService(repo sandboxdomain.Repository, dataDir string, emitter notificat
 		panic("sandboxapp.New: nil logger")
 	}
 	return &Service{
-		repo:        repo,
-		sandboxRoot: filepath.Join(dataDir, "sandbox"),
-		emitter:     emitter,
-		log:         log,
-		installers:  make(map[string]sandboxdomain.RuntimeInstaller),
-		envManagers: make(map[string]sandboxdomain.EnvManager),
+		repo:               repo,
+		sandboxRoot:        filepath.Join(dataDir, "sandbox"),
+		emitter:            emitter,
+		log:                log,
+		ownerNameResolvers: make(map[string]OwnerNameResolver),
+		installers:         make(map[string]sandboxdomain.RuntimeInstaller),
+		envManagers:        make(map[string]sandboxdomain.EnvManager),
 	}
+}
+
+// SetOwnerNameResolvers installs read-time owner-name hydration after all entity services exist.
+// The sandbox service is constructed before Function/Handler, so bootstrap wires this post-build.
+//
+// SetOwnerNameResolvers 在所有实体 service 成形后装入读时 owner 名 hydrate。sandbox service
+// 先于 Function/Handler 构造，故由 bootstrap 在后置阶段接线。
+func (s *Service) SetOwnerNameResolvers(resolvers map[string]OwnerNameResolver) {
+	if resolvers == nil {
+		s.ownerNameResolvers = make(map[string]OwnerNameResolver)
+		return
+	}
+	s.ownerNameResolvers = resolvers
 }
 
 // SandboxRoot returns the file-system root path (<dataDir>/sandbox/).
@@ -238,7 +267,11 @@ func (s *Service) AvailableRuntimes(ctx context.Context) ([]RuntimeAvailability,
 //
 // ListEnvs 返回指定 owner kind 的 env 列表。
 func (s *Service) ListEnvs(ctx context.Context, ownerKind string) ([]*sandboxdomain.Env, error) {
-	return s.repo.ListEnvsByOwnerKind(ctx, ownerKind)
+	envs, err := s.repo.ListEnvsByOwnerKind(ctx, ownerKind)
+	if err != nil {
+		return nil, err
+	}
+	return s.hydrateOwnerNames(ctx, envs), nil
 }
 
 // TotalDiskUsage sums size_bytes across runtimes + envs.
@@ -252,7 +285,51 @@ func (s *Service) TotalDiskUsage(ctx context.Context) (int64, error) {
 //
 // GetEnv 按 id 返回单个 env，缺失返 ErrEnvNotFound。
 func (s *Service) GetEnv(ctx context.Context, id string) (*sandboxdomain.Env, error) {
-	return s.repo.GetEnv(ctx, id)
+	env, err := s.repo.GetEnv(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	s.hydrateOwnerNames(ctx, []*sandboxdomain.Env{env})
+	return env, nil
+}
+
+// hydrateOwnerNames overlays current entity names onto env rows. It deliberately does not fail
+// the sandbox endpoint when a resolver is unavailable: the persisted owner name (or owner id) is
+// still truthful, while a warning keeps resolver failures visible in the backend journal.
+//
+// hydrateOwnerNames 把当前实体名覆盖到 env 行。resolver 不可用时刻意不让 sandbox endpoint
+// 失败：持久 owner 名（或 owner id）仍是真实值，同时写 warning 让后端 journal 可见。
+func (s *Service) hydrateOwnerNames(ctx context.Context, envs []*sandboxdomain.Env) []*sandboxdomain.Env {
+	if len(envs) == 0 || len(s.ownerNameResolvers) == 0 {
+		return envs
+	}
+	idsByKind := make(map[string][]string)
+	for _, env := range envs {
+		if env == nil || env.OwnerID == "" {
+			continue
+		}
+		idsByKind[env.OwnerKind] = append(idsByKind[env.OwnerKind], env.OwnerID)
+	}
+	for kind, ids := range idsByKind {
+		resolver := s.ownerNameResolvers[kind]
+		if resolver == nil {
+			continue
+		}
+		names, err := resolver.NamesByOwnerIDs(ctx, ids)
+		if err != nil {
+			s.log.Warn("sandbox: owner name hydration failed", zap.String("owner_kind", kind), zap.Error(err))
+			continue
+		}
+		for _, env := range envs {
+			if env == nil || env.OwnerKind != kind {
+				continue
+			}
+			if name := strings.TrimSpace(names[env.OwnerID]); name != "" {
+				env.OwnerName = name
+			}
+		}
+	}
+	return envs
 }
 
 // DeleteRuntime hard-removes a runtime; refuses if any env still references it.
@@ -348,7 +425,15 @@ func (s *Service) EnsureRuntime(ctx context.Context, spec sandboxdomain.RuntimeS
 
 	relPath, err := installer.Install(ctx, version, s.sandboxRoot, stream)
 	if err != nil {
-		return nil, fmt.Errorf("sandboxapp.EnsureRuntime: install %s@%s: %w", spec.Kind, version, err)
+		var structured *errorspkg.Error
+		if errors.As(err, &structured) {
+			return nil, fmt.Errorf("sandboxapp.EnsureRuntime: install %s@%s: %w", spec.Kind, version, err)
+		}
+		failed := sandboxdomain.ErrRuntimeInstallFailed.WithDetails(map[string]any{
+			"kind":    spec.Kind,
+			"version": version,
+		}).WithCause(err)
+		return nil, fmt.Errorf("sandboxapp.EnsureRuntime: install %s@%s: %w", spec.Kind, version, failed)
 	}
 
 	runtime := &sandboxdomain.Runtime{
@@ -386,6 +471,12 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 
 	if existing, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID); err == nil {
 		if existing.Status == sandboxdomain.EnvStatusReady && depsEqual(existing.Deps, spec.Deps) {
+			if name := strings.TrimSpace(owner.Name); name != "" && existing.OwnerName != name {
+				existing.OwnerName = name
+				if updateErr := s.repo.UpdateEnv(ctx, existing); updateErr != nil {
+					s.log.Warn("sandbox: refresh owner name failed", zap.String("owner_kind", owner.Kind), zap.String("owner_id", owner.ID), zap.Error(updateErr))
+				}
+			}
 			s.touchLastUsed(ctx, existing)
 			return existing, nil
 		}
@@ -462,6 +553,12 @@ func (s *Service) Destroy(ctx context.Context, owner sandboxdomain.Owner) error 
 	}
 	if err != nil {
 		return fmt.Errorf("sandboxapp.Destroy: lookup %s/%s: %w", owner.Kind, owner.ID, err)
+	}
+	if existing.RunningPID > 0 {
+		// Deleting the directory under a resident process leaves a live handle pointing at
+		// removed files and makes the manifest lie about what is still running. Callers that
+		// own the process must stop it first; the settings delete must never kill it silently.
+		return fmt.Errorf("sandboxapp.Destroy: %s: %w", existing.ID, sandboxdomain.ErrEnvInUse)
 	}
 	if err := s.destroyLocked(ctx, existing); err != nil {
 		return err

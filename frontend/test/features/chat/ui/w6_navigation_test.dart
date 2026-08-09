@@ -85,6 +85,28 @@ Widget _host(FixtureChatRepository repo, Widget child) => ProviderScope(
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
+  test(
+    'scene anchors keep paging until the server says the list is complete',
+    () async {
+      final repo = _repo(count: 4101);
+      final container = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(container.dispose);
+      final subscription = container.listen(
+        transcriptAnchorsProvider(_conv),
+        (_, _) {},
+      );
+
+      final anchors = await container.read(
+        transcriptAnchorsProvider(_conv).future,
+      );
+
+      expect(anchors, hasLength(2051));
+      subscription.close();
+    },
+  );
+
   testWidgets('deep jump re-anchors on the target + shows the back-to-present pill; '
       'streaming frames never steal the viewport (the acceptance)', (tester) async {
     final repo = _repo();
@@ -243,6 +265,36 @@ void main() {
     expect(received, isNotNull);
     expect(received!.messageId, 'msg_0');
     sub.close();
+  });
+
+  testWidgets('场次条 gives an attachment-only turn a readable title', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_c()],
+      messages: {
+        _conv: [
+          ChatMessage(
+            id: 'msg_attachment_only',
+            conversationId: _conv,
+            role: 'user',
+            attrs: const {
+              'attachments': ['att_photo'],
+            },
+            createdAt: DateTime.utc(2026, 7, 8, 9, 1),
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(
+      _host(repo, Center(child: TranscriptToc(conversationId: _conv))),
+    );
+    await tester.pump();
+    await tester.tap(find.byType(AnButton));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text(t.chat.toc.attachment), findsOneWidget);
   });
 
   testWidgets(

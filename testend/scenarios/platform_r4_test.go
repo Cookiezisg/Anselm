@@ -378,10 +378,12 @@ func TestPlatformR4_SandboxRuntimesGCDisk(t *testing.T) {
 		t.Fatalf("python runtime must be installed after env materialization: %+v", runtimes)
 	}
 
-	var disk map[string]any
+	var disk struct {
+		TotalBytes int64 `json:"totalBytes"`
+	}
 	wc.GET("/api/v1/sandbox/disk-usage").OK(t, &disk)
-	if len(disk) == 0 {
-		t.Fatalf("disk-usage must report a non-empty shape: %v", disk)
+	if disk.TotalBytes <= 0 {
+		t.Fatalf("disk-usage totalBytes must be positive after materialization: %d", disk.TotalBytes)
 	}
 	wc.POST("/api/v1/sandbox:gc", nil).OK(t, nil)
 

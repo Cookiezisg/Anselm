@@ -87,6 +87,28 @@ void main() {
       expect(t.retargetCenter('msg_99'), isFalse);
     });
 
+    test(
+      'live targets remain present instead of becoming historical windows',
+      () {
+        final t = ConversationTranscript('cv_1');
+        const scope = StreamScope(kind: 'conversation', id: 'cv_1');
+        t.applyFrame(
+          const StreamEnvelope(
+            seq: 1,
+            scope: scope,
+            id: 'live_message',
+            frame: FrameOpen(
+              node: StreamNode(type: 'message', content: {'role': 'user'}),
+            ),
+          ),
+        );
+
+        expect(t.containsLiveTurn('live_message'), isTrue);
+        expect(t.windowMode, isFalse);
+        expect(t.retargetCenter('live_message'), isFalse);
+      },
+    );
+
     test('appendNewer extends the window downward', () {
       final t = ConversationTranscript('cv_1');
       t.setWindow([for (var i = 5; i >= 3; i--) _turn(i)], 'msg_4');
@@ -154,7 +176,7 @@ void main() {
       await pumpEventQueue();
       final ctl = c.read(conversationStreamProvider('cv_1').notifier);
       // The head page (30) holds msg_30..59 — msg_45 is loaded. 头页含 msg_45。
-      expect(await ctl.jumpTo('msg_45'), isTrue);
+      expect(await ctl.jumpTo('msg_45'), TranscriptJumpResult.near);
       expect(c.read(conversationStreamProvider('cv_1')).windowMode, isFalse);
       expect(
         ctl.transcript.value.settled[ctl.transcript.value.olderCount].id,
@@ -170,7 +192,7 @@ void main() {
         await pumpEventQueue();
         final ctl = c.read(conversationStreamProvider('cv_1').notifier);
 
-        expect(await ctl.jumpTo('msg_5'), isTrue);
+        expect(await ctl.jumpTo('msg_5'), TranscriptJumpResult.deep);
         var s = c.read(conversationStreamProvider('cv_1'));
         expect(s.windowMode, isTrue);
         final t = ctl.transcript.value;
@@ -198,8 +220,35 @@ void main() {
         c.listen(conversationStreamProvider('cv_1'), (_, _) {});
         await pumpEventQueue();
         final ctl = c.read(conversationStreamProvider('cv_1').notifier);
-        expect(await ctl.jumpTo('msg_nope'), isFalse);
+        expect(await ctl.jumpTo('msg_nope'), isNull);
         expect(c.read(conversationStreamProvider('cv_1')).windowMode, isFalse);
+      },
+    );
+
+    test(
+      'a live scene anchor highlights without detaching the present',
+      () async {
+        final (c, repo) = _setup(count: 4);
+        c.listen(conversationStreamProvider('cv_1'), (_, _) {});
+        await pumpEventQueue();
+        final ctl = c.read(conversationStreamProvider('cv_1').notifier);
+        const scope = StreamScope(kind: 'conversation', id: 'cv_1');
+        repo.emitFrame(
+          'cv_1',
+          const StreamEnvelope(
+            seq: 0,
+            scope: scope,
+            id: 'live_message',
+            frame: FrameOpen(
+              node: StreamNode(type: 'message', content: {'role': 'user'}),
+            ),
+          ),
+        );
+        await pumpEventQueue();
+
+        expect(await ctl.jumpTo('live_message'), TranscriptJumpResult.present);
+        expect(c.read(conversationStreamProvider('cv_1')).windowMode, isFalse);
+        expect(ctl.transcript.value.windowMode, isFalse);
       },
     );
 

@@ -146,9 +146,13 @@ func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink
 	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: v.FunctionID}, entitystreamapp.NodeBuild, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))
+	owner := envOwner(v.FunctionID, v.EnvID)
+	if f, err := s.repo.GetFunction(ctx, v.FunctionID); err == nil && f != nil {
+		owner.Name = f.Name
+	}
 
 	res := s.provisioner.Provision(ctx, envfixapp.Request{
-		Owner:   envOwner(v.FunctionID, v.EnvID),
+		Owner:   owner,
 		Runtime: sandboxdomain.RuntimeSpec{Kind: "python", Version: v.PythonVersion},
 		Deps:    v.Dependencies,
 		Sink:    sink,

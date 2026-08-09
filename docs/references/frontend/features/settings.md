@@ -45,6 +45,9 @@ audience: [human, ai]
 ## 3. 数据与安全
 
 - `SettingsRepository` 是唯一数据缝，Live/Fixture 同形；动态资源面不直接调用 `ApiClient`。
+- Sandbox 的 machine runtime roster 同时保留 loading、error 和 settled-empty 三态：加载中用骨架，读取失败显示明确错误与 Retry，只有服务端确认 `data: []` 才显示「暂无运行时」。安装按钮在真实下载期间显示 `Installing…` 并锁住重复提交；切换 runtime kind 会用该 kind 的后端 default 重建版本输入，不能遗留上一个 kind 的版本。`disk-usage` 是全机 manifest 的 `sizeBytes` 投影，`0 B` 是合法空值；Sandbox 与 Storage 共用同一数值，加载显示骨架，读取失败显示明确错误和 Retry，绝不以空白或 `0 B` 代替错误。因为设置海洋由懒 `IndexedStack` 常驻，进入 Settings 以及切换到 Sandbox/Storage 都必须失效重取。最终 runtime kind/version/size 与 disk usage 必须和 REST、机器级 SQLite 真相一致，安装或删除成功后重取全机磁盘总量，缺 workspace 不能降级为空列表。
+- Sandbox owner env roster 同样必须区分 loading、error 和 settled-empty：每个 `ownerKind` tab 在查询未落定时显示骨架，查询失败显示可重试错误，只有 `GET /sandbox/envs?ownerKind=...` 确认返回空数组时才显示「暂无环境」；不能用 `.value ?? []` 把断线或后端错误伪装成空 tab。列表按后端 `lastUsedAt DESC` 投影可读 owner 名、依赖数、大小、状态和运行 PID；Function/Handler 的历史 env 行也必须由后端读时 hydrate 当前实体名，不能让用户面对复合 owner id；wire `deps` 始终是数组，空值为 `[]`；failed 行还要显示后端 `errorMsg`，installing 行要显示构建中提示，不能只给一个用户无法解释的颜色点。删除确认必须说明本机文件会被永久移除、所属实体仍保留且下次执行会自动重建；运行中的 env 必须先停所属实体，不能静默删掉活进程的目录；删除成功后同时刷新当前 owner tab 和机器级 disk usage。
+- Sandbox 安装失败按 wire code 呈现可行动错误：`SANDBOX_RUNTIME_VERSION_UNSUPPORTED` 使用后端 `details.kind/version/hint` 告诉用户改用什么发行版，`SANDBOX_RUNTIME_INSTALL_FAILED` 点名失败的 runtime/version 并提示检查版本和网络；错误留在安装表单内，不把用户弹回一个看似空成功的名册。同步安装飞行期间锁住 `Cancel`，因为当前契约没有取消下载动作，不能让用户以为后端已停止。删除 runtime 的确认框必须明确说明本机文件会被永久移除、仍被环境引用时会拒绝，并告知之后可重新安装；取消不改变名册，确认后才以 REST 真相收敛到 settled-empty。
 - provider credential 按目录声明的类型收集；Vertex 使用服务账号 JSON，不伪装成 API key 文本框。
 - key 保存后走真实测试；鉴权失败、未验证 provider 与可疑自填 base URL 分开解释。
 - MCP 名册的 loading、error、empty 是三个不同的产品状态：请求未落定时显示内容骨架，读取失败显示可重试错误，只有后端确实返回空数组时才显示无服务器市场入口；不能用空列表兜底掩盖断线。名册同时监听 entities 上的实时状态和 notifications 上的 `mcp.*` 生命周期事件，两者都只触发对 REST 真相的重取。已打开的 server 详情也以落定名册对账：对象从名册消失时下一帧自动回到名册并给出“已删除/列表已刷新”反馈，loading/error 不触发误驱逐。

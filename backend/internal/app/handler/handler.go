@@ -215,9 +215,13 @@ func (s *Service) ensureEnv(ctx context.Context, v *handlerdomain.Version, sink 
 	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindHandler, ID: v.HandlerID}, entitystreamapp.NodeBuild, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))
+	owner := envOwner(v.HandlerID, v.EnvID)
+	if h, err := s.repo.GetHandler(ctx, v.HandlerID); err == nil && h != nil {
+		owner.Name = h.Name
+	}
 
 	res := s.provisioner.Provision(ctx, envfixapp.Request{
-		Owner:   envOwner(v.HandlerID, v.EnvID),
+		Owner:   owner,
 		Runtime: sandboxdomain.RuntimeSpec{Kind: "python", Version: v.PythonVersion},
 		Deps:    v.Dependencies,
 		Sink:    sink,

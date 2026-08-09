@@ -11,17 +11,23 @@ import '../data/chat_providers.dart';
 import '../state/transcript_jump_provider.dart';
 
 /// The full anchor list of one conversation — loops the keyset pages so the 场次条 offers EVERY
-/// scene, any depth (a navigation aid must not silently truncate; the page cap is a runaway
-/// backstop far above any real thread). Re-fetched each open via invalidate.
+/// scene, any depth. A navigation aid must not silently truncate: the high page limit is only a
+/// visible-error guard for a broken server cursor, never a success-path cap. Re-fetched each open.
 ///
-/// 一个对话的全量锚点——循环 keyset 分页,场次条给出**任意深度**的每一场(导航辅助不得静默截断;
-/// 页数上限是远超真实线程的失控兜底)。每次打开经 invalidate 重拉。
+/// 一个对话的全量锚点——循环 keyset 分页,场次条给出**任意深度**的每一场。导航辅助不得静默截断;
+/// 高页数上限只是服务端游标损坏时的**显式错误**护栏,不是成功路径的截断。每次打开经 invalidate 重拉。
 final transcriptAnchorsProvider = FutureProvider.autoDispose
     .family<List<TranscriptAnchor>, String>((ref, conversationId) async {
       final repo = ref.watch(chatRepositoryProvider);
       final out = <TranscriptAnchor>[];
       String? cursor;
-      for (var page = 0; page < 40; page++) {
+      final seenCursors = <String>{};
+      // Do not silently truncate a local conversation. The large guard is only protection against
+      // a broken server cursor; reaching it becomes an explicit error instead of a false full list.
+      for (var page = 0; ; page++) {
+        if (page >= 10000) {
+          throw StateError('scene list exceeds the local navigation limit');
+        }
         final p = await repo.listAnchors(
           conversationId,
           cursor: cursor,
@@ -29,7 +35,11 @@ final transcriptAnchorsProvider = FutureProvider.autoDispose
         );
         out.addAll(p.items);
         if (p.isLastPage || p.nextCursor == null) break;
-        cursor = p.nextCursor;
+        final next = p.nextCursor!;
+        if (next.isEmpty || !seenCursors.add(next)) {
+          throw StateError('scene anchor pagination did not advance');
+        }
+        cursor = next;
       }
       return out;
     });
@@ -133,7 +143,7 @@ class _TocPanel extends ConsumerWidget {
             Padding(
               padding: const EdgeInsets.all(AnSpace.s16),
               child: Text(
-                t.chat.transcriptErrorHint,
+                t.chat.toc.loadFailed,
                 style: AnText.label.copyWith(color: c.inkFaint),
               ),
             ),
@@ -197,7 +207,11 @@ class _TocPanel extends ConsumerWidget {
         c.warn,
         a.title.isEmpty ? t.chat.toc.abnormal : a.title,
       ),
-      'user' => (AnIcons.chat, c.inkMuted, a.title),
+      'user' => (
+        AnIcons.chat,
+        c.inkMuted,
+        a.title.isEmpty ? t.chat.toc.attachment : a.title,
+      ),
       // Unknown kinds render honestly by title, never invisibly. 未知 kind 按 title 诚实渲,绝不隐身。
       _ => (AnIcons.circle, c.inkFaint, a.title),
     };

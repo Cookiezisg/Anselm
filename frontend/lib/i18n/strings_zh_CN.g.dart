@@ -828,6 +828,8 @@ class _Translations$chat$toc$zh_CN extends Translations$chat$toc$en {
 	@override String get compaction => '上下文已压缩';
 	@override String get abnormal => '异常终止';
 	@override String get empty => '还没有可跳转的场次';
+	@override String get attachment => '附件';
+	@override String get loadFailed => '没能加载完整场次目录。重新打开菜单再试一次。';
 }
 
 // Path: chat.tool
@@ -2404,6 +2406,7 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get revealFinder => '在访达中显示';
 	@override String get diskUsage => '磁盘占用';
 	@override String get diskSandbox => '沙箱运行时与环境';
+	@override String get diskLoadFailed => '无法读取沙箱磁盘占用';
 	@override String get openLogs => '打开日志文件夹';
 	@override String get retention => 'Run 历史保留';
 	@override String get retentionDesc => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。';
@@ -2473,22 +2476,26 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	@override String get bootstrapFail => '沙箱引导失败';
 	@override String get retry => '重试';
 	@override String get runtimes => '运行时';
+	@override String get runtimesLoadFailed => '运行时加载失败';
+	@override String get envsLoadFailed => '环境加载失败';
 	@override String get install => '安装';
 	@override String get installing => '安装中…';
 	@override String get installTitle => '安装运行时';
 	@override String get kind => '类型';
 	@override String get version => '版本';
 	@override String get versionHint => '如 22 / 3.12';
+	@override String versionUnsupported({required Object kind, required Object version, required Object hint}) => '不支持 ${kind} ${version}。请使用 ${hint}，然后重试。';
+	@override String installFailed({required Object kind, required Object version}) => '无法安装 ${kind} ${version}。请检查版本和网络连接后重试。';
 	@override String get add => '安装';
 	@override String get delete => '删除';
 	@override String get deleteRtTitle => '删除运行时';
-	@override String deleteRtBody({required Object kind, required Object version}) => '将删除「${kind} ${version}」;仍被环境引用会被拒。';
+	@override String deleteRtBody({required Object kind, required Object version}) => '将从本机永久移除「${kind} ${version}」及其文件。仍引用它的环境必须先清理；之后可重新安装。';
 	@override String get confirmDelete => '删除';
 	@override String get inUse => '仍有环境引用此运行时,先清理环境';
 	@override String get envs => '环境';
-	@override String get envRebuild => '下次执行时自动重建';
 	@override String get deleteEnvTitle => '删除环境';
-	@override String get deleteEnvBody => '将删除此环境。';
+	@override String get deleteEnvBody => '将从本机永久移除此环境及其文件。所属实体不会被删除，下次执行时会自动重建环境。';
+	@override String get envInUse => '此环境仍在运行，请先停止所属实体再删除。';
 	@override String get ownerFunction => '函数';
 	@override String get ownerHandler => '处理器';
 	@override String get ownerMcp => 'MCP';
@@ -2506,6 +2513,7 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	@override String get running => '运行中';
 	@override String get statusReady => '就绪';
 	@override String get statusFailed => '失败';
+	@override String get statusInstalling => '构建中…';
 }
 
 // Path: settings.shortcuts
@@ -3220,6 +3228,8 @@ extension on TranslationsZhCn {
 			'chat.toc.compaction' => '上下文已压缩',
 			'chat.toc.abnormal' => '异常终止',
 			'chat.toc.empty' => '还没有可跳转的场次',
+			'chat.toc.attachment' => '附件',
+			'chat.toc.loadFailed' => '没能加载完整场次目录。重新打开菜单再试一次。',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
 			'chat.mentionEntity' => 'Mention an entity',
@@ -3604,10 +3614,10 @@ extension on TranslationsZhCn {
 			'chat.tool.parkRunCaption' => 'park 在审批节点的 run,头仍为 running',
 			'chat.tool.actReturnValue' => '返回值',
 			'chat.tool.actId' => '活动 ID',
-			'chat.tool.actTriggerId' => '触发器 ID',
-			'chat.tool.actCreatedAt' => '创建时间',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.actTriggerId' => '触发器 ID',
+			'chat.tool.actCreatedAt' => '创建时间',
 			'chat.tool.actFanout' => ({required Object n}) => '扇出 ${n}',
 			'chat.tool.gettingFnExec' => '正在调阅函数执行档案',
 			'chat.tool.gotFnExec' => '已调阅函数执行档案',
@@ -4118,10 +4128,10 @@ extension on TranslationsZhCn {
 			'scheduler.range.to' => '到',
 			'scheduler.range.apply' => '应用',
 			'scheduler.range.endBeforeStart' => '终点早于起点',
-			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
-			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m}',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
+			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m}',
 			'scheduler.range.months' => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月',
 			'scheduler.range.prevMonth' => '上个月',
 			'scheduler.range.nextMonth' => '下个月',
@@ -4632,10 +4642,10 @@ extension on TranslationsZhCn {
 			'entities.graph.legend' => '类型',
 			'entities.graph.back' => '返回总览',
 			'entities.graph.selectHint' => '选择一个节点查看其关系。',
-			'entities.graph.verb.equip' => '装备了',
-			'entities.graph.verb.link' => '链接了',
 			_ => null,
 		} ?? switch (path) {
+			'entities.graph.verb.equip' => '装备了',
+			'entities.graph.verb.link' => '链接了',
 			'entities.graph.verb.create' => '创建了',
 			'entities.graph.verb.edit' => '编辑了',
 			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
@@ -5130,6 +5140,7 @@ extension on TranslationsZhCn {
 			'settings.storage.revealFinder' => '在访达中显示',
 			'settings.storage.diskUsage' => '磁盘占用',
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
+			'settings.storage.diskLoadFailed' => '无法读取沙箱磁盘占用',
 			'settings.storage.openLogs' => '打开日志文件夹',
 			'settings.storage.retention' => 'Run 历史保留',
 			'settings.storage.retentionDesc' => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。',
@@ -5145,11 +5156,11 @@ extension on TranslationsZhCn {
 			'settings.storage.compacting' => '压缩中…',
 			'settings.storage.compacted' => ({required Object mb}) => '已回收 ${mb}',
 			'settings.storage.resetPrefs' => '重置本地偏好',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
 			'settings.storage.factoryTitle' => '恢复出厂设置',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
 			'settings.storage.factoryConfirm' => '抹掉一切并重启',
@@ -5174,22 +5185,26 @@ extension on TranslationsZhCn {
 			'settings.sandbox.bootstrapFail' => '沙箱引导失败',
 			'settings.sandbox.retry' => '重试',
 			'settings.sandbox.runtimes' => '运行时',
+			'settings.sandbox.runtimesLoadFailed' => '运行时加载失败',
+			'settings.sandbox.envsLoadFailed' => '环境加载失败',
 			'settings.sandbox.install' => '安装',
 			'settings.sandbox.installing' => '安装中…',
 			'settings.sandbox.installTitle' => '安装运行时',
 			'settings.sandbox.kind' => '类型',
 			'settings.sandbox.version' => '版本',
 			'settings.sandbox.versionHint' => '如 22 / 3.12',
+			'settings.sandbox.versionUnsupported' => ({required Object kind, required Object version, required Object hint}) => '不支持 ${kind} ${version}。请使用 ${hint}，然后重试。',
+			'settings.sandbox.installFailed' => ({required Object kind, required Object version}) => '无法安装 ${kind} ${version}。请检查版本和网络连接后重试。',
 			'settings.sandbox.add' => '安装',
 			'settings.sandbox.delete' => '删除',
 			'settings.sandbox.deleteRtTitle' => '删除运行时',
-			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => '将删除「${kind} ${version}」;仍被环境引用会被拒。',
+			'settings.sandbox.deleteRtBody' => ({required Object kind, required Object version}) => '将从本机永久移除「${kind} ${version}」及其文件。仍引用它的环境必须先清理；之后可重新安装。',
 			'settings.sandbox.confirmDelete' => '删除',
 			'settings.sandbox.inUse' => '仍有环境引用此运行时,先清理环境',
 			'settings.sandbox.envs' => '环境',
-			'settings.sandbox.envRebuild' => '下次执行时自动重建',
 			'settings.sandbox.deleteEnvTitle' => '删除环境',
-			'settings.sandbox.deleteEnvBody' => '将删除此环境。',
+			'settings.sandbox.deleteEnvBody' => '将从本机永久移除此环境及其文件。所属实体不会被删除，下次执行时会自动重建环境。',
+			'settings.sandbox.envInUse' => '此环境仍在运行，请先停止所属实体再删除。',
 			'settings.sandbox.ownerFunction' => '函数',
 			'settings.sandbox.ownerHandler' => '处理器',
 			'settings.sandbox.ownerMcp' => 'MCP',
@@ -5207,6 +5222,7 @@ extension on TranslationsZhCn {
 			'settings.sandbox.running' => '运行中',
 			'settings.sandbox.statusReady' => '就绪',
 			'settings.sandbox.statusFailed' => '失败',
+			'settings.sandbox.statusInstalling' => '构建中…',
 			'settings.shortcuts.section' => '快捷键',
 			'settings.shortcuts.scope' => '本机',
 			'settings.shortcuts.resetAll' => '全部恢复默认',

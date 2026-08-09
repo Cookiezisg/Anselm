@@ -126,6 +126,12 @@ class ConversationTranscript {
       .where((n) => n.kind == BlockKind.message)
       .toList(growable: false);
 
+  /// Whether [messageId] is already part of the present live layer. A live target is already rendered
+  /// by the head and must not be sent through the historical `?around=` window path.
+  /// [messageId] 是否已经属于现场 live 层。现场目标已经由头部渲染，不能再误走历史 `?around=` 窗口。
+  bool containsLiveTurn(String messageId) =>
+      liveTurns.any((turn) => turn.id == messageId);
+
   /// EVERY live-layer root, orphans included — the G5 director realign walks this as stream truth
   /// (an orphan tool_call root was still genuinely opened by the stream; treating it as absent
   /// would sweep a live activity as a ghost). live 层全部根(含防御性孤儿)——G5 对齐以此为流真相;

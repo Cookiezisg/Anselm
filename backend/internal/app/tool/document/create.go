@@ -11,7 +11,7 @@ import (
 	documentdomain "github.com/sunweilin/anselm/backend/internal/domain/document"
 )
 
-const createDocumentDescription = `Create a document in the user's library. name, description, content, and tags are REQUIRED on every call, including the first call. Send the exact requested document title as a non-empty name; copy user-supplied description, tags, and content exactly. If the user did not supply one of those three fields, send an explicit empty string or empty array for that field — never omit it, invent it, or use a name-only placeholder. Never omit a required field, stage creation followed by edit, guess a default, or silently retry the same document with different arguments. One requested document gets one canonical create call; validation failure is not success. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision). To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
+const createDocumentDescription = `Create a document in the user's library. name, description, content, and tags are REQUIRED on every call, including the first call. Send the exact requested document title as a non-empty name; copy user-supplied description, tags, and content exactly. If the user did not supply one of those three fields, send an explicit empty string or empty array for that field — never omit it, invent it, or use a name-only placeholder. Never omit a required field, stage creation followed by edit, guess a default, or silently retry the same document with different arguments. One requested document gets one canonical create call; validation failure is not success. parentId nests it under another doc (Notion-style); null/omit = root. content is the full markdown body — max 1MB; larger content is REJECTED (DOCUMENT_CONTENT_TOO_LARGE), not auto-split, so break it into smaller child docs yourself. Name must be unique among siblings (auto-suffixed on collision). Hosted-provider compatibility accepts one exact JSON-encoded array string for tags (for example "[\\"release\\"]") when a provider adds one layer of quoting; comma-joined or arbitrary strings remain invalid. To embed an image the workspace already holds — one you just generated, or one attached to this conversation — write a normal markdown image whose url is anselm://media/<attachmentId>, for example: ![sales chart](anselm://media/att_0011223344556677). That is the ONLY form the library renders: a plain https url renders as an external image, and a bare attachment id renders as nothing.`
 
 var createDocumentSchema = json.RawMessage(`{
 	"type": "object",
@@ -21,7 +21,7 @@ var createDocumentSchema = json.RawMessage(`{
 		"parentId":    {"type": ["string", "null"], "description": "Parent doc ID; null/omit = root."},
 		"description": {"type": "string", "description": "REQUIRED on every call. Copy the user's description exactly; if none was supplied, use an empty string. Never omit or invent."},
 		"content":     {"type": "string", "description": "REQUIRED on every call. Copy the user's full Markdown exactly; if no body was supplied, use an empty string. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
-		"tags":        {"type": "array", "items": {"type": "string"}, "description": "REQUIRED on every call. Copy one exact string per user-supplied tag; if none was supplied, use []. Never comma-join or invent tags."}
+		"tags":        {"type": "array", "items": {"type": "string"}, "description": "REQUIRED on every call. Copy one exact string per user-supplied tag; if none was supplied, use []. Hosted callers may have one extra JSON-encoded string layer; an exact encoded array is accepted, but comma-joined or arbitrary strings are invalid."}
 	}
 }`)
 
@@ -70,13 +70,17 @@ func (t *CreateDocument) ValidateInput(args json.RawMessage) error {
 
 func (t *CreateDocument) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var a struct {
-		Name        string   `json:"name"`
-		ParentID    *string  `json:"parentId"`
-		Description string   `json:"description"`
-		Content     string   `json:"content"`
-		Tags        []string `json:"tags"`
+		Name        string          `json:"name"`
+		ParentID    *string         `json:"parentId"`
+		Description string          `json:"description"`
+		Content     string          `json:"content"`
+		Tags        json.RawMessage `json:"tags"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
+		return "", fmt.Errorf("create_document: %w", err)
+	}
+	tags, err := decodeDocumentTags(a.Tags)
+	if err != nil {
 		return "", fmt.Errorf("create_document: %w", err)
 	}
 	// Empty-string parentId is treated as null (root-level create).
@@ -85,12 +89,16 @@ func (t *CreateDocument) Execute(ctx context.Context, argsJSON string) (string, 
 	if a.ParentID != nil && *a.ParentID == "" {
 		a.ParentID = nil
 	}
+	var tagValues []string
+	if tags != nil {
+		tagValues = *tags
+	}
 	d, err := t.svc.Create(ctx, documentapp.CreateInput{
 		Name:        a.Name,
 		ParentID:    a.ParentID,
 		Description: a.Description,
 		Content:     a.Content,
-		Tags:        a.Tags,
+		Tags:        tagValues,
 	})
 	if err != nil {
 		switch {

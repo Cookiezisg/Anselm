@@ -1,13 +1,16 @@
 import 'dart:async';
 
 import 'package:anselm/core/contract/retention.dart';
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/byte_format.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/ui/panels/limits_panel.dart';
 import 'package:anselm/features/settings/ui/panels/storage_panel.dart';
+import 'package:anselm/features/settings/ui/settings_ocean.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -68,6 +71,63 @@ void main() {
       expect(find.byType(StoragePanel), findsOneWidget, reason: '未解锁,什么都没发生');
     },
   );
+
+  testWidgets('storage disk usage failure is visible and retry recovers', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..diskUsageError = const ApiException(
+        code: 'SANDBOX_DISK_USAGE_FAILED',
+        message: 'disk projection unavailable',
+        httpStatus: 503,
+      );
+    await tester.pumpWidget(_host(repo, const StoragePanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(StoragePanel)));
+
+    expect(find.text(t.settings.storage.diskLoadFailed), findsOneWidget);
+    expect(find.text('42.0 MB'), findsNothing);
+
+    repo.diskUsageError = null;
+    await tester.tap(find.text(t.settings.sandbox.retry));
+    await tester.pumpAndSettle();
+    expect(find.text(t.settings.storage.diskLoadFailed), findsNothing);
+    expect(find.text('42.0 MB'), findsOneWidget);
+  });
+
+  testWidgets('re-entering Settings refreshes the cached machine disk figure', (
+    tester,
+  ) async {
+    final prefs = SettingsPrefs.inMemory({'an.settings.panel': 'storage'});
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsPrefsProvider.overrideWithValue(prefs),
+          settingsRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            theme: AnTheme.light(),
+            home: const Scaffold(body: SettingsOcean()),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('42.0 MB'), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(SettingsOcean)),
+      listen: false,
+    );
+    repo.fixtureDisk = 84 * 1024 * 1024;
+    container.read(selectedOceanProvider.notifier).select(OceanKind.chat);
+    await tester.pump();
+    container.read(selectedOceanProvider.notifier).select(OceanKind.settings);
+    await tester.pumpAndSettle();
+    expect(find.text('84.0 MB'), findsOneWidget);
+  });
 
   testWidgets(
     'limits: schema drives groups; a commit PATCHes the nested merge; reset restores',

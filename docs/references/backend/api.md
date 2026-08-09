@@ -270,8 +270,8 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 | `GET /conversations/{id}/anchors` | Scene anchors 分页 |
 | `GET /conversations/{id}/usage` | token 汇总 |
 | `GET /conversations/{id}/system-prompt-preview` | 真实 prompt builder 预览 |
-| `GET /conversations/{id}/interactions` | pending HumanLoop |
-| `POST /conversations/{id}/interactions/{toolCallId}` | resolve interaction |
+| `GET /conversations/{id}/interactions` | 当前待决 HumanLoop 重连快照（broker 内存表；先校验会话归属，未知/跨 workspace → `404 CONVERSATION_NOT_FOUND`） |
+| `POST /conversations/{id}/interactions/{toolCallId}` | 先在当前 workspace 校验会话归属，再决议该会话的 HumanLoop（`action`/`answer?`，204；跨 workspace/未知会话 → `404 CONVERSATION_NOT_FOUND`；tool id 不属于该会话或已决议 → `404 NO_PENDING_INTERACTION`） |
 | `GET /conversations/{conversationId}/todos` | live Todo |
 | `GET /conversations/{conversationId}/touchpoints` | Conversation touch ledger |
 
@@ -377,13 +377,25 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 | `POST /sandbox/runtimes` · `DELETE /sandbox/runtimes/{id}` | 安装 / 删除 |
 | `GET /sandbox/envs` · `GET /sandbox/envs/{id}` | Env 列表 / 单读 |
 | `DELETE /sandbox/envs/{id}` | 销毁 env |
-| `GET /sandbox/disk-usage` | disk audit |
+| `GET /sandbox/disk-usage` | machine-wide sandbox manifest projection |
 | `GET /sandbox/bootstrap-status` | bootstrap 状态 |
 | `POST /sandbox:gc` | 回收派生 env/runtime 文件 |
 | `POST /sandbox:retry-bootstrap` | 重试 bootstrap |
 | `GET /conversations/{id}/sandbox-envs` | Conversation scratch envs |
 | `POST /conversations/{id}/sandbox-envs/{kind}:reset` | 重置一种 scratch env |
 | `POST /conversations/{id}/sandbox-envs:reset-all` | 重置全部 scratch env |
+
+Env manifest 的 `deps` 是集合字段，线上始终编码为 JSON 数组；没有依赖时为 `[]`，不返回 `null`。
+`ownerName` 是设置页使用的可读所属实体名：Function/Handler 的复合 owner id 在读时按当前
+workspace hydrate，兼容历史上没有持久名称的 env 行和实体改名；若所属实体已不存在则保留空值，
+调用方回退到 `ownerId`。`GET /sandbox/envs/{id}` 与列表共用同一份完整 manifest，机器级资源不按
+workspace 过滤。`DELETE /sandbox/envs/{id}` 成功返回 `204`，同时移除 manifest 行和对应本机目录；
+运行中的 env（`runningPid > 0`）返回 `409 SANDBOX_ENV_IN_USE`，调用方必须先停止所属实体，
+服务端不会静默杀掉常驻进程。未知 id 返回 `404 SANDBOX_ENV_NOT_FOUND`。
+
+`GET /sandbox/disk-usage` 返回 `{"totalBytes": int64}`，其中 `totalBytes` 是机器级
+runtime 与 env manifest 的 `sizeBytes` 之和；它不按 workspace 过滤，也不是每次请求重新扫描文件系统。
+没有 runtime/env 时返回 `0`，这是合法成功值。
 
 ## 11. Notifications and runtime settings
 

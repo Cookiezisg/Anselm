@@ -569,10 +569,26 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 	var envs []struct {
 		ID        string `json:"id"`
 		OwnerKind string `json:"ownerKind"`
+		OwnerName string `json:"ownerName"`
 	}
 	wa.GET("/api/v1/sandbox/envs?ownerKind=function").OK(t, &envs)
 	if len(envs) == 0 {
 		t.Fatal("function env must be listed after materialization")
+	}
+	if envs[0].OwnerName != "sbx_probe_fn" {
+		t.Fatalf("function env must expose the readable parent name, got %q", envs[0].OwnerName)
+	}
+	var detail struct {
+		ID        string          `json:"id"`
+		OwnerName string          `json:"ownerName"`
+		Deps      json.RawMessage `json:"deps"`
+	}
+	wa.GET("/api/v1/sandbox/envs/"+envs[0].ID).OK(t, &detail)
+	if detail.ID != envs[0].ID || detail.OwnerName != "sbx_probe_fn" || string(detail.Deps) != "[]" {
+		t.Fatalf("single env detail must preserve id and encode empty deps as []: %+v", detail)
+	}
+	if miss := wa.GET("/api/v1/sandbox/envs/se_missing_contract"); miss.Status != 404 || miss.Code != "SANDBOX_ENV_NOT_FOUND" {
+		t.Fatalf("missing env detail = %d/%s, want 404/SANDBOX_ENV_NOT_FOUND", miss.Status, miss.Code)
 	}
 
 	// ① N4 分页缺口现场：limit=1 被忽略、垃圾 limit 不 400。
@@ -603,6 +619,19 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 		t.Fatalf("sandbox envs are machine-level (no ws column) — wsB must see env %s, got %+v", envs[0].ID, envsB)
 	}
 	wb.GET("/api/v1/sandbox/envs/"+envs[0].ID).OK(t, nil) // 单读同理机器级可达
+
+	// DELETE is a machine-level mutation: it removes the env, is visible from both
+	// workspace clients, and a repeat is a loud 404 rather than a false 204.
+	// DELETE 是机器级 mutation：删除后两 workspace 都不可读，重复删除明确 404 而不是假 204。
+	if del := wa.Do("DELETE", "/api/v1/sandbox/envs/"+envs[0].ID, nil); del.Status != 204 {
+		t.Fatalf("known env DELETE = %d/%s, want 204", del.Status, del.Code)
+	}
+	if miss := wb.GET("/api/v1/sandbox/envs/" + envs[0].ID); miss.Status != 404 || miss.Code != "SANDBOX_ENV_NOT_FOUND" {
+		t.Fatalf("deleted env detail = %d/%s, want 404/SANDBOX_ENV_NOT_FOUND", miss.Status, miss.Code)
+	}
+	if repeat := wa.Do("DELETE", "/api/v1/sandbox/envs/"+envs[0].ID, nil); repeat.Status != 404 || repeat.Code != "SANDBOX_ENV_NOT_FOUND" {
+		t.Fatalf("repeat env DELETE = %d/%s, want 404/SANDBOX_ENV_NOT_FOUND", repeat.Status, repeat.Code)
+	}
 
 	// ③ :retry-bootstrap 带内状态。
 	rb := wa.POST("/api/v1/sandbox:retry-bootstrap", nil)

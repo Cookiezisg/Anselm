@@ -424,17 +424,31 @@ func TestPlatform_SandboxGovernance(t *testing.T) {
 	}
 	wc.GET("/api/v1/sandbox/bootstrap-status").OK(t, &boot)
 
-	// runtimes 列表（缓存预置后非空）。
-	wc.GET("/api/v1/sandbox/runtimes").OK(t, nil)
-
 	// 建 function 物化一个 env（落盘）→ disk-usage > 0。
 	fnCreate(t, wc, "sbx_fn", "def f() -> dict:\n    return {}\n")
+	// runtimes 列表在物化后读取,同时保留 sizeBytes 以核对 disk projection。
+	var runtimes []struct {
+		SizeBytes int64 `json:"sizeBytes"`
+	}
+	wc.GET("/api/v1/sandbox/runtimes").OK(t, &runtimes)
+	var envs []struct {
+		ID        string `json:"id"`
+		SizeBytes int64  `json:"sizeBytes"`
+	}
+	wc.GET("/api/v1/sandbox/envs?ownerKind=function").OK(t, &envs)
+	var expected int64
+	for _, runtime := range runtimes {
+		expected += runtime.SizeBytes
+	}
+	for _, env := range envs {
+		expected += env.SizeBytes
+	}
 	var disk struct {
 		TotalBytes int64 `json:"totalBytes"`
 	}
 	wc.GET("/api/v1/sandbox/disk-usage").OK(t, &disk)
-	if disk.TotalBytes <= 0 {
-		t.Fatalf("disk-usage totalBytes=%d after materializing an env", disk.TotalBytes)
+	if disk.TotalBytes != expected || disk.TotalBytes <= 0 {
+		t.Fatalf("disk-usage totalBytes=%d, want manifest sum %d", disk.TotalBytes, expected)
 	}
 
 	// envs ownerKind 守卫：缺失 → 400；非法 → 400（空 list 永不被误读为「没数据」）。
@@ -442,14 +456,16 @@ func TestPlatform_SandboxGovernance(t *testing.T) {
 	wc.Do("GET", "/api/v1/sandbox/envs?ownerKind=wizard", nil).Fail(t, 400, "SANDBOX_INVALID_OWNER_KIND")
 
 	// function env 列出 → 取其一销毁 → 204。
-	var envs []struct {
-		ID string `json:"id"`
-	}
-	wc.GET("/api/v1/sandbox/envs?ownerKind=function").OK(t, &envs)
 	if len(envs) == 0 {
 		t.Fatal("no function env listed after materialization")
 	}
 	wc.Do("DELETE", "/api/v1/sandbox/envs/"+envs[0].ID, nil).OK(t, nil)
+	if miss := wc.GET("/api/v1/sandbox/envs/" + envs[0].ID); miss.Status != 404 || miss.Code != "SANDBOX_ENV_NOT_FOUND" {
+		t.Fatalf("deleted env detail = %d/%s, want 404/SANDBOX_ENV_NOT_FOUND", miss.Status, miss.Code)
+	}
+	if repeat := wc.Do("DELETE", "/api/v1/sandbox/envs/"+envs[0].ID, nil); repeat.Status != 404 || repeat.Code != "SANDBOX_ENV_NOT_FOUND" {
+		t.Fatalf("repeat env DELETE = %d/%s, want 404/SANDBOX_ENV_NOT_FOUND", repeat.Status, repeat.Code)
+	}
 }
 
 // ── relation（A10 涟漪：equip 边 + 读侧名字跟随 + 删除清边）─────────────────────

@@ -218,7 +218,11 @@ assistant 状态、余下 blocks、usage、model/provider 与 attrs，再发送 
 `message_stop`。Chat host 另实现可选 `BlockRecorder`：每次 LLM sampling
 结束后先把该批 blocks 追加到仍为 streaming 的 assistant 行。这样人在环停泊后，用户
 稍晚冷打开线程时，REST history 仍有对应 `tool_call`，`GET interactions` 提供的
-问题/按钮可以挂到真实节点上，而不是只显示一行无意义的 `thinking`。最终
+问题/按钮可以挂到真实节点上，而不是只显示一行无意义的 `thinking`；该重连快照在读取 broker
+状态前先校验会话归属，未知或跨 workspace 对话返回 `404 CONVERSATION_NOT_FOUND`，不把错误伪装成空数组；决议端点
+还必须先在当前 workspace 校验 URL 对话归属，再把 `toolCallId` 绑定到该对话；跨 workspace/未知会话返回
+`404 CONVERSATION_NOT_FOUND`，错会话或重复决议返回 `404 NO_PENDING_INTERACTION`，不能通过全局 broker
+误决议另一线程。最终
 `WriteFinalize` 按已落盘 block id 过滤，绝不重复插入。关闭页面或请求取消不能留下永久
 streaming 行；未接增量 writer 的其它 loop host 仍保持只在 finalize 落盘。
 

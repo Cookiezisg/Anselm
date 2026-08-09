@@ -72,6 +72,7 @@ import (
 	workflowapp "github.com/sunweilin/anselm/backend/internal/app/workflow"
 	workspaceapp "github.com/sunweilin/anselm/backend/internal/app/workspace"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	touchpointdomain "github.com/sunweilin/anselm/backend/internal/domain/touchpoint"
 	cryptoinfra "github.com/sunweilin/anselm/backend/internal/infra/crypto"
@@ -259,6 +260,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 		},
 		Notif: notif, // durable dependency-broken notification on entity delete (F161)
 		Log:   log,
+	})
+	// Function/Handler env owner ids contain the parent entity id. Hydrate their display names
+	// at read time so legacy rows with an empty owner_name and renamed entities remain legible.
+	// Function/Handler env owner id 内含父实体 id；读时 hydrate，保证旧空名行和改名实体仍可读。
+	sbx.SetOwnerNameResolvers(map[string]sandboxapp.OwnerNameResolver{
+		sandboxdomain.OwnerKindFunction: fn,
+		sandboxdomain.OwnerKindHandler:  hd,
 	})
 
 	// touchpoint: the conversation context ledger. Namers mirror relation's registration (the

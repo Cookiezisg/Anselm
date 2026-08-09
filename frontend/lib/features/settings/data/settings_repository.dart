@@ -558,10 +558,21 @@ class LiveSettingsRepository implements SettingsRepository {
       '';
 
   @override
-  Future<int> sandboxDiskUsage() async =>
-      ((await api.getData('/api/v1/sandbox/disk-usage'))['totalBytes'] as num?)
-          ?.toInt() ??
-      0;
+  Future<int> sandboxDiskUsage() async {
+    final data = await api.getData('/api/v1/sandbox/disk-usage');
+    final totalBytes = data['totalBytes'];
+    // Zero is a valid empty-machine answer, but a missing or fractional value is a broken
+    // contract. Never turn either into a reassuring-looking 0 B. 0 是合法空机答案,但缺字段或
+    // 小数都是坏契约,绝不能把它们变成看似正常的 0 B。
+    if (totalBytes is! int || totalBytes < 0) {
+      throw const ApiException(
+        code: AnselmErr.unknown,
+        message: 'sandbox disk usage response was missing a valid totalBytes',
+        httpStatus: 200,
+      );
+    }
+    return totalBytes;
+  }
 
   @override
   Future<
@@ -1153,6 +1164,7 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   String fixtureDataDir = '/tmp/anselm-fixture';
   int fixtureDisk = 42 * 1024 * 1024;
+  Object? diskUsageError;
   List<LimitField> fixtureSchema = const [
     LimitField(
       key: 'agent.maxSteps',
@@ -1182,7 +1194,13 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<String> dataDir() async => fixtureDataDir;
 
   @override
-  Future<int> sandboxDiskUsage() async => fixtureDisk;
+  Future<int> sandboxDiskUsage() async {
+    final failure = diskUsageError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return fixtureDisk;
+  }
 
   /// Scriptable spend rows (demo + tests). Two providers, three categories, and one row whose
   /// estimate is 0 — that last one is the fixture's whole point: the panel must render an unpriced
@@ -1325,8 +1343,15 @@ class FixtureSettingsRepository implements SettingsRepository {
     ),
   ];
   final Map<String, List<SandboxEnv>> envsByOwner = {};
+  final Map<String, Object?> envListErrors = {};
   int gcRemoved = 3;
+  Object? runtimeListError;
+  Object? runtimeInstallError;
+  Future<SandboxRuntime>? runtimeInstallOverride;
   String? failNextRuntimeDelete;
+  int? diskAfterRuntimeDelete;
+  String? failNextEnvDelete;
+  int? diskAfterEnvDelete;
 
   @override
   Future<SandboxBootstrap> sandboxBootstrap() async => fixtureBootstrap;
@@ -1336,7 +1361,13 @@ class FixtureSettingsRepository implements SettingsRepository {
       fixtureBootstrap = const SandboxBootstrap(ok: true);
 
   @override
-  Future<List<SandboxRuntime>> sandboxRuntimes() async => List.of(runtimes);
+  Future<List<SandboxRuntime>> sandboxRuntimes() async {
+    final failure = runtimeListError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return List.of(runtimes);
+  }
 
   @override
   Future<List<RuntimeAvailability>> sandboxAvailable() async => available;
@@ -1346,6 +1377,12 @@ class FixtureSettingsRepository implements SettingsRepository {
     required String kind,
     required String version,
   }) async {
+    final pending = runtimeInstallOverride;
+    if (pending != null) return pending;
+    final failure = runtimeInstallError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
     final r = SandboxRuntime(
       id: 'srt_fix${runtimes.length}',
       kind: kind,
@@ -1363,15 +1400,30 @@ class FixtureSettingsRepository implements SettingsRepository {
       throw ApiException(code: code, message: 'scripted', httpStatus: 409);
     }
     runtimes.removeWhere((r) => r.id == id);
+    final disk = diskAfterRuntimeDelete;
+    if (disk != null) fixtureDisk = disk;
   }
 
   @override
-  Future<List<SandboxEnv>> sandboxEnvs(String ownerKind) async =>
-      envsByOwner[ownerKind] ?? const [];
+  Future<List<SandboxEnv>> sandboxEnvs(String ownerKind) async {
+    final failure = envListErrors[ownerKind];
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return envsByOwner[ownerKind] ?? const [];
+  }
 
   @override
-  Future<void> deleteEnv(String id) async =>
-      envsByOwner.forEach((_, list) => list.removeWhere((e) => e.id == id));
+  Future<void> deleteEnv(String id) async {
+    if (failNextEnvDelete != null) {
+      final code = failNextEnvDelete!;
+      failNextEnvDelete = null;
+      throw ApiException(code: code, message: 'scripted', httpStatus: 409);
+    }
+    envsByOwner.forEach((_, list) => list.removeWhere((e) => e.id == id));
+    final disk = diskAfterEnvDelete;
+    if (disk != null) fixtureDisk = disk;
+  }
 
   @override
   Future<int> sandboxGc(int olderThanDays) async => gcRemoved;

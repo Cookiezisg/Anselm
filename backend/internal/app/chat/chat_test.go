@@ -158,10 +158,11 @@ func (r *fakeAttachmentRenderer) ToolResultContentParts(ctx context.Context, too
 // assert the unread-watermark wiring across goroutines (the assistant finalize touch runs on the queue
 // goroutine, so a channel — not a slice — keeps the read race-free under -race).
 type fakeConvs struct {
-	conv *conversationdomain.Conversation
-	err  error
-	rec  *touchRec
-	fork *forkRec
+	conv   *conversationdomain.Conversation
+	err    error
+	getErr func(context.Context, string) error
+	rec    *touchRec
+	fork   *forkRec
 }
 
 // touchRec streams each TouchLastMessage's unread argument for cross-goroutine assertions.
@@ -178,9 +179,14 @@ type forkRec struct {
 	in conversationdomain.ForkInput
 }
 
-func (c fakeConvs) Get(_ context.Context, id string) (*conversationdomain.Conversation, error) {
+func (c fakeConvs) Get(ctx context.Context, id string) (*conversationdomain.Conversation, error) {
 	if c.err != nil {
 		return nil, c.err
+	}
+	if c.getErr != nil {
+		if err := c.getErr(ctx, id); err != nil {
+			return nil, err
+		}
 	}
 	cp := *c.conv
 	cp.ID = id
@@ -967,9 +973,12 @@ func TestAutoTitle_FallsBackWhenUtilityProducesOnlyReasoning(t *testing.T) {
 	}
 }
 
-// TestListMessagesUsage_ForeignConversation404 — F72: a cross-ws / nonexistent conversation id must
-// 404 via the ownership pre-check (like SystemPromptPreview), not return 200-empty / 0-tokens.
-func TestListMessagesUsage_ForeignConversation404(t *testing.T) {
+// TestConversationScopedReads_ForeignConversation404 — F72: cross-ws / nonexistent conversation ids
+// must 404 via the ownership pre-check, not return misleading 200-empty / 0-token responses.
+//
+// TestConversationScopedReads_ForeignConversation404：跨 ws / 不存在对话 id 必须经归属前置校验返回 404，
+// 不能伪装成 200-空 / 0-token。
+func TestConversationScopedReads_ForeignConversation404(t *testing.T) {
 	_, store := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
 	svc := NewService(store, Deps{Conversations: fakeConvs{err: conversationdomain.ErrNotFound}}, zap.NewNop())
 	ctx := ctxWS("ws_1")
@@ -978,6 +987,9 @@ func TestListMessagesUsage_ForeignConversation404(t *testing.T) {
 	}
 	if _, _, err := svc.Usage(ctx, "cv_foreign"); !errors.Is(err, conversationdomain.ErrNotFound) {
 		t.Fatalf("Usage on a foreign id must return CONVERSATION_NOT_FOUND, got %v", err)
+	}
+	if _, err := svc.ListInteractions(ctx, "cv_foreign"); !errors.Is(err, conversationdomain.ErrNotFound) {
+		t.Fatalf("ListInteractions on a foreign id must return CONVERSATION_NOT_FOUND, got %v", err)
 	}
 }
 

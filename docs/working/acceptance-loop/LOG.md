@@ -4,11 +4,158 @@ type: working
 status: active
 owner: "@weilin"
 created: 2026-08-01
-reviewed: 2026-08-09
+reviewed: 2026-08-10
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
+
+## 2026-08-10 — EP-174 `GET /api/v1/sandbox/disk-usage` 收口，批次二十九 50/50，统一门禁进行中
+
+- 产品目的：Sandbox 与 Storage 的机器级磁盘数字必须来自同一 runtime/env manifest projection；常驻 SettingsOcean 重新进入和 Sandbox/Storage 切换必须刷新；loading、error、settled-empty 不得伪装成 `0 B`；删除 env 后 exact REST/SQLite 与前端投影要能解释地收敛。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep174-20260810/sessions/20260810-053705` 冻结为红：REST=`475033055` 且 env=`30464` bytes，但两个 UI 都卡在 `0 B`。红证据永久保留；修复 strict `totalBytes` 解析、共享 `AnLastGood` loading/error+Retry/data、Settings/面板进入失效 provider，并补 Flutter/testend/docs。
+- fixed session `/private/tmp/anselm-rig-ep174-20260810/sessions/20260810-055332` 为真实 Flutter macOS App + Computer Use + 受管网关接线 + 三路 ssetap + llmtap + backend/frontend journals + `197.005000s` 录屏。Sandbox/Storage 均显示 `453.0 MB`；删除 env 后 Sandbox 为 `No environments`，exact REST/SQLite=`475002591`，delta=`30464`；Storage 保持一位小数 `453.0 MB` 是正确舍入，不是 stale。cleanup session `/private/tmp/anselm-rig-ep174-cleanup-20260810/sessions/20260810-060148` 通过 API DELETE Function=`204`、GET=`404 FUNCTION_NOT_FOUND`，未直接改库。
+- 五通道：三路 SSE 连接并 clean EOF；`sandbox.env_deleted` 是 notifications stream frame-only Broadcast echo，不是 inbox row；没有伪造 message/entity 帧或模型 completion。backend 无应用 WARN/ERROR/panic/FATAL，frontend 只有已知 launcher 噪声，无 Flutter/Dart/layout/Unhandled 红线；固定 session 内保存 REST/DB/SSE/LLM/frontend/latency/final evidence 与五张帧。
+- 正式 anchors=`10/10` 后按 `G1 / F2 / measure:sandbox-disk-refresh / C4 / G2` 写入 `COVERAGE EP-174=✓✓✓✓✓`，账本 `1560→1565 judgments`；每次写账触发的 `gap-too-fast`/`discovery-collapse` 均依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-174-sandbox-disk-usage-ledger-reaudit.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 alarms clean=`1565`；coverage check=`848/306/0`。
+- 批次二十九由 **49→50/50**。根 `make verify` 首次只暴露未格式化的既有 `w6_navigation_test.dart`，机械格式化后第二轮 backend/frontend/docs/demo 全绿；完整 testend 首次 `287.787s` 有一次未定位失败，随后同命令重跑通过，第三轮 JSON 全量也通过（`356` pass、`0` fail）。残留 testend 进程/目录为零；异常保留在 fixed session 的 `EP-174-batch29-gate.md`，不伪造为未发生。正式 alarms=`clean (1565)`、coverage=`848/306/0`；批次统一门禁已通过，只剩提交前工作树审计与提交。P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-10 — EP-173 `DELETE /api/v1/sandbox/envs/{id}` 收口，批次二十九 49/50
+
+- 产品目的：确认前说明永久删除本机 env 文件且 owner 保留；取消不 mutation；确认后 Settings roster、REST、SQLite、文件系统、机器级 disk usage 和 SSE 必须共同收敛；resident env 必须被 `SANDBOX_ENV_IN_USE` 拒绝，不能静默删除进程正在使用的目录。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep173-20260810/sessions/20260810-050116` 冻结为红：确认文案没有本机文件/owner 保留说明，成功后 disk provider stale。红证据永久保留；stop-and-fix 增加 `runningPid > 0` 的 409 guard，补完整 en/zh 文案，成功同时刷新 owner roster 与 disk provider，并补 fixture、Flutter、REST contract 回归。
+- fixed session `/private/tmp/anselm-rig-ep173-20260810/sessions/20260810-051303` 使用真实 Flutter macOS App、Computer Use、真实受管网关、三路 ssetap、llmtap、backend/frontend journals 和 `2784x1808 / 60fps / 307.925000s` 录屏。真实 Function `ep173_delete_fixed` 的 env 占用 `2,403,614` bytes；Cancel 保持 row/disk，Confirm 后 owner roster 为空、disk 从 `477406205` 精确变为 `475002591`，Function 保留、env row/目录消失，detail/repeat delete 均为 404。
+- 五通道：三路 SSE clean EOF，notifications `seq=1..4` 只有一次 `sandbox.env_deleted`；backend/REST/SQLite/文件系统一致且无应用 WARN/ERROR/panic/FATAL；frontend 只有已知 launcher 噪声；llmtap 真实连接 managed gateway，但确定性 DELETE 不伪造模型 completion。首个可见反馈 `33.3ms`，modal close 作为连续转场单独复核。详见 session 内 `EP-173-final-green.md`、REST/DB/SSE/LLM/frontend/latency evidence。
+- 正式 anchors=`10/10` 后按 `G1 / F2 / measure:sandbox-env-delete / C4 / G2` 写入 `COVERAGE EP-173=✓✓✓✓✓`，账本 `1555→1560 judgments`；`gap-too-fast`/`discovery-collapse` 按 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-173-sandbox-env-delete-ledger-reaudit.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 alarms clean=`1560`；coverage check=`848/305/0`。
+- cleanup session `/private/tmp/anselm-rig-ep173-20260810/sessions/20260810-052400` 已删除临时 Function，正式 session/录屏/journals/evidence/红证据保留；定向 sandbox/backend/frontend/testend tests、`make -C docs verify`、`git diff --check` 均通过。批次二十九由 **48→49/50**，未到 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-174 `GET /api/v1/sandbox/disk-usage`。
+
+## 2026-08-10 — EP-172 `GET /api/v1/sandbox/envs/{id}` 收口，批次二十九 48/50
+
+- 产品目的：用户读取单个 Sandbox env 时必须理解它归属于哪个 Function/Handler、使用哪个 runtime、有哪些依赖以及当前状态；已知 id 的 list/detail manifest 要一致，未知 id 必须明确 `404 SANDBOX_ENV_NOT_FOUND`。该端点是机器级 API-only 详情，没有独立视觉入口，L4 以 Settings Sandbox owner 名册判定，L5 诚实记 `na`。
+- 首轮真实 App/REST session `/private/tmp/anselm-rig-ep172-20260810/sessions/20260810-043638` 冻结为红：legacy env 返回 `deps:null`，Settings Functions 行显示内部复合 owner id；红证据 `/private/tmp/anselm-rig-ep172-20260810/env-detail-red.jsonl` 与旧 session 永久保留，不计绿。
+- stop-and-fix 在 store 边界将空依赖归一为 `[]`，Function/Handler 新 env 写入父实体名，旧 env 在 sandbox read boundary hydrate 当前 owner name，`EnsureEnv` 也刷新持久 owner name；补 app/store/function/handler 回归、testend contract、API/foundation/settings 文档。
+- fixed session `/private/tmp/anselm-rig-ep172-20260810/sessions/20260810-044951` 使用真实 Flutter macOS App、Computer Use、真实受管 Anselm gateway、独立三路 ssetap、llmtap、backend/frontend journal 和 `2784x1808 / 60fps / 162.153333s` 录屏。Settings Functions 显示 `ep172_detail_probe`；list/detail 均为 `ownerName=ep172_detail_probe`、`deps=[]`、`ready`，missing id 为 `404 SANDBOX_ENV_NOT_FOUND`。
+- 五通道：三路 SSE 连接并 clean EOF，本只读端点没有伪造业务 durable frame；llmtap 仅 ready 是正确边界；managed challenge/install/models 全 `200`；backend 无 panic/FATAL/WARN/ERROR，frontend 无未解释 Flutter/Dart/layout/Unhandled 红线。证据为 session 内 REST/DB/SSE/LLM/frontend summaries、`EP-172-settings-ownername.jpg`、`EP-172-latency.txt` 和 `EP-172-final-green.md`。原始 SQLite legacy row 仍是 `owner_name=''`、`deps=NULL`，读边界投影与文档对此均诚实标注，新建/EnsureEnv 会写回 owner name。
+- 正式 anchors=`10/10` 后按 `measure:sandbox-env-detail / F2 / A1 / C5 / G2` 写入 `COVERAGE EP-172=✓✓✓✓~`，账本 `1550→1555 judgments`；`gap-too-fast`/`discovery-collapse` 依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-172-ledger-alarm-reaudit.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 alarms clean=`1555`；`gen_coverage.py --check`=`848/304/0`。
+- 定向 `mise exec -- go test -count=1 ./internal/app/sandbox ./internal/infra/store/sandbox ./internal/app/function ./internal/app/handler ./internal/bootstrap`、testend Sandbox contract、`git diff --check` 和覆盖 check 全绿。EP-172 专用数据目录按用户授权移入 Trash，正式 session/录屏/journals/evidence/formal ledger 与红证据保留；批次二十九由 **47→48/50**，未到 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-173 `DELETE /api/v1/sandbox/envs/{id}`。
+
+## 2026-08-10 — EP-171 `GET /api/v1/sandbox/envs` 收口，批次二十九 47/50
+
+- 产品目的：Sandbox 五个 owner tab 必须把 loading、error、settled-empty 分开；Functions、Handlers、MCP、Skills、Conversations 的 owner、依赖、大小、状态和失败原因必须与 REST/SQLite 真相一致，切 tab 不得串数据。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep171-20260810/sessions/20260810-035855` 冻结为红：`.value`/空列表把 loading 或后端错误伪装成 `No environments yet`；修复后的中间 session `/private/tmp/anselm-rig-ep171-20260810/sessions/20260810-040709` 又抓到 failed 行错误在单行 meta 中变成 `failed: dependen…`。两轮红证据永久保留，不计绿。
+- stop-and-fix 在 `_EnvList` 使用 `AnLastGood` 三态、错误 Retry 和 settled-empty；把 backend `errorMsg` 放进 `AnRow.hint` 双行信息层，meta 只显示 deps/size/status；补 `envListErrors` fixture、i18n、11 项 Sandbox widget tests 和 Settings 文档契约。
+- 最终 session `/private/tmp/anselm-rig-ep171-20260810/sessions/20260810-040910` 使用真实 Flutter App、Computer Use、窗口录屏、backend journal、独立三路 SSE witness、llmtap 和受管 gateway wiring，录屏 `2784x1808 / 60fps / 404.886667s`。五个 tab 最终分别显示 `inventory sync`、完整 `dependency install failed` 的 `reporter`、`building…` 的 `filesystem`、`markdown cleaner`、`EP171 scratch`；跨 Handlers→Functions 后无 owner 残留、空白、裁切或溢出。
+- REST/SQLite：缺 owner kind=`400 SANDBOX_OWNER_KIND_REQUIRED`，bogus=`400 SANDBOX_INVALID_OWNER_KIND`；五个合法 kind 各一行；SQLite `5 env + 1 runtime`，env=`35840` bytes、runtime=`20480` bytes、total=`56320`，REST disk usage 同为 `56320`。failed `errorMsg`、installing status、依赖数组和 owner identity 三面一致。
+- 五通道：rig-check 收台前通过；SSE 三流连接并在 rig-down 以 EOF 断开，本只读名册没有伪造业务帧；llmtap 只有 ready 是正确边界；backend 无应用 WARN/ERROR/panic/FATAL，frontend 仅已知 launcher foreground 噪声，无 Dart/Flutter/layout/Unhandled/lost-device 红线。最终证据为 session 内 REST/DB/SSE/LLM/frontend summaries、五张 owner 帧、`EP-171-final-green.md`。
+- 逐帧：Handlers 点击前最后稳定帧到下一帧可见反馈 `16.7ms`，`changedFrac=0.00165`、bbox=`(1058,714)-(2375,885)`；下划线 `AnMotion.mid` spring 约 `133ms` 落位，不是数据错位。见 `EP-171-latency.txt`。
+- formal anchors=`10/10` 后按 `measure:sandbox-env-list / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-171=✓✓✓✓✓`，正式账本 `1545→1550 judgments`；`gap-too-fast`/`discovery-collapse` 经 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-171-sandbox-env-list-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或 gate，最终 alarms clean=`1550`，`gen_coverage.py --check`=`848/303/0`。
+- 期间一次 shell 未 export `RIG_HOME`，五条裁决也落入默认个人 journal；未删除 append-only 审计记录，已备份并明确排除 campaign authority，formal rig 已在完整复核后重新落账，默认误路由警报已单独 ack。专用数据目录 `/private/tmp/anselm-data-ep171-20260810` 已按授权移入 Trash，session/证据/formal ledger 保留。
+- 定向 `flutter test test/features/settings/s5_sandbox_test.dart`=`11/11`、`flutter analyze`、后端 handler/store tests、`make -C docs verify`、`git diff --check`、coverage check 全绿。批次二十九由 **46→47/50**，未到 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-172 `GET /api/v1/sandbox/envs/{id}`。
+
+## 2026-08-10 — EP-170 `DELETE /api/v1/sandbox/runtimes/{id}` 收口，批次二十九 46/50
+
+- 产品目的：用户确认删除 runtime 后，本机文件必须永久移除；仍被 environment 引用时必须明确拒绝；取消确认不得 mutation；成功后 App、REST、SQLite 与机器级 disk usage 必须共同回到真实空态；确认文案必须说明永久删除本机文件且之后可重新安装。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep170-20260810/sessions/20260810-032438` 冻结为红：删除确认只显示 `Deletes “uv 0.11.4”; rejected if envs still reference it.`，没有永久删除/可重新安装说明。第二轮 `/private/tmp/anselm-rig-ep170-20260810/sessions/20260810-033409` 又抓到删除成功后 runtime 与文件已消失但 UI 仍显示旧 `45.4 MB`，前端只刷新 roster、没有刷新机器级 disk provider。两份红证据永久保留，不计绿。
+- stop-and-fix 更新 `en/zh` 删除确认文案；Sandbox install/delete 成功后显式 invalidate `sandboxDiskProvider`；fixture 增加确定性 `diskAfterRuntimeDelete`；补真实鼠标 hover/cancel/confirm Flutter 回归测试，并同步 `docs/references/frontend/features/settings.md` 的 disk truth、永久删除、env guard 和 cancel contract。
+- fixed session `/private/tmp/anselm-rig-ep170-20260810/sessions/20260810-033823` 使用全新数据目录、真实 Flutter macOS App、Computer Use、真实受管 Anselm gateway、独立三路 ssetap、llmtap、backend/frontend journals 和 `2784x1808 / 30fps / 233.596667s` 封口录屏。安装 `uv 0.11.4` 后真实 UI 显示 `45.4 MB`；Cancel 保持 runtime 不变；Confirm 后稳定显示 `Disk usage 0 B`、`No runtimes yet`、`No environments`。
+- REST/SQLite/文件系统：成功 DELETE=`204`，list=`200/data:[]`，disk=`200/totalBytes:0`，SQLite runtime 为空，sandbox=`0B`；未知/重复 DELETE=`404 SANDBOX_RUNTIME_NOT_FOUND`。真实持久 `sandbox_envs` 引用时 DELETE=`409 SANDBOX_ENV_IN_USE` 且 runtime 保留；清 env 后再删，最终三面全空。负向和清理矩阵在 `EP-170-rest-matrix.txt`。
+- 五通道：messages/entities/notifications 三流各连接一次并 clean EOF；仅清理 guard env 产生一条真实 `sandbox.env_deleted` durable notification，runtime install/delete 没有 E 契约 lifecycle frame，证据如实记为无 runtime frame；managed challenge/install/models 经 llmtap 全 `200`，本设置路径没有模型调用；backend 无应用 WARN/ERROR/panic/FATAL；frontend 只有已知 launcher `Failed to foreground app; open returned 1`，无 Flutter/Dart/layout/Unhandled/Exception 红线。证据为 `EP-170-final-green.md`、`EP-170-sse-summary.txt`、`EP-170-llm-summary.txt`、`EP-170-frontend-terminal-review.md`。
+- 逐帧：30fps 封口录像中确认后的首次可见转场反馈 `33.3ms`，`changedFrac=0.09139`，bbox=`(227,0)-(2384,1600)`；modal dismiss 与最终 `0 B` 空态分别由转场和稳定帧复核，测量未冒充 provider 收敛时间。详见 `EP-170-latency.txt` 与 `EP-170-transition-montage.png`。
+- 正式账本以 anchors=`10/10` 解锁后写入 `measure:sandbox-runtime-delete / F2 / A1 / C4 / G2`，`COVERAGE EP-170=✓✓✓✓✓`，中央账本 `1540→1545 judgments`。写账触发的 `gap-too-fast`/`discovery-collapse` 经 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-170-delete-runtime-ledger-reaudit.md` 独立复审并 ack；未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1545 judgments)`；`gen_coverage.py --check`=`848 rows / 302 carried judgments / 0 tombstones`。
+- 定向 `flutter test test/features/settings/s5_sandbox_test.dart`=`9/9` 通过，相关格式/文档同步完成。批次二十九由 **45→46/50**，未满 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 `EP-171 GET /api/v1/sandbox/envs`。P12 旅程 400+ 按用户裁定推迟二期。
+
+## 2026-08-10 — EP-169 `POST /api/v1/sandbox/runtimes` 收口，批次二十九 45/50
+
+- 产品目的：真实用户在 Settings → Sandbox → Install 选择 runtime kind/version 后，必须看到真实进行中反馈；成功状态要在 App、REST、SQLite 闭环；重复安装不得重复写入；版本错误要在下载前给出可行动提示；无取消协议时安装进行中不能把 Cancel 伪装成可用。
+- 首轮真实 App session `/private/tmp/anselm-rig-ep169-20260810/sessions/20260810-024930` 冻结为红：`uv not-a-version` 只得到泛化 install error。第二轮 `/private/tmp/anselm-rig-ep169-fixed-20260810/sessions/20260810-030057` 又抓到 Cancel 在同步安装中仍可点击，用户退出表单但后台继续安装并在 `33.469s` 后返回 `201`。两份红证据和录像永久保留，不计绿。
+- stop-and-fix 新增结构化 `SANDBOX_RUNTIME_VERSION_UNSUPPORTED`，保留 `kind/version/hint`；其他安装失败带 `SANDBOX_RUNTIME_INSTALL_FAILED` 和 runtime identity；前端显示本地化 actionable 文案，`_busy` 时锁住 Install/Cancel；补 Go domain/infra/app 测试、Flutter Sandbox widget tests、i18n、API/error/foundation/settings 文档。
+- fixed session `/private/tmp/anselm-rig-ep169-fixed2-20260810/sessions/20260810-030537` 使用全新数据目录、真实 Flutter macOS App、真实受管 Anselm gateway、Computer Use、独立三路 ssetap、llmtap、backend/frontend journals 和 `2784x1808 / 60fps / 363.938333s` 封口录屏。真实安装 `uv 0.11.4`，中途显示 `Installing…`，最终 UI 为 `uv 0.11.4 / 45.4 MB`、Environments 为空。
+- 同一 `uv 0.11.4` 重复 POST 返回 `201 / elapsed_ms=0`，SQLite 只有一行，`idx_sandbox_runtimes_kind_version` 唯一索引存在；UI `not-a-version` 返回 `422 SANDBOX_RUNTIME_VERSION_UNSUPPORTED`、hint=`0.11.4` 且不发起下载；直接 REST 还验证 python `3.10`=`422`、unknown field=`400 INVALID_REQUEST`、缺 workspace=`401 UNAUTH_NO_WORKSPACE`。
+- 五通道/真相：三路 SSE 各连接一次并在 rig-down 时 clean EOF；本路径只改 Sandbox runtime，不产生 messages/entities/notifications durable business frame，已在 `EP-169-sse-summary.txt` 如实记为无业务帧。SQLite/REST 一致为一条 uv runtime、零 env；managed challenge/install/models 经 llmtap 全 `200`；frontend 仅已知 launcher/TSM 噪声；backend 无应用 WARN/ERROR/panic/FATAL。
+- 逐帧证据：60fps 录屏中错误提交前一帧到 actionable error 首帧 `16.7ms`，`changedFrac=0.00446`，bbox=`(1048,648)-(1990,800)`；长安装由 `Installing…` 承担，不把下载耗时冒充反馈延迟。证据文件包括 `EP-169-final-green.md`、REST/SSE/LLM/frontend summaries、latency、两张 UI 画面。
+- 正式账本以 anchors `10/10` 解锁后，由 `judge.py` 写入 `measure:sandbox-runtime-install / F2 / A1 / C4 / G2`，`COVERAGE EP-169=✓✓✓✓✓`，中央账本 `1535→1540 judgments`。写账触发的 `gap-too-fast`/`discovery-collapse` 经 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-169-sandbox-runtime-install-ledger-reaudit.md` 独立复审并 ack；红证据、负向矩阵和无业务帧事实均保留，未改阈值/算法/法典/锚点/gate，最终 alarms clean=`1540`。
+- 定向 Go、Flutter test/analyze、slang、format、`git diff --check` 通过；`gen_coverage.py --check`=`848 rows / 301 carried judgments / 0 tombstones`。临时数据目录按用户批准移入 Trash，session/录屏/journals/evidence/formal ledger 保留。
+- 批次二十九由 **40→45 / 50**，未满 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 `EP-170 DELETE /api/v1/sandbox/runtimes/{id}`。P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-10 — EP-168 `GET /api/v1/sandbox/runtimes/available` 收口，批次二十九 40/50
+
+- 产品目的：Sandbox 安装目录必须返回真实 user-facing runtime kind、默认版本和 pinned/open 语义；切换 kind 后版本字段必须立即跟随新 kind，固定版本只能选目录内值，自由版本不能继承上一个 kind 的输入；取消安装不得产生假的 runtime/environment。
+- 第一轮真实 App 在 session `/private/tmp/anselm-rig-ep168-20260810/sessions/20260810-022136` 冻结为红：`dotnet`→`uv` 后仍显示 `10.0.300`，而目录返回 `uv` 默认 `0.11.4`。红证据 `evidence/EP-168-red-stale-version.md` 与画面永久保留，不计绿；stop-and-fix 以 kind 作为开放版本输入的状态身份，切换时用后端 default 重建字段，并补 Sandbox widget 回归。
+- fixed session `/private/tmp/anselm-rig-ep168-fixed-20260810/sessions/20260810-023115` 使用全新数据目录、真实 onboarding、真实 Flutter App、真实受管 Anselm gateway、Computer Use、独立三路 ssetap、llmtap、backend/frontend journals 与 `2784x1808 / 60fps / 308.378333s` 封口录屏。真实 UI 验证 `dotnet/node/python/uv` 四类；`uv` 显示 `0.11.4`，Python 仅 `3.11/3.12/3.13`，Node 仅 `22`；最终取消并回到稳定 Sandbox 空态，无安装 mutation。
+- 五通道/真相：三流各连接一次并 clean EOF；只读目录路径没有 durable SSE frame，已如实记录。REST `available`=`200/287 bytes/0ms`，installed=`200/data:[]`，缺 workspace=`401 UNAUTH_NO_WORKSPACE`；SQLite `sandbox_runtimes`/`sandbox_envs` 均为零行；managed challenge/install/models 经 tap 全 `200`；backend 无 WARN/ERROR/panic/FATAL，frontend 只有已知 launcher foreground 噪声，无 Flutter/Dart/layout/Unhandled 红线。
+- 逐帧测量：10fps 窗口以 Sandbox 空态为 action，Install 表单首个可见变化 `100.0ms`，`changedFrac=0.01755`，bbox=`(1048,259)-(2392,1373)`。正式证据为 session `EP-168-final-green.md`、`EP-168-rest-matrix.txt`、`EP-168-sse-summary.txt`、`EP-168-llm-summary.txt`、`EP-168-frontend-terminal-review.md`、`EP-168-latency.txt` 和五张视觉帧。
+- 五级裁决写入 `measure:sandbox-runtime-catalog / F2 / A1 / C4 / G2`，`COVERAGE EP-168=✓✓✓✓✓`，正式账本 `1530→1535 judgments`；写账触发的 `gap-too-fast`/`discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-168-sandbox-available-ledger-reaudit.md` 独立复审并逐条 ack，未改阈值、算法、法典、锚点或 gate，最终 alarms clean=`1535`；anchors=`10/10`，`gen_coverage.py --check`=`848 rows / 300 carried judgments / 0 tombstones`。
+- 批次二十九由 **35→40/50**，未到用户规定的 50 格，不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-169 `POST /api/v1/sandbox/runtimes`。P12 旅程 400+ 按用户裁定推迟二期。
+
+## 2026-08-10 — EP-167 `GET /api/v1/sandbox/runtimes` 收口，批次二十九 35/50
+
+- 产品目的：Sandbox 必须区分 settled empty、loading 和读取失败；用户在真实 Settings → Sandbox 安装一个真实 runtime 后，App、REST、SQLite 必须表达同一条机器级事实，长安装等待必须有可见状态。
+- 静态前置审查抓到真实产品红线：runtime provider 失败被 `value ?? []` 伪装成 `No runtimes yet`。stop-and-fix 改为 `AnLastGood` 的 skeleton/error+Retry/settled-empty 三态；fixture 改为持久 `ApiException`，Flutter widget tests 5 项、analyze、format 全绿。红线不计绿但修复与回归保留在工作树。
+- 正式真实 session `/private/tmp/anselm-rig-ep167-20260810/sessions/20260810-020306` 使用全新数据目录、真实 onboarding、真实 Flutter App、真实受管 Anselm gateway、Computer Use、独立三路 ssetap、llmtap、backend/frontend journals 与 `2784x1808 / 60fps / 250.355000s` 封口录屏。真实 UI 走过 `data: []` 空态、Install 表单、`node/22`、`Installing…` 和最终 `node 22 / 176.3 MB`；无红卡、死 spinner、overflow 或错误空态。
+- 五通道/真相：messages/entities/notifications 各连接一次、clean EOF 断开；本 GET 路径没有 durable SSE frame，已如实记录；backend install=`201 / 4816ms`、随后 list=`200 / 0ms`，缺 workspace=`401 UNAUTH_NO_WORKSPACE`；REST 与 SQLite 同为 `sr_44fa65f6ee586816|node|22|runtimes/node/22|184839302`；managed challenge/install/models 经 tap 全 `200`；backend 无应用 WARN/ERROR/panic/FATAL，frontend 只有已知 launcher foreground 噪声，无 Flutter/Dart/layout/Unhandled 红线。
+- 逐帧测量：10fps、ROI `1000,520,800,220`、action index `145` 到首个 `Installing…` 反馈 `100.0ms`，`changedFrac=0.06705`；安装长耗时另由按钮状态承担。证据为 session `evidence/EP-167-final-green.md`、`EP-167-sse-summary.txt`、`EP-167-db-final.txt`、`EP-167-llm-summary.txt`、`EP-167-frontend-terminal-review.md`、`EP-167-latency.txt` 和三张 UI 帧。
+- 五级裁决写入 `measure:sandbox-runtime-list / F2 / A1 / C4 / G2`，`COVERAGE EP-167=✓✓✓✓✓`，正式账本 `1525→1530 judgments`；写账触发的 `gap-too-fast`/`discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-167-sandbox-runtime-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或 gate，最终 alarms clean=`1530`；anchors=`10/10`，`gen_coverage.py --check`=`848 rows / 299 carried / 0 tombstones`。
+- 批次二十九由 **30→35/50**，未到用户规定的 50 格，不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-168。P12 旅程 400+ 按用户裁定推迟二期。
+
+## 2026-08-10 — EP-166 `GET /api/v1/conversations/{conversationId}/touchpoints` 收口，批次二十九 30/50
+
+- 产品目的：真实对话创建文档后，Activity 触点台账、REST keyset、durable touchpoint signal、SQLite、LLM 工具结果和最终 UI 必须表达同一条 Created 事实；随后搜索同一文档必须成功收敛，不留失败工具行或死 spinner。
+- 首轮真实 session `/private/tmp/anselm-rig-ep166-20260810/sessions/20260810-012443` 抓到两个真实 hosted-model 参数边界问题：`create_document.tags` 是精确 JSON 编码数组字符串，`search_documents.limit` 是精确整数字符串。错误状态在真实 Activity 中可见；红 session 和分析永久保留，不计绿。
+- stop-and-fix 新增共享 `decodeDocumentTags`：标准数组与精确 JSON 编码数组字符串兼容；`search_documents.limit` 只兼容原生整数与精确十进制整数字符串。逗号拼接 tags、浮点、任意字符串、数组和布尔值仍拒绝；工具 schema、描述、Go 回归测试和 `docs/references/backend/domains/document.md` 同步。
+- fixed session `/private/tmp/anselm-rig-ep166-fixed-20260810/sessions/20260810-014119` 使用全新数据目录、真实 onboarding、真实 Flutter App、真实受管 Anselm gateway、Computer Use、`2784x1808 / 60fps / 242.446667s` 封口录屏、backend/frontend journals、三路 ssetap 和 llmtap。真实 `create_document` 携带 `tags:"[]"` 成功创建 `EP166 Fixed Note`；真实 `search_documents` 携带 `limit:"5"` 成功找到它；最终 UI 显示 `1 touched`、`Created`、成功搜索卡和可用 Composer。`the requested item` 为 loop opaque-ID redaction 的预期结果，真实 ID 在 durable tool blocks 中保留。
+- 五通道/DB：messages durable `1..29` 无 gap；entities 观测到 touchpoint seq=`9`；notifications `1..3`；SQLite/REST 均为一篇文档和一条 assistant-created touchpoint，`hasMore=false`；user/assistant/tool blocks 全 completed，assistant `end_turn`，无 pending/streaming/error；managed challenge/install/models/chat 全 `200`；backend 无应用 WARN/ERROR/panic/FATAL，frontend 除已知 launcher foreground 噪声外无 Dart/Flutter/layout/Unhandled 红线。`measure latency` 首个可见搜索反馈=`100ms`（10fps，`changedFrac=0.05281`）。证据为 session `evidence/EP-166-final-green.md`、`EP-166-sse-summary.txt`、`EP-166-db-final.txt`、`EP-166-llm-summary.txt`、`EP-166-frontend-terminal-review.md`、`EP-166-latency.txt`、`EP-166-fixed-final-ui.jpg` 和 `EP-166-fixed-search-ui.jpg`。
+- 定向 Go document/tool/handler tests、`git diff --check` 全绿。五级裁决写入 `measure:touchpoint-ledger / F2 / A1 / C4 / G2`，`COVERAGE EP-166=✓✓✓✓✓`，正式账本 `1520→1525 judgments`；写账触发的 `gap-too-fast`/`discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-166-touchpoint-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或 gate，最终 alarms clean=`1525`；anchors=`10/10`，`gen_coverage.py --check`=`848 rows / 298 carried judgments / 0 tombstones`。
+- 批次二十九由 **25→30/50**，未到用户规定的 50 格，不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-167。P12 旅程 400+ 按用户裁定推迟二期。
+
+## 2026-08-10 — EP-165 `GET /api/v1/conversations/{conversationId}/todos` 收口，批次二十九 25/50
+
+- 产品目的：真实模型写入的整张 Todo 清单必须能由 REST 水化、由 messages durable `todo` signal 整表替换并在 Activity/Tasks 中显示；completed 项必须可经 `todo_read` 从保存真相读回；`todo_write([])` 后 REST/SQLite 是空数组、Tasks 行消失，恢复后再与最终画面一致。
+- 真实 session `/private/tmp/anselm-rig-ep165-20260810/sessions/20260810-010359` 使用全新数据目录、真实 onboarding、真实 Flutter App、真实受管 Anselm gateway、Computer Use、`2784x1808 / 60fps / 364.420000s` 录屏、backend/frontend journals、三路 ssetap 和 llmtap。真实 Todo 初始写入后第二态为 `SSE=completed`、`TODO-EP165=in_progress`；真实打开 Activity/Tasks，右侧 ring=`1/2`，展开后完成勾与进行中点、标签准确。
+- 真实 `todo_read` 回执 `Read checklist · 2 items · 1 done`；真实 `todo_write([])` 回执 `Checklist cleared`，Tasks 行消失，REST 与 SQLite 同为 `[]`；随后恢复 `EP165 REST verified=completed`、`EP165 final evidence=in_progress`，最终帧恢复 `1/2`。未知 conversation 在合法 workspace 下返回立法的空清单语义；无效 workspace 被 auth 拒绝为 `UNAUTH_NO_WORKSPACE`。
+- 五通道/DB：messages durable seq=`1..66` 单调唯一，todo signal 在 seq=`9/16/45/60` 分别记录初始/进度/清空/恢复；notifications=`1..2`，entities 已物理连接。SQLite 最终主清单两项 JSON 与画面一致，四条 user/assistant 均 completed、assistant `end_turn`、无 pending/streaming/error；managed challenge/install/models/chat 全 `200`；backend 无应用错误；frontend 只有已知 launcher foreground 噪声，无 Flutter/Dart/layout/Unhandled 红线。证据为 session `evidence/EP-165-final-green.md`、`EP-165-sse-summary.txt`、`EP-165-db-final.txt`、`EP-165-llm-summary.txt`、`EP-165-frontend-terminal-review.md`、`EP-165-latency.txt`、`EP-165-final-ui.jpg`。
+- 中文 Computer Use 长句一次未逐字抵达 App，已作为外部输入通道限制记录，不计入产品判断；后续 ASCII 路径逐字由 App/LLM wire/SQLite/SSE 互证，未隐藏该事实。
+- 定向 Go 三包测试、Flutter Todo/Rundown/Activity `31 tests`、Flutter analyze、`measure latency`=`16.7ms` 全绿。五级裁决写入 `measure:todo-truth / F2 / A1 / C4 / G2`，`COVERAGE EP-165=✓✓✓✓✓`，账本 `1515→1520 judgments`；`gap-too-fast`/`discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-165-todo-ledger-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或 gate，最终 alarms clean=`1520`。
+- 批次二十九由 **20→25/50**，未到 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-166。P12 旅程 400+ 按用户裁定推迟二期。
+
+## 2026-08-10 — EP-164 `GET /api/v1/conversations/{id}/anchors` 收口，批次二十九 20/50
+
+- 产品目的：真实用户在当前聊天打开 Scenes 后能看到全量场次锚点；点击当前现场回合只给反馈并留在现场，已载历史行近跳，未载行才深跳；keyset 必须翻到服务端结束，纯附件回合必须有可读标题。
+- 首轮真实 session `/private/tmp/anselm-rig-ep164-20260810/sessions/20260810-003558` 抓到真实前端竞态：首轮 REST 水化早于消息产生，目标仍在 `live` 层；首次点击当前场次被 `settled`-only 判定为深跳，出现多余“回到现场”并错误脱离现场。红证据 `evidence/EP-164-live-anchor-red.md` 和录像永久保留，不计绿；立即冻结前线。
+- stop-and-fix：`ConversationTranscript.containsLiveTurn` + `TranscriptJumpResult.present` 明确区分现场/近跳/深跳；present 只洗亮，不释放 pin、不重置 scroll、不调用 `?around=`；补 transcript model/controller regression。场次 provider 移除静默 40 页截断，超过显式护栏或游标不前进进入可重试错误；纯附件 user anchor 显示本地化“附件”。
+- fixed session `/private/tmp/anselm-rig-ep164-fixed-20260810/sessions/20260810-004656` 使用全新数据目录、真实 onboarding、真实受管 gateway、Computer Use、`2784x1808 / 60fps` 录屏、frontend/backend journal、三路 ssetap、llmtap。真实发送 `Reply with exactly EP164-FIXED and nothing else.` 得到精确 `EP164-FIXED`；打开 Scenes 后**首次**点击当前场次，AX 树无 `Jump to present`，稳定截图与录像显示仍留在现场。
+- 五通道/DB：messages durable=`1..8`、notifications=`1..2` 单调唯一，entities 已连接且无本路径 durable entity mutation；LLM challenge/install/models/chat 全 `200`；SQLite 仅一条 completed user、一条 completed assistant、三条 completed blocks，`stop_reason=end_turn`，无 pending/streaming/error；受管 key base URL 实际指向 `http://127.0.0.1:9013/v1`；backend 点击后无新的 `/messages` 深跳请求。frontend 只有已知 runner 启动提示，无 Flutter/Dart/布局/Unhandled 红线；录屏 `226.656667s` 已封口，红绿证据均保留。
+- 定向 `flutter test`（19 tests）、Flutter analyze、slang/dart format、coverage check、`git diff --check` 全绿。五级裁决脚本写入 `measure:anchor-navigation / F2 / A1 / C4 / G2`，`COVERAGE EP-164=✓✓✓✓✓`，正式账本 `1510→1515 judgments`；anchors=`10/10`。写账触发的 `gap-too-fast`/`discovery-collapse` 经 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-164-ledger-alarm-reaudit.md` 独立复审并 ack，未改阈值、算法、法典、锚点或 gate，最终 alarms clean(1515)；`gen_coverage.py --check`=`848 rows / 296 carried / 0 tombstones`。
+- 批次二十九由 **15→20/50**，未到 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-165。P12 旅程 400+ 按用户裁定推迟二期。
+
+## 2026-08-10 — EP-163 `POST /api/v1/conversations/{id}/interactions/{toolCallId}` 收口，批次二十九 15/50
+
+- 产品目的：真实 `ask_user` 停泊后，用户能在 App 读懂并回答；resolve 只能作用于当前 workspace、当前 conversation 中真实 pending 的 tool-call；非法 action、错误 workspace、错误 conversation 和重复决议必须分别大声拒绝；正确决议后 UI、SSE、SQLite、LLM wire 一起收口。
+- 首轮真实 session `/private/tmp/anselm-rig-ep163-20260810/sessions/20260810-001149` 抓到真实安全边界缺陷：同一 conversation/tool-call id 配另一个 workspace header 错误返回 `204` 并消费 pending broker 请求。红证据永久保留于 `evidence/EP-163-cross-workspace-defect.md`，不计绿；立即停场、收掉旧二进制。
+- stop-and-fix 在 `chat.Service.ResolveInteraction` 前置 workspace-scoped `ConversationReader.Get`，再查 broker conversation 归属；补 `TestResolveInteraction_ConversationScoped`，同步 handler/API/domain 文档。修复后的真实 session `/private/tmp/anselm-rig-ep163-fixed-20260810/sessions/20260810-001739` 使用全新数据目录和新 binary 重跑。
+- fixed session 由 conductor 归属真实 Flutter App、真实受管 Anselm gateway、Computer Use、`2784x1808` 窗口录屏、frontend/backend journals、三路 ssetap 与 llmtap；真实 UI 显示 awaiting 卡、`staging`/`production`、自由文本、`Don't answer`、`Send`，点击 production 后显示 Answered 并完成助手回合。
+- 负向矩阵：`aprove`=`422 INTERACTION_INVALID_ACTION`；foreign workspace=`404 CONVERSATION_NOT_FOUND` 且 pending 快照不变；同 workspace 错 conversation=`404 NO_PENDING_INTERACTION`；缺 header=`401 UNAUTH_NO_WORKSPACE`；成功后 duplicate=`404 NO_PENDING_INTERACTION`。GET interactions 由 pending 变 `200 {data:[]}`。
+- 五通道：messages durable `1..14`、notifications `1..3` 单调唯一；pending/resolved 是同一 tool-call 的 ephemeral signal，后续 durable tool_result=`production` 与 message close 对齐；entities 三路连接；managed challenge/install/models/chat 全 `200`；SQLite 仅一条 completed user/assistant，`stop_reason=end_turn`，无 pending/streaming/error；frontend/backend 无未解释应用红线。
+- 定向 Go tests、`make -C docs verify`、coverage check、`git diff --check` 全绿。五级裁决脚本写入 `measure:interaction-lifecycle / F2 / A1 / C4 / G2`，`COVERAGE EP-163=✓✓✓✓✓`，正式账本 `1505→1510 judgments`；统计警报以 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-163-ledger-alarm-reaudit.md` 独立重审并 ack，最终 alarms clean(1510)，未改阈值、算法、法典、锚点或 gate。
+- 批次二十九由 **10→15/50**，未到 50 格不跑统一长门禁、完整 testend 或提交；下一原子前线为 EP-164。P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-10 — EP-162 `GET /api/v1/conversations/{id}/interactions` 收口，批次二十九 10/50
+
+- 产品目的：真实 `ask_user` 停泊后，问题/选项/awaiting 状态必须在 App 可理解呈现；离开再回来必须由 REST 快照恢复；作答后门收口、回合完成；未知/跨 workspace 不能伪装成空成功。
+- 静态审计先发现真实 ownership bug：handler 直接读 broker-only `PendingInteractions`，跨 workspace/未知会话返回 `200 {data:[]}`。新增 `chat.Service.ListInteractions` ownership pre-check，handler 统一 N1 error mapping；保留内部无错误 helper，补 `TestConversationScopedReads_ForeignConversation404`，同步 API/domain 文档。
+- 真实 session `/private/tmp/anselm-rig-ep162-20260809/sessions/20260809-235739` 由 conductor 管理真实 Flutter App、受管 Anselm gateway、Computer Use、60fps 录屏、frontend/backend journals、三路 ssetap 与 llmtap；录屏 `2784x1808 / 60fps / 365.093333s`。真实模型调用 `ask_user`，REST pending snapshot、离开重开后的 GET hydration、App 选择 `production`、最终 `Answered` 与 assistant 完成均通过。
+- 五通道：messages durable `seq=1..14`、notifications `1..2` 单调唯一；ephemeral interaction/resolved signals 与 durable tool_result/close 互证；LLM challenge/install/models/chat 全 200；SQLite 一条 completed user + 一条 completed assistant，tool_call/tool_result/end_turn 一致；frontend/backend 无未解释应用红线。负向矩阵为已决 `200[]`、缺 header `401`、有效 foreign workspace `404`、unknown `404`；30 次 read median `1.290ms`、p95 `2.299ms`。
+- 正式账本通过 `judge.py` 写入 `L1 measure:interaction-lifecycle / L2 F2 / L3 A1 / L4 C4 / L5 G2`，`COVERAGE EP-162=✓✓✓✓✓`，账本 `1500→1505`。批写触发的 `gap-too-fast`/`discovery-collapse` 经 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-162-ledger-alarm-reaudit.md` 独立复审并 ack，最终 alarms clean(1505)；anchors、阈值、算法、法典和 gate 未改。
+- 定向 Go/handler/store tests、`make -C docs verify`、coverage check、`git diff --check` 全绿。批次二十九由 `5→10/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-163。
+
+## 2026-08-09 — EP-161 `GET /api/v1/conversations/{id}/usage` 收口，批次二十九 5/50
+
+- 产品目的：API-only usage 读必须返回当前 conversation 的真实 input/output token 成本；空对话返回零，Retry 的被取代 assistant 成本保留，跨 workspace/未知 id/缺失 workspace 分流诚实。
+- 真实 session `/private/tmp/anselm-rig-ep161-20260809/sessions/20260809-233339` 由 conductor 归属真实 Flutter App、真实受管 Anselm gateway、Computer Use、独立三路 SSE witness、llmtap、backend/frontend journals 和 60fps 录屏；`screen.mov` 为 `2784x1808 / 60fps / 311.593333s`。真实 onboarding、空 conversation usage、两轮精确回复 `EP161-ONE`/`EP161-TWO`、真实 Retry 后稳定 `2/2` 均完成。
+- REST/SQLite：两轮后 `29531/87/29618`；Retry 后 `44316/127/44443`。SQLite 保留 superseded assistant 并记录 `superseded_by`；空对话=`200` 零值，跨 workspace/unknown=`404 CONVERSATION_NOT_FOUND`，缺 workspace=`401 UNAUTH_NO_WORKSPACE`。矩阵和 DB 真相在 session evidence。
+- messages SSE durable `1..22`、notifications `1..3` 严格单调，entities 已物理连接；managed challenge/install/models/chat 全 HTTP 200。utility auto-title 一次 200 只回 reasoning、无 `[DONE]`，按既定本地 fallback 生成可用标题，事实保留在 LLM evidence，不计作隐藏错误。
+- frontend 只有已知 runner 启动噪声 `Failed to foreground app; open returned 1`，无 Dart/Flutter/RenderFlex/overflow/Unhandled/lost-device/panic/fatal；backend 448 行无 WARN/ERROR/panic/fatal/exception。最终帧显示两轮、`2/2`、action row 和 Composer，无死 spinner、重复答案、布局跳变或隐藏 CTA。usage 30 次 backend-only latency median=`1.083ms`、p95=`1.592ms`、max=`1.768ms`。
+- 本格触发的 stop-and-fix 是事实修正：Go 三处旧注释把历史 `tokensUsed` 计划写成“详情视图显示”，改为 API-only usage aggregate；没有凭空新增 Flutter UI。定向 Go 三包测试全绿，`git diff --check` 全绿；`gen_coverage.py --check`=`848/293/0`。
+- 五级裁决脚本写入 `L1 measure:usage-sum pass / L2 F2 pass / L3 A1 pass / L4 na(API-only无visual surface) / L5 na(API-only无clickable control)`，`COVERAGE EP-161=✓✓✓~~`。写账触发 `gap-too-fast`/`discovery-collapse`，独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-161-ledger-alarm-reaudit.md`，逐条 ack 后 alarms clean=`1500 judgments`，未改阈值、算法、法典、锚点或 gate。
+- 批次二十九由 **0→5/50**，未到用户规定的 50 格，不跑统一长门禁、完整 testend 或提交；下一前线为 EP-162。P12 旅程 400+ 仍按用户裁定推迟二期。
 
 ## 2026-08-09 — EP-160 `GET /api/v1/conversations/{id}/system-prompt-preview` 五级收口，批次二十八 53/50
 
