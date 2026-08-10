@@ -10,6 +10,100 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-11 — EP-204 `GET /api/v1/workspaces/{id}/stats` 收口，批次三十二 50/50
+
+- 产品目的：删除 workspace 前必须显示将被删除的真实内容；空 workspace、未知 workspace、跨 header 误导和 blob 盘点超时都要给出诚实且可解释的结果，不能把未知体积伪装成零。
+- 静态审计确认 path id 主体、live row scope、软删除过滤、running/generating 交集和 CAS workspace 边界；500ms bounded walk 超时保留 `blobBytes=-1`，清理后可恢复。定向 Go `workspace/store/blob/handler`、Flutter Settings/workspace 和 rig 单测通过；本格无新增产品代码修复。
+- 真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-044429`，数据目录 `/private/tmp/anselm-data-ep204-workspace-stats-20260811`；真实 App 创建 content workspace、conversation、document、29-byte attachment 和 empty comparison workspace，通过 Settings → Workspaces 打开非当前 workspace 的删除盘点。UI 显示 `Taking inventory…` 后收敛到 `1 conversations · 0 entities · 1 documents · 29 B of attachments.`；REST/SQLite/CAS 一致，unknown id 为 `404 WORKSPACE_NOT_FOUND`，conflicting header 不改 path subject，200,000-file fixture 证明超时 `blobBytes=-1` 后恢复 29。
+- 五通道封口：录屏 `304.740000s / 2784x1808 / 60fps`，30fps 两段首个可见反馈各 `33.3ms`，全分辨率 diff/contact sheet 已审阅；backend 无应用红线，frontend 仅已知 IMK 平台噪声，ssetap 三流接线且无 gap，llmtap managed bootstrap 原始状态保留，确定性 slice 不伪造 completion。正式按 `G1/F2/A1/C4/G2` 写入 `COVERAGE EP-204=✓✓✓✓✓`，ledger `1710→1715 judgments`，anchors=`10/10`；`gap-too-fast`/`discovery-collapse` 经独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-204-ledger-reaudit.md` ack，未改任何阈值/算法/法典/锚点/gate，最终 alarms clean。
+- 批次三十二由 `45→50/50`。根 `make verify`、完整 `make -C backend testend`（`270.044s`）、workspace/search/Flutter 专项回归、rig 单测、coverage、anchors、alarms、diff、进程端口和 fixture 审计均已通过；完整 gate 不因批次完成而降低标准。当前只剩选择性工作树审计与提交，提交后才推进 EP-205。
+
+## 2026-08-11 — EP-203 `DELETE /api/v1/workspaces/{id}` 收口，批次三十二 45/50
+
+- 产品目的：用户在删除 workspace 前必须看清真实内容盘点，错误名称不能误删；精确确认后 UI roster、REST、stats、删除后读路径和 durable 状态要共同收敛，最后一个 workspace 必须被产品和 API 双重保护。
+- 静态审计确认 handler → service → store 的删除链路、真实 stats 盘点、精确名称确认、当前/最后一个 workspace 的 UI affordance 门控和 `CANNOT_DELETE_LAST_WORKSPACE` 保护均符合契约，未发现需要 stop-and-fix 的产品代码缺陷。
+- 真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-042252`，数据目录 `/private/tmp/anselm-data-ep203-workspace-delete-20260811`；Alpha=`ws_c2c0b5ec6ce86f6c`、Beta=`ws_7602c406a380b4d8`、Gamma=`ws_9ca729321b5ccb16`。Beta 的真实 conversation/document 盘点在确认面显示 `1 conversations · 0 entities · 1 documents · 0 B of attachments.`；错误名称不执行，真实焦点+键盘输入精确名称后删除 Beta，再删除非当前 Alpha，最终 roster 只剩当前 Gamma，最后一个没有删除 affordance。
+- REST 矩阵覆盖 Beta/Alpha `204`、删除后 list 收敛、详情/stats `404 WORKSPACE_NOT_FOUND`、最后 Gamma `422 CANNOT_DELETE_LAST_WORKSPACE` 且 Gamma 仍可读；backend journal 对应 `04:29:39.420`、`04:30:51.966`、`04:31:06.566`。五通道均真实：backend 无 panic/FATAL/WARN/ERROR，frontend 仅已知 macOS IMK 平台噪声，llmtap 14 个状态均为 `200`，ssetap 记录三流接线及 Beta 的 `document.created`/`conversation.created` durable 帧。
+- 封口录屏 `493.813333s / 2784x1808 / 60fps`；Beta/Alpha 删除动作到首个可见反馈均 `16.7ms`，未见黑帧、死 loading、裁切、文字跳变、残留 dialog 或未解释 reflow。完整 REST/UI/五通道/测量证据在 session `evidence/`，正式产品证据为 `EP-203-final-green.md`。
+- 定向 Go workspace/store/handler、Flutter Settings/workspace、rig 单测通过；正式以 `G1 / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-203=✓✓✓✓✓`，formal ledger `1705→1710 judgments`，anchors=`10/10`。`gap-too-fast` 与 `discovery-collapse` 已由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-203-ledger-reaudit.md` 独立复核并 ack，未改阈值/算法/法典/锚点/gate；`gen_coverage.py --check` 应为 `848/335/0`，`alarms.py check` clean。AX `set_value` 不触发 Flutter `onChanged` 的仪器限制只记台架 caveat，不是产品缺陷。批次三十二由 `40→45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-204。
+
+## 2026-08-11 — EP-202 `PATCH /api/v1/workspaces/{id}` 收口，批次三十二 40/50
+
+- 产品目的：用户必须能在 Settings → Workspaces 中真实修改工作区名称和颜色，并在 Chat 中切换 Local fetch / Jina proxy；partial PATCH 不得覆盖未改字段，坏输入不得污染持久状态，UI 选中态必须和 API 真相回声一致。
+- 静态审计确认 handler 的严格 JSON 解码、显式 id 路由、partial Update 和 name/language/webFetchMode 校验均符合契约，未发现需要 stop-and-fix 的代码缺陷。首轮 AX `set_value` 绕过 Flutter `onChanged`，没有产生 PATCH，已明确丢弃；accepted run 改用真实焦点、键盘输入、颜色点击和 Save。
+- 固定五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-040349`，数据目录 `/private/tmp/anselm-data-ep202-workspace-patch-20260811`：真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap、conductor 窗口录屏均由同一 manifest 托管。在线 `rig-check` 的 D1、health、SSE、llmtap、Flutter、console、recorder 全通，收台录屏 `558.061667s / 2788x1808 / 60fps`。
+- App 真实 rename/color 后 Alpha GET 回读 `EP202 Patch Alpha Renamed` / `#E2A93B`；Chat 真实点击 Jina 后 GET 为 `webFetchMode=jina`，再点击 Local 后 GET 为 `local`。Beta 的 avatar-only、language-only、webFetch-only、name-only partial 更新均保留未改字段；invalid language、invalid webFetchMode、blank name、unknown field、trailing JSON、unknown id 均得到诚实拒绝，负向 probe 后业务字段未污染。第一版未知 id probe 仅作仪器记录，不冒充字段校验证据。
+- 60fps 控件 ROI 测量：颜色 `50.0ms`、Jina `33.3ms`、Local `50.0ms` 首个可见反馈；圆点尺寸、选中 ring、segmented inset 和说明文案对齐，逐帧未见黑帧、死 loading、裁切、文字跳变或 unexplained reflow。backend 无应用级 WARN/ERROR/panic/FATAL；frontend 仅有已知 macOS IMK 平台噪声；ssetap 为 Alpha/Beta 各连接 messages/entities/notifications，llmtap 真实记录 challenge/install/models `200`。
+- 定向 Go workspace/store/handler 测试通过；`mise exec -- flutter test ...` 相关 Settings/workspace 测试 `33` 项通过；rig 单测 `6` 项通过。正式按 `G1 / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-202=✓✓✓✓✓`，formal ledger `1700→1705 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848 rows / 334 carried / 0 tombstones`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已以 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-202-ledger-reaudit.md` 独立复核并 ack，未改阈值/算法/法典/锚点/gate；最终 `alarms.py check`=`clean (1705)`。批次三十二由 `35→40/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-203。
+
+## 2026-08-11 — EP-201 `GET /api/v1/workspaces/{id}` 收口，批次三十二 35/50
+
+- 产品目的：按 id 单读 workspace 必须回读完整对象；未知和删除后的 id 要给出同一准确的 `404 WORKSPACE_NOT_FOUND`；Settings → Workspaces 的用户可见 roster 与 API 真相必须收敛，且 onboarding/global 读取不能被无关 workspace header 误挡。
+- 静态审计确认 handler → `workspace.Service.Get` → store 的显式 id 链路、ORM miss 到 `WORKSPACE_NOT_FOUND` 的翻译和 workspace-exempt 路由均符合产品边界；workspace prefs repository 真实调用同一路径。Go workspace/app/store/handler 定向测试通过。
+- 主真实五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-034512`：Computer Use 从空数据目录创建 `EP201 GET Alpha`，打开 Settings → Workspaces；REST 隔离矩阵另建 Beta，Alpha/Beta 单读 `200`、未知 id `404`、无关 header 仍 `200`、删除 Beta 后 `404`、最终 roster 只剩 Alpha。完整矩阵为 `evidence/EP-201-rest-matrix.txt`。
+- Beta 被立即删除以隔离负向 fixture，故 backend 唯一相关 DEBUG 是受管开通被 workspace lifecycle cancellation 取消；该行已原样披露并分类为预期 probe 清理，不是 WARN/ERROR，不被隐藏。主 session backend 无 panic/FATAL/WARN/ERROR 应用红线；frontend 无 Dart/Flutter/RenderFlex/Unhandled/overflow 红线。
+- 补充真实短重放 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-035449` 从空库创建 `EP201 GET Replay`，由同一 conductor 托管真实 Flutter、Computer Use、录屏、三路 SSE、llmtap 与受管网关；在线 `rig-check` 全通，收台录屏 `97.645000s`。
+- 逐帧 stop-and-fix 分流：主 session 1fps 中疑似黑帧 `frame-0096`/`0098` 直接查看为正常 Settings → Chat；原始 60fps `95.5–98.5s` 的 `YAVG` 稳定为 `190.546`，确认为抽样/缩略图误导。补充 session 的物理动作前最后稳定 Chat 帧 `frame-0264` 与首个完整 Workspaces 帧 `frame-0265` 用 `measure latency` 得 `16.7ms`、`changedFrac=0.04142`；RPC 调用起点计算出的 `633.3ms` 被明确丢弃，未混入产品时延判定。
+- 五通道：两 session 的 SSE witness 均连接 `messages/entities/notifications`；primary/replay LLM tap 分别记录真实 bootstrap `200`，不虚构 completion；frontend 只有已知 macOS runner/IMK 平台噪声；录屏与 Settings roster 无裁切、死 loading、文字跳变、overflow 或未解释 reflow。
+- 定向 Flutter Settings/workspace/hot-switch 测试 `15` 项、rig 单测 `6` 项全部通过；`git diff --check` 通过。完整产品证据为主 session `evidence/EP-201-final-green.md`，ledger re-audit 为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-201-ledger-reaudit.md`。
+- anchors `10/10`；`judge.py` 以 `G1/F2/A1/C4/G1` 写入五格，中央账本 `1695→1700 judgments`，COVERAGE `EP-201=✓✓✓✓✓`，`gen_coverage.py --check`=`848 rows / 333 carried / 0 tombstones`。`gap-too-fast` 与 `discovery-collapse` 按独立 re-audit ack，未修改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1700)`。
+- 批次三十二由 `30→35/50`；未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-202 `PATCH /api/v1/workspaces/{id}`。
+
+## 2026-08-11 — EP-200 `POST /api/v1/workspaces` 收口，批次三十二 30/50
+
+- 产品目的：空库 onboarding 中创建 workspace 后，用户必须立刻知道系统正在准备什么，等待后进入可用 Chat；API caller 的输入边界、免费档异步开通、默认场景播种和最终 roster 也必须收敛为同一份真相。
+- 首轮真实探针发现：`{"name":"EP200 Trailing"}{"name":"EP200 Trailing2"}` 被 decoder 接受并返回 `201`，静默丢弃尾随值。前线冻结，修复 `backend/internal/transport/httpapi/handlers/decode.go`，要求 body 恰为一个完整 JSON 值；补 `decode_test.go` 覆盖第二对象、第二个 `null`、垃圾尾巴、合法空白和 optional EOF，并同步 `docs/references/backend/api.md`。
+- 产品 stop-and-fix：`workspace_create_control.dart` 的 `_saving` 状态原本存在，但 setup 文案因 `AnimatedOpacity` 条件错误始终透明。现在等待态可见、输入只读、按钮禁用，并补 widget 回归测试，避免用户在受管档准备期间面对无反馈空白。
+- 固定版真实五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-032721`：真实 Flutter macOS App + Computer Use 从空 onboarding 创建 `EP200 UI Loading`，另一路 REST 创建 `EP200 API Loading`；真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap 和封口录屏均由 conductor 托管。点击后首个可见 setup 反馈为 `16.7ms`，workspace POST `03:28:47.414`、受管 provision/probe `03:28:47.832`、shell roster `03:28:48.217`；录屏 `121.798333s / 2784x1808 / 60fps`。
+- 固定版 REST 证据覆盖合法创建、尾随 JSON=`400 INVALID_REQUEST`、空名称、非法语言、未知字段、65-rune 名称和列表收敛；固定版矩阵在 `sessions/20260811-032721/evidence/EP-200-rest-red-fix-replay.txt`，完整产品证据为 `EP-200-final-green.md`，formal re-audit 为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-200-ledger-reaudit.md`。
+- 五通道复核：backend 无 panic/FATAL/ERROR/WARN；SSE witness 发现并连接当前 workspace 的 messages/entities/notifications；llmtap 记录真实 proof challenge/install/models `200`，无伪造 completion；frontend 无 Dart/Flutter/RenderFlex/Unhandled/overflow 红线。视觉测量为 `14.68:1` 对比度、`16.7ms` 首反馈、稳定 Chat ROI 无超过 `0.02` 的异常帧差。
+- 正式按 `G1 / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-200=✓✓✓✓✓`；formal ledger `1690→1695 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/332/0`。`gap-too-fast` 与 `discovery-collapse` 已用独立 re-audit、红证据、固定版 session、负向矩阵、测量和静态验证 ack；未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1695)`。批次三十二由 `25→30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-201。
+
+## 2026-08-11 — EP-199 `GET /api/v1/workspaces` 收口，批次三十二 25/50
+
+- 产品目的：空库 onboarding、真实创建多个 workspace、footer switcher、Settings roster 和当前 workspace 标记必须共同呈现同一份稳定名册；列表顺序在相同创建时间下也不能漂移。删除确认表面本轮走查，但完整 UI 删除收口明确留给 EP-203。
+- 首轮静态 stop-and-fix：store 原先只按 `created_at ASC` 排序，相同时间戳会让冷启动首个 workspace 与 roster 顺序不确定。现在固定 `created_at ASC, id ASC`，新增相同时间戳 tie-break 回归，并同步 API/support-services 文档，明确这是 machine-wide、有界、不分页完整名册。
+- 真实五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-025525`：全新数据目录、真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap、封口录屏 `320.688333s / 2784x1808`。App 先显示空 onboarding，再真实创建 `EP199 Workspace Alpha`、`EP199 Workspace Beta`、`EP199 Workspace Gamma`，通过 footer switcher 三向切换，在 Settings → Workspaces 观察完整 roster 与当前标记，并打开 Beta 删除确认表面。
+- 为避免不可逆 fixture 操作误算为 UI 删除验收，Beta 最终由 session 内直接 REST probe 隔离删除；列表收敛为 Alpha/Gamma，已删除对象 `404 WORKSPACE_NOT_FOUND`。这验证了 endpoint 真相，但不宣称 UI Confirm 删除闭环，后者留给 EP-203。
+- 五通道与视觉：backend 无 WARN/ERROR/panic/FATAL，frontend 无 Dart/Flutter/RenderFlex/Unhandled/Exception/runtime 红线；三个 workspace 各自接入 messages/entities/notifications，本 GET-only slice 无虚构业务帧；llmtap challenge/install/models 全真实 `200` 且无伪造 completion。`rig-check` 的 D1、health、SSE、llmtap、Flutter、console、recorder 检查通过；1fps 321 帧逐帧复核 onboarding、Chat、switcher、roster、delete confirmation，无裁切、死 loading、文字跳变或未解释 reflow。原始创建 60fps 片段首个可见反馈 `16.7ms`，深色文字对纯白背景对比度 `14.68:1`，稳定 ROI diff 无异常。完整证据为 session `evidence/EP-199-final-green.md`，formal re-audit 为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-199-ledger-reaudit.md`。
+- 正式按 `measure:workspace-roster-purpose / G1 / A1 / C4 / G1` 写入 `COVERAGE EP-199=✓✓✓✓✓`；formal ledger `1685→1690 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/331/0`。`gap-too-fast` 与 `discovery-collapse` 已依据原始 session、数据库、LLM body、SSE、测量和静态验证逐项复核并 ack，未修改阈值、算法、法典、锚点或 gate；最终 `alarms.py check`=`clean (1690)`。批次三十二由 `20→25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-200。
+
+## 2026-08-11 — EP-198 `PATCH /api/v1/search/settings` 收口，批次三十二 20/50
+
+- 产品目的：机器级搜索设置的部分更新必须不覆盖未提字段、错误时不留下半套配置，并让 embedder/model 变化对所有已索引 workspace 的向量缓存与补算保持一致；真实 App 仍只能呈现它真正拥有的设置入口，不能为内部 endpoint 编造 UI。
+- 首轮静态 stop-and-fix：原实现逐项写 `search_meta`，多字段 PATCH 在后写失败时可能半更新；且只 invalidate/kick 当前请求 workspace。新增 `SetMetaBatch` 单事务写入，补 later-write rollback infra 守卫；Service 记录已进入索引的 workspace，机器级设置变化向所有已知 workspace fan-out invalidate/backfill kick。同步 domain/API/search 文档。
+- 真实五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-024018`：真实 Flutter macOS App、Computer Use、受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap 和封口录屏 `239.978333s / 2784x1808`。真实 onboarding 创建 `EP198 Search Settings Patch Lab`，再经 sidecar 创建第二 workspace；App 内打开 Settings/Models & keys 和 Settings 搜索确认没有独立 search-settings UI。
+- REST/SQLite 事实：两 workspace 初始设置一致；unknown field、非法 embedder、畸形 JSON 均 `400`；空对象为 `200` no-op；`ollamaModel` 与 `ollamaBaseUrl` 可分别 PATCH 且互不覆盖；死端口 Ollama 保持 lexical search；另一 workspace 立即观察到同一 machine-level patch；两个 workspace 各建文档并搜到 lexical hit；空 URL/model 恢复默认，builtin 最终 `engine.ready`。完整 19 项记录在 session `evidence/EP-198-api.json`。
+- 五通道与视觉：backend 无 WARN/ERROR/panic/FATAL，唯一 degraded 行是预期 provider-unavailable fallback；两个 workspace 各连接 messages/entities/notifications，只有真实 `document.created` durable frames，没有虚构 settings lifecycle；llmtap 的 challenge/install/models/quota 均为真实 `200`，未把确定性 REST 路径伪报 completion；frontend 无 Dart/Flutter/RenderFlex/Unhandled 红线。onboarding、Chat、Models & keys 抽帧稳定，Settings 主内容 ROI 15 秒间隔 `changedFrac=0`，无裁切、死 loading、reflow 或跳变。
+- 正式按 `measure:search-settings-patch-purpose / F2 / A1 / C4 / na` 写入 `COVERAGE EP-198=✓✓✓✓~`；formal ledger `1680→1685 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/330/0`。写账触发的 `gap-too-fast`/`discovery-collapse` 已由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-198-search-settings-patch-ledger-reaudit.md` 独立复核并 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1685)`。EP-198 隔离数据目录已按授权移入 Trash，session/录屏/journals/evidence 保留；批次三十二由 `15→20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-199。
+
+## 2026-08-11 — EP-197 `GET /api/v1/search/settings` 收口，批次三十二 15/50
+
+- 产品目的：机器级搜索设置必须在不同 workspace 间保持同一真相；新 Ollama provider 在首次成功响应前不能伪报 ready，失败后要给出可解释状态，同时不能让语义引擎不可达破坏 lexical search。该 endpoint 没有独立用户界面、导航入口或可轮询产物，真实 App Settings 走查后 L5 诚实记 `na`，由父级 Search surface 承担 discoverability。
+- 首轮静态 stop-and-fix：Ollama adapter 只要对象存在就被 GET settings 误报 `engine.status=ready`，用户无法区分“已配置”与“上游实际可用”。现在 adapter 初始为 `absent`，一次失败为 `error + lastError`，一次成功为 `ready`，状态读写有锁；GET 不同步探测外部 daemon。补 engine unit/race、service、handler 和真实 testend 回归，并同步 search domain 文档。
+- 真实五通道 session `/private/tmp/anselm-rig-ep197-search-settings-20260811/sessions/20260811-021913`：真实 Flutter macOS App、Computer Use、受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap、封口录屏 `401.060000s / 2784x1808 / 60fps`。真实 onboarding 创建 `EP197 Search Settings Lab`，App 内打开 Settings、Settings 搜索和 Models & keys；两个 workspace 通过同一 sidecar 复核 machine-level scope。
+- REST/SQLite 事实：初始 builtin/absent；非法 embedder=`400 SEARCH_EMBEDDER_INVALID`；off 在另一 workspace 同步可见；不可达 Ollama 首次 GET 保持 absent，真实文档 + reindex 触发失败嵌入后变 error 并带 connection-refused，搜索仍返回 lexical hit；空 URL/model 与 builtin PATCH 恢复默认。`search_meta` 最终恢复为预期 machine settings，无秘密进入证据。
+- 五通道对证：backend 只有预期 provider-unavailable lexical fallback，无应用级 panic/FATAL/未解释 WARN/ERROR；SSE 两 workspace 各自连接 messages/entities/notifications，本 slice 只观察到真实 `document.created` durable notification；LLM tap 的 challenge/install/models/quota 均经真实网关成功，本确定性路径无 completion；frontend 只有既有 macOS launcher/IMK 噪声，无 Dart/Flutter/RenderFlex/Unhandled/runtime 红线。封口帧的 onboarding 与 Models & keys 几何稳定，无裁切、死 loading、错位或 reflow。
+- 正式按 `measure:search-settings-purpose / F2 / A1 / C4 / na` 写入 `COVERAGE EP-197=✓✓✓✓~`；formal ledger `1675→1680 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/329/0`。写账触发的 `gap-too-fast`/`discovery-collapse` 已由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-197-search-settings-ledger-reaudit.md` 独立复核并 ack，阈值/算法/法典/锚点/gate 未改，最终 `alarms.py check`=`clean (1680)`。批次三十二由 `10→15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-198。
+
+## 2026-08-11 — EP-196 `POST /api/v1/search:reindex` 收口，批次三十二 10/50
+
+- 产品目的：索引重建必须是就地的，不能制造搜索空窗；同 workspace 的重复重建要明确冲突，不同 workspace 不能互相阻塞；重建期间的搜索和之后的 Chat grounding 必须仍然完成用户目的。
+- 静态核对：实现是 per-workspace single-flight、force-reconcile 就地覆盖词法行、向量失效后后台重嵌；补齐旧 `202` 注释为真实 `204` fire-and-forget 语义，并同步 testend/bootstrap 注释和搜索文档。
+- 真实五通道 session `/private/tmp/anselm-rig-ep196-reindex-20260811/sessions/20260811-015322`：真实 Flutter macOS App、Computer Use、受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap、封口录屏 `335.445000s / 2784x1808`。180 篇带 `EP196-REINDEX-TOKEN` 的文档用于重建；同 workspace burst=`204×6 + 409×114`，第二 workspace 同时=`204`，重建期间 24 次搜索均 `200,total=181`。
+- Chat 真实 prompt 要求使用 document search 且禁止猜测；LLM wire 真实 `search_documents` 返回 `total=181`，UI tool card 显示 `10 of 181`，助手准确返回 `181` 和 `EP196 Reindex Document 180`。backend 无应用红线，frontend 只有已知 macOS IMK 噪声，两个 workspace 各自三流连接；primary messages `1..14`、notifications `1..183` 连续无 gap。
+- 逐帧：30fps submit action=`219`→首个可见反馈 frame=`220`，`33.3ms`、changedFrac=`0.01506`；稳定 transcript ROI 的 `f000400→f000401` 无超过 rig 阈值的 diff。稳定 Chat 帧无裁切、重排、死 spinner 或未解释跳变。
+- 正式按 `measure:search-reindex-purpose / F2 / A1 / C4 / na` 写入 `COVERAGE EP-196=✓✓✓✓~`；L5 因该内部 fire-and-forget endpoint 无独立 UI/导航/可轮询产物而诚实记 `na`。formal ledger `1670→1675 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/328/0`。`gap-too-fast`/`discovery-collapse` 经 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-196-reindex-ledger-alarm-reaudit.md` 独立复核并 ack，未改阈值/算法/法典/锚点/gate；最终 `alarms.py check`=`clean (1675)`。EP-196 隔离数据已按授权移入 Trash，session、录屏、journals、evidence 与 formal ledger 保留；批次未满 50 格，不跑统一长门禁、不提交；下一原子前线 EP-197。
+
+## 2026-08-11 — EP-195 GET /api/v1/search 收口，批次三十二 5/50
+
+- 产品目的：用户不仅要能搜到结果，还要能控制类型、标签、inclusive 时间窗和 archived 边界，稳定翻页不重复；异常参数不能静默改变意图；Chat 通过真实 search_documents 必须返回与文档库一致的名称和 snippet。
+- 首轮静态 stop-and-fix：malformed RFC3339、倒置 window、非法 includeArchived 原先会被忽略或变成另一种查询。现在 transport/domain 显式返回 SEARCH_INVALID_WINDOW / SEARCH_INVALID_INCLUDE_ARCHIVED，带参数详情并统一 UTC；补 handler、domain/app/infra、black-box testend 回归和 API/search/error 文档。
+- 真实五通道 session /private/tmp/anselm-rig-ep195-search-20260811/sessions/20260811-013347：真实 Flutter macOS App、Computer Use、受管 https://api.anselm.website、三路独立 ssetap、backend/frontend journals、llmtap、封口录屏 235.940000s / 2784x1808。三篇带唯一 token 的文档 + 一条 archived conversation 真实验证 omni total/cursor、document/tag/window 分页、false/true archived、cursor filter mismatch、三类明确 422 和 exact-name ranking。
+- Chat 真实 prompt 要求使用 document search 且禁止使用 conversation title；UI 稳定出现 Searched document EP195-RANK-TOKEN · 3 found 和三行精确表格，LLM wire 真实记录 search_documents query/result，未发生猜测。backend 无应用红线，frontend 仅已知 launcher/IMK 噪声，三流 durable seq 分别连接且 messages 1..14 单调。
+- 逐帧：30fps f000375→f000376 首反馈=33.3ms，全局 changedFrac=0.00495，Composer ROI=0.06062；稳定 table/tool capsule/composer 无黑帧、死 spinner、overflow、reflow。标题 Se 中间态经 SQLite、最终通知、reserved footprint 和 late settle frames 复核为有意 AnTypewriter 揭示，不是截断落库或标题槽跳动。
+- 正式按 measure:search-purpose / F2 / A1 / C4 / G1 写入 COVERAGE EP-195=✓✓✓✓✓，formal ledger 1665→1670 judgments，anchors=10/10，gen_coverage.py --check=848/327/0。gap-too-fast/discovery-collapse 经 /private/tmp/anselm-rig-formal-20260801-3/evidence/EP-195-search-ledger-alarm-reaudit.md 独立复核并 ack，未改阈值/算法/法典/锚点/gate；最终 alarms.py check=clean (1670)。EP-195 隔离数据已按授权移入 Trash；本条记录当时批次三十二为 5/50，随后由 EP-196 推进到 10/50。
+
 ## 2026-08-11 — EP-194 `POST /api/v1/memories/{name}/unpin` 收口，批次三十一 50/50
 
 - 产品目的：取消置顶必须让记忆停止进入后续对话的常驻正文，同时保留记忆、索引可见、可重新置顶，并让 Pinned 过滤和下一轮 Chat 对用户诚实。
