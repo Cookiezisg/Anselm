@@ -5,9 +5,10 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"errors"
 	"io"
+	"mime"
 	"net/http"
-	"strings"
 	"sync"
 	"time"
 
@@ -85,9 +86,17 @@ const uploadHeadroom = 1 << 20
 func (h *AttachmentHandler) Upload(w http.ResponseWriter, r *http.Request) {
 	r.Body = http.MaxBytesReader(w, r.Body, int64(limitspkg.Current().Guards.AttachmentMaxMB)<<20+uploadHeadroom)
 	if err := r.ParseMultipartForm(32 << 20); err != nil {
-		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrTooLarge)
+		var maxErr *http.MaxBytesError
+		if errors.As(err, &maxErr) {
+			responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrTooLarge)
+		} else {
+			responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrBadUpload)
+		}
 		return
 	}
+	// Files above maxMemory are backed by temporary multipart files; remove them after this request.
+	// 超过 maxMemory 的文件会落到 multipart 临时文件；请求结束后必须清掉。
+	defer r.MultipartForm.RemoveAll()
 	file, header, err := r.FormFile("file")
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, attachmentdomain.ErrBadUpload)
@@ -140,9 +149,9 @@ func (h *AttachmentHandler) Content(w http.ResponseWriter, r *http.Request) {
 		mime = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", mime)
-	// inline preview; strip quotes from the filename so the header can't be broken.
-	// 内联预览；从文件名剥引号，避免破坏 header。
-	w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(a.Filename, `"`, "")+`"`)
+	// Inline preview; the standard MIME serializer safely encodes user-controlled filenames.
+	// 内联预览；标准 MIME 序列化器安全编码用户可控文件名。
+	w.Header().Set("Content-Disposition", attachmentContentDisposition(a.Filename))
 	// http.ServeContent, NOT a hand-written Write: it answers RANGE requests (206 + Content-Range),
 	// which is not a nicety — Apple's AVFoundation opens every media URL with `Range: bytes=0-1` and
 	// refuses a server that cannot answer it (CoreMediaErrorDomain -12939, observed on a real run).
@@ -248,8 +257,16 @@ func (h *AttachmentHandler) PlaybackContent(w http.ResponseWriter, r *http.Reque
 		mime = "application/octet-stream"
 	}
 	w.Header().Set("Content-Type", mime)
-	w.Header().Set("Content-Disposition", `inline; filename="`+strings.ReplaceAll(a.Filename, `"`, "")+`"`)
+	w.Header().Set("Content-Disposition", attachmentContentDisposition(a.Filename))
 	http.ServeContent(w, r, a.Filename, a.CreatedAt, bytes.NewReader(data))
+}
+
+// attachmentContentDisposition uses the standard MIME serializer so user filenames cannot inject
+// header delimiters and Unicode names remain representable to native preview/download clients.
+// attachmentContentDisposition 使用标准 MIME 序列化器，防止用户文件名注入 header 分隔符，并让 Unicode
+// 文件名仍能被原生预览/下载客户端表示。
+func attachmentContentDisposition(filename string) string {
+	return mime.FormatMediaType("inline", map[string]string{"filename": filename})
 }
 
 func (h *AttachmentHandler) Delete(w http.ResponseWriter, r *http.Request) {

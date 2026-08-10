@@ -567,6 +567,82 @@ func (s *Service) Destroy(ctx context.Context, owner sandboxdomain.Owner) error 
 	return nil
 }
 
+// DestroyOwners removes a set of envs as one user-visible reset operation. It locks every
+// owner in stable order and preflights all manifests before deleting any directory or row;
+// a resident env therefore cannot make reset-all report failure after deleting its siblings.
+//
+// DestroyOwners 把一组 env 作为一次用户可见的 reset 操作处理。按稳定顺序锁住全部 owner，
+// 先完整预检 manifest 再删除任何目录或行；因此常驻 env 不会让 reset-all 在删掉 sibling 后才报错。
+func (s *Service) DestroyOwners(ctx context.Context, owners []sandboxdomain.Owner) (int, error) {
+	if len(owners) == 0 {
+		return 0, nil
+	}
+
+	ordered := append([]sandboxdomain.Owner(nil), owners...)
+	sort.Slice(ordered, func(i, j int) bool {
+		if ordered[i].Kind != ordered[j].Kind {
+			return ordered[i].Kind < ordered[j].Kind
+		}
+		return ordered[i].ID < ordered[j].ID
+	})
+	unique := ordered[:0]
+	seen := make(map[string]struct{}, len(ordered))
+	for _, owner := range ordered {
+		key := owner.Kind + ":" + owner.ID
+		if _, ok := seen[key]; ok {
+			continue
+		}
+		seen[key] = struct{}{}
+		unique = append(unique, owner)
+	}
+
+	locks := make([]*sync.Mutex, 0, len(unique))
+	for _, owner := range unique {
+		lock := s.ownerLock(owner)
+		lock.Lock()
+		locks = append(locks, lock)
+	}
+	defer func() {
+		for i := len(locks) - 1; i >= 0; i-- {
+			locks[i].Unlock()
+		}
+	}()
+
+	toDelete := make([]struct {
+		owner sandboxdomain.Owner
+		env   *sandboxdomain.Env
+	}, 0, len(unique))
+	for _, owner := range unique {
+		existing, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID)
+		if errors.Is(err, sandboxdomain.ErrEnvNotFound) {
+			continue
+		}
+		if err != nil {
+			return 0, fmt.Errorf("sandboxapp.DestroyOwners: lookup %s/%s: %w", owner.Kind, owner.ID, err)
+		}
+		if existing.RunningPID > 0 {
+			return 0, fmt.Errorf("sandboxapp.DestroyOwners: %s: %w", existing.ID, sandboxdomain.ErrEnvInUse)
+		}
+		toDelete = append(toDelete, struct {
+			owner sandboxdomain.Owner
+			env   *sandboxdomain.Env
+		}{owner: owner, env: existing})
+	}
+
+	removed := 0
+	for _, item := range toDelete {
+		if err := s.destroyLocked(ctx, item.env); err != nil {
+			return removed, err
+		}
+		s.dropOwnerLock(item.owner)
+		removed++
+	}
+	for _, owner := range unique {
+		s.dropOwnerLock(owner)
+	}
+	return removed, nil
+}
+
 // dropOwnerLock evicts the owner's keyed mutex from envLocks (owner IDs are unique
 // per Quadrinity entity and never recur, so without this the map grows for the whole
 // process lifetime — one *sync.Mutex per entity ever materialized). MUST be called

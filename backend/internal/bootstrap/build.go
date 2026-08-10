@@ -227,7 +227,7 @@ func registerHandlers(mux *http.ServeMux, s *services, bus buses, cfg Config, pr
 		handlershttpapi.NewNotificationHandler(s.notification, log),
 		handlershttpapi.NewStreamHandler(bus.messages, bus.entities, bus.notifications, log),
 		handlershttpapi.NewMemoryHandler(s.memory, log),
-		handlershttpapi.NewSandboxHandler(s.sandbox, log),
+		handlershttpapi.NewSandboxHandler(s.sandbox, s.conversation, log),
 		handlershttpapi.NewLimitsHandler(s.settings, log),
 		handlershttpapi.NewSystemHandler(s.settings, cfg.Version, log),
 		handlershttpapi.NewStorageHandler(s.storage, log),

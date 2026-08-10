@@ -6116,6 +6116,18 @@ class Translations$settings$sandbox$en {
 	/// en: 'Sandbox bootstrap failed'
 	String get bootstrapFail => 'Sandbox bootstrap failed';
 
+	/// en: 'Anselm couldn't prepare the sandbox. Check the data directory and permissions, then retry.'
+	String get bootstrapFailHint => 'Anselm couldn\'t prepare the sandbox. Check the data directory and permissions, then retry.';
+
+	/// en: 'Couldn't read sandbox status'
+	String get bootstrapStatusLoadFailed => 'Couldn\'t read sandbox status';
+
+	/// en: 'The local engine didn't return a status. Check the connection and retry.'
+	String get bootstrapStatusLoadFailedHint => 'The local engine didn\'t return a status. Check the connection and retry.';
+
+	/// en: 'Retrying…'
+	String get retrying => 'Retrying…';
+
 	/// en: 'Retry'
 	String get retry => 'Retry';
 
@@ -6215,14 +6227,32 @@ class Translations$settings$sandbox$en {
 	/// en: 'Reclaim'
 	String get gcRun => 'Reclaim';
 
+	/// en: 'Reclaiming…'
+	String get gcWorking => 'Reclaiming…';
+
+	/// en: 'Enter a whole number of days, 0 or more.'
+	String get gcInvalidDays => 'Enter a whole number of days, 0 or more.';
+
+	/// en: 'Reclaim idle environments?'
+	String get gcTitle => 'Reclaim idle environments?';
+
+	/// en: 'This permanently removes local environment files idle for more than $days days. The owning item stays and can rebuild its environment on the next run.'
+	String gcBody({required Object days}) => 'This permanently removes local environment files idle for more than ${days} days. The owning item stays and can rebuild its environment on the next run.';
+
 	/// en: 'Reclaimed $n'
 	String gcDone({required Object n}) => 'Reclaimed ${n}';
 
 	/// en: 'Reclaim every idle environment now?'
 	String get gcAllTitle => 'Reclaim every idle environment now?';
 
+	/// en: 'This permanently removes every idle environment file on this machine. The owning items stay and can rebuild their environments on the next run.'
+	String get gcAllBody => 'This permanently removes every idle environment file on this machine. The owning items stay and can rebuild their environments on the next run.';
+
 	/// en: 'Reclaim all now'
 	String get gcAll => 'Reclaim all now';
+
+	/// en: 'Couldn’t reclaim environments. Check the connection and try again.'
+	String get gcFailed => 'Couldn’t reclaim environments. Check the connection and try again.';
 
 	/// en: 'running'
 	String get running => 'running';
@@ -9556,6 +9586,10 @@ extension on Translations {
 			'settings.network.restartNote' => 'The proxy fully takes effect after restarting the engine',
 			'settings.network.empty' => 'Empty = direct connection',
 			'settings.sandbox.bootstrapFail' => 'Sandbox bootstrap failed',
+			'settings.sandbox.bootstrapFailHint' => 'Anselm couldn\'t prepare the sandbox. Check the data directory and permissions, then retry.',
+			'settings.sandbox.bootstrapStatusLoadFailed' => 'Couldn\'t read sandbox status',
+			'settings.sandbox.bootstrapStatusLoadFailedHint' => 'The local engine didn\'t return a status. Check the connection and retry.',
+			'settings.sandbox.retrying' => 'Retrying…',
 			'settings.sandbox.retry' => 'Retry',
 			'settings.sandbox.runtimes' => 'Runtimes',
 			'settings.sandbox.runtimesLoadFailed' => 'Failed to load runtimes',
@@ -9589,9 +9623,15 @@ extension on Translations {
 			'settings.sandbox.gc' => 'Reclaim idle environments',
 			'settings.sandbox.gcDays' => 'Reclaim envs idle for more than N days',
 			'settings.sandbox.gcRun' => 'Reclaim',
+			'settings.sandbox.gcWorking' => 'Reclaiming…',
+			'settings.sandbox.gcInvalidDays' => 'Enter a whole number of days, 0 or more.',
+			'settings.sandbox.gcTitle' => 'Reclaim idle environments?',
+			'settings.sandbox.gcBody' => ({required Object days}) => 'This permanently removes local environment files idle for more than ${days} days. The owning item stays and can rebuild its environment on the next run.',
 			'settings.sandbox.gcDone' => ({required Object n}) => 'Reclaimed ${n}',
 			'settings.sandbox.gcAllTitle' => 'Reclaim every idle environment now?',
+			'settings.sandbox.gcAllBody' => 'This permanently removes every idle environment file on this machine. The owning items stay and can rebuild their environments on the next run.',
 			'settings.sandbox.gcAll' => 'Reclaim all now',
+			'settings.sandbox.gcFailed' => 'Couldn’t reclaim environments. Check the connection and try again.',
 			'settings.sandbox.running' => 'running',
 			'settings.sandbox.statusReady' => 'ready',
 			'settings.sandbox.statusFailed' => 'failed',

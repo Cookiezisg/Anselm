@@ -38,6 +38,30 @@ func platformC_ws(t *testing.T, c *harness.Client, name string) (string, *harnes
 	return id, c.WS(id)
 }
 
+// platformC_seedConversationEnv constructs the one conversation-scratch row that production does
+// not currently create through a user-facing producer. The route remains black-box HTTP; this
+// fixture only supplies the otherwise-unreachable manifest state needed to test ownership against
+// a real backend and a real SQLite file.
+//
+// platformC_seedConversationEnv 构造生产当前没有用户侧 producer 会写出的唯一 conversation-scratch 行。
+// 路由仍走黑盒 HTTP；fixture 只补齐验证真实 backend + SQLite 上 owner 隔离所需、API 当前不可达的 manifest 态。
+func platformC_seedConversationEnv(t *testing.T, srv *harness.Server, convID string) {
+	platformC_seedConversationEnvKind(t, srv, convID, "python", "se_contract_conversation")
+}
+
+func platformC_seedConversationEnvKind(t *testing.T, srv *harness.Server, convID, kind, envID string) {
+	t.Helper()
+	ownerID := convID + "_" + kind
+	q := fmt.Sprintf(`INSERT INTO sandbox_envs
+		(id, owner_kind, owner_id, owner_name, runtime_id, deps, path, status, error_msg, created_at, last_used_at, updated_at, running_pid)
+		VALUES ('%s', 'conversation', '%s', '', 'sr_contract', '[]', 'envs/conversation/%s', 'ready', '', datetime('now'), datetime('now'), datetime('now'), 0);`,
+		strings.ReplaceAll(envID, "'", "''"), strings.ReplaceAll(ownerID, "'", "''"), strings.ReplaceAll(ownerID, "'", "''"))
+	out, err := exec.Command("sqlite3", filepath.Join(srv.DataDir, "anselm.db"), q).CombinedOutput()
+	if err != nil {
+		t.Fatalf("seed conversation sandbox env: %v\n%s", err, out)
+	}
+}
+
 // platformC_keyRow 是 apikey 实体的线缆投影（契约字段：keyMasked 脱敏、无明文 key 字段）。
 type platformC_keyRow struct {
 	ID          string `json:"id"`
@@ -644,7 +668,7 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 		t.Fatalf(":retry-bootstrap must report {ok} in-band: %s", rb.Data)
 	}
 
-	// 对话 scratch env 面：列表 []（当前无生产者写 conversation scratch）→ reset 幂等 204 →
+	// 对话 scratch env 空态：列表 []（当前无生产者写 conversation scratch）→ reset 幂等 204 →
 	// reset-all 返 {removed:0}。
 	convID := convCreate(t, wa, "scratch probe")
 	sr := wa.GET("/api/v1/conversations/" + convID + "/sandbox-envs")
@@ -661,6 +685,100 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 	wa.POST("/api/v1/conversations/"+convID+"/sandbox-envs:reset-all", nil).OK(t, &removed)
 	if removed.Removed != 0 {
 		t.Fatalf(":reset-all on a scratchless conversation must remove 0, got %d", removed.Removed)
+	}
+
+	// 对话 scratch env 隔离：fixture 物化一行后，拥有该 conversation 的 wsA 能看见；
+	// wsB 即使知道 opaque conversation id 也必须先过 conversation store 的 workspace gate，诚实 404。
+	ownedConvID := convCreate(t, wa, "owned scratch probe")
+	platformC_seedConversationEnv(t, srv, ownedConvID)
+	platformC_seedConversationEnvKind(t, srv, ownedConvID, "node", "se_contract_conversation_node")
+	owned := wa.GET("/api/v1/conversations/" + ownedConvID + "/sandbox-envs")
+	owned.OK(t, nil)
+	var ownedRows []struct {
+		ID      string `json:"id"`
+		OwnerID string `json:"ownerId"`
+	}
+	if err := json.Unmarshal(owned.Data, &ownedRows); err != nil || len(ownedRows) != 2 {
+		t.Fatalf("owned conversation scratch list = %s, want both kind rows", owned.Raw)
+	}
+	seenKinds := map[string]bool{}
+	for _, row := range ownedRows {
+		seenKinds[row.OwnerID] = true
+	}
+	if !seenKinds[ownedConvID+"_python"] || !seenKinds[ownedConvID+"_node"] {
+		t.Fatalf("owned conversation scratch list = %s, want python and node rows", owned.Raw)
+	}
+	foreign := wb.GET("/api/v1/conversations/" + ownedConvID + "/sandbox-envs")
+	if foreign.Status != 404 || foreign.Code != "CONVERSATION_NOT_FOUND" {
+		t.Fatalf("foreign workspace conversation scratch list = %d/%s, want 404/CONVERSATION_NOT_FOUND", foreign.Status, foreign.Code)
+	}
+	foreignReset := wb.Do("POST", "/api/v1/conversations/"+ownedConvID+"/sandbox-envs/python:reset", nil)
+	if foreignReset.Status != 404 || foreignReset.Code != "CONVERSATION_NOT_FOUND" {
+		t.Fatalf("foreign workspace conversation scratch reset = %d/%s, want 404/CONVERSATION_NOT_FOUND", foreignReset.Status, foreignReset.Code)
+	}
+	missing := wa.GET("/api/v1/conversations/cv_missing_sandbox_contract/sandbox-envs")
+	if missing.Status != 404 || missing.Code != "CONVERSATION_NOT_FOUND" {
+		t.Fatalf("missing conversation scratch list = %d/%s, want 404/CONVERSATION_NOT_FOUND", missing.Status, missing.Code)
+	}
+	if rst := wa.Do("POST", "/api/v1/conversations/"+ownedConvID+"/sandbox-envs/python:reset", nil); rst.Status != 204 {
+		t.Fatalf("owned scratch reset = %d/%s, want 204", rst.Status, rst.Code)
+	}
+	afterReset := wa.GET("/api/v1/conversations/" + ownedConvID + "/sandbox-envs")
+	afterReset.OK(t, nil)
+	var remainingRows []struct {
+		ID      string `json:"id"`
+		OwnerID string `json:"ownerId"`
+	}
+	if err := json.Unmarshal(afterReset.Data, &remainingRows); err != nil || len(remainingRows) != 1 || remainingRows[0].ID != "se_contract_conversation_node" || remainingRows[0].OwnerID != ownedConvID+"_node" {
+		t.Fatalf("owned scratch list after python reset = %s, want only node row", afterReset.Raw)
+	}
+
+	// reset-all must remove every idle kind, report the exact count, be idempotent, and reject
+	// a foreign workspace before touching the machine-global manifest.
+	batchConvID := convCreate(t, wa, "batch scratch probe")
+	platformC_seedConversationEnvKind(t, srv, batchConvID, "python", "se_contract_batch_python")
+	platformC_seedConversationEnvKind(t, srv, batchConvID, "node", "se_contract_batch_node")
+	foreignAll := wb.Do("POST", "/api/v1/conversations/"+batchConvID+"/sandbox-envs:reset-all", nil)
+	if foreignAll.Status != 404 || foreignAll.Code != "CONVERSATION_NOT_FOUND" {
+		t.Fatalf("foreign reset-all = %d/%s, want 404/CONVERSATION_NOT_FOUND", foreignAll.Status, foreignAll.Code)
+	}
+	var batchRemoved struct {
+		Removed int `json:"removed"`
+	}
+	wa.POST("/api/v1/conversations/"+batchConvID+"/sandbox-envs:reset-all", nil).OK(t, &batchRemoved)
+	if batchRemoved.Removed != 2 {
+		t.Fatalf("owned reset-all removed %d, want 2", batchRemoved.Removed)
+	}
+	afterAll := wa.GET("/api/v1/conversations/" + batchConvID + "/sandbox-envs")
+	var remainingAfterAll []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(afterAll.Data, &remainingAfterAll); err != nil || len(remainingAfterAll) != 0 {
+		t.Fatalf("owned reset-all leaves rows: %s", afterAll.Raw)
+	}
+	wa.POST("/api/v1/conversations/"+batchConvID+"/sandbox-envs:reset-all", nil).OK(t, &batchRemoved)
+	if batchRemoved.Removed != 0 {
+		t.Fatalf("repeat reset-all removed %d, want 0", batchRemoved.Removed)
+	}
+
+	// If one sibling is resident, reset-all must reject before deleting the idle sibling.
+	partialConvID := convCreate(t, wa, "partial reset guard")
+	platformC_seedConversationEnvKind(t, srv, partialConvID, "python", "se_contract_partial_idle")
+	platformC_seedConversationEnvKind(t, srv, partialConvID, "node", "se_contract_partial_running")
+	partialRunning := fmt.Sprintf("UPDATE sandbox_envs SET running_pid=4242, last_used_at=datetime('now') WHERE id='se_contract_partial_running'; UPDATE sandbox_envs SET last_used_at=datetime('now', '+1 second') WHERE id='se_contract_partial_idle';")
+	if out, err := exec.Command("sqlite3", filepath.Join(srv.DataDir, "anselm.db"), partialRunning).CombinedOutput(); err != nil {
+		t.Fatalf("seed running partial-reset guard: %v\n%s", err, out)
+	}
+	partial := wa.POST("/api/v1/conversations/"+partialConvID+"/sandbox-envs:reset-all", nil)
+	if partial.Status != 409 || partial.Code != "SANDBOX_ENV_IN_USE" {
+		t.Fatalf("reset-all with resident sibling = %d/%s, want 409/SANDBOX_ENV_IN_USE", partial.Status, partial.Code)
+	}
+	partialRows := wa.GET("/api/v1/conversations/" + partialConvID + "/sandbox-envs")
+	var partialList []struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(partialRows.Data, &partialList); err != nil || len(partialList) != 2 {
+		t.Fatalf("resident reset-all partially deleted rows: %s", partialRows.Raw)
 	}
 
 	// ④ 装 runtime 拒未知字段（decode 在 EnsureRuntime 之前，绝不触发下载）。

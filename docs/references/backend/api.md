@@ -378,12 +378,12 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 | `GET /sandbox/envs` · `GET /sandbox/envs/{id}` | Env 列表 / 单读 |
 | `DELETE /sandbox/envs/{id}` | 销毁 env |
 | `GET /sandbox/disk-usage` | machine-wide sandbox manifest projection |
-| `GET /sandbox/bootstrap-status` | bootstrap 状态 |
-| `POST /sandbox:gc` | 回收派生 env/runtime 文件 |
-| `POST /sandbox:retry-bootstrap` | 重试 bootstrap |
-| `GET /conversations/{id}/sandbox-envs` | Conversation scratch envs |
-| `POST /conversations/{id}/sandbox-envs/{kind}:reset` | 重置一种 scratch env |
-| `POST /conversations/{id}/sandbox-envs:reset-all` | 重置全部 scratch env |
+| `GET /sandbox/bootstrap-status` | bootstrap 状态；成功返回 `{ok:true}`，degraded 返回 `200 {ok:false,error:"sandbox bootstrap failed"}`，内部路径与实现细节只写 backend journal |
+| `POST /sandbox:gc?olderThanDays=N` | 按 `lastUsedAt` 回收空闲 env；缺省/负数/非法值为 30 天，显式 `0` 立即回收所有当前未运行的 env；返回 `{removed,olderThanDays}`，不删除 runtime manifest |
+| `POST /sandbox:retry-bootstrap` | 重试 bootstrap；成功或 degraded 都以 `200 {ok}` 带内返回 |
+| `GET /conversations/{id}/sandbox-envs` | Conversation scratch envs；先按当前 workspace 校验 conversation，跨 workspace/不存在均为 `404 CONVERSATION_NOT_FOUND` |
+| `POST /conversations/{id}/sandbox-envs/{kind}:reset` | 重置一种 scratch env；先按当前 workspace 校验 conversation |
+| `POST /conversations/{id}/sandbox-envs:reset-all` | 重置全部 scratch env；先按当前 workspace 校验 conversation |
 
 Env manifest 的 `deps` 是集合字段，线上始终编码为 JSON 数组；没有依赖时为 `[]`，不返回 `null`。
 `ownerName` 是设置页使用的可读所属实体名：Function/Handler 的复合 owner id 在读时按当前
@@ -392,6 +392,10 @@ workspace hydrate，兼容历史上没有持久名称的 env 行和实体改名�
 workspace 过滤。`DELETE /sandbox/envs/{id}` 成功返回 `204`，同时移除 manifest 行和对应本机目录；
 运行中的 env（`runningPid > 0`）返回 `409 SANDBOX_ENV_IN_USE`，调用方必须先停止所属实体，
 服务端不会静默杀掉常驻进程。未知 id 返回 `404 SANDBOX_ENV_NOT_FOUND`。
+
+`POST /sandbox:gc` 只回收满足闲置阈值且没有运行 PID 的 env 行及其派生目录；运行中的 env 会被跳过并写入
+backend journal，单个失败不会阻断其余 env。被回收的 Function/Handler 环境在下一次执行时懒重建；runtime
+manifest 与 runtime 目录不是该动作的删除目标，仍需通过 `DELETE /sandbox/runtimes/{id}` 且无 env 引用时才可移除。
 
 `GET /sandbox/disk-usage` 返回 `{"totalBytes": int64}`，其中 `totalBytes` 是机器级
 runtime 与 env manifest 的 `sizeBytes` 之和；它不按 workspace 过滤，也不是每次请求重新扫描文件系统。

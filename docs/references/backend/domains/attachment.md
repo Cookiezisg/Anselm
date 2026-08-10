@@ -35,9 +35,17 @@ CAS blob，但可有多条 Attachment 行。文件名只用于显示，落库前
 image | document | text | audio | video | other
 ```
 
-大小上限来自当前 Limits，默认 50 MB。空文件与畸形 multipart 在边界拒绝。
+大小上限来自当前 Limits，默认 50 MB。空文件与畸形 multipart 在边界拒绝；超过请求体上限
+返回 `ATTACHMENT_TOO_LARGE`，损坏边界、非 multipart 或缺少 `file` 字段返回
+`ATTACHMENT_BAD_UPLOAD`，不把两种用户动作混成同一条提示。大文件 multipart 可能落临时文件，
+请求结束时清理该临时文件，不把重复上传变成长期 `/tmp` 泄漏。
 Delete 只软删 metadata；blob 只有在该 workspace 内不再被任何 live row 引用时才可
 回收。
+
+`GET /attachments/{id}/content` 与 bearerless playback fetch 都用标准 MIME serializer 生成
+`Content-Disposition`；用户文件名中的控制字符、引号、反斜杠和 Unicode 不得破坏 header 或
+预览/下载。原始内容端点同时由标准库提供完整字节、`Range`/`Content-Range`、条件请求和
+`416` 边界语义。
 
 Blob GC 在 Boot 的逐 workspace 对账阶段执行，而不在 Delete 时执行。原因是上传存在
 `blob Put → metadata Insert` 窗口；删除时并发 sweep 会把尚未落行的新 blob 误判为

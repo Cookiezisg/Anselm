@@ -1,12 +1,17 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
+	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -104,6 +109,232 @@ func TestAttachmentHandlerPreparationUnavailableWithoutMediaService(t *testing.T
 	if body.Data.Status != mediaapp.PreparationStatusUnavailable || body.Data.ErrorCode != "MEDIA_PREPARATION_UNAVAILABLE" {
 		t.Fatalf("unavailable preparation = %+v", body.Data)
 	}
+}
+
+func TestAttachmentHandlerUploadRoundTrip(t *testing.T) {
+	svc, ctx := newAttachmentHandlerTestService(t)
+	h := NewAttachmentHandler(svc, nil, zap.NewNop())
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := newAttachmentMultipartRequest(t, ctx, "notes.txt", []byte("upload-round-trip"))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("upload status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data struct {
+			ID       string `json:"id"`
+			Filename string `json:"filename"`
+			MimeType string `json:"mimeType"`
+			Kind     string `json:"kind"`
+		} `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode upload response: %v", err)
+	}
+	if body.Data.ID == "" || body.Data.Filename != "notes.txt" || !strings.HasPrefix(body.Data.MimeType, "text/plain") || body.Data.Kind != "text" {
+		t.Fatalf("upload metadata = %+v", body.Data)
+	}
+
+	content := httptest.NewRecorder()
+	get := httptest.NewRequest(http.MethodGet, "/api/v1/attachments/"+body.Data.ID+"/content", nil).WithContext(ctx)
+	mux.ServeHTTP(content, get)
+	if content.Code != http.StatusOK || content.Body.String() != "upload-round-trip" {
+		t.Fatalf("content status=%d body=%q", content.Code, content.Body.String())
+	}
+}
+
+func TestAttachmentHandlerGetReturnsMetadataAndPreparation(t *testing.T) {
+	svc, ctx := newAttachmentHandlerTestService(t)
+	a, err := svc.Upload(ctx, "photo.jpg", "image/jpeg", []byte("image-bytes"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	updatedAt := time.Date(2026, 8, 10, 1, 0, 0, 0, time.UTC)
+	media := &fakeAttachmentPreparation{prep: mediaapp.Preparation{
+		Status:    mediadomain.StatusReady,
+		Phase:     "ready",
+		Target:    mediaapp.DerivativeModelDefault,
+		Width:     640,
+		Height:    480,
+		MimeType:  "image/webp",
+		SizeBytes: 1234,
+		UpdatedAt: &updatedAt,
+	}}
+	h := NewAttachmentHandler(svc, media, zap.NewNop())
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/attachments/"+a.ID, nil).WithContext(ctx)
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data attachmentResponse `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode get response: %v", err)
+	}
+	if body.Data.ID != a.ID || body.Data.Filename != a.Filename || body.Data.MimeType != a.MimeType || body.Data.SizeBytes != a.SizeBytes || body.Data.Kind != a.Kind {
+		t.Fatalf("metadata = %+v, want %+v", body.Data.Attachment, a)
+	}
+	if body.Data.Preparation == nil || body.Data.Preparation.Status != mediadomain.StatusReady || body.Data.Preparation.Target != mediaapp.DerivativeModelDefault || body.Data.Preparation.Width != 640 || body.Data.Preparation.Height != 480 || body.Data.Preparation.MimeType != "image/webp" || body.Data.Preparation.SizeBytes != 1234 || body.Data.Preparation.UpdatedAt == nil {
+		t.Fatalf("preparation = %+v", body.Data.Preparation)
+	}
+}
+
+func TestAttachmentHandlerGetKeepsMetadataWhenPreparationUnavailable(t *testing.T) {
+	svc, ctx := newAttachmentHandlerTestService(t)
+	a, err := svc.Upload(ctx, "notes.txt", "text/plain", []byte("metadata survives"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	media := &fakeAttachmentPreparation{err: errors.New("media worker unavailable")}
+	h := NewAttachmentHandler(svc, media, zap.NewNop())
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	rec := httptest.NewRecorder()
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/attachments/"+a.ID, nil).WithContext(ctx)
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("get status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Data attachmentResponse `json:"data"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode get response: %v", err)
+	}
+	if body.Data.ID != a.ID || body.Data.Filename != a.Filename || body.Data.SizeBytes != a.SizeBytes {
+		t.Fatalf("metadata was lost with unavailable preparation: %+v", body.Data.Attachment)
+	}
+	if body.Data.Preparation == nil || body.Data.Preparation.Status != mediaapp.PreparationStatusUnavailable || body.Data.Preparation.Phase != "unavailable" || body.Data.Preparation.ErrorCode != "MEDIA_PREPARATION_UNAVAILABLE" {
+		t.Fatalf("unavailable preparation = %+v", body.Data.Preparation)
+	}
+}
+
+func TestAttachmentHandlerContentStreamsRangeAndSafeFilename(t *testing.T) {
+	svc, ctx := newAttachmentHandlerTestService(t)
+	a, err := svc.Upload(ctx, "报告\\\"\r\n.txt", "text/plain", []byte("0123456789"))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	h := NewAttachmentHandler(svc, nil, zap.NewNop())
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	full := httptest.NewRecorder()
+	mux.ServeHTTP(full, httptest.NewRequest(http.MethodGet, "/api/v1/attachments/"+a.ID+"/content", nil).WithContext(ctx))
+	if full.Code != http.StatusOK || full.Body.String() != "0123456789" {
+		t.Fatalf("full content status=%d body=%q", full.Code, full.Body.String())
+	}
+	if got := full.Header().Get("Content-Type"); got != "text/plain" {
+		t.Fatalf("content type = %q", got)
+	}
+	if got := full.Header().Get("Content-Disposition"); got != "inline; filename*=utf-8''%E6%8A%A5%E5%91%8A%5C%22%0D%0A.txt" {
+		t.Fatalf("content disposition = %q", got)
+	}
+	if got := full.Header().Get("Content-Length"); got != "10" {
+		t.Fatalf("content length = %q", got)
+	}
+
+	ranged := httptest.NewRecorder()
+	rangeReq := httptest.NewRequest(http.MethodGet, "/api/v1/attachments/"+a.ID+"/content", nil).WithContext(ctx)
+	rangeReq.Header.Set("Range", "bytes=2-5")
+	mux.ServeHTTP(ranged, rangeReq)
+	if ranged.Code != http.StatusPartialContent || ranged.Body.String() != "2345" {
+		t.Fatalf("range status=%d body=%q", ranged.Code, ranged.Body.String())
+	}
+	if got := ranged.Header().Get("Content-Range"); got != "bytes 2-5/10" {
+		t.Fatalf("content range = %q", got)
+	}
+
+	conditional := httptest.NewRecorder()
+	conditionalReq := httptest.NewRequest(http.MethodGet, "/api/v1/attachments/"+a.ID+"/content", nil).WithContext(ctx)
+	conditionalReq.Header.Set("If-Modified-Since", a.CreatedAt.UTC().Format(http.TimeFormat))
+	mux.ServeHTTP(conditional, conditionalReq)
+	if conditional.Code != http.StatusNotModified || conditional.Body.Len() != 0 {
+		t.Fatalf("conditional status=%d body=%q", conditional.Code, conditional.Body.String())
+	}
+}
+
+func TestAttachmentHandlerUploadMalformedMultipartIsBadUpload(t *testing.T) {
+	svc, ctx := newAttachmentHandlerTestService(t)
+	h := NewAttachmentHandler(svc, nil, zap.NewNop())
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	req := httptest.NewRequest(
+		http.MethodPost,
+		"/api/v1/attachments",
+		strings.NewReader("--broken\r\nnot a complete multipart body"),
+	).WithContext(ctx)
+	req.Header.Set("Content-Type", "multipart/form-data; boundary=broken")
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusBadRequest {
+		t.Fatalf("malformed upload status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	var body struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(rec.Body.Bytes(), &body); err != nil {
+		t.Fatalf("decode malformed response: %v", err)
+	}
+	if body.Error.Code != "ATTACHMENT_BAD_UPLOAD" {
+		t.Fatalf("malformed upload code = %q", body.Error.Code)
+	}
+}
+
+func TestAttachmentHandlerUploadCleansMultipartTempFile(t *testing.T) {
+	tmp := t.TempDir()
+	t.Setenv("TMPDIR", tmp)
+	svc, ctx := newAttachmentHandlerTestService(t)
+	h := NewAttachmentHandler(svc, nil, zap.NewNop())
+	mux := http.NewServeMux()
+	h.Register(mux)
+
+	// 32 MiB is ParseMultipartForm's in-memory threshold; this forces a real temp-backed part.
+	data := bytes.Repeat([]byte{'x'}, 33<<20)
+	req := newAttachmentMultipartRequest(t, ctx, "large.txt", data)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusCreated {
+		t.Fatalf("large upload status = %d, body=%s", rec.Code, rec.Body.String())
+	}
+	entries, err := os.ReadDir(tmp)
+	if err != nil {
+		t.Fatalf("read multipart temp dir: %v", err)
+	}
+	if len(entries) != 0 {
+		t.Fatalf("multipart temp files leaked: %v", entries)
+	}
+}
+
+func newAttachmentMultipartRequest(t *testing.T, ctx context.Context, filename string, data []byte) *http.Request {
+	t.Helper()
+	var body bytes.Buffer
+	writer := multipart.NewWriter(&body)
+	part, err := writer.CreateFormFile("file", filename)
+	if err != nil {
+		t.Fatalf("create multipart part: %v", err)
+	}
+	if _, err := part.Write(data); err != nil {
+		t.Fatalf("write multipart part: %v", err)
+	}
+	if err := writer.Close(); err != nil {
+		t.Fatalf("close multipart body: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/attachments", &body).WithContext(ctx)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	return req
 }
 
 func TestAttachmentHandlerPlaybackLeaseServesAudioWithoutBearerHeader(t *testing.T) {

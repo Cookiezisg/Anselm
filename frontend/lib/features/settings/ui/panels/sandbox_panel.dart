@@ -29,32 +29,12 @@ class SandboxPanel extends ConsumerWidget {
       return const _InstallForm();
     }
     final t = Translations.of(context);
-    final boot = ref.watch(sandboxBootstrapProvider).value;
     final runtimeSnapshot = ref.watch(sandboxRuntimesProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (boot != null && !boot.ok)
-          // The failure banner is the callout family's job (WRK-066 A-084) — no hand-rolled shell.
-          // 失败横幅归 callout 族(A-084),不手搓壳。
-          AnCallout(
-            '${t.settings.sandbox.bootstrapFail} · ${boot.error ?? ''}',
-            severity: AnCalloutSeverity.danger,
-            actions: [
-              AnButton(
-                label: t.settings.sandbox.retry,
-                size: AnButtonSize.sm,
-                outline: true,
-                onPressed: () async {
-                  await ref
-                      .read(settingsRepositoryProvider)
-                      .retrySandboxBootstrap();
-                  ref.invalidate(sandboxBootstrapProvider);
-                },
-              ),
-            ],
-          ),
+        const _BootstrapHealth(),
         // Disk — one shared projection with explicit loading/error states. 磁盘共用同一投影,保留加载/错误态。
         AnSettingRow(
           label: t.settings.sandbox.disk,
@@ -166,6 +146,81 @@ class SandboxPanel extends ConsumerWidget {
           : e.message;
       ref.read(noticeCenterProvider.notifier).show(msg, tone: AnTone.danger);
     }
+  }
+}
+
+/// The bootstrap status is a health signal, not a raw error console. Keep all async states visible,
+/// and never put filesystem paths or wrapped Go errors into the product surface.
+///
+/// bootstrap 状态是健康信号，不是原始错误控制台。所有异步状态都要可见，绝不把文件路径或 Go 包装错误
+/// 放进产品界面。
+class _BootstrapHealth extends ConsumerStatefulWidget {
+  const _BootstrapHealth();
+
+  @override
+  ConsumerState<_BootstrapHealth> createState() => _BootstrapHealthState();
+}
+
+class _BootstrapHealthState extends ConsumerState<_BootstrapHealth> {
+  bool _retrying = false;
+
+  Future<void> _retry() async {
+    if (_retrying) return;
+    setState(() => _retrying = true);
+    try {
+      await ref.read(settingsRepositoryProvider).retrySandboxBootstrap();
+    } catch (_) {
+      // The follow-up GET is the source of truth and will render a localized transport error.
+      // 后续 GET 才是真相，会把网络失败渲成统一的本地化错误态。
+    } finally {
+      if (mounted) {
+        setState(() => _retrying = false);
+        ref.invalidate(sandboxBootstrapProvider);
+      }
+    }
+  }
+
+  Widget _callout({required String title, required String message}) {
+    final t = context.t;
+    return AnCallout(
+      message,
+      title: title,
+      severity: AnCalloutSeverity.danger,
+      actions: [
+        AnButton(
+          label: _retrying
+              ? t.settings.sandbox.retrying
+              : t.settings.sandbox.retry,
+          size: AnButtonSize.sm,
+          outline: true,
+          onPressed: _retrying ? null : _retry,
+        ),
+      ],
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final snapshot = ref.watch(sandboxBootstrapProvider);
+    final t = context.t;
+    return AnLastGood<SandboxBootstrap>(
+      value: snapshot,
+      placeholder: const AnSkeleton.lines(
+        1,
+        key: Key('sandbox-bootstrap-loading'),
+      ),
+      errorBuilder: (context, _, _) => _callout(
+        title: t.settings.sandbox.bootstrapStatusLoadFailed,
+        message: t.settings.sandbox.bootstrapStatusLoadFailedHint,
+      ),
+      builder: (context, boot) {
+        if (boot.ok) return const SizedBox.shrink();
+        return _callout(
+          title: t.settings.sandbox.bootstrapFail,
+          message: t.settings.sandbox.bootstrapFailHint,
+        );
+      },
+    );
   }
 }
 
@@ -425,7 +480,15 @@ class _EnvList extends ConsumerWidget {
                   'failed' => AnStatus.err,
                   _ => AnStatus.run,
                 },
-                label: e.ownerName.isEmpty ? e.ownerId : e.ownerName,
+                // Conversation envs use the same localized fallback as the chat rail when a
+                // thread has not been titled yet; opaque cv_* owner ids are implementation
+                // details, not a useful product label.
+                // 未命名对话沿用 chat rail 的本地化回落；cv_* 是实现细节，不应直接展示给用户。
+                label: e.ownerName.isNotEmpty
+                    ? e.ownerName
+                    : e.ownerKind == 'conversation'
+                    ? t.chat.kNew
+                    : e.ownerId,
                 hint: _errorHint(e),
                 meta: [
                   '${e.deps.length} deps',
@@ -494,6 +557,8 @@ class _GcZone extends ConsumerStatefulWidget {
 
 class _GcZoneState extends ConsumerState<_GcZone> {
   final _days = TextEditingController(text: '30');
+  String? _daysError;
+  bool _busy = false;
 
   @override
   void dispose() {
@@ -501,13 +566,64 @@ class _GcZoneState extends ConsumerState<_GcZone> {
     super.dispose();
   }
 
-  Future<void> _gc(int days) async {
+  int? _parseDays() {
+    final days = int.tryParse(_days.text.trim());
+    if (days == null || days < 0) {
+      setState(() => _daysError = context.t.settings.sandbox.gcInvalidDays);
+      return null;
+    }
+    setState(() => _daysError = null);
+    return days;
+  }
+
+  Future<void> _confirmAndGc(int days) async {
+    if (_busy) return;
     final t = Translations.of(context);
-    final n = await ref.read(settingsRepositoryProvider).sandboxGc(days);
-    ref.invalidate(sandboxEnvsProvider);
-    ref
-        .read(noticeCenterProvider.notifier)
-        .show(t.settings.sandbox.gcDone(n: n), tone: AnTone.ok);
+    final ok = await ref
+        .read(overlayProvider.notifier)
+        .confirm(
+          title: days == 0
+              ? t.settings.sandbox.gcAllTitle
+              : t.settings.sandbox.gcTitle,
+          message: days == 0
+              ? t.settings.sandbox.gcAllBody
+              : t.settings.sandbox.gcBody(days: days),
+          confirmLabel: days == 0
+              ? t.settings.sandbox.gcAll
+              : t.settings.sandbox.gcRun,
+          cancelLabel: t.settings.keys.cancel,
+          barrierLabel: t.settings.sandbox.gc,
+        );
+    if (ok && mounted) await _gc(days);
+  }
+
+  Future<void> _gc(int days) async {
+    if (_busy) return;
+    final t = Translations.of(context);
+    setState(() {
+      _busy = true;
+      _daysError = null;
+    });
+    try {
+      final n = await ref.read(settingsRepositoryProvider).sandboxGc(days);
+      if (!mounted) return;
+      // GC changes every machine-wide sandbox projection, not just the selected owner tab.
+      // GC 会同时改变全机 runtime、disk 与所有 owner env 投影，不能只刷新当前 tab。
+      ref.invalidate(sandboxRuntimesProvider);
+      ref.invalidate(sandboxDiskProvider);
+      ref.invalidate(sandboxEnvsProvider);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .show(t.settings.sandbox.gcDone(n: n), tone: AnTone.ok);
+    } on ApiException {
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(t.settings.sandbox.gcFailed, tone: AnTone.danger);
+      }
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
   }
 
   @override
@@ -519,20 +635,49 @@ class _GcZoneState extends ConsumerState<_GcZone> {
         AnSettingRow(
           label: t.settings.sandbox.gc,
           desc: t.settings.sandbox.gcDays,
-          child: Row(
+          child: Column(
             mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              SizedBox(
-                width: AnSize.numField,
-                child: AnInput(controller: _days, mono: true),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: AnSize.numField,
+                    child: AnInput(
+                      controller: _days,
+                      mono: true,
+                      enabled: !_busy,
+                      onChanged: (_) {
+                        if (_daysError != null) {
+                          setState(() => _daysError = null);
+                        }
+                      },
+                    ),
+                  ),
+                  const SizedBox(width: AnSpace.s8),
+                  AnButton(
+                    label: _busy
+                        ? t.settings.sandbox.gcWorking
+                        : t.settings.sandbox.gcRun,
+                    size: AnButtonSize.sm,
+                    outline: true,
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            final days = _parseDays();
+                            if (days != null) _confirmAndGc(days);
+                          },
+                  ),
+                ],
               ),
-              const SizedBox(width: AnSpace.s8),
-              AnButton(
-                label: t.settings.sandbox.gcRun,
-                size: AnButtonSize.sm,
-                outline: true,
-                onPressed: () => _gc(int.tryParse(_days.text.trim()) ?? 30),
-              ),
+              if (_daysError != null) ...[
+                const SizedBox(height: AnSpace.s8),
+                Text(
+                  _daysError!,
+                  style: AnText.meta.copyWith(color: context.colors.danger),
+                ),
+              ],
             ],
           ),
         ),
@@ -544,17 +689,7 @@ class _GcZoneState extends ConsumerState<_GcZone> {
             size: AnButtonSize.sm,
             outline: true,
             variant: AnButtonVariant.danger,
-            onPressed: () async {
-              final ok = await ref
-                  .read(overlayProvider.notifier)
-                  .confirm(
-                    title: t.settings.sandbox.gcAllTitle,
-                    confirmLabel: t.settings.sandbox.gcAll,
-                    cancelLabel: t.settings.keys.cancel,
-                    barrierLabel: t.settings.sandbox.gcAllTitle,
-                  );
-              if (ok) await _gc(0);
-            },
+            onPressed: _busy ? null : () => _confirmAndGc(0),
           ),
         ),
       ],

@@ -1327,6 +1327,8 @@ class FixtureSettingsRepository implements SettingsRepository {
   // ── S5 sandbox (scriptable) ──
 
   SandboxBootstrap fixtureBootstrap = const SandboxBootstrap(ok: true);
+  Object? bootstrapError;
+  Future<SandboxBootstrap>? bootstrapOverride;
   final List<SandboxRuntime> runtimes = [];
   List<RuntimeAvailability> available = const [
     RuntimeAvailability(
@@ -1345,6 +1347,11 @@ class FixtureSettingsRepository implements SettingsRepository {
   final Map<String, List<SandboxEnv>> envsByOwner = {};
   final Map<String, Object?> envListErrors = {};
   int gcRemoved = 3;
+  Object? gcError;
+  Future<int>? gcOverride;
+  int? diskAfterGc;
+  bool clearEnvsOnGc = false;
+  int gcCalls = 0;
   Object? runtimeListError;
   Object? runtimeInstallError;
   Future<SandboxRuntime>? runtimeInstallOverride;
@@ -1354,11 +1361,21 @@ class FixtureSettingsRepository implements SettingsRepository {
   int? diskAfterEnvDelete;
 
   @override
-  Future<SandboxBootstrap> sandboxBootstrap() async => fixtureBootstrap;
+  Future<SandboxBootstrap> sandboxBootstrap() async {
+    final failure = bootstrapError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    final override = bootstrapOverride;
+    if (override != null) return override;
+    return fixtureBootstrap;
+  }
 
   @override
-  Future<void> retrySandboxBootstrap() async =>
-      fixtureBootstrap = const SandboxBootstrap(ok: true);
+  Future<void> retrySandboxBootstrap() async {
+    bootstrapError = null;
+    fixtureBootstrap = const SandboxBootstrap(ok: true);
+  }
 
   @override
   Future<List<SandboxRuntime>> sandboxRuntimes() async {
@@ -1426,7 +1443,22 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<int> sandboxGc(int olderThanDays) async => gcRemoved;
+  Future<int> sandboxGc(int olderThanDays) async {
+    gcCalls++;
+    final pending = gcOverride;
+    if (pending != null) return pending;
+    final failure = gcError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    if (diskAfterGc != null) fixtureDisk = diskAfterGc!;
+    if (clearEnvsOnGc) {
+      for (final envs in envsByOwner.values) {
+        envs.clear();
+      }
+    }
+    return gcRemoved;
+  }
 }
 
 final settingsRepositoryProvider = Provider<SettingsRepository>((ref) {

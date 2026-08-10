@@ -45,7 +45,7 @@ Widget _host(FixtureSettingsRepository repo) {
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
-  testWidgets('bootstrap failure shows the error + retry recovers', (
+  testWidgets('bootstrap failure shows safe product copy + retry recovers', (
     tester,
   ) async {
     final repo = FixtureSettingsRepository()
@@ -56,12 +56,68 @@ void main() {
     await tester.pumpWidget(_host(repo));
     await tester.pumpAndSettle();
     final t = Translations.of(tester.element(find.byType(SandboxPanel)));
-    expect(find.textContaining('no toolchain'), findsOneWidget);
+    expect(find.text(t.settings.sandbox.bootstrapFail), findsOneWidget);
+    expect(find.text(t.settings.sandbox.bootstrapFailHint), findsOneWidget);
+    expect(find.textContaining('no toolchain'), findsNothing);
 
     await tester.tap(find.text(t.settings.sandbox.retry));
     await tester.pumpAndSettle();
-    expect(find.textContaining('no toolchain'), findsNothing, reason: '重试恢复');
+    expect(
+      find.text(t.settings.sandbox.bootstrapFail),
+      findsNothing,
+      reason: '重试恢复',
+    );
   });
+
+  testWidgets('bootstrap status transport error is visible and retryable', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..bootstrapError = const ApiException(
+        code: AnselmErr.transport,
+        message: 'connection refused at 127.0.0.1',
+        httpStatus: 0,
+      );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(SandboxPanel)));
+
+    expect(
+      find.text(t.settings.sandbox.bootstrapStatusLoadFailed),
+      findsOneWidget,
+    );
+    expect(
+      find.text(t.settings.sandbox.bootstrapStatusLoadFailedHint),
+      findsOneWidget,
+    );
+    expect(find.textContaining('127.0.0.1'), findsNothing);
+
+    await tester.tap(find.text(t.settings.sandbox.retry));
+    await tester.pumpAndSettle();
+    expect(
+      find.text(t.settings.sandbox.bootstrapStatusLoadFailed),
+      findsNothing,
+    );
+  });
+
+  testWidgets(
+    'bootstrap status keeps a visible loading shape for a slow read',
+    (tester) async {
+      final pending = Completer<SandboxBootstrap>();
+      final repo = FixtureSettingsRepository()
+        ..bootstrapOverride = pending.future;
+      await tester.pumpWidget(_host(repo));
+      await tester.pump(const Duration(milliseconds: 220));
+      expect(
+        find.byKey(const Key('sandbox-bootstrap-loading')),
+        findsOneWidget,
+      );
+
+      pending.complete(const SandboxBootstrap(ok: true));
+      await tester.pumpAndSettle();
+      expect(find.byKey(const Key('sandbox-bootstrap-loading')), findsNothing);
+    },
+  );
 
   testWidgets(
     'runtime roster: install form lands a runtime; delete surfaces 409-in-use honestly',
@@ -314,6 +370,30 @@ void main() {
     );
   });
 
+  testWidgets(
+    'untitled conversation env uses localized chat fallback, not opaque owner id',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..envsByOwner['conversation'] = [
+          const SandboxEnv(
+            id: 'sbe_conversation',
+            ownerKind: 'conversation',
+            ownerId: 'cv_opaque_python',
+            status: 'ready',
+          ),
+        ];
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final panel = find.byType(SandboxPanel);
+      final t = Translations.of(tester.element(panel));
+      await tester.tap(find.text(t.settings.sandbox.ownerConversation));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t.chat.kNew), findsOneWidget);
+      expect(find.text('cv_opaque_python'), findsNothing);
+    },
+  );
+
   testWidgets('disk usage failure is visible and retry recovers', (
     tester,
   ) async {
@@ -441,24 +521,120 @@ void main() {
     expect(find.text(t.settings.sandbox.noEnvs), findsOneWidget);
   });
 
-  testWidgets('GC reclaims and stages the count', (tester) async {
-    final repo = FixtureSettingsRepository()..gcRemoved = 5;
+  testWidgets(
+    'GC confirms, refreshes every sandbox projection, and stages count',
+    (tester) async {
+      final repo = FixtureSettingsRepository()..gcRemoved = 5;
+      repo.diskAfterGc = 17 * 1024 * 1024;
+      repo.clearEnvsOnGc = true;
+      repo.runtimes.add(
+        const SandboxRuntime(
+          id: 'srt_gc',
+          kind: 'python',
+          version: '3.12',
+          sizeBytes: 12 * 1024 * 1024,
+        ),
+      );
+      repo.envsByOwner['function'] = [
+        const SandboxEnv(
+          id: 'sbe_gc',
+          ownerKind: 'function',
+          ownerName: 'gc_probe',
+          status: 'ready',
+        ),
+      ];
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final t = Translations.of(tester.element(find.byType(SandboxPanel)));
+      await tester.ensureVisible(find.text(t.settings.sandbox.gcRun));
+      await tester.tap(find.text(t.settings.sandbox.gcRun));
+      await tester.pumpAndSettle();
+      expect(find.text(t.settings.sandbox.gcBody(days: 30)), findsOneWidget);
+      await tester.tap(find.text(t.settings.sandbox.gcRun).last);
+      await tester.pumpAndSettle();
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SandboxPanel)),
+        listen: false,
+      );
+      final message = container.read(noticeCenterProvider).current?.message;
+      expect(
+        message?.text,
+        t.settings.sandbox.gcDone(n: 5),
+        reason: 'GC 回收数进入统一顶带',
+      );
+      expect(message?.tone, AnTone.ok);
+      expect(repo.gcCalls, 1);
+      expect(find.text('17.0 MB'), findsOneWidget, reason: 'GC 后刷新磁盘投影');
+      expect(
+        find.text('python 3.12'),
+        findsOneWidget,
+        reason: 'GC 后刷新 runtime 投影',
+      );
+      expect(
+        find.text(t.settings.sandbox.noEnvs),
+        findsOneWidget,
+        reason: 'GC 后刷新 env 投影',
+      );
+    },
+  );
+
+  testWidgets('GC rejects invalid days without silently changing the request', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(SandboxPanel)));
+    await tester.ensureVisible(find.text(t.settings.sandbox.gcRun));
+    await tester.enterText(find.byType(TextField).last, '-1');
+    await tester.tap(find.text(t.settings.sandbox.gcRun));
+    await tester.pumpAndSettle();
+
+    expect(find.text(t.settings.sandbox.gcInvalidDays), findsOneWidget);
+    expect(repo.gcCalls, 0);
+    expect(find.text(t.settings.sandbox.gcTitle), findsNothing);
+  });
+
+  testWidgets('GC failure is safe and the action shows a busy state', (
+    tester,
+  ) async {
+    final gate = Completer<int>();
+    final repo = FixtureSettingsRepository()..gcOverride = gate.future;
     await tester.pumpWidget(_host(repo));
     await tester.pumpAndSettle();
     final t = Translations.of(tester.element(find.byType(SandboxPanel)));
     await tester.ensureVisible(find.text(t.settings.sandbox.gcRun));
     await tester.tap(find.text(t.settings.sandbox.gcRun));
     await tester.pumpAndSettle();
-    final container = ProviderScope.containerOf(
+    await tester.tap(find.text(t.settings.sandbox.gcRun).last);
+    await tester.pump();
+
+    expect(find.text(t.settings.sandbox.gcWorking), findsOneWidget);
+    expect(
+      tester
+          .widget<AnButton>(
+            find.ancestor(
+              of: find.text(t.settings.sandbox.gcAll),
+              matching: find.byType(AnButton),
+            ),
+          )
+          .onPressed,
+      isNull,
+    );
+
+    gate.completeError(
+      const ApiException(
+        code: 'SANDBOX_GC_FAILED',
+        message: '/private/tmp/should-not-leak',
+        httpStatus: 503,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final notice = ProviderScope.containerOf(
       tester.element(find.byType(SandboxPanel)),
       listen: false,
-    );
-    final message = container.read(noticeCenterProvider).current?.message;
-    expect(
-      message?.text,
-      t.settings.sandbox.gcDone(n: 5),
-      reason: 'GC 回收数进入统一顶带',
-    );
-    expect(message?.tone, AnTone.ok);
+    ).read(noticeCenterProvider).current?.message;
+    expect(notice?.text, t.settings.sandbox.gcFailed);
+    expect(notice?.text, isNot(contains('/private/tmp')));
   });
 }

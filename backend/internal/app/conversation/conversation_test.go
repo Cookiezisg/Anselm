@@ -347,6 +347,30 @@ func TestNamesByIDs_LabelFallback(t *testing.T) {
 	}
 }
 
+func TestNamesByOwnerIDs_ResolvesTitlesAndLeavesUntitledEmpty(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	titled, _ := svc.Create(ctx, "My Thread")
+	untitled, _ := svc.Create(ctx, "")
+	names, err := svc.NamesByOwnerIDs(ctx, []string{
+		titled.ID + "_python",
+		untitled.ID + "_python",
+		"cv_missing_python",
+		"fn_not_a_conversation_python",
+	})
+	if err != nil {
+		t.Fatalf("names by owner: %v", err)
+	}
+	if names[titled.ID+"_python"] != "My Thread" {
+		t.Errorf("titled owner label = %q", names[titled.ID+"_python"])
+	}
+	if _, ok := names[untitled.ID+"_python"]; ok {
+		t.Errorf("untitled owner should leave localized frontend fallback, got %q", names[untitled.ID+"_python"])
+	}
+	if _, ok := names["cv_missing_python"]; ok {
+		t.Errorf("missing conversation must not be named")
+	}
+}
+
 func TestSetSummary_PersistsAndEmits(t *testing.T) {
 	svc, em, _, ctx := newSvc(t)
 	c, _ := svc.Create(ctx, "Thread")

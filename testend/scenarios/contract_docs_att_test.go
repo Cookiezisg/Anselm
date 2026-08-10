@@ -39,23 +39,36 @@ type docsattC_doc struct {
 
 // docsattC_att 是 attachment 元数据行的线缆形状。
 type docsattC_att struct {
-	ID        string `json:"id"`
-	SHA256    string `json:"sha256"`
-	Filename  string `json:"filename"`
-	MimeType  string `json:"mimeType"`
-	SizeBytes int64  `json:"sizeBytes"`
-	Kind      string `json:"kind"`
+	ID          string `json:"id"`
+	SHA256      string `json:"sha256"`
+	Filename    string `json:"filename"`
+	MimeType    string `json:"mimeType"`
+	SizeBytes   int64  `json:"sizeBytes"`
+	Kind        string `json:"kind"`
+	Preparation *struct {
+		Status string `json:"status"`
+		Phase  string `json:"phase"`
+	} `json:"preparation"`
 }
 
 // docsattC_rawGET 发一次不解 N1 envelope 的裸 GET（attachment :id/content 直出原始字节，
 // 非 JSON envelope，harness Client.Do 会拒非 envelope 体）。
 func docsattC_rawGET(t *testing.T, base, wsID, path string) (int, http.Header, []byte) {
+	return docsattC_rawRequest(t, base, wsID, path, nil)
+}
+
+func docsattC_rawRequest(t *testing.T, base, wsID, path string, headers http.Header) (int, http.Header, []byte) {
 	t.Helper()
 	req, err := http.NewRequest(http.MethodGet, base+path, nil)
 	if err != nil {
 		t.Fatalf("raw get %s: %v", path, err)
 	}
 	req.Header.Set(harness.HeaderWorkspace, wsID)
+	for key, values := range headers {
+		for _, value := range values {
+			req.Header.Add(key, value)
+		}
+	}
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		t.Fatalf("raw get %s: %v", path, err)
@@ -449,6 +462,22 @@ func TestContractDocsAtt_AttachmentRestAndCASDedup(t *testing.T) {
 		if m.Filename != tc.file || m.SizeBytes != int64(len(tc.body)) || m.MimeType != tc.mime {
 			t.Errorf("upload %s meta must mirror the wire (filename/size/mime), got %+v", tc.file, m)
 		}
+		get := wc.GET("/api/v1/attachments/" + m.ID)
+		if get.Status != 200 {
+			t.Fatalf("metadata GET %s: want 200, got %d %s", tc.file, get.Status, get.Raw)
+		}
+		var got docsattC_att
+		if err := json.Unmarshal(get.Data, &got); err != nil {
+			t.Fatalf("metadata GET %s decode: %v %s", tc.file, err, get.Data)
+		}
+		if got.ID != m.ID || got.SHA256 != m.SHA256 || got.Filename != m.Filename || got.MimeType != m.MimeType || got.SizeBytes != m.SizeBytes || got.Kind != m.Kind {
+			t.Errorf("metadata GET %s must preserve upload projection, got %+v want %+v", tc.file, got, m)
+		}
+		if tc.wantKind != "image" {
+			if got.Preparation == nil || got.Preparation.Status != "not_required" || got.Preparation.Phase != "not_required" {
+				t.Errorf("metadata GET %s must expose honest non-image preparation, got %+v", tc.file, got.Preparation)
+			}
+		}
 		status, hdr, body := docsattC_rawGET(t, srv.BaseURL, wsID, "/api/v1/attachments/"+m.ID+"/content")
 		if status != 200 || !bytes.Equal(body, tc.body) {
 			t.Fatalf("content round-trip %s: status %d, byte-equal=%v", tc.file, status, bytes.Equal(body, tc.body))
@@ -529,6 +558,102 @@ func TestContractDocsAtt_AttachmentRestAndCASDedup(t *testing.T) {
 		_, err := os.Stat(blobPath)
 		return os.IsNotExist(err)
 	})
+}
+
+// TestContractDocsAtt_MalformedMultipartIsBadUpload: the upload boundary is a client-format error,
+// not a size error. Keep this black-box because the user-facing distinction is the response code and
+// actionable message, not the transport implementation.
+// TestContractDocsAtt_MalformedMultipartIsBadUpload：multipart 边界损坏是客户端格式错误，不是超大文件；
+// 留在黑盒层锁住用户看到的 code，而不是锁 transport 实现细节。
+func TestContractDocsAtt_MalformedMultipartIsBadUpload(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "att-malformed-ws"}).Field(t, "id")
+	wc := c.WS(wsID)
+
+	r := wc.DoRaw(
+		"POST",
+		"/api/v1/attachments",
+		"multipart/form-data; boundary=broken",
+		[]byte("--broken\r\nnot a complete multipart body"),
+	)
+	r.Fail(t, 400, "ATTACHMENT_BAD_UPLOAD")
+}
+
+// TestContractDocsAtt_ContentRangeAndConditional locks the raw content transport rather than the
+// JSON envelope: previews need byte identity, honest MIME/filename headers, player seeking, and
+// conditional revalidation; a soft-deleted row must not keep serving its blob.
+// TestContractDocsAtt_ContentRangeAndConditional 锁住原始内容传输而非 JSON envelope：预览需要字节恒等、
+// 诚实 MIME/filename header、播放器 seek 和条件重验证；软删行不得继续服务 blob。
+func TestContractDocsAtt_ContentRangeAndConditional(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "att-content-ws"}).Field(t, "id")
+	wc := c.WS(wsID)
+	metaResp := wc.Upload(t, "/api/v1/attachments", "报告.txt", "text/plain", []byte("0123456789"))
+	metaResp.OK(t, nil)
+	var meta docsattC_att
+	if err := json.Unmarshal(metaResp.Data, &meta); err != nil {
+		t.Fatalf("decode upload metadata: %v", err)
+	}
+
+	status, headers, body := docsattC_rawGET(t, srv.BaseURL, wsID, "/api/v1/attachments/"+meta.ID+"/content")
+	if status != 200 || string(body) != "0123456789" {
+		t.Fatalf("full content status=%d body=%q", status, body)
+	}
+	if got := headers.Get("Content-Type"); got != "text/plain" {
+		t.Fatalf("full content type = %q", got)
+	}
+	if got := headers.Get("Content-Length"); got != "10" {
+		t.Fatalf("full content length = %q", got)
+	}
+	if got := headers.Get("Content-Disposition"); !strings.Contains(got, "inline") || !strings.Contains(got, "filename*=") || strings.ContainsAny(got, "\r\n") {
+		t.Fatalf("filename disposition must be safe and Unicode-capable, got %q", got)
+	}
+	lastModified := headers.Get("Last-Modified")
+	if lastModified == "" {
+		t.Fatal("content must expose Last-Modified for conditional revalidation")
+	}
+
+	status, headers, body = docsattC_rawRequest(t, srv.BaseURL, wsID, "/api/v1/attachments/"+meta.ID+"/content", http.Header{
+		"Range": []string{"bytes=2-5"},
+	})
+	if status != 206 || string(body) != "2345" {
+		t.Fatalf("range status=%d body=%q", status, body)
+	}
+	if got := headers.Get("Content-Range"); got != "bytes 2-5/10" {
+		t.Fatalf("range = %q", got)
+	}
+
+	status, headers, body = docsattC_rawRequest(t, srv.BaseURL, wsID, "/api/v1/attachments/"+meta.ID+"/content", http.Header{
+		"If-Modified-Since": []string{lastModified},
+	})
+	if status != 304 || len(body) != 0 {
+		t.Fatalf("conditional status=%d body=%q", status, body)
+	}
+	if got := headers.Get("Content-Disposition"); !strings.Contains(got, "filename*=") || strings.ContainsAny(got, "\r\n") {
+		t.Fatalf("304 disposition must remain safe cache metadata, got %q", got)
+	}
+
+	status, headers, body = docsattC_rawRequest(t, srv.BaseURL, wsID, "/api/v1/attachments/"+meta.ID+"/content", http.Header{
+		"Range": []string{"bytes=100-101"},
+	})
+	if status != 416 || !strings.Contains(string(body), "invalid range") {
+		t.Fatalf("unsatisfiable range status=%d body=%q", status, body)
+	}
+	if got := headers.Get("Content-Type"); got != "text/plain; charset=utf-8" {
+		t.Fatalf("unsatisfiable range content type = %q", got)
+	}
+
+	if r := wc.DELETE("/api/v1/attachments/" + meta.ID); r.Status != 204 {
+		t.Fatalf("delete attachment: got %d %s", r.Status, r.Raw)
+	}
+	status, _, body = docsattC_rawGET(t, srv.BaseURL, wsID, "/api/v1/attachments/"+meta.ID+"/content")
+	if status != 404 {
+		t.Fatalf("content after soft-delete status=%d body=%q", status, body)
+	}
 }
 
 // TestContractDocsAtt_AttachmentChatDegradeFaces:

@@ -2474,6 +2474,10 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 
 	// Translations
 	@override String get bootstrapFail => '沙箱引导失败';
+	@override String get bootstrapFailHint => 'Anselm 没能准备好沙箱。检查数据目录和权限后重试。';
+	@override String get bootstrapStatusLoadFailed => '无法读取沙箱状态';
+	@override String get bootstrapStatusLoadFailedHint => '本地引擎没有返回状态。检查连接后重试。';
+	@override String get retrying => '重试中…';
 	@override String get retry => '重试';
 	@override String get runtimes => '运行时';
 	@override String get runtimesLoadFailed => '运行时加载失败';
@@ -2507,9 +2511,15 @@ class _Translations$settings$sandbox$zh_CN extends Translations$settings$sandbox
 	@override String get gc => '回收空闲环境';
 	@override String get gcDays => '回收超过 N 天未用的环境';
 	@override String get gcRun => '回收';
+	@override String get gcWorking => '回收中…';
+	@override String get gcInvalidDays => '请输入 0 或更大的整数天数。';
+	@override String get gcTitle => '回收空闲环境？';
+	@override String gcBody({required Object days}) => '这会从本机永久移除超过 ${days} 天未使用的环境文件。所属实体不会被删除，下次执行时可以自动重建环境。';
 	@override String gcDone({required Object n}) => '已回收 ${n} 个';
 	@override String get gcAllTitle => '立即回收全部空闲环境?';
+	@override String get gcAllBody => '这会从本机永久移除所有空闲环境文件。所属实体不会被删除，下次执行时可以自动重建环境。';
 	@override String get gcAll => '立即全部回收';
+	@override String get gcFailed => '无法回收环境，请检查连接后重试。';
 	@override String get running => '运行中';
 	@override String get statusReady => '就绪';
 	@override String get statusFailed => '失败';
@@ -5183,6 +5193,10 @@ extension on TranslationsZhCn {
 			'settings.network.restartNote' => '代理配置在重启引擎后完整生效',
 			'settings.network.empty' => '留空=直连',
 			'settings.sandbox.bootstrapFail' => '沙箱引导失败',
+			'settings.sandbox.bootstrapFailHint' => 'Anselm 没能准备好沙箱。检查数据目录和权限后重试。',
+			'settings.sandbox.bootstrapStatusLoadFailed' => '无法读取沙箱状态',
+			'settings.sandbox.bootstrapStatusLoadFailedHint' => '本地引擎没有返回状态。检查连接后重试。',
+			'settings.sandbox.retrying' => '重试中…',
 			'settings.sandbox.retry' => '重试',
 			'settings.sandbox.runtimes' => '运行时',
 			'settings.sandbox.runtimesLoadFailed' => '运行时加载失败',
@@ -5216,9 +5230,15 @@ extension on TranslationsZhCn {
 			'settings.sandbox.gc' => '回收空闲环境',
 			'settings.sandbox.gcDays' => '回收超过 N 天未用的环境',
 			'settings.sandbox.gcRun' => '回收',
+			'settings.sandbox.gcWorking' => '回收中…',
+			'settings.sandbox.gcInvalidDays' => '请输入 0 或更大的整数天数。',
+			'settings.sandbox.gcTitle' => '回收空闲环境？',
+			'settings.sandbox.gcBody' => ({required Object days}) => '这会从本机永久移除超过 ${days} 天未使用的环境文件。所属实体不会被删除，下次执行时可以自动重建环境。',
 			'settings.sandbox.gcDone' => ({required Object n}) => '已回收 ${n} 个',
 			'settings.sandbox.gcAllTitle' => '立即回收全部空闲环境?',
+			'settings.sandbox.gcAllBody' => '这会从本机永久移除所有空闲环境文件。所属实体不会被删除，下次执行时可以自动重建环境。',
 			'settings.sandbox.gcAll' => '立即全部回收',
+			'settings.sandbox.gcFailed' => '无法回收环境，请检查连接后重试。',
 			'settings.sandbox.running' => '运行中',
 			'settings.sandbox.statusReady' => '就绪',
 			'settings.sandbox.statusFailed' => '失败',

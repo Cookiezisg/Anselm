@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:anselm/core/contract/retention.dart';
+import 'package:anselm/core/contract/sandbox.dart';
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/byte_format.dart';
@@ -128,6 +129,79 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('84.0 MB'), findsOneWidget);
   });
+
+  testWidgets(
+    're-entering Sandbox refreshes bootstrap, runtimes, disk, and env projections',
+    (tester) async {
+      final prefs = SettingsPrefs.inMemory({'an.settings.panel': 'sandbox'});
+      final repo = FixtureSettingsRepository()
+        ..runtimes.add(
+          const SandboxRuntime(
+            id: 'srt_before',
+            kind: 'python',
+            version: '3.12',
+          ),
+        )
+        ..envsByOwner['function'] = [
+          const SandboxEnv(
+            id: 'sen_before',
+            ownerKind: 'function',
+            ownerId: 'fn_before',
+            ownerName: 'before function',
+            status: 'ready',
+          ),
+        ];
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsPrefsProvider.overrideWithValue(prefs),
+            settingsRepositoryProvider.overrideWithValue(repo),
+          ],
+          child: TranslationProvider(
+            child: MaterialApp(
+              theme: AnTheme.light(),
+              home: const Scaffold(body: SettingsOcean()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('42.0 MB'), findsOneWidget);
+      expect(find.text('python 3.12'), findsOneWidget);
+      expect(find.text('before function'), findsOneWidget);
+
+      repo.fixtureDisk = 84 * 1024 * 1024;
+      repo.runtimes
+        ..clear()
+        ..add(
+          const SandboxRuntime(id: 'srt_after', kind: 'node', version: '22'),
+        );
+      repo.envsByOwner['function'] = [
+        const SandboxEnv(
+          id: 'sen_after',
+          ownerKind: 'function',
+          ownerId: 'fn_after',
+          ownerName: 'after function',
+          status: 'ready',
+        ),
+      ];
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SettingsOcean)),
+        listen: false,
+      );
+      container.read(selectedOceanProvider.notifier).select(OceanKind.chat);
+      await tester.pump();
+      container.read(selectedOceanProvider.notifier).select(OceanKind.settings);
+      await tester.pumpAndSettle();
+
+      expect(find.text('84.0 MB'), findsOneWidget);
+      expect(find.text('node 22'), findsOneWidget);
+      expect(find.text('python 3.12'), findsNothing);
+      expect(find.text('after function'), findsOneWidget);
+      expect(find.text('before function'), findsNothing);
+    },
+  );
 
   testWidgets(
     'limits: schema drives groups; a commit PATCHes the nested merge; reset restores',

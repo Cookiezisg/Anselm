@@ -265,8 +265,9 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// at read time so legacy rows with an empty owner_name and renamed entities remain legible.
 	// Function/Handler env owner id 内含父实体 id；读时 hydrate，保证旧空名行和改名实体仍可读。
 	sbx.SetOwnerNameResolvers(map[string]sandboxapp.OwnerNameResolver{
-		sandboxdomain.OwnerKindFunction: fn,
-		sandboxdomain.OwnerKindHandler:  hd,
+		sandboxdomain.OwnerKindFunction:     fn,
+		sandboxdomain.OwnerKindHandler:      hd,
+		sandboxdomain.OwnerKindConversation: conv,
 	})
 
 	// touchpoint: the conversation context ledger. Namers mirror relation's registration (the

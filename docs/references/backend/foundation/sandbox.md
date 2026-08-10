@@ -48,12 +48,25 @@ registry；用户可安装目录只投影明确实现 UserFacing/AvailableVersio
 Env 由 `(owner_kind,owner_id)` 唯一确定。Ensure/Destroy/GC 使用 per-key lock，
 Destroy 同时逐出 lock，避免长期构建过的 owner 无限累积 mutex。
 
+对话 scratch env 是例外的**路由授权**：`GET/POST /conversations/{id}/sandbox-envs*` 在读取或修改
+机器级 manifest 前，必须先用当前 workspace 的 conversation store 校验 `{id}`。不存在或属于别的
+workspace 的 conversation 统一返回 `404 CONVERSATION_NOT_FOUND`，不能仅凭 `owner_id` 前缀返回空列表
+或执行删除；校验通过后才按 `<conversationID>_` 前缀读写其 scratch env。
+
 Destroy 先检查 manifest 的 `running_pid`：只要仍有常驻进程，就返回
 `409 SANDBOX_ENV_IN_USE`，保留进程、目录和 manifest，要求所属实体先停止；不会为了满足设置页
 的删除动作而静默杀掉常驻进程。进程停止后，Destroy 才删除 env 行及其派生目录。
 
+手动 `POST /sandbox:gc?olderThanDays=N` 以 `last_used_at < now-N days` 选出空闲 env；缺省、负数或
+非法参数使用 30 天，显式 `0` 表示立即回收所有当前空闲 env。GC 复用 Destroy 的运行 PID 守卫，逐项
+best-effort：运行中的 env 或单项删除失败会留在 manifest 并写 warning，其余项继续；返回值只统计实际删除
+的 env。该动作不删除 runtime manifest/目录，runtime 仍需在无 env 引用时显式 DeleteRuntime；被 GC 的
+Function/Handler env 会在下次执行时懒重建。
+
 Bootstrap 只确保根目录/基础状态；失败进入 degraded，用户可
-`:retry-bootstrap`。Runtime/Env 是可再生派生物，因此表与磁盘镜像可硬删。
+`:retry-bootstrap`。`GET /sandbox/bootstrap-status` 保持 `200` 并返回 `{ok:false,
+error:"sandbox bootstrap failed"}`，原始路径和包装错误只进入 backend journal，不能泄漏到产品
+wire。Runtime/Env 是可再生派生物，因此表与磁盘镜像可硬删。
 
 ## 3. 进程
 

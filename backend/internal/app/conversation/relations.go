@@ -2,6 +2,7 @@ package conversation
 
 import (
 	"context"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -117,6 +118,57 @@ func (s *Service) NamesByIDs(ctx context.Context, ids []string) (map[string]stri
 	out := make(map[string]string, len(rows))
 	for _, c := range rows {
 		out[c.ID] = label(c)
+	}
+	return out, nil
+}
+
+// NamesByOwnerIDs resolves conversation scratch-env owner ids of the form
+// <conversationID>_<runtimeKind>. It returns the live title/summary when one exists and leaves
+// untitled conversations absent so the frontend can use its localized "New chat" fallback.
+//
+// NamesByOwnerIDs 解析形如 <conversationID>_<runtimeKind> 的 conversation scratch-env owner id。
+// 有标题时返回实时标题/摘要；未命名对话刻意不返回占位，让前端使用本地化「新对话」回落。
+func (s *Service) NamesByOwnerIDs(ctx context.Context, ownerIDs []string) (map[string]string, error) {
+	parentByOwner := make(map[string]string, len(ownerIDs))
+	parentIDs := make([]string, 0, len(ownerIDs))
+	seen := make(map[string]struct{}, len(ownerIDs))
+	for _, ownerID := range ownerIDs {
+		idx := strings.LastIndex(ownerID, "_")
+		if idx <= 0 || idx == len(ownerID)-1 {
+			continue
+		}
+		parentID := ownerID[:idx]
+		if !strings.HasPrefix(parentID, "cv_") {
+			continue
+		}
+		parentByOwner[ownerID] = parentID
+		if _, ok := seen[parentID]; !ok {
+			seen[parentID] = struct{}{}
+			parentIDs = append(parentIDs, parentID)
+		}
+	}
+	rows, err := s.repo.GetBatch(ctx, parentIDs)
+	if err != nil {
+		return nil, err
+	}
+	nameByParent := make(map[string]string, len(rows))
+	for _, c := range rows {
+		name := strings.TrimSpace(c.Title)
+		if name == "" {
+			name = strings.TrimSpace(c.Summary)
+			if runes := []rune(name); len(runes) > 30 {
+				name = string(runes[:30]) + "…"
+			}
+		}
+		if name != "" {
+			nameByParent[c.ID] = name
+		}
+	}
+	out := make(map[string]string, len(parentByOwner))
+	for ownerID, parentID := range parentByOwner {
+		if name := nameByParent[parentID]; name != "" {
+			out[ownerID] = name
+		}
 	}
 	return out, nil
 }

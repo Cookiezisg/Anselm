@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +10,7 @@ import (
 	"go.uber.org/zap"
 
 	sandboxapp "github.com/sunweilin/anselm/backend/internal/app/sandbox"
+	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
@@ -20,18 +22,31 @@ import (
 // SandboxHandler 提供 /api/v1/sandbox/*（runtime + env 管理、磁盘审计、bootstrap 状态、
 // GC）及 per-conversation scratch-env 路由。
 type SandboxHandler struct {
-	svc *sandboxapp.Service
-	log *zap.Logger
+	svc           *sandboxapp.Service
+	conversations conversationResolver
+	log           *zap.Logger
 }
+
+// conversationResolver is the smallest boundary needed to authorize a conversation-scoped
+// sandbox route. The sandbox manifest is machine-level by design; the conversation lookup is
+// therefore the workspace isolation gate, not an env-table filter.
+//
+// conversationResolver 是对话级 sandbox 路由授权所需的最小边界。sandbox manifest 刻意是机器级，
+// 故 conversation lookup 才是 workspace 隔离门，而不是对 env 表做过滤。
+type conversationResolver interface {
+	Get(context.Context, string) (*conversationdomain.Conversation, error)
+}
+
+const bootstrapFailureSummary = "sandbox bootstrap failed"
 
 // NewSandboxHandler constructs the handler.
 //
 // NewSandboxHandler 构造 handler。
-func NewSandboxHandler(svc *sandboxapp.Service, log *zap.Logger) *SandboxHandler {
+func NewSandboxHandler(svc *sandboxapp.Service, conversations conversationResolver, log *zap.Logger) *SandboxHandler {
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &SandboxHandler{svc: svc, log: log.Named("handlers.sandbox")}
+	return &SandboxHandler{svc: svc, conversations: conversations, log: log.Named("handlers.sandbox")}
 }
 
 // Register wires the endpoints onto mux.
@@ -197,7 +212,9 @@ func (h *SandboxHandler) BootstrapStatus(w http.ResponseWriter, r *http.Request)
 		"ok": h.svc.IsReady(),
 	}
 	if err := h.svc.BootstrapError(); err != nil {
-		body["error"] = err.Error()
+		// Keep filesystem paths and wrapped implementation details in the backend journal only.
+		// 文件路径与包装后的实现细节只留在后端 journal，不把本机内部信息泄漏给 UI。
+		body["error"] = bootstrapFailureSummary
 	}
 	responsehttpapi.Success(w, http.StatusOK, body)
 }
@@ -245,8 +262,10 @@ func gcOlderThanDays(raw string) int {
 func (h *SandboxHandler) RetryBootstrap(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.RetryBootstrap(r.Context()); err != nil {
 		responsehttpapi.Success(w, http.StatusOK, map[string]any{
-			"ok":    false,
-			"error": err.Error(),
+			"ok": false,
+			// Keep the degraded response aligned with BootstrapStatus; raw paths stay in the backend journal.
+			// degraded 回执与 BootstrapStatus 统一，原始路径只留在后端 journal。
+			"error": bootstrapFailureSummary,
 		})
 		return
 	}
@@ -260,6 +279,10 @@ func (h *SandboxHandler) RetryBootstrap(w http.ResponseWriter, r *http.Request) 
 // 按 ownerID 前缀 "<convID>_" 过滤。
 func (h *SandboxHandler) ListConvEnvs(w http.ResponseWriter, r *http.Request) {
 	convID := r.PathValue("id")
+	if err := h.requireConversation(r.Context(), convID); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	all, err := h.svc.ListEnvs(r.Context(), sandboxdomain.OwnerKindConversation)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -282,6 +305,10 @@ func (h *SandboxHandler) ListConvEnvs(w http.ResponseWriter, r *http.Request) {
 // 销毁该对话某 kind 的 scratch env。
 func (h *SandboxHandler) ConvEnvReset(w http.ResponseWriter, r *http.Request) {
 	convID := r.PathValue("id")
+	if err := h.requireConversation(r.Context(), convID); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	kind, action, _ := idAndAction(r, "kindAction")
 	if action != "reset" {
 		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)
@@ -305,23 +332,42 @@ func (h *SandboxHandler) ConvEnvReset(w http.ResponseWriter, r *http.Request) {
 // 销毁该对话拥有的所有 scratch env。
 func (h *SandboxHandler) ConvEnvsResetAll(w http.ResponseWriter, r *http.Request) {
 	convID := r.PathValue("id")
+	if err := h.requireConversation(r.Context(), convID); err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	all, err := h.svc.ListEnvs(r.Context(), sandboxdomain.OwnerKindConversation)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	prefix := convID + "_"
-	removed := 0
+	owners := make([]sandboxdomain.Owner, 0)
 	for _, e := range all {
 		if !strings.HasPrefix(e.OwnerID, prefix) {
 			continue
 		}
-		owner := sandboxdomain.Owner{Kind: e.OwnerKind, ID: e.OwnerID}
-		if err := h.svc.Destroy(r.Context(), owner); err != nil {
-			responsehttpapi.FromDomainError(w, h.log, err)
-			return
-		}
-		removed++
+		owners = append(owners, sandboxdomain.Owner{Kind: e.OwnerKind, ID: e.OwnerID})
+	}
+	removed, err := h.svc.DestroyOwners(r.Context(), owners)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, map[string]int{"removed": removed})
+}
+
+// requireConversation proves that the route's conversation belongs to the current workspace
+// before the machine-level sandbox manifest is read or mutated. A missing resolver is a wiring
+// fault, not permission to fall through to a prefix-only lookup.
+//
+// requireConversation 在读取或修改机器级 sandbox manifest 前证明路由中的 conversation 属于当前
+// workspace。resolver 缺失是接线故障，不是允许退回仅按前缀查找的理由。
+func (h *SandboxHandler) requireConversation(ctx context.Context, id string) error {
+	if h.conversations == nil {
+		h.log.Error("sandbox: conversation resolver not wired")
+		return errorspkg.ErrInternal
+	}
+	_, err := h.conversations.Get(ctx, id)
+	return err
 }

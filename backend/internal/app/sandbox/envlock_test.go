@@ -3,7 +3,10 @@ package sandbox
 import (
 	"context"
 	"errors"
+	"os"
+	"path/filepath"
 	"testing"
+	"time"
 
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 )
@@ -37,6 +40,50 @@ func TestDestroy_RejectsRunningEnv(t *testing.T) {
 	}
 	if err := svc.Destroy(ctx, owner); err != nil {
 		t.Fatalf("Destroy after process stopped: %v", err)
+	}
+}
+
+// TestDestroyOwners_PreflightsRunningEnvBeforeDeletingSibling keeps a batch atomic with
+// respect to the explicit resident-process guard: a running sibling must reject reset-all
+// before an idle sibling is removed.
+//
+// 批量 reset-all 若遇到常驻 sibling，必须在删除任何空闲 sibling 前拒绝，不能留下半成功状态。
+func TestDestroyOwners_PreflightsRunningEnvBeforeDeletingSibling(t *testing.T) {
+	svc, first := newServiceWithEnv(t, "fake-py")
+	second := sandboxdomain.Owner{Kind: sandboxdomain.OwnerKindFunction, ID: "fn_second"}
+	secondPath := filepath.Join("envs", second.Kind, second.ID)
+	if err := svc.repo.CreateEnv(context.Background(), &sandboxdomain.Env{
+		ID: "se_second", OwnerKind: second.Kind, OwnerID: second.ID, RuntimeID: "sr_test",
+		Path: secondPath, Status: sandboxdomain.EnvStatusReady, LastUsedAt: time.Now(),
+	}); err != nil {
+		t.Fatalf("seed sibling env: %v", err)
+	}
+	if err := os.MkdirAll(filepath.Join(svc.SandboxRoot(), secondPath), 0o755); err != nil {
+		t.Fatalf("mkdir sibling env path: %v", err)
+	}
+	if err := svc.repo.SetEnvRunningPID(context.Background(), "se_second", 4242); err != nil {
+		t.Fatalf("set sibling running pid: %v", err)
+	}
+
+	removed, err := svc.DestroyOwners(context.Background(), []sandboxdomain.Owner{first, second})
+	if !errors.Is(err, sandboxdomain.ErrEnvInUse) {
+		t.Fatalf("DestroyOwners running sibling: %v, want ErrEnvInUse", err)
+	}
+	if removed != 0 {
+		t.Fatalf("DestroyOwners removed %d before rejecting running sibling, want 0", removed)
+	}
+	for _, id := range []string{"se_test", "se_second"} {
+		if _, getErr := svc.repo.GetEnv(context.Background(), id); getErr != nil {
+			t.Fatalf("env %s disappeared after rejected batch: %v", id, getErr)
+		}
+	}
+
+	if err := svc.repo.ClearEnvRunningPID(context.Background(), "se_second"); err != nil {
+		t.Fatalf("clear sibling running pid: %v", err)
+	}
+	removed, err = svc.DestroyOwners(context.Background(), []sandboxdomain.Owner{first, second})
+	if err != nil || removed != 2 {
+		t.Fatalf("DestroyOwners after stop = removed %d, err %v; want 2,nil", removed, err)
 	}
 }
 

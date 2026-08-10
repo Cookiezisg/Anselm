@@ -15,6 +15,8 @@ import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/settings_catalog.dart';
+import '../state/sandbox_providers.dart'
+    show sandboxBootstrapProvider, sandboxEnvsProvider, sandboxRuntimesProvider;
 import '../state/settings_detail_provider.dart';
 import '../state/settings_panel_provider.dart';
 import 'panels/settings_panels.dart';
@@ -82,6 +84,16 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     });
   }
 
+  void _refreshSandboxProjections() {
+    // Settings can stay mounted in the lazy shell after an external entity run. Refresh every
+    // machine/env projection on re-entry so a cached empty list never contradicts REST truth.
+    // 设置海洋在懒壳中可能常驻;重新进入时重取全机/环境投影,避免缓存空态违背 REST 真相。
+    ref.invalidate(sandboxBootstrapProvider);
+    ref.invalidate(sandboxRuntimesProvider);
+    ref.invalidate(sandboxDiskProvider);
+    ref.invalidate(sandboxEnvsProvider);
+  }
+
   /// The pushed-in detail's crumb segment (WRK-062 §1 third level). 推入级面包屑段。
   String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
     'addKey' => t.settings.keys.addKey,
@@ -124,10 +136,12 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     // Panel switch: pop any pushed detail + fresh page opens at the top. 换面板弹出详情+回顶。
     ref.listen(settingsPanelProvider, (prev, next) {
       if (prev != next) {
-        if (next == SettingsPanel.sandbox || next == SettingsPanel.storage) {
-          // SettingsOcean is kept in the app's lazy IndexedStack. Entering either disk panel must
-          // therefore invalidate the machine projection instead of trusting a prior visit. 设置海洋
-          // 在懒 IndexedStack 中常驻,进入任一磁盘面必须失效重取,不能信上一轮访问的缓存。
+        if (next == SettingsPanel.sandbox) {
+          // SettingsOcean is kept in the app's lazy IndexedStack. Entering Sandbox must therefore
+          // invalidate all of its projections instead of trusting a prior visit. 设置海洋在懒
+          // IndexedStack 中常驻,进入沙箱面必须失效全套投影,不能信上一轮访问的缓存。
+          _refreshSandboxProjections();
+        } else if (next == SettingsPanel.storage) {
           ref.invalidate(sandboxDiskProvider);
         }
         ref.read(settingsDetailProvider.notifier).pop();
@@ -144,7 +158,11 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
       if (next == OceanKind.settings && prev != next) {
         // Leaving and re-entering Settings is another panel-open boundary even though the ocean
         // widget itself remains mounted. 离开再进入设置也是一次打开边界,即使海洋 widget 没卸载。
-        ref.invalidate(sandboxDiskProvider);
+        if (ref.read(settingsPanelProvider) == SettingsPanel.sandbox) {
+          _refreshSandboxProjections();
+        } else {
+          ref.invalidate(sandboxDiskProvider);
+        }
       }
     });
     return CallbackShortcuts(
