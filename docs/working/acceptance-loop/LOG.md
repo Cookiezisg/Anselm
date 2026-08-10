@@ -16,7 +16,7 @@ landed-into:
 - 静态审计确认 path id 主体、live row scope、软删除过滤、running/generating 交集和 CAS workspace 边界；500ms bounded walk 超时保留 `blobBytes=-1`，清理后可恢复。定向 Go `workspace/store/blob/handler`、Flutter Settings/workspace 和 rig 单测通过；本格无新增产品代码修复。
 - 真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-044429`，数据目录 `/private/tmp/anselm-data-ep204-workspace-stats-20260811`；真实 App 创建 content workspace、conversation、document、29-byte attachment 和 empty comparison workspace，通过 Settings → Workspaces 打开非当前 workspace 的删除盘点。UI 显示 `Taking inventory…` 后收敛到 `1 conversations · 0 entities · 1 documents · 29 B of attachments.`；REST/SQLite/CAS 一致，unknown id 为 `404 WORKSPACE_NOT_FOUND`，conflicting header 不改 path subject，200,000-file fixture 证明超时 `blobBytes=-1` 后恢复 29。
 - 五通道封口：录屏 `304.740000s / 2784x1808 / 60fps`，30fps 两段首个可见反馈各 `33.3ms`，全分辨率 diff/contact sheet 已审阅；backend 无应用红线，frontend 仅已知 IMK 平台噪声，ssetap 三流接线且无 gap，llmtap managed bootstrap 原始状态保留，确定性 slice 不伪造 completion。正式按 `G1/F2/A1/C4/G2` 写入 `COVERAGE EP-204=✓✓✓✓✓`，ledger `1710→1715 judgments`，anchors=`10/10`；`gap-too-fast`/`discovery-collapse` 经独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-204-ledger-reaudit.md` ack，未改任何阈值/算法/法典/锚点/gate，最终 alarms clean。
-- 批次三十二由 `45→50/50`。根 `make verify`、完整 `make -C backend testend`（`270.044s`）、workspace/search/Flutter 专项回归、rig 单测、coverage、anchors、alarms、diff、进程端口和 fixture 审计均已通过；完整 gate 不因批次完成而降低标准。当前只剩选择性工作树审计与提交，提交后才推进 EP-205。
+- 批次三十二由 `45→50/50`。根 `make verify`、完整 `make -C backend testend`（`270.044s`）、workspace/search/Flutter 专项回归、rig 单测、coverage、anchors、alarms、diff、进程端口和 fixture 审计均已通过；完整 gate 不因批次完成而降低标准。验收文档已提交 `e83e0fc6`，下一原子前线为 EP-205。
 
 ## 2026-08-11 — EP-203 `DELETE /api/v1/workspaces/{id}` 收口，批次三十二 45/50
 
