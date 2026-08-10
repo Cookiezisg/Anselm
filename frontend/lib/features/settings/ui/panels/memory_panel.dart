@@ -8,6 +8,7 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/time_format.dart';
+import '../../../../core/runtime.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/memories_provider.dart';
@@ -24,14 +25,59 @@ class MemoryPanel extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final detail = ref.watch(settingsDetailProvider);
+    final memories = ref.watch(memoriesProvider);
     if (detail != null &&
         (detail.kind == 'memory' || detail.kind == 'addMemory')) {
+      if (detail.kind == 'memory' && detail.id != null) {
+        final name = detail.id!;
+        // A settled roster is the deletion truth. Do not evict while loading or after a list error;
+        // those states say nothing about whether the open memory still exists.
+        // 落定名册才是删除真相;loading/error 不能证明详情对象消失。
+        final missing =
+            memories.hasValue &&
+            !memories.requireValue.any((m) => m.name == name);
+        if (missing) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (!context.mounted) return;
+            final current = ref.read(settingsDetailProvider);
+            if (current?.kind != 'memory' || current?.id != name) return;
+            ref.read(settingsDetailProvider.notifier).pop();
+            ref
+                .read(noticeCenterProvider.notifier)
+                .show(t.settings.mem.removedNotice, tone: AnTone.warn);
+          });
+          return _MemoryGone(
+            onBack: () => ref.read(settingsDetailProvider.notifier).pop(),
+          );
+        }
+      }
       return MemoryEditor(
         name: detail.kind == 'memory' ? detail.id : null,
         key: ValueKey(detail.id ?? '+new'),
       );
     }
     return const _Roster();
+  }
+}
+
+class _MemoryGone extends StatelessWidget {
+  const _MemoryGone({required this.onBack});
+
+  final VoidCallback onBack;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    return AnState(
+      kind: AnStateKind.empty,
+      title: t.settings.mem.removedTitle,
+      hint: t.settings.mem.removedHint,
+      action: AnButton(
+        label: t.settings.mem.backToList,
+        size: AnButtonSize.sm,
+        onPressed: onBack,
+      ),
+    );
   }
 }
 
@@ -52,8 +98,28 @@ class _RosterState extends ConsumerState<_Roster> {
   @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
+    final snapshot = ref.watch(memoriesProvider);
+    return AnLastGood<List<Memory>>(
+      value: snapshot,
+      resetKey: ref.watch(activeWorkspaceProvider),
+      placeholder: const _MemoryRosterSkeleton(),
+      errorBuilder: (context, _, _) => AnState(
+        kind: AnStateKind.error,
+        size: AnStateSize.inset,
+        title: t.settings.mem.loadFailed,
+        action: AnButton(
+          label: t.settings.mem.retry,
+          outline: true,
+          onPressed: () => ref.invalidate(memoriesProvider),
+        ),
+      ),
+      builder: (context, all) => _buildLoaded(context, ref, all),
+    );
+  }
+
+  Widget _buildLoaded(BuildContext context, WidgetRef ref, List<Memory> all) {
+    final t = Translations.of(context);
     final c = context.colors;
-    final all = ref.watch(memoriesProvider).value ?? const <Memory>[];
     final empty = all.isEmpty;
     final rows = all
         .where((m) => !_pinnedOnly || m.pinned)
@@ -128,21 +194,44 @@ class _RosterState extends ConsumerState<_Roster> {
             size: AnStateSize.inset,
           )
         else
-          for (final m in rows) _MemoryRow(m: m),
+          for (final m in rows) _MemoryRow(key: ValueKey(m.name), m: m),
       ],
     );
   }
 }
 
-class _MemoryRow extends ConsumerWidget {
-  const _MemoryRow({required this.m});
+class _MemoryRosterSkeleton extends StatelessWidget {
+  const _MemoryRosterSkeleton();
+
+  @override
+  Widget build(BuildContext context) => const Column(
+    crossAxisAlignment: CrossAxisAlignment.stretch,
+    children: [
+      AnSkeleton.lines(2),
+      SizedBox(height: AnSpace.s16),
+      AnSkeleton.lines(3),
+    ],
+  );
+}
+
+class _MemoryRow extends ConsumerStatefulWidget {
+  const _MemoryRow({required this.m, super.key});
 
   final Memory m;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<_MemoryRow> createState() => _MemoryRowState();
+}
+
+class _MemoryRowState extends ConsumerState<_MemoryRow> {
+  bool _pinBusy = false;
+
+  @override
+  Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
+    final m = widget.m;
+    final pinAction = m.pinned ? t.settings.mem.unpin : t.settings.mem.pin;
     // The pin rides the lead slot (批6c A-060 — the inline labelWidget Row retires); the
     // description becomes the wrapping hint, the same face as the MCP tool rows. The pin is a real
     // control — AnInteractive (keyboard focus + Enter/Space + button semantics) with the toggled
@@ -154,18 +243,19 @@ class _MemoryRow extends ConsumerWidget {
         child: MergeSemantics(
           child: Semantics(
             toggled: m.pinned,
-            label: t.settings.mem.pinTip,
+            label: _pinBusy ? t.settings.mem.pinPending : pinAction,
             child: AnInteractive(
-              onTap: () => ref
-                  .read(memoriesProvider.notifier)
-                  .setPinned(m.name, !m.pinned),
-              builder: (ctx, states) => Icon(
-                AnIcons.pin,
-                size: AnSize.icon,
-                color: m.pinned
-                    ? c.warn
-                    : (states.isActive ? c.inkMuted : c.inkFaint),
-              ),
+              enabled: !_pinBusy,
+              onTap: _pinBusy ? null : _togglePin,
+              builder: (ctx, states) => _pinBusy
+                  ? AnSpinner(semanticLabel: t.settings.mem.pinPending)
+                  : Icon(
+                      AnIcons.pin,
+                      size: AnSize.icon,
+                      color: m.pinned
+                          ? c.warn
+                          : (states.isActive ? c.inkMuted : c.inkFaint),
+                    ),
             ),
           ),
         ),
@@ -175,33 +265,57 @@ class _MemoryRow extends ConsumerWidget {
       label: m.name,
       meta:
           '${m.source == 'ai' ? t.settings.mem.sourceAi : t.settings.mem.sourceUser} · ${fmtDate(m.updatedAt)}',
-      onSelect: () =>
-          ref.read(settingsDetailProvider.notifier).push('memory', id: m.name),
+      onSelect: _pinBusy
+          ? null
+          : () => ref
+                .read(settingsDetailProvider.notifier)
+                .push('memory', id: m.name),
       actions: [
         AnButton(
           label: t.settings.mem.confirmDelete,
           size: AnButtonSize.sm,
           variant: AnButtonVariant.danger,
-          onPressed: () => _delete(context, ref),
+          onPressed: () => _delete(context),
         ),
       ],
     );
   }
 
-  Future<void> _delete(BuildContext context, WidgetRef ref) async {
+  Future<void> _togglePin() async {
+    if (_pinBusy) return;
+    setState(() => _pinBusy = true);
+    try {
+      await ref
+          .read(memoriesProvider.notifier)
+          .setPinned(widget.m.name, !widget.m.pinned);
+    } catch (_) {
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(
+              Translations.of(context).settings.mem.pinFailed,
+              tone: AnTone.danger,
+            );
+      }
+    } finally {
+      if (mounted) setState(() => _pinBusy = false);
+    }
+  }
+
+  Future<void> _delete(BuildContext context) async {
     final t = Translations.of(context);
     final ok = await ref
         .read(overlayProvider.notifier)
         .confirm(
           title: t.settings.mem.deleteTitle,
-          message: t.settings.mem.deleteBody(name: m.name),
+          message: t.settings.mem.deleteBody(name: widget.m.name),
           confirmLabel: t.settings.mem.confirmDelete,
           cancelLabel: t.settings.keys.cancel,
           barrierLabel: t.settings.mem.deleteTitle,
         );
     if (!ok) return;
     try {
-      await ref.read(memoriesProvider.notifier).remove(m.name);
+      await ref.read(memoriesProvider.notifier).remove(widget.m.name);
     } on ApiException catch (e) {
       ref
           .read(noticeCenterProvider.notifier)

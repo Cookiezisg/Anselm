@@ -708,6 +708,7 @@ class _Translations$attach$zh_CN extends Translations$attach$en {
 	@override String get failedRetry => '失败 — 点按重试';
 	@override String get failedUnreadable => '无法读取文件';
 	@override String get preparingMedia => '正在准备媒体…';
+	@override String get preparingMediaLonger => '媒体仍在准备中…';
 	@override String get mediaPreparationFailed => '媒体准备失败';
 	@override String get mediaPreparationCancelled => '媒体准备已取消';
 	@override String get mediaPreparationUnavailable => '媒体准备不可用';
@@ -2299,12 +2300,22 @@ class _Translations$settings$mem$zh_CN extends Translations$settings$mem$en {
 	@override String get content => '内容';
 	@override String get save => '保存';
 	@override String get pinTip => '固定的记忆常驻每次对话上下文';
+	@override String get pin => '置顶记忆';
+	@override String get unpin => '取消置顶记忆';
+	@override String get pinPending => '正在更新置顶…';
+	@override String get pinFailed => '置顶未更新';
 	@override String get pinned => '已固定';
 	@override String get deleteTitle => '删除记忆';
 	@override String deleteBody({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。';
 	@override String get confirmDelete => '删除';
 	@override String get emptyLead => '添加第一条记忆——助手能跨对话回想起的事实';
 	@override String get noMatches => '没有匹配的记忆';
+	@override String get loadFailed => '记忆加载失败';
+	@override String get retry => '重试';
+	@override String get removedNotice => '记忆已删除,名册已刷新';
+	@override String get removedTitle => '这条记忆已被删除';
+	@override String get removedHint => '名册已刷新,请选择另一条记忆。';
+	@override String get backToList => '返回记忆名册';
 	@override String get dirtyTitle => '放弃未保存的修改?';
 	@override String get dirtyBody => '内容有改动尚未保存。';
 	@override String get discard => '放弃';
@@ -5061,12 +5072,22 @@ extension on TranslationsZhCn {
 			'settings.mem.content' => '内容',
 			'settings.mem.save' => '保存',
 			'settings.mem.pinTip' => '固定的记忆常驻每次对话上下文',
+			'settings.mem.pin' => '置顶记忆',
+			'settings.mem.unpin' => '取消置顶记忆',
+			'settings.mem.pinPending' => '正在更新置顶…',
+			'settings.mem.pinFailed' => '置顶未更新',
 			'settings.mem.pinned' => '已固定',
 			'settings.mem.deleteTitle' => '删除记忆',
 			'settings.mem.deleteBody' => ({required Object name}) => '将物理删除「${name}」的记忆文件,无法撤销。',
 			'settings.mem.confirmDelete' => '删除',
 			'settings.mem.emptyLead' => '添加第一条记忆——助手能跨对话回想起的事实',
 			'settings.mem.noMatches' => '没有匹配的记忆',
+			'settings.mem.loadFailed' => '记忆加载失败',
+			'settings.mem.retry' => '重试',
+			'settings.mem.removedNotice' => '记忆已删除,名册已刷新',
+			'settings.mem.removedTitle' => '这条记忆已被删除',
+			'settings.mem.removedHint' => '名册已刷新,请选择另一条记忆。',
+			'settings.mem.backToList' => '返回记忆名册',
 			'settings.mem.dirtyTitle' => '放弃未保存的修改?',
 			'settings.mem.dirtyBody' => '内容有改动尚未保存。',
 			'settings.mem.discard' => '放弃',
@@ -5156,6 +5177,8 @@ extension on TranslationsZhCn {
 			'settings.storage.retentionDesc' => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。',
 			'settings.storage.retention30' => '30 天',
 			'settings.storage.retention90' => '90 天',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.retention180' => '180 天',
 			'settings.storage.retentionForever' => '永久保留',
 			'settings.storage.retentionSaved' => '保留策略已更新',
@@ -5166,8 +5189,6 @@ extension on TranslationsZhCn {
 			'settings.storage.compacting' => '压缩中…',
 			'settings.storage.compacted' => ({required Object mb}) => '已回收 ${mb}',
 			'settings.storage.resetPrefs' => '重置本地偏好',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.resetPrefsDesc' => '只清除本机的界面偏好(主题/窗口/缩放等),不碰任何工作区数据将重启应用以生效。',
 			'settings.storage.resetPrefsTitle' => '重置本地偏好?',
 			'settings.storage.factoryTitle' => '恢复出厂设置',
@@ -5283,6 +5304,7 @@ extension on TranslationsZhCn {
 			'attach.failedRetry' => '失败 — 点按重试',
 			'attach.failedUnreadable' => '无法读取文件',
 			'attach.preparingMedia' => '正在准备媒体…',
+			'attach.preparingMediaLonger' => '媒体仍在准备中…',
 			'attach.mediaPreparationFailed' => '媒体准备失败',
 			'attach.mediaPreparationCancelled' => '媒体准备已取消',
 			'attach.mediaPreparationUnavailable' => '媒体准备不可用',

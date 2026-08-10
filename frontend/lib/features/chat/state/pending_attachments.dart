@@ -23,6 +23,7 @@ class PendingAttachment {
     this.bytes,
     this.preparation,
     this.preparationBusy = false,
+    this.preparationSlow = false,
   });
 
   final String localId;
@@ -34,6 +35,7 @@ class PendingAttachment {
   final List<int>? bytes; // retained for retry 重试留存
   final AttachmentPreparation? preparation;
   final bool preparationBusy;
+  final bool preparationSlow;
 
   bool get isImage => (mimeType ?? '').startsWith('image/');
 
@@ -43,6 +45,7 @@ class PendingAttachment {
     bool dropBytes = false,
     AttachmentPreparation? preparation,
     bool? preparationBusy,
+    bool? preparationSlow,
   }) => PendingAttachment(
     localId: localId,
     filename: filename,
@@ -53,6 +56,7 @@ class PendingAttachment {
     bytes: dropBytes ? null : bytes,
     preparation: preparation ?? this.preparation,
     preparationBusy: preparationBusy ?? this.preparationBusy,
+    preparationSlow: preparationSlow ?? this.preparationSlow,
   );
 }
 
@@ -79,6 +83,7 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
         timer.cancel();
       }
       _preparationPollTimers.clear();
+      _preparationPollAttempts.clear();
       _preparationRefreshing.clear();
     });
     return const [];
@@ -147,7 +152,12 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
   /// 结果覆盖先到 id=服务端孤儿,与迟到完成守卫同一泄漏类)。
   final Set<String> _inFlight = {};
   final Map<String, Timer> _preparationPollTimers = {};
+  final Map<String, int> _preparationPollAttempts = {};
   final Set<String> _preparationRefreshing = {};
+
+  static const _preparationFastPollInterval = Duration(milliseconds: 800);
+  static const _preparationSlowPollInterval = Duration(seconds: 2);
+  static const _preparationFastPollCount = 10;
 
   Future<void> _upload(String localId) async {
     if (_inFlight.contains(localId)) return;
@@ -210,7 +220,10 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
     final a = state.where((a) => a.localId == localId).firstOrNull;
     final id = a?.attachmentId;
     if (a == null || id == null || a.preparationBusy) return;
-    _patch(localId, (p) => p._with(preparationBusy: true));
+    _patch(
+      localId,
+      (p) => p._with(preparationBusy: true, preparationSlow: false),
+    );
     try {
       final prep = await action(id);
       _patch(
@@ -228,39 +241,64 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
   }
 
   void _startPreparationPoll(String localId) {
+    if (_preparationPollTimers.containsKey(localId) ||
+        _preparationRefreshing.contains(localId)) {
+      return;
+    }
+    _preparationPollAttempts[localId] = 0;
+    _schedulePreparationPoll(localId);
+  }
+
+  // Preparation may legitimately take longer than the first few UI seconds (large images are the
+  // real example). Stop only at a server terminal state: poll quickly while the chip is fresh, then
+  // back off so a long-running preparation stays truthful without creating a request storm. 媒体准备
+  // 可能确实超过最初几秒(大图就是实证)。只有服务端终态才停止:前几秒快轮询,之后降频,既不让长任务
+  // 停在假状态,也不制造请求风暴。
+  void _schedulePreparationPoll(String localId) {
     if (_preparationPollTimers.containsKey(localId)) return;
-    var attempts = 0;
-    _preparationPollTimers[localId] = Timer.periodic(
-      const Duration(milliseconds: 800),
-      (_) async {
-        attempts++;
-        final a = state.where((a) => a.localId == localId).firstOrNull;
-        final id = a?.attachmentId;
-        if (a == null ||
-            id == null ||
-            attempts > 10 ||
-            !_isActivePreparation(a.preparation)) {
-          _stopPreparationPoll(localId);
-          return;
-        }
-        if (!_preparationRefreshing.add(localId)) return;
-        try {
-          final meta = await ref.read(chatRepositoryProvider).getAttachment(id);
-          _patch(localId, (p) => p._with(preparation: meta.preparation));
-          if (!_isActivePreparation(meta.preparation)) {
-            _stopPreparationPoll(localId);
-          }
-        } catch (_) {
-          _stopPreparationPoll(localId);
-        } finally {
-          _preparationRefreshing.remove(localId);
-        }
-      },
-    );
+    final attempts = _preparationPollAttempts[localId] ?? 0;
+    final interval = attempts < _preparationFastPollCount
+        ? _preparationFastPollInterval
+        : _preparationSlowPollInterval;
+    _preparationPollTimers[localId] = Timer(interval, () async {
+      _preparationPollTimers.remove(localId);
+      final a = state.where((a) => a.localId == localId).firstOrNull;
+      final id = a?.attachmentId;
+      if (a == null || id == null || !_isActivePreparation(a.preparation)) {
+        _stopPreparationPoll(localId);
+        return;
+      }
+      if (!_preparationRefreshing.add(localId)) {
+        _schedulePreparationPoll(localId);
+        return;
+      }
+      _preparationPollAttempts[localId] = attempts + 1;
+      try {
+        final meta = await ref.read(chatRepositoryProvider).getAttachment(id);
+        _patch(localId, (p) => p._with(preparation: meta.preparation));
+      } catch (_) {
+        // A transient read failure must not turn a live server job into a permanent stale chip. The
+        // next pass keeps the same honest active state and retries with the current cadence. 一次读取
+        // 失败不能把仍在服务端运行的任务变成永久陈旧 chip;下一轮保持诚实活态并按当前节奏重试。
+      } finally {
+        _preparationRefreshing.remove(localId);
+      }
+      final current = state.where((a) => a.localId == localId).firstOrNull;
+      if (current == null || !_isActivePreparation(current.preparation)) {
+        _stopPreparationPoll(localId);
+        return;
+      }
+      if ((_preparationPollAttempts[localId] ?? 0) >=
+          _preparationFastPollCount) {
+        _patch(localId, (p) => p._with(preparationSlow: true));
+      }
+      _schedulePreparationPoll(localId);
+    });
   }
 
   void _stopPreparationPoll(String localId) {
     _preparationPollTimers.remove(localId)?.cancel();
+    _preparationPollAttempts.remove(localId);
     _preparationRefreshing.remove(localId);
   }
 
@@ -290,6 +328,7 @@ class PendingAttachments extends Notifier<List<PendingAttachment>> {
     for (final localId in _preparationPollTimers.keys.toList()) {
       _stopPreparationPoll(localId);
     }
+    _preparationPollAttempts.clear();
     state = const [];
   }
 

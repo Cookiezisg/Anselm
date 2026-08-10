@@ -1581,6 +1581,9 @@ class Translations$attach$en {
 	/// en: 'Preparing media…'
 	String get preparingMedia => 'Preparing media…';
 
+	/// en: 'Still preparing media…'
+	String get preparingMediaLonger => 'Still preparing media…';
+
 	/// en: 'Media prep failed'
 	String get mediaPreparationFailed => 'Media prep failed';
 
@@ -5681,6 +5684,18 @@ class Translations$settings$mem$en {
 	/// en: 'Pinned memories ride every conversation's context'
 	String get pinTip => 'Pinned memories ride every conversation\'s context';
 
+	/// en: 'Pin memory'
+	String get pin => 'Pin memory';
+
+	/// en: 'Unpin memory'
+	String get unpin => 'Unpin memory';
+
+	/// en: 'Updating pin…'
+	String get pinPending => 'Updating pin…';
+
+	/// en: 'Couldn't update pin'
+	String get pinFailed => 'Couldn\'t update pin';
+
 	/// en: 'Pinned'
 	String get pinned => 'Pinned';
 
@@ -5698,6 +5713,24 @@ class Translations$settings$mem$en {
 
 	/// en: 'No matching memories'
 	String get noMatches => 'No matching memories';
+
+	/// en: 'Couldn't load memories'
+	String get loadFailed => 'Couldn\'t load memories';
+
+	/// en: 'Retry'
+	String get retry => 'Retry';
+
+	/// en: 'Memory removed — the roster was refreshed'
+	String get removedNotice => 'Memory removed — the roster was refreshed';
+
+	/// en: 'This memory was removed'
+	String get removedTitle => 'This memory was removed';
+
+	/// en: 'The roster was refreshed. Choose another memory.'
+	String get removedHint => 'The roster was refreshed. Choose another memory.';
+
+	/// en: 'Back to memories'
+	String get backToList => 'Back to memories';
 
 	/// en: 'Discard unsaved changes?'
 	String get dirtyTitle => 'Discard unsaved changes?';
@@ -9454,12 +9487,22 @@ extension on Translations {
 			'settings.mem.content' => 'Content',
 			'settings.mem.save' => 'Save',
 			'settings.mem.pinTip' => 'Pinned memories ride every conversation\'s context',
+			'settings.mem.pin' => 'Pin memory',
+			'settings.mem.unpin' => 'Unpin memory',
+			'settings.mem.pinPending' => 'Updating pin…',
+			'settings.mem.pinFailed' => 'Couldn\'t update pin',
 			'settings.mem.pinned' => 'Pinned',
 			'settings.mem.deleteTitle' => 'Delete memory',
 			'settings.mem.deleteBody' => ({required Object name}) => 'Physically deletes the file for “${name}”. This can\'t be undone.',
 			'settings.mem.confirmDelete' => 'Delete',
 			'settings.mem.emptyLead' => 'Add your first memory — a fact the assistant recalls across conversations',
 			'settings.mem.noMatches' => 'No matching memories',
+			'settings.mem.loadFailed' => 'Couldn\'t load memories',
+			'settings.mem.retry' => 'Retry',
+			'settings.mem.removedNotice' => 'Memory removed — the roster was refreshed',
+			'settings.mem.removedTitle' => 'This memory was removed',
+			'settings.mem.removedHint' => 'The roster was refreshed. Choose another memory.',
+			'settings.mem.backToList' => 'Back to memories',
 			'settings.mem.dirtyTitle' => 'Discard unsaved changes?',
 			'settings.mem.dirtyBody' => 'The content has unsaved edits.',
 			'settings.mem.discard' => 'Discard',
@@ -9549,6 +9592,8 @@ extension on Translations {
 			'settings.storage.retentionDesc' => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.',
 			'settings.storage.retention30' => '30 days',
 			'settings.storage.retention90' => '90 days',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.retention180' => '180 days',
 			'settings.storage.retentionForever' => 'Keep forever',
 			'settings.storage.retentionSaved' => 'Retention updated',
@@ -9559,8 +9604,6 @@ extension on Translations {
 			'settings.storage.compacting' => 'Compacting…',
 			'settings.storage.compacted' => ({required Object mb}) => 'Reclaimed ${mb}',
 			'settings.storage.resetPrefs' => 'Reset local preferences',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.resetPrefsDesc' => 'Clears this machine\'s UI preferences (theme/window/zoom…) only — never touches workspace data. The app will restart to apply the reset.',
 			'settings.storage.resetPrefsTitle' => 'Reset local preferences?',
 			'settings.storage.factoryTitle' => 'Factory reset',
@@ -9676,6 +9719,7 @@ extension on Translations {
 			'attach.failedRetry' => 'Failed — tap to retry',
 			'attach.failedUnreadable' => 'Couldn\'t read file',
 			'attach.preparingMedia' => 'Preparing media…',
+			'attach.preparingMediaLonger' => 'Still preparing media…',
 			'attach.mediaPreparationFailed' => 'Media prep failed',
 			'attach.mediaPreparationCancelled' => 'Media prep cancelled',
 			'attach.mediaPreparationUnavailable' => 'Media prep unavailable',

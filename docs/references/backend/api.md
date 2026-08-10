@@ -320,6 +320,10 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 | `PUT /memories/{name}` · `DELETE /memories/{name}` | upsert / 删除 |
 | `POST /memories/{name}/pin` · `/unpin` | pin 状态 |
 
+Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本，持久化层对含换行
+的值使用可逆转义，避免内容被解释成 `pinned`/`source` 元数据；PUT 返回值与随后 GET
+回读的策展字段必须一致。
+
 ## 8. Discovery, search and relations
 
 | Method · Path | 语义 |

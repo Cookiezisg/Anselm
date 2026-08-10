@@ -10,6 +10,93 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-11 — EP-194 `POST /api/v1/memories/{name}/unpin` 收口，批次三十一 50/50
+
+- 产品目的：取消置顶必须让记忆停止进入后续对话的常驻正文，同时保留记忆、索引可见、可重新置顶，并让 Pinned 过滤和下一轮 Chat 对用户诚实。
+- 真实五通道 session `/private/tmp/anselm-rig-ep194-memory-unpin-20260811/sessions/20260811-005136`：真实 Flutter macOS App + Computer Use + `https://api.anselm.website` + 三路独立 ssetap + backend/frontend journals + llmtap，录屏 `229.195000s / 2784x1808 / 60fps`。真实路径为 Unpin → Pinned 空态 → Chat 列出 memory index 名称；没有 `read_memory`。
+- 五通道真相：Unpin 与重复 Unpin 均 `200/pinned:false`，REST/file 保留正文与 metadata；notifications durable `1..3` 只记录一次 `memory.updated`，messages durable `1..8` 单调，seq=0 仅为 delta；gateway proof/install/models/chat/auto-title 全 `200`，LLM body 没有完整 unpin-guide 正文；backend/frontend 无应用红线，IMK 为已知 launcher 噪声。
+- 逐帧：Unpin `100.0ms`，Pinned 空态 `66.7ms`，Chat 首反馈 `66.7ms`，各有 changed box；原始 60fps 十二帧黑帧复核均为正常空态亮度 `YAVG=189.839/YMIN=16/YMAX=235`，确认不是产品黑屏。完整证据为 session `evidence/EP-194-final-green.md`，formal 警报复核为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-194-ledger-alarm-reaudit.md`。
+- 正式按 `measure:memory-unpin-purpose / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-194=✓✓✓✓✓`，formal ledger `1660→1665 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/326/0`。`gap-too-fast`、`pass-burst`、`discovery-collapse` 已按原始证据 re-audit 逐条 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1665)`。隔离数据目录按授权移入 Trash；批次三十一达到 **50/50**；root make verify、完整 testend（284.530s）、专项回归、rig 自测、docs/coverage/anchors/alarms/diff、端口/进程和 fixture 审计均已通过，工作树审计后提交，P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-11 — EP-193 `POST /api/v1/memories/{name}/pin` 收口，批次三十一 45/50
+
+- 产品目的：用户在真实 Memory roster 中 Pin/Unpin 时，必须看见可理解、可操作且不会重复提交的反馈；过滤器、文件、REST、SSE 和后续 Chat grounding 要共同证明 pinned 状态真的成立。
+- 首轮 stop-and-fix：旧 pin action 直接 await Future，没有 single-flight busy state，也没有 pin 专属错误反馈；失败可能成为未处理 Flutter exception，快速连点可能发出竞争 mutation。改为 keyed stateful row、`_pinBusy` latch、共享 spinner、action-specific AX label、localized notice，并补 fixture gate/error/call-count 与 12 项 Memory 回归；Settings 文档和 en/zh i18n 同步。
+- 真实五通道 session `/private/tmp/anselm-rig-ep193-memory-pin-fix-20260811/sessions/20260811-003318`：真实 Flutter macOS App + Computer Use + `https://api.anselm.website` + 三路独立 ssetap + backend/frontend journals + llmtap，录屏 `181.463333s / 2784x1808 / 60fps`。真实路径 Pin → Pinned → Unpin 空态 → All → repin，再回 Chat 读取 `pin-guide`，最终 assistant 精确返回 `Pin this only when it should ride every conversation.`。
+- 五通道真相：三次 pin mutation 与 roster GET=`200`；REST 最终 `pin-guide=true`、`quiet-note=false`，`pinned=true` 只有 `pin-guide`，file frontmatter=`pinned: true`；notifications durable seq=`1..7` 单调，messages 记录真实 `read_memory` tool call/result 和 assistant close，llmtap gateway 与三次 completion 全 `200`，frontend/backend 无应用级红线。
+- 逐帧：Pin=`33.3ms`、Pinned=`66.7ms`、Unpin empty=`66.7ms`、All=`33.3ms`、repin=`66.7ms`；Chat 首个可见反馈=`433.3ms`。连续 diff 有 changed box 证据，无黑帧、残留 spinner、列表错位或文字跳变。完整证据为 session `evidence/EP-193-final-green.md`，账本复核为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-193-ledger-alarm-reaudit.md`。
+- 正式按 `measure:memory-pin-purpose / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-193=✓✓✓✓✓`；formal ledger `1655→1660 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/325/0`。`gap-too-fast`、`discovery-collapse` 已依据独立 re-audit ack，阈值/算法/法典/锚点/gate 未改，最终 `alarms.py check`=`clean (1660)`。隔离数据目录已移入 Trash；批次未满 50 格，不跑统一长门禁、不提交；下一前线 EP-194。
+
+## 2026-08-10 — EP-192 `DELETE /api/v1/memories/{name}` 收口，批次三十一 40/50
+
+- 产品目的：真实用户必须先理解 memory 的物理删除和不可逆后果，Cancel 不改变状态，Confirm 后 UI、REST、文件和 durable notification 共同收敛；另一个客户端删除当前打开对象时，详情页必须停止编辑幽灵数据并回到权威名册。
+- 真实五通道 session `/private/tmp/anselm-rig-ep192-memory-20260810/sessions/20260810-154348`：真实 Flutter macOS App、Computer Use、受管 `https://api.anselm.website`、三路 ssetap、backend/frontend journals、llmtap、封口录屏 `29509.911667s / 2788x1808 / 60fps`。创建 `daily-rule`/`keep-me`，验证删除对话框 Cancel 无 DELETE；第二客户端 DELETE `keep-me` 后详情被驱逐并显示 removal notice；用户明确授权后真实 UI Confirm 删除 `daily-rule`，最终 empty roster 保留 `New memory` 入口。
+- stop-and-fix：Memory detail 现在只在 settled roster 确认对象消失时 post-frame eviction；loading/error 不误驱逐；新增 `_MemoryGone`、移除提示/标题/返回文案、en/zh i18n、Settings 文档和外部删除 widget regression。静态 memory/store/HTTP Go tests、`TestContractKnowledge_MemorySurface`、Flutter Memory/lifecycle tests（11 项）、`flutter analyze`、measure tests、docs verify 和 diff check 全绿。
+- 五通道真相：backend 两次 DELETE=`204`、最终 GET=`[]`、重复删除=`404 MEMORY_NOT_FOUND`、非法 name=`400 MEMORY_INVALID_NAME`，产品 session 无应用错误；notifications durable seq=`1..4` 对应两 create/two delete，其他两流已连接但无虚构业务帧；llmtap challenge/install/models 全 `200`，settings-only path 无 completion；frontend 无 Dart/Flutter/layout/runtime 红线，只有已知 launcher foreground 噪声。
+- 逐帧：外部删除 notice 首个可见反馈=`16.7ms`；UI Confirm 用 `actionFrame=344` 的保守对齐，首个可见反馈=`83.3ms`，`changedFrac=0.00770`，box=`(675,392)-(2395,991)`；对话框居中可读，空态转换无黑帧、文字跳变、死 spinner 或残留 dialog。正式证据：session 内 `evidence/EP-192-final-green.md`；警报复核：`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-192-ledger-alarm-reaudit.md`。
+- formal ledger 按 `measure:memory-delete-purpose / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-192=✓✓✓✓✓`，`1650→1655 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/324/0`。`gap-too-fast` 是五级批量写账造成的间隔信号，`discovery-collapse` 是没有人为伪造 fail 的清洁路径信号；均已独立重读原始证据后 ack，未改阈值/算法/法典/锚点/gate，正式 `alarms.py check`=`clean (1655)`。fixture `/private/tmp/anselm-data-ep192-memory-20260810` 已按授权移入 Trash；session/ledger/录屏/journals/evidence 保留。未满 50 格，不跑统一长门禁、不提交；下一原子前线 EP-193。
+
+## 2026-08-10 — EP-191 `PUT /api/v1/memories/{name}` 收口，批次三十一 35/50
+
+- 产品目的：这不是只验 `200` 的 Upsert 接口；真实用户在 Memory editor 建立可复用记忆后，外部更新必须在当前页面内收敛，名称、多行正文、描述、置顶/source 策展和删除结果要同时在 UI、REST、文件 store 与 notifications durable stream 中成立。
+- 首轮 R2 不计绿：录屏 MOV 只有秒级 `startedAt`，无法把 A1 的 `≤100ms` 对齐成可审计数字。先修台架：`spawn.py` 写入 recorder PID 与 UTC 微秒 `spawnRequestedAt/spawnReturnedAt`，manifest 指向 lifecycle，`rig-check` 验证 PID/时间区间；脚本语法、生命周期 self-test、`git diff --check` 通过。随后用新二进制和新数据目录重跑 R3。
+- R3 真实五通道 session `/private/tmp/anselm-rig-ep191-memory-20260810-r3/sessions/20260810-151539`：真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap、封口录屏 `336.938333s / 2784x1808 / 60fps`。真实 editor 创建 `daily-rule-r3`；外部 PUT 使同页 roster 直接变为 `Updated in R3 externally`；真实创建/更新/删除 `r3-curated`，多行 `description` 不能覆盖 `pinned=true/source=user`。
+- 五通道交叉核验：backend 真实 PUT/GET/DELETE 与 file store 一致，无应用 WARN/ERROR/panic/fatal；notifications durable seq=`1..5` 单调，对应两 create、两 update、一次 delete；entities/messages 已连接且无虚构业务帧；llmtap challenge/install/models 全 `200`，本格不触发 completion；frontend 无 Dart/Flutter/RenderFlex/Unhandled/Exception/runtime 红线，只有已知 launcher foreground 噪声。
+- 逐帧：`source_007→source_008` 是唯一变化，`measure diff`=`changedFrac 0.00058`、box=`(1114,540)-(1396,563)`，仅记忆描述行；PTS 差 `16.7ms`，作为保守可见反馈上界满足 A1，无黑帧、整面重排、死 spinner 或布局跳变。完整可复核细节在 session `evidence/EP-191-r3-final-green.md`。
+- stop-and-fix：后端修复多行 description 的 frontmatter 注入，补 round-trip test；前端 provider 改为 durable signal 后权威 list 原地 reconcile + generation guard，避免 loading gap；API/Memory settings 文档同步。定向 Go memory/store/HTTP 包测试、`TestContractKnowledge_MemorySurface`、Flutter Memory/lifecycle tests（10 项）和 `flutter analyze` 全绿。
+- formal ledger 以 `G1/F2/A1/C4/G2` 写入 `COVERAGE EP-191=✓✓✓✓✓`，中央账本 `1645→1650 judgments`，anchors=`10/10`。`gap-too-fast`、`discovery-collapse` 依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-191-ledger-alarm-reaudit.md` 独立复审并 ack，阈值/算法/法典/锚点/gate 未改，最终 `alarms.py check`=`clean (1650)`；`gen_coverage.py --check`=`848/323/0`。
+- 按用户授权移入 Trash `/private/tmp/anselm-data-ep191-memory-20260810`、`-r2`、`-r3` 三个隔离数据目录；正式 ledger、session、录屏、journals、evidence 与测量目录保留。批次三十一由 `30/50→35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-192，P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-10 — EP-190 `GET /api/v1/memories/{name}` 收口，批次三十一 30/50
+
+- 产品目的：用户从真实 Settings → Resources → Memory 名册进入一条记忆后，必须看见完整名称、描述和多语言多行正文；单读 endpoint 对真实文件、未知 name 和非法 name 要诚实，不能把 roster hydrate 冒充隐藏的单读请求。
+- 真实 session `/private/tmp/anselm-rig-ep190-memory-20260810/sessions/20260810-135706`：真实 Flutter macOS App + Computer Use + `https://api.anselm.website` + 三路独立 ssetap + backend/frontend journals + llmtap，录屏 `120.555000s / 2784x1808 / 60fps`。真实建立 `deep-dive` 与 `quiet-note`，进入详情后稳定显示锁定 Name、Description 和完整中英文多行 Content。
+- API/file truth：`GET /memories/deep-dive`=`200` 返回完整对象，`ghost-note`=`404 MEMORY_NOT_FOUND`，`Upper-Case`=`400 MEMORY_INVALID_NAME`；file store 仅有预期的 `deep-dive.md` 与 `quiet-note.md`。notifications durable seq=`1..2` 单调，对应两条 created；纯 GET 没有 durable side effect，entities/messages 没有虚构事件；llmtap challenge/install/models 全 `200`，无 completion。
+- 静态验证：后端 `TestContractKnowledge_MemorySurface` 与 memory/store/handler 定向 Go tests 全绿；详情页诚实保留从权威 roster hydrate、没有单独 repository `getMemory` 方法的实现边界；`git diff --check` 干净。
+- 逐帧与测量：详情切换 `actionFrame=78` 后 `feedbackFrame=80`，可见反馈=`66.7ms`，稳定帧 `changedFrac=0`，changed box=`(1048,259)-(2393,950)`，满足 A1；frontend 无 Dart/Flutter/layout/runtime 红线，backend 无应用 WARN/ERROR/panic/fatal，唯一 launcher foreground 行按既有规则归类为 VM 前噪声。
+- 正式按 `measure:memory-detail-purpose / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-190=✓✓✓✓✓`，formal ledger `1640→1645 judgments`，anchors=`10/10`。`gap-too-fast`、`discovery-collapse` 依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-190-ledger-alarm-reaudit.md` 独立复审并 ack，最终 `alarms.py check`=`clean (1645)`；`gen_coverage.py --check`=`848 rows / 322 carried judgments / 0 tombstones`。
+- 按用户授权删除 `/private/tmp/anselm-data-ep190-memory-20260810`；formal ledger、session、录屏、journals、evidence 与测量复核目录保留。批次三十一由 `25/50→30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-191，P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-10 — EP-189 `GET /api/v1/memories` 收口，批次三十一 25/50
+
+- 产品目的：真实用户进入 Settings → Resources → Memory 时，All/Pinned/Search 必须让名册可读且可操作；loading、读取失败和确认空列表不能混淆，pin/unpin 要在 UI、文件 store、REST 和通知流中共同收敛。
+- 首轮静态 stop-and-fix 发现 `.value ?? []` 会把 Memory GET 失败伪装成空态；已改为 `AnLastGood` + workspace reset key，补 loading skeleton、localized error、Retry 和 empty 分流，新增 8 项 settings widget 回归，并同步 `docs/references/frontend/features/settings.md`。
+- 真实 session `/private/tmp/anselm-rig-ep189-memory-20260810/sessions/20260810-133324`：真实 Flutter macOS App + Computer Use + `https://api.anselm.website` + 三路独立 ssetap + backend/frontend journals + llmtap，录屏 `268.238333s / 2784x1808 / 60fps`。12 条 memory、3 条 pinned 真实进入 workspace；All=12、Pinned=3、Search=`workflow-goal`，真实 unpin→pin 后最终 GET=`pinned:true`。
+- API/file truth：all/pinned/unpinned=`12/3/9`、name ascending，文件 store 正好 12 个 `.md`；notifications durable seq=`1..17` 单调，对应 12 created、3 initial pin、1 unpin、1 final pin；entities/messages 物理连接但本只读路径无 durable frame，未虚构 SSE；llmtap challenge/install/models 全 `200`，无 completion（本格不触发 LLM）。backend 无应用 WARN/ERROR/panic/fatal，frontend 无 Dart/Flutter/layout/runtime 红线，唯一 launcher foreground 行按既有规则归类为 VM 前噪声。
+- 逐帧与测量：All/Pinned/Search/pin transition 稳定帧无裁切、重复、残留 spinner 或跳变；30fps 测量名册反馈=`66.7ms`、Pinned/Search=`33.3ms`，均满足 A1。证据为 session 内 `EP-189-final-green.md`、`EP-189-api-db-sse.txt`、`EP-189-latency.txt`、`EP-189-frontend-terminal-review.md`。
+- 正式按 `measure:memory-roster-purpose / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-189=✓✓✓✓✓`，formal ledger `1635→1640 judgments`，anchors=`10/10`。写账触发的 `gap-too-fast`、`discovery-collapse` 依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-189-ledger-alarm-reaudit.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1640)`；`gen_coverage.py --check`=`848 rows / 321 carried judgments / 0 tombstones`。
+- 按授权删除 `/private/tmp/anselm-data-ep189-memory-20260810`；正式 ledger、session、录屏、journals、evidence 保留。批次三十一由 `20/50→25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-190，P12 旅程 400+ 继续按用户裁定推迟二期。
+
+## 2026-08-10 — EP-188 `DELETE /api/v1/attachments/{id}` 收口，批次三十一 20/50
+
+- 产品目的：用户在真实 Composer 中移除一张已准备好的、尚未发送的图片后，缩略图要立即消失，服务端要软删同一附件，metadata/content/重复删除要停止服务；本格不是只看 DELETE `204`。
+- 真实五通道 session `/private/tmp/anselm-rig-ep188-rerun-20260810/sessions/20260810-130805`：workspace=`ws_a874dbf4461dcf47`，attachment=`att_0e0b2e21ebf1104f`，真实 Flutter macOS App + Computer Use + 真实受管网关 + 三路独立 ssetap + backend/frontend journals + llmtap，录屏 `359.475000s / 2784x1808 / 60fps`。
+- 真实时序：upload `201`=`13:13:24.395 +0800`，ready metadata `200`=`13:13:46.550 +0800`，DELETE `204`=`13:14:13.178 +0800`/`1ms`；SQLite 同一行 `deleted_at=2026-08-10 05:14:13.178006+00:00`。收台后 metadata、content、重复 DELETE 均为 `404 ATTACHMENT_NOT_FOUND`，原始回执保留在 `evidence/post-delete-http.txt`。
+- SSE 三条流均真实连接并 clean EOF，但 attachment-only draft deletion 没有业务 lifecycle frame，durable frame=0，未虚构 SSE；llmtap challenge/install/models 全 `200`，无 chat completion；frontend 只有已知 macOS launcher foreground 噪声，无 Dart/Flutter/layout/runtime 红线；backend 无 WARN/ERROR/panic/fatal/exception。
+- 逐帧：`0044.png` 为 ready thumbnail + close affordance，`0045.png` 为第一张移除后的变化帧；`measure latency`=`16.7ms`、changedFrac=`0.00872`、box=`(1082,676)-(2366,940)`，满足 A1。L4/L5 复核 shared thumbnail/Composer/AnButton 几何、AX `Remove` 与 `AnButton.iconOnly -> AnInteractive` 的 tooltip/hover/focus 合同；证据明确声明没有单独保存 hover screenshot，不把未观察到的 hover 写成事实。
+- 正式按 `measure:attachment-delete-purpose / F2 / A1 / C4 / G2` 写入 `COVERAGE EP-188=✓✓✓✓✓`，formal ledger `1630→1635 judgments`，anchors=`10/10`。`gap-too-fast` 与 `discovery-collapse` 依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-188-ledger-alarm-reaudit.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1635)`；`gen_coverage.py --check`=`848 rows / 320 carried judgments / 0 tombstones`。
+- 批次三十一由 `15/50→20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-189，P12 旅程 400+ 仍按用户裁定推迟二期。
+
+## 2026-08-10 — EP-186/EP-187 preparation cancel/retry 收口，批次三十一 15/50
+
+- 产品目的：大型图片 preparation 期间，用户必须能看懂等待、主动取消、明确重试，并最终得到真实 thumbnail；这两格不是只验 `200` 的后台接口，而是 Composer 的可控等待闭环。
+- 首轮真实台架发现红：旧前端只在约 8 秒内做 10 次 `800ms` 轮询；真实 media preparation 约 17–22 秒，后端已 `ready` 后 UI 仍永久显示 `Preparing media...`。这破坏用户目的，红证据保留，不计绿。
+- stop-and-fix：改为前 10 次 `800ms`、之后 `2s` 的持续 terminal-state 轮询；暂时 metadata GET 失败不终止；长等待显示 `Still preparing media...`；cancel/retry/dispose 清理轮询状态。补充长等待 widget 测试、cancel/retry 可见按钮断言、i18n 与 chat reference 文档。
+- 真实五通道 session `/private/tmp/anselm-rig-ep186-pollfix-20260810/sessions/20260810-123430`：真实 Flutter macOS App、Computer Use、受管网关、三路 ssetap、backend/frontend/LLM journals、封口录屏 `425.251667s / 2784x1808 / 60fps`。`att_948b33fc2427f981`（真实 `38.7MB`）实际走过 cancel `200`、`Media prep cancelled`、retry `200`；`att_94e6ee9c8250da4e` 实际走过 10 次快速 poll、之后约 2 秒轮询、最终 ready。稳定帧为 `cancelled.jpg`、`retrying.jpg`、`long-wait.jpg`、`ready.jpg`。
+- 五通道结论：backend/REST/SQLite 的 attachment 状态与 UI 收敛一致；三路 SSE 正常连接但该 attachment-only slice 无 durable chat frame；LLM 无调用且未把空调用冒充证据；frontend 只有已知 runner foreground 噪声，无 Dart/Flutter/layout/runtime 红线；backend 无 WARN/ERROR/panic/fatal/exception。逐帧无 stale label、死 spinner、裁切或跳变。
+- 定向验证：`flutter test` chat composer + pending attachment `38` 项全绿，Go media/handler tests 全绿，`flutter analyze` 无问题；COVERAGE `EP-186=✓✓✓✓✓`、`EP-187=✓✓✓✓✓`。
+- 正式账本 `1620→1630 judgments`，anchors=`10/10`；写账触发的 `gap-too-fast`、`pass-burst`、`discovery-collapse` 已依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-186-187-ledger-alarm-reaudit.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1630)`；`gen_coverage.py --check`=`848/319/0`。
+- 批次三十一由 `5/50→15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线 EP-188，P12 旅程 400+ 仍按用户裁定推迟二期。
+
+## 2026-08-10 — EP-185 `GET /api/v1/attachment-playback/{token}` 收口，批次三十一 5/50
+
+- 产品目的：这是 EP-184 lease 后 native player 实际调用的隐藏 bearerless fetch；它必须在无 bearer/workspace header 时只服务 token 绑定的 audio，保留 MIME、Range/seek 和 Content-Range，并在 unknown token、soft delete、非 audio 和 mint workspace 缺失时诚实失败。没有独立用户入口，L5 归 EP-184 的 Play audio affordance，记 `na`。
+- 静态与黑盒：handler playback tests 和 `TestContractDocsAtt_AudioPlaybackLease` 全绿，覆盖无 header 原字节、`audio/mpeg`、Range `206`、非 audio `415`、missing workspace、unknown token `404` 和软删后旧 lease `404`；handler 的全 blob materialization limitation 保持诚实，不虚报为 memory streaming。
+- 真实五通道证据复用 EP-184 封口 session `/private/tmp/anselm-rig-ep184-20260810/sessions/20260810-102935`：native player 实际产生 bearerless `206/2 bytes/1ms` 首探针和 `206/230059 bytes/1ms` 完整 fetch；三路 ssetap、LLM tap、frontend terminal、`355.428333s / 2784x1808 / 60fps` 录屏均在同一台架会话中。
+- 视觉/测量：连接 surface 的最后 ready `f0073`→第一帧 `Loading audio...`=`16.7ms`，changed box=`(1366,292)-(1732,336)`；EP-184 的 Pause/时长/进度/resume/自然结束复核无新增跳变或错误帧。
+- 正式按 `measure:attachment-playback-purpose / F2 / A1 / C4 / na` 写入 `COVERAGE EP-185=✓✓✓✓~`；formal ledger `1615→1620`，anchors=`10/10`。写账后的 `gap-too-fast`、`discovery-collapse` 依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-185-playback-fetch-ledger-reaudit.md` 独立复审并逐条 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check`=`clean (1620)`；`gen_coverage.py --check`=`848/317/0`。
+- 批次三十一当前 **5/50**，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-186 preparation cancel，P12 旅程 400+ 继续推迟二期。
+
 ## 2026-08-10 — EP-184 `POST /api/v1/attachments/{id}/playback-lease` 收口，批次三十 50/50，统一门禁已关闭
 
 - 产品目的：原生播放器不能携带 bearer header；用户录音发送后，音频卡必须通过 workspace-scoped 短期 opaque lease 继续完成 Play、Pause、Resume、时长/进度和自然结束回到 Play 的真实闭环。非音频、无 workspace、未知/过期 lease、软删后的旧 lease 必须分别诚实失败。

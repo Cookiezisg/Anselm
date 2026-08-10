@@ -2,6 +2,7 @@ package memory
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	memorydomain "github.com/sunweilin/anselm/backend/internal/domain/memory"
@@ -29,7 +30,7 @@ func parseFile(raw, name string) *memorydomain.Memory {
 				}
 				switch strings.TrimSpace(key) {
 				case "description":
-					m.Description = strings.TrimSpace(val)
+					m.Description = parseScalar(val)
 				case "pinned":
 					m.Pinned = strings.TrimSpace(val) == "true"
 				case "source":
@@ -48,11 +49,33 @@ func parseFile(raw, name string) *memorydomain.Memory {
 func renderFile(m *memorydomain.Memory) string {
 	var b strings.Builder
 	b.WriteString("---\n")
-	fmt.Fprintf(&b, "description: %s\n", m.Description)
+	fmt.Fprintf(&b, "description: %s\n", renderDescription(m.Description))
 	fmt.Fprintf(&b, "pinned: %t\n", m.Pinned)
 	fmt.Fprintf(&b, "source: %s\n", m.Source)
 	b.WriteString("---\n")
 	b.WriteString(m.Content)
 	b.WriteString("\n")
 	return b.String()
+}
+
+// parseScalar accepts the historical plain form and a quoted form used when a
+// description contains a line break. Quoting keeps user text from becoming new
+// frontmatter keys when the file is read back.
+//
+// parseScalar 兼容历史裸值；描述含换行时使用引号形式，避免用户文本回读时变成新的 frontmatter key。
+func parseScalar(raw string) string {
+	value := strings.TrimSpace(raw)
+	if strings.HasPrefix(value, "\"") {
+		if decoded, err := strconv.Unquote(value); err == nil {
+			return decoded
+		}
+	}
+	return value
+}
+
+func renderDescription(description string) string {
+	if strings.ContainsAny(description, "\r\n") {
+		return strconv.Quote(description)
+	}
+	return description
 }

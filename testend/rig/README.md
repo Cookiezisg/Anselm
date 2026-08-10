@@ -20,6 +20,9 @@
 
 所有会话落 `~/.anselm-rig/sessions/<时间戳>/`；conductor 初始化 `evidence/` 与各 channel journal，
 截图等证据可以直接写入该目录。`~/.anselm-rig/current` 软链指认活会话，`manifest.json` 是其余脚本唯一读的连接事实。
+启用录屏时，manifest 同时指向 `recording-lifecycle.json`；该文件记录 `screencapture` 进程的
+`spawnRequestedAt` 与 `spawnReturnedAt`（UTC 微秒）及 PID。任何把 MOV PTS 与后端/SSE 时戳对齐的
+延迟量测都必须使用这段高精度起点证据，不能再用录屏完成后写入、且只有秒精度的 `startedAt`。
 
 Computer Use 的 macOS AX 树读取只在稳定态做；流式期间由连续 `screen.mov` 负责逐帧证据。原因是 Flutter
 debug engine 在 AX 树正被替换时可能输出 `accessibility_bridge.cc ... Failed to update ui::AXTree`，这是观察器/引擎

@@ -94,15 +94,30 @@ class AnAttachmentChip extends StatelessWidget {
         ),
         if (onAction != null || actionBusy) ...[
           const SizedBox(width: AnSpace.s2),
-          if (actionBusy)
-            const AnSpinner()
-          else
-            AnButton.iconOnly(
-              actionIcon ?? AnIcons.action,
-              size: AnButtonSize.sm,
-              semanticLabel: actionLabel ?? '',
-              onPressed: onAction,
+          // Keep the preparation verb visible and expose one stable action node to macOS AX. The
+          // old icon-only child was painted but could disappear from the native tree inside this
+          // compact selectable row, making a real cancel click impossible to discover or target.
+          // 让准备动作的动词始终可见,并向 macOS AX 暴露一个稳定动作节点。旧的纯图标子节点在这枚紧凑可选行里
+          // 会出现「画面有、原生树没有」,用户既发现不了也点不中真实取消。
+          Semantics(
+            container: true,
+            button: actionLabel != null,
+            enabled: !actionBusy && onAction != null,
+            label: actionLabel,
+            onTap: !actionBusy ? onAction : null,
+            child: ExcludeSemantics(
+              child: actionBusy
+                  ? AnSpinner(semanticLabel: actionLabel)
+                  : AnButton(
+                      icon: actionIcon ?? AnIcons.action,
+                      label: actionLabel,
+                      semanticLabel: actionLabel,
+                      size: AnButtonSize.sm,
+                      surface: true,
+                      onPressed: onAction,
+                    ),
             ),
+          ),
         ],
         if (onRemove != null) ...[
           const SizedBox(width: AnSpace.s2),

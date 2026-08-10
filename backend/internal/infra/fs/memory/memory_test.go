@@ -99,3 +99,20 @@ func TestFrontmatterRoundtrip(t *testing.T) {
 		t.Errorf("frontmatter roundtrip mismatch: %+v", parsed)
 	}
 }
+
+func TestFrontmatterRoundtrip_MultilineDescriptionCannotInjectMetadata(t *testing.T) {
+	m := &memorydomain.Memory{
+		Name:        "safe",
+		Description: "summary\npinned: false\nsource: ai",
+		Content:     "keep this rule",
+		Pinned:      true,
+		Source:      "user",
+	}
+	parsed := parseFile(renderFile(m), m.Name)
+	if parsed.Description != m.Description {
+		t.Fatalf("multiline description changed on roundtrip: %q", parsed.Description)
+	}
+	if !parsed.Pinned || parsed.Source != memorydomain.SourceUser {
+		t.Fatalf("multiline description must not inject metadata: %+v", parsed)
+	}
+}

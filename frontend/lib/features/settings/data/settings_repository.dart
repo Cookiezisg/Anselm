@@ -1003,11 +1003,26 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<String> backendVersion() async => version;
 
   final List<Memory> memories = [];
+  // Script hooks for the roster's honest loading/error states. 名册加载/错误态测试钩。
+  Object? memoriesListError;
+  Completer<List<Memory>>? memoriesListGate;
+  // Script hooks for pin failure and in-flight duplicate protection tests. pin 失败/忙态测试钩。
+  Object? memoriesPinError;
+  Completer<void>? memoriesPinGate;
+  int memoriesPinCalls = 0;
 
   @override
-  Future<List<Memory>> listMemories({bool? pinned}) async => pinned == null
-      ? List.of(memories)
-      : memories.where((m) => m.pinned == pinned).toList();
+  Future<List<Memory>> listMemories({bool? pinned}) async {
+    final gate = memoriesListGate;
+    if (gate != null) await gate.future;
+    final failure = memoriesListError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return pinned == null
+        ? List.of(memories)
+        : memories.where((m) => m.pinned == pinned).toList();
+  }
 
   @override
   Future<Memory> putMemory(
@@ -1039,6 +1054,14 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<Memory> pinMemory(String name, {required bool pinned}) async {
+    memoriesPinCalls++;
+    final gate = memoriesPinGate;
+    if (gate != null) await gate.future;
+    final failure = memoriesPinError;
+    if (failure != null) {
+      memoriesPinError = null;
+      throw failure is Exception ? failure : StateError('$failure');
+    }
     final i = memories.indexWhere((m) => m.name == name);
     return memories[i] = memories[i].copyWith(pinned: pinned);
   }

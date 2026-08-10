@@ -908,7 +908,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
 
   String? _preparationMeta(Translations t, PendingAttachment a) {
     if (a.status != 'ready') return null;
-    return attachmentPreparationLine(t, a.preparation);
+    return attachmentPreparationLine(
+      t,
+      a.preparation,
+      longWait: a.preparationSlow,
+    );
   }
 
   IconData? _preparationActionIcon(PendingAttachment a) {

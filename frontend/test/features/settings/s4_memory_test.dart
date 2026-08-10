@@ -1,7 +1,13 @@
+import 'dart:async';
+
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/memory.dart';
+import 'package:anselm/core/contract/notification.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/ui/ui.dart';
+import 'package:anselm/features/notifications/data/notification_fixture.dart';
+import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/state/memories_provider.dart';
 import 'package:anselm/features/settings/state/settings_detail_provider.dart';
@@ -15,10 +21,15 @@ import 'package:flutter_test/flutter_test.dart';
 // (name locked; pinned survives the update — F147), delete via confirm.
 // 记忆电池:名册/固定过滤/行内 pin;新建 slug 校验;编辑锁名+pinned 存活(F147);确认删除。
 
-Widget _host(FixtureSettingsRepository repo) => ProviderScope(
+Widget _host(
+  FixtureSettingsRepository repo, {
+  FixtureNotificationRepository? notifications,
+}) => ProviderScope(
   overrides: [
     settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
     settingsRepositoryProvider.overrideWithValue(repo),
+    if (notifications != null)
+      notificationRepositoryProvider.overrideWithValue(notifications),
   ],
   child: TranslationProvider(
     child: MaterialApp(
@@ -83,9 +94,67 @@ void main() {
         // toggled,根本没有「选中」这个概念。
         hasTapAction: true,
         hasFocusAction: true,
-        label: t.settings.mem.pinTip,
+        label: t.settings.mem.unpin,
       ),
     );
+  });
+
+  testWidgets('pin failure is explained and leaves the row unpinned', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..memories.add(const Memory(name: 'offline-pin'))
+      ..memoriesPinError = const ApiException(
+        code: 'CLIENT_TRANSPORT',
+        message: 'offline',
+        httpStatus: 0,
+      );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(MemoryPanel)));
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(MemoryPanel)),
+      listen: false,
+    );
+
+    await tester.tap(find.byIcon(AnIcons.pin));
+    await tester.pumpAndSettle();
+
+    expect(repo.memories.single.pinned, isFalse);
+    expect(
+      container.read(noticeCenterProvider).current?.message.text,
+      t.settings.mem.pinFailed,
+    );
+    expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pin toggle is single-flight and visibly busy', (tester) async {
+    final gate = Completer<void>();
+    final repo = FixtureSettingsRepository()
+      ..memories.add(const Memory(name: 'single-flight'))
+      ..memoriesPinGate = gate;
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+
+    final pin = find.byIcon(AnIcons.pin);
+    final point = tester.getCenter(pin);
+    await tester.tap(pin);
+    await tester.pump();
+    expect(repo.memoriesPinCalls, 1);
+    expect(find.byType(AnSpinner), findsOneWidget);
+
+    await tester.tapAt(point);
+    await tester.pump();
+    expect(
+      repo.memoriesPinCalls,
+      1,
+      reason: 'busy pin must not issue a duplicate request',
+    );
+
+    gate.complete();
+    await tester.pumpAndSettle();
+    expect(repo.memories.single.pinned, isTrue);
+    expect(find.byType(AnSpinner), findsNothing);
   });
 
   testWidgets(
@@ -105,6 +174,83 @@ void main() {
       expect(find.text(t.settings.mem.newMemory), findsOneWidget);
     },
   );
+
+  testWidgets('roster keeps loading separate from settled empty', (
+    tester,
+  ) async {
+    final gate = Completer<List<Memory>>();
+    final repo = FixtureSettingsRepository()..memoriesListGate = gate;
+    await tester.pumpWidget(_host(repo));
+    await tester.pump(const Duration(milliseconds: 220));
+    final t = Translations.of(tester.element(find.byType(MemoryPanel)));
+
+    expect(find.byType(AnSkeleton), findsWidgets);
+    expect(find.text(t.settings.mem.emptyLead), findsNothing);
+
+    repo.memoriesListGate = null;
+    gate.complete(const []);
+    await tester.pumpAndSettle();
+    expect(find.text(t.settings.mem.emptyLead), findsOneWidget);
+  });
+
+  testWidgets('roster shows an actionable error and recovers through Retry', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..memoriesListError = const ApiException(
+        code: 'CLIENT_TRANSPORT',
+        message: 'offline',
+        httpStatus: 0,
+      );
+    await tester.pumpWidget(_host(repo));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(MemoryPanel)));
+
+    expect(find.text(t.settings.mem.loadFailed), findsOneWidget);
+    expect(find.text(t.settings.mem.retry), findsOneWidget);
+    expect(find.text(t.settings.mem.emptyLead), findsNothing);
+
+    repo.memoriesListError = null;
+    await tester.tap(find.text(t.settings.mem.retry));
+    await tester.pumpAndSettle();
+    expect(find.text(t.settings.mem.emptyLead), findsOneWidget);
+  });
+
+  testWidgets('roster reconciles durable memory signals and 410 resync', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..memories.add(
+        const Memory(name: 'daily-rule', description: 'old description'),
+      );
+    final notifications = FixtureNotificationRepository();
+    addTearDown(notifications.dispose);
+    await tester.pumpWidget(_host(repo, notifications: notifications));
+    await tester.pumpAndSettle();
+
+    expect(find.text('old description'), findsOneWidget);
+
+    repo.memories[0] = repo.memories[0].copyWith(
+      description: 'updated by another client',
+    );
+    notifications.emit(
+      NotificationItem(
+        id: 'notice-memory-updated',
+        type: 'memory.updated',
+        createdAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('updated by another client'), findsOneWidget);
+    expect(find.text('old description'), findsNothing);
+
+    repo.memories[0] = repo.memories[0].copyWith(
+      description: 'updated after stream gap',
+    );
+    notifications.emitResync();
+    await tester.pumpAndSettle();
+    expect(find.text('updated after stream gap'), findsOneWidget);
+  });
 
   testWidgets('create with the pin toggle lands a PINNED user memory', (
     tester,
@@ -214,6 +360,34 @@ void main() {
       await tester.pumpAndSettle();
       expect(repo.memories, isEmpty, reason: '物理删文件');
       expect(find.text('doomed'), findsNothing, reason: '名册即时消行');
+    },
+  );
+
+  testWidgets(
+    'open detail evicts honestly when another client deletes the memory',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..memories.add(const Memory(name: 'vanished', content: 'stale body'));
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+      final panelEl = tester.element(find.byType(MemoryPanel));
+      final container = ProviderScope.containerOf(panelEl, listen: false);
+      final t = Translations.of(panelEl);
+
+      container
+          .read(settingsDetailProvider.notifier)
+          .push('memory', id: 'vanished');
+      await tester.pumpAndSettle();
+      expect(find.text('stale body'), findsOneWidget);
+
+      repo.memories.clear();
+      await container.read(memoriesProvider.notifier).refresh();
+      await tester.pumpAndSettle();
+
+      expect(container.read(settingsDetailProvider), isNull);
+      expect(find.text(t.settings.mem.emptyLead), findsOneWidget);
+      expect(find.text('stale body'), findsNothing);
+      expect(find.text(t.settings.mem.removedTitle), findsNothing);
     },
   );
 }

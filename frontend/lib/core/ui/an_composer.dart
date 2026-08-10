@@ -262,15 +262,30 @@ class _AnComposerState extends State<AnComposer> {
     );
   }
 
+  // Keep the action groups as explicit semantics containers. Flutter's macOS bridge can otherwise
+  // flatten icon-only children of a Row into the visual shell while retaining the TextField, which
+  // leaves a mouse-visible composer action absent from AX. The wrapper has no paint or layout of its
+  // own; it only preserves the child buttons as independently actionable nodes.
+  // 动作组显式保留为语义容器。否则 Flutter 的 macOS bridge 可能把 Row 里的纯图标子项压进视觉壳、只留下
+  // TextField,导致眼睛看得到、AX 却找不到。该包装不改变绘制或布局,只保留独立可操作的子按钮节点。
+  Widget _leadSemantics() => Semantics(
+    container: true,
+    explicitChildNodes: true,
+    child: Row(mainAxisSize: MainAxisSize.min, children: widget.lead),
+  );
+
+  Widget _trailingSemantics() =>
+      Semantics(container: true, explicitChildNodes: true, child: _trailing());
+
   // Single line: [lead · edit · tail]. 单行。
   Widget _singleRow(BuildContext context, AnColors c) => Row(
     crossAxisAlignment: CrossAxisAlignment.center,
     children: [
-      ...widget.lead,
+      _leadSemantics(),
       if (widget.lead.isNotEmpty) const SizedBox(width: AnSpace.s4),
       Expanded(child: _editField(context, c)),
       const SizedBox(width: AnSpace.s8),
-      _trailing(),
+      _trailingSemantics(),
     ],
   );
 
@@ -286,7 +301,7 @@ class _AnComposerState extends State<AnComposer> {
         child: _editField(context, c),
       ),
       const SizedBox(height: AnSpace.s4),
-      Row(children: [...widget.lead, const Spacer(), _trailing()]),
+      Row(children: [_leadSemantics(), const Spacer(), _trailingSemantics()]),
     ],
   );
 

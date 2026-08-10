@@ -41,6 +41,7 @@ TAP_PID=""
 LLMTAP_PID=""
 APP_PID=""
 RECORDER_PID=""
+RECORDER_LIFECYCLE=""
 ARMED=1
 
 stop_pid() {
@@ -159,7 +160,8 @@ if [ "$RECORD" = "1" ] && [ "$APP" = "1" ]; then
   [ -n "$APP_WINDOW_ID" ] || {
     echo "✗ could not resolve the Anselm window ID — refusing desktop-wide recording" >&2; exit 1;
   }
-  RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" -- \
+  RECORDER_LIFECYCLE="$SESSION/recording-lifecycle.json"
+  RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" --lifecycle "$RECORDER_LIFECYCLE" -- \
     screencapture -v -C -k -l "$APP_WINDOW_ID" "$SESSION/screen.mov")
   sleep 1
   kill -0 "$RECORDER_PID" 2>/dev/null || {
@@ -182,6 +184,7 @@ json.dump({
   "appPid": "$APP_PID",
   "appWindowId": "$APP_WINDOW_ID",
   "recorderPid": "$RECORDER_PID",
+  "recordingLifecycle": "$RECORDER_LIFECYCLE",
   "data": "$DATA",
   "session": "$SESSION",
   "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"

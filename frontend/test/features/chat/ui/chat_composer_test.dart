@@ -237,6 +237,21 @@ class _FakeAudioAttachmentRecorder extends AudioAttachmentRecorder {
   }
 }
 
+class _LongPreparationRepository extends FixtureChatRepository {
+  _LongPreparationRepository(this.polls)
+    : super(conversations: [_conv('cv_1')], messages: {'cv_1': []});
+
+  final List<AttachmentPreparation> polls;
+  var _pollIndex = 0;
+
+  @override
+  Future<AttachmentMeta> getAttachment(String id) async {
+    final meta = await super.getAttachment(id);
+    if (_pollIndex >= polls.length) return meta;
+    return meta.copyWith(preparation: polls[_pollIndex++]);
+  }
+}
+
 Future<void> _settle(WidgetTester tester) async {
   for (var i = 0; i < 3; i++) {
     await tester.pump(const Duration(milliseconds: 20));
@@ -1304,6 +1319,11 @@ void main() {
         expect(find.byType(AnAttachmentChip), findsOneWidget);
         expect(find.byType(AnAttachmentThumb), findsNothing);
         expect(find.text('Preparing media…'), findsOneWidget);
+        final cancelButton = tester.widget<AnButton>(
+          find.widgetWithText(AnButton, 'Cancel media preparation'),
+        );
+        expect(cancelButton.icon, AnIcons.stop);
+        expect(cancelButton.onPressed, isNotNull);
 
         await tester.tap(find.bySemanticsLabel('Cancel media preparation'));
         await _settle(tester);
@@ -1314,6 +1334,49 @@ void main() {
         await _settle(tester);
         expect(repo.retriedPreparations, [repo.uploads.single.id]);
         expect(find.text('Preparing media…'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
+      'long image preparation keeps polling past the fast window and settles ready',
+      (tester) async {
+        const running = AttachmentPreparation(
+          status: 'running',
+          phase: 'processing',
+          target: 'model-default',
+          canCancel: true,
+        );
+        const ready = AttachmentPreparation(
+          status: 'ready',
+          phase: 'ready',
+          target: 'model-default',
+          mimeType: 'image/png',
+          width: 2048,
+          height: 1738,
+        );
+        final repo = _LongPreparationRepository([
+          for (var i = 0; i < 10; i++) running,
+          ready,
+        ])..nextUploadPreparation = running;
+        await tester.pumpWidget(_host(repo));
+        final c = ProviderScope.containerOf(
+          tester.element(find.byType(ChatComposer)),
+        );
+        await c
+            .read(pendingAttachmentsProvider('cv_1').notifier)
+            .addBytes([1, 2, 3], filename: 'slow.png', mimeType: 'image/png');
+        await tester.pump();
+
+        for (var i = 0; i < 10; i++) {
+          await tester.pump(const Duration(milliseconds: 800));
+          await tester.pump();
+        }
+        expect(find.text('Still preparing media…'), findsOneWidget);
+
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pump();
+        expect(find.text('Still preparing media…'), findsNothing);
+        expect(find.byType(AnAttachmentThumb), findsOneWidget);
       },
     );
 

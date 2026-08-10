@@ -33,6 +33,7 @@ else
   APID=$(field appPid)
   AWID=$(field appWindowId)
   RPID=$(field recorderPid)
+  RLIFE=$(field recordingLifecycle)
   SESSION=$(field session)
 
   LISTENER=$(lsof -ti ":$PORT" -sTCP:LISTEN 2>/dev/null | sort -u || true)
@@ -122,6 +123,24 @@ print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"A
 
   if [ -n "$AWID" ] && alive_as "$RPID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
     note "✓ channel 1 window recorder alive (PID $RPID, Anselm window $AWID)"
+    if [ -s "$RLIFE" ] && python3 - "$RLIFE" "$RPID" <<'PY'
+import datetime
+import json
+import sys
+
+row = json.load(open(sys.argv[1], encoding="utf-8"))
+if str(row.get("pid")) != sys.argv[2]:
+    raise SystemExit(1)
+requested = datetime.datetime.fromisoformat(row["spawnRequestedAt"].replace("Z", "+00:00"))
+returned = datetime.datetime.fromisoformat(row["spawnReturnedAt"].replace("Z", "+00:00"))
+if returned < requested:
+    raise SystemExit(1)
+PY
+    then
+      note "✓ channel 1 recorder lifecycle has microsecond spawn bracket"
+    else
+      bad "✗ channel 1 recorder lifecycle is missing, malformed, or attributed to another PID"
+    fi
   elif [ -n "$AWID" ]; then
     bad "✗ channel 1 recorder is not bound to Anselm window $AWID"
   elif alive_as "$RPID" 'screencapture.*-v'; then

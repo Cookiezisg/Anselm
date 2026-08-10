@@ -111,8 +111,9 @@ String attachmentMetaLine({
 /// 已发送附件的媒体准备侧车文案。状态归后端；UI 只呈现粗粒度诚实阶段，绝不伪造百分比。ready/not_required 静默。
 String? attachmentPreparationLine(
   Translations t,
-  AttachmentPreparation? preparation,
-) {
+  AttachmentPreparation? preparation, {
+  bool longWait = false,
+}) {
   final p = preparation;
   if (p == null) return null;
   final status = p.status;
@@ -134,7 +135,7 @@ String? attachmentPreparationLine(
       phase == 'processing' ||
       phase == 'pending' ||
       phase == 'running') {
-    return t.attach.preparingMedia;
+    return longWait ? t.attach.preparingMediaLonger : t.attach.preparingMedia;
   }
   return null;
 }
