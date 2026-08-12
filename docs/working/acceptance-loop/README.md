@@ -309,7 +309,7 @@ EP-213 `DELETE /api/v1/api-keys/{id}` 已完成真实 Flutter App、真实受管
 
 收账时发现台架自身的并发丢写：五个并发 `judge.py` 进程均把裁决写入 journal，但清册曾丢掉 EP-213 L1。该台架红线已 stop-and-fix：`judge.py` 现在以 `RIG_HOME/judge.lock` 串行保护去重、清册更新和 journal 追加，并能在半步崩溃后按已有 journal 重放修复清册；`python3 -m unittest testend/rig/test_judge.py -v` 的幂等/并发回归通过，EP-213 L1 已由脚本 replay 恢复，未手工涂绿。操作规则已同步到 `testend/rig/README.md`。
 
-**当前前线（整体重述）：** 清册 EP-186 至 EP-214（含 EP-213）均已完成，EP-215 `GET /api/v1/providers` 是下一原子前线；批次三十一已在 EP-194 关闭并提交，批次三十二已在 EP-204 关闭并提交 `e83e0fc6`，批次三十三现为 `50/50`。EP-213 的红场、stop-and-fix、真实 UI 正负路径、REST/SQLite 矩阵、五通道 session、视觉测量、账本修复和独立警报复审均保留。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报、本批 Go 定向回归和工作树边界审计均为绿；现执行一次性提交，提交后推进到 EP-215。
+**当前前线（整体重述）：** 清册 EP-186 至 EP-214（含 EP-213）均已完成，EP-215 `GET /api/v1/providers` 是下一原子前线；批次三十一已在 EP-194 关闭并提交，批次三十二已在 EP-204 关闭并提交 `e83e0fc6`，批次三十三现为 `50/50`。EP-213 的红场、stop-and-fix、真实 UI 正负路径、REST/SQLite 矩阵、五通道 session、视觉测量、账本修复和独立警报复审均保留。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报、本批 Go 定向回归和工作树边界审计均为绿；本批已提交 `4d304b3c`，前线推进到 EP-215。
 
 全量前端门禁曾因 `referenceSearch` 误命中 placeholder guard 冻结；已将该 API-key 引用标签加入判定层的明确 non-placeholder 集合，未改文案规则。修复后 `make -C frontend verify` 的 `gen + analyze + 4 groups`、`5328 tests` 全通过。
 

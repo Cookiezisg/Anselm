@@ -19,7 +19,7 @@ landed-into:
 - 视觉证据使用同分辨率视频帧：确认态到列表收敛的变化、随后稳定帧的变化率均已测量；因录屏没有可信的 Computer Use click-frame 对齐，L3 保守使用 `A4`，不冒充 `A1`。证据为 `EP-213-apikey-delete-final-green.md`、`EP-213-visual-measurement.md` 和 `EP-213-delete-final-settled.jpeg`。
 - 五级裁决已由脚本写入：formal ledger `1760→1765 judgments`，anchors=`10/10`，`COVERAGE`=`848 rows / 346 carried / 0 tombstones`，EP-213=`✓✓✓✓✓`；写账后 `gap-too-fast` 与 `discovery-collapse` 按独立复审 `EP-213-apikey-delete-ledger-reaudit.md` ack，未改阈值、算法、法典、锚点或 gate。
 - 收账时发现并修复台架自身缺陷：五个并发 `judge.py` 进程曾把五条裁决都写进 journal，但覆盖清册发生丢写。`judge.py` 现在用 `RIG_HOME/judge.lock` 串行保护“去重/清册/journal”，并能在半步崩溃后按已有 journal 重放补齐清册；`python3 -m unittest testend/rig/test_judge.py -v` 的幂等与并发回归通过，EP-213 L1 已由脚本 replay 修复，未手工涂绿。
-- 批次三十三由 `45→50/50`；统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报、本批 Go 定向回归和工作树边界审计均为绿。现在执行一次性提交，提交后前线推进到 EP-215。
+- 批次三十三由 `45→50/50`；统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报、本批 Go 定向回归和工作树边界审计均为绿。本批已提交 `4d304b3c`，前线推进到 EP-215。
 
 ## 2026-08-11 — EP-213 r3 真实 UI 到达精确删除确认框，最终 Delete 仍待当前对象授权
 

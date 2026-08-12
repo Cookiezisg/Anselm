@@ -52,7 +52,7 @@ L3 保守使用 `A4`，不冒充 `A1`。
 `python3 -m unittest testend/rig/test_judge.py -v` 全绿，EP-213 清册已由脚本 replay 恢复为 `✓✓✓✓✓`。该台架红线已记录在
 `LOG.md`，不能再把 journal 条数单独当作清册完成证明。
 
-批次三十三已由 `45→50/50`。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报和本批 Go 定向回归均为绿。工作树审计已确认搜索线改动与本批边界分离；现在执行一次性提交，提交后前线推进到 EP-215。
+批次三十三已由 `45→50/50`。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报和本批 Go 定向回归均为绿。工作树审计已确认搜索线改动与本批边界分离；本批已提交 `4d304b3c`，前线推进到 EP-215。
 
 EP-212 `PATCH /api/v1/api-keys/{id}` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。
 产品目的不是只得到一个 `200`，而是让用户安全维护 BYOK：改名、改/清空可选 Base URL、轮换 secret，
