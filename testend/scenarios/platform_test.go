@@ -10,6 +10,7 @@
 package scenarios
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 	"testing"
@@ -232,6 +233,217 @@ func TestPlatform_ModelConfig(t *testing.T) {
 	if !strings.Contains(string(caps.Raw), "gpt-4o") {
 		t.Fatalf("model-capabilities did not surface probed model gpt-4o: %s", caps.Raw)
 	}
+}
+
+// TestPlatform_DefaultModelPathOwnerAndAllScenarios locks the path-owner contract for the six
+// workspace default slots. The header deliberately names a different workspace to prove the
+// endpoint validates the key and native-setting context from /workspaces/{id}, not stale client state.
+// TestPlatform_DefaultModelPathOwnerAndAllScenarios 锁住六个 workspace 默认槽的 path owner 契约。
+// 故意让 header 指向另一个 workspace，证明校验上下文来自 /workspaces/{id}，而不是客户端旧状态。
+func TestPlatform_DefaultModelPathOwnerAndAllScenarios(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	mock := harness.NewLLMMock(t)
+	c := srv.Client(t)
+	sourceID := c.POST("/api/v1/workspaces", map[string]any{"name": "default-source"}).Field(t, "id")
+	targetID := c.POST("/api/v1/workspaces", map[string]any{"name": "default-target"}).Field(t, "id")
+	source := c.WS(sourceID)
+	target := c.WS(targetID)
+
+	sourceKey := source.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "source-key", "key": "sk-source", "baseUrl": mock.URL(),
+	}).Field(t, "id")
+	targetKey := target.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "target-key", "key": "sk-target", "baseUrl": mock.URL(),
+	}).Field(t, "id")
+
+	// The source client writes the target path. Every supported scenario must validate against and
+	// persist to target, even though the request header still says source.
+	// source 客户端写 target path；即使 header 仍是 source，六个 scenario 都必须按 target 校验并落 target。
+	scenarios := []string{"dialogue", "utility", "agent", "image", "speech", "video"}
+	for _, scenario := range scenarios {
+		source.PUT("/api/v1/workspaces/"+targetID+"/default-models/"+scenario,
+			map[string]any{"apiKeyId": targetKey, "modelId": "target-model"}).OK(t, nil)
+	}
+
+	var row map[string]json.RawMessage
+	target.GET("/api/v1/workspaces/"+targetID).OK(t, &row)
+	for _, field := range []string{"defaultDialogue", "defaultUtility", "defaultAgent", "defaultImage", "defaultSpeech", "defaultVideo"} {
+		var ref struct {
+			APIKeyID string `json:"apiKeyId"`
+			ModelID  string `json:"modelId"`
+		}
+		if err := json.Unmarshal(row[field], &ref); err != nil {
+			t.Fatalf("decode %s: %v", field, err)
+		}
+		if ref.APIKeyID != targetKey || ref.ModelID != "target-model" {
+			t.Fatalf("%s = %+v, want target key/model", field, ref)
+		}
+	}
+
+	// A source key cannot be smuggled into the target by changing only the request body.
+	target.PUT("/api/v1/workspaces/"+targetID+"/default-models/dialogue",
+		map[string]any{"apiKeyId": sourceKey, "modelId": "source-model"}).Fail(t, 404, "API_KEY_NOT_FOUND")
+
+	// The path resource is resolved before ref validation: an unknown target is a workspace error,
+	// even if the header workspace owns the submitted key.
+	source.PUT("/api/v1/workspaces/ws_missing/default-models/dialogue",
+		map[string]any{"apiKeyId": sourceKey, "modelId": "source-model"}).Fail(t, 404, "WORKSPACE_NOT_FOUND")
+
+	var sourceRow map[string]json.RawMessage
+	source.GET("/api/v1/workspaces/"+sourceID).OK(t, &sourceRow)
+	if _, present := sourceRow["defaultDialogue"]; present {
+		t.Fatalf("source workspace was mutated by target-path write: %s", string(sourceRow["defaultDialogue"]))
+	}
+}
+
+// TestPlatform_ClearDefaultModelPathOwnerAndAllScenarios locks the DELETE half of the six-slot
+// default-model contract. It clears a target workspace through a source header, then checks the
+// omitempty wire projection, repeat-clear idempotency, invalid scenario and unknown path errors.
+// TestPlatform_ClearDefaultModelPathOwnerAndAllScenarios 锁住六槽默认模型 DELETE 半边：用 source
+// header 清 target，再核对 omitempty 线缆、重复清除幂等、非法 scenario 与未知 path 错误。
+func TestPlatform_ClearDefaultModelPathOwnerAndAllScenarios(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	mock := harness.NewLLMMock(t)
+	c := srv.Client(t)
+	sourceID := c.POST("/api/v1/workspaces", map[string]any{"name": "clear-source"}).Field(t, "id")
+	targetID := c.POST("/api/v1/workspaces", map[string]any{"name": "clear-target"}).Field(t, "id")
+	source := c.WS(sourceID)
+	target := c.WS(targetID)
+	targetKey := target.POST("/api/v1/api-keys", map[string]any{
+		"provider": "openai", "displayName": "clear-target-key", "key": "sk-clear", "baseUrl": mock.URL(),
+	}).Field(t, "id")
+
+	scenarios := []string{"dialogue", "utility", "agent", "image", "speech", "video"}
+	for _, scenario := range scenarios {
+		target.PUT("/api/v1/workspaces/"+targetID+"/default-models/"+scenario,
+			map[string]any{"apiKeyId": targetKey, "modelId": "clear-model"}).OK(t, nil)
+	}
+
+	// The source header must not change the path owner of a DELETE. 清除请求的 source header 不能偷换 path owner。
+	for _, scenario := range scenarios {
+		source.DELETE("/api/v1/workspaces/"+targetID+"/default-models/"+scenario).OK(t, nil)
+	}
+
+	var row map[string]json.RawMessage
+	target.GET("/api/v1/workspaces/"+targetID).OK(t, &row)
+	for _, field := range []string{"defaultDialogue", "defaultUtility", "defaultAgent", "defaultImage", "defaultSpeech", "defaultVideo"} {
+		if _, present := row[field]; present {
+			t.Fatalf("%s survived DELETE: %s", field, string(row[field]))
+		}
+	}
+
+	// Clearing an already-empty slot is a safe no-op, not a false not-found. 重复清空是安全 no-op，不是假 404。
+	source.DELETE("/api/v1/workspaces/"+targetID+"/default-models/dialogue").OK(t, nil)
+	source.DELETE("/api/v1/workspaces/"+targetID+"/default-models/wizard").Fail(t, 400, "MODEL_SCENARIO_INVALID")
+	source.DELETE("/api/v1/workspaces/ws_missing/default-models/dialogue").Fail(t, 404, "WORKSPACE_NOT_FOUND")
+}
+
+// TestPlatform_DefaultSearchPathOwnerAndKeyExistence locks the search-default write boundary:
+// the path workspace owns the reference, and missing/cross-workspace keys fail before persistence.
+// TestPlatform_DefaultSearchPathOwnerAndKeyExistence 锁住搜索默认写入边界：path workspace 才是引用
+// owner，缺失/跨 workspace key 必须在落库前失败。
+func TestPlatform_DefaultSearchPathOwnerAndKeyExistence(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	sourceID := c.POST("/api/v1/workspaces", map[string]any{"name": "search-source"}).Field(t, "id")
+	targetID := c.POST("/api/v1/workspaces", map[string]any{"name": "search-target"}).Field(t, "id")
+	source := c.WS(sourceID)
+	target := c.WS(targetID)
+	searchKey := source.POST("/api/v1/api-keys", map[string]any{
+		"provider": "serper", "displayName": "source-search", "key": "sk-source-search",
+		"baseUrl": "http://127.0.0.1:1",
+	}).Field(t, "id")
+
+	// The stale source header cannot smuggle its key into the target path.
+	source.PUT("/api/v1/workspaces/"+targetID+"/default-search",
+		map[string]any{"apiKeyId": searchKey}).Fail(t, 404, "API_KEY_NOT_FOUND")
+	// An unknown target is resolved before key validation.
+	source.PUT("/api/v1/workspaces/ws_missing/default-search",
+		map[string]any{"apiKeyId": searchKey}).Fail(t, 404, "WORKSPACE_NOT_FOUND")
+	// An unknown key cannot create a dangling default.
+	target.PUT("/api/v1/workspaces/"+targetID+"/default-search",
+		map[string]any{"apiKeyId": "aki_missing_search"}).Fail(t, 404, "API_KEY_NOT_FOUND")
+
+	var row map[string]any
+	target.GET("/api/v1/workspaces/"+targetID).OK(t, &row)
+	if _, present := row["defaultSearchKeyId"]; present {
+		t.Fatalf("rejected default-search write polluted target projection: %v", row["defaultSearchKeyId"])
+	}
+}
+
+// TestPlatform_DefaultSearchClearPathOwnerAndIdempotency locks DELETE semantics: the path workspace
+// is the owner even when the header names another workspace, clearing is repeatable without changing
+// updatedAt, and the referenced API keys remain intact.
+// TestPlatform_DefaultSearchClearPathOwnerAndIdempotency 锁 DELETE 语义：即便 header 指向另一个
+// workspace，path workspace 仍是 owner；重复清除不改变 updatedAt，且引用的 API key 仍完整保留。
+func TestPlatform_DefaultSearchClearPathOwnerAndIdempotency(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	sourceID := c.POST("/api/v1/workspaces", map[string]any{"name": "clear-source"}).Field(t, "id")
+	targetID := c.POST("/api/v1/workspaces", map[string]any{"name": "clear-target"}).Field(t, "id")
+	source := c.WS(sourceID)
+	target := c.WS(targetID)
+	targetKey := target.POST("/api/v1/api-keys", map[string]any{
+		"provider": "serper", "displayName": "target-search", "key": "sk-target-search",
+		"baseUrl": "http://127.0.0.1:1",
+	}).Field(t, "id")
+	sourceKey := source.POST("/api/v1/api-keys", map[string]any{
+		"provider": "serper", "displayName": "source-search", "key": "sk-source-search",
+		"baseUrl": "http://127.0.0.1:1",
+	}).Field(t, "id")
+
+	// Set through a stale source header; the path target still owns the default.
+	source.PUT("/api/v1/workspaces/"+targetID+"/default-search",
+		map[string]any{"apiKeyId": targetKey}).OK(t, nil)
+	var before map[string]any
+	source.GET("/api/v1/workspaces/"+targetID).OK(t, &before)
+	if before["defaultSearchKeyId"] != targetKey {
+		t.Fatalf("target default before clear = %v, want %s", before["defaultSearchKeyId"], targetKey)
+	}
+
+	// DELETE uses the path target, not the source header, and removes only the preference.
+	var cleared map[string]any
+	source.DELETE("/api/v1/workspaces/"+targetID+"/default-search").OK(t, &cleared)
+	firstUpdated := cleared["updatedAt"]
+	if _, present := cleared["defaultSearchKeyId"]; present {
+		t.Fatalf("default search survived first clear: %v", cleared["defaultSearchKeyId"])
+	}
+
+	var repeated map[string]any
+	source.DELETE("/api/v1/workspaces/"+targetID+"/default-search").OK(t, &repeated)
+	if repeated["updatedAt"] != firstUpdated {
+		t.Fatalf("repeat clear changed updatedAt: first=%v repeat=%v", firstUpdated, repeated["updatedAt"])
+	}
+	if _, present := repeated["defaultSearchKeyId"]; present {
+		t.Fatalf("default search survived repeated clear: %v", repeated["defaultSearchKeyId"])
+	}
+
+	// The preference clear must not delete either workspace's key. The API exposes keys through
+	// the bounded list (there is intentionally no single-key GET), so verify both rows there.
+	var targetKeys []platformC_keyRow
+	target.GET("/api/v1/api-keys?limit=200").OK(t, &targetKeys)
+	if !containsPlatformKey(targetKeys, targetKey) {
+		t.Fatalf("target key disappeared after clear: %s", targetKey)
+	}
+	var sourceKeys []platformC_keyRow
+	source.GET("/api/v1/api-keys?limit=200").OK(t, &sourceKeys)
+	if !containsPlatformKey(sourceKeys, sourceKey) {
+		t.Fatalf("source key disappeared after clear: %s", sourceKey)
+	}
+	source.DELETE("/api/v1/workspaces/ws_missing_ep208/default-search").Fail(t, 404, "WORKSPACE_NOT_FOUND")
+}
+
+func containsPlatformKey(rows []platformC_keyRow, id string) bool {
+	for _, row := range rows {
+		if row.ID == id {
+			return true
+		}
+	}
+	return false
 }
 
 // ── limits（运行时热换真生效）───────────────────────────────────────────────

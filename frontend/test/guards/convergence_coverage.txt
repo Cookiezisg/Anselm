@@ -87,6 +87,7 @@ lib/core/messages/transcript_hydration.dart	converged
 lib/core/model/byte_format.dart	converged
 lib/core/model/code_diff.dart	converged
 lib/core/model/model_capabilities.dart	converged
+lib/core/model/number_format.dart	pending
 lib/core/model/partial_json.dart	reviewed
 lib/core/model/sidebar_flatten.dart	converged
 lib/core/model/sidebar_model.dart	reviewed

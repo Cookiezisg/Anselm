@@ -43,7 +43,9 @@ abstract class SettingsRepository {
     String? apiFormat,
   });
 
-  /// PATCH — a non-empty [key] ROTATES (destructive; probe resets + auto re-probes). 非空 key=旋转。
+  /// PATCH — a non-empty [key] ROTATES (destructive; probe resets + auto re-probes). An explicit
+  /// empty [baseUrl] clears an existing override; null omits the field. 非空 key=旋转;明确空 baseUrl 清除
+  /// 已有覆盖地址,null 则省略字段。
   Future<ApiKey> patchKey(
     String id, {
     String? displayName,

@@ -27,7 +27,140 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-09，EP-127 已完成，批次二十五 50/50，统一长门禁已通过）
+## 当前前线（2026-08-12，EP-213 已完成，批次三十三 50/50；统一长门禁已通过）
+
+EP-213 `DELETE /api/v1/api-keys/{id}` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。用户对精确对象
+`EP-213 UI Delete Positive` 授权后，最终点击前重新读取确认框，确认永久删除文案、对象名和 `Cancel/Delete` 按钮没有漂移；
+真实 Delete 后 UI 稳定只剩受管 `Anselm Free`。`daily-rule` 是历史 EP-192 Memory fixture，未被借用。
+
+正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-154423` 的真实 backend 记录目标 DELETE=`204`，
+立即 list 只剩 managed，重复 DELETE=`404 API_KEY_NOT_FOUND`；SQLite unscoped tombstone 保留审计身份，secret、掩码、连接配置
+和 probe 材料全部清空。证据为 session 内 `EP-213-apikey-delete-final-green.md`、`EP-213-visual-measurement.md` 和
+`EP-213-delete-final-settled.jpeg`。
+
+五通道已封口：`rig-check`/`rig-down` 通过且进程/监听器收台；录屏可读；backend 无应用 panic/FATAL/WARN/ERROR；frontend
+无 Flutter/Dart/RenderFlex/overflow/Unhandled 红线，仅已知 IMK host 噪声；三路 SSE 均连接，API-key 设置按 REST reread 契约
+不虚构 lifecycle durable frame；llmtap 仅证明真实 managed bootstrap，不虚构 completion。因录屏没有可信 click-frame 对齐，
+L3 保守使用 `A4`，不冒充 `A1`。
+
+正式五级裁决为 `G1 / F1 / A4 / C4 / G2`，formal ledger `1760→1765 judgments`，anchors=`10/10`，
+`gen_coverage.py --check`=`848/346/0`，`alarms.py check`=`clean (1765)`；`gap-too-fast` 与 `discovery-collapse`
+均由独立复审记录 ack，未改阈值、算法、法典、锚点或 gate。
+
+本次收账又发现台架自身的并发丢写：五条裁决进入 journal，但清册曾丢掉 EP-213 L1。已 stop-and-fix `judge.py`，以
+`RIG_HOME/judge.lock` 串行保护去重、清册更新和 journal 追加，并让已有 journal 的重试能修复半步写入；并发与幂等回归
+`python3 -m unittest testend/rig/test_judge.py -v` 全绿，EP-213 清册已由脚本 replay 恢复为 `✓✓✓✓✓`。该台架红线已记录在
+`LOG.md`，不能再把 journal 条数单独当作清册完成证明。
+
+批次三十三已由 `45→50/50`。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报和本批 Go 定向回归均为绿。工作树审计已确认搜索线改动与本批边界分离；现在执行一次性提交，提交后前线推进到 EP-215。
+
+EP-212 `PATCH /api/v1/api-keys/{id}` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。
+产品目的不是只得到一个 `200`，而是让用户安全维护 BYOK：改名、改/清空可选 Base URL、轮换 secret，
+secret 留空时保留旧值，探测失败不回滚修改，受管 Anselm 行保持锁定，workspace 和加密存储不串线。
+
+首轮真实 App 红场 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-131319` 暴露了真实
+产品缺陷：编辑表单把空 Base URL 映射成省略字段，后端因此保留旧 URL；该场冻结、不计绿。stop-and-fix
+让编辑路径显式发送 `baseUrl: ''`，保留新增路径的 null 省略语义，并补 Flutter S-3 回归；19 个 settings
+测试及相关 Go/testend/Flutter 定向测试通过。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-132645` 的录屏为
+`145.063333s / 2788x1812 / 60fps`，由同一 conductor 托管 App、Computer Use、backend/frontend
+journals、三路独立 SSE witness、llmtap 和真实 `https://api.anselm.website`；`rig-check`/`rig-down`
+通过且 owned processes/listeners 归零。真实 UI 显示 populated URL，清空且未触碰 secret 后保存，回到
+列表显示空 URL、managed lock 和绿色 probe 状态；没有 stale URL、重复行、死 spinner、错误面或布局跳变。
+
+五通道闭合：backend 记录 PATCH→list→`:test`→list，坏 OpenAI endpoint 的 probe failure 仍返回 `200`
+但 durable `testStatus=error`；显式 `baseUrl:""` 落 SQLite `base_url=''`，empty PATCH 不刷新 `updatedAt`，
+managed/cross-workspace/whitespace/unknown-field 负向矩阵分别得到 `API_KEY_IMMUTABLE`、
+`API_KEY_NOT_FOUND`、`API_KEY_VALUE_REQUIRED`、`INVALID_REQUEST`，加密列无 plaintext leak。SSE 三流为
+两个 workspace 全部连接且无 gap；当前没有 API-key 生命周期帧，设置页按 REST reread 收敛；frontend 无
+Dart/Flutter/RenderFlex/Unhandled 红线，仅已知 IMK host 噪声；LLM tap 观察到真实 managed proof/quota
+`200`，本 endpoint slice 没有 completion，未虚构。
+
+正式按 `G1 / F1 / A4 / C4 / G2` 写入 `COVERAGE EP-212=✓✓✓✓✓`；证据、红场和独立账本复审分别为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-132645/evidence/EP-212-apikey-patch-green.md`、
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-131319/evidence/EP-212-apikey-patch-red-baseurl-clear.md`、
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-212-apikey-patch-ledger-reaudit.md`。正式 ledger
+`1750→1755 judgments`，anchors `10/10`，`gen_coverage.py --check`=`848/344/0`，`alarms.py check`=
+`clean (1755)`；写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按原阈值独立复审并 ack，未改阈值、
+算法、法典、锚点或 gate。本批由 `35→40/50`，未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-213
+`DELETE /api/v1/api-keys/{id}`。
+
+EP-211 `GET /api/v1/api-keys` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。
+产品目的不是只读到一个 JSON，而是让用户在 `Settings → Models & keys` 看到当前 workspace 的
+完整 key 清单：managed/BYOK 分离、值脱敏、状态可读，切换 workspace 后不残留上一 workspace
+的凭证。真实 App 在 Alpha 看到 managed 与 mock 两行，切到 Beta 只看到 managed，再切回 Alpha
+mock 行恢复；列表没有重复行、死 spinner 或错误面。
+
+正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-130114` 的录屏为
+`267.125000s / 2784x1808`，窗口级录制由同一 conductor 托管；`rig-check` 通过，`rig-down` 后
+owned processes/listeners 全部归零。backend 的激活/列表、分页、过滤、空结果、坏 cursor、非法
+limit 和缺失 workspace 矩阵均完成，应用级 WARN/ERROR/panic/FATAL 为零；frontend 无 Dart/Flutter/
+RenderFlex/Unhandled/runtime 红线；Alpha/Beta 各自接通 messages/entities/notifications 六条 SSE
+连接；managed gateway proof/quota 为真实 `200`。API key 列表是 REST 重读契约，当前事件登记没有
+api-key 生命周期帧，未把“无帧”误判为丢事件。SQLite 对证了 Alpha managed+mock、Beta managed
+以及加密存储和 masked projection。
+
+本格没有把稀疏抽帧冒充 A1 首帧测量：后端激活/列表耗时为 `0–1ms`，录像只用于确认稳定视觉态和
+workspace 交替结果；因此五级裁决为 `measure:apikey-list-purpose / F1 / A4 / C4 / G1`。正式证据
+为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-130114/evidence/EP-211-apikey-list-green.md`，
+独立警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-211-apikey-list-ledger-reaudit.md`。
+
+正式 ledger `1745→1750 judgments`，anchors `10/10`，`COVERAGE EP-211=✓✓✓✓✓`，
+`gen_coverage.py --check`=`848/343/0`，`alarms.py check`=`clean (1750)`；五级写账触发的
+`gap-too-fast`、`pass-burst` 与 `discovery-collapse` 已按独立复审逐条 ack，未改阈值、算法、法典、
+锚点或 gate。本批由 `30→35/50`，未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-212
+`PATCH /api/v1/api-keys/{id}`。
+
+EP-210 `POST /api/v1/api-keys` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。
+产品目的不是只创建一行 key，而是让新用户从 `Settings → Models & keys → Add key` 找到 provider、提交
+凭证、看到真实探测结果，并确认 managed 与 BYOK 分开、展示脱敏且 workspace 不串线。真实 App 搜索
+`mock` 后只留下 `Mock (dev)`，保存并自动 probe 后列表出现 managed 与 mock 两行绿状态；非法 provider、
+空 key 均得到明确 400 且不增加数据库行，Beta 列表没有 Alpha 的 mock key。
+
+正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-124305` 的录屏为
+`376.210000s / 2784x1808`，窗口级录制由同一 conductor 托管；`rig-check` 通过，`rig-down` 后
+owned processes/listeners 全部归零。backend 无应用 WARN/ERROR/panic/FATAL，frontend 只有已知
+IMK/launcher 噪声；Alpha/Beta 各自接通 messages/entities/notifications 六条 SSE 连接；managed
+gateway challenge/install/models/quota 为 200。API key 生命周期没有 SSE 帧符合当前事件注册表，
+设置页用 REST 重读收敛，未把“无帧”误判为丢事件。SQLite 证明 key 加密存储、masked projection 和
+workspace 隔离。
+
+本格没有把稀疏抽帧冒充 A1 首帧测量：backend `create 201 → probe 200 → final list 200` 的真实
+关键路径为 `95ms`，测量注记明确说明录像检查了无死 spinner/重复行/错误面但没有精确 click frame；
+因此五级裁决为 `measure:apikey-create-purpose / F1 / A4 / C4 / G1`。正式证据为
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-210-apikey-create-green.md`，测量为
+`EP-210-apikey-create-measurement.md`，独立警报复审为 `EP-210-apikey-create-ledger-reaudit.md`。
+
+正式 ledger `1740→1745 judgments`，anchors `10/10`，`COVERAGE EP-210=✓✓✓✓✓`，
+`gen_coverage.py --check`=`848/342/0`，`alarms.py check`=`clean (1745)`；写账触发的
+`gap-too-fast` 与 `discovery-collapse` 已按独立复审串行 ack，未改阈值、算法、法典、锚点或 gate。
+本批由 `25→30/50`，未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-211 `GET /api/v1/api-keys`。
+
+EP-209 `POST /api/v1/workspaces/{id}:activate` 已完成真实 App、真实受管 gateway、Computer Use
+和五通道验收。产品目的不是只看到 `200`，而是确认 workspace subject、`lastUsedAt`、对话隔离、
+切回恢复和真实聊天目的共同成立：创建 Alpha/Beta，Beta→Alpha→Beta→Alpha，Alpha 真实回复
+`ALPHA-CONTEXT-209-FIXED`，Beta 页面没有 Alpha transcript，切回 Alpha 后历史恢复且无重复 user bubble。
+
+首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-120306` 暴露
+`_ReadAloudSlot` build-phase Riverpod `setState()/markNeedsBuild()` 红线，已冻结不计绿。修复将
+workspace-bound media/read-aloud provider 首次 dirty refresh 移出 widget build，补 provider-settle、
+workspace hot-switch/bootstrap、settings key invalidation 与 chat transcript 回归，并同步 chat
+contract 文档。
+
+固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-122342` 的录屏为
+`391.225000s / 2784x1808 / 60fps`，`rig-check` 在创建、切换、真实聊天前后通过，`rig-down` 后
+owned processes 全部归零。backend 无应用 WARN/ERROR/panic/FATAL；frontend 只有已知 IMK host 噪声；
+两个 workspace 各接通 messages/entities/notifications，Alpha messages durable `1..8`、notifications
+`1..2` 单调唯一，Beta 无 Alpha durable 帧；managed challenge/install/models 和两次 chat completion
+全为 `200`。证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-209-workspace-activate-fixed-green.md`，
+独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-209-workspace-activate-ledger-reaudit.md`。
+
+正式 ledger `1735→1740 judgments`，anchors `10/10`，`COVERAGE EP-209=✓✓✓✓✓`，
+`gen_coverage.py --check`=`848/341/0`，`alarms.py check`=`clean (1740)`；本批由 `20→25/50`，
+未到 50 格不跑统一长门禁、不提交。下一原子前线为 EP-210。
+
+### 历史状态快照（EP-127，批次二十五 50/50，统一长门禁已通过）
 
 EP-127 `POST /api/v1/mcp-servers/{name}/tools/{tool}:invoke` 已完成真实 App 安装 stdio MCP、真实受管 gateway、Computer Use 和
 五通道验收。REST 覆盖成功、MCP tool error、未知 tool、坏 JSON、错误 action、未知 server；连续三次失败真实翻到 `degraded`，

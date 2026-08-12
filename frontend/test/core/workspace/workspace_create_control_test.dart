@@ -83,6 +83,7 @@ void main() {
       1,
       reason: 'the halo belongs to the create transition',
     );
+    expect(find.text('正在准备工作区…'), findsOneWidget);
 
     pending.complete(_workspace('Fresh'));
     await tester.pumpAndSettle();

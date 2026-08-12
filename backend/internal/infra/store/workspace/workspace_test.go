@@ -113,6 +113,27 @@ func TestStore_ListNoWorkspaceCtx(t *testing.T) {
 	}
 }
 
+func TestStore_ListStableTieBreak(t *testing.T) {
+	s := newStore(t)
+	// Force the collision that a fast import or SQLite's timestamp precision can create. The
+	// switcher and cold-start bootstrap must not choose a different first workspace after reload.
+	mustSave(t, s, "ws_z", "Zulu")
+	mustSave(t, s, "ws_a", "Alpha")
+	if _, err := s.db.Exec(context.Background(),
+		"UPDATE workspaces SET created_at = ? WHERE id IN (?, ?)",
+		"2026-01-01T00:00:00Z", "ws_z", "ws_a"); err != nil {
+		t.Fatalf("force created_at tie: %v", err)
+	}
+
+	rows, err := s.List(context.Background())
+	if err != nil {
+		t.Fatalf("list: %v", err)
+	}
+	if len(rows) != 2 || rows[0].ID != "ws_a" || rows[1].ID != "ws_z" {
+		t.Fatalf("tie order = [%s, %s], want [ws_a, ws_z]", rows[0].ID, rows[1].ID)
+	}
+}
+
 func TestStore_SoftDelete_ThenMisses_NameReusable(t *testing.T) {
 	s := newStore(t)
 	mustSave(t, s, "ws_1", "Name")

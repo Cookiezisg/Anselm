@@ -167,7 +167,7 @@ class _WorkspaceCreateControlState extends State<WorkspaceCreateControl> {
           child: Semantics(
             liveRegion: true,
             child: AnimatedOpacity(
-              opacity: _error == null ? 0 : 1,
+              opacity: _error != null || _saving ? 1 : 0,
               duration: AnMotionPref.reduced(context)
                   ? Duration.zero
                   : AnMotion.fast,

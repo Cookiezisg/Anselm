@@ -17,14 +17,16 @@ audience: [human, ai]
 
 Workspace 是所有业务隔离的根，也是唯一不带 `workspace_id` 的业务实体。HTTP middleware 解析 workspace 并把 id/locale 放入 ctx；store 通过 reqctx 自动过滤。异步任务必须用 `reqctx.Detached(wsID)` 重新播种。
 
-- CRUD，最后一个 workspace 不可删除；
-- 保存语言、三类聊天 scenario 默认、三类生成 scenario 默认、默认搜索与 web fetch mode；
+- CRUD，最后一个 workspace 不可删除；`GET /workspaces` 返回机器级有界全量名册，不分页，按创建时间升序、同一时间按 id 升序，保证冷启动首行与切换器顺序稳定；
+- `POST /workspaces/{id}:activate` 是切换器的记账动作：只刷新目标 workspace 的 `lastUsedAt` 并返回后置快照；客户端切换必须调用它，但不得等待它完成才呈现新 workspace；
+- 保存语言、六类 scenario 默认（`dialogue`、`utility`、`agent`、`image`、`speech`、`video`）、默认搜索与 web fetch mode；
 - 删除先停止 workflow/handler/MCP/search 等活资源，再移除 workspace；
 - stats 为删除确认提供内容计数、在飞状态与 blob bytes；无法在预算内统计磁盘时返回诚实未知。
 
 ## API Key
 
 API key 以 AES-GCM 加密存储，普通读形态只返回掩码元数据。Create/Patch 后 probe 能力；删除前扫描 scenario、Agent override 等引用。
+删除是保留主行身份的软删，但用户确认的“永久删除”会在同一条数据库更新中清空加密 secret、掩码、连接配置和 probe 回执；因此审计身份可留存，凭证不可恢复。
 
 - managed `anselm` 行由后端创建，用户不可编辑或删除；
 - managed 行存公开 install id，认证由 device proof 完成；
@@ -45,7 +47,7 @@ Provisioner 在 boot 与 workspace 创建后 best-effort 确保 managed 行和�
 
 ## Model
 
-`ModelRef` = apiKeyId + modelId + native options。解析遵循 override 优先、workspace scenario 默认兜底；options 必须匹配该 key/model 已探测的 knob 与值。
+`ModelRef` = apiKeyId + modelId + native options。六个 scenario 默认的 PUT/DELETE 以 path workspace 为资源 owner；解析遵循 override 优先、workspace scenario 默认兜底；options 必须匹配该 key/model 已探测的 knob 与值。
 
 CapabilityService 从 probe 与目录聚合上下文、输出、工具、多模态、文档与 media envelope 能力。模型存在、能聊天、能当 Agent、能读某模态分别表达，不相互推导。
 

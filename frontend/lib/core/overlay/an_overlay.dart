@@ -58,6 +58,36 @@ class AnOverlayController extends Notifier<void> {
     if (identical(_activeDialog, route)) _activeDialog = null;
     return result ?? false;
   }
+
+  /// Show a single-action informational modal. It deliberately cannot look like a destructive
+  /// confirmation: one neutral close action, plus the standard barrier/Escape safe exits.
+  /// 单按钮说明框。刻意不伪装成危险确认:只有一个中性关闭动作,另有标准遮罩/Escape 安全出口。
+  Future<void> info({
+    required String title,
+    String? message,
+    required String closeLabel,
+    required String barrierLabel,
+  }) async {
+    final nav = _navKey?.currentState;
+    if (nav == null) return;
+    if (_activeDialog != null && _activeDialog!.isActive) {
+      nav.removeRoute(_activeDialog!);
+    }
+    final route = anConfirmRoute(
+      scrim: nav.context.colors.scrim,
+      reduced: AnMotionPref.reduced(nav.context),
+      title: title,
+      message: message,
+      confirmLabel: closeLabel,
+      cancelLabel: closeLabel,
+      barrierLabel: barrierLabel,
+      confirmTone: AnDialogTone.primary,
+      showCancel: false,
+    );
+    _activeDialog = route;
+    await nav.push<bool>(route);
+    if (identical(_activeDialog, route)) _activeDialog = null;
+  }
 }
 
 final overlayProvider = NotifierProvider<AnOverlayController, void>(

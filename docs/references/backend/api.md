@@ -344,12 +344,12 @@ Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /workspaces` · `POST /workspaces` | 列表 / 创建 |
+| `GET /workspaces` · `POST /workspaces` | 列表 / 创建；GET 返回机器级有界全量名册，不分页，按 `createdAt` 升序、同值按 `id` 升序稳定排序 |
 | `GET|PATCH|DELETE /workspaces/{id}` | 单读 / 更新 / 删除 |
 | `GET /workspaces/{id}/stats` | workspace 统计 |
 | `POST /workspaces/{id}:activate` | 更新最近使用并返回实体 |
-| `PUT|DELETE /workspaces/{id}/default-models/{scenario}` | 设置/清除 scenario ModelRef |
-| `PUT|DELETE /workspaces/{id}/default-search` | 设置/清除 WebSearch key |
+| `PUT|DELETE /workspaces/{id}/default-models/{scenario}` | 设置/清除六个 scenario（`dialogue`、`utility`、`agent`、`image`、`speech`、`video`）的 ModelRef；校验与写入均以 path `{id}` 为 owner，不以可能不同的 workspace header 为准 |
+| `PUT|DELETE /workspaces/{id}/default-search` | 设置/清除 WebSearch key；设置时 key 必须存在于 path `{id}` 所属 workspace，不能使用 header 指向的其他 workspace 或不存在的 key |
 
 ### API key and model catalog
 
@@ -361,6 +361,8 @@ Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本
 | `GET /providers` | Provider metadata |
 | `GET /model-capabilities` | Model catalog/capabilities |
 | `GET /scenarios` | Scenario metadata |
+
+`DELETE /api-keys/{id}` 保留不可恢复的删除主行身份用于审计，但在同一条数据库更新中清空加密 secret、掩码、连接配置和 probe 回执；普通读随后返回 `API_KEY_NOT_FOUND`，不存在 restore 操作。
 
 ### Managed free tier
 

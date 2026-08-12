@@ -102,13 +102,13 @@ func (s *Store) Get(ctx context.Context, id string) (*workspacedomain.Workspace,
 	return w, nil
 }
 
-// List returns all workspaces oldest-first. No workspace filter applies (the
-// table has no workspace_id), so it works before any workspace is selected.
+// List returns all workspaces oldest-first with id as a deterministic tie-breaker. No workspace
+// filter applies (the table has no workspace_id), so it works before any workspace is selected.
 //
-// List 按最早优先返回所有 workspace。无 workspace 过滤（表无 workspace_id），故在未选
-// workspace 前也可用。
+// List 按最早优先返回所有 workspace，同一 created_at 再按 id 固定顺序。无 workspace 过滤
+// （表无 workspace_id），故在未选 workspace 前也可用。
 func (s *Store) List(ctx context.Context) ([]*workspacedomain.Workspace, error) {
-	rows, err := s.repo.Order("created_at ASC").Find(ctx)
+	rows, err := s.repo.Order("created_at ASC, id ASC").Find(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("workspacestore.List: %w", err)
 	}

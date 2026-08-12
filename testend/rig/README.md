@@ -120,7 +120,11 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
   SSE witness 曾连接三条流。
 - 每次裁决盖时戳追加 `$RIG_HOME/judgments.jsonl`——只经脚本、不手写；未设置 `RIG_HOME` 时才使用
   默认 `~/.anselm-rig`。
-- 同一 `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针；更换证据或裁决则会留下新的审计行。
+- `judge.py` 用 `$RIG_HOME/judge.lock` 跨进程串行保护去重判断、COVERAGE 更新和 journal 追加；同一
+  `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针。
+  若进程在两份持久记录之间半步退出，重跑同一命令会按已有 journal 重放清册格和证据指针；所以不能只数
+  `judgments.jsonl`，必须同时运行 `gen_coverage.py --check` 并检查目标行五格。
+- 并发回归可用 `python3 -m unittest testend/rig/test_judge.py -v`；更换证据或裁决仍会留下新的审计行。
 - 法不够用 → **先立法再判**:按 CODEX.md 末的立法协议加新法条(只收紧、带回灌横扫),再引用它。
 
 ## 警报(漂移检测,gate 强制联动)

@@ -268,6 +268,9 @@ abstract final class AnIcons {
   /// source). 唯一任务态字形对(编辑器复选框与 markdown 任务项同源)。
   static IconData task({required bool done}) => done ? taskDone : taskOpen;
   static final IconData forge = _thin(LucideIcons.hammer);
+  static final IconData probe = _thin(
+    LucideIcons.plugZap2,
+  ); // test a provider connection 试探 provider 连接
   static final IconData edit = _thin(LucideIcons.squarePen);
   static final IconData trash = _thin(LucideIcons.trash2);
   static final IconData web = _thin(LucideIcons.globe);

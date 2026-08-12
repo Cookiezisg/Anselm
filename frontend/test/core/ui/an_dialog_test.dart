@@ -263,4 +263,36 @@ void main() {
       expect(await r, isFalse);
     },
   );
+
+  testWidgets(
+    'info modal has one neutral close action, not two cancel buttons',
+    (tester) async {
+      final k = GlobalKey<NavigatorState>();
+      late AnOverlayController ctrl;
+      await tester.pumpWidget(ctrlApp(k, (c) => ctrl = c));
+      final r = ctrl.info(
+        title: 'Still referenced',
+        message: 'Unlink it here first:\n· Dialogue default model',
+        closeLabel: 'Close',
+        barrierLabel: 'Dismiss dialog',
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Still referenced'), findsOneWidget);
+      expect(find.textContaining('Dialogue default model'), findsOneWidget);
+      expect(find.text('Close'), findsOneWidget);
+      expect(find.text('Cancel'), findsNothing);
+      final close = tester.widget<AnButton>(
+        find.byWidgetPredicate(
+          (widget) => widget is AnButton && widget.label == 'Close',
+        ),
+      );
+      expect(close.variant, AnButtonVariant.primary);
+      expect(close.autofocus, isTrue);
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      await r;
+    },
+  );
 }

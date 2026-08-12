@@ -359,15 +359,21 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	if !modeldomain.IsValidScenario(scenario) {
 		return nil, modeldomain.ErrScenarioInvalid
 	}
+	// The path id is the resource owner for this endpoint. Resolve it before validating the ref so an
+	// unknown target cannot be reported as a dangling key, then rebase the validation context onto that
+	// owner rather than trusting a possibly different request-header workspace.
+	// **path id 才是本端点的资源所有者**。先确认目标存在，避免未知目标被报成悬挂 key；再把校验上下文
+	// 重定基到该 owner，不能信任可能不同的请求头 workspace。
+	w, err := s.repo.Get(ctx, id)
+	if err != nil {
+		return nil, err
+	}
+	ownerCtx := reqctxpkg.SetWorkspaceID(ctx, id)
 	// Structure (MODEL_REF_INVALID) + apiKeyId existence (API_KEY_NOT_FOUND at write, F153). A nil ref
 	// (clear) skips both. modelId spelling stays fail-loud-at-invoke (no authoritative catalog).
 	// 结构（MODEL_REF_INVALID）+ apiKeyId 存在性（写时 API_KEY_NOT_FOUND，F153）。nil ref（清除）两者皆跳。
 	// modelId 拼写留 fail-loud-at-invoke（无权威目录）。
-	if err := modelrefapp.Validate(ctx, ref, modeldomain.ErrRefInvalid, s.keyChecker, s.optionValidator); err != nil {
-		return nil, err
-	}
-	w, err := s.repo.Get(ctx, id)
-	if err != nil {
+	if err := modelrefapp.Validate(ownerCtx, ref, modeldomain.ErrRefInvalid, s.keyChecker, s.optionValidator); err != nil {
 		return nil, err
 	}
 	w.SetDefaultFor(scenario, ref)
@@ -379,15 +385,15 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	return w, nil
 }
 
-// SeedDefaultsIfUnset points every scenario default (dialogue/utility/agent) that is still UNSET at
-// ref, for the ctx workspace, in one Save. Free-tier provisioning calls this so the managed model is
-// the out-of-box default for all three scenarios — without it the columns stay NULL and utility-model
-// chores (auto-title, compaction) silently no-op. It only fills the blanks: a scenario a user has
+// SeedDefaultsIfUnset points every scenario default (dialogue/utility/agent/image/speech/video) that
+// is still UNSET at ref, for the ctx workspace, in one Save. Free-tier provisioning calls this so the
+// managed model is the out-of-box default for all six scenarios — without it the columns stay NULL
+// and utility-model chores (auto-title, compaction) silently no-op. It only fills the blanks: a scenario a user has
 // already picked is left alone, so re-running on every boot never clobbers an explicit choice. ref is
 // our own managed ref (structural-check only, no keyChecker) — the caller ensured the key exists.
 //
-// SeedDefaultsIfUnset 把仍未设的 scenario 默认（dialogue/utility/agent）一次性设成 ref（ctx workspace）。
-// 免费档 provisioning 调它，使受管模型成三 scenario 的开箱默认——否则列恒 NULL、utility 杂活（自动标题、压缩）
+// SeedDefaultsIfUnset 把仍未设的六个 scenario 默认（dialogue/utility/agent/image/speech/video）一次性设成 ref（ctx workspace）。
+// 免费档 provisioning 调它，使受管模型成六 scenario 的开箱默认——否则列恒 NULL、utility 杂活（自动标题、压缩）
 // 静默 no-op。只填空白：用户已选的 scenario 不动，故每次 boot 重跑绝不覆盖显式选择。ref 是自造受管 ref（仅结构
 // 校验、不过 keyChecker）——调用方已确保 key 存在。
 func (s *Service) SeedDefaultsIfUnset(ctx context.Context, ref modeldomain.ModelRef) error {
@@ -495,18 +501,37 @@ func (s *Service) WebFetchMode(ctx context.Context) string {
 	return workspacedomain.EffectiveWebFetchMode(w.WebFetchMode)
 }
 
-// SetDefaultSearch sets (or clears with "") the workspace's default search api-key id.
-// No provider/category check — mirrors SetDefault's runtime-graceful style: the WebSearch
-// tool rejects a non-search key at call time, and the UI only offers search-category keys.
+// SetDefaultSearch sets (or clears with "") the workspace's default search api-key id. A non-empty
+// id must exist in the path workspace; provider/category remains a runtime concern because the
+// WebSearch tool owns the honest non-search-provider message and the UI only offers search keys.
 //
-// SetDefaultSearch 设置（""则清除）workspace 的默认搜索 api-key id。不校验 provider/category
-// ——镜像 SetDefault 的运行时优雅风格：WebSearch 工具调用时拒非搜索 key，UI 只让选 search 类 key。
+// SetDefaultSearch 设置（""则清除）workspace 的默认搜索 api-key id。非空 id 必须存在于 path workspace；
+// provider/category 仍留给运行时，因为 WebSearch 负责诚实提示非搜索 provider，UI 只让选 search key。
 func (s *Service) SetDefaultSearch(ctx context.Context, id, keyID string) (*workspacedomain.Workspace, error) {
 	w, err := s.repo.Get(ctx, id)
 	if err != nil {
 		return nil, err
 	}
-	w.DefaultSearchKeyID = strings.TrimSpace(keyID)
+	keyID = strings.TrimSpace(keyID)
+	// The path workspace owns this reference. Do not trust a possibly stale request-header
+	// workspace, and do not persist a dangling or cross-workspace key that would only fail later
+	// when WebSearch tries to resolve credentials.
+	// **path workspace 才是引用 owner**：不信可能陈旧的 header workspace，也不把悬挂/跨 workspace
+	// key 写进库，免得等 WebSearch 解析凭证时才静默失效。
+	if keyID != "" && s.keyChecker != nil {
+		ownerCtx := reqctxpkg.SetWorkspaceID(ctx, id)
+		if err := s.keyChecker.KeyExists(ownerCtx, keyID); err != nil {
+			return nil, err
+		}
+	}
+	// Setting the same key (including clearing an already-empty slot) is a true no-op: do not
+	// refresh updatedAt or write a redundant row that makes an idempotent DELETE look like a change.
+	// 设置相同 key（包括重复清空已经为空的槽）是真 no-op：不刷新 updatedAt，也不写冗余行，免得幂等
+	// DELETE 被误报成一次状态变化。
+	if w.DefaultSearchKeyID == keyID {
+		return w, nil
+	}
+	w.DefaultSearchKeyID = keyID
 	w.UpdatedAt = time.Now().UTC()
 	if err := s.repo.Save(ctx, w); err != nil {
 		return nil, err

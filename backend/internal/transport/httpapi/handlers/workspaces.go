@@ -182,11 +182,12 @@ func (h *WorkspacesHandler) activate(w http.ResponseWriter, r *http.Request, id 
 	responsehttpapi.Success(w, http.StatusOK, ws)
 }
 
-// SetDefaultModel sets a workspace's default model for one scenario (dialogue/utility/agent). The
-// body is a ModelRef ({apiKeyId, modelId, options}); both ids are required (validated downstream).
+// SetDefaultModel sets a workspace's default model for one of the six scenarios (dialogue/utility/
+// agent/image/speech/video). The body is a ModelRef ({apiKeyId, modelId, options}); both ids are
+// required (validated downstream).
 //
-// SetDefaultModel 设置 workspace 某 scenario（dialogue/utility/agent）的默认模型。body 是 ModelRef
-// （{apiKeyId, modelId, options}）；两个 id 必填（下游校验）。
+// SetDefaultModel 设置 workspace 六个 scenario（dialogue/utility/agent/image/speech/video）之一的默认模型。
+// body 是 ModelRef（{apiKeyId, modelId, options}）；两个 id 必填（下游校验）。
 func (h *WorkspacesHandler) SetDefaultModel(w http.ResponseWriter, r *http.Request) {
 	var req setDefaultModelRequest
 	if err := decodeJSON(r, &req); err != nil {

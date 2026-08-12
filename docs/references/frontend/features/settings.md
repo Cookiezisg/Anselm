@@ -31,6 +31,12 @@ audience: [human, ai]
 | System | Shortcuts | 六个全局命令的改绑、冲突检测与重置 |
 | System | About | app/engine 版本、更新检查、诊断与字体许可 |
 
+Models & Keys 的受管免费档配额行将已用量、上限和重置时间格式化为当前 locale 的人类可读
+紧凑值；不得把原始大整数或 ISO-8601 字符串直接暴露给用户。接口仍保存原始 quota 数值和
+时间戳，格式化只发生在显示边界。场景默认的 utility、agent、image、speech、video 在能力
+目录暂空时仍保留清除入口，保证失效默认可自救；dialogue 不提供清除入口，因为清除会让
+Chat 无法启动。
+
 左岛支持面板级和静态设置项级搜索。`settingsSearchIndex` 与页面内 `SettingsAnchor` 双向门禁，确保搜索结果一定有可滚到的真实控件。
 
 ## 2. 两条持久化轴
@@ -50,6 +56,8 @@ audience: [human, ai]
 - Sandbox 安装失败按 wire code 呈现可行动错误：`SANDBOX_RUNTIME_VERSION_UNSUPPORTED` 使用后端 `details.kind/version/hint` 告诉用户改用什么发行版，`SANDBOX_RUNTIME_INSTALL_FAILED` 点名失败的 runtime/version 并提示检查版本和网络；错误留在安装表单内，不把用户弹回一个看似空成功的名册。同步安装飞行期间锁住 `Cancel`，因为当前契约没有取消下载动作，不能让用户以为后端已停止。删除 runtime 的确认框必须明确说明本机文件会被永久移除、仍被环境引用时会拒绝，并告知之后可重新安装；取消不改变名册，确认后才以 REST 真相收敛到 settled-empty。
 - provider credential 按目录声明的类型收集；Vertex 使用服务账号 JSON，不伪装成 API key 文本框。
 - key 保存后走真实测试；鉴权失败、未验证 provider 与可疑自填 base URL 分开解释。
+- BYOK key 行在窄 rail 中以状态胶囊加 probe/edit/delete 纯字形动作呈现；每个动作保留本地化 tooltip 与读屏语义标签，不能用带文案按钮把行撑出溢出条，也不能为收窄而裁掉操作。
+- 删除仍被场景默认、搜索默认或 Agent 覆盖引用的 key 时，后端拒绝删除；前端用单按钮中性说明框列出人话引用位置，不暴露 `scenario_default` 等 wire kind，也不渲染重复的危险/取消动作。普通 BYOK key 的确认框必须点名当前对象并说明不可恢复，取消不产生 mutation，确认后以服务端重读收敛且只移除目标行；受管 key 即使没有引用也保持不可删除。
 - MCP 名册的 loading、error、empty 是三个不同的产品状态：请求未落定时显示内容骨架，读取失败显示可重试错误，只有后端确实返回空数组时才显示无服务器市场入口；不能用空列表兜底掩盖断线。名册同时监听 entities 上的实时状态和 notifications 上的 `mcp.*` 生命周期事件，两者都只触发对 REST 真相的重取。已打开的 server 详情也以落定名册对账：对象从名册消失时下一帧自动回到名册并给出“已删除/列表已刷新”反馈，loading/error 不触发误驱逐。
 - Memory 名册同样使用 `AnLastGood` 保留最近一次有效数据，但必须把 loading skeleton、读取错误与已确认的空数组分开呈现：只有 `GET /memories` 成功返回 `data: []` 才显示空态引导；错误态显示本地化原因和 Retry，不能用 `.value ?? []` 把断线伪装成“暂无记忆”。`activeWorkspaceProvider` 作为 reset key，切换 workspace 时先清除旧名册的可见快照，避免旧 workspace 的 memory 行短暂泄漏到新 workspace。每一行的 pin/unpin 是独立的可聚焦 toggle：动作进行时只锁住该行的 pin 入口、显示带读屏标签的 busy 指示并禁止该行导航；失败捕获为 pin 专用通知，权威旧状态保留，用户可再次尝试，不能冒成 Flutter 未处理异常或发出重复 mutation。
 - Memory 名册还必须订阅 notifications 流上的 durable `memory.created/updated/deleted`，用 REST 重读名册作为真相；同一条流的 410 resync 也必须重读。对已经落定的名册要就地替换 `AsyncData`，不先让整个 provider 重新构建出加载间隙；连续信号按代数丢弃旧响应。这样 Agent 或另一客户端改动记忆时，已打开的设置页不会静默保留旧描述；pin 回声的歧义由整表重读安全吸收。已打开的 Memory 详情也必须以落定名册确认存在：对象从名册消失时下一帧回到名册并给出“已删除/名册已刷新”反馈，loading/error 不得误驱逐或把旧表单当成事实。
@@ -62,7 +70,7 @@ audience: [human, ai]
 
 ## 4. 热切换与全局能力
 
-- workspace 切换先导航离开旧深链并清壳内绑定，再在下一帧切 active workspace；HTTP、SSE 与所有 Live repository 随轴重建。
+- workspace 切换先导航离开旧深链并清壳内绑定，再在下一帧经唯一的 `setActiveWorkspace` 入口切 active workspace；该入口同时 settle HTTP 运行时并非阻塞地 POST `/workspaces/{id}:activate` 刷服务端 `lastUsedAt`。HTTP、SSE 与所有 Live repository 随轴重建；记账失败必须进入 Flutter console，不能变成未处理 future 或静默丢失。
 - 全局快捷键目录是默认键位唯一源；用户覆盖只存非默认差异，修改后热生效。
 - 快捷键宿主位于 app 根 autofocus 之上，冷启动无需先点击页面。
 - 网络代理写入后明确提示需要重启 sidecar 才能完整生效。

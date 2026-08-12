@@ -23,16 +23,16 @@ import 'icons.dart';
 /// direct construction must NOT forget: [TraversalEdgeBehavior.closedLoop] is NOT defaulted here (only
 /// showDialog defaults it), so we pass it explicitly or Tab escapes the modal.
 ///
-/// v1 = [anConfirmRoute] only (a confirm-delete: title + optional message + cancel/confirm). A
-/// rich-content `openDialog(builder)` is deferred (WRK-041 §5) — every demo dialog is a confirm. The
-/// card is inlined here (single consumer, YAGNI); an `AnModalCard` abstraction waits for a 2nd island
-/// card (NOT named AnIslandCard — avoids colliding with the existing chip-tier [AnIsland]).
+/// v1 = [anConfirmRoute] (a confirm-delete or a one-button information modal: title + optional message
+/// + cancel/confirm). A rich-content `openDialog(builder)` is deferred (WRK-041 §5). The card is
+/// inlined here (single consumer, YAGNI); an `AnModalCard` abstraction waits for a 2nd island card
+/// (NOT named AnIslandCard — avoids colliding with the existing chip-tier [AnIsland]).
 ///
 /// F4——模态确认框。全屏阻断:scrim 上居中岛卡,焦点陷阱/归还/Escape 关/点遮罩关**由框架 RawDialogRoute 白送**
 /// (已核 3.41.9 源);**唯路由命名(namesRoute/label)不白送**(buildPage 仅给 scopesRoute+explicitChildNodes),故卡自补
 /// `Semantics(namesRoute:true,label:title)`(仿 AlertDialog),否则屏读进 modal 无播报。不用 showDialog(强制 Material 转场/SafeArea/black54/需 caller context);自建路由换 scrim 遮罩
 /// + spring 转场,且拿 Route 句柄做单实例(controller 先 pop 旧的)。直接构造**必须显式传 closedLoop**(showDialog 才默认),
-/// 否则 Tab 逃出 modal。v1 仅 confirm-delete;富内容口推迟;卡内联(单消费者,YAGNI)。
+/// 否则 Tab 逃出 modal。v1 只含 confirm-delete 与单按钮说明;富内容口推迟;卡内联(单消费者,YAGNI)。
 enum AnDialogTone { primary, danger }
 
 /// Build the confirm-dialog route. [scrim] + [reduced] are read once at construction (route-level,
@@ -49,6 +49,7 @@ RawDialogRoute<bool> anConfirmRoute({
   required String cancelLabel,
   required String barrierLabel,
   AnDialogTone confirmTone = AnDialogTone.danger,
+  bool showCancel = true,
 }) {
   return RawDialogRoute<bool>(
     barrierColor: scrim,
@@ -67,6 +68,7 @@ RawDialogRoute<bool> anConfirmRoute({
       confirmLabel: confirmLabel,
       cancelLabel: cancelLabel,
       confirmTone: confirmTone,
+      showCancel: showCancel,
     ),
     transitionBuilder: (context, animation, secondary, child) {
       if (reduced) return child;
@@ -97,6 +99,7 @@ class _AnConfirmCard extends StatelessWidget {
     required this.confirmLabel,
     required this.cancelLabel,
     required this.confirmTone,
+    required this.showCancel,
   });
 
   final String title;
@@ -104,6 +107,7 @@ class _AnConfirmCard extends StatelessWidget {
   final String confirmLabel;
   final String cancelLabel;
   final AnDialogTone confirmTone;
+  final bool showCancel;
 
   @override
   Widget build(BuildContext context) {
@@ -219,16 +223,19 @@ class _AnConfirmCard extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.end,
         children: [
-          // Autofocus the SAFE choice (cancel) so Enter never fires a destructive confirm; Tab reaches
-          // the danger button. The trap needs an initial anchor too. 自动聚焦安全项(取消),Enter 不误删;Tab 可达危险钮。
-          AnButton(
-            label: cancelLabel,
-            autofocus: true,
-            onPressed: () => Navigator.of(context).pop(false),
-          ),
-          const SizedBox(width: AnSpace.s8),
+          // Autofocus the SAFE choice (cancel) so Enter never fires a destructive confirm; a one-button
+          // info modal autofocuses its neutral close action instead. 单按钮说明框聚焦中性关闭动作。
+          if (showCancel) ...[
+            AnButton(
+              label: cancelLabel,
+              autofocus: true,
+              onPressed: () => Navigator.of(context).pop(false),
+            ),
+            const SizedBox(width: AnSpace.s8),
+          ],
           AnButton(
             label: confirmLabel,
+            autofocus: !showCancel,
             variant: confirmTone == AnDialogTone.danger
                 ? AnButtonVariant.danger
                 : AnButtonVariant.primary,

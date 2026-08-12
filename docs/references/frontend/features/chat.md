@@ -21,6 +21,7 @@ audience: [human, ai]
 | 中心 transcript | REST 水化 + `messages` SSE 增量合并；终态、在飞、乐观回声三层；老页向上加载不跳位；流式跟随可脱离和归队；头部“场次目录”按 keyset 读完全部场次，user 主锚、工具簇折叠、危险/压缩/异常逐条露出，深跳以消息为目标 |
 | Composer | 文本、`@` 提及、文件选择/粘贴/拖放附件、模型选择；发送与停止；生成中 Enter 入队，队列可编辑、删除和取回；图片媒体准备期间，附件 chip 显示可读的取消动作，取消/失败后显示可读的重试动作 |
 | 回合操作 | 复制整回合、分叉、重试换模型、编辑重发、同一逻辑回合的版本翻页；历史版本仍可读，不把 `superseded_by` 当软删；分叉点击后立即保留固定几何的「正在分叉」忙碌态并阻止重复创建，直到导航或错误收口 |
+| 朗读 | 只有服务端确认当前 workspace 有语音路由时，落定回合的动作行才显示朗读入口；workspace 切换、模型密钥变更和免费档开通会在 widget build 之外重探可用性，loading/失败均诚实保持无入口，不把一次旧 workspace 的结果带过来 |
 | 驻地 | 对话可挂工作目录；三态入口；在访达/终端打开、切换/退出驻地、切分支、新建分支、创建 worktree；脏区切分支直接拒绝 |
 | 工具与人在环 | 工具卡按工具族渲染，默认收起；失败与交互门自动展开；用户停止执行中的工具时必须显示中性取消态，不得显示 `Search failed` 或 `context canceled` 等内部错误；坏参数也必须安全降级并显示后端错误，不能把 transcript widget 树打崩，也不能因此回显敏感参数；危险调用、提问与审批都走同一 interaction broker；`replay_flowrun` 被后端拒绝时明确显示“未执行重放”，不得沿用“已重放运行”；可空 query 的实体搜索才可切到“列”声道，`search_documents` 的 query 必填，畸形空参数必须仍显示“搜索失败”；`search_conversations` 命中卡逐项显示标题、snippet、匹配块数和消息锚点（消息 ID 芯片可复制，点击该行直接执行 transcript deep-jump；标题命中没有消息锚点时只打开对话），正文不能把 5 个命中压成 2 个，也不能把 opaque ID 脱敏成 `the requested item` 坏占位；`delete_document` 的 not-found completed 软失败必须显示失败动词与原始证据，不得显示“已删除”或“软删除,可恢复”；`Subagent` 在 `subagent_type` 校验失败时必须显示“校验失败 · 未启动”，不展示 `get_subagent_trace` 回放提示，也不把校验错误当作子代理回答；终局拒绝后的重复工具调用保留在线缆与 durable 证据，但不在 transcript 追加第二条“未执行”噪音卡 |
 | 右岛 | 触点台账 + 流式侧幕；只在存在 Activity 时可揭示，详见 [`chat-sidestage.md`](chat-sidestage.md) |

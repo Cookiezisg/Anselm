@@ -12,6 +12,8 @@ import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
 import '../../../../core/model/model_capabilities.dart';
+import '../../../../core/model/number_format.dart';
+import '../../../../core/model/time_format.dart';
 import '../../../../core/notice/notice_center.dart';
 import '../../../../core/overlay/an_overlay.dart';
 import '../../../../core/ui/an_auto_grid.dart';
@@ -278,9 +280,15 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
                 AnMeter(
                   ratio: value!.limit <= 0 ? null : value.used / value.limit,
                   label: t.settings.keys.freeUsage(
-                    used: '${value.used}',
-                    limit: '${value.limit}',
-                    reset: value.resetAt,
+                    used: fmtCompactCount(
+                      value.used,
+                      locale: LocaleSettings.currentLocale.languageTag,
+                    ),
+                    limit: fmtCompactCount(
+                      value.limit,
+                      locale: LocaleSettings.currentLocale.languageTag,
+                    ),
+                    reset: fmtStamp(value.resetAt),
                   ),
                 ),
                 if (!value.available) ...[
@@ -350,17 +358,38 @@ class _KeyRow extends ConsumerWidget {
       if (e.code == 'API_KEY_IN_USE') {
         // The reference inventory dialog — the backend names every referencing site. 引用清单。
         final details = e.details;
-        final refs =
-            (details is Map ? details['references'] as List? : null) ??
-            const [];
+        final refs = details is Map && details['references'] is List
+            ? (details['references'] as List).whereType<Map>().toList()
+            : const <Map>[];
         final lines = refs
-            .map((r) => '· ${(r as Map)['kind']} — ${r['name'] ?? r['id']}')
+            .map((r) {
+              final kind = r['kind']?.toString();
+              final id = r['id']?.toString();
+              final name = r['name']?.toString().trim();
+              final label = switch (kind) {
+                'scenario_default' => switch (id) {
+                  'dialogue' => t.settings.keys.referenceDialogue,
+                  'utility' => t.settings.keys.referenceUtility,
+                  'agent' => t.settings.keys.referenceAgent,
+                  _ => t.settings.keys.referenceUnknown,
+                },
+                'search_default' => t.settings.keys.referenceSearch,
+                'agent_override' =>
+                  name == null || name.isEmpty
+                      ? t.settings.keys.referenceAgentOverride
+                      : '${t.settings.keys.referenceAgentOverride} · $name',
+                _ =>
+                  name == null || name.isEmpty
+                      ? t.settings.keys.referenceUnknown
+                      : name,
+              };
+              return '· $label';
+            })
             .join('\n');
-        await overlay.confirm(
+        await overlay.info(
           title: t.settings.keys.inUseTitle,
           message: '${t.settings.keys.inUseHint}\n$lines',
-          confirmLabel: t.settings.keys.cancel,
-          cancelLabel: t.settings.keys.cancel,
+          closeLabel: t.feedback.dismiss,
           barrierLabel: t.settings.keys.inUseTitle,
         );
       } else {
@@ -412,8 +441,10 @@ class _KeyRow extends ConsumerWidget {
       actions: [
         if (!managed) ...[
           AnChip(label, tone: tone),
-          AnButton(
-            label: t.settings.keys.testKey,
+          const SizedBox(width: AnSpace.s2),
+          AnButton.iconOnly(
+            AnIcons.probe,
+            semanticLabel: t.settings.keys.testKey,
             size: AnButtonSize.sm,
             onPressed: () async {
               try {
@@ -425,15 +456,19 @@ class _KeyRow extends ConsumerWidget {
               }
             },
           ),
-          AnButton(
-            label: t.settings.keys.editKey,
+          const SizedBox(width: AnSpace.s2),
+          AnButton.iconOnly(
+            AnIcons.edit,
+            semanticLabel: t.settings.keys.editKey,
             size: AnButtonSize.sm,
             onPressed: () => ref
                 .read(settingsDetailProvider.notifier)
                 .push('editKey', id: row.id),
           ),
-          AnButton(
-            label: t.settings.keys.deleteKey,
+          const SizedBox(width: AnSpace.s2),
+          AnButton.iconOnly(
+            AnIcons.trash,
+            semanticLabel: t.settings.keys.deleteKey,
             size: AnButtonSize.sm,
             variant: AnButtonVariant.danger,
             onPressed: () => _delete(context, ref),
@@ -567,10 +602,15 @@ class _KeyFormState extends ConsumerState<KeyForm> {
         );
         _boundId = row.id; // S-3: retries PATCH from here on 此后重试一律 PATCH
       } else {
+        // In edit mode an empty Base URL is an intentional clear, not an omitted PATCH field. The
+        // backend treats `baseUrl: ""` as the durable reset; passing null would be removed by the
+        // JSON map and silently preserve the old address.
+        // 编辑态空地址是明确清空，不是省略 PATCH 字段。后端以 `baseUrl: ""` 持久化重置；传 null 会被
+        // JSON map 删除，悄悄保留旧地址。
         await keys.patch(
           _boundId!,
           displayName: _name.text.trim(),
-          baseUrl: _baseUrl.text.trim().isEmpty ? null : _baseUrl.text.trim(),
+          baseUrl: _baseUrl.text.trim(),
           key: _secret.text.isEmpty ? null : _secret.text,
         );
       }
@@ -1132,6 +1172,23 @@ class _DefaultModelModePanelState extends State<_DefaultModelModePanel> {
               const <String, String>{},
             ),
           ),
+          // The managed route is a complete mode, not a picker stage. Keep its recovery action
+          // visible here when this scenario is clearable; otherwise a configured utility/agent
+          // default cannot be removed while Anselm Auto is the only route. 受管路线是完整模式而非
+          // picker 阶段；可清除场景须在这里保留自救入口，否则只有 Anselm Auto 时无法清除默认。
+          if (!_external && widget.clearable && widget.onClear != null)
+            Align(
+              alignment: Alignment.centerLeft,
+              child: Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s8),
+                child: AnButton(
+                  label: t.settings.keys.clearDefault,
+                  size: AnButtonSize.sm,
+                  outline: true,
+                  onPressed: widget.onClear,
+                ),
+              ),
+            ),
           if (_externalCaps.isNotEmpty) ...[
             const SizedBox(height: AnSpace.s8),
             AnRow(
@@ -1373,6 +1430,18 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
                 style: AnText.label.copyWith(color: c.inkMuted),
               ),
             ),
+            // A stale default must remain recoverable even while the capability catalog is empty;
+            // hiding Clear here strands the user behind the unavailable provider. 能力目录暂空时，
+            // 失效默认仍必须可自救清除；否则用户会被不可用 provider 卡死。
+            if (widget.clearable && widget.onClear != null) ...[
+              AnButton(
+                label: t.settings.keys.clearDefault,
+                size: AnButtonSize.sm,
+                outline: true,
+                onPressed: widget.onClear,
+              ),
+              const SizedBox(width: AnSpace.s8),
+            ],
             if (widget.onAddKey != null)
               AnButton(
                 label: t.settings.keys.addKey,

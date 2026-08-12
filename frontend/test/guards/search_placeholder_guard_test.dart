@@ -30,12 +30,12 @@ import 'package:flutter_test/flutter_test.dart';
 //   • It checks the MECHANICAL shape only (ellipsis character, leading capital, an object present) — it
 //     does NOT check that the object is plural or idiomatically phrased ("Search the marketplace…" using
 //     "the" instead of a bare plural is accepted; grammar judgment is a human review, not a regex).
-//   • A FUTURE key whose name happens to end in "search"/"filter" but ISN'T actually wired to a filter
-//     box (an over-strict false positive) would incorrectly be forced into this shape. No such collision
-//     exists in the tables today (see the sibling counter-test), but it's a standing risk of name-based
-//     matching — the reason this file does NOT also match on bare "filter"/"search" substrings anywhere
-//     in a key (that would also sweep in `filterAll`/`filterRunning`/`searchDefault`/`searchSection`/
-//     `grepFilter`/`searchingWeb`-style progress verbs — legitimate copy this guard must not touch).
+//   • A key whose name happens to end in "search"/"filter" but ISN'T actually wired to a filter box
+//     (an over-strict false positive) would otherwise be forced into this shape. `referenceSearch` is
+//     the current real collision: it is a human API-key dependency label and is explicitly allowlisted
+//     below. New collisions must be added to that set with a why comment — never silently weaken this
+//     matcher or turn it into a broad substring scan (which would also sweep in `filterAll`/
+//     `filterRunning`/`searchDefault`/`searchSection`/`grepFilter`/`searchingWeb`-style progress verbs).
 //
 // 搜索/过滤占位符文案法:每个 rail/列表的过滤框占位符念「搜索<对象>…」/「Search <objects>…」——真省略号
 // 字符(U+2026、非三点)、句首大写(仅首词)、对象必须点名(不许光秃秃一句「搜索…」)。两键曾走样(见上);
@@ -44,7 +44,12 @@ final _placeholderKeyPattern = RegExp(
   r'^(filter)$|search$|(filter|search).*placeholder$',
 );
 
+// Human reference label in the API-key dependency dialog, not an input placeholder.
+// API-key 引用说明中的人话标签,不是输入框占位符。
+const _knownNonPlaceholderKeys = {'referenceSearch'};
+
 bool _isPlaceholderKey(String lastSegment) =>
+    !_knownNonPlaceholderKeys.contains(lastSegment) &&
     _placeholderKeyPattern.hasMatch(lastSegment.toLowerCase());
 
 // EN: "Search " + a lowercase-led object + real ellipsis. Rejects "Search…" (no space/object — the
@@ -149,6 +154,7 @@ void main() {
         'searchSection',
         'searchKeyNotProbedHint',
         'searchNoMatch',
+        'referenceSearch',
         // Unrelated *Placeholder keys — end in "placeholder" but name neither filter nor search.
         'rotatePlaceholder',
         'answerPlaceholder',

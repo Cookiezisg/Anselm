@@ -44,6 +44,8 @@ dependencies:
   # i18n=slang:类型安全 t.<key>,严禁硬编码中英文;`dart run slang` 生成(不走 build_runner)。
   slang: ^4.16.0
   slang_flutter: ^4.16.0
+  # Locale-aware human numbers for quota and other user-facing counters. 配额等用户数字的 locale 格式化。
+  intl: ^0.20.2
   # HTTP transport (REST ApiClient) + the long-lived SSE GET (ResponseType.stream). The one
   # runtime dep the net + sse layers need. 网络传输:REST + 长连 SSE(均走 dio 流)。
   dio: ^5.9.2

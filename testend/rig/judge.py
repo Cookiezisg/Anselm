@@ -11,6 +11,7 @@
 # 警报单未销(alarms.json)期间,新 pass 一律拒收。每次裁决追加进裁决 journal——警报三曲线的
 # 数据源,故它只追加、时戳由本脚本盖,不经手写。
 import argparse
+from contextlib import contextmanager
 import datetime
 import hashlib
 import json
@@ -97,6 +98,45 @@ def judgment_already_recorded(family: str, item: str, level: int, verdict: str, 
     return False
 
 
+@contextmanager
+def ledger_lock():
+    """Serialize coverage repair and journal append across concurrent judge processes."""
+    RIG_HOME.mkdir(parents=True, exist_ok=True)
+    lock_path = RIG_HOME / "judge.lock"
+    try:
+        import fcntl
+    except ImportError as exc:  # pragma: no cover - the rig runs on Unix hosts.
+        fail(f"judge lock requires Unix fcntl: {exc}")
+    with lock_path.open("w") as lock_file:
+        fcntl.flock(lock_file.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock_file.fileno(), fcntl.LOCK_UN)
+
+
+def apply_coverage_cell(family: str, item: str, level: int, verdict: str, law: str, evidence: str) -> None:
+    """Apply one judgment to COVERAGE, including replay repair after a partial write."""
+    text = COVERAGE.read_text()
+    pat = re.compile(
+        rf"^(\| {family}-\d+ \| {re.escape(item)} \| .*\| )([·✓✗~]{{5}})( \| )(.*?)( \|)$",
+        re.M,
+    )
+    match = pat.search(text)
+    if not match:
+        fail(f"row not found: {family} | {item}")
+    cells = list(match.group(2))
+    cells[level - 1] = SYM[verdict]
+    pointer = f"L{level}:{law or 'na'}→{evidence}"
+    evidence_field = match.group(4)
+    if pointer not in evidence_field.split("; "):
+        evidence_field = f"{evidence_field}; {pointer}" if evidence_field.strip() else pointer
+    updated = text[: match.start()]
+    updated += match.group(1) + "".join(cells) + match.group(3) + evidence_field + match.group(5)
+    updated += text[match.end() :]
+    COVERAGE.write_text(updated)
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("item", help="coverage item name (row key, e.g. 'Read' or '生图迭代到满意')")
@@ -148,38 +188,31 @@ def main():
         if missing:
             fail(f"SSE witness never connected streams: {sorted(missing)}")
 
-    pointer = f"L{args.level}:{args.law or 'na'}→{args.evidence}"
-    if judgment_already_recorded(args.family, args.item, args.level, args.verdict, args.law, args.evidence):
-        print(f"judge: {args.family}|{args.item} L{args.level} already recorded; no-op")
-        return
+    with ledger_lock():
+        already_recorded = judgment_already_recorded(
+            args.family, args.item, args.level, args.verdict, args.law, args.evidence
+        )
+        if already_recorded:
+            # A process can die after the journal append but before the coverage write. Replay the
+            # cell and pointer under the same lock instead of trusting the journal alone.
+            apply_coverage_cell(args.family, args.item, args.level, args.verdict, args.law, args.evidence)
+            print(f"judge: {args.family}|{args.item} L{args.level} already recorded; coverage repaired/no-op")
+            return
 
-    if args.verdict == "pass":
-        if problem := calibration_problem():
-            fail(f"{problem} — run anchors.py quiz, answer it, then anchors.py check")
-        if alarms := open_alarms():
-            fail(f"{len(alarms)} open alarm(s) — resolve/ack them before any new pass: {[a['id'] for a in alarms]}")
+        if args.verdict == "pass":
+            if problem := calibration_problem():
+                fail(f"{problem} — run anchors.py quiz, answer it, then anchors.py check")
+            if alarms := open_alarms():
+                fail(f"{len(alarms)} open alarm(s) — resolve/ack them before any new pass: {[a['id'] for a in alarms]}")
 
-    text = COVERAGE.read_text()
-    pat = re.compile(rf"^(\| {args.family}-\d+ \| {re.escape(args.item)} \| .*\| )([·✓✗~]{{5}})( \| )(.*?)( \|)$", re.M)
-    m = pat.search(text)
-    if not m:
-        fail(f"row not found: {args.family} | {args.item}")
-    cells = list(m.group(2))
-    cells[args.level - 1] = SYM[args.verdict]
-    ev_field = m.group(4)
-    if pointer not in ev_field.split("; "):
-        ev_field = f"{ev_field}; {pointer}" if ev_field.strip() else pointer
-    text = text[: m.start()] + m.group(1) + "".join(cells) + m.group(3) + ev_field + m.group(5) + text[m.end():]
-    COVERAGE.write_text(text)
-
-    RIG_HOME.mkdir(exist_ok=True)
-    with JOURNAL.open("a") as f:
-        f.write(json.dumps({
-            "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "family": args.family, "item": args.item, "level": args.level,
-            "verdict": args.verdict, "law": args.law, "evidence": args.evidence,
-        }, ensure_ascii=False) + "\n")
-    print(f"judge: {args.family}|{args.item} L{args.level} ← {SYM[args.verdict]} ({args.law or 'na'})")
+        apply_coverage_cell(args.family, args.item, args.level, args.verdict, args.law, args.evidence)
+        with JOURNAL.open("a") as f:
+            f.write(json.dumps({
+                "ts": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                "family": args.family, "item": args.item, "level": args.level,
+                "verdict": args.verdict, "law": args.law, "evidence": args.evidence,
+            }, ensure_ascii=False) + "\n")
+        print(f"judge: {args.family}|{args.item} L{args.level} ← {SYM[args.verdict]} ({args.law or 'na'})")
 
 
 if __name__ == "__main__":

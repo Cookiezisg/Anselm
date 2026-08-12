@@ -1,6 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/api_key.dart';
+import '../../../core/media/media_source.dart';
 import '../../../core/model/model_capabilities.dart';
 import '../data/settings_repository.dart';
 
@@ -70,6 +71,10 @@ class ApiKeysController extends AsyncNotifier<List<ApiKey>> {
     state = AsyncData(await ref.read(settingsRepositoryProvider).listKeys());
     // Key set changed → the (key, model) catalog is stale (S-15). key 集变→能力目录过期。
     ref.invalidate(modelCapabilitiesProvider);
+    // Read-aloud has its own capability projection; keeping the transcript affordance cached after a
+    // key mutation would make a newly speech-capable workspace look permanently silent.
+    // 朗读有自己的能力投影;key 变更后仍沿用旧缓存,会让刚具备语音能力的 workspace 永远像「不能朗读」。
+    ref.invalidate(readAloudAvailableProvider);
   }
 }
 
@@ -98,6 +103,9 @@ class FreetierQuotaController extends AsyncNotifier<FreetierQuota?> {
       ref.invalidate(
         modelCapabilitiesProvider,
       ); // the managed models just appeared 受管模型现身
+      ref.invalidate(
+        readAloudAvailableProvider,
+      ); // managed speech may have appeared 受管语音能力可能已现身
     }
     return ok;
   }

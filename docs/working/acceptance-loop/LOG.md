@@ -10,6 +10,159 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-12 — EP-213 DELETE /api/v1/api-keys/{id} final green，批次三十三 50/50
+
+- 用户已对当前对象 `EP-213 UI Delete Positive` 给出精确授权；最终点击前重新用 Computer Use AX 读取确认框，确认对象名与永久删除文案完全匹配：`This deletes “EP-213 UI Delete Positive” permanently.`，并确认 `Cancel`/`Delete` 按钮仍在当前对话框中。本次不借用历史 `daily-rule` 授权。
+- 正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-154423`，workspace=`ws_3c0e81066bb031d7`，key=`aki_3d1ee884e96c91d5`；真实 App 最终 Delete 后 UI 稳定只剩受管 `Anselm Free`，目标行与确认框均消失。
+- backend 精确记录目标 `DELETE /api/v1/api-keys/aki_3d1ee884e96c91d5=204`；立即 list 只剩 managed 行，重复 Delete 返回 `404 API_KEY_NOT_FOUND`。SQLite unscoped tombstone 保留 id/workspace/display name/provider/`deleted_at`，`key_encrypted`、masked value、Base URL、API 方言、probe 状态/错误/回执/时间戳全部为空。
+- 五通道均封口：`rig-check` 与 `rig-down` 通过且 owned processes/listeners 收台；录屏可读；backend 无 panic/FATAL/application WARN/ERROR；frontend 只有已知 macOS IMK host 噪声，无 Flutter/Dart/RenderFlex/overflow/Unhandled 红线；三路 SSE witness 均连接，API-key 设置按 REST reread 契约无 lifecycle durable frame；llmtap 记录 managed bootstrap，未虚构 completion。
+- 视觉证据使用同分辨率视频帧：确认态到列表收敛的变化、随后稳定帧的变化率均已测量；因录屏没有可信的 Computer Use click-frame 对齐，L3 保守使用 `A4`，不冒充 `A1`。证据为 `EP-213-apikey-delete-final-green.md`、`EP-213-visual-measurement.md` 和 `EP-213-delete-final-settled.jpeg`。
+- 五级裁决已由脚本写入：formal ledger `1760→1765 judgments`，anchors=`10/10`，`COVERAGE`=`848 rows / 346 carried / 0 tombstones`，EP-213=`✓✓✓✓✓`；写账后 `gap-too-fast` 与 `discovery-collapse` 按独立复审 `EP-213-apikey-delete-ledger-reaudit.md` ack，未改阈值、算法、法典、锚点或 gate。
+- 收账时发现并修复台架自身缺陷：五个并发 `judge.py` 进程曾把五条裁决都写进 journal，但覆盖清册发生丢写。`judge.py` 现在用 `RIG_HOME/judge.lock` 串行保护“去重/清册/journal”，并能在半步崩溃后按已有 journal 重放补齐清册；`python3 -m unittest testend/rig/test_judge.py -v` 的幂等与并发回归通过，EP-213 L1 已由脚本 replay 修复，未手工涂绿。
+- 批次三十三由 `45→50/50`；统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报、本批 Go 定向回归和工作树边界审计均为绿。现在执行一次性提交，提交后前线推进到 EP-215。
+
+## 2026-08-11 — EP-213 r3 真实 UI 到达精确删除确认框，最终 Delete 仍待当前对象授权
+
+- 新五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-154423` 使用真实 Flutter App、Computer Use、连续窗口录制、backend/frontend journals、三路独立 SSE witness 和 llmtap；`rig-check` 在两个 workspace 上通过，managed gateway bootstrap 与两个 llmtap wiring 均有归属，当前无 frontend/backend 应用红线。
+- 通过真实 App onboarding 创建 workspace `ws_3c0e81066bb031d7`（`EP-213 UI Delete App`），在 `Settings → Models & keys` 悬停目标行 `aki_3d1ee884e96c91d5`（display name=`EP-213 UI Delete Positive`）。Computer Use 的 AX/frame 同时确认了目标名称、`Test/Edit/Delete` 动作和删除对话框的永久性文案：`This deletes “EP-213 UI Delete Positive” permanently.`，并可见 `Cancel` 与 `Delete`。
+- 本轮只打开了确认框，没有点击最终 `Delete`，backend journal 没有该目标的 API-key `DELETE` 请求，SQLite 没有因本轮 UI 发生删除。因此这只是最终动作前的可审计预确认，不是五级绿账；批次三十三仍为 `45/50`，不提前写账、不跑统一长门禁。
+- 证据已封存为 `sessions/20260811-154423/evidence/EP-213-delete-confirm-before-authorized.jpeg` 与同名 `.md`；`.md` 明确记录当前 target/id、五通道范围、未执行最终按钮和未发生 DELETE。`daily-rule` 只属于历史 EP-192 Memory fixture，既不在当前 workspace，也不是本次确认框对象，不能借用其授权。
+
+## 2026-08-11 — EP-213 真实 REST/SQLite 复验：删除矩阵与凭证清理通过，UI 最终 Delete 未执行
+
+- 新 `RIG_DATA=/private/tmp/anselm-data-ep213-apikey-delete-20260811-r2` 起完整五通道台架；真实 managed gateway proof/install/models 经 session-owned `llmtap` 全部 `200`，真实 Flutter runner、窗口录制、ssetap、backend/frontend journal 均由同一 manifest 托管。
+- disposable `aki_67143785929023af` Delete 返回 `204`、列表消失，SQLite unscoped 行保留 identity/`deleted_at` 但 `key_encrypted`、掩码、Base URL、API 方言、probe 状态/错误/回执/时间戳全部为空；引用中的 `aki_b9db8e95c099e763` 首次 Delete 返回 `422 API_KEY_IN_USE` 并精确列出 utility 引用，解除引用后再次 Delete=`204`；managed `aki_fb021c0733d6adcf` 返回 `422 API_KEY_IMMUTABLE` 且仍在列表。
+- `rig-check`、`rig-down`、录屏 `136.576667s`、backend/frontend/SSE/LLM journals 和 SQLite 证据均已封存：`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-153004/evidence/EP-213-apikey-delete-rest-green.md`。无 backend panic/FATAL/application error，无 Flutter/Dart/RenderFlex/overflow/Unhandled 红线；API-key 设置没有 lifecycle durable frame，按 REST reread 契约观察，不把无帧伪报为 SSE 丢失。
+- 这是 EP-213 的真实 REST/SQLite 证据，不是五级绿账；没有点击当前 UI 的最终 Delete，因为当前 fixture 仍不是用户确认的 `daily-rule`。批次三十三仍为 `45/50`，不提前写账、不跑统一长门禁。
+
+## 2026-08-11 — EP-213 stop-and-fix：删除后清空 API key 凭证材料，真实最终 Delete 仍待精确对象
+
+- 静态审计确认 generic ORM 的软删会保留 unscoped API-key 行的 `key_encrypted`、连接配置和 probe 回执；虽然应用层没有恢复入口，但这不足以满足 UI “不可恢复”的产品语义，也不符合 secret 最小留存标准。
+- `backend/internal/infra/store/apikey/apikey.go` 现用单条原子 UPDATE 同时设置 `deleted_at` 并清空加密 secret、掩码、Base URL、API 方言、probe 状态/错误/回执和时间戳；不会出现“活跃行还在、secret 已先清空”的半状态。
+- `backend/internal/infra/store/apikey/apikey_test.go` 证明普通 `Get`/重复 Delete 为 not-found，unscoped 审计行仍存在但所有凭证/连接/probe 材料为空；同步更新 backend domain/database 文档。`go test ./internal/infra/store/apikey ./internal/app/apikey`、`gofmt`、`git diff --check` 通过。
+- 这不是 EP-213 的五级绿账：当前台架对象是 `EP-213 UI Delete Positive`，不是用户确认的 `daily-rule`，所以没有点击真实 App 的最终 Delete，也没有把静态修复当成真实 UI 完成。
+
+## 2026-08-11 — EP-213 stop-and-fix：Key 行窄轨 RenderFlex 溢出已修复，删除确认仍待精确对象
+
+- 真实红线：EP-213 重启后的真实 Flutter App 在 `Settings → Models & keys` 首次加载/悬停 BYOK 行时，`rig-check` 从 frontend journal 抓到 `A RenderFlex overflowed by 15 pixels on the right`；widget 为 `Row:file:///Users/sunweilin/Developer/Anselm/frontend/lib/core/ui/an_row.dart:379:21`，约束 `208px`。该红线冻结 EP-213，不计账。
+- 根因与产品判断：Key 行 hover slot 同时放状态 `AnChip`、`Test`、`Edit`、`Delete` 四个带文字控件，真实窄轨无法承载；不能靠裁按钮、缩字体或把 overflow 忽略掉。修复在 `models_keys_panel.dart` 保留状态胶囊，把三个动作改成 `AnButton.iconOnly`，分别使用语义 `probe/edit/trash`，每个按钮继续暴露本地化 `semanticLabel` 和 dwell tooltip，动作不重排、不截肢；`icons.dart` 新增 `AnIcons.probe = plugZap2`。
+- 守卫：`row_family_meta_overflow_guard_test.dart` 新增真实形态的 `AnChip + 三个动作`、`208px` 窄约束格；`s2_models_keys_test.dart` 改以 semantic action 验证 BYOK/managed 边界。`mise exec -- flutter test test/guards/row_family_meta_overflow_guard_test.dart test/features/settings/s2_models_keys_test.dart`=`27 passed`；`dart analyze`、`git diff --check` 通过。
+- 真实复验：新五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-145101` 重新构建并起真实 App、Computer Use、三路 ssetap、backend/frontend journal、llmtap、窗口录屏；悬停 `EP-213 UI Delete Positive` 后 AX 仍显示 `Test/Edit/Delete`，截图显示状态胶囊和三个紧凑动作无裁切；随后真实点击 Test，backend 记录 `POST /api/v1/api-keys/aki_b67e840525785925:test=200`、`ok=true`，UI 从 `Untested` 收敛到 `OK`；新 frontend journal 无 `RenderFlex/overflow/Flutter error/Unhandled`，`rig-check` 五通道全绿。
+- 删除边界：台架 DB/当前 UI 没有名为 `daily-rule` 的对象，当前正向 fixture 是 `EP-213 UI Delete Positive`；用户此前的「确认删除 daily-rule」不能套用于另一个永久删除对象，因此没有点击当前确认框的最终 Delete。EP-213 仍不写五级绿账，批次三十三保持 `45/50`。
+
+## 2026-08-11 — EP-213 负向 UI 路径复验：managed 隐藏动作、referenced 取消不变
+
+- 同一真实台架 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-145711` 完成两个不产生永久 mutation 的产品检查：managed `Anselm Free` 行悬停没有 Edit/Delete；`EP-213 UI Referenced` 行悬停后打开删除确认，文案准确点名当前对象并说明永久性，点击 Cancel 后行仍在、状态仍为 `OK`。
+- 当前会话 backend 没有 API-key DELETE 请求，frontend 无 Flutter/RenderFlex/overflow/Unhandled 红线，`rig-check` 五通道全绿；独立证据为 session 内 `evidence/EP-213-key-delete-negative-ui.md`。引用 key 的最终 Delete 未点，因此本项仍不计五级账，不能把“打开并取消确认框”冒充后端 `API_KEY_IN_USE` 的真实 UI 负向提交。
+
+## 2026-08-11 — 完整前端门禁 stop-and-fix：`referenceSearch` 误命中 placeholder guard
+
+- `make -C frontend verify` 的第 3 组在 `search_placeholder_guard_test.dart` 失败：`settings.keys.referenceSearch` 的真实文案是 API-key 引用说明 `Default search key` / `默认搜索密钥`，不是输入框 placeholder；名称规则 `endsWith(search)` 产生了已知假阳性。
+- 修复只扩充 guard 的明确 non-placeholder 清单并保留双语 why 注释，不改用户文案、不放宽 placeholder 形状规则。该修复与当前 Key 行 guard 同时通过；失败组需重跑，完整前端门禁随后重跑。
+- stop-and-fix 后 focused guards 全绿；格式化后重新运行 `make -C frontend verify`，结果为 `gen + analyze + 4 groups`、`5328 tests` 全通过。该红场不计产品账，但已作为本批统一门禁前必须清除的工程红线保留。
+- 同一工作树随后运行 `make -C backend verify`，后端全包测试与依赖检查通过；`make -C docs verify`、rig Python compile 和 `git diff --check` 也通过。docs verifier 保留既有的 12 个 DTO mirror 检查、21 个无同名 Go struct 跳过提示，未新增 drift。
+
+## 2026-08-11 — EP-214 `POST /api/v1/api-keys/{id}:test` 收口，批次三十三 45/50
+
+- 产品目的：用户在 `Settings → Models & keys` 点击 Test 后必须看到可理解的绿色 `OK`，而不是只得到一个 HTTP `200`；探测状态和时间必须真实写入 SQLite/REST，secret 不得泄漏，设置页不得出现错误面、死 spinner、重复行或布局跳变。
+- 真实五通道 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-142038`：真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap 和封口录屏 `398.760000s / 2784x1808 / 60fps`。Computer Use 对 `EP-213 Dialogue Ref` 点击 Test，backend 精确记录 `POST ...:test=200` 与 `ok=true`；SQLite 对证 `test_status=ok`、`last_tested_at` 和 `updated_at` 同步推进。后续无 AX 查询的 clean settled session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-142920` 保留干净视觉帧，避免把 Computer Use 选择框误判为产品画面。
+- 五通道真相：backend/frontend 无应用级 WARN/ERROR/panic/FATAL/Flutter/Dart/RenderFlex/Unhandled 红线；三路 SSE 均连接，但 API-key 设置是 REST reread 契约，当前事件登记没有 API-key lifecycle durable frame，不把零业务帧误判为丢事件；llmtap 只记录真实 managed proof/quota bootstrap，fixture provider 为 `mock`，没有模型 completion，未虚构。
+- 逐帧与产品标准：列表稳定回到绿色 `OK`；clean frame 无布局溢出、错误 banner、残留 spinner 或不协调几何。没有精确动作帧，故 L3 使用 A4，不冒充 A1；正式裁决按 `measure:apikey-test-purpose / F1 / A4 / C4 / G2` 写入 `COVERAGE EP-214=✓✓✓✓✓`。
+- 正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-142038/evidence/EP-214-key-test-green.md`，clean-frame 证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-142920/evidence/EP-214-clean-frame.md`，独立账本/警报复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-214-ledger-alarm-reaudit.md`。账本 `1755→1760 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/345/0`，最终 `alarms.py check`=`clean (1760)`；两条统计警报按原阈值、独立证据复核后 ack，未改阈值/算法/法典/锚点/gate。批次三十三由 `40→45/50`，未满批不跑统一长门禁、不提交；下一原子前线仍为 EP-213 `DELETE /api/v1/api-keys/{id}`，其 UI 最终删除确认尚未完成。
+
+## 2026-08-11 — EP-212 `PATCH /api/v1/api-keys/{id}` 收口，批次三十三 40/50
+
+- 产品目的：用户可以在真实 Models & keys 中编辑 BYOK 名称、Base URL 和 secret，显式清空旧 Base URL，留空 secret 时保留旧值；探测失败不回滚修改，managed Anselm 行锁定，workspace、脱敏投影和加密存储不串线。
+- 首轮真实 App 红场 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-131319` 暴露 UI 缺陷：编辑表单把空 Base URL 变成省略字段，保存后旧 URL 仍存在。红场冻结、不计账。stop-and-fix 改为编辑路径显式发送 `baseUrl: ''`，保持新增路径 null 的省略语义，并补 settings repository 契约注释与 Flutter S-3 回归；19 个 settings 测试及相关 Go/testend/Flutter 定向测试通过。
+- 固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-132645` 由 conductor 托管真实 Flutter App、Computer Use、窗口录屏、backend/frontend journals、三路独立 SSE witness、llmtap 和真实受管 `https://api.anselm.website`；录屏 `145.063333s / 2788x1812 / 60fps`，`rig-check`/`rig-down` 通过且 owned processes/listeners 归零。真实 UI 清空 populated Base URL 后保存回到列表，最终 row、managed lock 和绿色 probe 状态正确，无 stale URL、死 spinner、重复行、错误面或布局跳变。
+- REST/SQLite：PATCH→list→`:test`→list 顺序正确；显式 `baseUrl:""` 落 `base_url=''`，empty PATCH 不刷新 `updatedAt`；坏 OpenAI endpoint 返回 `200` 但 durable `testStatus=error`，mutation 不回滚；managed/cross-workspace/whitespace/unknown-field 负向矩阵得到 `API_KEY_IMMUTABLE`、`API_KEY_NOT_FOUND`、`API_KEY_VALUE_REQUIRED`、`INVALID_REQUEST`；加密列 plaintext leak=0。
+- 五通道：两个 workspace 的 messages/entities/notifications 全部连接且无 SSE gap；API key 当前无登记生命周期帧，设置页依 REST reread 收敛；backend 无应用 WARN/ERROR/panic/FATAL，frontend 无 Dart/Flutter/RenderFlex/Unhandled 红线，仅已知 IMK host 噪声；LLM tap 真实 managed proof/quota 为 `200`，本 endpoint slice 没有 completion，未虚构。
+- 正式证据为 session `evidence/EP-212-apikey-patch-green.md`，红证据为 `sessions/20260811-131319/evidence/EP-212-apikey-patch-red-baseurl-clear.md`，独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-212-apikey-patch-ledger-reaudit.md`。因保存抽帧没有精确 click frame，不冒充 A1，L3 使用 A4；正式按 `G1/F1/A4/C4/G2` 写入 `COVERAGE EP-212=✓✓✓✓✓`，ledger `1750→1755 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/344/0`。
+- 五级写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立复审串行 ack，原阈值、算法、法典、锚点和 gate 均未修改；最终 `alarms.py check`=`clean (1755)`。批次三十三由 `35→40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-213 `DELETE /api/v1/api-keys/{id}`。
+
+## 2026-08-11 — EP-211 `GET /api/v1/api-keys` 收口，批次三十三 35/50
+
+- 产品目的：用户在真实 `Settings → Models & keys` 看到当前 workspace 的 key 清单，managed/BYOK 分开、值脱敏、状态可读；切到另一个 workspace 后上一 workspace 的 key 不残留，切回后原清单恢复。
+- 正向真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-130114` 使用真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap 和窗口录屏；录屏 `267.125000s / 2784x1808`，`rig-check`/`rig-down` 通过且 owned processes/listeners 归零。Alpha 画面有 managed+mock 两行，Beta 只有 managed，回 Alpha 后 mock 恢复。
+- REST/SQLite：同一 live sidecar 完成分页、provider filter、空结果、坏 cursor、非法 limit、缺失 workspace 负向矩阵；Alpha 与 Beta 列表无串线、无重复，SQLite 只有 Alpha 的 managed+mock 与 Beta 的 managed，三行 `test_status=ok` 且 key 加密/脱敏。backend 无应用 WARN/ERROR/panic/FATAL；frontend 无 Dart/Flutter/RenderFlex/Unhandled/runtime 红线，仅已知 macOS foreground/IMK 噪声。
+- 五通道：SSE witness 为两个 workspace 各自连接 messages/entities/notifications 六流；api-key 生命周期没有事件登记，设置页 REST 重读符合契约，未虚构业务帧。llmtap 的 managed proof/quota 全真实 `200`；窗口抽帧 `alpha-initial.png`、`beta-after-switch.png`、`alpha-after-switch.png` 无裁切、死 spinner、重复行或错误面。
+- 视觉与测量：后端 activation/list 请求耗时 `0–1ms`；保存抽帧没有精确点击帧，故不声称 A1，L3 使用 A4（没有超过一秒，不需要进度态）。正式证据为 session `evidence/EP-211-apikey-list-green.md`，独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-211-apikey-list-ledger-reaudit.md`。
+- 定向 Go、testend APIKey/Provider、Flutter settings/provider/credential 测试此前已通过；正式按 `measure:apikey-list-purpose / F1 / A4 / C4 / G1` 写入 `COVERAGE EP-211=✓✓✓✓✓`，formal ledger `1745→1750 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/343/0`。写账触发的 `gap-too-fast`、`pass-burst` 与 `discovery-collapse` 已依据独立复审串行 ack，未改阈值/算法/法典/锚点/gate；最终 `alarms.py check`=`clean (1750)`。批次三十三由 `30→35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-212 `PATCH /api/v1/api-keys/{id}`。
+
+## 2026-08-11 — EP-210 `POST /api/v1/api-keys` 收口，批次三十三 30/50
+
+- 产品目的：新用户从真实 `Settings → Models & keys → Add key` 找到 provider、提交凭证、看到真实 probe 结果，并能区分 managed/BYOK、看到脱敏值、确认 workspace 隔离；本次真实 UI 搜索 `mock` 后只留下 `Mock (dev)`，保存后列表出现 managed 与 mock 两行绿状态。
+- 正向真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-124305` 使用真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap 和窗口录屏；录屏 `376.210000s / 2784x1808`，`rig-check`/`rig-down` 通过且 owned processes/listeners 归零。Computer Use 真实完成 provider 搜索、表单填写、`Save & test` 和列表回读，Alpha/Beta 隔离路径也完成；初始 `set_value` 不触发 Flutter controller 的观察器行为被视为仪器边界，正式交互使用真实焦点与键盘输入，未计产品红。
+- 五通道：backend 记录创建 `201`、mock probe `200`、最终 list `200`，非法 provider/空 key 为明确 `400` 且不污染行；backend 无应用 WARN/ERROR/panic/FATAL。frontend 无 Flutter/Dart/Unhandled/RenderFlex/overflow 红线，仅已知 IMK/launcher 噪声。Alpha/Beta 各自 messages/entities/notifications 六条 SSE 连接成功；API key 生命周期没有登记的 durable event，REST 重读是设置页契约。llmtap 的 managed challenge/install/models/quota 全为 `200`，SQLite 对证 encrypted key、masked projection 和 workspace isolation。
+- 视觉与测量：抽帧 `t200.png`、`t220.png`、`235-key-list.png` 分别证明 provider 搜索、稳定表单和保存后列表；无死 spinner、重复行、stale form、裁切或错误面。backend `create 201 → probe 200 → final list 200` 为 `95ms`；由于保存的抽帧没有精确 click frame，测量注记明确不冒充 A1，L3 使用 A4（未超过 1s，不需要进度态）。证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-210-apikey-create-green.md`，测量为 `EP-210-apikey-create-measurement.md`。
+- 定向 Go、testend APIKey/Provider、Flutter settings/provider/credential 测试均通过。正式按 `measure:apikey-create-purpose / F1 / A4 / C4 / G1` 写入 `COVERAGE EP-210=✓✓✓✓✓`，formal ledger `1740→1745 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/342/0`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-210-apikey-create-ledger-reaudit.md` 独立复审并串行 ack，未改阈值/算法/法典/锚点/gate；最终 `alarms.py check`=`clean (1745)`。批次三十三由 `25→30/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 EP-211 `GET /api/v1/api-keys`。
+
+## 2026-08-11 — EP-209 `POST /api/v1/workspaces/{id}:activate` 收口，批次三十三 25/50
+
+- 产品目的：工作区切换不是只改前端内存。创建 Alpha/Beta 后，Beta→Alpha→Beta→Alpha
+  必须真实调用 activation、刷新 `lastUsedAt`、隔离对话、并允许切回恢复原 conversation；
+  真实 Alpha 对话只返回 `ALPHA-CONTEXT-209-FIXED`。
+- 首轮真实红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-120306`
+  暴露 `_ReadAloudSlot` 在 build 阶段触发 Riverpod `setState()/markNeedsBuild()`；该场次冻结，
+  不计绿。修复将 workspace-bound media/read-aloud provider 首次 dirty refresh 移出 widget
+  build，key mutation/free-tier provision 正确失效 availability，并补 provider-settle、
+  workspace hot-switch/bootstrap、settings key invalidation 与 chat transcript 回归。
+- 固定绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-122342`
+  使用真实 Flutter App、Computer Use、真实受管 `https://api.anselm.website`、连续录屏、
+  backend/frontend journal、三路独立 SSE witness 和 llmtap。录屏 `391.225000s / 2784x1808 /
+  60fps`，`rig-check` 在创建/切换/真实聊天前后通过，`rig-down` 后 owned processes 全部归零。
+  Beta 页面没有 Alpha transcript，切回 Alpha 后历史恢复且没有重复 user bubble；SQLite、REST、
+  UI、SSE close 与 LLM wire 一致。
+- 五通道：backend 无应用 WARN/ERROR/panic/FATAL；frontend 只有已知 IMK host 噪声；两个
+  workspace 各接通 messages/entities/notifications，Alpha messages durable `1..8`、notifications
+  `1..2` 单调唯一，Beta 无 Alpha durable 帧；managed challenge/install/models 与两次 chat
+  completion 全为 `200`。抽帧 `238-beta.png`、`312-alpha-stream.png`、`382-alpha-history.png`
+  已封存；详证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-209-workspace-activate-fixed-green.md`，
+  独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-209-workspace-activate-ledger-reaudit.md`。
+- 正式按 `measure:workspace-activate-purpose / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-209=✓✓✓✓✓`，
+  formal ledger `1735→1740 judgments`，`gen_coverage.py --check`=`848/341/0`，anchors=`10/10`。
+  `gap-too-fast` 与 `discovery-collapse` 依据红场次、修复测试、封口录像、五通道 journals、
+  SQLite、抽帧和独立复审逐条 ack；`alarms.py check`=`clean (1740)`，未改阈值/算法/法典/锚点/gate。
+  批次三十三由 `20→25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-210。
+
+## 2026-08-11 — EP-208 `DELETE /api/v1/workspaces/{id}/default-search` 收口，批次三十三 20/50
+
+- 产品目的：用户必须能在真实 Models & keys 入口清空默认 search key，看到 `Not set`，重复清空不产生假变化，保留 search key 本身，并在 Chat 使用 WebSearch 时得到可行动的未配置引导。
+- 首轮 stop-and-fix：静态审计发现旧 `SetDefaultSearch(..., "")` 无条件刷新 workspace `updatedAt` 并写行，重复 DELETE 因而看起来像一次状态变更。修复为相同 key（包括空值）真 no-op；补 `TestSetDefaultSearch_NoOpDoesNotRefreshUpdatedAt`、platform `ClearPathOwnerAndIdempotency` 和 API 文档。没有把未运行的旧代码伪装成红 session。
+- 第一场探索 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-073906` 严格排除：目标 default-search 行在截图视口之外，不能支撑视觉裁决；session 和测量材料保留但不计绿。
+- 最终真实绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-075026`，数据目录 `/private/tmp/anselm-data-ep208-clear-20260811b`，workspace `ws_3af53835ac2258f1`。同一 conductor 绑定真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路 ssetap、backend/frontend journals、llmtap 和窗口录屏；`rig-check` 在 live interaction 前后通过，`rig-down` 封口后无残留。
+- 真实产品路径：Settings → Models & keys 中看到 `EP-208 Search Visual` 已选择，真实点击 Clear 后回显 `Not set`；第二次 Clear 仍 `Not set`，key 行和绿色 tested 状态保留；回 Chat 让真实受管模型使用 WebSearch，得到明确的 no-backend guidance。目标 workspace 的 SQLite `default_search_key_id=''`，`updated_at=2026-08-10 23:54:07.926621+00:00`；Serper key 仍存在且 `test_status=ok`。
+- 五通道与视觉：封口录屏 `340.696667s`，backend/frontend/SSE/LLM journals `450/19/182/25` 行；backend 无 panic/FATAL/application error，frontend 只有已知 macOS IMK host 噪声，三路 SSE 均连接，llmtap challenge/install/models/quota 与四次真实 completion 全 `200`。before/after screenshot `changedFrac=0.00493`；操作前稳定 `f0093` → 首个变化 `f0094` 为 `16.7ms`，变化 box=`(1776,1364)-(2365,1521)`；重复清空 pair 在 `0.0005` 阈值下无 diff。
+- 正式按 `measure:default-search-clear-purpose / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-208=✓✓✓✓✓`，formal ledger `1730→1735 judgments`，`gen_coverage.py --check`=`848/340/0`，anchors=`10/10`。集中写账触发的 `gap-too-fast` 与 `discovery-collapse` 已依据 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-208-ledger-reaudit.md` 独立复审并串行 ack，未改阈值/算法/法典/锚点/gate；最终 `alarms.py check`=`clean (1735)`。批次三十三由 `15→20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-209。
+
+## 2026-08-11 — EP-207 `PUT /api/v1/workspaces/{id}/default-search` 收口，批次三十三 15/50
+
+- 产品目的：用户必须能在 Settings → Models & keys 选择一个真实 search key，真实完成 WebSearch，清除默认后回到 `Not set`，并在没有后端时得到可行动引导；API 不能持久化跨 workspace 或不存在的 key。
+- 首轮 stop-and-fix：旧二进制真实红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-070832` 对 source-owned key 和 `aki_missing_ep207` 均返回 `200` 并写入 dangling default。修复 `SetDefaultSearch` 先解析 path workspace，再以 path owner 重置 key existence checker；补 app 单测、platform 黑盒矩阵和 API 文档。
+- 真实绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-071305`，数据目录 `/private/tmp/anselm-data-ep207-default-search-fixed-20260811`：真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap、封口录屏均由同一 manifest 托管。cross-workspace/missing key 为 `404 API_KEY_NOT_FOUND`，unknown target 为 `404 WORKSPACE_NOT_FOUND`；target-owned Serper probe 为 `{ok:true, latencyMs:1}`。
+- 真实产品路径：Settings → Models & keys 选择 `EP207 Search Probe`，Chat 中 WebSearch 返回 `EP207 Search Result` / `https://example.com/ep207`，再 Clear 回显 `Not set`；再次搜索得到明确 no-backend guidance。SQLite 终态 target default 为空、target key 仍 `test_status=ok`、source workspace 未污染。
+- 五通道与视觉：录屏 `309.938333s / 2784x1808 / 60fps`；选择首反馈 `16.7ms`、清除 `50.0ms`，稳定 pair 在 `0.0005` 阈值下无 diff，contrast=`16.83:1/5.07:1/4.70:1`。backend 无应用 WARN/ERROR/panic/fatal/exception，frontend 仅已知 macOS foreground/IMK 噪声，SSE 记录两 workspace 的 notifications/messages/entities 接线及真实 durable message，llmtap 记录 managed challenge/install/models/quota 与十二次 completion `200`。
+- 验证：串行 Flutter focused test `18/18`、Go workspace/handler/platform、Flutter analyze、coverage、alarms、diff check 通过；并发 Flutter test/analyze 产生的工具临时目录异常不计作测试结果，单独重跑通过。完整证据为 session `evidence/EP-207-final-green.md`，独立复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-207-ledger-reaudit.md`。
+- 正式按 `measure:default-search-purpose / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-207=✓✓✓✓✓`，formal ledger `1725→1730 judgments`，`gen_coverage.py --check`=`848/339/0`，anchors=`10/10`。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立 re-audit 串行 ack，`alarms.py check`=`clean (1730)`；未改阈值/算法/法典/锚点/gate。批次三十三由 `10→15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-208。
+
+## 2026-08-11 — EP-206 `DELETE /api/v1/workspaces/{id}/default-models/{scenario}` 收口，批次三十三 10/50
+
+- 产品目的：用户必须能清掉 utility、agent、image、speech、video 等可恢复场景默认，不被 managed Anselm Auto 或暂时空的 capability catalog 卡死；dialogue 继续不提供 Clear，避免把 Chat 清到无法启动。
+- 首轮 stop-and-fix：真实 App 的 Utility → Change 只有 `Anselm Auto`，没有 Clear，旧 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-062950` 保留为红证据。修复 managed mode 根面和 empty-catalog zero state 的 Clear 入口，补 managed/empty/dialogue 三条 Flutter 守卫。
+- 真实绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-063528`，数据目录 `/private/tmp/anselm-data-ep206-default-model-clear-fix-20260811`：Computer Use 通过 Models & keys 真实点击 utility Clear，行回显 `Not set`；dialogue 展开只有 Auto 无 Clear。真实受管 `https://api.anselm.website` 的 challenge/install/models/quota 全部通过 llmtap 为 `200`。
+- REST/SQLite 真相：target 六个默认经 target header 写入后，用 source header 清 target path，六次 DELETE 全部 `200`；重复 dialogue 清除 `200`；`wizard` 为 `MODEL_SCENARIO_INVALID`；未知 target 为 `WORKSPACE_NOT_FOUND`；target REST 投影和 SQLite 六个 `default_*` 均为 null，managed key 行保留。
+- 五通道与视觉：录屏 `204.325000s / 2784x1808 / 60fps`，scenario ROI 变化 `changedFrac=0.05168`、box=`(1048,1333)-(1790,1644)`，清除后稳定帧无超阈变化，primary/secondary contrast=`16.67:1/5.33:1`；backend 无应用 panic，frontend 仅既有 macOS debug/IMK 噪声，SSE 三流均连接且不虚构 settings durable event。关键帧、REST 回执和测量均在 session `evidence/`。
+- 正式按 `measure:default-model-clear-purpose / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-206=✓✓✓✓✓`，formal ledger `1720→1725 judgments`，`gen_coverage.py --check` 当前应为 `848/338/0`。`gap-too-fast` 与 `discovery-collapse` 每次写账均触发，均由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-206-ledger-reaudit.md` 重审后串行 ack；未改阈值/算法/法典/锚点/gate。批次三十三由 `5→10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-207。
+
+## 2026-08-11 — EP-205 `PUT /api/v1/workspaces/{id}/default-models/{scenario}` 收口，批次三十三 5/50
+
+- 产品目的：用户必须能把 dialogue、utility、agent、image、speech、video 六个场景绑定到正确 workspace 的默认 key/model，并把受管免费档额度读成可理解的人话；路径主体不能被 workspace header 偷换。
+- 首轮 stop-and-fix：真实 Models & keys 画面把 `1000000000` 和 ISO reset 时间直出，违反 E5。新增 locale-aware `fmtCompactCount`、en/zh-CN widget 断言和 settings 文档；同时修复 SetDefault 先按请求 context 校验、可能用错 workspace key 的 path-owner 缺陷，补 app 与 black-box 守卫。
+- 真实绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260811-060054`，数据目录 `/private/tmp/anselm-data-ep205-quota-fix-20260811`：真实 Flutter macOS App、Computer Use、真实受管 `https://api.anselm.website`、三路独立 ssetap、backend/frontend journals、llmtap 和封口录屏。英文显示 `0 / 1B · resets 2026-09-01 00:00`，中文显示 `0 / 10亿 · 2026-09-01 00:00 重置`，六个 scenario 均为 `anselm-auto · Anselm Free`。
+- REST/SQLite 真相：target path 写入六槽后均回读 target key/model；target path + source key 为 `404 API_KEY_NOT_FOUND` 且不污染 target；unknown target 为 `404 WORKSPACE_NOT_FOUND`；source 不变，SQLite 六个 `default_*` 均为 `aki_4cde4584c8d0b4d2` + `anselm-auto`。完整证据为 session `evidence/EP-205-final-green.md`，首轮红画面仍在 `20260811-053125/evidence/EP-205-final-ui.png`。
+- 五通道与视觉：录屏 `154.625000s / 2784x1808 / 60fps`，app-valid 稳定段 43 帧无超阈值 diff，保守 action→首反馈 `33.3ms`，contrast=`16.83:1/5.07:1`；backend/frontend 无应用红线，SSE 三流接线且无虚构 settings durable event，llmtap challenge/install/models/quota 均真实 `200`，不虚构 completion。`rig-check`、定向 Go、Flutter、black-box 和 anchors `10/10` 通过。
+- 正式按 `measure:default-model-purpose / F2 / A1 / C4 / G1` 写入 `COVERAGE EP-205=✓✓✓✓✓`，formal ledger `1715→1720 judgments`，`gen_coverage.py --check`=`848/337/0`。`gap-too-fast`/`discovery-collapse` 由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-205-ledger-reaudit.md` 独立复核并 ack，`alarms.py check` clean；未改阈值/算法/法典/锚点/gate。批次三十三由 `0→5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 EP-206。
+
 ## 2026-08-11 — EP-204 `GET /api/v1/workspaces/{id}/stats` 收口，批次三十二 50/50
 
 - 产品目的：删除 workspace 前必须显示将被删除的真实内容；空 workspace、未知 workspace、跨 header 误导和 blob 盘点超时都要给出诚实且可解释的结果，不能把未知体积伪装成零。

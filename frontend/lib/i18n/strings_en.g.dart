@@ -5294,6 +5294,24 @@ class Translations$settings$keys$en {
 	/// en: 'Unlink it here first:'
 	String get inUseHint => 'Unlink it here first:';
 
+	/// en: 'Dialogue default model'
+	String get referenceDialogue => 'Dialogue default model';
+
+	/// en: 'Utility default model'
+	String get referenceUtility => 'Utility default model';
+
+	/// en: 'Agent default model'
+	String get referenceAgent => 'Agent default model';
+
+	/// en: 'Default search key'
+	String get referenceSearch => 'Default search key';
+
+	/// en: 'Agent override'
+	String get referenceAgentOverride => 'Agent override';
+
+	/// en: 'Another setting'
+	String get referenceUnknown => 'Another setting';
+
 	/// en: 'Delete key'
 	String get deleteKeyTitle => 'Delete key';
 
@@ -9366,6 +9384,12 @@ extension on Translations {
 			'settings.keys.rotatePlaceholder' => 'Leave empty to keep the current key',
 			'settings.keys.inUseTitle' => 'This key is still referenced',
 			'settings.keys.inUseHint' => 'Unlink it here first:',
+			'settings.keys.referenceDialogue' => 'Dialogue default model',
+			'settings.keys.referenceUtility' => 'Utility default model',
+			'settings.keys.referenceAgent' => 'Agent default model',
+			'settings.keys.referenceSearch' => 'Default search key',
+			'settings.keys.referenceAgentOverride' => 'Agent override',
+			'settings.keys.referenceUnknown' => 'Another setting',
 			'settings.keys.deleteKeyTitle' => 'Delete key',
 			'settings.keys.deleteKeyBody' => ({required Object name}) => 'This deletes “${name}” permanently.',
 			'settings.keys.confirmDelete' => 'Delete',
@@ -9586,14 +9610,14 @@ extension on Translations {
 			'settings.storage.revealFinder' => 'Reveal in Finder',
 			'settings.storage.diskUsage' => 'Disk usage',
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.diskLoadFailed' => 'Couldn\'t read sandbox disk usage',
 			'settings.storage.openLogs' => 'Open logs folder',
 			'settings.storage.retention' => 'Run history retention',
 			'settings.storage.retentionDesc' => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.',
 			'settings.storage.retention30' => '30 days',
 			'settings.storage.retention90' => '90 days',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.retention180' => '180 days',
 			'settings.storage.retentionForever' => 'Keep forever',
 			'settings.storage.retentionSaved' => 'Retention updated',

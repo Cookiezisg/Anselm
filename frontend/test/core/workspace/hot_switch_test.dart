@@ -33,6 +33,7 @@ class _FakeStartup extends BackendStartup {
 /// A Dio adapter serving a fixed two-workspace list — the bootstrap's world. 双 ws 固定世界。
 class _WorkspacesAdapter implements HttpClientAdapter {
   int listCalls = 0;
+  int activationCalls = 0;
 
   static Map<String, dynamic> _ws(String id, String name) => {
     'id': id,
@@ -48,7 +49,20 @@ class _WorkspacesAdapter implements HttpClientAdapter {
     Stream<List<int>>? requestStream,
     Future<void>? cancelFuture,
   ) async {
-    listCalls++;
+    if (options.method == 'POST' && options.path.endsWith(':activate')) {
+      activationCalls++;
+      final id = options.path.contains('/ws_2:activate') ? 'ws_2' : 'ws_1';
+      return ResponseBody.fromString(
+        jsonEncode({'data': _ws(id, id == 'ws_2' ? 'Two' : 'One')}),
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
+    if (options.method == 'GET' && options.path == '/api/v1/workspaces') {
+      listCalls++;
+    }
     return ResponseBody.fromString(
       jsonEncode({
         'data': [_ws('ws_1', 'One'), _ws('ws_2', 'Two')],
@@ -87,6 +101,15 @@ class _RecordingAdapter implements HttpClientAdapter {
     // `/conversations/<id>` 给对话形状的响应体,其余给空页。初稿对**一切**都答 `{data: []}`,
     // `getConversation` 解析不了、控制器的错误路径又读了一次——而守卫把那一次当成了它正在追捕的东西的证据。
     // 是一次**完全不切换**的对照跑把这件事暴露出来的;没有它,本测试会「证明」一个由它自己的夹具制造的缺陷。
+    if (options.path.endsWith(':activate')) {
+      return ResponseBody.fromString(
+        jsonEncode({'data': <String, dynamic>{}}),
+        200,
+        headers: {
+          Headers.contentTypeHeader: [Headers.jsonContentType],
+        },
+      );
+    }
     final m = RegExp(r'/conversations/([^/]+)$').firstMatch(options.path);
     final body = m == null
         ? {'data': <dynamic>[]}
@@ -233,6 +256,11 @@ void main() {
       final first = await c.read(workspaceBootstrapProvider.future);
       expect(first, 'ws_1');
       expect(c.read(activeWorkspaceProvider), 'ws_1');
+      expect(
+        adapter.activationCalls,
+        1,
+        reason: 'cold start must record the selected workspace',
+      );
       final listsAfterBoot = adapter.listCalls;
 
       c.read(activeWorkspaceProvider.notifier).set('ws_2');
@@ -286,6 +314,7 @@ void main() {
   testWidgets(
     'the switch action: leave the deep link first, then set the axis',
     (tester) async {
+      final adapter = _RecordingAdapter();
       final router = GoRouter(
         routes: [
           GoRoute(path: '/', builder: (_, _) => const SizedBox()),
@@ -293,7 +322,11 @@ void main() {
         ],
         initialLocation: '/library/doc_old',
       );
-      final c = _container(router: router);
+      final c = _container(
+        dio: Dio(BaseOptions(baseUrl: 'http://127.0.0.1:1'))
+          ..httpClientAdapter = adapter,
+        router: router,
+      );
       await tester.pumpWidget(
         UncontrolledProviderScope(
           container: c,
@@ -310,6 +343,12 @@ void main() {
       );
       expect(c.read(activeWorkspaceProvider), 'ws_2');
       expect(c.read(activeWorkspaceNameProvider), 'Two');
+      expect(
+        adapter.hits('/api/v1/workspaces/ws_2:activate'),
+        1,
+        reason:
+            'the one active-workspace writer owns the durable recency write',
+      );
 
       // Same-id switch is a no-op (no navigation). 同 id 切换不动路由。
       router.go('/library/doc_new');

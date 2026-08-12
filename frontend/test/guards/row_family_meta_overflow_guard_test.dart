@@ -1,9 +1,11 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/model/status_state.dart';
+import 'package:anselm/core/ui/an_chip.dart';
 import 'package:anselm/core/ui/an_menu.dart';
 import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_row.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/chat/ui/chat_transcript.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -147,6 +149,59 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+
+  // The real Models & Keys row carries a status chip plus three provider actions. The old labelled
+  // buttons overflowed the same 208px trail on the real app. The actions are intentionally glyph-only:
+  // their semantic labels and dwell tooltips keep the affordance discoverable without making the row
+  // reflow or clipping a button.
+  // Models & Keys 真正的行是状态胶囊+三个 provider 动作。旧的带文案按钮在真机同一个 208px trail 溢出。
+  // 现在刻意用纯字形:语义标签和驻留 tooltip 保留可发现性,不让行重排或裁掉按钮。
+  testWidgets('AnRow: compact key actions fit the narrow trail', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        AnRow(
+          label: 'provider key',
+          meta: 'openai · sk-••••••••',
+          onSelect: () {},
+          actions: [
+            const AnChip('Untested'),
+            const SizedBox(width: AnSpace.s2),
+            AnButton.iconOnly(
+              AnIcons.probe,
+              semanticLabel: 'Test',
+              size: AnButtonSize.sm,
+              onPressed: () {},
+            ),
+            const SizedBox(width: AnSpace.s2),
+            AnButton.iconOnly(
+              AnIcons.edit,
+              semanticLabel: 'Edit',
+              size: AnButtonSize.sm,
+              onPressed: () {},
+            ),
+            const SizedBox(width: AnSpace.s2),
+            AnButton.iconOnly(
+              AnIcons.trash,
+              semanticLabel: 'Delete',
+              size: AnButtonSize.sm,
+              variant: AnButtonVariant.danger,
+              onPressed: () {},
+            ),
+          ],
+        ),
+        width: 208,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester.takeException(),
+      isNull,
+      reason:
+          'the real key-row action set must fit the narrow 208px trail without a RenderFlex overflow',
+    );
   });
 
   // The trailing STATUS DOT case — found by the WRK-083 real-machine sweep as a 5.8px overflow, which

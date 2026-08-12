@@ -6,6 +6,7 @@ import os
 import subprocess
 import sys
 import tempfile
+from concurrent.futures import ThreadPoolExecutor
 import unittest
 from pathlib import Path
 
@@ -52,6 +53,50 @@ class JudgeRetryTests(unittest.TestCase):
             self.assertEqual(len(journal), 1)
             self.assertEqual(json.loads(journal[0])["item"], "Retry fixture")
             self.assertIn("TOOL|Retry fixture", first.stdout)
+
+    def test_concurrent_levels_preserve_every_cell(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            codex = home / "CODEX.md"
+            rig_home = home / "rig"
+            coverage.write_text("| TOOL-001 | Concurrent fixture | test | ····· |  |\n")
+            codex.write_text("")
+            env = os.environ | {
+                "RIG_COVERAGE": str(coverage),
+                "RIG_CODEX": str(codex),
+                "RIG_HOME": str(rig_home),
+            }
+
+            def run(level):
+                return subprocess.run(
+                    [
+                        sys.executable,
+                        str(JUDGE),
+                        "Concurrent fixture",
+                        "--family",
+                        "TOOL",
+                        "--level",
+                        str(level),
+                        "--verdict",
+                        "na",
+                        "--evidence",
+                        f"note:level {level} is not applicable",
+                    ],
+                    env=env,
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+
+            with ThreadPoolExecutor(max_workers=5) as pool:
+                results = list(pool.map(run, range(1, 6)))
+
+            self.assertTrue(all(result.returncode == 0 for result in results))
+            self.assertIn("~~~~~", coverage.read_text())
+            journal = (rig_home / "judgments.jsonl").read_text().splitlines()
+            self.assertEqual(len(journal), 5)
+            self.assertEqual({json.loads(line)["level"] for line in journal}, set(range(1, 6)))
 
 
 if __name__ == "__main__":

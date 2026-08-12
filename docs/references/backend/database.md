@@ -206,7 +206,7 @@ workspace 谓词；workspace 隔离由专项测试覆盖。ID：`sd_`。
 | 表 | 关键列与约束 |
 |---|---|
 | `workspaces` | 全局 identity、语言、聊天/生成场景默认、默认搜索、web_fetch_mode |
-| `api_keys` | provider/model 配置与加密 secret、probe 元数据；软删 |
+| `api_keys` | provider/model 配置与加密 secret、probe 元数据；软删，删除时清空凭证与配置材料 |
 | `model_runtime_profiles` | model identity、不可逆 endpoint/credential/config 指纹、overflow 学习边界与 expiry |
 | `relations` | from/to kind+id 与 edge；派生结构边，实体 purge 时硬删 |
 | `notifications` | type、payload、read_at；只保存 Emit 档 |

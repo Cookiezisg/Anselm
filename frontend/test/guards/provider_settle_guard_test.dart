@@ -1,4 +1,7 @@
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/process/backend_controller.dart';
+import 'package:anselm/core/media/media_source.dart';
+import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/workspace/set_active_workspace.dart';
 import 'package:flutter/material.dart';
@@ -72,14 +75,62 @@ class _ClientConsumer extends ConsumerWidget {
   }
 }
 
+class _ReadAloudConsumer extends ConsumerWidget {
+  const _ReadAloudConsumer();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(readAloudAvailableProvider);
+    return const SizedBox.shrink();
+  }
+}
+
+class _GuardMediaSource implements MediaSource {
+  const _GuardMediaSource();
+
+  @override
+  Future<AttachmentMeta> meta(String id) => throw UnimplementedError();
+
+  @override
+  Future<List<int>> bytes(String id) => throw UnimplementedError();
+
+  @override
+  NativeFetchTarget nativeTarget(String id) => throw UnimplementedError();
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<bool> readAloudAvailable() async => false;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) =>
+      throw UnimplementedError();
+}
+
 void main() {
   testWidgets(
     'a workspace set outside build leaves nothing dirty for a later build to flush',
     (tester) async {
       final container = ProviderContainer(
-        overrides: [backendStartupProvider.overrideWith(_ReadyBackend.new)],
+        overrides: [
+          backendStartupProvider.overrideWith(_ReadyBackend.new),
+          mediaSourceProvider.overrideWith((ref) {
+            ref.watch(activeWorkspaceProvider);
+            return const _GuardMediaSource();
+          }),
+        ],
       );
       addTearDown(container.dispose);
+
+      // Start from an already selected workspace so the helper performs a real axis transition while
+      // the test uses `null` as the destination to avoid adding the separate HTTP bookkeeping concern.
+      // 先放一个已选 workspace,让 helper 真正经历一次轴翻转;目标用 null 是为了不把独立的 HTTP 记账带进本守卫。
+      container.read(activeWorkspaceProvider.notifier).set('ws_old');
 
       // Mount the client the way the bootstrap does — a plain read, no subscription of its own, but
       // enough to bring dio + apiClient into existence with apiClient subscribed to dio.
@@ -100,7 +151,7 @@ void main() {
       // is the whole difference between the two, stated as an executable fact.
       // bootstrap 在 await 之后的那次写,走**唯一**那个顺手摊平链条的入口。把这一行换成裸的
       // `activeWorkspaceProvider.notifier.set`,测试就会变红——两者的全部差别,写成一条可执行的事实。
-      container.read(_setter)('ws_1');
+      container.read(_setter)(null);
 
       // Now a feature mounts and first-watches the client — the frame where the lazy flush lands.
       // 现在一个 feature 挂载并首次 watch 客户端——懒刷新落地的那一帧。
@@ -117,6 +168,63 @@ void main() {
         reason:
             'the runtime chain must be settled before a widget build first watches it — '
             'otherwise the flush cascades into setState-during-build (WRK-083 L2)',
+      );
+    },
+  );
+
+  testWidgets(
+    'a workspace set leaves the media availability chain clean for a later build',
+    (tester) async {
+      final container = ProviderContainer(
+        overrides: [
+          backendStartupProvider.overrideWith(_ReadyBackend.new),
+          // The fake still watches the active workspace: only the HTTP wire is removed; the invalidation
+          // edge that caused the real `_ReadAloudSlot` crash stays present.
+          // fake 只去掉 HTTP 线缆,仍 watch active workspace;真实 `_ReadAloudSlot` 崩溃的失效边保留。
+          mediaSourceProvider.overrideWith((ref) {
+            ref.watch(activeWorkspaceProvider);
+            return const _GuardMediaSource();
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      container.read(activeWorkspaceProvider.notifier).set('ws_old');
+
+      // The real transcript keeps this provider alive after its first settled probe. That means a
+      // workspace switch invalidates the media source and the availability provider together; the
+      // next transcript row may be the first widget to walk the dirty chain.
+      // 真 transcript 的首个 settled 探测会让这个 provider 留在容器里。于是 workspace 切换会同时让
+      // media source 与 availability provider 失效;下一行 transcript 可能正是第一个走进脏链的 widget。
+      container.read(apiClientProvider);
+      container.read(readAloudAvailableProvider);
+
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: SizedBox.shrink()),
+        ),
+      );
+
+      container.read(_setter)(null);
+
+      // This is the production shape: `_ReadAloudSlot.build` first watches the provider after the
+      // switch. If the media descendant was not settled by the single workspace door, Riverpod
+      // schedules a provider-scope rebuild during this widget build and Flutter throws.
+      // 这就是生产形状:`_ReadAloudSlot.build` 在切换后首次 watch。若 workspace 门没有摊平媒体后代链,
+      // riverpod 会在本次 widget build 中调度 provider scope 重建,Flutter 就会抛异常。
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: const MaterialApp(home: _ReadAloudConsumer()),
+        ),
+      );
+
+      expect(
+        tester.takeException(),
+        isNull,
+        reason:
+            'the media availability chain must be settled before a transcript leaf first watches it',
       );
     },
   );

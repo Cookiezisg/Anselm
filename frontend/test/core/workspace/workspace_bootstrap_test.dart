@@ -65,17 +65,24 @@ Map<String, dynamic> _ws(String id, String name, {bool configured = false}) => {
 
 void main() {
   test('uses the first existing workspace + sets it active', () async {
-    final c = _container(
-      (o) => _json({
+    var activationPosts = 0;
+    final c = _container((o) {
+      if (o.method == 'POST' && o.uri.path.endsWith(':activate')) {
+        activationPosts++;
+        return _json({'data': <String, dynamic>{}});
+      }
+      return _json({
         'data': [
           _ws('ws_1', 'Personal', configured: true),
           _ws('ws_2', 'Work', configured: true),
         ],
-      }),
-    );
+      });
+    });
     final id = await c.read(workspaceBootstrapProvider.future);
     expect(id, 'ws_1');
     expect(c.read(activeWorkspaceProvider), 'ws_1');
+    await Future<void>.delayed(const Duration(milliseconds: 10));
+    expect(activationPosts, 1);
   });
 
   test(
@@ -83,8 +90,13 @@ void main() {
     () async {
       var workspacePosts = 0;
       var provisionPosts = 0;
+      var activationPosts = 0;
       final c = _container((o) {
         if (o.method == 'POST') {
+          if (o.uri.path.endsWith(':activate')) {
+            activationPosts++;
+            return _json({'data': <String, dynamic>{}});
+          }
           if (o.uri.path.endsWith('/workspaces')) {
             workspacePosts++;
             return _json({'data': _ws('ws_new', 'Fresh')}, 201);
@@ -111,6 +123,8 @@ void main() {
       expect(row.id, 'ws_new');
       expect(workspacePosts, 1);
       expect(provisionPosts, 1);
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+      expect(activationPosts, 1);
       expect(c.read(activeWorkspaceProvider), 'ws_new');
       expect(c.read(activeWorkspaceNameProvider), 'Fresh');
       expect(c.read(workspaceBootstrapProvider).value, 'ws_new');

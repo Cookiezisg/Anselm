@@ -32,7 +32,7 @@ audience: [human, ai]
 - `ApiClient` 统一注入 base URL、workspace header、loopback bearer 与错误 envelope；workspace/base URL 变化会重建客户端和三条 SSE。
 - `SseGateway` 只维护 `messages` / `entities` / `notifications` 三条 workspace 级连接，并在 plain Dart 层按 scope demux。
 - 顶带 `noticeCenterProvider` 是 app 内即时消息唯一出口；左岛通知托盘保存 durable 账本；未聚焦时后台事件可进入 OS 原生通知。
-- `core/overlay` 只保留确认类模态；旧右上 toast 展示层已退役。
+- `core/overlay` 只保留阻断式确认/说明模态；说明类弹窗只有一个中性关闭动作，不能伪装成危险确认；旧右上 toast 展示层已退役。
 
 ## 4. 本地持久化与安全
 

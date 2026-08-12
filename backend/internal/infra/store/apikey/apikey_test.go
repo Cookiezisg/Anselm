@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"testing"
+	"time"
 
 	_ "github.com/glebarez/go-sqlite"
 
@@ -148,6 +149,18 @@ func TestStore_Delete_SoftThenMiss(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")
 	seed(t, s, ctx, "aki_1", "openai", "a")
+	if _, err := s.repo.WhereEq("id", "aki_1").Updates(ctx, map[string]any{
+		"key_encrypted":  "ciphertext",
+		"key_masked":     "sk-xxxx",
+		"base_url":       "https://example.test/v1",
+		"api_format":     "openai-compatible",
+		"test_status":    "ok",
+		"test_error":     "old error",
+		"test_response":  `{"data":[{"id":"model"}]}`,
+		"last_tested_at": time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("seed credential material: %v", err)
+	}
 
 	if err := s.Delete(ctx, "aki_1"); err != nil {
 		t.Fatalf("delete: %v", err)
@@ -157,5 +170,19 @@ func TestStore_Delete_SoftThenMiss(t *testing.T) {
 	}
 	if err := s.Delete(ctx, "aki_1"); !errors.Is(err, apikeydomain.ErrNotFound) {
 		t.Errorf("re-delete should ErrNotFound, err = %v", err)
+	}
+
+	// The audit identity remains unscoped, but no credential/config/probe material may remain.
+	// 审计身份可由 unscoped 读到，但凭证、连接配置和探测材料必须全部清空。
+	got, err := s.repo.Unscoped().WhereEq("id", "aki_1").First(ctx)
+	if err != nil {
+		t.Fatalf("unscoped deleted row: %v", err)
+	}
+	if got.DeletedAt == nil {
+		t.Fatal("deleted_at should be set")
+	}
+	if got.KeyEncrypted != "" || got.KeyMasked != "" || got.BaseURL != "" || got.APIFormat != "" ||
+		got.TestStatus != "" || got.TestError != "" || got.TestResponse != "" || got.LastTestedAt != nil {
+		t.Errorf("deleted api key retained material: %+v", got)
 	}
 }

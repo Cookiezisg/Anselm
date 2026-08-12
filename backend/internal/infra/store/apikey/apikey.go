@@ -101,11 +101,28 @@ func (s *Store) Save(ctx context.Context, k *apikeydomain.APIKey) error {
 }
 
 func (s *Store) Delete(ctx context.Context, id string) error {
-	found, err := s.repo.Delete(ctx, id)
+	// API keys are soft-deleted for audit identity, but credential material must not survive the
+	// user-visible permanent delete. Keep this as one UPDATE so a cancellation or SQL failure cannot
+	// leave an active row with its secret already scrubbed.
+	// API key 保留软删审计身份，但用户看到的永久删除不能留下凭证材料。所有字段在一条 UPDATE 中完成，避免
+	// 取消或 SQL 失败造成「活跃行还在、secret 已先被清空」的半状态。
+	now := time.Now().UTC()
+	fields := map[string]any{
+		"key_encrypted":  "",
+		"key_masked":     "",
+		"base_url":       "",
+		"api_format":     "",
+		"test_status":    "",
+		"test_error":     "",
+		"test_response":  "",
+		"last_tested_at": nil,
+		"deleted_at":     now,
+	}
+	found, err := s.repo.WhereEq("id", id).Updates(ctx, fields)
 	if err != nil {
 		return fmt.Errorf("apikeystore.Delete: %w", err)
 	}
-	if !found {
+	if found == 0 {
 		return apikeydomain.ErrNotFound
 	}
 	return nil

@@ -2152,6 +2152,12 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get rotatePlaceholder => '留空则不更换密钥';
 	@override String get inUseTitle => '此密钥仍被引用';
 	@override String get inUseHint => '先在以下位置解除引用:';
+	@override String get referenceDialogue => '对话默认模型';
+	@override String get referenceUtility => '工具默认模型';
+	@override String get referenceAgent => 'Agent 默认模型';
+	@override String get referenceSearch => '默认搜索密钥';
+	@override String get referenceAgentOverride => 'Agent 覆盖';
+	@override String get referenceUnknown => '其他设置';
 	@override String get deleteKeyTitle => '删除密钥';
 	@override String deleteKeyBody({required Object name}) => '将删除「${name}」,不可恢复。';
 	@override String get confirmDelete => '删除';
@@ -4951,6 +4957,12 @@ extension on TranslationsZhCn {
 			'settings.keys.rotatePlaceholder' => '留空则不更换密钥',
 			'settings.keys.inUseTitle' => '此密钥仍被引用',
 			'settings.keys.inUseHint' => '先在以下位置解除引用:',
+			'settings.keys.referenceDialogue' => '对话默认模型',
+			'settings.keys.referenceUtility' => '工具默认模型',
+			'settings.keys.referenceAgent' => 'Agent 默认模型',
+			'settings.keys.referenceSearch' => '默认搜索密钥',
+			'settings.keys.referenceAgentOverride' => 'Agent 覆盖',
+			'settings.keys.referenceUnknown' => '其他设置',
 			'settings.keys.deleteKeyTitle' => '删除密钥',
 			'settings.keys.deleteKeyBody' => ({required Object name}) => '将删除「${name}」,不可恢复。',
 			'settings.keys.confirmDelete' => '删除',
@@ -5171,14 +5183,14 @@ extension on TranslationsZhCn {
 			'settings.storage.revealFinder' => '在访达中显示',
 			'settings.storage.diskUsage' => '磁盘占用',
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
+			_ => null,
+		} ?? switch (path) {
 			'settings.storage.diskLoadFailed' => '无法读取沙箱磁盘占用',
 			'settings.storage.openLogs' => '打开日志文件夹',
 			'settings.storage.retention' => 'Run 历史保留',
 			'settings.storage.retentionDesc' => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。',
 			'settings.storage.retention30' => '30 天',
 			'settings.storage.retention90' => '90 天',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.retention180' => '180 天',
 			'settings.storage.retentionForever' => '永久保留',
 			'settings.storage.retentionSaved' => '保留策略已更新',

@@ -1,12 +1,22 @@
+import 'package:anselm/core/contract/attachment.dart';
 import 'package:anselm/core/contract/api_key.dart';
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/an_section.dart';
+import 'package:anselm/core/ui/an_setting_row.dart';
 import 'package:anselm/core/ui/an_switch.dart';
+import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/core/contract/workspace.dart';
 import 'package:anselm/core/model/model_capabilities.dart';
+import 'package:anselm/core/model/number_format.dart';
+import 'package:anselm/core/model/time_format.dart';
+import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/contract/model_capability.dart';
+import 'package:anselm/core/media/media_source.dart';
+import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/state/api_keys_provider.dart';
@@ -24,23 +34,60 @@ import 'package:flutter_test/flutter_test.dart';
 Widget _host(
   FixtureSettingsRepository repo, {
   List<ModelCapability>? capabilities,
-}) => ProviderScope(
-  overrides: [
-    settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
-    settingsRepositoryProvider.overrideWithValue(repo),
-    if (capabilities != null)
-      modelCapabilitiesProvider.overrideWith((ref) async => capabilities),
-  ],
-  child: TranslationProvider(
-    child: MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AnTheme.light(),
-      home: const Scaffold(
-        body: SingleChildScrollView(child: ModelsKeysPanel()),
+}) {
+  final navigatorKey = GlobalKey<NavigatorState>();
+  return ProviderScope(
+    overrides: [
+      settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+      settingsRepositoryProvider.overrideWithValue(repo),
+      if (capabilities != null)
+        modelCapabilitiesProvider.overrideWith((ref) async => capabilities),
+    ],
+    child: TranslationProvider(
+      child: AnOverlayHost(
+        navigatorKey: navigatorKey,
+        child: MaterialApp(
+          navigatorKey: navigatorKey,
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: const Scaffold(
+            body: SingleChildScrollView(child: ModelsKeysPanel()),
+          ),
+        ),
       ),
     ),
-  ),
-);
+  );
+}
+
+class _AvailabilitySource implements MediaSource {
+  var availabilityCalls = 0;
+
+  @override
+  Future<AttachmentMeta> meta(String id) => throw UnimplementedError();
+
+  @override
+  Future<List<int>> bytes(String id) => throw UnimplementedError();
+
+  @override
+  NativeFetchTarget nativeTarget(String id) => throw UnimplementedError();
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) => throw UnimplementedError();
+
+  @override
+  Future<bool> readAloudAvailable() async {
+    availabilityCalls++;
+    return false;
+  }
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) =>
+      throw UnimplementedError();
+}
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
@@ -105,6 +152,264 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(t.settings.keys.freeUnavailable), findsOneWidget);
     });
+
+    testWidgets(
+      'quota copy humanizes large counts and ISO reset timestamps in both locales',
+      (tester) async {
+        final repo = FixtureSettingsRepository()
+          ..quota = const FreetierQuota(
+            limit: 1000000000,
+            used: 12345678,
+            remaining: 987654322,
+            resetAt: '2026-09-01T00:00:00+08:00',
+          );
+
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            t.settings.keys.freeUsage(
+              used: fmtCompactCount(12345678, locale: 'zh-CN'),
+              limit: fmtCompactCount(1000000000, locale: 'zh-CN'),
+              reset: fmtStamp('2026-09-01T00:00:00+08:00'),
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('1000000000'), findsNothing);
+        expect(find.textContaining('2026-09-01T00:00:00+08:00'), findsNothing);
+
+        await LocaleSettings.setLocaleRaw('en');
+        await tester.pumpAndSettle();
+        expect(
+          find.text(
+            t.settings.keys.freeUsage(
+              used: fmtCompactCount(12345678, locale: 'en'),
+              limit: fmtCompactCount(1000000000, locale: 'en'),
+              reset: fmtStamp('2026-09-01T00:00:00+08:00'),
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(find.textContaining('1000000000'), findsNothing);
+        expect(find.textContaining('2026-09-01T00:00:00+08:00'), findsNothing);
+
+        await LocaleSettings.setLocaleRaw('zh-CN');
+      },
+    );
+
+    testWidgets(
+      'API_KEY_IN_USE presents human reference labels instead of wire kinds',
+      (tester) async {
+        final now = DateTime.utc(2026, 7, 9);
+        final repo = FixtureSettingsRepository()
+          ..keys.add(
+            ApiKey(
+              id: 'aki_ref',
+              provider: 'openai',
+              displayName: 'referenced',
+              testStatus: 'ok',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          )
+          ..failNextKeyOp = const ApiException(
+            code: 'API_KEY_IN_USE',
+            message: 'api key is referenced and cannot be deleted',
+            httpStatus: 422,
+            details: {
+              'references': [
+                {
+                  'kind': 'scenario_default',
+                  'id': 'dialogue',
+                  'name': 'dialogue',
+                },
+                {
+                  'kind': 'search_default',
+                  'id': 'search',
+                  'name': 'default search',
+                },
+                {
+                  'kind': 'agent_override',
+                  'id': 'ag_1',
+                  'name': 'Research agent',
+                },
+              ],
+            },
+          );
+
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+        final keyRow = find.widgetWithText(AnRow, 'referenced');
+        final deleteButton = find.descendant(
+          of: keyRow,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnButton &&
+                widget.semanticLabel == t.settings.keys.deleteKey &&
+                widget.icon == AnIcons.trash &&
+                widget.variant == AnButtonVariant.danger,
+          ),
+        );
+        expect(deleteButton, findsWidgets);
+        // AnRow keeps both hover-swap layers mounted to preserve geometry; either callback is the
+        // same action, so invoke the last mounted button without depending on hidden-layer hit testing.
+        // AnRow 为保持几何同时挂两层 hover swap;两层回调相同,不让测试依赖隐藏层命中。
+        tester.widget<AnButton>(deleteButton.last).onPressed!();
+        await tester.pumpAndSettle();
+        final dialogTitle = find.text(t.settings.keys.deleteKeyTitle);
+        expect(dialogTitle, findsOneWidget);
+        final dialog = find.ancestor(
+          of: dialogTitle,
+          matching: find.byType(Semantics),
+        );
+        expect(dialog, findsWidgets);
+        final confirmButton = find.descendant(
+          of: dialog.first,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnButton &&
+                widget.label == t.settings.keys.confirmDelete &&
+                widget.variant == AnButtonVariant.danger,
+          ),
+        );
+        expect(confirmButton, findsOneWidget);
+        // The row action remains mounted below the route; invoke the dialog's mounted callback
+        // directly so the test does not hit the inert hover layer or the obscured row.
+        // 行动作仍挂在 route 下方;直接调用弹窗回调,不命中惰性 hover 层或被遮挡的行。
+        tester.widget<AnButton>(confirmButton.first).onPressed!();
+        await tester.pumpAndSettle();
+
+        final inUseDialog = find
+            .ancestor(
+              of: find.text(t.settings.keys.inUseTitle),
+              matching: find.byType(Semantics),
+            )
+            .first;
+        expect(inUseDialog, findsOneWidget);
+        expect(
+          find.descendant(
+            of: inUseDialog,
+            matching: find.text(t.feedback.dismiss),
+          ),
+          findsOneWidget,
+          reason: '引用说明只给一个中性关闭动作',
+        );
+        expect(
+          find.descendant(
+            of: inUseDialog,
+            matching: find.text(t.settings.keys.cancel),
+          ),
+          findsNothing,
+          reason: '信息弹窗不应出现重复的取消按钮',
+        );
+        expect(
+          find.descendant(
+            of: inUseDialog,
+            matching: find.textContaining(t.settings.keys.referenceDialogue),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: inUseDialog,
+            matching: find.textContaining(t.settings.keys.referenceSearch),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: inUseDialog,
+            matching: find.textContaining(
+              '${t.settings.keys.referenceAgentOverride} · Research agent',
+            ),
+          ),
+          findsOneWidget,
+        );
+        expect(
+          find.descendant(
+            of: inUseDialog,
+            matching: find.textContaining('scenario_default'),
+          ),
+          findsNothing,
+        );
+      },
+    );
+
+    testWidgets(
+      'confirming delete removes only the named key after the explicit warning',
+      (tester) async {
+        final now = DateTime.utc(2026, 7, 9);
+        const target = 'EP-213 UI Delete Positive';
+        final repo = FixtureSettingsRepository()
+          ..keys.addAll([
+            ApiKey(
+              id: 'aki_target',
+              provider: 'openai',
+              displayName: target,
+              testStatus: 'ok',
+              createdAt: now,
+              updatedAt: now,
+            ),
+            ApiKey(
+              id: 'aki_keep',
+              provider: 'deepseek',
+              displayName: 'keep-key',
+              testStatus: 'ok',
+              createdAt: now,
+              updatedAt: now,
+            ),
+          ]);
+
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+
+        final keyRow = find.widgetWithText(AnRow, target);
+        final deleteButton = find.descendant(
+          of: keyRow,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnButton &&
+                widget.semanticLabel == t.settings.keys.deleteKey &&
+                widget.icon == AnIcons.trash &&
+                widget.variant == AnButtonVariant.danger,
+          ),
+        );
+        expect(deleteButton, findsWidgets);
+
+        // Invoke the mounted hover action directly; the real mouse path remains a rig obligation.
+        // 直接调用仍挂载的 hover 动作;真实鼠标路径仍由台架负责闭合。
+        tester.widget<AnButton>(deleteButton.last).onPressed!();
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(t.settings.keys.deleteKeyBody(name: target)),
+          findsOneWidget,
+          reason: '确认框必须点名当前将被永久删除的 key',
+        );
+        final dialogTitle = find.text(t.settings.keys.deleteKeyTitle);
+        final dialog = find.ancestor(
+          of: dialogTitle,
+          matching: find.byType(Semantics),
+        );
+        final confirmButton = find.descendant(
+          of: dialog.first,
+          matching: find.byWidgetPredicate(
+            (widget) =>
+                widget is AnButton &&
+                widget.label == t.settings.keys.confirmDelete &&
+                widget.variant == AnButtonVariant.danger,
+          ),
+        );
+        expect(confirmButton, findsOneWidget);
+        tester.widget<AnButton>(confirmButton.first).onPressed!();
+        await tester.pumpAndSettle();
+
+        expect(repo.keys.map((k) => k.displayName), ['keep-key']);
+        expect(find.widgetWithText(AnRow, target), findsNothing);
+        expect(find.widgetWithText(AnRow, 'keep-key'), findsOneWidget);
+      },
+    );
   });
 
   group('密钥列表 key list', () {
@@ -143,11 +448,10 @@ void main() {
           find.textContaining(t.settings.keys.managedBadge),
           findsOneWidget,
         );
-        // Edit/delete belong to the BYOK row and to NO managed row. Asserted per ROW, not by counting
-        // the panel: the panel also hosts the cloned-voice card, whose rows carry their own Delete, so
-        // a bare count would answer a question about the whole page instead of about these two rows.
-        // 编辑/删除属 BYOK 行、且**任何**受管行都没有。**逐行**断言而非数整页:本面还住着克隆音色卡、
-        // 它的行自带删除,故光数个数是在回答「整页」的问题、而不是这两行的问题。
+        // Edit/delete belong to the BYOK row and to NO managed row. Assert the semantic action rather
+        // than visible text: the narrow row uses glyph buttons, whose tooltip/a11y label is the copy.
+        // 编辑/删除属 BYOK 行、且**任何**受管行都没有。断言语义动作而非可见文字:窄行用纯字形钮,
+        // tooltip/a11y label 才是它的文案副本。
         for (final (row, present) in [('mine', true), ('Anselm Free', false)]) {
           for (final label in [
             t.settings.keys.editKey,
@@ -156,9 +460,12 @@ void main() {
             expect(
               find.descendant(
                 of: find.widgetWithText(AnRow, row),
-                matching: find.text(label),
+                matching: find.byWidgetPredicate(
+                  (widget) =>
+                      widget is AnButton && widget.semanticLabel == label,
+                ),
               ),
-              present ? findsOneWidget : findsNothing,
+              present ? findsWidgets : findsNothing,
               reason: '$row · $label',
             );
           }
@@ -221,7 +528,11 @@ void main() {
           id: boundId,
           category: null,
         ), reason: '行点击=编辑该行');
-        await tester.enterText(find.byType(TextField).at(0), 'renamed');
+        final editInputs = find.byType(TextField);
+        await tester.enterText(editInputs.at(0), 'renamed');
+        // Clearing an existing optional URL must survive the edit PATCH instead of being treated as
+        // "field omitted". 清空已有可选地址必须真正落到 PATCH，而不是被当成「字段缺席」。
+        await tester.enterText(editInputs.at(2), '');
         await tester.ensureVisible(find.text(t.settings.keys.saveKey));
         await tester.pumpAndSettle();
         await tester.tap(find.text(t.settings.keys.saveKey));
@@ -232,6 +543,11 @@ void main() {
           reason: '重试/编辑 PATCH 同一行,绝不二次 POST',
         );
         expect(repo.keys.single.displayName, 'renamed');
+        expect(
+          repo.keys.single.baseUrl,
+          isEmpty,
+          reason: '编辑态清空 Base URL 必须持久化',
+        );
       },
     );
   });
@@ -263,9 +579,149 @@ void main() {
       await c.read(modelCapabilitiesProvider.future);
       expect(fetches, 2, reason: 'key 变更 → 能力目录重取(S-15)');
     });
+
+    test('a key mutation also invalidates read-aloud availability', () async {
+      final source = _AvailabilitySource();
+      final c = ProviderContainer(
+        overrides: [
+          settingsRepositoryProvider.overrideWithValue(
+            FixtureSettingsRepository(),
+          ),
+          mediaSourceProvider.overrideWithValue(source),
+        ],
+      );
+      addTearDown(c.dispose);
+
+      await c.read(readAloudAvailableProvider.future);
+      expect(source.availabilityCalls, 1);
+      c.listen(readAloudAvailableProvider, (_, _) {});
+
+      await c
+          .read(apiKeysProvider.notifier)
+          .create(provider: 'openai', displayName: 'k', key: 'sk-1');
+      await c.pump();
+      await c.read(readAloudAvailableProvider.future);
+      expect(source.availabilityCalls, 2, reason: 'key 变更 → 朗读可用性重探,否则新能力不会现身');
+    });
   });
 
   group('默认模型模式 default model mode', () {
+    testWidgets(
+      'utility clear returns to unset while dialogue has no clear affordance',
+      (tester) async {
+        final repo = FixtureSettingsRepository(
+          workspace: Workspace(
+            id: 'ws_clear',
+            name: 'Clear defaults',
+            language: 'zh-CN',
+            defaultDialogue: const ModelRef(
+              apiKeyId: 'aki_dialogue',
+              modelId: 'dialogue-model',
+            ),
+            defaultUtility: const ModelRef(
+              apiKeyId: 'aki_utility',
+              modelId: 'utility-model',
+            ),
+            createdAt: DateTime(2026, 7, 1),
+            updatedAt: DateTime(2026, 7, 1),
+          ),
+        );
+        const managed = ModelCapability(
+          apiKeyId: 'aki_utility',
+          keyName: 'Anselm Free',
+          provider: 'anselm',
+          modelId: 'utility-model',
+          displayName: 'Anselm Auto',
+        );
+        await tester.pumpWidget(_host(repo, capabilities: const [managed]));
+        await tester.pumpAndSettle();
+
+        final dialogueRow = find.ancestor(
+          of: find.text(t.settings.keys.scenarioDialogue),
+          matching: find.byType(AnSettingRow),
+        );
+        await tester.ensureVisible(dialogueRow);
+        await tester.tap(
+          find.descendant(
+            of: dialogueRow,
+            matching: find.text(t.settings.keys.pickerChange),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.descendant(
+            of: dialogueRow,
+            matching: find.text(t.settings.keys.clearDefault),
+          ),
+          findsNothing,
+          reason: 'dialogue 清除会让 Chat 失去启动路由，产品上不提供该自伤动作',
+        );
+
+        final utilityRow = find.ancestor(
+          of: find.text(t.settings.keys.scenarioUtility),
+          matching: find.byType(AnSettingRow),
+        );
+        await tester.ensureVisible(utilityRow);
+        await tester.tap(
+          find.descendant(
+            of: utilityRow,
+            matching: find.text(t.settings.keys.pickerChange),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(t.settings.keys.clearDefault));
+        await tester.pumpAndSettle();
+
+        expect(repo.workspace.defaultUtility, isNull);
+        expect(
+          find.descendant(
+            of: utilityRow,
+            matching: find.text(t.settings.keys.noDefault),
+          ),
+          findsOneWidget,
+        );
+      },
+    );
+
+    testWidgets(
+      'a stale clearable default stays recoverable when the capability catalog is empty',
+      (tester) async {
+        final repo = FixtureSettingsRepository(
+          workspace: Workspace(
+            id: 'ws_clear_empty',
+            name: 'Clear defaults without catalog',
+            language: 'zh-CN',
+            defaultUtility: const ModelRef(
+              apiKeyId: 'aki_missing',
+              modelId: 'missing-model',
+            ),
+            createdAt: DateTime(2026, 7, 1),
+            updatedAt: DateTime(2026, 7, 1),
+          ),
+        );
+        await tester.pumpWidget(_host(repo, capabilities: const []));
+        await tester.pumpAndSettle();
+
+        final utilityRow = find.ancestor(
+          of: find.text(t.settings.keys.scenarioUtility),
+          matching: find.byType(AnSettingRow),
+        );
+        await tester.ensureVisible(utilityRow);
+        await tester.tap(
+          find.descendant(
+            of: utilityRow,
+            matching: find.text(t.settings.keys.pickerChange),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(t.settings.keys.clearDefault), findsOneWidget);
+        await tester.tap(find.text(t.settings.keys.clearDefault));
+        await tester.pumpAndSettle();
+
+        expect(repo.workspace.defaultUtility, isNull);
+      },
+    );
+
     testWidgets(
       'Anselm Auto applies directly; external native controls stay behind an explicit choice',
       (tester) async {

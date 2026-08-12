@@ -378,6 +378,77 @@ func TestSetDefaultSearch_Clear(t *testing.T) {
 	}
 }
 
+func TestSetDefaultSearch_NoOpDoesNotRefreshUpdatedAt(t *testing.T) {
+	repo := newFakeRepo()
+	s := NewService(repo, zap.NewNop())
+	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
+	fixed := time.Date(2026, 8, 11, 0, 0, 0, 0, time.UTC)
+	repo.items[w.ID].UpdatedAt = fixed
+
+	got, err := s.SetDefaultSearch(context.Background(), w.ID, "")
+	if err != nil {
+		t.Fatalf("clear empty default: %v", err)
+	}
+	if !got.UpdatedAt.Equal(fixed) {
+		t.Fatalf("repeated clear refreshed updatedAt: got %s, want %s", got.UpdatedAt, fixed)
+	}
+	stored, err := repo.Get(context.Background(), w.ID)
+	if err != nil {
+		t.Fatalf("get after repeated clear: %v", err)
+	}
+	if !stored.UpdatedAt.Equal(fixed) {
+		t.Fatalf("repeated clear persisted updatedAt: got %s, want %s", stored.UpdatedAt, fixed)
+	}
+
+	if _, err := s.SetDefaultSearch(context.Background(), w.ID, "aki_search"); err != nil {
+		t.Fatalf("set search default: %v", err)
+	}
+	before, err := repo.Get(context.Background(), w.ID)
+	if err != nil {
+		t.Fatalf("get before equal set: %v", err)
+	}
+	got, err = s.SetDefaultSearch(context.Background(), w.ID, "aki_search")
+	if err != nil {
+		t.Fatalf("equal set: %v", err)
+	}
+	if !got.UpdatedAt.Equal(before.UpdatedAt) {
+		t.Fatalf("equal set refreshed updatedAt: before=%s after=%s", before.UpdatedAt, got.UpdatedAt)
+	}
+}
+
+func TestSetDefaultSearch_UsesPathWorkspaceForKeyValidation(t *testing.T) {
+	s := newService()
+	source, _ := s.Create(context.Background(), CreateInput{Name: "source"})
+	target, _ := s.Create(context.Background(), CreateInput{Name: "target"})
+	validator := &scopedModelRefValidator{}
+	s.SetKeyChecker(validator)
+
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), source.ID)
+	if _, err := s.SetDefaultSearch(ctx, target.ID, "aki_search"); err != nil {
+		t.Fatalf("set default search: %v", err)
+	}
+	if validator.keyWorkspace != target.ID {
+		t.Fatalf("key validation workspace = %q, want path owner %q", validator.keyWorkspace, target.ID)
+	}
+	got, ok := s.DefaultSearchKeyID(reqctxpkg.SetWorkspaceID(context.Background(), target.ID))
+	if !ok || got != "aki_search" {
+		t.Fatalf("target default search = (%q,%v), want (aki_search,true)", got, ok)
+	}
+}
+
+func TestSetDefaultSearch_RejectsDanglingKeyAtWrite(t *testing.T) {
+	s := newService()
+	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
+	s.SetKeyChecker(fakeKeyChecker{known: map[string]bool{"aki_real": true}})
+
+	if _, err := s.SetDefaultSearch(context.Background(), w.ID, "aki_missing"); !errors.Is(err, apikeydomain.ErrNotFound) {
+		t.Fatalf("dangling search key must reject at write with API_KEY_NOT_FOUND, got %v", err)
+	}
+	if got, ok := s.DefaultSearchKeyID(reqctxpkg.SetWorkspaceID(context.Background(), w.ID)); ok || got != "" {
+		t.Fatalf("rejected search key was persisted: (%q,%v)", got, ok)
+	}
+}
+
 func TestDefaultSearchKeyID_NoWorkspaceInCtx(t *testing.T) {
 	s := newService()
 	if id, ok := s.DefaultSearchKeyID(context.Background()); ok || id != "" {
@@ -419,6 +490,78 @@ func (f fakeKeyChecker) KeyExists(_ context.Context, id string) error {
 		return nil
 	}
 	return apikeydomain.ErrNotFound
+}
+
+type scopedModelRefValidator struct {
+	wantWorkspace   string
+	keyWorkspace    string
+	optionWorkspace string
+}
+
+func (v *scopedModelRefValidator) KeyExists(ctx context.Context, _ string) error {
+	v.keyWorkspace, _ = reqctxpkg.GetWorkspaceID(ctx)
+	return nil
+}
+
+func (v *scopedModelRefValidator) ValidateOptions(ctx context.Context, _ modeldomain.ModelRef) error {
+	v.optionWorkspace, _ = reqctxpkg.GetWorkspaceID(ctx)
+	return nil
+}
+
+// TestSetDefault_UsesPathWorkspaceForValidation locks the resource-owner boundary: a request may
+// carry a stale header for another workspace, but key existence and native-option validation must
+// follow the workspace named by the endpoint path, and the saved row must belong to that target.
+// TestSetDefault_UsesPathWorkspaceForValidation 锁住资源 owner 边界：请求可以带着另一个 workspace 的
+// 旧 header，但 key 存在性与原生参数校验必须跟端点 path 指定的 workspace，落库行也必须属于目标。
+func TestSetDefault_UsesPathWorkspaceForValidation(t *testing.T) {
+	repo := newFakeRepo()
+	s := NewService(repo, zap.NewNop())
+	source, err := s.Create(context.Background(), CreateInput{Name: "source"})
+	if err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+	target, err := s.Create(context.Background(), CreateInput{Name: "target"})
+	if err != nil {
+		t.Fatalf("create target: %v", err)
+	}
+	validator := &scopedModelRefValidator{wantWorkspace: target.ID}
+	s.SetKeyChecker(validator)
+	s.SetOptionValidator(validator)
+
+	ctx := reqctxpkg.SetWorkspaceID(context.Background(), source.ID)
+	ref := &modeldomain.ModelRef{
+		APIKeyID: "aki_target",
+		ModelID:  "model-target",
+		Options:  map[string]string{"reasoning_effort": "high"},
+	}
+	got, err := s.SetDefault(ctx, target.ID, modeldomain.ScenarioDialogue, ref)
+	if err != nil {
+		t.Fatalf("set target default: %v", err)
+	}
+	if got.ID != target.ID || got.DefaultDialogue == nil || got.DefaultDialogue.APIKeyID != ref.APIKeyID {
+		t.Fatalf("saved default belongs to wrong workspace or ref: %+v", got)
+	}
+	if validator.keyWorkspace != validator.wantWorkspace || validator.optionWorkspace != validator.wantWorkspace {
+		t.Fatalf("validation contexts = key %q/options %q, want %q", validator.keyWorkspace, validator.optionWorkspace, validator.wantWorkspace)
+	}
+	sourceAfter, err := repo.Get(context.Background(), source.ID)
+	if err != nil {
+		t.Fatalf("get source: %v", err)
+	}
+	if sourceAfter.DefaultDialogue != nil {
+		t.Fatalf("stale header workspace was mutated: %+v", sourceAfter.DefaultDialogue)
+	}
+}
+
+func TestSetDefault_UnknownTargetWinsOverRefValidation(t *testing.T) {
+	s := newService()
+	_, err := s.SetDefault(context.Background(), "ws_missing", modeldomain.ScenarioDialogue, &modeldomain.ModelRef{
+		APIKeyID: "aki_missing",
+		ModelID:  "model",
+	})
+	if !errors.Is(err, workspacedomain.ErrNotFound) {
+		t.Fatalf("unknown target error = %v, want WORKSPACE_NOT_FOUND", err)
+	}
 }
 
 // TestSetDefault_RejectsDanglingKey pins F153 for the workspace scenario-default write path: a default
