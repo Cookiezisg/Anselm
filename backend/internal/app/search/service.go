@@ -93,6 +93,8 @@ type Service struct {
 	embedCtx      context.Context
 	embedCancel   context.CancelFunc
 	embedWG       sync.WaitGroup
+	workspaceMu   sync.Mutex
+	workspaces    map[string]struct{}
 }
 
 // NewService builds the Service; register sources before Start.
@@ -113,6 +115,7 @@ func NewService(repo searchdomain.Repository, log *zap.Logger) *Service {
 		embedQuit:   make(chan struct{}),
 		embedCtx:    embedCtx,
 		embedCancel: embedCancel,
+		workspaces:  map[string]struct{}{},
 	}
 	s.indexer = newIndexer(repo, s.sources, log)
 	s.indexer.onApplied = s.kickEmbed
@@ -159,10 +162,37 @@ func (s *Service) Start(workspaceIDs []string) {
 			}
 		}
 		for _, ws := range workspaceIDs {
+			s.rememberWorkspace(ws)
 			s.indexer.reconcile(reqctxpkg.Detached(ws), ws, false) // incremental: DropAll above already forced a full rebuild on a schema bump
 			s.kickEmbed(ws)
 		}
 	}()
+}
+
+// rememberWorkspace records every workspace that has entered the search index.
+// Settings are machine-level, so a later embedder/model change must fan out to
+// every indexed workspace rather than only the PATCH caller's workspace.
+//
+// rememberWorkspace 记录所有进入过搜索索引的 workspace。设置是机器级的，后续切换
+// embedder/model 必须扇出到每个已索引 workspace，而不能只处理 PATCH 调用者。
+func (s *Service) rememberWorkspace(ws string) {
+	if ws == "" {
+		return
+	}
+	s.workspaceMu.Lock()
+	s.workspaces[ws] = struct{}{}
+	s.workspaceMu.Unlock()
+}
+
+func (s *Service) workspaceSnapshot() []string {
+	s.workspaceMu.Lock()
+	ids := make([]string, 0, len(s.workspaces))
+	for ws := range s.workspaces {
+		ids = append(ids, ws)
+	}
+	s.workspaceMu.Unlock()
+	sort.Strings(ids)
+	return ids
 }
 
 // Close stops the index worker, the embed worker and any provider subprocess,
@@ -200,14 +230,14 @@ func (s *Service) ReconcileWorkspace(ctx context.Context, wsID string) {
 	s.indexer.reconcile(ctx, wsID, false) // incremental self-heal (workspace switch / tests)
 }
 
-// Reindex rebuilds the ctx workspace's index IN PLACE asynchronously (202 semantics); a second call
+// Reindex rebuilds the ctx workspace's index IN PLACE asynchronously (204 fire-and-forget semantics); a second call
 // while one runs is a conflict. It force-reconciles (overwrites every entity's index rows) rather than
 // purge-then-rebuild — the lexical index is never emptied, so a concurrent Search returns COMPLETE
 // (old→new transitioning) results instead of partial/empty ones with no signal (F168-M8 / F175-M2). The
 // vector cache IS invalidated + re-embedded (semantic boost is absent until re-embed, but lexical top-N
 // — the primary retrieval — stays complete, so results are never empty, only briefly lexical-ranked).
 //
-// Reindex 异步**就地**重建 ctx workspace 索引（202 语义）；运行中再触发即冲突。它 force-reconcile（覆盖每个
+// Reindex 异步**就地**重建 ctx workspace 索引（204 fire-and-forget 语义）；运行中再触发即冲突。它 force-reconcile（覆盖每个
 // 实体的索引行）、非 purge-then-rebuild——词法索引从不清空，故并发 Search 返**完整**（旧→新过渡）结果、而非
 // 不全/空且无信号（F168-M8 / F175-M2）。向量缓存仍 invalidate + 重嵌（重嵌完成前无语义加权，但词法 top-N
 // ——主检索——保持完整，故结果永不为空、只是短暂仅词法排序）。

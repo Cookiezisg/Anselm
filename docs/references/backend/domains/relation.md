@@ -58,6 +58,10 @@ Namer 批量 hydrate 当前名称；目标已删时退回原始 ID。孤立实�
 - workspace 全量 nodes + edges snapshot；
 - LLM `get_relations` 工具。
 
+HTTP 邻域端点的 `depth` 缺席时默认 `2`；一旦出现该 query key，只接受一个十进制整数值。
+空值、重复值、浮点数和其它非整数文本返回 `400 INVALID_REQUEST` 并指出 `param=depth`，不把调用方
+的拼写错误静默解释成默认深度。整数超出 1–3 的业务范围时仍返回 `400 REL_DEPTH_LIMIT`。
+
 `get_relations` 的 `depth` 公开 schema 是整数 1–3；为兼容部分 hosted model 的严格线缆形，边界
 也接受形如 `"2"` 的纯十进制整数字符串。任意文字、带小数的字符串和 JSON 浮点数仍拒绝；这不是
 把不确定输入猜成合法值。

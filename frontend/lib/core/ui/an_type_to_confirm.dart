@@ -22,6 +22,8 @@ class AnTypeToConfirm extends StatefulWidget {
     required this.onConfirm,
     this.body,
     this.warning,
+    this.cancelLabel,
+    this.onCancel,
     this.busy = false,
     super.key,
   });
@@ -39,6 +41,12 @@ class AnTypeToConfirm extends StatefulWidget {
 
   /// The dynamic hazard line (e.g. "N runs in progress — deleting terminates them"). 动态危险首行。
   final String? warning;
+
+  /// Optional safe exit for row-level danger zones. The permanent settings zones intentionally have
+  /// no extra cancel action, while a per-row reveal needs an obvious way back to the roster.
+  /// 行级危险区可选安全出口;设置页常驻危险区刻意不加,行内展开则必须能明确回到名册。
+  final String? cancelLabel;
+  final VoidCallback? onCancel;
   final bool busy;
 
   @override
@@ -47,6 +55,16 @@ class AnTypeToConfirm extends StatefulWidget {
 
 class _AnTypeToConfirmState extends State<AnTypeToConfirm> {
   final TextEditingController _text = TextEditingController();
+
+  @override
+  void didUpdateWidget(covariant AnTypeToConfirm oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // A reused danger zone must never carry an exact match from the previous subject.
+    // 复用危险区时绝不能把上一个对象的精确匹配带给新对象。
+    if (oldWidget.expected != widget.expected) {
+      _text.clear();
+    }
+  }
 
   @override
   void dispose() {
@@ -89,14 +107,30 @@ class _AnTypeToConfirmState extends State<AnTypeToConfirm> {
           AnInput(
             controller: _text,
             placeholder: widget.inputHint,
+            // The confirmation name is part of the danger-zone contract; give it the whole
+            // available card width so long names remain legible instead of falling back to inputMin.
+            // 确认名称是危险区契约的一部分;占满卡片可用宽度,避免长名称退化到 inputMin 被截断。
+            block: true,
             enabled: !widget.busy,
             onChanged: (_) => setState(() {}),
           ),
           const SizedBox(height: AnSpace.s12),
-          AnButton(
-            label: widget.confirmLabel,
-            variant: AnButtonVariant.danger,
-            onPressed: widget.busy || !matched ? null : widget.onConfirm,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            children: [
+              if (widget.cancelLabel != null && widget.onCancel != null) ...[
+                AnButton(
+                  label: widget.cancelLabel!,
+                  onPressed: widget.busy ? null : widget.onCancel,
+                ),
+                const SizedBox(width: AnSpace.s8),
+              ],
+              AnButton(
+                label: widget.confirmLabel,
+                variant: AnButtonVariant.danger,
+                onPressed: widget.busy || !matched ? null : widget.onConfirm,
+              ),
+            ],
           ),
         ],
       ),

@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/entities/relation.dart';
+import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/graph/relation_graph_config.dart';
 import 'package:anselm/core/ui/an_relation_graph.dart';
@@ -92,6 +93,7 @@ void main() {
   tearDown(() {
     RelationGraphProbe.onNodeBuild = null;
     RelationGraphProbe.onSimFrame = null;
+    RelationGraphProbe.onEdgePaint = null;
   });
 
   testWidgets('renders one widget per node; names shown', (tester) async {
@@ -134,6 +136,31 @@ void main() {
       );
     },
   );
+
+  testWidgets('hiddenKinds also removes edges touching hidden nodes', (
+    tester,
+  ) async {
+    var visibleEdges = -1;
+    RelationGraphProbe.onEdgePaint = (count) => visibleEdges = count;
+
+    await tester.pumpWidget(
+      _host(AnRelationGraph(nodes: _nodes, edges: _edges)),
+    );
+    await tester.pump();
+    expect(visibleEdges, 3);
+
+    await tester.pumpWidget(
+      _host(
+        AnRelationGraph(
+          nodes: _nodes,
+          edges: _edges,
+          hiddenKinds: const {'skill'},
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(visibleEdges, 2);
+  });
 
   testWidgets('tapping a node reports its id', (tester) async {
     String? tapped = 'unset';
@@ -291,6 +318,32 @@ void main() {
         _nodeOpacity(tester, 'sk_a'),
         RelationGraphConfig.nodeOpacity(2),
         reason: 'two-hop',
+      );
+    });
+
+    testWidgets('ripple fades dots without fading entity labels', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        _host(AnRelationGraph(nodes: _nodes, edges: _edges, focusId: 'fn_hub')),
+      );
+      await tester.pump();
+
+      expect(
+        _nodeOpacity(tester, 'sk_a'),
+        RelationGraphConfig.nodeOpacity(2),
+        reason: 'the distant dot still participates in the ripple',
+      );
+      final label = tester.widget<Text>(
+        find.descendant(
+          of: _nodeFinder('sk_a'),
+          matching: find.text('writing'),
+        ),
+      );
+      expect(
+        label.style?.color,
+        AnColors.light.inkFaint,
+        reason: 'a visible entity name must not inherit the dot alpha',
       );
     });
 

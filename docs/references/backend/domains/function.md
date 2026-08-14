@@ -62,8 +62,13 @@ LLM 工具、HTTP `:edit` 与直接 create 最终都进入 `ApplyOps`。每个 o
 Handler SDK，以保持无状态/有状态执行边界。
 
 Env 物化由 envfix 负责，状态与尝试过程写回 Version 并流到 entities build
-终端。依赖修复不能通过减少声明包数量来制造假 ready。构建允许 env failed，
-调用时则必须 ready。空 ops 表示重建 active env，不铸新版本。
+终端。创建/编辑的实体事务先把主行、版本和 active pointer 耐久落库，再开始
+物化；安装本身可随请求取消，但 `syncing`、`ready|failed` 终态写回、生命周期
+通知和 relation 投影必须使用带 workspace 的 detached context，不能因客户端断连
+留下永久 `syncing` 或缺边/缺通知的半状态。依赖修复不能通过减少声明包数量来
+制造假 ready。构建允许 env failed，调用时则必须 ready。空 ops 表示重建 active
+env，不铸新版本；只有重建最终为 ready 才发 `function.env_rebuilt`，失败时保留耐久
+failed 状态并依靠环境状态/构建终端信号，不发成功通知。
 
 ## 4. 运行
 

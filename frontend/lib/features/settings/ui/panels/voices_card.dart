@@ -5,10 +5,14 @@ import '../../../../core/contract/api_key.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/perf/frame_safe.dart';
+import '../../../../core/runtime.dart';
 import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_card.dart';
+import '../../../../core/ui/an_expand_reveal.dart';
 import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_state.dart';
+import '../../../../core/ui/an_type_to_confirm.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/notice/notice_center.dart';
 import '../../../../i18n/strings.g.dart';
@@ -38,27 +42,45 @@ class VoicesCard extends ConsumerStatefulWidget {
 
 class _VoicesCardState extends ConsumerState<VoicesCard> {
   String? _deleting;
+  String? _confirming;
+  int _workspaceGeneration = 0;
+
+  void _toggleConfirmation(String id) {
+    if (_deleting != null) return;
+    setState(() => _confirming = _confirming == id ? null : id);
+  }
 
   Future<void> _remove(String id) async {
     if (_deleting != null) return;
+    final operationGeneration = _workspaceGeneration;
     setState(() => _deleting = id);
     try {
       await ref.read(voicesProvider.notifier).remove(id);
-    } catch (_) {
-      if (!mounted) return;
+    } catch (error) {
+      if (!mounted || operationGeneration != _workspaceGeneration) return;
       // The backend deletes the UPSTREAM registration first and keeps the row when that fails, so a
-      // failure here means the voice is still real and still usable. Saying so beats a bare error:
-      // the user's next move is「retry」, not「it is gone, re-enroll」.
-      // 后端**先删上游登记**、那一步失败就保留行,故这里的失败意味着音色**仍然是真的、仍然可用**。
-      // 说清楚这一点胜过一句光秃秃的报错:用户的下一步是「重试」,不是「没了,重新登记」。
+      // a failure before reconciliation means the voice is still real and still usable. A committed
+      // delete is different: the old row is no longer safe to present, so the provider enters its
+      // explicit refresh error state and the notice must not tell the user to delete again.
+      // 后端**先删上游登记**、那一步失败意味着音色仍可用;但删除已提交而重读失败是另一种状态:
+      // 旧行不再安全,provider 进入明确的重读错误态,通知也不能诱导用户再删一次。
+      final committed = error is VoiceDeleteCommittedRefreshException;
       ref
           .read(noticeCenterProvider.notifier)
           .show(
-            Translations.of(context).settings.keys.voicesDeleteFailed,
+            committed
+                ? Translations.of(context).settings.keys.voicesDeleteCommitted
+                : Translations.of(context).settings.keys.voicesDeleteFailed,
             tone: AnTone.warn,
           );
     } finally {
-      if (mounted) setState(() => _deleting = null);
+      // Keep the single-flight lock truthful until the original request settles, even if the user
+      // switched away. Clearing it only for the old generation leaves a stale id disabled forever
+      // when the user switches back before the request finishes.
+      // 即使用户已经切走,原请求未结算前也要保持单飞锁真实。只在旧代际清理会导致用户切回时 id 永久禁用。
+      if (mounted && _deleting == id) {
+        setState(() => _deleting = null);
+      }
     }
   }
 
@@ -66,6 +88,20 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
+    ref.listen<String?>(activeWorkspaceProvider, (previous, next) {
+      if (previous == next) return;
+      _workspaceGeneration++;
+      // Settings remains mounted in the lazy IndexedStack. A confirmation is a destructive intent
+      // in one workspace, never a reusable UI selection in another; clear only that intent at the
+      // switch boundary. An in-flight delete remains single-flight until it settles, while its
+      // generation guard prevents stale errors from painting in the new workspace.
+      // 设置海洋在懒 IndexedStack 中常驻。确认是**某个 workspace 的破坏性意图**,不是可跨空间复用的选区;
+      // 切换边界只清这个意图。在途删除直到结算前仍保持单飞,代际守卫阻止旧错误在新 workspace 涂回界面。
+      runFrameSafe(() {
+        if (!mounted) return;
+        setState(() => _confirming = null);
+      });
+    });
     final inv = ref.watch(voicesProvider);
 
     return AnCard(
@@ -83,9 +119,14 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
           // 长什么样不能有分歧。
           switch (inv) {
             AsyncData(:final value) => _body(t, c, value),
-            AsyncError() => AnState(
+            AsyncError(:final error) => AnState(
               kind: AnStateKind.error,
-              title: t.settings.keys.voicesLoadFailed,
+              title: error is VoiceDeleteCommittedRefreshException
+                  ? t.settings.keys.voicesDeleteCommitted
+                  : t.settings.keys.voicesLoadFailed,
+              hint: error is VoiceDeleteCommittedRefreshException
+                  ? t.settings.keys.voicesDeleteCommittedHint
+                  : null,
               size: AnStateSize.inset,
               action: AnButton(
                 label: t.settings.keys.voicesRetry,
@@ -102,16 +143,33 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
 
   Widget _body(Translations t, AnColors c, VoiceInventory inv) {
     if (inv.items.isEmpty) {
-      return AnState(
-        kind: AnStateKind.empty,
-        size: AnStateSize.inset,
-        title: t.settings.keys.voicesEmpty,
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          AnState(
+            kind: AnStateKind.empty,
+            size: AnStateSize.inset,
+            title: t.settings.keys.voicesEmpty,
+          ),
+          const SizedBox(height: AnSpace.s8),
+          // Empty is still a settled inventory: show the same authoritative arithmetic as the
+          // populated state, so a user can tell that both slots are available rather than merely
+          // seeing that no rows exist.
+          // 空也是已落定的库存:与有行态展示同一份权威算术,让用户知道两个位置都可用,而不是只看到没有行。
+          Text(
+            t.settings.keys.voicesRemaining(
+              n: inv.remaining,
+              cap: inv.capacity,
+            ),
+            style: AnText.label.copyWith(color: c.inkMuted),
+          ),
+        ],
       );
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        for (final v in inv.items)
+        for (final v in inv.items) ...[
           AnRow(
             label: v.name,
             actions: [
@@ -119,10 +177,33 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
                 label: t.settings.keys.voicesDelete,
                 size: AnButtonSize.sm,
                 outline: true,
-                onPressed: _deleting == v.id ? null : () => _remove(v.id),
+                onPressed: _deleting == v.id
+                    ? null
+                    : () => _toggleConfirmation(v.id),
               ),
             ],
           ),
+          AnExpandReveal(
+            open: _confirming == v.id,
+            child: Padding(
+              padding: const EdgeInsets.only(top: AnSpace.s8),
+              child: AnTypeToConfirm(
+                title: t.settings.keys.voicesDeleteTitle,
+                body: Text(
+                  t.settings.keys.voicesDeleteBody(name: v.name),
+                  style: AnText.label.copyWith(color: c.inkMuted),
+                ),
+                expected: v.name,
+                inputHint: t.settings.keys.voicesDeleteHint(name: v.name),
+                cancelLabel: t.action.cancel,
+                onCancel: () => _toggleConfirmation(v.id),
+                confirmLabel: t.settings.keys.voicesDeleteConfirm,
+                busy: _deleting == v.id,
+                onConfirm: () => _remove(v.id),
+              ),
+            ),
+          ),
+        ],
         const SizedBox(height: AnSpace.s8),
         // The arithmetic IS the point of this card: two rows with no cap line leave the next
         // enrollment's refusal unexplained. When full, the sentence names the remedy — deletion —

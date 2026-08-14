@@ -202,18 +202,18 @@ func TestPlatform_ModelConfig(t *testing.T) {
 	wsID := c.POST("/api/v1/workspaces", map[string]any{"name": "model-ws"}).Field(t, "id")
 	wc := c.WS(wsID)
 
-	// 固定 scenario 白名单。
+	// 固定六槽 scenario 白名单，顺序是 wire 的 canonical order；集合断言 alone 会漏掉新增槽位。
 	var scenarios []struct {
 		Name string `json:"name"`
 	}
 	wc.GET("/api/v1/scenarios").OK(t, &scenarios)
-	got := map[string]bool{}
-	for _, s := range scenarios {
-		got[s.Name] = true
+	wantScenarios := []string{"dialogue", "utility", "agent", "image", "speech", "video"}
+	if len(scenarios) != len(wantScenarios) {
+		t.Fatalf("scenario count = %d, want %d: %+v", len(scenarios), len(wantScenarios), scenarios)
 	}
-	for _, want := range []string{"dialogue", "utility", "agent"} {
-		if !got[want] {
-			t.Fatalf("scenario %q missing from %+v", want, scenarios)
+	for i, want := range wantScenarios {
+		if scenarios[i].Name != want {
+			t.Fatalf("scenario[%d] = %q, want %q: %+v", i, scenarios[i].Name, want, scenarios)
 		}
 	}
 

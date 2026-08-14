@@ -537,6 +537,16 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     if (type.endsWith('.delta')) {
       _clearReplayTranscriptIfNeeded();
       state = state.copyWith(partial: _deltaText(decoded));
+      return;
+    }
+    // Qwen's deployed realtime endpoint uses `.text` for its cumulative live
+    // snapshot, while the local contract tests use `.delta`. Treat both as a
+    // partial so the composer reflects speech before the final event arrives.
+    // 部署中的 Qwen realtime 用 `.text` 表示累计的实时快照,本地契约测试使用
+    // `.delta`; 两者都作为 partial,让输入框在 final 到达前持续反映语音。
+    if (type.endsWith('.text')) {
+      _clearReplayTranscriptIfNeeded();
+      state = state.copyWith(partial: _deltaText(decoded));
     }
   }
 

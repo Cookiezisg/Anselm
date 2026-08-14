@@ -223,3 +223,31 @@ func TestProvision_NilSinkNoOp(t *testing.T) {
 		t.Fatalf("want OK with nil sink, got %+v", res)
 	}
 }
+
+func TestParseDeps_ToleratesHostedModelProseAndFence(t *testing.T) {
+	resp := "I could not identify a safe rename, so I will return the dependencies unchanged.\n\n```json\n{\"deps\":[\"anselm-acceptance-missing-dependency-20260813\"]}\n```"
+	got, err := parseDeps(resp)
+	if err != nil {
+		t.Fatalf("parseDeps fenced response: %v", err)
+	}
+	want := []string{"anselm-acceptance-missing-dependency-20260813"}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("deps = %v, want %v", got, want)
+	}
+}
+
+func TestParseDeps_ToleratesEmbeddedObjectAndRepairsIt(t *testing.T) {
+	got, err := parseDeps("The answer is {\"deps\":[\"numpy\",],} as requested.")
+	if err != nil {
+		t.Fatalf("parseDeps embedded response: %v", err)
+	}
+	if !reflect.DeepEqual(got, []string{"numpy"}) {
+		t.Fatalf("deps = %v, want [numpy]", got)
+	}
+}
+
+func TestParseDeps_RejectsMissingField(t *testing.T) {
+	if _, err := parseDeps("{\"answer\":\"no safe fix\"}"); err == nil {
+		t.Fatal("parseDeps must reject a JSON object without deps")
+	}
+}

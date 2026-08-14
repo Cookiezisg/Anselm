@@ -850,8 +850,8 @@ class _KeyFormState extends ConsumerState<KeyForm> {
   }
 }
 
-/// Zone ③ — scenario defaults: three collapsed one-line rows, each expanding into the reusable
-/// three-stage picker. 场景默认区:三行收起摘要,点开进可复用三段面板。
+/// Zone ③ — scenario defaults: six collapsed one-line rows, each expanding into the reusable
+/// three-stage picker. 场景默认区:六行收起摘要,点开进可复用三段面板。
 class _DefaultsSection extends ConsumerWidget {
   const _DefaultsSection();
 
@@ -1013,8 +1013,8 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
-    final caps =
-        ref.watch(modelCapabilitiesProvider).value ?? const <ModelCapability>[];
+    final capsState = ref.watch(modelCapabilitiesProvider);
+    final caps = capsState.value ?? const <ModelCapability>[];
     final cur = widget.current;
     final capOfCur = cur == null
         ? null
@@ -1066,6 +1066,9 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
             child: _DefaultModelModePanel(
               key: ValueKey('picker:${widget.scenario}'),
               caps: caps,
+              catalogLoading: capsState.isLoading && caps.isEmpty,
+              catalogError: capsState.hasError && caps.isEmpty,
+              onRetryCatalog: () => ref.invalidate(modelCapabilitiesProvider),
               initial: cur,
               clearable: widget.clearable && cur != null,
               onApply: _apply,
@@ -1100,6 +1103,9 @@ class _DefaultModelModePanel extends StatefulWidget {
     this.clearable = false,
     this.onClear,
     this.onAddKey,
+    this.catalogLoading = false,
+    this.catalogError = false,
+    this.onRetryCatalog,
     super.key,
   });
 
@@ -1114,6 +1120,9 @@ class _DefaultModelModePanel extends StatefulWidget {
   onApply;
   final VoidCallback? onClear;
   final VoidCallback? onAddKey;
+  final bool catalogLoading;
+  final bool catalogError;
+  final VoidCallback? onRetryCatalog;
 
   @override
   State<_DefaultModelModePanel> createState() => _DefaultModelModePanelState();
@@ -1149,6 +1158,9 @@ class _DefaultModelModePanelState extends State<_DefaultModelModePanel> {
       // the external picker is honest and keeps setup unblocked.
       return ModelPickerPanel(
         caps: _externalCaps,
+        catalogLoading: widget.catalogLoading && _externalCaps.isEmpty,
+        catalogError: widget.catalogError && _externalCaps.isEmpty,
+        onRetryCatalog: widget.onRetryCatalog,
         initial: widget.initial,
         clearable: widget.clearable,
         onApply: widget.onApply,
@@ -1202,6 +1214,9 @@ class _DefaultModelModePanelState extends State<_DefaultModelModePanel> {
               const SizedBox(height: AnSpace.s12),
               ModelPickerPanel(
                 caps: _externalCaps,
+                catalogLoading: widget.catalogLoading && _externalCaps.isEmpty,
+                catalogError: widget.catalogError && _externalCaps.isEmpty,
+                onRetryCatalog: widget.onRetryCatalog,
                 initial: widget.initial,
                 clearable: widget.clearable,
                 onApply: widget.onApply,
@@ -1233,6 +1248,9 @@ class ModelPickerPanel extends StatefulWidget {
     this.clearable = false,
     this.onClear,
     this.onAddKey,
+    this.catalogLoading = false,
+    this.catalogError = false,
+    this.onRetryCatalog,
     super.key,
   });
 
@@ -1247,6 +1265,9 @@ class ModelPickerPanel extends StatefulWidget {
   onApply;
   final VoidCallback? onClear;
   final VoidCallback? onAddKey;
+  final bool catalogLoading;
+  final bool catalogError;
+  final VoidCallback? onRetryCatalog;
 
   @override
   State<ModelPickerPanel> createState() => _ModelPickerPanelState();
@@ -1418,6 +1439,33 @@ class _ModelPickerPanelState extends State<ModelPickerPanel> {
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
+
+    // A refresh must not hide a usable last-good catalog. Only an empty catalog owns the
+    // loading/error state surface; otherwise the current keys/models remain actionable.
+    // 刷新期间不得藏掉仍可用的 last-good 目录；只有空目录才占用加载/错误面。
+    if (widget.catalogLoading && widget.caps.isEmpty) {
+      return AnState(
+        kind: AnStateKind.loading,
+        title: t.settings.keys.modelCatalogLoading,
+        size: AnStateSize.inset,
+      );
+    }
+
+    if (widget.catalogError && widget.caps.isEmpty) {
+      return AnState(
+        kind: AnStateKind.error,
+        title: t.settings.keys.modelCatalogFailed,
+        hint: t.settings.keys.modelCatalogFailedHint,
+        action: widget.onRetryCatalog == null
+            ? null
+            : AnButton(
+                label: t.settings.keys.refreshModels,
+                size: AnButtonSize.sm,
+                onPressed: widget.onRetryCatalog,
+              ),
+        size: AnStateSize.inset,
+      );
+    }
 
     if (widget.caps.isEmpty) {
       // Zero usable models — guidance, not a dead dropdown (0719 零可用引导). 零可用引导。

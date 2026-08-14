@@ -19,6 +19,8 @@ audience: [human, ai]
 - 成功：`{"data": ...}`；错误：
   `{"error":{"code","message","details"}}`。
 - Wire 字段使用 camelCase；Path variable 也使用 camelCase。
+- JSON request body 必须恰好包含一个完整 JSON 值；未知字段、尾随第二个 JSON 值或非空垃圾均返回
+  `400 INVALID_REQUEST`。允许空 body 的 `:action` 端点仍把 EOF 解释为零值载荷，但一旦有 body 也遵守同一单值规则。
 - 无界集合使用 keyset `cursor` + `limit`，返回顶层 `nextCursor`、`hasMore`。
 - 八类实体 rail 列表（functions/handlers/agents/workflows/triggers/controls/approvals/conversations）另外在
   `X-Anselm-Total-Count` 响应头携带同 workspace、同 `search` 过滤下的精确总数；这是传输元数据，
@@ -306,11 +308,11 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /speech/asr` | ASR streaming transport |
+| `GET /speech/asr` | ASR streaming transport；客户端发送 16kHz、mono、PCM16 binary frame 与 `commit`/`finish`/`cancel` 控制帧，服务端返回 Qwen realtime 事件；部署网关的实时增量是 `conversation.item.input_audio_transcription.text`（`stash` 为累计快照），最终文本是 `.completed` 的 `transcript` |
 | `GET /read-aloud/availability` | 当前朗读可用性 |
 | `POST /read-aloud:read` | 文本朗读 |
 | `GET /voices` | 可用 voice 列表 |
-| `DELETE /voices/{id}` | 删除用户 voice |
+| `DELETE /voices/{id}` | 先删除受管网关登记、成功后删除本地 voice 指针；provider 明确报告该 `delete_voice` 目标已不存在时按幂等成功收敛；其他上游失败保留本地行并返回可重试错误 |
 
 ### Memory
 
@@ -330,13 +332,13 @@ Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本
 |---|---|
 | `GET /catalog` | Entity/capability 概览 |
 | `GET /tools` | 可授权内建工具目录；不含逐请求 capability tools |
-| `GET /search` | 统一搜索；keyset 分页 |
+| `GET /search` | 统一搜索；`q` 必填，`types`/`tags` 为 CSV；`updatedAfter`/`updatedBefore` 是包含端点的 RFC3339 时间窗；`includeArchived` 默认 `true`（只接受 `true`/`false`，大小写不敏感）；keyset 分页（默认 20、上限 50） |
 | `POST /search:reindex` | 异步 force reconcile，就地覆盖并清孤儿；无可轮询产物，204 |
-| `GET /search/settings` · `PATCH /search/settings` | 搜索设置 |
+| `GET /search/settings` · `PATCH /search/settings` | 机器级搜索设置；PATCH 支持部分字段，空 Ollama 参数重置默认值，多字段原子提交 |
 | `GET /relations` | 边分页 |
-| `GET /relations/neighborhood` | 邻域有界投影 |
+| `GET /relations/neighborhood` | 邻域有界投影；`kind`/`id` 必填，`depth` 缺席默认 2，出现时须为单个十进制整数；语法错误 `400 INVALID_REQUEST`，范围外 `400 REL_DEPTH_LIMIT` |
 | `GET /relgraph` | 关系图投影 |
-| `POST /executions/{id}:triage` | 为执行记录打开诊断 Conversation |
+| `POST /executions/{id}:triage` | 为执行记录打开诊断 Conversation；body 可省略，或传可选 `{note}` 作为诊断关注点 |
 
 ## 9. Workspace, models and managed service
 
@@ -360,7 +362,7 @@ Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本
 | `POST /api-keys/{id}:test` | probe |
 | `GET /providers` | Provider metadata |
 | `GET /model-capabilities` | Model catalog/capabilities |
-| `GET /scenarios` | Scenario metadata |
+| `GET /scenarios` | Six fixed scenario slots in canonical order: `dialogue`, `utility`, `agent`, `image`, `speech`, `video` |
 
 `DELETE /api-keys/{id}` 保留不可恢复的删除主行身份用于审计，但在同一条数据库更新中清空加密 secret、掩码、连接配置和 probe 回执；普通读随后返回 `API_KEY_NOT_FOUND`，不存在 restore 操作。
 

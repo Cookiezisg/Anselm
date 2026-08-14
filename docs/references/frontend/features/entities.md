@@ -17,14 +17,14 @@ audience: [human, ai]
 
 | 面 | 当前事实 |
 |---|---|
-| 总览 | `/` 与 `/entities` 展示实体计数、关系图和最近更新；关系图可进入 `/entities/graph` 全屏探索 |
+| 总览 | `/` 与 `/entities` 展示实体计数、关系图和最近更新；关系图可进入 `/entities/graph` 全屏探索。探索页默认只显示结构关系，图例隐藏某类实体时同步隐藏其节点、标签和相连边；涟漪只降低点/边的视觉优先级，不降低仍存在的实体名称可读性 |
 | 左岛 rail | Function、Handler、Agent、Workflow 与 Control、Approval、Trigger 七类；过滤、排序、计数、分页与 lifecycle signal 更新；搜索无匹配时明确显示空结果提示，不把空白误作加载失败 |
 | 中心详情 | `/entities/:kind/:id`；同一阅读列承载头、概览、版本与日志/运行。Trigger 使用活动/派发观测面 |
 | 右岛调试台 | 对可执行实体提供 JSON-first 输入、示例、最近输入复用、实时执行流、停止与结果；是手工执行的唯一入口 |
 | Workflow 图 | 概览显示当前图、节点/边计数和活态覆层；`/entities/workflow/:id/editor` 提供全屏图编辑、节点/边 inspector 与一次会话一版 |
 | Workflow 治理 | 概览治理卡可直接选择五种并发策略（串行、运行时跳过、仅保留最新、替换当前、全部并行）；选择走 Workflow meta PATCH，不创建新版本 |
 | Workflow 运行 | 运行驾驶舱展示 run 列表、节点甘特、图覆层、ledger、approval、replay 与 kill；深链到 Scheduler run 卷宗 |
-| 审批收件箱 | 跨 run 汇总 parked approval，复用同一个 first-wins `:decide` 契约 |
+| 审批收件箱 | 跨 run 汇总 parked approval，复用同一个 first-wins `:decide` 契约；打开期间订阅耐久 `workflow.approval_pending` 与 workflow scope 的 `run_terminal` 脉冲，并从 `GET /flowrun-inbox` 重取真实列表；notifications/entities 任一 410 都重取，不能要求用户关闭再打开托盘 |
 
 ## 2. 数据边界
 
@@ -41,8 +41,8 @@ audience: [human, ai]
 
 ## 3. 详情与执行
 
-- Function：说明、标签、代码、输入/输出、环境与执行日志。
-- Handler：说明/标签 meta 就地编辑、方法、实例/config 状态、版本、调用日志与 restart/config 写面；meta PATCH 不升版本、不重启常驻实例。
+- Function：说明、标签、代码、输入/输出、环境与执行日志。`envStatus=failed` 时页头与 Environment 卡都要显式显示失败；主面展示本地化的构建失败摘要、原因与下一步，原始 `envError` 只在用户主动展开的技术详情中显示并受长度上限约束，不能把 SDK、URL 或堆栈异常当作主文案。
+- Handler：说明/标签 meta 就地编辑、方法、实例/config 状态、版本、调用日志与 restart/config 写面；meta PATCH 不升版本、不重启常驻实例。概览必须把三种正交状态分开：`runtimeState`（实例是否运行）、`configState`（初始化参数是否齐全）和 active version 的 `envStatus`（运行环境是否构建成功）；`envStatus=failed` 时页头与 Environment 卡都要显式显示失败，并以本地化的构建失败摘要、原因与下一步呈现，不能用 `stopped` 或 `ready` 掩盖环境失败。原始 `envError` 只在用户主动展开的技术详情中显示，并受长度上限约束；主产品面不得直接暴露 SDK、URL 或堆栈异常。
 - Handler 首次 `:call` 可能懒起常驻实例；调用成功或失败收尾后，详情必须重读服务端 `runtimeState`，不能让概览继续显示旧的 `stopped`。
 - Agent：定义、版本、执行日志与流式 block tree。
 - Workflow：图、治理信息、版本 diff、运行驾驶舱与全屏图编辑器。

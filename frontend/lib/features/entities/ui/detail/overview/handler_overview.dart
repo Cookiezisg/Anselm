@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../../core/contract/api_error.dart';
 import '../../../../../core/contract/entities/handler.dart';
 import '../../../../../core/contract/entities/values.dart';
+import '../../../../../core/design/tokens.dart';
 import '../../../../../core/model/status_state.dart';
 import '../../../../../core/notice/notice_center.dart';
 import '../../../../../core/ui/an_code_editor.dart';
@@ -20,8 +21,10 @@ import '../../../data/entity_providers.dart';
 import '../../../state/detail/entity_detail_provider.dart';
 import '../../../state/selected_entity.dart';
 import '../detail_sections.dart';
+import 'environment_failure.dart';
 
-/// Handler 概览:说明 + KV → 常驻状态(运行时/配置完整度)→ init 参数(敏感默认遮蔽)→ 方法 + 类代码(只读)。
+/// Handler 概览:说明 + KV → 常驻状态(运行时/配置完整度)→ 环境失败摘要/技术详情 → init 参数(敏感默认遮蔽)
+/// → 方法 + 类代码(只读)。
 class HandlerOverview extends ConsumerWidget {
   const HandlerOverview({required this.hd, super.key});
 
@@ -122,6 +125,31 @@ class HandlerOverview extends ConsumerWidget {
                   kvList([(d.kv.status, hd.configState ?? '—')]),
                   for (final m in hd.missingConfig)
                     AnRow(label: m, dot: AnStatus.wait, passive: true),
+                ],
+              ),
+            ),
+          ],
+        ),
+        AnSection(
+          label: d.sec.env,
+          variant: AnSectionVariant.plain,
+          children: [
+            if (v.envError != null && v.envError!.isNotEmpty)
+              EnvironmentFailure(error: v.envError!),
+            AnInfoCard(
+              title: d.card.venv,
+              icon: AnIcons.byKey('check'),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  kvList([(d.kv.status, v.envStatus)]),
+                  kvList([
+                    (d.kv.python, v.pythonVersion),
+                    (d.kv.envId, v.envId),
+                    (d.kv.syncedAt, fmtTime(v.envSyncedAt)),
+                  ], meta: true),
+                  const SizedBox(height: AnSpace.s8),
+                  AnKv(rows: [AnKvRow.tags(d.card.deps, v.dependencies)]),
                 ],
               ),
             ),

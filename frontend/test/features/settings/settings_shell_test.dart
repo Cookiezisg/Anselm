@@ -1,6 +1,9 @@
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
+import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
 import 'package:anselm/features/settings/ui/settings_ocean.dart';
 import 'package:anselm/features/settings/ui/settings_rail.dart';
@@ -127,6 +130,53 @@ void main() {
       await tester.tap(find.text(t.settings.panels.about));
       await tester.pumpAndSettle();
       expect(container.read(shellHeadProvider).title, t.settings.panels.about);
+    },
+  );
+
+  testWidgets(
+    're-entering Models & keys refreshes voice inventory changed from Chat',
+    (tester) async {
+      final prefs = SettingsPrefs.inMemory({'an.settings.panel': 'modelsKeys'});
+      final repo = FixtureSettingsRepository()
+        ..fixtureVoices = const VoiceInventory(
+          items: [ClonedVoice(id: 'vce_old', name: '登记前音色')],
+          capacity: 2,
+          remaining: 1,
+        );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsPrefsProvider.overrideWithValue(prefs),
+            settingsRepositoryProvider.overrideWithValue(repo),
+          ],
+          child: TranslationProvider(
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: AnTheme.light(),
+              home: const Scaffold(body: SettingsOcean()),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('登记前音色'), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(SettingsOcean)),
+        listen: false,
+      );
+      repo.fixtureVoices = const VoiceInventory(
+        items: [ClonedVoice(id: 'vce_new', name: '聊天后音色')],
+        capacity: 2,
+        remaining: 1,
+      );
+      container.read(selectedOceanProvider.notifier).select(OceanKind.chat);
+      await tester.pump();
+      container.read(selectedOceanProvider.notifier).select(OceanKind.settings);
+      await tester.pumpAndSettle();
+
+      expect(find.text('聊天后音色'), findsOneWidget);
+      expect(find.text('登记前音色'), findsNothing);
     },
   );
 

@@ -141,6 +141,27 @@ func TestSearch_WorkspaceIsolation(t *testing.T) {
 	}
 }
 
+func TestSetMetaBatchRollsBackOnLaterWriteFailure(t *testing.T) {
+	s := newStore(t)
+	ctx := context.Background()
+	_, err := s.db.Exec(ctx, `CREATE TRIGGER test_search_meta_fail
+		BEFORE INSERT ON search_meta WHEN NEW.key = 'zz_fail'
+		BEGIN SELECT RAISE(ABORT, 'synthetic settings failure'); END`)
+	if err != nil {
+		t.Fatalf("create failure trigger: %v", err)
+	}
+
+	err = s.SetMetaBatch(ctx, map[string]string{"embedder": "off", "zz_fail": "boom"})
+	if err == nil {
+		t.Fatal("SetMetaBatch must return the later write failure")
+	}
+	if got, err := s.GetMeta(ctx, "embedder"); err != nil {
+		t.Fatalf("read rolled-back meta: %v", err)
+	} else if got != "" {
+		t.Fatalf("earlier meta write survived rollback: %q", got)
+	}
+}
+
 func TestUpsertDocAt_TriggerKeepsFTSConsistent(t *testing.T) {
 	s := newStore(t)
 	ctx := wsCtx("ws_a")

@@ -4,6 +4,7 @@ import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
 import 'an_interactive.dart';
+import 'an_spinner.dart';
 import 'an_tooltip.dart';
 
 /// B1 — the unified action button. Variants: ghost (neutral default) · primary (the ink CTA —
@@ -39,6 +40,7 @@ class AnButton extends StatelessWidget {
     this.elevated = false,
     this.round = false,
     this.toggled = false,
+    this.busy = false,
     this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -58,6 +60,7 @@ class AnButton extends StatelessWidget {
     this.elevated = false,
     this.round = false,
     this.toggled = false,
+    this.busy = false,
     required String this.semanticLabel,
     this.focusNode,
     this.autofocus = false,
@@ -88,6 +91,11 @@ class AnButton extends StatelessWidget {
 
   /// The ON state for a toggle button (accent glyph + accentSoft fill, a11y toggled). 开关按下态。
   final bool toggled;
+
+  /// Replaces the glyph with the shared indeterminate spinner while an action is in flight. The
+  /// button keeps its normal geometry; callers should also pass `onPressed: null` to block repeats.
+  /// 动作在途时用统一不定转圈替换字形。按钮保留原有几何；调用方也应传 `onPressed: null` 防重复提交。
+  final bool busy;
   final String? semanticLabel;
   final FocusNode? focusNode;
   final bool autofocus;
@@ -224,7 +232,9 @@ class AnButton extends StatelessWidget {
                     final effBlock = block && constraints.hasBoundedWidth;
                     Widget child;
                     if (isIcon) {
-                      child = glyph ?? const SizedBox.shrink();
+                      child = busy
+                          ? AnSpinner(size: iconSize)
+                          : (glyph ?? const SizedBox.shrink());
                     } else {
                       child = Row(
                         mainAxisSize: effBlock
@@ -234,8 +244,8 @@ class AnButton extends StatelessWidget {
                             ? MainAxisAlignment.start
                             : MainAxisAlignment.center,
                         children: [
-                          if (glyph != null) ...[
-                            glyph,
+                          if (busy || glyph != null) ...[
+                            busy ? AnSpinner(size: iconSize) : glyph!,
                             const SizedBox(width: AnGap.inline),
                           ],
                           Flexible(

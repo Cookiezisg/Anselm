@@ -21,7 +21,7 @@ func decodeJSON(r *http.Request, v any) error {
 	if err := dec.Decode(v); err != nil {
 		return errorspkg.ErrInvalidRequest.WithCause(err)
 	}
-	return nil
+	return rejectTrailingJSON(dec)
 }
 
 // decodeJSONOptional is decodeJSON for endpoints whose body is OPTIONAL: an empty body leaves v at
@@ -39,5 +39,21 @@ func decodeJSONOptional(r *http.Request, v any) error {
 		}
 		return errorspkg.ErrInvalidRequest.WithCause(err)
 	}
-	return nil
+	return rejectTrailingJSON(dec)
+}
+
+// rejectTrailingJSON makes the one-body-value contract real. Decoder.Decode stops after the first
+// value, so without this second read `{"name":"one"}{"name":"two"}` would silently create the
+// first resource and discard the caller's trailing bytes.
+//
+// rejectTrailingJSON 让「body 只能有一个 JSON 值」的契约真正生效。Decoder.Decode 读完第一个值就会
+// 返回；没有第二次读取时，尾随 JSON 会被静默丢弃，调用方以为提交了完整请求而服务端只执行第一段。
+func rejectTrailingJSON(dec *json.Decoder) error {
+	var extra json.RawMessage
+	if err := dec.Decode(&extra); err == io.EOF {
+		return nil
+	} else if err != nil {
+		return errorspkg.ErrInvalidRequest.WithCause(err)
+	}
+	return errorspkg.ErrInvalidRequest.WithCause(errors.New("request body must contain exactly one JSON value"))
 }

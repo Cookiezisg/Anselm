@@ -62,6 +62,24 @@ func TestRepair_BalancesMissingBracket(t *testing.T) {
 	}
 }
 
+func TestRepair_RemovesTrailingCommas(t *testing.T) {
+	in := `{"a":[1,2,],"b":"keep,]"}`
+	got := Repair(in)
+	if !json.Valid([]byte(got)) {
+		t.Fatalf("repaired output not valid JSON: %q", got)
+	}
+	var out struct {
+		A []int  `json:"a"`
+		B string `json:"b"`
+	}
+	if err := json.Unmarshal([]byte(got), &out); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+	if len(out.A) != 2 || out.B != "keep,]" {
+		t.Fatalf("decoded output = %+v, want [1 2] and keep,]", out)
+	}
+}
+
 func TestRepair_CombinedControlAndBrackets(t *testing.T) {
 	// Literal newline in string AND a missing closing brace.
 	in := "{\"a\":\"line1\nline2\""

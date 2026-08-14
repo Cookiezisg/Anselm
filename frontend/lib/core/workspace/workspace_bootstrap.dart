@@ -2,6 +2,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../i18n/strings.g.dart';
 import '../contract/workspace.dart';
+import '../media/media_source.dart';
 import '../runtime.dart';
 import 'set_active_workspace.dart';
 
@@ -70,6 +71,14 @@ class WorkspaceBootstrap extends AsyncNotifier<String?> {
       // The backend keeps provisioning best-effort. The shell must remain usable for BYOK and
       // explicit model setup even when the managed gateway is unavailable.
       // 后端开通保持 best-effort；网关不可用时仍让用户进入壳，通过 BYOK/设置显式配模。
+    } finally {
+      // This bootstrap path calls the provision endpoint directly, rather than through the settings
+      // controller that normally invalidates capability projections. Without this invalidation the
+      // pre-provision false answer can stay cached for the whole first session, hiding read-aloud
+      // after the managed speech route has been seeded.
+      // 冷启动直接调用开通接口，不经过设置 controller 的能力失效出口；必须在这里补失效，否则开通前
+      // 的 false 会缓存整场会话，把已播种的朗读入口继续藏起来。
+      ref.invalidate(readAloudAvailableProvider);
     }
   }
 

@@ -101,26 +101,28 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
+	includeArchived, err := parseSearchIncludeArchived(qp.Get("includeArchived"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
+	updatedAfter, updatedBefore, err := parseSearchWindow(qp.Get("updatedAfter"), qp.Get("updatedBefore"))
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
+	}
 	q := &searchdomain.Query{
 		Q:               qp.Get("q"),
 		Cursor:          pg.Cursor,
 		Limit:           pg.Limit,
-		IncludeArchived: qp.Get("includeArchived") != "false", // default true: archived+searchable is the point of archiving. 默认 true：归档+可搜正是归档的意义。
+		IncludeArchived: includeArchived,
+		UpdatedAfter:    updatedAfter,
+		UpdatedBefore:   updatedBefore,
 	}
 	for _, t := range splitCSV(qp.Get("types")) {
 		q.Types = append(q.Types, searchdomain.EntityType(t))
 	}
 	q.Tags = splitCSV(qp.Get("tags"))
-	if v := qp.Get("updatedAfter"); v != "" {
-		if ts, err := time.Parse(time.RFC3339, v); err == nil {
-			q.UpdatedAfter = &ts
-		}
-	}
-	if v := qp.Get("updatedBefore"); v != "" {
-		if ts, err := time.Parse(time.RFC3339, v); err == nil {
-			q.UpdatedBefore = &ts
-		}
-	}
 	page, err := h.svc.Search(r.Context(), q)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
@@ -130,10 +132,67 @@ func (h *SearchHandler) Search(w http.ResponseWriter, r *http.Request) {
 	responsehttpapi.Paged(w, map[string]any{"hits": page.Hits, "total": page.Total}, page.NextCursor, page.NextCursor != "")
 }
 
-// Reindex handles POST /api/v1/search:reindex — purge + rebuild the ctx
+// parseSearchIncludeArchived keeps the query contract closed: an unknown value must not
+// silently widen the result set back to the default (include archived). Empty means absent
+// for compatibility with clients that serialize optional query fields as an empty string.
+//
+// parseSearchIncludeArchived 收紧 query 文法：未知值不能静默把结果集放宽回默认（含归档）。空值
+// 按缺席处理，兼容把可选 query 字段序列化为空字符串的客户端。
+func parseSearchIncludeArchived(raw string) (bool, error) {
+	raw = strings.TrimSpace(raw)
+	switch strings.ToLower(raw) {
+	case "":
+		return true, nil
+	case "true":
+		return true, nil
+	case "false":
+		return false, nil
+	default:
+		return false, searchdomain.ErrInvalidIncludeArchived.WithDetails(map[string]any{
+			"param": "includeArchived",
+			"got":   raw,
+			"want":  "true or false",
+		})
+	}
+}
+
+// parseSearchWindow parses inclusive UTC-normalized RFC3339 bounds and rejects an inverted
+// range before the search service can turn the caller's typo into a convincing empty result.
+//
+// parseSearchWindow 解析包含端点、归一 UTC 的 RFC3339 窗口，并在进入 search service 前拒绝反向
+// 区间，避免把调用方的笔误伪装成可信的空结果。
+func parseSearchWindow(afterRaw, beforeRaw string) (after, before *time.Time, err error) {
+	parse := func(raw, param string) (*time.Time, error) {
+		if strings.TrimSpace(raw) == "" {
+			return nil, nil
+		}
+		ts, err := parseListTime(raw, param, searchdomain.ErrInvalidWindow)
+		if err != nil {
+			return nil, err
+		}
+		return &ts, nil
+	}
+	if after, err = parse(afterRaw, "updatedAfter"); err != nil {
+		return nil, nil, err
+	}
+	if before, err = parse(beforeRaw, "updatedBefore"); err != nil {
+		return nil, nil, err
+	}
+	if after != nil && before != nil && after.After(*before) {
+		return nil, nil, searchdomain.ErrInvalidWindow.WithDetails(map[string]any{
+			"param":         "updatedAfter/updatedBefore",
+			"updatedAfter":  after.Format(time.RFC3339Nano),
+			"updatedBefore": before.Format(time.RFC3339Nano),
+			"reason":        "updatedAfter must not be later than updatedBefore",
+		})
+	}
+	return after, before, nil
+}
+
+// Reindex handles POST /api/v1/search:reindex — force-reconcile the ctx
 // workspace asynchronously, returning 204 (fire-and-forget, nothing to poll).
 //
-// Reindex 处理 POST /api/v1/search:reindex——异步清空重建 ctx workspace，返 204
+// Reindex 处理 POST /api/v1/search:reindex——异步就地 force-reconcile ctx workspace，返 204
 // （fire-and-forget、无可轮询产物）。
 func (h *SearchHandler) Reindex(w http.ResponseWriter, r *http.Request) {
 	if err := h.svc.Reindex(r.Context()); err != nil {

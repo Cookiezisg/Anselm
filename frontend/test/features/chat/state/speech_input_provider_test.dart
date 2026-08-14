@@ -1,9 +1,14 @@
 import 'dart:async';
 import 'dart:typed_data';
 
+import 'package:anselm/core/contract/model_capability.dart';
+import 'package:anselm/core/contract/workspace.dart';
+import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/process/backend_controller.dart';
 import 'package:anselm/core/runtime.dart';
+import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/state/speech_input_provider.dart';
+import 'package:anselm/features/settings/state/workspaces_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:record/record.dart';
@@ -22,6 +27,28 @@ class _ReadyBackend extends BackendStartup {
 class _ActiveWorkspace extends ActiveWorkspace {
   @override
   String? build() => 'ws_test';
+}
+
+class _NoSelection extends SelectedConversation {
+  @override
+  ConversationRef? build() => null;
+}
+
+class _SpeechWorkspaces extends WorkspacesController {
+  @override
+  Future<List<Workspace>> build() async => [
+    Workspace(
+      id: 'ws_test',
+      name: 'Speech test',
+      language: 'en-US',
+      defaultDialogue: const ModelRef(
+        apiKeyId: 'aki_anselm',
+        modelId: 'anselm-auto',
+      ),
+      createdAt: DateTime.utc(2026, 7, 1),
+      updatedAt: DateTime.utc(2026, 7, 1),
+    ),
+  ];
 }
 
 class _FakeCapture implements SpeechAudioCapture {
@@ -150,6 +177,45 @@ Future<void> _flushAsync() async {
 }
 
 void main() {
+  test('speech input stays unavailable while capabilities are loading', () {
+    final pending = Completer<List<ModelCapability>>();
+    final container = ProviderContainer(
+      overrides: [
+        activeWorkspaceProvider.overrideWith(_ActiveWorkspace.new),
+        selectedConversationProvider.overrideWith(_NoSelection.new),
+        workspacesProvider.overrideWith(_SpeechWorkspaces.new),
+        modelCapabilitiesProvider.overrideWith((ref) => pending.future),
+      ],
+    );
+    addTearDown(() {
+      if (!pending.isCompleted) pending.complete(const []);
+      container.dispose();
+    });
+
+    expect(container.read(speechInputAvailableProvider), isFalse);
+  });
+
+  test('speech input stays unavailable when capabilities fail', () async {
+    final container = ProviderContainer(
+      overrides: [
+        activeWorkspaceProvider.overrideWith(_ActiveWorkspace.new),
+        selectedConversationProvider.overrideWith(_NoSelection.new),
+        workspacesProvider.overrideWith(_SpeechWorkspaces.new),
+        modelCapabilitiesProvider.overrideWith((ref) async {
+          throw StateError('capability catalog unavailable');
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+
+    try {
+      await container.read(modelCapabilitiesProvider.future);
+    } catch (_) {
+      // The provider's error state is the condition under test.
+    }
+    expect(container.read(speechInputAvailableProvider), isFalse);
+  });
+
   test('failed websocket handshake releases the composer', () async {
     final capture = _FakeCapture();
     final container = ProviderContainer(
@@ -224,6 +290,45 @@ void main() {
     expect(state.canRetry, isFalse);
     expect(state.active, isFalse);
     expect(store.cleared, isTrue);
+  });
+
+  test('renders Qwen text snapshots as live partial transcription', () async {
+    final capture = _FakeCapture();
+    final socket = _FakeWebSocketChannel();
+    final container = ProviderContainer(
+      overrides: [
+        speechInputAvailableProvider.overrideWithValue(true),
+        backendStartupProvider.overrideWith(_ReadyBackend.new),
+        speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+        speechSocketConnectorProvider.overrideWithValue(
+          (uri, headers) => socket,
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(speechInputProvider, (_, _) {});
+    addTearDown(sub.close);
+
+    await container.read(speechInputProvider.notifier).start();
+    socket.incoming.add(
+      '{"type":"conversation.item.input_audio_transcription.text",'
+      '"text":"","stash":"这是安塞姆"}',
+    );
+    await _flushAsync();
+
+    var state = container.read(speechInputProvider);
+    expect(state.partial, '这是安塞姆');
+    expect(state.committed, isEmpty);
+
+    socket.incoming.add(
+      '{"type":"conversation.item.input_audio_transcription.completed",'
+      '"transcript":"这是安塞姆。"}',
+    );
+    await _flushAsync();
+
+    state = container.read(speechInputProvider);
+    expect(state.partial, isEmpty);
+    expect(state.committed, '这是安塞姆。');
   });
 
   test('live socket loss reconnects once and replays buffered PCM', () async {

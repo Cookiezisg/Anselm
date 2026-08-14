@@ -197,7 +197,7 @@ type CreateSkill struct{ svc *skillapp.Service }
 func (t *CreateSkill) Name() string { return "create_skill" }
 
 func (t *CreateSkill) Description() string {
-	return "Author a NEW skill — a reusable instruction pack you can later activate. Required: name, description, body. Optional: allowedTools (array of tool names to pre-approve), context (inline or fork), agent (case-sensitive Explore, Plan, or general-purpose for fork), arguments (array of named placeholders), disableModelInvocation, userInvocable. Use this to codify a workflow you just performed into a repeatable capability. Fails if the name already exists (use edit_skill to change one)."
+	return "Author a NEW skill — use this when the user says create, author, write, or make a skill. This is the direct creation tool: do not activate_skill, get_skill, search for, or edit the requested name first. Supply all requested fields in this one call. Required: name, description, body. Optional: allowedTools (array of tool names to pre-approve), context (inline or fork), agent (case-sensitive Explore, Plan, or general-purpose for fork), arguments (array of named placeholders), disableModelInvocation, userInvocable. Use this to codify a workflow you just performed into a repeatable capability. Fails if the name already exists (use edit_skill to change one)."
 }
 
 func (t *CreateSkill) Parameters() json.RawMessage { return json.RawMessage(saveSkillSchema) }

@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -157,4 +158,40 @@ func TestOllama_EmbedShape(t *testing.T) {
 	if o.Model() != "ollama:test-model" {
 		t.Fatalf("model = %s", o.Model())
 	}
+	if st, lastErr := o.Status(); st != StatusReady || lastErr != "" {
+		t.Fatalf("status = %s %q", st, lastErr)
+	}
+}
+
+func TestOllama_StatusDoesNotClaimReadyBeforeAResponse(t *testing.T) {
+	var unavailable atomic.Bool
+	unavailable.Store(true)
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !unavailable.Load() {
+			_ = json.NewEncoder(w).Encode(map[string]any{"embeddings": [][]float32{{1, 0}}})
+			return
+		}
+		http.Error(w, "temporarily unavailable", http.StatusServiceUnavailable)
+	}))
+	o := NewOllama(srv.URL, "test-model")
+	if st, lastErr := o.Status(); st != StatusAbsent || lastErr != "" {
+		t.Fatalf("new provider status = %s %q, want absent", st, lastErr)
+	}
+
+	_, err := o.Embed(context.Background(), []string{"probe"})
+	if err == nil {
+		t.Fatal("expected Ollama probe to fail")
+	}
+	if st, lastErr := o.Status(); st != StatusError || lastErr == "" {
+		t.Fatalf("failed provider status = %s %q, want error with details", st, lastErr)
+	}
+
+	unavailable.Store(false)
+	if _, err := o.Embed(context.Background(), []string{"probe"}); err != nil {
+		t.Fatalf("recovery embed: %v", err)
+	}
+	if st, lastErr := o.Status(); st != StatusReady || lastErr != "" {
+		t.Fatalf("recovered provider status = %s %q, want ready", st, lastErr)
+	}
+	srv.Close()
 }

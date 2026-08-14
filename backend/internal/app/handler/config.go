@@ -59,9 +59,10 @@ func (s *Service) UpdateConfig(ctx context.Context, handlerID string, partial ma
 	if err := s.repo.UpdateConfigEncrypted(ctx, handlerID, string(ciphertext)); err != nil {
 		return fmt.Errorf("handlerapp.UpdateConfig: %w", err)
 	}
-	h, _ := s.repo.GetHandler(ctx, handlerID)
-	s.publish(ctx, "config_updated", handlerID, map[string]any{"name": nameOfHandler(h)})
-	if _, rerr := s.manager.Restart(ctx, handlerID); rerr != nil {
+	durableCtx := s.durableContext(ctx)
+	h, _ := s.repo.GetHandler(durableCtx, handlerID)
+	s.publish(durableCtx, "config_updated", handlerID, map[string]any{"name": nameOfHandler(h)})
+	if _, rerr := s.manager.Restart(durableCtx, handlerID); rerr != nil {
 		s.log.Info("handlerapp.UpdateConfig: instance not restarted (likely still needs config)", zap.String("handlerId", handlerID), zap.Error(rerr))
 	}
 	return nil
@@ -78,12 +79,13 @@ func (s *Service) ClearConfig(ctx context.Context, handlerID string) error {
 	if !changed {
 		// DELETE is idempotent, but a no-op must not create a second notification or
 		// make every subscriber refetch the same unchanged Handler row.
-		s.manager.Stop(ctx, handlerID)
+		s.manager.Stop(s.durableContext(ctx), handlerID)
 		return nil
 	}
-	h, _ := s.repo.GetHandler(ctx, handlerID)
-	s.publish(ctx, "config_cleared", handlerID, map[string]any{"name": nameOfHandler(h)})
-	s.manager.Stop(ctx, handlerID)
+	durableCtx := s.durableContext(ctx)
+	h, _ := s.repo.GetHandler(durableCtx, handlerID)
+	s.publish(durableCtx, "config_cleared", handlerID, map[string]any{"name": nameOfHandler(h)})
+	s.manager.Stop(durableCtx, handlerID)
 	return nil
 }
 

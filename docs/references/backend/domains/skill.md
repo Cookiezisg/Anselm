@@ -72,6 +72,11 @@ JSON 编码；普通字符串、数字、对象、混合类型数组和非法编
 `allowedTools/context/agent/arguments/disableModelInvocation/userInvocable`；不能依赖模型从截断的
 工具摘要猜测这些字段。
 
+Skill 意图按用户动词消歧：用户说“创建/新建/编写/制作”时，直接用一次 `create_skill` 携带全部
+字段；不能先 `activate_skill`、`get_skill`、搜索或 `edit_skill` 一个尚不存在的名字。只有目录中
+已有的 skill 或显式 `@skill` 才走 `activate_skill`；修改已有 skill 才先 `get_skill` 再 `edit_skill`。
+这样空目录下的新建请求不会被误读为激活请求，也不会因连续的 `skill not found` 触发错误风暴。
+
 正文注入当前 Conversation，并把 allowed-tools 记为本次运行的预授权。Skill
 不是限制白名单；未预授权的 dangerous tool 仍进入逐次 HumanLoop。激活不执行
 反引号 shell substitution。

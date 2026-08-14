@@ -20,10 +20,13 @@ import os
 import statistics
 import sys
 from pathlib import Path
+from typing import Optional
 
-RIG_HOME = Path(os.environ.get("RIG_HOME", str(Path.home() / ".anselm-rig")))
-JOURNAL = RIG_HOME / "judgments.jsonl"
-ALARMS = RIG_HOME / "alarms.json"
+from scope import explicit_rig_home
+
+RIG_HOME: Optional[Path] = None
+JOURNAL: Optional[Path] = None
+ALARMS: Optional[Path] = None
 
 # Thresholds are opening positions, tightened by 立法协议 as real data accrues — recorded here,
 # not scattered. 阈值是开局值,随真实数据按立法协议收紧——集中在此,不散置。
@@ -33,11 +36,18 @@ BURST_RATIO = 3.0         # recent rate vs trailing rate 通过率暴冲倍数
 DISCOVERY_FLOOR = 0.05    # fail share floor once ≥WINDOW judgments exist 发现率地板
 
 
+def configured_path(value: Optional[Path], label: str) -> Path:
+    if value is None:
+        raise SystemExit(f"alarms: REFUSED — RIG_HOME is not configured; refusing direct {label} access")
+    return value
+
+
 def load_journal():
-    if not JOURNAL.exists():
+    journal = configured_path(JOURNAL, "judgment ledger")
+    if not journal.exists():
         return []
     rows = []
-    for line in JOURNAL.read_text().splitlines():
+    for line in journal.read_text().splitlines():
         try:
             rows.append(json.loads(line))
         except Exception:
@@ -46,17 +56,20 @@ def load_journal():
 
 
 def load_alarms():
-    if ALARMS.exists():
+    alarms_path = configured_path(ALARMS, "alarm ledger")
+    if alarms_path.exists():
         try:
-            return json.loads(ALARMS.read_text())
+            return json.loads(alarms_path.read_text())
         except Exception:
             pass
     return []
 
 
 def save_alarms(alarms):
-    RIG_HOME.mkdir(exist_ok=True)
-    ALARMS.write_text(json.dumps(alarms, ensure_ascii=False, indent=1))
+    rig_home = configured_path(RIG_HOME, "alarm ledger")
+    alarms_path = configured_path(ALARMS, "alarm ledger")
+    rig_home.mkdir(exist_ok=True)
+    alarms_path.write_text(json.dumps(alarms, ensure_ascii=False, indent=1))
 
 
 def open_alarm(alarms, aid, note, through):
@@ -128,6 +141,10 @@ def main():
     a.add_argument("id")
     a.add_argument("--note", required=True, help="how it was resolved (re-audit result) — 怎么销的账")
     args = ap.parse_args()
+    global RIG_HOME, JOURNAL, ALARMS
+    RIG_HOME = explicit_rig_home("alarms")
+    JOURNAL = RIG_HOME / "judgments.jsonl"
+    ALARMS = RIG_HOME / "alarms.json"
     if args.cmd == "check":
         check()
     else:

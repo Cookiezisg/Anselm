@@ -206,6 +206,7 @@ func (c *vecCache) patch(ws, model string, vecs map[string][]float32) {
 //
 // kickEmbed 调度一个 workspace 的向量补算（非阻塞；队满无妨——下次 kick 再覆盖）。
 func (s *Service) kickEmbed(ws string) {
+	s.rememberWorkspace(ws)
 	select {
 	case s.embedKick <- ws:
 	default:
@@ -639,32 +640,30 @@ type UpdateSettingsInput struct {
 // UpdateSettings 修补机器级搜索设置。改 Ollama model 即换向量记账键（按 model 记账），
 // 补算自动重嵌；只改 base URL 向量保留（同模型、新地址）。
 func (s *Service) UpdateSettings(ctx context.Context, in UpdateSettingsInput) (*SettingsView, error) {
+	values := make(map[string]string, 3)
 	if in.Embedder != nil {
 		if !searchdomain.IsValidEmbedder(*in.Embedder) {
 			return nil, searchdomain.ErrEmbedderInvalid
 		}
-		if err := s.repo.SetMeta(ctx, metaEmbedderKey, *in.Embedder); err != nil {
-			return nil, err
-		}
+		values[metaEmbedderKey] = *in.Embedder
 	}
 	if in.OllamaBaseURL != nil {
-		if err := s.repo.SetMeta(ctx, metaOllamaURLKey, strings.TrimSpace(*in.OllamaBaseURL)); err != nil {
-			return nil, err
-		}
+		values[metaOllamaURLKey] = strings.TrimSpace(*in.OllamaBaseURL)
 	}
 	if in.OllamaModel != nil {
-		if err := s.repo.SetMeta(ctx, metaOllamaModelKey, strings.TrimSpace(*in.OllamaModel)); err != nil {
+		values[metaOllamaModelKey] = strings.TrimSpace(*in.OllamaModel)
+	}
+	if len(values) > 0 {
+		if err := s.repo.SetMetaBatch(ctx, values); err != nil {
 			return nil, err
 		}
-	}
-	if in.Embedder != nil || in.OllamaBaseURL != nil || in.OllamaModel != nil {
-		// Drop the cached adapter (params may have changed) and re-kick the ctx workspace:
-		// rows missing the now-active model re-embed in the background.
-		// 丢弃缓存适配器（参数可能变了）并重 kick ctx workspace：缺当前生效模型向量的行后台重嵌。
+		// Drop the cached adapter (params may have changed) and re-kick every indexed
+		// workspace: rows missing the now-active model re-embed in the background.
+		// 丢弃缓存适配器（参数可能变了）并重 kick 每个已索引 workspace：缺当前生效模型的行后台重嵌。
 		s.ollamaMu.Lock()
 		s.ollamaProv, s.ollamaKey = nil, ""
 		s.ollamaMu.Unlock()
-		if wsID, err := reqctxpkg.RequireWorkspaceID(ctx); err == nil {
+		for _, wsID := range s.workspaceSnapshot() {
 			s.vectors.invalidate(wsID)
 			s.kickEmbed(wsID)
 		}

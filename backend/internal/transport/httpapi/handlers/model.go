@@ -43,12 +43,13 @@ func (h *ModelCapabilitiesHandler) List(w http.ResponseWriter, r *http.Request) 
 	responsehttpapi.Success(w, http.StatusOK, items)
 }
 
-// ScenariosHandler serves GET /api/v1/scenarios — the fixed scenario whitelist (dialogue/utility/
-// agent). Static metadata, exempt from RequireWorkspace so onboarding can render the model-config
-// tab before any workspace exists.
+// ScenariosHandler serves GET /api/v1/scenarios — the fixed six-slot scenario whitelist
+// (dialogue/utility/agent/image/speech/video). Static metadata, exempt from RequireWorkspace so
+// onboarding can render the model-config tab before any workspace exists.
 //
-// ScenariosHandler 提供 GET /api/v1/scenarios——固定 scenario 白名单（dialogue/utility/agent）。
-// 静态元数据，豁免 RequireWorkspace，使 onboarding 在任何 workspace 前可渲染模型配置页。
+// ScenariosHandler 提供 GET /api/v1/scenarios——固定六槽 scenario 白名单
+// （dialogue/utility/agent/image/speech/video）。静态元数据，豁免 RequireWorkspace，使 onboarding
+// 在任何 workspace 前可渲染模型配置页。
 type ScenariosHandler struct{}
 
 func NewScenariosHandler() *ScenariosHandler { return &ScenariosHandler{} }

@@ -5,6 +5,7 @@ import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:anselm/features/notifications/data/notification_fixture.dart';
 import 'package:anselm/features/notifications/data/notification_providers.dart';
+import 'package:anselm/features/notifications/state/notification_feed_provider.dart';
 import 'package:anselm/features/notifications/ui/notification_row.dart';
 import 'package:anselm/features/notifications/ui/notification_tray.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -372,6 +373,38 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(NotificationRow), findsOneWidget); // only the unread one
   });
+
+  testWidgets(
+    '⚙ "unread only" recomputes the bucket count after a loaded row is marked read',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(FixtureNotificationRepository(seed: [_n('a'), _n('b')])),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(NotificationRow), findsNWidgets(2));
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(NotificationTray)),
+      );
+      await container.read(notificationFeedProvider.notifier).markRead('a');
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.byIcon(AnIcons.sliders));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.notifications.unreadOnly));
+      await tester.pumpAndSettle();
+
+      final head = find.ancestor(
+        of: find.text(t.notifications.today),
+        matching: find.byType(AnRow),
+      );
+      expect(
+        find.descendant(of: head, matching: find.text('1')),
+        findsOneWidget,
+      );
+      expect(find.byType(NotificationRow), findsOneWidget);
+    },
+  );
 
   testWidgets(
     'injected approvals band is the top group; it hides while searching',

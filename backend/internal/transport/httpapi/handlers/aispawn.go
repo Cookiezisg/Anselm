@@ -71,7 +71,7 @@ func (h *TriageHandler) post(w http.ResponseWriter, r *http.Request) {
 	var req struct {
 		Note string `json:"note"` // optional: what the user wants help understanding
 	}
-	if err := decodeJSON(r, &req); err != nil {
+	if err := decodeJSONOptional(r, &req); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}

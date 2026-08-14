@@ -27,6 +27,7 @@ import (
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // SandboxRunner is the execution + cleanup surface function needs from the sandbox
@@ -138,16 +139,24 @@ func envOwner(functionID, envID string) sandboxdomain.Owner {
 // ensureEnv 经 envfix 循环物化 v 的 env，把终态 + （修复后）deps 写回行并镜像到 v，返回 env
 // 是否就绪。它从不因构建失败报错——那是调用方上呈的状态（Create/Edit 容忍；Run 视未就绪为错）。
 func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink envfixapp.Sink) (ready bool, errMsg string) {
-	_ = s.repo.UpdateVersionEnv(ctx, v.ID, functiondomain.EnvStatusSyncing, "", v.Dependencies, nil)
+	// The version is already durable before provisioning starts. Keep the expensive install
+	// cancellable, but move terminal state writes onto a workspace-scoped detached context so a
+	// client disconnect cannot leave the version stuck in syncing forever (S9).
+	// 版本在物化前已经耐久落库。安装本身仍可取消，但终态写回改用带 workspace 的 detached ctx，避免
+	// 客户端断连后版本永久卡在 syncing（S9）。
+	durableCtx := s.durableContext(ctx)
+	if err := s.repo.UpdateVersionEnv(durableCtx, v.ID, functiondomain.EnvStatusSyncing, "", v.Dependencies, nil); err != nil {
+		s.log.Warn("functionapp: persist env syncing state failed", zap.String("versionId", v.ID), zap.Error(err))
+	}
 
 	// Tee attempts to the panel's build terminal regardless of caller, so the HTTP editor
 	// path and chat build are equally visible.
 	// 把尝试行 tee 到面板构建终端、不分调用方——HTTP 编辑器路径与 chat 构建同等可见。
-	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: v.FunctionID}, entitystreamapp.NodeBuild, nil)
+	term := entitystreamapp.New(durableCtx, s.entities, streamdomain.Scope{Kind: streamdomain.KindFunction, ID: v.FunctionID}, entitystreamapp.NodeBuild, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))
 	owner := envOwner(v.FunctionID, v.EnvID)
-	if f, err := s.repo.GetFunction(ctx, v.FunctionID); err == nil && f != nil {
+	if f, err := s.repo.GetFunction(durableCtx, v.FunctionID); err == nil && f != nil {
 		owner.Name = f.Name
 	}
 
@@ -160,7 +169,9 @@ func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink
 
 	now := time.Now().UTC()
 	if res.OK {
-		_ = s.repo.UpdateVersionEnv(ctx, v.ID, functiondomain.EnvStatusReady, "", res.FinalDeps, &now)
+		if err := s.repo.UpdateVersionEnv(durableCtx, v.ID, functiondomain.EnvStatusReady, "", res.FinalDeps, &now); err != nil {
+			s.log.Warn("functionapp: persist env ready state failed", zap.String("versionId", v.ID), zap.Error(err))
+		}
 		v.Dependencies = res.FinalDeps
 		v.EnvStatus = functiondomain.EnvStatusReady
 		v.EnvError = ""
@@ -169,12 +180,30 @@ func (s *Service) ensureEnv(ctx context.Context, v *functiondomain.Version, sink
 	}
 
 	errMsg = lastEnvError(res.History)
-	_ = s.repo.UpdateVersionEnv(ctx, v.ID, functiondomain.EnvStatusFailed, errMsg, res.FinalDeps, &now)
+	if err := s.repo.UpdateVersionEnv(durableCtx, v.ID, functiondomain.EnvStatusFailed, errMsg, res.FinalDeps, &now); err != nil {
+		s.log.Warn("functionapp: persist env failed state failed", zap.String("versionId", v.ID), zap.Error(err))
+	}
 	v.Dependencies = res.FinalDeps
 	v.EnvStatus = functiondomain.EnvStatusFailed
 	v.EnvError = errMsg
 	v.EnvSyncedAt = &now
 	return false, errMsg
+}
+
+// durableContext keeps the workspace (and optional conversation provenance) while dropping a
+// request cancellation. It is only used after the owning version has been written durably.
+//
+// durableContext 保留 workspace（以及可选的对话溯源）并丢弃请求取消。它只用于版本主写入已经完成之后。
+func (s *Service) durableContext(ctx context.Context) context.Context {
+	workspaceID, ok := reqctxpkg.GetWorkspaceID(ctx)
+	if !ok {
+		return ctx
+	}
+	durable := reqctxpkg.Detached(workspaceID)
+	if conversationID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		durable = reqctxpkg.SetConversationID(durable, conversationID)
+	}
+	return durable
 }
 
 // reclaimTrimmedEnvs destroys the per-version venvs of versions just removed by

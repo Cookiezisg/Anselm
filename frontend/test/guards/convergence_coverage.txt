@@ -494,6 +494,7 @@ lib/features/entities/ui/detail/ocean_header.dart	reviewed
 lib/features/entities/ui/detail/overview/agent_overview.dart	converged
 lib/features/entities/ui/detail/overview/approval_overview.dart	converged
 lib/features/entities/ui/detail/overview/control_overview.dart	reviewed
+lib/features/entities/ui/detail/overview/environment_failure.dart	pending
 lib/features/entities/ui/detail/overview/function_overview.dart	converged
 lib/features/entities/ui/detail/overview/handler_overview.dart	reviewed
 lib/features/entities/ui/detail/overview/trigger_overview.dart	reviewed

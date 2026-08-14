@@ -17,6 +17,7 @@ package readaloud
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -256,8 +257,22 @@ func (s *Service) lookup(ctx context.Context, key string) (*Result, error) {
 		return nil, err
 	}
 	att, err := s.att.Get(ctx, entry.AttachmentID)
-	if err != nil || att == nil {
+	if errors.Is(err, attachmentdomain.ErrNotFound) {
+		// An attachment can be retired independently by manual cleanup or blob/cache maintenance.
+		// Remove only the proven dangling mapping; preserving a row on an unrelated storage error is
+		// safer than deleting a cache entry whose target may still exist.
+		// 附件可能被手动清理或媒体回收独立退休。只清除已证实悬空的映射;无关存储错误不删缓存,
+		// 因为目标可能仍然存在。
+		if err := s.cache.Delete(ctx, key); err != nil {
+			return nil, fmt.Errorf("remove stale read-aloud cache entry: %w", err)
+		}
 		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if att == nil {
+		return nil, errors.New("attachment lookup returned nil without an error")
 	}
 	return &Result{Attachment: att, Cached: true}, nil
 }

@@ -601,6 +601,8 @@ audience: [human, ai]
 | `SEARCH_CURSOR_INVALID` | 400 | search cursor is invalid or stale |
 | `SEARCH_REINDEX_RUNNING` | 409 | a reindex is already running |
 | `SEARCH_EMBEDDER_INVALID` | 400 | embedder must be one of builtin, ollama, off |
+| `SEARCH_INVALID_WINDOW` | 422 | updatedAfter/updatedBefore must be RFC3339 and form an inclusive window |
+| `SEARCH_INVALID_INCLUDE_ARCHIVED` | 422 | includeArchived must be true or false |
 
 ### `domain/skill`
 

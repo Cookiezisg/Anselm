@@ -130,6 +130,8 @@ class FixtureEntityRepository implements EntityRepository {
 
   final _lifecycle = <EntityKind, StreamController<EntitySignal>>{};
   final _relationSignals = StreamController<void>.broadcast();
+  final _flowrunInboxSignals = StreamController<void>.broadcast();
+  final _flowrunInboxResync = StreamController<void>.broadcast();
   final _panels = <String, StreamController<StreamEnvelope>>{};
 
   // ── paging helpers (cursor = the next start index, as a string) ────────────
@@ -1223,10 +1225,22 @@ class FixtureEntityRepository implements EntityRepository {
   final StreamController<void> _lifecycleResync = StreamController.broadcast();
 
   @override
+  Stream<void> flowrunInboxSignals() => _flowrunInboxSignals.stream;
+
+  @override
+  Stream<void> flowrunInboxResync() => _flowrunInboxResync.stream;
+
+  @override
   Stream<void> relationSignals() => _relationSignals.stream;
 
   /// Script a notifications-stream 410 (the gap that loses lifecycle signals). 脚本化 410 缺口。
   void emitLifecycleResync() => _lifecycleResync.add(null);
+
+  /// Script a durable approval-inbox pulse. 脚本一条审批收件箱耐久脉冲。
+  void emitFlowrunInboxSignal() => _flowrunInboxSignals.add(null);
+
+  /// Script a 410 on either source stream feeding the approval inbox. 脚本审批收件箱来源流 410。
+  void emitFlowrunInboxResync() => _flowrunInboxResync.add(null);
 
   /// Replace the durable graph snapshot for a following refresh. 仅供 fixture 测试切换下一份快照。
   void replaceRelGraph(EntityRelGraph graph) => _relGraph = graph;
@@ -1256,6 +1270,8 @@ class FixtureEntityRepository implements EntityRepository {
   void upsertHandler(HandlerEntity e) => _upsert(_handlers, e, (x) => x.id);
   void upsertAgent(AgentEntity e) => _upsert(_agents, e, (x) => x.id);
   void upsertWorkflow(WorkflowEntity e) => _upsert(_workflows, e, (x) => x.id);
+  void upsertFlowrunDetail(FlowrunComposite comp) =>
+      _flowrunDetail[comp.flowrun.id] = comp;
   void upsertTrigger(TriggerEntity e) =>
       _upsert(_triggerEntities, e, (x) => x.id);
   void upsertFiring(Firing f) => _upsert(
@@ -1284,6 +1300,8 @@ class FixtureEntityRepository implements EntityRepository {
     }
     await _relationSignals.close();
     await _lifecycleResync.close();
+    await _flowrunInboxSignals.close();
+    await _flowrunInboxResync.close();
     for (final c in _panels.values) {
       await c.close();
     }

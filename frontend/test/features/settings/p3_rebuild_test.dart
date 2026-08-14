@@ -178,6 +178,97 @@ void main() {
         expect(jumped, isTrue);
       },
     );
+
+    testWidgets('catalog loading is not mistaken for an empty catalog', (
+      tester,
+    ) async {
+      var jumped = false;
+      await tester.pumpWidget(
+        _host(
+          ModelPickerPanel(
+            caps: const [],
+            catalogLoading: true,
+            onApply: (_, _, _) {},
+            onAddKey: () => jumped = true,
+          ),
+        ),
+      );
+      // Loading owns a deliberate spinner ticker, so settling is neither expected nor useful.
+      // 加载态刻意有 spinner ticker,不能用 pumpAndSettle 等它停止。
+      await tester.pump(const Duration(milliseconds: 100));
+
+      expect(find.text(t.settings.keys.modelCatalogLoading), findsOneWidget);
+      expect(find.text(t.settings.keys.noCapsGuide), findsNothing);
+      expect(find.text(t.settings.keys.addKey), findsNothing);
+      expect(jumped, isFalse);
+    });
+
+    testWidgets('catalog failure offers refresh instead of add-key guidance', (
+      tester,
+    ) async {
+      var refreshes = 0;
+      await tester.pumpWidget(
+        _host(
+          ModelPickerPanel(
+            caps: const [],
+            catalogError: true,
+            onApply: (_, _, _) {},
+            onRetryCatalog: () => refreshes++,
+            onAddKey: () {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text(t.settings.keys.modelCatalogFailed), findsOneWidget);
+      expect(find.text(t.settings.keys.modelCatalogFailedHint), findsOneWidget);
+      expect(find.text(t.settings.keys.noCapsGuide), findsNothing);
+      expect(find.text(t.settings.keys.addKey), findsNothing);
+      await tester.tap(find.text(t.settings.keys.refreshModels));
+      expect(refreshes, 1);
+    });
+
+    testWidgets(
+      'catalog refresh loading keeps the last-good model list actionable',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            ModelPickerPanel(
+              caps: _caps,
+              catalogLoading: true,
+              onApply: (_, _, _) {},
+              onRetryCatalog: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Main key'), findsOneWidget);
+        expect(find.text(t.settings.keys.modelCatalogLoading), findsNothing);
+        expect(find.text(t.settings.keys.noCapsGuide), findsNothing);
+      },
+    );
+
+    testWidgets(
+      'catalog refresh failure keeps the last-good model list actionable',
+      (tester) async {
+        await tester.pumpWidget(
+          _host(
+            ModelPickerPanel(
+              caps: _caps,
+              catalogError: true,
+              onApply: (_, _, _) {},
+              onRetryCatalog: () {},
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(find.text('Main key'), findsOneWidget);
+        expect(find.text(t.settings.keys.modelCatalogFailed), findsNothing);
+        expect(find.text(t.settings.keys.noCapsGuide), findsNothing);
+      },
+    );
   });
 
   group('KeyForm 添加流 baseUrl 门', () {

@@ -157,7 +157,7 @@ ID：`mcp_`、`mcl_`、`doc_`；Skill 以 slug 为身份。
 | `attachments` | sha256、filename、mime_type、kind、size_bytes、source、origin_conversation_id、origin_flowrun_id、origin_tool_call_id；软删 |
 | `attachment_derivatives` | attachment/source/params identity、status、派生 blob 元数据与媒体维度；可再生 |
 | `attachment_perceptions` | attachment/source/task/provider/model/params identity、status、capsule、token 与错误元数据；可再生 |
-| `speech_cache` | cache_key、attachment_id、size_bytes、last_used_at；workspace 内 key 唯一；派生 LRU |
+| `speech_cache` | cache_key、attachment_id、size_bytes、last_used_at；workspace 内 key 唯一；派生 LRU；新写入显式盖近期性戳，启动幂等回填旧零值为 created_at；命中先校验附件，明确附件不存在时先清陈旧映射再回写 |
 | `todos` | scope_id、conversation_id、subagent_id、items；按 scope 整体替换 |
 | `conversation_touchpoints` | conversation/item/verb 聚合键、item_name、last_actor、count、first/last_at、last_message_id |
 | `voices` | name、provider、upstream_id、source_attachment_id、created_at；workspace/name unique |

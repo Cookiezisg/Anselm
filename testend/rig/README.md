@@ -18,8 +18,8 @@
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
 | ⑤ LLM 线缆 | `cmd/llmtap` 透明代理在受管网关前 | `llm.jsonl` + 逐调用请求体/响应体文件；启动先落 `event=ready`，无模型调用的旅程仍能证明线缆在线 |
 
-所有会话落 `~/.anselm-rig/sessions/<时间戳>/`；conductor 初始化 `evidence/` 与各 channel journal，
-截图等证据可以直接写入该目录。`~/.anselm-rig/current` 软链指认活会话，`manifest.json` 是其余脚本唯一读的连接事实。
+所有会话落 `$RIG_HOME/sessions/<时间戳>/`；conductor 初始化 `evidence/` 与各 channel journal，
+截图等证据可以直接写入该目录。`$RIG_HOME/current` 软链指认活会话，`manifest.json` 是其余脚本唯一读的连接事实。
 启用录屏时，manifest 同时指向 `recording-lifecycle.json`；该文件记录 `screencapture` 进程的
 `spawnRequestedAt` 与 `spawnReturnedAt`（UTC 微秒）及 PID。任何把 MOV PTS 与后端/SSE 时戳对齐的
 延迟量测都必须使用这段高精度起点证据，不能再用录屏完成后写入、且只有秒精度的 `startedAt`。
@@ -43,22 +43,46 @@ testend/rig/rig-check.sh   # 五通道自检:权限/进程与端口归属/三流
 testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe MOV,journal 全保留
 ```
 
-`rig-up.sh` 不接受位置参数；`-h/--help` 只打印用法并退出，未知参数直接拒绝。不要用一个会把参数
-透传给启动器的探查命令代替 help，否则台架可能在未形成 manifest 前启动真实 App。
+`rig-up.sh`、`rig-check.sh` 和 `rig-down.sh` 都不接受位置参数；`-h/--help` 只打印用法并退出，未知参数直接拒绝。
+不要用一个会把参数透传给启动器的探查命令代替 help，否则台架可能在未形成 manifest 前启动真实 App。
 
-环境旋钮(都有默认值):`RIG_PORT`(8742;被占就换)· `RIG_LLMTAP_PORT`(8788)· `RIG_DATA`·
-`RIG_HOME`· `RIG_SEED=0` 跳过播种并走真实首次 onboarding。`RIG_LLMTAP=0`、`RIG_RECORD=0`、
-`RIG_APP=0` 只用于诊断；缺任一通道的会话不能通过 `rig-check` 或 L2 gate。
+环境旋钮:`RIG_HOME`(必须显式绝对路径)· `RIG_PORT`(8742;被占就换)· `RIG_BACKEND_WAIT_SEC`(60;启动时等待后端健康探针的秒数)·
+`RIG_LLMTAP_PORT`(8788)· `RIG_DATA`· `RIG_SEED=0` 跳过播种并走真实首次 onboarding。`RIG_LLMTAP=0`、`RIG_RECORD=0`、
+`RIG_APP=0` 只用于诊断；缺任一通道的会话不能通过 `rig-check` 或 L2 gate。需要验收启动门的三态时，使用
+`RIG_APP_FIRST=1 RIG_BACKEND_START_DELAY_SEC=5` 让真实 App 先由录屏捕获 `starting → ready`；使用
+`RIG_BACKEND_START_DELAY_SEC=25` 可让前端健康等待先落 `crashed`，后端随后仍由 conductor 启动，点击真实 `Retry`
+即可复验恢复。该旋钮默认关闭，不改变普通台架的 backend-first 顺序；`startup-gate.jsonl` 与 manifest 一起记录
+App、录屏、后端健康和 SSE 的事件时序。
+需要验收 workspace 名册解析中的中间 loading 面时，使用默认 backend-first 顺序加
+`RIG_APP_PROXY=1 RIG_APP_PROXY_DELAY_MS=2500`；它只把真实 App 的精确 `GET /api/v1/workspaces`
+请求延迟，其他请求透明转发，backend 端口仍由 conductor 直接持有，ssetap 也仍直连 backend。
+`appproxy.jsonl`、`appProxyPid`、`appBackendUrl` 会写进 manifest；该扰动默认关闭，不能拿它代替真实后端
+故障或正式性能数字。
 `RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
 
 `RIG_HOME` 是本次验收的账本根：`judgments.jsonl`、`alarms.json`、`anchor-check.json` 和 `current`
-必须来自同一个显式目录。正式 session 使用 `RIG_HOME=/private/tmp/anselm-rig-formal-...` 时，
-必须先在 shell 中 `export RIG_HOME=/private/tmp/anselm-rig-formal-...`，再运行 `judge.py`、
-`alarms.py`、`anchors.py`；仅写在某一条命令前面的 `RIG_HOME=... command` 不会传给后续命令，
-曾造成正式账本与默认账本归属混淆。不能把默认 `~/.anselm-rig` 中旧账本的 clean 结果当作当前
-session 的门禁证据。
+必须来自同一个显式绝对目录。正式 session 使用 `RIG_HOME=/private/tmp/anselm-rig-formal-...` 时，
+先在 shell 中 `export RIG_HOME=/private/tmp/anselm-rig-formal-...`，再运行 `rig-up.sh`、`rig-check.sh`、
+`rig-down.sh` 或 `judge.py`、`alarms.py`、`anchors.py`；所有台架入口在变量缺失、相对路径或 `~` 路径时都会
+fail-closed，不会再静默回落到个人默认目录。只有 `--help` 这种只读用法不要求作用域。不能把未绑定作用域的
+clean 结果当作当前 session 的门禁证据。
 
-所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。录像在
+`RIG_RECORD=1`(默认)时，`rig-up.sh` 会在构建后端、启动 observer、编译 Flutter 或启动真实 App **之前**
+先用一次性 PNG 探测 Screen Recording 权限；探测失败立即退出并提示授权，不产生半启动的产品 session，也不把
+缺少帧证据的后端日志误当成验收会话。该拒绝路径由 `test_screen_recording.py` 回归：模拟
+`screencapture` 被系统拒绝时，不生成 server/ssetap/llmtap 二进制、不启动 observer、不创建 manifest。
+`RIG_RECORD=0` 仅用于诊断：conductor 会把“跳过 Screen Recording TCC 探测”视为成功继续，避免
+`set -e` 把刻意关闭录像的诊断态误报成权限失败；它仍会写明 `recording.disabled`，且不能通过正式
+`rig-check` 或 L2 gate。正式验收始终必须使用 `RIG_RECORD=1`、真实窗口录像和可解析的封口 MOV。
+
+所有进程经 `spawn.py` 建独立进程组，启动 shell 退出后仍受 manifest 所有；不要另外手起 App。真实
+验收 App 由 conductor 先 `flutter build macos --debug`，再直接 spawn `.app/Contents/MacOS/anselm`，
+故 `ANSELM_BACKEND_URL`、`ANSELM_DATA_DIR` 会进入**真实 App 进程**；这是刻意不用 `flutter run` 的地方，
+因为 Flutter runner 交给 launch services 的子进程不会可靠继承 PTY runner 环境。`appLaunchPid` 与
+`appPid` 必须相同且都活着；旧 session 若仍有 `runnerPid`，`rig-check` 仍兼容检查。台架启动前拒绝已有
+Anselm App，启动后只接收新出现的精确 App 进程，并由录屏窗口反查 owner PID，不能把一个残留进程误判
+为前端在线。`frontend-build.log` 保存构建 console，`frontend.log` 保存真实 App stdout/stderr。
+录像在
 Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝把全桌面录屏当作帧证据。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
@@ -69,10 +93,15 @@ Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝
   (细节坑:`lsof -ti` 必须带 `-sTCP:LISTEN`,否则 tap 的客户端连接会被算成端口持有者。)
 - **通道五接线**:受管 key 的 base_url 在 provision 时**落库**(`freetier.go` 存
   `AnselmGatewayBase()`),换过接线的旧数据目录会永远抱着旧指针——静默形态是受管流量绕开 tap
-  而 `llm.jsonl` 只是安静。rig-up 对错指针直接拒绝;rig-check 持续断言。
+  而 `llm.jsonl` 只是安静。rig-up 在启动 ssetap、Flutter 与录制器**之前**就对每个已有 workspace
+  做 fail-closed 校验：无 workspace/无 managed key 才允许 onboarding pending；缺地址、坏响应或指向别的
+  端口都拒绝启动。rig-check 持续用同一严格判定复验。
   (相关后端 env:`ANSELM_GATEWAY_URL` 指 tap;`ANSELM_PROOF_HOST` 让 device-proof 的 htu
   签**真实受众**——受管流量按 DPoP 式设计天生反代理,唯一正当例外是设备自己的录制代理。)
   `llm.jsonl` 的 `event=ready` 只证明 recorder 已启动并绑定目标上游，不代表产生了模型流量；模型请求/响应仍必须逐条看真实 wire 记录。
+
+透明代理对 `101 Switching Protocols` 必须保持 duplex body 原样可写；只对有限 HTTP 响应做 body witness。
+否则语音 ASR 的上游虽返回 101，ReverseProxy 会因“non-writable body”拒绝升级，产品端只会看到假性的握手失败。
 
 ## 测量(凡能成为数字的视觉判断必须成为数字)
 
@@ -90,7 +119,7 @@ go run ./cmd/measure compare -source <source.png> -frame <first-frame.png>
 先 `rig-down.sh` 封口录像，再抽帧：
 
 ```bash
-SESSION=~/.anselm-rig/sessions/<时间戳>
+SESSION=$RIG_HOME/sessions/<时间戳>
 mkdir -p "$SESSION/frames"
 ffmpeg -i "$SESSION/screen.mov" -vf fps=30 "$SESSION/frames/f%06d.png"
 ```
@@ -100,9 +129,10 @@ ROI 应只框目标控件，排除时钟、鼠标、呼吸动画等无关变化�
 ## 开工校准(先于任何 pass)
 
 ```bash
+export RIG_HOME=/private/tmp/anselm-rig-formal-<session>
 python3 testend/rig/anchors.py quiz
-# 逐题填写 ~/.anselm-rig/anchor-quiz.json 的 verdict / law / reason
-python3 testend/rig/anchors.py check ~/.anselm-rig/anchor-quiz.json
+# 逐题填写 $RIG_HOME/anchor-quiz.json 的 verdict / law / reason
+python3 testend/rig/anchors.py check "$RIG_HOME/anchor-quiz.json"
 ```
 
 校准凭证绑定冻结题集且只活四小时；缺失、过期或题集变化时 `judge.py` 物理拒绝所有新 pass。
@@ -116,14 +146,20 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
 
 - pass/fail 必须引**存在于 CODEX.md** 的法条(或测量值);证据必须是盘上真实非空文件。
 - `na` 用 `--evidence 'note:<为何不适用>'`。
-- L2(数据真相)pass 还须 `--session <会话目录>`；必须先 `rig-down`，六件证据非空、MOV 可读且
-  SSE witness 曾连接三条流。
-- 每次裁决盖时戳追加 `$RIG_HOME/judgments.jsonl`——只经脚本、不手写；未设置 `RIG_HOME` 时才使用
-  默认 `~/.anselm-rig`。
+- L2(数据真相)的 pass/fail 都须 `--session <会话目录>`；必须先 `rig-down`，六件证据非空、MOV 可读且
+  SSE witness 曾连接三条流。`judge.py` 还会 fail-closed 检查：`manifest.json` 的绝对 `session` 身份必须
+  与 `--session` 一致，`--session` 必须属于当前 `$RIG_HOME/sessions/`，`--evidence` 的真实解析路径必须在
+  该 session 内；不能把另一个台架的证据拼进当前正式账本。
+- 每次裁决盖时戳追加 `$RIG_HOME/judgments.jsonl`——只经脚本、不手写；未设置或错误设置 `RIG_HOME` 时
+  直接拒绝，不产生个人默认账本。
 - `judge.py` 用 `$RIG_HOME/judge.lock` 跨进程串行保护去重判断、COVERAGE 更新和 journal 追加；同一
   `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针。
   若进程在两份持久记录之间半步退出，重跑同一命令会按已有 journal 重放清册格和证据指针；所以不能只数
   `judgments.jsonl`，必须同时运行 `gen_coverage.py --check` 并检查目标行五格。
+- `ledger-sequence.json` 是仓内版本控制的正式前线顺序策略（不接受 `RIG_SEQUENCE` 等调用方环境变量替换），当前模式为
+  `first_unsettled`：judge 在锁内按 COVERAGE 的真实行序找到第一条含 `·/✗` 的行，只允许该行继续落新裁决，任何后行都拒绝；
+  第一行五格均为 `✓/~` 后，前线自动推进到下一条。策略版本/模式非法或 COVERAGE 无法解析时 fail-closed，不靠工作记录口头约定越序。
+  重复同一已存在裁决仍先按幂等规则重放，不被顺序策略误伤。若改变顺序机制，必须修改策略文件、测试并同步 working 记录。
 - 并发回归可用 `python3 -m unittest testend/rig/test_judge.py -v`；更换证据或裁决仍会留下新的审计行。
 - 法不够用 → **先立法再判**:按 CODEX.md 末的立法协议加新法条(只收紧、带回灌横扫),再引用它。
 

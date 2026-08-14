@@ -31,20 +31,115 @@ func (p *Provisioner) suggestDeps(ctx context.Context, currentDeps []string, las
 	return parseDeps(out)
 }
 
-// parseDeps extracts {"deps":[...]} from the model reply, repairing malformed JSON
-// (fences / trailing commas) via jsonrepair before unmarshal.
+// parseDeps extracts {"deps":[...]} from the model reply. Hosted models sometimes add prose
+// or wrap the object in a Markdown fence despite the prompt, so try a fenced block, then a
+// balanced object embedded in the reply, before applying the usual jsonrepair pass.
 //
-// parseDeps 从模型回复抽 {"deps":[...]}，unmarshal 前用 jsonrepair 修畸形 JSON
-// （围栏 / 尾逗号）。
+// parseDeps 从模型回复抽 {"deps":[...]}。托管模型即使收到约束也可能加散文或 Markdown 围栏，故先尝试
+// 围栏块，再尝试回复中嵌入的完整对象，最后沿用 jsonrepair（尾逗号等）。
 func parseDeps(resp string) ([]string, error) {
-	var out struct {
-		Deps []string `json:"deps"`
+	input := strings.TrimSpace(resp)
+	candidates := []string{input}
+	if fenced, ok := extractFencedJSON(input); ok {
+		candidates = append([]string{fenced}, candidates...)
 	}
-	repaired := jsonrepairpkg.Repair(strings.TrimSpace(resp))
-	if err := json.Unmarshal([]byte(repaired), &out); err != nil {
-		return nil, fmt.Errorf("envfix.parseDeps: no parseable deps JSON in reply: %w", err)
+	for _, object := range extractJSONObjectCandidates(input) {
+		candidates = append(candidates, object)
 	}
-	return out.Deps, nil
+
+	var lastErr error
+	seen := make(map[string]struct{}, len(candidates))
+	for _, candidate := range candidates {
+		candidate = strings.TrimSpace(candidate)
+		if _, ok := seen[candidate]; ok {
+			continue
+		}
+		seen[candidate] = struct{}{}
+		var object map[string]json.RawMessage
+		repaired := jsonrepairpkg.Repair(candidate)
+		if err := json.Unmarshal([]byte(repaired), &object); err != nil {
+			lastErr = err
+			continue
+		}
+		rawDeps, ok := object["deps"]
+		if !ok {
+			lastErr = fmt.Errorf("missing deps field")
+			continue
+		}
+		var deps []string
+		if err := json.Unmarshal(rawDeps, &deps); err != nil {
+			lastErr = err
+			continue
+		}
+		return deps, nil
+	}
+	if lastErr == nil {
+		lastErr = fmt.Errorf("empty reply")
+	}
+	return nil, fmt.Errorf("envfix.parseDeps: no parseable deps JSON in reply: %w", lastErr)
+}
+
+// extractFencedJSON returns the first complete Markdown code fence, ignoring its optional
+// language tag. It intentionally does not accept an unterminated fence as structured data.
+func extractFencedJSON(s string) (string, bool) {
+	open := strings.Index(s, "```")
+	if open < 0 {
+		return "", false
+	}
+	rest := s[open+3:]
+	if newline := strings.IndexByte(rest, '\n'); newline >= 0 {
+		rest = rest[newline+1:]
+	}
+	end := strings.Index(rest, "```")
+	if end < 0 {
+		return "", false
+	}
+	return strings.TrimSpace(rest[:end]), true
+}
+
+// extractJSONObjectCandidates returns balanced object slices, preserving string and escape
+// semantics. Trying every balanced object lets a prose preamble contain harmless braces without
+// making it mask a later valid deps object.
+func extractJSONObjectCandidates(s string) []string {
+	var out []string
+	for start := 0; start < len(s); start++ {
+		if s[start] != '{' {
+			continue
+		}
+		depth := 0
+		inString := false
+		escaped := false
+		for i := start; i < len(s); i++ {
+			c := s[i]
+			if escaped {
+				escaped = false
+				continue
+			}
+			if inString && c == '\\' {
+				escaped = true
+				continue
+			}
+			if c == '"' {
+				inString = !inString
+				continue
+			}
+			if inString {
+				continue
+			}
+			switch c {
+			case '{':
+				depth++
+			case '}':
+				depth--
+				if depth == 0 {
+					out = append(out, s[start:i+1])
+					start = i
+					i = len(s)
+				}
+			}
+		}
+	}
+	return out
 }
 
 // buildFixPrompt constrains the model to ONLY adjust dependencies (versions / names /

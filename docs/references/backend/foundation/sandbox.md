@@ -89,13 +89,19 @@ Env manifest 保存 running PID。Boot 的 `RestoreOrCleanupOnBoot` 验证并回
 `Provision(owner,runtime,deps)`：
 
 1. 尝试创建/同步 env；
-2. 失败时可把安装错误交给 utility model 修正 dependency list；
+2. 失败时可把安装错误交给 utility model 修正 dependency list；托管模型即使附带散文、
+   Markdown JSON fence 或尾逗号，envfix 也会先提取结构化对象再重试，无法提取时才诚实结束；
 3. 有界重试；
 4. 返回 `OK`、最终 deps 与完整 attempts。
 
 Envfix 用 Result 表达构建失败，不把“模型未配置/依赖无法安装”伪装为基础设施
 panic。调用方将 attempts 流到 Entity build terminal，并把终态写入自己的
 Version env mirror。
+
+EnsureEnv 的安装阶段仍服从调用方取消；但 manifest 的 `ready/failed` 终态写回使用保留
+workspace 的 detached context，客户端断开不能留下永久 `installing`。有 workspace 的调用会
+再发送 `sandbox.env_status_changed` 终态通知；机器级 attachment/search 等没有 workspace
+受众的调用只写 manifest，不尝试发通知，避免制造 `MISSING_WORKSPACE_ID` 伪告警。
 
 Function/Handler 额外拒绝通过删除声明依赖来制造假 ready；这一业务诚实边界由
 实体 app 层执行。

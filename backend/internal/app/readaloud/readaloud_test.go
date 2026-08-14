@@ -96,6 +96,7 @@ type fakeAtt struct {
 	rows    map[string]*attachmentdomain.Attachment
 	deleted []string
 	n       int
+	getErr  error
 }
 
 func newFakeAtt() *fakeAtt {
@@ -125,6 +126,9 @@ func (f *fakeAtt) Delete(_ context.Context, id string) error {
 func (f *fakeAtt) Get(_ context.Context, id string) (*attachmentdomain.Attachment, error) {
 	f.mu.Lock()
 	defer f.mu.Unlock()
+	if f.getErr != nil {
+		return nil, f.getErr
+	}
 	a, ok := f.rows[id]
 	if !ok {
 		return nil, attachmentdomain.ErrNotFound
@@ -137,6 +141,7 @@ type fakeCache struct {
 	rows    map[string]*attachmentdomain.SpeechCacheEntry
 	putErr  error
 	evicted []string
+	deleted []string
 }
 
 func newFakeCache() *fakeCache {
@@ -151,6 +156,14 @@ func (f *fakeCache) Lookup(_ context.Context, key string) (*attachmentdomain.Spe
 		return nil, attachmentdomain.ErrNotFound
 	}
 	return e, nil
+}
+
+func (f *fakeCache) Delete(_ context.Context, key string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	f.deleted = append(f.deleted, key)
+	delete(f.rows, key)
+	return nil
 }
 
 func (f *fakeCache) Put(_ context.Context, e *attachmentdomain.SpeechCacheEntry, _ int64) ([]string, error) {
@@ -317,6 +330,47 @@ func TestRead_StaleCacheRowIsAMiss(t *testing.T) {
 	}
 	if res.Cached || synth.calls != 2 {
 		t.Fatalf("a dangling cache row was served (cached=%v calls=%d)", res.Cached, synth.calls)
+	}
+	key := attachmentdomain.SpeechCacheKey("话", "Cherry", "qwen", "m")
+	if len(cache.deleted) != 1 || cache.deleted[0] != key {
+		t.Fatalf("stale cache deletes = %v, want [%s]", cache.deleted, key)
+	}
+	third, err := svc.Read(context.Background(), "话", "")
+	if err != nil {
+		t.Fatalf("read after stale-row repair: %v", err)
+	}
+	if !third.Cached || third.Attachment.ID != res.Attachment.ID || synth.calls != 2 {
+		t.Fatalf("repaired cache did not converge: cached=%v attachment=%s calls=%d", third.Cached, third.Attachment.ID, synth.calls)
+	}
+}
+
+// TestRead_AttachmentReadFailureKeepsTheCacheMapping ensures an unrelated storage failure is not
+// mistaken for a proven dangling attachment and does not silently destroy the cache entry.
+// TestRead_AttachmentReadFailureKeepsTheCacheMapping 确保无关存储故障不会被误判为附件悬空,也不会
+// 静默删除缓存映射。
+func TestRead_AttachmentReadFailureKeepsTheCacheMapping(t *testing.T) {
+	synth := &fakeSynth{provider: "qwen", model: "m", voice: "Cherry", available: true}
+	att, cache := newFakeAtt(), newFakeCache()
+	svc := newSvc(synth, att, cache)
+	first, err := svc.Read(context.Background(), "故障不等于丢失", "")
+	if err != nil {
+		t.Fatalf("first read: %v", err)
+	}
+	att.getErr = errors.New("blob index unavailable")
+	key := attachmentdomain.SpeechCacheKey("故障不等于丢失", "Cherry", "qwen", "m")
+	if _, err := svc.lookup(context.Background(), key); !errors.Is(err, att.getErr) {
+		t.Fatalf("ordinary attachment storage error = %v, want %v", err, att.getErr)
+	}
+	if len(cache.deleted) != 0 {
+		t.Fatalf("cache mappings deleted on ordinary storage failure: %v", cache.deleted)
+	}
+	att.getErr = nil
+	res, err := svc.Read(context.Background(), "故障不等于丢失", "")
+	if err != nil {
+		t.Fatalf("read after storage recovery: %v", err)
+	}
+	if !res.Cached || res.Attachment.ID != first.Attachment.ID || synth.calls != 1 {
+		t.Fatalf("cache did not survive storage failure: cached=%v attachment=%s calls=%d", res.Cached, res.Attachment.ID, synth.calls)
 	}
 }
 

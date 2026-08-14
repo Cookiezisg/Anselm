@@ -5,6 +5,7 @@
 // tool calls (complex nested ops push this to ~17%). Two dominant failure modes:
 //  1. Literal control characters (newlines, tabs) inside JSON strings, unescaped.
 //  2. Bracket/brace imbalance — trailing } or ] missing.
+//  3. Trailing commas before a closing ] or }.
 //
 // This repair handles both. It is NOT a full JSON parser — it only fixes the
 // patterns empirically observed in LLM output. If repair still fails to produce
@@ -12,7 +13,7 @@
 // json.Unmarshal surfaces the real error.
 //
 // Package jsonrepair 对 LLM 产出的畸形 JSON 做 best-effort 修复（不重新解析,
-// 只处理两类常见模式），失败时返原串让调用方正常报错。
+// 只处理三类常见模式），失败时返原串让调用方正常报错。
 package jsonrepair
 
 import (
@@ -41,14 +42,21 @@ func Repair(s string) string {
 		return fixed
 	}
 
-	// Pass 2: balance brackets and braces.
+	// Pass 2: remove commas immediately before a closing array/object delimiter.
+	fixed = removeTrailingCommas(fixed)
+	if json.Valid([]byte(fixed)) {
+		return fixed
+	}
+
+	// Pass 3: balance brackets and braces.
 	fixed = balanceBrackets(fixed)
 	if json.Valid([]byte(fixed)) {
 		return fixed
 	}
 
-	// Pass 3: both passes together on original.
-	combined := balanceBrackets(escapeControlChars(s))
+	// Pass 4: all passes together on original.
+	combined := balanceBrackets(removeTrailingCommas(escapeControlChars(s)))
+	combined = removeTrailingCommas(combined)
 	if json.Valid([]byte(combined)) {
 		return combined
 	}
@@ -104,6 +112,44 @@ func escapeControlChars(s string) string {
 				buf.WriteByte(hexChars[c&0xf])
 			}
 			continue
+		}
+		buf.WriteByte(c)
+	}
+	return buf.String()
+}
+
+// removeTrailingCommas drops a comma outside a string when only whitespace separates it from
+// a closing array/object delimiter. It leaves commas inside quoted strings untouched.
+func removeTrailingCommas(s string) string {
+	var buf bytes.Buffer
+	buf.Grow(len(s))
+	inString := false
+	escaped := false
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if escaped {
+			buf.WriteByte(c)
+			escaped = false
+			continue
+		}
+		if inString && c == '\\' {
+			buf.WriteByte(c)
+			escaped = true
+			continue
+		}
+		if c == '"' {
+			inString = !inString
+			buf.WriteByte(c)
+			continue
+		}
+		if !inString && c == ',' {
+			j := i + 1
+			for j < len(s) && (s[j] == ' ' || s[j] == '\t' || s[j] == '\r' || s[j] == '\n') {
+				j++
+			}
+			if j < len(s) && (s[j] == ']' || s[j] == '}') {
+				continue
+			}
 		}
 		buf.WriteByte(c)
 	}

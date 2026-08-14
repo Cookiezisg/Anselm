@@ -85,6 +85,10 @@ func TestIterate_SeedsEntityMentionAndSteer(t *testing.T) {
 		"never send a delta",
 		"approvalId, inputs, template, allowReason, timeout, timeoutBehavior",
 		"never rely on a retry to complete the snapshot",
+		"rebuild or retry a failed environment",
+		"with exactly ops: [] (no new version)",
+		"never substitute restart_handler",
+		"does not rebuild or reinstall an environment",
 	} {
 		if !strings.Contains(st.gotSystemPrompt, phrase) {
 			t.Fatalf("system prompt should preserve iterate safety rule %q, got: %q", phrase, st.gotSystemPrompt)
@@ -146,6 +150,17 @@ func TestTriage_RendersExecutionIntoSystemPrompt(t *testing.T) {
 	}
 	if !strings.Contains(st.gotSystemPrompt, "diagnose") || !strings.Contains(st.gotSystemPrompt, "boom") {
 		t.Fatalf("system prompt should carry the triage steer + the rendered execution, got: %q", st.gotSystemPrompt)
+	}
+	for _, phrase := range []string{
+		"Preserve opaque identifiers exactly as supplied",
+		"never truncate, invent, or turn an identifier into a prose fragment",
+		"the missing function and include the exact identifier separately",
+		"every code span must use one matched pair of backticks",
+		"proofread the Markdown and grammar",
+	} {
+		if !strings.Contains(st.gotSystemPrompt, phrase) {
+			t.Fatalf("triage system prompt should preserve output quality rule %q, got: %q", phrase, st.gotSystemPrompt)
+		}
 	}
 	if !sd.sent || sd.gotContent != "Please diagnose this execution." {
 		t.Fatalf("triage should send a default first message, got sent=%v content=%q", sd.sent, sd.gotContent)

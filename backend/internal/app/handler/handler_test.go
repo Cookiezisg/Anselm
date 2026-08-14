@@ -5,6 +5,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"os/exec"
@@ -21,6 +22,7 @@ import (
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	handlerdomain "github.com/sunweilin/anselm/backend/internal/domain/handler"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
@@ -37,6 +39,55 @@ type okSandbox struct{}
 
 func (okSandbox) EnsureEnv(_ context.Context, _ sandboxdomain.Owner, spec sandboxdomain.EnvSpec, _ sandboxdomain.ProgressFunc) (*sandboxdomain.Env, error) {
 	return &sandboxdomain.Env{Status: sandboxdomain.EnvStatusReady, Deps: spec.Deps}, nil
+}
+
+// cancelOnEnsureSandbox models a client disconnect after the entity transaction has committed:
+// the first sandbox operation cancels the request and returns that cancellation.
+//
+// cancelOnEnsureSandbox 模拟实体事务已提交后客户端断连：第一次 sandbox 操作取消请求并返取消错误。
+type cancelOnEnsureSandbox struct{ cancel context.CancelFunc }
+
+func (s cancelOnEnsureSandbox) EnsureEnv(ctx context.Context, _ sandboxdomain.Owner, _ sandboxdomain.EnvSpec, _ sandboxdomain.ProgressFunc) (*sandboxdomain.Env, error) {
+	s.cancel()
+	return nil, ctx.Err()
+}
+
+// failAfterSandbox lets the first durable build succeed, then fails a later rebuild. This models
+// an already-running handler whose replacement environment cannot be installed.
+//
+// failAfterSandbox 让首次耐久构建成功、后续重建失败，模拟已有 resident 但替换环境安装失败。
+type failAfterSandbox struct {
+	calls  int
+	failAt int
+}
+
+func (s *failAfterSandbox) EnsureEnv(_ context.Context, _ sandboxdomain.Owner, spec sandboxdomain.EnvSpec, _ sandboxdomain.ProgressFunc) (*sandboxdomain.Env, error) {
+	s.calls++
+	if s.calls >= s.failAt {
+		return nil, fmt.Errorf("synthetic environment install failure")
+	}
+	return &sandboxdomain.Env{Status: sandboxdomain.EnvStatusReady, Deps: spec.Deps}, nil
+}
+
+type recordingEmitter struct{ events []string }
+
+func (e *recordingEmitter) Emit(_ context.Context, eventType string, _ map[string]any) error {
+	e.events = append(e.events, eventType)
+	return nil
+}
+
+func (e *recordingEmitter) Broadcast(_ context.Context, eventType string, _ map[string]any) error {
+	e.events = append(e.events, eventType)
+	return nil
+}
+
+func (e *recordingEmitter) has(eventType string) bool {
+	for _, got := range e.events {
+		if got == eventType {
+			return true
+		}
+	}
+	return false
 }
 
 type fakePicker struct{}
@@ -134,6 +185,14 @@ func (cl *clientLog) factory(io.WriteCloser, io.Reader, *zap.Logger) handlerinfr
 // --- harness ---------------------------------------------------------------
 
 func newSvc(t *testing.T) (*Service, *fakeRunner, *clientLog, context.Context) {
+	return newSvcWithSandbox(t, okSandbox{})
+}
+
+func newSvcWithSandbox(t *testing.T, sandbox envfixapp.SandboxPort) (*Service, *fakeRunner, *clientLog, context.Context) {
+	return newSvcWithSandboxAndEmitter(t, sandbox, nil)
+}
+
+func newSvcWithSandboxAndEmitter(t *testing.T, sandbox envfixapp.SandboxPort, notif notificationdomain.Emitter) (*Service, *fakeRunner, *clientLog, context.Context) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -147,10 +206,10 @@ func newSvc(t *testing.T) (*Service, *fakeRunner, *clientLog, context.Context) {
 		}
 	}
 	repo := handlerstore.New(ormpkg.Open(sqlDB))
-	prov := envfixapp.NewProvisioner(okSandbox{}, fakePicker{}, fakeKeys{}, llminfra.NewFactory(), zap.NewNop())
+	prov := envfixapp.NewProvisioner(sandbox, fakePicker{}, fakeKeys{}, llminfra.NewFactory(), zap.NewNop())
 	runner := &fakeRunner{}
 	cl := &clientLog{}
-	svc := NewService(repo, prov, runner, fakeEncryptor{}, cl.factory, nil, zap.NewNop())
+	svc := NewService(repo, prov, runner, fakeEncryptor{}, cl.factory, notif, zap.NewNop())
 	return svc, runner, cl, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
 }
 
@@ -230,6 +289,28 @@ func TestCreate_NoEagerSpawn(t *testing.T) {
 	}
 	if got := svc.manager.State(h.ID); got != handlerdomain.RuntimeStateStopped {
 		t.Fatalf("runtime state = %q, want stopped", got)
+	}
+}
+
+func TestCreate_CancelledInstallPersistsTerminalEnvState(t *testing.T) {
+	ctx, cancel := context.WithCancel(reqctxpkg.SetWorkspaceID(context.Background(), "ws_1"))
+	svc, _, _, _ := newSvcWithSandbox(t, cancelOnEnsureSandbox{cancel: cancel})
+
+	h, v, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "cancelled_build", false)})
+	if err != nil {
+		t.Fatalf("Create should retain the durable entity after install cancellation: %v", err)
+	}
+	if v.EnvStatus != handlerdomain.EnvStatusFailed {
+		t.Fatalf("returned version env status = %q, want failed", v.EnvStatus)
+	}
+
+	readCtx := reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+	got, err := svc.Get(readCtx, h.ID)
+	if err != nil {
+		t.Fatalf("Get after cancelled install: %v", err)
+	}
+	if got.ActiveVersion.EnvStatus != handlerdomain.EnvStatusFailed {
+		t.Fatalf("persisted env status = %q, want failed (must not remain syncing)", got.ActiveVersion.EnvStatus)
 	}
 }
 
@@ -399,7 +480,8 @@ func TestCrash_RespawnsOnNextCall(t *testing.T) {
 }
 
 func TestEdit_BumpsVersionAndRestarts(t *testing.T) {
-	svc, runner, _, ctx := newSvc(t)
+	notif := &recordingEmitter{}
+	svc, runner, _, ctx := newSvcWithSandboxAndEmitter(t, okSandbox{}, notif)
 	h, _, _ := svc.Create(ctx, CreateInput{Ops: createOps(t, "a", false)})
 	_, _ = svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}) // running (spawns=1)
 
@@ -412,6 +494,75 @@ func TestEdit_BumpsVersionAndRestarts(t *testing.T) {
 	}
 	if runner.spawns != 2 {
 		t.Fatalf("edit should restart the resident instance: spawns=%d", runner.spawns)
+	}
+}
+
+func TestEdit_EmptyOpsRebuildsEnvEmitsNotification(t *testing.T) {
+	notif := &recordingEmitter{}
+	svc, runner, _, ctx := newSvcWithSandboxAndEmitter(t, okSandbox{}, notif)
+	h, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "rebuild", false)})
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+		t.Fatalf("warm call: %v", err)
+	}
+	if _, err := svc.Edit(ctx, EditInput{ID: h.ID, Ops: nil}); err != nil {
+		t.Fatalf("empty-ops edit: %v", err)
+	}
+	if runner.spawns != 2 {
+		t.Fatalf("successful empty-ops rebuild should restart the resident, got %d spawns", runner.spawns)
+	}
+	if !notif.has("handler.env_rebuilt") {
+		t.Fatal("successful empty-ops rebuild must emit handler.env_rebuilt")
+	}
+}
+
+func TestEdit_FailedEnvironmentStopsResidentWithoutSecondProvision(t *testing.T) {
+	cases := []struct {
+		name string
+		ops  func(*testing.T) []Op
+	}{
+		{name: "empty ops", ops: func(*testing.T) []Op { return nil }},
+		{name: "new version", ops: editDepsOps},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			sbx := &failAfterSandbox{failAt: 2}
+			notif := &recordingEmitter{}
+			svc, runner, _, ctx := newSvcWithSandboxAndEmitter(t, sbx, notif)
+			h, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "rebuild_failure", false)})
+			if err != nil {
+				t.Fatalf("create: %v", err)
+			}
+			if _, err := svc.Call(ctx, CallInput{HandlerID: h.ID, Method: "ping", Args: map[string]any{}}); err != nil {
+				t.Fatalf("warm call: %v", err)
+			}
+			if runner.spawns != 1 {
+				t.Fatalf("setup should have one resident spawn, got %d", runner.spawns)
+			}
+
+			v, err := svc.Edit(ctx, EditInput{ID: h.ID, Ops: tc.ops(t)})
+			if err != nil {
+				t.Fatalf("edit: %v", err)
+			}
+			if v.EnvStatus != handlerdomain.EnvStatusFailed {
+				t.Fatalf("env status = %q, want failed", v.EnvStatus)
+			}
+			if sbx.calls != 2 {
+				t.Fatalf("one edit must provision exactly once after the initial build, got %d calls", sbx.calls)
+			}
+			if runner.spawns != 1 {
+				t.Fatalf("failed replacement must not spawn a second resident, got %d spawns", runner.spawns)
+			}
+			if got := svc.manager.State(h.ID); got != handlerdomain.RuntimeStateStopped {
+				t.Fatalf("failed replacement must stop the old resident, got state %q", got)
+			}
+			if notif.has("handler.env_rebuilt") {
+				t.Fatal("failed environment rebuild must not emit handler.env_rebuilt")
+			}
+		})
 	}
 }
 

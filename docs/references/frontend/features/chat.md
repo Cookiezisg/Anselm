@@ -21,7 +21,7 @@ audience: [human, ai]
 | 中心 transcript | REST 水化 + `messages` SSE 增量合并；终态、在飞、乐观回声三层；老页向上加载不跳位；流式跟随可脱离和归队；头部“场次目录”按 keyset 读完全部场次，user 主锚、工具簇折叠、危险/压缩/异常逐条露出，深跳以消息为目标 |
 | Composer | 文本、`@` 提及、文件选择/粘贴/拖放附件、模型选择；发送与停止；生成中 Enter 入队，队列可编辑、删除和取回；图片媒体准备期间，附件 chip 显示可读的取消动作，取消/失败后显示可读的重试动作 |
 | 回合操作 | 复制整回合、分叉、重试换模型、编辑重发、同一逻辑回合的版本翻页；历史版本仍可读，不把 `superseded_by` 当软删；分叉点击后立即保留固定几何的「正在分叉」忙碌态并阻止重复创建，直到导航或错误收口 |
-| 朗读 | 只有服务端确认当前 workspace 有语音路由时，落定回合的动作行才显示朗读入口；workspace 切换、模型密钥变更和免费档开通会在 widget build 之外重探可用性，loading/失败均诚实保持无入口，不把一次旧 workspace 的结果带过来 |
+| 朗读 | 只有服务端确认当前 workspace 有语音路由时，落定回合的动作行才显示朗读入口；workspace 切换、模型密钥变更和免费档开通（包括冷启动 `WorkspaceBootstrap` 直接调用的 provision）会在 widget build 之外重探可用性，loading/失败均诚实保持无入口，不把一次旧 workspace 的结果带过来；首次合成是可能较慢的真实网络动作，入口在原几何内显示统一 spinner 和本地化“准备朗读中”语义并锁住重复点击，完成后进入播放；服务端命中缓存仍校验附件，陈旧附件映射会在重新合成前修复，避免同一段文本反复付费，普通存储错误不伪装成缓存未命中 |
 | 驻地 | 对话可挂工作目录；三态入口；在访达/终端打开、切换/退出驻地、切分支、新建分支、创建 worktree；脏区切分支直接拒绝 |
 | 工具与人在环 | 工具卡按工具族渲染，默认收起；失败与交互门自动展开；用户停止执行中的工具时必须显示中性取消态，不得显示 `Search failed` 或 `context canceled` 等内部错误；坏参数也必须安全降级并显示后端错误，不能把 transcript widget 树打崩，也不能因此回显敏感参数；危险调用、提问与审批都走同一 interaction broker；`replay_flowrun` 被后端拒绝时明确显示“未执行重放”，不得沿用“已重放运行”；可空 query 的实体搜索才可切到“列”声道，`search_documents` 的 query 必填，畸形空参数必须仍显示“搜索失败”；`search_conversations` 命中卡逐项显示标题、snippet、匹配块数和消息锚点（消息 ID 芯片可复制，点击该行直接执行 transcript deep-jump；标题命中没有消息锚点时只打开对话），正文不能把 5 个命中压成 2 个，也不能把 opaque ID 脱敏成 `the requested item` 坏占位；`delete_document` 的 not-found completed 软失败必须显示失败动词与原始证据，不得显示“已删除”或“软删除,可恢复”；`Subagent` 在 `subagent_type` 校验失败时必须显示“校验失败 · 未启动”，不展示 `get_subagent_trace` 回放提示，也不把校验错误当作子代理回答；终局拒绝后的重复工具调用保留在线缆与 durable 证据，但不在 transcript 追加第二条“未执行”噪音卡 |
 | 右岛 | 触点台账 + 流式侧幕；只在存在 Activity 时可揭示，详见 [`chat-sidestage.md`](chat-sidestage.md) |
@@ -29,6 +29,7 @@ audience: [human, ai]
 ## 2. 数据与状态边界
 
 - `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。自动标题在头部与 rail 同步做一次性揭示，头部标题槽预留最终宽度，模型选择器不能因逐字揭示而横向移动，揭示结束后也不得换槽。列表 provider 对每条 pinned/驻地轴独立保存 cursor 和 `total`，任何查询轴变化都丢弃旧 cursor 后重新取首屏；生命周期变更只合帧刷新响应头总数，不用已加载 rows 猜段头；驻地组的 `lastMessageAt` 变化（包括一条回合完成）也会合帧重读服务端投影，保证“最近活跃”组头不会停在旧位置。
+- `modelCapabilitiesProvider` 是模型选择器的共享能力真相源，必须保留 loading、读取失败和 settled-empty 三种语义：只有成功返回空数组才显示没有可用模型；已有能力目录刷新失败时继续展示 last-good，首次加载失败时聊天头部/重试菜单保留 Auto 与当前回合操作，同时给出明确状态和单一刷新入口，不能把后端故障显示成“没有模型”或诱导用户重复添加 key。
 - 侧幕失败丝带按动作语义分流：`create_*` 只说明未创建实体，`edit_*` 才说明上一版仍是真相，执行类工具（例如 `invoke_agent`、`run_function`、`call_handler`）只说明运行失败并指向下方错误；执行失败不得复用草稿/版本文案。`edit_approval` 失败时，侧幕与中心工具卡都必须明确上一版仍有效，禁止把未保存 payload 渲染成带批准/拒绝按钮的审批预览。
 - 对话列表、当前选区、transcript、草稿、附件准备、队列、interaction、驻地与侧幕分别持有最小状态；跨面只经 provider 或路由意图，不让 widget 互相持有。
 - 创建/修改类工具卡的失败终态必须使用明确的失败动词（例如 `Create skill failed` / `创建技能失败`），目标名称仍可作为 chip 保留；禁止把成功过去式与 `failed` 回执并列，造成用户无法判断实体是否已经落盘。

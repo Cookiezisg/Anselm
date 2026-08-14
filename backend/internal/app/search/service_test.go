@@ -22,14 +22,15 @@ import (
 // fakeRepo 记录写入并返回预置词法命中——app 层测试钉排序/折叠/分页逻辑，SQL 层有
 // 自己的测试。
 type fakeRepo struct {
-	mu       sync.Mutex
-	hits     []*searchdomain.DocHit
-	replaced map[string][]searchdomain.SourceDoc // key: type/id
-	upserted map[string]searchdomain.SourceDoc   // key: type/id#chunk
-	stamps   map[searchdomain.EntityType]map[string]time.Time
-	meta     map[string]string
-	purged   []string
-	purgeGo  chan struct{} // non-nil → PurgeWorkspace blocks until closed. 非 nil → PurgeWorkspace 阻塞到关闭。
+	mu           sync.Mutex
+	hits         []*searchdomain.DocHit
+	replaced     map[string][]searchdomain.SourceDoc // key: type/id
+	upserted     map[string]searchdomain.SourceDoc   // key: type/id#chunk
+	stamps       map[searchdomain.EntityType]map[string]time.Time
+	meta         map[string]string
+	metaBatchErr error
+	purged       []string
+	purgeGo      chan struct{} // non-nil → PurgeWorkspace blocks until closed. 非 nil → PurgeWorkspace 阻塞到关闭。
 
 	embedded     map[string][]float32 // key: model/docID
 	embedQueue   []searchdomain.EmbedDoc
@@ -104,6 +105,18 @@ func (f *fakeRepo) SetMeta(_ context.Context, key, value string) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.meta[key] = value
+	return nil
+}
+
+func (f *fakeRepo) SetMetaBatch(_ context.Context, values map[string]string) error {
+	f.mu.Lock()
+	defer f.mu.Unlock()
+	if f.metaBatchErr != nil {
+		return f.metaBatchErr
+	}
+	for key, value := range values {
+		f.meta[key] = value
+	}
 	return nil
 }
 
@@ -1042,6 +1055,48 @@ func TestSettings_OllamaParamsPatch(t *testing.T) {
 	view, err = svc.UpdateSettings(ctxWS("ws_a"), UpdateSettingsInput{OllamaBaseURL: &empty})
 	if err != nil || view.OllamaBaseURL != searchdomain.DefaultOllamaBaseURL || view.OllamaModel != model {
 		t.Fatalf("URL reset wrong: %v %+v", err, view)
+	}
+}
+
+func TestSettings_PatchIsAtomicAndFansOutToIndexedWorkspaces(t *testing.T) {
+	repo := newFakeRepo()
+	svc := NewService(repo, nil)
+	svc.rememberWorkspace("ws_b")
+	svc.rememberWorkspace("ws_a")
+
+	// A machine-level PATCH is one intent: a storage failure must not expose any
+	// part of the new combination, nor should it trigger background work.
+	// 机器级 PATCH 是一个意图：存储失败时不能暴露新组合，也不应触发后台补算。
+	repo.meta[metaEmbedderKey] = searchdomain.EmbedderBuiltin
+	repo.metaBatchErr = errors.New("synthetic settings write failure")
+	off, base := searchdomain.EmbedderOff, "http://127.0.0.1:9"
+	if _, err := svc.UpdateSettings(ctxWS("ws_a"), UpdateSettingsInput{Embedder: &off, OllamaBaseURL: &base}); err == nil {
+		t.Fatal("failed settings batch must be returned")
+	}
+	if got := repo.meta[metaEmbedderKey]; got != searchdomain.EmbedderBuiltin {
+		t.Fatalf("failed batch changed embedder to %q", got)
+	}
+	select {
+	case ws := <-svc.embedKick:
+		t.Fatalf("failed settings batch queued workspace %q", ws)
+	default:
+	}
+
+	repo.metaBatchErr = nil
+	if _, err := svc.UpdateSettings(ctxWS("ws_a"), UpdateSettingsInput{Embedder: &off}); err != nil {
+		t.Fatalf("successful settings patch: %v", err)
+	}
+	seen := map[string]bool{}
+	for range 2 {
+		select {
+		case ws := <-svc.embedKick:
+			seen[ws] = true
+		case <-time.After(time.Second):
+			t.Fatal("settings patch did not kick every indexed workspace")
+		}
+	}
+	if !seen["ws_a"] || !seen["ws_b"] {
+		t.Fatalf("settings patch fan-out = %v, want ws_a and ws_b", seen)
 	}
 }
 

@@ -273,6 +273,15 @@ class Translations$chat$en {
 	/// en: 'Auto'
 	String get modelAuto => 'Auto';
 
+	/// en: 'Reading model capabilities…'
+	String get modelCatalogLoading => 'Reading model capabilities…';
+
+	/// en: 'Model capabilities couldn't be read'
+	String get modelCatalogFailed => 'Model capabilities couldn\'t be read';
+
+	/// en: 'Refresh model capabilities'
+	String get modelCatalogRetry => 'Refresh model capabilities';
+
 	/// en: 'Mention an entity'
 	String get mentionEntity => 'Mention an entity';
 
@@ -3663,6 +3672,9 @@ class Translations$chat$actions$en {
 	/// en: 'Stop'
 	String get readAloudStop => 'Stop';
 
+	/// en: 'Preparing read-aloud…'
+	String get readAloudPreparing => 'Preparing read-aloud…';
+
 	/// en: 'Read-aloud failed'
 	String get readAloudFailed => 'Read-aloud failed';
 }
@@ -4649,6 +4661,7 @@ class Translations$entities$detail$en {
 	late final Translations$entities$detail$hero$en hero = Translations$entities$detail$hero$en.internal(_root);
 	late final Translations$entities$detail$gate$en gate = Translations$entities$detail$gate$en.internal(_root);
 	late final Translations$entities$detail$codeToggle$en codeToggle = Translations$entities$detail$codeToggle$en.internal(_root);
+	late final Translations$entities$detail$environment$en environment = Translations$entities$detail$environment$en.internal(_root);
 	late final Translations$entities$detail$sec$en sec = Translations$entities$detail$sec$en.internal(_root);
 	late final Translations$entities$detail$card$en card = Translations$entities$detail$card$en.internal(_root);
 	late final Translations$entities$detail$concurrency$en concurrency = Translations$entities$detail$concurrency$en.internal(_root);
@@ -5171,8 +5184,26 @@ class Translations$settings$keys$en {
 	/// en: 'Delete'
 	String get voicesDelete => 'Delete';
 
+	/// en: 'Delete cloned voice'
+	String get voicesDeleteTitle => 'Delete cloned voice';
+
+	/// en: 'Permanently removes “$name” from the managed gateway. The enrollment fee is not refunded; deleting it only frees one inventory slot.'
+	String voicesDeleteBody({required Object name}) => 'Permanently removes “${name}” from the managed gateway. The enrollment fee is not refunded; deleting it only frees one inventory slot.';
+
+	/// en: 'Type “$name” to confirm'
+	String voicesDeleteHint({required Object name}) => 'Type “${name}” to confirm';
+
+	/// en: 'Delete permanently'
+	String get voicesDeleteConfirm => 'Delete permanently';
+
 	/// en: 'Could not remove the upstream registration. The voice was kept so you can retry.'
 	String get voicesDeleteFailed => 'Could not remove the upstream registration. The voice was kept so you can retry.';
+
+	/// en: 'Voice deleted, but the inventory could not be refreshed.'
+	String get voicesDeleteCommitted => 'Voice deleted, but the inventory could not be refreshed.';
+
+	/// en: 'Retry to confirm the remaining slots.'
+	String get voicesDeleteCommittedHint => 'Retry to confirm the remaining slots.';
 
 	/// en: 'Cloned voices are part of the free tier.'
 	String get voicesManagedOnly => 'Cloned voices are part of the free tier.';
@@ -5366,6 +5397,15 @@ class Translations$settings$keys$en {
 	/// en: 'Refresh model list'
 	String get refreshModels => 'Refresh model list';
 
+	/// en: 'Reading model capabilities…'
+	String get modelCatalogLoading => 'Reading model capabilities…';
+
+	/// en: 'Model capabilities couldn't be read'
+	String get modelCatalogFailed => 'Model capabilities couldn\'t be read';
+
+	/// en: 'The model list is unavailable right now. Check the connection and try again.'
+	String get modelCatalogFailedHint => 'The model list is unavailable right now. Check the connection and try again.';
+
 	/// en: 'Choose a provider'
 	String get pickProvider => 'Choose a provider';
 
@@ -5399,8 +5439,8 @@ class Translations$settings$keys$en {
 	/// en: 'Anselm Auto'
 	String get anselmAuto => 'Anselm Auto';
 
-	/// en: 'Gateway-managed routing and reasoning'
-	String get anselmAutoDesc => 'Gateway-managed routing and reasoning';
+	/// en: 'Gateway-managed'
+	String get anselmAutoDesc => 'Gateway-managed';
 
 	/// en: 'External model'
 	String get externalModel => 'External model';
@@ -6702,6 +6742,33 @@ class Translations$entities$detail$codeToggle$en {
 	String get collapse => 'Collapse';
 }
 
+// Path: entities.detail.environment
+class Translations$entities$detail$environment$en {
+	Translations$entities$detail$environment$en.internal(this._root);
+
+	final Translations _root; // ignore: unused_field
+
+	// Translations
+
+	/// en: 'Environment build failed'
+	String get buildFailed => 'Environment build failed';
+
+	/// en: 'The build was cancelled before the environment became ready. Open Edit with AI on the entity and retry the build.'
+	String get cancelled => 'The build was cancelled before the environment became ready. Open Edit with AI on the entity and retry the build.';
+
+	/// en: 'Python could not be installed. Check your network or choose another Python version, then retry the build from Edit with AI.'
+	String get runtimeFailed => 'Python could not be installed. Check your network or choose another Python version, then retry the build from Edit with AI.';
+
+	/// en: 'Dependencies could not be installed. Check the package names, then retry the build from Edit with AI.'
+	String get dependenciesFailed => 'Dependencies could not be installed. Check the package names, then retry the build from Edit with AI.';
+
+	/// en: 'The environment is not ready. Open Edit with AI to retry the build, or inspect technical details.'
+	String get genericFailed => 'The environment is not ready. Open Edit with AI to retry the build, or inspect technical details.';
+
+	/// en: 'Technical details'
+	String get technicalDetails => 'Technical details';
+}
+
 // Path: entities.detail.sec
 class Translations$entities$detail$sec$en {
 	Translations$entities$detail$sec$en.internal(this._root);
@@ -7686,6 +7753,9 @@ extension on Translations {
 			'chat.toc.loadFailed' => 'Couldn\'t load the full scene list. Reopen this menu to try again.',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
+			'chat.modelCatalogLoading' => 'Reading model capabilities…',
+			'chat.modelCatalogFailed' => 'Model capabilities couldn\'t be read',
+			'chat.modelCatalogRetry' => 'Refresh model capabilities',
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
 			'chat.attachMenuFiles' => 'Choose files',
@@ -8065,11 +8135,11 @@ extension on Translations {
 			'chat.tool.firingMissed' => 'missed',
 			'chat.tool.logCount' => ({required Object n}) => '${n}',
 			'chat.tool.logCountMore' => ({required Object n}) => '${n}+',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.parkRunCaption' => 'a run parked on an approval node stays running at the header',
 			'chat.tool.actReturnValue' => 'Return value',
 			'chat.tool.actId' => 'Activation ID',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.actTriggerId' => 'Trigger ID',
 			'chat.tool.actCreatedAt' => 'Created at',
 			'chat.tool.actFanout' => ({required Object n}) => 'fan-out ${n}',
@@ -8300,6 +8370,7 @@ extension on Translations {
 			'chat.actions.queueAttachmentsOnly' => ({required Object n}) => '${n} attachment(s)',
 			'chat.actions.readAloud' => 'Read aloud',
 			'chat.actions.readAloudStop' => 'Stop',
+			'chat.actions.readAloudPreparing' => 'Preparing read-aloud…',
 			'chat.actions.readAloudFailed' => 'Read-aloud failed',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
@@ -8578,12 +8649,12 @@ extension on Translations {
 			'scheduler.range.d30' => 'Last 30 days',
 			'scheduler.range.all' => 'All time',
 			'scheduler.range.customTitle' => 'Custom range',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.from' => 'From',
 			'scheduler.range.to' => 'To',
 			'scheduler.range.apply' => 'Apply',
 			'scheduler.range.endBeforeStart' => 'End is before start',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.weekdays' => 'Mo Tu We Th Fr Sa Su',
 			'scheduler.range.monthTitle' => ({required Object m, required Object y}) => '${m} ${y}',
 			'scheduler.range.months' => 'January,February,March,April,May,June,July,August,September,October,November,December',
@@ -8818,6 +8889,12 @@ extension on Translations {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => 'Show all (${n} lines)',
 			'entities.detail.codeToggle.collapse' => 'Collapse',
+			'entities.detail.environment.buildFailed' => 'Environment build failed',
+			'entities.detail.environment.cancelled' => 'The build was cancelled before the environment became ready. Open Edit with AI on the entity and retry the build.',
+			'entities.detail.environment.runtimeFailed' => 'Python could not be installed. Check your network or choose another Python version, then retry the build from Edit with AI.',
+			'entities.detail.environment.dependenciesFailed' => 'Dependencies could not be installed. Check the package names, then retry the build from Edit with AI.',
+			'entities.detail.environment.genericFailed' => 'The environment is not ready. Open Edit with AI to retry the build, or inspect technical details.',
+			'entities.detail.environment.technicalDetails' => 'Technical details',
 			'entities.detail.sec.code' => 'Code',
 			'entities.detail.sec.input' => 'Inputs',
 			'entities.detail.sec.output' => 'Outputs',
@@ -9086,6 +9163,8 @@ extension on Translations {
 			'entities.val.no' => 'no',
 			'entities.overview.title' => 'Overview',
 			'entities.overview.accessory' => 'Parts',
+			_ => null,
+		} ?? switch (path) {
 			'entities.overview.graphHead' => 'Relationship graph',
 			'entities.overview.recentHead' => 'Recently updated',
 			'entities.graph.showProvenance' => 'Show provenance',
@@ -9096,8 +9175,6 @@ extension on Translations {
 			'entities.graph.legend' => 'Kinds',
 			'entities.graph.back' => 'Back to overview',
 			'entities.graph.selectHint' => 'Select a node to inspect its relations.',
-			_ => null,
-		} ?? switch (path) {
 			'entities.graph.verb.equip' => 'equips',
 			'entities.graph.verb.link' => 'links',
 			'entities.graph.verb.create' => 'created',
@@ -9343,7 +9420,13 @@ extension on Translations {
 			'settings.keys.voicesRemaining' => ({required Object n, required Object cap}) => '${n} of ${cap} slots free',
 			'settings.keys.voicesFull' => 'Both slots are taken — delete one to make room.',
 			'settings.keys.voicesDelete' => 'Delete',
+			'settings.keys.voicesDeleteTitle' => 'Delete cloned voice',
+			'settings.keys.voicesDeleteBody' => ({required Object name}) => 'Permanently removes “${name}” from the managed gateway. The enrollment fee is not refunded; deleting it only frees one inventory slot.',
+			'settings.keys.voicesDeleteHint' => ({required Object name}) => 'Type “${name}” to confirm',
+			'settings.keys.voicesDeleteConfirm' => 'Delete permanently',
 			'settings.keys.voicesDeleteFailed' => 'Could not remove the upstream registration. The voice was kept so you can retry.',
+			'settings.keys.voicesDeleteCommitted' => 'Voice deleted, but the inventory could not be refreshed.',
+			'settings.keys.voicesDeleteCommittedHint' => 'Retry to confirm the remaining slots.',
 			'settings.keys.voicesManagedOnly' => 'Cloned voices are part of the free tier.',
 			'settings.keys.freeTier' => 'Free tier',
 			'settings.keys.freeTierName' => 'Anselm Free · Auto multimodal',
@@ -9408,6 +9491,9 @@ extension on Translations {
 			'settings.keys.searchKeyNotProbedHint' => 'Hasn\'t passed its probe yet — won\'t be offered as the default',
 			'settings.keys.keyOpFailed' => 'Operation failed',
 			'settings.keys.refreshModels' => 'Refresh model list',
+			'settings.keys.modelCatalogLoading' => 'Reading model capabilities…',
+			'settings.keys.modelCatalogFailed' => 'Model capabilities couldn\'t be read',
+			'settings.keys.modelCatalogFailedHint' => 'The model list is unavailable right now. Check the connection and try again.',
 			'settings.keys.pickProvider' => 'Choose a provider',
 			'settings.keys.changeProvider' => 'Change',
 			'settings.keys.baseUrlRequiredHint' => 'Required for self-hosted services',
@@ -9419,7 +9505,7 @@ extension on Translations {
 			'settings.keys.pickerChange' => 'Change',
 			'settings.keys.pickerClose' => 'Close',
 			'settings.keys.anselmAuto' => 'Anselm Auto',
-			'settings.keys.anselmAutoDesc' => 'Gateway-managed routing and reasoning',
+			'settings.keys.anselmAutoDesc' => 'Gateway-managed',
 			'settings.keys.externalModel' => 'External model',
 			'settings.keys.externalModelDesc' => 'Choose a model and only its confirmed native settings',
 			'settings.keys.nativeSettings' => 'Advanced native JSON',
@@ -9591,6 +9677,8 @@ extension on Translations {
 			'settings.mcp.missingEnv' => ({required Object names}) => 'Missing required environment variables: ${names}',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
 			'settings.mcp.tabTools' => 'Tools',
@@ -9610,8 +9698,6 @@ extension on Translations {
 			'settings.storage.revealFinder' => 'Reveal in Finder',
 			'settings.storage.diskUsage' => 'Disk usage',
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.diskLoadFailed' => 'Couldn\'t read sandbox disk usage',
 			'settings.storage.openLogs' => 'Open logs folder',
 			'settings.storage.retention' => 'Run history retention',

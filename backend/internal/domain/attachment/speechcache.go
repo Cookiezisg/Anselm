@@ -61,8 +61,13 @@ type SpeechCacheRepository interface {
 	// recency signal only exists if reads write it.
 	// Lookup 按键取行,无则 ErrNotFound。它同时刷新 LastUsedAt——读不写这个字段,近期性信号就不存在。
 	Lookup(ctx context.Context, key string) (*SpeechCacheEntry, error)
-	// Put records a new entry and evicts least-recently-used rows past the budget, returning the
-	// attachment ids whose rows were dropped (the caller soft-deletes them).
+	// Delete removes a stale mapping by key. It is idempotent because the attachment may already
+	// have been removed by a separate cleanup path.
+	// Delete 按 key 清除陈旧映射。它必须幂等,因为附件可能已由另一条清理路径先删掉。
+	Delete(ctx context.Context, key string) error
+	// Put records a new entry, stamps LastUsedAt to the insertion time, and evicts least-recently-used
+	// rows past the budget, returning the attachment ids whose rows were dropped (the caller
+	// soft-deletes them).
 	// Put 记一行并按 LRU 淘汰超预算的行,返回被丢弃行的附件 id(由调用方软删)。
 	Put(ctx context.Context, e *SpeechCacheEntry, budgetBytes int64) (evicted []string, err error)
 }

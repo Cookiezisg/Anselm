@@ -46,3 +46,22 @@ func TestQuotaClient_NonOKMapsAuthFailed(t *testing.T) {
 		t.Fatalf("err = %v, want ErrAuthFailed", err)
 	}
 }
+
+func TestQuotaClient_TransportFailureMapsProviderError(t *testing.T) {
+	// A gateway outage is a recoverable upstream condition. It must reach the HTTP layer as the
+	// structured 502/LLM_PROVIDER_ERROR path, not as an unmapped 500 that leaves the settings card
+	// with a stale green quota.
+	srv := httptest.NewServer(http.HandlerFunc(func(_ http.ResponseWriter, _ *http.Request) {}))
+	baseURL := srv.URL + "/v1"
+	srv.Close()
+
+	if _, err := NewQuotaClient(http.DefaultClient).Fetch(context.Background(), baseURL, "ins_offline"); !errors.Is(err, ErrProviderError) {
+		t.Fatalf("transport failure = %v, want ErrProviderError", err)
+	}
+}
+
+func TestQuotaClient_MalformedBaseURLMapsProviderError(t *testing.T) {
+	if _, err := NewQuotaClient(http.DefaultClient).Fetch(context.Background(), "://bad", "ins_bad"); !errors.Is(err, ErrProviderError) {
+		t.Fatalf("malformed base URL = %v, want ErrProviderError", err)
+	}
+}

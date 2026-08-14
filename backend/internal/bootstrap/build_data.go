@@ -131,6 +131,14 @@ func openDB(dataDir string) (*ormpkg.DB, error) {
 	if err := dbinfra.Migrate(database, allSchemas()...); err != nil {
 		return nil, fmt.Errorf("bootstrap: migrate: %w", err)
 	}
+	// Repair the zero recency stamps produced by the pre-fix speech cache writer before any
+	// service can consult the LRU ordering. The update is idempotent and also runs on fresh DBs.
+	//
+	// 在任何 service 读取 LRU 顺序前，修复旧版朗读缓存 writer 产生的零近期性戳。该更新幂等，
+	// 新库也可安全执行。
+	if _, err := attachmentstore.RepairLegacyRecency(context.Background(), database); err != nil {
+		return nil, fmt.Errorf("bootstrap: repair speech cache recency: %w", err)
+	}
 	// CHECK-widening rebuild (SQLite cannot ALTER a CHECK): trigger_firings' status gained 'missed'
 	// (scheduler 工单⑨). Idempotent by outcome — it inspects the live DDL and no-ops once the marker
 	// is there, so a fresh install (Migrate just created the current shape) never rebuilds. Must run

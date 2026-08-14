@@ -232,6 +232,10 @@ type Repository interface {
 	EntityStamps(ctx context.Context, t EntityType) (map[string]time.Time, error)
 	GetMeta(ctx context.Context, key string) (string, error)
 	SetMeta(ctx context.Context, key, value string) error
+	// SetMetaBatch atomically applies a machine-level settings patch. A failed
+	// update must not leave a partially applied combination of values.
+	// SetMetaBatch 原子应用机器级设置补丁；失败时不能留下半套设置。
+	SetMetaBatch(ctx context.Context, values map[string]string) error
 	// Semantic layer: vectors keyed by doc id + model (mixed models never fuse).
 	// 语义层：向量按 doc id + model 记账（混模型绝不融合）。
 	UpsertEmbedding(ctx context.Context, docID, model string, vector []float32) error
@@ -360,9 +364,11 @@ func EffectiveOllama(baseURL, model string) (string, string) {
 //
 // domain sentinel（§S20）；wire code 登记于 error-codes.md。
 var (
-	ErrQueryRequired   = errorspkg.New(errorspkg.KindInvalid, "SEARCH_QUERY_REQUIRED", "search query is required")
-	ErrTypeInvalid     = errorspkg.New(errorspkg.KindInvalid, "SEARCH_TYPE_INVALID", "unknown search entity type")
-	ErrCursorInvalid   = errorspkg.New(errorspkg.KindInvalid, "SEARCH_CURSOR_INVALID", "search cursor is invalid or stale")
-	ErrReindexRunning  = errorspkg.New(errorspkg.KindConflict, "SEARCH_REINDEX_RUNNING", "a reindex is already running")
-	ErrEmbedderInvalid = errorspkg.New(errorspkg.KindInvalid, "SEARCH_EMBEDDER_INVALID", "embedder must be one of builtin, ollama, off")
+	ErrQueryRequired          = errorspkg.New(errorspkg.KindInvalid, "SEARCH_QUERY_REQUIRED", "search query is required")
+	ErrTypeInvalid            = errorspkg.New(errorspkg.KindInvalid, "SEARCH_TYPE_INVALID", "unknown search entity type")
+	ErrCursorInvalid          = errorspkg.New(errorspkg.KindInvalid, "SEARCH_CURSOR_INVALID", "search cursor is invalid or stale")
+	ErrReindexRunning         = errorspkg.New(errorspkg.KindConflict, "SEARCH_REINDEX_RUNNING", "a reindex is already running")
+	ErrEmbedderInvalid        = errorspkg.New(errorspkg.KindInvalid, "SEARCH_EMBEDDER_INVALID", "embedder must be one of builtin, ollama, off")
+	ErrInvalidWindow          = errorspkg.New(errorspkg.KindUnprocessable, "SEARCH_INVALID_WINDOW", "search updatedAfter/updatedBefore must be RFC3339 and form an inclusive window")
+	ErrInvalidIncludeArchived = errorspkg.New(errorspkg.KindUnprocessable, "SEARCH_INVALID_INCLUDE_ARCHIVED", "includeArchived must be true or false")
 )

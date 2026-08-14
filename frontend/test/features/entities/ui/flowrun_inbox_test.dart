@@ -263,6 +263,45 @@ void main() {
     },
   );
 
+  testWidgets('open sectioned inbox refetches when a new parked approval arrives', (
+    tester,
+  ) async {
+    final repo = FixtureEntityRepository(
+      flowrunDetail: {'flr_a': _parkedNamed('flr_a', 'gate_a')},
+    );
+    await tester.pumpWidget(_sectionedHost(repo));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(AnCard), findsOneWidget);
+    expect(find.text('1'), findsOneWidget);
+
+    // Simulate a second run parking while the notification tray remains open. The old provider
+    // fetched only at mount time, so this assertion is the regression guard for SURF-009.
+    // 模拟通知托盘保持打开时第二个 run 停车;旧 provider 只在挂载时取一次,此断言锁住 SURF-009 回归。
+    repo.upsertFlowrunDetail(_parkedNamed('flr_b', 'gate_b'));
+    repo.emitFlowrunInboxSignal();
+    await tester.pumpAndSettle();
+    expect(find.byType(AnCard), findsNWidgets(2));
+    expect(find.text('2'), findsOneWidget);
+  });
+
+  testWidgets('open sectioned inbox refetches after an inbox source gap', (
+    tester,
+  ) async {
+    final repo = FixtureEntityRepository(
+      flowrunDetail: {'flr_a': _parkedNamed('flr_a', 'gate_a')},
+    );
+    await tester.pumpWidget(_sectionedHost(repo));
+    await tester.pump();
+    await tester.pump();
+    expect(find.byType(AnCard), findsOneWidget);
+
+    repo.upsertFlowrunDetail(_parkedNamed('flr_b', 'gate_b'));
+    repo.emitFlowrunInboxResync();
+    await tester.pumpAndSettle();
+    expect(find.byType(AnCard), findsNWidgets(2));
+  });
+
   testWidgets(
     '⋯ bulk «Approve all» confirms (naming every node) then decides them all',
     (tester) async {

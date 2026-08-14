@@ -71,6 +71,10 @@ buffer 满时断开该订阅者，由客户端重连重放，游标越过 ring �
 实体生命周期 payload 带显示 `name`；document 使用 `path`；删除事件在删除
 前捕获显示信息，取不到时允许空回退。
 
+`function.env_rebuilt` 与 `handler.env_rebuilt` 是成功事件：只有环境重建最终为
+`ready` 才发出。重建失败只通过 `sandbox.env_status_changed` 的 `failed` 终态和
+实体构建终端呈现，不能发出会让通知中心显示成功的 `env_rebuilt`。
+
 ### 事件登记
 
 | 域 | 事件 |
@@ -86,7 +90,7 @@ buffer 满时断开该订阅者，由客户端重连重放，游标越过 ring �
 | document | ⤳ `document.{created, updated, moved}`（等值 PATCH/当前落点 move 均为 no-op，不发对应帧）；⊞ `document.deleted` |
 | conversation | ⤳ `conversation.{created, updated, deleted, archived, unarchived, pinned, unpinned, auto_titled, model_override, work_dir, compacted}` |
 | memory | ⊞ `memory.{created, deleted}`；内容写的 `memory.updated` 为 ⊞，pin 状态回声为 ⤳ |
-| sandbox | ⤳ `sandbox.env_status_changed` 的 `installing`，⊞ `ready`/`failed`；⤳ `sandbox.env_deleted` |
+| sandbox | ⤳ `sandbox.env_status_changed` 的 `installing`，⊞ `ready`/`failed`；⤳ `sandbox.env_deleted`（仅 workspace-scoped 调用；机器级 Env 只更新 manifest） |
 | relation | ⊞ `relation.dependency_broken` |
 
 补充 payload：

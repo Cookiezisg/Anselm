@@ -321,7 +321,8 @@ func (t *EditHandler) Description() string {
 
 OP SHAPES (exact): update_method MUST be {"op":"update_method","name":"place","patch":{"description":"..."}}. Use the top-level "name" field to select the existing method and put every changed method field inside the RFC 7396 "patch" object. Do NOT use "methodName" and do NOT put "description", "body", "inputs", or "outputs" beside "patch". Do NOT use set_methods for an edit; use update_method for an existing method and add_method only for a genuinely new method. Other op shapes are the same as create_handler: add_method nests its MethodSpec under "method"; set_meta uses name/description/tags; delete_method uses name.
 
-Empty ops rebuilds the environment + restarts the instance, which WIPES in-memory state (the result then carries restarted:true — it is not a no-op); if you only want to reset a misbehaving instance, prefer restart_handler. The result includes runtimeState: if it is not "running" after a code edit, the new version failed to spawn (broken __init__ or missing config) — call get_handler for details, fix the code, or revert_handler to the last good version. Use revert_handler to switch to an older version, restart_handler to just reset a misbehaving instance.`
+
+If the user asks to rebuild or retry a failed Handler environment while keeping the code, dependencies, and config unchanged, call this tool with exactly {"handlerId":"...","ops":[]} — it applies no ops and mints no version. Do not substitute restart_handler: restart_handler only resets a resident process and never rebuilds or reinstalls an environment. Empty ops rebuilds the environment and attempts to restart the resident instance, which WIPES in-memory state when the restart succeeds (the result carries restarted:true only when runtimeState is "running"). The result includes runtimeState: if it is not "running" after an edit, the new version failed to spawn (broken __init__, missing config, or environment failure) — call get_handler for details, fix the code, or revert_handler to the last good version. Use revert_handler to switch to an older version, and restart_handler only to reset a misbehaving resident instance.`
 }
 
 func (t *EditHandler) Parameters() json.RawMessage {
@@ -330,7 +331,7 @@ func (t *EditHandler) Parameters() json.RawMessage {
 		"required": ["handlerId", "ops"],
 		"properties": {
 			"handlerId": {"type": "string"},
-			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env + restart). For update_method use {op, name, patch}; name selects the existing method and patch is the RFC 7396 object. Do not use methodName, set_methods, or top-level method fields; use add_method only for a new method.", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Build ops. Empty array = rebuild the environment and attempt a resident restart, with no ops applied and no new version. Use this exact empty array to retry a failed environment without changing the handler definition; do not use restart_handler for that case. For update_method use {op, name, patch}; name selects the existing method and patch is the RFC 7396 object. Do not use methodName, set_methods, or top-level method fields; use add_method only for a new method.", "items": {"type": "object"}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)
@@ -405,7 +406,7 @@ func (t *EditHandler) Execute(ctx context.Context, argsJSON string) (string, err
 		runtimeState = h.RuntimeState
 	}
 	// Empty ops is the env-rebuild + restart path (no ops, no version) — flag the resulting state wipe.
-	return toolapp.ToJSON(buildOutput(args.HandlerID, v, len(ops), sink.attempts, runtimeState, len(ops) == 0)), nil
+	return toolapp.ToJSON(buildOutput(args.HandlerID, v, len(ops), sink.attempts, runtimeState, len(ops) == 0 && runtimeState == handlerdomain.RuntimeStateRunning)), nil
 }
 
 func parseHandlerOpsWithExistingMethods(items []json.RawMessage, existingMethods map[string]struct{}) ([]handlerapp.Op, error) {

@@ -150,10 +150,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*handlerdomain.Ha
 	if err := s.repo.CreateWithVersion(ctx, h, v); err != nil {
 		return nil, nil, fmt.Errorf("handlerapp.Create: %w", err)
 	}
-	s.publish(ctx, "created", hID, map[string]any{"versionId": versionID, "version": 1, "name": h.Name})
+	durableCtx := s.durableContext(ctx)
+	s.publish(durableCtx, "created", hID, map[string]any{"versionId": versionID, "version": 1, "name": h.Name})
 
 	s.ensureEnv(ctx, v, in.Progress)
-	s.syncBuiltEdge(ctx, hID, v.BuiltInConversationID)
+	s.syncBuiltEdge(durableCtx, hID, v.BuiltInConversationID)
 
 	h.ActiveVersion = v
 	return h, v, nil
@@ -190,9 +191,12 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 		if gerr != nil {
 			return nil, fmt.Errorf("handlerapp.Edit: %w", gerr)
 		}
-		s.ensureEnv(ctx, active, in.Progress)
-		s.restart(ctx, in.ID)
-		s.publish(ctx, "env_rebuilt", in.ID, map[string]any{"versionId": active.ID, "name": h.Name})
+		durableCtx := s.durableContext(ctx)
+		ready, _ := s.ensureEnv(ctx, active, in.Progress)
+		s.restartAfterEnv(durableCtx, in.ID, ready)
+		if ready {
+			s.publish(durableCtx, "env_rebuilt", in.ID, map[string]any{"versionId": active.ID, "name": h.Name})
+		}
 		return active, nil
 	}
 
@@ -223,8 +227,9 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 		if gerr != nil {
 			return nil, fmt.Errorf("handlerapp.Edit: %w", gerr)
 		}
-		s.publish(ctx, "updated", in.ID, map[string]any{"name": h.Name})
-		s.syncEditedEdge(ctx, in.ID)
+		durableCtx := s.durableContext(ctx)
+		s.publish(durableCtx, "updated", in.ID, map[string]any{"name": h.Name})
+		s.syncEditedEdge(durableCtx, in.ID)
 		return active, nil
 	}
 
@@ -246,16 +251,17 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*handlerdomain.Versio
 	if err := s.repo.SaveVersionAndActivate(ctx, v, h); err != nil {
 		return nil, fmt.Errorf("handlerapp.Edit: %w", err)
 	}
+	durableCtx := s.durableContext(ctx)
 	trimmedEnvs, err := s.repo.TrimOldestVersions(ctx, in.ID, handlerdomain.VersionCap)
 	if err != nil {
 		s.log.Warn("handlerapp.Edit: trim versions failed", zap.String("handlerId", in.ID), zap.Error(err))
 	}
-	s.reclaimTrimmedEnvs(ctx, in.ID, trimmedEnvs)
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN, "name": h.Name})
+	s.reclaimTrimmedEnvs(durableCtx, in.ID, trimmedEnvs)
+	s.publish(durableCtx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN, "name": h.Name})
 
-	s.ensureEnv(ctx, v, in.Progress)
-	s.restart(ctx, in.ID) // resident instance must reload the new class code
-	s.syncEditedEdge(ctx, in.ID)
+	ready, _ := s.ensureEnv(ctx, v, in.Progress)
+	s.restartAfterEnv(durableCtx, in.ID, ready) // only a ready env may reload the new class code
+	s.syncEditedEdge(durableCtx, in.ID)
 	return v, nil
 }
 
@@ -271,10 +277,11 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*ha
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("handlerapp.Revert: %w", err)
 	}
-	h, _ := s.repo.GetHandler(ctx, id)
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfHandler(h)})
-	s.restart(ctx, id)
-	s.syncEditedEdge(ctx, id)
+	durableCtx := s.durableContext(ctx)
+	h, _ := s.repo.GetHandler(durableCtx, id)
+	s.publish(durableCtx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfHandler(h)})
+	s.restart(durableCtx, id)
+	s.syncEditedEdge(durableCtx, id)
 	return target, nil
 }
 
@@ -306,6 +313,20 @@ func (s *Service) restart(ctx context.Context, id string) {
 	}
 }
 
+// restartAfterEnv prevents a failed environment build from immediately entering spawnInstance,
+// which would run the entire install/fix loop a second time. A failed replacement must also stop
+// the old resident: the active version has already moved, so serving the old class is unsafe.
+//
+// restartAfterEnv 防止环境构建失败后立刻进入 spawnInstance、把整套安装/修复循环再跑一遍。替换版本失败
+// 时也必须停掉旧 resident：active 指针已经移动，继续服务旧 class 不安全。
+func (s *Service) restartAfterEnv(ctx context.Context, id string, ready bool) {
+	if !ready {
+		s.manager.Stop(ctx, id)
+		return
+	}
+	s.restart(ctx, id)
+}
+
 func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*handlerdomain.Handler, error) {
 	h, err := s.repo.GetHandler(ctx, in.ID)
 	if err != nil {
@@ -326,7 +347,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*handlerd
 	if err := s.repo.SaveHandler(ctx, h); err != nil {
 		return nil, fmt.Errorf("handlerapp.UpdateMeta: %w", err)
 	}
-	s.publish(ctx, "updated", h.ID, map[string]any{"name": h.Name})
+	s.publish(s.durableContext(ctx), "updated", h.ID, map[string]any{"name": h.Name})
 	return h, nil
 }
 
@@ -336,15 +357,16 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*handlerd
 // Delete 停常驻实例、软删 handler、销毁其 envs、清理 relation 边。
 func (s *Service) Delete(ctx context.Context, id string) error {
 	h, _ := s.repo.GetHandler(ctx, id)
-	s.manager.Stop(ctx, id)
 	if err := s.repo.DeleteHandler(ctx, id); err != nil {
 		return fmt.Errorf("handlerapp.Delete: %w", err)
 	}
-	if err := s.runner.Destroy(ctx, id); err != nil {
+	durableCtx := s.durableContext(ctx)
+	s.manager.Stop(durableCtx, id)
+	if err := s.runner.Destroy(durableCtx, id); err != nil {
 		s.log.Warn("handlerapp.Delete: sandbox destroy failed (best-effort)", zap.String("handlerId", id), zap.Error(err))
 	}
-	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfHandler(h)})
-	s.purgeRelations(ctx, id)
+	s.publish(durableCtx, "deleted", id, map[string]any{"name": nameOfHandler(h)})
+	s.purgeRelations(durableCtx, id)
 	return nil
 }
 

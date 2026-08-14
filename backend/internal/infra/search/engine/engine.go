@@ -368,6 +368,9 @@ type Ollama struct {
 	baseURL string
 	model   string
 	client  *http.Client
+	stmu    sync.Mutex
+	status  string
+	lastErr string
 }
 
 // NewOllama constructs the adapter; empty args take the conventional defaults.
@@ -380,12 +383,43 @@ func NewOllama(baseURL, model string) *Ollama {
 	if model == "" {
 		model = "embeddinggemma"
 	}
-	return &Ollama{baseURL: baseURL, model: model, client: &http.Client{Timeout: embedTimeout}}
+	return &Ollama{
+		baseURL: baseURL,
+		model:   model,
+		client:  &http.Client{Timeout: embedTimeout},
+		status:  StatusAbsent,
+	}
 }
 
 func (o *Ollama) Model() string { return "ollama:" + o.model }
 
-func (o *Ollama) Embed(ctx context.Context, texts []string) ([][]float32, error) {
+// Status reports the last known connectivity state without probing the daemon on every settings read.
+// A newly selected provider is absent until its first embedding succeeds; a failed request is error.
+// This keeps GET /search/settings fast while refusing to claim a ready engine that has never answered.
+//
+// Status 返回最近一次已知连通状态，不在每次 settings 读取时探测 daemon。新选中的 provider 在首次嵌入
+// 成功前为 absent，请求失败为 error。这样 GET /search/settings 保持快速，也不会把从未应答的引擎冒成 ready。
+func (o *Ollama) Status() (status, lastErr string) {
+	o.stmu.Lock()
+	defer o.stmu.Unlock()
+	return o.status, o.lastErr
+}
+
+func (o *Ollama) setStatus(status, lastErr string) {
+	o.stmu.Lock()
+	o.status = status
+	o.lastErr = lastErr
+	o.stmu.Unlock()
+}
+
+func (o *Ollama) Embed(ctx context.Context, texts []string) (vectors [][]float32, err error) {
+	defer func() {
+		if err != nil {
+			o.setStatus(StatusError, err.Error())
+			return
+		}
+		o.setStatus(StatusReady, "")
+	}()
 	body, err := json.Marshal(map[string]any{"model": o.model, "input": texts})
 	if err != nil {
 		return nil, fmt.Errorf("ollama embed: marshal: %w", err)

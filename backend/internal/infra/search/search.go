@@ -19,6 +19,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -564,6 +565,37 @@ func (s *Store) SetMeta(ctx context.Context, key, value string) error {
 		key, value)
 	if err != nil {
 		return fmt.Errorf("searchstore.SetMeta %s: %w", key, err)
+	}
+	return nil
+}
+
+// SetMetaBatch applies a group of machine-level values in one transaction. The
+// settings endpoint is a PATCH, but a multi-field PATCH is still one user
+// intent: none of its values may become visible if a later write fails.
+//
+// SetMetaBatch 在单事务内应用一组机器级值。设置接口虽是 PATCH，但多字段 PATCH 仍是
+// 一个用户意图；若后写失败，前写也不能先对外可见。
+func (s *Store) SetMetaBatch(ctx context.Context, values map[string]string) error {
+	if len(values) == 0 {
+		return nil
+	}
+	if err := s.db.Transaction(ctx, func(tx *ormpkg.DB) error {
+		keys := make([]string, 0, len(values))
+		for key := range values {
+			keys = append(keys, key)
+		}
+		sort.Strings(keys)
+		for _, key := range keys {
+			value := values[key]
+			if _, err := tx.Exec(ctx,
+				`INSERT INTO search_meta(key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value`,
+				key, value); err != nil {
+				return fmt.Errorf("searchstore.SetMetaBatch %s: %w", key, err)
+			}
+		}
+		return nil
+	}); err != nil {
+		return err
 	}
 	return nil
 }

@@ -7,7 +7,6 @@ import '../../../../../core/contract/entities/function.dart';
 import '../../../../../core/design/tokens.dart';
 import '../../../../../core/model/status_state.dart';
 import '../../../../../core/notice/notice_center.dart';
-import '../../../../../core/ui/an_callout.dart';
 import '../../../../../core/ui/an_code_editor.dart';
 import '../../../../../core/ui/an_fade_collapse.dart';
 import '../../../../../core/ui/an_kv.dart';
@@ -21,9 +20,10 @@ import '../../../data/entity_format.dart';
 import '../../../state/detail/entity_detail_provider.dart';
 import '../../../state/selected_entity.dart';
 import '../detail_sections.dart';
+import 'environment_failure.dart';
 
 /// Function 概览。读态:meta(说明 + 标签,手工可编)→ 变换盒 hero(签名即接口)→ 代码(50 行渐隐
-/// 收合)→ 环境合卡(envError 直出)。**版本内容(签名/代码/依赖/py)只读、AI-only**(拍板 #4);手工
+/// 收合)→ 环境合卡(失败显示人话摘要,技术错误可展开)。**版本内容(签名/代码/依赖/py)只读、AI-only**(拍板 #4);手工
 /// 只编 meta——说明 + 标签走**成熟的 [AnKv] 编辑模式**(与 venv 段同件,hover 铅笔 → 就地文本编辑,失焦
 /// 提交),标签按逗号/空白分隔的文本行编辑。均 PATCH 不升版本。
 class FunctionOverview extends ConsumerWidget {
@@ -140,7 +140,7 @@ class FunctionOverview extends ConsumerWidget {
           children: [
             // Bare child — AnSection owns the inter-block gap (children never self-margin). 间距归容器。
             if (v.envError != null && v.envError!.isNotEmpty)
-              AnCallout(v.envError!, severity: AnCalloutSeverity.danger),
+              EnvironmentFailure(error: v.envError!),
             AnInfoCard(
               title: d.card.venv,
               icon: AnIcons.byKey('check'),

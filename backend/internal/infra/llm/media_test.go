@@ -87,6 +87,42 @@ func TestMediaClientUpload_ResumableProofAndProviderURL(t *testing.T) {
 	}
 }
 
+func TestMediaClientUpload_NormalizesWAVAliasesAtGatewayBoundary(t *testing.T) {
+	const data = "RIFF-wav"
+	var gotMIME string
+	expiresAt := time.Now().Add(time.Hour).UTC().Format(time.RFC3339)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads":
+			var got struct {
+				MIMEType string `json:"mimeType"`
+			}
+			if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+				t.Fatal(err)
+			}
+			gotMIME = got.MIMEType
+			_ = json.NewEncoder(w).Encode(map[string]any{"uploadId": "upl_wav", "chunkMaxBytes": 64})
+		case r.Method == http.MethodPut && r.URL.Path == "/media/uploads/upl_wav":
+			_ = json.NewEncoder(w).Encode(map[string]any{"offset": len(data)})
+		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads/upl_wav/complete":
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"fetchPath": "/v1/media/leases/mls_wav/content?token=opaque",
+				"expiresAt": expiresAt,
+			})
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	if _, err := NewMediaClient(server.Client()).Upload(context.Background(), server.URL, "ins_test", "audio/x-wav; charset=binary", []byte(data)); err != nil {
+		t.Fatalf("Upload: %v", err)
+	}
+	if gotMIME != "audio/wav" {
+		t.Fatalf("gateway MIME = %q, want canonical audio/wav", gotMIME)
+	}
+}
+
 func TestMediaClientUpload_RejectsBadAppendAcknowledgement(t *testing.T) {
 	cancels := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

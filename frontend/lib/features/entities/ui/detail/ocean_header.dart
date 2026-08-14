@@ -89,10 +89,12 @@ class EntityOceanHeader extends StatelessWidget {
         final v = detail.function?.activeVersion;
         if (v == null) return const [];
         return [
-          AnChip(
-            'v${v.version} · ${v.envStatus}',
-            tone: AnStatus.fromRaw(v.envStatus).tone,
-          ),
+          AnChip('v${v.version}', tone: AnTone.none),
+          if (v.envStatus.isNotEmpty)
+            AnChip(
+              t.entities.detail.hero.envStatus(status: v.envStatus),
+              tone: AnStatus.fromRaw(v.envStatus).tone,
+            ),
         ];
       case EntityKind.handler:
         final hd = detail.handler;
@@ -102,6 +104,11 @@ class EntityOceanHeader extends StatelessWidget {
             AnChip(
               'v${v.version} · ${hd!.runtimeState}',
               tone: AnStatus.fromRaw(hd.runtimeState).tone,
+            ),
+          if (v != null && v.envStatus.isNotEmpty)
+            AnChip(
+              t.entities.detail.hero.envStatus(status: v.envStatus),
+              tone: AnStatus.fromRaw(v.envStatus).tone,
             ),
           if (hd?.configState != null)
             AnChip(

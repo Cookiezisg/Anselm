@@ -10,6 +10,7 @@ import (
 	"net/url"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestHandlerWitnessesResponseBodyAfterStreaming(t *testing.T) {
@@ -78,5 +79,56 @@ func TestHandlerForwardsProtocolUpgrade(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		t.Fatalf("status = %d, want 101", resp.StatusCode)
+	}
+}
+
+func TestHandlerWithResponseBodyForwardsProtocolUpgrade(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		conn, rw, err := http.NewResponseController(w).Hijack()
+		if err != nil {
+			t.Errorf("upstream hijack: %v", err)
+			return
+		}
+		defer conn.Close()
+		_, _ = rw.WriteString("HTTP/1.1 101 Switching Protocols\r\nConnection: Upgrade\r\nUpgrade: anselm-test\r\n\r\nhello\n")
+		_ = rw.Flush()
+	}))
+	defer upstream.Close()
+	u, err := url.Parse(upstream.URL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var responseBodyCalled bool
+	proxy := httptest.NewServer(HandlerWithResponseBody(u, nil, nil, func(_ *http.Response, _ []byte) {
+		responseBodyCalled = true
+	}))
+	defer proxy.Close()
+
+	addr := strings.TrimPrefix(proxy.URL, "http://")
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	_, _ = fmt.Fprintf(conn, "GET /speech/asr HTTP/1.1\r\nHost: %s\r\nConnection: Upgrade\r\nUpgrade: anselm-test\r\n\r\n", addr)
+	reader := bufio.NewReader(conn)
+	resp, err := http.ReadResponse(reader, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		t.Fatalf("status = %d, want 101", resp.StatusCode)
+	}
+	_ = resp.Body.Close()
+	_ = conn.SetReadDeadline(time.Now().Add(time.Second))
+	body, err := io.ReadAll(reader)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(body) != "hello\n" {
+		t.Fatalf("upgraded body = %q, want %q", body, "hello\n")
+	}
+	if responseBodyCalled {
+		t.Fatal("response body witness must not consume an upgraded duplex stream")
 	}
 }

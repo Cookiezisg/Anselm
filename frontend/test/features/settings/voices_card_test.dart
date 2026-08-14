@@ -1,13 +1,19 @@
+import 'dart:async';
+
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:anselm/core/contract/api_key.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_input.dart';
 import 'package:anselm/core/ui/an_row.dart';
+import 'package:anselm/core/ui/an_type_to_confirm.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/ui/panels/voices_card.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -22,6 +28,7 @@ Future<Translations> pumpVoicesCard(
     ProviderScope(
       overrides: [
         settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+        activeWorkspaceProvider.overrideWith(_StaticActiveWorkspace.new),
         settingsRepositoryProvider.overrideWithValue(repo),
       ],
       child: TranslationProvider(
@@ -41,6 +48,59 @@ Future<Translations> pumpVoicesCard(
   // 与卡片自己解析到的**同一份** Translations——对着手打的字面量断言,只能证明测试与卡片对**当前默认
   // 语言**看法一致。
   return Translations.of(tester.element(find.byType(VoicesCard)));
+}
+
+class _SwitchableActiveWorkspace extends ActiveWorkspace {
+  @override
+  String? build() => 'ws_a';
+}
+
+class _StaticActiveWorkspace extends ActiveWorkspace {
+  @override
+  String? build() => 'ws_test';
+}
+
+class _WorkspaceVoiceRepository extends FixtureSettingsRepository {
+  _WorkspaceVoiceRepository(this.workspaceId);
+
+  final String? Function() workspaceId;
+  final Map<String, VoiceInventory> inventories = {
+    'ws_a': const VoiceInventory(
+      items: [ClonedVoice(id: 'vce_a', name: '旧空间音色')],
+      capacity: 2,
+      remaining: 1,
+    ),
+    'ws_b': const VoiceInventory(
+      items: [ClonedVoice(id: 'vce_b', name: '新空间音色')],
+      capacity: 2,
+      remaining: 1,
+    ),
+  };
+
+  Completer<VoiceInventory>? delayedNextRead;
+  Completer<VoiceInventory>? pendingRead;
+  Completer<void>? delayedDelete;
+  String? deleteWorkspaceAtCall;
+  int voiceReadCount = 0;
+
+  @override
+  Future<VoiceInventory> voices({String? workspaceId}) {
+    voiceReadCount++;
+    final delayed = delayedNextRead;
+    if (this.workspaceId() == 'ws_b' && delayed != null) {
+      delayedNextRead = null;
+      pendingRead = delayed;
+      return delayed.future;
+    }
+    return Future.value(inventories[this.workspaceId()]);
+  }
+
+  @override
+  Future<void> deleteVoice(String id, {String? workspaceId}) async {
+    deleteWorkspaceAtCall = workspaceId ?? this.workspaceId();
+    final gate = delayedDelete;
+    if (gate != null) await gate.future;
+  }
 }
 
 /// The voice card exists to make ONE distinction legible, and every test here defends it:
@@ -152,6 +212,10 @@ void main() {
     // 说清楚,否则这张卡读起来像是坏了。
     expect(find.text(t.settings.keys.voicesEmpty), findsOneWidget);
     expect(find.text(t.settings.keys.voicesDelete), findsNothing);
+    expect(
+      find.text(t.settings.keys.voicesRemaining(n: 2, cap: 2)),
+      findsOneWidget,
+    );
   });
 
   testWidgets(
@@ -186,7 +250,7 @@ void main() {
     },
   );
 
-  testWidgets('deleting a voice frees the slot the sentence promised', (
+  testWidgets('deleting a voice requires exact confirmation and frees its slot', (
     tester,
   ) async {
     final t = await pumpVoicesCard(
@@ -218,6 +282,33 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
+    expect(find.byType(AnTypeToConfirm), findsOneWidget);
+
+    final danger = find.byType(AnTypeToConfirm);
+    final confirm = find.descendant(
+      of: danger,
+      matching: find.text(t.settings.keys.voicesDeleteConfirm),
+    );
+    await tester.tap(confirm, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('灯塔'), findsOneWidget, reason: '未输入名称,不得执行删除');
+
+    await tester.enterText(
+      find.descendant(of: danger, matching: find.byType(TextField)),
+      'wrong name',
+    );
+    await tester.pump();
+    await tester.tap(confirm, warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.text('灯塔'), findsOneWidget, reason: '名称不匹配,不得执行删除');
+
+    await tester.enterText(
+      find.descendant(of: danger, matching: find.byType(TextField)),
+      '灯塔',
+    );
+    await tester.pump();
+    await tester.tap(confirm);
+    await tester.pumpAndSettle();
     // The card told the user deletion is the remedy; if the arithmetic did not move afterwards, the
     // sentence was decoration. 卡片告诉用户删除是补救办法;若删完算术没动,那句话就只是装饰。
     expect(find.text('灯塔'), findsNothing);
@@ -225,5 +316,374 @@ void main() {
       find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
       findsOneWidget,
     );
+  });
+
+  testWidgets('the voice confirmation field fills the card for long names', (
+    tester,
+  ) async {
+    const name = 'EP220 Delete Trial';
+    final t = await pumpVoicesCard(
+      tester,
+      const VoiceInventory(
+        items: [ClonedVoice(id: 'vce_1', name: name)],
+        capacity: 2,
+        remaining: 1,
+      ),
+    );
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: Offset.zero);
+    addTearDown(() => g.removePointer());
+    await g.moveTo(tester.getCenter(find.widgetWithText(AnRow, name)));
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: find.widgetWithText(AnRow, name),
+        matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final danger = find.byType(AnTypeToConfirm);
+    final field = find.descendant(of: danger, matching: find.byType(AnInput));
+    final dangerWidth = tester.getSize(danger).width;
+    final fieldWidth = tester.getSize(field).width;
+    expect(fieldWidth, greaterThan(AnSize.inputMin));
+    expect(
+      dangerWidth - (AnSpace.s16 * 2) - fieldWidth,
+      inInclusiveRange(0, 4),
+      reason: '长对象名的确认框必须占满危险卡可用宽度',
+    );
+  });
+
+  testWidgets(
+    'cancel closes the voice danger zone without changing inventory',
+    (tester) async {
+      final t = await pumpVoicesCard(
+        tester,
+        const VoiceInventory(
+          items: [ClonedVoice(id: 'vce_1', name: '灯塔')],
+          capacity: 2,
+          remaining: 1,
+        ),
+      );
+      final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await g.addPointer(location: Offset.zero);
+      addTearDown(() => g.removePointer());
+      await g.moveTo(tester.getCenter(find.widgetWithText(AnRow, '灯塔')));
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(AnRow, '灯塔'),
+          matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AnTypeToConfirm), findsOneWidget);
+
+      await tester.tap(find.text(t.action.cancel));
+      await tester.pumpAndSettle();
+      expect(find.byType(AnTypeToConfirm), findsNothing);
+      expect(find.text('灯塔'), findsOneWidget);
+      expect(
+        find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
+        findsOneWidget,
+      );
+    },
+  );
+
+  testWidgets(
+    'an upstream delete failure keeps the row and leaves retry available',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..fixtureVoices = const VoiceInventory(
+          items: [ClonedVoice(id: 'vce_1', name: '灯塔')],
+          capacity: 2,
+          remaining: 1,
+        )
+        ..failNextVoiceDelete = StateError('gateway unavailable');
+      final t = await pumpVoicesCard(
+        tester,
+        const VoiceInventory(capacity: 2, remaining: 2),
+        repository: repo,
+      );
+      final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await g.addPointer(location: Offset.zero);
+      addTearDown(() => g.removePointer());
+      await g.moveTo(tester.getCenter(find.widgetWithText(AnRow, '灯塔')));
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(AnRow, '灯塔'),
+          matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AnTypeToConfirm),
+          matching: find.byType(TextField),
+        ),
+        '灯塔',
+      );
+      await tester.pump();
+      await tester.tap(find.text(t.settings.keys.voicesDeleteConfirm));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(AnRow, '灯塔'),
+        findsOneWidget,
+        reason: '上游失败,本地行必须保留',
+      );
+      expect(find.byType(AnTypeToConfirm), findsOneWidget, reason: '保留重试入口');
+      expect(
+        find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
+        findsOneWidget,
+        reason: '失败不能伪造库存位已释放',
+      );
+    },
+  );
+
+  testWidgets(
+    'a committed delete with a failed refresh hides stale inventory and explains retry',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..fixtureVoices = const VoiceInventory(
+          items: [ClonedVoice(id: 'vce_1', name: '灯塔')],
+          capacity: 2,
+          remaining: 1,
+        )
+        ..failNextVoicesAfterDelete = StateError('inventory read unavailable');
+      final t = await pumpVoicesCard(
+        tester,
+        const VoiceInventory(capacity: 2, remaining: 2),
+        repository: repo,
+      );
+      final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await g.addPointer(location: Offset.zero);
+      addTearDown(() => g.removePointer());
+      await g.moveTo(tester.getCenter(find.widgetWithText(AnRow, '灯塔')));
+      await tester.pump();
+      await tester.tap(
+        find.descendant(
+          of: find.widgetWithText(AnRow, '灯塔'),
+          matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(
+          of: find.byType(AnTypeToConfirm),
+          matching: find.byType(TextField),
+        ),
+        '灯塔',
+      );
+      await tester.pump();
+      await tester.tap(find.text(t.settings.keys.voicesDeleteConfirm));
+      await tester.pumpAndSettle();
+
+      expect(find.widgetWithText(AnRow, '灯塔'), findsNothing);
+      expect(find.text(t.settings.keys.voicesDeleteCommitted), findsOneWidget);
+      expect(
+        find.text(t.settings.keys.voicesDeleteCommittedHint),
+        findsOneWidget,
+      );
+      expect(find.text(t.settings.keys.voicesRetry), findsOneWidget);
+      expect(find.text(t.settings.keys.voicesDeleteFailed), findsNothing);
+      expect(repo.fixtureVoices.items, isEmpty, reason: 'DELETE 已提交,不能回到旧行');
+
+      await tester.tap(find.text(t.settings.keys.voicesRetry));
+      await tester.pumpAndSettle();
+      expect(find.text(t.settings.keys.voicesEmpty), findsOneWidget);
+      expect(
+        find.text(t.settings.keys.voicesRemaining(n: 2, cap: 2)),
+        findsOneWidget,
+        reason: '重读恢复后必须显示服务端确认的剩余库存',
+      );
+    },
+  );
+
+  testWidgets(
+    'a workspace switch drops the old inventory while the new read is pending',
+    (tester) async {
+      var currentWorkspace = 'ws_a';
+      final repo = _WorkspaceVoiceRepository(() => currentWorkspace)
+        ..delayedNextRead = Completer<VoiceInventory>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+            activeWorkspaceProvider.overrideWith(
+              _SwitchableActiveWorkspace.new,
+            ),
+            settingsRepositoryProvider.overrideWithValue(repo),
+          ],
+          child: TranslationProvider(
+            child: MaterialApp(
+              debugShowCheckedModeBanner: false,
+              theme: AnTheme.light(),
+              home: const Scaffold(
+                body: SingleChildScrollView(child: VoicesCard()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('旧空间音色'), findsOneWidget);
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(VoicesCard)),
+        listen: false,
+      );
+      currentWorkspace = 'ws_b';
+      container.read(activeWorkspaceProvider.notifier).set('ws_b');
+      await tester.pump();
+      expect(
+        find.text('旧空间音色'),
+        findsNothing,
+        reason: '切换 workspace 后,旧库存不能在新读取期间穿透',
+      );
+
+      final pending = repo.pendingRead;
+      expect(pending, isNotNull);
+      pending!.complete(repo.inventories['ws_b']);
+      await tester.pumpAndSettle();
+      expect(find.text('新空间音色'), findsOneWidget);
+      expect(find.text('旧空间音色'), findsNothing);
+      expect(container.read(activeWorkspaceProvider), 'ws_b');
+    },
+  );
+
+  testWidgets('a workspace switch clears an armed delete confirmation', (
+    tester,
+  ) async {
+    var currentWorkspace = 'ws_a';
+    final repo = _WorkspaceVoiceRepository(() => currentWorkspace);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+          activeWorkspaceProvider.overrideWith(_SwitchableActiveWorkspace.new),
+          settingsRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: const Scaffold(
+              body: SingleChildScrollView(child: VoicesCard()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final t = Translations.of(tester.element(find.byType(VoicesCard)));
+    final row = find.widgetWithText(AnRow, '旧空间音色');
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: Offset.zero);
+    addTearDown(() => g.removePointer());
+    await g.moveTo(tester.getCenter(row));
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: row,
+        matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.byType(AnTypeToConfirm), findsOneWidget);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(VoicesCard)),
+      listen: false,
+    );
+    currentWorkspace = 'ws_b';
+    container.read(activeWorkspaceProvider.notifier).set('ws_b');
+    await tester.pumpAndSettle();
+    expect(find.byType(AnTypeToConfirm), findsNothing);
+
+    currentWorkspace = 'ws_a';
+    container.read(activeWorkspaceProvider.notifier).set('ws_a');
+    await tester.pumpAndSettle();
+    expect(
+      find.byType(AnTypeToConfirm),
+      findsNothing,
+      reason: 'a destructive intent from another workspace must not resurrect',
+    );
+  });
+
+  testWidgets('an in-flight delete never refreshes the switched workspace', (
+    tester,
+  ) async {
+    var currentWorkspace = 'ws_a';
+    final repo = _WorkspaceVoiceRepository(() => currentWorkspace)
+      ..delayedDelete = Completer<void>();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
+          activeWorkspaceProvider.overrideWith(_SwitchableActiveWorkspace.new),
+          settingsRepositoryProvider.overrideWithValue(repo),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: const Scaffold(
+              body: SingleChildScrollView(child: VoicesCard()),
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(repo.voiceReadCount, 1);
+
+    final t = Translations.of(tester.element(find.byType(VoicesCard)));
+    final row = find.widgetWithText(AnRow, '旧空间音色');
+    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
+    await g.addPointer(location: Offset.zero);
+    addTearDown(() => g.removePointer());
+    await g.moveTo(tester.getCenter(row));
+    await tester.pump();
+    await tester.tap(
+      find.descendant(
+        of: row,
+        matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
+      ),
+    );
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.descendant(
+        of: find.byType(AnTypeToConfirm),
+        matching: find.byType(TextField),
+      ),
+      '旧空间音色',
+    );
+    await tester.pump();
+    await tester.tap(find.text(t.settings.keys.voicesDeleteConfirm));
+    await tester.pump();
+    expect(repo.deleteWorkspaceAtCall, 'ws_a');
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(VoicesCard)),
+      listen: false,
+    );
+    currentWorkspace = 'ws_b';
+    container.read(activeWorkspaceProvider.notifier).set('ws_b');
+    await tester.pumpAndSettle();
+    expect(find.text('新空间音色'), findsOneWidget);
+    expect(repo.voiceReadCount, 2);
+
+    repo.delayedDelete!.complete();
+    await tester.pumpAndSettle();
+    expect(
+      repo.voiceReadCount,
+      2,
+      reason: '旧 workspace 的删除完成后不得在新 workspace 再发库存读取',
+    );
+    expect(find.text('新空间音色'), findsOneWidget);
   });
 }

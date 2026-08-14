@@ -78,7 +78,10 @@ feed、mark read/all 与 unread count 只针对 durable 行；逐事件档位见
 并明确要求模型调用与被 @ 实体匹配的 `edit_function`、`edit_handler`、`edit_agent`、`edit_workflow`、
 `edit_trigger`、`edit_control`、`edit_approval` 或 `edit_document`，不得把编辑误变成 create。
 所有编辑立即生效且没有 pending/review 闸；版本化实体通常生成新的 active version，trigger/document 则原地编辑、
-没有版本指针。后者携失败执行证据；两者都不另建第二套 AI 执行引擎。
+没有版本指针。对 Function/Handler 的“重建或重试失败环境但不改变定义”，引导必须选择对应的 edit 工具并传
+`ops: []`；Handler 的 `restart_handler` 只重置 resident process，不会重建或重装环境。后者携失败执行证据；
+两者都不另建第二套 AI 执行引擎。Triage 输出必须原样保留执行证据中的 opaque id；如果以 Markdown 引用字面量，
+必须使用成对反引号，发送前校对代码 span 与语法，不能把 id 截断成自然语言残片或凭空造出占位 id。
 
 ## Human Loop
 

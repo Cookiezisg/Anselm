@@ -14,12 +14,15 @@ import json
 import os
 import sys
 from pathlib import Path
+from typing import Optional
+
+from scope import explicit_rig_home
 
 ROOT = Path(__file__).resolve().parent
 ANCHORS = ROOT / "anchors.json"
-RIG_HOME = Path(os.environ.get("RIG_HOME", str(Path.home() / ".anselm-rig")))
-QUIZ = RIG_HOME / "anchor-quiz.json"
-STATUS = RIG_HOME / "anchor-check.json"
+RIG_HOME: Optional[Path] = None
+QUIZ: Optional[Path] = None
+STATUS: Optional[Path] = None
 
 
 def anchor_hash() -> str:
@@ -33,8 +36,15 @@ def load(path: Path):
         raise SystemExit(f"anchors: cannot read {path}: {exc}") from exc
 
 
+def configured_paths():
+    if RIG_HOME is None or QUIZ is None or STATUS is None:
+        raise SystemExit("anchors: REFUSED — RIG_HOME is not configured; refusing direct authority access")
+    return RIG_HOME, QUIZ, STATUS
+
+
 def quiz() -> None:
-    RIG_HOME.mkdir(parents=True, exist_ok=True)
+    rig_home, quiz_path, status_path = configured_paths()
+    rig_home.mkdir(parents=True, exist_ok=True)
     rows = load(ANCHORS)
     payload = {
         "anchorSetSha256": anchor_hash(),
@@ -45,12 +55,13 @@ def quiz() -> None:
             for row in rows
         ],
     }
-    QUIZ.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
-    STATUS.unlink(missing_ok=True)
-    print(f"anchors: blind quiz written to {QUIZ}")
+    quiz_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2) + "\n")
+    status_path.unlink(missing_ok=True)
+    print(f"anchors: blind quiz written to {quiz_path}")
 
 
 def check(answers_path: Path) -> None:
+    rig_home, _, status_path = configured_paths()
     expected = {row["id"]: row for row in load(ANCHORS)}
     submitted = load(answers_path)
     if submitted.get("anchorSetSha256") != anchor_hash():
@@ -72,11 +83,11 @@ def check(answers_path: Path) -> None:
         if not str(got.get("reason", "")).strip():
             wrong.append(f"{aid}:reason")
     if wrong:
-        STATUS.unlink(missing_ok=True)
+        status_path.unlink(missing_ok=True)
         raise SystemExit(f"anchors: calibration FAILED at {sorted(set(wrong))}; re-read CODEX and re-audit")
 
-    RIG_HOME.mkdir(parents=True, exist_ok=True)
-    STATUS.write_text(json.dumps({
+    rig_home.mkdir(parents=True, exist_ok=True)
+    status_path.write_text(json.dumps({
         "anchorSetSha256": anchor_hash(),
         "checkedAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
         "answers": str(answers_path.resolve()),
@@ -92,6 +103,10 @@ def main() -> None:
     checker = sub.add_parser("check")
     checker.add_argument("answers", type=Path)
     args = parser.parse_args()
+    global RIG_HOME, QUIZ, STATUS
+    RIG_HOME = explicit_rig_home("anchors")
+    QUIZ = RIG_HOME / "anchor-quiz.json"
+    STATUS = RIG_HOME / "anchor-check.json"
     if args.command == "quiz":
         quiz()
     else:

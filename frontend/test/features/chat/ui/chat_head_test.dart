@@ -112,6 +112,46 @@ class _Selected extends SelectedConversation {
 
 void main() {
   testWidgets(
+    'model menu distinguishes a capability read failure from an empty catalog',
+    (tester) async {
+      var refreshes = 0;
+      late Translations t;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Builder(
+              builder: (context) {
+                t = Translations.of(context);
+                return Scaffold(
+                  body: chatModelMenu(
+                    t: t,
+                    caps: const [],
+                    current: null,
+                    catalogError: true,
+                    onRetryCatalog: () => refreshes++,
+                    onSelect: (_) {},
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Auto'), findsOneWidget);
+      await tester.tap(find.text('Auto'));
+      await tester.pumpAndSettle();
+      expect(find.text(t.chat.modelCatalogFailed), findsOneWidget);
+      expect(find.text(t.chat.modelCatalogRetry), findsOneWidget);
+      await tester.tap(find.text(t.chat.modelCatalogRetry));
+      expect(refreshes, 1);
+    },
+  );
+
+  testWidgets(
     'landing (no selection) renders the sticky model picker, no title',
     (tester) async {
       final repo = FixtureChatRepository(conversations: [], messages: {});

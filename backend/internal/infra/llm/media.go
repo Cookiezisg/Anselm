@@ -78,8 +78,12 @@ func (c *MediaClient) Upload(ctx context.Context, baseURL, installID, mime strin
 	if c == nil || c.http == nil || len(data) == 0 {
 		return "", fmt.Errorf("llm.media: invalid client or data")
 	}
+	// Attachment metadata may use a standards-compatible alias such as audio/x-wav, while the
+	// managed staging contract deliberately accepts one canonical MIME vocabulary. Normalize at
+	// this boundary instead of rewriting the user's local attachment metadata.
+	mime = normalizedMediaMIME(mime)
 	sum := sha256.Sum256(data)
-	key := strings.TrimRight(baseURL, "/") + "\x00" + installID + "\x00" + normalizedMediaMIME(mime) + "\x00" + hex.EncodeToString(sum[:])
+	key := strings.TrimRight(baseURL, "/") + "\x00" + installID + "\x00" + mime + "\x00" + hex.EncodeToString(sum[:])
 	if source, ok := c.cached(key, time.Now()); ok {
 		return source, nil
 	}
@@ -246,7 +250,18 @@ func (c *MediaClient) cancelUpload(baseURL, installID, uploadID string) {
 	}
 }
 
-func normalizedMediaMIME(mime string) string { return strings.ToLower(strings.TrimSpace(mime)) }
+func normalizedMediaMIME(mime string) string {
+	if i := strings.IndexByte(mime, ';'); i >= 0 {
+		mime = mime[:i]
+	}
+	mime = strings.ToLower(strings.TrimSpace(mime))
+	switch mime {
+	case "audio/x-wav", "audio/wave":
+		return "audio/wav"
+	default:
+		return mime
+	}
+}
 
 func (c *MediaClient) json(ctx context.Context, method, endpoint, installID string, in, out any) error {
 	var body io.Reader

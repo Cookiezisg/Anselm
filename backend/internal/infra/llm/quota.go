@@ -3,6 +3,7 @@ package llm
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -49,13 +50,13 @@ type QuotaResult struct {
 func (c *QuotaClient) Fetch(ctx context.Context, baseURL, installID string) (QuotaResult, error) {
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, baseURL+"/quota", nil)
 	if err != nil {
-		return QuotaResult{}, fmt.Errorf("llm.anselm: build quota request: %w", err)
+		return QuotaResult{}, wrapQuotaProviderError("build quota request", err)
 	}
 	httpReq.Header.Set(deviceproofinfra.HeaderInstallID, installID)
 
 	resp, err := c.http.Do(httpReq)
 	if err != nil {
-		return QuotaResult{}, fmt.Errorf("llm.anselm: quota: %w", err)
+		return QuotaResult{}, wrapQuotaProviderError("quota", err)
 	}
 	defer resp.Body.Close()
 
@@ -65,7 +66,20 @@ func (c *QuotaClient) Fetch(ctx context.Context, baseURL, installID string) (Quo
 	}
 	var out QuotaResult
 	if err := json.Unmarshal(raw, &out); err != nil {
-		return QuotaResult{}, fmt.Errorf("llm.anselm: decode quota response: %w", err)
+		return QuotaResult{}, wrapQuotaProviderError("decode quota response", err)
 	}
 	return out, nil
+}
+
+// wrapQuotaProviderError keeps request cancellation/timeout visible to transport while mapping
+// every other live-gateway failure to the structured upstream error. A network blink must become a
+// user-repairable 502, not an unmapped 500 that leaves the settings card stale.
+//
+// wrapQuotaProviderError 保留取消/超时语义交给 transport,其余 live 网关故障统一归入结构化上游错误。
+// 网络眨一下必须成为可修复的 502,不能落成未映射 500 让设置卡停在旧状态。
+func wrapQuotaProviderError(stage string, err error) error {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("llm.anselm: %s: %w", stage, err)
+	}
+	return fmt.Errorf("llm.anselm: %s: %w: %v", stage, ErrProviderError, err)
 }

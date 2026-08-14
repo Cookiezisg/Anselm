@@ -31,6 +31,7 @@ import (
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	handlerinfra "github.com/sunweilin/anselm/backend/internal/infra/handler"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // SandboxRunner is the long-lived spawn + cleanup surface (env materialization goes
@@ -208,15 +209,23 @@ func (s *Service) reclaimTrimmedEnvs(ctx context.Context, handlerID string, envI
 //
 // ensureEnv 经 envfix 循环物化 v 的 env，写回终态 + deps。返回 env 是否就绪。
 func (s *Service) ensureEnv(ctx context.Context, v *handlerdomain.Version, sink envfixapp.Sink) (ready bool, errMsg string) {
-	_ = s.repo.UpdateVersionEnv(ctx, v.ID, handlerdomain.EnvStatusSyncing, "", v.Dependencies, nil)
+	// The version is already durable before provisioning starts. Keep the expensive install
+	// cancellable, but move terminal state writes onto a workspace-scoped detached context so a
+	// client disconnect cannot leave the version stuck in syncing forever (S9).
+	// 版本在物化前已经耐久落库。安装本身仍可取消，但终态写回改用带 workspace 的 detached ctx，避免
+	// 客户端断连后版本永久卡在 syncing（S9）。
+	durableCtx := s.durableContext(ctx)
+	if err := s.repo.UpdateVersionEnv(durableCtx, v.ID, handlerdomain.EnvStatusSyncing, "", v.Dependencies, nil); err != nil {
+		s.log.Warn("handlerapp: persist env syncing state failed", zap.String("versionId", v.ID), zap.Error(err))
+	}
 
 	// Tee attempts to the panel's build terminal regardless of caller (parity with function).
 	// 把尝试行 tee 到面板构建终端、不分调用方（与 function 对齐）。
-	term := entitystreamapp.New(ctx, s.entities, streamdomain.Scope{Kind: streamdomain.KindHandler, ID: v.HandlerID}, entitystreamapp.NodeBuild, nil)
+	term := entitystreamapp.New(durableCtx, s.entities, streamdomain.Scope{Kind: streamdomain.KindHandler, ID: v.HandlerID}, entitystreamapp.NodeBuild, nil)
 	defer term.Close("completed", nil)
 	sink = envfixapp.MultiSink(sink, envfixapp.NewWriterSink(term))
 	owner := envOwner(v.HandlerID, v.EnvID)
-	if h, err := s.repo.GetHandler(ctx, v.HandlerID); err == nil && h != nil {
+	if h, err := s.repo.GetHandler(durableCtx, v.HandlerID); err == nil && h != nil {
 		owner.Name = h.Name
 	}
 
@@ -229,7 +238,9 @@ func (s *Service) ensureEnv(ctx context.Context, v *handlerdomain.Version, sink 
 
 	now := time.Now().UTC()
 	if res.OK {
-		_ = s.repo.UpdateVersionEnv(ctx, v.ID, handlerdomain.EnvStatusReady, "", res.FinalDeps, &now)
+		if err := s.repo.UpdateVersionEnv(durableCtx, v.ID, handlerdomain.EnvStatusReady, "", res.FinalDeps, &now); err != nil {
+			s.log.Warn("handlerapp: persist env ready state failed", zap.String("versionId", v.ID), zap.Error(err))
+		}
 		v.Dependencies = res.FinalDeps
 		v.EnvStatus = handlerdomain.EnvStatusReady
 		v.EnvError = ""
@@ -237,12 +248,30 @@ func (s *Service) ensureEnv(ctx context.Context, v *handlerdomain.Version, sink 
 		return true, ""
 	}
 	errMsg = lastEnvError(res.History)
-	_ = s.repo.UpdateVersionEnv(ctx, v.ID, handlerdomain.EnvStatusFailed, errMsg, res.FinalDeps, &now)
+	if err := s.repo.UpdateVersionEnv(durableCtx, v.ID, handlerdomain.EnvStatusFailed, errMsg, res.FinalDeps, &now); err != nil {
+		s.log.Warn("handlerapp: persist env failed state failed", zap.String("versionId", v.ID), zap.Error(err))
+	}
 	v.Dependencies = res.FinalDeps
 	v.EnvStatus = handlerdomain.EnvStatusFailed
 	v.EnvError = errMsg
 	v.EnvSyncedAt = &now
 	return false, errMsg
+}
+
+// durableContext keeps the workspace (and optional conversation provenance) while dropping a
+// request cancellation. It is only used after the owning version has been written durably.
+//
+// durableContext 保留 workspace（以及可选的对话溯源）并丢弃请求取消。它只用于版本主写入已经完成之后。
+func (s *Service) durableContext(ctx context.Context) context.Context {
+	workspaceID, ok := reqctxpkg.GetWorkspaceID(ctx)
+	if !ok {
+		return ctx
+	}
+	durable := reqctxpkg.Detached(workspaceID)
+	if conversationID, ok := reqctxpkg.GetConversationID(ctx); ok {
+		durable = reqctxpkg.SetConversationID(durable, conversationID)
+	}
+	return durable
 }
 
 func lastEnvError(history []envfixapp.Attempt) string {

@@ -24,6 +24,7 @@ import (
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
+	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
 // Service is the sandbox application façade.
@@ -469,6 +470,13 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	envLock.Lock()
 	defer envLock.Unlock()
 
+	// Installation remains cancellable, but the manifest's terminal state and its user-facing
+	// notification must survive a client disconnect. A machine-level caller without a workspace
+	// still gets durable manifest writes, but cannot emit a workspace notification.
+	// 安装本身仍可取消，但 manifest 终态与用户通知必须跨过客户端断连。没有 workspace 的机器级调用
+	// 仍写入耐久 manifest，但不能发 workspace 通知。
+	durableCtx, workspaceScoped := s.durableContext(ctx)
+
 	if existing, err := s.repo.FindEnvByOwner(ctx, owner.Kind, owner.ID); err == nil {
 		if existing.Status == sandboxdomain.EnvStatusReady && depsEqual(existing.Deps, spec.Deps) {
 			if name := strings.TrimSpace(owner.Name); name != "" && existing.OwnerName != name {
@@ -517,24 +525,24 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	if err := s.repo.CreateEnv(ctx, env); err != nil {
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv: persist row: %w", err)
 	}
-	s.publishEnv(ctx, env)
+	s.publishEnv(durableCtx, env)
 
 	runtimePath := filepath.Join(s.sandboxRoot, rt.Path)
 	if err := em.CreateEnv(ctx, runtimePath, envPath); err != nil {
-		s.markEnvFailed(env, err)
+		s.markEnvFailed(durableCtx, workspaceScoped, env, err)
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv create: %w", err)
 	}
 	if err := em.InstallDeps(ctx, runtimePath, envPath, spec.Deps, stream); err != nil {
-		s.markEnvFailed(env, err)
+		s.markEnvFailed(durableCtx, workspaceScoped, env, err)
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv deps: %w", err)
 	}
 
 	env.Status = sandboxdomain.EnvStatusReady
 	env.SizeBytes = computeDirSize(envPath)
-	if err := s.repo.UpdateEnv(ctx, env); err != nil {
+	if err := s.repo.UpdateEnv(durableCtx, env); err != nil {
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv: persist ready: %w", err)
 	}
-	s.publishEnv(ctx, env)
+	s.publishEnv(durableCtx, env)
 	return env, nil
 }
 
@@ -679,22 +687,27 @@ func (s *Service) destroyLocked(ctx context.Context, env *sandboxdomain.Env) err
 // not lose the failure record (§S9 terminal-state write).
 //
 // markEnvFailed 用 detached ctx 把 Status 翻为 failed，避免 caller 取消丢失败记录（§S9）。
-func (s *Service) markEnvFailed(env *sandboxdomain.Env, cause error) {
+func (s *Service) markEnvFailed(ctx context.Context, workspaceScoped bool, env *sandboxdomain.Env, cause error) {
 	env.Status = sandboxdomain.EnvStatusFailed
 	env.ErrorMsg = cause.Error()
-	if err := s.repo.UpdateEnv(context.Background(), env); err != nil {
+	if err := s.repo.UpdateEnv(ctx, env); err != nil {
 		s.log.Warn("sandbox: failed-status persist failed",
 			zap.String("env_id", env.ID),
 			zap.Error(err))
 	}
-	s.publishEnv(context.Background(), env)
+	if workspaceScoped {
+		s.publishEnv(ctx, env)
+	}
 }
 
 // publishEnv emits a slim env state-change notification (best-effort).
 //
 // publishEnv 发送 env 状态变更瘦身通知（best-effort）。
 func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
-	if s.emitter == nil {
+	// Notifications are workspace-scoped. Attachment/search/system callers may legitimately run
+	// with a bare context; emitting from there would create a misleading MISSING_WORKSPACE_ID
+	// warning after the manifest has already been written.
+	if s.emitter == nil || !hasWorkspace(ctx) {
 		return
 	}
 	payload := map[string]any{
@@ -719,7 +732,7 @@ func (s *Service) publishEnv(ctx context.Context, env *sandboxdomain.Env) {
 }
 
 func (s *Service) publishEnvDeleted(ctx context.Context, env *sandboxdomain.Env) {
-	if s.emitter == nil {
+	if s.emitter == nil || !hasWorkspace(ctx) {
 		return
 	}
 	// Env reclamation is a background-housekeeping echo (frame-only, no inbox row). env 回收=后台
@@ -731,6 +744,24 @@ func (s *Service) publishEnvDeleted(ctx context.Context, env *sandboxdomain.Env)
 	}); err != nil {
 		s.log.Warn("sandbox: emit env deleted notification failed", zap.Error(err))
 	}
+}
+
+// durableContext drops request cancellation while retaining the workspace needed by the
+// notification repository. The bool tells callers whether a notification is valid for this
+// context; machine-level sandbox operations intentionally have no workspace audience.
+// durableContext 丢弃请求取消但保留通知仓库所需的 workspace。bool 告诉调用方该上下文是否可以
+// 合法发通知；机器级 sandbox 操作刻意没有 workspace 受众。
+func (s *Service) durableContext(ctx context.Context) (context.Context, bool) {
+	workspaceID, ok := reqctxpkg.GetWorkspaceID(ctx)
+	if !ok {
+		return context.Background(), false
+	}
+	return reqctxpkg.Detached(workspaceID), true
+}
+
+func hasWorkspace(ctx context.Context) bool {
+	_, ok := reqctxpkg.GetWorkspaceID(ctx)
+	return ok
 }
 
 func (s *Service) touchLastUsed(ctx context.Context, env *sandboxdomain.Env) {

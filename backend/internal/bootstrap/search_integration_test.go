@@ -91,10 +91,10 @@ func TestBuild_SearchEndToEnd(t *testing.T) {
 }
 
 // TestBuild_SearchHTTPSurface proves the HTTP wire: omni-search returns the N1
-// envelope with hits, and reindex answers 202 (N2/N5).
+// envelope with hits, and reindex answers 204 (N2/N5).
 //
 // TestBuild_SearchHTTPSurface 证明 HTTP 线缆：综搜返回 N1 envelope + 命中，
-// reindex 回 202（N2/N5）。
+// reindex 回 204（N2/N5）。
 func TestBuild_SearchHTTPSurface(t *testing.T) {
 	app, err := Build(Config{DataDir: t.TempDir()})
 	if err != nil {

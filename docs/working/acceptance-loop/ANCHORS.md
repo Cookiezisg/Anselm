@@ -17,14 +17,16 @@ craft、画面与数据真相。题集在 [`testend/rig/anchors.json`](../../../
 任何 agent 开始裁决前都必须完成一次无答案答卷：
 
 ```bash
+export RIG_HOME=/private/tmp/anselm-rig-formal-<session>
 python3 testend/rig/anchors.py quiz
-# 编辑 ~/.anselm-rig/anchor-quiz.json 中每题的 verdict / law / reason
-python3 testend/rig/anchors.py check ~/.anselm-rig/anchor-quiz.json
+# 编辑 $RIG_HOME/anchor-quiz.json 中每题的 verdict / law / reason
+python3 testend/rig/anchors.py check "$RIG_HOME/anchor-quiz.json"
 ```
 
-校验通过后生成 `~/.anselm-rig/anchor-check.json`。凭证绑定题集 SHA-256、有效四小时；题集变化、
-凭证过期、漏题、空理由或任一 verdict/法条偏离都会使 `judge.py` 物理拒绝新 `pass`。失败后的处理
-只有一个：停前线、重读 CODEX、回审近期裁决、重做整套锚点；不得改答案迁就当下判断。
+校验通过后生成 `$RIG_HOME/anchor-check.json`。`anchors.py`、`alarms.py` 和 `judge.py` 均要求显式绝对
+`RIG_HOME`；缺失、相对路径或 `~` 路径会直接拒绝，防止校准和正式账本落到个人默认目录。凭证绑定题集
+SHA-256、有效四小时；题集变化、凭证过期、漏题、空理由或任一 verdict/法条偏离都会使 `judge.py` 物理拒绝
+新 `pass`。失败后的处理只有一个：停前线、重读 CODEX、回审近期裁决、重做整套锚点；不得改答案迁就当下判断。
 
 ## 冻结刻度
 

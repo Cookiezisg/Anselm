@@ -101,6 +101,11 @@ func TestSaveSkillSchemaDocumentsManagedArrayCompatibility(t *testing.T) {
 	if !strings.Contains((&CreateSkill{}).Description(), "Optional: allowedTools") {
 		t.Fatalf("description must name optional skill metadata: %s", (&CreateSkill{}).Description())
 	}
+	for _, want := range []string{"create, author, write, or make", "direct creation tool", "do not activate_skill", "Supply all requested fields"} {
+		if !strings.Contains((&CreateSkill{}).Description(), want) {
+			t.Fatalf("description must disambiguate new-skill intent with %q: %s", want, (&CreateSkill{}).Description())
+		}
+	}
 	if !strings.Contains(got, "Explore") || !strings.Contains(got, "general-purpose") {
 		t.Fatalf("schema must document the exact fork agent types: %s", got)
 	}

@@ -173,7 +173,7 @@ type RestartHandler struct{ svc *handlerapp.Service }
 func (t *RestartHandler) Name() string { return "restart_handler" }
 
 func (t *RestartHandler) Description() string {
-	return "Restart a handler's resident process: gracefully shut down the running instance (runs shutdown()) and start a fresh one with the latest config + code. Use when a handler is misbehaving — a stale DB connection, an expired session, a wedged state. Returns the new runtime state."
+	return "Reset a handler's resident process: gracefully shut down the running instance (runs shutdown()) and start a fresh one with the latest config + code. This only resets a resident process; it does NOT rebuild an environment or retry dependency installation. If the environment is failed/not ready and the user wants to rebuild it without changing code, dependencies, or config, use edit_handler with exactly ops: [] instead. Use restart_handler only for a ready environment whose resident process is misbehaving — a stale DB connection, an expired session, or a wedged state. Returns the new runtime state."
 }
 
 func (t *RestartHandler) Parameters() json.RawMessage {

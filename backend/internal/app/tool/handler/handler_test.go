@@ -62,6 +62,34 @@ func TestEditHandler_DescriptionPinsUpdateMethodShape(t *testing.T) {
 	}
 }
 
+func TestEditHandler_DescriptionSeparatesEnvironmentRebuildFromRestart(t *testing.T) {
+	desc := (&EditHandler{}).Description()
+	for _, want := range []string{
+		`exactly {"handlerId":"...","ops":[]}`,
+		`mints no version`,
+		`Do not substitute restart_handler`,
+		`never rebuilds or reinstalls an environment`,
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("edit_handler description missing %q: %s", want, desc)
+		}
+	}
+}
+
+func TestRestartHandler_DescriptionSeparatesEnvironmentReset(t *testing.T) {
+	desc := (&RestartHandler{}).Description()
+	for _, want := range []string{
+		`only resets a resident process`,
+		`does NOT rebuild an environment`,
+		`retry dependency installation`,
+		`use edit_handler with exactly ops: [] instead`,
+	} {
+		if !strings.Contains(desc, want) {
+			t.Fatalf("restart_handler description missing %q: %s", want, desc)
+		}
+	}
+}
+
 func TestNormalizeHandlerOpsForEdit_SplitsLegacyMethodListByActiveNames(t *testing.T) {
 	items, err := normalizeHandlerOpsWithExistingMethods([]json.RawMessage{
 		[]byte(`{"op":"set_methods","methods":[{"name":"status","description":"Returns the current revision identifier","inputs":[],"outputs":[],"body":"return {\"revision\": self.revision}","streaming":false},{"name":"health","description":"Report health","inputs":[],"outputs":[],"body":"return {\"ok\": True}","streaming":false}]}`),
@@ -581,6 +609,11 @@ func TestBuildOutput_EmptyOpsRestartIsVisible(t *testing.T) {
 	normal := buildOutput("hd_1", v, 2, nil, handlerdomain.RuntimeStateRunning, false)
 	if _, has := normal["restarted"]; has {
 		t.Fatalf("a normal op-applying edit must NOT flag restarted (the version bump already signals change), got %+v", normal)
+	}
+
+	failed := buildOutput("hd_1", &handlerdomain.Version{ID: "hdv_1", EnvStatus: handlerdomain.EnvStatusFailed}, 0, nil, handlerdomain.RuntimeStateStopped, false)
+	if _, has := failed["restarted"]; has {
+		t.Fatalf("a failed environment rebuild must not claim the resident restarted, got %+v", failed)
 	}
 }
 

@@ -310,6 +310,20 @@ abstract interface class EntityRepository {
   /// (WRK-083 L7):`SEQ_TOO_OLD` 丢游标、从新 head 重连,缺口里的信号永远没了,只听信号的列表会陈旧到会话结束。
   Stream<void> lifecycleResync();
 
+  /// Durable pulses that can change the cross-run approval inbox: an approval parks on the
+  /// notifications stream, while a decision made elsewhere settles on the workflow's entities
+  /// stream. The provider refetches the REST projection; frames never fabricate inbox rows.
+  ///
+  /// 能改变跨 run 审批收件箱的耐久脉冲:审批停车来自 notifications,外部决策收口来自 workflow 的
+  /// entities 流。provider 重取 REST 投影;绝不据帧伪造收件箱行。
+  Stream<void> flowrunInboxSignals();
+
+  /// 410 twins for both streams that feed [flowrunInboxSignals]. A gap in either stream can hide an
+  /// add or removal, so the inbox must refetch from the durable endpoint.
+  ///
+  /// [flowrunInboxSignals] 两条来源流的 410 孪生。任一流缺口都可能吞掉新增或移除,故必须重取耐久端点。
+  Stream<void> flowrunInboxResync();
+
   /// Durable notification pulse for workspace-wide derived views such as `GET /relgraph`.
   /// Unlike [lifecycleSignals], this intentionally does not project an entity kind: relation edges
   /// may change when an accessory entity (document/skill/MCP/conversation) changes, even though those
@@ -878,6 +892,47 @@ class LiveEntityRepository implements EntityRepository {
       _sse?.resync(StreamName.notifications) ?? const Stream.empty();
 
   @override
+  Stream<void> flowrunInboxSignals() {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    // Approval parking is a notifications event; a decision from another client is the durable
+    // workflow-scope terminal event. Both are only nudges — GET /flowrun-inbox remains the truth.
+    // 审批停车是 notifications 事件;另一客户端决策落 workflow scope 的耐久 terminal。两者都只是唤醒,
+    // GET /flowrun-inbox 才是真相。
+    return _mergePulses([
+      sse
+          .rawStream(StreamName.notifications)
+          .where(
+            (env) =>
+                env.durable &&
+                env.frame is FrameSignal &&
+                (env.frame as FrameSignal).node.type ==
+                    'workflow.approval_pending',
+          )
+          .map<void>((_) {}),
+      sse
+          .kindStream(StreamName.entities, 'workflow')
+          .where(
+            (env) =>
+                env.durable &&
+                env.frame is FrameSignal &&
+                (env.frame as FrameSignal).node.type == 'run_terminal',
+          )
+          .map<void>((_) {}),
+    ]);
+  }
+
+  @override
+  Stream<void> flowrunInboxResync() {
+    final sse = _sse;
+    if (sse == null) return const Stream.empty();
+    return _mergePulses([
+      sse.resync(StreamName.notifications),
+      sse.resync(StreamName.entities),
+    ]);
+  }
+
+  @override
   Stream<void> relationSignals() {
     final sse = _sse;
     if (sse == null) return const Stream.empty();
@@ -890,4 +945,24 @@ class LiveEntityRepository implements EntityRepository {
   @override
   Stream<StreamEnvelope> panelSignals(StreamScope scope) =>
       _sse?.scopeStream(scope) ?? const Stream.empty();
+}
+
+/// Merge a small number of semantic pulses without adding another stream dependency. The controller
+/// subscribes lazily and tears both source subscriptions down with the last consumer.
+/// 合并少量语义脉冲,不引入新的 stream 依赖。最后一个消费者离开时连同来源订阅一起拆掉。
+Stream<void> _mergePulses(Iterable<Stream<void>> sources) {
+  late final StreamController<void> controller;
+  final subscriptions = <StreamSubscription<void>>[];
+  controller = StreamController<void>.broadcast(
+    onListen: () {
+      subscriptions.addAll(
+        sources.map((source) => source.listen(controller.add)),
+      );
+    },
+    onCancel: () async {
+      await Future.wait([for (final sub in subscriptions) sub.cancel()]);
+      subscriptions.clear();
+    },
+  );
+  return controller.stream;
 }

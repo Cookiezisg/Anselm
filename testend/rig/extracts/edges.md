@@ -125,7 +125,7 @@ EDGE | envfix 自愈循环 | function | 声明一个装不上的依赖（拼错�
 EDGE | envfix 拒绝丢包修复 | function | 让 LLM 的「修复」把声明依赖列表缩到原始数量以下 | 拒绝该建议、env 保持 failed + 真实装错，绝不产出缺包的绿 env
 EDGE | 未配 utility 模型时的 envfix | function | 清空 utility 场景默认后触发一次装不上 | `OK=false` 结束、stderr 留在 History 上呈给建构 LLM，绝不返 Go error
 EDGE | env failed 仍创建成功 | function | 用装不上的依赖建 function 后立刻 `:run` | 实体创建成功且状态可见；run 时才 422 `FUNCTION_ENV_NOT_READY`
-EDGE | 空 ops edit 重建 env | function | 对 env failed 的 function 打 `:edit` 空 ops | 只重建 active env、发 `function.env_rebuilt`，不铸新版本
+EDGE | 空 ops edit 重建 env | function | 对 env failed 的 function 打 `:edit` 空 ops | 只重建 active env、不铸新版本；成功才发 `function.env_rebuilt`，失败保持 failed 且不发成功通知
 EDGE | env 被 GC 后重试一次 | function | 跑 `sandbox:gc` 回收掉某 function 的 venv 再执行它 | `ErrEnvNotFound` → 重建 env + 重试一次，用户无感
 EDGE | 版本 cap 50 trim 回收 venv | function | 对同一 function 连续 edit 51 次 | 硬删最老版本（放过 active）并经 `DestroyEnv` 回收其孤儿 venv
 EDGE | revert 到很老版本后再 trim | function | revert 到 v1 后再连续 edit 到越过 cap | trim 放过 active（哪怕它是最老的那个）
@@ -141,7 +141,7 @@ EDGE | handler ctx 取消 = 管道脏 | handler | 在一次 RPC 等待中取消�
 EDGE | handler generator 终值两写法 | handler | 分别用 `yield 终值` 和 `return 终值` 写 method | 两种都生效（driver 捕 `StopIteration.value`），裸 return 不被吞
 EDGE | handler traceback 不被剥 | handler | 让 method 内抛 Python 异常 | traceback 进错误 Details（非 fmt 包裹），agent/flowrun 路径读到的不是不透明 "call failed"
 EDGE | handler 注入 secret 掩码三面 | handler | 让 method 把 sensitive init-arg 值 print 出来并抛进 traceback | 实时错误面 / logs / 审计副本三处都掩成 `********`（含 inst==nil 的 spawn 失败路径）
-EDGE | handler 空 ops edit 抹内存态 | handler | 对有状态 handler 打 `:edit` 空 ops | 重建 env + 重启（内存态丢失），结果带 `restarted:true` + restartNote 使其可见
+EDGE | handler 空 ops edit 抹内存态 | handler | 对有状态 handler 打 `:edit` 空 ops | 重建 env + 重启（内存态丢失）；成功才发 `handler.env_rebuilt`，结果仅在 resident running 时带 `restarted:true`，失败保持 env=failed/runtime=stopped 且不发成功通知
 EDGE | handler 纯 meta edit 不重启 | handler | 用 ops 全为 `set_meta` 的 edit 改名 | 只更行、不铸版本、不重启（内存态保住）
 EDGE | handler 产物目录 chdir 恢复 | handler | 让一次带 `out` 的调用中途 continue/异常退出 | driver 在 try/finally 里恢复 cwd，下一次调用不从已删目录起步
 EDGE | handler 同实例并发调用串扰 | handler | 让两次调用同时在同一实例上跑并各自 print | stderr 扇出按窗口归属，明示可能串扰；收尾留 30ms 宽限接住迟到的 print

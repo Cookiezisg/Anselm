@@ -45,8 +45,11 @@ class ApiClient {
   /// 请求,含 /health 与 SSE GET)。sidecar supervisor 铸出前为 null。
   final String? Function() _authToken;
 
+  static const _workspaceOverrideKey = 'anselm.workspaceOverride';
+
   void _onRequest(RequestOptions options, RequestInterceptorHandler handler) {
-    final ws = _workspaceId();
+    final override = options.extra[_workspaceOverrideKey];
+    final ws = override is String ? override : _workspaceId();
     if (ws != null && ws.isNotEmpty) {
       options.headers['X-Anselm-Workspace-ID'] = ws;
     }
@@ -191,10 +194,15 @@ class ApiClient {
   Future<Map<String, dynamic>> getData(
     String path, {
     Map<String, dynamic>? query,
+
+    /// Internal workspace pin for a request that must not follow a hot switch.
+    /// 内部 workspace pin,用于请求不可随热切换漂移。
+    String? workspaceId,
   }) => _send(() async {
     final r = await _dio.get<Map<String, dynamic>>(
       path,
       queryParameters: query,
+      options: _workspaceOptions(workspaceId),
     );
     return _data(r.data);
   });
@@ -305,9 +313,17 @@ class ApiClient {
     return parse(_data(r.data));
   });
 
-  /// DELETE (204).
-  Future<void> delete(String path) =>
-      _send(() async => _dio.delete<void>(path));
+  /// DELETE (204). [workspaceId] pins the isolation header for a long-lived destructive operation.
+  /// DELETE(204)。workspaceId 为长生命周期破坏性动作固定隔离 header。
+  Future<void> delete(String path, {String? workspaceId}) => _send(
+    () async =>
+        _dio.delete<void>(path, options: _workspaceOptions(workspaceId)),
+  );
+
+  Options? _workspaceOptions(String? workspaceId) {
+    if (workspaceId == null || workspaceId.isEmpty) return null;
+    return Options(extra: {_workspaceOverrideKey: workspaceId});
+  }
 
   /// Unwrap the `data` object from an envelope, or throw if absent/wrong shape.
   ///

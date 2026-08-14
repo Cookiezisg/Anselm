@@ -51,6 +51,10 @@ abstract final class RelationGraphProbe {
   /// Fired each simulation frame (one per Ticker tick). 每仿真帧触发。
   @visibleForTesting
   static void Function()? onSimFrame;
+
+  /// Fired when the edge underlay paints, with the number of visible edges. 边底图绘制时回报可见边数。
+  @visibleForTesting
+  static void Function(int visibleEdges)? onEdgePaint;
 }
 
 class AnRelationGraph extends StatefulWidget {
@@ -732,6 +736,10 @@ class _AnRelationGraphState extends State<AnRelationGraph>
                         state: this,
                         focusColor: _focusColor,
                         repaint: _frame,
+                        hiddenSignature: ([
+                          ...widget.hiddenKinds,
+                        ]..sort()).join(','),
+                        edgeSignature: _sigOf(widget.nodes, widget.edges),
                       ),
                     ),
                   ),
@@ -1041,15 +1049,15 @@ class _RelationNodeState extends State<_RelationNode> {
       child: interactive,
     );
 
-    return Opacity(
-      opacity: opacity,
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          dotHit,
-          IgnorePointer(child: label),
-        ],
-      ),
+    // The ripple is a visual-priority cue for the DOT, not a readability filter. Applying the same
+    // alpha to the label made sparse graphs render valid entity names at roughly 0.32 opacity, which is
+    // too weak to read and makes a real node look absent. Keep labels in their intentional ink tier.
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Opacity(opacity: opacity, child: dotHit),
+        IgnorePointer(child: label),
+      ],
     );
   }
 }
@@ -1065,17 +1073,25 @@ class _EdgePainter extends CustomPainter {
     required this.state,
     required this.focusColor,
     required Listenable repaint,
+    required this.hiddenSignature,
+    required this.edgeSignature,
   }) : super(repaint: repaint);
 
   final _AnRelationGraphState state;
   final Color focusColor;
+  // Nullable keeps a hot-reloaded painter instance safe: Flutter can preserve the old object while a
+  // newly-added field has not been initialized yet. A cold app always supplies both signatures.
+  final String? hiddenSignature;
+  final String? edgeSignature;
 
   @override
   void paint(Canvas canvas, Size size) {
     final w = state.widget;
     final hoverEdge = state._hoverEdgeId;
+    var visibleEdges = 0;
     for (final e in w.edges) {
       if (state._hidden(e.fromKind) || state._hidden(e.toKind)) continue;
+      visibleEdges++;
       final a = state._sceneOf(e.fromId), b = state._sceneOf(e.toId);
       final isHover = e.id == hoverEdge;
       final Color color;
@@ -1103,11 +1119,15 @@ class _EdgePainter extends CustomPainter {
           ..strokeCap = StrokeCap.round,
       );
     }
+    RelationGraphProbe.onEdgePaint?.call(visibleEdges);
   }
 
   @override
   bool shouldRepaint(_EdgePainter old) =>
-      old.focusColor != focusColor || !identical(old.state, state);
+      old.focusColor != focusColor ||
+      old.hiddenSignature != hiddenSignature ||
+      old.edgeSignature != edgeSignature ||
+      !identical(old.state, state);
 }
 
 /// The screen-fixed dot-grid backdrop. One batched drawPoints. 钉屏点阵背景;一次批量 drawPoints。

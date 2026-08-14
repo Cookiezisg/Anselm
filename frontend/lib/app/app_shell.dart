@@ -354,7 +354,13 @@ class _AppShellState extends ConsumerState<AppShell> {
               AnMenuItem(
                 label: context.t.shell.workspaceSettings,
                 icon: AnIcons.gear,
-                onTap: () => selectOcean(OceanKind.settings),
+                onTap: () {
+                  ref
+                      .read(settingsPanelProvider.notifier)
+                      .select(SettingsPanel.workspaces);
+                  ref.read(settingsDetailProvider.notifier).pop();
+                  selectOcean(OceanKind.settings);
+                },
               ),
             ],
           ),

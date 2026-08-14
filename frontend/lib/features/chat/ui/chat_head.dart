@@ -31,7 +31,11 @@ class ChatHead extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final selected = ref.watch(selectedConversationProvider);
     final t = Translations.of(context);
-    final caps = ref.watch(modelCapabilitiesProvider).value ?? const [];
+    final capsState = ref.watch(modelCapabilitiesProvider);
+    final caps = capsState.value ?? const [];
+    final catalogLoading = capsState.isLoading && caps.isEmpty;
+    final catalogError = capsState.hasError && caps.isEmpty;
+    void retryCatalog() => ref.invalidate(modelCapabilitiesProvider);
 
     // Landing: the sticky next-thread choice, far left. landing:粘性选择,最左。
     if (selected == null) {
@@ -42,6 +46,9 @@ class ChatHead extends ConsumerWidget {
           chatModelMenu(
             t: t,
             caps: caps,
+            catalogLoading: catalogLoading,
+            catalogError: catalogError,
+            onRetryCatalog: retryCatalog,
             current: choice,
             onSelect: (v) => ref.read(landingModelProvider.notifier).set(v),
           ),
@@ -135,6 +142,9 @@ class ChatHead extends ConsumerWidget {
         chatModelMenu(
           t: t,
           caps: caps,
+          catalogLoading: catalogLoading,
+          catalogError: catalogError,
+          onRetryCatalog: retryCatalog,
           current: override == null
               ? null
               : (apiKeyId: override.apiKeyId, modelId: override.modelId),
@@ -234,6 +244,9 @@ Widget chatModelMenu({
   required List<ModelCapability> caps,
   required ({String apiKeyId, String modelId})? current,
   required ValueChanged<({String apiKeyId, String modelId})?> onSelect,
+  bool catalogLoading = false,
+  bool catalogError = false,
+  VoidCallback? onRetryCatalog,
   Widget Function(BuildContext context, VoidCallback toggle, bool isOpen)?
   anchorBuilder,
   List<AnMenuEntry> leadingEntries = const [],
@@ -269,6 +282,16 @@ Widget chatModelMenu({
             AnButton(label: anchorLabel, onPressed: toggle),
     entries: [
       ...leadingEntries,
+      if (catalogLoading)
+        AnMenuItem(label: t.chat.modelCatalogLoading, disabled: true),
+      if (catalogError)
+        AnMenuItem(label: t.chat.modelCatalogFailed, disabled: true),
+      if ((catalogLoading || catalogError) && onRetryCatalog != null)
+        AnMenuItem(
+          label: t.chat.modelCatalogRetry,
+          icon: AnIcons.refresh,
+          onTap: onRetryCatalog,
+        ),
       if (includeAuto)
         AnMenuItem(
           label: t.chat.modelAuto,

@@ -2,12 +2,14 @@ package handlers
 
 import (
 	"net/http"
+	"net/url"
 	"strconv"
 
 	"go.uber.org/zap"
 
 	relationapp "github.com/sunweilin/anselm/backend/internal/app/relation"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
@@ -75,11 +77,10 @@ func (h *RelationHandler) List(w http.ResponseWriter, r *http.Request) {
 // （BFS）。depth 默认 2。
 func (h *RelationHandler) Neighborhood(w http.ResponseWriter, r *http.Request) {
 	q := r.URL.Query()
-	depth := 2
-	if raw := q.Get("depth"); raw != "" {
-		if n, err := strconv.Atoi(raw); err == nil {
-			depth = n
-		}
+	depth, err := parseNeighborhoodDepth(q)
+	if err != nil {
+		responsehttpapi.FromDomainError(w, h.log, err)
+		return
 	}
 	views, err := h.svc.Neighborhood(r.Context(), q.Get("kind"), q.Get("id"), depth)
 	if err != nil {
@@ -87,6 +88,42 @@ func (h *RelationHandler) Neighborhood(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	responsehttpapi.Success(w, http.StatusOK, views)
+}
+
+// parseNeighborhoodDepth distinguishes an absent optional query from a malformed one. An absent
+// depth keeps the endpoint's documented default of 2; once the key is present, silently treating a
+// typo such as "1.5" as the default would turn a caller bug into a convincing empty neighborhood.
+//
+// parseNeighborhoodDepth 区分「可选参数缺席」与「参数存在但格式错误」。缺席保留文档默认值 2；
+// 一旦出现 depth，拼写错误不能静默变成默认深度，否则调用方错误会伪装成真实的空邻域。
+func parseNeighborhoodDepth(q url.Values) (int, error) {
+	raw, present := q["depth"]
+	if !present {
+		return 2, nil
+	}
+	if len(raw) != 1 || raw[0] == "" {
+		return 0, errorspkg.ErrInvalidRequest.WithDetails(map[string]any{
+			"param": "depth",
+			"got":   firstQueryValue(raw),
+			"want":  "an integer",
+		})
+	}
+	n, err := strconv.Atoi(raw[0])
+	if err != nil {
+		return 0, errorspkg.ErrInvalidRequest.WithDetails(map[string]any{
+			"param": "depth",
+			"got":   raw[0],
+			"want":  "an integer",
+		})
+	}
+	return n, nil
+}
+
+func firstQueryValue(values []string) string {
+	if len(values) == 0 {
+		return ""
+	}
+	return values[0]
 }
 
 // Relgraph handles GET /api/v1/relgraph — the full hydrated snapshot for the

@@ -5,12 +5,363 @@ status: active
 owner: "@weilin"
 created: 2026-08-01
 reviewed: 2026-08-09
+reviewed: 2026-08-14
 review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
 
 # WRK-093 · 验收循环执行协议
+
+## 当前前线覆盖声明（2026-08-14 15:10）
+
+EP-225 `GET /api/v1/relations` 已在真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成。session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260814-142141`，录屏 `2784x1808 / 60fps / 745.135000s` 可读。真实 Chat 按名称找到临时 agent，再调用关系查询一次；工具卡显示 `3 edges`，回答表格逐条展示三个 `agent → function` 的 `equip` 关系、方向、verb 和 endpoint 名称。
+
+直接 REST 复核确认分页第一页两条、顶层 `nextCursor` 续页一条、目标过滤一条；不完整过滤返回 `400 REL_INCOMPLETE_FILTER`，未知 edge kind 返回 `400 REL_INVALID_KIND`。收台后的 agent/functions 读取均为 `404`，关系列表为空且 `hasMore=false`，名称搜索无残留。初次 shell 误读 `meta.nextCursor` 已纠正，不计入产品证据。
+
+五通道均已互证：backend journal `914` 行且无应用级红线；独立 SSE journal `391` 行，tool-call/tool-result/final close 与 durable seq 一致；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线；LLM wire `40` 条且上游全 `200`，名称路径和逐键 opaque ID 路径均保留精确 ID。`set_value` 的 AX/截图不一致和不支持的 `shift+-` 被记录为 Computer Use 仪器边界，不计产品红线；真实 `underscore` 逐键路径通过。正式证据为 `sessions/20260814-142141/evidence/EP-225-relations-final-green-r1.md`。
+
+EP-225 五级由 ledger gate 写入 `G1/F1/F4/C4/G2`，COVERAGE 为 `✓✓✓✓✓`；formal ledger=`1820`，COVERAGE=`848 rows / 357 carried / 0 tombstones`，anchors=`10/10`（冻结答卷校准后仍在四小时有效窗内），alarms=`clean`。关系契约、backend handlers/router 全包、`gen_coverage.py --check` 均通过。
+
+批次三十四 `50/50` 后统一长门禁已通过：根目录 `make verify` 的 backend/frontend/docs/demo 全部通过；`testend/rig` `42/42`、Python compile、shell syntax、`git diff --check` 通过；`mise exec -- go test -count=1 -timeout 20m ./...` 全包通过，`testend/scenarios` 约 `420s`。收台后 conductor-owned 进程和监听端口均归零。本批次工作树归属审计已完成并满足安全提交条件；在本批次封口前不启动 EP-226 `GET /api/v1/relations/neighborhood`，first-unsettled gate 继续拒绝任何越序裁决。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+## 历史前线覆盖声明（2026-08-13 15:31）
+
+`SURF-008 shell/notification-tray` 已完成真实通知托盘候选复验。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-150645`，完整候选证据为
+`sessions/20260813-150645/evidence/SURF-008-notification-tray-real-app-candidate-r1.md`；录屏
+`2784x1808 / 60fps / 1380.481667s` 可读，最终帧保存在该 session 的 `evidence/`。
+
+真实 App 从 Today 28 条通知进入托盘；隔离数据只用一次 REST `mark-read` 制造可辨识读状态，随后真实通知行点击进入精确 Workflow 详情，观察期间托盘与 REST 未读数一致为 27。真实搜索 `SURF007 failure queue 2` 得到 5 条匹配行并将 Today 计数变为 5；重新打开托盘后以真实键盘输入 `zzzz-not-found`，稳定帧只剩搜索栏，分组和通知行消失，中心工作流详情保持不变。Today 组头真实折叠后只剩 `Today 28`，展开后恢复行；Unread only 真实切换并重算加载状态的分组计数。
+
+Computer Use 期间出现过 AX 语义树、Flutter 编辑事件和截图采集时序短暂错位；重开托盘并用真实键盘路径复核后稳定通过，证据将其分类为工具观测问题而非产品缺陷。settled frame 未见 clipping、overlap、stale center、white flash、reflow、overlay 或 input jump。
+
+五通道已封口：backend 无应用级 WARN/ERROR/panic/FATAL，SSE 两 workspace 三流连接并 clean EOF，frontend 无 Dart/Flutter/RenderFlex/overflow/Unhandled/unknown AX 红线，llmtap 真实 readiness/proof/quota 均 `200` 且无 completion，`rig-down` 已停止所有 conductor-owned 进程。通知托盘 focused Flutter suite `50/50` 通过，`rig-check`、`gen_coverage.py --check`、`alarms.py check` 和 `git diff --check` 通过。
+
+本轮仍是候选观察，不调用 `judge.py`，不修改 formal ledger/COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。EP-220 当前对象 action-time 永久删除序列门继续关闭。
+
+`SURF-007 shell/notice-band` 已完成真实顶带消息舞台候选复验。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-144241`，完整候选证据为
+`sessions/20260813-144241/evidence/SURF-007-notice-band-real-app-candidate-r1.md`；录屏
+`2788x1808 / 60fps / 727.596667s` 可读，真实帧保存在该 session 的 `evidence/`。
+
+真实失败 Function → workflow run 让 App 顶带显示失败胶囊；真实 `trigger → approval` run 让 App 显示不自动消失的审批块。fresh AX 每步都重新读取：审批块有可理解的问题、`Approve`、`Reject`，拒绝后真实 run 终态为 `completed / decision=no`。审批驻留期间制造真实失败队列，AX 暴露 `Clear all 4 top notifications`，录屏抽帧看到审批卡居中、右缘两颗队列提示点和 `+1` 溢出。
+
+点击清场后，顶带展示副本按反向动画收回，REST 的 parked approval 没有被删除或自动决策；Notifications 入口显示 `Needs you 1`，同一审批仍可操作。第二个临时 approval 从收件箱拒绝后，两个测试 run 均 `completed`、节点结果均 `decision=no`、`flowrun-inbox` 为空。清场因此验证为“清展示、不改事实”，本轮未发现需要 stop-and-fix 的产品缺陷。
+
+五通道已封口：backend 无应用级 WARN/ERROR/panic/FATAL，SSE 真实收到 `workflow.run_failed` 与 `workflow.approval_pending` 并 clean EOF，frontend 无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 红线，llmtap 仅 readiness/probe 无 completion，`rig-down` 已停止所有 conductor-owned 进程并封口录屏。聚焦回归、文档、清册、警报和 diff 检查在本轮完成后同步记录。
+
+本轮仍是候选观察，不调用 `judge.py`，不修改 formal ledger/COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。EP-220 当前对象 action-time 永久删除序列门继续关闭。
+
+`SURF-006 shell/ocean-breadcrumb-head` 已完成真实 Settings 长页标题折叠、紧凑浮层头出现和点击回顶候选复验。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-141915`，完整证据为
+`sessions/20260813-141915/evidence/SURF-006-ocean-breadcrumb-real-app-candidate-r1.md`。
+
+Computer Use fresh AX/frame 观察到：顶部态没有紧凑标题；Models & keys 长页小步滚动到大标题离开正文视口后，浮层头出现并可点击；点击后回到页面顶部。一次大步滚动未出现浮层头被保留为过渡/settling 探索，不作为缺陷；受控小步路径稳定重现。录屏 `2788x1808 / 60fps / 539.996667s` 可读，稳定帧已封存，未见 clipping、overlap、stale title、white flash、reflow、overlay 或 input jump。
+
+五通道均已封口：backend 无应用级 WARN/ERROR/panic/FATAL，SSE 两 workspace 三流连接并 clean EOF，frontend 无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 应用红线，llmtap readiness 请求均 200 且无 completion；`rig-down` 已停止所有 conductor-owned 进程。`ocean_breadcrumb_test.dart`、`shell_chrome_test.dart`、`settings_shell_test.dart` 全部通过。
+
+本轮仍是候选观察，不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。EP-220 当前对象 action-time 永久删除序列门继续关闭。
+
+EP-220 当前对象 `EP220 Delete Trial` 的确认层候选复验已安全收台，但 action-time 永久删除动作仍未执行。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-140938`，完整证据为
+`sessions/20260813-140938/evidence/EP-220-voice-delete-confirm-r6-awaiting-action.md`。
+
+Computer Use fresh AX/frame 确认确认层显示完整对象、永久移除/费用不退还/释放库存位说明、Cancel 和 Delete permanently；空输入未放行。
+本轮按不可逆 Computer Use 边界没有输入对象名、没有点击最终按钮，只点击 Cancel；目标行和 `1 of 2 slots free` 保持不变。EP-213
+`UI Delete Positive` 的历史确认不转移。
+
+五通道均已封口：录屏 `2784x1808 / 60fps / 244.693333s` 可读，backend 无 voice DELETE，llmtap 无 voice-delete 上游请求，SSE 两 workspace
+三流连接并 clean EOF，frontend 无应用级红线，conductor-owned 进程均已停止。本轮仍是候选边界，不调用 `judge.py`，不改 formal ledger/
+COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。EP-220 序列门继续关闭。
+
+`SURF-005 shell/sidebar-footer` 已完成真实 App 的 workspace 快捷菜单、Settings/Notifications 底栏格、通知托盘接管候选复验，并在首次路径发现产品缺陷后 stop-and-fix、补守卫测试、重新构建真实 App 验证。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-140149`，完整证据为
+`sessions/20260813-140149/evidence/SURF-005-sidebar-footer-real-app-candidate-r2.md`。
+
+首轮真实点击 `Workspace settings` 只收起菜单、中心仍停 `Models & keys`；这是产品语义与结果不一致的真实缺陷，不计通过。修复
+`frontend/lib/app/app_shell.dart` 让该命令选 `SettingsPanel.workspaces`、清 detail 后进入 Settings，
+`frontend/test/app/workspace_switcher_test.dart` 增加回归断言。修复后二次真实 App fresh AX 明确显示 `Settings / Workspaces`、`New workspace` 和当前工作区行，旧 Models & keys 消失。
+
+同一会话还验证 Notifications 格打开/关闭：托盘只替换左岛中段，Settings 中心不变，第二次点击恢复 Settings rail；工作区菜单展开项完整，未观察到 stale menu、重复壳、白闪、clipping、overlap、reflow、overlay 或 input jump。五通道与 `rig-check` 全绿，录屏 `2784x1808 / 60fps / 44.393333s` 可读，抽帧已封存。
+
+修复后 `workspace_switcher_test.dart` `2/2`、SURF-005 focused Flutter suite `93/93`、`git diff --check` 通过。仍是候选观察，不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。EP-220 当前 action-time 永久删除序列门仍关闭。
+
+`SURF-004 shell/ocean-switcher` 已完成真实 App 的四海洋切换、Settings 无选中、通知托盘接管和返回 Chat 候选复验。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-134257`，完整证据为
+`sessions/20260813-134257/evidence/SURF-004-ocean-switcher-real-app-candidate-r1.md`。
+
+Computer Use 每次操作后 fresh AX 观察到 `Entities → Chat → Entities → Scheduler → Library → Settings → Notifications tray → Chat`。
+Chat、Entities、Scheduler、Library 的 rail/center 内容与目的相符；Scheduler 空态提供 `Open Entities` 与 `Open the conversation`；Settings
+和通知托盘时四个顶部海洋均收成图标且没有顶部药丸，通知托盘只接管左侧中段，返回 Chat 后托盘关闭。未观察到 stale center/rail、重复壳、
+白闪、clipping、overlap、reflow、overlay 或 input jump。
+
+源码实现与观察一致：`app_shell.dart` 在 Settings/托盘路径传 `-1`，`an_ocean_switcher.dart` 使用单共享药丸、固定较宽 resting layout、
+token 几何和单一 `AnMotion.mid` forward controller。本轮没有发现需要 stop-and-fix 的产品缺陷。录屏 `2784x1808 / 60fps / 132.210000s`
+经 ffprobe 可读，contact sheet 与抽帧已封存；但粗粒度抽帧/scene detector 未可靠隔离 sub-240ms 动画中间帧，因此本轮只证明交互及 settled
+geometry，不宣称逐帧动画曲线或 transition latency 的数字证据，该 follow-up 已明确写入证据。
+
+backend/frontend 无应用级红线；ssetap 三流连接并 clean EOF、无该只读路径预期外业务帧；llmtap 仅 readiness、proof challenge/quota、无
+completion；frontend 唯一 `IMKCFRunLoopWakeUpReliable` 已分类为 macOS input-host 噪声。台架收台时 conductor-owned App/backend/taps/recorder
+均已停止。focused Flutter `51/51`、appproxy/proxycore Go、scope/channel-5 Python `24/24`、文档、清册和 alarms 均通过。
+
+本轮仍是候选观察，不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms
+clean，批次三十四 `27/50`。SURF-004 不能越过 EP-220 当前对象的 action-time 永久删除序列门写正式五级绿格。
+
+`SURF-002 shell/workspace-gate` 已完成真实 App 的延迟工作区名册候选复验。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-132649`，完整证据为
+`sessions/20260813-132649/evidence/SURF-002-workspace-gate-real-app-candidate-r1.md`。
+
+App 通过 conductor 直接启动真实 macOS binary，代理只延迟 `GET /api/v1/workspaces`；首个目标请求
+`05:27:16.175969Z→05:28:16.178388Z`，实测 `60.002419s`，后端仍由 `:8927` 直接持有，App 走 `:8790` 代理，
+其余请求透明转发。Computer Use/frame 在起始、20 秒、释放前真实看到居中的 `Setting up your workspace...`，
+无 shell、旧 workspace、半成品 onboarding 或重复 Router；释放后进入完整 Entities Overview。
+
+测量器给出等待段 `changedFrac=0.00010`（编码噪声级），释放转场 `changedFrac=0.79082`、box=`(112,77)-(2672,1660)`，
+ready 稳定帧之间无超过阈值变化；录屏 `2784x1808 / 60fps / 168.611667s` 可读，无白闪、clipping、overlap、reflow、
+overlay 或 input jump。backend/frontend 无应用级红线，ssetap 三路连接且无该路径预期外业务帧，llmtap 仅 ready 无 completion。
+
+本轮候选已完成五通道核对、`14/14` workspace 聚焦 Flutter、appproxy/proxycore Go、scope/channel-5 Python `24/24`、
+`make -C docs verify`、`gen_coverage.py --check` 和 `alarms.py check`；不调用 `judge.py`，不改 formal ledger/COVERAGE/
+anchors/alarms。正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。SURF-002 仍是候选，
+EP-220 当前对象 action-time 永久删除确认仍未获得。
+
+`SURF-001 shell/startup-gate` 已完成真实 App 的 starting、crashed、Retry、ready 三态候选复验。第一场 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-124951`，第二场 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-125132`，完整证据为
+`sessions/20260813-125132/evidence/SURF-001-startup-gate-real-app-candidate-r1.md`。
+
+8 秒延迟场真实看到 `Connecting to the local engine…`，backend ready 后进入完整 Entities Overview；25 秒延迟场真实落入
+`Can't reach the local engine` 错误态，AX 暴露 `Retry`，点击后恢复到完整 Entities Overview。崩溃帧和 Retry 后稳定帧分别保存在
+`evidence/frames/surf001-crashed.png` 与 `evidence/frames/surf001-ready.png`；后者已确认不是 Retry 前的错误态。两场录像均已
+`rig-down` 封口且 ffprobe 可读，owned processes 已清零。
+
+五通道复核无应用级 backend/frontend 红线；三路 SSE 均连接且无启动路径业务帧；llmtap 仅 ready、无 completion。Flutter 聚焦测试
+`14/14`、台架 Python 测试 `24/24`、文档校验、清册生成器和 alarms 均通过。本轮仍不调用 `judge.py`，不改 formal ledger/
+COVERAGE/anchors/alarms；正式账本 `1790`，清册 `848/351/0 tombstones`，alarms clean，批次三十四 `27/50`。SURF-001
+只是候选观察；EP-220 当前对象的 action-time 永久删除确认仍未获得。
+
+EP-257 `GET /debug/stats` 已完成真实 dev backend + App 的 dev-only 运行时快照候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-123812`，完整证据为
+`sessions/20260813-123812/evidence/EP-257-debug-stats-real-app-candidate-r1.md`。
+
+五次连续读取均返回完整 10 字段 JSON，字段均为非负整数，`gomaxprocs/numCPU` 为正，`heapSysMB >= heapAllocMB`，实时对象数按请求自然变化；任意 query string 不改变快照语义。POST `405`，无 `ANSELM_DEV` 的独立 backend `404`。
+
+真实 App、三路 SSE 和前端 console 在读取期间稳定，backend/frontend 无应用级红线，llmtap 无 completion；录屏封口 `52.981667s`，owned processes 已清零。本轮仍不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848/351/0`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象仍未获得 action-time 永久删除确认；EP-257 仅形成候选观察。
+
+EP-256 `GET /debug/pprof/trace` 已完成真实 dev backend + App 的 dev-only 执行 trace 候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-123331`，完整证据为
+`sessions/20260813-123331/evidence/EP-256-pprof-trace-real-app-candidate-r1.md`。
+
+显式 `seconds=1` 返回 `24,405` bytes 的 `go 1.25 trace`，`go tool trace -pprof=sched` 和 `go tool pprof -top` 成功解析；`seconds=0.25` 也返回非空 trace，`seconds=0/-1/非法` 按标准库回落到 1 秒。POST `405`，无 `ANSELM_DEV` 的独立 backend `404`。
+
+真实 App、三路 SSE 和前端 console 在 trace 请求期间稳定，backend/frontend 无应用级红线，llmtap 无 completion；录屏封口 `95.851667s`，owned processes 已清零。本轮仍不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848/351/0`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象仍未获得 action-time 永久删除确认；EP-256 仅形成候选观察。
+
+EP-255 `GET /debug/pprof/symbol` 已完成真实 dev backend + App 的 dev-only 符号解析候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-122653`，完整证据为
+`sessions/20260813-122653/evidence/EP-255-pprof-symbol-real-app-candidate-r1.md`。
+
+dev GET 对空、未知、零和混合非法地址均返回 `200 text/plain / num_symbols: 1`；从同一进程 CPU profile 取得的 live PC `0x102e4a7ec` 成功解析为 `runtime.(*mspan).heapBitsSmallForAddr`，证明正向符号解析。POST `405`、HEAD `200`，无 `ANSELM_DEV` 的独立 backend 对相同路径 `404`。
+
+真实 App fresh AX/frame 保持 Entities Overview 可读，三路 SSE 保持连接且无业务帧符合只读 debug 路径；backend/frontend 无应用级红线，llmtap 无 completion。录屏封口 `159.461667s`，owned processes 已清零。本轮仍不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848/351/0`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象仍未获得 action-time 永久删除确认；EP-255 仅形成候选观察。
+
+EP-254 `GET /debug/pprof/profile` 已完成真实 dev backend + App 的 CPU profile 候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-121944`，完整证据为
+`sessions/20260813-121944/evidence/EP-254-pprof-profile-real-app-candidate-r1.md`。
+
+显式 `seconds=3` 采样在有界 health/workspaces 负载期间返回可解析 gzip pprof：`3.03s / 66 nodes / 50ms samples`，`go tool pprof` 看到实际 backend/sqlite/logger 栈；POST `405`。标准 pprof 的 `seconds<=0` 回落 30 秒已实测并写成台架调用约束（显式正 duration + client timeout），不是静默盖绿。无 `ANSELM_DEV` 独立 backend 对相同路径 `404`。
+
+真实 App、三路 SSE 和前端 console 在采样期间稳定，backend/frontend 无应用级红线，llmtap 无 completion；录屏封口 `179.023333s`，owned processes 已清零。本轮仍不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848 rows / 351 carried judgments / 0 tombstones`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象仍未获得 action-time 永久删除确认；EP-254 仅形成候选观察。
+
+EP-253 `GET /debug/pprof/cmdline` 已完成真实 dev backend + App 的 dev-only 观测候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-121610`，完整证据为
+`sessions/20260813-121610/evidence/EP-253-pprof-cmdline-real-app-candidate-r1.md`。
+
+dev GET 返回 `200 text/plain`、body 仅是当前可执行文件路径，无 gateway/proof 环境值；POST `405`。独立无 `ANSELM_DEV` 进程对相同路径返回 `404`，bootstrap dev-only 单测通过。真实 App、三路 SSE 和前端 console 在读取后稳定，backend 无应用级红线，llmtap 无 completion；录屏封口 `56.331667s`，owned processes 已清零。
+
+本轮仍不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848 rows / 351 carried judgments / 0 tombstones`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象 `EP220 Delete Trial` 仍未获得 action-time 永久删除确认；EP-253 仅形成候选观察。
+
+EP-252 `GET /debug/pprof/` 已完成真实 dev backend + App 的开发期观测候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-121053`，完整证据为
+`sessions/20260813-121053/evidence/EP-252-pprof-index-real-app-candidate-r1.md`。
+
+`ANSELM_DEV=1` 下 pprof index 返回 `200 text/html` 并列出 10 类标准 Go profile；named profiles、`goroutine?debug=2`、短 CPU profile、trace 均真实 `200`。`/debug/stats` 返回可解析 runtime JSON。独立无 `ANSELM_DEV` 进程中 `/debug/stats` 与 `/debug/pprof/` 均严格 `404`，bootstrap dev-only 单测通过。
+
+真实 App 在 profile/trace 请求期间保持稳定，三路 SSE 接通但无业务帧，backend/frontend 无应用级红线，llmtap 无 completion 符合该本地观测路径。录屏封口 `147.978333s`，owned processes 已清零。一次未加引号 URL 的 zsh glob 错误已与产品结果区分并写入证据。
+
+本轮仍不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848 rows / 351 carried judgments / 0 tombstones`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象 `EP220 Delete Trial` 仍未获得 action-time 永久删除确认；EP-252 仅形成候选观察。
+
+EP-251 `GET /api/v1/notifications/stream` 已完成完整 runtime 隔离副本上的真实 App + Notifications tray 候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-120142`，完整证据为
+`sessions/20260813-120142/evidence/EP-251-notifications-stream-real-app-candidate-r1.md`。
+
+真实 App 从通知托盘初始 `Today 9` / REST unread `9` 出发；正式创建
+`ep251_notifications_stream_probe` 后，Entities rail 从 2 个 Function 刷新到 3 个，Notifications tray 收到
+`function.created` 与 `environment ready`，显示 `Today 11`，REST unread 为 `11`。点击 `function.created` 后中心深链到精确
+Function 详情，后端 `:mark-read=204`，REST/SQLite unread/read_at 回到一致的 `10`/已读。总行数与未读数没有混淆，长名称在 rail 内安全省略。
+
+独立 notifications witness 的 durable 序列为 `1 function.created → 2 installing → 3 ready`；installing 无 `inbox`、不落账，其他两条与 REST/SQLite 对齐。三流均连接，entities 相关 build 正常，messages 无业务帧符合 direct Function 路径；backend/frontend 应用红线为 0，llmtap 无 completion 符合本路径不经过 LLM。台架录屏已封口 `230.041667s`，owned processes 已清零。
+
+候选与形式边界保持不变：不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；正式账本仍 `1790`，清册仍 `848 rows / 351 carried judgments / 0 tombstones`，alarms clean，批次三十四仍 `27/50`。EP-220 当前对象 `EP220 Delete Trial` 仍未获得 action-time 永久删除确认；EP-251 仅形成候选观察。
+
+EP-250 `GET /api/v1/entities/stream` 已完成修复台架夹具后的真实 App + Function 调试台候选复验，但仍不能越过 EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-114944`，完整证据为
+`sessions/20260813-114944/evidence/EP-250-entities-stream-real-app-candidate-r1.md`。
+
+真实 App 在完整 runtime 基线的隔离 workspace 中创建 `ep250_entities_stream_probe` 后，实体 rail 自动从 2 个 Function 刷新为 3 个；进入新 Function 详情显示 `v1`、`env ready`、Python 3.12。Computer Use 点击右岛 `Run` 后，右岛显示 `Done · 122ms`、Output、Result、Logs 与 Recent `Manual`，结果和日志均为探针预期内容，录屏 `208.976667s / 2784x1808 / 60fps`，未发现 clipping、overlap、reflow、按钮漂移或输入跳变。
+
+独立 entities witness 记录创建的 `build` 生命周期 `open(seq=1) → delta(seq=0) → close(seq=2)`，以及运行的 `run` 生命周期 `open(seq=3) → delta(seq=0) → close(seq=4)`；durable seq `1..4` 连续，两个 delta 保持 ephemeral。notifications durable `1..3` 对齐 `function.created` 和环境 `installing → ready`；messages 没有业务帧，因为直接 Function 调试台不创建 Chat 回合。REST 与 SQLite 同时确认执行 `fne_809a4ee53163ceca`、`status=ok`、`triggeredBy=manual`、`output.status=entities-stream`、`elapsedMs=124` 和日志原文；frontend 应用红线 0，直接 Function 路径无 LLM 请求符合路由事实。
+
+前置复制副本的 `env failed` 已归因并隔离为夹具红：旧副本只有悬挂 runtime 链接；另一端口不匹配由 channel-5 preflight fail-closed。有效重跑使用含真实 Python Mach-O runtime 的完整基线，五通道 `rig-check`/`rig-down` 均通过。
+
+本轮不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；ledger `1790`，COVERAGE `848/351/0`，alarms clean，批次三十四 `27/50`。EP-220 当前对象 `EP220 Delete Trial` 的 action-time 永久删除确认仍未释放序列门；EP-250 目前是候选，不是正式五级绿格。
+
+EP-249 `GET /api/v1/messages/stream` 已完成修复后源码的真实 App + 协议候选复验，但仍不能越过
+EP-220 顺序门写正式裁决。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-113400`，完整证据为
+`sessions/20260813-113400/evidence/EP-249-messages-stream-real-app-candidate-r1.md`。
+
+真实 App 在现有 workspace 中发送 `Reply with exactly EP-249 stream smoke passed.`；发送后立即出现
+`thinking` 和新会话，终态精确显示 `EP-249 stream smoke passed.`，composer、动作区和 transcript 均稳定。
+messages witness 的 durable seq 连续 `1..8`，顺序为 `open → delta/close` 对应的 user、assistant、reasoning、
+text、message 生命周期；entities/notifications 也保持独立连接，未把没有发生的实体帧算入证据。
+
+只读 SSE 协议复核：`fromSeq=1` 回放 `2..8`；`Last-Event-ID:7` 优先于 `fromSeq=1`，只回放 `8`；非法游标
+回到 live-only；缺 workspace 返回 `401 UNAUTH_NO_WORKSPACE`。REST 与 SQLite 同时确认一条 completed user、
+一条 `completed/end_turn` assistant 及其 reasoning/text blocks。录屏 `174.295000s / 2784x1808 / 60fps`，
+frontend 应用红线 0，llmtap challenge 和四个 chat completion 均 `200`。一次只读 SQLite 探针误用不存在的
+列名，未产生写入，随后已按真实 schema 完成核对。
+
+本轮不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；ledger `1790`，COVERAGE `848/351/0`，
+alarms clean，批次三十四 `27/50`。EP-220 当前对象 `EP220 Delete Trial` 的 action-time 永久删除确认仍未释放
+序列门；EP-249 目前是候选，不是正式五级绿格。
+
+EP-248 `POST /api/v1/executions/{id}:triage` 已完成修复后二进制的真实 App 五通道候选复验，但仍不能
+越过 EP-220 顺序门写正式裁决。完整 stop-and-fix 链为：空 body 的 handler `400` → body 可省略修复；
+旧 managed install `INVALID_INSTALL` 和 quota 自动 retry 遮蔽 Repair CTA → 显式 repair/retry 修复；
+真实 triage 输出中的“a requested function_missing + 孤立反引号”→ triage system prompt 增加 opaque id 原样保留
+和 Markdown 成对校对硬约束。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-112345`，完整候选证据为
+`sessions/20260813-112345/evidence/EP-248-triage-real-app-candidate-r3.md`。
+
+修复后真实 App 通过 fresh AX 打开既有 `Please diagnose this execution`，重新点击嵌套 `Retry` 才真正
+启动回合；最终回答完整保留 `EP-248 Triage Failure Probe`、`boom` 和 `fn_ep248_missing`，根因、
+失败证据、结论和下一步均可读，最终 Markdown code spans 成对，无截断 id、孤立反引号、clipping、
+overlap、reflow 或 composer 跳变。录屏已封口 `161.148333s / 2784x1808 / 60fps`；messages durable
+`1..31`；backend 业务请求只有 `200/202/204`，隔离 fixture 的 lexical fallback/残留 handler env
+仅为已解释 INFO；frontend 应用红线 0；真实 llmtap chat completion 响应均 `200`。
+
+本轮不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；ledger `1790`，COVERAGE
+`848/351/0`，alarms clean，批次三十四 `27/50`。EP-220 当前对象 `EP220 Delete Trial` 的
+action-time 永久删除确认仍未释放序列门；EP-248 目前是修复后候选，不是正式五级绿格。
+
+EP-221 `GET /api/v1/read-aloud/availability` 已完成正负两端真实 App 候选观察，但仍不能越过 EP-220
+顺序门写正式裁决。可用态 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-103321`
+经真实受管 `llmtap :8805 → https://api.anselm.website`，REST 返回 `available=true`，已有回答的 action row
+显示 `Read aloud`，fresh AX/frame 无 clipping、overlap、reflow 或输入跳变；本轮未点击朗读，EP-222 的 TTS
+不在本格重复计数。缺席态 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-104154`
+使用隔离副本和关闭上游 `llmtap :8807 → http://127.0.0.1:9`，active API key 为 `0`，provision 只留
+可解释 warning，REST 返回 `available=false`，真实 App 的回答 action row 隐藏 `Read aloud`，没有空按钮或
+错误红屏。两次五通道 conductor session 均正常封口，证据分别为
+`sessions/20260813-103321/evidence/EP-221-read-aloud-availability-available-candidate-r1.md` 和
+`sessions/20260813-104154/evidence/EP-221-read-aloud-availability-absent-candidate-r1.md`。
+
+本轮仍不调用 `judge.py`；formal ledger `1790`，COVERAGE=`848/351/0`，alarms clean，批次三十四 `27/50`
+不变。EP-220 当前对象 `EP220 Delete Trial` 的 action-time 永久删除确认仍未释放序列门。
+
+EP-213 `EP-213 UI Delete Positive` 的用户授权删除已在既有正式 mutation 中完成，本轮由 conductor 使用独立 fixture
+`/private/tmp/anselm-data-ep213-ui-positive-20260811-r3` 重新启动真实 App 和完整五通道台架做幂等终态复核。fresh AX/frame 显示
+`No cloned voices yet` 与 `2 of 2 slots free`，SQLite 显示两个同名 mock 行均为 `deleted_at` tombstone；目标已不存在，故没有重造对象或
+再次发出 DELETE。backend 只有列表读取，LLM wire 只有 ready/proof/quota，三路 SSE 均连接，frontend 无应用级红线，录屏已封口；有效 session
+为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-102639`，完整证据为
+`sessions/20260813-102639/evidence/EP-213-ui-delete-idempotent-final-r6.md`。本轮不是新的正式五级裁决，不重复计入 formal ledger/COVERAGE。
+
+EP-220 当前对象 `EP220 Delete Trial` 的 r5 真实确认层已复核：正确 workspace、目标名称、库存余量、永久删除文案、精确输入
+提示和 `Cancel/Delete permanently` 均在 fresh AX/frame 中完整可见；空输入不放行。本轮没有获得该对象的 action-time 永久删除确认，
+因此未输入名称、未点击最终按钮，点击 Cancel 后目标行和库存保持不变。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-100250`，五通道收台正常；backend 无 voice DELETE，LLM wire 仅
+proof/quota，SQLite 按实际 `voices` schema 确认目标硬删除前仍存在。候选证据为
+`sessions/20260813-100250/evidence/EP-220-voice-delete-confirm-r5-awaiting-action.md`。
+
+本轮不写正式裁决；formal ledger `1790`，COVERAGE=`848/351/0`，alarms clean，批次三十四 `27/50` 不变。EP-220 仍等待
+当前对象的 action-time 永久删除确认；EP-213 的历史授权不转移。
+
+EP-213 `EP-213 UI Delete Positive` 的精确对象删除指令已完成幂等收口核验：独立 fixture
+`/private/tmp/anselm-data-ep213-ui-positive-20260811-r3` 重新启动真实 App 和完整五通道台架后，fresh AX/frame 与 SQLite
+均确认同名目标已处于 `deleted_at` tombstone，当前 Model keys 列表只剩受管 `Anselm Free`。本轮没有恢复对象、没有再次发出
+`DELETE`，backend journal 仅有列表读取，LLM wire 仅有 proof/quota，`rig-check`/`rig-down` 均通过。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-095524`，边界证据为
+`sessions/20260813-095524/evidence/EP-213-ui-delete-idempotent-reaudit.md`；真实 mutation 仍以既有授权 session 为准。
+这不是新的正式五级裁决，不重复计入 ledger/COVERAGE。
+
+EP-221–EP-224 已在真实 App + 受管 `llmtap :8805` 下完成一轮 stop-and-fix 后的非破坏性候选复验：上一轮 SQLite
+取证发现 `speech_cache.last_used_at` 对旧行和新行都可能落成 Go 零时间，前线先停下；现已由 `Put` 显式盖当前时间，
+并在 bootstrap migration 后幂等把旧零值回填为各行 `created_at`。真实旧库启动后 4 条缓存全非零，既有命中时间保持，
+新行也非零。真实 App 的未命中朗读 `Preparing read-aloud… → Read aloud` 和同文本命中均在原动作位稳定收敛，只有一次
+上游 `/v1/audio/speech` 请求。有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-093429`，
+录屏 `173.830000s`，五通道已封口，修复后候选证据为
+`sessions/20260813-093429/evidence/EP-221-224-readaloud-capabilities-repair-r1.md`。
+
+本轮不写正式裁决；formal ledger `1790`，COVERAGE=`848/351/0`，alarms clean，批次三十四 `27/50` 不变。EP-220
+`EP220 Delete Trial` 的 action-time 永久删除确认仍未释放序列门。
+
+台架自身的通道五接线门已完成 stop-and-fix：`rig-up.sh` 在 ssetap、Flutter 和录制器启动前读取每个已有 workspace
+的 managed key，只有无 workspace/无 managed key 才允许 onboarding pending；已有 key 必须精确指向本轮 llmtap，坏响应、
+缺地址、错误端口和前缀碰撞直接拒绝启动。判定实现为 `testend/rig/channel5_wiring.py`，`rig-check.sh` 复用同一实现；
+8 个边界单测、shell 语法检查和 `git diff --check` 已通过。本次是台架修复，不改变 formal ledger、COVERAGE、anchors、
+alarms 或批次计数。
+
+EP-220 当前对象 `EP220 Delete Trial` 已在正确持久化网关接线 `llmtap :8805` 下完成真实确认层复核，但仍未收到该对象的
+action-time 永久删除确认。有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-085330`，录屏
+`291.678333s` 可读；五通道自检、quota `200`、目标 SQLite 保留和“无 voice DELETE”均已封口。确认层证据为
+`sessions/20260813-085330/evidence/EP-220-voice-delete-confirm-r4-awaiting-action.md`。
+
+本轮没有点击 `Delete permanently`，不写正式裁决；formal ledger 仍 `1790`，COVERAGE=`848/351/0`，alarms clean，批次三十四仍
+`27/50`。前一次错误使用 `8796` 的 session 已由 `rig-check` 拒收并正常收台，不能作为产品证据。EP-213 的历史授权不转移到 EP-220。
+
+EP-243–EP-247/EP-251 通知中心 r12 已完成真实 App、Computer Use、backend/frontend journal、三路独立 SSE witness 和
+真实受管 llmtap 的产品路径观察：单条已读导航、Unread only、Today 折叠/展开、组头批量已读均完成，UI/REST/SQLite
+未读真相一致。有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-082016`，录屏
+`653.243333s / 2784x1808 / 60fps`，候选证据和 stable frame 已封存。formal ledger 仍 `1790`，COVERAGE=`848/351/0`，
+alarms clean。
+
+EP-223 `GET /api/v1/model-capabilities` 的 r11 已在新二进制上完成真实 App、Computer Use、backend/frontend journal、
+三路独立 SSE witness 和真实受管 llmtap 的修复后复验：Dialogue 选择器完整显示 `Anselm Auto / Gateway-managed`，
+无 ellipsis/reflow，真实 Anselm Auto 对话精确完成。有效 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-080900`，录屏 `286.278333s / 2784x1808 / 60fps`。
+五通道均已封口，formal ledger 仍 `1790`，COVERAGE=`848/351/0`，alarms clean。
+
+EP-220 当前对象 `EP220 Delete Trial` 只完成非破坏性确认层边界复验，仍等待该对象的 action-time 永久删除确认；
+已删除 EP-213 的历史确认不转移。批次三十四现为 `27/50`，未到 50 格前不运行统一长门禁、不提交；所有真实观察仍是
+按序待入账候选，不把候选观察冒充正式五级裁决。EP-213 本轮精确对象授权删除已由真实 App 完成并重启复核，但属于已绿
+单元的授权闭环，不重复计格；批次三十四现为 `27/50`。
+
+### 最新 stop-and-fix：EP-243–EP-247/EP-251 通知中心 r12 真实观察
+
+真实 App 通过受管网关创建两个 Function 并产生四条通知。点击 beta 行后，该行标记已读并深跳到 Function；Unread only
+从四行收敛为三行；Today 组折叠/展开保持组头；hover 组头的 `More actions` 提供 `Mark all read / Mark all unread`，
+执行后 UI、`GET /notifications/unread-count` 和 SQLite 都为 `unread=0`，审计行不消失。session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-082016` 的 durable SSE 为 messages `1..40`、entities
+`1..8`、notifications `1..8`，llmtap 有 18 个 HTTP 200；frontend/backend 无应用级红线，AX stale-node 依本 session
+review 分流。`rig-check`/`rig-down` 通过，候选全文为 `sessions/20260813-082016/evidence/EP-243-247-251-notification-center-r12.md`。
+
+本轮不调用 `judge.py`、不改 formal ledger/COVERAGE/anchors/alarms；正式账本 `1790`、清册 `848/351/0`、alarms clean，
+批次由 `26/50` 推进到 `27/50`。EP-220 仍是当前破坏性序列门，不能套用 EP-213 授权。
+
+### 最新授权闭环：EP-213 UI Delete Positive
+
+用户明确确认的精确对象为 `EP-213 UI Delete Positive`。真实 App 在正确 workspace 的新鲜 AX/frame 中重新核对
+`This deletes “EP-213 UI Delete Positive” permanently.` 后点击最终 `Delete`；列表和重启后列表均不再出现目标。backend
+记录 `DELETE .../aki_b67e840525785925=204`，重复 DELETE=`404 API_KEY_NOT_FOUND`，SQLite tombstone 保留身份但清空
+密文/probe 材料。第一次复用夹具的 session 因持久化 `8788` 与新 tap `8794` 不一致被 `rig-check` 拒绝，未伪造全通道绿；
+随后用持久化 `8788` 重启，完整 `rig-check` 通过并完成 post-delete 复核。证据为
+`sessions/20260813-083330/evidence/EP-213-ui-delete-authorized-rerun.md`。不重复正式裁决、不推进批次、不外推授权。
+
+EP-223 `GET /api/v1/model-capabilities` 的 r10 已完成真实 App、Computer Use、backend/frontend journal、
+三路独立 SSE witness 和真实受管 llmtap 的模型目录、刷新、模型选择器与真实聊天路径复验：唯一受管能力项、
+UI、REST、SSE、LLM wire、SQLite/消息与前端画面一致，正式五级按序待入账。EP-220 当前对象
+`EP220 Delete Trial` 的 r3 已完成非破坏性危险边界复验，但永久删除 action-time 确认尚未收到；不能使用已删除
+EP-213 的历史确认。formal ledger `1790`，COVERAGE=`848/351/0`，批次三十四 `25/50`。EP-222 r9、
+EP-243/EP-244/EP-251 r8、EP-221 及其他真实观察保留为按序候选，不提前写正式账本。
 
 本页是持久 Goal 的执行协议。Goal 保存不可变的最终目标与完成定义；本页规定每次 loop 唤醒时只做
 什么；`README.md`、`LOG.md`、`COVERAGE.md`、`JOURNEYS.md`、`CODEX.md`、`ANCHORS.md` 和
@@ -27,7 +378,394 @@ landed-into:
 批次计数写入 `LOG.md`。跨上下文恢复先读取批次计数；若上一次在批次中途结束，继续同一批，不重置
 计数、不提前提交。第一批可以包含当前已完成但尚未提交的 Day 0 台架与协议建设，提交时一并固化。
 
-## 当前前线（2026-08-12，EP-213 已完成，批次三十三 50/50；统一长门禁已通过）
+### 账本作用域门
+
+`rig-up.sh`、`rig-check.sh`、`rig-down.sh`、`judge.py`、`alarms.py` 和 `anchors.py` 是验收台架入口，必须在
+同一 shell 中显式绑定绝对 `RIG_HOME`；缺失、相对路径和 `~` 路径均 fail-closed，不能回落到个人默认目录。
+只有 `--help` 这种只读用法不要求台架作用域。此前一次未绑定作用域的健康检查误读了个人默认账本，已作为
+仪器审计记录，不计入产品裁决；formal ledger、阈值、锚点和 COVERAGE 均未被改写。入口行为由
+`testend/rig/test_scope.py` 覆盖，不能依赖操作者记忆。
+
+## 当前前线（2026-08-13 08:40，EP-243–EP-247/EP-251 通知中心 r12 真实五通道观察完成；EP-223 r11 文案修复后真实复验、EP-222 r9、EP-243/EP-244/EP-251 r8 及 EP-234–EP-242、EP-226/227、EP-228/229、EP-230–EP-233、EP-224/EP-225 真实路径完成但按序待入账；EP-221/EP-222 已修复实测待序入账；EP-220 r3 非破坏性边界完成但仍待当前对象永久删除确认；EP-213 精确对象授权删除闭环已补证但不重复计格；批次三十四 27/50；未到批次门槛，不运行统一长门禁、不提交）
+
+### 最新 stop-and-fix：Anselm Auto 二级文案修复后 r11 真实五通道收口（2026-08-13 08:16）
+
+EP-223 r10 的真实画面发现 `Gateway-managed routing and reasoning` 在固定单行 meta 轨道中被截断；现已收紧为英文
+`Gateway-managed`、中文「网关托管」，并同步源文案、生成物、文档和测试。r11 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-080900` 用真实 App 完成 onboarding、打开 Dialogue
+选择器，AX/frame 均确认完整文案；再经 Anselm Auto 真实网关完成精确回复 `EP-223 R11 smoke passed.`。录屏
+`286.278333s / 2784x1808 / 60fps`，持久帧为 `evidence/frames/ep223-dialogue-picker-r11.png`、
+`ep223-chat-r11.png`。
+
+backend、SSE、llmtap、SQLite 与 frontend console 交叉核对一致：challenge/install/models/quota 与 chat completion 全
+`200`；messages durable `1..8`、notifications `1..2` 单调，entities 已连接；消息持久化为 completed、provider/model
+为 `anselm/anselm-auto`、assistant output tokens=`47`；frontend 只有正常 runner/DevTools/已知 IMK 宿主噪声，
+应用级 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception marker 为 `0`。`rig-check`、`rig-down` 均通过并已清零 owned
+进程。本轮只形成候选，不调用 `judge.py`、不改 formal ledger/COVERAGE/anchors/alarms；批次由 `25/50` 推进到 `26/50`。
+
+### 最新 stop-and-fix：Anselm Auto 受管模式二级文案必须完整可读（2026-08-13 08:05）
+
+EP-223 r10 的真实模型选择器画面显示，`Gateway-managed routing and reasoning` 在 `AnRow` 的固定单行
+meta 轨道中被省略号截断。虽然没有产生 Flutter overflow，但这违反产品模式身份完整可读的 craft bar。已直接
+收紧为英文 `Gateway-managed`、中文「网关托管」，同步 i18n 源、slang 生成物、设置参考和可见性测试；
+定向 `s2_models_keys_test.dart` 22/22、Dart format 与 `git diff --check` 通过。下一步用新构建做完整五通道
+EP-223 r11 真实复验，确认没有省略号、reflow、布局漂移或错误状态；正式账本/COVERAGE 仍冻结。
+
+EP-213 本轮只打开真实确认层并点击 `Cancel`：对象名和永久性文案精确匹配，但没有输入名称或点击最终 `Delete`，
+没有任何目标 DELETE，台架已正常收台。正式 ledger/COVERAGE/anchors/alarms 和批次三十四 `25/50` 保持不变。
+
+### 最新补充：EP-223 `GET /api/v1/model-capabilities` r10 真实五通道候选复验（2026-08-13 07:38）
+
+- 有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-072852`，数据目录为 `/private/tmp/anselm-data-ep223-capabilities-20260813-r10`，workspace=`ws_fef1b753c43faaa7`。全新数据目录由真实 App 完成 onboarding 创建 workspace；Settings → Models & keys 显示受管免费档、配额、受管 key、六个场景默认槽位和 `Refresh model list`，刷新后保持稳定。
+- Dialogue 的 Change 和聊天头部 Auto 菜单均只显示真实的 `Auto` 与 `anselm-auto · Anselm Free`；没有虚假模型或不可用旋钮。真实发送 `Reply with exactly EP-223 R10 smoke.` 后得到 `EP-223 R10 smoke`，聊天完成帧中 user bubble、assistant 文本、动作行和 composer 对齐，无 clipping/overlap/reflow/按钮漂移/输入跳变。持久帧为 `evidence/frames/ep223-settings-r10.png`、`ep223-chat-r10.png`、`ep223-model-menu-r10.png`。
+- REST `/api/v1/model-capabilities=200` 的唯一项为受管 `anselm/anselm-auto`，能力胶囊为 `vision=true/video=true/tools=true/knobs=null`，原始响应为 `evidence/model-capabilities-rest.json`；backend 无应用红线。SSE messages durable `1..8`、notifications `1..2`，entities 已连接无 durable mutation，seq=0 delta 不推进游标，三流无 gap。llmtap challenge/install/models/quota 与两次 chat completion 全 `200`；frontend 仅已知 runner/IMK 宿主噪声，应用级 marker 为 `0`。
+- 完整候选证据为 `sessions/20260813-072852/evidence/EP-223-model-capabilities-r10-current-candidate.md`。本轮不调用 `judge.py`、不修改 formal ledger/COVERAGE/anchors/警报阈值；账本 `1790`、清册 `848/351/0`、alarms clean、批次三十四 `25/50`。EP-220 当前对象 action-time 永久删除确认仍未完成，EP-213 历史确认不外推；序列门释放后才按 CODEX 逐格复审。
+
+### 最新补充：EP-220 当前对象非破坏性边界复验 r3（2026-08-13 07:24）
+
+- 有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-072031`，数据目录为 `/private/tmp/anselm-data-ep220-voice-delete-20260812-r2`；真实对象为 `EP220 Delete Trial`，workspace=`ws_4389dec386259764`。conductor 托管真实 App、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和真实受管 `llmtap`；`rig-check` 前后通过，`rig-down` 正常收台，录屏 `138.095000s / 2784x1808`。
+- Cloned voices 显示 `EP220 Delete Trial`、`1 of 2 slots free`、`Delete`；危险层完整显示永久移除、费用不退还、释放库存位和精确输入提示。空输入时 `Delete permanently` 禁用；点击 `Cancel` 后危险区收起，目标行和库存不变。持久确认层帧为 `evidence/frames/ep220-confirm-r3.png`。
+- backend 只有 `GET /api/v1/voices=200`，无 voice DELETE；llmtap 无 voice-delete；两个 workspace 的三路 SSE 仅连接、无实体 durable 变更；frontend journal 19 行，应用级异常 marker 为 0。REST/SQLite 目标音色仍存在、未产生 tombstone。
+- 完整证据为 `sessions/20260813-072031/evidence/EP-220-voice-delete-boundary-r3.md`。这轮不调用 `judge.py`、不修改 formal ledger/COVERAGE；正式账本 `1790`、清册 `848/351/0`、alarms clean、批次三十四 `25/50`。当前对象的永久删除仍等待明确 action-time 确认。
+
+### 最新补充：EP-222 Read Aloud r9 真实路径复验（2026-08-13 07:13）
+
+- 有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-070347`，数据目录为 `/private/tmp/anselm-data-ep222-readaloud-20260813-r9`；workspace=`ws_dee542a1628a82f3`，conversation=`cv_331c44605a891767`。conductor 托管真实 App、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和真实受管 `llmtap`；`rig-check` 前后通过，`rig-down` 正常收台，录屏 `211.478333s / 2784x1808 / 60fps`。
+- 真实点击 `Read aloud` 后，AX 立即报告 `Preparing read-aloud…`；固定动作槽位的 spinner 帧已固化为 `evidence/frames/ep222-r9-preparing.png`，没有跳变、重排、裁剪或按钮漂移。合成完成后同槽位为 `Stop`，停止回到 `Read aloud`；再次点击进入播放态但没有再次合成。稳定帧为 `ep222-r9-90s.png`、`ep222-r9-105s.png`、`ep222-r9-195s.png`，候选全文为 `evidence/EP-222-read-aloud-r9-current-candidate.md`。
+- backend read-aloud 请求为 `200/13976ms` 与 `200/0ms`；llmtap 仅有一次 `/v1/audio/speech`，响应 `200`、`1286444` bytes。第二次 REST 返回 `cached:true` 并复用同一 attachment；SQLite 的 speech cache、attachment 与 UI 一致。messages SSE durable=`[1..8]`，notifications=`[1,2]`，entities 已连接但本轮无实体 durable 帧，三流无 gap。
+- frontend journal 共 18 行，应用级异常 marker scan 为 0；仅剩正常 runner、macOS IMK 宿主噪声和收台行。定向 read-aloud/attachment/http handler Go tests 通过。
+- r9 只形成候选观察，不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/警报阈值；账本 `1790`，清册 `848/351/0`，alarms clean，批次三十四 `25/50`。EP-220 当前对象尚未获得动作时确认，因此没有执行删除，EP-213 的历史确认不转移；序列门释放后才按证据逐格入账。
+
+### 历史补充：EP-243/EP-244/EP-251 r8 环境失败重建路径真实复验（2026-08-13 06:57）
+
+- 有效 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-064314`，数据目录为 `/private/tmp/anselm-data-ep243-env-copy-fix-20260813-r8`；conductor 托管真实 Flutter App、Computer Use、窗口录制、backend journal、frontend console、三路独立 SSE witness 和真实受管 `llmtap`。`rig-check` 前后均通过，`rig-down` 正常收台，录制时长 `634.308333s`。
+- stop-and-fix 只收紧工具契约与 AI 引导：失败环境且定义不变时，`edit_handler`/`edit_function` 必须用 `ops: []`，`restart_handler` 明确只重置 ready resident、不安装环境。真实 Handler 与 Function 的自然语言请求均产生匹配 `edit_*`，没有 `restart_handler`，不铸新版本；三次有界安装失败后，SSE、REST、SQLite、实体终端和用户回复保持失败真相一致，没有 `handler.env_rebuilt`/成功假象。
+- Handler 最终为同一 v1、`envStatus=failed`、`runtimeState=stopped`、`configState=ready`；Function 最终为同一 v1、失败环境，代码/依赖/config 不变。App 画面显示人话失败摘要、下一步和尝试结果，而不是暴露原始 SDK/URL；这证明“失败可行动且诚实”，不把失败环境判成功。
+- frontend console 最终 `1,256` 行，其中 `1,238` 行为已知 accessibility bridge stale-node 形态，未知 AXTree 形态为 `0`；最后一次 Computer Use 交互后静置 5 秒无增长，没有 Dart/Flutter/RenderFlex/overflow/unhandled/panic。一次早期仪器误触 Handler `Call method` 后立即取消，仅产生失败 ping 且无实体变更，保留为操作噪声而不纳入产品路径结果。
+- 本轮只形成候选观察，不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/警报阈值；formal ledger `1790`，清册 `848/351/0`，alarms clean，批次三十四 `25/50`。当前仍等待 EP-220 `EP220 Delete Trial` 的动作时确认和 EP-220→EP-221 序列释放；不能把已删除 EP-213 的历史确认外推到 EP-220。
+
+## 历史前线快照（2026-08-13 05:55，以下 r6 候选内容保留用于追溯）
+
+### 最新补充：EP-243/EP-244/EP-251 环境失败终态与重建路径修复后真实复验（2026-08-13 05:55）
+
+前置红 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-042809` 已证明耐久终态正确，但逐帧发现主 Callout 把 `sandboxapp.EnsureEnv`、GitHub runtime URL 和 `context canceled: runtime install failed` 作为主文案；该红证据为 `sessions/20260813-042809/evidence/EP-243-244-251-handler-env-raw-error-red.md`，不计绿。
+
+修复包括共享 `EnvironmentFailure` 人话/下一步投影、主动 `Technical details` 原错展开与 4000 字符上限，以及 Handler 空 ops/代码编辑只允许一个有界环境 build；新环境失败时停止旧 resident，避免重复 install/spawn 和旧类继续服务。r4 的重复 rebuild 红证据为 `sessions/20260813-052238/evidence/EP-243-244-251-handler-duplicate-rebuild-red.md`。
+
+r5 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-053930` 发现 utility 的“解释文字 + fenced JSON”没有被旧 `parseDeps` 消费，红证据为 `EP-243-244-251-envfix-fenced-response-red.md`。已修复为候选顺序解析整段、fenced block 和 prose 中平衡 JSON 对象，并复用 `jsonrepair` 清理尾逗号；新增 envfix/jsonrepair 回归，坏响应仍诚实失败。
+
+r6 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-054714` 真实复验：Function 一次空编辑最终 failed；Handler 一次空编辑最终 `failed/stopped/ready`，约 16.6s；单一 entities build block 内出现 attempts 1–3 和一次 `handler.env_rebuilt`，没有第二 build block、重复 resident spawn 或 parser warning。五通道均有记录：Computer Use 收起/展开态与 AX 状态完整，SSE/SQLite/REST 一致，backend action window 无 workspace/panic/parser 红线，llmtap challenge/completions 全 200，frontend marker scan 无 Flutter/Dart/RenderFlex/Unhandled/assertion。
+
+`screen.mov` 封口为 `168.361667s / 2784x1808 / 60fps`；末尾黑帧属于 rig-down 后的非产品画面，稳定 Computer Use 截图临时文件在会话结束后清理，因此不伪造持久 PNG，证据以当时的 AX/截图观察和过程录像为准。r6 是产品绿候选，不是正式账本绿。
+
+正式事实不变：未调用 `judge.py`，formal ledger `1790`，COVERAGE=`848/351/0`，alarms clean，批次三十四 `25/50`；EP-220/EP-221 序列门仍在前。
+
+### 最新补充：EP-234–EP-242 系统、网络、保留与存储真实观察完成（2026-08-13 03:18）
+
+有效 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-030420` 由 conductor 托管真实 Flutter App、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和真实受管 llmtap；workspace=`ws_e1b28e8f091e830c`。录屏已封口 `744.840000s / 2784x1808 / 60fps`，`rig-check` 前后通过，`rig-down` 后 owned processes/listeners 归零。证据为 `sessions/20260813-030420/evidence/EP-234-242-system-storage-real.md`，Storage/About 原尺寸稳定帧已独立抽取复核。
+
+真实 App 完成 Storage & logs、Network、About。Network 通过真实表单写入临时 `example.test`，再用真实键盘清空保存；最终 UI、REST 和 `settings.json` 均为 `network={}`。Retention 真实往返 `90 → 30 → 90`，UI/REST/配置文件最终一致，三段 settings 未丢失。Compact database 真实点击返回 `reclaimedBytes=0,migrated=false`，storage-stat 和 SQLite 页计数不变；About 显示 App `0.1.0`、Engine `dev`。抽帧无 clipping、overlap、reflow 或按钮漂浮。
+
+后端健康、frontend 应用红线、三路 SSE 和受管 llmtap 均符合台架要求；无 workspace 探针得到 `401 UNAUTH_NO_WORKSPACE`，带正确 workspace 后系统读面均为 `200`。Focused Flutter `32/32`、backend 定向套件、`git diff --check` 通过；formal alarms=`clean (1790)`，清册=`848/351/0`。
+
+该轮是“真实观察完成、正式五格待序入账”，未调用 `judge.py`，未改 formal ledger/COVERAGE/anchors/警报阈值；批次三十四保持 `25/50`。下一步准备 EP-220 当前对象的 action-time 确认；EP-213 的历史对象授权不外推到 EP-220。
+
+### 最新补充：EP-226/227 关系邻域与全图真实路径修复后完成观察（2026-08-13 02:47）
+
+首个冷启动 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-023718` 暴露 `depth` query 的产品契约缺陷：参数存在但为 `foo`/`1.5` 时静默按默认深度处理并返回 `200`，错误会伪装成空邻域。该 session 不计绿；已冻结并修复 HTTP 解析，缺席默认 `2`，出现时必须是单个十进制整数，空/重复/浮点/文字返回 `400 INVALID_REQUEST`，范围外仍返回 `400 REL_DEPTH_LIMIT`；新增 handler 单测并同步 API/domain 文档。
+
+修复后二进制有效 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-024157` 的 REST 证据为：缺省/1/2/3 正常返回，`0/4` 为 `REL_DEPTH_LIMIT`，`foo/1.5/空` 为带 `param/depth/got/want` 的 `INVALID_REQUEST`，`GET /relgraph` 返回 `4 nodes / 2 hydrated edges`。真实 App 走完 Overview -> Explore -> greet -> `REFERENCED BY deploy-helper` -> Skill `EQUIPS greet` -> provenance -> Document 隐藏/恢复 -> Fit；隐藏端点时节点、标签和相连边闭合消失，恢复后完整图回归，未发现新的产品红线。稳定帧是 `sessions/20260813-024157/evidence/ep226-227-provenance.png` 与 `ep226-227-final-graph.png`，全文证据是 `EP-226-227-relations-observed-fixed.md`。
+
+五通道已封口：录屏 `243.980000s / 2784x1808 / 60fps` 可读，rig-check 前后通过并正常收台；backend 无 WARN/ERROR/panic/FATAL，frontend 无应用级 Flutter/Dart/RenderFlex/Unhandled/Exception 红线，SSE 三流接通，llmtap challenge/install/models 全 `200`。relation handler/app/domain 与关系图/总览/widget 定向测试通过；`gen_coverage.py --check`=`848/351/0`、formal alarms=`clean (1790)`、diff check 通过。
+
+EP-226/227 仍按 EP-220/EP-221 序列门不调用 `judge.py`、不修改 formal ledger/COVERAGE；账本 `1790`、清册 `848/351/0`、批次三十四 `25/50` 保持不变。正式入账前不能宣称五格绿。
+
+### 最新补充：EP-228/229 catalog 与工具目录真实路径（2026-08-13 02:30）
+
+正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-021557` 已完成真实 App + 受管 gateway + Computer Use
+的 EP-228/229 产品路径。新建 `catalog-lab-skill-r3` 的修复后 ASCII 请求只产生一次 `create_skill`，App、Library、REST、
+SQLite 事实和 `skill.created`/touchpoint SSE 信号一致；`GET /api/v1/catalog` 返回 summary 与 structured coverage，
+`GET /api/v1/tools` 返回 117 个 descriptor。真实打开 Skill properties 的 `Add a tool` 弹窗，Builtin 分组与 name/summary
+可读，视觉证据为 session `evidence/ep228-skill-detail.png` 和 `ep229-tool-picker.png`。
+
+首试的输入观察器破坏了中文/引号和 `create_skill` 下划线，导致缺 description 与 absent-skill 错误路径；这份红证据保留，
+没有把失败伪装成绿。stop-and-fix 加强 chat critical rule 与 create_skill tool description 的新建意图消歧，补 chat/skill
+contract tests 和领域文档；修复后成功路径只调用一次、没有 retry/search/activate/edit。picker 搜索因 `type_text`/`set_value`
+的 Computer Use 输入语义限制不计产品结论，完整 picker suite `7/7` 通过。
+
+五通道封口：live `rig-check` 全绿，`rig-down` 正常收台，录屏 `758.688333s / 2784x1808 / 60fps`；messages `1..37`、
+entities `1..2`、notifications `1..3` durable 序列连续；llmtap observed responses 全 `200`；frontend 无 Flutter/Dart/
+RenderFlex/overflow/Unhandled/Exception 应用红线，backend 仅两条已解释负路径 WARN。完整证据为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-021557/evidence/EP-228-229-catalog-tools-observed-fixed.md`。
+
+EP-228/229 仍按 EP-220/EP-221 序列门暂不调用 `judge.py`、不改 formal ledger/COVERAGE；账本 `1790`、清册 `848/351/0`、
+alarms clean、批次三十四 `25/50` 不变。正式入账前不能宣称五格绿。
+
+### 最新补充：EP-230–233 限额真实 App 路径与 stop-and-fix（2026-08-13 01:56）
+
+首轮限额真实 session `20260813-013937` 暴露一次回车造成两次相同 `PATCH /api/v1/limits` 的产品缺陷；根因是 `_LimitRow`
+同时自定义 `onSubmitted` 与 `onEditingComplete` 调用 `_commit()`。stop-and-fix 保留 `onSubmitted`、恢复 Flutter 默认
+`editingComplete` 行为，点按移出仍显式提交；fixture 增加 PATCH 计数，`s5_storage_limits_test.dart` 锁定一次 done 只有一次
+PATCH。定向 Flutter suite `12/12`、focused analyze 全绿。
+
+修复后二进制真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-015207` 完成 onboarding → Settings
+→ Advanced limits；Computer Use 逐帧确认机器级说明、Reset all、五组和 18 个 schema 字段，修改 `agent.maxSteps` 到 `32`
+后按一次回车，画面稳定显示 modified 状态。backend 精确记录一条 `PATCH=200` + 权威 GET；Reset all 的确认文案为
+`Reset every limit to its default?`，确认后精确一条 `POST :reset=200` + 权威 GET 恢复 `25` 等默认值。
+
+五通道封口：backend `290` 行无应用红线，frontend `20` 行无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 产品红线，
+ssetap 接通三流，llmtap proof/install/models 全 `200`，`rig-check` 五通道通过，录屏 `216.715000s / 2784x1808 / 60fps`
+可读。完整证据为 `sessions/20260813-015207/evidence/EP-230-233-limits-real.md`，稳定帧为该 session 的
+`limits-top-fixed.jpg` 和 `limits-tail-fixed.jpg`。
+
+该观察覆盖 EP-230–233，但正式序列仍由 EP-220/EP-221 占住；不调用 `judge.py`、不改 formal ledger/COVERAGE，账本 `1790`、
+清册 `848/351/0`、alarms clean、批次三十四 `25/50` 保持不变。`20260813-013331` 的 seed 卡住仅作为台架启动边界保留。
+
+### 最新补充：EP-224 场景枚举真实 App 五通道路径（2026-08-13 01:25）
+
+新隔离 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-011852` 使用真实 App、受管 gateway、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和 llmtap。Settings → Models & keys 的 Scenario default models 真实画面逐帧显示六个 canonical 槽位：Dialogue、Utility、Agent、Image generation、Speech synthesis、Video generation；六个 Change 入口、生成场景说明和尾部 Search keys 均完整可读，无 clipping、overlap、overflow 或 reflow。录屏 `135.281667s / 2784x1808 / 60fps`，稳定终帧 `ep224-final-scenarios.png`。
+
+同一 session 的 REST 交叉核对：有/无 workspace 的 `GET /api/v1/scenarios` 都是 `200`，恰返回六项 `dialogue, utility, agent, image, speech, video`；`POST` 是 `405 METHOD_NOT_ALLOWED`，`Allow: GET, HEAD`。五通道封口为 backend `220` 行无应用红线、frontend `18` 行仅已知 launcher 噪声、ssetap 三流接通、llmtap proof/install/models/quota `200`；GET-only 路径没有伪造 completion。证据 `sessions/20260813-011852/evidence/EP-224-scenarios-real.md`。
+
+EP-224 真实观察没有发现产品缺陷；同步把设置 panel 的过时“三行”注释修正为六行，并由抽取清册生成器同步 `COVERAGE.md` 的 EP-224 六槽描述。按序暂不调用 `judge.py`、不修改 formal ledger、不改变 `COVERAGE` 五格 verdict，仍保持 `1790`、`848/351/0`、alarms clean、批次三十四 `25/50`；EP-220/EP-221 序列门先处理。
+
+### 最新补充：EP-225 关系图真实五通道路径与 stop-and-fix（2026-08-13 01:03）
+
+静态路径覆盖 `/api/v1/relations`、`/relations/neighborhood`、`/relgraph` 及前端总览/全页探索/右岛关系 pill。首轮真实 session `20260813-004244` 发现：涟漪透明度误伤远端实体标签；图例隐藏节点后仍留下相连边；热重载新增 painter 字段时还出现旧实例 `Null` 异常。三项均停下修复，关系图专测现为 `15/15`：点/边过滤闭合、标签不继承点 alpha、CustomPainter 隐藏/边签名可触发重绘，旧字段 nullable 兼容热重载过渡。
+
+全新数据目录冷启动有效 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-005927` 已用 Computer Use 完成总览、全页图、节点选择、关系跳转、provenance、Fit、返回和详情入口；隐藏 Document 的真实画面/AX 树无残边，恢复后图完整。四个关系 REST 响应与 UI/SQLite 对齐，录屏 `115.818333s / 2784x1808`，前后 rig-check 通过，frontend/backend 无应用红线，llmtap 6 个响应全 `200`，三路 SSE 连接；证据 `sessions/20260813-005927/evidence/EP-225-relations-real.md`。失败 session 不计绿且保留作仪器边界。
+
+EP-225 尚未调用 `judge.py` 或修改 COVERAGE，因 EP-220/EP-221 序列门尚未收口；formal ledger `1790`、清册 `848/351/0`、alarms clean、批次三十四保持 `25/50`。继续按序，不提前把真实观察写成正式五级裁决。
+
+### 最新补充：EP-224 场景枚举六槽门禁补强（2026-08-13 00:41）
+
+`GET /api/v1/scenarios` 的 domain/handler 已提供六项，但原黑盒测试只检查前三项，存在新增生成槽静默漏测风险。现已收紧
+为恰好六项及 canonical 顺序 `dialogue, utility, agent, image, speech, video`，并同步 handler 注释与 API 文档；gofmt、diff check、
+后端 handler/domain 单测和 `TestPlatform_ModelConfig` 全绿。EP-224 仍未进行真实 App/五通道验证，formal ledger、COVERAGE、警报和批次计数不变。
+
+### 最新补充：EP-223 last-good 组件守卫与语音 fail-closed 回归（2026-08-13 00:37）
+
+EP-223 的三态实现再收紧一层：`ModelPickerPanel` 自身只在 `caps` 为空时显示 loading/error，已有能力目录在刷新
+期间仍保留可操作的 key/model；新增 loading/error + 非空 last-good widget 回归。语音输入用 pending/error provider 状态回归确认
+fail-closed：未成功读取匹配的 `anselm-auto` 能力时不亮录音入口。相关完整串行套件 `83/83`、`flutter analyze`、Dart format、
+`git diff --check` 全绿。该补强尚未写 formal ledger/COVERAGE，账本 `1790`、清册 `848/351/0`、警报 clean、批次三十四仍 `25/50`。
+
+### 最新补充：EP-223 模型能力目录三态修复与真实台架（2026-08-13 00:30）
+
+静态审计发现 `modelCapabilitiesProvider` 的 loading/error 被设置、聊天头部和重试菜单的 `.value ?? []` 吞掉，
+后端故障会伪装成“没有模型/添加 key”。stop-and-fix 已把共享消费契约收紧为：成功空数组才是 settled-empty；已有目录
+刷新失败展示 last-good；首次加载失败展示可读错误和单一 Retry；聊天菜单仍保留 Auto、当前回合操作与刷新入口。
+对应设置/聊天 i18n、widget 回归和模型选择契约已同步；串行定向回归 `73/73`，`flutter analyze` 和 Dart format 通过。
+语音输入在能力未知时仍 fail-closed，不虚报可用。
+
+真实 App 第一轮 session `20260813-001238` 完成 onboarding、Models & keys、刷新、Chat、受管网关聊天和 Retry 菜单；第二轮有效
+session `20260813-002350` 复用 workspace 验证能力/默认一致性和 `Anselm Auto · Gateway-managed routing and reasoning` 边界。
+两轮五通道由 conductor 托管，`/model-capabilities=200`，聊天 wire=200，messages durable seq `1..8` 单调，SQLite/UI 对齐，
+前端无应用级红线。`20260813-002140` 因复用数据目录的持久化 tap 仍为 `8788`、临时 tap 起在 `8794` 被 `rig-check` 正确排除。
+真实证据在两个 session 的 `evidence/EP-223-*` 文件；该产品证据尚未写 formal ledger/COVERAGE，正式账本仍 `1790`，清册
+`848/351/0`，警报 clean，批次三十四仍 `25/50`，继续等待 EP-220/EP-221 序列门。
+
+### 最新补充：EP-213 已授权对象删除与确认原语代际守卫（2026-08-12 23:45）
+
+用户明确授权的对象是 `EP-213 UI Delete Positive`，不是当前 EP-220 音色。独立 EP-213 数据目录中的活动对象
+`aki_dd5b33196ff2df48` 已通过真实 Flutter App 删除：确认卡 AX/frame 精确显示对象名与永久删除文案，最终
+`Delete` 后 backend 记录 `204`，目标从 UI 列表消失，managed key 与 scenario defaults 保留；SQLite tombstone
+保留审计 id/workspace/name，但加密 key、masked key、base URL、format、test 状态/错误/回执/时间均清空。
+
+完整五通道 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-234156`，录屏
+`71.518333s / 2784x1808 / 60fps`，修正持久化 tap 端口后 `rig-check` 通过、`rig-down` 正常收台；证据为
+`sessions/20260812-234156/evidence/EP-213-ui-delete-authorized-closure.md`。这是一项已存在 EP-213 正式绿账的
+授权清理补充，不重复写 formal ledger、不改 COVERAGE、不推进批次；当前 EP-220 仍为唯一前线，保持 `25/50`。
+
+本轮静态 stop-and-fix 还锁住公共危险确认原语的主体代际：`AnTypeToConfirm` 的 `expected` 改变时清空旧输入并重新上锁，
+避免同一 State 复用时上一个对象的精确名称解锁新对象；`an_type_to_confirm_test.dart` 已覆盖，设计系统与 CODEX E6
+同步。EP-220 的最终对象仍未执行，不能借用 EP-213 授权。
+
+### 最新真实复验（2026-08-12 23:06 session）
+
+EP-220 当前唯一前线仍是 `DELETE /api/v1/voices/{id}`，但当前对象 `EP220 Delete Trial` 尚未执行最终不可逆删除。
+此前用户 action-time 明确确认的是另一个对象 `EP-213 UI Delete Positive`，不能把该身份外推到当前对象；不得用 REST、SQLite
+或终端绕过当前对象确认。因此 EP-220 仍没有正式绿格，批次三十四保持 `25/50`。
+
+最新正确 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-230602`，数据目录为
+`/private/tmp/anselm-data-ep220-voice-delete-20260812-r2`。它由最新源码、真实 Flutter App、真实受管 gateway、Computer Use、
+窗口录制、backend/frontend journal、三路独立 SSE witness 和 llmtap 托管；收台前 `rig-check` 通过，`rig-down` 正常完成。
+封口录像为 `225.245000s / 2784x1808 / 60fps`。Computer Use 真实打开原 workspace 的精确删除确认框但未输入、未点击最终按钮；
+切到真实创建的第二 workspace 后看到空库存与 `2 of 2 slots free`，旧确认和旧音色均不穿透；切回原 workspace 后目标行与
+`1 of 2 slots free` 恢复，旧确认没有复活。只读 SQLite 仍只有原 workspace 的 `EP220 Delete Trial` 行。
+
+本轮 stop-and-fix 已完成并由静态回归锁住：库存 provider 以 active workspace 换代；切换时只清除 `_confirming`，不把真实在途
+`_deleting` 伪装成结束；DELETE 与随后 GET 都 pin 发起 workspace，旧操作只能在同一代际更新状态。`api_client_test.dart`、
+`voices_card_test.dart`、focused analyze、Dart format、docs verify 和 `git diff --check` 均通过。五通道封口为 backend `311` 行、
+frontend `18` 行、SSE `16` 行、llmtap `13` 行：无应用级后端/前端红线，两个 workspace 各自接通三流，真实 proof challenge/quota
+为 `200`，没有 voice-delete 请求。完整证据为
+`sessions/20260812-230602/evidence/EP-220-voice-workspace-confirmation-isolation-fixed.md`。
+
+### 最新边界复验（2026-08-12 23:22 session）
+
+当前对象仍未获得 action-time 删除确认，因此没有点击 `Delete permanently`，没有写 EP-220 正式五格；formal ledger
+仍为 `1790`，批次仍为 `25/50`。session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-232215` 使用正确
+EP-220 数据目录，由完整五通道 conductor 托管并正常收台，录像 `265.713333s` 可读。Computer Use 在真实删除确认框输入
+近似名称 `EP220 Delete Tria`，破坏性动作没有放行，随后点击 `Cancel`；危险区收起，目标行和 `1 of 2 slots free` 保持不变。
+backend `299` 行只见 `GET /api/v1/voices=200`、无删除 route，frontend `18` 行无应用级 Flutter/Dart/RenderFlex/overflow/
+Unhandled 红线，SSE `8` 行完成两个 workspace 各自三流接线，llmtap `7` 行为真实 proof/quota bootstrap、无删除 wire。
+证据为 `sessions/20260812-232215/evidence/EP-220-voice-delete-boundary-cancelled.md`。这只封口错误名称拒绝和取消不变式，
+不替代真实 `upstream 204 → local 204 → UI/inventory settled` 删除闭环。
+
+### 前置记录（以下为本轮之前的 stop-and-fix 过程，保留作历史证据）
+
+EP-220 当前唯一前线是 `DELETE /api/v1/voices/{id}`。真实 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-175045` 已由真实 Flutter App、真实受管
+gateway、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE witness 和 llmtap 托管；
+`rig-down` 已收台，录屏 `431.853333s / 2784x1808` 可读。Computer Use 已逐帧观察到 Settings →
+Models & keys 的 Cloned voices 行、hover 后的 Delete 动作、精确对象名确认文案、Cancel 不变和错名
+输入不放行；backend 没有 DELETE，REST/SQLite 仍保留同一个本地行，llmtap 没有 voice-delete 请求。
+非破坏性证据为 `sessions/20260812-175045/evidence/EP-220-voice-delete-non-destructive.md`。
+
+对该 session 做逐帧 craft review 时发现危险区的确认输入框仍退化到 `AnInput` 的 `inputMin=180`，长对象名提示
+被截断为 `Type “EP220 Delete T…`。前线冻结后，公共 `AnTypeToConfirm` 改为让确认字段 `block:true` 填满危险卡，
+并补长名称几何回归与设置规范。修复后二次 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-193159` 由最新源码启动；Computer Use
+已确认 `Type “EP220 Delete Trial” to confirm` 完整可读，费用/库存说明、按钮和卡片边界无截断或 reflow。
+随后填入完整对象名并点击 `Cancel`，危险区安全收起，列表仍保留 `EP220 Delete Trial`、库存仍为 `1 of 2 slots free`；
+稳定画面证据为该 session 的 `evidence/EP-220-voice-delete-cancelled.png`。用
+`testend/cmd/measure contrast` 对危险文字/背景 token 测得 `5.72:1`，满足 CODEX `D1`。这些是非破坏性
+stop-and-fix 证据，仍不是正式绿格；当前对象最终删除仍未点击。
+
+本轮刻意没有点击当前对象 `EP220 Delete Trial` 的最终 `Delete permanently`。此前用户 action-time
+确认的是另一个对象 `EP-213 UI Delete Positive`，该对象已经按授权删除，不能把它的身份外推到当前音色；
+不得用 REST、SQLite 或终端绕过当前对象的最终授权。因此 EP-220 目前没有任何正式绿格，不能写入账本。
+本地 Anselm 侧已新增并通过 `go test ./internal/app/voice` 的上游优先、上游失败保留本地行、缺行不消费
+上游三条回归；`Anselm-API-Serve` 侧现有 app/store/handler 测试也已核对删除顺序、归属隔离、输入闸和
+`POST /v1/voices:delete` 路由。
+
+本地 sidecar 传输层另以 `backend/internal/infra/llm/voiceclone_test.go` 的真实 HTTP 夹具锁住
+`POST /voices:delete`、install header、`voiceId` body、无 body 的 `204` 成功和
+`502 → VOICE_CLONE_FAILED.details.upstream` 失败契约；这只是静态/传输层补强，不替代当前对象的
+真实删除闭环。
+
+sidecar 的实际 HTTP 路由再由 `backend/internal/transport/httpapi/handlers/voice_test.go` 的真实
+`http.ServeMux` 夹具锁住：`DELETE /api/v1/voices/{id}` 成功返回空 body `204`，上游失败返回
+`503` error envelope 且本地指针不删除；组合定向 Go 回归已通过。这仍是静态/传输层证据，不替代
+当前对象的真实删除闭环。
+
+静态审计下一原子 `EP-222 POST /api/v1/read-aloud:read` 时发现 `speech_cache` 的陈旧附件映射会
+占住 workspace 内唯一 `cache_key`，使新朗读结果虽能返回却无法回写，后续重复重新合成并计费。
+已新增幂等 `SpeechCacheRepository.Delete`，仅在附件明确 `ATTACHMENT_NOT_FOUND` 时清除映射后再
+合成；普通存储错误保留映射。对应的 read-aloud/app、SQLite store（workspace 隔离/重复删除）
+测试与 `-race` 均通过，后端/数据库/Chat 契约已同步。该修复尚未写 EP-222 正式绿格；EP-220 仍是
+唯一真实前线，批次三十四仍 `25/50`。
+
+EP-222 的新 binary 真实五通道复验已经完成。session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-210502` 由 conductor 托管真实 Flutter App、真实
+`https://api.anselm.website` 受管 gateway、Computer Use、窗口录制、backend/frontend journal、三路独立 SSE
+witness 和 llmtap；`rig-check` 通过并正常 `rig-down`，录屏 `704.231667s / 2784x1808 / 60fps` 可读。完整证据为
+`sessions/20260812-210502/evidence/EP-222-read-aloud-preparation-cache-green.md`，逐帧证据包含发送、准备态、播放和
+收口四帧。
+
+Computer Use 在真实助手回答落定后点击 `Read aloud`，动作槽立即显示 `Preparing read-aloud…` 和统一 spinner，
+固定原尺寸/中心且不推挤相邻动作；等待期间入口禁用，合成完成后进入 `Stop`，播放结束恢复 `Read aloud`。第二次
+点击只播放已有附件，没有第二次合成。backend 观察到唯一 UI read 为 `200 / 2833ms`；llmtap 观察到唯一 speech
+请求为 `200 / 249644 bytes`；SSE 三流接通且消息 durable seq 单调无 gap；frontend 无应用级 Flutter/Dart/RenderFlex/
+Unhandled/overflow 红线。相同精确文本的 REST 重读返回同一附件、`cached:true`、`0ms`，SQLite `speech_cache` 与附件
+行一致。带句号的额外 probe 是不同 cache key，已从零成本结论排除。
+
+`chat_transcript_test.dart 31/31`、focused analyze、Dart format、slang、read-aloud app/store 普通与 `-race` 测试均通过。
+EP-222 的产品证据已封口，但正式五级裁决仍按序列门后置；EP-220 当前对象最终删除仍未执行，COVERAGE 不改，批次三十四
+保持 `25/50`，不运行统一长门禁、不提交。
+
+API Serve 的分布式删除收敛已落地并部署：`Anselm-API-Serve` `main` 当前为
+`2879a1d9b010104ffab073bf1b48c0fbfd59c5e3`；仅精确 provider 缺失码
+`InvalidParameter.ResourceNotExist` / `BadRequest.VoiceNotFound` 才在
+`voice-enrollment/delete_voice` 的 HTTP 400 上转换成幂等成功，普通 400/404/5xx 仍保留本地行。
+API Serve `make verify`、CI `31590465992`、production deploy `31590711567` 通过，生产
+`/v1/install/challenge` 为 `200`。该修复强化重试收敛，不替代当前 `EP220 Delete Trial` 的真实
+UI 删除；EP-220 仍无正式绿格，批次仍为 `25/50`。
+
+EP-221 `GET /api/v1/read-aloud/availability` 的冷启动修复已完成真实台架观察，但按前线顺序尚未写正式
+五格：`WorkspaceBootstrap` 开通受管档后失效 availability provider，真实 App 最终出现 `Read aloud`，
+证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-173436/evidence/EP-221-read-aloud-availability-fixed.md`。
+完成 EP-220 后，先补 EP-220 的完整上游→本地→UI 删除闭环，再按顺序为 EP-220、EP-221 写五级裁决，继续
+把批次三十四推进到 `50/50`。
+
+本轮非破坏性定向复核：Anselm voice/app/LLM/handler race tests、前端 `voices_card_test.dart` `9/9`、
+`Anselm-API-Serve` voice/upstream/handler/router race tests 均通过；最新 `193159` session 的五通道
+`rig-check`、清册 `848/351/0`、formal alarms `clean (1790)`、docs verify 与 `git diff --check` 均通过。
+backend 仅见正常 workspace refresh，frontend 仅有已知 IMK host 噪声，llmtap 没有 voice/delete 记录。
+这些仍是回归/健康证据，不写正式绿格；当前对象的最终删除仍待 action-time 确认，批次保持 `25/50`。
+
+对删除后的失败恢复语义又做了一轮 stop-and-fix：DELETE 已提交但紧随的 `GET /voices` 重读失败时，旧实现会
+继续展示旧行并把状态说成“上游登记保留”。现在 provider 进入 `VoiceDeleteCommittedRefreshException` 专用错误态，
+隐藏旧行、明确“删除已提交/库存待刷新”，只给 Retry；Retry 成功后才恢复服务端确认的空库存与算术。新增 fixture
+故障钩子和 voice-card 回归覆盖该路径及 Retry 收敛，定向测试 `10/10`、focused analyze/slang 通过。未触发
+真实 EP-220 删除，未写正式绿格，批次仍为 `25/50`。
+
+### 历史状态：EP-219（已完成，批次三十四 25/50）
+
+EP-219 `GET /api/v1/voices` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。产品目的为：Cloned voices 是持久库存，空库存也必须让用户看见 `remaining/capacity`，而不是只显示没有行；库存位不会随时间恢复，删除才会腾位。
+
+首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-153640` 发现 settled-empty 空态遮住真实响应的 `capacity=2,remaining=2`。stop-and-fix 让空态与有行态共用库存算术，并补设置规范与 widget regression。修复后二次 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-154141` 用新 binary、真实 Flutter App、受管 install 和窗口录制复验：画面稳定显示空态说明与 `2 of 2 slots free`，Refresh 后仍一致；缺 workspace=`401 UNAUTH_NO_WORKSPACE`，错方法=`405 METHOD_NOT_ALLOWED`，SQLite voices 为空与 REST 对证。
+
+正式录屏 `137.630000s / 2784x1808` 可读，backend/frontend 无应用级红线，ssetap 三流连接，llmtap 6 个响应全 `200`。正式证据为 `sessions/20260812-154141/evidence/EP-219-voices-green.md`，首轮红证保留在前一 session，账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-219-voices-ledger-reaudit.md`。五级 `G1/F2/A4/C4/G2` 已写入，formal ledger `1785→1790`，anchors=`10/10`，清册 `848/351/0`，最终 alarms clean；Flutter 28 项、后端定向测试、`make -C docs verify` 和 `git diff --check` 通过。批次三十四由 `20→25/50`，不运行统一长门禁、不提交；下一原子前线为 EP-220 `DELETE /api/v1/voices/{id}`。
+
+EP-218 `GET /api/v1/speech/asr` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。产品目的为：空 composer 能发现麦克风，录音时能看到真实实时转写，停止后最终文本留在可编辑 composer 中并由用户明确发送；失败、权限、超时和重试不能留下死录音态或偷偷发送。
+
+首轮真实 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-144612` 先冻结了台架代理的 101 duplex body 缺陷：上游已返回 `101`，但 witness 包裹导致 `ReverseProxy` 拒绝 writable upgrade。stop-and-fix 让 proxycore 对 101 保留双向 body，只对有限 HTTP response 做 body witness，并增加 protocol-upgrade regression。随后真实部署 wire 又冻结产品跨仓协议缺陷：网关实时事件是 `conversation.item.input_audio_transcription.text`/`stash`，前端只识别 `.delta`；修复为 `.text` 与 `.delta` 双兼容，`.completed` 继续收最终 transcript，并同步 API 文档与 Flutter regression。
+
+正式绿 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-150935` 的 LLM tap 记录 challenge/install/models=`200`、三次 ASR=`101`；Computer Use 观察到 `Recording 00:07` 到 `00:38` 的真实实时 partial，停止后文字仍可编辑且没有自动发送。正式录屏 `783.353333s`，backend 无 panic/FATAL/应用 ERROR，frontend 无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 应用红线，ssetap 三流均连接并正常收台。过短声学样本未作为绿证据，避免把实验同步问题冒充识别失败。
+
+正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-150935/evidence/EP-218-speech-input-green.md`，独立账本复审为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-218-speech-input-ledger-reaudit.md`。五级 `G1/F2/A5/C4/G2` 已写入，formal ledger `1780→1785`，anchors=`10/10`，清册 `848/350/0`，最终 alarms clean；定向 proxycore/llmtap/harness Go tests、speech provider Flutter tests 和 `git diff --check` 通过。批次三十四由 `15→20/50`，仍不运行统一长门禁、不提交；下一原子前线为 EP-219 `GET /api/v1/voices`。
+
+EP-217 `POST /api/v1/freetier:provision` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。幂等 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-141212` 对同一 workspace 连续 POST 两次均为 `200`，SQLite
+只有一条 managed 行，llmtap 只有一次 `/v1/install`。修复后 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-142457` 先观察健康 quota 面，停止 session-owned llmtap 后点击
+Refresh 得到真实 `502 LLM_PROVIDER_ERROR`；旧绿色 meter 被清掉并出现可理解的 `Repair free tier`，点击后显示
+`Provisioning…`，恢复代理后回到真实 `0 / 1B · resets 2026-09-01 00:00`，managed 行、defaults 和设置均未丢失。
+
+首轮坏天气冻结了 quota 上游错误被错误映射为 `500`、前端保留 stale green meter 两个缺陷；stop-and-fix 已映射非取消/超时
+错误为既有 `LLM_PROVIDER_ERROR`/`502`，并让前端以 `AsyncError` 转入 Repair 面。Go quota/freetier/response 测试与 Flutter
+Models & keys 回归全绿，真实 App 随后完成 `502 → Repair → provision 200 → quota 200`。封口录屏为 `250.746667s`，最终
+backend/frontend 无应用级红线，ssetap 接通 notifications/entities/messages 三流，llmtap 全程在 tap 内；帧证据为
+`EP-217-repair-error.jpg` 与 `EP-217-repair-recovered.jpg`。完整证据和独立账本复核保留在两个 session evidence 与
+`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-217-provision-ledger-reaudit.md`。
+
+正式按 `G1 / F1 / A4 / C4 / G2` 写账，formal ledger `1770→1780 judgments`，锚点重新校准为 `10/10`，清册为
+`848/349/0`，最终 alarms clean。首轮漏导出 `RIG_HOME` 的五条记录保留在默认个人审计账本，已明确排除 formal authority，随后
+用显式 `env RIG_HOME=...` 正式重放；该段现为 EP-218 之前的历史状态，当前前线与批次数字以上方 EP-218 整体重述为准。
+
+EP-216 `GET /api/v1/freetier/quota` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。主 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-135155` 的真实 wire 为
+`challenge/install/models/quota`，quota 全 `200`；Settings → Models & keys → Free tier 稳定显示
+`0 / 1B · resets 2026-09-01 00:00`、Refresh、managed 行和六个 managed defaults。独立负向 session
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-135604` 证明无受管行时 REST 为
+`404 FREETIER_NOT_PROVISIONED`，UI 显示 `Enable free tier`，失败后回到可重试 CTA，不渲染假零配额。
+
+主 session 录屏 `181.195000s`，负向 session 录屏 `134.795000s`，两者均由同一 conductor 封口；主 backend/frontend
+无应用红线，ssetap 三流连接，负向 install-failure WARN 已按预期离线 best-effort 分类。正式按
+`G1 / F1 / A4 / C4 / G2` 写账，formal ledger `1770→1775 judgments`，`gen_coverage.py --check`=`848/348/0`，
+统计警报由 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-216-quota-ledger-reaudit.md` 复审后 ack。
+
+该历史段当时把批次三十四推进到 `10/50`；当前前线已由上方 EP-217 整体重述接管，继续逐格验收，统一长门禁和提交保持在第 50 格之后。
+
+### 历史状态：EP-215 providers（已由上方 EP-216 当前前线接管）
+
+EP-215 `GET /api/v1/providers` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。用户从
+`Settings → Models & keys → Add key` 可以浏览 provider market，搜索 `together` 得到唯一结果，搜索无匹配
+得到明确空状态，选择 Azure 能看到 required Base URL hint；managed `anselm` 不出现在手动新增 market，而在
+Models & keys 的受管区域单独呈现。本轮没有输入或传输 credential。
+
+正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260812-131710` 已由同一 conductor 封口：
+录屏 `1292.316667s / 2784x1808 / 60fps`，backend 无应用 panic/FATAL/WARN/ERROR，frontend 无 Flutter/Dart/
+RenderFlex/overflow/Unhandled 红线（仅已知 IMK host 噪声），ssetap 接通 notifications/entities/messages 三流，
+llmtap 对真实 `https://api.anselm.website` 的 challenge/install/models/quota 均为 `200`，本只读 settings slice
+没有 chat completion。dev REST 为 191 条、排序稳定、无重复且 `anselm.managed=true`；独立 production-mode REST 为
+180 条、排序稳定、无重复、`anselm.managed=true` 且 `mock=[]`，证明开发 fixture 没有泄漏。
+
+正式五级裁决 `G1 / F1 / A4 / C4 / G2` 已由 `judge.py` 写入 `COVERAGE EP-215=✓✓✓✓✓`，formal ledger
+`1765→1770 judgments`，anchors=`10/10`，`gen_coverage.py --check`=`848/347/0`，最终 `alarms.py check`=
+`clean (1770)`。两条批量写账警报由独立复审 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-215-providers-ledger-reaudit.md`
+串行 ack，未修改阈值、算法、法典、锚点或 gate。下一原子前线为 EP-216 `GET /api/v1/freetier/quota`。
 
 EP-213 `DELETE /api/v1/api-keys/{id}` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。用户对精确对象
 `EP-213 UI Delete Positive` 授权后，最终点击前重新读取确认框，确认永久删除文案、对象名和 `Cancel/Delete` 按钮没有漂移；
@@ -52,7 +790,7 @@ L3 保守使用 `A4`，不冒充 `A1`。
 `python3 -m unittest testend/rig/test_judge.py -v` 全绿，EP-213 清册已由脚本 replay 恢复为 `✓✓✓✓✓`。该台架红线已记录在
 `LOG.md`，不能再把 journal 条数单独当作清册完成证明。
 
-批次三十三已由 `45→50/50`。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报和本批 Go 定向回归均为绿。工作树审计已确认搜索线改动与本批边界分离；本批已提交 `4d304b3c`，前线推进到 EP-215。
+批次三十三已由 `45→50/50`。统一长门禁已通过：`make verify`、完整 `make -C backend testend`（`292.983s`）、账本/清册/锚点/警报和本批 Go 定向回归均为绿。工作树审计已确认搜索线改动与本批边界分离；本批已提交 `4d304b3c`。EP-215 已收口，批次三十四由 `0→5/50`，不运行统一长门禁、不提交；当前前线推进到 EP-216。
 
 EP-212 `PATCH /api/v1/api-keys/{id}` 已完成真实 App、真实受管 gateway、Computer Use 和五通道验收。
 产品目的不是只得到一个 `200`，而是让用户安全维护 BYOK：改名、改/清空可选 Base URL、轮换 secret，
@@ -1529,3 +2267,20 @@ messages durable seq `1..36`、notifications durable seq `1..2` 单调；`judge.
 `/tmp/anselm-rig-formal-20260801-12/sessions/20260801-033935` 首轮冻结了 completed 拒绝结果仍显示成功动词的真实缺陷；修复后
 `Write failed existing.txt · read first` 与磁盘未改、SSE 仅 Write 无 Read、五通道无红线均已复验。`TOOL-003 Edit` 会话
 `/tmp/anselm-rig-formal-20260801-14/sessions/20260801-044210` 完成 Read→Edit→Read 精确替换和无匹配只读拒绝；五通道、磁盘真相和两张关键画面均已复核。`TOOL-004 LS` 会话 `/tmp/anselm-rig-formal-20260801-17/sessions/20260801-050302` 真实覆盖直接列举、隐藏文件、空目录、嵌套非递归、缺失路径和非目录错误；首轮发现失败结果仍显示成功动词，修复 `lsResultFailed`/`listFailed` 后真实错误卡片显示 `List failed … · failed` 并自动展开正文，messages durable seq 1..40 单调，LLM 18 个响应全 200，录像 `213.276667s` 可读，`TOOL-005 Glob` 会话 `/tmp/anselm-rig-formal-20260801-19/sessions/20260801-051557` 首轮发现递归噪声目录契约未被模型理解，冻结后补齐后端 description/schema、前端失败重分类与守卫测试；修复后真实复验成功、空结果、截断、缺失根和非目录边界，screen.mov 可读，backend/frontend 无未解释错误，LLM 20 个响应全 200，三路 SSE 均连接且 messages durable seq 单调。`TOOL-006 Grep` 会话 `/tmp/anselm-rig-formal-20260801-22/sessions/20260801-054044` 首轮发现噪声目录泄漏、语义计数错误、错误态误报和非法正则 WARN，修复后真实覆盖 content/files/count/multiline/truncation/no-match/invalid-regex/missing-root，录屏 `269.225000s` 可读，backend 无 WARN/ERROR/panic/fatal，LLM 28 个响应全 200，messages durable seq 1..70、notifications durable seq 1..2 连续，三流均连接。`TOOL-008 BashOutput` 会话 `/tmp/anselm-rig-formal-20260801-24/sessions/20260801-060449` 又真实覆盖增量读取、regex 过滤、无新输出、缺失 bash_id 与非法 regex，录屏 `548.728333s` 可读，LLM 36 个响应全 200；`TOOL-009 KillShell` 会话 `/tmp/anselm-rig-formal-20260801-26/sessions/20260801-062334` 首轮发现重复终止语义冲突并完成共享卡片修复后重跑，LLM 32 个响应全 200、messages durable seq 1..76、notifications durable seq 1..2 连续；`TOOL-010 ask_user` 会话 `/tmp/anselm-rig-formal-20260801-27/sessions/20260801-063212` 真实覆盖等待态、选项回答和 `Don't answer` 跳过态，LLM 16 个响应全 200、messages durable seq 1..28、notifications durable seq 1..2 连续；`TOOL-011 todo_write` 与 `TOOL-012 todo_read` 会话 `/tmp/anselm-rig-formal-20260801-28/sessions/20260801-064406` 真实覆盖部分清单读回、全部完成与零开放项提醒抑制，LLM 26 个响应全 200、messages durable seq 1..64、notifications durable seq 1..2 连续；第二批十格工具切片的统计警报均经证据复审后销账，最终 `alarms.py check` 为 clean(100 judgments)。第二批达到 `50 / 50`，统一长门禁进行中，下一前线为 `TOOL-013 search_tools`。
+## 2026-08-13 09:46 · EP-221–EP-224 朗读缓存缺陷 stop-and-fix 后真实复验
+
+当前前线仍以 `README.md §5.2` 的整体重述为准：上一轮 EP-221–EP-224 真实朗读候选没有直接入账，
+因为 SQLite 取证发现 `speech_cache.last_used_at` 的旧路径和新写入均为 Go 零时间，破坏 LRU；前线
+在正式裁决前停下。现已在 `Put` 显式写当前时间，并在 bootstrap migration 后幂等把旧零值回填为各行
+`created_at`，测试与 attachment/database 文档同步。
+
+用真实旧数据目录重启新 binary 后，4 条历史缓存全部非零，已有真实命中时间保持，新朗读行也非零；
+真实 App 新会话完成唯一文本聊天，未命中朗读准备态和完成态同槽收敛，第二次命中没有重复 TTS。
+五通道 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260813-093429`：backend
+无 WARN/ERROR/panic，三路 SSE target durable seq 无缺口，真实网关 proof/chat/TTS 全 200，前端仅有已知
+launcher foreground warning，无 Dart/Flutter/RenderFlex/overflow/Unhandled 红线；`rig-check` 前后通过、
+`rig-down` 正常，录屏和完整日志保留。
+
+候选证据：`sessions/20260813-093429/evidence/EP-221-224-readaloud-capabilities-repair-r1.md`。
+本轮不调用 `judge.py`，不改 formal ledger/COVERAGE/anchors/alarms；账本仍 `1790`，清册仍
+`848 / 351 / 0`，批次三十四仍 `27/50`。EP-220 当前对象删除未执行。

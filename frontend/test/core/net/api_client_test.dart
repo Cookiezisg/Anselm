@@ -202,6 +202,26 @@ void main() {
   );
 
   test(
+    'an explicit workspace override wins over the live workspace callback',
+    () async {
+      final b = _build(
+        (_) => _json({
+          'data': {'status': 'ok'},
+        }),
+        ws: 'ws_current',
+      );
+      await b.client.getData('/api/v1/voices', workspaceId: 'ws_original');
+      expect(b.adapter.last!.headers['X-Anselm-Workspace-ID'], 'ws_original');
+    },
+  );
+
+  test('a destructive delete pins its workspace header too', () async {
+    final b = _build((_) => _json({}, 204), ws: 'ws_current');
+    await b.client.delete('/api/v1/voices/vce_1', workspaceId: 'ws_original');
+    expect(b.adapter.last!.headers['X-Anselm-Workspace-ID'], 'ws_original');
+  });
+
+  test(
     'no workspace / no token → headers omitted (not empty strings)',
     () async {
       final b = _build(

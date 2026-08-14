@@ -134,6 +134,10 @@ func TestSearch_ProjectionsLexicalAndFilters(t *testing.T) {
 	}
 	wc.Do("GET", "/api/v1/search?q=sweepmark&types=spaceship", nil).Fail(t, 400, "SEARCH_TYPE_INVALID")
 	wc.Do("GET", "/api/v1/search", nil).Fail(t, 400, "SEARCH_QUERY_REQUIRED")
+	wc.Do("GET", "/api/v1/search?q=sweepmark&updatedAfter=tomorrow", nil).Fail(t, 422, "SEARCH_INVALID_WINDOW")
+	wc.Do("GET", "/api/v1/search?q=sweepmark&updatedBefore=2026-99-99T00:00:00Z", nil).Fail(t, 422, "SEARCH_INVALID_WINDOW")
+	wc.Do("GET", "/api/v1/search?q=sweepmark&updatedAfter=2026-08-02T00:00:00Z&updatedBefore=2026-08-01T00:00:00Z", nil).Fail(t, 422, "SEARCH_INVALID_WINDOW")
+	wc.Do("GET", "/api/v1/search?q=sweepmark&includeArchived=maybe", nil).Fail(t, 422, "SEARCH_INVALID_INCLUDE_ARCHIVED")
 
 	// Tags filter. 标签过滤。
 	if !hitTypes(searchQ(t, wc, "q=sweepmark&tags=manual"))["document"] {
@@ -232,7 +236,7 @@ func TestSearch_PaginationWindow(t *testing.T) {
 		Fail(t, 400, "SEARCH_CURSOR_INVALID")
 }
 
-// TestSearch_ReindexAndSettings: A7 重建 + 设置三态——:reindex 202 后命中恢复；settings 回显；
+// TestSearch_ReindexAndSettings: A7 重建 + 设置三态——:reindex 204 后命中恢复；settings 回显；
 // 非法 embedder 拒；off 关引擎仍可词法搜；ollama 不可达降级软着陆；空串重置默认。
 func TestSearch_ReindexAndSettings(t *testing.T) {
 	t.Parallel()
@@ -240,13 +244,17 @@ func TestSearch_ReindexAndSettings(t *testing.T) {
 	c := srv.Client(t)
 	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "search-admin"}).OK(t, nil)
 	wc := c.WS(ws.Field(t, "id"))
+	wsOther := c.POST("/api/v1/workspaces", map[string]any{"name": "search-admin-other"}).OK(t, nil)
+	wcOther := c.WS(wsOther.Field(t, "id"))
 
 	fnCreate(t, wc, "reindex_probe_fn", "def f() -> dict:\n    \"\"\"reindexable probe\"\"\"\n    return {}\n")
 	harness.Eventually(t, 10000, "probe indexed", func() bool {
 		return len(searchQ(t, wc, "q=reindexable").Hits) > 0
 	})
 
-	wc.POST("/api/v1/search:reindex", nil).OK(t, nil)
+	if r := wc.POST("/api/v1/search:reindex", nil); r.Status != 204 {
+		t.Fatalf("reindex must be fire-and-forget 204, got %d code=%s body=%s", r.Status, r.Code, r.Raw)
+	}
 	harness.Eventually(t, 15000, "hits return after reindex", func() bool {
 		return len(searchQ(t, wc, "q=reindexable").Hits) > 0
 	})
@@ -270,6 +278,12 @@ func TestSearch_ReindexAndSettings(t *testing.T) {
 	if s.OllamaBaseURL == "" || s.OllamaModel == "" {
 		t.Fatalf("ollama params must echo effective defaults, got %+v", s)
 	}
+	var sOther settings
+	wcOther.GET("/api/v1/search/settings").OK(t, &sOther)
+	if sOther.Embedder != s.Embedder || sOther.OllamaBaseURL != s.OllamaBaseURL ||
+		sOther.OllamaModel != s.OllamaModel || sOther.Engine.Status != s.Engine.Status {
+		t.Fatalf("machine settings must be identical across workspaces: primary=%+v other=%+v", s, sOther)
+	}
 
 	wc.Do("PATCH", "/api/v1/search/settings", map[string]any{"embedder": "bogus"}).
 		Fail(t, 400, "SEARCH_EMBEDDER_INVALID")
@@ -278,6 +292,10 @@ func TestSearch_ReindexAndSettings(t *testing.T) {
 	wc.PATCH("/api/v1/search/settings", map[string]any{"embedder": "off"}).OK(t, &s)
 	if s.Engine.Status != "off" {
 		t.Fatalf("off embedder must report engine off, got %+v", s.Engine)
+	}
+	wcOther.GET("/api/v1/search/settings").OK(t, &sOther)
+	if sOther.Embedder != "off" || sOther.Engine.Status != "off" {
+		t.Fatalf("machine setting changed in one workspace but not the other: %+v", sOther)
 	}
 	if len(searchQ(t, wc, "q=reindexable").Hits) == 0 {
 		t.Fatal("lexical search must survive embedder=off")
@@ -290,6 +308,9 @@ func TestSearch_ReindexAndSettings(t *testing.T) {
 	}).OK(t, &s)
 	if s.Embedder != "ollama" || s.OllamaBaseURL != "http://127.0.0.1:9" {
 		t.Fatalf("ollama params must apply, got %+v", s)
+	}
+	if s.Engine.Status == "ready" {
+		t.Fatal("unprobed Ollama must not claim ready")
 	}
 	if len(searchQ(t, wc, "q=reindexable").Hits) == 0 {
 		t.Fatal("search must degrade to lexical with unreachable ollama")

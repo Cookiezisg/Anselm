@@ -63,6 +63,11 @@ exact name > name prefix > body match
 base64url(JSON)，解码也接受等价的标准填充形式，以兼容托管模型对不透明 cursor 补齐 `=`；
 不同 query 复用 cursor 仍返回 `SEARCH_CURSOR_INVALID`，不能翻到另一结果集。
 
+HTTP `updatedAfter`/`updatedBefore` 是包含端点的 RFC3339 界，服务端先归一到 UTC；畸形时间值或
+`updatedAfter` 晚于 `updatedBefore` 返回 `422 SEARCH_INVALID_WINDOW`，不会静默变成空结果或无界查询。
+`includeArchived` 默认 `true`，仅接受（大小写不敏感的）`true`/`false`；其他值返回
+`422 SEARCH_INVALID_INCLUDE_ARCHIVED`，不会静默回到含归档的默认范围。
+
 Omni search 按 entity 折叠，保留最佳 chunk 与 matched chunk 数。Blocks 按
 `(entity,anchor)` 折叠，使 Handler method、MCP tool 等可直接生成 ref hint。
 
@@ -76,9 +81,14 @@ EmbeddingProvider 有两种实现：
 - Builtin：Sandbox direct installer 管理 llama-server 与内置 embedding model；
 - Ollama：调用配置的本机 `/api/embed`。
 
-机器级设置为 `embedder=builtin|ollama|off`，另含 Ollama base URL/model。
+机器级设置为 `embedder=builtin|ollama|off`，另含 Ollama base URL/model。`GET /search/settings`
+返回最近已知的 engine 状态：Builtin 会区分 `absent/downloading/ready/error`，Ollama 在首次
+成功嵌入前为 `absent`，请求失败为 `error`，成功后才为 `ready`；读取设置不为获得状态而同步探测
+外部 daemon，避免一个设置页面被连接超时拖住。机器级设置虽然从任意 workspace header 读取，所有
+workspace 看到的是同一份值。
 Provider/模型变化通过 `search_embeddings.model` 使不匹配向量自动补算，旧模型
-向量不混用。
+向量不混用。多字段 PATCH 在一个事务内整体提交；写入失败不会留下半套机器设置。设置变化会
+使所有已进入索引的 workspace 的向量缓存失效并逐个 kick 补算，而不是只处理发起请求的 workspace。
 
 Embedding worker 与 lexical index worker 分离，下载/推理不阻塞实体写或 FTS。
 批量补算失败时停止本轮，等待下一次 kick，避免对同一缺失批次形成热循环。

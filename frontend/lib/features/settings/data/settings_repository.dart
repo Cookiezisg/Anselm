@@ -72,12 +72,17 @@ abstract class SettingsRepository {
 
   /// The cloned-voice inventory (`GET /voices`, WRK-082 H9) plus its cap. **N4 exemption ①** —
   /// bounded enumerable resource, whole set, no cursor. 克隆音色库存 + 上限;有界可枚举、返全集无游标。
-  Future<VoiceInventory> voices();
+  /// [workspaceId] is an internal operation pin used when a workspace-bound request must survive
+  /// a hot switch; ordinary callers omit it and use the active workspace.
+  /// workspaceId 是内部操作 pin,用于 workspace 绑定请求跨越热切换时仍指向发起者;普通调用省略。
+  Future<VoiceInventory> voices({String? workspaceId});
 
   /// `DELETE /voices/{id}` — upstream registration first, then the row. An upstream failure ABORTS
   /// with the row intact, so a retry is safe and the inventory count keeps telling the truth.
   /// 先删上游登记、再删行。上游失败即中止且行完好,故重试安全、库存计数继续说真话。
-  Future<void> deleteVoice(String id);
+  /// [workspaceId] pins the destructive request to the workspace that authorized it.
+  /// workspaceId 将破坏性请求固定在授权它的 workspace。
+  Future<void> deleteVoice(String id, {String? workspaceId});
 
   /// POST :provision — true when a managed row exists afterwards. 手动开通;事后有行=true。
   Future<bool> provisionFreetier();
@@ -320,11 +325,14 @@ class LiveSettingsRepository implements SettingsRepository {
   Future<void> testKey(String id) => api.postData('/api/v1/api-keys/$id:test');
 
   @override
-  Future<VoiceInventory> voices() async =>
-      VoiceInventory.fromJson(await api.getData('/api/v1/voices'));
+  Future<VoiceInventory> voices({String? workspaceId}) async =>
+      VoiceInventory.fromJson(
+        await api.getData('/api/v1/voices', workspaceId: workspaceId ?? _id),
+      );
 
   @override
-  Future<void> deleteVoice(String id) => api.delete('/api/v1/voices/$id');
+  Future<void> deleteVoice(String id, {String? workspaceId}) =>
+      api.delete('/api/v1/voices/$id', workspaceId: workspaceId ?? _id);
 
   @override
   Future<FreetierQuota?> getFreetierQuota() async {
@@ -761,6 +769,7 @@ class FixtureSettingsRepository implements SettingsRepository {
   final List<ApiKey> keys = [];
   FreetierQuota? quota;
   bool provisionResult = true;
+  Object? failNextQuota;
 
   /// Script hooks. 脚本钩。
   Object? failNextKeyOp;
@@ -844,7 +853,14 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<FreetierQuota?> getFreetierQuota() async => quota;
+  Future<FreetierQuota?> getFreetierQuota() async {
+    final failure = failNextQuota;
+    failNextQuota = null;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return quota;
+  }
 
   VoiceInventory fixtureVoices = const VoiceInventory(
     items: [
@@ -863,8 +879,13 @@ class FixtureSettingsRepository implements SettingsRepository {
   /// 脚本钩:让一次库存读取失败,以证明设置卡不会伪装成空态。
   Object? failNextVoices;
 
+  /// Script hook: commit a delete, then fail the authoritative read that follows it.
+  /// 脚本钩:先提交删除,再让紧随其后的权威重读失败。
+  Object? failNextVoicesAfterDelete;
+  Object? failNextVoiceDelete;
+
   @override
-  Future<VoiceInventory> voices() async {
+  Future<VoiceInventory> voices({String? workspaceId}) async {
     final failure = failNextVoices;
     if (failure != null) {
       failNextVoices = null;
@@ -874,11 +895,20 @@ class FixtureSettingsRepository implements SettingsRepository {
   }
 
   @override
-  Future<void> deleteVoice(String id) async {
+  Future<void> deleteVoice(String id, {String? workspaceId}) async {
+    final failure = failNextVoiceDelete;
+    failNextVoiceDelete = null;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
     fixtureVoices = fixtureVoices.copyWith(
       items: fixtureVoices.items.where((v) => v.id != id).toList(),
       remaining: fixtureVoices.remaining + 1,
     );
+    if (failNextVoicesAfterDelete != null) {
+      failNextVoices = failNextVoicesAfterDelete;
+      failNextVoicesAfterDelete = null;
+    }
   }
 
   @override
@@ -1214,6 +1244,7 @@ class FixtureSettingsRepository implements SettingsRepository {
     'agent': {'maxSteps': 30},
     'context': {'triggerRatio': 0.8},
   };
+  int patchLimitsCalls = 0;
 
   @override
   Future<String> dataDir() async => fixtureDataDir;
@@ -1290,6 +1321,7 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<Map<String, dynamic>> patchLimits(Map<String, dynamic> partial) async {
+    patchLimitsCalls++;
     void merge(Map<String, dynamic> into, Map<String, dynamic> from) {
       from.forEach((k, v) {
         if (v is Map<String, dynamic> && into[k] is Map<String, dynamic>) {

@@ -228,6 +228,11 @@ void main() {
         reason: '点路径→嵌套体 PATCH',
       );
       expect(
+        repo.patchLimitsCalls,
+        1,
+        reason: '一次回车只提交一次 PATCH,避免 onSubmitted/onEditingComplete 重复写入',
+      );
+      expect(
         find.text(t.settings.limits.modified),
         findsNothing,
       ); // marker is a bar, not text 竖条非文字

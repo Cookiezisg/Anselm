@@ -2,7 +2,24 @@
 # rig-check proves that every observer is alive, attributed, and producing current-session evidence.
 set -euo pipefail
 
-RIG_HOME="${RIG_HOME:-$HOME/.anselm-rig}"
+source "$(dirname "$0")/scope.sh"
+
+case "${1:-}" in
+  "") ;;
+  -h|--help)
+    cat <<'EOF'
+Usage: testend/rig/rig-check.sh
+
+Verify the live rig selected by the explicitly exported absolute RIG_HOME.
+EOF
+    exit 0
+    ;;
+  *)
+    echo "Usage: testend/rig/rig-check.sh" >&2
+    exit 2
+    ;;
+esac
+require_rig_home
 MANIFEST="$RIG_HOME/current/manifest.json"
 FAIL=0
 note() { echo "$@"; }
@@ -30,9 +47,14 @@ else
   TPID=$(field tapPid)
   LPID=$(field llmtapPid)
   LPORT=$(field llmtapPort)
+  APP_PROXY_PID=$(field appProxyPid)
+  APP_PROXY_PORT=$(field appProxyPort)
+  APP_PROXY_JOURNAL=$(field appProxyJournal)
+  RUNNER_PID=$(field runnerPid)
+  APP_LAUNCH_PID=$(field appLaunchPid)
   APID=$(field appPid)
   AWID=$(field appWindowId)
-  RPID=$(field recorderPid)
+  RECORDER_PID=$(field recorderPid)
   RLIFE=$(field recordingLifecycle)
   SESSION=$(field session)
 
@@ -53,8 +75,24 @@ else
   else
     bad "✗ channel 3 ssetap dead or PID reused"
   fi
-  WORKSPACES=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces" | python3 -c 'import json,sys; print(" ".join(x["id"] for x in json.load(sys.stdin).get("data",[])))' || true)
-  if [ -n "$WORKSPACES" ]; then
+  WORKSPACES=""
+  WORKSPACE_ROSTER_OK=0
+  if WORKSPACES_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces"); then
+    if WORKSPACES=$(printf '%s' "$WORKSPACES_JSON" | python3 -c '
+import json,sys
+payload=json.load(sys.stdin)
+rows=payload.get("data") if isinstance(payload,dict) else None
+if not isinstance(rows,list) or any(not isinstance(row,dict) or not isinstance(row.get("id"),str) for row in rows):
+    raise SystemExit(2)
+print(" ".join(row["id"] for row in rows))'); then
+      WORKSPACE_ROSTER_OK=1
+    else
+      bad "✗ workspace roster is malformed — channel 3/5 checks cannot be trusted"
+    fi
+  else
+    bad "✗ workspace roster request failed — channel 3/5 checks cannot be trusted"
+  fi
+  if [ "$WORKSPACE_ROSTER_OK" = "1" ] && [ -n "$WORKSPACES" ]; then
     for ws in $WORKSPACES; do
       for stream in messages entities notifications; do
         python3 - "$SESSION/sse.jsonl" "$ws" "$stream" <<'PY' || bad "✗ ssetap has no connect for $ws/$stream"
@@ -69,7 +107,7 @@ PY
       done
     done
     note "✓ channel 3 connected for every current workspace"
-  else
+  elif [ "$WORKSPACE_ROSTER_OK" = "1" ]; then
     note "· no workspace yet — discovery is live; onboarding remains observable from creation onward"
   fi
 
@@ -82,15 +120,21 @@ PY
     [ -f "$SESSION/llm.jsonl" ] || bad "✗ llm.jsonl missing"
     if [ -n "$WORKSPACES" ]; then
       for ws in $WORKSPACES; do
-        BASE=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws" | python3 -c '
-import json,sys
-rows=json.load(sys.stdin).get("data") or []
-print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"ABSENT"))' || echo ABSENT)
-        case "$BASE" in
-          ABSENT) note "· managed key pending for $ws" ;;
-          "http://127.0.0.1:$LPORT"*) note "✓ channel 5 wiring for $ws → tap" ;;
-          *) bad "✗ channel 5 wiring for $ws bypasses tap: $BASE" ;;
-        esac
+        if KEYS_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws"); then
+          CHECK=$(printf '%s' "$KEYS_JSON" | python3 "$(dirname "$0")/channel5_wiring.py" --port "$LPORT") || {
+            bad "✗ channel 5 wiring response for $ws is malformed: $CHECK"
+            continue
+          }
+          case "$CHECK" in
+            pending$'\t'*) note "· managed key pending for $ws" ;;
+            ok$'\t'*) note "✓ channel 5 wiring for $ws → tap ($CHECK)" ;;
+            bypass$'\t'*) bad "✗ channel 5 wiring for $ws bypasses tap: $CHECK" ;;
+            invalid$'\t'*) bad "✗ channel 5 wiring for $ws is invalid: $CHECK" ;;
+            *) bad "✗ channel 5 wiring returned an unknown result for $ws: $CHECK" ;;
+          esac
+        else
+          bad "✗ channel 5 API-key request failed for $ws"
+        fi
       done
     fi
   elif [ -f "$SESSION/llm.disabled" ]; then
@@ -99,13 +143,42 @@ print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"A
     bad "✗ channel 5 has neither a live observer nor an explicit disabled marker"
   fi
 
-  if alive_as "$APID" 'flutter_tools\.snapshot run'; then
-    note "✓ channel 4 Flutter runner alive (PID $APID)"
+  if [ -n "$APP_PROXY_PID" ]; then
+    if alive_as "$APP_PROXY_PID" '/appproxy($| )' && [ "$(lsof -ti ":$APP_PROXY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$APP_PROXY_PID" ]; then
+      note "✓ App API perturbation proxy attributed: :$APP_PROXY_PORT holder == PID $APP_PROXY_PID"
+    else
+      bad "✗ App API perturbation proxy dead, reused, or not the listener"
+    fi
+    [ -s "$APP_PROXY_JOURNAL" ] || bad "✗ App API perturbation journal missing or empty"
+  fi
+
+  if [ -n "$APP_LAUNCH_PID" ]; then
+    if alive_as "$APP_LAUNCH_PID" '/anselm\.app/Contents/MacOS/anselm($| )' && [ "$APP_LAUNCH_PID" = "$APID" ]; then
+      note "✓ channel 4 direct macOS App launch attributed (PID $APP_LAUNCH_PID)"
+    else
+      bad "✗ channel 4 direct App dead, reused, or launch PID differs from manifest App PID"
+    fi
+  elif alive_as "$RUNNER_PID" 'flutter_tools\.snapshot run'; then
+    note "✓ channel 4 Flutter runner alive (PID $RUNNER_PID)"
   else
-    bad "✗ channel 4 Flutter runner dead or PID reused"
+    bad "✗ channel 4 Flutter runner/direct App dead or PID reused (manifest runner [$RUNNER_PID], launch [$APP_LAUNCH_PID])"
+  fi
+  if alive_as "$APID" '/anselm\.app/Contents/MacOS/anselm($| )'; then
+    WINDOW_PID=$(swift -e 'import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let number = w[kCGWindowNumber as String] as? Int ?? -1; if number == target { print(w[kCGWindowOwnerPID as String] ?? ""); exit(0) } }' "$AWID" 2>/dev/null | tr -d '[:space:]')
+    if [ "$WINDOW_PID" = "$APID" ]; then
+      note "✓ channel 4 Flutter app alive and window-owned (PID $APID)"
+    else
+      bad "✗ channel 4 window owner mismatch (window PID [$WINDOW_PID], manifest App PID [$APID])"
+    fi
+  else
+    bad "✗ channel 4 Flutter app dead or PID reused (manifest PID $APID)"
   fi
   [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
-  grep -q 'Flutter run key commands' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log never reached resident app"
+  if [ -n "$APP_LAUNCH_PID" ]; then
+    grep -q '\[conductor\] direct macOS App started' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log has no direct App launch marker"
+  else
+    grep -q 'Flutter run key commands' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log never reached resident app"
+  fi
   if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)' "$SESSION/frontend.log" 2>/dev/null; then
     bad "✗ frontend.log contains an unreviewed Flutter failure"
   fi
@@ -121,9 +194,9 @@ print(next((r.get("baseUrl","") for r in rows if r.get("provider")=="anselm"),"A
     fi
   fi
 
-  if [ -n "$AWID" ] && alive_as "$RPID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
-    note "✓ channel 1 window recorder alive (PID $RPID, Anselm window $AWID)"
-    if [ -s "$RLIFE" ] && python3 - "$RLIFE" "$RPID" <<'PY'
+  if [ -n "$AWID" ] && alive_as "$RECORDER_PID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
+    note "✓ channel 1 window recorder alive (PID $RECORDER_PID, Anselm window $AWID)"
+    if [ -s "$RLIFE" ] && python3 - "$RLIFE" "$RECORDER_PID" <<'PY'
 import datetime
 import json
 import sys
@@ -143,7 +216,7 @@ PY
     fi
   elif [ -n "$AWID" ]; then
     bad "✗ channel 1 recorder is not bound to Anselm window $AWID"
-  elif alive_as "$RPID" 'screencapture.*-v'; then
+  elif alive_as "$RECORDER_PID" 'screencapture.*-v'; then
     bad "✗ channel 1 manifest has no Anselm window ID — desktop-wide recording is not evidence"
   else
     bad "✗ channel 1 recorder dead or PID reused"

@@ -72,7 +72,15 @@ AppShell
 
 若 `ui.dart` 已有语义相同的件，先扩展它；新增原语前在 gallery 覆盖静息、hover、focus、disabled、loading、error、长文案和 reduced motion。
 
+动作进入真实在途时，优先让 `AnButton(busy: true)` 在原按钮几何内替换字形为统一 `AnSpinner`，同时由调用方把
+`onPressed` 置空并换成本地化的进行中文案。busy 不得改变按钮尺寸、边框槽或相邻动作的位置；只有真实在途才可显示，
+结束、失败和取消都必须恢复原动作语义。
+
 就地编辑的提交回调允许返回 `Future`。`AnInlineEdit` 必须等待异步结果后才退出编辑态；失败时保留草稿并经宿主错误钩子进入共享顶带，不能先改本地静态值再等待 PATCH。宿主仍需在失败后重读服务端真相，避免兄弟投影与当前标题分裂。
+
+危险确认区的 subject 是状态身份，不是普通文案：`AnTypeToConfirm` 的 `expected` 变化时必须清空旧草稿并重新上锁，
+不能让上一个对象的精确匹配穿透到新对象。调用方仍需在 workspace、列表或资源代际变化时撤掉旧确认；公共原语负责最后一道
+复用守卫，并以同一 `State` 被复用的 widget regression 锁住。
 
 ## 5. 三岛语法
 

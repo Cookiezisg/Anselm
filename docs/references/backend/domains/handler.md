@@ -42,9 +42,18 @@ Function 每次调用启动隔离进程；Handler 在常驻进程上执行 RPC�
 `required|sensitive|default`。
 
 版本号、revert、per-version env、envfix 与 trim 语义与
-[`function.md`](function.md) 相同。代码/schema Edit 与 Revert 都会重启实例。
+[`function.md`](function.md) 相同。主行/版本事务提交后才开始 env 物化；安装本身
+可取消，但 `syncing`、`ready|failed` 终态写回、生命周期通知、relation 投影以及
+代码/schema Edit 与 Revert 所需的实例重启都使用带 workspace 的 detached context，
+避免客户端断连留下永久 `syncing`、旧实例或半完成投影。代码/schema Edit 与 Revert
+都会在新环境 ready 后重启实例；若物化失败则停掉旧实例，不用旧 class 继续服务，也不
+从 spawn 路径隐式重复整套安装/修复循环。
 纯 metadata 更新不铸版本、不重启，因此不会无故丢掉内存态。空 ops 表示重建
-active env 并重启；工具结果明确返回 restarted。
+active env，并在环境就绪后尝试重启；只有 resident 确实回到 `running` 才在工具结果
+标记 `restarted`。只有重建最终为 ready 才发 `handler.env_rebuilt`；环境失败时保持
+`env=failed`、`runtime=stopped` 的真实终态，不发成功通知。
+因此对话中“重建/重试失败环境且不改变定义”必须映射为 `edit_handler` 的 `ops: []`，
+而不是 `restart_handler`；后者只重置已经存在的 resident process，不重建或重装环境。
 
 版本单读支持路径内的数字版本号或 opaque `hdv_...` 版本 ID；两种形态都按路径中的
 handler 归属查询，跨 handler 的版本 ID 统一返回 `HANDLER_VERSION_NOT_FOUND`。

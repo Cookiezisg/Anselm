@@ -15,6 +15,7 @@ import '../../../core/ui/an_page.dart';
 import '../../../core/ui/an_state.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/settings_catalog.dart';
+import '../state/api_keys_provider.dart' show voicesProvider;
 import '../state/sandbox_providers.dart'
     show sandboxBootstrapProvider, sandboxEnvsProvider, sandboxRuntimesProvider;
 import '../state/settings_detail_provider.dart';
@@ -94,6 +95,15 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
     ref.invalidate(sandboxEnvsProvider);
   }
 
+  void _refreshModelsKeysProjections() {
+    // Enrollment is initiated from Chat, while the inventory lives in Settings. The settings
+    // ocean stays mounted in the shell, so reopening Models & keys must cross-check the durable
+    // voice inventory instead of showing the pre-enrollment AsyncData forever.
+    // 登记从 Chat 发起、库存却住在 Settings。设置海洋在壳中常驻,重新打开模型与密钥必须重读权威库存,
+    // 不能让登记前的 AsyncData 永远留在屏幕上。
+    ref.invalidate(voicesProvider);
+  }
+
   /// The pushed-in detail's crumb segment (WRK-062 §1 third level). 推入级面包屑段。
   String? _detailLabel(Translations t, SettingsDetail? d) => switch (d?.kind) {
     'addKey' => t.settings.keys.addKey,
@@ -143,6 +153,8 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
           _refreshSandboxProjections();
         } else if (next == SettingsPanel.storage) {
           ref.invalidate(sandboxDiskProvider);
+        } else if (next == SettingsPanel.modelsKeys) {
+          _refreshModelsKeysProjections();
         }
         ref.read(settingsDetailProvider.notifier).pop();
         // No-op in a safe phase (runs inline); only defers if a frame is in flight — jumpTo notifies
@@ -160,6 +172,9 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
         // widget itself remains mounted. 离开再进入设置也是一次打开边界,即使海洋 widget 没卸载。
         if (ref.read(settingsPanelProvider) == SettingsPanel.sandbox) {
           _refreshSandboxProjections();
+        } else if (ref.read(settingsPanelProvider) ==
+            SettingsPanel.modelsKeys) {
+          _refreshModelsKeysProjections();
         } else {
           ref.invalidate(sandboxDiskProvider);
         }

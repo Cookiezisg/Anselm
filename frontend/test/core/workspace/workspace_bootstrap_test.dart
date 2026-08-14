@@ -3,6 +3,7 @@ import 'dart:typed_data';
 
 import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/runtime.dart';
+import 'package:anselm/core/media/media_source.dart';
 import 'package:anselm/core/workspace/workspace_bootstrap.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -128,6 +129,49 @@ void main() {
       expect(c.read(activeWorkspaceProvider), 'ws_new');
       expect(c.read(activeWorkspaceNameProvider), 'Fresh');
       expect(c.read(workspaceBootstrapProvider).value, 'ws_new');
+    },
+  );
+
+  test(
+    'cold-start provisioning invalidates a pre-provision read-aloud absence',
+    () async {
+      var provisioned = false;
+      var availabilityCalls = 0;
+      final c = _container((o) {
+        if (o.method == 'POST' && o.uri.path.endsWith(':activate')) {
+          return _json({'data': <String, dynamic>{}});
+        }
+        if (o.method == 'POST' && o.uri.path.endsWith(':provision')) {
+          provisioned = true;
+          return _json({
+            'data': {'provisioned': true},
+          });
+        }
+        if (o.method == 'GET' &&
+            o.uri.path.endsWith('/read-aloud/availability')) {
+          availabilityCalls++;
+          return _json({
+            'data': {'available': provisioned},
+          });
+        }
+        return _json({
+          'data': [_ws('ws_1', 'Personal')],
+        });
+      });
+
+      await c.read(workspaceBootstrapProvider.future);
+      expect(
+        await c.read(readAloudAvailableProvider.future),
+        isTrue,
+        reason:
+            'the post-provision probe must see the newly seeded speech route',
+      );
+      expect(
+        availabilityCalls,
+        greaterThanOrEqualTo(2),
+        reason:
+            'cold start first probes before provisioning, then re-probes after it',
+      );
     },
   );
 }

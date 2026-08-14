@@ -883,10 +883,10 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     // 线程当前的模型**刻意不在此读**。那会多一次订阅——订 `conversationHeaderProvider`,而它正是 CH-b 已经查明
     // 「没有 `retry:` 覆盖」的那个 provider:一次失败的读会退避重试、在一个已经优雅降级的行后面永远轮询。它换来的
     // 只是某个模型名旁边的一个勾;而菜单第一行本就写着「重试」、意思是「用这条线程现有的设置」,两种情形下都诚实。
-    final caps = widget.canRetry
-        ? (ref.watch(modelCapabilitiesProvider).value ??
-              const <ModelCapability>[])
-        : const <ModelCapability>[];
+    final capsState = widget.canRetry
+        ? ref.watch(modelCapabilitiesProvider)
+        : null;
+    final caps = capsState?.value ?? const <ModelCapability>[];
     return Padding(
       padding: const EdgeInsets.only(top: AnSpace.s4),
       child: TurnActions(
@@ -896,6 +896,11 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         onFork: _fork,
         onRetry: widget.canRetry ? _retry : null,
         retryCaps: caps,
+        retryCatalogLoading: capsState?.isLoading == true && caps.isEmpty,
+        retryCatalogError: capsState?.hasError == true && caps.isEmpty,
+        onRetryCatalog: capsState == null
+            ? null
+            : () => ref.invalidate(modelCapabilitiesProvider),
         onEdit: widget.canEdit ? _startEdit : null,
         versionIndex: widget.versionIndex,
         versionCount: widget.versionCount,
@@ -1178,7 +1183,8 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     final canRepickModel =
         code == 'LLM_RESOLVE_ERROR' || code == 'LLM_MODEL_NOT_FOUND';
     if (!canRepickModel) return line;
-    final caps = ref.watch(modelCapabilitiesProvider).value ?? const [];
+    final capsState = ref.watch(modelCapabilitiesProvider);
+    final caps = capsState.value ?? const [];
     final override = ref
         .watch(conversationHeaderProvider(widget.conversationId))
         .value
@@ -1190,6 +1196,9 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         chatModelMenu(
           t: t,
           caps: caps,
+          catalogLoading: capsState.isLoading && caps.isEmpty,
+          catalogError: capsState.hasError && caps.isEmpty,
+          onRetryCatalog: () => ref.invalidate(modelCapabilitiesProvider),
           current: override == null
               ? null
               : (apiKeyId: override.apiKeyId, modelId: override.modelId),
@@ -1551,14 +1560,16 @@ class _ReadAloudSlotState extends ConsumerState<_ReadAloudSlot> {
         .watch(attachmentAudioPlaybackProvider)
         .isPlaying(_attachmentId ?? '');
     final t = Translations.of(context);
+    final label = _busy
+        ? t.chat.actions.readAloudPreparing
+        : (playing ? t.chat.actions.readAloudStop : t.chat.actions.readAloud);
     return Padding(
       padding: const EdgeInsets.only(left: AnSpace.s4),
       child: AnButton.iconOnly(
-        playing ? AnIcons.stop : AnIcons.speaker,
+        _busy ? AnIcons.speaker : (playing ? AnIcons.stop : AnIcons.speaker),
         size: AnButtonSize.sm,
-        semanticLabel: playing
-            ? t.chat.actions.readAloudStop
-            : t.chat.actions.readAloud,
+        busy: _busy,
+        semanticLabel: label,
         onPressed: _busy ? null : _readAloud,
       ),
     );

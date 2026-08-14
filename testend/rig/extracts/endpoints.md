@@ -221,7 +221,7 @@ EP | DELETE /api/v1/voices/{id} | voice | 删除已登记音色（网关侧句�
 EP | GET /api/v1/read-aloud/availability | read-aloud | 朗读可用性 `{available}`
 EP | POST /api/v1/read-aloud:read | read-aloud | 合成朗读，返附件引用 + `cached`（不经 LLM）
 EP | GET /api/v1/model-capabilities | model | 模型能力目录（有界不分页）
-EP | GET /api/v1/scenarios | model | 场景枚举（dialogue/utility/agent + image/speech/video）
+EP | GET /api/v1/scenarios | model | 六槽场景枚举（dialogue/utility/agent/image/speech/video，canonical order）
 EP | GET /api/v1/relations | relation | 关系边列表
 EP | GET /api/v1/relations/neighborhood | relation | 某实体邻域子图
 EP | GET /api/v1/relgraph | relation | 全关系图
@@ -245,7 +245,7 @@ EP | GET /api/v1/notifications/unread-count | notification | 未读计数（徽�
 EP | POST /api/v1/notifications/{id}:mark-read | notification | 单条标已读
 EP | POST /api/v1/notifications:mark-all-read | notification | 批量标已读（可选 `{after?,before?}` 半开窗）
 EP | POST /api/v1/notifications:mark-all-unread | notification | 批量标未读（mark-all-read 镜像），204
-EP | POST /api/v1/executions/{id}:triage | aispawn | 按 execId 前缀开 AI 诊断对话，202 返 conversation id
+EP | POST /api/v1/executions/{id}:triage | aispawn | 按 execId 前缀开 AI 诊断对话；body 可省略或传可选 note，202 返 conversation id
 EP | GET /api/v1/messages/stream | stream(SSE) | 聊天消息 SSE 流（open→delta*→close）
 EP | GET /api/v1/entities/stream | stream(SSE) | 实体面板活动 SSE 流（含 ephemeral Signal）
 EP | GET /api/v1/notifications/stream | stream(SSE) | 通知 SSE 流

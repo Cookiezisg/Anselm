@@ -151,3 +151,11 @@ Attachment 是 durable 原件；derivative/perception/speech cache 是可再生�
 Chat 与工具历史中的消费规则见 [`chat.md`](chat.md) 和
 [`messages.md`](messages.md)，受管服务边界见
 [`managed-gateway.md`](../managed-gateway.md)。
+
+朗读命中 `speech_cache` 后仍须验证其 `attachment_id` 指向的原件存在。若已明确返回
+`ATTACHMENT_NOT_FOUND`，服务端先幂等清除这条陈旧映射，再合成并回写新的朗读附件，避免
+唯一键冲突把同一文本永久降级成每次重新计费；普通存储故障不得被误判为附件丢失，也不得
+静默删除缓存映射。
+
+`speech_cache.last_used_at` 是 LRU 的真实排序依据：新行由 `Put` 显式写入当前时间；启动时
+会幂等把旧版本留下的 Go 零时间回填为该行 `created_at`，避免升级后把旧缓存误判为最久未使用。

@@ -245,8 +245,9 @@ class _LimitRowState extends State<_LimitRow> {
         child: AnInput(
           controller: _text,
           mono: true,
+          // Leave editingComplete at Flutter's default: it unfocuses and invokes onSubmitted once.
+          // 不自定义 editingComplete,避免与回车的 onSubmitted 重复提交同一 PATCH。
           onSubmitted: (_) => _commit(),
-          onEditingComplete: _commit,
           // Commit on tap-away too — else typing a value then clicking elsewhere (no Enter) loses it.
           // 点走也提交,否则输入后不按 Enter 直接点别处会丢值。
           onTapOutside: (_) => _commit(),

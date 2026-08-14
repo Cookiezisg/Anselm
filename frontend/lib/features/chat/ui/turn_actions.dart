@@ -56,6 +56,9 @@ class TurnActions extends StatefulWidget {
     this.onFork,
     this.onRetry,
     this.retryCaps = const [],
+    this.retryCatalogLoading = false,
+    this.retryCatalogError = false,
+    this.onRetryCatalog,
     this.onEdit,
     this.versionIndex = 0,
     this.versionCount = 1,
@@ -90,6 +93,12 @@ class TurnActions extends StatefulWidget {
 
   /// The models offered by「换模型重试」— the same capability list the head's picker shows. 换模型重试的可选模型。
   final List<ModelCapability> retryCaps;
+
+  /// The capability read may be loading or failed while the retry action itself remains usable.
+  /// 能力目录可能正在加载或失败,但重试当前线程仍可用。
+  final bool retryCatalogLoading;
+  final bool retryCatalogError;
+  final VoidCallback? onRetryCatalog;
 
   /// Put this turn back into an editable state and resend it as a new version. Null omits the affordance —
   /// only the last user turn can be edit-resent.
@@ -241,6 +250,9 @@ class _TurnActionsState extends State<TurnActions> {
     return chatModelMenu(
       t: t,
       caps: widget.retryCaps,
+      catalogLoading: widget.retryCatalogLoading,
+      catalogError: widget.retryCatalogError,
+      onRetryCatalog: widget.onRetryCatalog,
       current: null,
       includeAuto: false,
       leadingEntries: [

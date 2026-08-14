@@ -137,6 +137,29 @@ void main() {
       );
     });
 
+    testWidgets(
+      'initial quota failure stays on the repair face instead of auto-retrying',
+      (tester) async {
+        final repo = FixtureSettingsRepository()
+          ..failNextQuota = const ApiException(
+            code: 'LLM_AUTH_FAILED',
+            message: 'managed install is no longer valid',
+            httpStatus: 401,
+          );
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+
+        expect(find.text(t.settings.keys.freeRepair), findsOneWidget);
+        expect(find.text(t.settings.keys.freeRepairHint), findsOneWidget);
+        expect(
+          repo.failNextQuota,
+          isNull,
+          reason:
+              'the first read failed; a provider retry would consume another scripted failure',
+        );
+      },
+    );
+
     testWidgets('available=false renders the amber budget banner', (
       tester,
     ) async {
@@ -152,6 +175,43 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text(t.settings.keys.freeUnavailable), findsOneWidget);
     });
+
+    testWidgets(
+      'quota refresh failure drops stale meter and exposes repair CTA',
+      (tester) async {
+        final repo = FixtureSettingsRepository()
+          ..quota = const FreetierQuota(
+            limit: 5000,
+            used: 1200,
+            remaining: 3800,
+            resetAt: '2026-08-01',
+          );
+        await tester.pumpWidget(_host(repo));
+        await tester.pumpAndSettle();
+        repo.failNextQuota = const ApiException(
+          code: 'LLM_PROVIDER_ERROR',
+          message: 'llm provider unavailable',
+          httpStatus: 502,
+        );
+
+        await tester.tap(find.text(t.settings.keys.freeRefresh));
+        await tester.pumpAndSettle();
+
+        expect(
+          find.text(
+            t.settings.keys.freeUsage(
+              used: fmtCompactCount(1200, locale: 'zh-CN'),
+              limit: fmtCompactCount(5000, locale: 'zh-CN'),
+              reset: fmtStamp('2026-08-01'),
+            ),
+          ),
+          findsNothing,
+          reason: 'live read 失败后不能继续显示旧的绿色额度',
+        );
+        expect(find.text(t.settings.keys.freeRepair), findsOneWidget);
+        expect(find.text(t.settings.keys.freeRepairHint), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'quota copy humanizes large counts and ISO reset timestamps in both locales',
@@ -767,6 +827,7 @@ void main() {
         await tester.pumpAndSettle();
 
         expect(find.text(t.settings.keys.anselmAuto), findsOneWidget);
+        expect(find.text(t.settings.keys.anselmAutoDesc), findsOneWidget);
         expect(find.text(t.settings.keys.externalModel), findsOneWidget);
         expect(
           find.text(t.settings.keys.stageCredential),

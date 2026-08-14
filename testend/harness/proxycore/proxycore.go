@@ -48,7 +48,14 @@ func HandlerWithResponseBody(upstream *url.URL, onRequest func(r *http.Request, 
 	if onResponse != nil {
 		proxy.ModifyResponse = func(resp *http.Response) error {
 			onResponse(resp)
-			if onResponseBody != nil && resp.Body != nil {
+			// A 101 body is the live duplex stream after the HTTP upgrade, not a finite
+			// response body. Wrapping it in a read-only witness makes ReverseProxy reject
+			// the upgrade as "non-writable body". WebSocket bytes are witnessed by the
+			// protocol test itself; ordinary responses still use the bounded body witness.
+			// 101 的 body 是升级后的双工活流,不是有限 HTTP 响应体。把它包成只读 witness 会让
+			// ReverseProxy 以「non-writable body」拒绝升级。WebSocket 字节由协议测试本身见证;
+			// 普通响应仍走有界 body witness。
+			if onResponseBody != nil && resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
 				resp.Body = &responseBodyWitness{
 					ReadCloser: resp.Body,
 					complete:   func(body []byte) { onResponseBody(resp, body) },
@@ -58,7 +65,7 @@ func HandlerWithResponseBody(upstream *url.URL, onRequest func(r *http.Request, 
 		}
 	} else if onResponseBody != nil {
 		proxy.ModifyResponse = func(resp *http.Response) error {
-			if resp.Body != nil {
+			if resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
 				resp.Body = &responseBodyWitness{
 					ReadCloser: resp.Body,
 					complete:   func(body []byte) { onResponseBody(resp, body) },

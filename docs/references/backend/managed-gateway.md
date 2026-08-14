@@ -20,6 +20,8 @@ audience: [human, ai]
 
 Anselm 桌面端默认使用受管 `anselm` provider 与逻辑模型 `anselm-auto`。新 workspace 由 Go sidecar best-effort 开通受管 install、创建不可编辑的 managed api-key 行，并只为尚未设置的 scenario 播种默认值。桌面端在首次创建或发现 dialogue 默认尚未落下时，会在释放 Chat 壳前调用既有 `POST /freetier:provision` 做一次前台就绪检查；同一 workspace 的后台 hook 与前台检查由 provisioner 单飞合并，避免首发竞态与重复登记。若 workspace 在异步开通期间被删除，workspace reaper 会先取消并收束该单飞，再删除 workspace 行；晚到的 hook 不得为已删除根登记 install 或写 managed key。
 
+配额是每次从网关读取的 live 视图。网关暂时不可达、响应损坏等上游故障统一为 `LLM_PROVIDER_ERROR`（HTTP 502）；设置页会清掉旧额度并显示可重试的 Repair 入口，而不是把旧的绿色额度继续当成当前真相。请求取消和超时仍分别保留 `CLIENT_CLOSED` / `REQUEST_TIMEOUT` 语义。
+
 用户不需要为默认路径提供 OpenAI、Gemini、Qwen、DeepSeek 或其他 provider key。provider secret 只存在于部署网关，既不进入 Flutter，也不进入主仓 `.env`、数据库、日志或诊断复制。
 
 ## 2. 本仓拥有
@@ -35,6 +37,27 @@ Anselm 桌面端默认使用受管 `anselm` provider 与逻辑模型 `anselm-aut
 | BYOK key 的本地加密存储、probe、能力目录与直连读取 | apikey/model/llm |
 
 Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接调用部署网关。
+
+受管 media staging 使用一个闭合的规范 MIME 集合：`image/jpeg`、`image/png`、`image/webp`、
+`video/mp4`、`audio/wav`、`audio/mpeg`。本地附件元数据可以来自桌面文件选择器，因此可能保留
+标准兼容别名（例如 `audio/x-wav` 或带参数的 `audio/x-wav; charset=binary`）；sidecar 在
+`infra/llm/media.go` 的网关边界将这些 WAV 别名规范化为 `audio/wav`，但不改写本地附件行。
+这样登记音色和其他需要公开 staging lease 的媒体都以网关实际接受的 MIME 发起上传，原始附件
+仍可按用户上传时的元数据读取。
+
+Cloned voice 的本地删除是两段式资源收口：sidecar 先向网关发送 `POST /voices:delete`，body
+为 `{\"voiceId\":\"...\"}`，并携带当前 install 的 `X-Anselm-Install-ID`；网关在 provider 已明确报告
+该 `delete_voice` 目标不存在时也按幂等删除处理，成功返回
+`204 No Content`（无 body）后，sidecar 才删除 workspace 内的本地 voice 指针。网关返回非 2xx
+时，sidecar 将有限的状态/原因保留在 `VOICE_CLONE_FAILED.details.upstream`，本地行保持可重试，
+不得把失败误归为图像生成错误或先删本地行。该边界由
+`backend/internal/infra/llm/voiceclone_test.go` 的真实 HTTP 夹具锁定。
+
+本地指针写入也可能在上游已经成功后暂时失败；这不是把远端资源当作仍存在的理由，而是一个
+必须能重试收敛的半提交状态。下一次删除仍先调用网关，网关对已不存在的精确登记返回同样的
+`204`，随后 sidecar 再次删除本地行。`backend/internal/app/voice/voice_test.go` 的
+`TestDelete_LocalFailureCanConvergeOnRetry` 锁住这一条，防止未来把一次本地写失败误改成永久
+占位或不可重试错误。
 
 ## 3. API Serve 拥有
 

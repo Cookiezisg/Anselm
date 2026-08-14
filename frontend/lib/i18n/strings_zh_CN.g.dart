@@ -137,6 +137,9 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override late final _Translations$chat$toc$zh_CN toc = _Translations$chat$toc$zh_CN._(_root);
 	@override String get landingGreeting => 'What should we dig into?';
 	@override String get modelAuto => 'Auto';
+	@override String get modelCatalogLoading => '正在读取模型能力…';
+	@override String get modelCatalogFailed => '模型能力读取失败';
+	@override String get modelCatalogRetry => '重新读取模型能力';
 	@override String get mentionEntity => 'Mention an entity';
 	@override String get attachFile => 'Attach files';
 	@override String get attachMenuFiles => '选择文件';
@@ -1452,6 +1455,7 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	@override String queueAttachmentsOnly({required Object n}) => '${n} 个附件';
 	@override String get readAloud => '朗读';
 	@override String get readAloudStop => '停止朗读';
+	@override String get readAloudPreparing => '正在准备朗读…';
 	@override String get readAloudFailed => '朗读失败';
 }
 
@@ -1863,6 +1867,7 @@ class _Translations$entities$detail$zh_CN extends Translations$entities$detail$e
 	@override late final _Translations$entities$detail$hero$zh_CN hero = _Translations$entities$detail$hero$zh_CN._(_root);
 	@override late final _Translations$entities$detail$gate$zh_CN gate = _Translations$entities$detail$gate$zh_CN._(_root);
 	@override late final _Translations$entities$detail$codeToggle$zh_CN codeToggle = _Translations$entities$detail$codeToggle$zh_CN._(_root);
+	@override late final _Translations$entities$detail$environment$zh_CN environment = _Translations$entities$detail$environment$zh_CN._(_root);
 	@override late final _Translations$entities$detail$sec$zh_CN sec = _Translations$entities$detail$sec$zh_CN._(_root);
 	@override late final _Translations$entities$detail$card$zh_CN card = _Translations$entities$detail$card$zh_CN._(_root);
 	@override late final _Translations$entities$detail$concurrency$zh_CN concurrency = _Translations$entities$detail$concurrency$zh_CN._(_root);
@@ -2111,7 +2116,13 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String voicesRemaining({required Object n, required Object cap}) => '还能留 ${n} 个(共 ${cap})';
 	@override String get voicesFull => '两个位置都占着了——删掉一个才能腾出地方。';
 	@override String get voicesDelete => '删除';
+	@override String get voicesDeleteTitle => '删除克隆音色';
+	@override String voicesDeleteBody({required Object name}) => '将从受管网关永久删除「${name}」。登记费用不会退回;删除只会腾出一个库存位。';
+	@override String voicesDeleteHint({required Object name}) => '输入「${name}」以确认';
+	@override String get voicesDeleteConfirm => '永久删除';
 	@override String get voicesDeleteFailed => '上游登记没能删掉,音色**保留**了,你可以重试。';
+	@override String get voicesDeleteCommitted => '音色已删除,但库存暂时读不回来。';
+	@override String get voicesDeleteCommittedHint => '重试以确认剩余库存位。';
 	@override String get voicesManagedOnly => '克隆音色属于免费档。';
 	@override String get freeTier => '免费档';
 	@override String get freeTierName => 'Anselm Free · 自动多模态';
@@ -2176,6 +2187,9 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get searchKeyNotProbedHint => '尚未通过探测,不会进入默认候选';
 	@override String get keyOpFailed => '操作失败';
 	@override String get refreshModels => '刷新模型列表';
+	@override String get modelCatalogLoading => '正在读取模型能力…';
+	@override String get modelCatalogFailed => '模型能力读取失败';
+	@override String get modelCatalogFailedHint => '模型列表暂时不可用。请检查连接后重试。';
 	@override String get pickProvider => '选择提供商';
 	@override String get changeProvider => '重新选择';
 	@override String get baseUrlRequiredHint => '自托管服务必填服务地址';
@@ -2187,7 +2201,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get pickerChange => '修改';
 	@override String get pickerClose => '收起';
 	@override String get anselmAuto => 'Anselm Auto';
-	@override String get anselmAutoDesc => '由网关管理路由与推理';
+	@override String get anselmAutoDesc => '网关托管';
 	@override String get externalModel => '外部模型';
 	@override String get externalModelDesc => '选择模型及其已确认的原生设置';
 	@override String get nativeSettings => '高级原生 JSON';
@@ -2749,6 +2763,21 @@ class _Translations$entities$detail$codeToggle$zh_CN extends Translations$entiti
 	@override String get collapse => '收起';
 }
 
+// Path: entities.detail.environment
+class _Translations$entities$detail$environment$zh_CN extends Translations$entities$detail$environment$en {
+	_Translations$entities$detail$environment$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
+
+	final TranslationsZhCn _root; // ignore: unused_field
+
+	// Translations
+	@override String get buildFailed => '环境构建失败';
+	@override String get cancelled => '环境还没准备好，构建就被取消了。请在实体上打开“用 AI 编辑”，重试构建。';
+	@override String get runtimeFailed => 'Python 运行时安装失败。请检查网络或换一个 Python 版本，再从“用 AI 编辑”重试构建。';
+	@override String get dependenciesFailed => '依赖安装失败。请检查包名，再从“用 AI 编辑”重试构建。';
+	@override String get genericFailed => '环境尚未就绪。请打开“用 AI 编辑”重试构建，或查看技术详情。';
+	@override String get technicalDetails => '技术详情';
+}
+
 // Path: entities.detail.sec
 class _Translations$entities$detail$sec$zh_CN extends Translations$entities$detail$sec$en {
 	_Translations$entities$detail$sec$zh_CN._(TranslationsZhCn root) : this._root = root, super.internal(root);
@@ -3259,6 +3288,9 @@ extension on TranslationsZhCn {
 			'chat.toc.loadFailed' => '没能加载完整场次目录。重新打开菜单再试一次。',
 			'chat.landingGreeting' => 'What should we dig into?',
 			'chat.modelAuto' => 'Auto',
+			'chat.modelCatalogLoading' => '正在读取模型能力…',
+			'chat.modelCatalogFailed' => '模型能力读取失败',
+			'chat.modelCatalogRetry' => '重新读取模型能力',
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
 			'chat.attachMenuFiles' => '选择文件',
@@ -3638,11 +3670,11 @@ extension on TranslationsZhCn {
 			'chat.tool.firingMissed' => '错过',
 			'chat.tool.logCount' => ({required Object n}) => '${n} 条',
 			'chat.tool.logCountMore' => ({required Object n}) => '${n}+ 条',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.parkRunCaption' => 'park 在审批节点的 run,头仍为 running',
 			'chat.tool.actReturnValue' => '返回值',
 			'chat.tool.actId' => '活动 ID',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.actTriggerId' => '触发器 ID',
 			'chat.tool.actCreatedAt' => '创建时间',
 			'chat.tool.actFanout' => ({required Object n}) => '扇出 ${n}',
@@ -3873,6 +3905,7 @@ extension on TranslationsZhCn {
 			'chat.actions.queueAttachmentsOnly' => ({required Object n}) => '${n} 个附件',
 			'chat.actions.readAloud' => '朗读',
 			'chat.actions.readAloudStop' => '停止朗读',
+			'chat.actions.readAloudPreparing' => '正在准备朗读…',
 			'chat.actions.readAloudFailed' => '朗读失败',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
@@ -4151,12 +4184,12 @@ extension on TranslationsZhCn {
 			'scheduler.range.d30' => '近 30 天',
 			'scheduler.range.all' => '全部',
 			'scheduler.range.customTitle' => '自定义范围',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.from' => '从',
 			'scheduler.range.to' => '到',
 			'scheduler.range.apply' => '应用',
 			'scheduler.range.endBeforeStart' => '终点早于起点',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.weekdays' => '一 二 三 四 五 六 日',
 			'scheduler.range.monthTitle' => ({required Object y, required Object m}) => '${y} 年 ${m}',
 			'scheduler.range.months' => '1 月,2 月,3 月,4 月,5 月,6 月,7 月,8 月,9 月,10 月,11 月,12 月',
@@ -4391,6 +4424,12 @@ extension on TranslationsZhCn {
 			'entities.detail.gate.instance' => 'instance',
 			'entities.detail.codeToggle.expand' => ({required Object n}) => '展开全部 (${n} 行)',
 			'entities.detail.codeToggle.collapse' => '收起',
+			'entities.detail.environment.buildFailed' => '环境构建失败',
+			'entities.detail.environment.cancelled' => '环境还没准备好，构建就被取消了。请在实体上打开“用 AI 编辑”，重试构建。',
+			'entities.detail.environment.runtimeFailed' => 'Python 运行时安装失败。请检查网络或换一个 Python 版本，再从“用 AI 编辑”重试构建。',
+			'entities.detail.environment.dependenciesFailed' => '依赖安装失败。请检查包名，再从“用 AI 编辑”重试构建。',
+			'entities.detail.environment.genericFailed' => '环境尚未就绪。请打开“用 AI 编辑”重试构建，或查看技术详情。',
+			'entities.detail.environment.technicalDetails' => '技术详情',
 			'entities.detail.sec.code' => '代码',
 			'entities.detail.sec.input' => '输入',
 			'entities.detail.sec.output' => '输出',
@@ -4659,6 +4698,8 @@ extension on TranslationsZhCn {
 			'entities.val.no' => '否',
 			'entities.overview.title' => '总览',
 			'entities.overview.accessory' => '配件',
+			_ => null,
+		} ?? switch (path) {
 			'entities.overview.graphHead' => '关系图',
 			'entities.overview.recentHead' => '最近更新',
 			'entities.graph.showProvenance' => '显示溯源',
@@ -4669,8 +4710,6 @@ extension on TranslationsZhCn {
 			'entities.graph.legend' => '类型',
 			'entities.graph.back' => '返回总览',
 			'entities.graph.selectHint' => '选择一个节点查看其关系。',
-			_ => null,
-		} ?? switch (path) {
 			'entities.graph.verb.equip' => '装备了',
 			'entities.graph.verb.link' => '链接了',
 			'entities.graph.verb.create' => '创建了',
@@ -4916,7 +4955,13 @@ extension on TranslationsZhCn {
 			'settings.keys.voicesRemaining' => ({required Object n, required Object cap}) => '还能留 ${n} 个(共 ${cap})',
 			'settings.keys.voicesFull' => '两个位置都占着了——删掉一个才能腾出地方。',
 			'settings.keys.voicesDelete' => '删除',
+			'settings.keys.voicesDeleteTitle' => '删除克隆音色',
+			'settings.keys.voicesDeleteBody' => ({required Object name}) => '将从受管网关永久删除「${name}」。登记费用不会退回;删除只会腾出一个库存位。',
+			'settings.keys.voicesDeleteHint' => ({required Object name}) => '输入「${name}」以确认',
+			'settings.keys.voicesDeleteConfirm' => '永久删除',
 			'settings.keys.voicesDeleteFailed' => '上游登记没能删掉,音色**保留**了,你可以重试。',
+			'settings.keys.voicesDeleteCommitted' => '音色已删除,但库存暂时读不回来。',
+			'settings.keys.voicesDeleteCommittedHint' => '重试以确认剩余库存位。',
 			'settings.keys.voicesManagedOnly' => '克隆音色属于免费档。',
 			'settings.keys.freeTier' => '免费档',
 			'settings.keys.freeTierName' => 'Anselm Free · 自动多模态',
@@ -4981,6 +5026,9 @@ extension on TranslationsZhCn {
 			'settings.keys.searchKeyNotProbedHint' => '尚未通过探测,不会进入默认候选',
 			'settings.keys.keyOpFailed' => '操作失败',
 			'settings.keys.refreshModels' => '刷新模型列表',
+			'settings.keys.modelCatalogLoading' => '正在读取模型能力…',
+			'settings.keys.modelCatalogFailed' => '模型能力读取失败',
+			'settings.keys.modelCatalogFailedHint' => '模型列表暂时不可用。请检查连接后重试。',
 			'settings.keys.pickProvider' => '选择提供商',
 			'settings.keys.changeProvider' => '重新选择',
 			'settings.keys.baseUrlRequiredHint' => '自托管服务必填服务地址',
@@ -4992,7 +5040,7 @@ extension on TranslationsZhCn {
 			'settings.keys.pickerChange' => '修改',
 			'settings.keys.pickerClose' => '收起',
 			'settings.keys.anselmAuto' => 'Anselm Auto',
-			'settings.keys.anselmAutoDesc' => '由网关管理路由与推理',
+			'settings.keys.anselmAutoDesc' => '网关托管',
 			'settings.keys.externalModel' => '外部模型',
 			'settings.keys.externalModelDesc' => '选择模型及其已确认的原生设置',
 			'settings.keys.nativeSettings' => '高级原生 JSON',
@@ -5164,6 +5212,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.missingEnv' => ({required Object names}) => '缺少必填环境变量:${names}',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
 			'settings.mcp.tabTools' => '工具',
@@ -5183,8 +5233,6 @@ extension on TranslationsZhCn {
 			'settings.storage.revealFinder' => '在访达中显示',
 			'settings.storage.diskUsage' => '磁盘占用',
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
-			_ => null,
-		} ?? switch (path) {
 			'settings.storage.diskLoadFailed' => '无法读取沙箱磁盘占用',
 			'settings.storage.openLogs' => '打开日志文件夹',
 			'settings.storage.retention' => 'Run 历史保留',

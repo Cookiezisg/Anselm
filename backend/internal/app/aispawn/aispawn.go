@@ -109,7 +109,11 @@ const iterateSteer = "You are helping the user iterate on the Anselm entity they
 	"changed. Once the user gives a concrete change, call the matching edit_* tool (edit_function / " +
 	"edit_handler / edit_agent / edit_workflow / edit_trigger / edit_control / edit_approval / " +
 	"edit_document) with the exact target id supplied below. The matching edit takes effect " +
-	"IMMEDIATELY; for any versioned full-replacement edit, never send a delta: first copy every " +
+	"IMMEDIATELY. For function or handler environment recovery, if the user asks to rebuild or " +
+	"retry a failed environment while keeping the definition unchanged, call the matching edit tool " +
+	"with exactly ops: [] (no new version); for a handler, never substitute restart_handler because it " +
+	"only resets a resident process and does not rebuild or reinstall an environment. For any " +
+	"versioned full-replacement edit, never send a delta: first copy every " +
 	"required field from the current definition, including fields the user did not change. For " +
 	"edit_approval specifically, the first call must include approvalId, inputs, template, " +
 	"allowReason, timeout, timeoutBehavior, and a non-empty changeReason. If any required value is " +
@@ -138,7 +142,12 @@ const triageSteer = "You are helping the user diagnose a Anselm execution. The e
 	"If you can fix it, call the matching edit_* tool — the edit takes effect IMMEDIATELY as a new " +
 	"active version (there is no pending/review gate; the user reverts it with revert_* if needed). " +
 	"Note this goes LIVE: editing an ACTIVE workflow changes the running graph at once. State the fix " +
-	"and that it is now live in your summary. Do NOT auto-rerun anything; do NOT create new entities."
+	"and that it is now live in your summary. Preserve opaque identifiers exactly as supplied in the " +
+	"execution record; never truncate, invent, or turn an identifier into a prose fragment such as " +
+	"function_missing. If you refer to a missing object generically, say the missing function and include " +
+	"the exact identifier separately. In Markdown, every code span must use one matched pair of backticks. " +
+	"Before sending the final answer, proofread the Markdown and grammar for balanced code spans, exact " +
+	"identifiers, and natural wording. Do NOT auto-rerun anything; do NOT create new entities."
 
 // Iterate opens an AI working conversation to edit one entity: the entity is @-mentioned into the
 // first message (its current definition frozen in by the mention resolver) and the LLM is steered

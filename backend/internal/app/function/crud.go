@@ -149,10 +149,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*functiondomain.F
 	if err := s.repo.CreateWithVersion(ctx, f, v); err != nil {
 		return nil, nil, fmt.Errorf("functionapp.Create: %w", err)
 	}
-	s.publish(ctx, "created", fnID, map[string]any{"versionId": versionID, "version": 1, "name": f.Name})
+	durableCtx := s.durableContext(ctx)
+	s.publish(durableCtx, "created", fnID, map[string]any{"versionId": versionID, "version": 1, "name": f.Name})
 
 	s.ensureEnv(ctx, v, in.Progress) // builds env + AI dep-fix loop; writes status/deps back onto v
-	s.syncBuiltEdge(ctx, fnID, v.BuiltInConversationID)
+	s.syncBuiltEdge(durableCtx, fnID, v.BuiltInConversationID)
 
 	f.ActiveVersion = v
 	return f, v, nil
@@ -190,8 +191,10 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 		if err != nil {
 			return nil, fmt.Errorf("functionapp.Edit: %w", err)
 		}
-		s.ensureEnv(ctx, active, in.Progress)
-		s.publish(ctx, "env_rebuilt", in.ID, map[string]any{"versionId": active.ID, "name": f.Name})
+		ready, _ := s.ensureEnv(ctx, active, in.Progress)
+		if ready {
+			s.publish(ctx, "env_rebuilt", in.ID, map[string]any{"versionId": active.ID, "name": f.Name})
+		}
 		return active, nil
 	}
 
@@ -223,15 +226,16 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*functiondomain.Versi
 	if err := s.repo.SaveVersionAndActivate(ctx, v, f); err != nil {
 		return nil, fmt.Errorf("functionapp.Edit: %w", err)
 	}
+	durableCtx := s.durableContext(ctx)
 	trimmedEnvs, err := s.repo.TrimOldestVersions(ctx, in.ID, functiondomain.VersionCap)
 	if err != nil {
 		s.log.Warn("functionapp.Edit: trim versions failed", zap.String("functionId", in.ID), zap.Error(err))
 	}
-	s.reclaimTrimmedEnvs(ctx, in.ID, trimmedEnvs)
-	s.publish(ctx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN, "name": f.Name})
+	s.reclaimTrimmedEnvs(durableCtx, in.ID, trimmedEnvs)
+	s.publish(durableCtx, "edited", in.ID, map[string]any{"versionId": versionID, "version": nextN, "name": f.Name})
 
 	s.ensureEnv(ctx, v, in.Progress)
-	s.syncEditedEdge(ctx, in.ID)
+	s.syncEditedEdge(durableCtx, in.ID)
 	return v, nil
 }
 
@@ -249,9 +253,10 @@ func (s *Service) Revert(ctx context.Context, id string, targetVersion int) (*fu
 	if err := s.repo.SetActiveVersion(ctx, id, target.ID); err != nil {
 		return nil, fmt.Errorf("functionapp.Revert: %w", err)
 	}
-	f, _ := s.repo.GetFunction(ctx, id)
-	s.publish(ctx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfFunction(f)})
-	s.syncEditedEdge(ctx, id)
+	durableCtx := s.durableContext(ctx)
+	f, _ := s.repo.GetFunction(durableCtx, id)
+	s.publish(durableCtx, "reverted", id, map[string]any{"versionId": target.ID, "version": targetVersion, "name": nameOfFunction(f)})
+	s.syncEditedEdge(durableCtx, id)
 	return target, nil
 }
 
@@ -276,7 +281,7 @@ func (s *Service) UpdateMeta(ctx context.Context, in UpdateMetaInput) (*function
 	if err := s.repo.SaveFunction(ctx, f); err != nil {
 		return nil, fmt.Errorf("functionapp.UpdateMeta: %w", err)
 	}
-	s.publish(ctx, "updated", f.ID, map[string]any{"name": f.Name})
+	s.publish(s.durableContext(ctx), "updated", f.ID, map[string]any{"name": f.Name})
 	return f, nil
 }
 
@@ -288,11 +293,12 @@ func (s *Service) Delete(ctx context.Context, id string) error {
 	if err := s.repo.DeleteFunction(ctx, id); err != nil {
 		return fmt.Errorf("functionapp.Delete: %w", err)
 	}
-	if err := s.runner.Destroy(ctx, id); err != nil {
+	durableCtx := s.durableContext(ctx)
+	if err := s.runner.Destroy(durableCtx, id); err != nil {
 		s.log.Warn("functionapp.Delete: sandbox destroy failed (best-effort)", zap.String("functionId", id), zap.Error(err))
 	}
-	s.publish(ctx, "deleted", id, map[string]any{"name": nameOfFunction(f)})
-	s.purgeRelations(ctx, id)
+	s.publish(durableCtx, "deleted", id, map[string]any{"name": nameOfFunction(f)})
+	s.purgeRelations(durableCtx, id)
 	return nil
 }
 

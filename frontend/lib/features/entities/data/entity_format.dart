@@ -13,6 +13,27 @@ import '../../../core/contract/entities/control.dart';
 import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 
+/// User-facing categories for environment build failures. The backend error is retained for
+/// technical details, but the primary surface must never make a raw exception the user's next step.
+/// 环境构建失败的用户分类。后端原错保留给技术详情，主界面绝不把原始异常当成下一步。
+enum EnvironmentErrorKind { cancelled, runtime, dependencies, generic }
+
+EnvironmentErrorKind environmentErrorKind(String? raw) {
+  final text = raw?.trim().toLowerCase() ?? '';
+  if (text.contains('context canceled') || text.contains('context cancelled')) {
+    return EnvironmentErrorKind.cancelled;
+  }
+  if (text.contains('runtime install failed') ||
+      text.contains('ensure runtime') ||
+      text.contains('python runtime')) {
+    return EnvironmentErrorKind.runtime;
+  }
+  if (text.contains('dependency') || text.contains('pip install')) {
+    return EnvironmentErrorKind.dependencies;
+  }
+  return EnvironmentErrorKind.generic;
+}
+
 /// Pure formatting helpers shared by the detail state + UI (no widgets, no Flutter — lives in data so
 /// both layers may import it). 纯格式化助手(无 widget,放 data 供 state+ui 共用)。
 

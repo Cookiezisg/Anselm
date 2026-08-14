@@ -34,8 +34,14 @@ audience: [human, ai]
 Models & Keys 的受管免费档配额行将已用量、上限和重置时间格式化为当前 locale 的人类可读
 紧凑值；不得把原始大整数或 ISO-8601 字符串直接暴露给用户。接口仍保存原始 quota 数值和
 时间戳，格式化只发生在显示边界。场景默认的 utility、agent、image、speech、video 在能力
-目录暂空时仍保留清除入口，保证失效默认可自救；dialogue 不提供清除入口，因为清除会让
-Chat 无法启动。
+目录确认返回空数组时仍保留清除入口，保证失效默认可自救；dialogue 不提供清除入口，因为
+清除会让 Chat 无法启动。模型能力目录本身必须区分 loading、读取失败和成功但为空：只有成功
+返回 `data: []` 才能进入「没有可用模型」引导；已有目录时刷新失败继续展示 last-good 目录，
+没有旧目录时显示可读错误与单一 Retry，不得把网络/后端故障伪装成没有 key。
+
+受管 `Anselm Auto` 选择器的二级文案是短标签：英文为 `Gateway-managed`，中文为「网关托管」。
+它必须在默认单行轨道内完整可读，不以省略号隐藏产品模式的身份；路由与推理的详细说明属于帮助/文档
+层，不塞进窄的选择行。
 
 左岛支持面板级和静态设置项级搜索。`settingsSearchIndex` 与页面内 `SettingsAnchor` 双向门禁，确保搜索结果一定有可滚到的真实控件。
 
@@ -63,9 +69,10 @@ Chat 无法启动。
 - Memory 名册还必须订阅 notifications 流上的 durable `memory.created/updated/deleted`，用 REST 重读名册作为真相；同一条流的 410 resync 也必须重读。对已经落定的名册要就地替换 `AsyncData`，不先让整个 provider 重新构建出加载间隙；连续信号按代数丢弃旧响应。这样 Agent 或另一客户端改动记忆时，已打开的设置页不会静默保留旧描述；pin 回声的歧义由整表重读安全吸收。已打开的 Memory 详情也必须以落定名册确认存在：对象从名册消失时下一帧回到名册并给出“已删除/名册已刷新”反馈，loading/error 不得误驱逐或把旧表单当成事实。
 - MCP `mcp.json` 导入面使用完整的设置阅读列，JSON 粘贴区固定为 `AnSize.jsonViewport` 并在自身内部滚动；合法的长配置不能把表单变成窄高长条，也不能把 Import/Cancel 推出视口。导入需要物化运行时或建立连接时，提交按钮显示 spinner 与“导入中”并锁住重复提交；完成后以服务端返回的 imported/skipped 计数反馈，解析错误或 `MCP_IMPORT_INVALID` 留在当前表单且不改名册，提示必须以完整可见的短句告诉用户补上非空的 `mcpServers` 对象；`MCP_IMPORT_TOO_LARGE` 同样显示完整的尺寸修复提示。
 - MCP 详情的 Call history 读取 `data.calls` 与同一 `data` 下的 `aggregates` sidecar；聚合与当前过滤集的真实 ok/failed 数一致，列表行只显示工具、触发来源和耗时，完整 logs 通过单条调用详情读取，不能把缺失的聚合默认为成功或空记录。历史行在固定高的详情 pane 内通过滚动视口承载，不能因调用数量增长产生 Flutter overflow。ServerStatus 的 `lastError` 保留为历史诊断，但只有当前 `failed`/`degraded` 才投影为红色错误条；恢复到 `ready` 后撤掉旧错误，避免「已恢复」与「仍报错」同屏。
-- Cloned voices 是受管档的持久库存：列表与剩余槽位必须来自同一次 `GET /voices` 权威重读；读取失败显示错误态与重试，不得伪装成「暂无音色」。
+- Cloned voices 是受管档的持久库存：列表与剩余槽位必须来自同一次 `GET /voices` 权威重读；读取失败显示错误态与重试，不得伪装成「暂无音色」。即使库存为空，也要展示 `remaining/capacity` 算术，不能让 settled-empty 遮住库存上限。Settings 海洋跨 workspace 常驻，故 `activeWorkspaceProvider` 是库存 provider 的代际边界：切换后旧 workspace 的音色行必须立即消失，新的 `GET /voices` 未落定期间显示 loading，不能把旧列表穿透到新 workspace；同一边界也必须清掉旧 workspace 的确认意图，但不能把真实在途删除伪装成已结束：操作保持单飞直到原请求结算，旧异步完成不得回写新 workspace 或在切回时复活破坏性确认。删除与其后的权威 `GET /voices` 都固定使用发起删除时的 workspace header，避免热切换竞态串域。Chat 中的登记会改变这份持久库存；由于 Settings 海洋可能仍挂在壳的常驻 `IndexedStack` 中，进入 Models & keys 或离开后重新进入 Settings 必须失效 `voicesProvider` 并重读权威库存，不能把登记前的 `AsyncData` 继续显示。删除是上游持久登记的破坏性动作：行级危险区必须先要求精确输入音色名，明确费用不会退回、只恢复一个库存位；取消不发请求，确认后服务端先删上游再删本地行，失败时保留行并给出可重试反馈。若 DELETE 已成功但紧随其后的库存重读失败，旧行不得继续显示或再次提供删除入口，界面必须明确“删除已提交、库存待刷新”并只提供 Retry；Retry 成功后才恢复服务端确认的行与库存算术。
+- Advanced limits 是机器级单一配置：页面由 `GET /limits/schema` 的字段元数据驱动、由 `GET /limits` 水化具体值；单字段修改使用 dotted key 对应的部分嵌套 PATCH。输入框按回车只提交一次并以权威 GET 收敛，点按移出也提交一次；Reset all 必须先确认，成功后重新读取全部服务端默认值，不能由前端猜默认或留下重复写入。
 - master key 由系统 secure storage 管理；旧安装不能在缺 key 时静默铸新钥覆盖既有密文，详见 [`ADR 0008`](../../../decisions/0008-master-key-keychain.md)。
-- 危险删除与出厂重置使用精确 type-to-confirm；数据库 `VACUUM` 不删业务行，不伪装成危险删除。
+- 危险删除与出厂重置使用精确 type-to-confirm；确认输入框填满危险区可用宽度，长对象名不能被输入控件最小宽截断；数据库 `VACUUM` 不删业务行，不伪装成危险删除。
 - 更新检查使用独立外网 client，不携带 loopback bearer 或 workspace header。
 
 ## 4. 热切换与全局能力

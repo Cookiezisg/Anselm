@@ -7,6 +7,8 @@ import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/media/media_source.dart';
+import 'package:anselm/core/net/api_client.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/core/ui/ui.dart';
@@ -264,6 +266,39 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
   }
 }
 
+class _DelayedReadAloudSource implements MediaSource {
+  final pending = Completer<ReadAloudResult>();
+  var readCalls = 0;
+
+  @override
+  Future<bool> readAloudAvailable() async => true;
+
+  @override
+  Future<ReadAloudResult> readAloud(String text, {String? voice}) {
+    readCalls++;
+    return pending.future;
+  }
+
+  @override
+  Future<AttachmentMeta> meta(String id) => throw UnimplementedError();
+
+  @override
+  Future<List<int>> bytes(String id) => throw UnimplementedError();
+
+  @override
+  NativeFetchTarget nativeTarget(String id) => const NativeFetchTarget(
+    uri: 'http://127.0.0.1/fixture-audio',
+    headers: {},
+  );
+
+  @override
+  Future<AttachmentMeta> upload({
+    required List<int> bytes,
+    required String filename,
+    required String mimeType,
+  }) => throw UnimplementedError();
+}
+
 class _OfflineAttachmentRepository extends FixtureChatRepository {
   _OfflineAttachmentRepository({
     required super.conversations,
@@ -295,6 +330,79 @@ class _OfflineAttachmentRepository extends FixtureChatRepository {
 
 void main() {
   tearDown(() => TranscriptProbe.onBuild = null);
+
+  testWidgets(
+    'read-aloud synthesis exposes a stable preparation state and blocks repeats',
+    (tester) async {
+      final repo = _repo(
+        messages: {
+          'cv_1': [
+            _turn(
+              'msg_a',
+              'assistant',
+              blocks: [_blk('b_a', 'text', 'A reply worth hearing.')],
+            ),
+          ],
+        },
+      );
+      final source = _DelayedReadAloudSource();
+      final driver = _FakeAudioDriver();
+      repo.attachmentMetas['att_read_aloud'] = const AttachmentMeta(
+        id: 'att_read_aloud',
+        filename: 'read-aloud.wav',
+        mimeType: 'audio/wav',
+        sizeBytes: 1,
+        kind: 'audio',
+      );
+      await tester.pumpWidget(
+        _host(
+          repo,
+          overrides: [
+            mediaSourceProvider.overrideWithValue(source),
+            attachmentAudioDriverFactoryProvider.overrideWithValue(
+              () => driver,
+            ),
+          ],
+        ),
+      );
+      await tester.pump();
+      await _settle(tester);
+
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+      final ready = find.byTooltip(t.chat.actions.readAloud);
+      expect(ready, findsOneWidget);
+      final restingSize = tester.getSize(ready);
+      final restingCenter = tester.getCenter(ready);
+
+      await tester.tap(ready);
+      await tester.pump();
+
+      final preparing = find.byTooltip(t.chat.actions.readAloudPreparing);
+      expect(preparing, findsOneWidget);
+      expect(find.byType(AnSpinner), findsOneWidget);
+      expect(source.readCalls, 1);
+      expect(tester.getSize(preparing), restingSize);
+      expect(tester.getCenter(preparing), restingCenter);
+
+      // The busy button is inert, so a second physical tap cannot start another synthesis.
+      // 忙态按钮惰性，第二次真实点击不能再起一条合成请求。
+      await tester.tap(preparing, warnIfMissed: false);
+      expect(source.readCalls, 1);
+
+      source.pending.complete(
+        const ReadAloudResult(
+          attachmentId: 'att_read_aloud',
+          mimeType: 'audio/wav',
+        ),
+      );
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 20));
+      expect(find.byTooltip(t.chat.actions.readAloudStop), findsOneWidget);
+      expect(find.byType(AnSpinner), findsNothing);
+    },
+  );
 
   testWidgets('hydrated history dispatches blocks to the locked modules', (
     tester,

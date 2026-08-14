@@ -168,6 +168,23 @@ void main() {
     expect(container.read(selectedOceanProvider), OceanKind.settings);
     expect(container.read(settingsPanelProvider), SettingsPanel.workspaces);
     expect(container.read(settingsDetailProvider)?.kind, 'addWorkspace');
+
+    // The sibling command must open the Workspaces roster, not merely switch to the Settings ocean
+    // while leaving the previously selected panel visible.
+    // 兄弟命令必须打开 Workspaces 名册,不能只切 Settings 海洋却把原面板留在屏幕上。
+    await tester.tap(find.byType(AnWorkspaceButton));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.text(
+        Translations.of(
+          tester.element(find.byType(AppShell)),
+        ).shell.workspaceSettings,
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(container.read(selectedOceanProvider), OceanKind.settings);
+    expect(container.read(settingsPanelProvider), SettingsPanel.workspaces);
+    expect(container.read(settingsDetailProvider), isNull);
   });
 
   // WRK-083 L1 (the residual) — the right island's chat face REMEMBERS the last conversation so the
