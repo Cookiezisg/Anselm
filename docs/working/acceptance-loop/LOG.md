@@ -10,6 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-17 17:18 · 批次三十六提交完成，EP-251 解锁
+
+- 批次三十六在 EP-250 后累计 `51/50`，最终源码已通过根门禁、非缓存全量 Go、完整 testend 和封口审计；本批提交为 `117e2567`（42 files changed），提交后工作树干净。
+- formal ledger/COVERAGE/anchors/alarms 保持 `1945 / 848 rows·382 carried·0 tombstones / 10/10 / clean`；下一原子前线正式解锁为 EP-251 `GET /api/v1/notifications/stream`。P12 的 400+ Journey 扩写仍推迟二期。
+
 ## 2026-08-17 17:15 · 批次三十六统一门禁、最终 testend 与 S6 修复收口
 
 - 批次三十六在 EP-250 后为 `51/50`。最终源码上的根 `make verify` 第二次全绿（backend/frontend/docs/demo）；随后非缓存 `mise exec -- go test -count=1 -timeout 20m ./...` 全绿，完整 `make -C backend testend` 通过，`testend/scenarios` 实际耗时 `294.064s`。

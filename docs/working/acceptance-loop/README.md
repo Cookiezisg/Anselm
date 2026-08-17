@@ -311,7 +311,7 @@ EP-250 `GET /api/v1/entities/stream` 已在当前源码、真实 Flutter macOS A
 
 本轮本地验证：`entitystream/function/handlers/response/router` 定向 Go tests、`go test ./cmd/measure ./cmd/ssetap`、rig Python `unittest` `42` 项、ffprobe/抽帧、PNG `measure diff`、SSE 协议矩阵、SQLite/REST 证据、frontend/backend/LLM/SSE journal、`anchors.py check` `10/10`、alarms 与 `gen_coverage.py --check` 全通过。批次三十六从 `46/50` 跨到 `51/50` 后，根 `make verify` 在最终源码上再次全绿（backend/frontend/docs/demo），非缓存 `go test -count=1 -timeout 20m ./...` 全绿，完整 `make -C backend testend` 通过（`testend/scenarios` `294.064s`）。
 
-门禁冻结期间发现并修复一条真实 S6 违规：EP-244 为 `POST /notifications/unread-count` 补的 405 分支曾直接写 `responsehttpapi.Error`；现增加 `KindMethodNotAllowed` / `ErrMethodNotAllowed`，handler 与 ServeMux 405 均经 `FromDomainError`，保留 `Allow` header，并同步 `error-codes.md` 与映射回归。修复后的 focused Go、全量 Go、根门禁和完整 testend 均已重跑通过。收台审计确认本轮 conductor-owned 进程与监听端口为零，并清理了明确归属的陈旧 EP-208 fixture；本批提交前只剩工作树归属审计和提交动作。下一原子前线为 EP-251 `GET /api/v1/notifications/stream`，必须在本批提交完成后继续。P12 的 400+ Journey 扩写继续按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源。
+门禁冻结期间发现并修复一条真实 S6 违规：EP-244 为 `POST /notifications/unread-count` 补的 405 分支曾直接写 `responsehttpapi.Error`；现增加 `KindMethodNotAllowed` / `ErrMethodNotAllowed`，handler 与 ServeMux 405 均经 `FromDomainError`，保留 `Allow` header，并同步 `error-codes.md` 与映射回归。修复后的 focused Go、全量 Go、根门禁和完整 testend 均已重跑通过。收台审计确认本轮 conductor-owned 进程与监听端口为零，并清理了明确归属的陈旧 EP-208 fixture；本批已提交为 `117e2567`，提交后工作树干净。下一原子前线为 EP-251 `GET /api/v1/notifications/stream`，现已解锁。P12 的 400+ Journey 扩写继续按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源。
 
 #### 19:44 正式台架重启前诊断收口与录像链复核
 
