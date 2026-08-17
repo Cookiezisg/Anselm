@@ -13,17 +13,15 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-14 15:10）
+## 当前前线覆盖声明（2026-08-17 12:32）
 
-EP-225 `GET /api/v1/relations` 已在真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成。session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260814-142141`，录屏 `2784x1808 / 60fps / 745.135000s` 可读。真实 Chat 按名称找到临时 agent，再调用关系查询一次；工具卡显示 `3 edges`，回答表格逐条展示三个 `agent → function` 的 `equip` 关系、方向、verb 和 endpoint 名称。
+EP-239 `GET /api/v1/retention` 已在真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成五级验收。正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-122156-ep239`，录屏 `125.515000s / 2784x1808 / 60fps / 7056 frames`；EP-230–EP-238 与 EP-220 保持五格绿，不删除、不重跑。
 
-直接 REST 复核确认分页第一页两条、顶层 `nextCursor` 续页一条、目标过滤一条；不完整过滤返回 `400 REL_INCOMPLETE_FILTER`，未知 edge kind 返回 `400 REL_INVALID_KIND`。收台后的 agent/functions 读取均为 `404`，关系列表为空且 `hasMore=false`，名称搜索无残留。初次 shell 误读 `meta.nextCursor` 已纠正，不计入产品证据。
+真实产品路径为 Settings → System → Storage & logs：App 从权威 `GET /api/v1/retention` 渲染 `90 days`，显示 `This machine` 和 retention/统计窗口语义。Computer Use 打开下拉但不改值，录屏看到完整四选项 `30 days / 90 days / 180 days / Keep forever`，90 days 有选中态；离开再进入后 fresh GET 仍为 `90 days`。REST 矩阵覆盖 valid/query `200`、缺失/未知 workspace `401 UNAUTH_NO_WORKSPACE`、POST `405 METHOD_NOT_ALLOWED`（Allow=`GET, HEAD, PATCH`）和坏 Host `403 FORBIDDEN_BAD_HOST`；settings snapshot 证明 sibling blocks 保持不变，本格不冒充 PATCH 行为。
 
-五通道均已互证：backend journal `914` 行且无应用级红线；独立 SSE journal `391` 行，tool-call/tool-result/final close 与 durable seq 一致；frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线；LLM wire `40` 条且上游全 `200`，名称路径和逐键 opaque ID 路径均保留精确 ID。`set_value` 的 AX/截图不一致和不支持的 `shift+-` 被记录为 Computer Use 仪器边界，不计产品红线；真实 `underscore` 逐键路径通过。正式证据为 `sessions/20260814-142141/evidence/EP-225-relations-final-green-r1.md`。
+五通道结果：backend 无应用级 WARN/ERROR/panic/FATAL；ssetap 三流均连接并 clean close，本只读 settings slice 不虚构 durable 事件；frontend 无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 产品红线；llmtap 真实指向 `https://api.anselm.website` 且 managed wiring 通过，本确定性 GET 路径不伪造 completion；`rig-check`/`rig-down` 通过且 owned processes/listeners 清零。正式证据为 session `evidence/EP-239-retention-get-final-green.md`，矩阵为 `retention-matrix.txt`，警报复审为 `sessions/20260817-122156-ep239/evidence/EP-239-ledger-alarm-reaudit.md`。一次旧 AX index 复用已在证据中明确分类为仪器观测问题，不计产品缺陷。
 
-EP-225 五级由 ledger gate 写入 `G1/F1/F4/C4/G2`，COVERAGE 为 `✓✓✓✓✓`；formal ledger=`1820`，COVERAGE=`848 rows / 357 carried / 0 tombstones`，anchors=`10/10`（冻结答卷校准后仍在四小时有效窗内），alarms=`clean`。关系契约、backend handlers/router 全包、`gen_coverage.py --check` 均通过。
-
-批次三十四 `50/50` 后统一长门禁已通过：根目录 `make verify` 的 backend/frontend/docs/demo 全部通过；`testend/rig` `42/42`、Python compile、shell syntax、`git diff --check` 通过；`mise exec -- go test -count=1 -timeout 20m ./...` 全包通过，`testend/scenarios` 约 `420s`。收台后 conductor-owned 进程和监听端口均归零。本批次工作树归属审计已完成并满足安全提交条件；在本批次封口前不启动 EP-226 `GET /api/v1/relations/neighborhood`，first-unsettled gate 继续拒绝任何越序裁决。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+正式账本=`1890 judgments`，COVERAGE=`848 rows / 371 carried / 0 tombstones`，EP-239=`✓✓✓✓✓`，laws=`F1/F2/B2/C2/G1`，anchors=`10/10`，alarms=`clean`。两条统计警报已按 formal session、菜单/稳定帧、REST 正负矩阵、五通道 journal、实现测试和锚点复审并 ack，未改阈值、法典、锚点或 gate；focused tests、sealed recording/ffprobe、measure diff、rig 自测 `42/42`、SQLite、coverage、anchors、alarms 与 `git diff --check` 均通过。本格无 fixture mutation。批次三十五达到 `50/50` 后，统一 `make verify`（backend/frontend/docs/demo 全绿，docs 仅仓内既有 6 条 review-due 警告）、backend `go test ./...`、完整 `make -C backend testend`（`279.171s`）、已修场景回归和残留进程审计均通过；工作树审计只暂存本轮四份 acceptance working 文档，其他团队改动未触碰。本批次已完成提交，下一原子前线为 EP-240 `PATCH /api/v1/retention`。P12 的 400+ Journey 扩写按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源。
 ## 历史前线覆盖声明（2026-08-13 15:31）
 
 `SURF-008 shell/notification-tray` 已完成真实通知托盘候选复验。有效 session 为
@@ -386,7 +384,9 @@ EP-243/EP-244/EP-251 r8、EP-221 及其他真实观察保留为按序候选，�
 仪器审计记录，不计入产品裁决；formal ledger、阈值、锚点和 COVERAGE 均未被改写。入口行为由
 `testend/rig/test_scope.py` 覆盖，不能依赖操作者记忆。
 
-## 当前前线（2026-08-13 08:40，EP-243–EP-247/EP-251 通知中心 r12 真实五通道观察完成；EP-223 r11 文案修复后真实复验、EP-222 r9、EP-243/EP-244/EP-251 r8 及 EP-234–EP-242、EP-226/227、EP-228/229、EP-230–EP-233、EP-224/EP-225 真实路径完成但按序待入账；EP-221/EP-222 已修复实测待序入账；EP-220 r3 非破坏性边界完成但仍待当前对象永久删除确认；EP-213 精确对象授权删除闭环已补证但不重复计格；批次三十四 27/50；未到批次门槛，不运行统一长门禁、不提交）
+## 历史状态快照（2026-08-13 08:40，已被上方当前声明取代）
+
+以下内容保留用于审计追溯；其中的“当前前线”、EP-220 待确认和批次计数均不再是执行依据。
 
 ### 最新 stop-and-fix：Anselm Auto 二级文案修复后 r11 真实五通道收口（2026-08-13 08:16）
 

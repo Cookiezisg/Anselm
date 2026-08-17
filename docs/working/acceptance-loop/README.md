@@ -297,21 +297,17 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-14 15:10 EP-225 后批次三十四统一门禁收口)
+### 5.2 Day 0 当前状态(整体重述,2026-08-17 12:32 EP-239 收口,批次三十五 50/50)
 
-EP-225 `GET /api/v1/relations` 已在真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成五级验收。正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260814-142141`，录屏由 conductor 封口并经 `ffprobe` 读取，规格为 `2784x1808 / 60fps / 745.135000s`。真实 Chat 先按名称找到临时 agent，再调用关系查询一次；工具卡显示 `3 edges`，回答表格逐条展示三个 `agent → function` 的 `equip` 关系、方向、verb 和当前 endpoint 名称。
+EP-239 `GET /api/v1/retention` 已在真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成五级验收。正式 session mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-122156-ep239`，录屏 `125.515000s / 2784x1808 / 60fps / 7056 frames`；manifest 已修正为 formal session 自引用并由 conductor 正常封口。EP-230–EP-238 及 EP-220 保持既有五格绿，不删除、不重跑；EP-220 的删除确认不再重复消耗序列格。
 
-EP-225 的直接 REST 边界也完整复核：`fromKind/fromId/kind/limit` 分页第一页返回两条并给出顶层 `nextCursor`，续页返回第三条且 `hasMore=false`；目标过滤返回一条；不完整过滤返回 `400 REL_INCOMPLETE_FILTER`，未知 edge kind 返回 `400 REL_INVALID_KIND`。收台后的 fixture 清理再次证明 agent/functions 均 `404`，按旧 agent 过滤的关系列表返回 `data=[]/hasMore=false`，名称搜索无残留。第一次 shell 探针误读 `meta.nextCursor` 已立即纠正，不计入产品证据。
+EP-239 的真实产品目的不是只得到一个 retention JSON，而是让用户在 Settings → System → Storage & logs 中理解并读取**本机 run history retention**：真实 App 从权威 GET 渲染 `90 days`，同时显示 `This machine`、保留语义和不受影响的七日统计窗口。Computer Use 打开下拉但没有选择或 mutation；录屏逐帧可见四个完整选项 `30 days / 90 days / 180 days / Keep forever`，90 days 有选中态。离开并重新进入页面后，backend journal 记录新的 `GET 200`，画面仍与服务端真值一致。正式 REST 矩阵覆盖有效 workspace `200`、带 query 的 `200`、缺失/未知 workspace `401 UNAUTH_NO_WORKSPACE`、错误方法 `405 METHOD_NOT_ALLOWED`（`Allow: GET, HEAD, PATCH`）和坏 Host `403 FORBIDDEN_BAD_HOST`；`settings-after-get.json` 证明 limits/network/retention sibling blocks 未被读取路径破坏；本格不冒充 PATCH 行为。
 
-五通道已逐项互证：Computer Use frame/录屏包含 Chat 用户意图、关系工具卡和三行结果表；backend journal 共 914 行、无 `WARN/ERROR/panic/FATAL`；独立 ssetap 共 391 行，tool-call close、tool-result close 和最终 message close 的 durable seq 单调且内容一致；frontend journal 无应用级 Flutter/Dart/RenderFlex/Unhandled/Exception 红线；LLM wire 共 40 条记录、上游响应全 `200`，名称路径和 opaque ID 逐键路径均保留精确 agent ID 与三条边。正式证据为 `sessions/20260814-142141/evidence/EP-225-relations-final-green-r1.md`。
+五通道已逐项互证：formal backend journal 记录真实 UI 初次 GET、重新进入 GET 及完整负向矩阵且无应用级 WARN/ERROR/panic/FATAL/stack trace；独立 ssetap 的 notifications/entities/messages 三流均连接并在收台时 clean close，本只读路径没有虚构 durable 事件；formal frontend journal 只有正常 macOS merged-thread 与 Dart VM 行，无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 产品红线；llmtap readiness 指向真实 `https://api.anselm.website`，managed wiring 通过，本确定性 settings-read 路径不伪造 completion；`rig-check`/`rig-down` 通过且 owned processes/listeners 清零。初始、下拉、稳定、重新进入帧、REST 矩阵、settings 快照和全量复审见 `sessions/20260817-122156-ep239/evidence/`。
 
-本格额外保留了台架边界：`set_value` 曾让 AX 显示有值而截图为空，且不发生发送；`shift+-` 是 Computer Use 不支持的键名。两者均明确排除出产品裁决。真实键盘用 `underscore` 逐键输入后，截图、用户气泡、LLM wire 和 `get_relations` 结果完全一致，因此没有把输入仪器伪影修进产品或写成红格。
+正式账本为 `1890 judgments`；清册为 `848 rows / 371 carried / 0 tombstones`，EP-239 五格为 `✓✓✓✓✓`，法条映射为 `F1 / F2 / B2 / C2 / G1`，anchors=`10/10`。五格写入后 `gap-too-fast` 与 `discovery-collapse` 按机制打开，依据 formal session、四选项菜单帧、稳定帧测量、REST 正负矩阵、五通道 journal、实现级测试和锚点 `10/10` 独立复审并逐项 ack；Computer Use 一次旧 AX index 复用已在证据中明示并分类为仪器观测问题，不冒充产品缺陷；本格没有 fixture mutation；未改阈值、法典、锚点或 gate，当前 `alarms.py check` 为 `clean (1890 judgments)`。复审记录为 `sessions/20260817-122156-ep239/evidence/EP-239-ledger-alarm-reaudit.md`。
 
-正式账本为 `1820 judgments`；清册为 `848 rows / 357 carried / 0 tombstones`，EP-225 五格为 `✓✓✓✓✓`，法条映射为 `G1 / F1 / F4 / C4 / G2`；anchor 已以冻结答卷校准为 `10/10` 且在四小时有效窗内。L1-L5 写入期间出现的 `gap-too-fast` 与 `discovery-collapse` 均在主 session、输入红边界、REST 正负路径、五通道材料和 anchor 复审后逐次 ack，当前 `alarms.py check` 为 clean。
-
-批次三十四 `50/50` 后的统一长门禁已通过：根目录 `make verify` 的 backend/frontend/docs/demo 全部通过；`testend/rig` 为 `42/42`，Python compile、shell syntax 和 `git diff --check` 通过；`mise exec -- go test -count=1 -timeout 20m ./...` 全部通过，其中 `testend/scenarios` 运行约 `420s`。收台后 conductor-owned 的 backend、Flutter App、llmtap、ssetap、llama-server 和监听端口均为零；没有把残留进程或不归属的外部服务算作绿证据。`gen_coverage.py --check`、`alarms.py check` 和 anchor check 也再次通过。
-
-本批次工作树归属审计已完成并满足安全提交条件；`EP-226 GET /api/v1/relations/neighborhood` 在本批次封口后才可解锁，未提前写裁决或启动真实前线。P12 的 400+ Journey 扩写继续按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源，任何后行不得越过 first-unsettled gate。
+本轮本地验证：真实 REST matrix、Flutter `s5_storage_limits_test.dart` `16/16`、`go test ./internal/app/settings ./internal/transport/httpapi/handlers`、focused Dart analysis、sealed recording/ffprobe、PNG 稳定帧 `measure diff`、rig 自测 `42/42`、SQLite integrity=`ok`、`gen_coverage.py --check=848/371/0`、anchors、alarms 与 `git diff --check` 全通过；批次三十五达到 `50/50` 后，统一 `make verify`（backend/frontend/docs/demo 全绿，docs 仅仓内既有 6 条 review-due 警告）、backend `mise exec -- go test ./...`、完整 `make -C backend testend`（`279.171s`）、已修场景回归和残留进程审计均通过。工作树审计确认只暂存本轮四份 acceptance working 文档，其他团队改动未触碰；本批次现在完成提交，下一原子前线为 EP-240 `PATCH /api/v1/retention`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源。
 
 #### 19:44 正式台架重启前诊断收口与录像链复核
 
