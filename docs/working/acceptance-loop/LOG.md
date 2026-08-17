@@ -1,4 +1,42 @@
 ---
+## 2026-08-17 19:49 · 批次三十七统一门禁收口，修复通知行窄 rail overflow
+
+- 批次三十七在 `SURF-004` 入账后达到 `50/50`。第一次根 `make verify` 按门禁真实冻结为红：frontend gallery 的 `relation.dependency_broken (warn + names)` 在浅色、dark、reduced 三轴均报告 `RenderFlex overflowed by 162 pixels on the right`；并行日志中紧邻的关系图行只是进度输出，不是第二个失败。
+- Stop-and-fix：`frontend/lib/features/notifications/ui/notification_row.dart` 将长 dependency-broken 动词改为可省略的弹性段，避免窄 rail 被句子撑爆；实体类保持可见，依赖者名称仍在 detail 行呈现。新增窄 rail regression，focused notification suite `8/8`，gallery bucket 1 `219/219`；同步 `docs/references/frontend/features/notifications.md`。
+- 修复后 frontend verify 四组 `5369 tests` 全绿；根 `make verify` 的 backend/frontend/docs/demo 全绿；backend 非缓存全量 Go 全绿；完整 `make -C backend testend` `278.817s` 全绿。没有把首轮红藏掉，也没有用缩小测试集替代重跑。
+- 账本门禁保持不变：`1995 judgments`、COVERAGE=`848/392/0`、anchors=`10/10`、alarms clean、rig `42/42`、`git diff --check` clean、docs verify 通过（仅 6 个既有 review-due warning）。完整证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/batch-37-unified-gate-20260817.md`。
+- testend 收台审计确认 conductor-owned server/llama/uv/测试进程、监听端口和临时根均清零；无 formal session 活动标记。批次三十七正式收口，下一原子前线为 `SURF-005 shell/sidebar-footer`；P12 400+ Journey 仍按用户裁定推迟二期。
+
+## 2026-08-17 19:20 · SURF-004 ocean switcher 正式五级入账，批次三十七到 50/50
+
+- `SURF-004 shell/ocean-switcher` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-190835`，播种工作区 `ws_18a5c757661207da`；真实 App fresh AX 走完 `Chat → Entities → Chat → Entities → Scheduler → Library → Settings → Notifications tray → Chat`。Entities UI 的 `Function 2 / Handler 1 / Agent 1 / Workflow 0 / Parts 0` 与 SQLite 对齐；Scheduler 空态有两个去向，Settings 和通知托盘保持顶部无选中药丸，托盘只替换左岛中段，返回 Chat 后收口。
+- `screen.mov`=`152.468333s / 2784x1808 / 60fps / 8491 frames`。以 Computer Use 动作标记切出两段 60fps 窗口：Chat→Entities 首个可见反馈 `16.7ms`、`changedFrac=0.02596`；Entities→Chat 首个可见反馈 `66.7ms`、`changedFrac=0.03708`；settled Entities `t115/t120/t125/t130/t135` 与 Chat `t140/t145/t150` 的 `measure diff` 无输出，原始抽帧和 transition contact sheet 已封存。
+- 五通道均属同一 manifest：backend/frontend 无应用红线；ssetap notifications/entities/messages 三流连接并 clean EOF；llmtap proof/install/models 全部 `200` 且无 completion；SQLite/UI 与 rig-check 对齐。`rig-down` 停止所有 conductor-owned 进程并封口录像。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-004-contract-matrix.md`、session L2 和 global L3/L4/L5 文件。
+- 回归验证：ocean/shell/router Flutter `52/52`、`go test ./cmd/appproxy ./harness/proxycore`、rig `42/42`、anchors `10/10`、`gen_coverage.py --check` 全部通过。
+- `judge.py` 写入 `SURF-004=✓✓✓✓✓`：L1 `G1`、L2 `F1`、L3 `B2`、L4 `C2`、L5 `G1`。正式账本 `1990→1995 judgments`，COVERAGE=`848/392/0`。五格写入触发 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-004-ledger-alarm-reaudit.md`，两条已按原阈值由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1995 judgments)`。批次三十七由 `45→50/50`，统一门禁、完整 testend、修复回归、警报/锚点/进程/fixture/工作树审计现已解锁；SURF-003 已是既有五格绿，下一正式前线暂记 `SURF-005 shell/sidebar-footer`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 19:05 · SURF-002 workspace gate 正式五级入账
+
+- `SURF-002 shell/workspace-gate` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-185542`，`RIG_SEED=0`；app-only proxy 只延迟 `GET /api/v1/workspaces`。真实请求从 `2026-08-17T10:56:14.203345Z` 到 `10:57:14.206243Z` 才 forward，实测 `60.002898s`，backend 在等待期间保持健康。
+- Computer Use 逐帧观察到 full-canvas 居中的 `Setting up your workspace…`，释放后进入清晰的 `Create a workspace` onboarding；真实输入 `SURF002 Workspace Gate Formal` 并点击创建，经历中间 setup 后进入完整 Chat 壳。SQLite 最终行 `ws_12cd61afc5e40dd3` 与 UI 工作区名一致。录屏 `194.130000s / 2784x1808 / 60fps`，稳定 `t180/t182/t184/t186/t188/t190/t192` 的 measure diff 无输出，过渡无白闪、半壳、clipping、overlap、focus jump 或二次 reflow。
+- 五通道均属同一 manifest：backend/frontend journal 无应用红线；ssetap 的 notifications/messages/entities 三流均连接并 clean EOF；llmtap challenge/install/models 全部 `200` 且无 completion，符合工作区门控路径；`rig-check` 与 `rig-down` 全程通过。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-002-contract-matrix.md`、session L2 和 global L3/L4/L5 文件。
+- 回归验证：startup/process Flutter `14/14`、workspace gate/bootstrap/create/switch Flutter `12/12`、`go test ./cmd/appproxy ./harness/proxycore`、rig `42/42`、anchors `10/10`、`gen_coverage.py --check` 全部通过。
+- `judge.py` 写入 `SURF-002=✓✓✓✓✓`：L1 `G1`、L2 `F1`、L3 `B2`、L4 `C2`、L5 `G1`。正式账本 `1985→1990 judgments`，COVERAGE=`848/391/0`。五格写入触发 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-002-ledger-alarm-reaudit.md`，两条已按原阈值由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1990 judgments)`。批次三十七由 `40→45/50`，未到 50 格，不运行统一长门禁、不提交；SURF-003 已是既有五格绿，下一原子前线为 `SURF-004 shell/ocean-switcher`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 18:54 · SURF-001 startup gate 正式五级入账
+
+- `SURF-001 shell/startup-gate` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-184628`，新数据目录从零启动，`RIG_APP_FIRST=1`、backend 延迟 25 秒；真实 App 先稳定显示 `Connecting to the local engine…`，健康预算耗尽后显示 `Can't reach the local engine`、具体原因和 `Retry`，Computer Use 真实点击 Retry 后进入 onboarding，创建 `SURF001 Startup Gate Formal` 并最终进入完整 Chat 壳。录屏 `112.231667s / 2784x1808 / 60fps`，封口可读。
+- 五通道绑定同一 manifest：backend/frontend 无应用红线；ssetap 三流均连接并 clean EOF；llmtap readiness/proof/install/models 为真实 `200` 且无 completion，符合启动门控不经模型的路径；SQLite 工作区 `ws_46dc6a52e938da40` 与最终 UI 对齐。`rig-check`/`rig-down` 通过。
+- 稳定帧 `t95/t100/t105/t110` 的 `measure diff -threshold 0.0005` 无 changed-region 输出；`t02/t16` connecting、`t28/t36` crashed、`t65` onboarding 的过渡帧逐张复核无白闪、半壳、focus jump、clipping、overlap、reflow 或 overlay。`app_startup_gate_test.dart` 与 `backend_controller_test.dart` 通过 `14/14`。
+- `judge.py` 写入 `SURF-001=✓✓✓✓✓`：L1 `G1`、L2 `F3`、L3 `B2`、L4 `C2`、L5 `G1`。正式账本 `1980→1985 judgments`，COVERAGE=`848/390/0`。五格写账触发的 `gap-too-fast` 与 `discovery-collapse` 已依据本 session 全量证据、稳定帧测量、真实负向 Retry 路径、focused tests 和 `SURF-001-ledger-alarm-reaudit.md` 逐项复审并 ack；未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1985 judgments)`。批次三十七由 `35→40/50`，未到 50 格，不运行统一长门禁、不提交；下一原子前线为 `SURF-002 shell/workspace-gate`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 18:43 · EP-257 debug stats 正式入账，切回真实启动门控前线
+
+- EP-257 `GET /debug/stats` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-183216`；真实 App 从全新 onboarding 创建 `EP257 Stats Lab`，真实受管 gateway challenge/install/models 与 free-tier provision/probe 均为 `200`。dev 路径在无 query、重复 query、无关 query 和 unicode query 下均返回精确十字段 `application/json`；所有值为非负 runtime 整数，`heapSysMB >= heapAllocMB`，`heapObjects` 随实时请求自然变化；POST/OPTIONS=`405`，native HEAD=`200` 且实际 body 读取为 `0`；无 `ANSELM_DEV` 的同版 backend 对 stats/pprof 均为 `404`。
+- 五通道封口：`screen.mov`=`182.813333s / 2784x1808 / 60fps`；85/105/125/145/165 秒五张稳定 Chat frame 的 `measure diff -threshold 0.0005` 无 changed-region 输出，50–80 秒 onboarding→ready 过渡逐张复核无白闪、布局破坏、focus jump、clipping、overlap、reflow 或 overlay；backend/frontend 无应用红线；ssetap 三流连接并以 EOF 干净断开；llmtap challenge/install/models 全 `200`。完整 L2 证据绑定 manifest、backend/frontend/SSE/LLM journal、生产负向探针、native HEAD 证据和封口录像。
+- `judge.py` 写入 EP-257=`✓✓✓~~`：L1 `measure:ep257-runtime-json`、L2 `F3`、L3 `B2` 为真实通过；L4/L5 以书面 `na` 记录，因为 dev-only debug endpoint 没有终端用户 widget，且生产隐藏边界要求普通用户不可发现。正式账本 `1975→1980 judgments`，COVERAGE=`848/389/0`，anchors=`10/10`。
+- 写账按机制打开 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-257-ledger-alarm-reaudit.md`，两条由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1980 judgments)`。批次三十七由 `30→35/50`，未到 50 格，不运行统一长门禁、不提交；下一原子前线为 `SURF-001 shell/startup-gate`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
 id: WRK-092
 type: working
 status: active
@@ -9,6 +47,73 @@ review-due: 2026-10-30
 audience: [human, ai]
 landed-into:
 ---
+
+## 2026-08-17 18:29 · EP-256 pprof trace 正式入账，解析执行 trace 并验证生产隐藏边界
+
+- EP-256 `GET /debug/pprof/trace` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-182136`；真实 App 从全新 onboarding 创建 `EP256 Pprof Trace Lab`，真实受管 gateway challenge/install/models 与 free-tier provision/probe 均为 `200`。dev `seconds=1` 返回 `200 application/octet-stream`、81022 字节、`go 1.25 trace`；`go tool trace -pprof=sched`、gzip 校验与 `go tool pprof -top` 均通过，解析出 runtime、HTTP、bootstrap 与 Anselm router 栈；`seconds=0.25/0/-1/nope` 均为非空合法 trace，POST=`405`、HEAD=`200`；无 `ANSELM_DEV` 的同版 backend 对 trace/stats 均为 `404`。
+- 五通道封口：`screen.mov`=`259.101667s / 2784x1808 / 60fps`；45/85/125/165/205/245 秒六张稳定 native Chat frame 的 `measure diff -threshold 0.0005` 无 changed-region 输出；backend/frontend 无应用红线；ssetap 三流连接并以 EOF 干净断开、无业务帧符合 debug 只读路径；llmtap challenge/install/models 全 `200`，rig-check/rig-down 与 8940/8941/8816 端口审计通过。完整证据包含生产负向进程及 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-256-contract-matrix.md`、`EP-256-level3-smoothness.md`、session L2 文件。
+- `judge.py` 写入 EP-256=`✓✓✓~~`：L1 `measure:ep256-trace-parse`、L2 `F3`、L3 `B2` 为真实通过；L4/L5 以书面 `na` 记录，因为工程 dev endpoint 没有终端用户 widget，且生产隐藏边界要求普通用户不可发现。正式账本 `1970→1975 judgments`，COVERAGE=`848/388/0`，anchors=`10/10`。
+- 写账按机制打开 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-256-ledger-alarm-reaudit.md`，两条由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1975 judgments)`。批次三十七由 `25→30/50`，未到 50 格，不运行统一长门禁、不提交；README §5.2 与 LOOP 已整体重述，下一原子前线为 EP-257 `GET /debug/stats`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 18:19 · EP-255 pprof symbol 正式入账，验证标准 GET raw-query 符号解析
+
+- EP-255 `GET /debug/pprof/symbol` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-181344`；真实 App 从全新 onboarding 创建 `EP255 Pprof Symbol Lab`，真实受管 gateway challenge/install/models 与 free-tier provision/probe 均为 `200`。dev GET 空 query、未知/零/非法值均返回标准 `num_symbols: 1`；从同一进程 CPU profile 取得 live PC `0x10068018b`，GET raw query 真实返回 `runtime.usleep`，三 PC 查询还返回 `syscall.syscall` 与 Anselm `redactCore.Write`；POST=`405`、HEAD=`200`；无 `ANSELM_DEV` 的独立同版 backend=`404`。
+- 逐层对照 Go 1.25 `pprof.Symbol` 源码确认：GET 读取 raw query，POST 才读取 body；仓内 `registerDebug` 明确注册 GET-only，因此 POST 405 是契约边界，不是漏测或待修 bug。
+- 五通道封口：`screen.mov`=`165.431667s / 2784x1808 / 60fps`；45/85/125/155 秒四张稳定 native Chat frame 的 `measure diff -threshold 0.0005` 无 changed-region 输出；backend/frontend 无应用红线；ssetap 三流连接并干净断开、无业务帧符合 debug 只读路径；llmtap challenge/install/models 全 `200`，rig-check/rig-down 与端口审计通过。
+- `judge.py` 写入 EP-255=`✓✓✓~~`：L1 `measure:ep255-symbol-resolution`、L2 `F3`、L3 `B2` 为真实通过；L4/L5 以书面 `na` 记录，因为工程 dev endpoint 没有终端用户 widget，且生产隐藏边界要求普通用户不可发现。正式账本 `1965→1970 judgments`，COVERAGE=`848/387/0`，anchors=`10/10`。
+- 写账按机制打开 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-255-ledger-alarm-reaudit.md`，两条由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1970 judgments)`。批次三十七由 `20→25/50`，未到 50 格，不运行统一长门禁、不提交；README §5.2 与 LOOP 已整体重述，下一原子前线为 EP-256 `GET /debug/pprof/trace`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 18:11 · EP-254 pprof CPU profile 正式入账，稳定窗口与首启过渡分离
+
+- EP-254 `GET /debug/pprof/profile` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-180409`；真实 App 从全新 onboarding 创建 `EP254 Pprof Profile Lab`，真实受管 gateway challenge/install/models 与 free-tier provision/probe 均为 `200`。dev backend 在有界本地 `/debug/stats` 负载下返回 `200 application/octet-stream`、2355 字节 gzip；`gzip -t` 通过，`go tool pprof -top` 解析为 `3.02s` CPU profile、`60ms` samples，并含真实 runtime/HTTP/Anselm backend stacks；POST=`405`、HEAD=`200`，无 `ANSELM_DEV` 的独立同版 backend=`404`。
+- 五通道封口：`screen.mov`=`214.778333s / 2784x1808 / 60fps`；45 秒帧保留为首启画面，85/125/165/205 秒四张 settled Chat frame 的 `measure diff -threshold 0.0005` 无 changed-region 输出；backend/frontend 无应用红线；ssetap 三流连接并干净断开、无业务帧符合 debug 只读路径；llmtap challenge/install/models 全 `200`，rig-check/rig-down 与端口审计通过。
+- 逐帧 review 将 onboarding→Chat 的预期变化与稳定窗口分离，没有把首启过渡误报成产品跳变；初始录屏未封口和一次 zsh `status` 变量冲突均只属于探针命令层，重跑后证据完整，未触碰产品状态。
+- `judge.py` 写入 EP-254=`✓✓✓~~`：L1 `measure:ep254-cpu-profile`、L2 `F3`、L3 `B2` 为真实通过；L4/L5 以书面 `na` 记录，因为工程 dev endpoint 没有终端用户 widget，且生产隐藏边界要求普通用户不可发现。正式账本 `1960→1965 judgments`，COVERAGE=`848/386/0`，anchors=`10/10`。
+- 写账按机制打开 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-254-ledger-alarm-reaudit.md`，两条由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1965 judgments)`。批次三十七由 `15→20/50`，未到 50 格，不运行统一长门禁、不提交；README §5.2 与 LOOP 已整体重述，下一原子前线为 EP-255 `GET /debug/pprof/symbol`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 18:01 · EP-253 pprof cmdline 正式入账，保留 HEAD 探针误用边界
+
+- EP-253 `GET /debug/pprof/cmdline` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-175337`；真实 App 从全新 onboarding 创建 `EP253 Cmdline Lab`，真实受管 gateway challenge/install/models 与 free-tier provision/probe 均为 `200`。dev backend GET 返回 `200 text/plain`、52 字节、仅含绝对 server 路径；POST 为 `405`；正确 `curl -I` HEAD 为 `200` 且无 body；无 `ANSELM_DEV` 的独立同版 backend 为 `404`。
+- 一次初始 `curl -X HEAD` 因客户端错误等待 HEAD body 超时；backend 仍记录 200/52，随后正确 `curl -I` 完成。原始 headers/body 产物保留在 session，证据明确把它定性为探针误用，不污染产品 verdict。
+- 五通道封口：`screen.mov`=`184.463333s / 2700x1724 / 60fps`；四张稳定 native frame 的 `measure diff -threshold 0.0005` 无 changed-region 输出；backend/frontend 无应用红线；ssetap 三流连接并干净断开、无业务帧符合 debug 只读路径；llmtap challenge/install/models 全 `200`，rig-check/rig-down 与端口审计通过。
+- `judge.py` 写入 EP-253=`✓✓✓~~`：L1 `measure:ep253-cmdline-no-secret`、L2 `F3`、L3 `B2` 为真实通过；L4/L5 以书面 `na` 记录，因为工程 dev endpoint 没有终端用户 widget，且生产隐藏边界要求普通用户不可发现。正式账本 `1955→1960 judgments`，COVERAGE=`848/385/0`，anchors=`10/10`。
+- 写账按机制打开 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-253-ledger-alarm-reaudit.md`，两条由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1960 judgments)`。批次三十七由 `10→15/50`，未到 50 格，不运行统一长门禁、不提交；README §5.2 与 LOOP 已整体重述，下一原子前线为 EP-254 `GET /debug/pprof/profile`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 17:31 · EP-251 L1 正式入账，修复长名称 rail 折断
+
+- EP-251 `GET /api/v1/notifications/stream` 在新的正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-172635` 完成真实 App、真实受管网关、Computer Use、窗口录屏、backend/frontend journal、三路独立 SSE witness 和 llmtap 封口；L1 `F1` 已由 `judge.py` 写入，EP-251=`✓····`，formal ledger=`1946`，COVERAGE=`848/383/0`。
+- 首轮逐帧观察发现长 Function 名称在旧 row 里被硬折为 `stre`/`am_probe`，已停止路径并修为 name-only 尾省略、lead/trail 固定可读；focused `notification_row_test.dart` 全绿，`docs/references/frontend/features/notifications.md` 同步记录该不变量。修复后二次正式台架才作为本回合证据。
+- 真实路径从 onboarding 创建 workspace，经 managed free-tier provisioning，刺激 Function lifecycle；Notifications tray 两行与 notifications SSE `seq=1..3`、REST、SQLite 对齐，点击两行后 unread 真实收敛 `1→0`，读行保留，Function 行深链到 exact detail。backend/frontend 应用红线为 0，llmtap challenge/install/models 全部 200，录屏 `171.161667s` 可读。
+- anchors=`10/10`、alarms=`clean`、`gen_coverage.py --check` 已通过。当前批次三十七为 `1/50`，未到 50 格不跑统一长门禁、不提交；下一步在同一正式 session 上继续 EP-251 L2。
+
+## 2026-08-17 17:33 · EP-251 L2 五通道正式入账
+
+- `judge.py` 已在同一封口 session 上以 `F2` 写入 EP-251 L2；账本=`1947 judgments`，COVERAGE=`848/383/0`，EP-251=`✓✓···`。`validate_l2_session` 校验 manifest identity、backend/sse/frontend/llm/screen 六件套、三流连接和 ffprobe 均通过。
+- 当前前线整体重述已同步到 README §5.2 与 LOOP：EP-251 下一裁决为 L3，批次三十七 `2/50`；anchors=`10/10`，alarms=`clean`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-17 17:35 · EP-251 L3 稳定性正式入账
+
+- `judge.py` 已以 `B2` 写入 EP-251 L3；formal ledger=`1948 judgments`，COVERAGE=`848/383/0`，EP-251=`✓✓✓··`。同态录屏帧的 left-rail ROI diff 无输出，跨动作变化只落在预期内容 transition box；修复后的长名称单行布局未再出现中间折断。
+- README §5.2 与 LOOP 已整体重述为 EP-251 L4 前线；批次三十七=`3/50`，anchors=`10/10`，alarms=`clean`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-17 17:37 · EP-251 L4 craft 正式入账
+
+- `judge.py` 已以 `C5` 写入 EP-251 L4；formal ledger=`1949 judgments`，COVERAGE=`848/383/0`，EP-251=`✓✓✓✓·`。原生分辨率 frame review 确认 icon/name/ellipsis/verb/time 同 rail 内容列对齐，长名只尾省略，深链后详情与源行层次稳定。
+- README §5.2 与 LOOP 已整体重述为 EP-251 L5 前线；批次三十七=`4/50`，anchors=`10/10`，alarms=`clean`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-17 17:39 · EP-251 L5 正式入账并完成警报复审
+
+- `judge.py` 已以 `G1` 写入 EP-251 L5；formal ledger=`1950 judgments`，COVERAGE=`848/383/0`，EP-251=`✓✓✓✓✓`。从全新 onboarding 可发现 Notifications → Today → Function 行 → 精确详情的路径，AX 树与原生录屏共同证明入口和目的地不是测试专用控件。
+- 五级共用正式 session `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-172635`；录屏 `171.161667s / 2784x1808 / 60fps`，三路 SSE durable notification `1..3`，backend/frontend/LLM 五通道与 focused widget 回归均已在对应证据中封存。旧版中间折断红证据保留，不被新绿覆盖。
+- 写入五格后原阈值按机制打开 `gap-too-fast` 与 `discovery-collapse`。复审证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-251-ledger-alarm-reaudit.md`，两条均由 `alarms.py ack` 销账；未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1950 judgments)`。
+- 批次三十七由 `4→5/50`；未到 50 格，不运行统一长门禁、不提交。README §5.2 与 LOOP 已整体重述，下一原子前线为 EP-252 `GET /debug/pprof/`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 17:51 · EP-252 pprof index 正式入账，dev-only 边界诚实记 `na`
+
+- EP-252 `GET /debug/pprof/` 的正式 session 为 `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-174346`；真实 App 从全新 onboarding 创建 `EP252 Pprof Lab`，真实受管 gateway challenge/install/models 与 free-tier provision/probe 均为 `200`。dev backend 的 index 返回标准 Go 十类 profile，named profiles、带引号的 `goroutine?debug=2`、CPU profile、trace、stats 和 POST 405 均得到真实响应；无 `ANSELM_DEV` 的独立同版 backend 对 index/stats 均严格 `404`。
+- 五通道封口：`screen.mov`=`243.281667s / 2784x1808 / 60fps`；五张稳定 native frame 的 `measure diff -threshold 0.0005` 无 changed-region 输出；backend/frontend 无应用红线；ssetap 三流连接、干净断开且无业务帧符合本地 debug 路径；llmtap 记录 challenge/install/models 全 200。`rig-check`、`rig-down`、端口审计和 `go tool pprof/trace` 解析均通过。
+- `judge.py` 写入 EP-252=`✓✓✓~~`：L1 `measure:ep252-index-profile-set`、L2 `F3`、L3 `B2` 为真实通过；L4/L5 以书面 `na` 记录，因为工程 dev endpoint 没有终端用户 widget，且生产隐藏边界要求普通用户不可发现。正式账本 `1950→1955 judgments`，COVERAGE=`848/384/0`，anchors=`10/10`。
+- 写账按机制打开 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/EP-252-ledger-alarm-reaudit.md`，两条由 `alarms.py ack` 销账，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (1955 judgments)`。批次三十七由 `5→10/50`，未到 50 格，不运行统一长门禁、不提交；README §5.2 与 LOOP 已整体重述，下一原子前线为 EP-253。
 
 ## 2026-08-17 17:18 · 批次三十六提交完成，EP-251 解锁
 

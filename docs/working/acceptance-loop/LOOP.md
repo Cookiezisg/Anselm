@@ -13,7 +13,25 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-17 17:15）
+## 当前前线覆盖声明（2026-08-17 19:49）
+
+EP-230–EP-251、EP-220 及既有绿色项保持五格绿；EP-252 `GET /debug/pprof/`、EP-253 `GET /debug/pprof/cmdline`、EP-254 `GET /debug/pprof/profile`、EP-255 `GET /debug/pprof/symbol`、EP-256 `GET /debug/pprof/trace`、EP-257 `GET /debug/stats`、`SURF-001 shell/startup-gate`、`SURF-002 shell/workspace-gate` 与 `SURF-004 shell/ocean-switcher` 已完成正式验收；debug-only 五格为 L1–L3 绿、L4/L5 按边界记 `na`，SURF-001、SURF-002 与 SURF-004 五格全绿；批次三十六已由 `117e2567` 收口并通过统一根门禁与完整 testend。批次三十七的 `50/50` 已完成统一根门禁、frontend stop-and-fix 回归、非缓存全量 Go、完整 testend 及警报/锚点/进程/fixture/工作树审计，当前唯一前线为 `SURF-005 shell/sidebar-footer`，尚未启动下一格。SURF-003 已是既有五格绿。EP-251 正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-172635`，五级 `F1/F2/B2/C5/G1` 已完整入账。
+
+EP-257 正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-183216` 由同一 conductor 托管真实 Flutter App、dev backend、录屏、frontend console、三路独立 SSE 和真实受管网关。全新 onboarding 创建 `EP257 Stats Lab`，managed challenge/install/models 与 provision/probe 均为真实 200；四类 query 均返回精确十字段 runtime JSON，`heapObjects` 随实时请求变化，POST/OPTIONS 405，native HEAD 200 且读取 body 为 0；无 `ANSELM_DEV` 的同版 backend 对 stats/pprof 均为 404。
+
+五通道事实：EP-257 录屏 `182.813333s / 2784x1808 / 60fps`，稳定 Chat frame 的 `measure diff` 无输出，onboarding→ready 过渡逐张复核无白闪、布局破坏、focus jump、clipping、overlap、reflow 或 overlay；backend/frontend 无应用红线；ssetap 的 notifications/messages/entities 三流均连接并以 EOF 干净收台；llmtap challenge/install/models 全 `200`。L2 证据严格绑定该 session 的 manifest、backend/frontend/SSE/LLM journal、生产负向探针、native HEAD 证据与封口 `screen.mov`；L1/L2/L3 通过，L4/L5 是书面理由充分的 `na`。
+
+SURF-001 正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-184628`；真实 App-first 延迟启动记录 connecting→crashed+Retry→onboarding→Chat，录屏 `112.231667s / 2784x1808 / 60fps`，稳定 Chat frames 的 diff 无输出，五通道均归属同一 manifest，focused Flutter tests `14/14`，SQLite 工作区与最终 UI 一致。
+
+SURF-002 正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-185542`；app-only proxy 将 `GET /api/v1/workspaces` 延迟 `60.002898s`，真实 App 在此期间稳定显示 `Setting up your workspace…`，释放后进入空工作区 onboarding，真实创建后进入完整 Chat 壳。录屏 `194.130000s / 2784x1808 / 60fps`，稳定 `t180/t182/t184/t186/t188/t190/t192` 的 diff 无输出；五通道同一 manifest 对证，focused startup/process Flutter `14/14`、workspace gate/bootstrap/create/switch Flutter `12/12`、appproxy/proxycore Go 与 rig `42/42` 通过。正式证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-002-contract-matrix.md` 及 session L2/L3/L4/L5。
+
+SURF-004 正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-190835`；真实 App fresh AX 走完 `Chat → Entities → Chat → Entities → Scheduler → Library → Settings → Notifications tray → Chat`，Settings/通知托盘无顶部选中药丸且只替换预期左岛中段。录屏 `152.468333s / 2784x1808 / 60fps`，两次切换首反馈 `16.7ms/66.7ms`，settled groups diff 无输出；五通道同一 manifest 对证，SQLite 与 Entities UI 对齐，ocean/shell/router Flutter `52/52`、appproxy/proxycore Go 与 rig `42/42` 通过。正式证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-004-contract-matrix.md` 及 session L2/L3/L4/L5。
+
+正式账本=`1995 judgments`，COVERAGE=`848 rows / 392 judged rows / 0 tombstones`，EP-251=`✓✓✓✓✓`、EP-252=`✓✓✓~~`、EP-253=`✓✓✓~~`、EP-254=`✓✓✓~~`、EP-255=`✓✓✓~~`、EP-256=`✓✓✓~~`、EP-257=`✓✓✓~~`、SURF-001=`✓✓✓✓✓`、SURF-002=`✓✓✓✓✓`、SURF-004=`✓✓✓✓✓`，anchors=`10/10`，alarms=`clean`，`gen_coverage.py --check`=`clean`。SURF-004 写入后两条统计警报按原阈值打开，复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-004-ledger-alarm-reaudit.md`，通过 `alarms.py ack` 逐项销账，未改阈值、算法、法典、锚点或 gate。批次三十七 `50/50` 已收口：统一根门禁、frontend `5369` 全量回归、非缓存全量 Go、完整 testend `278.817s`、stop-and-fix、警报/锚点/进程/fixture/工作树审计均通过；首轮 overflow 红证据与修复重跑见 `/private/tmp/anselm-rig-formal-20260801-3/evidence/batch-37-unified-gate-20260817.md`。下一正式前线为 `SURF-005 shell/sidebar-footer`，尚未启动下一格；SURF-003 已是既有五格绿。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+批次三十七统一门禁的首轮根 `make verify` 真实冻结在 frontend gallery 的 `relation.dependency_broken` 窄 rail overflow；stop-and-fix 将长动词改为可省略弹性段并补 `8/8` focused regression。随后 gallery bucket 1=`219/219`、frontend 全量=`5369 tests`、根 `make verify` 四门、backend 非缓存全量 Go、完整 `make -C backend testend`=`278.817s` 全绿；process/port/fixture/worktree 审计清零。首轮红、修复与重跑证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/batch-37-unified-gate-20260817.md`。批次三十七已收口，下一格尚未启动。
+
+### 历史快照（EP-250，已由上方当前声明接管）
 
 EP-250 `GET /api/v1/entities/stream` 已在当前源码、真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成五级验收。绿色 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-163104`，由同一 conductor 封口；EP-230–EP-249、EP-220 及既有绿色项保持五格绿，不删除、不重跑，早先候选和第一次 wiring fail-closed 启动只保留历史。
 

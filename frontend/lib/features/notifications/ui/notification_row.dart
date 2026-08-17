@@ -109,31 +109,10 @@ class NotificationRow extends StatelessWidget {
         .copyWith(color: nameColor)
         .weight(unread ? AnText.emphasisWeight : AnText.bodyWeight);
 
-    final spans = <InlineSpan>[
-      if (line.lead != null && line.lead!.isNotEmpty)
-        TextSpan(text: '${line.lead!} ', style: muted),
-      // Quote marks ride the locale (en “…” / zh 「…」) and share the name's style. 引号随 locale,承名样式。
-      if (line.name != null && line.name!.isNotEmpty)
-        TextSpan(
-          text: context.t.notifications.nameQuoted(name: line.name!),
-          style: name,
-        ),
-      TextSpan(
-        text: line.name != null && line.name!.isNotEmpty
-            ? ' ${line.trail}'
-            : line.trail,
-        style: muted,
-      ),
-    ];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text.rich(
-          TextSpan(children: spans),
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-        ),
+        _primaryLine(context, line, muted: muted, name: name),
         if (line.detail != null && line.detail!.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s2),
           Text(
@@ -143,6 +122,58 @@ class NotificationRow extends StatelessWidget {
             style: AnText.meta.copyWith(color: c.inkFaint),
           ),
         ],
+      ],
+    );
+  }
+
+  Widget _primaryLine(
+    BuildContext context,
+    NotificationLine line, {
+    required TextStyle muted,
+    required TextStyle name,
+  }) {
+    final nameText = line.name;
+    if (nameText == null || nameText.isEmpty) {
+      return Text(
+        line.trail,
+        maxLines: 1,
+        overflow: TextOverflow.ellipsis,
+        softWrap: false,
+        style: muted,
+      );
+    }
+
+    // Keep the sentence's lead visible and truncate whole segments rather than breaking an identifier
+    // mid-word. Ordinary rows therefore yield the name first; the dependency-broken verb may also yield
+    // when its sentence is too long for the rail. 行内 rail 保留实体类,按整段省略而非把标识符从单词中间
+    // 折断;普通行先让名称让位,依赖断裂长动词在句子过长时也可省略。
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.baseline,
+      textBaseline: TextBaseline.alphabetic,
+      children: [
+        if (line.lead != null && line.lead!.isNotEmpty)
+          Text('${line.lead!} ', style: muted),
+        Flexible(
+          child: Text(
+            context.t.notifications.nameQuoted(name: nameText),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: name,
+          ),
+        ),
+        // The dependency-broken verb is longer than ordinary lifecycle verbs. Keep it in the same
+        // sentence, but let the verb yield before the row can overflow in a narrow rail. 依赖断裂动词
+        // 较长;保留同句语义,但让动词在窄 rail 中可省略,不把整行撑爆。
+        Flexible(
+          child: Text(
+            ' ${line.trail}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            softWrap: false,
+            style: muted,
+          ),
+        ),
       ],
     );
   }

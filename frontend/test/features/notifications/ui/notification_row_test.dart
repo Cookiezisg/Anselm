@@ -106,6 +106,31 @@ void main() {
     expect(find.textContaining('connection refused'), findsOneWidget);
   });
 
+  testWidgets('dependency warning stays inside a narrow rail', (tester) async {
+    await tester.pumpWidget(
+      _host(
+        NotificationRow(
+          item: _n(
+            'relation.dependency_broken',
+            payload: {
+              'deletedKind': 'function',
+              'deletedId': 'fetch_orders',
+              'dependents': [
+                {'kind': 'agent', 'name': 'triager'},
+                {'kind': 'workflow', 'name': 'pipeline'},
+              ],
+            },
+          ),
+          now: _now,
+        ),
+      ),
+    );
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(find.textContaining('triager', findRichText: true), findsOneWidget);
+    expect(find.textContaining('pipeline', findRichText: true), findsOneWidget);
+  });
+
   testWidgets(
     'overlong name + <script> injection: no overflow, script is inert text',
     (tester) async {
@@ -127,6 +152,14 @@ void main() {
         find.textContaining('<script>', findRichText: true),
         findsOneWidget,
       );
+      final nameText = tester.widget<Text>(
+        find.byWidgetPredicate(
+          (w) => w is Text && w.data?.contains('<script>') == true,
+        ),
+      );
+      expect(nameText.maxLines, 1);
+      expect(nameText.softWrap, isFalse);
+      expect(nameText.overflow, TextOverflow.ellipsis);
     },
   );
 
