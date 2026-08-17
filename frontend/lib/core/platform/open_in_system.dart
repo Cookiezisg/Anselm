@@ -26,14 +26,23 @@ library;
 
 import 'dart:io';
 
+import 'package:flutter/services.dart';
+
 /// Open a path with the OS default application (a file in its editor, a directory in the file manager).
+/// macOS uses the AppKit bridge rather than spawning `open`: the shipped App Sandbox can ask Finder to
+/// open a path through NSWorkspace, but cannot reliably hand an arbitrary local path to a child process.
+/// macOS 走 AppKit 桥而不是起 `open`:发行版 App Sandbox 可以让 NSWorkspace 请求 Finder 打开路径,却不能可靠地把任意
+/// 本地路径交给子进程。
 ///
 /// 用系统默认应用打开一个路径(文件用它的编辑器、目录用文件管理器)。
-Future<bool> openWithSystem(String absPath) => _run(switch (_os()) {
-  _Os.macos => ('open', [absPath]),
-  _Os.windows => ('explorer', [absPath]),
-  _Os.linux => ('xdg-open', [absPath]),
-});
+Future<bool> openWithSystem(String absPath) {
+  if (Platform.isMacOS) return _invokeMacPath(absPath, reveal: false);
+  return _run(switch (_os()) {
+    _Os.windows => ('explorer', [absPath]),
+    _Os.linux => ('xdg-open', [absPath]),
+    _Os.macos => throw StateError('macOS is handled by NSWorkspace'),
+  });
+}
 
 /// REVEAL a path in the file manager — select it inside its parent rather than opening it. On Linux there
 /// is no cross-desktop "select this" verb, so opening the containing directory is the honest approximation
@@ -41,11 +50,14 @@ Future<bool> openWithSystem(String absPath) => _run(switch (_os()) {
 ///
 /// 在文件管理器里**定位**一个路径——在其父目录里选中它、而不是打开它。Linux 上没有跨桌面的「选中这个」动词,
 /// 故打开所在目录是诚实的近似(而对一个目录参数,「定位」本来就是这个意思)。
-Future<bool> revealInSystem(String absPath) => _run(switch (_os()) {
-  _Os.macos => ('open', ['-R', absPath]),
-  _Os.windows => ('explorer', ['/select,', absPath]),
-  _Os.linux => ('xdg-open', [_parentOf(absPath)]),
-});
+Future<bool> revealInSystem(String absPath) {
+  if (Platform.isMacOS) return _invokeMacPath(absPath, reveal: true);
+  return _run(switch (_os()) {
+    _Os.windows => ('explorer', ['/select,', absPath]),
+    _Os.linux => ('xdg-open', [_parentOf(absPath)]),
+    _Os.macos => throw StateError('macOS is handled by AppKit'),
+  });
+}
 
 /// Open a TERMINAL whose working directory is [absDir].
 ///
@@ -82,6 +94,20 @@ Future<bool> _run((String, List<String>) cmd) async {
     return result.exitCode == 0;
   } catch (_) {
     return false; // no such binary / sandboxed: a menu item that quietly does nothing beats a crash
+  }
+}
+
+const _macSystemPathChannel = MethodChannel('app/system_path');
+
+Future<bool> _invokeMacPath(String absPath, {required bool reveal}) async {
+  try {
+    return await _macSystemPathChannel.invokeMethod<bool>('openPath', {
+          'path': absPath,
+          'reveal': reveal,
+        }) ??
+        false;
+  } catch (_) {
+    return false;
   }
 }
 

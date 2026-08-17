@@ -68,6 +68,12 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
     final c = context.colors;
     final graphAsync = ref.watch(relGraphProvider);
     final sel = _sel(context);
+    // A hidden kind is a presentation filter, but a hidden selected node must not remain presented in
+    // the inspector. Keep the URL selection so restoring the legend can restore the user's place.
+    // 隐藏 kind 是展示过滤;但被隐藏的选中节点不能继续占右岛。保留 URL 选区,恢复图例时可回到原处。
+    final visibleSel = sel == null || !_hidden.contains(sel.$1.toLowerCase())
+        ? sel
+        : null;
 
     return Focus(
       autofocus: true,
@@ -87,7 +93,9 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
             Expanded(
               child: Stack(
                 children: [
-                  Positioned.fill(child: _canvas(context, graphAsync, sel)),
+                  Positioned.fill(
+                    child: _canvas(context, graphAsync, visibleSel),
+                  ),
                   _leftChrome(context),
                   _rightChrome(context),
                   if (graphAsync.hasValue) _legend(context, graphAsync.value!),
@@ -95,7 +103,7 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
               ),
             ),
             _GraphInspector(
-              sel: sel,
+              sel: visibleSel,
               onOpenNode: (k, id) => _select(k, id, reveal: true),
             ),
           ],
@@ -134,6 +142,19 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
         final sub = _provenance
             ? (nodes: g.nodes, edges: g.edges)
             : structuralSubgraph(g);
+        // The primitive still receives the full subgraph so toggling a legend is reversible, but the
+        // a11y count must describe what the user can currently see, not the hidden backing snapshot.
+        // 原语保留全子图以便图例可逆; a11y 计数必须描述当前可见内容,不能说隐藏的底层快照。
+        final visibleNodes = [
+          for (final n in sub.nodes)
+            if (!_hidden.contains(n.kind.toLowerCase())) n,
+        ];
+        final visibleEdges = [
+          for (final e in sub.edges)
+            if (!_hidden.contains(e.fromKind.toLowerCase()) &&
+                !_hidden.contains(e.toKind.toLowerCase()))
+              e,
+        ];
         final groups = ref.watch(railModelProvider);
         return AnRelationGraph(
           nodes: sub.nodes,
@@ -149,8 +170,8 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
           nodeSemanticLabel: (n, deg) => relationNodeLabel(context, n, deg),
           edgeSemanticLabel: (e) => relationEdgeLabel(context, e),
           semanticSummary: context.t.a11y.relationSummary(
-            nodes: '${sub.nodes.length}',
-            edges: '${sub.edges.length}',
+            nodes: '${visibleNodes.length}',
+            edges: '${visibleEdges.length}',
           ),
           onNodeTap: (id) {
             if (id == null) {

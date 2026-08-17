@@ -11,7 +11,7 @@ audience: [human, ai]
 
 # 错误码 —— 错误系统 + 全量 wire code 登记
 
-> 后端错误的单一事实源：框架 / 规约 + **sentinel wire code 完整登记**（按域）+ **4 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发 2 个 + `envelopeMuxErrors` 改写 ServeMux 404/405 2 个，均非 `errorspkg.New` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
+> 后端错误的单一事实源：框架 / 规约 + **sentinel wire code 完整登记**（按域）+ **3 个 transport 合成码**（`FromDomainError` 从 stdlib `context` 错误直发 2 个 + `envelopeMuxErrors` 改写 ServeMux 404 1 个；405 使用共享 `METHOD_NOT_ALLOWED` sentinel）。机械守卫保证「全用 `errorspkg.New`」+「码全库唯一」——`pkg/errors/standard_test.go`，进 `make verify`。
 
 ## 框架（`pkg/errors`）
 
@@ -22,7 +22,7 @@ audience: [human, ai]
 - 包裹用 `fmt.Errorf("…: %w", err)`（保留链）；`errors.Is/As` 用标准库。
 - 泛型原语（`ORM_*` / `FSPATH_*` / `MISSING_*` / `HANDLER_CLIENT_*` 等）带兜底码，domain 仍 `errors.Is` 后翻成具体码（如 `orm.ErrNotFound` → `FUNCTION_NOT_FOUND`）。
 
-## Kind → HTTP（15，封闭集；零值 `KindInternal` 安全兜底）
+## Kind → HTTP（16，封闭集；零值 `KindInternal` 安全兜底）
 
 唯一映射表 = `transport/httpapi/response/errmap.go::statusForKind`（transport 不持逐错误表、不 import 业务 domain）。
 
@@ -33,7 +33,7 @@ audience: [human, ai]
 | Unauthorized | 401 | UnsupportedMedia | 415 | ClientClosed | 499 |
 | NotFound | 404 | RateLimited | 429 | Gone | 410 |
 | Conflict | 409 | BadGateway | 502 | Unavailable | 503 |
-| Forbidden | 403 | | | | |
+| Forbidden | 403 | MethodNotAllowed | 405 | | |
 
 ## 命名规约 + 守卫
 
@@ -58,19 +58,19 @@ audience: [human, ai]
 | `UNAUTH_BAD_TOKEN` | 401 | unauthorized: invalid or missing bearer token（loopback 加固：缺/错 `ANSELM_AUTH_TOKEN`；中间件 `RequireBearerToken`，仅 server 设 token 时强制；前端显示重启后端横幅、不清 workspace） |
 | `FORBIDDEN_BAD_HOST` | 403 | forbidden: request host is not loopback（防 DNS rebinding；中间件 `RequireLoopbackHost`，常开，仅放行 127.0.0.1/::1/localhost） |
 | `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6） |
+| `METHOD_NOT_ALLOWED` | 405 | this method is not allowed for this path（路径存在但 HTTP method 不属于其契约；handler 与 ServeMux 405 共用） |
 | `INTERNAL_ERROR` | 500 | internal error（recover 的 panic；原始细节记日志、不上线缆） |
 | `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter；`response/sse.go` 经 `FromDomainError` 发此 sentinel） |
 
 ### transport 合成码（非 `errorspkg.New` sentinel）
 
-> `FromDomainError`（`errmap.go`）把 stdlib `context` 错误直发为 wire 码 + `router/chain.go::envelopeMuxErrors` 把 ServeMux 的纯文本 404/405 改写成 N1 envelope——均不走 `errorspkg.New`、不在上面机械抽取内，但前端确会收到。
+> `FromDomainError`（`errmap.go`）把 stdlib `context` 错误直发为 wire 码；`router/chain.go::envelopeMuxErrors` 把 ServeMux 的纯文本 404 改写成 N1 envelope。ServeMux 的 405 走上面的共享 `ErrMethodNotAllowed`，不在本节重复登记。
 
 | code | HTTP | message | 触发 |
 |---|---|---|---|
 | `CLIENT_CLOSED` | 499 | client closed request | `errors.Is(err, context.Canceled)`（客户端断连 / 取消） |
 | `REQUEST_TIMEOUT` | 504 | request timed out | `errors.Is(err, context.DeadlineExceeded)`（请求超时） |
 | `ROUTE_NOT_FOUND` | 404 | no route matches this path | `/api/v1/*` 无路由匹配；`envelopeMuxErrors` 将 ServeMux 404 改为统一信封 |
-| `METHOD_NOT_ALLOWED` | 405 | this method is not allowed for this path | `/api/v1/*` 路径方法不允许；统一信封并保留 `Allow` header |
 
 ### `app/aispawn`
 

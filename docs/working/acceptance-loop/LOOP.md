@@ -13,15 +13,16 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-17 12:32）
+## 当前前线覆盖声明（2026-08-17 17:15）
 
-EP-239 `GET /api/v1/retention` 已在真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成五级验收。正式 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-122156-ep239`，录屏 `125.515000s / 2784x1808 / 60fps / 7056 frames`；EP-230–EP-238 与 EP-220 保持五格绿，不删除、不重跑。
+EP-250 `GET /api/v1/entities/stream` 已在当前源码、真实 Flutter macOS App、真实受管 Anselm 网关和正式五通道台架下完成五级验收。绿色 mirror=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-163104`，由同一 conductor 封口；EP-230–EP-249、EP-220 及既有绿色项保持五格绿，不删除、不重跑，早先候选和第一次 wiring fail-closed 启动只保留历史。
 
-真实产品路径为 Settings → System → Storage & logs：App 从权威 `GET /api/v1/retention` 渲染 `90 days`，显示 `This machine` 和 retention/统计窗口语义。Computer Use 打开下拉但不改值，录屏看到完整四选项 `30 days / 90 days / 180 days / Keep forever`，90 days 有选中态；离开再进入后 fresh GET 仍为 `90 days`。REST 矩阵覆盖 valid/query `200`、缺失/未知 workspace `401 UNAUTH_NO_WORKSPACE`、POST `405 METHOD_NOT_ALLOWED`（Allow=`GET, HEAD, PATCH`）和坏 Host `403 FORBIDDEN_BAD_HOST`；settings snapshot 证明 sibling blocks 保持不变，本格不冒充 PATCH 行为。
+真实产品路径是普通 Entities：创建 `ep250_entities_stream_probe_r2` 后 Overview/rail 从 3 到 4，详情显示 `env ready`、Python `3.12` 和完整代码；Computer Use 点击右岛 Run，真实 App 显示 `Done · 74ms`、Output、Result、Logs 与 Recent Manual。REST/SQLite 对同一 Function/version/execution 对账为 `ok`、`manual`、`entities-stream-r2`。协议矩阵覆盖 `fromSeq` 回放、`Last-Event-ID` 优先、坏 cursor live-only、缺 workspace `401` 和错方法 `405`。
 
-五通道结果：backend 无应用级 WARN/ERROR/panic/FATAL；ssetap 三流均连接并 clean close，本只读 settings slice 不虚构 durable 事件；frontend 无 Flutter/Dart/RenderFlex/overflow/Unhandled/Exception 产品红线；llmtap 真实指向 `https://api.anselm.website` 且 managed wiring 通过，本确定性 GET 路径不伪造 completion；`rig-check`/`rig-down` 通过且 owned processes/listeners 清零。正式证据为 session `evidence/EP-239-retention-get-final-green.md`，矩阵为 `retention-matrix.txt`，警报复审为 `sessions/20260817-122156-ep239/evidence/EP-239-ledger-alarm-reaudit.md`。一次旧 AX index 复用已在证据中明确分类为仪器观测问题，不计产品缺陷。
+五通道均已收台：录屏 `196.013333s / 2788x1808 / 60fps`，55 张稳定帧无 clipping/overlap/white flash/reflow/button drift/input jump；backend/frontend 无应用红线；entities durable `seq=1..4` 单调、build/run 各自 `open→close`、delta 保持 `seq=0`，notifications `1..3`，messages 无业务帧符合 direct Function 路径；llmtap wiring 真实通过但无 chat completion，符合不经过 LLM 的路由事实。后端与台架 fail-closed 边界均如实保留，未被隐藏。
 
-正式账本=`1890 judgments`，COVERAGE=`848 rows / 371 carried / 0 tombstones`，EP-239=`✓✓✓✓✓`，laws=`F1/F2/B2/C2/G1`，anchors=`10/10`，alarms=`clean`。两条统计警报已按 formal session、菜单/稳定帧、REST 正负矩阵、五通道 journal、实现测试和锚点复审并 ack，未改阈值、法典、锚点或 gate；focused tests、sealed recording/ffprobe、measure diff、rig 自测 `42/42`、SQLite、coverage、anchors、alarms 与 `git diff --check` 均通过。本格无 fixture mutation。批次三十五达到 `50/50` 后，统一 `make verify`（backend/frontend/docs/demo 全绿，docs 仅仓内既有 6 条 review-due 警告）、backend `go test ./...`、完整 `make -C backend testend`（`279.171s`）、已修场景回归和残留进程审计均通过；工作树审计只暂存本轮四份 acceptance working 文档，其他团队改动未触碰。本批次已完成提交，下一原子前线为 EP-240 `PATCH /api/v1/retention`。P12 的 400+ Journey 扩写按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源。
+正式账本=`1945 judgments`，COVERAGE=`848 rows / 382 carried / 0 tombstones`，EP-250=`✓✓✓✓✓`，laws=`F1/F2/B2/C5/G1`，anchors=`10/10`，alarms=`clean`。两条统计警报已按封存录屏、协议/REST/SQLite、五通道 journal、wiring、focused Go tests、rig `42` 项和锚点复审后逐项 ack，未改阈值、法典、锚点或 gate；`gen_coverage.py --check` 已通过。本批次从 `46/50` 跨到 `51/50` 后，最终源码上的根 `make verify`（backend/frontend/docs/demo）、非缓存全量 Go 测试和完整 `make -C backend testend`（`294.064s`）均通过。门禁发现的 S6 405 直接写 envelope 已修为共享 `ErrMethodNotAllowed` 并经 `FromDomainError`，同步错误码 reference 后重跑全绿；conductor-owned 进程/监听器清零，陈旧 EP-208 fixture 已清理。当前只剩工作树归属审计与本批提交；下一原子前线为 EP-251 `GET /api/v1/notifications/stream`，必须在本批提交完成后继续。P12 的 400+ Journey 扩写继续按用户裁定推迟二期，一期仍以 COVERAGE 为覆盖真相源。
+
 ## 历史前线覆盖声明（2026-08-13 15:31）
 
 `SURF-008 shell/notification-tray` 已完成真实通知托盘候选复验。有效 session 为

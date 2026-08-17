@@ -13,6 +13,7 @@ import '../../../../core/design/typography.dart';
 import '../../../../core/model/byte_format.dart';
 import '../../../../core/platform/app_relaunch.dart';
 import '../../../../core/platform/factory_reset.dart';
+import '../../../../core/platform/open_in_system.dart';
 import '../../../../core/runtime.dart';
 import '../../../../core/settings/settings_prefs.dart';
 import '../../../../core/ui/ui.dart';
@@ -61,16 +62,23 @@ class StoragePanel extends ConsumerWidget {
                       label: t.settings.storage.revealFinder,
                       size: AnButtonSize.sm,
                       outline: true,
-                      onPressed: dir == null ? null : () => _reveal(dir),
+                      onPressed: dir == null
+                          ? null
+                          : () => _openPath(context, ref, dir, reveal: true),
                     ),
                     const SizedBox(width: AnSpace.s8),
                     AnButton(
-                      label: t.settings.storage.openLogs,
+                      label: t.settings.storage.revealLogs,
                       size: AnButtonSize.sm,
                       outline: true,
                       onPressed: dir == null
                           ? null
-                          : () => _reveal('$dir/logs'),
+                          : () => _openPath(
+                              context,
+                              ref,
+                              '$dir/logs',
+                              reveal: true,
+                            ),
                     ),
                   ],
                 ),
@@ -166,8 +174,23 @@ class StoragePanel extends ConsumerWidget {
     );
   }
 
-  void _reveal(String path) {
-    if (Platform.isMacOS) Process.run('open', [path]);
+  Future<void> _openPath(
+    BuildContext context,
+    WidgetRef ref,
+    String path, {
+    required bool reveal,
+  }) async {
+    final opened = reveal
+        ? await revealInSystem(path)
+        : await openWithSystem(path);
+    if (opened) return;
+    if (!context.mounted) return;
+    ref
+        .read(noticeCenterProvider.notifier)
+        .show(
+          Translations.of(context).chat.workDir.openFailed,
+          tone: AnTone.warn,
+        );
   }
 
   Future<void> _copyDiagnostics(

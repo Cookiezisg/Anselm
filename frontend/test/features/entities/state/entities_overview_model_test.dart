@@ -190,6 +190,8 @@ void main() {
       _e('equip', 'y', 'x'), // y equips x (x referenced-by y)
       _e('link', 'x', 'b'), // x links b
       _e('link', 'z', 'x'), // z links x (x referenced-by z)
+      _e('create', 'cv', 'x'), // cv created x
+      _e('edit', 'cv2', 'x'), // cv2 edited x
     ];
 
     test(
@@ -199,8 +201,18 @@ void main() {
         expect(g.equips.map((e) => e.toId).toList(), ['a']);
         expect(g.links.map((e) => e.toId).toList(), ['b']);
         expect(g.referencedBy.map((e) => e.fromId).toSet(), {'y', 'z'});
+        expect(g.createdBy.map((e) => e.fromId).toList(), ['cv']);
+        expect(g.editedBy.map((e) => e.fromId).toList(), ['cv2']);
       },
     );
+
+    test('splits outgoing provenance for a conversation', () {
+      final g = relationGroupsFor('cv', edges);
+      expect(g.created.map((e) => e.toId).toList(), ['x']);
+      expect(g.edited, isEmpty);
+      expect(g.createdBy, isEmpty);
+      expect(g.editedBy, isEmpty);
+    });
 
     test('a node with no edges has empty groups', () {
       expect(relationGroupsFor('none', edges).isEmpty, isTrue);

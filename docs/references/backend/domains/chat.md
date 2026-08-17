@@ -234,6 +234,9 @@ unread=false。首轮自动标题与 durable compaction 都是 best-effort，不
 落地的回答。它们可以活过单个 turn 的取消，但必须观察 chat service 的 lifecycle
 cancel，不能活过 DB close；自动标题即使遇到无视取消的 provider，也要在最终写入前
 再检查生命周期。
+utility 不可用、超时或只返回 reasoning 时，标题必须回退到首条 user 请求；该回退最多
+60 个 rune，优先停在英文词边界并带 `…`，不能让单回合线程永远停留在 `New chat`，也不能把半个词
+当作完整标题。
 
 ## 6. Retry
 

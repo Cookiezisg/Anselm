@@ -1245,6 +1245,8 @@ class FixtureSettingsRepository implements SettingsRepository {
     'context': {'triggerRatio': 0.8},
   };
   int patchLimitsCalls = 0;
+  Object? resetLimitsError;
+  int resetLimitsCalls = 0;
 
   @override
   Future<String> dataDir() async => fixtureDataDir;
@@ -1338,6 +1340,11 @@ class FixtureSettingsRepository implements SettingsRepository {
 
   @override
   Future<Map<String, dynamic>> resetLimits() async {
+    resetLimitsCalls++;
+    final failure = resetLimitsError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
     fixtureLimits = {
       'agent': {'maxSteps': 30},
       'context': {'triggerRatio': 0.8},

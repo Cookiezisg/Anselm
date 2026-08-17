@@ -43,7 +43,25 @@ func (t *CreateFunction) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["ops"],
 		"properties": {
-			"ops": {"type": "array", "description": "Build ops; each has an 'op' discriminator + op-specific fields.", "items": {"type": "object"}},
+			"ops": {
+				"type": "array",
+				"description": "Build ops; every item MUST use the 'op' discriminator (never 'kind') plus the fields for that operation.",
+				"items": {
+					"type": "object",
+					"required": ["op"],
+					"properties": {
+						"op": {"type": "string", "enum": ["set_meta", "set_code", "set_inputs", "set_outputs", "set_dependencies", "set_python_version"]},
+						"name": {"type": "string", "description": "set_meta: snake_case function name."},
+						"description": {"type": "string", "description": "set_meta: one-line description."},
+						"tags": {"type": "array", "items": {"type": "string"}, "description": "set_meta: complete tag list."},
+						"code": {"type": "string", "description": "set_code: Python source; the first top-level def is the entry point."},
+						"inputs": {"type": "array", "items": {"type": "object", "required": ["name", "type"], "properties": {"name": {"type": "string"}, "type": {"type": "string", "enum": ["string", "number", "boolean", "object", "array"]}, "description": {"type": "string"}}}},
+						"outputs": {"type": "array", "items": {"type": "object", "required": ["name", "type"], "properties": {"name": {"type": "string"}, "type": {"type": "string", "enum": ["string", "number", "boolean", "object", "array"]}, "description": {"type": "string"}}}},
+						"dependencies": {"type": "array", "items": {"type": "string"}},
+						"version": {"type": "string", "description": "set_python_version: Python runtime version."}
+					}
+				}
+			},
 			"changeReason": {"type": "string", "description": "One-line reason for this creation."}
 		}
 	}`)
@@ -125,7 +143,7 @@ func (t *EditFunction) Parameters() json.RawMessage {
 		"required": ["functionId", "ops"],
 		"properties": {
 			"functionId": {"type": "string"},
-			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env only).", "items": {"type": "object"}},
+			"ops": {"type": "array", "description": "Build ops (empty array = rebuild env only); every item MUST use the 'op' discriminator (never 'kind').", "items": {"type": "object", "required": ["op"], "properties": {"op": {"type": "string", "enum": ["set_meta", "set_code", "set_inputs", "set_outputs", "set_dependencies", "set_python_version"]}, "name": {"type": "string"}, "description": {"type": "string"}, "tags": {"type": "array", "items": {"type": "string"}}, "code": {"type": "string"}, "inputs": {"type": "array", "items": {"type": "object"}}, "outputs": {"type": "array", "items": {"type": "object"}}, "dependencies": {"type": "array", "items": {"type": "string"}}, "version": {"type": "string"}}}},
 			"changeReason": {"type": "string", "description": "One-line reason for this edit."}
 		}
 	}`)
@@ -198,6 +216,7 @@ func canonicalOpsJSON(raw json.RawMessage) (json.RawMessage, bool, error) {
 	if len(trimmed) == 0 {
 		return nil, false, nil
 	}
+	stringified := false
 	if trimmed[0] == '"' {
 		var encoded string
 		if err := json.Unmarshal(trimmed, &encoded); err != nil {
@@ -207,18 +226,7 @@ func canonicalOpsJSON(raw json.RawMessage) (json.RawMessage, bool, error) {
 		if len(trimmed) == 0 {
 			return nil, false, fmt.Errorf("ops JSON string must contain an array")
 		}
-		var items []json.RawMessage
-		if err := json.Unmarshal(trimmed, &items); err != nil {
-			return nil, false, fmt.Errorf("ops JSON string must contain an array: %w", err)
-		}
-		if items == nil {
-			return nil, false, fmt.Errorf("ops JSON string must contain an array")
-		}
-		normalized, _, err := normalizeFieldShapeOps(trimmed)
-		if err != nil {
-			return nil, false, err
-		}
-		return normalized, true, nil
+		stringified = true
 	}
 	var items []json.RawMessage
 	if err := json.Unmarshal(trimmed, &items); err != nil {
@@ -227,11 +235,71 @@ func canonicalOpsJSON(raw json.RawMessage) (json.RawMessage, bool, error) {
 	if items == nil {
 		return nil, false, fmt.Errorf("ops must be an array")
 	}
-	normalized, changed, err := normalizeFieldShapeOps(trimmed)
+	discriminatorNormalized, discriminatorChanged, err := normalizeFunctionOpDiscriminators(trimmed)
 	if err != nil {
 		return nil, false, err
 	}
-	return normalized, changed, nil
+	normalized, fieldsChanged, err := normalizeFieldShapeOps(discriminatorNormalized)
+	if err != nil {
+		return nil, false, err
+	}
+	return normalized, stringified || discriminatorChanged || fieldsChanged, nil
+}
+
+// normalizeFunctionOpDiscriminators repairs one observed hosted-model alias at the tool boundary.
+// Only a missing `op` plus a known operation name in `kind` is accepted; arbitrary malformed ops
+// remain invalid. The canonicalized payload is what validation, the durable tool card, and execute
+// all consume, so the repair cannot diverge between the user-visible record and the actual write.
+//
+// normalizeFunctionOpDiscriminators 修复一次真实观测到的托管模型别名。仅接受缺少 `op` 且 `kind`
+// 是已知操作名的窄形状；任意其它畸形 op 仍然拒绝。规范化后的 payload 同时供校验、耐久工具卡和执行使用，
+// 因此不会出现用户看到的参数与实际写入参数分叉。
+func normalizeFunctionOpDiscriminators(raw json.RawMessage) (json.RawMessage, bool, error) {
+	var ops []json.RawMessage
+	if err := json.Unmarshal(raw, &ops); err != nil {
+		return nil, false, fmt.Errorf("ops must be an array: %w", err)
+	}
+	known := map[string]struct{}{
+		"set_meta": {}, "set_code": {}, "set_inputs": {}, "set_outputs": {},
+		"set_dependencies": {}, "set_python_version": {},
+	}
+	changed := false
+	for i, opRaw := range ops {
+		var fields map[string]json.RawMessage
+		if err := json.Unmarshal(opRaw, &fields); err != nil || fields == nil {
+			continue
+		}
+		if _, hasOp := fields["op"]; hasOp {
+			continue
+		}
+		kindRaw, ok := fields["kind"]
+		if !ok {
+			continue
+		}
+		var kind string
+		if err := json.Unmarshal(kindRaw, &kind); err != nil {
+			continue
+		}
+		if _, ok := known[kind]; !ok {
+			continue
+		}
+		fields["op"] = kindRaw
+		delete(fields, "kind")
+		canonical, err := json.Marshal(fields)
+		if err != nil {
+			return nil, false, fmt.Errorf("ops[%d] discriminator normalization: %w", i, err)
+		}
+		ops[i] = canonical
+		changed = true
+	}
+	if !changed {
+		return raw, false, nil
+	}
+	canonical, err := json.Marshal(ops)
+	if err != nil {
+		return nil, false, fmt.Errorf("ops discriminator normalization: %w", err)
+	}
+	return canonical, true, nil
 }
 
 // normalizeFieldShapeOps projects the two unambiguous provider representations observed for

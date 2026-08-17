@@ -45,6 +45,7 @@ private func anInstallWindowCornerRadius() {
 
 class MainFlutterWindow: NSWindow {
   private var chromeChannel: FlutterMethodChannel?
+  private var systemPathChannel: FlutterMethodChannel?
 
   override func awakeFromNib() {
     // Install the corner-radius override BEFORE the window is revealed. The window is hidden-at-launch (the
@@ -128,6 +129,41 @@ class MainFlutterWindow: NSWindow {
       }
     }
     self.chromeChannel = channel
+
+    // Keep local filesystem escape hatches in their own narrow channel. A sandboxed App cannot reliably
+    // spawn `/usr/bin/open` for the sidecar's data root; AppKit can ask Finder directly and can distinguish
+    // opening a directory from revealing one in its parent. 本地文件系统出口单独走窄通道。沙箱 App 不能可靠地起
+    // `/usr/bin/open` 去打开 sidecar 数据根;AppKit 可直接请求 Finder,并区分打开目录与在父目录中定位目录。
+    let systemPathChannel = FlutterMethodChannel(name: "app/system_path", binaryMessenger: messenger)
+    systemPathChannel.setMethodCallHandler { call, result in
+      guard call.method == "openPath",
+            let args = call.arguments as? [String: Any],
+            let path = args["path"] as? String,
+            !path.isEmpty else {
+        result(FlutterError(code: "bad_args", message: "openPath expects a non-empty path", details: nil))
+        return
+      }
+      let reveal = args["reveal"] as? Bool ?? false
+      let url = URL(fileURLWithPath: path)
+      if reveal {
+        let opened = NSWorkspace.shared.selectFile(path, inFileViewerRootedAtPath: url.deletingLastPathComponent().path)
+        result(opened)
+        return
+      } else {
+        // Explicitly target and activate Finder for directories. The default-app and legacy openFile APIs
+        // can report success without creating a visible Finder window for a sandbox-external directory.
+        // 目录明确交给并激活 Finder。默认应用与旧 openFile API 对沙箱外目录可能回报成功却不落可见窗口。
+        let finderURL = URL(fileURLWithPath: "/System/Library/CoreServices/Finder.app")
+        let configuration = NSWorkspace.OpenConfiguration()
+        configuration.activates = true
+        NSWorkspace.shared.open([url], withApplicationAt: finderURL, configuration: configuration) { _, error in
+          DispatchQueue.main.async {
+            result(error == nil)
+          }
+        }
+      }
+    }
+    self.systemPathChannel = systemPathChannel
 
     super.awakeFromNib()
   }

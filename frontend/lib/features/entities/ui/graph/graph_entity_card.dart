@@ -13,11 +13,11 @@ import '../../state/entities_overview_model.dart';
 import '../../state/rel_graph_provider.dart';
 
 /// The explore-state right-island card for the selected graph node — kind + name + vN + description, then
-/// the RELATION GROUPS («装备了…» / «被…引用» / «链接…»), each row a tappable pill that flies-to that node in
-/// the graph, then «打开详情 →» into the entity page. Reuses the archive-face PRIMITIVES (AnRefPill kind
-/// identity + relation pills, AnKv description) rather than the JSON-shaped EntityGetBody composite — the
-/// graph's data is EntityNode+EntityRow, not a tool-result blob. 探索态右岛卡:kind+名+vN+描述 + 关系分组
-/// (点行 fly-to)+ 打开详情;复用档案脸原语(AnRefPill/AnKv),非 JSON 形的 EntityGetBody 复合件。
+/// provenance groups («创建于…» / «创建了…») and structural groups («装备了…» / «被…引用» / «链接…»).
+/// Each row is a tappable pill that flies to that node in the graph, followed by «打开详情 →» into the
+/// entity page. Reuses the archive-face PRIMITIVES (AnRefPill kind identity + relation pills, AnKv
+/// description) rather than the JSON-shaped EntityGetBody composite — the graph's data is EntityNode+
+/// EntityRow, not a tool-result blob. 探索态右岛卡:kind+名+vN+描述 + 溯源/结构关系分组(点行飞到)+ 打开详情。
 class GraphEntityCard extends ConsumerWidget {
   const GraphEntityCard({
     required this.sel,
@@ -76,8 +76,11 @@ class GraphEntityCard extends ConsumerWidget {
             Expanded(
               child: Text(
                 name,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
+                // A selected conversation title is the user's evidence for why this provenance edge
+                // exists. Let it wrap instead of hiding the distinguishing tail behind an ellipsis;
+                // the inspector is scrollable and has no reason to pretend the name is shorter.
+                // 选中的会话标题是溯源边的证据,完整换行而不是藏掉关键尾部;检查器可滚动,无需假装名称更短。
+                softWrap: true,
                 style: AnText.body
                     .weight(AnText.emphasisWeight)
                     .copyWith(color: c.ink),
@@ -103,6 +106,10 @@ class GraphEntityCard extends ConsumerWidget {
         ],
 
         // Relation groups. 关系分组。
+        _group(context, t.groupCreatedBy, groups.createdBy, outgoing: false),
+        _group(context, t.groupEditedBy, groups.editedBy, outgoing: false),
+        _group(context, t.groupCreated, groups.created, outgoing: true),
+        _group(context, t.groupEdited, groups.edited, outgoing: true),
         _group(context, t.groupEquips, groups.equips, outgoing: true),
         _group(
           context,
@@ -131,7 +138,8 @@ class GraphEntityCard extends ConsumerWidget {
   }
 
   /// One relation group: a heading + a wrap of tappable pills. [outgoing] picks the "other" endpoint —
-  /// the `to` for equips/links, the `from` for referenced-by. Empty groups are omitted. 一组关系:标题 + 药丸墙。
+  /// the `to` for outgoing create/edit/equip/link, the `from` for incoming create/edit/equip/link. Empty
+  /// groups are omitted. 一组关系:标题 + 药丸墙; outgoing 决定取另一端 to/from;空组隐藏。
   Widget _group(
     BuildContext context,
     String heading,

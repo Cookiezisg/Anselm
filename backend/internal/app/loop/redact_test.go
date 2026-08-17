@@ -20,6 +20,253 @@ func TestRedactOpaqueMachineValues(t *testing.T) {
 	}
 }
 
+func TestRedactChineseOpaqueIDAssignmentKeepsProseNatural(t *testing.T) {
+	input := "找到了，文档 ID 为 `doc_3ec2e562757ebbef`。现在查看其关系邻域："
+	want := "找到了，文档已定位。现在查看其关系邻域："
+	got := redactOpaqueMachineValues(input)
+	if got != want {
+		t.Fatalf("Chinese opaque ID assignment = %q, want %q", got, want)
+	}
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "doc_") {
+		t.Fatal("Chinese opaque ID assignment leaked a placeholder or entity ID")
+	}
+}
+
+func TestRedactChineseLocatedIDAssignmentKeepsProseNatural(t *testing.T) {
+	input := "我已经找到了这个文档的 ID：`doc_3ec2e562757ebbef`。"
+	want := "我已经找到了这个文档。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("Chinese located opaque ID assignment = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorHoldsChineseLocatedIDAssignmentAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"我已经找到了这个文档的 ID：`",
+		"doc_3ec2e562757ebbef",
+		"`。\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "doc_") {
+			t.Fatalf("Chinese located ID assignment leaked in %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "我已经找到了这个文档。\n" {
+		t.Fatalf("stream Chinese located opaque ID assignment = %q", got.String())
+	}
+}
+
+func TestRedactBareExactIDAssignmentKeepsProseNatural(t *testing.T) {
+	for _, tc := range []struct {
+		input string
+		want  string
+	}{
+		{input: "找到了确切 ID：`doc_3ec2e562757ebbef`。", want: "找到了确切文档。"},
+		{input: "I found the exact ID: `doc_3ec2e562757ebbef`.", want: "I found the exact document."},
+		{input: "I found the exact document ID: `doc_3ec2e562757ebbef`.", want: "I found the exact document."},
+		{input: "I found its ID: `doc_3ec2e562757ebbef`.", want: "I found the document."},
+		{input: "找到了确切 ID：\n`doc_3ec2e562757ebbef`。", want: "找到了确切文档。"},
+		{input: "我已经找到了确切的 ID：`doc_3ec2e562757ebbef`。", want: "我已经找到了确切文档。"},
+		{input: "**文档 ID**: `doc_3ec2e562757ebbef`", want: "文档已定位"},
+	} {
+		if got := redactOpaqueMachineValues(tc.input); got != tc.want {
+			t.Fatalf("bare exact ID assignment = %q, want %q", got, tc.want)
+		}
+	}
+}
+
+func TestTextRedactorHoldsBareExactIDAssignmentAcrossLineBreak(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"找到了确切 ID：\n",
+		"`doc_3ec2e562757ebbef`。\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "doc_") {
+			t.Fatalf("bare exact ID assignment leaked in %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "找到了确切文档。\n" {
+		t.Fatalf("stream bare exact ID assignment = %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsDecoratedChineseIDAssignmentAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"**文档 ID**: `",
+		"doc_3ec2e562757ebbef",
+		"`\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "doc_") || strings.Contains(piece, "**") {
+			t.Fatalf("decorated Chinese ID assignment leaked in %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "文档已定位\n" {
+		t.Fatalf("stream decorated Chinese ID assignment = %q", got.String())
+	}
+}
+
+func TestRedactReasoningJSONIDFieldKeepsShapeWithoutOpaqueValue(t *testing.T) {
+	input := `[Tool call: get_relations]\n{ "depth": 2, "id": "doc_3ec2e562757ebbef", "kind": "document" }`
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"doc_3ec2e562757ebbef", opaqueEntityPlaceholder, opaqueEntityPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("reasoning JSON leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, `"id": "document"`) || !strings.Contains(got, `"depth": 2`) {
+		t.Fatalf("reasoning JSON lost useful shape: %q", got)
+	}
+}
+
+func TestTextRedactorHoldsReasoningJSONIDFieldAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		`{ "depth": 2, "id": "`,
+		"doc_3ec2e562757ebbef",
+		`", "kind": "document" }`,
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "doc_3ec2e562757ebbef") || strings.Contains(piece, opaqueEntityPlaceholder) {
+			t.Fatalf("reasoning JSON stream leaked opaque value: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if !strings.Contains(got.String(), `"id": "document"`) {
+		t.Fatalf("reasoning JSON stream lost redacted field: %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsEnglishItsIDAssignmentAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"I found its ID: `",
+		"doc_3ec2e562757ebbef",
+		"`. Now I will inspect it.",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "doc_") {
+			t.Fatalf("English pronoun ID assignment leaked in %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "I found the document. Now I will inspect it." {
+		t.Fatalf("stream English pronoun ID assignment = %q", got.String())
+	}
+}
+
+func TestRedactOpaqueIDWithHumanNameParentheticalKeepsName(t *testing.T) {
+	input := "I checked `doc_3ec2e562757ebbef` (Neighbour B) and found two edges."
+	want := "I checked Neighbour B and found two edges."
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("opaque ID name parenthetical = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorHoldsOpaqueIDNameParentheticalAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"I checked `doc_3ec2e562757ebbef` (",
+		"Neighbour B) and found two edges.",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "doc_") {
+			t.Fatalf("opaque ID name parenthetical leaked in %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "I checked Neighbour B and found two edges." {
+		t.Fatalf("stream opaque ID name parenthetical = %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsChineseOpaqueIDAssignmentAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"找到了，文档 ID 为 `",
+		"doc_3ec2e562757ebbef",
+		"`。现在查看其关系邻域：",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, "doc_") {
+			t.Fatalf("stream leaked opaque ID or placeholder in %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "找到了，文档已定位。现在查看其关系邻域："
+	if got.String() != want {
+		t.Fatalf("stream Chinese opaque ID assignment = %q, want %q", got.String(), want)
+	}
+}
+
+func TestRedactEnglishOpaqueIDAssignmentKeepsReasoningNatural(t *testing.T) {
+	input := "I found the document ID: `doc_3ec2e562757ebbef`."
+	want := "I found the document."
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("English opaque ID assignment = %q, want %q", got, want)
+	}
+}
+
+func TestRedactEnglishOpaqueIDFieldRemovesMachineParameter(t *testing.T) {
+	input := "For documents, the kind would be \"document\".\n- id: \"doc_3ec2e562757ebbef\"\n- depth: 2\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"doc_3ec2e562757ebbef", opaqueEntityPlaceholder, "- id:"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("English reasoning field leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{"the kind would be \"document\"", "- depth: 2"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("English reasoning lost useful parameter %q: %q", want, got)
+		}
+	}
+}
+
+func TestTextRedactorHoldsEnglishOpaqueIDAssignmentAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"I found the document ID: `",
+		"doc_3ec2e562757ebbef",
+		"`.\n\nFor documents, the kind would be \"document\".\n- id: \"doc_3ec2e562757ebbef\"\n- depth: 2\n",
+	} {
+		piece := r.Write(delta)
+		for _, forbidden := range []string{"doc_3ec2e562757ebbef", opaqueEntityPlaceholder, "- id:"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("English reasoning stream leaked %q in %q", forbidden, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "doc_3ec2e562757ebbef") || strings.Contains(got.String(), opaqueEntityPlaceholder) {
+		t.Fatalf("English reasoning stream leaked opaque value: %q", got.String())
+	}
+	if strings.Contains(got.String(), "- id:") || !strings.Contains(got.String(), "I found the document.") {
+		t.Fatalf("English reasoning stream shape = %q", got.String())
+	}
+}
+
 func TestRedactOpaqueMachineValuesCleansActivationReasoningFields(t *testing.T) {
 	input := "返回的字段有：\n- id: tra_f98331ff0472114c\n- triggerId: the requested item\n- kind: cron\n- fired: true\n- createdAt: the recorded time\n"
 	got := redactOpaqueMachineValues(input)

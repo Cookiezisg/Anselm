@@ -970,8 +970,9 @@ class _RelationNodeState extends State<_RelationNode> {
       ),
     );
 
-    // Text is EXEMPT from the no-ink rule (that bans LINES); the focus label is 13/emphasis ink, the ring
-    // muted, the rest faint. Re-weight via `.weight()` (VF pinned-axis rule). 文字不在禁 ink 之列(禁的是线)。
+    // Text is EXEMPT from the no-ink rule (that bans LINES); the focus label is 13/emphasis ink and every
+    // visible non-focus label uses the normal muted tier so graph data remains WCAG-readable. Re-weight via
+    // `.weight()` (VF pinned-axis rule). 文字不在禁 ink 之列(禁的是线);可见图数据统一走可读的 muted 档。
     final labelStyle =
         (widget.focused
                 ? AnText.label.weight(AnText.emphasisWeight)
@@ -981,9 +982,7 @@ class _RelationNodeState extends State<_RelationNode> {
                   ? c.accent
                   : widget.focused
                   ? c.ink
-                  : widget.hop <= 1
-                  ? c.inkMuted
-                  : c.inkFaint,
+                  : c.inkMuted,
             );
     final label = widget.labelVisible
         ? Padding(

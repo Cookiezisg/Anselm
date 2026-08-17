@@ -77,6 +77,31 @@ void main() {
     );
   });
 
+  testWidgets(
+    'hiding the selected kind clears its inspector and updates the a11y count',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(initialLocation: '/entities/graph?sel=skill:sk_research'),
+      );
+      await _settle(tester);
+      expect(find.text('deep-research'), findsWidgets);
+
+      await tester.tap(find.text(t.ref.skill));
+      await tester.pump();
+
+      expect(find.text('deep-research'), findsNothing);
+      expect(find.text(g.selectHint), findsOneWidget);
+      expect(
+        find.bySemanticsLabel(t.a11y.relationSummary(nodes: '21', edges: '19')),
+        findsOneWidget,
+      );
+      expect(
+        find.bySemanticsLabel(t.a11y.relationSummary(nodes: '22', edges: '20')),
+        findsNothing,
+      );
+    },
+  );
+
   testWidgets('show-provenance reveals the conversation nodes', (tester) async {
     await tester.pumpWidget(_host());
     await _settle(tester);
@@ -88,6 +113,37 @@ void main() {
       _node('cv_1'),
       findsOneWidget,
       reason: 'conversation nodes admitted with provenance on',
+    );
+  });
+
+  testWidgets('provenance selection explains both sides of a create edge', (
+    tester,
+  ) async {
+    await tester.pumpWidget(_host());
+    await _settle(tester);
+    await tester.tap(find.text(g.showProvenance));
+    await _settle(tester);
+
+    final conversationRect = tester.getRect(_node('cv_1'));
+    await tester.tapAt(
+      Offset(conversationRect.center.dx, conversationRect.top + 4),
+    );
+    await tester.pump();
+    expect(find.text(g.groupCreated.toUpperCase()), findsOneWidget);
+    expect(
+      find.text('daily-digest'),
+      findsWidgets,
+      reason: 'a conversation inspector lists the workflow it created',
+    );
+
+    final functionRect = tester.getRect(_node('fn_normalize'));
+    await tester.tapAt(Offset(functionRect.center.dx, functionRect.top + 4));
+    await tester.pump();
+    expect(find.text(g.groupCreatedBy.toUpperCase()), findsOneWidget);
+    expect(
+      find.text('Set up the digest'),
+      findsWidgets,
+      reason: 'an entity inspector lists the conversation that created it',
     );
   });
 

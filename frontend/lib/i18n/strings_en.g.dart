@@ -4841,6 +4841,18 @@ class Translations$entities$graph$en {
 	/// en: 'Open in detail'
 	String get openDetail => 'Open in detail';
 
+	/// en: 'Created by'
+	String get groupCreatedBy => 'Created by';
+
+	/// en: 'Edited by'
+	String get groupEditedBy => 'Edited by';
+
+	/// en: 'Created'
+	String get groupCreated => 'Created';
+
+	/// en: 'Edited'
+	String get groupEdited => 'Edited';
+
 	/// en: 'Equips'
 	String get groupEquips => 'Equips';
 
@@ -6060,8 +6072,8 @@ class Translations$settings$storage$en {
 	/// en: 'Couldn't read sandbox disk usage'
 	String get diskLoadFailed => 'Couldn\'t read sandbox disk usage';
 
-	/// en: 'Open logs folder'
-	String get openLogs => 'Open logs folder';
+	/// en: 'Reveal logs folder'
+	String get revealLogs => 'Reveal logs folder';
 
 	/// en: 'Run history retention'
 	String get retention => 'Run history retention';
@@ -6141,11 +6153,23 @@ class Translations$settings$limits$en {
 	/// en: 'Reset every limit to its default?'
 	String get resetAllTitle => 'Reset every limit to its default?';
 
+	/// en: 'This resets every machine-wide limit to the server defaults. Any current edits will be overwritten.'
+	String get resetAllWarning => 'This resets every machine-wide limit to the server defaults. Any current edits will be overwritten.';
+
+	/// en: 'Couldn't confirm the reset. Check the connection and try again.'
+	String get resetFailed => 'Couldn\'t confirm the reset. Check the connection and try again.';
+
 	/// en: 'Save failed'
 	String get patchFailed => 'Save failed';
 
 	/// en: 'modified'
 	String get modified => 'modified';
+
+	/// en: 'Allowed $range · default $defaultValue'
+	String rangeHint({required Object range, required Object defaultValue}) => 'Allowed ${range} · default ${defaultValue}';
+
+	/// en: 'Enter a value within $range.'
+	String invalidValue({required Object range}) => 'Enter a value within ${range}.';
 
 	/// en: 'Couldn't load limits'
 	String get errorTitle => 'Couldn\'t load limits';
@@ -9169,6 +9193,10 @@ extension on Translations {
 			'entities.overview.recentHead' => 'Recently updated',
 			'entities.graph.showProvenance' => 'Show provenance',
 			'entities.graph.openDetail' => 'Open in detail',
+			'entities.graph.groupCreatedBy' => 'Created by',
+			'entities.graph.groupEditedBy' => 'Edited by',
+			'entities.graph.groupCreated' => 'Created',
+			'entities.graph.groupEdited' => 'Edited',
 			'entities.graph.groupEquips' => 'Equips',
 			'entities.graph.groupReferencedBy' => 'Referenced by',
 			'entities.graph.groupLinks' => 'Links',
@@ -9673,12 +9701,12 @@ extension on Translations {
 			'settings.mcp.marketLoadFailed' => 'Couldn\'t load the marketplace',
 			'settings.mcp.marketLoadFailedHint' => 'Check the connection and try again.',
 			'settings.mcp.planLoadFailed' => 'Couldn\'t prepare the install',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.planLoadFailedHint' => 'The marketplace entry may have changed. Try again.',
 			'settings.mcp.missingEnv' => ({required Object names}) => 'Missing required environment variables: ${names}',
 			'settings.mcp.prerequisite' => 'Prerequisite',
 			'settings.mcp.requiredMark' => 'required',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => 'Connect & authorize',
 			'settings.mcp.oauthWaiting' => 'Waiting for the browser… (up to 120s)',
 			'settings.mcp.tabTools' => 'Tools',
@@ -9699,7 +9727,7 @@ extension on Translations {
 			'settings.storage.diskUsage' => 'Disk usage',
 			'settings.storage.diskSandbox' => 'Sandbox runtimes & envs',
 			'settings.storage.diskLoadFailed' => 'Couldn\'t read sandbox disk usage',
-			'settings.storage.openLogs' => 'Open logs folder',
+			'settings.storage.revealLogs' => 'Reveal logs folder',
 			'settings.storage.retention' => 'Run history retention',
 			'settings.storage.retentionDesc' => 'Settled runs older than this are cleared. Statistics and failure aggregation windows (7d) are unaffected.',
 			'settings.storage.retention30' => '30 days',
@@ -9723,8 +9751,12 @@ extension on Translations {
 			'settings.limits.scopeNote' => 'Machine-wide — every workspace edits this machine\'s single set of limits',
 			'settings.limits.resetAll' => 'Reset all to defaults',
 			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',
+			'settings.limits.resetAllWarning' => 'This resets every machine-wide limit to the server defaults. Any current edits will be overwritten.',
+			'settings.limits.resetFailed' => 'Couldn\'t confirm the reset. Check the connection and try again.',
 			'settings.limits.patchFailed' => 'Save failed',
 			'settings.limits.modified' => 'modified',
+			'settings.limits.rangeHint' => ({required Object range, required Object defaultValue}) => 'Allowed ${range} · default ${defaultValue}',
+			'settings.limits.invalidValue' => ({required Object range}) => 'Enter a value within ${range}.',
 			'settings.limits.errorTitle' => 'Couldn\'t load limits',
 			'settings.limits.retry' => 'Retry',
 			'settings.limits.errorHint' => 'Couldn\'t read the limits config from the engine',

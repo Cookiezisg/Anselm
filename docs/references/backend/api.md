@@ -416,7 +416,7 @@ runtime 与 env manifest 的 `sizeBytes` 之和；它不按 workspace 过滤，�
 | Method · Path | 语义 |
 |---|---|
 | `GET /notifications` | newest-first 分页 |
-| `GET /notifications/unread-count` | badge count |
+| `GET /notifications/unread-count` | badge count；其他方法返回 `405 METHOD_NOT_ALLOWED`（`Allow: GET, HEAD`） |
 | `POST /notifications/{id}:mark-read` | 单条已读 |
 | `POST /notifications:mark-all-read` | 可选 `[after,before)` 窗 |
 | `POST /notifications:mark-all-unread` | 同窗语义 |

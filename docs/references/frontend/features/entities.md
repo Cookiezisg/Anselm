@@ -17,7 +17,7 @@ audience: [human, ai]
 
 | 面 | 当前事实 |
 |---|---|
-| 总览 | `/` 与 `/entities` 展示实体计数、关系图和最近更新；关系图可进入 `/entities/graph` 全屏探索。探索页默认只显示结构关系，图例隐藏某类实体时同步隐藏其节点、标签和相连边；涟漪只降低点/边的视觉优先级，不降低仍存在的实体名称可读性 |
+| 总览 | `/` 与 `/entities` 展示实体计数、关系图和最近更新；关系图可进入 `/entities/graph` 全屏探索。探索页默认只显示结构关系，图例隐藏某类实体时同步隐藏其节点、标签和相连边；打开显示溯源后，右岛会按“创建于/编辑于”或“创建/编辑”解释会话与实体的方向关系；涟漪只降低点/边的视觉优先级，不降低仍存在的实体名称可读性 |
 | 左岛 rail | Function、Handler、Agent、Workflow 与 Control、Approval、Trigger 七类；过滤、排序、计数、分页与 lifecycle signal 更新；搜索无匹配时明确显示空结果提示，不把空白误作加载失败 |
 | 中心详情 | `/entities/:kind/:id`；同一阅读列承载头、概览、版本与日志/运行。Trigger 使用活动/派发观测面 |
 | 右岛调试台 | 对可执行实体提供 JSON-first 输入、示例、最近输入复用、实时执行流、停止与结果；是手工执行的唯一入口 |
@@ -94,7 +94,7 @@ Logs 档案面也订阅同一实体 scope：收到 durable `close` 后短去抖�
 4. approval first-wins；迟到决定必须对账服务器赢家。
 5. replay 只用于失败 run，kill 是硬停止；两者不能在 UI 中互换语义。
 6. workflow 编辑器的 ref 与 control/approval 端口来自 repository 候选，不靠自由文本猜 wire 值。
-7. 关系图默认只呈现结构关系；conversation provenance 由用户显式开启。
+7. 关系图默认只呈现结构关系；conversation provenance 由用户显式开启，且开启后选中任一会话或实体都必须在右岛说明其 create/edit 关系，不能只在画布上画线。
 
 ## 5. 验证入口
 

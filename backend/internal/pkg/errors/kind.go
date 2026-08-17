@@ -35,4 +35,5 @@ const (
 	KindClientClosed                 // 499 Client Closed Request
 	KindGone                         // 410 Gone (resource existed but was evicted; e.g. SSE replay seq too old)
 	KindForbidden                    // 403 Forbidden (request understood but refused; e.g. non-loopback Host)
+	KindMethodNotAllowed             // 405 Method Not Allowed (the path exists but the HTTP method does not)
 )

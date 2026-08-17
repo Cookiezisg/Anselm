@@ -41,7 +41,9 @@ audience: [human, ai]
 - launch-at-login 经平台 adapter 注册，设置偏好与 OS 注册表分别承担 UI/系统事实；
   close 后后台运行与 tray 尚未形成产品合同。
 - loopback 安全由后端默认 `127.0.0.1`、bearer 与 Host 校验三层完成；前端不复制鉴权规则。
-- 文件选择、剪贴板、拖放、目录打开和终端打开经平台适配层；feature 不直接散落平台判断。
+- 文件选择、剪贴板、拖放、目录打开和终端打开经平台适配层；feature 不直接散落平台判断。macOS 的本地路径
+  通过 `app/system_path` MethodChannel 进入 AppKit：Finder 定位使用 `NSWorkspace.selectFile`，Storage 的
+  数据目录与日志目录都以可观察的选中结果为准，不把沙箱下无法证明的子窗口打开回报成成功。
 
 ## 5. 媒体与原生宿主
 

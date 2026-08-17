@@ -93,14 +93,33 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
         .read(overlayProvider.notifier)
         .confirm(
           title: t.settings.limits.resetAllTitle,
-          message: t.settings.limits.scopeNote,
+          message: t.settings.limits.resetAllWarning,
           confirmLabel: t.settings.limits.resetAll,
           cancelLabel: t.settings.keys.cancel,
           barrierLabel: t.settings.limits.resetAllTitle,
         );
     if (!ok) return;
-    final fresh = await ref.read(settingsRepositoryProvider).resetLimits();
-    if (mounted) setState(() => _limits = fresh);
+    try {
+      final fresh = await ref.read(settingsRepositoryProvider).resetLimits();
+      if (mounted) setState(() => _limits = fresh);
+    } on ApiException {
+      await _load();
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(t.settings.limits.resetFailed, tone: AnTone.danger);
+      }
+    } catch (_) {
+      // A transport failure may happen after the server committed. Reload first so the visible
+      // value never pretends the old local snapshot is authoritative.
+      // 传输可能发生在服务端已提交之后,先重读,绝不把旧本地快照冒充权威值。
+      await _load();
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(t.settings.limits.resetFailed, tone: AnTone.danger);
+      }
+    }
   }
 
   @override
@@ -178,6 +197,14 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
                   field: f,
                   value: _valueAt(f.key) ?? f.defaultValue,
                   onCommit: (v) => _commit(f, v),
+                  onInvalid: () => ref
+                      .read(noticeCenterProvider.notifier)
+                      .show(
+                        t.settings.limits.invalidValue(
+                          range: _formatLimitRange(f),
+                        ),
+                        tone: AnTone.danger,
+                      ),
                   onReset: () => _commit(f, f.defaultValue),
                 ),
             ],
@@ -189,11 +216,37 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
   }
 }
 
+String _formatLimitNumber(double value) =>
+    value == value.roundToDouble() ? '${value.round()}' : '$value';
+
+/// Keep the server's bound semantics visible without pretending an unbounded max exists.
+/// 用数学区间保留服务端的开闭边界,并明确 max=0 的上界缺席。
+String _formatLimitRange(LimitField field) {
+  final min = _formatLimitNumber(field.min);
+  final hasMax = field.max > 0;
+  if (field.exclusive && hasMax) {
+    return '($min, ${_formatLimitNumber(field.max)})';
+  }
+  if (field.exclusive) return '> $min';
+  if (hasMax) return '[$min, ${_formatLimitNumber(field.max)}]';
+  return '≥ $min';
+}
+
+bool _isValidLimitValue(LimitField field, double value) {
+  if (!value.isFinite) return false;
+  final aboveMin = field.exclusive ? value > field.min : value >= field.min;
+  final belowMax =
+      field.max <= 0 ||
+      (field.exclusive ? value < field.max : value <= field.max);
+  return aboveMin && belowMax;
+}
+
 class _LimitRow extends StatefulWidget {
   const _LimitRow({
     required this.field,
     required this.value,
     required this.onCommit,
+    required this.onInvalid,
     required this.onReset,
     super.key,
   });
@@ -201,6 +254,7 @@ class _LimitRow extends StatefulWidget {
   final LimitField field;
   final double value;
   final ValueChanged<double> onCommit;
+  final VoidCallback onInvalid;
   final VoidCallback onReset;
 
   @override
@@ -212,8 +266,7 @@ class _LimitRowState extends State<_LimitRow> {
     text: _fmt(widget.value),
   );
 
-  static String _fmt(double v) =>
-      v == v.roundToDouble() ? '${v.round()}' : '$v';
+  static String _fmt(double v) => _formatLimitNumber(v);
 
   @override
   void dispose() {
@@ -223,7 +276,12 @@ class _LimitRowState extends State<_LimitRow> {
 
   void _commit() {
     final v = double.tryParse(_text.text.trim());
-    if (v == null || v == widget.value) {
+    if (v == null || !_isValidLimitValue(widget.field, v)) {
+      _text.text = _fmt(widget.value);
+      widget.onInvalid();
+      return;
+    }
+    if (v == widget.value) {
       _text.text = _fmt(widget.value);
       return;
     }
@@ -236,7 +294,8 @@ class _LimitRowState extends State<_LimitRow> {
     final f = widget.field;
     return AnSettingRow(
       label: f.key,
-      desc: '${f.desc} (${f.unit})',
+      desc:
+          '${f.desc} (${f.unit}) · ${t.settings.limits.rangeHint(range: _formatLimitRange(f), defaultValue: _fmt(f.defaultValue))}',
       modified: widget.value != f.defaultValue,
       onReset: widget.onReset,
       resetLabel: t.settings.resetToDefault,

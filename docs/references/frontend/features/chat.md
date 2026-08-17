@@ -28,7 +28,7 @@ audience: [human, ai]
 
 ## 2. 数据与状态边界
 
-- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。自动标题在头部与 rail 同步做一次性揭示，头部标题槽预留最终宽度，模型选择器不能因逐字揭示而横向移动，揭示结束后也不得换槽。列表 provider 对每条 pinned/驻地轴独立保存 cursor 和 `total`，任何查询轴变化都丢弃旧 cursor 后重新取首屏；生命周期变更只合帧刷新响应头总数，不用已加载 rows 猜段头；驻地组的 `lastMessageAt` 变化（包括一条回合完成）也会合帧重读服务端投影，保证“最近活跃”组头不会停在旧位置。
+- `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。自动标题在头部与 rail 同步做一次性揭示，头部标题槽预留最终宽度，模型选择器不能因逐字揭示而横向移动，揭示结束后也不得换槽；utility 无正文时使用首句本地兜底，长请求在可读边界加省略号，不把半个词当作标题。列表 provider 对每条 pinned/驻地轴独立保存 cursor 和 `total`，任何查询轴变化都丢弃旧 cursor 后重新取首屏；生命周期变更只合帧刷新响应头总数，不用已加载 rows 猜段头；驻地组的 `lastMessageAt` 变化（包括一条回合完成）也会合帧重读服务端投影，保证“最近活跃”组头不会停在旧位置。
 - `modelCapabilitiesProvider` 是模型选择器的共享能力真相源，必须保留 loading、读取失败和 settled-empty 三种语义：只有成功返回空数组才显示没有可用模型；已有能力目录刷新失败时继续展示 last-good，首次加载失败时聊天头部/重试菜单保留 Auto 与当前回合操作，同时给出明确状态和单一刷新入口，不能把后端故障显示成“没有模型”或诱导用户重复添加 key。
 - 侧幕失败丝带按动作语义分流：`create_*` 只说明未创建实体，`edit_*` 才说明上一版仍是真相，执行类工具（例如 `invoke_agent`、`run_function`、`call_handler`）只说明运行失败并指向下方错误；执行失败不得复用草稿/版本文案。`edit_approval` 失败时，侧幕与中心工具卡都必须明确上一版仍有效，禁止把未保存 payload 渲染成带批准/拒绝按钮的审批预览。
 - 对话列表、当前选区、transcript、草稿、附件准备、队列、interaction、驻地与侧幕分别持有最小状态；跨面只经 provider 或路由意图，不让 widget 互相持有。

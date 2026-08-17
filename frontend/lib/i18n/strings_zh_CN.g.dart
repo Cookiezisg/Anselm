@@ -1959,6 +1959,10 @@ class _Translations$entities$graph$zh_CN extends Translations$entities$graph$en 
 	// Translations
 	@override String get showProvenance => '显示溯源';
 	@override String get openDetail => '打开详情';
+	@override String get groupCreatedBy => '创建于';
+	@override String get groupEditedBy => '编辑于';
+	@override String get groupCreated => '创建了';
+	@override String get groupEdited => '编辑了';
 	@override String get groupEquips => '装备了';
 	@override String get groupReferencedBy => '被引用';
 	@override String get groupLinks => '链接';
@@ -2438,7 +2442,7 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get diskUsage => '磁盘占用';
 	@override String get diskSandbox => '沙箱运行时与环境';
 	@override String get diskLoadFailed => '无法读取沙箱磁盘占用';
-	@override String get openLogs => '打开日志文件夹';
+	@override String get revealLogs => '在访达中显示日志';
 	@override String get retention => 'Run 历史保留';
 	@override String get retentionDesc => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。';
 	@override String get retention30 => '30 天';
@@ -2471,8 +2475,12 @@ class _Translations$settings$limits$zh_CN extends Translations$settings$limits$e
 	@override String get scopeNote => '全机生效——任一工作区修改的都是这台机器的同一份上限';
 	@override String get resetAll => '全部恢复默认';
 	@override String get resetAllTitle => '恢复全部默认限额?';
+	@override String get resetAllWarning => '这会将本机全部限额恢复为服务端默认值，当前修改将被覆盖。';
+	@override String get resetFailed => '无法确认恢复结果，请检查连接后重试。';
 	@override String get patchFailed => '保存失败';
 	@override String get modified => '已修改';
+	@override String rangeHint({required Object range, required Object defaultValue}) => '可用范围 ${range} · 默认 ${defaultValue}';
+	@override String invalidValue({required Object range}) => '请输入 ${range} 范围内的数值。';
 	@override String get errorTitle => '限额加载失败';
 	@override String get retry => '重试';
 	@override String get errorHint => '无法从引擎读取限额配置';
@@ -4704,6 +4712,10 @@ extension on TranslationsZhCn {
 			'entities.overview.recentHead' => '最近更新',
 			'entities.graph.showProvenance' => '显示溯源',
 			'entities.graph.openDetail' => '打开详情',
+			'entities.graph.groupCreatedBy' => '创建于',
+			'entities.graph.groupEditedBy' => '编辑于',
+			'entities.graph.groupCreated' => '创建了',
+			'entities.graph.groupEdited' => '编辑了',
 			'entities.graph.groupEquips' => '装备了',
 			'entities.graph.groupReferencedBy' => '被引用',
 			'entities.graph.groupLinks' => '链接',
@@ -5208,12 +5220,12 @@ extension on TranslationsZhCn {
 			'settings.mcp.marketLoadFailed' => '市场加载失败',
 			'settings.mcp.marketLoadFailedHint' => '请检查连接后重试。',
 			'settings.mcp.planLoadFailed' => '安装准备失败',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.planLoadFailedHint' => '市场条目可能已变化,请重试。',
 			'settings.mcp.missingEnv' => ({required Object names}) => '缺少必填环境变量:${names}',
 			'settings.mcp.prerequisite' => '前置',
 			'settings.mcp.requiredMark' => '必填',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.oauthConnect' => '连接并授权',
 			'settings.mcp.oauthWaiting' => '等待浏览器授权…(最长 120 秒)',
 			'settings.mcp.tabTools' => '工具',
@@ -5234,7 +5246,7 @@ extension on TranslationsZhCn {
 			'settings.storage.diskUsage' => '磁盘占用',
 			'settings.storage.diskSandbox' => '沙箱运行时与环境',
 			'settings.storage.diskLoadFailed' => '无法读取沙箱磁盘占用',
-			'settings.storage.openLogs' => '打开日志文件夹',
+			'settings.storage.revealLogs' => '在访达中显示日志',
 			'settings.storage.retention' => 'Run 历史保留',
 			'settings.storage.retentionDesc' => '超过保留线的 run 记录将被清理,统计与失败聚合不受影响。',
 			'settings.storage.retention30' => '30 天',
@@ -5258,8 +5270,12 @@ extension on TranslationsZhCn {
 			'settings.limits.scopeNote' => '全机生效——任一工作区修改的都是这台机器的同一份上限',
 			'settings.limits.resetAll' => '全部恢复默认',
 			'settings.limits.resetAllTitle' => '恢复全部默认限额?',
+			'settings.limits.resetAllWarning' => '这会将本机全部限额恢复为服务端默认值，当前修改将被覆盖。',
+			'settings.limits.resetFailed' => '无法确认恢复结果，请检查连接后重试。',
 			'settings.limits.patchFailed' => '保存失败',
 			'settings.limits.modified' => '已修改',
+			'settings.limits.rangeHint' => ({required Object range, required Object defaultValue}) => '可用范围 ${range} · 默认 ${defaultValue}',
+			'settings.limits.invalidValue' => ({required Object range}) => '请输入 ${range} 范围内的数值。',
 			'settings.limits.errorTitle' => '限额加载失败',
 			'settings.limits.retry' => '重试',
 			'settings.limits.errorHint' => '无法从引擎读取限额配置',

@@ -40,6 +40,10 @@ var (
 	// 命中 + 未知 :action 全落此,404）——transport 不再手编 404（S20）。
 	ErrNotFound = New(KindNotFound, "NOT_FOUND", "not found")
 
+	// ErrMethodNotAllowed: the path exists, but the requested HTTP method is not part of its contract.
+	// ErrMethodNotAllowed：路径存在，但请求的 HTTP method 不属于该路径契约。
+	ErrMethodNotAllowed = New(KindMethodNotAllowed, "METHOD_NOT_ALLOWED", "this method is not allowed for this path")
+
 	// ErrInternal: an unexpected server fault (recovered panic). Original detail is logged,
 	// never sent on the wire.
 	//

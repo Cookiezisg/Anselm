@@ -50,6 +50,8 @@ func statusForKind(k errorspkg.Kind) int {
 		return http.StatusGone
 	case errorspkg.KindForbidden:
 		return http.StatusForbidden
+	case errorspkg.KindMethodNotAllowed:
+		return http.StatusMethodNotAllowed
 	default: // KindInternal + zero value → safest outcome
 		return http.StatusInternalServerError
 	}

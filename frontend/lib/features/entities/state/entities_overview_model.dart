@@ -72,16 +72,33 @@ OverviewCounts overviewCounts(List<RailGroup> groups) {
 /// already sorts its own default view this way — see rail_sort.dart's `recent`), so the Overview's recent
 /// list is exactly consistent with the rail's notion of recent. Name is the stable tiebreak so the order
 /// is deterministic. 跨 kind 按 updatedAt desc 取 top-N:合并 rail 已载行(与 rail 默认 recent 排序一致),名字破平局。
-/// The explore-state right-island card's relation grouping for one node id: what it EQUIPS (outgoing
-/// equip), what REFERENCES it (incoming equip + link — the "删了它什么会坏" dependents), and what it LINKS
-/// (outgoing link, e.g. a document's `[[id]]` wikilinks). Pure. 探索态右岛卡的关系分组:装备了(出 equip)/
-/// 被引用(入 equip+link)/链接(出 link)。
+/// The explore-state right-island card's relation grouping for one node id: provenance first (created by /
+/// edited by, or created / edited), then structural edges (equips / referenced by / links). Keeping the
+/// directions separate means a selected conversation can explain what it created, while a selected entity
+/// can explain which conversation created it. Pure. 探索态右岛卡的关系分组:先溯源(创建于/编辑于,或创建/编辑),
+/// 再结构边(装备了/被引用/链接)。方向分开,让会话能说明它创建了什么,实体能说明由哪个会话创建。
 class RelationGroups {
   const RelationGroups({
+    required this.createdBy,
+    required this.editedBy,
+    required this.created,
+    required this.edited,
     required this.equips,
     required this.referencedBy,
     required this.links,
   });
+
+  /// Incoming `create` — the conversation that created this node. 入向 create:创建该节点的会话。
+  final List<EntityRelation> createdBy;
+
+  /// Incoming `edit` — the conversation that last edited this node. 入向 edit:编辑该节点的会话。
+  final List<EntityRelation> editedBy;
+
+  /// Outgoing `create` — the nodes this conversation created. 出向 create:该会话创建的节点。
+  final List<EntityRelation> created;
+
+  /// Outgoing `edit` — the nodes this conversation edited. 出向 edit:该会话编辑的节点。
+  final List<EntityRelation> edited;
 
   /// Outgoing `equip` — the entities this node mounts. 出向 equip(它挂载的)。
   final List<EntityRelation> equips;
@@ -92,11 +109,34 @@ class RelationGroups {
   /// Outgoing `link` — what this node links out to. 出向 link(它链出的)。
   final List<EntityRelation> links;
 
-  bool get isEmpty => equips.isEmpty && referencedBy.isEmpty && links.isEmpty;
+  bool get isEmpty =>
+      createdBy.isEmpty &&
+      editedBy.isEmpty &&
+      created.isEmpty &&
+      edited.isEmpty &&
+      equips.isEmpty &&
+      referencedBy.isEmpty &&
+      links.isEmpty;
 }
 
 RelationGroups relationGroupsFor(String id, List<EntityRelation> edges) =>
     RelationGroups(
+      createdBy: [
+        for (final e in edges)
+          if (e.toId == id && e.kind == 'create') e,
+      ],
+      editedBy: [
+        for (final e in edges)
+          if (e.toId == id && e.kind == 'edit') e,
+      ],
+      created: [
+        for (final e in edges)
+          if (e.fromId == id && e.kind == 'create') e,
+      ],
+      edited: [
+        for (final e in edges)
+          if (e.fromId == id && e.kind == 'edit') e,
+      ],
       equips: [
         for (final e in edges)
           if (e.fromId == id && e.kind == 'equip') e,

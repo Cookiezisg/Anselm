@@ -342,8 +342,8 @@ void main() {
       );
       expect(
         label.style?.color,
-        AnColors.light.inkFaint,
-        reason: 'a visible entity name must not inherit the dot alpha',
+        AnColors.light.inkMuted,
+        reason: 'a visible entity name must stay in the readable text tier',
       );
     });
 

@@ -113,6 +113,64 @@ func TestBuildTools_AcceptHostedModelStringifiedOpsAndNormalizeBeforeExecution(t
 	}
 }
 
+func TestCreateFunction_ParametersDeclareOpDiscriminator(t *testing.T) {
+	var schema struct {
+		Properties map[string]struct {
+			Items struct {
+				Required   []string                  `json:"required"`
+				Properties map[string]map[string]any `json:"properties"`
+			} `json:"items"`
+		} `json:"properties"`
+	}
+	if err := json.Unmarshal((&CreateFunction{}).Parameters(), &schema); err != nil {
+		t.Fatalf("create_function schema is invalid JSON: %v", err)
+	}
+	ops := schema.Properties["ops"].Items
+	if len(ops.Required) != 1 || ops.Required[0] != "op" {
+		t.Fatalf("ops.items required = %v, want [op]", ops.Required)
+	}
+	op, ok := ops.Properties["op"]
+	if !ok {
+		t.Fatal("ops.items must declare the op discriminator")
+	}
+	values, ok := op["enum"].([]any)
+	if !ok || len(values) != 6 {
+		t.Fatalf("op enum = %#v, want six known function operations", op["enum"])
+	}
+	if _, legacy := ops.Properties["kind"]; legacy {
+		t.Fatal("public schema must teach the canonical op key, not the observed legacy alias")
+	}
+}
+
+func TestBuildTools_NormalizeKnownKindDiscriminator(t *testing.T) {
+	tool := &CreateFunction{}
+	args := json.RawMessage(`{"ops":[{"kind":"set_meta","name":"ep227_probe"},{"kind":"set_code","code":"def main():\n    return {\"status\": \"ok\"}"}]}`)
+	if err := tool.ValidateInput(args); err != nil {
+		t.Fatalf("known kind alias should be accepted at the compatibility boundary: %v", err)
+	}
+	normalized, changed := tool.NormalizeArguments(args)
+	if !changed {
+		t.Fatal("known kind alias should report normalization")
+	}
+	var got struct {
+		Ops []map[string]json.RawMessage `json:"ops"`
+	}
+	if err := json.Unmarshal(normalized, &got); err != nil {
+		t.Fatalf("normalized args invalid: %v", err)
+	}
+	if len(got.Ops) != 2 {
+		t.Fatalf("normalized ops length = %d, want 2", len(got.Ops))
+	}
+	for i, op := range got.Ops {
+		if _, ok := op["op"]; !ok {
+			t.Fatalf("normalized op %d has no canonical op key: %v", i, op)
+		}
+		if _, ok := op["kind"]; ok {
+			t.Fatalf("normalized op %d retained legacy kind key: %v", i, op)
+		}
+	}
+}
+
 func TestBuildTools_RejectNonArrayOpsStrings(t *testing.T) {
 	for _, raw := range []string{`{"ops":"temperature"}`, `{"ops":"{\"op\":\"set_meta\"}"}`, `{"ops":"not json"}`} {
 		if err := (&CreateFunction{}).ValidateInput(json.RawMessage(raw)); err == nil {

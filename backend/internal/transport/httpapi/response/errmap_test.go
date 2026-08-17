@@ -23,6 +23,7 @@ func TestStatusForKind(t *testing.T) {
 		errorspkg.KindConflict:         http.StatusConflict,
 		errorspkg.KindGone:             http.StatusGone,
 		errorspkg.KindForbidden:        http.StatusForbidden,
+		errorspkg.KindMethodNotAllowed: http.StatusMethodNotAllowed,
 		errorspkg.KindUnprocessable:    http.StatusUnprocessableEntity,
 		errorspkg.KindTooLarge:         http.StatusRequestEntityTooLarge,
 		errorspkg.KindUnsupportedMedia: http.StatusUnsupportedMediaType,

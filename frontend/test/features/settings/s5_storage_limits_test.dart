@@ -216,6 +216,20 @@ void main() {
         reason: 'schema 键即行标',
       );
       expect(find.text('context.triggerRatio'), findsOneWidget);
+      expect(
+        find.textContaining(
+          t.settings.limits.rangeHint(range: '≥ 1', defaultValue: '30'),
+        ),
+        findsOneWidget,
+        reason: '无上界字段仍明确显示下界与默认值',
+      );
+      expect(
+        find.textContaining(
+          t.settings.limits.rangeHint(range: '(0, 1)', defaultValue: '0.8'),
+        ),
+        findsOneWidget,
+        reason: '开区间字段不能被渲成含端点的范围',
+      );
 
       // Edit maxSteps → nested merge lands. 改值→嵌套合并。
       final field = find.widgetWithText(TextField, '30');
@@ -242,6 +256,52 @@ void main() {
     },
   );
 
+  testWidgets('limits: invalid values are rejected locally without a PATCH', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_host(repo, const LimitsPanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(LimitsPanel)));
+
+    final maxSteps = find.widgetWithText(TextField, '30');
+    await tester.enterText(maxSteps, '0');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(repo.patchLimitsCalls, 0, reason: '越界值在客户端拦截,不制造失败请求');
+    expect(find.widgetWithText(TextField, '30'), findsOneWidget);
+    final message = ProviderScope.containerOf(
+      tester.element(find.byType(LimitsPanel)),
+      listen: false,
+    ).read(noticeCenterProvider).current?.message;
+    expect(message?.text, t.settings.limits.invalidValue(range: '≥ 1'));
+    expect(message?.tone, AnTone.danger);
+  });
+
+  testWidgets('limits: exclusive upper bound is rejected before a PATCH', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository();
+    await tester.pumpWidget(_host(repo, const LimitsPanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(LimitsPanel)));
+
+    final ratio = find.widgetWithText(TextField, '0.8');
+    await tester.enterText(ratio, '1');
+    await tester.testTextInput.receiveAction(TextInputAction.done);
+    await tester.pumpAndSettle();
+
+    expect(repo.patchLimitsCalls, 0, reason: '开区间上端不应发 PATCH');
+    expect(find.widgetWithText(TextField, '0.8'), findsOneWidget);
+    final message = ProviderScope.containerOf(
+      tester.element(find.byType(LimitsPanel)),
+      listen: false,
+    ).read(noticeCenterProvider).current?.message;
+    expect(message?.text, t.settings.limits.invalidValue(range: '(0, 1)'));
+    expect(message?.tone, AnTone.danger);
+  });
+
   testWidgets('limits: reset-all restores defaults after confirm', (
     tester,
   ) async {
@@ -256,16 +316,73 @@ void main() {
 
     await tester.tap(find.text(t.settings.limits.resetAll));
     await tester.pumpAndSettle();
+    expect(find.text(t.settings.limits.resetAllWarning), findsOneWidget);
     await tester.tap(
       find.text(t.settings.limits.resetAll).last,
     ); // dialog confirm 对话框确认
     await tester.pumpAndSettle();
+    expect(repo.resetLimitsCalls, 1);
     expect(
       (repo.fixtureLimits['agent'] as Map)['maxSteps'],
       30,
       reason: '全量回默认',
     );
     expect(find.text('30'), findsOneWidget);
+  });
+
+  testWidgets('limits: cancelling reset leaves values and sends no request', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..fixtureLimits = {
+        'agent': {'maxSteps': 99},
+        'context': {'triggerRatio': 0.5},
+      };
+    await tester.pumpWidget(_host(repo, const LimitsPanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(LimitsPanel)));
+
+    await tester.tap(find.text(t.settings.limits.resetAll));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.keys.cancel));
+    await tester.pumpAndSettle();
+
+    expect(repo.resetLimitsCalls, 0, reason: '取消确认不应发送 reset');
+    expect((repo.fixtureLimits['agent'] as Map)['maxSteps'], 99);
+    expect(find.text('99'), findsOneWidget);
+  });
+
+  testWidgets('limits: reset failure is human and reloads server truth', (
+    tester,
+  ) async {
+    final repo = FixtureSettingsRepository()
+      ..fixtureLimits = {
+        'agent': {'maxSteps': 99},
+        'context': {'triggerRatio': 0.5},
+      }
+      ..resetLimitsError = const ApiException(
+        code: 'SETTINGS_LIMITS_RESET_FAILED',
+        message: 'reset unavailable',
+        httpStatus: 503,
+      );
+    await tester.pumpWidget(_host(repo, const LimitsPanel()));
+    await tester.pumpAndSettle();
+    final t = Translations.of(tester.element(find.byType(LimitsPanel)));
+
+    await tester.tap(find.text(t.settings.limits.resetAll));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.settings.limits.resetAll).last);
+    await tester.pumpAndSettle();
+
+    expect(repo.resetLimitsCalls, 1);
+    expect((repo.fixtureLimits['agent'] as Map)['maxSteps'], 99);
+    final message = ProviderScope.containerOf(
+      tester.element(find.byType(LimitsPanel)),
+      listen: false,
+    ).read(noticeCenterProvider).current?.message;
+    expect(message?.text, t.settings.limits.resetFailed);
+    expect(message?.tone, AnTone.danger);
+    expect(find.text('99'), findsOneWidget);
   });
 
   // ── Run 历史保留 (scheduler 判决④/工单⑬) ──

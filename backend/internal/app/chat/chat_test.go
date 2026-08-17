@@ -976,6 +976,35 @@ func TestAutoTitle_FallsBackWhenUtilityProducesOnlyReasoning(t *testing.T) {
 	}
 }
 
+func TestFallbackTitle_StopsAtReadableBoundary(t *testing.T) {
+	request := "What capabilities are currently available in this workspace Group them by type include each name and short description and list the callable methods for any handler"
+	got := fallbackTitle([]*messagesdomain.Message{{
+		Role:   messagesdomain.RoleUser,
+		Blocks: []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: request}},
+	}})
+	want := "What capabilities are currently available in this workspace…"
+	if got != want {
+		t.Fatalf("fallback title = %q, want %q", got, want)
+	}
+	if len([]rune(got)) > fallbackTitleMaxLen {
+		t.Fatalf("fallback title has %d runes, want <= %d", len([]rune(got)), fallbackTitleMaxLen)
+	}
+}
+
+func TestFallbackTitle_CutsSpaceFreeTextAtRuneBoundary(t *testing.T) {
+	request := strings.Repeat("能力", fallbackTitleMaxLen) + "之后继续说明"
+	got := fallbackTitle([]*messagesdomain.Message{{
+		Role:   messagesdomain.RoleUser,
+		Blocks: []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: request}},
+	}})
+	if !strings.HasSuffix(got, "…") {
+		t.Fatalf("fallback title = %q, want an omission mark", got)
+	}
+	if len([]rune(got)) > fallbackTitleMaxLen {
+		t.Fatalf("fallback title has %d runes, want <= %d", len([]rune(got)), fallbackTitleMaxLen)
+	}
+}
+
 // TestConversationScopedReads_ForeignConversation404 — F72: cross-ws / nonexistent conversation ids
 // must 404 via the ownership pre-check, not return misleading 200-empty / 0-token responses.
 //

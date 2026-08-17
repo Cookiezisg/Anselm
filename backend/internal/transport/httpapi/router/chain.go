@@ -6,6 +6,7 @@ import (
 
 	"go.uber.org/zap"
 
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	middlewarehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/middleware"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
@@ -118,7 +119,7 @@ func (e *muxErrorWriter) WriteHeader(code int) {
 		responsehttpapi.Error(e.ResponseWriter, code, "ROUTE_NOT_FOUND", "no route matches this path", nil)
 	case http.StatusMethodNotAllowed:
 		e.intercepted = true
-		responsehttpapi.Error(e.ResponseWriter, code, "METHOD_NOT_ALLOWED", "this method is not allowed for this path", nil)
+		responsehttpapi.FromDomainError(e.ResponseWriter, nil, errorspkg.ErrMethodNotAllowed)
 	default:
 		e.ResponseWriter.WriteHeader(code)
 	}

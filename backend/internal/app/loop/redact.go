@@ -20,16 +20,25 @@ const (
 	opaqueTimestampChinesePlaceholder = "相应时间"
 	opaqueIntegerPlaceholder          = "the numeric value"
 	opaqueHashPlaceholder             = "the recorded digest"
+	opaqueEntityIDPatternSource       = `(?:ws|fn|fnv|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk|rel)_[A-Za-z0-9]+`
+	opaqueChineseEntityLabelPattern   = `(?:工作流|函数|处理器|代理|触发器|对话|文档|技能|工作区|消息|附件|运行)`
+	opaqueEnglishEntityLabelPattern   = `(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|attachment|run|flowrun)`
 )
 
 var (
 	// Entity ids are useful inside tool cards, but they are not useful prose. Keep the
 	// prefixes explicit so ordinary snake_case words remain untouched.
-	entityIDPattern = regexp.MustCompile(`\b(?:ws|fn|fnv|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk|rel)_[A-Za-z0-9]+\b`)
+	entityIDPattern = regexp.MustCompile(`\b` + opaqueEntityIDPatternSource + `\b`)
 	// Models sometimes repeat an opaque target in parentheses after already naming it, e.g.
 	// "workflow nightly (wf_...)". Removing that redundant parenthetical is more fluent than
 	// leaving "(the referenced item)" in user-facing prose; standalone ids still use the placeholder.
 	opaqueEntityParentheticalPattern = regexp.MustCompile("\\s*\\(\\s*`?(?:ws|fn|fnv|hd|ag|wf|trg|tr|cv|msg|blk|att|aki|hdenv|hdv|tp|doc|mem|todo|fr|frn|wfv|apf|apfv|act|sk)_[A-Za-z0-9]+`?\\s*\\)")
+	// The inverse form is also common in reasoning: "<opaque id> (Human name)". Keep the
+	// human name and drop the machine reference before the generic ID pass can create a marker.
+	// reasoning 也常把机器值放前面：「<opaque id>（人类名称）」。先保留人名再删机器引用。
+	opaqueEntityIDNameParentheticalPattern          = regexp.MustCompile(`[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?[ \t]*[（(][ \t]*([^()\r\n]+?)[ \t]*[）)]`)
+	opaqueEntityIDNameParentheticalPrefixPattern    = regexp.MustCompile(`[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?[ \t]*[（(][ \t]*`)
+	opaqueEntityPlaceholderNameParentheticalPattern = regexp.MustCompile(`[\x60"]?(?:` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `)[\x60"]?[ \t]*[（(][ \t]*([^()\r\n]+?)[ \t]*[）)]`)
 	// A streamed parenthetical can be redacted in two passes (the id arrives after the opening
 	// parenthesis). Remove the placeholder form too, so a chunk-boundary miss cannot leave
 	// "name (the referenced item)" in the final prose.
@@ -65,6 +74,60 @@ var (
 	// 若不在括号内只保留人话类型，绝不把 placeholder 留在画面上。
 	opaqueEntityTypedPlaceholderParentheticalPattern = regexp.MustCompile(`[（(][ \t]*(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment|工作流|函数|处理器|代理|触发器|对话|文档|技能|工作区|消息|运行|附件)[ \t]+` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `[ \t]*[）)]`)
 	opaqueEntityChineseNounPlaceholderPattern        = regexp.MustCompile(`(工作流|函数|处理器|代理|触发器|对话|文档|技能|工作区|消息|运行|附件)[ \t]+` + regexp.QuoteMeta(opaqueEntityPlaceholder))
+	// Chinese assistant prose can introduce an opaque target as "文档 ID 为 <id>". The generic
+	// entity pass must not leave "文档 ID 为 the requested item" behind; rewrite the whole assignment
+	// to a natural confirmation while the exact value remains in the adjacent tool card.
+	// 中文助手正文可能写成「文档 ID 为 <id>」。通用实体脱敏不能留下「文档 ID 为 the requested item」；
+	// 整段改成自然确认，精确值仍留在相邻工具卡。
+	opaqueChineseIDAssignmentPattern                     = regexp.MustCompile(`(?i)(` + opaqueChineseEntityLabelPattern + `)[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t]*` + "`?" + opaqueEntityIDPatternSource + "`?")
+	opaqueChineseIDAssignmentPlaceholderPattern          = regexp.MustCompile(`(?i)(` + opaqueChineseEntityLabelPattern + `)[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t]*` + "`?(?:the requested item|the referenced item)`?")
+	opaqueChineseDecoratedIDAssignmentPattern            = regexp.MustCompile(`(?i)(?:\*{1,3}|_{1,3})?(` + opaqueChineseEntityLabelPattern + `)[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:\*{1,3}|_{1,3})?[ \t]*(?:为|是|[:：=])[ \t]*` + "`?" + opaqueEntityIDPatternSource + "`?")
+	opaqueChineseDecoratedIDAssignmentPlaceholderPattern = regexp.MustCompile(`(?i)(?:\*{1,3}|_{1,3})?(` + opaqueChineseEntityLabelPattern + `)[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:\*{1,3}|_{1,3})?[ \t]*(?:为|是|[:：=])[ \t]*` + "`?(?:the requested item|the referenced item)`?")
+	opaqueChineseIDAssignmentPrefixPattern               = regexp.MustCompile(`(?i)(?:\*{1,3}|_{1,3})?(?:这个[ \t]*)?(` + opaqueChineseEntityLabelPattern + `)[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:\*{1,3}|_{1,3})?[ \t]*(?:为|是|[:：=])[ \t]*` + "`?")
+	// A common Chinese sentence is "我已经找到了这个文档的 ID：<id>". Retaining only the
+	// noun makes that sentence fluent; the generic assignment rule below remains for "文档 ID 为".
+	// 中文常见句式是「我已经找到了这个文档的 ID：<id>」。这里只保留「这个文档」，让整句自然；
+	// 下方通用规则继续覆盖「文档 ID 为」句式。
+	opaqueChineseLocatedIDAssignmentPattern            = regexp.MustCompile(`(?i)(这个)(` + opaqueChineseEntityLabelPattern + `)[ \t]*的[ \t]*(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t]*` + "`?" + opaqueEntityIDPatternSource + "`?")
+	opaqueChineseLocatedIDAssignmentPlaceholderPattern = regexp.MustCompile(`(?i)(这个)(` + opaqueChineseEntityLabelPattern + `)[ \t]*的[ \t]*(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t]*` + "`?(?:the requested item|the referenced item)`?")
+	// Models sometimes omit the noun and say only "找到了确切 ID：<id>". Replace the
+	// machine-value assignment with "确切文档" rather than leaving a bare ID label or placeholder.
+	// 模型有时省略实体名，只写「找到了确切 ID：<id>」。改成「确切文档」，不留下裸 ID 标签。
+	opaqueChineseExactIDAssignmentPattern            = regexp.MustCompile(`(?i)((?:确切|准确))[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t\r\n]*[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?`)
+	opaqueChineseExactIDAssignmentPlaceholderPattern = regexp.MustCompile(`(?i)((?:确切|准确))[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t\r\n]*[\x60"]?(?:the requested item|the referenced item)[\x60"]?`)
+	opaqueChineseExactIDAssignmentPrefixPattern      = regexp.MustCompile(`(?i)((?:确切|准确))[ \t]*(?:的[ \t]*)?(?:ID|标识符?)[ \t]*(?:为|是|[:：=])[ \t\r\n]*[\x60"]?`)
+	// English reasoning uses the same assignment grammar, e.g. "I found the document ID: <id>".
+	// Replace the machine-value clause with the already meaningful entity noun instead of exposing
+	// the internal placeholder in the reasoning stream.
+	// 英文 reasoning 也会写「I found the document ID: <id>」。只保留已有的人话实体名，不能把内部
+	// placeholder 带进 reasoning 流。
+	opaqueEnglishIDAssignmentPattern            = regexp.MustCompile(`(?i)(\bthe\s+(?:exact\s+)?` + opaqueEnglishEntityLabelPattern + `)[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t]*[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?`)
+	opaqueEnglishIDAssignmentPlaceholderPattern = regexp.MustCompile(`(?i)(\bthe\s+(?:exact\s+)?` + opaqueEnglishEntityLabelPattern + `)[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t]*[\x60"]?(?:the requested item|the referenced item)[\x60"]?`)
+	opaqueEnglishIDAssignmentPrefixPattern      = regexp.MustCompile(`(?i)(\bthe\s+(?:exact\s+)?` + opaqueEnglishEntityLabelPattern + `)[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t]*[\x60"]?`)
+	// The compact English equivalent is "I found the exact ID: <id>". Retain the useful
+	// noun while removing the unavailable machine value.
+	// 英文紧凑句式「I found the exact ID: <id>」也只保留有用的实体名。
+	opaqueEnglishExactIDAssignmentPattern            = regexp.MustCompile(`(?i)(\b(?:the\s+)?exact)[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t\r\n]*[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?`)
+	opaqueEnglishExactIDAssignmentPlaceholderPattern = regexp.MustCompile(`(?i)(\b(?:the\s+)?exact)[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t\r\n]*[\x60"]?(?:the requested item|the referenced item)[\x60"]?`)
+	opaqueEnglishExactIDAssignmentPrefixPattern      = regexp.MustCompile(`(?i)(\b(?:the\s+)?exact)[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t\r\n]*[\x60"]?`)
+	// Reasoning can use a pronoun instead of the entity noun: "I found its ID: <id>". Since the
+	// surrounding sentence identifies the document, retain that human referent and remove the ID.
+	// reasoning 有时用代词写「I found its ID: <id>」；上下文已指明文档，保留人话指代并删掉 ID。
+	opaqueEnglishItsIDAssignmentPattern            = regexp.MustCompile(`(?i)(\b(?:found|located|identified)[ \t]+)its[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t\r\n]*[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?`)
+	opaqueEnglishItsIDAssignmentPlaceholderPattern = regexp.MustCompile(`(?i)(\b(?:found|located|identified)[ \t]+)its[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t\r\n]*[\x60"]?(?:the requested item|the referenced item)[\x60"]?`)
+	opaqueEnglishItsIDAssignmentPrefixPattern      = regexp.MustCompile(`(?i)(\b(?:found|located|identified)[ \t]+)its[ \t]+ID[ \t]*(?:is|was|[:：=])[ \t\r\n]*[\x60"]?`)
+	// A model may echo tool arguments as JSON inside reasoning. Keep the field shape for
+	// readability, but never put an opaque value or the internal placeholder in that text.
+	// reasoning 里的伪 JSON 参数保留字段形状，但不能把 opaque 值或内部 placeholder 带出去。
+	opaqueJSONIDFieldPattern            = regexp.MustCompile(`(?i)([\x60"]id[\x60"][ \t]*:[ \t]*[\x60"])(` + opaqueEntityIDPatternSource + `)([\x60"])`)
+	opaqueJSONIDFieldPlaceholderPattern = regexp.MustCompile(`(?i)([\x60"]id[\x60"][ \t]*:[ \t]*[\x60"])(?:the requested item|the referenced item)([\x60"])`)
+	opaqueJSONIDFieldPrefixPattern      = regexp.MustCompile(`(?i)[\x60"]id[\x60"][ \t]*:[ \t]*[\x60"]`)
+	// Standalone reasoning fields such as "- id: <id>" are machine plumbing, not useful prose.
+	// Remove the whole field both before and after the generic ID pass so actual and placeholder
+	// variants behave identically.
+	// reasoning 中独立的「- id: <id>」是机器参数而不是人话；在通用 ID 脱敏前后都整行移除。
+	opaqueIDFieldPattern            = regexp.MustCompile(`(?m)^[ \t]*[-*]?[ \t]*(?:id|identifier)[ \t]*:[ \t]*[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?[ \t]*(?:\r?\n|$)`)
+	opaqueIDFieldPlaceholderPattern = regexp.MustCompile(`(?m)^[ \t]*[-*]?[ \t]*(?:id|identifier)[ \t]*:[ \t]*[\x60"]?(?:the requested item|the referenced item)[\x60"]?[ \t]*(?:\r?\n|$)`)
 	// Markdown emphasis can sit between the noun and the opaque target, e.g. "workflow **wf_…**".
 	// Keep the emphasis attached to the meaningful noun by removing only the decoration around the
 	// placeholder. The plain pattern above intentionally handles "**workflow wf_…**" so its outer
@@ -172,6 +235,7 @@ var (
 	// instead of showing a value-shaped placeholder in assistant prose.
 	// 版本 ID 同样是不透明机器值。整行连同模型附加的括号说明一起移除，不能渲染成像真实值的占位符。
 	opaqueVersionIDPlaceholderLinePattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{0,2}|_{0,2})?version[ \t]+(?:id|identifier)(?:\*{0,2}|_{0,2})?[ \t]*:[ \t]*[\x60]?(?:the requested item|the referenced item)[\x60]?[^\r\n]*\r?$`)
+	opaqueVersionIDActualLinePattern      = regexp.MustCompile(`(?im)^[ \t]*(?:[-*][ \t]+|[0-9]+[.)][ \t]+)?(?:\*{0,2}|_{0,2})?version[ \t]+(?:id|identifier)(?:\*{0,2}|_{0,2})?[ \t]*:[ \t]*[\x60"]?` + opaqueEntityIDPatternSource + `[\x60"]?[^\r\n]*(?:\r?\n|$)`)
 	// A reasoning sentence can expose the same value without a colon, e.g. "versionId changed to
 	// the requested item". Keep the fact that a new version exists while removing the unavailable
 	// machine-value claim.
@@ -278,6 +342,8 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueNodeRecordPlaceholderTableRowPattern.ReplaceAllString(text, "| **Node record** | Internal record |")
 	text = opaquePinnedRefsHeadingPattern.ReplaceAllString(text, "**References:** Internal references")
 	text = opaquePinnedRefsBulletPattern.ReplaceAllString(text, "- Internal approval references")
+	text = opaqueVersionIDActualLinePattern.ReplaceAllString(text, "")
+	text = opaqueEntityIDNameParentheticalPattern.ReplaceAllString(text, "${1}")
 	text = opaqueEntityParentheticalPattern.ReplaceAllString(text, "")
 	text = opaqueFlowrunReportTitlePattern.ReplaceAllString(text, "${1} Report")
 	text = opaqueFlowrunTitlePattern.ReplaceAllString(text, "${1}")
@@ -293,6 +359,15 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueTypedIDSubjectPattern.ReplaceAllString(text, "${1}requested ${2}")
 	text = opaqueAttachmentIDAssignmentPattern.ReplaceAllString(text, "${1} is ready")
 	text = opaqueMediaAttachmentAssignmentPattern.ReplaceAllString(text, "${1} is ready")
+	text = opaqueChineseExactIDAssignmentPattern.ReplaceAllString(text, "${1}文档")
+	text = opaqueEnglishExactIDAssignmentPattern.ReplaceAllString(text, "${1} document")
+	text = opaqueEnglishItsIDAssignmentPattern.ReplaceAllString(text, "${1}the document")
+	text = opaqueJSONIDFieldPattern.ReplaceAllString(text, "${1}document${3}")
+	text = opaqueEnglishIDAssignmentPattern.ReplaceAllString(text, "${1}")
+	text = opaqueIDFieldPattern.ReplaceAllString(text, "")
+	text = opaqueChineseLocatedIDAssignmentPattern.ReplaceAllString(text, "${1}${2}")
+	text = opaqueChineseDecoratedIDAssignmentPattern.ReplaceAllString(text, "${1}已定位")
+	text = opaqueChineseIDAssignmentPattern.ReplaceAllString(text, "${1}已定位")
 	text = opaqueIDSubjectPattern.ReplaceAllStringFunc(text, func(match string) string {
 		if match != "" && unicode.IsUpper([]rune(match)[0]) {
 			return "The requested item"
@@ -318,6 +393,15 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueVersionIDPlaceholderLinePattern.ReplaceAllString(text, "")
 	text = redactOpaquePlaceholderParentheticalLists(text)
 	text = opaquePositionPlaceholderNamePattern.ReplaceAllString(text, "${1}${2}")
+	text = opaqueChineseExactIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1}文档")
+	text = opaqueEnglishExactIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1} document")
+	text = opaqueEnglishItsIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1}the document")
+	text = opaqueJSONIDFieldPlaceholderPattern.ReplaceAllString(text, "${1}document${2}")
+	text = opaqueEnglishIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1}")
+	text = opaqueIDFieldPlaceholderPattern.ReplaceAllString(text, "")
+	text = opaqueChineseLocatedIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1}${2}")
+	text = opaqueChineseDecoratedIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1}已定位")
+	text = opaqueChineseIDAssignmentPlaceholderPattern.ReplaceAllString(text, "${1}已定位")
 	// A raw opaque ref can become the neutral placeholder only at the generic ID pass above;
 	// repeat the structured-row cleanup after that pass so the final close snapshot cannot retain
 	// a placeholder merely because its source prefix was not known to the first pass.
@@ -2021,6 +2105,44 @@ func (r *textRedactor) Write(delta string) string {
 	if r.pending == "" {
 		return ""
 	}
+	if prefix, held, ok := splitJSONIDFieldPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	if prefix, held, ok := splitEnglishItsIDAssignmentPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	// Keep an opaque ID plus its following human-name parenthetical together. If the provider
+	// splits after the opening parenthesis, the generic ID pass must not flash a marker first.
+	// 机器 ID 后紧跟人名括号时要整体暂存，避免 provider 在左括号处分块后先闪出 placeholder。
+	if prefix, held, ok := splitEntityIDNameParentheticalPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	// Exact-ID sentences may be split across a line break before the value arrives. Keep the
+	// bounded assignment together until either the complete value is present or Flush handles it.
+	// 「确切 ID」句式可能在值之前跨换行分块；值到齐前暂存有限长度的整段赋值。
+	if prefix, held, ok := splitExactIDAssignmentPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	// Hold an English opaque-ID assignment until its value arrives. Otherwise a provider delta
+	// ending at "the document ID: `" can emit the introducer before the complete clause is safe.
+	// 英文 opaque-ID 赋值也要等值到齐，避免 provider 在「the document ID: `」处分块时先吐出引导语。
+	if prefix, held, ok := splitEnglishIDAssignmentPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	// Hold a Chinese opaque-ID assignment until its value arrives. Without this guard a provider
+	// delta ending at "文档 ID 为 `" would reach the stream before the whole assignment can be
+	// rewritten to the natural "文档已定位" form.
+	// 中文 opaque-ID 赋值必须等值到齐；否则 provider 在「文档 ID 为 `」处分块时，会先把不完整的
+	// 引导语送进流，整段就无法统一改写成自然的「文档已定位」。
+	if prefix, held, ok := splitChineseIDAssignmentPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
 	if prefix, held, ok := splitToolNamePrefix(r.pending); ok {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
@@ -2270,6 +2392,97 @@ func splitPlaceholderPrefix(text string) (prefix, held string, ok bool) {
 			}
 			return text[:holdStart], text[holdStart:], true
 		}
+	}
+	return "", "", false
+}
+
+func splitChineseIDAssignmentPrefix(text string) (prefix, held string, ok bool) {
+	for _, loc := range opaqueChineseIDAssignmentPrefixPattern.FindAllStringIndex(text, -1) {
+		suffix := text[loc[0]:]
+		if strings.Contains(suffix, "\n") || len([]rune(suffix)) > 256 {
+			continue
+		}
+		return text[:loc[0]], suffix, true
+	}
+	return "", "", false
+}
+
+func splitEntityIDNameParentheticalPrefix(text string) (prefix, held string, ok bool) {
+	for _, loc := range opaqueEntityIDNameParentheticalPrefixPattern.FindAllStringIndex(text, -1) {
+		suffix := text[loc[0]:]
+		if len([]rune(suffix)) > 256 {
+			continue
+		}
+		if opaqueEntityIDNameParentheticalPattern.MatchString(suffix) {
+			continue
+		}
+		return text[:loc[0]], suffix, true
+	}
+	return "", "", false
+}
+
+func splitEnglishItsIDAssignmentPrefix(text string) (prefix, held string, ok bool) {
+	for _, loc := range opaqueEnglishItsIDAssignmentPrefixPattern.FindAllStringIndex(text, -1) {
+		suffix := text[loc[0]:]
+		if len([]rune(suffix)) > 256 {
+			continue
+		}
+		if strings.Contains(suffix, "\n") {
+			if opaqueEnglishItsIDAssignmentPattern.MatchString(suffix) || opaqueEnglishItsIDAssignmentPlaceholderPattern.MatchString(suffix) {
+				continue
+			}
+		}
+		return text[:loc[0]], suffix, true
+	}
+	return "", "", false
+}
+
+func splitJSONIDFieldPrefix(text string) (prefix, held string, ok bool) {
+	for _, loc := range opaqueJSONIDFieldPrefixPattern.FindAllStringIndex(text, -1) {
+		suffix := text[loc[0]:]
+		if len([]rune(suffix)) > 256 {
+			continue
+		}
+		if strings.Contains(suffix, "\n") {
+			if opaqueJSONIDFieldPattern.MatchString(suffix) || opaqueJSONIDFieldPlaceholderPattern.MatchString(suffix) {
+				continue
+			}
+		}
+		return text[:loc[0]], suffix, true
+	}
+	return "", "", false
+}
+
+func splitExactIDAssignmentPrefix(text string) (prefix, held string, ok bool) {
+	for _, pair := range []struct {
+		prefix      *regexp.Regexp
+		actual      *regexp.Regexp
+		placeholder *regexp.Regexp
+	}{
+		{prefix: opaqueChineseExactIDAssignmentPrefixPattern, actual: opaqueChineseExactIDAssignmentPattern, placeholder: opaqueChineseExactIDAssignmentPlaceholderPattern},
+		{prefix: opaqueEnglishExactIDAssignmentPrefixPattern, actual: opaqueEnglishExactIDAssignmentPattern, placeholder: opaqueEnglishExactIDAssignmentPlaceholderPattern},
+	} {
+		for _, loc := range pair.prefix.FindAllStringIndex(text, -1) {
+			suffix := text[loc[0]:]
+			if len([]rune(suffix)) > 256 {
+				continue
+			}
+			if pair.actual.MatchString(suffix) || pair.placeholder.MatchString(suffix) {
+				continue
+			}
+			return text[:loc[0]], suffix, true
+		}
+	}
+	return "", "", false
+}
+
+func splitEnglishIDAssignmentPrefix(text string) (prefix, held string, ok bool) {
+	for _, loc := range opaqueEnglishIDAssignmentPrefixPattern.FindAllStringIndex(text, -1) {
+		suffix := text[loc[0]:]
+		if strings.Contains(suffix, "\n") || len([]rune(suffix)) > 256 {
+			continue
+		}
+		return text[:loc[0]], suffix, true
 	}
 	return "", "", false
 }

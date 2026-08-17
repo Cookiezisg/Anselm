@@ -48,6 +48,14 @@ func (h *NotificationHandler) Register(mux Registrar) {
 //
 // postOnNotification 派发唯一的实体级动作 POST /notifications/{id}:mark-read。
 func (h *NotificationHandler) postOnNotification(w http.ResponseWriter, r *http.Request) {
+	// The single-segment action route also matches the read-only `unread-count` endpoint.
+	// Keep that reserved path's wrong-method response in the N1 405 contract instead of
+	// misreporting it as a missing notification.
+	if r.PathValue("idAction") == "unread-count" {
+		w.Header().Set("Allow", "GET, HEAD")
+		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrMethodNotAllowed)
+		return
+	}
 	id, action, ok := idAndAction(r, "idAction")
 	if !ok || action != "mark-read" {
 		responsehttpapi.FromDomainError(w, h.log, errorspkg.ErrNotFound)

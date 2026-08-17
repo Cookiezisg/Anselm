@@ -16,6 +16,10 @@ import (
 
 const autoTitleMaxLen = 80
 
+// fallbackTitleMaxLen keeps a local title readable when it is derived from a long request.
+// fallbackTitleMaxLen 约束本地兜底标题长度，避免把长请求切成半个词。
+const fallbackTitleMaxLen = 60
+
 // autoTitleTimeout budgets the SLOW half — loading the thread and generating the title (a network
 // call). A var, not a const, so a test can shrink it and drive the "the generate step ate the whole
 // budget" case deterministically instead of sleeping ten real seconds.
@@ -153,11 +157,49 @@ func fallbackTitle(thread []*messagesdomain.Message) string {
 		if m.Role != messagesdomain.RoleUser {
 			continue
 		}
-		if title := cleanTitle(userText(m)); title != "" {
+		if title := cleanFallbackTitle(userText(m)); title != "" {
 			return title
 		}
 	}
 	return ""
+}
+
+// cleanFallbackTitle caps a request-derived title at a readable boundary and marks omission.
+// cleanFallbackTitle 在可读边界截断请求标题并标出省略，避免用户误以为半截词是完整标题。
+func cleanFallbackTitle(s string) string {
+	s = cleanTitle(s)
+	runes := []rune(s)
+	if len(runes) <= fallbackTitleMaxLen {
+		return s
+	}
+
+	// Reserve one rune for the omission mark. If the prefix already ends at a word boundary,
+	// keep it; otherwise walk back to a boundary only when doing so preserves a useful title.
+	// 预留一个 rune 给省略号；前缀恰好落在词边界时保留，否则在标题足够长时回退到词边界。
+	cutLen := fallbackTitleMaxLen - 1
+	cut := runes[:cutLen]
+	if !isFallbackTitleBoundary(runes[cutLen]) {
+		boundary := -1
+		for i := len(cut) - 1; i >= 0; i-- {
+			if isFallbackTitleBoundary(cut[i]) {
+				boundary = i
+				break
+			}
+		}
+		if boundary >= 30 {
+			cut = cut[:boundary]
+		}
+	}
+
+	result := strings.TrimRight(string(cut), " \t.,;:!?。！？，；：")
+	if result == "" {
+		return "…"
+	}
+	return result + "…"
+}
+
+func isFallbackTitleBoundary(r rune) bool {
+	return r == ' ' || r == '\t'
 }
 
 // titleExcerpt renders the first user + first assistant text into a compact prompt for titling.
