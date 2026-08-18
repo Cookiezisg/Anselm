@@ -14,7 +14,8 @@ Usage: testend/rig/rig-up.sh
 
 Start a complete acceptance rig. Configure the rig with environment variables such as
 RIG_HOME, RIG_PORT, RIG_DATA, RIG_SEED, RIG_LLMTAP, RIG_RECORD, RIG_APP, RIG_APP_FIRST,
-RIG_BACKEND_START_DELAY_SEC, RIG_APP_PROXY, RIG_APP_PROXY_PORT, and RIG_APP_PROXY_DELAY_MS.
+RIG_BACKEND_START_DELAY_SEC, RIG_APP_PROXY, RIG_APP_PROXY_PORT, RIG_APP_PROXY_DELAY_MS,
+RIG_APP_PROXY_FAIL_COUNT, and RIG_APP_PROXY_FAIL_STATUS.
 The command takes no positional arguments; use --help only to print this message.
 EOF
 }
@@ -45,6 +46,8 @@ APP_PROXY="${RIG_APP_PROXY:-0}"
 APP_PROXY_PORT="${RIG_APP_PROXY_PORT:-8790}"
 APP_PROXY_DELAY_MS="${RIG_APP_PROXY_DELAY_MS:-0}"
 APP_PROXY_PATH="${RIG_APP_PROXY_PATH:-/api/v1/workspaces}"
+APP_PROXY_FAIL_COUNT="${RIG_APP_PROXY_FAIL_COUNT:-0}"
+APP_PROXY_FAIL_STATUS="${RIG_APP_PROXY_FAIL_STATUS:-503}"
 APP_BACKEND_URL="http://127.0.0.1:$PORT"
 MISE="${MISE:-mise}"
 
@@ -251,6 +254,14 @@ if [ "$APP_PROXY" = "1" ]; then
     echo "✗ RIG_APP_PROXY_DELAY_MS must be a non-negative integer, got '$APP_PROXY_DELAY_MS'" >&2
     exit 2
   fi
+  if ! [[ "$APP_PROXY_FAIL_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "✗ RIG_APP_PROXY_FAIL_COUNT must be a non-negative integer, got '$APP_PROXY_FAIL_COUNT'" >&2
+    exit 2
+  fi
+  if ! [[ "$APP_PROXY_FAIL_STATUS" =~ ^[45][0-9][0-9]$ ]]; then
+    echo "✗ RIG_APP_PROXY_FAIL_STATUS must be an HTTP status in 400..599, got '$APP_PROXY_FAIL_STATUS'" >&2
+    exit 2
+  fi
   [ -n "$APP_PROXY_PATH" ] || { echo "✗ RIG_APP_PROXY_PATH must not be empty" >&2; exit 2; }
 fi
 
@@ -336,7 +347,8 @@ if [ "$APP_PROXY" = "1" ]; then
   APP_PROXY_JOURNAL="$SESSION/appproxy.jsonl"
   APP_PROXY_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/appproxy.log" -- \
     "$RIG_HOME/bin/appproxy" -listen "127.0.0.1:$APP_PROXY_PORT" -upstream "http://127.0.0.1:$PORT" \
-    -delay-path "$APP_PROXY_PATH" -delay-ms "$APP_PROXY_DELAY_MS" -out "$APP_PROXY_JOURNAL")
+    -delay-path "$APP_PROXY_PATH" -delay-ms "$APP_PROXY_DELAY_MS" \
+    -fail-count "$APP_PROXY_FAIL_COUNT" -fail-status "$APP_PROXY_FAIL_STATUS" -out "$APP_PROXY_JOURNAL")
   for _ in $(seq 1 40); do
     [ "$(lsof -ti ":$APP_PROXY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$APP_PROXY_PID" ] && break
     sleep 0.25
@@ -346,7 +358,7 @@ if [ "$APP_PROXY" = "1" ]; then
   }
   APP_BACKEND_URL="http://127.0.0.1:$APP_PROXY_PORT"
   startup_event app_proxy_started
-  echo "✓ App API perturbation proxy up (PID $APP_PROXY_PID, $APP_PROXY_PATH +${APP_PROXY_DELAY_MS}ms)"
+  echo "✓ App API perturbation proxy up (PID $APP_PROXY_PID, $APP_PROXY_PATH +${APP_PROXY_DELAY_MS}ms, failures=$APP_PROXY_FAIL_COUNT/$APP_PROXY_FAIL_STATUS)"
 fi
 
 check_channel5_wiring() {
@@ -434,6 +446,9 @@ json.dump({
   "appProxyPid": "$APP_PROXY_PID",
   "appProxyPort": $APP_PROXY_PORT,
   "appProxyJournal": "$APP_PROXY_JOURNAL",
+  "appProxyDelayMs": $APP_PROXY_DELAY_MS,
+  "appProxyFailCount": $APP_PROXY_FAIL_COUNT,
+  "appProxyFailStatus": $APP_PROXY_FAIL_STATUS,
   "appBackendUrl": "$APP_BACKEND_URL",
   "runnerPid": "$RUNNER_PID",
   "appLaunchPid": "$APP_LAUNCH_PID",

@@ -119,37 +119,40 @@ class RelationGroups {
       links.isEmpty;
 }
 
-RelationGroups relationGroupsFor(String id, List<EntityRelation> edges) =>
-    RelationGroups(
-      createdBy: [
-        for (final e in edges)
-          if (e.toId == id && e.kind == 'create') e,
-      ],
-      editedBy: [
-        for (final e in edges)
-          if (e.toId == id && e.kind == 'edit') e,
-      ],
-      created: [
-        for (final e in edges)
-          if (e.fromId == id && e.kind == 'create') e,
-      ],
-      edited: [
-        for (final e in edges)
-          if (e.fromId == id && e.kind == 'edit') e,
-      ],
-      equips: [
-        for (final e in edges)
-          if (e.fromId == id && e.kind == 'equip') e,
-      ],
-      referencedBy: [
-        for (final e in edges)
-          if (e.toId == id && (e.kind == 'equip' || e.kind == 'link')) e,
-      ],
-      links: [
-        for (final e in edges)
-          if (e.fromId == id && e.kind == 'link') e,
-      ],
-    );
+RelationGroups relationGroupsFor(
+  String id,
+  List<EntityRelation> edges, {
+  bool includeProvenance = true,
+}) => RelationGroups(
+  createdBy: [
+    for (final e in edges)
+      if (includeProvenance && e.toId == id && e.kind == 'create') e,
+  ],
+  editedBy: [
+    for (final e in edges)
+      if (includeProvenance && e.toId == id && e.kind == 'edit') e,
+  ],
+  created: [
+    for (final e in edges)
+      if (includeProvenance && e.fromId == id && e.kind == 'create') e,
+  ],
+  edited: [
+    for (final e in edges)
+      if (includeProvenance && e.fromId == id && e.kind == 'edit') e,
+  ],
+  equips: [
+    for (final e in edges)
+      if (e.fromId == id && e.kind == 'equip') e,
+  ],
+  referencedBy: [
+    for (final e in edges)
+      if (e.toId == id && (e.kind == 'equip' || e.kind == 'link')) e,
+  ],
+  links: [
+    for (final e in edges)
+      if (e.fromId == id && e.kind == 'link') e,
+  ],
+);
 
 /// The default RIPPLE FOCUS for the relationship graph (v2「涟漪焦点星图」): the most-recently-touched entity
 /// that is ALSO a graph node. The relgraph snapshot is structure-only ([EntityNode] carries no timestamp),

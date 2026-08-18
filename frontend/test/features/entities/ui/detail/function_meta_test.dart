@@ -3,6 +3,7 @@ import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/an_editable_value.dart';
 import 'package:anselm/core/ui/an_kv.dart';
+import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/core/ui/an_tags.dart';
 import 'package:anselm/core/ui/icons.dart';
@@ -150,6 +151,41 @@ void main() {
             .expand((kv) => kv.rows)
             .firstWhere((r) => r.label == t.entities.detail.card.deps);
         expect(depsRow.tags, isEmpty); // AnKvRow.tags self-renders the dash
+      },
+    );
+
+    testWidgets(
+      'empty interface cards use one marker row without repeating the card title',
+      (tester) async {
+        final v = _v(2).copyWith(inputs: const [], outputs: const []);
+        final fn = _fn().copyWith(activeVersion: v);
+        final repo = FixtureEntityRepository(
+          functions: [fn],
+          functionVersions: {
+            'fn_1': [v],
+          },
+        );
+        await tester.pumpWidget(_host(FunctionOverview(fn: fn), repo));
+
+        expect(find.text(t.entities.detail.sec.interface), findsOneWidget);
+        final emptyMarkers = tester
+            .widgetList<AnRow>(find.byType(AnRow))
+            .where((row) => row.label == t.entities.detail.val.none)
+            .toList();
+        expect(emptyMarkers, hasLength(2));
+        expect(emptyMarkers.every((row) => row.leadless), isTrue);
+        final fieldRows = tester
+            .widgetList<AnKv>(find.byType(AnKv))
+            .expand((kv) => kv.rows)
+            .toList();
+        expect(
+          fieldRows.any((row) => row.label == t.entities.detail.sec.input),
+          isFalse,
+        );
+        expect(
+          fieldRows.any((row) => row.label == t.entities.detail.sec.output),
+          isFalse,
+        );
       },
     );
 

@@ -290,6 +290,95 @@ void main() {
     expect(box.height, 320);
   });
 
+  testWidgets(
+    'framed graph does not steal vertical trackpad scroll from its page',
+    (tester) async {
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Scaffold(
+              body: SingleChildScrollView(
+                controller: scroll,
+                child: SizedBox(
+                  width: 700,
+                  child: Column(
+                    children: [
+                      const SizedBox(height: 80),
+                      AnRelationGraph(
+                        nodes: _nodes,
+                        edges: _edges,
+                        framed: true,
+                        framedHeight: 320,
+                      ),
+                      const SizedBox(height: 600),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      final graph = tester.getRect(find.byType(AnRelationGraph));
+      final pointer = TestPointer(1, PointerDeviceKind.trackpad);
+      pointer.hover(graph.center);
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 600)));
+      await tester.pump();
+
+      expect(
+        scroll.offset,
+        greaterThan(0),
+        reason: 'vertical trackpad scroll over the preview belongs to AnPage',
+      );
+      scroll.jumpTo(0);
+      await tester.pump();
+      final currentGraph = tester.getRect(find.byType(AnRelationGraph));
+      for (final n in _nodes) {
+        expect(
+          _nodeFinder(n.id),
+          findsOneWidget,
+          reason: 'scrolling the page must not pan ${n.id} out of the graph',
+        );
+        expect(
+          currentGraph.contains(
+            tester.getRect(find.byKey(ValueKey('relNode_${n.id}'))).center,
+          ),
+          isTrue,
+          reason: 'scrolling the page must keep ${n.id} inside the preview',
+        );
+      }
+
+      final wheel = TestPointer(2, PointerDeviceKind.mouse);
+      wheel.hover(currentGraph.center);
+      await tester.sendEventToBinding(wheel.scroll(const Offset(0, 600)));
+      await tester.pump();
+      expect(
+        scroll.offset,
+        greaterThan(0),
+        reason: 'mouse-wheel scrolling over the preview also belongs to AnPage',
+      );
+      scroll.jumpTo(0);
+      await tester.pump();
+      final restoredGraph = tester.getRect(find.byType(AnRelationGraph));
+      for (final n in _nodes) {
+        expect(
+          restoredGraph.contains(
+            tester.getRect(find.byKey(ValueKey('relNode_${n.id}'))).center,
+          ),
+          isTrue,
+          reason: 'mouse-wheel scrolling must keep ${n.id} inside the preview',
+        );
+      }
+    },
+  );
+
   group('ripple focus (v2 涟漪焦点星图)', () {
     // fn_hub adjacency: wf_a, ag_a (hop 1); sk_a via ag_a (hop 2). fn_hub 邻接:wf_a/ag_a 一跳、sk_a 二跳。
     testWidgets('opacity decays by graph distance from the focus', (

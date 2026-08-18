@@ -642,10 +642,15 @@ class _AnRelationGraphState extends State<AnRelationGraph>
                         transformationController: _tc,
                         constrained: false,
                         boundaryMargin: const EdgeInsets.all(double.infinity),
+                        // A framed graph is a preview inside AnPage's one vertical scroll region. Let the
+                        // page own wheel/trackpad scrolling there; the full explore graph (opened via
+                        // expand) retains canvas panning and zooming. 预览住在 AnPage 唯一纵向滚动区内,
+                        // 鼠标/触控板滚动归页面;展开后的全页探索图仍可平移缩放。
+                        panEnabled: !widget.framed && _dragId == null,
+                        scaleEnabled: !widget.framed,
                         minScale: RelationGraphConfig.minScale,
                         maxScale: RelationGraphConfig.maxScale,
                         scaleFactor: RelationGraphConfig.wheelScaleFactor,
-                        panEnabled: _dragId == null,
                         onInteractionUpdate: (_) => _syncLabels(),
                         child: _sceneWidget(context, c, gc),
                       ),

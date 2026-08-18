@@ -1363,6 +1363,7 @@
       },
       "sec": {
         "code": "代码",
+        "interface": "接口",
         "input": "输入",
         "output": "输出",
         "env": "环境",

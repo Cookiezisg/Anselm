@@ -22,6 +22,8 @@ class GraphEntityCard extends ConsumerWidget {
   const GraphEntityCard({
     required this.sel,
     required this.onOpenNode,
+    required this.showProvenance,
+    required this.hiddenKinds,
     super.key,
   });
 
@@ -29,6 +31,12 @@ class GraphEntityCard extends ConsumerWidget {
 
   /// Fly-to a related node (select it + pan the graph). 飞到相关节点(选中 + 平移)。
   final void Function(String kind, String id) onOpenNode;
+
+  /// Whether the explore view currently admits provenance edges and conversation nodes. 溯源层是否可见。
+  final bool showProvenance;
+
+  /// Kinds hidden by the graph legend; relation pills must obey the same visual filter. 图例隐藏的 kind。
+  final Set<String> hiddenKinds;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -50,7 +58,15 @@ class GraphEntityCard extends ConsumerWidget {
     final graph = ref.watch(relGraphProvider).value;
     final node = graph?.nodes.where((n) => n.id == id).firstOrNull;
     final name = (node?.name.isNotEmpty ?? false) ? node!.name : id;
-    final groups = relationGroupsFor(id, graph?.edges ?? const []);
+    final edges = [
+      for (final e in graph?.edges ?? const <EntityRelation>[])
+        if (!_isHidden(e.fromKind) && !_isHidden(e.toKind)) e,
+    ];
+    final groups = relationGroupsFor(
+      id,
+      edges,
+      includeProvenance: showProvenance,
+    );
 
     // vN + description for the 7 rail kinds (the others have no row fetcher → name-only). 7 rail kind 取行。
     final railKind = entityKindFromWire(kind);
@@ -136,6 +152,8 @@ class GraphEntityCard extends ConsumerWidget {
       ],
     );
   }
+
+  bool _isHidden(String kind) => hiddenKinds.contains(kind.toLowerCase());
 
   /// One relation group: a heading + a wrap of tappable pills. [outgoing] picks the "other" endpoint —
   /// the `to` for outgoing create/edit/equip/link, the `from` for incoming create/edit/equip/link. Empty

@@ -68,10 +68,21 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
     final c = context.colors;
     final graphAsync = ref.watch(relGraphProvider);
     final sel = _sel(context);
+    final graph = graphAsync.value;
+    final admittedNodes = graph == null
+        ? null
+        : (_provenance ? graph.nodes : structuralSubgraph(graph).nodes);
     // A hidden kind is a presentation filter, but a hidden selected node must not remain presented in
-    // the inspector. Keep the URL selection so restoring the legend can restore the user's place.
-    // 隐藏 kind 是展示过滤;但被隐藏的选中节点不能继续占右岛。保留 URL 选区,恢复图例时可回到原处。
-    final visibleSel = sel == null || !_hidden.contains(sel.$1.toLowerCase())
+    // the inspector. The same rule covers provenance-only conversation nodes when the provenance layer
+    // is turned off. Keep the URL selection so restoring the layer or legend can restore the user's place.
+    // 隐藏 kind 或溯源层之外的选中节点不能继续占右岛;保留 URL 选区,恢复图层/图例时可回到原处。
+    final visibleSel =
+        sel == null ||
+            (admittedNodes == null ||
+                admittedNodes.any(
+                  (n) =>
+                      n.id == sel.$2 && !_hidden.contains(n.kind.toLowerCase()),
+                ))
         ? sel
         : null;
 
@@ -105,6 +116,8 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
             _GraphInspector(
               sel: visibleSel,
               onOpenNode: (k, id) => _select(k, id, reveal: true),
+              showProvenance: _provenance,
+              hiddenKinds: _hidden,
             ),
           ],
         ),
@@ -228,6 +241,7 @@ class _EntitiesGraphPageState extends ConsumerState<EntitiesGraphPage> {
                 variant: _provenance
                     ? AnButtonVariant.primary
                     : AnButtonVariant.ghost,
+                toggled: _provenance,
                 size: AnButtonSize.sm,
                 onPressed: () => setState(() => _provenance = !_provenance),
               ),
@@ -356,9 +370,16 @@ class _LegendChip extends StatelessWidget {
 /// (AnIsland + the shared rightPanelCollapsedProvider + the user-dragged rightWidth). Holds the selected
 /// node's entity card. 可收右岛:同壳/编辑器右岛皮与揭示;装选中节点实体卡。
 class _GraphInspector extends ConsumerWidget {
-  const _GraphInspector({required this.sel, required this.onOpenNode});
+  const _GraphInspector({
+    required this.sel,
+    required this.onOpenNode,
+    required this.showProvenance,
+    required this.hiddenKinds,
+  });
   final (String kind, String id)? sel;
   final void Function(String kind, String id) onOpenNode;
+  final bool showProvenance;
+  final Set<String> hiddenKinds;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -369,7 +390,12 @@ class _GraphInspector extends ConsumerWidget {
     );
     final content = AnInspector(
       headless: true,
-      child: GraphEntityCard(sel: sel, onOpenNode: onOpenNode),
+      child: GraphEntityCard(
+        sel: sel,
+        onOpenNode: onOpenNode,
+        showProvenance: showProvenance,
+        hiddenKinds: hiddenKinds,
+      ),
     );
     final island = AnIsland(
       child: collapsed

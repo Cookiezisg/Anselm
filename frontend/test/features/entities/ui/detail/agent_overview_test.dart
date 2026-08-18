@@ -98,6 +98,36 @@ void main() {
   );
 
   testWidgets(
+    'empty interface cards use one marker row without repeating the card title',
+    (tester) async {
+      final agent = _agent().copyWith(
+        activeVersion: _v().copyWith(inputs: const [], outputs: const []),
+      );
+      await tester.pumpWidget(
+        _host(AgentOverview(agent: agent, mountHealth: null)),
+      );
+      final d = TranslationProvider.of(
+        tester.element(find.byType(AgentOverview)),
+      ).translations.entities.detail;
+
+      expect(find.text(d.sec.interface), findsOneWidget);
+      final emptyMarkers = tester
+          .widgetList<AnRow>(find.byType(AnRow))
+          .where((row) => row.label == d.val.none)
+          .toList();
+      // tools + knowledge + inputs + outputs; all are the same compact marker grammar.
+      expect(emptyMarkers, hasLength(4));
+      expect(emptyMarkers.where((row) => row.leadless), hasLength(2));
+      final fieldRows = tester
+          .widgetList<AnKv>(find.byType(AnKv))
+          .expand((kv) => kv.rows)
+          .toList();
+      expect(fieldRows.any((row) => row.label == d.sec.input), isFalse);
+      expect(fieldRows.any((row) => row.label == d.sec.output), isFalse);
+    },
+  );
+
+  testWidgets(
     'model override == null renders as an INHERITED KV row (meta tier), not '
     'a tombstone',
     (tester) async {

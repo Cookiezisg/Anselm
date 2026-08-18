@@ -1,85 +1,109 @@
 package main
 
 import (
-	"context"
+	"encoding/json"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
+	"sync"
 	"testing"
-	"time"
 )
 
-func TestMatchesDelayPathIsExactButIgnoresQuery(t *testing.T) {
-	r := httptest.NewRequest("GET", "http://127.0.0.1/api/v1/workspaces?cursor=next", nil)
-	if !matchesDelayPath(r, "/api/v1/workspaces") {
-		t.Fatal("query string should not change the target path")
-	}
-	if matchesDelayPath(httptest.NewRequest("POST", "http://127.0.0.1/api/v1/workspaces", nil), "/api/v1/workspaces") {
-		t.Fatal("non-GET requests must not be delayed")
-	}
-	if matchesDelayPath(httptest.NewRequest("GET", "http://127.0.0.1/api/v1/workspaces/1", nil), "/api/v1/workspaces") {
-		t.Fatal("workspace subresource must not be delayed")
-	}
-}
-
-func TestNewHandlerDelaysOnlyTheExactPath(t *testing.T) {
+func TestNewHandlerFailsTargetedRequestsThenForwards(t *testing.T) {
+	var mu sync.Mutex
+	upstreamHits := 0
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_, _ = w.Write([]byte(r.URL.Path))
+		mu.Lock()
+		upstreamHits++
+		mu.Unlock()
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = io.WriteString(w, `{"data":[]}`)
 	}))
-	defer upstream.Close()
+	t.Cleanup(upstream.Close)
 	u, err := url.Parse(upstream.URL)
 	if err != nil {
 		t.Fatal(err)
 	}
+
+	var journalMu sync.Mutex
 	var records []journalRecord
-	proxy := httptest.NewServer(newHandler(u, "/api/v1/workspaces", 25*time.Millisecond, func(r journalRecord) {
+	h := newHandler(u, "/api/v1/conversations", 0, 2, http.StatusServiceUnavailable, func(r journalRecord) {
+		journalMu.Lock()
+		defer journalMu.Unlock()
 		records = append(records, r)
-	}))
-	defer proxy.Close()
+	})
 
-	start := time.Now()
-	resp, err := http.Get(proxy.URL + "/api/v1/workspaces/1")
-	if err != nil {
-		t.Fatal(err)
+	for i := 0; i < 3; i++ {
+		req := httptest.NewRequest(http.MethodGet, "/api/v1/conversations?limit=30", nil)
+		resp := httptest.NewRecorder()
+		h.ServeHTTP(resp, req)
+		if i < 2 {
+			if resp.Code != http.StatusServiceUnavailable {
+				t.Fatalf("request %d status = %d, want 503", i, resp.Code)
+			}
+			var body map[string]map[string]string
+			if err := json.Unmarshal(resp.Body.Bytes(), &body); err != nil {
+				t.Fatalf("request %d error envelope: %v", i, err)
+			}
+			if body["error"]["code"] != "RIG_INJECTED_FAILURE" {
+				t.Fatalf("request %d error code = %q", i, body["error"]["code"])
+			}
+		} else if resp.Code != http.StatusOK {
+			t.Fatalf("forwarded request status = %d, want 200", resp.Code)
+		}
 	}
-	_ = resp.Body.Close()
-	if elapsed := time.Since(start); elapsed >= 20*time.Millisecond {
-		t.Fatalf("non-target path was delayed: %s", elapsed)
+
+	nonTarget := httptest.NewRecorder()
+	h.ServeHTTP(nonTarget, httptest.NewRequest(http.MethodGet, "/api/v1/workspaces", nil))
+	if nonTarget.Code != http.StatusOK {
+		t.Fatalf("non-target status = %d, want 200", nonTarget.Code)
 	}
-	start = time.Now()
-	resp, err = http.Get(proxy.URL + "/api/v1/workspaces?cursor=next")
-	if err != nil {
-		t.Fatal(err)
+
+	mu.Lock()
+	hits := upstreamHits
+	mu.Unlock()
+	if hits != 2 {
+		t.Fatalf("upstream hits = %d, want forwarded target + non-target = 2", hits)
 	}
-	_ = resp.Body.Close()
-	if elapsed := time.Since(start); elapsed < 20*time.Millisecond {
-		t.Fatalf("target path was not delayed: %s", elapsed)
+
+	journalMu.Lock()
+	defer journalMu.Unlock()
+	var failures, forwards int
+	for _, r := range records {
+		switch r.Event {
+		case "failure":
+			failures++
+		case "forward":
+			forwards++
+		}
 	}
-	if len(records) != 3 || records[0].Event != "request" || records[1].Event != "request" || records[2].Event != "forward" {
-		t.Fatalf("unexpected journal records: %#v", records)
+	if failures != 2 || forwards != 1 {
+		t.Fatalf("journal failure/forward = %d/%d, want 2/1", failures, forwards)
 	}
 }
 
-func TestDelayRequestWaitsForConfiguredDuration(t *testing.T) {
-	start := time.Now()
-	if !delayRequest(context.Background(), 25*time.Millisecond) {
-		t.Fatal("delay unexpectedly canceled")
+func TestFailureBudgetIsConcurrentAndFinite(t *testing.T) {
+	b := &failureBudget{remaining: 7}
+	var wg sync.WaitGroup
+	var mu sync.Mutex
+	taken := 0
+	for i := 0; i < 32; i++ {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			if ok, _ := b.take(); ok {
+				mu.Lock()
+				taken++
+				mu.Unlock()
+			}
+		}()
 	}
-	if elapsed := time.Since(start); elapsed < 20*time.Millisecond {
-		t.Fatalf("delay returned too early: %s", elapsed)
+	wg.Wait()
+	if taken != 7 {
+		t.Fatalf("taken = %d, want finite budget 7", taken)
 	}
-}
-
-func TestDelayRequestCanBeCanceled(t *testing.T) {
-	ctx, cancel := context.WithCancel(context.Background())
-	cancel()
-	if delayRequest(ctx, time.Second) {
-		t.Fatal("canceled delay reported success")
-	}
-}
-
-func TestDelayRequestZeroIsImmediate(t *testing.T) {
-	if !delayRequest(context.Background(), 0) {
-		t.Fatal("zero delay should be successful")
+	if ok, _ := b.take(); ok {
+		t.Fatal("budget remained after concurrent exhaustion")
 	}
 }

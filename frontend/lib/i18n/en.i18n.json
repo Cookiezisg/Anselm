@@ -1363,6 +1363,7 @@
       },
       "sec": {
         "code": "Code",
+        "interface": "Interface",
         "input": "Inputs",
         "output": "Outputs",
         "env": "Environment",

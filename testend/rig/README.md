@@ -56,8 +56,12 @@ App、录屏、后端健康和 SSE 的事件时序。
 需要验收 workspace 名册解析中的中间 loading 面时，使用默认 backend-first 顺序加
 `RIG_APP_PROXY=1 RIG_APP_PROXY_DELAY_MS=2500`；它只把真实 App 的精确 `GET /api/v1/workspaces`
 请求延迟，其他请求透明转发，backend 端口仍由 conductor 直接持有，ssetap 也仍直连 backend。
-`appproxy.jsonl`、`appProxyPid`、`appBackendUrl` 会写进 manifest；该扰动默认关闭，不能拿它代替真实后端
-故障或正式性能数字。
+要验收某个首载列表的**真实错误+重试**，在同一路径上再给
+`RIG_APP_PROXY_FAIL_COUNT=2 RIG_APP_PROXY_FAIL_STATUS=503`；对话 rail 首载的两条并行列表 `GET` 返回 N1
+`RIG_INJECTED_FAILURE`，之后恢复透明转发，故可在同一冷载中观察骨架→错误、点击一次真实 Retry→列表。
+`appproxy.jsonl`、`appProxyPid`、`appBackendUrl` 和 delay/failure 配置会写进 manifest；该扰动默认关闭，
+只服务台架构造，不能拿它代替真实后端故障或正式性能数字。失败次数是并发安全的一次性预算，不能跨 session
+重置，也不会改动 backend 或 SSE witness 的真实端口。
 `RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
 
 `RIG_HOME` 是本次验收的账本根：`judgments.jsonl`、`alarms.json`、`anchor-check.json` 和 `current`

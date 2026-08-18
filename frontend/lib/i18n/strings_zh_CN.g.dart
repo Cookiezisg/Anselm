@@ -2794,6 +2794,7 @@ class _Translations$entities$detail$sec$zh_CN extends Translations$entities$deta
 
 	// Translations
 	@override String get code => '代码';
+	@override String get interface => '接口';
 	@override String get input => '输入';
 	@override String get output => '输出';
 	@override String get env => '环境';
@@ -4439,6 +4440,7 @@ extension on TranslationsZhCn {
 			'entities.detail.environment.genericFailed' => '环境尚未就绪。请打开“用 AI 编辑”重试构建，或查看技术详情。',
 			'entities.detail.environment.technicalDetails' => '技术详情',
 			'entities.detail.sec.code' => '代码',
+			'entities.detail.sec.interface' => '接口',
 			'entities.detail.sec.input' => '输入',
 			'entities.detail.sec.output' => '输出',
 			'entities.detail.sec.env' => '环境',
@@ -4705,9 +4707,9 @@ extension on TranslationsZhCn {
 			'entities.val.yes' => '是',
 			'entities.val.no' => '否',
 			'entities.overview.title' => '总览',
-			'entities.overview.accessory' => '配件',
 			_ => null,
 		} ?? switch (path) {
+			'entities.overview.accessory' => '配件',
 			'entities.overview.graphHead' => '关系图',
 			'entities.overview.recentHead' => '最近更新',
 			'entities.graph.showProvenance' => '显示溯源',
@@ -5219,9 +5221,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.marketEmptyLead' => '从市场安装第一个 MCP 服务器',
 			'settings.mcp.marketLoadFailed' => '市场加载失败',
 			'settings.mcp.marketLoadFailedHint' => '请检查连接后重试。',
-			'settings.mcp.planLoadFailed' => '安装准备失败',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.planLoadFailed' => '安装准备失败',
 			'settings.mcp.planLoadFailedHint' => '市场条目可能已变化,请重试。',
 			'settings.mcp.missingEnv' => ({required Object names}) => '缺少必填环境变量:${names}',
 			'settings.mcp.prerequisite' => '前置',

@@ -116,6 +116,60 @@ void main() {
     );
   });
 
+  testWidgets(
+    'structural mode does not leak hidden provenance into the inspector',
+    (tester) async {
+      await tester.pumpWidget(
+        _host(initialLocation: '/entities/graph?sel=function:fn_normalize'),
+      );
+      await _settle(tester);
+
+      expect(find.text(g.groupCreatedBy.toUpperCase()), findsNothing);
+      expect(find.text(g.groupEditedBy.toUpperCase()), findsNothing);
+      expect(find.text(g.groupReferencedBy.toUpperCase()), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'turning provenance off clears a provenance-only selection but keeps its URL',
+    (tester) async {
+      await tester.pumpWidget(_host());
+      await _settle(tester);
+      await tester.tap(find.text(g.showProvenance));
+      await _settle(tester);
+
+      final conversationRect = tester.getRect(_node('cv_1'));
+      await tester.tapAt(
+        Offset(conversationRect.center.dx, conversationRect.top + 4),
+      );
+      await tester.pump();
+      expect(find.text(g.groupCreated.toUpperCase()), findsOneWidget);
+
+      await tester.tap(find.text(g.showProvenance));
+      await tester.pump();
+      expect(find.text(g.selectHint), findsOneWidget);
+      expect(find.text(g.groupCreated.toUpperCase()), findsNothing);
+    },
+  );
+
+  testWidgets('hiding a kind also hides its relation pills', (tester) async {
+    await tester.pumpWidget(
+      _host(initialLocation: '/entities/graph?sel=function:fn_normalize'),
+    );
+    await _settle(tester);
+    await tester.tap(find.text(g.showProvenance));
+    await _settle(tester);
+
+    expect(find.text(g.groupCreatedBy.toUpperCase()), findsOneWidget);
+    expect(find.text(g.groupReferencedBy.toUpperCase()), findsOneWidget);
+
+    await tester.tap(find.text(t.ref.conversation));
+    await tester.pump();
+
+    expect(find.text(g.groupCreatedBy.toUpperCase()), findsNothing);
+    expect(find.text(g.groupReferencedBy.toUpperCase()), findsOneWidget);
+  });
+
   testWidgets('provenance selection explains both sides of a create edge', (
     tester,
   ) async {

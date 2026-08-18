@@ -206,19 +206,27 @@ class AgentOverview extends ConsumerWidget {
             ],
           ),
         AnSection(
-          label: d.sec.input,
+          label: d.sec.interface,
           variant: AnSectionVariant.plain,
           grid: true,
           children: [
             AnInfoCard(
               title: d.sec.input,
               icon: AnIcons.byKey('enter'),
-              child: fieldList(v.inputs, emptyLabel: d.sec.input),
+              child: fieldList(
+                v.inputs,
+                emptyLabel: d.sec.input,
+                emptyMarker: d.val.none,
+              ),
             ),
             AnInfoCard(
               title: d.sec.output,
               icon: AnIcons.byKey('run'),
-              child: fieldList(v.outputs, emptyLabel: d.sec.output),
+              child: fieldList(
+                v.outputs,
+                emptyLabel: d.sec.output,
+                emptyMarker: d.val.none,
+              ),
             ),
           ],
         ),

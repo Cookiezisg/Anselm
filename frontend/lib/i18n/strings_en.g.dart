@@ -6804,6 +6804,9 @@ class Translations$entities$detail$sec$en {
 	/// en: 'Code'
 	String get code => 'Code';
 
+	/// en: 'Interface'
+	String get interface => 'Interface';
+
 	/// en: 'Inputs'
 	String get input => 'Inputs';
 
@@ -8920,6 +8923,7 @@ extension on Translations {
 			'entities.detail.environment.genericFailed' => 'The environment is not ready. Open Edit with AI to retry the build, or inspect technical details.',
 			'entities.detail.environment.technicalDetails' => 'Technical details',
 			'entities.detail.sec.code' => 'Code',
+			'entities.detail.sec.interface' => 'Interface',
 			'entities.detail.sec.input' => 'Inputs',
 			'entities.detail.sec.output' => 'Outputs',
 			'entities.detail.sec.env' => 'Environment',
@@ -9186,9 +9190,9 @@ extension on Translations {
 			'entities.val.yes' => 'yes',
 			'entities.val.no' => 'no',
 			'entities.overview.title' => 'Overview',
-			'entities.overview.accessory' => 'Parts',
 			_ => null,
 		} ?? switch (path) {
+			'entities.overview.accessory' => 'Parts',
 			'entities.overview.graphHead' => 'Relationship graph',
 			'entities.overview.recentHead' => 'Recently updated',
 			'entities.graph.showProvenance' => 'Show provenance',
@@ -9700,9 +9704,9 @@ extension on Translations {
 			'settings.mcp.marketEmptyLead' => 'Install your first MCP server from the marketplace',
 			'settings.mcp.marketLoadFailed' => 'Couldn\'t load the marketplace',
 			'settings.mcp.marketLoadFailedHint' => 'Check the connection and try again.',
-			'settings.mcp.planLoadFailed' => 'Couldn\'t prepare the install',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.planLoadFailed' => 'Couldn\'t prepare the install',
 			'settings.mcp.planLoadFailedHint' => 'The marketplace entry may have changed. Try again.',
 			'settings.mcp.missingEnv' => ({required Object names}) => 'Missing required environment variables: ${names}',
 			'settings.mcp.prerequisite' => 'Prerequisite',

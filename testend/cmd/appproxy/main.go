@@ -27,12 +27,14 @@ import (
 )
 
 type journalRecord struct {
-	TS       string `json:"ts"`
-	Event    string `json:"event"`
-	Method   string `json:"method,omitempty"`
-	Path     string `json:"path,omitempty"`
-	DelayMS  int    `json:"delayMs,omitempty"`
-	Canceled bool   `json:"canceled,omitempty"`
+	TS        string `json:"ts"`
+	Event     string `json:"event"`
+	Method    string `json:"method,omitempty"`
+	Path      string `json:"path,omitempty"`
+	DelayMS   int    `json:"delayMs,omitempty"`
+	Status    int    `json:"status,omitempty"`
+	Remaining int    `json:"remaining,omitempty"`
+	Canceled  bool   `json:"canceled,omitempty"`
 }
 
 type journalWriter struct {
@@ -69,8 +71,37 @@ func matchesDelayPath(r *http.Request, path string) bool {
 	return r.Method == http.MethodGet && r.URL.Path == path
 }
 
-func newHandler(upstream *url.URL, delayPath string, delay time.Duration, write func(journalRecord)) http.Handler {
-	return proxycore.Handler(upstream, func(r *http.Request, _ []byte) {
+type failureBudget struct {
+	mu        sync.Mutex
+	remaining int
+}
+
+func (b *failureBudget) take() (bool, int) {
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.remaining <= 0 {
+		return false, 0
+	}
+	b.remaining--
+	return true, b.remaining
+}
+
+func injectedError(w http.ResponseWriter, status int) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_, _ = w.Write([]byte("{\"error\":{\"code\":\"RIG_INJECTED_FAILURE\",\"message\":\"acceptance rig injected a transient failure\"}}\n"))
+}
+
+func newHandler(
+	upstream *url.URL,
+	delayPath string,
+	delay time.Duration,
+	failCount int,
+	failStatus int,
+	write func(journalRecord),
+) http.Handler {
+	failures := &failureBudget{remaining: failCount}
+	proxy := proxycore.Handler(upstream, func(r *http.Request, _ []byte) {
 		targeted := matchesDelayPath(r, delayPath)
 		record := journalRecord{Event: "request", Method: r.Method, Path: r.URL.Path}
 		if targeted {
@@ -86,6 +117,34 @@ func newHandler(upstream *url.URL, delayPath string, delay time.Duration, write 
 			write(journalRecord{Event: "canceled", Method: r.Method, Path: r.URL.Path, DelayMS: record.DelayMS, Canceled: true})
 		}
 	}, nil)
+
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if matchesDelayPath(r, delayPath) {
+			if taken, remaining := failures.take(); taken {
+				write(journalRecord{
+					Event:   "request",
+					Method:  r.Method,
+					Path:    r.URL.Path,
+					DelayMS: int(delay / time.Millisecond),
+				})
+				if !delayRequest(r.Context(), delay) {
+					write(journalRecord{Event: "canceled", Method: r.Method, Path: r.URL.Path, DelayMS: int(delay / time.Millisecond), Canceled: true})
+					return
+				}
+				write(journalRecord{
+					Event:     "failure",
+					Method:    r.Method,
+					Path:      r.URL.Path,
+					DelayMS:   int(delay / time.Millisecond),
+					Status:    failStatus,
+					Remaining: remaining,
+				})
+				injectedError(w, failStatus)
+				return
+			}
+		}
+		proxy.ServeHTTP(w, r)
+	})
 }
 
 func main() {
@@ -93,10 +152,12 @@ func main() {
 	upstream := flag.String("upstream", "", "backend origin, e.g. http://127.0.0.1:8742 (required)")
 	delayPath := flag.String("delay-path", "/api/v1/workspaces", "exact request path to delay")
 	delayMS := flag.Int("delay-ms", 0, "delay for the exact path in milliseconds")
+	failCount := flag.Int("fail-count", 0, "number of targeted requests to fail before forwarding")
+	failStatus := flag.Int("fail-status", http.StatusServiceUnavailable, "HTTP status for injected failures")
 	out := flag.String("out", "", "JSONL journal path (required)")
 	flag.Parse()
-	if *upstream == "" || *out == "" || *delayPath == "" || *delayMS < 0 {
-		fmt.Fprintln(os.Stderr, "appproxy: -upstream, -out, -delay-path and non-negative -delay-ms are required")
+	if *upstream == "" || *out == "" || *delayPath == "" || *delayMS < 0 || *failCount < 0 || *failStatus < 400 || *failStatus > 599 {
+		fmt.Fprintln(os.Stderr, "appproxy: -upstream, -out, -delay-path, non-negative -delay-ms/-fail-count, and fail-status 400..599 are required")
 		os.Exit(2)
 	}
 	u, err := url.Parse(strings.TrimRight(*upstream, "/"))
@@ -112,9 +173,9 @@ func main() {
 	defer journal.Close()
 	w := &journalWriter{w: journal}
 	delay := time.Duration(*delayMS) * time.Millisecond
-	w.write(journalRecord{Event: "ready", Path: *delayPath, DelayMS: *delayMS})
+	w.write(journalRecord{Event: "ready", Path: *delayPath, DelayMS: *delayMS, Status: *failStatus, Remaining: *failCount})
 
-	handler := newHandler(u, *delayPath, delay, w.write)
+	handler := newHandler(u, *delayPath, delay, *failCount, *failStatus, w.write)
 
 	server := &http.Server{Addr: *listen, Handler: handler}
 	listener, err := net.Listen("tcp", *listen)

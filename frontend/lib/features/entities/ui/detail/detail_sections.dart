@@ -3,6 +3,7 @@ import 'package:flutter/widgets.dart';
 import '../../../../core/contract/entities/values.dart';
 import '../../../../core/ui/an_field.dart';
 import '../../../../core/ui/an_kv.dart';
+import '../../../../core/ui/an_row.dart';
 import '../../../../core/ui/an_section.dart';
 import '../../../../core/ui/an_state.dart';
 import '../../../../i18n/strings.g.dart';
@@ -49,23 +50,32 @@ Widget kvList(
   ],
 );
 
-/// A typed-field list (fn/hd/ag/ctl/apf inputs+outputs) → `name : type · description`. An empty list
-/// is ONE row on the SAME [AnKv] grammar as the populated rows — keyed by [emptyLabel] (the caller's
-/// own section/card title, e.g. "Inputs") with the value left null so [AnKvRow] renders its own
-/// em-dash (WRK-077 ⑫ — retired the inbox-icon tombstone that used to stand in here). 字段列表;空表
-/// 降级为同一套 AnKv 文法的一行(标签=调用方自己的段/卡标题,值留空由 AnKvRow 自出 —),不再起大块空态。
-Widget fieldList(List<Field> fields, {required String emptyLabel}) => AnKv(
-  rows: fields.isEmpty
-      ? [AnKvRow(emptyLabel, null)]
-      : [
-          for (final f in fields)
-            AnKvRow(
-              f.name,
-              '${f.type}${f.description != null && f.description!.isNotEmpty ? ' · ${f.description}' : ''}',
-              wrap: true,
-            ),
-        ],
-);
+/// A typed-field list (fn/hd/ag/ctl/apf inputs+outputs) → `name : type · description`.
+/// Support-kind lists keep the legacy KV empty row; card-based interface lists can opt into the
+/// compact single-marker row so a card does not repeat its own title as `Inputs —`.
+/// 字段列表(fn/hd/ag/ctl/apf 输入+输出)→`name : type · description`。支撑 kind 仍保留 KV 空行;
+/// 卡片式接口列表可选择紧凑单标记行,避免卡片标题再重复成 `输入 —`。
+Widget fieldList(
+  List<Field> fields, {
+  required String emptyLabel,
+  String? emptyMarker,
+}) {
+  if (fields.isEmpty && emptyMarker != null) {
+    return AnRow(label: emptyMarker, leadless: true, passive: true);
+  }
+  return AnKv(
+    rows: fields.isEmpty
+        ? [AnKvRow(emptyLabel, null)]
+        : [
+            for (final f in fields)
+              AnKvRow(
+                f.name,
+                '${f.type}${f.description != null && f.description!.isNotEmpty ? ' · ${f.description}' : ''}',
+                wrap: true,
+              ),
+          ],
+  );
+}
 
 /// The shared guide for "this entity has no active version yet" (WRK-077 ⑫ — ONE generic message
 /// for all six rail/support kinds, not per-kind copy — 拍板). No action: creating a version has no
