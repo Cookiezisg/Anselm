@@ -54,7 +54,12 @@ class NodeRefPicker extends ConsumerWidget {
               ),
           ],
           // Switching family clears the target + member below it. 切族清下游目标+成员。
-          onChanged: (f) => onChanged(NodeRef(family: f).format()),
+          onChanged: (f) {
+            // Re-selecting the current family only closes the menu; it must not clear a valid target.
+            // 重新点当前族只应收起菜单,不能清掉已经选好的目标。
+            if (f == parsed.family) return;
+            onChanged(NodeRef(family: f).format());
+          },
         ),
       _targetDropdown(context, ref, parsed),
       // Member (handler method / mcp tool) — only once a target is chosen. 成员——选中目标后才出。

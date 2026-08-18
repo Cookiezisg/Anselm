@@ -227,6 +227,33 @@ func createOps(t *testing.T, name string, reqArg bool) []Op {
 	return ops
 }
 
+func TestListIncludesRuntimeState(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	h, _, err := svc.Create(ctx, CreateInput{Ops: createOps(t, "resident", false)})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+
+	items, _, err := svc.List(ctx, handlerdomain.ListFilter{Limit: 20})
+	if err != nil {
+		t.Fatalf("List before spawn: %v", err)
+	}
+	if len(items) != 1 || items[0].RuntimeState != handlerdomain.RuntimeStateStopped {
+		t.Fatalf("List before spawn = %+v, want one stopped handler", items)
+	}
+
+	if _, err := svc.manager.Get(ctx, h.ID); err != nil {
+		t.Fatalf("manager.Get: %v", err)
+	}
+	items, _, err = svc.List(ctx, handlerdomain.ListFilter{Limit: 20})
+	if err != nil {
+		t.Fatalf("List after spawn: %v", err)
+	}
+	if len(items) != 1 || items[0].RuntimeState != handlerdomain.RuntimeStateRunning {
+		t.Fatalf("List after spawn = %+v, want one running handler", items)
+	}
+}
+
 // editDepsOps is a non-conflicting edit (changes deps only) for version-bump tests.
 func editDepsOps(t *testing.T) []Op {
 	t.Helper()

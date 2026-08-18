@@ -1455,6 +1455,8 @@
         "instanceId": "实例",
         "version": "版本",
         "elapsed": "耗时",
+        "lifetime": "运行周期",
+        "execution": "执行耗时",
         "time": "时间",
         "replay": "重放",
         "flowrunId": "Flowrun id",

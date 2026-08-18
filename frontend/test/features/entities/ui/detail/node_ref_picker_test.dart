@@ -93,10 +93,21 @@ void main() {
   testWidgets('action node: family dropdown + target dropdown render', (
     tester,
   ) async {
-    await pumpPicker(tester, kind: NodeKind.action, initial: 'fn_test');
+    final refOf = await pumpPicker(
+      tester,
+      kind: NodeKind.action,
+      initial: 'fn_test',
+    );
     // family (RefFamily) + target (String) dropdowns present; no member (function has none). 族+目标,无成员。
     expect(find.byType(AnDropdown<RefFamily>), findsOneWidget);
     expect(find.byType(AnDropdown<String>), findsOneWidget);
+
+    // Selecting the already active family is a menu close, not a destructive reset. 已选族再点一次只收菜单,不清目标。
+    tester
+        .widget<AnDropdown<RefFamily>>(find.byType(AnDropdown<RefFamily>))
+        .onChanged!(RefFamily.function);
+    await tester.pump(const Duration(milliseconds: 30));
+    expect(refOf(), 'fn_test');
   });
 
   testWidgets(

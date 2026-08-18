@@ -11,6 +11,7 @@ import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
+import 'package:anselm/features/entities/state/entity_list_provider.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_controller.dart';
 import 'package:anselm/features/entities/state/run/recent_runs_provider.dart';
 import 'package:anselm/features/entities/state/run/run_terminal_state.dart';
@@ -306,18 +307,39 @@ void main() {
     );
     addTearDown(c.dispose);
     c.listen(entityDetailProvider(_hdRef), (_, _) {});
+    c.listen(entityListProvider(EntityKind.handler), (_, _) {});
     c.listen(runTerminalProvider(_hdRef), (_, _) {});
     await c.read(entityDetailProvider(_hdRef).future);
+    await c.read(entityListProvider(EntityKind.handler).future);
     expect(
       c.read(entityDetailProvider(_hdRef)).value?.handler?.runtimeState,
+      'stopped',
+    );
+    expect(
+      c
+          .read(entityListProvider(EntityKind.handler))
+          .value
+          ?.rows
+          .single
+          .runtimeState,
       'stopped',
     );
 
     await c.read(runTerminalProvider(_hdRef).notifier).run();
     await c.read(entityDetailProvider(_hdRef).future);
+    await c.read(entityListProvider(EntityKind.handler).future);
 
     expect(
       c.read(entityDetailProvider(_hdRef)).value?.handler?.runtimeState,
+      'running',
+    );
+    expect(
+      c
+          .read(entityListProvider(EntityKind.handler))
+          .value
+          ?.rows
+          .single
+          .runtimeState,
       'running',
     );
   });

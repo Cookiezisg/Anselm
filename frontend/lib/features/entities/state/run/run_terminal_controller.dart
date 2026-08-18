@@ -13,6 +13,7 @@ import '../../../../core/sse/frame.dart';
 import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
+import '../entity_list_provider.dart';
 import '../detail/entity_detail_provider.dart';
 import '../selected_entity.dart';
 import '../../data/entity_format.dart';
@@ -332,6 +333,12 @@ class RunTerminalController extends Notifier<RunTerminalState> {
       // 仍会停在 stopped,直到下一次生命周期动作才纠正。
       if (ref.mounted && entityRef.kind == EntityKind.handler) {
         ref.invalidate(entityDetailProvider(entityRef));
+        // The rail is a separate list projection; a successful lazy spawn changes its runtime dot
+        // without producing a durable lifecycle signal. Reconcile it at the same truth boundary as
+        // the selected detail instead of leaving the rail gray until navigation.
+        // rail 是独立列表投影;懒启动成功不发 durable 生命周期帧却会改变 runtime dot。与详情同一真相边界重读
+        // handler 行,避免 rail 一直灰到用户重新导航。
+        ref.invalidate(entityListProvider(EntityKind.handler));
       }
       // Release the keep-alive once THIS run is the settled current one — a superseding run (seq bumped)
       // or a cancel keeps/handles it. A workflow still in flight (reconcile-driven) keeps the pin;

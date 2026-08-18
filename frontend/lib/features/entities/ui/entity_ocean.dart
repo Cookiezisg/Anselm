@@ -20,7 +20,6 @@ import '../data/entity_kind.dart';
 import '../data/entity_providers.dart';
 import '../state/detail/entity_detail.dart';
 import '../state/detail/entity_detail_provider.dart';
-import '../state/detail/observability_list_provider.dart';
 import '../state/selected_entity.dart';
 import 'detail/log_tab.dart';
 import 'detail/run_cockpit_tab.dart';
@@ -181,10 +180,9 @@ class _EntityOceanState extends ConsumerState<EntityOcean> {
                           try {
                             final actId = await repo.fireTrigger(detail.ref.id);
                             if (!mounted) return;
-                            // A fire writes a new activation AND fans out firings — refresh both observability
-                            // streams + the lastFired badge. 一次 fire 产 activation + firing,两观测面 + 徽标都刷。
-                            ref.invalidate(activationListProvider);
-                            ref.invalidate(firingListProvider);
+                            // The detail and both observability providers own their scoped fire
+                            // subscriptions; do not invalidate families and interrupt settling polls.
+                            // 详情与两条观测 provider 各自拥有 fire 订阅；不要失效 family 打断落定轮询。
                             ref.invalidate(entityDetailProvider(detail.ref));
                             notices.show(tr.firedToast(id: actId));
                           } catch (_) {

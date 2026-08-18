@@ -134,7 +134,19 @@ func (a *SandboxAdapter) Run(ctx context.Context, owner sandboxdomain.Owner, fun
 
 	out := &functiondomain.ExecutionResult{ElapsedMs: res.Duration.Milliseconds(), Logs: logs.String()}
 	if !res.Ok {
-		msg := strings.TrimSpace(string(res.Stderr))
+		// The driver sends user print() output and Python's traceback through the same stderr pipe so
+		// live progress remains immediate. Split them before persisting: `logs` is the user's diagnostic
+		// output, while `errorMsg` is the failure. Otherwise the UI renders one traceback twice.
+		// driver 为了实时进度把用户 print() 与 Python traceback 共用 stderr；落盘前拆开：logs 是用户诊断输出，
+		// errorMsg 是失败本身，否则 UI 会把同一 traceback 展示两遍。
+		logText, msg := splitFunctionStderr(string(res.Stderr))
+		failedLogs := logtailpkg.New(logtailpkg.DefaultCap)
+		_, _ = failedLogs.Write([]byte(logText))
+		out.Logs = failedLogs.String()
+		msg = strings.TrimSpace(msg)
+		if msg == "" {
+			msg = strings.TrimSpace(string(res.Stderr))
+		}
 		if msg == "" {
 			msg = fmt.Sprintf("python exit %d", res.ExitCode)
 		}
@@ -223,6 +235,25 @@ if __name__ == "__main__":
 
 func buildDriver(funcName string) string {
 	return strings.Replace(driverTemplate, "{FUNC_NAME}", funcName, 1)
+}
+
+// splitFunctionStderr separates the print/debug prefix from a Python traceback. A non-traceback
+// stderr payload stays an error rather than being silently mislabeled as user logs.
+// splitFunctionStderr 把 print/debug 前缀与 Python traceback 分开；无 traceback 的 stderr 保留为错误，
+// 不静默错标成用户日志。
+func splitFunctionStderr(raw string) (logs, errorMessage string) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return "", ""
+	}
+	const marker = "Traceback (most recent call last):"
+	if strings.HasPrefix(raw, marker) {
+		return "", raw
+	}
+	if idx := strings.Index(raw, "\n"+marker); idx >= 0 {
+		return strings.TrimSpace(raw[:idx]), strings.TrimSpace(raw[idx+1:])
+	}
+	return "", raw
 }
 
 // writeAtomic writes via a unique temp file + rename so concurrent writers never collide.

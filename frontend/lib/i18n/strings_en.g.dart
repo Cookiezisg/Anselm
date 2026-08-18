@@ -7095,6 +7095,12 @@ class Translations$entities$detail$kv$en {
 	/// en: 'Elapsed'
 	String get elapsed => 'Elapsed';
 
+	/// en: 'Run lifetime'
+	String get lifetime => 'Run lifetime';
+
+	/// en: 'Execution'
+	String get execution => 'Execution';
+
 	/// en: 'Time'
 	String get time => 'Time';
 
@@ -9005,6 +9011,8 @@ extension on Translations {
 			'entities.detail.kv.instanceId' => 'Instance',
 			'entities.detail.kv.version' => 'Version',
 			'entities.detail.kv.elapsed' => 'Elapsed',
+			'entities.detail.kv.lifetime' => 'Run lifetime',
+			'entities.detail.kv.execution' => 'Execution',
 			'entities.detail.kv.time' => 'Time',
 			'entities.detail.kv.replay' => 'Replay',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
@@ -9188,10 +9196,10 @@ extension on Translations {
 			'entities.run.origin.fsnotify' => 'File change',
 			'entities.run.origin.sensor' => 'Sensor',
 			'entities.val.yes' => 'yes',
-			'entities.val.no' => 'no',
-			'entities.overview.title' => 'Overview',
 			_ => null,
 		} ?? switch (path) {
+			'entities.val.no' => 'no',
+			'entities.overview.title' => 'Overview',
 			'entities.overview.accessory' => 'Parts',
 			'entities.overview.graphHead' => 'Relationship graph',
 			'entities.overview.recentHead' => 'Recently updated',
@@ -9702,10 +9710,10 @@ extension on Translations {
 			'settings.mcp.installNamed' => ({required Object name}) => 'Install ${name}',
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.marketEmptyLead' => 'Install your first MCP server from the marketplace',
-			'settings.mcp.marketLoadFailed' => 'Couldn\'t load the marketplace',
-			'settings.mcp.marketLoadFailedHint' => 'Check the connection and try again.',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.marketLoadFailed' => 'Couldn\'t load the marketplace',
+			'settings.mcp.marketLoadFailedHint' => 'Check the connection and try again.',
 			'settings.mcp.planLoadFailed' => 'Couldn\'t prepare the install',
 			'settings.mcp.planLoadFailedHint' => 'The marketplace entry may have changed. Try again.',
 			'settings.mcp.missingEnv' => ({required Object names}) => 'Missing required environment variables: ${names}',

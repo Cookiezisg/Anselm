@@ -88,7 +88,9 @@ flowrun、node 与 iteration 溯源从 request context 写入执行行。状态�
 
 Driver 在运行期间把用户 `print()` 导向 stderr，真实 stdout 只承载 JSON
 结果。stderr 同时进入 Chat tool progress、Entities run terminal 与有界日志；
-单条 Get 返回 logs，列表不复制大日志。
+非零退出在写入 Execution 前按 traceback 边界拆分：`logs` 只保留用户的
+`print()`/debug 输出，`errorMessage` 保留 traceback 或其它失败原因，避免同一
+诊断在详情中重复展示。单条 Get 返回 logs，列表不复制大日志。
 
 Execution 列表的 `aggregates` 同时返回过滤集的 `totalCount`、`okCount` 与
 `failedCount`。`totalCount` 是完整过滤集计数，不受当前页大小限制；列表仍不携带

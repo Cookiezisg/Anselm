@@ -71,7 +71,7 @@ audience: [human, ai]
 | Method · Path | 语义 |
 |---|---|
 | `POST /handlers` | 创建 v1，不立即 spawn |
-| `GET /handlers` | 分页；`search` 按 name 子串；响应头带精确过滤总数 |
+| `GET /handlers` | 分页；`search` 按 name 子串；响应头带精确过滤总数；列表行附 `runtimeState`，与懒启动后的实例真相同步 |
 | `GET /handlers/{id}` | 含 activeVersion、config/runtime state |
 | `PATCH /handlers/{id}` | metadata；不重启 |
 | `DELETE /handlers/{id}` | 停实例并软删主行；不可变版本历史保留供审计，环境尽力回收，relation 边清理，主实体与动作随后按 not-found 处理 |

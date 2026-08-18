@@ -141,6 +141,11 @@ abstract interface class EntityRepository {
   });
   Future<FlowrunComposite> getFlowrun(String id, {String? cursor, int? limit});
 
+  /// The execution-audit timeline for one run. This is separate from node rows: replay keeps
+  /// historical attempts in the audit tables while the durable node view keeps the latest row.
+  /// 一个 run 的执行审计时间线。它与节点行分开：replay 保留历史尝试的审计行，而 durable 节点视图只保留最新行。
+  Future<List<FlowrunActivityRow>> listFlowrunActivity(String flowrunId);
+
   // ── execute (the verb CTAs) ───────────────────────────────────────────────
   Future<FunctionRunResult> runFunction(
     String id, {
@@ -354,6 +359,9 @@ class LiveEntityRepository implements EntityRepository {
   final ApiClient _api;
   final SseGateway? _sse;
 
+  static const _pageCap =
+      20; // × limit 50 = 1000 rows — a defensive bound, not a product limit. 防御帽。
+
   Map<String, dynamic>? _query(
     String? cursor,
     int? limit, [
@@ -361,6 +369,26 @@ class LiveEntityRepository implements EntityRepository {
   ]) {
     final q = <String, dynamic>{'cursor': ?cursor, 'limit': ?limit, ...?extra};
     return q.isEmpty ? null : q;
+  }
+
+  Future<List<T>> _drain<T>(
+    String path,
+    T Function(Map<String, dynamic>) parse, {
+    Map<String, dynamic> query = const {},
+  }) async {
+    final out = <T>[];
+    String? cursor;
+    for (var i = 0; i < _pageCap; i++) {
+      final page = await _api.getPage(
+        path,
+        parse,
+        query: {...query, 'limit': '50', 'cursor': ?cursor},
+      );
+      out.addAll(page.items);
+      cursor = page.nextCursor;
+      if (cursor == null) break;
+    }
+    return out;
   }
 
   // The log endpoints nest the tally under an `aggregates` key inside `data` (backend
@@ -561,6 +589,13 @@ class LiveEntityRepository implements EntityRepository {
   }) async => FlowrunComposite.fromJson(
     await _api.getData('/api/v1/flowruns/$id', query: _query(cursor, limit)),
   );
+
+  @override
+  Future<List<FlowrunActivityRow>> listFlowrunActivity(String flowrunId) =>
+      _drain(
+        '/api/v1/flowruns/$flowrunId/activity',
+        FlowrunActivityRow.fromJson,
+      );
 
   @override
   Future<FunctionRunResult> runFunction(

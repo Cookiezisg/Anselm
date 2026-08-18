@@ -36,6 +36,25 @@ FlowrunNode _node(String flr, String node, String status, {String? error}) =>
       updatedAt: _t,
     );
 
+FlowrunActivityRow _activity(
+  String node,
+  int elapsedMs, {
+  Duration offset = Duration.zero,
+  int iteration = 0,
+}) {
+  final started = _t.subtract(offset);
+  return FlowrunActivityRow(
+    nodeId: node,
+    iteration: iteration,
+    kind: 'function',
+    execId: 'fne_$node$elapsedMs',
+    status: 'ok',
+    startedAt: started,
+    endedAt: started.add(Duration(milliseconds: elapsedMs)),
+    elapsedMs: elapsedMs,
+  );
+}
+
 FixtureEntityRepository _repo() {
   final wf = WorkflowEntity(
     id: 'wf_1',
@@ -83,6 +102,16 @@ FixtureEntityRepository _repo() {
           _node('flr_done', 'c2', 'completed'),
         ],
       ),
+    },
+    flowrunActivity: {
+      'flr_fail': [
+        _activity('c1', 10, offset: const Duration(milliseconds: 30)),
+        _activity('c1', 5, offset: const Duration(milliseconds: 5)),
+      ],
+      'flr_done': [
+        _activity('c0', 7, offset: const Duration(milliseconds: 20)),
+        _activity('c1', 9, offset: const Duration(milliseconds: 10)),
+      ],
     },
   );
 }
@@ -246,6 +275,12 @@ void main() {
       expect(st.runs.map((r) => r.id), ['flr_fail', 'flr_done']);
       expect(st.selectedRunId, 'flr_fail'); // newest-first
       expect(st.selected?.nodes, hasLength(2));
+      expect(st.activity, hasLength(2));
+      expect(st.executionDuration, const Duration(milliseconds: 15));
+      expect(
+        st.executionDurationFor(st.selected!.nodes.last),
+        const Duration(milliseconds: 5),
+      ); // latest attempt, not wire order
       expect(st.selectedNode, isNull); // no node picked yet
     },
   );
@@ -257,6 +292,7 @@ void main() {
     var st = c.read(runCockpitProvider(_ref)).value!;
     expect(st.selectedRunId, 'flr_done');
     expect(st.selected?.nodes, hasLength(3));
+    expect(st.executionDuration, const Duration(milliseconds: 16));
     ctl.selectNode('c1');
     st = c.read(runCockpitProvider(_ref)).value!;
     expect(st.selectedNode?.nodeId, 'c1');

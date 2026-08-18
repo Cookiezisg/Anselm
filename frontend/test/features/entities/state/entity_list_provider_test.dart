@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
@@ -15,6 +16,15 @@ import 'package:flutter_test/flutter_test.dart';
 final _t = DateTime.utc(2026, 6, 26);
 FunctionEntity _fn(String id, String name) =>
     FunctionEntity(id: id, name: name, createdAt: _t, updatedAt: _t);
+TriggerEntity _trigger({required bool listening}) => TriggerEntity(
+  id: 'trg_1',
+  name: 'heartbeat',
+  kind: TriggerSource.cron,
+  createdAt: _t,
+  updatedAt: _t,
+  listening: listening,
+  nextFireAt: listening ? _t : null,
+);
 
 ProviderContainer _container(FixtureEntityRepository fixture) {
   final c = ProviderContainer(
@@ -154,6 +164,37 @@ void main() {
       await pumpEventQueue();
 
       expect(_ids(c), ['fn_1', 'fn_2']); // unchanged
+    },
+  );
+
+  test(
+    'workflow lifecycle signal → refreshes derived trigger listening badge',
+    () async {
+      final fixture = FixtureEntityRepository(
+        triggerEntities: [_trigger(listening: true)],
+      );
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(fixture)],
+      );
+      addTearDown(c.dispose);
+      final provider = entityListProvider(EntityKind.trigger);
+      c.listen(provider, (_, _) {});
+
+      await c.read(provider.future);
+      expect(c.read(provider).value!.rows.single.listening, isTrue);
+
+      fixture.upsertTrigger(_trigger(listening: false));
+      fixture.emitLifecycle(
+        const EntitySignal(
+          kind: EntityKind.workflow,
+          id: 'wf_1',
+          action: EntityAction.updated,
+          durable: true,
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(c.read(provider).value!.rows.single.listening, isFalse);
     },
   );
 

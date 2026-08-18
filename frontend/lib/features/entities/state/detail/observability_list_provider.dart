@@ -5,8 +5,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../../core/contract/entities/trigger.dart';
 import '../../../../core/model/status_state.dart';
 import '../../../../core/state/keyset_paging.dart';
+import '../../../../core/sse/frame.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../data/entity_format.dart';
+import '../../data/entity_kind.dart';
 import '../../data/entity_providers.dart';
 import '../../data/entity_repository.dart';
 import 'log_list_state.dart';
@@ -26,15 +28,29 @@ class ActivationListNotifier extends AsyncNotifier<LogListState>
   final ({String triggerId, bool firedOnly}) arg;
   late EntityRepository _repo;
   static const int _pageSize = 20;
+  static const _firePollInterval = Duration(milliseconds: 500);
+  static const _firePollWindow = Duration(seconds: 5);
+  StreamSubscription<StreamEnvelope>? _panelSub;
+  Timer? _firePoll;
+  DateTime? _firePollDeadline;
+  bool _firePollInFlight = false;
 
   @override
   Future<LogListState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
+    _panelSub ??= _repo
+        .panelSignals(EntityKind.trigger.scope(arg.triggerId))
+        .listen(_onPanel);
+    ref.onDispose(() {
+      _firePoll?.cancel();
+      unawaited(_panelSub?.cancel());
+    });
     final p = await _repo.listActivations(
       arg.triggerId,
       firedOnly: arg.firedOnly,
       limit: _pageSize,
     );
+    _scheduleFirePoll();
     return LogListState(
       rows: p.items.map(_row).toList(),
       nextCursor: p.nextCursor,
@@ -91,6 +107,75 @@ class ActivationListNotifier extends AsyncNotifier<LogListState>
     state = AsyncData(cur.copyWith(openIds: next));
   }
 
+  void _onPanel(StreamEnvelope env) {
+    if (env.frame is! FrameSignal ||
+        (env.frame as FrameSignal).node.type != 'fire') {
+      return;
+    }
+    // The fire frame is only a wake-up. The activation may still be in the scheduler's write
+    // window, so keep a short bounded REST reconciliation even for an empty fired-only page.
+    // fire 帧只是唤醒；activation 可能仍在 scheduler 写入窗口内，即使 fired-only 页为空也要在短窗口内
+    // 有界重读，避免一次早读把新行永久漏掉。
+    _firePollDeadline = DateTime.now().add(_firePollWindow);
+    _scheduleFirePoll(immediate: true);
+  }
+
+  void _scheduleFirePoll({bool immediate = false}) {
+    if (!ref.mounted || _firePollDeadline == null) return;
+    if (!DateTime.now().isBefore(_firePollDeadline!)) {
+      _firePollDeadline = null;
+      return;
+    }
+    _firePoll?.cancel();
+    _firePoll = Timer(immediate ? Duration.zero : _firePollInterval, () {
+      _firePoll = null;
+      unawaited(_reconcileAfterFire());
+    });
+  }
+
+  Future<void> _reconcileAfterFire() async {
+    if (!ref.mounted || _firePollDeadline == null) return;
+    if (_firePollInFlight) return;
+    final current = state.value;
+    if (current == null) {
+      _scheduleFirePoll();
+      return;
+    }
+    _firePollInFlight = true;
+    try {
+      final p = await _repo.listActivations(
+        arg.triggerId,
+        firedOnly: arg.firedOnly,
+        limit: _pageSize,
+      );
+      if (!ref.mounted) return;
+      final latest = state.value;
+      if (latest == null) return;
+      final nextRows = p.items.map(_row).toList();
+      final changed = _rowFingerprint(latest.rows) != _rowFingerprint(nextRows);
+      state = AsyncData(
+        latest.copyWith(
+          rows: nextRows,
+          nextCursor: p.nextCursor,
+          hasMore: p.hasMore,
+        ),
+      );
+      if (changed || !DateTime.now().isBefore(_firePollDeadline!)) {
+        _firePollDeadline = null;
+      } else {
+        _scheduleFirePoll();
+      }
+    } catch (_) {
+      _scheduleFirePoll();
+    } finally {
+      _firePollInFlight = false;
+    }
+  }
+
+  String _rowFingerprint(List<LogRow> rows) => rows
+      .map((row) => '${row.id}\u0000${row.label}\u0000${row.meta ?? ''}')
+      .join('\u0001');
+
   LogRow _row(Activation a) {
     final tt = t.entities.detail;
     return LogRow(
@@ -124,18 +209,32 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
   final ({String triggerId, String? status}) arg;
   late EntityRepository _repo;
   static const int _pageSize = 20;
+  static const _firePollInterval = Duration(milliseconds: 500);
+  static const _firePollWindow = Duration(seconds: 5);
   Timer? _pendingPoll;
+  StreamSubscription<StreamEnvelope>? _panelSub;
+  Timer? _firePoll;
+  DateTime? _firePollDeadline;
+  bool _firePollInFlight = false;
 
   @override
   Future<LogListState> build() async {
     _repo = ref.watch(entityRepositoryProvider);
-    ref.onDispose(() => _pendingPoll?.cancel());
+    _panelSub ??= _repo
+        .panelSignals(EntityKind.trigger.scope(arg.triggerId))
+        .listen(_onPanel);
+    ref.onDispose(() {
+      _pendingPoll?.cancel();
+      _firePoll?.cancel();
+      unawaited(_panelSub?.cancel());
+    });
     final p = await _repo.listFirings(
       arg.triggerId,
       status: arg.status,
       limit: _pageSize,
     );
     _armPendingPoll(p.items);
+    _scheduleFirePoll();
     return LogListState(
       rows: p.items.map(_row).toList(),
       nextCursor: p.nextCursor,
@@ -183,6 +282,77 @@ class FiringListNotifier extends AsyncNotifier<LogListState>
     hasMore: more,
     loadingMore: false,
   );
+
+  void _onPanel(StreamEnvelope env) {
+    if (env.frame is! FrameSignal ||
+        (env.frame as FrameSignal).node.type != 'fire') {
+      return;
+    }
+    // A terminal filter can be empty while the scheduler is still deciding the new firing. Poll all
+    // mounted filters for a short window; the existing pending poll remains responsible for ongoing
+    // pending rows after this first page catches up.
+    // 终态筛选器可能在 scheduler 决策期间为空；所有已挂载筛选面在短窗口内重读。首屏追上后，持续 pending
+    // 行仍由原有 pending poll 负责。
+    _firePollDeadline = DateTime.now().add(_firePollWindow);
+    _scheduleFirePoll(immediate: true);
+  }
+
+  void _scheduleFirePoll({bool immediate = false}) {
+    if (!ref.mounted || _firePollDeadline == null) return;
+    if (!DateTime.now().isBefore(_firePollDeadline!)) {
+      _firePollDeadline = null;
+      return;
+    }
+    _firePoll?.cancel();
+    _firePoll = Timer(immediate ? Duration.zero : _firePollInterval, () {
+      _firePoll = null;
+      unawaited(_reconcileAfterFire());
+    });
+  }
+
+  Future<void> _reconcileAfterFire() async {
+    if (!ref.mounted || _firePollDeadline == null) return;
+    if (_firePollInFlight) return;
+    final current = state.value;
+    if (current == null) {
+      _scheduleFirePoll();
+      return;
+    }
+    _firePollInFlight = true;
+    try {
+      final p = await _repo.listFirings(
+        arg.triggerId,
+        status: arg.status,
+        limit: _pageSize,
+      );
+      if (!ref.mounted) return;
+      final latest = state.value;
+      if (latest == null) return;
+      final nextRows = p.items.map(_row).toList();
+      final changed = _rowFingerprint(latest.rows) != _rowFingerprint(nextRows);
+      state = AsyncData(
+        latest.copyWith(
+          rows: nextRows,
+          nextCursor: p.nextCursor,
+          hasMore: p.hasMore,
+        ),
+      );
+      _armPendingPoll(p.items);
+      if (changed || !DateTime.now().isBefore(_firePollDeadline!)) {
+        _firePollDeadline = null;
+      } else {
+        _scheduleFirePoll();
+      }
+    } catch (_) {
+      _scheduleFirePoll();
+    } finally {
+      _firePollInFlight = false;
+    }
+  }
+
+  String _rowFingerprint(List<LogRow> rows) => rows
+      .map((row) => '${row.id}\u0000${row.label}\u0000${row.meta ?? ''}')
+      .join('\u0001');
 
   /// A firing is written pending before the scheduler claims it, so the first REST read after `:fire`
   /// can legitimately precede the final disposition. Reconcile only while the current page contains

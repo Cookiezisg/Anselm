@@ -5,6 +5,7 @@ import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/state/detail/workflow_editor_provider.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
+import 'package:anselm/core/graph/graph_model.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -15,39 +16,42 @@ const _ref = EntityRef(EntityKind.workflow, 'wf_1');
 final _t = DateTime.utc(2026, 6, 27);
 const _graph =
     '{"nodes":[{"id":"start","kind":"trigger","ref":"tr_x"},{"id":"work","kind":"action","ref":"fn_1"},{"id":"gate","kind":"control","ref":"ctl_q"}],"edges":[{"id":"e1","from":"start","to":"work"},{"id":"e2","from":"work","to":"gate"}]}';
+const _positionedGraph =
+    '{"nodes":[{"id":"start","kind":"trigger","ref":"tr_x","pos":{"x":80,"y":180}},{"id":"work","kind":"action","ref":"fn_1","pos":{"x":340,"y":180}},{"id":"gate","kind":"control","ref":"ctl_q","pos":{"x":600,"y":180}}],"edges":[{"id":"e1","from":"start","to":"work"},{"id":"e2","from":"work","to":"gate"}]}';
 
-FixtureEntityRepository _repo() => FixtureEntityRepository(
-  runDelay: Duration.zero,
-  workflows: [
-    WorkflowEntity(
-      id: 'wf_1',
-      name: 'pipe',
-      createdAt: _t,
-      updatedAt: _t,
-      activeVersionId: 'wf_1_v1',
-      activeVersion: WorkflowVersion(
-        id: 'wf_1_v1',
-        workflowId: 'wf_1',
-        version: 1,
-        graph: _graph,
-        createdAt: _t,
-        updatedAt: _t,
-      ),
-    ),
-  ],
-  workflowVersions: {
-    'wf_1': [
-      WorkflowVersion(
-        id: 'wf_1_v1',
-        workflowId: 'wf_1',
-        version: 1,
-        graph: _graph,
-        createdAt: _t,
-        updatedAt: _t,
-      ),
-    ],
-  },
-);
+FixtureEntityRepository _repo({String graph = _graph}) =>
+    FixtureEntityRepository(
+      runDelay: Duration.zero,
+      workflows: [
+        WorkflowEntity(
+          id: 'wf_1',
+          name: 'pipe',
+          createdAt: _t,
+          updatedAt: _t,
+          activeVersionId: 'wf_1_v1',
+          activeVersion: WorkflowVersion(
+            id: 'wf_1_v1',
+            workflowId: 'wf_1',
+            version: 1,
+            graph: graph,
+            createdAt: _t,
+            updatedAt: _t,
+          ),
+        ),
+      ],
+      workflowVersions: {
+        'wf_1': [
+          WorkflowVersion(
+            id: 'wf_1_v1',
+            workflowId: 'wf_1',
+            version: 1,
+            graph: graph,
+            createdAt: _t,
+            updatedAt: _t,
+          ),
+        ],
+      },
+    );
 
 (ProviderContainer, WorkflowEditorNotifier) _harness(
   FixtureEntityRepository repo,
@@ -80,6 +84,28 @@ void main() {
     expect(st.working.nodes, hasLength(4));
     expect(st.selectedNode?.kind, NodeKind.action);
   });
+
+  test(
+    'addNode chooses a clear slot instead of stacking on a positioned graph',
+    () async {
+      final (c, ctl) = _harness(_repo(graph: _positionedGraph));
+      await c.read(workflowEditorProvider(_ref).future);
+
+      ctl.addNode(NodeKind.agent);
+      final st = c.read(workflowEditorProvider(_ref)).value!;
+      final added = st.working.nodes.last;
+      final layout = layoutGraph(st.working);
+
+      expect(added.pos, const NodePosition(x: 80, y: 284));
+      for (final node in st.working.nodes.where((n) => n.id != added.id)) {
+        expect(
+          layout.nodeRects[added.id]!.overlaps(layout.nodeRects[node.id]!),
+          isFalse,
+          reason: 'new node ${added.id} must not overlap ${node.id}',
+        );
+      }
+    },
+  );
 
   test('deleteSelected removes a node and cascades its edges', () async {
     final (c, ctl) = _harness(_repo());

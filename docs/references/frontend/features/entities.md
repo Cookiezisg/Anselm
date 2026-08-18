@@ -18,10 +18,10 @@ audience: [human, ai]
 | 面 | 当前事实 |
 |---|---|
 | 总览 | `/` 与 `/entities` 展示实体计数、关系图和最近更新；关系图可进入 `/entities/graph` 全屏探索。探索页默认只显示结构关系，图例隐藏某类实体时同步隐藏其节点、标签和相连边；打开显示溯源后，右岛会按“创建于/编辑于”或“创建/编辑”解释会话与实体的方向关系；涟漪只降低点/边的视觉优先级，不降低仍存在的实体名称可读性 |
-| 左岛 rail | Function、Handler、Agent、Workflow 与 Control、Approval、Trigger 七类；过滤、排序、计数、分页与 lifecycle signal 更新；搜索无匹配时明确显示空结果提示，不把空白误作加载失败 |
+| 左岛 rail | Function、Handler、Agent、Workflow 与 Control、Approval、Trigger 七类；过滤、排序、计数、分页与 lifecycle signal 更新；Handler 的懒启动/调用收尾也会重读列表投影，保证运行态点不落后于详情；搜索无匹配时明确显示空结果提示，不把空白误作加载失败 |
 | 中心详情 | `/entities/:kind/:id`；同一阅读列承载头、概览、版本与日志/运行。Trigger 使用活动/派发观测面 |
 | 右岛调试台 | 对可执行实体提供 JSON-first 输入、示例、最近输入复用、实时执行流、停止与结果；是手工执行的唯一入口 |
-| Workflow 图 | 概览显示当前图、节点/边计数和活态覆层；`/entities/workflow/:id/editor` 提供全屏图编辑、节点/边 inspector 与一次会话一版 |
+| Workflow 图 | 概览显示当前图、节点/边计数和活态覆层；`/entities/workflow/:id/editor` 提供全屏图编辑、节点/边 inspector 与一次会话一版；新增节点先固化当前可见布局，再放入带安全间距的第一个空位，避免叠卡或把旧节点挪走；全屏工具栏的保存反馈落在工具栏下方，不遮挡 `Discard`/`Save` |
 | Workflow 治理 | 概览治理卡可直接选择五种并发策略（串行、运行时跳过、仅保留最新、替换当前、全部并行）；选择走 Workflow meta PATCH，不创建新版本 |
 | Workflow 运行 | 运行驾驶舱展示 run 列表、节点甘特、图覆层、ledger、approval、replay 与 kill；深链到 Scheduler run 卷宗 |
 | 审批收件箱 | 跨 run 汇总 parked approval，复用同一个 first-wins `:decide` 契约；打开期间订阅耐久 `workflow.approval_pending` 与 workflow scope 的 `run_terminal` 脉冲，并从 `GET /flowrun-inbox` 重取真实列表；notifications/entities 任一 410 都重取，不能要求用户关闭再打开托盘 |
@@ -43,15 +43,15 @@ audience: [human, ai]
 
 - Function：说明、标签、代码、输入/输出、环境与执行日志。`envStatus=failed` 时页头与 Environment 卡都要显式显示失败；主面展示本地化的构建失败摘要、原因与下一步，原始 `envError` 只在用户主动展开的技术详情中显示并受长度上限约束，不能把 SDK、URL 或堆栈异常当作主文案。
 - Handler：说明/标签 meta 就地编辑、方法、实例/config 状态、版本、调用日志与 restart/config 写面；meta PATCH 不升版本、不重启常驻实例。概览必须把三种正交状态分开：`runtimeState`（实例是否运行）、`configState`（初始化参数是否齐全）和 active version 的 `envStatus`（运行环境是否构建成功）；`envStatus=failed` 时页头与 Environment 卡都要显式显示失败，并以本地化的构建失败摘要、原因与下一步呈现，不能用 `stopped` 或 `ready` 掩盖环境失败。原始 `envError` 只在用户主动展开的技术详情中显示，并受长度上限约束；主产品面不得直接暴露 SDK、URL 或堆栈异常。
-- Handler 首次 `:call` 可能懒起常驻实例；调用成功或失败收尾后，详情必须重读服务端 `runtimeState`，不能让概览继续显示旧的 `stopped`。
+- Handler 首次 `:call` 可能懒起常驻实例；调用成功或失败收尾后，详情与 rail 列表都必须重读服务端 `runtimeState`，不能让概览或 rail 继续显示旧的 `stopped`。
 - Agent：定义、版本、执行日志与流式 block tree。
-- Workflow：图、治理信息、版本 diff、运行驾驶舱与全屏图编辑器。
+- Workflow：图、治理信息、版本 diff、运行驾驶舱与全屏图编辑器。运行信息把“运行周期”（首次启动到最终落定的墙钟生命周期）与“执行耗时”（`GET /flowruns/{id}/activity` 的执行审计汇总）分开；replay 保留历史尝试时，执行耗时可以包含多次实际执行，但不把人工等待伪装成执行时间。节点调试优先显示对应审计行的测量，只有审计缺席才回落到节点自身的开始/结束戳。
 - Control：输入与分支/端口规则；版本 tab 展示分页历史、路由行为 diff 和 active 标记。
 - Approval：审批模板与规则、版本 tab；运行期决定发生在具体 parked node。
-- Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。Webhook 概览必须同时说明挂载 URL 与认证携带方式：HMAC 显示算法/签名头，明文 secret 显示 `X-Webhook-Secret` 请求头或 `?token=` 查询参数，但永不回显 secret 本身。
+- Trigger：cron/webhook/fsnotify/sensor 等配置、listener 状态、activation 与 firing 两条观测流，并支持手动 fire。Activity/Dispatch 的筛选器使用紧凑 ghost 控件，避免把列表过滤误读成可编辑字段。Webhook 概览必须同时说明挂载 URL 与认证携带方式：HMAC 显示算法/签名头，明文 secret 显示 `X-Webhook-Secret` 请求头或 `?token=` 查询参数，但永不回显 secret 本身。
 - Trigger 暂停时详情头仍保留 `Fire` 的空间位置，但按钮必须 inert，徽标显示 `Paused`，hover/focus 提示先恢复再催发；后端 `TRIGGER_PAUSED` 仍是最终防线。
 - Trigger 的 Dispatch 首次读取允许短暂显示 `pending`：firing 先落 durable 行，再由 scheduler 决定 `started`、`skipped`、`superseded`、`shed` 或 `missed`。只要当前页仍有 pending，前端每 500ms 重读同一 REST 页并替换现有行；全部行进入终态后立即停止，不能让用户离开再回来才能看到真实处置。筛选暴露全部用户可理解的处置词，`claimed` 只作为瞬态认领阶段留在全量/机器真相里，不作为停留筛选；`missed` 是持久错过台账，必须可直接筛选，且列表行使用 slang 双语词而不是裸 wire 枚举。列表主行使用 API 读时补全的 workflow 名，详情同时保留独立的 workflow ID；workflow 已删除时才回落裸 ID，避免首屏先闪出机器 ID 再跳名。
-- Trigger 详情打开期间收到本 trigger scope 的 `seq=0` `fire` 信号时，必须把它当作**重读提示**而不是第二份历史：详情重取 `GET /triggers/{id}` 以更新 `Last fired`，活动与派发两个分页 provider 也从各自 REST 端点重取。信号 payload 只用于唤醒，不得直接 patch `lastFiredAt`、firing 状态或计数；这样外部 webhook 在详情页到达时，Overview、Activity、Dispatch 会一起从 durable 真相收敛，而不要求用户离开再回来。
+- Trigger 详情打开期间收到本 trigger scope 的 `seq=0` `fire` 信号时，必须把它当作**重读提示**而不是第二份历史：详情重取 `GET /triggers/{id}` 以更新 `Last fired`，Activity 与 Dispatch 的**所有已挂载筛选实例**各自订阅 fire 脉冲并从 REST 端点重取。首次重读若仍处于 scheduler 写入窗口，两个列表都在最多 5 秒内按 500ms 继续重读；一旦页内容改变或窗口耗尽即停止，持续可见的 `pending` 再交给原有 pending poll。Trigger 的 `listening` 是 active workflow 绑定的读时派生值，因此已打开的 trigger 详情与 rail 还必须在 workflow durable lifecycle signal 后重读；否则最后一个 workflow 下线后会留下陈旧的 `Listening`。信号 payload 只用于唤醒，不得直接 patch `lastFiredAt`、firing 状态或计数；这样外部 webhook 在详情页到达时，即使当前终态筛选页原本为空，也会从 durable 真相收敛，而不要求用户离开再回来。
 
 日志列表页保持轻量：列表行不携带可能达到 64 KiB 的 `logs`，也不携带 Agent 的完整 `transcript`。
 用户展开 Function execution、Handler call 或 Agent execution 时，分别请求对应的单条端点；展开期间显示骨架，

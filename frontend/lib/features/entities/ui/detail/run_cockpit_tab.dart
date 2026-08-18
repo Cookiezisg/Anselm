@@ -177,9 +177,10 @@ class RunCockpitTab extends ConsumerWidget {
     final runningCount = st.runs
         .where((r) => r.status == 'running' || r.status == 'parked')
         .length;
-    final elapsed = (run.completedAt != null && run.startedAt != null)
+    final lifetime = (run.completedAt != null && run.startedAt != null)
         ? fmtDuration(run.completedAt!.difference(run.startedAt!))
         : '—';
+    final execution = st.executionDuration;
     return AnInfoCard(
       title: d.cockpit.runInfo,
       icon: AnIcons.byKey('scheduler'),
@@ -191,7 +192,8 @@ class RunCockpitTab extends ConsumerWidget {
             (kv.flowrunId, run.id),
             (kv.version, run.versionId),
             (kv.replay, '${run.replayCount}'),
-            (kv.elapsed, elapsed),
+            (kv.lifetime, lifetime),
+            if (execution != null) (kv.execution, fmtDuration(execution)),
             if (run.error?.isNotEmpty ?? false) (kv.error, run.error),
           ], dense: true),
           if (failed || live) ...[
@@ -234,9 +236,7 @@ class RunCockpitTab extends ConsumerWidget {
     final d = context.t.entities.detail;
     final kv = d.kv;
     final notifier = ref.read(runCockpitProvider(entityRef).notifier);
-    final elapsed = (node.completedAt != null)
-        ? fmtDuration(node.completedAt!.difference(node.createdAt))
-        : '—';
+    final execution = st.executionDurationFor(node);
     final parked = node.status == 'parked';
     // Result minus the reserved routing/approval keys is the node's actual payload. 剔保留键的真实结果。
     final payload = <String, Object?>{
@@ -255,7 +255,7 @@ class RunCockpitTab extends ConsumerWidget {
             if (node.iteration > 0)
               (d.cockpit.iteration(n: node.iteration), '${node.iteration}'),
             (kv.ref, node.ref),
-            (kv.elapsed, elapsed),
+            (kv.execution, execution == null ? '—' : fmtDuration(execution)),
           ], dense: true),
           if (node.error?.isNotEmpty ?? false) ...[
             const SizedBox(height: AnSpace.s8),

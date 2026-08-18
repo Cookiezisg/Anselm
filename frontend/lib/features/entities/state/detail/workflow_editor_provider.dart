@@ -82,7 +82,6 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
 
   final EntityRef entityRef;
   late EntityRepository _repo;
-  int _idSeq = 0;
 
   @override
   Future<WorkflowEditorState> build() async {
@@ -118,18 +117,26 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
   }
 
   // ── structure ──
-  /// Add a node of [kind] at the graph centre-ish (a fresh pos so it doesn't stack). 加节点。
+  /// Add a node of [kind] in the first free canvas slot, keeping it visible and separated from the
+  /// existing graph. If the graph is still auto-laid out, materialize that visible layout first;
+  /// a mixed pinned/auto graph would otherwise move the old nodes under the user's feet. 加节点时取
+  /// 第一个可见空位并与已有图保持间距。若当前仍是自动布局,先固化当前可见布局;混合显式/自动图会在
+  /// 用户眼前移动旧节点。
   void addNode(NodeKind kind) {
-    final cur = state.value;
+    var cur = state.value;
     if (cur == null) return;
+    if (cur.working.nodes.any((n) => n.pos == null)) {
+      _ensurePositioned();
+      cur = state.value;
+      if (cur == null) return;
+    }
     final id = _uniqueNodeId(kind, cur.working);
     final n = Node(
       id: id,
       kind: kind,
       ref: '${_prefix(kind)}_new',
-      pos: NodePosition(x: 120 + (_idSeq % 5) * 40, y: 120 + (_idSeq % 5) * 40),
+      pos: _newNodePosition(cur.working),
     );
-    _idSeq++;
     _mutate((g) => g.copyWith(nodes: [...g.nodes, n]));
     selectNode(id);
   }
@@ -364,6 +371,73 @@ class WorkflowEditorNotifier extends AsyncNotifier<WorkflowEditorState> {
     NodeKind.approval => 'apf',
     NodeKind.unknown => 'node',
   };
+
+  /// Find a deterministic free slot around the existing authored positions. Candidates reuse
+  /// existing column/row anchors first, then add one row/column beyond the graph. The clearance is
+  /// deliberately part of the collision test: touching cards are as visually broken as overlapping
+  /// cards once labels and edge stubs are painted. 在已有坐标周围确定性寻找空位。先复用现有列/行锚点,
+  /// 再向图外扩一行/列;碰撞判断包含安全间距,因为标签和出线柄存在时贴边同样不合格。
+  static NodePosition _newNodePosition(Graph g) {
+    final positions = g.nodes
+        .map((n) => n.pos)
+        .whereType<NodePosition>()
+        .toList();
+    if (positions.isEmpty) return const NodePosition(x: 120, y: 120);
+
+    var minY = positions.first.y;
+    var maxX = positions.first.x;
+    var maxY = positions.first.y;
+    for (final p in positions.skip(1)) {
+      minY = math.min(minY, p.y);
+      maxX = math.max(maxX, p.x);
+      maxY = math.max(maxY, p.y);
+    }
+
+    final xs = positions.map((p) => p.x).toSet().toList()..sort();
+    final ys = positions.map((p) => p.y).toSet().toList()..sort();
+    final expandedX =
+        maxX + GraphGeometry.nodeW.round() + GraphGeometry.gapX.round();
+    final expandedY =
+        maxY + GraphGeometry.nodeH.round() + GraphGeometry.gapY.round();
+
+    for (final y in ys) {
+      for (final x in xs) {
+        final candidate = NodePosition(x: x, y: y);
+        if (positions.every((p) => !_tooClose(candidate, p))) {
+          return candidate;
+        }
+      }
+    }
+    // Prefer a nearby new row over an off-screen right-hand column. 优先使用图下方的近处新行,而非
+    // 可能离开当前视口的右侧扩展列。
+    for (final x in xs) {
+      final candidate = NodePosition(x: x, y: expandedY);
+      if (positions.every((p) => !_tooClose(candidate, p))) {
+        return candidate;
+      }
+    }
+    for (final y in ys) {
+      final candidate = NodePosition(x: expandedX, y: y);
+      if (positions.every((p) => !_tooClose(candidate, p))) {
+        return candidate;
+      }
+    }
+
+    // The expanded right-hand column is guaranteed to be clear, but keep a defensive fallback if
+    // the geometry constants or persisted coordinates change in a future version. 右侧扩展列理论上
+    // 必然可用;保留兜底以防未来几何常量或历史坐标变化。
+    return NodePosition(x: expandedX, y: minY);
+  }
+
+  static bool _tooClose(NodePosition a, NodePosition b) {
+    final horizontal =
+        a.x < b.x + GraphGeometry.nodeW + GraphGeometry.gapX &&
+        a.x + GraphGeometry.nodeW + GraphGeometry.gapX > b.x;
+    final vertical =
+        a.y < b.y + GraphGeometry.nodeH + GraphGeometry.gapY &&
+        a.y + GraphGeometry.nodeH + GraphGeometry.gapY > b.y;
+    return horizontal && vertical;
+  }
 
   static String _uniqueNodeId(NodeKind kind, Graph g) {
     final base = switch (kind) {

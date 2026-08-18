@@ -1455,6 +1455,8 @@
         "instanceId": "Instance",
         "version": "Version",
         "elapsed": "Elapsed",
+        "lifetime": "Run lifetime",
+        "execution": "Execution",
         "time": "Time",
         "replay": "Replay",
         "flowrunId": "Flowrun id",

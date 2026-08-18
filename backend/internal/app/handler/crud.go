@@ -54,7 +54,19 @@ type UpdateMetaInput struct {
 }
 
 func (s *Service) List(ctx context.Context, filter handlerdomain.ListFilter) ([]*handlerdomain.Handler, string, error) {
-	return s.repo.ListHandlers(ctx, filter)
+	items, next, err := s.repo.ListHandlers(ctx, filter)
+	if err != nil {
+		return nil, "", err
+	}
+	// The rail consumes the list projection, not the detail endpoint. Runtime state is an in-memory
+	// resident fact, so attach it here or a freshly lazy-started handler will remain a gray idle dot
+	// until the user navigates away and back.
+	// rail 消费的是列表投影而非详情端点。runtime state 是内存 resident 真相，必须在这里附上；否则
+	// 刚懒启动的 handler 会一直显示灰色 idle 点，直到用户离开再回来。
+	for _, h := range items {
+		h.RuntimeState = s.manager.State(h.ID)
+	}
+	return items, next, nil
 }
 
 func (s *Service) Count(ctx context.Context, filter handlerdomain.ListFilter) (int, error) {

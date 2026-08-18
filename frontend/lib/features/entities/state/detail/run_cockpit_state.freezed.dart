@@ -15,6 +15,7 @@ T _$identity<T>(T value) => value;
 mixin _$RunCockpitState {
 
  List<Flowrun> get runs; String? get nextCursor; bool get hasMore; bool get loadingMore; String? get selectedRunId; FlowrunComposite? get selected;// the full composite of [selectedRunId] 选中 run 的完整 composite
+ List<FlowrunActivityRow> get activity;// execution audit rows 执行审计行
  bool get loadingRun; String? get selectedNodeId; bool get busy;
 /// Create a copy of RunCockpitState
 /// with the given fields replaced by the non-null parameter values.
@@ -26,16 +27,16 @@ $RunCockpitStateCopyWith<RunCockpitState> get copyWith => _$RunCockpitStateCopyW
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is RunCockpitState&&const DeepCollectionEquality().equals(other.runs, runs)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.selectedRunId, selectedRunId) || other.selectedRunId == selectedRunId)&&(identical(other.selected, selected) || other.selected == selected)&&(identical(other.loadingRun, loadingRun) || other.loadingRun == loadingRun)&&(identical(other.selectedNodeId, selectedNodeId) || other.selectedNodeId == selectedNodeId)&&(identical(other.busy, busy) || other.busy == busy));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is RunCockpitState&&const DeepCollectionEquality().equals(other.runs, runs)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.selectedRunId, selectedRunId) || other.selectedRunId == selectedRunId)&&(identical(other.selected, selected) || other.selected == selected)&&const DeepCollectionEquality().equals(other.activity, activity)&&(identical(other.loadingRun, loadingRun) || other.loadingRun == loadingRun)&&(identical(other.selectedNodeId, selectedNodeId) || other.selectedNodeId == selectedNodeId)&&(identical(other.busy, busy) || other.busy == busy));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(runs),nextCursor,hasMore,loadingMore,selectedRunId,selected,loadingRun,selectedNodeId,busy);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(runs),nextCursor,hasMore,loadingMore,selectedRunId,selected,const DeepCollectionEquality().hash(activity),loadingRun,selectedNodeId,busy);
 
 @override
 String toString() {
-  return 'RunCockpitState(runs: $runs, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, selectedRunId: $selectedRunId, selected: $selected, loadingRun: $loadingRun, selectedNodeId: $selectedNodeId, busy: $busy)';
+  return 'RunCockpitState(runs: $runs, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, selectedRunId: $selectedRunId, selected: $selected, activity: $activity, loadingRun: $loadingRun, selectedNodeId: $selectedNodeId, busy: $busy)';
 }
 
 
@@ -46,7 +47,7 @@ abstract mixin class $RunCockpitStateCopyWith<$Res>  {
   factory $RunCockpitStateCopyWith(RunCockpitState value, $Res Function(RunCockpitState) _then) = _$RunCockpitStateCopyWithImpl;
 @useResult
 $Res call({
- List<Flowrun> runs, String? nextCursor, bool hasMore, bool loadingMore, String? selectedRunId, FlowrunComposite? selected, bool loadingRun, String? selectedNodeId, bool busy
+ List<Flowrun> runs, String? nextCursor, bool hasMore, bool loadingMore, String? selectedRunId, FlowrunComposite? selected, List<FlowrunActivityRow> activity, bool loadingRun, String? selectedNodeId, bool busy
 });
 
 
@@ -63,7 +64,7 @@ class _$RunCockpitStateCopyWithImpl<$Res>
 
 /// Create a copy of RunCockpitState
 /// with the given fields replaced by the non-null parameter values.
-@pragma('vm:prefer-inline') @override $Res call({Object? runs = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? selectedRunId = freezed,Object? selected = freezed,Object? loadingRun = null,Object? selectedNodeId = freezed,Object? busy = null,}) {
+@pragma('vm:prefer-inline') @override $Res call({Object? runs = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? selectedRunId = freezed,Object? selected = freezed,Object? activity = null,Object? loadingRun = null,Object? selectedNodeId = freezed,Object? busy = null,}) {
   return _then(_self.copyWith(
 runs: null == runs ? _self.runs : runs // ignore: cast_nullable_to_non_nullable
 as List<Flowrun>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
@@ -71,7 +72,8 @@ as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nu
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
 as bool,selectedRunId: freezed == selectedRunId ? _self.selectedRunId : selectedRunId // ignore: cast_nullable_to_non_nullable
 as String?,selected: freezed == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
-as FlowrunComposite?,loadingRun: null == loadingRun ? _self.loadingRun : loadingRun // ignore: cast_nullable_to_non_nullable
+as FlowrunComposite?,activity: null == activity ? _self.activity : activity // ignore: cast_nullable_to_non_nullable
+as List<FlowrunActivityRow>,loadingRun: null == loadingRun ? _self.loadingRun : loadingRun // ignore: cast_nullable_to_non_nullable
 as bool,selectedNodeId: freezed == selectedNodeId ? _self.selectedNodeId : selectedNodeId // ignore: cast_nullable_to_non_nullable
 as String?,busy: null == busy ? _self.busy : busy // ignore: cast_nullable_to_non_nullable
 as bool,
@@ -171,10 +173,10 @@ return $default(_that);case _:
 /// }
 /// ```
 
-@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Flowrun> runs,  String? nextCursor,  bool hasMore,  bool loadingMore,  String? selectedRunId,  FlowrunComposite? selected,  bool loadingRun,  String? selectedNodeId,  bool busy)?  $default,{required TResult orElse(),}) {final _that = this;
+@optionalTypeArgs TResult maybeWhen<TResult extends Object?>(TResult Function( List<Flowrun> runs,  String? nextCursor,  bool hasMore,  bool loadingMore,  String? selectedRunId,  FlowrunComposite? selected,  List<FlowrunActivityRow> activity,  bool loadingRun,  String? selectedNodeId,  bool busy)?  $default,{required TResult orElse(),}) {final _that = this;
 switch (_that) {
 case _RunCockpitState() when $default != null:
-return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.selectedRunId,_that.selected,_that.loadingRun,_that.selectedNodeId,_that.busy);case _:
+return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.selectedRunId,_that.selected,_that.activity,_that.loadingRun,_that.selectedNodeId,_that.busy);case _:
   return orElse();
 
 }
@@ -192,10 +194,10 @@ return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Flowrun> runs,  String? nextCursor,  bool hasMore,  bool loadingMore,  String? selectedRunId,  FlowrunComposite? selected,  bool loadingRun,  String? selectedNodeId,  bool busy)  $default,) {final _that = this;
+@optionalTypeArgs TResult when<TResult extends Object?>(TResult Function( List<Flowrun> runs,  String? nextCursor,  bool hasMore,  bool loadingMore,  String? selectedRunId,  FlowrunComposite? selected,  List<FlowrunActivityRow> activity,  bool loadingRun,  String? selectedNodeId,  bool busy)  $default,) {final _that = this;
 switch (_that) {
 case _RunCockpitState():
-return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.selectedRunId,_that.selected,_that.loadingRun,_that.selectedNodeId,_that.busy);case _:
+return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.selectedRunId,_that.selected,_that.activity,_that.loadingRun,_that.selectedNodeId,_that.busy);case _:
   throw StateError('Unexpected subclass');
 
 }
@@ -212,10 +214,10 @@ return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_tha
 /// }
 /// ```
 
-@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Flowrun> runs,  String? nextCursor,  bool hasMore,  bool loadingMore,  String? selectedRunId,  FlowrunComposite? selected,  bool loadingRun,  String? selectedNodeId,  bool busy)?  $default,) {final _that = this;
+@optionalTypeArgs TResult? whenOrNull<TResult extends Object?>(TResult? Function( List<Flowrun> runs,  String? nextCursor,  bool hasMore,  bool loadingMore,  String? selectedRunId,  FlowrunComposite? selected,  List<FlowrunActivityRow> activity,  bool loadingRun,  String? selectedNodeId,  bool busy)?  $default,) {final _that = this;
 switch (_that) {
 case _RunCockpitState() when $default != null:
-return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.selectedRunId,_that.selected,_that.loadingRun,_that.selectedNodeId,_that.busy);case _:
+return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_that.selectedRunId,_that.selected,_that.activity,_that.loadingRun,_that.selectedNodeId,_that.busy);case _:
   return null;
 
 }
@@ -227,7 +229,7 @@ return $default(_that.runs,_that.nextCursor,_that.hasMore,_that.loadingMore,_tha
 
 
 class _RunCockpitState extends RunCockpitState {
-  const _RunCockpitState({final  List<Flowrun> runs = const <Flowrun>[], this.nextCursor, this.hasMore = false, this.loadingMore = false, this.selectedRunId, this.selected, this.loadingRun = false, this.selectedNodeId, this.busy = false}): _runs = runs,super._();
+  const _RunCockpitState({final  List<Flowrun> runs = const <Flowrun>[], this.nextCursor, this.hasMore = false, this.loadingMore = false, this.selectedRunId, this.selected, final  List<FlowrunActivityRow> activity = const <FlowrunActivityRow>[], this.loadingRun = false, this.selectedNodeId, this.busy = false}): _runs = runs,_activity = activity,super._();
   
 
  final  List<Flowrun> _runs;
@@ -243,6 +245,15 @@ class _RunCockpitState extends RunCockpitState {
 @override final  String? selectedRunId;
 @override final  FlowrunComposite? selected;
 // the full composite of [selectedRunId] 选中 run 的完整 composite
+ final  List<FlowrunActivityRow> _activity;
+// the full composite of [selectedRunId] 选中 run 的完整 composite
+@override@JsonKey() List<FlowrunActivityRow> get activity {
+  if (_activity is EqualUnmodifiableListView) return _activity;
+  // ignore: implicit_dynamic_type
+  return EqualUnmodifiableListView(_activity);
+}
+
+// execution audit rows 执行审计行
 @override@JsonKey() final  bool loadingRun;
 @override final  String? selectedNodeId;
 @override@JsonKey() final  bool busy;
@@ -257,16 +268,16 @@ _$RunCockpitStateCopyWith<_RunCockpitState> get copyWith => __$RunCockpitStateCo
 
 @override
 bool operator ==(Object other) {
-  return identical(this, other) || (other.runtimeType == runtimeType&&other is _RunCockpitState&&const DeepCollectionEquality().equals(other._runs, _runs)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.selectedRunId, selectedRunId) || other.selectedRunId == selectedRunId)&&(identical(other.selected, selected) || other.selected == selected)&&(identical(other.loadingRun, loadingRun) || other.loadingRun == loadingRun)&&(identical(other.selectedNodeId, selectedNodeId) || other.selectedNodeId == selectedNodeId)&&(identical(other.busy, busy) || other.busy == busy));
+  return identical(this, other) || (other.runtimeType == runtimeType&&other is _RunCockpitState&&const DeepCollectionEquality().equals(other._runs, _runs)&&(identical(other.nextCursor, nextCursor) || other.nextCursor == nextCursor)&&(identical(other.hasMore, hasMore) || other.hasMore == hasMore)&&(identical(other.loadingMore, loadingMore) || other.loadingMore == loadingMore)&&(identical(other.selectedRunId, selectedRunId) || other.selectedRunId == selectedRunId)&&(identical(other.selected, selected) || other.selected == selected)&&const DeepCollectionEquality().equals(other._activity, _activity)&&(identical(other.loadingRun, loadingRun) || other.loadingRun == loadingRun)&&(identical(other.selectedNodeId, selectedNodeId) || other.selectedNodeId == selectedNodeId)&&(identical(other.busy, busy) || other.busy == busy));
 }
 
 
 @override
-int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_runs),nextCursor,hasMore,loadingMore,selectedRunId,selected,loadingRun,selectedNodeId,busy);
+int get hashCode => Object.hash(runtimeType,const DeepCollectionEquality().hash(_runs),nextCursor,hasMore,loadingMore,selectedRunId,selected,const DeepCollectionEquality().hash(_activity),loadingRun,selectedNodeId,busy);
 
 @override
 String toString() {
-  return 'RunCockpitState(runs: $runs, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, selectedRunId: $selectedRunId, selected: $selected, loadingRun: $loadingRun, selectedNodeId: $selectedNodeId, busy: $busy)';
+  return 'RunCockpitState(runs: $runs, nextCursor: $nextCursor, hasMore: $hasMore, loadingMore: $loadingMore, selectedRunId: $selectedRunId, selected: $selected, activity: $activity, loadingRun: $loadingRun, selectedNodeId: $selectedNodeId, busy: $busy)';
 }
 
 
@@ -277,7 +288,7 @@ abstract mixin class _$RunCockpitStateCopyWith<$Res> implements $RunCockpitState
   factory _$RunCockpitStateCopyWith(_RunCockpitState value, $Res Function(_RunCockpitState) _then) = __$RunCockpitStateCopyWithImpl;
 @override @useResult
 $Res call({
- List<Flowrun> runs, String? nextCursor, bool hasMore, bool loadingMore, String? selectedRunId, FlowrunComposite? selected, bool loadingRun, String? selectedNodeId, bool busy
+ List<Flowrun> runs, String? nextCursor, bool hasMore, bool loadingMore, String? selectedRunId, FlowrunComposite? selected, List<FlowrunActivityRow> activity, bool loadingRun, String? selectedNodeId, bool busy
 });
 
 
@@ -294,7 +305,7 @@ class __$RunCockpitStateCopyWithImpl<$Res>
 
 /// Create a copy of RunCockpitState
 /// with the given fields replaced by the non-null parameter values.
-@override @pragma('vm:prefer-inline') $Res call({Object? runs = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? selectedRunId = freezed,Object? selected = freezed,Object? loadingRun = null,Object? selectedNodeId = freezed,Object? busy = null,}) {
+@override @pragma('vm:prefer-inline') $Res call({Object? runs = null,Object? nextCursor = freezed,Object? hasMore = null,Object? loadingMore = null,Object? selectedRunId = freezed,Object? selected = freezed,Object? activity = null,Object? loadingRun = null,Object? selectedNodeId = freezed,Object? busy = null,}) {
   return _then(_RunCockpitState(
 runs: null == runs ? _self._runs : runs // ignore: cast_nullable_to_non_nullable
 as List<Flowrun>,nextCursor: freezed == nextCursor ? _self.nextCursor : nextCursor // ignore: cast_nullable_to_non_nullable
@@ -302,7 +313,8 @@ as String?,hasMore: null == hasMore ? _self.hasMore : hasMore // ignore: cast_nu
 as bool,loadingMore: null == loadingMore ? _self.loadingMore : loadingMore // ignore: cast_nullable_to_non_nullable
 as bool,selectedRunId: freezed == selectedRunId ? _self.selectedRunId : selectedRunId // ignore: cast_nullable_to_non_nullable
 as String?,selected: freezed == selected ? _self.selected : selected // ignore: cast_nullable_to_non_nullable
-as FlowrunComposite?,loadingRun: null == loadingRun ? _self.loadingRun : loadingRun // ignore: cast_nullable_to_non_nullable
+as FlowrunComposite?,activity: null == activity ? _self._activity : activity // ignore: cast_nullable_to_non_nullable
+as List<FlowrunActivityRow>,loadingRun: null == loadingRun ? _self.loadingRun : loadingRun // ignore: cast_nullable_to_non_nullable
 as bool,selectedNodeId: freezed == selectedNodeId ? _self.selectedNodeId : selectedNodeId // ignore: cast_nullable_to_non_nullable
 as String?,busy: null == busy ? _self.busy : busy // ignore: cast_nullable_to_non_nullable
 as bool,

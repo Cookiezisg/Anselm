@@ -47,6 +47,7 @@ class _TriggerActivityTabState extends ConsumerState<TriggerActivityTab> {
           AnDropdownOption(value: false, label: d.trigger.allActivity),
           AnDropdownOption(value: true, label: d.trigger.firedOnly),
         ],
+        variant: AnDropdownVariant.ghost,
         onChanged: (v) => setState(() => _firedOnly = v),
         menuAlignEnd: true,
       ),
@@ -102,6 +103,7 @@ class _TriggerDispatchTabState extends ConsumerState<TriggerDispatchTab> {
           ])
             AnDropdownOption(value: s.name, label: firingStatusWord(t, s)),
         ],
+        variant: AnDropdownVariant.ghost,
         onChanged: (v) => setState(() => _status = v),
         menuAlignEnd: true,
       ),

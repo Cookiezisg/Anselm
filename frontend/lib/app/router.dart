@@ -92,6 +92,10 @@ GoRouter buildAppRouter(Ref ref) {
         pageBuilder: (context, state) => NoTransitionPage(
           key: const ValueKey('anselm-workflow-editor'),
           child: _FullPageNoticeLayer(
+            // The editor owns a frameless toolbar across the title band. Keep transient feedback
+            // immediately below it so a save error never obscures Discard/Save. 编辑器的无边框工具栏
+            // 横跨标题带,反馈下移一格,保存错误绝不遮住放弃/保存。
+            noticeTop: AnSize.titlebar + AnSpace.s4,
             child: WorkflowEditorPage(workflowId: state.pathParameters['id']!),
           ),
         ),
@@ -110,9 +114,10 @@ Page<void> _shellPage(BuildContext context, GoRouterState state) =>
 /// stage is title-band-sized but allows approval capsules to grow downward without clipping.
 /// 全屏路由不挂 [AppShell],故显式复用同一通知舞台。舞台占标题带高,审批块可向下长且不被裁掉。
 class _FullPageNoticeLayer extends StatelessWidget {
-  const _FullPageNoticeLayer({required this.child});
+  const _FullPageNoticeLayer({required this.child, this.noticeTop = 0});
 
   final Widget child;
+  final double noticeTop;
 
   @override
   Widget build(BuildContext context) => Stack(
@@ -120,7 +125,7 @@ class _FullPageNoticeLayer extends StatelessWidget {
     children: [
       Positioned.fill(child: child),
       Positioned(
-        top: 0,
+        top: noticeTop,
         left: 0,
         right: 0,
         height: AnSize.titlebar,

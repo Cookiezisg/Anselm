@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/entities/agent.dart';
 import 'package:anselm/core/contract/entities/function.dart';
+import 'package:anselm/core/contract/page.dart' as page_contract;
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/sse/frame.dart';
@@ -9,6 +10,7 @@ import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/data/entity_repository.dart';
 import 'package:anselm/features/entities/data/entity_signal.dart';
 import 'package:anselm/features/entities/state/detail/entity_detail_provider.dart';
+import 'package:anselm/features/entities/state/detail/observability_list_provider.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -25,6 +27,36 @@ FunctionEntity _fn(String id, String name) =>
     FunctionEntity(id: id, name: name, createdAt: _t, updatedAt: _t);
 const _ref = EntityRef(EntityKind.function, 'fn_1');
 const _triggerRef = EntityRef(EntityKind.trigger, 'trg_1');
+
+class _SettlingFiringRepo extends FixtureEntityRepository {
+  int _reads = 0;
+  bool _seeded = false;
+
+  @override
+  Future<page_contract.Page<Firing>> listFirings(
+    String id, {
+    String? status,
+    String? cursor,
+    int? limit,
+  }) async {
+    _reads++;
+    if (_reads >= 3 && !_seeded) {
+      _seeded = true;
+      upsertFiring(
+        Firing(
+          id: 'trf_skipped',
+          triggerId: id,
+          workflowId: 'wf_x',
+          activationId: 'tra_1',
+          status: FiringStatus.skipped,
+          createdAt: _t,
+          updatedAt: _t,
+        ),
+      );
+    }
+    return super.listFirings(id, status: status, cursor: cursor, limit: limit);
+  }
+}
 
 TriggerEntity _trigger({
   bool listening = true,
@@ -242,6 +274,40 @@ void main() {
   );
 
   test(
+    'workflow lifecycle signal → refreshes derived trigger listening state',
+    () async {
+      final fixture = FixtureEntityRepository(triggerEntities: [_trigger()]);
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(fixture)],
+      );
+      addTearDown(c.dispose);
+      c.listen(entityDetailProvider(_triggerRef), (_, _) {});
+
+      await c.read(entityDetailProvider(_triggerRef).future);
+      expect(
+        c.read(entityDetailProvider(_triggerRef)).value?.trigger?.listening,
+        isTrue,
+      );
+
+      fixture.upsertTrigger(_trigger(listening: false, hasNextFireAt: false));
+      fixture.emitLifecycle(
+        const EntitySignal(
+          kind: EntityKind.workflow,
+          id: 'wf_1',
+          action: EntityAction.updated,
+          durable: true,
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(
+        c.read(entityDetailProvider(_triggerRef)).value?.trigger?.listening,
+        isFalse,
+      );
+    },
+  );
+
+  test(
     'trigger fire panel signal → refreshes last-fired detail from REST truth',
     () async {
       final fixture = FixtureEntityRepository(triggerEntities: [_trigger()]);
@@ -280,6 +346,92 @@ void main() {
         c.read(entityDetailProvider(_triggerRef)).value?.trigger?.lastFiredAt,
         firedAt,
       );
+    },
+  );
+
+  test(
+    'trigger fire panel signal → refreshes an empty filtered firing view',
+    () async {
+      final fixture = FixtureEntityRepository(triggerEntities: [_trigger()]);
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(fixture)],
+      );
+      addTearDown(c.dispose);
+      c.listen(entityDetailProvider(_triggerRef), (_, _) {});
+      final filtered = firingListProvider((
+        triggerId: _triggerRef.id,
+        status: FiringStatus.pending.name,
+      ));
+      c.listen(filtered, (_, _) {});
+
+      await c.read(entityDetailProvider(_triggerRef).future);
+      await c.read(filtered.future);
+      expect(c.read(filtered).value?.rows, isEmpty);
+
+      fixture.upsertFiring(
+        Firing(
+          id: 'trf_pending',
+          triggerId: _triggerRef.id,
+          workflowId: 'wf_x',
+          activationId: 'tra_1',
+          status: FiringStatus.pending,
+          createdAt: _t,
+          updatedAt: _t,
+        ),
+      );
+      final scope = _triggerRef.kind.scope(_triggerRef.id);
+      fixture.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 0,
+          scope: scope,
+          id: 'sig_fire',
+          frame: const FrameSignal(
+            node: StreamNode(type: 'fire', content: {'fired': true}),
+          ),
+        ),
+      );
+      await pumpEventQueue();
+
+      expect(c.read(filtered).value?.rows, hasLength(1));
+      expect(c.read(filtered).value?.rows.single.id, 'trf_pending');
+    },
+  );
+
+  test(
+    'trigger fire panel signal → terminal filter waits for scheduler settling',
+    () async {
+      final fixture = _SettlingFiringRepo();
+      final c = ProviderContainer(
+        overrides: [entityRepositoryProvider.overrideWithValue(fixture)],
+      );
+      addTearDown(c.dispose);
+      final filtered = firingListProvider((
+        triggerId: _triggerRef.id,
+        status: FiringStatus.skipped.name,
+      ));
+      c.listen(filtered, (_, _) {});
+
+      await c.read(filtered.future);
+      expect(c.read(filtered).value?.rows, isEmpty);
+
+      final scope = _triggerRef.kind.scope(_triggerRef.id);
+      fixture.emitPanel(
+        scope,
+        StreamEnvelope(
+          seq: 0,
+          scope: scope,
+          id: 'sig_fire',
+          frame: const FrameSignal(
+            node: StreamNode(type: 'fire', content: {'fired': true}),
+          ),
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 650));
+
+      expect(c.read(filtered).value?.rows.map((row) => row.id), [
+        'trf_skipped',
+      ]);
     },
   );
 }

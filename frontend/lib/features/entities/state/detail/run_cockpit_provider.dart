@@ -51,8 +51,11 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     );
     final firstId = page.items.isEmpty ? null : page.items.first.id;
     FlowrunComposite? selected;
+    var activity = const <FlowrunActivityRow>[];
     if (firstId != null) {
-      selected = await _fetchFull(firstId);
+      final data = await _fetchRunData(firstId);
+      selected = data.composite;
+      activity = data.activity;
     }
     return RunCockpitState(
       runs: page.items,
@@ -60,6 +63,7 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       hasMore: page.hasMore,
       selectedRunId: firstId,
       selected: selected,
+      activity: activity,
     );
   }
 
@@ -148,11 +152,17 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       if (!needsComposite) return;
 
       try {
-        final comp = await _fetchFull(selectedId);
+        final data = await _fetchRunData(selectedId);
         if (!ref.mounted || generation != _refreshGeneration) return;
         final now = state.value;
         if (now == null || now.selectedRunId != selectedId) return;
-        state = AsyncData(now.copyWith(selected: comp, loadingRun: false));
+        state = AsyncData(
+          now.copyWith(
+            selected: data.composite,
+            activity: data.activity,
+            loadingRun: false,
+          ),
+        );
       } catch (_) {
         if (!ref.mounted || generation != _refreshGeneration) return;
         final now = state.value;
@@ -166,8 +176,18 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
     }
   }
 
-  Future<FlowrunComposite> _fetchFull(String id) =>
-      fetchFlowrunFull(_repo.getFlowrun, id);
+  Future<({FlowrunComposite composite, List<FlowrunActivityRow> activity})>
+  _fetchRunData(String id) async {
+    final composite = fetchFlowrunFull(_repo.getFlowrun, id);
+    final activity = _repo
+        .listFlowrunActivity(id)
+        .catchError((_) => const <FlowrunActivityRow>[]);
+    final results = await Future.wait([composite, activity]);
+    return (
+      composite: results[0] as FlowrunComposite,
+      activity: results[1] as List<FlowrunActivityRow>,
+    );
+  }
 
   // ── paging (run list) ──
   @override
@@ -227,14 +247,21 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
         selectedRunId: id,
         selectedNodeId: null,
         selected: null,
+        activity: const [],
         loadingRun: true,
       ),
     );
     try {
-      final comp = await _fetchFull(id);
+      final data = await _fetchRunData(id);
       final now = state.value;
       if (now == null || now.selectedRunId != id) return; // superseded 选区已变
-      state = AsyncData(now.copyWith(selected: comp, loadingRun: false));
+      state = AsyncData(
+        now.copyWith(
+          selected: data.composite,
+          activity: data.activity,
+          loadingRun: false,
+        ),
+      );
     } catch (_) {
       final now = state.value;
       if (now != null && now.selectedRunId == id) {
@@ -265,7 +292,7 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       return;
     }
     try {
-      final comp = await _fetchFull(id);
+      final data = await _fetchRunData(id);
       final now = state.value;
       if (now == null) return;
       if (now.selectedRunId != id) {
@@ -279,8 +306,11 @@ class RunCockpitNotifier extends AsyncNotifier<RunCockpitState>
       // Reconcile the run's header row in the list too (status may have changed). 列表头行同步。
       state = AsyncData(
         now.copyWith(
-          selected: comp,
-          runs: [for (final r in now.runs) r.id == id ? comp.flowrun : r],
+          selected: data.composite,
+          activity: data.activity,
+          runs: [
+            for (final r in now.runs) r.id == id ? data.composite.flowrun : r,
+          ],
           busy: false,
         ),
       );

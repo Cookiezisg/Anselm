@@ -12,7 +12,6 @@ import '../../data/entity_signal.dart';
 import '../selected_entity.dart';
 import 'entity_detail.dart';
 import 'log_list_provider.dart';
-import 'observability_list_provider.dart';
 import 'version_list_provider.dart';
 
 /// The selected entity's detail (family over [EntityRef]). Fetches the typed entity (+ agent
@@ -55,6 +54,17 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
           .panelSignals(entityRef.kind.scope(entityRef.id))
           .listen(_onPanel);
       ref.onDispose(() => unawaited(_panelSub?.cancel()));
+      // Trigger `listening` is derived from active workflow bindings, so a workflow lifecycle pulse
+      // can change this detail without emitting a trigger-owned signal. Re-read the trigger projection
+      // rather than leaving a stale "Listening" badge after the last workflow is deactivated.
+      // trigger 的 listening 由 active workflow 绑定派生；workflow 生命周期变化可能不发 trigger 自己的信号，
+      // 必须重读详情，否则最后一个 workflow 下线后会把旧的「Listening」留在画面上。
+      final workflowLife = _repo.lifecycleSignals(EntityKind.workflow).listen((
+        s,
+      ) {
+        if (s.durable) unawaited(_refreshFromTruth());
+      });
+      ref.onDispose(workflowLife.cancel);
     }
     return _fetch();
   }
@@ -136,10 +146,6 @@ class EntityDetailNotifier extends AsyncNotifier<EntityDetail> {
     // webhook/cron fire 虽是 ephemeral,但它是 trigger 详情的实时刷新提示。payload 只带 activation
     // 名称; lastFiredAt 与两条观测流仍以 REST 行为真,绝不据 signal 自行 patch 详情。
     unawaited(_refreshFromTruth());
-    ref.invalidate(
-      activationListProvider((triggerId: entityRef.id, firedOnly: false)),
-    );
-    ref.invalidate(firingListProvider((triggerId: entityRef.id, status: null)));
   }
 
   Future<void> _refreshFromTruth() async {

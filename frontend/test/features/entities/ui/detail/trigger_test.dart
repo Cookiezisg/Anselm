@@ -1,9 +1,10 @@
 import 'package:anselm/core/contract/entities/trigger.dart';
 import 'package:anselm/core/contract/entities/values.dart';
+import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/model/status_state.dart';
 import 'package:anselm/core/ui/an_button.dart';
-import 'package:anselm/core/contract/entities/workflow.dart';
+import 'package:anselm/core/ui/an_dropdown.dart';
 import 'package:anselm/core/ui/an_state.dart';
 import 'package:anselm/features/entities/data/entity_fixtures.dart';
 import 'package:anselm/features/entities/data/entity_kind.dart';
@@ -297,6 +298,10 @@ void main() {
       await tester.pump();
       await tester.pump();
       final r = t.entities.detail.trigger;
+      expect(
+        tester.widget<AnDropdown<bool>>(find.byType(AnDropdown<bool>)).variant,
+        AnDropdownVariant.ghost,
+      );
       expect(find.textContaining(r.fired), findsWidgets);
       expect(
         find.textContaining(r.notFired),
@@ -316,6 +321,12 @@ void main() {
       );
       await tester.pump();
       await tester.pump();
+      expect(
+        tester
+            .widget<AnDropdown<String>>(find.byType(AnDropdown<String>))
+            .variant,
+        AnDropdownVariant.ghost,
+      );
       expect(find.textContaining(FiringStatus.started.name), findsWidgets);
       expect(find.textContaining('Nightly sync'), findsOneWidget);
       expect(find.textContaining('wf_x'), findsNothing);

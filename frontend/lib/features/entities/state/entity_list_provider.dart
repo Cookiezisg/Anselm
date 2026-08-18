@@ -50,6 +50,17 @@ class EntityListNotifier extends AsyncNotifier<EntityListState>
       (_) => ref.invalidateSelf(),
     );
     ref.onDispose(resyncSub.cancel);
+    if (kind == EntityKind.trigger) {
+      // Trigger `listening` is read-derived from active workflow bindings. A workflow lifecycle
+      // change therefore invalidates the trigger rail even though no trigger row was edited.
+      // trigger 的 listening 从 active workflow 绑定读时派生；workflow 生命周期变化虽未编辑 trigger 行，仍须刷新 rail。
+      final workflowLife = _repo.lifecycleSignals(EntityKind.workflow).listen((
+        s,
+      ) {
+        if (s.durable) ref.invalidateSelf();
+      });
+      ref.onDispose(workflowLife.cancel);
+    }
     final page = await _repo.listEntities(
       kind,
       limit: _pageSize,

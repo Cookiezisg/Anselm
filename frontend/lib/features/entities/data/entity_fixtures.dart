@@ -47,6 +47,7 @@ class FixtureEntityRepository implements EntityRepository {
     Map<String, List<AgentExecution>>? agentExecutions,
     Map<String, List<Flowrun>>? flowruns,
     Map<String, FlowrunComposite>? flowrunDetail,
+    Map<String, List<FlowrunActivityRow>>? flowrunActivity,
     Map<String, MountHealthReport>? mountHealth,
     List<RefCandidate>? mcpServers,
     Map<String, List<RefCandidate>>? mcpTools,
@@ -77,6 +78,7 @@ class FixtureEntityRepository implements EntityRepository {
        _agentExecutions = agentExecutions ?? const {},
        _flowruns = flowruns ?? const {},
        _flowrunDetail = Map.of(flowrunDetail ?? const {}),
+       _flowrunActivity = flowrunActivity ?? const {},
        _mountHealth = mountHealth ?? const {},
        _mcpServers = mcpServers ?? const [],
        _mcpTools = mcpTools ?? const {},
@@ -114,6 +116,7 @@ class FixtureEntityRepository implements EntityRepository {
   final Map<String, List<AgentExecution>> _agentExecutions;
   final Map<String, List<Flowrun>> _flowruns;
   final Map<String, FlowrunComposite> _flowrunDetail;
+  final Map<String, List<FlowrunActivityRow>> _flowrunActivity;
   final Map<String, MountHealthReport> _mountHealth;
   final List<RefCandidate> _mcpServers;
   final Map<String, List<RefCandidate>> _mcpTools;
@@ -464,6 +467,11 @@ class FixtureEntityRepository implements EntityRepository {
       nextCursor: end < comp.nodes.length ? '$end' : null,
     );
   }
+
+  @override
+  Future<List<FlowrunActivityRow>> listFlowrunActivity(
+    String flowrunId,
+  ) async => _flowrunActivity[flowrunId] ?? const [];
 
   // ── execute (scripted streaming over the panel scope, then the bare result — STEP 5) ──────────
   // Each verb scripts a realistic entities-stream sequence onto the entity's panel scope (the SAME shape

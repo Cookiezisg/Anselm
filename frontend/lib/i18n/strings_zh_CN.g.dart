@@ -2921,6 +2921,8 @@ class _Translations$entities$detail$kv$zh_CN extends Translations$entities$detai
 	@override String get instanceId => '实例';
 	@override String get version => '版本';
 	@override String get elapsed => '耗时';
+	@override String get lifetime => '运行周期';
+	@override String get execution => '执行耗时';
 	@override String get time => '时间';
 	@override String get replay => '重放';
 	@override String get flowrunId => 'Flowrun id';
@@ -4522,6 +4524,8 @@ extension on TranslationsZhCn {
 			'entities.detail.kv.instanceId' => '实例',
 			'entities.detail.kv.version' => '版本',
 			'entities.detail.kv.elapsed' => '耗时',
+			'entities.detail.kv.lifetime' => '运行周期',
+			'entities.detail.kv.execution' => '执行耗时',
 			'entities.detail.kv.time' => '时间',
 			'entities.detail.kv.replay' => '重放',
 			'entities.detail.kv.flowrunId' => 'Flowrun id',
@@ -4705,10 +4709,10 @@ extension on TranslationsZhCn {
 			'entities.run.origin.fsnotify' => '文件变更',
 			'entities.run.origin.sensor' => '传感器',
 			'entities.val.yes' => '是',
-			'entities.val.no' => '否',
-			'entities.overview.title' => '总览',
 			_ => null,
 		} ?? switch (path) {
+			'entities.val.no' => '否',
+			'entities.overview.title' => '总览',
 			'entities.overview.accessory' => '配件',
 			'entities.overview.graphHead' => '关系图',
 			'entities.overview.recentHead' => '最近更新',
@@ -5219,10 +5223,10 @@ extension on TranslationsZhCn {
 			'settings.mcp.installNamed' => ({required Object name}) => '安装 ${name}',
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.marketEmptyLead' => '从市场安装第一个 MCP 服务器',
-			'settings.mcp.marketLoadFailed' => '市场加载失败',
-			'settings.mcp.marketLoadFailedHint' => '请检查连接后重试。',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.marketLoadFailed' => '市场加载失败',
+			'settings.mcp.marketLoadFailedHint' => '请检查连接后重试。',
 			'settings.mcp.planLoadFailed' => '安装准备失败',
 			'settings.mcp.planLoadFailedHint' => '市场条目可能已变化,请重试。',
 			'settings.mcp.missingEnv' => ({required Object names}) => '缺少必填环境变量:${names}',
