@@ -8,6 +8,7 @@ import '../design/tokens.dart';
 import '../design/typography.dart';
 import '../model/sidebar_flatten.dart';
 import '../model/sidebar_model.dart';
+import 'an_animated_size_row.dart';
 import 'an_spinner.dart';
 import 'an_inline_edit.dart';
 import 'an_interactive.dart';
@@ -530,22 +531,13 @@ class _AnSidebarListState extends State<AnSidebarList> {
     menuEntries: widget.menuEntries,
   );
 
-  // Wraps a row in the SliverAnimatedList's size tween so a collapse/expand slides the row's height (the
-  // children slide up under their head; the alignment anchors to the top). 折叠补间:行高滑动(顶锚)。
+  // The shared primitive keeps the rail slide but hides a row before its glyphs are height-clipped.
+  // 共享原语保留 rail 滑动,并在字形被高度裁切前先隐去整行内容。
   Widget _animatedRow(
     BuildContext context,
     SidebarFlatNode n,
     Animation<double> animation,
-  ) => SizeTransition(
-    sizeFactor: animation,
-    // Flutter 3.44 retired axisAlignment for `alignment`, which controls BOTH axes. -1 on the
-    // cross axis meant "pin to the start" while the row grew; AlignmentDirectional.topStart is
-    // that same intent expressed on both axes, and it reads correctly under RTL.
-    // Flutter 3.44 用 alignment(双轴)取代 axisAlignment。原 -1 表示「生长时钉住起始边」;
-    // AlignmentDirectional.topStart 是同一意图的双轴写法,且在 RTL 下语义正确。
-    alignment: AlignmentDirectional.topStart,
-    child: _flatRow(context, n),
-  );
+  ) => AnAnimatedSizeRow(animation: animation, child: _flatRow(context, n));
 
   Widget _flatRow(
     BuildContext context,

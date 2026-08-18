@@ -127,7 +127,7 @@ func streamLLM(
 	// rawTextBuf 使 close snapshot 能对完整 text block 跑确定性 redactor。delta 级脱敏仍需流式进行，但
 	// Markdown 表格和标题可能跨 provider chunk；耐久 close 是应用整行规则的最终位置。
 	var rawTextBuf strings.Builder
-	var redactor textRedactor
+	redactor := textRedactor{stripLeadingSectionClose: true}
 	// Reasoning is rendered in the chat transcript while a turn is live, so it follows the same
 	// user-facing redaction boundary as text. It is not a workflow data channel: workflow-agent
 	// turns keep the raw reasoning below, just like raw agent text and receipts.
@@ -135,7 +135,7 @@ func streamLLM(
 	// reasoning 也会在回合进行时渲染到 chat transcript，因此与正文共享同一用户面脱敏边界；它不是
 	// workflow 数据通道，workflow-agent 回合和 raw agent text/receipt 一样保留原值。
 	var rawReasonBuf strings.Builder
-	var reasonRedactor textRedactor
+	reasonRedactor := textRedactor{stripLeadingSectionClose: true}
 	// Workflow agent text is also a data boundary: downstream CEL wiring may consume a
 	// MediaRef receipt from the node result. Redacting it here would turn a usable attachment
 	// reference into prose and break agent -> workflow -> agent media handoff. Ordinary chat
@@ -155,30 +155,52 @@ func streamLLM(
 	closeText := func(status string) {
 		if textBlockID != "" {
 			if redactText {
-				redactor.Flush()
+				// A streaming redactor may hold the final token until it sees a delimiter. Release it
+				// before the durable close so the live transcript and its reconnect snapshot have the
+				// same user-facing content; close still re-redacts the complete raw block below.
+				// 流式脱敏器可能等分隔符才释放最后一个 token。耐久关帧前先释放，保证 live transcript
+				// 与重连快照拥有同一份用户内容；下方 close 仍会对完整 raw block 再跑一次脱敏。
+				if safe := redactor.redactLive(redactor.Flush()); safe != "" {
+					em.delta(ctx, textBlockID, safe)
+					textBuf.WriteString(safe)
+				}
+			}
+			if redactText {
 				// Re-redact the complete raw block so multiline/table semantics are not
 				// lost at provider chunk boundaries. The streamed deltas remain protected
-				// by redactor.Write; this only replaces the final durable snapshot.
+				// by redactor.Write; this only replaces the final durable snapshot. Use the
+				// same context-aware pass as live deltas so close cannot regress the wording.
 				textBuf.Reset()
-				textBuf.WriteString(redactOpaqueMachineValues(rawTextBuf.String()))
+				textBuf.WriteString(redactCompleteUserBlock(rawTextBuf.String()))
 			}
 			em.close(ctx, textBlockID, status, textSnapshot(textBuf.String()), "")
 			textBlockID = ""
-			redactor = textRedactor{}
+			redactor = textRedactor{stripLeadingSectionClose: true}
 			rawTextBuf.Reset()
 		}
 	}
 	closeReason := func(status string) {
 		if reasonBlockID != "" {
 			if redactText {
-				reasonRedactor.Flush()
+				// Reasoning has the same pending-token boundary as ordinary text. Flush it before the
+				// close frame so an expanded thought does not lose its final sentence until replay.
+				// reasoning 与正文有同样的 pending token 边界。关帧前先 flush，展开 thought 不会直到重放
+				// 才出现最后一句。
+				if safe := reasonRedactor.redactLive(reasonRedactor.Flush()); safe != "" {
+					em.delta(ctx, reasonBlockID, safe)
+					reason.buf.WriteString(safe)
+				}
+			}
+			if redactText {
 				// Reasoning may contain the same machine values as the tool result it is describing.
-				// Re-redact the complete accumulated reasoning so multiline prose is safe at durable close.
+				// Re-redact the complete accumulated reasoning so multiline prose is safe at durable
+				// close, using the same context-aware pass as the live reasoning stream.
 				reason.buf.Reset()
-				reason.buf.WriteString(redactOpaqueMachineValues(rawReasonBuf.String()))
+				reason.buf.WriteString(redactCompleteUserBlock(rawReasonBuf.String()))
 			}
 			em.close(ctx, reasonBlockID, status, reasonSnapshot(reason), "")
 			reasonBlockID = ""
+			reasonRedactor = textRedactor{stripLeadingSectionClose: true}
 		}
 	}
 
@@ -195,6 +217,11 @@ func streamLLM(
 			}
 			if redactText {
 				if safe := redactor.Write(event.Delta); safe != "" {
+					// textRedactor deliberately buffers across provider chunks, but its released
+					// prefix is still an untrusted user-facing boundary. Re-run the whole-value
+					// redactor immediately before publishing the delta so a pathological chunk
+					// sequence cannot reintroduce an opaque placeholder into SSE.
+					safe = redactOpaqueMachineValues(safe)
 					em.delta(ctx, textBlockID, safe)
 					textBuf.WriteString(safe)
 				}
@@ -213,6 +240,9 @@ func streamLLM(
 				if redactText {
 					rawReasonBuf.WriteString(event.Delta)
 					if safe := reasonRedactor.Write(event.Delta); safe != "" {
+						// Reasoning is rendered live too; it needs the same final emission guard as
+						// ordinary assistant text.
+						safe = redactOpaqueMachineValues(safe)
 						em.delta(ctx, reasonBlockID, safe)
 						reason.buf.WriteString(safe)
 					}

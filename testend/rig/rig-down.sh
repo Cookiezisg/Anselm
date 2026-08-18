@@ -74,18 +74,20 @@ LLMTAP_PID=$(field llmtapPid)
 APP_PROXY_PID=$(field appProxyPid)
 RECORDER_PID=$(field recorderPid)
 
-# App first: it observes an orderly end instead of a manufactured backend outage. The runner and the
-# actual app have separate PIDs: stopping only the runner can leave a detached macOS app behind.
-# Backend then drains
-# while ssetap remains connected to witness its terminal frames. Recorder is last and receives INT so
-# screencapture writes the MOV trailer instead of leaving an unreadable file.
+# Seal the frame channel before taking the App away. Otherwise the tail of the MOV records the desktop
+# exposed after the App exits, which makes a valid in-run frame look like a false final product frame.
+# Recorder receives INT so screencapture writes the MOV trailer instead of leaving an unreadable file.
+stop_matching "screen recorder" "$RECORDER_PID" 'screencapture.*-v' INT
+
+# The runner and the actual app have separate PIDs: stopping only the runner can leave a detached macOS
+# app behind. Then stop the backend and taps; their terminal events remain journaled even though the frame
+# witness is already sealed.
 stop_matching "Flutter runner" "$RUNNER_PID" 'flutter_tools\.snapshot run'
 stop_exact "Flutter app" "$APP_PID" '/anselm\.app/Contents/MacOS/anselm($| )'
 stop_matching "App API perturbation proxy" "$APP_PROXY_PID" '/appproxy($| )'
 stop_matching "backend" "$BACKEND_PID" '/server($| )'
 stop_matching "ssetap" "$TAP_PID" '/ssetap($| )'
 stop_matching "llmtap" "$LLMTAP_PID" '/llmtap($| )'
-stop_matching "screen recorder" "$RECORDER_PID" 'screencapture.*-v' INT
 
 if [ -f "$SESSION/screen.mov" ]; then
   ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$SESSION/screen.mov" >"$SESSION/screen.duration" 2>"$SESSION/ffprobe.log" || {

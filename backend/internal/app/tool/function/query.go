@@ -63,7 +63,7 @@ type GetFunction struct{ svc *functionapp.Service }
 func (t *GetFunction) Name() string { return "get_function" }
 
 func (t *GetFunction) Description() string {
-	return "Get one function with its active version (code, parameters, return schema, dependencies, env status)."
+	return "Get one function with its active version (code, parameters, return schema, dependencies, env status). The functionId must refer to an existing function. A syntactically valid but unregistered id is a normal not-found result, not a malformed or fabricated id. When explaining that failure, say that the identifier is well-formed but not registered; do not call it fabricated or invalid, and do not repeat the exact opaque id in assistant prose because the adjacent tool card is the exact-value surface."
 }
 
 func (t *GetFunction) Parameters() json.RawMessage {

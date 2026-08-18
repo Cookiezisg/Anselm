@@ -194,17 +194,14 @@ class _NotificationTrayState extends ConsumerState<NotificationTray> {
     );
   }
 
-  // Wraps an entry in the SliverAnimatedList's size tween so a collapse/expand slides its height (the rows
-  // slide up under their head; the alignment anchors to the top — the rail slide).
-  // 折叠补间:行高滑动(顶锚)。
+  // The shared primitive keeps the rail slide but hides a row before its glyphs are height-clipped.
+  // 共享原语保留 rail 滑动,并在字形被高度裁切前先隐去整行内容。
   Widget _animatedEntry(
     BuildContext context,
     _TrayEntry entry,
     Animation<double> animation,
-  ) => SizeTransition(
-    sizeFactor: animation,
-    // Flutter 3.44 retired axisAlignment for the two-axis `alignment`. 见 an_sidebar_list 同处注释。
-    alignment: AlignmentDirectional.topStart,
+  ) => AnAnimatedSizeRow(
+    animation: animation,
     child: _entryWidget(context, entry),
   );
 

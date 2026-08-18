@@ -11,6 +11,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	agentdomain "github.com/sunweilin/anselm/backend/internal/domain/agent"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
+	jsonrepairpkg "github.com/sunweilin/anselm/backend/internal/pkg/jsonrepair"
 )
 
 // --- revert_agent ----------------------------------------------------------
@@ -156,20 +157,53 @@ func (t *DeleteAgent) Execute(ctx context.Context, argsJSON string) (string, err
 
 type InvokeAgent struct{ svc *agentapp.Service }
 
+// agentInputMap keeps invoke_agent's public input object contract while accepting the natural
+// plain-text task shape produced by a hosted model. Named input fields still require an object;
+// plain text is deliberately wrapped as {"prompt": "..."} so the agent receives data rather than
+// an untyped scalar. Arrays and numbers remain invalid instead of being guessed into a task.
+//
+// agentInputMap 保持 invoke_agent 的公开 object 契约，同时兼容托管模型自然产生的裸文本任务形态。
+// 有名字的输入字段仍必须传 object；裸文本明确包装为 {"prompt":"..."}，让 agent 收到的是 data 而不是
+// 无类型标量。数组和数字仍然拒绝，不猜测其任务含义。
+type agentInputMap map[string]any
+
+func (m *agentInputMap) UnmarshalJSON(raw []byte) error {
+	var object map[string]any
+	if err := json.Unmarshal(raw, &object); err == nil {
+		*m = object
+		return nil
+	}
+
+	var value string
+	if err := json.Unmarshal(raw, &value); err != nil {
+		return fmt.Errorf("input must be an object or a plain-text task")
+	}
+	trimmed := strings.TrimSpace(value)
+	if trimmed != "" {
+		var encoded map[string]any
+		if err := json.Unmarshal([]byte(jsonrepairpkg.Repair(trimmed)), &encoded); err == nil {
+			*m = encoded
+			return nil
+		}
+	}
+	*m = agentInputMap{"prompt": value}
+	return nil
+}
+
 func (t *InvokeAgent) Name() string { return "invoke_agent" }
 
 func (t *InvokeAgent) Description() string {
-	return "Run an agent: it executes its ReAct loop over the given input and returns the final output (shaped by its outputSchema). Find one with search_agent first. The run is recorded — inspect it later with search_agent_executions / get_agent_execution (the latter carries the full transcript)."
+	return "Run an agent: it executes its ReAct loop over the given input and returns the final output (shaped by its outputSchema). Find one with search_agent first. input is normally an object of named data; a plain-text task is also accepted and is treated as {prompt: <text>}. The run is recorded — inspect it later with search_agent_executions / get_agent_execution (the latter carries the full transcript)."
 }
 
 func (t *InvokeAgent) Parameters() json.RawMessage {
-	return json.RawMessage(`{"type":"object","required":["agentId","input"],"properties":{"agentId":{"type":"string"},"input":{"type":"object","description":"The task/data for THIS run, as an object. Pass {} only if the agent's prompt is fully self-contained. This is where you say what the agent should do — there is no separate 'prompt' field."}}}`)
+	return json.RawMessage(`{"type":"object","required":["agentId","input"],"properties":{"agentId":{"type":"string"},"input":{"type":"object","description":"Named task/data for THIS run. For a plain-text task, send the text directly; the server wraps it as {prompt:<text>}. Pass {} only if the agent's prompt is fully self-contained. There is no separate top-level prompt field."}}}`)
 }
 
 func (t *InvokeAgent) ValidateInput(args json.RawMessage) error {
 	var a struct {
-		AgentID string            `json:"agentId"`
-		Input   toolapp.ObjectMap `json:"input"`
+		AgentID string        `json:"agentId"`
+		Input   agentInputMap `json:"input"`
 	}
 	if err := json.Unmarshal(args, &a); err != nil {
 		return fmt.Errorf("invoke_agent: bad args: %w", err)
@@ -189,15 +223,15 @@ func (t *InvokeAgent) ValidateInput(args json.RawMessage) error {
 
 func (t *InvokeAgent) Execute(ctx context.Context, argsJSON string) (string, error) {
 	var a struct {
-		AgentID string            `json:"agentId"`
-		Input   toolapp.ObjectMap `json:"input"`
+		AgentID string        `json:"agentId"`
+		Input   agentInputMap `json:"input"`
 	}
 	if err := json.Unmarshal([]byte(argsJSON), &a); err != nil {
 		return "", fmt.Errorf("invoke_agent: bad args: %w", err)
 	}
 	res, err := t.svc.InvokeAgent(ctx, agentapp.InvokeInput{
 		AgentID:     a.AgentID,
-		Input:       a.Input,
+		Input:       map[string]any(a.Input),
 		TriggeredBy: agentdomain.TriggeredByChat,
 	})
 	if err != nil {

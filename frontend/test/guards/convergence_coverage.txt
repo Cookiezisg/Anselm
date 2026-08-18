@@ -143,6 +143,7 @@ lib/core/state/bool_pref.dart	converged
 lib/core/state/keyset_paging.dart	converged
 lib/core/ui/an_a11y.dart	pending
 lib/core/ui/an_action_group.dart	converged
+lib/core/ui/an_animated_size_row.dart	pending
 lib/core/ui/an_attachment_card.dart	converged
 lib/core/ui/an_attachment_chip.dart	reviewed
 lib/core/ui/an_attachment_thumb.dart	converged

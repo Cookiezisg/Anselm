@@ -108,6 +108,42 @@ func TestInvokeAgent_RequiresAgentID(t *testing.T) {
 	if err := tl.ValidateInput(json.RawMessage(`{"agentId":"ag_1","input":{}}`)); err != nil {
 		t.Fatalf("valid args (agentId + input) rejected: %v", err)
 	}
+	if err := tl.ValidateInput(json.RawMessage(`{"agentId":"ag_1","input":"review this"}`)); err != nil {
+		t.Fatalf("plain-text task should be accepted: %v", err)
+	}
+	if err := tl.ValidateInput(json.RawMessage(`{"agentId":"ag_1","input":["not","an","object"]}`)); err == nil {
+		t.Fatal("array input must remain invalid")
+	}
+}
+
+func TestAgentInputMap_HostedModelShapes(t *testing.T) {
+	tests := []struct {
+		name string
+		raw  string
+		want map[string]any
+	}{
+		{name: "native object", raw: `{"task":"review"}`, want: map[string]any{"task": "review"}},
+		{name: "stringified object", raw: `"{\"task\":\"review\"}"`, want: map[string]any{"task": "review"}},
+		{name: "plain task", raw: `"review this"`, want: map[string]any{"prompt": "review this"}},
+		{name: "empty plain task", raw: `""`, want: map[string]any{"prompt": ""}},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got agentInputMap
+			if err := json.Unmarshal([]byte(tt.raw), &got); err != nil {
+				t.Fatalf("unmarshal: %v", err)
+			}
+			if !reflect.DeepEqual(map[string]any(got), tt.want) {
+				t.Fatalf("input = %#v, want %#v", got, tt.want)
+			}
+		})
+	}
+	for _, raw := range []string{`["task"]`, `42`, `true`} {
+		var got agentInputMap
+		if err := json.Unmarshal([]byte(raw), &got); err == nil {
+			t.Errorf("input %s should be rejected", raw)
+		}
+	}
 }
 
 // TestConfigProps_AgentChainRedirect — F31: forbidding ag_ refs must point the agent at the real

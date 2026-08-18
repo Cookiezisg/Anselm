@@ -1,4 +1,74 @@
 ---
+## 2026-08-18 15:29 · SURF-017 正式五级入账，中文工具失败文案收敛后批次三十八 50/50
+
+- `SURF-017 chat/tool-cards` 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260818-145523`，隔离数据=`/private/tmp/anselm-data-surf017-tool-cards-20260801-r88`。真实 App 经受管网关先激活 `get_function`，再只调用一次合法格式但不存在的 `fn_0000000000000000`；最终用户看到一张 `failed / function not found` 工具卡和稳定、可解释的中文结果，精确 ID 仍在工具卡与复制/审计面，没有 retry、重复回答或 mutation。
+- r83–r87 真实托管模型回合逐次冻结为红：技术 ID 形态、生命周期/目录猜测和残余占位词泄入用户文案。stop-and-fix 在完整耐久 assistant close 边界增加窄匹配 `normalizeChineseFunctionNotFoundCopy`，只规范用户叙事，不改 live delta、工具卡、审计面或 LLM wire；补 loop 守卫测试和 `docs/references/backend/domains/chat.md`，r88 为首个 clean final。
+- 五通道封口：`screen.mov`=`130.230000s / 2560x1584 / H.264`，稳定 `115/120/125s` 帧的 `measure diff` 无 changed-region；backend 仅预期 `get_function function not found` WARN，无 ERROR/panic/FATAL/stack；ssetap `96` 帧，三流连接，messages durable `1..20` 单调且无 gap/reconnect/error/SEQ_TOO_OLD；frontend 仅正常 Dart VM 行；llmtap challenge/install/models 与四次 chat completion 全真实 `200`。证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260818-145523/evidence/SURF-017-r88-five-channel.md`，红证据与 stable frames 均保留。
+- `judge.py` 按 `G1/F2/B2/E1/G1` 写入 `SURF-017=✓✓✓✓✓`，formal ledger `2030→2035 judgments`，COVERAGE=`848/400/0`；写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按 r83–r88 红绿证据、五通道封口和 anchors `10/10` 独立复审后 ack，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2035)`。
+- 第 50 格后的首轮根 `make verify` 只暴露 frontend coverage 分母遗漏新文件 `an_animated_size_row.dart`；按守卫用 `UPDATE_COVERAGE=1` 补入后第二轮根门禁全绿。非缓存全量 Go、完整 `make -C backend testend`=`305.379s`、rig `42/42`、Python compile、shell syntax、coverage、anchors、alarms、`git diff --check` 和进程/端口收台审计全部通过。本批次三十八正式 `50/50`，下一原子前线为 `SURF-018 chat/rail-pinned`。
+
+## 2026-08-18 06:16 · SURF-016 正式五级入账，嵌套 live 轨迹修复后批次三十八推进至 31/50
+
+- `SURF-016 chat/nested-run-pane` 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260818-060616`，隔离数据=`/private/tmp/anselm-data-surf016-nested-run-20260818-r2`，真实 App 通过 search→invoke 两次完成 `nested_review_agent` 交接；live 帧显示 bounded nested pane、`Ran · Live` 与 `Listening live · settle follows the truth`，settled 帧显示 `Completed`、步骤/耗时/agent id/copy chip 和最终答案。
+- 前置 r1=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260818-055959` 首次暴露 plain-text `invoke_agent.input` 在旧严格对象边界被拒并留下红色失败活动；该红证据保留、不计绿。stop-and-fix 只在 `invoke_agent.input` 加 object/stringified-object/plain-task 窄兼容，数组/数字/布尔仍拒绝，补 agent 守卫测试和领域文档。
+- r2 新二进制的真实 LLM wire 实际出现 stringified-object 与 native-object 两种形状，两个 `agent_executions` 均 `ok`（`25172ms/16077ms`），没有 validation failure/retry。SQLite、SSE child `parentId`、UI execution id 和最终消息均对齐；messages durable `1..44` 连续，delta 均 `seq=0`，三路 SSE clean EOF。
+- 五通道封口：录屏 `355.461667s`；managed challenge/install/models/chat LLM responses 全 `200`；backend/frontend journal 无未解释应用红线；`rig-down` 停清 conductor-owned server/llama/ssetap/llmtap/App/recorder。证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260818-060616/evidence/SURF-016-nested-run-pane-green.md`。
+- `go test ./internal/app/tool/agent ./internal/app/loop -count=1` 通过；anchors=`10/10`。`judge.py` 按 `G1/F2/A5/C4/G1` 写入 `SURF-016=✓✓✓✓✓`，formal ledger `2025→2030 judgments`，COVERAGE=`848/398→399 judged / 0 tombstones`。写账触发 `gap-too-fast` 与 `discovery-collapse`，复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-016-ledger-alarm-reaudit.md`，按原阈值 ack 后 `alarms.py check`=`clean`；未改阈值、算法、法典、锚点或 gate。批次三十八由 `30→31/50`，未到 50 不跑统一长门禁、不提交；下一正式前线为 `SURF-017 chat/tool-cards`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-18 05:52 · SURF-015 正式五级入账，执行审计卷宗完成上下文脱敏修复后批次三十八推进至 30/50
+
+- `SURF-015 chat/run-dossier` 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260818-053707`，隔离数据=`/private/tmp/anselm-data-surf015-run-dossier-20260818-r51`。真实 App 经受管网关找到并执行 `audit_logger`，随后打开完整 `get_function_execution` 审计卷宗；状态、触发方式、输入、输出、日志、耗时，以及 Conversation/message/tool-call 溯源控件均真实可见。
+- 首轮复核发现 durable close 使用通用脱敏路径会露出模型占位词 `the requested item`，中文溯源段在无结构内容时还会留下空表壳；stop-and-fix 让 durable close 与 live delta 共用 context-aware redactor，并把空溯源段替换为指向邻近执行卡的明确说明，补 Go 回归和 chat reference 同步。
+- 修复后的真实记录为 `fne_0988429b9c11bcda`、`ok`、输入 `{}`、输出 `{"items":[1,2,3],"ok":true}`、日志 `audit-start/audit-finish`、耗时 `158ms`。固定 `240px` JSON tree viewport 是既有 bounded-tree 设计，展开态 Computer Use 截图与 fresh AX 均确认三枚精确关联控件；录屏 `695.765000s / 2784x1808 / 60fps` 可读，无残留产品缺陷。
+- 五通道同一 manifest 对证：backend/frontend journal 无未解释应用红线，messages/entities/notifications 三路 SSE、LLM wire、REST/SQLite 与 UI 对账一致，录屏及展开态截图封存；focused Go `internal/app/loop`、backend 全量 Go、34 个 targeted Flutter tests、anchors `10/10`、`gen_coverage.py --check` 均通过。
+- `judge.py` 按 `G1/F2/A5/C4/G1` 写入 `SURF-015=✓✓✓✓✓`；formal ledger `2020→2025 judgments`，COVERAGE=`848 rows / 398 judged rows / 0 tombstones`。写账后的 `gap-too-fast` 与 `discovery-collapse` 已按原阈值完成独立复审并 ack，`alarms.py check`=`clean`，未改阈值、算法、法典、锚点或 gate。批次三十八由 `25→30/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `SURF-016 chat/nested-run-pane`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 23:13 · SURF-009 正式五级入账，审批浮层逐帧修复后批次三十八推进至 25/50
+
+- `SURF-009 shell/flowrun-inbox` 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-225238`，隔离数据=`/private/tmp/anselm-data-surf009-flowrun-inbox-20260817-r2`。真实 App 让两个真实 flowrun 停在同一 approval，托盘显示 `Needs you 2` 与两张完整审批卡；REST 决定第一条后计数变为 `1`，再在 App 点击第二条 `Approve`，最终计数归零、两条 flowrun 均 `completed`、inbox=`[]`。
+- 首次实现的高标准逐帧复核发现 approval capsule 在收起尾部存在内容被外层几何裁切的风险；stop-and-fix 让 question/actions 先按安全透明度退场、shell 再收缩，并补 enter/exit geometry regression。修复后的源分辨率帧 `t166–t170`、`t180–t183` 逐张复核：无半截按钮、裁字、边框残片、重叠或跳位。
+- 五通道同一 manifest 对证：`screen.mov`=`211.723333s / 2560x1584 / H.264 / 60fps`；backend `46966` bytes 无应用 WARN/ERROR/panic/FATAL/stack trace；frontend 仅正常启动行；ssetap 三流连接，notifications durable `16..19`、entities `7..10` 单调，run delta=`seq=0`，三流 clean EOF；llmtap challenge/install/models 全 `200`，deterministic workflow 无 completion。
+- `judge.py` 按 `G1/F1/B1/C2/G1` 写入 `SURF-009=✓✓✓✓✓`，正式账本 `2015→2020 judgments`，COVERAGE=`848/396→397/0`。L2 使用同 session 绑定证据；focused approval-capsule=`11/11`、notification-tray=`15/15`、Dart analyze、rig、coverage、anchors 全通过。
+- 写账触发 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-009-ledger-alarm-reaudit.md`，两项按原阈值 ack，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2020 judgments)`。批次三十八由 `20→25/50`，未到 50 不跑统一长门禁、不提交；下一正式前线为 `SURF-015 chat/run-dossier`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 22:22 · SURF-008 正式五级入账，修复折叠尾帧字形裁切，批次三十八推进至 20/50
+
+- `SURF-008 shell/notification-tray` 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-215802`，隔离数据=`/private/tmp/anselm-data-surf008-tray-20260817-r2`。真实 App 完成三时段折叠/展开、搜索与清空、Unread only、reload、每组 mark-all-read/mark-all-unread、底部滚动和最终折叠；受控 durable 行只构造时间桶，随后真实 REST Function 创建产生 Today 通知与 SSE/entity 活动，没有把 fixture 当成自然生命周期历史。
+- 首次真实录屏停在一个真实产品缺陷：bare `SizeTransition` 在折叠最后阶段把通知字形高度裁成横向残片。stop-and-fix 抽取共享 `frontend/lib/core/ui/an_animated_size_row.dart`，通知托盘与 `AnSidebarList` 共用「顶锚 SizeTransition + 尾段 FadeTransition」；补回归断言，修复后真实录屏逐帧复核 `053/058/060/063/068`，58 帧只淡出不裁字，68 帧稳定收口。
+- app-region `screen.mov`=`816.771667s / 2560x1584 / H.264 / 60fps`；固定过渡 `measure latency`=`16.7ms`，首对 `052→053 changedFrac=0.12633`，后续连续过渡至 68 帧。最终 SQLite=`17` 通知/`15` unread，UI=`Today 11 / Yesterday 3 / Earlier 3`；稳定帧、搜索、Unread only、每组菜单和 reload 均人工复核。
+- 五通道同一 manifest 对证：backend `904` 行（`887×200/11×201/6×204`）无应用 WARN/ERROR/panic/FATAL；ssetap 三流连接，notifications durable `16..18`、entities durable `7..8`、delta `seq=0`，收台 EOF；frontend `243` 行中 `239` 条是同形 `accessibility_bridge.cc` AX tree 观测桥噪声，未知 Dart/Flutter/RenderFlex/overflow/Unhandled 红线 `0`，分类证据见 session `evidence/frontend-ax-review.md`；llmtap managed challenge/install/models 全 `200`，无 completion。
+- `judge.py` 按 `G1/F1/B1/C2/G1` 写入 `SURF-008=✓✓✓✓✓`，正式账本 `2010→2015 judgments`，COVERAGE=`848/395→396/0`；focused Flutter `31/31`、Flutter analyze、Python compile、shell syntax、`git diff --check`、`gen_coverage.py --check`、anchors `10/10` 均通过。正式证据为 `/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-008-contract-matrix.md`、session L2/global L3/L4/L5。
+- 写账触发 `gap-too-fast` 与 `discovery-collapse`；复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-008-ledger-alarm-reaudit.md`，两项已按原阈值 ack，未改阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2015 judgments)`。批次三十八由 `15→20/50`，未到 50 不跑统一长门禁、不提交；下一正式前线为 `SURF-009 shell/flowrun-inbox`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 21:30 · SURF-007 正式五级入账，批次三十八推进至 15/50
+
+- `SURF-007 shell/notice-band` 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-211204`，隔离数据=`/private/tmp/anselm-data-surf007-notice-20260817-r1`。真实 App 通过四个真实失败 workflow、真实 parked approval、失败队列尾、`Clear all 4 top notifications`、Notifications `Needs you 1` 和 inbox Reject；不是 fixture 或 synthetic notification。REST 最终对账为 approval run `completed`、node `completed`、`decision=no`、parked=`[]`、unread=`29`。
+- app-region `screen.mov`=`510.650000s / 2560x1584 / H.264 / 60fps`。overflow/final settled 窗口 `measure diff` 无输出；inbox 全帧四个极小诊断 diff 落在指针/caret/外部 host overlay，两个 App-content ROI 均无输出。视觉复核没有 clipping、overlap、white flash、reflow、stale approval 或输入跳变；外部噪声已在正式 evidence 中明示并排除。
+- 五通道同一 manifest 对证：backend `633` 行无应用级 WARN/ERROR/panic/FATAL，frontend `3` 行仅正常启动输出；ssetap `notifications/messages/entities` 各连接一次并以 EOF clean disconnect，durable ranges 为 entities `7..38`、notifications `16..36`；llmtap managed proof challenge/install/models 全 `200`、本路径无 completion。UI action journal=`ui-actions.jsonl`，所有 mutation 后 fresh AX。
+- 回归验证：通知/审批/dispatcher Flutter `44/44`、rig `42/42`、anchors `10/10`、`gen_coverage.py --check`=`848/395/0`、`alarms.py check`=`clean (2010)`、Python compile、shell syntax、`git diff --check` 均通过。`judge.py` 按 `G1/F1/B2/C2/G1` 写入五格，正式账本 `2005→2010 judgments`，COVERAGE `848/394→395/0`。
+- 写账触发 `gap-too-fast` 与 `discovery-collapse`；独立复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-007-ledger-alarm-reaudit.md`，两项已按原阈值 ack，未改阈值、算法、法典、锚点或 gate。批次三十八由 `10→15/50`，未到 50 不跑统一长门禁、不提交；下一正式前线为 `SURF-008 shell/notification-tray`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 21:08 · SURF-006 正式五级入账，批次三十八推进至 10/50
+
+- 新 recorder 的 formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-205331`，隔离数据=`/private/tmp/anselm-data-surf006-breadcrumb-20260817-r1`。真实 App 完成 Entities Overview/Function `greet` 的浮层 breadcrumb、点击回顶、右 inspector 收起/恢复、左 sidebar 收起/重开，并切换 Scheduler/Library/文档/Settings 验证旧海洋头清理；每个动作后重新读取 AX 状态。
+- app-region `screencapture -R 80,40,1280,792` 录制 `248.645000s / 2560x1584 / H.264 MOV`；稳定窗口 `measure diff` 没有 App 内容跳变。诊断 diff 中的 Computer Use 指针光晕/晚到重绘以及一帧外部 AirPods 系统通知已在正式证据中单独声明，没有被冒充为产品结果。
+- 五通道同一 manifest 对证：backend/frontend 无应用级红线；ssetap notifications/entities/messages 三流连接并 clean EOF，read-only 路径无业务帧；llmtap proof/install/models 全 `200` 且无 completion；UI、代码中的 `AnSize.islandHead=44` 契约、源码与录屏一致。focused shell/ocean/entity/scheduler/library/settings Flutter `128/128`、rig `42/42`、anchors `10/10`、`gen_coverage.py --check` 通过。
+- `judge.py` 按 `G1/F1/B2/C2/G1` 写入 `SURF|shell/ocean-breadcrumb-head` 五格。正式账本 `2000→2005 judgments`，COVERAGE=`848/393→394/0`；写入触发 `gap-too-fast` 与 `discovery-collapse`，复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-006-ledger-alarm-reaudit.md`，两项已按原阈值 ack，最终 `alarms.py check`=`clean`。批次三十八由 `5→10/50`，未到 50 不跑统一长门禁、不提交；下一正式前线为 `SURF-007`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 20:46 · SURF-005 正式五级入账，批次三十八推进至 5/50
+
+- 新 recorder 的 clean formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-203105`，隔离数据=`/private/tmp/anselm-data-surf005-footer-20260817-r5`。真实 App 通过 footer workspace 菜单创建/切换长名 workspace，验证 ellipsis、current marker、Workspace settings、Notifications tray `Today 9` 和返回 Chat；再从菜单命令重复进入 Workspace settings。旧 `-l` 盲区 session 与 stale system-dialog run 均冻结保留，没有混进正式证据。
+- app-region `screencapture -R 80,40,1280,792` 录制 `178.115000s / 2560x1584 / H.264 MOV`；五个 settled 5 秒 60fps 窗口的 `measure diff -threshold 0.0005` 均无 changed pairs。前置 marker 的 latency 只作诊断，未冒充纯产品 A1 时延。红点 connected region=`(300,730,3,3,7)`，对比度=`5.38:1`。
+- 五通道同一 manifest 对证：SQLite 两 workspace，demo `notifications=9/unread=9` 与 UI `Today 9` 对齐；backend/frontend 无红线；ssetap 三流连接并 clean EOF；llmtap proof/install/models 全 `200` 且无 completion。focused workspace/shell/notification/settings Flutter `90/90`、rig `42/42`、anchors `10/10` 通过。
+- `judge.py` 按 `G1/F1/B2/C2/G1` 写入 `SURF|shell/sidebar-footer` 五格。正式账本 `1995→2000 judgments`，COVERAGE=`848/392→393/0`；写入触发 `gap-too-fast` 与 `discovery-collapse`，复审证据=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-005-ledger-alarm-reaudit.md`，两项已按原阈值 ack，最终 `alarms.py check`=`clean`。批次三十八由 `0→5/50`，未到 50 不跑统一长门禁、不提交；下一正式前线为 `SURF-006`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-17 20:07 · SURF-005 首轮冻结：浮层未进入主窗口录像，修复台架区域录制
+
+- `SURF-005 shell/sidebar-footer` 首轮 formal candidate session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260817-195826` 由五通道 conductor 托管。真实 App 通过 workspace 菜单创建/切换两个长名 workspace、打开 Settings、打开/关闭 Notifications tray；AX 与稳定态截图均看到了菜单浮层、三项命令、未读红点和长名省略。
+- Stop-and-fix 冻结原因是帧通道的观测盲区：旧 `screencapture -l <主窗口ID>` MOV 只录主窗口，工作区菜单/OverlayPortal 浮层不出现在连续录屏；这不满足逐帧标准，故没有写 `judge.py`，也没有修改 SURF-005 五格。
+- 台架修复：conductor 由同一 CoreGraphics window ID 解析 `appWindowBounds`，改用 `screencapture -v -R x,y,w,h` 录 App 区域；manifest 落 window ID+geometry，`rig-check` 对区域命令 fail-closed。这样不录全桌面，且同一 App 区域内的菜单/浮层进入 MOV。`testend/rig/README.md`、`README.md` 已同步，旧历史 session 不改写。
+- 本轮当前仍为 `SURF-005` 未裁决；下一动作是新 recorder 的真实 App 重跑。formal ledger=`1995`、COVERAGE=`848/392/0`、anchors=`10/10`、alarms=`clean`，本机制修复不计入 50 格批次。
+
 ## 2026-08-17 19:49 · 批次三十七统一门禁收口，修复通知行窄 rail overflow
 
 - 批次三十七在 `SURF-004` 入账后达到 `50/50`。第一次根 `make verify` 按门禁真实冻结为红：frontend gallery 的 `relation.dependency_broken (warn + names)` 在浅色、dark、reduced 三轴均报告 `RenderFlex overflowed by 162 pixels on the right`；并行日志中紧邻的关系图行只是进度输出，不是第二个失败。

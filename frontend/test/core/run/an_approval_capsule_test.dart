@@ -23,6 +23,8 @@ void main() {
   AnApprovalCapsule cap({
     String question = 'Deploy **v2.4.0** to production?',
     String? verdict,
+    bool dismissRequested = false,
+    Key? key,
     VoidCallback? onDismissed,
     VoidCallback? onApprove,
   }) => AnApprovalCapsule(
@@ -33,11 +35,30 @@ void main() {
     approveLabel: 'Approve',
     rejectLabel: 'Reject',
     verdict: verdict,
+    dismissRequested: dismissRequested,
     onApprove: onApprove ?? () {},
     onReject: () {},
     onClose: () {},
     onDismissed: onDismissed ?? () {},
+    key: key,
   );
+
+  void expectVisibleRungsFit(WidgetTester tester) {
+    final shell = tester.getRect(find.byType(DecoratedBox).first);
+    for (final key in const [
+      'approval-question-reveal',
+      'approval-actions-reveal',
+    ]) {
+      final opacity = tester.widget<Opacity>(find.byKey(ValueKey<String>(key)));
+      if (opacity.opacity == 0) continue;
+      final rung = tester.getRect(find.byKey(ValueKey<String>(key)));
+      expect(
+        rung.bottom,
+        lessThanOrEqualTo(shell.bottom + 0.01),
+        reason: '$key is visible only after the shell can contain it',
+      );
+    }
+  }
 
   testWidgets(
     'beats: width stretches before height; the block ends past both',
@@ -111,6 +132,24 @@ void main() {
       }
       expect(find.text('Approve'), findsOneWidget);
       expect(find.text('Reject'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'never exposes a clipped question or action rung during enter or exit',
+    (tester) async {
+      const key = ValueKey<String>('approval-capsule-regression');
+      await tester.pumpWidget(host(cap(key: key)));
+      for (var i = 0; i < 70; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expectVisibleRungsFit(tester);
+      }
+
+      await tester.pumpWidget(host(cap(key: key, dismissRequested: true)));
+      for (var i = 0; i < 45; i++) {
+        await tester.pump(const Duration(milliseconds: 16));
+        expectVisibleRungsFit(tester);
+      }
     },
   );
 

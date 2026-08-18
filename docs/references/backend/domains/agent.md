@@ -156,6 +156,9 @@ Workflow Agent node 可以提供已完成 ReAct steps，并通过 recorder 逐�
 - Relation：equip edges 指向 Function、Handler、MCP、Skill 与 Document；
 - Workflow：Agent node 调用同一 `InvokeAgent`；
 - Chat：`invoke_agent` 使用父 tool-call scope；
+- Chat：`invoke_agent.input` 通常是命名字段 object；托管模型若把本次任务自然写成裸文本，边界会明确包装为
+  `{"prompt":"..."}` 后再交给 agent。对象 JSON 字符串仍兼容；数组、数字等无法表达任务字段的形态继续硬拒绝，
+  不把错误调用静默当成功。
 - Delete：软删主行并清理所有触及该 agent 的 relation，Execution 仍是耐久审计。主实体与 active
   configuration **不可恢复**；`delete_agent` 具有不可绕过的静态 `dangerous` 下限，即使模型自报 `safe`
   也必须先经过 HumanLoop 用户批准，且不能被 skill 或 `approve_always` 预授权绕过。

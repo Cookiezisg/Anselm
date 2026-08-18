@@ -57,6 +57,7 @@ RUNNER_PID=""
 APP_LAUNCH_PID=""
 APP_PID=""
 APP_WINDOW_ID=""
+APP_WINDOW_BOUNDS=""
 RECORDER_PID=""
 RECORDER_LIFECYCLE=""
 BASELINE_APP_PIDS=""
@@ -189,8 +190,9 @@ start_app_and_record() {
   startup_event app_window_process_resolved
 
   if [ "$RECORD" = "1" ]; then
-    # Record the Anselm window, not the whole desktop. An unrelated foreground permission dialog
-    # must never become a false product frame in the acceptance evidence.
+    # Record the Anselm window's screen region, not the whole desktop. A region keeps menus and
+    # OverlayPortal popovers in the frame while an unrelated foreground permission dialog outside
+    # the app geometry can never become a false product frame in the acceptance evidence.
     for _ in $(seq 1 40); do
       APP_WINDOW_ID=$(swift -e 'import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let owner = w[kCGWindowOwnerName as String] as? String ?? ""; let name = w[kCGWindowName as String] as? String ?? ""; let pid = w[kCGWindowOwnerPID as String] as? Int ?? -1; if pid == target && owner.lowercased() == "anselm" && name == "anselm" { print(w[kCGWindowNumber as String] ?? ""); exit(0) } }' "$APP_PID" 2>/dev/null | tr -d '[:space:]')
       [ -n "$APP_WINDOW_ID" ] && break
@@ -199,9 +201,14 @@ start_app_and_record() {
     [ -n "$APP_WINDOW_ID" ] || {
       echo "✗ could not resolve the Anselm window ID — refusing desktop-wide recording" >&2; exit 1;
     }
+    APP_WINDOW_BOUNDS=$(swift -e 'import Foundation; import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let owner = w[kCGWindowOwnerName as String] as? String ?? ""; let name = w[kCGWindowName as String] as? String ?? ""; let pid = w[kCGWindowOwnerPID as String] as? Int ?? -1; if pid == target && owner.lowercased() == "anselm" && name == "anselm", let b = w[kCGWindowBounds as String] as? [String: Any], let x = b["X"] as? NSNumber, let y = b["Y"] as? NSNumber, let width = b["Width"] as? NSNumber, let height = b["Height"] as? NSNumber { print("\(x.intValue),\(y.intValue),\(width.intValue),\(height.intValue)"); exit(0) } }' "$APP_PID" 2>/dev/null | tr -d '[:space:]')
+    [ -n "$APP_WINDOW_BOUNDS" ] || {
+      echo "✗ could not resolve the Anselm window geometry — refusing unbounded recording" >&2; exit 1;
+    }
+    startup_event app_window_geometry_resolved
     RECORDER_LIFECYCLE="$SESSION/recording-lifecycle.json"
     RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" --lifecycle "$RECORDER_LIFECYCLE" -- \
-      screencapture -v -C -k -l "$APP_WINDOW_ID" "$SESSION/screen.mov")
+      screencapture -v -C -k -R "$APP_WINDOW_BOUNDS" "$SESSION/screen.mov")
     sleep 1
     kill -0 "$RECORDER_PID" 2>/dev/null || {
       echo "✗ screen recorder exited — check Screen Recording permission and $SESSION/recording.log" >&2; exit 1;
@@ -432,6 +439,7 @@ json.dump({
   "appLaunchPid": "$APP_LAUNCH_PID",
   "appPid": "$APP_PID",
   "appWindowId": "$APP_WINDOW_ID",
+  "appWindowBounds": "$APP_WINDOW_BOUNDS",
   "recorderPid": "$RECORDER_PID",
   "recordingLifecycle": "$RECORDER_LIFECYCLE",
   "startupGateJournal": "$SESSION/startup-gate.jsonl",

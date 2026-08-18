@@ -486,6 +486,7 @@ Widget _dossier(
     provenance: ProvenanceLine(
       conversationId: o['conversationId'] as String?,
       messageId: o['messageId'] as String?,
+      toolCallId: o['toolCallId'] as String?,
       flowrunId: o['flowrunId'] as String?,
       nodeId: o['flowrunNodeId'] as String?,
       iteration: o['flowrunIteration'] is int

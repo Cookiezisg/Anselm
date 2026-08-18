@@ -2,6 +2,7 @@ package loop
 
 import (
 	"context"
+	"encoding/json"
 	"strings"
 	"testing"
 
@@ -32,11 +33,81 @@ func TestRedactChineseOpaqueIDAssignmentKeepsProseNatural(t *testing.T) {
 	}
 }
 
+func TestRedactPreservesPublicTodoToolNames(t *testing.T) {
+	input := "- **search_function**：找到函数 `sync_inventory`，ID 为 `fn_9d7a2dde34adb3b1`。\n" +
+		"- **todo_read**：读取当前清单。\n" +
+		"- **todo_write**：更新当前清单。"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "fn_9d7a2dde34adb3b1") {
+		t.Fatalf("public tool summary leaked an opaque value: %q", got)
+	}
+	for _, toolName := range []string{"todo_read", "todo_write"} {
+		if !strings.Contains(got, toolName) {
+			t.Fatalf("public tool name %q was redacted: %q", toolName, got)
+		}
+	}
+	if gotID := redactOpaqueMachineValues("todo_1234567890abcdef"); gotID == "todo_1234567890abcdef" {
+		t.Fatal("opaque todo id was not redacted")
+	}
+}
+
+func TestTextRedactorPreservesSplitPublicTodoToolNames(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"- **todo",
+		"_read**：读取当前清单。\n- **todo",
+		"_write**：更新当前清单。\n",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueEntityPlaceholder) {
+			t.Fatalf("split public tool name leaked placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, toolName := range []string{"todo_read", "todo_write"} {
+		if !strings.Contains(got.String(), toolName) {
+			t.Fatalf("split public tool name %q was redacted: %q", toolName, got.String())
+		}
+	}
+}
+
 func TestRedactChineseLocatedIDAssignmentKeepsProseNatural(t *testing.T) {
 	input := "我已经找到了这个文档的 ID：`doc_3ec2e562757ebbef`。"
 	want := "我已经找到了这个文档。"
 	if got := redactOpaqueMachineValues(input); got != want {
 		t.Fatalf("Chinese located opaque ID assignment = %q, want %q", got, want)
+	}
+}
+
+func TestRedactChineseIDAdvisoryHidesOpaqueValueAndPlaceholder(t *testing.T) {
+	input := `用户写的是 "IDfn_0000000000000000"。实际的 ID 应该是 ` + "`the requested item`" + `。`
+	want := `用户写的是 "ID 见相邻工具卡"。实际的 ID 见相邻工具卡。`
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("Chinese ID advisory = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorHoldsChineseIDAdvisoryAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		`用户写的是 "ID`,
+		`fn_0000000000000000"。实际的 ID 应该是 ` + "`",
+		`the requested item`,
+		"`。",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "fn_0000000000000000") || strings.Contains(piece, opaqueEntityPlaceholder) {
+			t.Fatalf("Chinese ID advisory leaked in live piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := `用户写的是 "ID 见相邻工具卡"。实际的 ID 见相邻工具卡。`
+	if got.String() != want {
+		t.Fatalf("stream Chinese ID advisory = %q, want %q", got.String(), want)
 	}
 }
 
@@ -2866,6 +2937,41 @@ func TestTextRedactorKeepsFlowrunErrorPlaceholderNaturalAcrossChunks(t *testing.
 	}
 }
 
+func TestStreamLLM_RedactsDuplicatedRequestedItemIDAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "run_function requires functionId, which should be the the requested item "},
+		{Type: llminfra.EventReasoning, Delta: "id. So I need to search first."},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	blocks, _, _, _, _, _ := streamLLM(context.Background(), client, llminfra.Request{}, noBuild, nil)
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	got := blocks[0].Content
+	for _, forbidden := range []string{"the the requested item", "the requested item id"} {
+		if strings.Contains(strings.ToLower(got), forbidden) {
+			t.Fatalf("duplicated opaque placeholder leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "the ID shown in the adjacent result card") {
+		t.Fatalf("reasoning lost the honest adjacent-card hint: %q", got)
+	}
+}
+
+func TestRedactDuplicatedRequestedItemIDAtDurableClose(t *testing.T) {
+	input := "The execution lookup needs the the requested item id before it can continue."
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the the requested item", "the requested item id"} {
+		if strings.Contains(strings.ToLower(got), forbidden) {
+			t.Fatalf("durable redaction leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "the ID shown in the adjacent result card") {
+		t.Fatalf("durable redaction lost the adjacent-card hint: %q", got)
+	}
+}
+
 func TestStreamLLM_RedactsOpaqueValuesForChatReasoning(t *testing.T) {
 	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
 		{Type: llminfra.EventReasoning, Delta: "The flowrun "},
@@ -2915,6 +3021,412 @@ func TestStreamLLM_ReappliesWholeBlockRedactionAtClose(t *testing.T) {
 	}
 	if !strings.Contains(blocks[0].Content, "the recorded time") || strings.Contains(blocks[0].Content, "2026-08-02 16:36:38") {
 		t.Fatalf("close snapshot timestamp redaction = %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLM_UsesContextAwareRedactionForDurableDossierClose(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The execution audit dossier is ready. The execution ID is `the requested item`."},
+		{Type: llminfra.EventReasoning, Delta: " The exact value is recorded in the adjacent card."},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+
+	var live strings.Builder
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok {
+			live.WriteString(delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("dossier blocks = %+v", blocks)
+	}
+	for _, output := range []string{live.String(), blocks[0].Content} {
+		if strings.Contains(output, opaqueEntityPlaceholder) || strings.Contains(output, "the requested item") {
+			t.Fatalf("dossier placeholder leaked from live or durable path: %q", output)
+		}
+	}
+	if !strings.Contains(blocks[0].Content, "available in the adjacent execution card") {
+		t.Fatalf("durable dossier lost context-aware adjacent-card wording: %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLM_RedactsFailureExplanationAtLiveAndDurableClose(t *testing.T) {
+	const failureExplanation = "## 失败原因说明\n\n调用 `get_function` 时传入了 ID `the requested item`，系统返回了 \"function not found\"。\n\n实际失败原因：该函数 ID `the requested item` 在系统中并不存在。当前工作区里没有任何函数使用这个 ID，因此系统无法找到对应的函数记录。"
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		textEv(failureExplanation),
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+
+	var live strings.Builder
+	var durable string
+	for _, event := range bridge.events {
+		switch frame := event.Frame.(type) {
+		case streamdomain.Delta:
+			live.WriteString(frame.Chunk)
+		case streamdomain.Close:
+			if frame.Result != nil && frame.Result.Type == messagesdomain.BlockTypeText {
+				var snapshot textContent
+				if err := json.Unmarshal(frame.Result.Content, &snapshot); err != nil {
+					t.Fatalf("decode durable text snapshot: %v", err)
+				}
+				durable = snapshot.Content
+			}
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeText {
+		t.Fatalf("failure explanation blocks = %+v", blocks)
+	}
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": durable,
+		"final":   blocks[0].Content,
+	} {
+		if strings.Contains(output, opaqueEntityPlaceholder) || strings.Contains(output, "fn_") {
+			t.Fatalf("%s failure explanation leaked opaque value: %q", name, output)
+		}
+		if !strings.Contains(output, "传入的目标见相邻工具卡") || !strings.Contains(output, "该函数在系统中并不存在") {
+			t.Fatalf("%s failure explanation lost readable card guidance: %q", name, output)
+		}
+		if strings.Contains(output, "该函数 ID") {
+			t.Fatalf("%s failure explanation retained machine-field grammar: %q", name, output)
+		}
+	}
+}
+
+func TestRedactChineseToolIDFailureExplanationAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "## 失败说明\n\n调用 `get_function` 并传入 ID `fn_0000000000000000` 后，返回结果为 **\"function not found\"**。\n\n**真实原因：** 该函数 ID 不存在。`fn_0000000000000000` 是一个格式合法但并不对应任何已注册函数的虚构 ID。系统中没有与之匹配的记录，因此接口返回了\"未找到\"的错误。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"## 失败说明\n\n调用 `get_function` 并传入 ID `",
+		"fn_0000000000000000",
+		"` 后，返回结果为 **\"function not found\"**。\n\n**真实原因：** 该函数 ID ",
+		"不存在。`fn_0000000000000000` ",
+		"是一个格式合法但并不对应任何已注册函数的虚构 ID。系统中没有与之匹配的记录，因此接口返回了\"未找到\"的错误。",
+	} {
+		piece := redactor.Write(delta)
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+
+	outputs := map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	}
+	for name, output := range outputs {
+		for _, forbidden := range []string{"fn_0000000000000000", "the requested item", opaqueEntityPlaceholder, "该目标", "函数 ID", "并传入的"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s failure explanation leaked %q: %q", name, forbidden, output)
+			}
+		}
+		expectedPhrases := []string{"调用 `get_function` 后", "该函数不存在", "这个输入是一个格式合法"}
+		if name == "durable" {
+			expectedPhrases = []string{"这个输入格式合法，但对应的函数目前未注册。", "这是正常的\"未找到\"结果，不是格式问题。", "如需查找已有函数"}
+		}
+		for _, expected := range expectedPhrases {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s failure explanation lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolQueryFailureExplanationAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "## 失败说明\n\n**操作结果**：调用 `get_function` 查询 ID 为 `fn_0000000000000000` 的函数，返回了 **\"function not found\"**（未找到该函数）。\n\n**真实原因**：\n\n这个函数 ID `fn_0000000000000000` 在系统中并不存在。它是一个格式正确（符合 `fn_` 前缀 + 16 位十六进制字符的 ID 结构）但实际上从未被创建过的虚构 ID。\n\n当前工作区中存在的函数只有：\n- `greet`（打个招呼）\n- `sync_inventory`（同步库存快照）\n\n因此，系统无法返回任何函数的活跃版本信息（代码、参数、返回结构、依赖、环境状态等），只能报告\"未找到\"。这不是工具调用格式错误，也不是权限问题，而是**目标实体本身不存在**。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"## 失败说明\n\n**操作结果**：调用 `get_function` 查询 ID 为 `fn_0000000000000000",
+		"` 的函数，返回了 **\"function not found\"**（未找到该函数）。\n\n**真实原因**：\n\n这个函数 ID `fn_0000000000000000",
+		"` 在系统中并不存在。它是一个格式正确（符合 `fn_` 前缀 + 16 位十六进制字符的 ID 结构）但实际上从未被创建过的虚构 ID。\n\n",
+		"当前工作区中存在的函数只有：\n- `greet`（打个招呼）\n- `sync_inventory`（同步库存快照）\n\n因此，系统无法返回任何函数的活跃版本信息（代码、参数、返回结构、依赖、环境状态等），只能报告\"未找到\"。这不是工具调用格式错误，也不是权限问题，而是**目标实体本身不存在**。",
+	} {
+		piece := redactor.Write(delta)
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "函数 ID", "ID 已定位"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s tool-query failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		for _, expected := range []string{"调用 `get_function` 查询目标函数", "这个函数在系统中并不存在", "格式正确但实际上从未被创建过"} {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s tool-query failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolFailureCurrentGatewayVariantAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "**实际失败原因说明：**\n\n调用 `get_function` 传入 `fn_0000000000000000` 后，系统返回了 `function not found`。\n\n这说明该函数 ID `fn_0000000000000000` 在系统中不存在。`get_function` 要求传入一个真实已注册的函数 ID（格式为 `fn_` 开头），而 `fn_0000000000000000` 是一个虚构的、未注册的 ID，因此系统无法找到对应的函数，返回了\"未找到\"的错误。\n\n如需查看当前可用的函数，可以使用 `search_function` 工具进行检索。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"**实际失败原因说明：**\n\n调用 `get_function` 传入 `fn_0000000000000000` 后，系统返回了 `function not found`。\n\n这说明",
+		"该函数 ID `fn_0000000000000000` 在系统中不存在。`get_function` 要求传入一个真实已注册的函数 ID（格式为 `fn_` 开头），而",
+		" `fn_0000000000000000` 是一个虚构的、未注册的 ID，因此系统无法找到对应的函数，返回了\"未找到\"的错误。\n\n如需查看当前可用的函数，可以使用 `search_function` 工具进行检索。",
+	} {
+		live.WriteString(redactor.Write(delta))
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "函数 ID", "ID 已定位"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s current-gateway failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		expectedPhrases := []string{"调用 `get_function` 后", "该函数在系统中不存在", "格式合法", "而这个输入是一个"}
+		if name == "durable" {
+			expectedPhrases = []string{"这个输入格式合法，但对应的函数目前未注册。", "这是正常的\"未找到\"结果，不是格式问题。", "如需查找已有函数"}
+		}
+		for _, expected := range expectedPhrases {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s current-gateway failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolFailureWorkspaceVariantAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "调用 `get_function` 后，返回结果为 `function not found`。\n\n**失败原因：** 该 ID `fn_0000000000000000` 在工作区中并不存在。工作区当前注册的函数只有 `greet` 和 `sync_inventory` 等，它们各自拥有系统分配的真实 ID（以 `fn_` 开头），而这个输入是一个虚构的、不存在的标识符，因此系统无法找到对应的函数，直接返回了\"未找到\"的错误。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"调用 `get_function` 后，返回结果为 `function not found`。\n\n**失败原因：** 该 ID `fn_0000000000000000",
+		"` 在工作区中并不存在。工作区当前注册的函数只有 `greet` 和 `sync_inventory` 等，它们各自拥有系统分配的真实 ID（以 `fn_` 开头），而",
+		"这个输入是一个虚构的、不存在的标识符，因此系统无法找到对应的函数，直接返回了\"未找到\"的错误。",
+	} {
+		live.WriteString(redactor.Write(delta))
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "该 ID", "真实 ID"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s workspace-variant failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		expectedPhrases := []string{"调用 `get_function` 后", "这个输入在工作区中并不存在", "真实标识（格式合法）", "这个输入是一个"}
+		if name == "durable" {
+			expectedPhrases = []string{"这个输入格式合法，但对应的函数目前未注册。", "这是正常的\"未找到\"结果，不是格式问题。", "如需查找已有函数"}
+		}
+		for _, expected := range expectedPhrases {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s workspace-variant failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolFailureNaturalTemplateAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "调用 `get_function` 时传入了 `fn_0000000000000000` 这个 ID，系统返回了 **\"function not found\"**。**实际失败原因：** 该函数 ID 不存在。`fn_0000000000000000` 并不是系统中已注册的真实函数标识符——它是一个虚构的、格式合法但不存在的 ID。`get_function` 要求传入一个实际存在于目录中的函数 ID（以 `fn_` 开头），而当前工作区中并没有与这个 ID 对应的函数记录，因此查询失败并返回\"未找到\"。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"调用 `get_function` 时传入了 `fn_0000000000000000` 这个 ID，系统返回了 **\"function not found\"**。**实际失败原因：** 该函数 ID ",
+		"不存在。`fn_0000000000000000` 并不是系统中已注册的真实函数标识符——它是一个虚构的、格式合法但不存在的 ID。`get_function` 要求传入一个实际存在于目录中的函数 ID（以 `fn_` 开头），而当前工作区中并没有与这个 ID 对应的函数记录，因此查询失败并返回\"未找到\"。",
+	} {
+		live.WriteString(redactor.Write(delta))
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "这个 ID", "真实 ID", "函数 ID"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s natural-template failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		expectedPhrases := []string{"调用 `get_function` 后", "这个输入并不是系统中已注册的真实函数标识符", "当前工作区中没有与之对应的函数记录"}
+		if name == "durable" {
+			expectedPhrases = []string{"这个输入格式合法，但对应的函数目前未注册。", "这是正常的\"未找到\"结果，不是格式问题。", "如需查找已有函数"}
+		}
+		for _, expected := range expectedPhrases {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s natural-template failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolFailureParentheticalIDAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "调用 `get_function` 并传入 `fn_0000000000000000` 后，系统返回了 **\"function not found\"**。**实际失败原因：** 该函数 ID（`fn_0000000000000000`）在当前工作区的函数目录中并不存在。这是一个伪造的、不合法的 ID，没有对应任何已创建的函数实体，因此系统无法查找到匹配的记录，直接返回了\"未找到\"错误。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"调用 `get_function` 并传入 `fn_0000000000000000` 后，系统返回了 **\"function not found\"**。**实际失败原因：** 该函数 ID（`fn_0000000000000000`）",
+		"在当前工作区的函数目录中并不存在。这是一个伪造的、不合法的 ID，没有对应任何已创建的函数实体，因此系统无法查找到匹配的记录，直接返回了\"未找到\"错误。",
+	} {
+		live.WriteString(redactor.Write(delta))
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "函数 ID", "不合法的 ID"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s parenthetical failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		for _, expected := range []string{"调用 `get_function` 后", "该函数在当前工作区的函数目录中并不存在", "伪造的、不合法的标识"} {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s parenthetical failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolFailureAllZeroVariantAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "以下是实际失败情况的说明：**调用结果：** 工具返回 `function not found`（函数未找到）。**原因：** `fn_0000000000000000` 这个 ID 在工作区中并不存在。当前工作区里可用的函数有 `greet` 和 `sync_inventory` 等，它们的真实 ID 均以 `fn_` 开头，但并非这个全零的 ID。`get_function` 要求传入一个确实存在于目录中的函数 ID，传入不存在的 ID 会直接返回\"未找到\"错误，不会返回任何函数代码或版本信息。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"以下是实际失败情况的说明：**调用结果：** 工具返回 `function not found`（函数未找到）。**原因：** `fn_0000000000000000` 这个 ID 在工作区中并不存在。当前工作区里可用的函数有 `greet` 和 `sync_inventory` 等，它们的真实 ID 均以 `fn_` 开头，",
+		"但并非这个全零的 ID。`get_function` 要求传入一个确实存在于目录中的函数 ID，传入不存在的 ID 会直接返回\"未找到\"错误，不会返回任何函数代码或版本信息。",
+	} {
+		live.WriteString(redactor.Write(delta))
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "这个 ID", "真实 ID", "函数 ID", "全零的 ID"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s all-zero failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		for _, expected := range []string{"这个输入在工作区中并不存在", "真实标识均符合合法格式", "并非这个输入", "要求传入一个确实存在于目录中的函数"} {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s all-zero failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseToolReferenceFailureVariantsAcrossStreamBoundaries(t *testing.T) {
+	const failureExplanation = "## 失败说明\n\n调用 `get_function` 传入 `fn_0000000000000000` 后，返回结果为 **\"function not found\"**。\n\n**真实原因：** 这个 ID 是一个格式合法（符合 `fn_` 前缀 + 16 位十六进制字符的 ID 规范）但并不存在的函数标识符。当前工作区中没有任何函数的 ID 是 `fn_0000000000000000`，系统无法找到对应的函数实体，因此返回了\"未找到\"的错误。\n\n如需查询实际可用的函数，可以先使用 `search_function` 搜索现有函数列表，获取真实的 `fn_0000000000000000` ID 后再进行调用。"
+	var redactor textRedactor
+	var live strings.Builder
+	for _, delta := range []string{
+		"## 失败说明\n\n调用 `get_function` 传入 `fn_0000000000000000` 后，返回结果为 **\"function not found\"**。\n\n**真实原因：** 这个 ID 是一个格式合法（符合 `fn_` 前缀 + 16 位十六进制字符的 ID 规范）但并不存在的函数标识符。当前工作区中没有任何函数的 ID 是 `fn_0000000000000000",
+		"`，系统无法找到对应的函数实体，因此返回了\"未找到\"的错误。\n\n如需查询实际可用的函数，可以先使用 `search_function` 搜索现有函数列表，获取真实的 `fn_0000000000000000",
+		"` ID 后再进行调用。",
+	} {
+		piece := redactor.Write(delta)
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+
+	for name, output := range map[string]string{
+		"live":    live.String(),
+		"durable": redactCompleteUserBlock(failureExplanation),
+	} {
+		for _, forbidden := range []string{"fn_", "the requested item", opaqueEntityPlaceholder, "该目标", "ID 已定位", "函数的 ID"} {
+			if strings.Contains(output, forbidden) {
+				t.Fatalf("%s tool-reference failure leaked %q: %q", name, forbidden, output)
+			}
+		}
+		for _, expected := range []string{"调用 `get_function` 后", "当前工作区中没有任何函数与其匹配", "获取实际可用的函数后再进行调用"} {
+			if !strings.Contains(output, expected) {
+				t.Fatalf("%s tool-reference failure lost natural wording %q: %q", name, expected, output)
+			}
+		}
+	}
+}
+
+func TestRedactChineseConjoinedMissingIDReference(t *testing.T) {
+	for _, input := range []string{
+		"调用 `get_function` 并传入 `the requested item` 后，返回结果为 `function not found`。",
+		"调用 `get_function` 传入 `the requested item` 后，返回结果为 `function not found`。",
+	} {
+		got := redactOpaqueMachineValues(input)
+		if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "该目标") {
+			t.Fatalf("conjoined missing-ID reference leaked placeholder: %q", got)
+		}
+		if !strings.Contains(got, "调用 `get_function` 后") {
+			t.Fatalf("conjoined missing-ID reference was not made natural: %q", got)
+		}
+	}
+}
+
+func TestRedactChineseGenericMissingIDSentence(t *testing.T) {
+	got := redactOpaqueMachineValues("实际失败原因：这个 ID `the requested item` 在系统中并不存在。")
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "该目标") {
+		t.Fatalf("generic missing-ID sentence leaked placeholder: %q", got)
+	}
+	if !strings.Contains(got, "这个输入在系统中并不存在") {
+		t.Fatalf("generic missing-ID sentence was not made natural: %q", got)
+	}
+}
+
+func TestRedactChineseQualifiedMissingIDReference(t *testing.T) {
+	got := redactOpaqueMachineValues("调用 `get_function` 时传入了一个不存在的函数 ID `the requested item`，系统返回了错误。")
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "该目标") || strings.Contains(got, "函数 ID") {
+		t.Fatalf("qualified missing-ID reference leaked machine wording: %q", got)
+	}
+	if !strings.Contains(got, "传入了一个不存在的函数，系统返回了错误") {
+		t.Fatalf("qualified missing-ID reference lost readable meaning: %q", got)
+	}
+}
+
+func TestRedactChineseMissingIDVariants(t *testing.T) {
+	tests := []struct {
+		input string
+		want  string
+		bad   []string
+	}{
+		{
+			input: "调用 `get_function` 时传入 `the requested item` 这个 ID，返回失败。",
+			want:  "传入这个输入",
+			bad:   []string{"the requested item", "该目标"},
+		},
+		{
+			input: "该函数 ID 并不存在于系统中。",
+			want:  "该函数并不存在于系统中",
+			bad:   []string{"函数 ID"},
+		},
+		{
+			input: "该目标是一个虚构的、格式合法但从未被创建过的标识符。",
+			want:  "这个输入是一个虚构的、格式合法但从未被创建过的标识符",
+			bad:   []string{"该目标"},
+		},
+	}
+	for _, test := range tests {
+		got := redactOpaqueMachineValues(test.input)
+		for _, forbidden := range test.bad {
+			if strings.Contains(got, forbidden) {
+				t.Fatalf("missing-ID variant leaked %q: %q", forbidden, got)
+			}
+		}
+		if !strings.Contains(got, test.want) {
+			t.Fatalf("missing-ID variant lost natural wording %q: %q", test.want, got)
+		}
 	}
 }
 
@@ -2995,5 +3507,2818 @@ func TestRedactOpaqueMachineValuesRewritesVersionIDPlaceholderSentence(t *testin
 	}
 	if !strings.Contains(got, "version reference updated") || !strings.Contains(got, "envStatus is ready") {
 		t.Fatalf("version ID sentence lost readable facts: %q", got)
+	}
+}
+
+func TestRedactChineseAuditMachineFields(t *testing.T) {
+	input := "完整审计档案\n" +
+		"执行ID: fne_d30271b93e040960\n" +
+		"版本ID: `the requested item`\n" +
+		"会话ID: \"the requested item\"\n" +
+		"工具调用ID: `the requested item`\n" +
+		"开始时间:`相应时间`\n" +
+		"结束时间: `2026-08-17T23:29:01.123Z`\n" +
+		"耗时: 63ms\n" +
+		"日志输出\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"fne_d30271b93e040960", "the requested item", "相应时间", "the recorded time",
+		"执行ID:", "版本ID:", "会话ID:", "工具调用ID:", "开始时间:", "结束时间:",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("Chinese audit machine field leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{"完整审计档案", "耗时: 63ms", "日志输出"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("Chinese audit prose lost readable field %q: %q", want, got)
+		}
+	}
+}
+
+func TestTextRedactorHoldsChineseAuditMachineFieldsAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"完整审计档案\n执行ID: fne_d30271",
+		"b93e040960\n版本ID: the requested ",
+		"item\n会话ID: the requested item\n工具调用ID: the requested item\n",
+		"开始时间:相应时间\n结束时间: 2026-08-17T23:29:01Z\n耗时: 63ms\n",
+	} {
+		piece := r.Write(delta)
+		for _, forbidden := range []string{"fne_", "the requested item", "相应时间", "the recorded time", "执行ID:", "版本ID:", "会话ID:", "工具调用ID:", "开始时间:", "结束时间:"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("Chinese audit field leaked in intermediate stream piece %q: %q", forbidden, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	for _, forbidden := range []string{"fne_", "the requested item", "相应时间", "the recorded time", "执行ID:", "版本ID:", "会话ID:", "工具调用ID:", "开始时间:", "结束时间:"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("Chinese audit field leaked in final stream for %q: %q", forbidden, got.String())
+		}
+	}
+	for _, want := range []string{"完整审计档案", "耗时: 63ms"} {
+		if !strings.Contains(got.String(), want) {
+			t.Fatalf("Chinese audit stream lost readable field %q: %q", want, got.String())
+		}
+	}
+}
+
+func TestRedactChineseAuditTableRemovesMachineRowsOnlyFromExecutionDossier(t *testing.T) {
+	input := "以下是函数本次执行的完整审计档案：\n\n" +
+		"| 字段 | 值 |\n|---|---|\n" +
+		"| **执行 ID** | `fne_d30271b93e040960` |\n" +
+		"| **函数 ID** | `fn_082ca98ecf1a3ec7` |\n" +
+		"| **版本 ID** | `the requested item` |\n" +
+		"| **状态** | ✅ `ok` |\n" +
+		"| **开始时间** |相应时间|\n" +
+		"| **结束时间** |相应时间|\n" +
+		"| **耗时** | 174 ms |\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"fne_", "fn_", "the requested item", "相应时间", "执行 ID", "函数 ID", "版本 ID", "开始时间", "结束时间",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("execution dossier table leaked machine field %q: %q", forbidden, got)
+		}
+	}
+	for _, want := range []string{"状态", "ok", "耗时", "174 ms"} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("execution dossier table lost readable field %q: %q", want, got)
+		}
+	}
+
+	mcp := "| 字段 | 值 |\n|---|---|\n| **服务器** | mcp-server |\n| **开始时间** | 精确时间见旁边的 MCP 调用卡片。 |"
+	if gotMCP := redactOpaqueMachineValues(mcp); !strings.Contains(gotMCP, "精确时间见旁边的 MCP 调用卡片。") {
+		t.Fatalf("MCP timing row was incorrectly removed: %q", gotMCP)
+	}
+}
+
+func TestRedactExecutionIDReasoningSentencePointsToAdjacentCard(t *testing.T) {
+	input := "The execution id is `fne_d30271b93e040960`. The record is ready."
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"fne_", opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("execution ID reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "The execution is available in the adjacent execution card") || !strings.Contains(got, "The record is ready.") {
+		t.Fatalf("execution reasoning lost readable facts: %q", got)
+	}
+}
+
+func TestRedactCamelCaseExecutionIDReasoningSentencePointsToAdjacentCard(t *testing.T) {
+	input := "The executionId is \"the requested item\". The record is ready."
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"executionId", opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+		if strings.Contains(strings.ToLower(got), strings.ToLower(forbidden)) {
+			t.Fatalf("camelCase execution ID reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "The execution ID is available in the adjacent execution card") || !strings.Contains(got, "The record is ready.") {
+		t.Fatalf("camelCase execution reasoning lost readable facts: %q", got)
+	}
+}
+
+func TestStreamLLM_RedactsCamelCaseExecutionIDAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The executionId is \""},
+		{Type: llminfra.EventReasoning, Delta: "the requested item\". The record is ready."},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"executionId", opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+			if strings.Contains(strings.ToLower(delta.Chunk), strings.ToLower(forbidden)) {
+				t.Fatalf("live camelCase execution ID delta leaked %q: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	got := blocks[0].Content
+	if strings.Contains(strings.ToLower(got), "executionid") || strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, legacyEntityPlaceholder) {
+		t.Fatalf("durable camelCase execution ID reasoning leaked: %q", got)
+	}
+	if !strings.Contains(got, "The execution ID is available in the adjacent execution card") || !strings.Contains(got, "The record is ready.") {
+		t.Fatalf("durable camelCase execution reasoning lost readable facts: %q", got)
+	}
+}
+
+func TestStreamLLM_RedactsSpacedExecutionIDAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The execution id is \""},
+		{Type: llminfra.EventReasoning, Delta: "the requested item\". The record is ready.\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "the referenced item", "execution id is"} {
+			if strings.Contains(strings.ToLower(delta.Chunk), forbidden) {
+				t.Fatalf("live spaced execution ID delta leaked %q: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	got := blocks[0].Content
+	for _, forbidden := range []string{"the requested item", "the referenced item", "execution id is"} {
+		if strings.Contains(strings.ToLower(got), forbidden) {
+			t.Fatalf("durable spaced execution ID reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "The execution is available in the adjacent execution card") || !strings.Contains(got, "The record is ready.") {
+		t.Fatalf("durable spaced execution reasoning lost readable facts: %q", got)
+	}
+}
+
+func TestRedactExecutionIDExampleAndNamedJSONFields(t *testing.T) {
+	input := "The execution ID `the requested item` is used below.\n" +
+		"run_function requires functionId (like `the requested item`), not a name.\n" +
+		"{\n" +
+		"  \"id\": \"document\",\n" +
+		"  \"functionId\": \"fn_1234567890abcdef\",\n" +
+		"  \"versionId\": \"the requested item\",\n" +
+		"  \"executionId\": \"fne_1234567890abcdef\",\n" +
+		"  \"startedAt\": \"2026-08-18T00:00:00.000Z\",\n" +
+		"  \"endedAt\": \"the recorded time\"\n" +
+		"}"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"the requested item", "the referenced item", "fn_1234567890abcdef", "fne_1234567890abcdef",
+		"2026-08-18T00:00:00.000Z", "the recorded time", "functionId (like `",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("execution/JSON reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"The execution ID from the adjacent execution card is used below.",
+		"functionId (like a real ID)",
+		`"id": "document"`,
+		`"functionId": "see adjacent result card"`,
+		`"versionId": "see adjacent result card"`,
+		`"executionId": "see adjacent result card"`,
+		`"startedAt": "see adjacent result card"`,
+		`"endedAt": "see adjacent result card"`,
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("execution/JSON reasoning lost %q: %q", expected, got)
+		}
+	}
+}
+
+func TestStreamLLM_RedactsExecutionIDExampleAndNamedJSONFieldsAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The execution ID `"},
+		{Type: llminfra.EventReasoning, Delta: "the requested item` is used below. run_function requires functionId (like `"},
+		{Type: llminfra.EventReasoning, Delta: "the requested item`), not a name.\n{\n  \"functionId\": \"the requested item\",\n  \"startedAt\": \"the recorded time\"\n}"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "the referenced item", "the recorded time"} {
+			if strings.Contains(strings.ToLower(delta.Chunk), strings.ToLower(forbidden)) {
+				t.Fatalf("live execution/JSON delta leaked %q: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	got := blocks[0].Content
+	for _, forbidden := range []string{"the requested item", "the referenced item", "the recorded time"} {
+		if strings.Contains(strings.ToLower(got), strings.ToLower(forbidden)) {
+			t.Fatalf("durable execution/JSON reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"The execution ID from the adjacent execution card is used below.",
+		"functionId (like a real ID)",
+		`"functionId": "see adjacent result card"`,
+		`"startedAt": "see adjacent result card"`,
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("durable execution/JSON reasoning lost %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactLeadingPromptSectionClose(t *testing.T) {
+	input := "</section>\n\n以下是完整的审计档案。"
+	got := redactOpaqueMachineValues(input)
+	if got != "以下是完整的审计档案。" {
+		t.Fatalf("leading prompt section close = %q", got)
+	}
+}
+
+func TestRedactLeadingThinkingClose(t *testing.T) {
+	for _, input := range []string{"</think>\n\n以下是完整的审计档案。", "</analysis>\n正文"} {
+		got := redactOpaqueMachineValues(input)
+		if strings.Contains(got, "</think>") || strings.Contains(got, "</analysis>") {
+			t.Fatalf("leading model delimiter leaked: %q", got)
+		}
+	}
+}
+
+func TestStreamLLM_RedactsSplitLeadingPromptSectionClose(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "</"},
+		{Type: llminfra.EventReasoning, Delta: "section>\n\n以下是完整的审计档案。"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		if strings.Contains(delta.Chunk, "</section>") || strings.Contains(delta.Chunk, "</") {
+			t.Fatalf("live reasoning leaked a prompt delimiter: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	if blocks[0].Content != "以下是完整的审计档案。" {
+		t.Fatalf("durable reasoning retained a prompt delimiter: %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLM_RedactsSplitLeadingThinkingClose(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "</"},
+		{Type: llminfra.EventText, Delta: "think>\n\n完整的执行审计档案。"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok && strings.Contains(delta.Chunk, "</") {
+			t.Fatalf("live thinking delimiter leaked: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Content != "完整的执行审计档案。" {
+		t.Fatalf("durable thinking delimiter remained: %+v", blocks)
+	}
+}
+
+func TestRedactChineseDossierSummaryFields(t *testing.T) {
+	input := "无错误（`errorMsg` 为空）。历史汇总（`okCount: 1`，`failedCount: 0`）。\n- **错误信息**：无（执行成功，`errorMsg` 为空）"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"errorMsg", "okCount", "failedCount"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("dossier machine field leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"无错误（错误信息为空）", "（成功记录：1，失败记录：0）", "无（执行成功，错误信息为空）"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("dossier summary lost %q: %q", expected, got)
+		}
+	}
+	standalone := redactOpaqueMachineValues("- errorMsg: \"\"\n")
+	if strings.Contains(standalone, "errorMsg") || !strings.Contains(standalone, "- 错误信息为空") {
+		t.Fatalf("standalone dossier error field was not humanized: %q", standalone)
+	}
+	fieldList := redactOpaqueMachineValues("从运行结果中可以看到 errorMsg、elapsedMs、okCount、failedCount 等字段。")
+	for _, forbidden := range []string{"errorMsg", "elapsedMs", "okCount", "failedCount"} {
+		if strings.Contains(fieldList, forbidden) {
+			t.Fatalf("dossier field list leaked %q: %q", forbidden, fieldList)
+		}
+	}
+	for _, expected := range []string{"错误信息", "耗时", "成功记录数", "失败记录数"} {
+		if !strings.Contains(fieldList, expected) {
+			t.Fatalf("dossier field list lost %q: %q", expected, fieldList)
+		}
+	}
+	fieldList = redactOpaqueMachineValues("完整记录包括 executionId、functionId、versionId、conversationId 等标识符。")
+	for _, forbidden := range []string{"executionId", "functionId", "versionId", "conversationId"} {
+		if strings.Contains(fieldList, forbidden) {
+			t.Fatalf("execution dossier field list leaked %q: %q", forbidden, fieldList)
+		}
+	}
+	for _, expected := range []string{"执行标识", "函数标识", "版本标识", "会话标识"} {
+		if !strings.Contains(fieldList, expected) {
+			t.Fatalf("execution dossier field list lost %q: %q", expected, fieldList)
+		}
+	}
+}
+
+func TestTextRedactorHumanizesSplitEnglishDossierErrorField(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"函数运行成功了。\n- error",
+		"Msg: \"\"\n- elapsedMs: 114\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "errorMsg") {
+			t.Fatalf("split English dossier error field flashed live: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "errorMsg") || !strings.Contains(got.String(), "错误信息为空") {
+		t.Fatalf("split English dossier error field was not humanized: %q", got.String())
+	}
+}
+
+func TestTextRedactorRemovesStandaloneChineseCreationTimePlaceholder(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"时间戳\n记录创建",
+		"时间:相应时间\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "记录创建时间") || strings.Contains(piece, "相应时间") {
+			t.Fatalf("standalone creation-time placeholder flashed live: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "记录创建时间") || strings.Contains(got.String(), "相应时间") {
+		t.Fatalf("standalone creation-time placeholder remained: %q", got.String())
+	}
+}
+
+func TestTextRedactorHumanizesSplitEnglishDossierFieldList(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"运行结果包含 error",
+		"Msg、elapsed",
+		"Ms、okCount、failedCount 字段。\n",
+	} {
+		piece := redactor.Write(delta)
+		for _, forbidden := range []string{"errorMsg", "elapsedMs", "okCount", "failedCount"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("split English dossier field leaked %q: %q", forbidden, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"errorMsg", "elapsedMs", "okCount", "failedCount"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("split English dossier field remained %q: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsSplitEntityIDClauseWithoutLeadingSpace(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"I found it wi",
+		"th id \"",
+		"the requested item\"\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "the requested item") {
+			t.Fatalf("split entity-id placeholder leaked live: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "the requested item") {
+		t.Fatalf("split entity-id placeholder remained: %q", got.String())
+	}
+}
+
+func TestTextRedactorHoldsEntityIDClauseAfterOpenPrefix(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"I found the function with ",
+		"id \"the requested item\". Now I need to run it.\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "the requested item") {
+			t.Fatalf("open entity-id prefix leaked live placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "the requested item") {
+		t.Fatalf("open entity-id prefix placeholder remained: %q", got.String())
+	}
+}
+
+func TestRedactEnglishExecutionTimingTablePointsToExecutionCard(t *testing.T) {
+	input := "| Field | Value |\n|---|---|\n" +
+		"| Started At | the recorded time |\n" +
+		"| Ended At | the recorded time |\n" +
+		"| Elapsed | 133 ms |"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, opaqueTimestampPlaceholder) {
+		t.Fatalf("execution timing placeholder leaked: %q", got)
+	}
+	if strings.Count(got, executionTimingTableHint) != 2 {
+		t.Fatalf("execution timing rows did not point to the card: %q", got)
+	}
+	if !strings.Contains(got, "| Elapsed | 133 ms |") {
+		t.Fatalf("execution timing lost elapsed value: %q", got)
+	}
+}
+
+func TestStreamLLMRedactsEnglishExecutionTimingTable(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "| Field | Value |\n|---|---|\n| Started At | "},
+		{Type: llminfra.EventText, Delta: "the recorded time |\n| Ended At | the recorded time |\n| Elapsed | 133 ms |\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok && strings.Contains(delta.Chunk, opaqueTimestampPlaceholder) {
+			t.Fatalf("execution timing placeholder leaked in live delta: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 || strings.Contains(blocks[0].Content, opaqueTimestampPlaceholder) {
+		t.Fatalf("execution timing placeholder leaked in durable block: %+v", blocks)
+	}
+	if strings.Count(blocks[0].Content, executionTimingTableHint) != 2 {
+		t.Fatalf("execution timing durable rows did not point to the card: %q", blocks[0].Content)
+	}
+}
+
+func TestTextRedactorHumanizesSplitExecutionDossierFieldList(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"完整记录包括 execution",
+		"Id、functionId、versionId、conversation",
+		"Id 等标识符。\n",
+	} {
+		piece := redactor.Write(delta)
+		for _, forbidden := range []string{"executionId", "functionId", "versionId", "conversationId"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("split execution dossier field leaked %q: %q", forbidden, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"executionId", "functionId", "versionId", "conversationId"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("split execution dossier field remained %q: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestTextRedactorDoesNotFlashPartialDossierRow(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"## 执行审计档案\n\n### 计时\n| 指标 | 值 |\n",
+		"|---|---|\n",
+		"| **耗时** | 135 毫秒 |\n",
+		"| **记录",
+		"\n### 关联上下文（Context）\n",
+		"| 字段 | 值 |\n|---|---|\n",
+		"\n---\n\n### 汇总\n\n",
+		"- **错误信息**：无（执行成功，`errorMsg` 为空）\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "| **记录") {
+			t.Fatalf("partial dossier row flashed in live delta: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "| **记录") || strings.Contains(got.String(), "errorMsg") {
+		t.Fatalf("partial/machine dossier content remained: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "精确消息和工具调用见上方执行卡片") {
+		t.Fatalf("dossier association lost honest pointer: %q", got.String())
+	}
+}
+
+func TestTextRedactorDoesNotLeakSplitExecutionIDCodeSpan(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"The user wants the complete execution audit dossier. I have the execution ID",
+		" `fne_b",
+		"117e76c4f8ab92d",
+		"`. ",
+	} {
+		piece := redactor.Write(delta)
+		for _, forbidden := range []string{"fne_", "117e76", "e76c4f8ab92d"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("split execution ID leaked %q in live delta: %q", forbidden, piece)
+			}
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fne_", "117e76", "e76c4f8ab92d"} {
+		if strings.Contains(got.String(), forbidden) {
+			t.Fatalf("split execution ID remained %q after flush: %q", forbidden, got.String())
+		}
+	}
+}
+
+func TestTextRedactorHoldsBoldDossierTableFragmentUntilRowBoundary(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"以下是本次执行的完整执行档案：\n\n| 字段 | 值 |\n|---|---|\n",
+		"| **记录",
+		"** | 精确消息和工具调用见上方执行卡片。 |\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "| **记录") {
+			t.Fatalf("bold dossier table fragment flashed in live delta: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if !strings.Contains(got.String(), "记录") {
+		t.Fatalf("complete dossier table row was lost after flush: %q", got.String())
+	}
+}
+
+func TestRedactChineseBareExecutionIDPlaceholderWithMarkdownQuotes(t *testing.T) {
+	input := "我可以看到最新的执行 ID 是 `the requested item`。现在继续。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the requested item", "执行 ID 是"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("Chinese execution ID reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "执行 ID 已定位") || !strings.Contains(got, "现在继续。") {
+		t.Fatalf("Chinese execution reasoning lost readable facts: %q", got)
+	}
+}
+
+func TestStreamLLM_RedactsChineseBareExecutionIDAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "我可以看到最新的执行 ID 是 `"},
+		{Type: llminfra.EventReasoning, Delta: "the requested item`。现在继续。"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		if strings.Contains(delta.Chunk, opaqueEntityPlaceholder) || strings.Contains(delta.Chunk, "执行 ID 是") {
+			t.Fatalf("live Chinese execution ID delta leaked placeholder: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	got := blocks[0].Content
+	if strings.Contains(got, opaqueEntityPlaceholder) || strings.Contains(got, "执行 ID 是") {
+		t.Fatalf("durable Chinese execution ID reasoning leaked: %q", got)
+	}
+	if !strings.Contains(got, "执行 ID 已定位") || !strings.Contains(got, "现在继续。") {
+		t.Fatalf("durable Chinese execution reasoning lost readable facts: %q", got)
+	}
+}
+
+func TestRedactChineseAuditFieldsSplitAcrossLinesAndBareIDAssignments(t *testing.T) {
+	input := "找到了 audit_logger，ID 为 the requested item。现在执行它。\n\n" +
+		"执行 ID: \n" +
+		"the requested item\n" +
+		"版本 ID:\n" +
+		"fnv_c981d57061196b07\n" +
+		"开始时间: \n" +
+		"相应时间\n" +
+		"状态: ok\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"the requested item", "fnv_", "相应时间", "ID 为", "执行 ID:", "版本 ID:", "开始时间:",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("split Chinese audit field leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "ID 已定位") || !strings.Contains(got, "状态: ok") {
+		t.Fatalf("split Chinese audit field lost readable facts: %q", got)
+	}
+}
+
+func TestRedactChineseDossierPlaceholderTimelineRows(t *testing.T) {
+	input := "| 字段 | 值 |\n|---|---|\n| **函数** | audit_logger |\n| **版本** | `the requested item` |\n| **状态** | ✅ **ok** |\n\n" +
+		"| 事件 | 时间戳 |\n|---|---|\n| 开始 | `相应时间` |\n| 结束 | `相应时间` |\n| 耗时 | **139ms** |\n\n" +
+		"| 时间点 | 值 |\n|---|---|\n| 开始时间 | `相应时间` |\n| 结束时间 | `相应时间` |\n| 耗时 | **139ms** |\n\n" +
+		"⏱️ 计时\n\n| 指标 | 值 |\n|---|---|\n| 耗时 | 139ms |\n| 开始时间 | `相应时间` |\n| 结束时间 | `相应时间` |\n\n" +
+		"| 字段 | 值 |\n|---|---|\n| **记录创建时间** | `相应时间` |"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the requested item", "相应时间", "**版本**", "| 开始 |", "| 结束 |", "记录创建时间"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("dossier timeline placeholder leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "audit_logger") || !strings.Contains(got, "139ms") {
+		t.Fatalf("dossier timeline lost readable facts: %q", got)
+	}
+}
+
+func TestRedactChineseDossierTimingRowsWithoutTableContext(t *testing.T) {
+	input := "| **开始时间** | `相应时间` |\n\n| **结束时间** | `相应时间` |\n| **耗时** | **286 ms** |\n"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "开始时间") || strings.Contains(got, "结束时间") || strings.Contains(got, "相应时间") {
+		t.Fatalf("uncontextualized dossier timing rows leaked: %q", got)
+	}
+	if !strings.Contains(got, "286 ms") {
+		t.Fatalf("uncontextualized dossier timing rows lost elapsed time: %q", got)
+	}
+}
+
+func TestRedactEnglishNamedIDPlaceholderAssignment(t *testing.T) {
+	input := "I found the function; its id is `the requested item`.\n"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "the requested item") {
+		t.Fatalf("English named ID placeholder leaked: %q", got)
+	}
+	if !strings.Contains(got, "its id is shown in the adjacent result card") {
+		t.Fatalf("English named ID lost its honest pointer: %q", got)
+	}
+}
+
+func TestRedactEnglishGenericDossierPlaceholders(t *testing.T) {
+	input := "I found the function: `the requested item` named `audit_logger`.\n" +
+		"The function ID is `the requested item`.\n"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "the requested item") {
+		t.Fatalf("generic dossier placeholder leaked: %q", got)
+	}
+	if !strings.Contains(got, "I found the function named `audit_logger`.") ||
+		!strings.Contains(got, "The function ID is shown in the adjacent result card.") {
+		t.Fatalf("generic dossier placeholder lost readable context: %q", got)
+	}
+}
+
+func TestRedactChineseInlineAuditMachineField(t *testing.T) {
+	input := "从搜索结果中，我得到了执行 ID: the requested item\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"执行 ID:", "the requested item"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("inline Chinese audit field leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "我得到了执行记录（精确 ID 见相邻执行卡）") {
+		t.Fatalf("inline Chinese audit field lost readable pointer: %q", got)
+	}
+}
+
+func TestRedactChineseDossierPointerRows(t *testing.T) {
+	input := "| 字段 | 值 |\n|---|---|\n" +
+		"| **函数** | audit_logger |\n" +
+		"| **消息** | `the requested item` |\n" +
+		"| **工具调用** | `blk_1234567890abcdef` |\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the requested item", "blk_1234567890abcdef"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("dossier pointer row leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"See the exact message in the execution card.",
+		"See the exact tool call in the execution card.",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("dossier pointer row lost %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactEnglishDossierPointerRows(t *testing.T) {
+	input := "### Provenance (Tool-Call Details)\n| Field | Value |\n|---|---|\n" +
+		"| **Conversation ID** | `the requested item` |\n" +
+		"| **Message ID** | `the requested item` |\n" +
+		"| **Tool Call ID** | `the requested item` |"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the requested item", "Conversation ID", "Message ID", "Tool Call ID"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("English dossier pointer leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"See the exact conversation in the execution card.",
+		"See the exact message in the execution card.",
+		"See the exact tool call in the execution card.",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("English dossier pointer lost %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactEmptyChineseProvenanceDossierSection(t *testing.T) {
+	input := "## 执行审计档案\n\n### 溯源信息 (Provenance)\n| 字段 | 值 |\n|---|---|\n\n---\n"
+	got := redactOpaqueMachineValues(input)
+	if !strings.Contains(got, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty provenance table lost adjacent-card pointer: %q", got)
+	}
+}
+
+func TestStreamLLMRedactsEnglishDossierPointerRows(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "### Provenance (Tool-Call Details)\n| Field | Value |\n|---|---|\n"},
+		{Type: llminfra.EventText, Delta: "| **Conversation ID** | `the requested item` |\n| **Message ID** | `the requested item` |\n"},
+		{Type: llminfra.EventText, Delta: "| **Tool Call ID** | `the requested item` |\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "Conversation ID", "Message ID", "Tool Call ID"} {
+			if strings.Contains(delta.Chunk, forbidden) {
+				t.Fatalf("English dossier pointer leaked %q in live delta: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("English dossier pointer blocks = %+v", blocks)
+	}
+	for _, forbidden := range []string{"the requested item", "Conversation ID", "Message ID", "Tool Call ID"} {
+		if strings.Contains(blocks[0].Content, forbidden) {
+			t.Fatalf("English dossier pointer leaked %q in durable block: %q", forbidden, blocks[0].Content)
+		}
+	}
+}
+
+func TestRedactEnglishDossierIdentityRows(t *testing.T) {
+	input := "## Execution Audit Dossier\n| Field | Value |\n|---|---|\n" +
+		"| **Execution ID** | `the requested item` |\n" +
+		"| **Function ID** | `the requested item` |\n" +
+		"| **Version ID** | `the requested item` |\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the requested item", "Execution ID", "Function ID", "Version ID"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("English dossier identity row leaked %q: %q", forbidden, got)
+		}
+	}
+}
+
+func TestRedactEnglishDossierIdentityRowFragment(t *testing.T) {
+	input := "| **Execution ID** | `the requested item` |\n"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "the requested item") || strings.Contains(got, "Execution ID") {
+		t.Fatalf("English dossier identity fragment leaked: %q", got)
+	}
+}
+
+func TestStreamLLMRedactsSplitEnglishDossierIdentityRows(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "## Execution Audit Dossier\n| Field | Value |\n|---|---|\n| **"},
+		{Type: llminfra.EventText, Delta: "Execution ID** | `the requested item` |\n| **Function ID** | `the requested item` |\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "Execution ID", "Function ID"} {
+			if strings.Contains(delta.Chunk, forbidden) {
+				t.Fatalf("split English dossier identity leaked %q in live delta: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("split English dossier identity blocks = %+v", blocks)
+	}
+	for _, forbidden := range []string{"the requested item", "Execution ID", "Function ID"} {
+		if strings.Contains(blocks[0].Content, forbidden) {
+			t.Fatalf("split English dossier identity leaked %q in durable block: %q", forbidden, blocks[0].Content)
+		}
+	}
+}
+
+func TestRedactEnglishDossierFieldLines(t *testing.T) {
+	input := "The user wants the complete execution audit dossier.\n" +
+		"- functionId: from the search result\n" +
+		"- executionId: from the run result\n" +
+		"I do not see an executionId in the result.\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"functionId:", "executionId:", "executionId"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("English dossier field line leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "函数标识：from the search result") ||
+		!strings.Contains(got, "执行标识：from the run result") ||
+		!strings.Contains(got, "execution record reference in the result") {
+		t.Fatalf("English dossier field line lost readable meaning: %q", got)
+	}
+}
+
+func TestRedactChineseDossierFieldLines(t *testing.T) {
+	input := "## 执行审计档案\n### 工具调用详情\n" +
+		"- **触发方式**: chat（聊天触发）\n" +
+		"- **执行 ID**: 见上方工具卡片\n" +
+		"- **函数版本 ID**: 见上方工具卡片\n" +
+		"- **会话 ID**: 见上方工具卡片\n" +
+		"- **消息 ID**: 见上方工具卡片\n" +
+		"- **工具调用 ID**: 见上方工具卡片\n" +
+		"我没有看到 executionId，也没有看到 toolCallId。\n"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"执行 ID", "函数版本 ID", "会话 ID", "消息 ID", "工具调用 ID", "executionId", "toolCallId"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("Chinese dossier machine field leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"本次执行", "函数版本", "当前会话", "当前消息", "工具调用"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("Chinese dossier field lost human label %q: %q", expected, got)
+		}
+	}
+}
+
+func TestTextRedactorDoesNotFlashChineseDossierBulletPrefix(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"## 执行审计档案\n\n### 时间线\n- **",
+		"开始时间**: 相应时间\n### 输入参数\n",
+	} {
+		piece := redactor.Write(delta)
+		if strings.Contains(piece, "- **") {
+			t.Fatalf("Chinese dossier bullet prefix flashed in live delta: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "- **") || strings.Contains(got.String(), "相应时间") {
+		t.Fatalf("Chinese dossier bullet/timing residue remained: %q", got.String())
+	}
+}
+
+func TestStreamLLMRedactsDossierFieldsAfterContextDelta(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "用户要求查看完整的执行审计档案，包括输入和工具调用详情。"},
+		{Type: llminfra.EventReasoning, Delta: "我没有看到 executionId，也没有看到 toolCallId。"},
+		{Type: llminfra.EventText, Delta: "## 执行审计档案\n### 工具调用详情\n- **执行 ID**: "},
+		{Type: llminfra.EventText, Delta: "见上方工具卡片\n- **函数版本 ID**: 见上方工具卡片\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"executionId", "toolCallId", "执行 ID", "函数版本 ID"} {
+			if strings.Contains(delta.Chunk, forbidden) {
+				t.Fatalf("dossier field leaked %q in live delta: %q", forbidden, delta.Chunk)
+			}
+		}
+		if strings.Contains(delta.Chunk, "- **\n") || strings.HasSuffix(delta.Chunk, "- **") {
+			t.Fatalf("dossier bullet prefix leaked in live delta: %q", delta.Chunk)
+		}
+	}
+	for _, block := range blocks {
+		for _, forbidden := range []string{"executionId", "toolCallId", "执行 ID", "函数版本 ID"} {
+			if strings.Contains(block.Content, forbidden) {
+				t.Fatalf("dossier field leaked %q in durable block: %q", forbidden, block.Content)
+			}
+		}
+		if strings.Contains(block.Content, "- **\n") || strings.HasSuffix(block.Content, "- **") {
+			t.Fatalf("dossier bullet prefix leaked in durable block: %q", block.Content)
+		}
+	}
+}
+
+func TestRedactEmptyChineseToolCallDossierSection(t *testing.T) {
+	input := "### 工具调用详情 (Tool-Call Details)\n" +
+		"| 字段 | 值 |\n|------|-----|\n\n" +
+		"### 汇总统计\n- 总执行次数：1\n"
+	got := redactOpaqueMachineValues(input)
+	if !strings.Contains(got, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty tool-call dossier section lost honest pointer: %q", got)
+	}
+}
+
+func TestRedactEmptyChineseToolCallDossierListSection(t *testing.T) {
+	input := "## 执行审计档案\n\n## 消息与工具调用详情\n- 对话已定位\n\n## 执行统计\n该函数共有 1 次执行记录。"
+	got := redactOpaqueMachineValues(input)
+	if !strings.Contains(got, "- 对话已定位") ||
+		!strings.Contains(got, "- 精确消息和工具调用见上方执行卡片。") {
+		t.Fatalf("location-only dossier list lost honest pointer: %q", got)
+	}
+}
+
+func TestRedactEmptyChineseAssociationDossierSection(t *testing.T) {
+	input := "## 执行审计档案\n\n### 关联标识\n\n| 字段 | 值 |\n|---|---|\n"
+	got := redactOpaqueMachineValues(input)
+	if !strings.Contains(got, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty association dossier section lost honest pointer: %q", got)
+	}
+	input = "## 执行审计档案\n\n### 关联上下文\n\n| 字段 | 值 |\n|---|---|\n"
+	got = redactOpaqueMachineValues(input)
+	if !strings.Contains(got, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty association context section lost honest pointer: %q", got)
+	}
+	input = "## 执行审计档案\n\n### 关联信息\n\n| 字段 | 值 |\n|---|---|\n"
+	got = redactOpaqueMachineValues(input)
+	if !strings.Contains(got, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty association info section lost honest pointer: %q", got)
+	}
+}
+
+func TestTextRedactorHoldsEmptyAssociationDossierTableUntilClose(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	got.WriteString(redactor.Write("## 执行审计档案\n\n### 关联标识\n\n"))
+	got.WriteString(redactor.Write("| 字段 | 值 |\n|---|---|\n"))
+	if strings.Contains(got.String(), "| 字段 | 值 |") {
+		t.Fatalf("empty association table flashed before close: %q", got.String())
+	}
+	got.WriteString(redactor.Flush())
+	if !strings.Contains(got.String(), "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty association table lost close pointer: %q", got.String())
+	}
+	var infoRedactor textRedactor
+	var info strings.Builder
+	info.WriteString(infoRedactor.Write("## 执行审计档案\n\n### 关联信息\n\n"))
+	info.WriteString(infoRedactor.Write("| 字段 | 值 |\n|---|---|\n"))
+	if strings.Contains(info.String(), "| 字段 | 值 |") {
+		t.Fatalf("empty association info table flashed before close: %q", info.String())
+	}
+	info.WriteString(infoRedactor.Flush())
+	if !strings.Contains(info.String(), "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("empty association info table lost close pointer: %q", info.String())
+	}
+}
+
+func TestTextRedactorRemovesChineseTimingPlaceholderAcrossChunks(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"### ⏱️ 计时\n",
+		"| 指标 | 值 |\n|---|---|\n",
+		"| **开始时间** | `相应时间` |\n",
+		"| **结束时间** | `相应时间` |\n",
+		"| **耗时** | **286 毫秒** |\n",
+	} {
+		piece := redactor.Write(delta)
+		got.WriteString(piece)
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "相应时间") || strings.Contains(got.String(), "开始时间") || strings.Contains(got.String(), "结束时间") {
+		t.Fatalf("streamed Chinese timing placeholder leaked: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "286 毫秒") {
+		t.Fatalf("streamed Chinese timing lost elapsed value: %q", got.String())
+	}
+	var extra textRedactor
+	extraOutput := extra.Write("| **开始时间** | `相应时间` |\n\n") + extra.Flush()
+	if strings.Contains(extraOutput, "相应时间") || strings.Contains(extraOutput, "开始时间") {
+		t.Fatalf("streamed timing row with trailing blank leaked: %q", extraOutput)
+	}
+}
+
+func TestStreamLLMRemovesChineseTimingPlaceholderWithTrailingBlank(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "### 时间线\n| 时间点 | 值 |\n|---|---|\n| 开始时间 | `相应时间` |\n\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		if strings.Contains(delta.Chunk, "相应时间") || strings.Contains(delta.Chunk, "开始时间") {
+			t.Fatalf("live stream timing placeholder leaked: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 || strings.Contains(blocks[0].Content, "相应时间") || strings.Contains(blocks[0].Content, "开始时间") {
+		t.Fatalf("durable stream timing placeholder leaked: %+v", blocks)
+	}
+}
+
+func TestTextRedactorRemovesChineseTimingAfterIncrementalDossierChunks(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"## audit_logger ", "完整执行档案\n\n### ", "基本信息\n",
+		"| 字段 | 值 |\n|---|---|\n| 状态 | ✅ **ok** |\n",
+		"\n### 输入 / 输出\n", "- **输出**: `{\"items\": [1, 2, 3]}`\n\n### ",
+		"时间线\n", "| 时间点 | 值 |\n", "|---|---|\n",
+		"| 开始时间 | `相应时间` |\n", "| 结束时间 | `相应时间` |\n",
+		"| 记录", "| 耗时 | **119 ms** |\n\n### 日志\n",
+	} {
+		got.WriteString(redactor.Write(delta))
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "相应时间") || strings.Contains(got.String(), "开始时间") || strings.Contains(got.String(), "结束时间") {
+		t.Fatalf("incremental dossier timing placeholder leaked: %q", got.String())
+	}
+}
+
+func TestTextRedactorRemovesChineseIDPlaceholderAcrossChunks(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"audit_logger 函数，",
+		"ID 是 ",
+		"the requested item。\n\n",
+		"现在我需要：\n",
+	} {
+		got.WriteString(redactor.Write(delta))
+	}
+	got.WriteString(redactor.Flush())
+	if strings.Contains(got.String(), "the requested item") {
+		t.Fatalf("split Chinese ID placeholder leaked: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "ID 已定位") {
+		t.Fatalf("split Chinese ID lost its honest replacement: %q", got.String())
+	}
+}
+
+func TestTextRedactorHandlesActualExecutionDossierChunkBoundaries(t *testing.T) {
+	var redactor textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"## audit_logger ",
+		"完整执行档案\n\n### ",
+		"基本信息\n",
+		"| 字段 | 值 |\n|---|---|\n| 状态 | ✅ **ok** |\n",
+		"\n### 输入 / 输出\n",
+		"- **输出**: `{\"items\": [1, 2, 3]}`\n\n### ",
+		"时间线\n",
+		"| 时间点 | 值 |\n",
+		"|---|---|\n",
+		"| 开始时间 | `相应时间` |\n",
+		"| 结束时间 | `相应时间` |\n",
+		"| 记录",
+		"| 耗时 | **119 ms** |\n\n### 日志\n",
+		"```\naudit-start\naudit-finish\n```\n\n### 关联上下文\n",
+		"| 字段 | 值 |\n|---|---|\n",
+		"\n### 错误信息\n",
+	} {
+		got.WriteString(redactor.Write(delta))
+	}
+	got.WriteString(redactor.Flush())
+	output := got.String()
+	if strings.Contains(output, "相应时间") || strings.Contains(output, "| 开始时间 |") || strings.Contains(output, "| 结束时间 |") {
+		t.Fatalf("actual dossier timing placeholder leaked: %q", output)
+	}
+	if strings.Contains(output, "| 字段 | 值 |\n|---|---|") && !strings.Contains(output, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("actual empty association table remained opaque: %q", output)
+	}
+	if !strings.Contains(output, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("actual empty association section lost its honest pointer: %q", output)
+	}
+}
+
+func TestStreamLLMRedactsCompactChineseDossierFieldRows(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "## audit_logger 完整执行审计档案\n\n"},
+		{Type: llminfra.EventText, Delta: "**执行 ID:** the requested item\n\n"},
+		{Type: llminfra.EventText, Delta: "### 基本信息\n"},
+		{Type: llminfra.EventText, Delta: "- **函数 ID:** the requested item\n"},
+		{Type: llminfra.EventText, Delta: "- **版本 ID:** the requested item\n"},
+		{Type: llminfra.EventText, Delta: "- **状态:** ok ✓\n- **触发方式:** chat\n\n"},
+		{Type: llminfra.EventText, Delta: "### 时间信息\n"},
+		{Type: llminfra.EventText, Delta: "- **开始时间:**相应时间\n"},
+		{Type: llminfra.EventText, Delta: "- **结束时间:**相应时间\n"},
+		{Type: llminfra.EventText, Delta: "- **总耗时:** 133 毫秒\n\n"},
+		{Type: llminfra.EventText, Delta: "### 追踪信息\n"},
+		{Type: llminfra.EventText, Delta: "- **会话 ID:** the requested item\n"},
+		{Type: llminfra.EventText, Delta: "- **消息 ID:** the requested item\n"},
+		{Type: llminfra.EventText, Delta: "- **工具调用 ID:** the requested item\n\n"},
+		{Type: llminfra.EventText, Delta: "函数成功执行，日志为 audit-start / audit-finish。\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "the referenced item", "相应时间", "执行 ID", "函数 ID", "版本 ID", "会话 ID", "消息 ID", "工具调用 ID"} {
+			if strings.Contains(delta.Chunk, forbidden) {
+				t.Fatalf("compact Chinese dossier leaked %q in live delta: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("compact Chinese dossier blocks = %+v", blocks)
+	}
+	for _, forbidden := range []string{"the requested item", "the referenced item", "相应时间", "执行 ID", "函数 ID", "版本 ID", "会话 ID", "消息 ID", "工具调用 ID"} {
+		if strings.Contains(blocks[0].Content, forbidden) {
+			t.Fatalf("compact Chinese dossier leaked %q in durable block: %q", forbidden, blocks[0].Content)
+		}
+	}
+	if !strings.Contains(blocks[0].Content, "133 毫秒") || !strings.Contains(blocks[0].Content, "audit-start") {
+		t.Fatalf("compact Chinese dossier lost readable facts: %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLMRedactsFoundPlaceholderAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "I found "},
+		{Type: llminfra.EventReasoning, Delta: "it: `"},
+		{Type: llminfra.EventReasoning, Delta: "the requested item`. Now I need to run it.\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok && strings.Contains(delta.Chunk, "the requested item") {
+			t.Fatalf("found placeholder leaked in live reasoning: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("found placeholder blocks = %+v", blocks)
+	}
+	if strings.Contains(blocks[0].Content, "the requested item") || !strings.Contains(blocks[0].Content, "I found it") {
+		t.Fatalf("found placeholder was not honestly rewritten: %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLMRedactsChineseSearchIDWithTrailingSentence(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "找到了，audit_logger"},
+		{Type: llminfra.EventText, Delta: "的 ID 是 `the requested item`。现在执行它。\n\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok && (strings.Contains(delta.Chunk, "the requested item") || strings.Contains(delta.Chunk, "ID 是")) {
+			t.Fatalf("Chinese search ID leaked in live text: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("Chinese search ID blocks = %+v", blocks)
+	}
+	if strings.Contains(blocks[0].Content, "the requested item") || strings.Contains(blocks[0].Content, "ID 是") {
+		t.Fatalf("Chinese search ID leaked in durable text: %q", blocks[0].Content)
+	}
+	if !strings.Contains(blocks[0].Content, "ID 已定位") || !strings.Contains(blocks[0].Content, "现在执行它") {
+		t.Fatalf("Chinese search ID lost readable facts: %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLMRedactsChineseSearchIDWithQuotedEntity(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventText, Delta: "找到了，`"},
+		{Type: llminfra.EventText, Delta: "audit_logger` "},
+		{Type: llminfra.EventText, Delta: "的 ID 是 `the requested item`。现在执行它。\n\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok && (strings.Contains(delta.Chunk, "the requested item") || strings.Contains(delta.Chunk, "ID 是")) {
+			t.Fatalf("quoted Chinese search ID leaked in live text: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 1 {
+		t.Fatalf("quoted Chinese search ID blocks = %+v", blocks)
+	}
+	if strings.Contains(blocks[0].Content, "the requested item") || strings.Contains(blocks[0].Content, "ID 是") {
+		t.Fatalf("quoted Chinese search ID leaked in durable text: %q", blocks[0].Content)
+	}
+	if !strings.Contains(blocks[0].Content, "ID 已定位") || !strings.Contains(blocks[0].Content, "现在执行它") {
+		t.Fatalf("quoted Chinese search ID lost readable facts: %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLMRedactsObservedRunDossierPlaceholders(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The function was found — done, it's `the requested item`"},
+		{Type: llminfra.EventReasoning, Delta: ". I have the execution ID `the requested item`."},
+		{Type: llminfra.EventText, Delta: "找到了，函数名为 **audit_logger**，ID 为 `the requested item`。现在先查看其完整定义，然后执行它。\n\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if ok && (strings.Contains(delta.Chunk, opaqueEntityPlaceholder) || strings.Contains(delta.Chunk, legacyEntityPlaceholder)) {
+			t.Fatalf("observed run-dossier placeholder leaked in live stream: %q", delta.Chunk)
+		}
+	}
+	if len(blocks) != 2 {
+		t.Fatalf("observed run-dossier blocks = %+v", blocks)
+	}
+	for _, block := range blocks {
+		if strings.Contains(block.Content, opaqueEntityPlaceholder) || strings.Contains(block.Content, legacyEntityPlaceholder) {
+			t.Fatalf("observed run-dossier placeholder leaked in durable block: %q", block.Content)
+		}
+	}
+	if !strings.Contains(blocks[1].Content, "函数名为 **audit_logger**") || !strings.Contains(blocks[1].Content, "ID 已定位") {
+		t.Fatalf("observed Chinese search result lost readable context: %q", blocks[1].Content)
+	}
+}
+
+func TestStreamLLMRedactsR25RunDossierWireShapes(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "I found the function: id is \""},
+		{Type: llminfra.EventReasoning, Delta: "the requested item\", name is \"audit_logger\".\n"},
+		{Type: llminfra.EventReasoning, Delta: "I found it: the requested item. Now I need to run it.\n"},
+		{Type: llminfra.EventReasoning, Delta: "1. 找到函数 ✓ (已找到 the requested item)\n现在我有了执行 ID \"the requested item\"，继续读取记录。\n"},
+		{Type: llminfra.EventText, Delta: "## 执行审计档案\n\n| 字段 | 详情 |\n|---|---|\n| **执行 ID** | `the requested item` |\n| **函数 ID** | `the requested item` |\n| **版本 ID** | `the requested item` |\n| **状态** | ✅ **ok**（成功） |\n| **触发方式** | chat（对话触发） |\n\n### 时间线\n| 时间点 | 值 |\n|---|---|\n| **耗时** | **136 ms** |\n"},
+		{Type: llminfra.EventText, Delta: "| **开始时间** | `相应时间` |\n"},
+		{Type: llminfra.EventText, Delta: "| **结束时间** | `相应时间` |\n\n### 关联追踪\n| 字段 | 值 |\n|---|---|\n"},
+		{Type: llminfra.EventText, Delta: "| **对话 ID** | `the requested item` |\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "相应时间", "开始时间", "结束时间", "对话 ID"} {
+			if strings.Contains(delta.Chunk, forbidden) {
+				t.Fatalf("r25 wire shape leaked %q in live delta: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 2 {
+		t.Fatalf("r25 wire shape blocks = %+v", blocks)
+	}
+	for _, block := range blocks {
+		for _, forbidden := range []string{"the requested item", "相应时间", "开始时间", "结束时间", "对话 ID"} {
+			if strings.Contains(block.Content, forbidden) {
+				t.Fatalf("r25 wire shape leaked %q in durable block: %q", forbidden, block.Content)
+			}
+		}
+	}
+	if !strings.Contains(blocks[1].Content, "136 ms") {
+		t.Fatalf("r25 wire shape lost elapsed time: %q", blocks[1].Content)
+	}
+	if !strings.Contains(blocks[1].Content, "| **状态** | ✅ **ok**（成功） |") ||
+		!strings.Contains(blocks[1].Content, "| **触发方式** | chat（对话触发） |") {
+		t.Fatalf("r25 wire shape lost readable dossier fields: %q", blocks[1].Content)
+	}
+	if !strings.Contains(blocks[1].Content, "| 详情 | 精确消息和工具调用见上方执行卡片。 |") {
+		t.Fatalf("r25 wire shape lost empty association pointer: %q", blocks[1].Content)
+	}
+}
+
+func TestStreamLLMRedactsObservedExecutionIDReleaseChunks(t *testing.T) {
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	for name, script := range map[string][]llminfra.StreamEvent{
+		"english": {
+			{Type: llminfra.EventReasoning, Delta: "The user wants the complete execution audit dossier. I have"},
+			{Type: llminfra.EventReasoning, Delta: " the execution ID `"},
+			{Type: llminfra.EventReasoning, Delta: "the requested item`. Now I "},
+			{Type: llminfra.EventReasoning, Delta: "need to call `get_function_execution` to get the full record including logs and all details"},
+			finishEv(),
+		},
+		"chinese-camel-case": {
+			{Type: llminfra.EventReasoning, Delta: "我已经有了 search_function_executions 的结果，显示最近一次执行的 ID 已定位。现在我需要使用 get_function_execution 来获取完整的执行记录。\n\n"},
+			{Type: llminfra.EventReasoning, Delta: "get_function_execution 需要 executionId "},
+			{Type: llminfra.EventReasoning, Delta: "参数，我已经有了："},
+			{Type: llminfra.EventReasoning, Delta: "the requested item"},
+			finishEv(),
+		},
+	} {
+		client := &fakeClient{scripts: [][]llminfra.StreamEvent{script}}
+		bridge := &captureBridge{}
+		blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+		for _, event := range bridge.events {
+			delta, ok := event.Frame.(streamdomain.Delta)
+			if ok && (strings.Contains(delta.Chunk, opaqueEntityPlaceholder) || strings.Contains(delta.Chunk, legacyEntityPlaceholder)) {
+				t.Fatalf("%s execution-ID release leaked placeholder in live delta: %q", name, delta.Chunk)
+			}
+		}
+		if len(blocks) != 1 {
+			t.Fatalf("%s blocks = %+v", name, blocks)
+		}
+		if strings.Contains(blocks[0].Content, opaqueEntityPlaceholder) || strings.Contains(blocks[0].Content, legacyEntityPlaceholder) {
+			t.Fatalf("%s execution-ID release leaked placeholder in durable block: %q", name, blocks[0].Content)
+		}
+	}
+}
+
+func TestRedactReasoningDoesNotExposeHypotheticalOrLocatedIDs(t *testing.T) {
+	input := "The actual ID (which would be something like `the requested item`) is not needed.\n" +
+		"The execution failed (which should be something like `the requested item`).\n" +
+		"The actual function ID (which would be something like `the requested item`).\n" +
+		"找到了 audit_logger 的 ID：the requested item。现在执行它。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"the requested item", "the referenced item", "which would be something like", "which should be something like"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("reasoning ID placeholder leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "找到了 audit_logger 的 ID 已定位") || !strings.Contains(got, "The actual ID") {
+		t.Fatalf("reasoning lost readable context: %q", got)
+	}
+}
+
+func TestStreamLLM_RedactsSplitHypotheticalIDPlaceholder(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The execution failed (which should be something like `"},
+		{Type: llminfra.EventReasoning, Delta: "the requested item`). Let me search again."},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{"the requested item", "which should be something like"} {
+			if strings.Contains(delta.Chunk, forbidden) {
+				t.Fatalf("live hypothetical reasoning leaked %q: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 1 || blocks[0].Type != messagesdomain.BlockTypeReasoning {
+		t.Fatalf("reasoning blocks = %+v", blocks)
+	}
+	if blocks[0].Content != "The execution failed. Let me search again." {
+		t.Fatalf("durable hypothetical reasoning = %q", blocks[0].Content)
+	}
+}
+
+func TestStreamLLM_RedactsRunDossierPlaceholdersAcrossChunks(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{{
+		{Type: llminfra.EventReasoning, Delta: "The actual function ID (which would be something like `"},
+		{Type: llminfra.EventReasoning, Delta: "the requested item`). I found the latest execution ID `the requested item`.\n"},
+		{Type: llminfra.EventText, Delta: "好的，以下是完整执行档案：\n\n- **执行 ID**: `"},
+		{Type: llminfra.EventText, Delta: "the requested item`  \n- **版本 ID**: `the requested item`  \n- **会话 ID**: `the requested item`\n- **工具调用 ID**: `the requested item`\n\n| 字段 | 值 |\n|---|---|\n| **消息** | `the requested item` |\n| **工具调用** | `blk_1234567890abcdef` |\n\n日志：audit-finish\n"},
+		finishEv(),
+	}}}
+	noBuild := func(string) (toolapp.BuildSpec, bool) { return toolapp.BuildSpec{}, false }
+	bridge := &captureBridge{}
+	blocks, _, _, _, _, _ := streamLLM(streamCtx(bridge), client, llminfra.Request{}, noBuild, nil)
+	for _, event := range bridge.events {
+		delta, ok := event.Frame.(streamdomain.Delta)
+		if !ok {
+			continue
+		}
+		for _, forbidden := range []string{
+			"the requested item", "the referenced item", "which would be something like",
+			"执行 ID", "版本 ID", "会话 ID", "工具调用 ID",
+		} {
+			if strings.Contains(strings.ToLower(delta.Chunk), strings.ToLower(forbidden)) {
+				t.Fatalf("live run dossier leaked %q: %q", forbidden, delta.Chunk)
+			}
+		}
+	}
+	if len(blocks) != 2 {
+		t.Fatalf("run dossier blocks = %+v", blocks)
+	}
+	for _, block := range blocks {
+		for _, forbidden := range []string{"the requested item", "the referenced item", "which would be something like", "执行 ID", "版本 ID", "会话 ID", "工具调用 ID"} {
+			if strings.Contains(strings.ToLower(block.Content), strings.ToLower(forbidden)) {
+				t.Fatalf("durable run dossier leaked %q: %q", forbidden, block.Content)
+			}
+		}
+	}
+	if !strings.Contains(blocks[1].Content, "日志：audit-finish") {
+		t.Fatalf("run dossier lost readable log content: %q", blocks[1].Content)
+	}
+}
+
+func TestTextRedactorRedactsHostedFunctionFailureChunking(t *testing.T) {
+	chunks := []string{
+		"调用 `get_function",
+		"` 并传入",
+		" `fn",
+		"_000",
+		"0",
+		"0000",
+		"0000",
+		"0000",
+		"` 后，",
+		"返回了 **\"function",
+		" not found\"**",
+		"。\n\n**实际",
+		"失败原因：** ",
+		"该",
+		"函数 ID `fn",
+		"_00",
+		"0000",
+		"0000",
+		"0",
+		"0000",
+		"0` 在工作",
+		"区中并不存在",
+		"。",
+		"这是一个格式合法但",
+		"虚构",
+		"的 ID——当前",
+		"工作区里没有任何",
+		"函数与此",
+		" ID 对应，",
+		"因此系统无法",
+		"查找到对应的函数",
+		"记录",
+		"，直接返回了",
+		"\"未",
+		"找到\"的错误。",
+		"\n\n",
+		"如需查看当前已有的",
+		"函数，可以使用 `search_function`",
+		"（不传 query 即可列出全部）",
+		"来确认实际存在的函数 ID。",
+	}
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range chunks {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "并传入的"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("hosted failure leaked %q in live delta %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "并传入的"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("hosted failure leaked %q in live stream %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{"调用 `get_function` 后", "该函数在工作区中并不存在", "当前工作区里没有任何函数与之对应"} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("hosted failure lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestRedactChineseFunctionSuggestionDropsMachineIDLabel(t *testing.T) {
+	got := redactOpaqueMachineValues("如需查看当前已有的函数，可以使用 `search_function` 来确认实际存在的函数 ID。")
+	if strings.Contains(got, "函数 ID") {
+		t.Fatalf("function suggestion leaked machine label: %q", got)
+	}
+	if !strings.Contains(got, "确认实际存在的函数") {
+		t.Fatalf("function suggestion lost readable wording: %q", got)
+	}
+}
+
+func TestTextRedactorRedactsChineseCreationFailureChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"失败原因：该输入在系统中并不存在。由于 `fn_",
+		"0000000000000000",
+		"` 从未被创建",
+		"过，系统无法找到对应的函数记录。",
+	} {
+		piece := redactor.Write(chunk)
+		if strings.Contains(piece, "该目标") || strings.Contains(piece, "fn_") {
+			t.Fatalf("creation failure leaked redaction artifact: %q", piece)
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"该目标", "fn_", "the requested item", "函数 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("creation failure leaked %q: %q", forbidden, live.String())
+		}
+	}
+	if !strings.Contains(live.String(), "由于这个输入从未被创建过") {
+		t.Fatalf("creation failure lost natural wording: %q", live.String())
+	}
+}
+
+func TestTextRedactorRedactsChineseFunctionShapeChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"get_function 要求传入一个真实已注册的函数 ID（形如 `fn",
+		"_...`），而这个 ID 是虚构的，",
+		"系统找不到对应的函数记录。",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "该目标", "函数 ID", "这个 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("function-shape failure leaked %q in %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "该目标", "函数 ID", "这个 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("function-shape failure leaked %q: %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{"函数标识", "这个输入尚未注册"} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("function-shape failure lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestTextRedactorRedactsChineseFunctionReferenceVariants(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"然后用一个不存在但格式正确的 ID `the requested item",
+		"` 来调用 get_function。",
+		"而该 ID 对应的函数从未被创建过，因此返回失败。",
+		"找到实际存在的 `the requested item` ID 后再调用 get_function。",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"the requested item", "该目标", "函数 ID", "这个 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("function-reference variant leaked %q in %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"the requested item", "该目标", "函数 ID", "这个 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("function-reference variant leaked %q: %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{"不存在但格式正确的标识来调用", "这个输入对应的函数从未被创建过", "找到实际存在的函数后再调用"} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("function-reference variant lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestTextRedactorRedactsChineseIDFabricatedFunctionChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"失败原因：该 ID `fn_0000000000000000` 是一个格式合法但并不存在的函数标识符。",
+		"工作区中没有注册过这个 ID 对应的函数，所以系统无法找到。简而言之——ID 格式没问题。",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "该 ID", "这个 ID", "该目标", "函数 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("fabricated-function explanation leaked %q in %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "该 ID", "这个 ID", "该目标", "函数 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("fabricated-function explanation leaked %q: %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{"这个输入是一个格式合法但并不存在的函数标识符", "工作区中没有注册过与这个输入对应的函数", "简而言之——格式没问题"} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("fabricated-function explanation lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestTextRedactorRedactsR24ChineseFailureChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	chunks := []string{
+		"用户要求我调用 get_function，使用一个不存在但格式正确的 ID：",
+		"fn_0000000000000000",
+		"。",
+		"调用 `",
+		"get_function` ",
+		"时传入了 `",
+		"fn",
+		"_000",
+		"0",
+		"0000",
+		"0000",
+		"0000",
+		"0000",
+		"` 这个 ",
+		"ID，系统返回了 **\"function not found\"**。",
+	}
+	for _, chunk := range chunks {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("r24 failure leaked %q in live delta %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("r24 failure leaked %q in live stream %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{"使用一个不存在但格式正确的函数标识", "调用 `get_function` 后"} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("r24 failure lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestTextRedactorRedactsBareMissingIDColonChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"用户要求我调用 get_function，传入一个不存在但格式正确的 ID：",
+		"fn_0000000000000000",
+		"。不能重试。",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("bare missing-ID colon variant leaked %q in live delta %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("bare missing-ID colon variant leaked %q in live stream %q", forbidden, live.String())
+		}
+	}
+	if !strings.Contains(live.String(), "传入一个不存在但格式正确的函数标识") {
+		t.Fatalf("bare missing-ID colon variant lost readable wording: %q", live.String())
+	}
+}
+
+func TestTextRedactorRedactsR26DirectCallVariants(t *testing.T) {
+	tests := []struct {
+		name   string
+		chunks []string
+		want   []string
+	}{
+		{
+			name: "english exact id reference",
+			chunks: []string{
+				"Then call get_function with the exact ID ",
+				"fn_0000000000000000",
+				". Do not retry.",
+			},
+			want: []string{"with the exact function reference"},
+		},
+		{
+			name: "chinese missing id direct call",
+			chunks: []string{
+				"然后用一个不存在但格式正确的 ID ",
+				"fn_0000000000000000",
+				" 调用 get_function。",
+			},
+			want: []string{"不存在但格式正确的函数标识调用"},
+		},
+		{
+			name: "chinese fabricated id direct call",
+			chunks: []string{
+				"用这个虚构的标识 ",
+				"fn_0000000000000000",
+				" 调用 get_function。",
+			},
+			want: []string{"用一个不存在的函数标识调用"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var redactor textRedactor
+			var live strings.Builder
+			for _, chunk := range tc.chunks {
+				piece := redactor.Write(chunk)
+				for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "这个 ID"} {
+					if strings.Contains(piece, forbidden) {
+						t.Fatalf("direct-call variant leaked %q in live delta %q", forbidden, piece)
+					}
+				}
+				live.WriteString(piece)
+			}
+			live.WriteString(redactor.Flush())
+			for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "这个 ID"} {
+				if strings.Contains(live.String(), forbidden) {
+					t.Fatalf("direct-call variant leaked %q in live stream %q", forbidden, live.String())
+				}
+			}
+			for _, expected := range tc.want {
+				if !strings.Contains(live.String(), expected) {
+					t.Fatalf("direct-call variant lost readable wording %q: %q", expected, live.String())
+				}
+			}
+		})
+	}
+}
+
+func TestTextRedactorRedactsR27ProviderChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"Then call get_function with",
+		" the exact ID \"",
+		"fn_00",
+		"00",
+		"0000",
+		"0000",
+		"0000",
+		"0000",
+		"\"\n",
+		"3. Do not use any other tool.",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("r27 provider chunking leaked %q in live delta %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("r27 provider chunking leaked %q in live stream %q", forbidden, live.String())
+		}
+	}
+	if !strings.Contains(live.String(), "with the exact function reference") {
+		t.Fatalf("r27 provider chunking lost natural wording: %q", live.String())
+	}
+}
+
+func TestTextRedactorRedactsR27ChineseModelVariants(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"然后用一个不存在的 ID `fn_0000000000000000` 调用 get_function。",
+		"这个 ID `fn_0000000000000000` 在系统中并不存在。当前工作区里没有注册过对应这个 ID 的函数。",
+		"`get_function` 要求传入的是一个真实存在的、已创建的函数 ID（格式为 `fn_` 前缀 + 实际分配的不透明标识符），而这里提供的是一个虚构的、全零的占位 ID，因此无法找到。",
+		"如需获取真实函数的详情，可以先通过 `search_function` 查找现有函数，拿到正确的 `fn_...` ID 后再调用 `get_function`。",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "这个 ID", "对应这个 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("r27 Chinese variant leaked %q in live delta %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "这个 ID", "对应这个 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("r27 Chinese variant leaked %q in live stream %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{
+		"一个不存在的函数标识调用",
+		"这个输入在系统中并不存在",
+		"当前工作区里没有注册过对应的函数",
+		"格式合法",
+		"拿到正确的函数后再调用",
+	} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("r27 Chinese variant lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestTextRedactorRedactsR28ProviderChunking(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"用户要求我调用 get",
+		"_function，传入一个",
+		"不存在",
+		"但格式正确的 ID",
+		"：",
+		"fn_00",
+		"00",
+		"0000",
+		"0000",
+		"0000",
+		"。",
+		"记录的值。系统在",
+		"根据该 ID ",
+		"查找函数",
+		"时，找不到任何匹配项。",
+	} {
+		piece := redactor.Write(chunk)
+		for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "这个 ID", "该 ID"} {
+			if strings.Contains(piece, forbidden) {
+				t.Fatalf("r28 provider chunking leaked %q in live delta %q", forbidden, piece)
+			}
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "函数 ID", "这个 ID", "该 ID"} {
+		if strings.Contains(live.String(), forbidden) {
+			t.Fatalf("r28 provider chunking leaked %q in live stream %q", forbidden, live.String())
+		}
+	}
+	for _, expected := range []string{"传入一个不存在但格式正确的函数标识", "系统在根据这个输入查找函数"} {
+		if !strings.Contains(live.String(), expected) {
+			t.Fatalf("r28 provider chunking lost readable wording %q: %q", expected, live.String())
+		}
+	}
+}
+
+func TestTextRedactorRedactsR29ProviderVariants(t *testing.T) {
+	tests := []struct {
+		name   string
+		chunks []string
+		want   []string
+	}{
+		{
+			name: "english nonexistent id reasoning",
+			chunks: []string{
+				"The user wants me to call get_function with the ",
+				"nonexistent ID ",
+				"the requested item.",
+			},
+			want: []string{"with the nonexistent function reference"},
+		},
+		{
+			name: "chinese tool id assignment",
+			chunks: []string{
+				"调用 `get_function",
+				"` 时传入",
+				"的 ID 为 `",
+				"fn_0000",
+				"000000000000",
+				"`，系统返回了失败。",
+			},
+			want: []string{"时传入的目标"},
+		},
+		{
+			name: "chinese id format structure",
+			chunks: []string{
+				"它虽然格式上符合 `",
+				"fn_",
+				"` 前缀 + 16 位十六进制字符的 ID 结构，但实际上不存在。",
+			},
+			want: []string{"符合合法的函数标识格式"},
+		},
+		{
+			name:   "chinese bare missing id label",
+			chunks: []string{"这个 ID 并不存在于当前工作区的函数目录中。"},
+			want:   []string{"这个输入并不存在于"},
+		},
+		{
+			name:   "chinese natural function requirement",
+			chunks: []string{"要成功获取函数信息，需要传入一个真实存在的函数 ID（例如工作区中的函数）。"},
+			want:   []string{"需要传入一个真实存在的函数"},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var redactor textRedactor
+			var live strings.Builder
+			for _, chunk := range tc.chunks {
+				piece := redactor.Write(chunk)
+				for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID", "functionId", "不透明 ID", "the ID shown in the adjacent result card"} {
+					if strings.Contains(piece, forbidden) {
+						t.Fatalf("r29 variant leaked %q in live delta %q", forbidden, piece)
+					}
+				}
+				live.WriteString(piece)
+			}
+			live.WriteString(redactor.Flush())
+			for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID", "functionId", "不透明 ID", "the ID shown in the adjacent result card"} {
+				if strings.Contains(live.String(), forbidden) {
+					t.Fatalf("r29 variant leaked %q in final text %q", forbidden, live.String())
+				}
+			}
+			for _, expected := range tc.want {
+				if !strings.Contains(live.String(), expected) {
+					t.Fatalf("r29 variant lost readable wording %q: %q", expected, live.String())
+				}
+			}
+		})
+	}
+}
+
+func TestTextRedactorRedactsR30LiveProviderFrames(t *testing.T) {
+	tests := []struct {
+		name   string
+		chunks []string
+		want   []string
+	}{
+		{
+			name: "placeholder before direct-call suffix",
+			chunks: []string{
+				"用户要求我用 ",
+				"search_tools 激活 ",
+				"get_function，",
+				"然后用",
+				"一个不存在但格式正确的 ID 该目标 ",
+				"调用它，不重试，并用中文解释实际失败原因。\\n\\n",
+			},
+			want: []string{"不存在但格式正确的函数标识调用它"},
+		},
+		{
+			name: "format norm instead of structure",
+			chunks: []string{
+				"说明这是一个格式合法（",
+				"符合 `fn_` 前缀 + 16 位十六进制字符的 ID 规范）但实际并不存在的函数记录。",
+			},
+			want: []string{"符合合法的函数标识格式"},
+		},
+		{
+			name:   "bare function id label",
+			chunks: []string{"这个函数 ID 不存在。这个输入不是工作区中的有效函数标识。"},
+			want:   []string{"这个函数标识不存在"},
+		},
+		{
+			name:   "input id glue and spacing",
+			chunks: []string{"要求传入一个已存在的、有效的 这个输入 ID，拿到真实标识 后再调用。"},
+			want:   []string{"有效的函数标识", "真实标识后再调用"},
+		},
+		{
+			name: "function call and format examples",
+			chunks: []string{
+				"调用 `get_function(functionId=\"the requested item\")` 返回的结果是：",
+				"要求传入一个已注册函数的真实不透明 ID（形如 the requested item），",
+				"传入一个格式合法（前缀 `fn_` + 16 位十六进制）但实际未注册的标识时，",
+				"再从返回结果中取得对应的 the requested item ID。",
+			},
+			want: []string{"调用 `get_function`", "函数标识格式", "合法的函数标识格式", "对应的函数标识"},
+		},
+		{
+			name: "tool id prefix split before missing sentence",
+			chunks: []string{
+				"调用 `get_function",
+				"` 时传入的 ID `",
+				"fn_0000000000000000",
+				"` 在系统中不存在。系统中没有注册过这个 ID 对应的函数。",
+			},
+			want: []string{"时传入的目标在系统中不存在", "这个输入对应的函数"},
+		},
+		{
+			name:   "provider glues id label to neutral input",
+			chunks: []string{"ID这个输入是一个格式合法但并不存在的函数标识。系统中没有与该 ID 对应的函数记录。"},
+			want:   []string{"这个输入是一个格式合法", "没有与之对应的函数记录"},
+		},
+		{
+			name:   "provider emits camel field and fabricated label",
+			chunks: []string{"现在我需要调用 get_function，传入 functionID 已定位。这个输入是一个虚构 ID。"},
+			want:   []string{"传入的目标已准备好", "虚构的函数标识"},
+		},
+		{
+			name:   "provider duplicates input reference and leaves trailing id label",
+			chunks: []string{"这个 ID 这个输入并不存在。系统根据该 ID 查找对应记录。拿到真实的 这个输入 ID 后再调用。"},
+			want:   []string{"这个输入并不存在", "根据这个输入查找", "真实标识后再调用"},
+		},
+		{
+			name:   "provider leaves format field wording",
+			chunks: []string{"要求传入一个已注册的、有效的函数（函数标识前缀 开头），但当前工作区没有与此 ID 匹配的记录。ID 格式本身是合法的。"},
+			want:   []string{"（格式合法）", "与之匹配", "标识格式本身合法"},
+		},
+		{
+			name:   "provider leaves bare input id phrase",
+			chunks: []string{"用户指定的确切 ID 不存在，系统没有找到这个 ID 对应的函数。"},
+			want:   []string{"用户指定的函数标识不存在", "这个输入对应的函数"},
+		},
+		{
+			name:   "provider duplicates prefix wording and test suffix",
+			chunks: []string{"这个输入符合函数标识前缀 前缀 + 16 位字符，但不存在的标识 来测试系统。"},
+			want:   []string{"合法的函数标识格式", "标识来测试"},
+		},
+		{
+			name:   "provider glues location and follow-up spacing",
+			chunks: []string{"该 ID在工作区中并不存在。获取其真实标识 后再调用。"},
+			want:   []string{"这个输入在工作区中并不存在", "真实标识后再调用"},
+		},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			var redactor textRedactor
+			var live strings.Builder
+			for _, chunk := range tc.chunks {
+				piece := redactor.Write(chunk)
+				for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID", "functionId", "functionID", "虚构 ID", "不透明 ID", "时传入的 ID"} {
+					if strings.Contains(piece, forbidden) {
+						t.Fatalf("r30 provider frame leaked %q in live delta %q", forbidden, piece)
+					}
+				}
+				live.WriteString(piece)
+			}
+			live.WriteString(redactor.Flush())
+			for _, forbidden := range []string{"fn_", "the requested item", "the referenced item", "该目标", "这个 ID", "该 ID", "函数 ID", "functionId", "functionID", "虚构 ID", "不透明 ID", "时传入的 ID"} {
+				if strings.Contains(live.String(), forbidden) {
+					t.Fatalf("r30 provider frame leaked %q in final text %q", forbidden, live.String())
+				}
+			}
+			for _, expected := range tc.want {
+				if !strings.Contains(live.String(), expected) {
+					t.Fatalf("r30 provider frame lost readable wording %q: %q", expected, live.String())
+				}
+			}
+		})
+	}
+}
+
+func TestTextRedactorDoesNotFlashToolValuePrefixAcrossFrames(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	chunks := []string{
+		"调用 `get_function",
+		"`",
+		" 传入 `fn",
+		"_000",
+		"0000",
+		"0000",
+		"0000",
+		"0000",
+		"` 后，",
+		"返回的结果是 **\"function not found\"**。",
+	}
+	for i, chunk := range chunks {
+		piece := redactor.Write(chunk)
+		if strings.Contains(piece, "传入") || strings.Contains(piece, "fn_") {
+			t.Fatalf("tool value prefix or opaque ID flashed at chunk %d (%q): %q", i, chunk, piece)
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	if strings.Contains(live.String(), "传入") || strings.Contains(live.String(), "fn_") {
+		t.Fatalf("tool value prefix or opaque ID leaked in final stream %q", live.String())
+	}
+	if !strings.Contains(live.String(), "调用 `get_function` 后") {
+		t.Fatalf("tool reference lost natural wording: %q", live.String())
+	}
+}
+
+func TestRedactChineseFunctionRecommendationUsesNaturalCopy(t *testing.T) {
+	input := "要成功调用 `get_function`，需要传入一个真实存在的函数（例如 函数标识以合法格式开头的、系统中已注册的函数标识符）。"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "函数标识以合法格式开头的、") {
+		t.Fatalf("function recommendation kept machine-shaped wording: %q", got)
+	}
+	if !strings.Contains(got, "例如系统中已注册的函数") {
+		t.Fatalf("function recommendation lost natural wording: %q", got)
+	}
+}
+
+func TestRedactChineseBareTargetIDUsesNaturalReference(t *testing.T) {
+	got := redactOpaqueMachineValues("这说明该 ID 从未被创建过，或已被删除。")
+	if strings.Contains(got, "该 ID") {
+		t.Fatalf("bare target ID leaked: %q", got)
+	}
+	if got != "这说明这个输入从未被创建过，或已被删除。" {
+		t.Fatalf("bare target ID was not naturalized: %q", got)
+	}
+}
+
+func TestTextRedactorRedactsPlaceholderAloneAfterChineseDelta(t *testing.T) {
+	var redactor textRedactor
+	var live strings.Builder
+	for _, chunk := range []string{
+		"现在我需要调用 get_function，使用 函数标识 参数为 ",
+		"the requested item。\n",
+	} {
+		piece := redactor.Write(chunk)
+		if strings.Contains(piece, opaqueEntityPlaceholder) || strings.Contains(piece, legacyEntityPlaceholder) {
+			t.Fatalf("placeholder flashed in live delta %q", piece)
+		}
+		live.WriteString(piece)
+	}
+	live.WriteString(redactor.Flush())
+	if strings.Contains(live.String(), opaqueEntityPlaceholder) || strings.Contains(live.String(), legacyEntityPlaceholder) {
+		t.Fatalf("placeholder leaked in final stream %q", live.String())
+	}
+	if !strings.Contains(live.String(), "这个输入") {
+		t.Fatalf("placeholder lost its natural Chinese reference: %q", live.String())
+	}
+}
+
+func TestRedactChineseNonexistentIDAssignmentUsesNegativeCopy(t *testing.T) {
+	got := redactOpaqueMachineValues("系统中不存在 ID 为 `fn_0000000000000000` 的函数。")
+	if strings.Contains(got, "ID 已定位") {
+		t.Fatalf("negative ID assignment became positive-looking copy: %q", got)
+	}
+	if !strings.Contains(got, "系统中不存在的函数") {
+		t.Fatalf("negative ID assignment lost natural wording: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyKeepsValidShapeMeaning(t *testing.T) {
+	input := "这个输入是一个虚构的、不合法的 ID，工作区里没有任何函数与之对应。"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "不合法") || strings.Contains(got, "函数标识以合法格式开头的 ID") {
+		t.Fatalf("not-found copy kept contradictory or machine-shaped wording: %q", got)
+	}
+	if !strings.Contains(got, "未注册的函数标识") {
+		t.Fatalf("not-found copy lost the not-registered meaning: %q", got)
+	}
+
+	recommendation := redactOpaqueMachineValues("拿到正确的 `fn_` 开头的 ID 后再调用 `get_function`。")
+	if recommendation != "拿到真实存在的函数标识后再调用 `get_function`。" {
+		t.Fatalf("function recommendation was not naturalized: %q", recommendation)
+	}
+}
+
+func TestRedactChineseNotFoundCopyHasNaturalSpacing(t *testing.T) {
+	input := "这说明 `fn_0000000000000000` 在系统中并不存在。虽然 `fn_0000000000000000` 在格式上是一个合法的函数标识（以 `fn_` 开头、后跟十六进制字符），但系统中并没有注册过这个函数。get_function 要求传入一个已经存在的函数，对不存在的 ID 会直接返回\"未找到\"，不会创建或猜测。如果需要查找实际可用的函数，应先用 search_function 按关键词搜索，获取真实的 `fn_...` ID 后再调用 get_function。"
+	want := "这说明这个输入在系统中并不存在。虽然这个输入在格式上是一个合法的函数标识（以合法格式开头、后跟十六进制字符），但这个输入对应的函数目前未注册。get_function 要求传入一个已经存在的函数，对不存在的函数标识会直接返回\"未找到\"，不会创建或猜测。如果需要查找实际可用的函数，应先用 search_function 按关键词搜索，获取真实存在的函数标识后再调用 get_function。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("not-found copy kept awkward placeholder spacing or wording:\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestRedactChineseNotFoundCopyPreservesWellFormedSemantics(t *testing.T) {
+	input := "原因：该 ID（`fn_0000000000000000`）是一个虚构的、不存在的函数标识符。系统中并没有任何函数与此 ID 对应，因此 `get_function` 无法检索到任何匹配的记录，直接返回了\"未找到\"的错误。"
+	want := "原因：这个输入是一个未注册的函数标识。系统中并没有任何函数与这个输入对应，因此 `get_function` 无法检索到任何匹配的记录，直接返回了\"未找到\"的错误。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("not-found copy changed valid-shape semantics or kept machine wording:\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestRedactChineseNotFoundCopyRemovesFabricatedLabel(t *testing.T) {
+	input := "失败原因：这个输入是一个虚构的、格式合法但实际上不存在的标识符。"
+	want := "失败原因：这个输入是一个格式合法但尚未注册的函数标识。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("not-found copy retained fabricated wording:\n got: %q\nwant: %q", got, want)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNaturalizesToolSpecificVariant(t *testing.T) {
+	input := "调用 `get_function` 时传入的 ID `fn_0000000000000000` 在系统中并不存在，因此返回了\"function not found\"。get_function 工具要求传入一个真实存在的函数（格式合法的合法标识符）。虽然这个输入在格式上是合法的，但系统中并没有注册过这个输入对应的函数。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"时传入的目标", "格式合法的合法标识符", "注册过这个输入对应的函数"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("tool-specific not-found copy kept %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"调用 get_function 时传入的函数标识在系统中并不存在", "格式合法的函数标识", "并没有注册过与这个输入对应的函数"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("tool-specific not-found copy lost %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNaturalizesWellFormedFabricatedVariant(t *testing.T) {
+	input := "我调用了 `get_function`，传入的 `functionId` 为 `fn_0000000000000000`。系统返回了\"function not found\"。原因：这个 ID 是一个格式上合法（符合 `fn_` 前缀 + 16 位十六进制字符的结构）但实际上并不存在的虚构 ID。工作区中没有任何函数与之对应，因此查询失败。简而言之：ID 格式正确，但目标函数不存在，查询失败。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"传入的 函数标识 为", "格式上合法（符合合法的函数标识格式）但实际上并不存在的虚构的函数标识", "ID 格式正确"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("well-formed not-found copy kept %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"传入的函数标识为这个输入", "这个输入是一个格式合法但尚未注册的函数标识", "函数标识格式正确"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("well-formed not-found copy lost %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyRemovesDuplicateIdentifierSubject(t *testing.T) {
+	got := redactOpaqueMachineValues("该标识符 `fn_0000000000000000` 在格式上是合法的，但它并未在系统中注册。")
+	if strings.Contains(got, "该标识符") {
+		t.Fatalf("duplicate identifier subject leaked: %q", got)
+	}
+	if !strings.Contains(got, "这个输入格式合法") {
+		t.Fatalf("duplicate identifier subject was not naturalized: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedSyntaxClauseVariant(t *testing.T) {
+	const input = "您提供的函数标识 `fn_0000000000000000` 在格式上是正确的（符合 fn_ 前缀加字符的命名规范），但这个输入未在系统中注册。这是一个正常的\"未找到\"结果，而非格式错误或无效 ID 的问题。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"前缀 前缀加", "这个输入 的", "无效 ID", "fn_"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted syntax variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"这个输入格式合法", "这个输入未在系统中注册", "不是格式问题"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted syntax variant lost natural wording %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesIDStructureVariant(t *testing.T) {
+	const input = "您提供的 ID 在格式上是合法的（符合 函数标识前缀 前缀加标识符的结构），但这个输入并未在系统中注册。系统中根本不存在与此 ID 对应的函数。或用已知的真实标识 再次调用 get_function。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"您提供的 ID", "此 ID", "函数标识前缀 前缀加", "真实标识 再次调用"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("ID structure variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"这个输入格式合法", "这个输入对应的函数", "找到已注册的函数后再调用"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("ID structure variant lost natural wording %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactEnglishGetFunctionCopyDoesNotExposePlaceholder(t *testing.T) {
+	got := redactOpaqueMachineValues("The user wants me to call get_function with the requested item. The supplied function is the referenced item.")
+	for _, forbidden := range []string{opaqueEntityPlaceholder, legacyEntityPlaceholder} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("English get_function reasoning leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "the supplied function identifier") {
+		t.Fatalf("English get_function reasoning lost natural reference: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesRepeatedInputAndPrefix(t *testing.T) {
+	input := "这个输入这个输入 虽然格式上是合法的（以 函数标识前缀 为前缀，后跟字符序列），但这个输入并未在系统中注册。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"这个输入这个输入", "函数标识前缀 为前缀"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("repeated-input variant leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "这个输入虽然格式合法") {
+		t.Fatalf("repeated-input variant lost natural wording: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesTechnicalFormatExplanation(t *testing.T) {
+	input := "这个输入这个输入 虽然格式上是合法的（具有正确的 函数标识前缀 前缀和标准的长度结构），但该标识符并未在系统中注册。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"这个输入这个输入", "函数标识前缀", "该标识符"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("technical-format variant leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "这个输入虽然格式合法") {
+		t.Fatalf("technical-format variant lost natural wording: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesToolLineAndIDWording(t *testing.T) {
+	input := "调用\n`get_function` 返回结果。系统中根本不存在对应这个输入的函数实体。如需查找，可以使用\n`search_function`，或获取正确的 ID。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"调用\n", "使用\n", "对应这个输入", "正确的 ID"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("tool/ID wording leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"调用 `get_function`", "使用 `search_function`", "与这个输入对应的函数实体", "正确的函数标识"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("tool/ID wording lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyRemovesSubjectSpacing(t *testing.T) {
+	got := redactOpaqueMachineValues("这说明 这个输入在格式上是合法的，但这个输入并未在系统中注册。")
+	if strings.Contains(got, "说明 这个输入") {
+		t.Fatalf("subject spacing leaked: %q", got)
+	}
+	if !strings.Contains(got, "说明这个输入格式合法") {
+		t.Fatalf("subject spacing normalization lost sentence: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesFinalVariant(t *testing.T) {
+	input := "调用\n`get_function` 查询 这个输入 返回结果。这个输入格式是合法的（以合法格式开头、后跟十六进制字符），但系统中并未注册。这个输入是一个格式正确但不存在的函数标识符。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"查询 这个输入", "以合法格式开头", "格式正确但不存在的函数标识符"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("final not-found variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"查询这个输入", "这个输入格式合法", "格式合法但尚未注册的函数标识"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("final not-found variant lost natural wording %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesMarkdownAndLifecycleCopy(t *testing.T) {
+	input := "这个输入在**格式上是合法的**（格式合法），但未注册。这个输入指向一个从未被创建（或已被删除）的函数。"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "格式上是合法的") || strings.Contains(got, "从未被创建") {
+		t.Fatalf("markdown/lifecycle wording leaked: %q", got)
+	}
+	for _, expected := range []string{"这个输入在格式合法", "这个输入对应的函数目前未注册"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("markdown/lifecycle wording lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedFormatAndRegistrationCopy(t *testing.T) {
+	input := "这个输入的格式是合法的（符合合法的函数标识格式），但系统中并没有注册过这个函数。这是一个正常的未找到结果——并非 ID 格式有误，也不是系统故障，只是当前函数目录中不存在与之对应的函数记录。如需查找，可以找到真实的 ID 后再调用。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"的格式是合法的",
+		"符合函数标识格式",
+		"该函数并未在系统中注册",
+		"系统中并没有注册过这个函数",
+		"系统里根本不存在",
+		"真实的 ID",
+		"符合合法的函数标识格式",
+		"并非 ID 格式有误",
+		"当前函数目录中不存在与之对应的函数记录",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted not-found wording leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"找到已注册的函数后再调用",
+		"也不是系统故障",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted not-found wording lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedShapeVariant(t *testing.T) {
+	input := "这个输入在格式上是完全合法的（符合 合法的函数标识格式的结构），但它并没有在工作区中注册过。也就是说，这不是一个\"格式错误\"的问题，而是一个正常的\"未找到\"结果——与之对应的函数在当前工作区的函数目录中不存在。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"在格式上是完全合法的",
+		"符合 合法的函数标识格式的结构",
+		"它并没有在工作区中注册过",
+		"格式错误\"的问题",
+		"与之对应的函数在当前工作区的函数目录中不存在",
+		"之对应的函数",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted shape variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"这不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted shape variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedSyntaxVariant(t *testing.T) {
+	input := "这个输入在语法格式上是合法的——它符合 函数标识格式，所以不是\"格式错误\"。但它并未在系统中注册，也就是说，当前工作区里根本不存在与这个输入对应的函数。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"在语法格式上是合法的",
+		"符合 函数标识格式",
+		"不是\"格式错误\"",
+		"它并未在系统中注册",
+		"当前工作区里根本不存在与这个输入对应的函数",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted syntax variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted syntax variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedLegalIdentifierVariant(t *testing.T) {
+	input := "这个输入是一个格式合法的函数标识（符合合法的函数标识格式），但这个输入并未在工作区中注册。也就是说，系统中不存在与这个输入对应的函数实体，因此 get_function 返回了\"未找到\"。这属于正常的\"查无此函数\"结果，而非参数格式错误。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"是一个格式合法的函数标识",
+		"符合合法的函数标识格式",
+		"这个输入并未在工作区中注册",
+		"系统中不存在与这个输入对应的函数实体",
+		"查无此函数",
+		"而非参数格式错误",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted legal-identifier variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"正常的\"未找到\"结果",
+		"也不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted legal-identifier variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedCompactVariant(t *testing.T) {
+	input := "这说明这个输入在格式上是合法的，但这个输入对应的函数目前未注册。这是一个正常的\"未找到\"结果——不是格式问题或非法，而是当前工作区中不存在与之对应的函数实体。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"这个输入在格式上是合法的",
+		"不是格式问题或非法",
+		"当前工作区中不存在与之对应的函数实体",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted compact variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"不是格式问题。",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted compact variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedResidualVariant(t *testing.T) {
+	input := "这个输入在格式合法，但它并没有在系统中注册过。也就是说，这不是格式问题，而是当前函数目录中不存在对应 ID 的函数。简单来说：函数标识格式正确，但该函数不存在。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"这个输入在格式合法",
+		"它并没有在系统中注册过",
+		"当前函数目录中不存在对应 ID 的函数",
+		"简单来说：",
+		"函数标识格式正确，但该函数不存在",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted residual variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted residual variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedBulletVariant(t *testing.T) {
+	input := "具体原因如下：\n• 传入的 ID 在格式上是合法的（符合函数标识格式）。\n• 但这个输入并未在系统中注册——即当前函数目录中不存在与这个输入对应的函数实体。\n因此这不是格式问题输入的问题，而是一次正常的\"查无此函数\"响应。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"传入的 ID",
+		"符合函数标识格式",
+		"这个输入并未在系统中注册",
+		"当前函数目录中不存在与这个输入对应的函数实体",
+		"格式问题输入的问题",
+		"查无此函数",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted bullet variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"不是格式问题",
+		"正常的\"未找到\"结果",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted bullet variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedParentheticalVariant(t *testing.T) {
+	input := "这个输入虽然格式上是合法的函数标识（以合法格式开头、后跟十六进制字符），但这个输入对应的函数目前未注册。它不是一个语法错误或参数格式问题，而是这个输入对应的函数实体根本不存在于当前工作区的函数目录中。简而言之：函数标识格式正确，但对应的函数未注册，所以查询结果为\"未找到\"。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"虽然格式上是合法的函数标识",
+		"以合法格式开头、后跟十六进制字符",
+		"它不是一个语法错误或参数格式问题",
+		"而是这个输入对应的函数实体根本不存在于当前工作区的函数目录中",
+		"简而言之：函数标识格式正确",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted parenthetical variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"这不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted parenthetical variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedLifecycleVariant(t *testing.T) {
+	input := "这个输入格式合法，但这个输入对应的函数目前未注册。也就是说，这不是一个格式错误或无效的请求，而是当前工作区中不存在与这个输入对应的函数实体。简而言之：标识符格式正确，但该函数未被创建或已被删除，因此返回\"未找到\"。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"格式错误或无效的请求",
+		"当前工作区中不存在与这个输入对应的函数实体",
+		"简而言之：标识符格式正确",
+		"未被创建或已被删除",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted lifecycle variant leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "这个输入格式合法") || !strings.Contains(got, "这个输入对应的函数目前未注册") || !strings.Contains(got, "这不是格式问题") {
+		t.Fatalf("hosted lifecycle variant lost natural copy: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedIDRequirementVariant(t *testing.T) {
+	input := "这个输入是一个格式合法的函数标识（以合法格式开头、后跟十六进制字符），但这个输入并未在系统中注册。也就是说，这不是一个格式错误，而是与这个输入对应的函数目前未注册。get_function 要求传入的 ID 必须指向一个已存在的函数，未注册的标识只会返回正常的\"未找到\"结果。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"是一个格式合法的函数标识",
+		"以合法格式开头、后跟十六进制字符",
+		"这个输入并未在系统中注册",
+		"get_function 要求传入的 ID",
+		"未注册的标识只会返回",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted ID requirement variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"这不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted ID requirement variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedShortLegalVariant(t *testing.T) {
+	input := "这个输入虽然格式上是合法的（以合法格式开头、长度正确），但在系统中并未注册任何对应的函数。这是正常的\"未找到\"结果——系统里不存在这个函数，而不是参数格式有误。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"虽然格式上是合法的",
+		"以合法格式开头、长度正确",
+		"在系统中并未注册任何对应的函数",
+		"系统里不存在这个函数",
+		"参数格式有误",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted short legal variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted short legal variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedConstructedIDVariant(t *testing.T) {
+	input := "这个输入格式合法，但这个输入对应的函数目前未注册。也就是说，系统里不存在任何与之对应的函数实体，因此 get_function 返回了\"未找到\"。这属于正常的\"未找到\"响应，而不是格式问题或系统故障——ID本身是良好构造的，只是它指向了一个不存在的函数。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"系统里不存在任何与之对应的函数实体",
+		"get_function 返回了",
+		"ID本身是良好构造的",
+		"它指向了一个不存在的函数",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted constructed-ID variant leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "这个输入格式合法") || !strings.Contains(got, "这个输入对应的函数目前未注册") || !strings.Contains(got, "不是格式问题") {
+		t.Fatalf("hosted constructed-ID variant lost natural copy: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedGrammarVariant(t *testing.T) {
+	input := "这个输入格式合法（以合法格式开头，后跟十六进制字符），属于语法良好的函数标识符。但系统中并没有注册过与这个输入对应的函数，所以返回的是正常的\"未找到\"结果——这不是格式问题，而是这个输入在当前工作区中不存在。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"格式合法（以合法格式开头，后跟十六进制字符）",
+		"属于语法良好的函数标识符",
+		"系统中并没有注册过与这个输入对应的函数",
+		"返回的是正常的",
+		"而是这个输入在当前工作区中不存在",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted grammar variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted grammar variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedDirectorySummaryVariant(t *testing.T) {
+	input := "这个输入格式合法，但这个输入对应的函数目前未注册。也就是说，当前工作区里不存在与这个输入对应的函数实体，所以返回了正常的\"未找到\"结果。这属于查无此函数，而非格式错误或系统异常。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"当前工作区里不存在与这个输入对应的函数实体",
+		"查无此函数",
+		"格式错误或系统异常",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted directory-summary variant leaked %q: %q", forbidden, got)
+		}
+	}
+	if !strings.Contains(got, "这个输入格式合法") || !strings.Contains(got, "这个输入对应的函数目前未注册") || !strings.Contains(got, "正常的\"未找到\"结果，不是格式问题") {
+		t.Fatalf("hosted directory-summary variant lost natural copy: %q", got)
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedMarkdownVariant(t *testing.T) {
+	input := "调用返回了 **\"function not found\"**（未找到函数）。实际原因如下：您提供的函数标识在格式上是合法的（符合合法的函数标识格式），但这个输入**并未在系统中注册**。也就是说，当前函数目录里不存在与这个输入对应的函数实体，因此系统返回了\"未找到\"。如需查找实际存在的函数，可以使用 `search_function` 按关键词搜索，获取真实的函数标识后再进行调用。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"您提供的函数标识",
+		"符合合法的函数标识格式",
+		"这个输入**并未在系统中注册**",
+		"当前函数目录里不存在与这个输入对应的函数实体",
+		"获取真实的函数标识后再进行调用",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted markdown variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"找到已注册的函数后再调用",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted markdown variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyNormalizesHostedToolCardVariant(t *testing.T) {
+	input := "实际原因：你提供的标识符格式是合法的，但这个输入对应的函数目前未注册。这是一个正常的\"未找到\"结果，而非格式错误。系统工具卡中列出的才是已注册的有效标识符。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{
+		"你提供的标识符",
+		"而非格式错误",
+		"系统工具卡中列出的才是已注册的有效标识符",
+	} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("hosted tool-card variant leaked %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{
+		"这个输入格式合法",
+		"这个输入对应的函数目前未注册",
+		"正常的\"未找到\"结果，不是格式问题",
+	} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("hosted tool-card variant lost natural copy %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactCompleteUserBlockNormalizesHostedFunctionNotFoundCopy(t *testing.T) {
+	input := "调用 `get_function` 返回的结果是 **function not found**（函数未找到）。\n\n实际原因说明：\n\n您提供的 ID `fn_0000000000000000` 格式上是合法的（符合 `fn_` 前缀 + 十六进制字符的结构），但它并没有在工作区中注册过。也就是说，这不是一个格式错误，而是该 ID 对应的函数根本不存在——当前函数目录里没有任何函数与这个 ID 关联。\n\n如果需要查找实际存在的函数，可以使用 `search_function` 按关键词或语义来检索。"
+	got := redactCompleteUserBlock(input)
+	want := "调用 `get_function` 返回了\"未找到\"结果。\n\n实际原因说明：\n\n这个输入格式合法，但对应的函数目前未注册。\n这是正常的\"未找到\"结果，不是格式问题。\n\n如需查找已有函数，可使用 `search_function` 按关键词检索。"
+	if got != want {
+		t.Fatalf("complete function-not-found copy did not normalize:\nwant: %q\n got: %q", want, got)
+	}
+}
+
+func TestRedactCompleteUserBlockNormalizesHostedFunctionNotFoundReasonHeading(t *testing.T) {
+	input := "调用结果：function not found（函数未找到）。\n\n原因说明：\n\n您提供的标识符在语法格式上是合法的（符合函数标识格式），但这个输入对应的函数目前未注册。也就是说，这是一个格式正确但不存在的函数标识——系统里没有任何函数对应这个标识符，因此返回了正常的\"未找到\"结果。\n\n如需查找实际存在的函数，可以使用 `search_function` 按关键词检索已注册的函数列表。"
+	got := redactCompleteUserBlock(input)
+	if !strings.Contains(got, "这个输入格式合法，但对应的函数目前未注册。") ||
+		!strings.Contains(got, "这是正常的\"未找到\"结果，不是格式问题。") {
+		t.Fatalf("reason-heading variant did not normalize: %q", got)
+	}
+	for _, forbidden := range []string{"语法格式", "符合函数标识格式", "格式正确但不存在", "系统里没有任何函数对应", "已注册的函数列表"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("reason-heading variant leaked %q: %q", forbidden, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyRemovesOpaqueTerminology(t *testing.T) {
+	input := "调用 `get_function` 时传入了 `functionId: fn_0000000000000000`，系统返回\"function not found\"。失败原因：这个输入在工作区的函数目录中并不存在。get_function 要求传入一个已注册函数的真实 opaque ID（即 函数标识以合法格式开头的有效标识符），而这个输入是虚构的，因此后端无法匹配。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"opaque", "函数标识以合法格式开头的有效标识符", "这个输入是虚构的", "函数标识: 这个输入"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("not-found copy kept internal or fabricated wording %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"格式合法的函数标识", "这个输入尚未注册", "函数标识为这个输入"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("not-found copy lost natural wording %q: %q", expected, got)
+		}
+	}
+}
+
+func TestRedactChineseNotFoundCopyRemovesPrefixDuplication(t *testing.T) {
+	input := "您提供的 ID 格式本身是合法的（符合 `fn_` 前缀加标识符的结构），但该 ID 并未在系统中注册过任何函数。这属于正常的\"未找到\"响应，而非参数格式错误。"
+	got := redactOpaqueMachineValues(input)
+	for _, forbidden := range []string{"函数标识前缀 前缀", "这个输入并未在系统中注册过任何函数", "标识格式本身合法"} {
+		if strings.Contains(got, forbidden) {
+			t.Fatalf("not-found copy kept duplicated wording %q: %q", forbidden, got)
+		}
+	}
+	for _, expected := range []string{"函数标识格式合法", "系统中没有注册与这个输入对应的函数"} {
+		if !strings.Contains(got, expected) {
+			t.Fatalf("not-found copy lost natural wording %q: %q", expected, got)
+		}
 	}
 }

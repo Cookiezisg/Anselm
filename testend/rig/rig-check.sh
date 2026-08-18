@@ -54,6 +54,7 @@ else
   APP_LAUNCH_PID=$(field appLaunchPid)
   APID=$(field appPid)
   AWID=$(field appWindowId)
+  AWBOUNDS=$(field appWindowBounds)
   RECORDER_PID=$(field recorderPid)
   RLIFE=$(field recordingLifecycle)
   SESSION=$(field session)
@@ -194,8 +195,8 @@ PY
     fi
   fi
 
-  if [ -n "$AWID" ] && alive_as "$RECORDER_PID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
-    note "✓ channel 1 window recorder alive (PID $RECORDER_PID, Anselm window $AWID)"
+  if [ -n "$AWID" ] && [ -n "$AWBOUNDS" ] && alive_as "$RECORDER_PID" "screencapture.*-v.*-R[[:space:]]$AWBOUNDS([[:space:]]|$)"; then
+    note "✓ channel 1 app-region recorder alive (PID $RECORDER_PID, Anselm window $AWID, region $AWBOUNDS)"
     if [ -s "$RLIFE" ] && python3 - "$RLIFE" "$RECORDER_PID" <<'PY'
 import datetime
 import json
@@ -214,8 +215,10 @@ PY
     else
       bad "✗ channel 1 recorder lifecycle is missing, malformed, or attributed to another PID"
     fi
+  elif [ -n "$AWID" ] && [ -z "$AWBOUNDS" ]; then
+    bad "✗ channel 1 manifest has no Anselm window geometry — refusing unbounded overlay recording"
   elif [ -n "$AWID" ]; then
-    bad "✗ channel 1 recorder is not bound to Anselm window $AWID"
+    bad "✗ channel 1 recorder is not bound to Anselm app region $AWBOUNDS"
   elif alive_as "$RECORDER_PID" 'screencapture.*-v'; then
     bad "✗ channel 1 manifest has no Anselm window ID — desktop-wide recording is not evidence"
   else

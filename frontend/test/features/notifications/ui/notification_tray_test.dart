@@ -243,6 +243,20 @@ void main() {
         reason:
             'the rows must slide out under a SizeTransition — a unified rail slide, not a jump',
       );
+      final fading = tester
+          .widgetList<FadeTransition>(
+            find.descendant(
+              of: find.byType(NotificationTray),
+              matching: find.byType(FadeTransition),
+            ),
+          )
+          .where((fade) => fade.opacity.value > 0 && fade.opacity.value < 1);
+      expect(
+        fading,
+        isNotEmpty,
+        reason:
+            'rows must fade in the clipped tail of the size tween, not expose cropped glyphs',
+      );
       await tester.pumpAndSettle();
       expect(find.byType(NotificationRow), findsNothing); // settles collapsed
     },

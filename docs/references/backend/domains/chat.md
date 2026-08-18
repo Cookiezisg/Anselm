@@ -102,10 +102,76 @@ loop 只生成可审计的 suppression result 并收束本回合，不再次执�
 该规则同时作用于流式 delta 和 durable close，
 精确引用仍只留在相邻工具卡与内部审计面。
 
+同一规则覆盖紧凑中文执行卷宗中的 `执行ID`、`版本ID`、`会话ID`、`工具调用ID` 以及 `开始时间`/
+`结束时间` 等字段：这些整行从 assistant prose 移除，不能留下 `fne_` 等执行前缀、
+`the requested item` 或 `相应时间`。精确值只在相邻 RunDossier/tool card 中展示；流式 delta 在换行前暂存整行，
+保证中间 SSE 帧与 durable close 的结果一致。
+
+模型偶尔会把 prompt/thinking 协议的孤立闭合标签（`</section>`、`</think>`、`</analysis>`）回显到答案开头；
+这些标签不是用户内容，live delta 与 durable close 都必须剥离。执行卷宗摘要里的 `errorMsg`、`elapsedMs`、`okCount`、
+`failedCount` 也只允许在结构化工具卡/JSON 证据中出现；自然语言改为“错误信息为空”“耗时”“成功记录数/失败记录数”，
+不能把后端字段名直接推给用户。
+
+执行卷宗的 Markdown 行也必须以完整行作为流式原子单位；如果 provider 在表格行中间停住，后续又切换到关联上下文，
+孤立的 `| **记录` 之类片段不得先进入 SSE 再由 close 删除。它应在 live 出口暂存，并在最终快照中移除或收敛为完整字段。
+
+执行卷宗中的「关联信息」「关联标识」「关联追踪」「关联上下文」二列表格若将 `消息` 或 `工具调用` 作为行标签（而不是写成带 `ID` 后缀的标签），其
+opaque 值同样不能直接渲染。服务端会把真实 ID 或模型占位词改成“See the exact message/tool call in the
+execution card.”，保留可发现的语义和相邻卡片入口；该改写同时作用于流式 delta、durable close 与 UI 重建，
+不会篡改 tool result 或审计线缆中的精确值。
+
+推理中若出现独立的 `- errorMsg: ""`（或等价空值）字段，也必须在 live delta 与 durable close 中改写为
+`- 错误信息为空`；字段名不能因为 provider 的 chunk 边界短暂暴露给可展开的 thought。
+
+同样，`记录创建时间:相应时间` 这类执行卷宗时间占位字段必须整行移除，不能让不可用时间戳进入正文或流式帧。
+
+实体检索 reasoning 中的 `with id "the requested item"` 也属于内部占位值；即使 `with id` 与值跨 provider
+chunk 且前导空格已在前一帧发出，live delta 仍必须收敛到相邻结果卡语义，不能显示占位词。
+
+同一执行卷宗若用 `时间点 | 值` 或 `指标 | 值` 表格表达时间线，且位于“计时/时间线/Timing”语义段，
+`开始时间`/`结束时间` 的不可用值整行移除；MCP/激活等其它领域的同名时间行不走这条规则，仍由各自的
+调用卡/激活卡提示处理，避免跨域误删。
+
+若“工具调用详情”或“溯源信息 (Provenance)”表只有 Markdown 表头而没有可安全展示的行，不能把空表当成完整结果；服务端补一行
+“精确消息和工具调用见上方执行卡片。”，明确数据仍在相邻结构化卡片中，避免用户误判为执行记录丢失。
+
+`search_function_executions` 只负责历史摘要与聚合计数，列表行不含日志且不能冒充完整卷宗；当用户要求一次执行的完整记录时，模型必须用选中的 execution id 再调用
+`get_function_execution`，读取 input/output/status/error/logs/timing 以及 function/version、conversation/message/tool-call 和 flowrun 溯源字段。结构化 `RunDossier` 保留这些真实字段：message 与 tool-call 均渲染为可复制的出处 chip，视觉上截断、复制时保留全值；assistant prose 仍不得复述 opaque ID。
+
+`get_function` 返回 `FUNCTION_NOT_FOUND` 时，模型和 assistant prose 必须区分“格式合法但尚未注册”与“格式非法”：前者不是 fabricated/invalid。用户正文应说明查询的函数标识未注册，精确 opaque ID 只保留在相邻结构化工具卡，不在 reasoning 或 durable close 中复述。
+
+托管模型对同一未找到结果可能使用不同标题、换行或重复解释。完整 durable assistant block 在收尾时若同时表达“未找到 + 函数 + 未注册”，服务端统一收敛为两句事实和一个 `search_function` 下一步建议；不把模型的格式规则、目录推断或生命周期猜测带给用户。该归一化只发生在完整 close，live delta 仍沿用跨 chunk 脱敏与暂存规则，避免中间帧先出现整段最终文案；tool call/result 卡和 LLM 审计线缆不受影响。
+
+执行卷宗的 assistant 正文与 reasoning 在实时 delta 和 durable close 必须经过同一个上下文感知的脱敏出口。close 不能只对 raw block 重新执行通用 opaque-value 替换，否则实时已改写为「精确值见相邻执行卡」的内容会在收口时退化成 `the requested item` 等看似有值的占位符，造成重连或刷新前后文本不一致。
+
 同一规则覆盖 reasoning 中的 `versionId changed to <opaque>` 句式：保留“版本引用已更新”的事实，
 但不让不可复制的版本值或占位词进入用户正文。
 
+托管模型偶尔会把占位表达误写成 `the the requested item id`、`the requested item id`、
+`The executionId is "the requested item"`、裸的 `execution ID <value>`、
+`functionId (like "the requested item")` 或「执行 ID 是 `the requested item`」；这类
+机器字段同样不能进入 reasoning。服务端会在流式出口先暂存可能被拆在 `id` 之前的整段短语，随后
+统一改成“the ID shown in the adjacent result card”、`ID 已定位`或指向相邻 execution card 的完整人话，
+并在 durable close 再跑一次同一规则，保证 SSE 中间帧、耐久消息和 thought 展开后的 UI 一致；
+reasoning 中伪 JSON 的 `functionId`/`versionId`/`executionId` 以及 `startedAt`/`endedAt` 等命名字段也保留
+结构但改成 `see adjacent result card`，精确值仍只在相邻执行/结果卡中出现。
+若正文把 `executionId、functionId、versionId、conversationId` 等字段名列为执行档案组成部分，
+也必须改成“执行标识、函数标识、版本标识、会话标识”等产品语言；不得把后端 schema 名称直接展示给用户。
+
+system prompt 的 `<section>` 分隔符属于模型输入协议，不属于 assistant 内容；若托管模型把孤立的
+`</section>` 回显到 reasoning，服务端会在流式出口暂存跨 chunk 的前缀并丢弃完整闭合标签，durable close
+也执行同一清理，避免 thought 展开后出现破损的内部标记。
+
 流式工具名的半截暂存只允许发生在词元边界；普通单词内部的词尾（例如 `lastMessageAt` 中的 `ge`）不能被误判为分片的 `get_flowrun`，否则会把正常表头拆坏。该边界规则与跨 chunk 的整词缓冲一起适用于 SSE delta 和 durable close。
+
+公开工具名本身不是实体 ID。尤其 `todo_read` 与 `todo_write` 恰好共享 `todo_` 前缀；它们在助手正文、reasoning 和 Markdown 粗体标签中必须原样保留，不能被实体 ID 脱敏改成 `the requested item`，否则不仅画面标签损坏，还会污染下一轮模型上下文。真正的 `todo_` opaque 值仍按 ID 规则脱敏；这条保护必须同时覆盖完整文本和跨 chunk 的流式出口。
+
+同一边界还要覆盖模型把标签和值粘在一起的异常写法（例如 `IDfn_…`），以及「实际的 ID 应该是 …」这类推理句：助手正文和 reasoning 中不得出现真实 opaque 值或内部占位词，统一指向相邻 tool card；用户自己输入的原始消息和 tool card 的审计值不改写。完整 durable close 与跨 chunk 的 SSE 必须使用同一规则。
+
+失败说明中的裸引用也属于同一边界：例如「传入 ID `fn_…` 后」或「传入了 ID `fn_…`」必须收敛为「传入的目标见相邻工具卡」，
+而「`the requested item` 是一个格式正确但实际并不存在的 ID」必须改写成真实可读的函数引用说明；不能因为
+没有 `is`/`为` 赋值动词就让真实 ID、反引号或内部 placeholder 穿过 live delta、durable close 或数据库正文；中文
+assistant 解释中的未知占位变体也统一收敛为「该目标」，不泄露内部 token。
 
 带 `lastMessageAt` 列的 Markdown 表格在最后一行尚未收到换行时必须整体暂存，即使当前片段恰好看起来像完整的 `| Title |` 行；下一帧可能才会开始写目标时间列。不能先释放已完成的前置行，否则后续时间值会失去列语义并被通用规则误改为 `the recorded time`。
 
@@ -128,6 +194,8 @@ Skill 激活的普通文本字段也遵守同一条规则：`Session:`/`Session 
 当模型把 opaque ID 放在位置/列表标签前、把人名放在括号内（例如 `Position 0: doc_… (Existing First)`）时，脱敏器必须保留括号中的人名，输出 `Position 0: Existing First`，不能留下 `the requested item`。
 
 面向用户的 assistant 文本还有服务端确定性边界：loop 会在流式文本的唯一出口保留跨 chunk 的尾部词元，并在看到未闭合的括号时短暂保留整个小括号片段，避免 provider 把 `(`、反引号、ID、`)` 分成不同 delta 后先泄露半个坏占位。实体名后紧接可能的 opaque ID 时，连同实体名和分隔符一起短暂保留，确保 chunk 恰好切在 `workflow ` 与 `wf_…` 之间时仍能整体清理；ID 被 Markdown `` `…` ``、`*…*` 或 `**…**` 包住时，同样先完成整体替换再向 SSE 发出，不能把 `workflow **` 这类半截格式先发给用户。它隐藏实体 ID、长整数、时间戳与长 hash 等不透明机器值。隐藏时按类型替换为上下文中性的 `the requested item` 等人话短语，而不是把 `<opaque value omitted>` 或旧版 `the referenced item` 这类坏模板标记露给用户；若模型把一个已经有名称的实体 ID 冗余写成括号（例如 `workflow nightly (wf_…)` 或 ``workflow nightly (`wf_…`)``），只删除整段冗余括号，不留下占位；若 ID 紧跟已有人话实体名（例如 `The workflow wf_… remains intact`），移除 ID 后也移除重复占位，结果为 `The workflow remains intact`，不制造重复名词；若模型用 `The ID <opaque>`、`The flowrun ID <opaque>`、`The flow run ID <opaque>` 或 `The flowrun with ID <opaque>` 引出一个待查对象，则整体改写为 `The requested item`、`The requested flowrun` 或 `The requested flow run`，不产生语法残片；`The flow ` 与 `run with ID ...` 也必须合并后再脱敏，不能因早期 chunk 边界重现同一残片；已明确实体名的 `flowrun report for <opaque>`（包括 Markdown 加粗或反引号装饰）则直接缩为 `flowrun report`，不能留下 “report for …” 坏短语；包含 opaque flowrun ID 的 Markdown 表格行改为 `Run / Current run` 语义行，不把 placeholder 留在表格里。对 `get_flowrun` 的错误总结还会把 `get_flowrun for <opaque>` 改写为 `get_flowrun for the requested run`，把“没有 workflow run with …”改成“没有匹配请求的 workflow run”，避免失败路径出现“the referenced item”或“the requested item”悬空占位。历史消息如果已经持久化旧版占位词，重建时也会先归一化到当前词汇。原始 tool call/tool_result 卡片与审计数据不改，仍保留精确值供追查。摘要只能表达语义结果（例如「已变更」），不能把机器值抄回 prose 或表格。该边界不依赖模型是否遵守 prompt。**但工具调用 JSON 参数是明确例外：若某个工具需要 opaque 值，模型必须从用户消息或上一个 tool result 逐字复制全部字符；不得缩写、规范化、脱敏或猜测。** 例外不适用于面向用户的 prose。带 flowrun 身份的 workflow agent 终答同时是下游节点的数据，必须保留完整 MediaRef receipt；它不是直接面向用户的 chat prose。
+
+上述规则在 `streamLLM` 的 live 出口再执行一次：每个 text/reasoning delta 在写入 SSE 之前都必须经过同一套完整 redactor，不能因为 durable close 还会重跑而让 `seq=0` 帧先露出机器占位。该最终边界覆盖跨 delta 拼出的 `id is <placeholder>`、中文裸「执行 ID」、审计档案的占位时间行、空关联段以及“对话 ID/会话 ID”两种实际标签；当 provider 先发 `execution ID`/`executionId` 引导语、下一帧才发 placeholder 时，只切出已经完整的执行 ID 片段重写，后续 Markdown/JSON 仍留在 pending 中继续按原结构规则处理，不能用一次整体 flush 破坏后续语义。对于 `with`/`using`/`having` 这类实体 ID 引导语，还必须把开放到下一个 token 的前缀（例如上一帧结束在 `with `、下一帧才开始 `id <opaque>`）一并暂存；不能因前缀先被 SSE 发出而让后续分片失去整句脱敏上下文。英文执行审计的 `Started At`/`Ended At` 等时间行若只有通用脱敏值，必须改为 `See the exact execution time in the adjacent execution card.`，而不是把 `the recorded time` 伪装成字段值；中文表格使用对应中文指引。执行审计的 `Conversation ID`、`Message ID`、`Tool Call ID` 行只在档案/Tool-Call Details 上下文内生效，字段名收敛为 `Conversation`、`Message`、`Tool call`，值分别指向执行卡中的精确关联，不得误伤搜索卡里的同名字段。**live redactor 还必须记住当前 text/reasoning block 是否已进入执行档案语境；标题先发、关联或时间单行后到时，单行也必须走同一条档案语义改写，不能只依赖 durable close 的全表上下文。** durable close 仍对完整原文重跑，确保流式视图、持久消息和 UI 重建一致。原始 tool call/tool-result 卡片、执行审计和 LLM 线缆不经过这条用户面脱敏边界，继续保留精确证据。
 
 在同一确定性出口中，`Flowrun: <opaque>` 标题收敛为 `Flowrun`，`flowrunId = <opaque>` 收敛为 `the current run`；含 `wfv_`、`apf_`、`apfv_` 等内部版本引用的表格行分别显示 `Current version`、`Internal references`，不把机器值或任何旧版占位带到用户画面。`search_flowruns` 生成的多行运行表若包含脱敏后的运行 ID，则每行显示 `See the run card`；中文列表进一步把同一行的两个脱敏值归一成「该运行 / 该工作流」，避免重复的 `the requested item` 让用户误以为多行指向同一个对象；精确 ID 仍只在相邻 tool card 的 Copy 面保留。
 
@@ -160,6 +228,8 @@ Reasoning 也在同一边界内：若 provider 把 `get_flowrun` 拆成 `ge` 与
 该归一化只在失败报告上下文行内触发，不改变普通实体句中已有的 `The requested flowrun` 语义测试；这样通用实体脱敏与 Flowrun 错误文案各自保持稳定边界。
 
 用户面可见的 reasoning block 也走同一条 delta + durable-close 脱敏边界，不能因它显示在「thinking」区域而泄露 flowrun、实体、版本或未被请求的时间戳；ISO 与 `YYYY-MM-DD HH:MM:SS UTC` 两种时间写法默认都必须收敛为 `the recorded time`。若用户明确要求工具返回的某个精确命名字段（例如 `lastMessageAt`），该字段是窄例外：在同名字段或表格列中逐字保留原值，不能规范化；附件、MCP 连接等无关时间戳仍按原规则脱敏。带 flowrun 上下文的 workflow-agent reasoning 是下游数据边界，按 workflow-agent text 的规则保留原值。
+
+执行审计档案的 live redactor 还必须按语义处理英文身份行：`Execution ID`、`Function ID`、`Version ID` 等机器字段只在相邻执行卡保留，不能因 Markdown 行被 provider 拆成 `| **` 与字段名两帧而短暂进入 messages SSE；完整档案推理中的 `functionId:`、`executionId:` 等协议字段改为人话标签。中文档案中的「执行 ID」「函数版本 ID」「会话 ID」「消息 ID」「工具调用 ID」同样改成「本次执行」「函数版本」「当前会话」「当前消息」「工具调用」；若时间线 bullet 只收到 `- **` 这样的半行，必须跨 delta 暂存，不能把 Markdown 残片闪到画面；同理，带左反引号/双引号但尚未闭合的执行 ID 代码跨度必须连同后续值一起暂存，不能把半个 ID 脱敏后释放而让下一帧的 ID 尾巴穿出。该规则与 durable close 使用同一套语义，live 与最终快照不得出现可见差异。
 
 附件清单的上传时点是例外的可用性语义：精确 `createdAt` 保留在相邻附件工具卡中；若模型把它放进用户正文表格，正文改为 `See the exact upload time in the attachment card.`，不得把 `the recorded time` 留成看似真实的字段值。
 

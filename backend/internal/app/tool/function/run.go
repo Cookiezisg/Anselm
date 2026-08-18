@@ -145,7 +145,7 @@ type SearchFunctionExecutions struct{ svc *functionapp.Service }
 func (t *SearchFunctionExecutions) Name() string { return "search_function_executions" }
 
 func (t *SearchFunctionExecutions) Description() string {
-	return `List a function's execution history (most recent first) with an ok/failed rollup. Filter by status (ok|failed|cancelled|timeout) or version id. Omit limit for the default page size; when paginating, prefer a JSON integer such as 2 (the boundary also accepts the exact decimal string "2" from managed callers) and pass nextCursor verbatim. Use get_function_execution on an id for the full record including logs.`
+	return `List a function's execution history (most recent first) with an ok/failed rollup. This is a summary index: logs are omitted and the row is not a complete dossier. Filter by status (ok|failed|cancelled|timeout) or version id. Omit limit for the default page size; when paginating, prefer a JSON integer such as 2 (the boundary also accepts the exact decimal string "2" from managed callers) and pass nextCursor verbatim. When the user asks for a complete execution record, always call get_function_execution on the selected id; do not compose the dossier from this summary row.`
 }
 
 func (t *SearchFunctionExecutions) Parameters() json.RawMessage {
@@ -233,7 +233,7 @@ type GetFunctionExecution struct{ svc *functionapp.Service }
 func (t *GetFunctionExecution) Name() string { return "get_function_execution" }
 
 func (t *GetFunctionExecution) Description() string {
-	return "Get one execution record (input, output, error, logs, timing) by its id. logs carries the function's print()/debug output."
+	return "Get one complete execution record by its id: input, output, status, error, logs, timing, and provenance fields including functionId, versionId, conversationId, messageId, toolCallId, and flowrun coordinates. logs carries the function's print()/debug output. Use this tool for a complete user-facing execution dossier after search_function_executions identifies the record."
 }
 
 func (t *GetFunctionExecution) Parameters() json.RawMessage {

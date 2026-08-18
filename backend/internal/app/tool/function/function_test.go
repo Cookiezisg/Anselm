@@ -43,6 +43,20 @@ func TestDeleteFunction_DescriptionStatesRetentionTruth(t *testing.T) {
 	}
 }
 
+func TestGetFunction_DescriptionDistinguishesUnregisteredID(t *testing.T) {
+	d := (&GetFunction{}).Description()
+	for _, want := range []string{
+		"syntactically valid but unregistered",
+		"not a malformed or fabricated id",
+		"do not repeat the exact opaque id",
+		"adjacent tool card",
+	} {
+		if !strings.Contains(d, want) {
+			t.Errorf("get_function description must state %q, got %q", want, d)
+		}
+	}
+}
+
 func TestUpdateFunctionMeta_DescriptionStatesPatchShape(t *testing.T) {
 	d := (&UpdateFunctionMeta{}).Description()
 	for _, want := range []string{"JSON array of strings", "never a comma-separated string", `"tags":["alpha","beta"]`} {
@@ -248,9 +262,18 @@ func TestBuildTools_RejectsDuplicateRequiredSchemaNames(t *testing.T) {
 
 func TestSearchFunctionExecutions_DescriptionStatesPagingShape(t *testing.T) {
 	d := (&SearchFunctionExecutions{}).Description()
-	for _, want := range []string{"JSON integer", `exact decimal string "2"`, "nextCursor verbatim"} {
+	for _, want := range []string{"JSON integer", `exact decimal string "2"`, "nextCursor verbatim", "summary index", "always call get_function_execution"} {
 		if !strings.Contains(d, want) {
 			t.Errorf("search_function_executions description must state %q, got %q", want, d)
+		}
+	}
+}
+
+func TestGetFunctionExecution_DescriptionNamesCompleteProvenance(t *testing.T) {
+	d := (&GetFunctionExecution{}).Description()
+	for _, want := range []string{"complete execution record", "messageId", "toolCallId", "flowrun coordinates"} {
+		if !strings.Contains(d, want) {
+			t.Errorf("get_function_execution description must state %q, got %q", want, d)
 		}
 	}
 }

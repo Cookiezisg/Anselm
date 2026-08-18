@@ -42,6 +42,7 @@ class ProvenanceLine extends StatelessWidget {
   const ProvenanceLine({
     this.conversationId,
     this.messageId,
+    this.toolCallId,
     this.flowrunId,
     this.triggerId,
     this.triggerName,
@@ -53,6 +54,7 @@ class ProvenanceLine extends StatelessWidget {
 
   final String? conversationId;
   final String? messageId;
+  final String? toolCallId;
   final String? flowrunId;
   final String? triggerId;
 
@@ -100,6 +102,13 @@ class ProvenanceLine extends StatelessWidget {
           look: AnChipLook.outlined,
           mono: true,
           copyValue: messageId!,
+        ),
+      if (toolCallId != null && toolCallId!.isNotEmpty)
+        AnChip(
+          '${t.entities.run.toolCall} ${truncate(toolCallId!, AnTrunc.id)}',
+          look: AnChipLook.outlined,
+          mono: true,
+          copyValue: toolCallId!,
         ),
       if (firingId != null && firingId!.isNotEmpty)
         AnChip(

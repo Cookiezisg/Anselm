@@ -122,6 +122,8 @@ void main() {
               'startedAt': '2026-07-05T14:03:00Z',
               'endedAt': '2026-07-05T14:03:01Z',
               'conversationId': 'conv_abc123def',
+              'messageId': 'msg_1234567890',
+              'toolCallId': 'blk_1234567890',
             }),
           ),
         ),
@@ -140,6 +142,8 @@ void main() {
       ); // navigable conversation pill
       // the conversationId in the provenance is truncated to 12
       expect(find.textContaining('conv_abc123d'), findsOneWidget);
+      expect(find.textContaining(t.entities.run.toolCall), findsOneWidget);
+      expect(find.textContaining('blk_1234567'), findsOneWidget);
     },
   );
 

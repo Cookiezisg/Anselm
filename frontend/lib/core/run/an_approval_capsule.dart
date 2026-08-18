@@ -270,6 +270,20 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
       .replaceAll('`', '')
       .replaceAll('*', '');
 
+  /// Fade a content rung only while the shell already has room for the complete rung. A clipped
+  /// glyph is worse than a short, deliberate reveal: on reverse the rung disappears before the
+  /// lower edge can reach it, and on forward it appears after the lower edge has passed it.
+  /// 内容级只在外壳已经完整容纳该级时淡入。裁半个字比晚一点出现更糟:倒放先收内容再收
+  /// 下缘,正放先过下缘再显内容,因此任何可见字形都不会被海岸线裁断。
+  double _safeRevealOpacity({
+    required double shellHeight,
+    required double contentBottom,
+  }) {
+    const fadeBand = 12.0;
+    if (shellHeight <= contentBottom) return 0;
+    return ((shellHeight - contentBottom) / fadeBand).clamp(0.0, 1.0);
+  }
+
   Future<void> _exit() async {
     if (_exiting || !mounted) return;
     _exiting = true;
@@ -310,6 +324,34 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
     final statusColor = widget.errorLabel != null || widget.verdict != null
         ? statusTone.fg(c)
         : c.inkMuted;
+    Widget safeReveal({
+      required String keyName,
+      required double contentBottom,
+      required Widget child,
+    }) {
+      return AnimatedBuilder(
+        animation: _c,
+        child: child,
+        builder: (context, child) {
+          final shellHeight =
+              (_barH + (_blockH - _barH) * _stretchH.value) *
+              (0.15 + 0.85 * _birth.value);
+          final opacity = _safeRevealOpacity(
+            shellHeight: shellHeight,
+            contentBottom: contentBottom,
+          );
+          return IgnorePointer(
+            ignoring: opacity == 0,
+            child: Opacity(
+              key: ValueKey<String>(keyName),
+              opacity: opacity,
+              child: child,
+            ),
+          );
+        },
+      );
+    }
+
     // Laid out ONCE at final block size; the animated shell clips it (top-start anchored: the right
     // edge sweeps the title out, the bottom edge sweeps the question + buttons out).
     // 按终尺寸排版一次,动画壳裁切;左上锚定=右缘扫标题、下缘扫问题与按钮。
@@ -373,47 +415,59 @@ class _AnApprovalCapsuleState extends State<AnApprovalCapsule>
               ),
             ),
             const SizedBox(height: AnGap.stack),
-            Padding(
-              padding: const EdgeInsetsDirectional.symmetric(
-                horizontal: AnInset.noticeCoast,
-              ),
-              child: Text(
-                _plainQuestion,
-                maxLines: 2,
-                overflow: TextOverflow.ellipsis,
-                style: AnText.body.copyWith(color: c.ink),
+            safeReveal(
+              keyName: 'approval-question-reveal',
+              contentBottom: _barH + AnGap.stack + _questionH,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: AnInset.noticeCoast,
+                ),
+                child: Text(
+                  _plainQuestion,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.body.copyWith(color: c.ink),
+                ),
               ),
             ),
             const SizedBox(height: AnGap.block),
-            Padding(
-              padding: const EdgeInsetsDirectional.symmetric(
-                horizontal: AnInset.noticeCoast,
-              ),
-              child: Row(
-                children: [
-                  AnButton(
-                    label: widget.approveLabel,
-                    variant: AnButtonVariant.primary,
-                    size: AnButtonSize.sm,
-                    onPressed:
-                        !widget.decisionsEnabled ||
-                            widget.busy ||
-                            widget.verdict != null
-                        ? null
-                        : widget.onApprove,
-                  ),
-                  const SizedBox(width: AnGap.inlineLoose),
-                  AnButton(
-                    label: widget.rejectLabel,
-                    size: AnButtonSize.sm,
-                    onPressed:
-                        !widget.decisionsEnabled ||
-                            widget.busy ||
-                            widget.verdict != null
-                        ? null
-                        : widget.onReject,
-                  ),
-                ],
+            safeReveal(
+              keyName: 'approval-actions-reveal',
+              // The action padding's bottom is the block's bottom coast. Derive it from the same
+              // measured destination used by the layout instead of assuming the button's visual
+              // box is the row's final extent.
+              // 动作 padding 的底正是块的底海岸;与布局同源取值,不把按钮视觉盒误当作整行终点。
+              contentBottom: _blockH - AnInset.noticeCoast,
+              child: Padding(
+                padding: const EdgeInsetsDirectional.symmetric(
+                  horizontal: AnInset.noticeCoast,
+                ),
+                child: Row(
+                  children: [
+                    AnButton(
+                      label: widget.approveLabel,
+                      variant: AnButtonVariant.primary,
+                      size: AnButtonSize.sm,
+                      onPressed:
+                          !widget.decisionsEnabled ||
+                              widget.busy ||
+                              widget.verdict != null
+                          ? null
+                          : widget.onApprove,
+                    ),
+                    const SizedBox(width: AnGap.inlineLoose),
+                    AnButton(
+                      label: widget.rejectLabel,
+                      size: AnButtonSize.sm,
+                      onPressed:
+                          !widget.decisionsEnabled ||
+                              widget.busy ||
+                              widget.verdict != null
+                          ? null
+                          : widget.onReject,
+                    ),
+                  ],
+                ),
               ),
             ),
             const SizedBox(height: AnInset.noticeCoast),

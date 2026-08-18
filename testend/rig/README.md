@@ -12,7 +12,7 @@
 
 | 通道 | 载体 | journal |
 |---|---|---|
-| ① 帧 | Computer Use 操作/稳定态截图 + conductor 绑定 Anselm 窗口的 `screencapture -v -l` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
+| ① 帧 | Computer Use 操作/稳定态截图 + conductor 绑定 Anselm 主窗口几何区域的 `screencapture -v -R` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
 | ② 后端 | conductor 亲启的 sidecar,stdout 全量捕获 | `backend.log` |
 | ③ SSE | `cmd/ssetap` 动态发现全部 workspace 并独立订三条流(不经前端 demux) | `sse.jsonl` |
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
@@ -40,7 +40,7 @@ FlutterError/DartError/RenderFlex」后才可把它从产品缺陷中分流，�
 ```bash
 testend/rig/rig-up.sh      # 建二进制→起 llmtap/后端/ssetap/真实 App/窗口录像→manifest
 testend/rig/rig-check.sh   # 五通道自检:权限/进程与端口归属/三流连接/受管接线/journal
-testend/rig/rig-down.sh    # App→后端→双 tap→录像;封口并 ffprobe MOV,journal 全保留
+testend/rig/rig-down.sh    # 先封口录像,再停 App→后端→双 tap;ffprobe MOV,journal 全保留
 ```
 
 `rig-up.sh`、`rig-check.sh` 和 `rig-down.sh` 都不接受位置参数；`-h/--help` 只打印用法并退出，未知参数直接拒绝。
@@ -83,7 +83,9 @@ clean 结果当作当前 session 的门禁证据。
 Anselm App，启动后只接收新出现的精确 App 进程，并由录屏窗口反查 owner PID，不能把一个残留进程误判
 为前端在线。`frontend-build.log` 保存构建 console，`frontend.log` 保存真实 App stdout/stderr。
 录像在
-Flutter 窗口真正出现后按 CoreGraphics window ID 绑定单窗口，拒绝把全桌面录屏当作帧证据。首次
+Flutter 窗口真正出现后按 CoreGraphics window ID 解析其几何区域，使用 `-R x,y,w,h` 录制该 App 区域；这样
+同一窗口内的 OverlayPortal / 菜单浮层也进入连续帧，同时拒绝把全桌面录屏当作帧证据。manifest 同时保留
+`appWindowId` 与 `appWindowBounds`，`rig-check` 对两者和 recorder 命令做归属复核。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
 ## 两条铁律(都以真事故立法,自检强制执行)
@@ -116,7 +118,7 @@ go run ./cmd/measure compare -source <source.png> -frame <first-frame.png>
 
 `compare` 是 `animate_image` 的首帧硬证据:它先把源图确定性归一到视频首帧的栅格,再输出变化像素占比和包围盒;默认 `changedFrac <= 0.20` 才通过。它不是逐编码器像素相等,而是防止上游把图生视频静默降级成另一幅文生视频构图。
 
-先 `rig-down.sh` 封口录像，再抽帧：
+`rig-down.sh` 会先封口录像再停 App，确保 MOV 尾帧仍属于 Anselm 窗口；之后再抽帧：
 
 ```bash
 SESSION=$RIG_HOME/sessions/<时间戳>
