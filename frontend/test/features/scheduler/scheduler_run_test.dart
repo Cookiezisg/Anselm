@@ -580,6 +580,30 @@ void main() {
     );
 
     testWidgets(
+      'the dossier exposes the durable entry trigger payload before the error and pinned refs',
+      (tester) async {
+        _desktop(tester);
+        final repo = _repo(
+          nodes: [
+            _node(
+              'entry',
+              'completed',
+              kind: NodeKind.trigger.name,
+              result: const {'orderId': 'order-060', 'source': 'webhook'},
+            ),
+            _node('analyze', 'failed', kind: 'agent', error: _nodeError),
+          ],
+        );
+        await _pump(tester, repo);
+
+        expect(find.text(t.scheduler.run.payloadHead), findsOneWidget);
+        expect(find.text('orderId'), findsOneWidget);
+        expect(find.text('order-060'), findsOneWidget);
+        expect(find.textContaining('run-level detail line'), findsOneWidget);
+      },
+    );
+
+    testWidgets(
       '?node= → the island swaps to the INSPECTOR face for that node',
       (tester) async {
         _desktop(tester);

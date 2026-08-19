@@ -9,6 +9,7 @@ import '../../../core/contract/entities/relation.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
 import '../../../core/runtime.dart';
+import '../../../core/sse/frame.dart';
 import '../../../core/sse/sse_gateway.dart';
 import '../../../core/ui/an_time_pulse.dart';
 import '../../entities/data/entity_kind.dart';
@@ -110,9 +111,25 @@ class SchedulerRailController extends AsyncNotifier<SchedulerRailData> {
             _debounce?.cancel();
             _debounce = Timer(const Duration(milliseconds: 300), refresh);
           });
+      // Trigger pause/resume changes the next-fire join without changing a workflow row. The
+      // backend emits this as an entities trigger/status signal, so listen narrowly here: firing
+      // and activation telemetry must not turn the whole rail into a refetch loop.
+      // trigger 的暂停/恢复会改变 next-fire join 但不改 workflow 行;只听 trigger/status,不把活动台账变成
+      // 全 rail 重取风暴。
+      final triggerStatusSub = gateway
+          .kindStream(StreamName.entities, 'trigger')
+          .where((env) {
+            final frame = env.frame;
+            return frame is FrameSignal && frame.node.type == 'status';
+          })
+          .listen((_) {
+            _debounce?.cancel();
+            _debounce = Timer(const Duration(milliseconds: 300), refresh);
+          });
       ref.onDispose(() {
         sub.cancel();
         lifecycleSub.cancel();
+        triggerStatusSub.cancel();
         _debounce?.cancel();
       });
     }

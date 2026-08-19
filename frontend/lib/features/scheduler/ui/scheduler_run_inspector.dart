@@ -190,6 +190,11 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
     final d = widget.data;
     final run = d.run;
     final error = errorSentence(run.error);
+    final entryPayload = d.nodes
+        .where((node) => node.kind == NodeKind.trigger.name)
+        .firstOrNull;
+    final hasEntryPayload =
+        entryPayload != null && entryPayload.result.isNotEmpty;
 
     return _Face(
       title: t.dossierTitle,
@@ -233,6 +238,31 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
           firingId: run.firingId,
           flowrunId: run.id,
         ),
+        // The trigger node is the durable entry payload. Keep it in the dossier as the first-class
+        // answer to "what did this run receive?"; the graph/ledger still owns selection and the
+        // inspector owns downstream I/O. 入口 trigger 节点就是耐久入口载荷；卷宗先回答「这次收到了
+        // 什么」，图/台账仍负责选区，下游节点 I/O 仍只在检查器展开。
+        if (entryPayload != null) ...[
+          const SizedBox(height: AnGap.section),
+          AnSection(
+            label: t.payloadHead,
+            variant: AnSectionVariant.plain,
+            children: [
+              if (hasEntryPayload)
+                AnJsonTree(
+                  data: entryPayload.result,
+                  showRoot: false,
+                  openDepth: 1,
+                  maxHeight: AnSize.jsonViewport,
+                )
+              else
+                Text(
+                  t.nodeNoIo,
+                  style: AnText.body.copyWith(color: c.inkFaint),
+                ),
+            ],
+          ),
+        ],
         // The error IN FULL — the head carries only its first sentence, and this is where the rest
         // of it lives (nothing else in the page dumps text). 错误全文:头只带首句,全文住这。
         // Spacers below are CONDITIONAL on the predecessor (0718 对齐审计): an AnSection already

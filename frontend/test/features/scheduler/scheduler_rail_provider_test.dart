@@ -118,6 +118,13 @@ StreamEnvelope _workflowLifecycleFrame({
   ),
 );
 
+StreamEnvelope _triggerFrame({required String type}) => StreamEnvelope(
+  seq: 0,
+  scope: const StreamScope(kind: 'trigger', id: 'tr_cron_clean'),
+  id: 'sig_trigger',
+  frame: FrameSignal(node: StreamNode(type: type)),
+);
+
 void main() {
   test(
     'ticks (seq=0) never refetch; durable frames (seq>0) do — debounced',
@@ -190,6 +197,48 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 600));
       expect(repo.fetches, 2);
+    },
+  );
+
+  test(
+    'trigger status refetches the next-fire join, but trigger telemetry does not',
+    () async {
+      final conns = {for (final n in StreamName.values) n: _FakeConn()};
+      final gateway = SseGateway(
+        baseUrl: 'http://localhost:1',
+        workspaceId: () => null,
+        authToken: () => null,
+        connectionFactory: (n) => conns[n]!,
+      );
+      final repo = _CountingRepo();
+      final container = ProviderContainer(
+        overrides: [
+          sseGatewayProvider.overrideWithValue(gateway),
+          schedulerRepositoryProvider.overrideWithValue(repo),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      await container.read(schedulerRailProvider.future);
+      expect(repo.fetches, 1);
+
+      // Activation/firing/status telemetry is ephemeral, but only status changes the trigger
+      // projection that contributes nextFireAt to the rail.
+      conns[StreamName.entities]!.ctrl.add(_triggerFrame(type: 'activation'));
+      await Future<void>.delayed(const Duration(milliseconds: 500));
+      expect(
+        repo.fetches,
+        1,
+        reason: 'trigger telemetry must not refetch the whole rail',
+      );
+
+      conns[StreamName.entities]!.ctrl.add(_triggerFrame(type: 'status'));
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      expect(
+        repo.fetches,
+        2,
+        reason: 'pause/resume status must refresh next-fire metadata',
+      );
     },
   );
 

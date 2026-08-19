@@ -136,7 +136,12 @@ SidebarModel buildSchedulerRailModel({
   SidebarRow row(SchedulerWorkflowRow w) => SidebarRow(
     id: w.id,
     label: w.name,
-    dot: schedulerRailDot(stats[w.id], needsAttention: w.needsAttention),
+    // Inactive workflows are history, not live health lanes. Keep their failure history visible in
+    // the expanded section, but do not let an old red/blue state claim current attention.
+    // 停用 workflow 属于历史，不是当前健康泳道；展开段保留失败历史，但不让旧红/蓝点冒充当前告警。
+    dot: w.lifecycleState == 'inactive'
+        ? null
+        : schedulerRailDot(stats[w.id], needsAttention: w.needsAttention),
     meta: schedulerRailMeta(
       stats[w.id],
       nextFireByWorkflow[w.id],

@@ -27,9 +27,10 @@ audience: [human, ai]
 ## 2. 当前能力
 
 - rail 按 workflow 展示活性、下一次点火、最近运行与异常信号；排序和显示偏好由独立 provider 持有。
+- inactive workflow 只在沉底段保留历史行与时间，不携带当前运行/等待/失败状态点；停用前的失败历史仍可在详情与运行记录中追溯。
 - Overview 的 KPI、排程轨、等待处理、正在运行和失败区都从 `schedulerRailProvider` 的同一批真相派生，避免徽标与正文各拉一份后漂移。
 - 运行矩阵与排程轨按真实 run / firing 计算；空格是“没有运行”的答案，不用预测或占位冒充事实。
-- run 卷宗展示触发来源、队列/执行耗时、钉住版本、执行图、节点甘特和逐节点 ledger；无版本可解析时明确降级，不拿当前 workflow 图伪装历史图。
+- run 卷宗展示触发来源、入口 payload、队列/执行耗时、钉住版本、执行图、节点甘特和逐节点 ledger；入口 payload 来自耐久 trigger node result，钉版无版本可解析时明确降级，不拿当前 workflow 图伪装历史图。
 - parked approval 在节点账本中提升为可操作门；first-wins 冲突后重取服务器状态。
 - 失败 run 可 replay，执行中 run 可 kill；triage 从卷宗开启对话，后续诊断仍由 chat 承载。
 
@@ -38,6 +39,7 @@ audience: [human, ai]
 - `SchedulerRepository` 是唯一数据缝；Live/Fixture 实现同形。
 - REST 行是 durable 真相。`entities` / `notifications` 流只负责促使当前投影更新；tick 只更新瞬时进度，不灌入耐久缓存。
 - rail、Overview 与 inspector 复用已取得的 workflow、stats、schedule、inbox 与 run 数据；同一个事实不由多个 provider 独立解释。
+- trigger 的 `status`（pause/resume）帧会触发 rail 重取，以刷新 next-fire join；activation/firing telemetry 不触发整 rail 重取，避免高频观测流造成刷新风暴。
 - run 详情以 `flowrunId` 寻址；workflow id 只提供父级导航和运营上下文，不能替代 run 身份。
 - 运行版本来自 flowrun 自己的 `versionId`；版本缺失或宿主已删除时保留卷宗，其地图诚实不可知。
 

@@ -151,6 +151,29 @@ void main() {
       final sections = [for (final ty in m.groups.first.types) ty.label];
       expect(sections.contains('Inactive'), isFalse, reason: '停用段整段隐藏');
     });
+
+    test(
+      'inactive rows never carry a live status dot, even with failed history',
+      () {
+        final m = buildSchedulerRailModel(
+          workflows: [_wf('retired', lifecycle: 'inactive', attention: true)],
+          stats: {
+            'retired': _stats(
+              'retired',
+              consecutiveFailures: 5,
+              lastRunAt: _now.subtract(const Duration(minutes: 2)),
+            ),
+          },
+          nextFireByWorkflow: const {},
+          waitingCount: 0,
+          labels: _labels,
+          now: _now,
+        );
+        final row = m.groups.single.types[2].rows.single;
+        expect(row.dot, isNull, reason: '停用历史不占当前状态点位');
+        expect(row.meta, '2m ago', reason: '历史时间仍可读');
+      },
+    );
   });
 
   group('schedulerRailDot — 蓝>琥珀>红>无', () {

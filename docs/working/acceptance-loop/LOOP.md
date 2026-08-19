@@ -13,7 +13,69 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-19 19:24）
+## 当前前线覆盖声明（2026-08-19 21:31）
+
+`SURF-065 settings/rail-search` 已完成真实 App + managed gateway 五级验收。全新工作区真实验证空查询三段目录、`zzzz` 无匹配、真实退格清空恢复、`zoom` 跨面板结果、面板头跳转、具体项滚动定位与等高蓝色洗亮；所有输入均为真实键盘事件，没有产品级 stop-and-fix 缺陷。
+
+session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-212554`，workspace=`ws_53a147068c051721`，录屏=`127.786667s / 2560x1584 / H.264 / 60fps`。五通道：backend=`176` 行无应用红线；ssetap 三流连接且本路径无聊天/实体业务耐久帧不虚构；frontend=`5` 行仅正常启动/VM/已知 IMK host warning；llmtap managed proof/install/models=`200`，设置搜索路径无 completion；rig-check/rig-down、settings focused=`42/42`、Dart analyze、coverage check、进程审计通过。证据=`sessions/20260819-212554/evidence/SURF-065-settings-rail-search-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-065-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2275 judgments`，COVERAGE=`848 rows / 448 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。批次四十二=`50/50`；统一长门禁已通过：rig Python=`42/42`、`make verify` 四门全绿、`make -C backend testend` 全量黑盒=`283.748s`、gofmt/diff/process-listener audit 全绿。下一前线为 `SURF-066 settings/panel-general`，本批工作树审计后提交。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-064 settings/rail-system` 已完成真实 App + managed gateway 五级验收。System 段真实打开 Storage & logs、Advanced limits、Network、Shortcuts、About：sidecar 数据目录/磁盘真相、schema limits、proxy restart 提示、六个快捷键、About 更新错误与 `Copied` 回执均通过；没有执行不可逆 factory reset，也没有产品级 stop-and-fix 缺陷。
+
+session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-212039`，workspace=`ws_b34dfc17c20ccd09`，录屏=`116.973333s / 2560x1584 / H.264 / 60fps`。五通道：backend=`171` 行无应用红线；ssetap 三流连接且本路径无聊天/实体业务耐久帧不虚构；frontend=`4` 行仅正常启动/VM/已知 IMK host warning；llmtap managed proof/install/models=`200`，系统设置路径无 completion；rig-check/rig-down、系统 focused suite=`26/26`、Dart analyze、coverage check、进程审计通过。证据=`sessions/20260819-212039/evidence/SURF-064-settings-rail-system-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-064-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2270 judgments`，COVERAGE=`848 rows / 447 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。批次四十二=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线为 `SURF-065 settings/rail-search`。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-063 settings/rail-resources` 已完成真实 App + managed gateway 五级验收。Resources 段真实打开 Models & keys、MCP servers、Memory、Sandbox、Workspaces：managed free-tier / scenario defaults / empty voices、MCP loading→`0-100 of 102` marketplace、Memory/Sandbox 诚实空态、当前 workspace/Current 均通过；没有产品级 stop-and-fix 缺陷。
+
+session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-211359`，workspace=`ws_627041276bc74cad`，录屏=`133.883333s / 2560x1584 / H.264 / 60fps`。五通道：backend=`196` 行无应用红线；ssetap 三流连接且本路径无聊天/实体业务耐久帧不虚构；frontend=`4` 行仅正常启动/VM/已知 IMK host warning；llmtap managed proof/install/models=`200`，资源路径无 completion；rig-check/rig-down、资源 focused suite=`77/77`、Dart analyze、coverage check、进程审计通过。证据=`sessions/20260819-211359/evidence/SURF-063-settings-rail-resources-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-063-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2265 judgments`，COVERAGE=`848 rows / 446 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。批次四十二=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线为 `SURF-064 settings/rail-system`。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-062 settings/rail-prefs` 已完成真实 App + managed gateway 五级验收。全新工作区 onboarding 后进入 Settings，左岛真实展示 `Preferences` 下的 `General`、`Notifications`、`Chat` 三面板；真实键盘输入 `theme` 与 `login` 分别完成设置项结果、跨面板定位、搜索清空、浮层头带下滚动和一次性洗亮。`Launch at login` 真实 off→on→off，AX/画面回读一致且默认恢复动作正确；没有产品级 stop-and-fix 缺陷。
+
+session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-210545`，workspace=`ws_54a9a9eaa18dc054`，录屏=`257.628333s / 2560x1584 / H.264 / 60fps`。五通道：backend=`297` 行无应用红线；ssetap 三流连接且本路径无业务耐久帧不虚构；frontend=`5` 行仅正常启动/VM/已知 IMK host warning；llmtap managed proof/install/models=`200`，设置路径无 completion；rig-check/rig-down、设置 focused suite=`42/42`、Dart analyze、coverage check、进程审计通过。证据=`sessions/20260819-210545/evidence/SURF-062-settings-rail-prefs-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-062-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2260 judgments`，COVERAGE=`848 rows / 445 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。批次四十二=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线为 `SURF-063 settings/rail-resources`。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-061 scheduler/run-inspector-node` 已完成真实 App + managed gateway 五级验收。真实 loop workflow 让 `work` 节点产生 3 个 durable iterations；旗舰节点表显示 `work ×3`、`route ×3`、`7 nodes · Completed 7`。选中 `work` 后右岛检查器提供 `#0/#1/#2` 迭代切换，输出 `index=0/1/2` 与 execution log 坐标随轮次变化；真实失败节点同时显示全文 traceback、无结果诚实态、执行日志和 `Replay the failed nodes`。没有产品级 stop-and-fix 缺陷。
+
+session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-205412`，workspace=`ws_7a9b6f127158cb3c`，run=`fr_2d4323570cff2460`，录屏=`333.648333s / 2560x1584 / H.264 / 60fps`。五通道：backend=`578` 行无应用红线；ssetap entities durable=`7..58`、notifications durable=`16..57` 单调，目标 run 每轮 ephemeral node frame 与 terminal close 均有；frontend=`4` 行仅正常启动/VM/已知 IMK host warning；llmtap proof/install/models 全 `200`，无伪造 completion；SQLite 7 行节点、UI、REST/SSE 对账一致，收台无残留进程。构造阶段的整数 CEL fixture 错误保留且在公开 control edit 后修正，不计产品 defect。证据=`sessions/20260819-205412/evidence/SURF-061-run-inspector-node-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-061-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2255 judgments`，COVERAGE=`848 rows / 444 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。批次四十二=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线为 `SURF-062 settings/rail-prefs`。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-060 scheduler/run-inspector-dossier` 已完成 stop-and-fix 后的真实 App + managed gateway 五级验收。红跑发现失败运行右岛 dossier 缺少入口 payload；后端证实入口数据持久化在 trigger 节点 result。修复后 dossier 在 Error 前增加 `Entry payload` JSON 区段，真实显示 `body.index=5`、`body.mode=fail`，并补 focused Flutter regression 与 Scheduler 文档。
+
+绿 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-204650`，红 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-204243`，workspace=`ws_0204dbcd6673da77`，录屏=`206.026667s / 2560x1584 / H.264 / 60fps`。真实 App 从 Scheduler → Inactive → `surf052_failed` → failed run → `Open` 进入 dossier，同时展示状态、pinned version、replay history、Entry payload、Error 全文、Pinned refs 和 AI triage；点击 AI triage 后真实受管网关 Chat 完成，回答准确还原 payload → function → RuntimeError → failed 的因果链。绿证据=`sessions/20260819-204650/evidence/SURF-060-run-inspector-dossier-five-level.md`，红帧=`sessions/20260819-204243/evidence/SURF-060-red-dossier-missing-payload.png`。
+
+五通道封口：录屏已正常收束；backend=`366` 行无应用红线；ssetap=`270` 行，messages durable=`1..22`、notifications durable=`1..12` 单调；frontend=`3` 行仅正常 Dart VM service；llmtap challenge 与三次 chat completion 均 `200`，body 已封存；rig-check 报告 five channels physically observing，收台后无残留进程。focused `scheduler_run_test.dart`=`39/39`、analyze、rig-check/rig-down、ffprobe/process leak audit 通过。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2250 judgments`，COVERAGE=`848 rows / 443 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。警报独立复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-060-ledger-alarm-reaudit.md`。批次四十二=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线为 `SURF-061`。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-059 scheduler/rail-inactive` 已完成 stop-and-fix 后的真实 App + managed gateway 五级验收。红跑真实停用带失败历史的 workflow 后，Inactive 展开行错误显示红色 live dot；修复后 inactive 行只保留历史时间，不占当前状态点位，并补 model regression 与 Scheduler 文档。绿跑 Computer Use 展开 `Inactive 2` 看到 `surf052_failed 5m ago`、`surf052_inactive —` 且无红点；Display options 隐藏/恢复停用区也通过。
+
+绿 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-203404`，红 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-203033`，workspace=`ws_64f76fe1fdf9aa85`，录屏=`209.260000s / 2560x1584 / H.264 / 60fps`。五通道封口：backend=`324` 行无应用红线；ssetap 三流真实连接并记录 settle lifecycle；frontend=`3` 行仅 VM 启动；llmtap ready 且确定性路径无 completion；rig-down 后无进程残留。证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-203404/evidence/SURF-059-rail-inactive-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-059-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2245 judgments`，COVERAGE=`848 rows / 442 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`；focused provider=`13/13`、model=`15/15`、Dart analyze、rig-check/rig-down/ffprobe/process leak audit 通过。批次四十二=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线为 `SURF-060 scheduler/run-inspector-dossier`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+`SURF-058 scheduler/rail-never-ran` 已完成真实 App + managed gateway 的五级验收。全新工作区首屏在 Scheduler rail 显示 `Never ran 1` 且子项初始折叠；展开后只出现唯一真实 `surf052_never_ran`，随后启动真实 completed run `fr_da9efc70f9a08841`，durable refresh 将该行提升到无头主段并按活动排序，`Never ran` 段消失，`Inactive 1` 保持独立。初始/展开/迁移帧与同 session 五通道证据已封存。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-201947`，workspace=`ws_625a6279a8161d46`，录屏=`346.326667s / 2560x1584 / H.264 / 60fps`。backend=`572` 行无应用红线；ssetap 三流连接，entities durable=`1..44`、notifications=`1..33` 单调；frontend 无 Flutter/Dart/RenderFlex/RenderBox/assertion/Unhandled/Exception 红线，仅已知 IMK host 噪声；llmtap managed challenge/install/models 全 `200`，确定性路径不伪造 completion。证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-201947/evidence/SURF-058-rail-never-ran-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-058-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2240 judgments`，COVERAGE=`848 rows / 441 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。focused Scheduler provider=`13/13`、model=`14/14`，rig-check/rig-down/ffprobe/process leak audit 通过；批次四十二=`15/50`，未满 50 格不跑统一长门禁、不提交。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-057 scheduler/rail-main` 已完成 stop-and-fix 后的正式五级验收。首轮真实 App 通过真实 `:pause` 后 REST/SSE 已确认 trigger 无 `nextFireAt`，rail 却残留 `in 3h`；修复 `SchedulerRailController` 只监听 `entities/trigger` 的 `status` signal，保留 activation/firing telemetry 不重取的边界，并补正负 provider regression。重建 App 后暂停态回落上次运行，resume 回到 `in 3h`，真实 completed run 后 Recent activity 顺序稳定，Show next fire 开关可落到 last-run 并恢复，Name/Recent activity 镜头可切换，Never ran/Inactive 始终沉底。
+
+红 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-200109`，绿 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-200757`，workspace=`ws_751c44f801a46d07`，绿录屏=`200.778333s / 2560x1584 / H.264 / 60fps`。五通道：绿 backend 无应用红线，ssetap 三流连接并观察 trigger status/run/approval/settle，frontend 无 Flutter/Dart/RenderFlex/RenderBox/assertion/Unhandled/Exception 红线，llmtap journal 非空且无伪造 completion；红 stale 帧与修复证据均保留。证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-200757/evidence/SURF-057-rail-main-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-057-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2235 judgments`，COVERAGE=`848 rows / 440 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。focused Scheduler provider=`13/13`、model=`14/14`，docs verify、rig `42/42`、ffprobe/process leak audit 通过；批次四十二=`10/50`，未满 50 格不跑统一长门禁、不提交。P12 400+ Journey 按用户裁定推迟二期。
+
+`SURF-056 scheduler/rail-overview-row` 已完成正式五级验收。真实 App 在 Scheduler rail 验证无数据时固定首行 Overview；构造真实 parked approval 后，Overview 琥珀等待点与右缘 `1`、中心 `Waiting 1`、右上审批卡和 Waiting on you 同时出现。点击 Approve 后 durable refetch 收敛为无等待徽标与 `Waiting 0`；选中工作流再返回 Overview，中心与选中态均无 stale detail；第二次 parked run 重新把计数拉回 1。真实数据来自同一 flowrun inbox，不是 fixture 文本投影。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-194527`，workspace=`ws_83b4627329714f23`，录屏=`593.678333s / 2560x1584 / H.264 / 60fps`。五通道：backend `705` 行无应用红线，ssetap `113` 行连接 notifications/entities/messages 三流并观察 approval pending 与 durable run signals，frontend 只有已知 macOS IMK host 噪声，llmtap managed challenge/install/models 全 `200`；证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260819-194527/evidence/SURF-056-overview-five-level.md`，警报复审=`/private/tmp/anselm-rig-formal-20260801-3/evidence/SURF-056-ledger-alarm-reaudit.md`。
+
+五级=`G1/F1/B2/C4/G1`，formal ledger=`2230 judgments`，COVERAGE=`848 rows / 439 judged / 0 tombstones`，anchors=`10/10`，alarms=`clean`。focused Scheduler=`57/57`，rig-check/rig-down/ffprobe/process leak audit 通过；批次四十二=`5/50`，未满 50 格不跑统一长门禁、不提交。P12 400+ Journey 继续按用户裁定推迟二期。
 
 `SURF-055 scheduler/run-relay` 已完成正式五级验收。真实 App 从 Scheduler workflow home 的 run terminal 点击生产 `Open run page →`，实际穿过 `/scheduler/runs/:frId` id-only relay，并交棒 `/scheduler/w/{workflowId}/runs/{flowrunId}` 旗舰；终帧显示 `Done`、pinned version、2 nodes completed、Timeline、Run dossier 和 pinned refs。故意 dead-id 负路径返回 `FLOWRUN_NOT_FOUND`，不是空白页；Computer Use rail 搜索 Return 的驱动限制已记录为仪器边界，不计产品绿。
 
