@@ -244,6 +244,39 @@ func TestUpdateInstalled_UnchangedToolsKeepApproval(t *testing.T) {
 	}
 }
 
+func TestUpdateInstalled_InvalidSourcePreservesInstallation(t *testing.T) {
+	svc, ctx := installTestSetup(t)
+	if _, err := svc.Install(ctx, "owner/repo", nil, false); err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	if _, err := svc.ApproveTools(ctx, "pdf"); err != nil {
+		t.Fatalf("approve: %v", err)
+	}
+
+	svc.SetFetcher(fakeCands(skillfetch.Candidate{
+		Name: "pdf",
+		Files: map[string][]byte{
+			"SKILL.md":                     []byte("---\nname: pdf\ndescription: broken source\n---\nBroken.\n"),
+			skilldomain.InstallSidecarName: []byte("{}"),
+		},
+	}))
+	if _, err := svc.UpdateInstalled(ctx, "pdf", true); !errors.Is(err, skilldomain.ErrFilePathInvalid) {
+		t.Fatalf("reserved source file must refuse before wipe, got %v", err)
+	}
+
+	sk, err := svc.Get(ctx, "pdf")
+	if err != nil {
+		t.Fatalf("get after refused update: %v", err)
+	}
+	if sk.Source != skilldomain.SourceInstalled || sk.Provenance == nil || !sk.Provenance.ToolsApproved {
+		t.Fatalf("refused update must preserve installed provenance: %+v", sk)
+	}
+	raw, err := svc.ReadFile(ctx, "pdf", "scripts/x.py")
+	if err != nil || string(raw) != "print()" {
+		t.Fatalf("refused update must preserve files: %q err=%v", raw, err)
+	}
+}
+
 func TestInstallAndUpdate_EmitOneLifecycleEventForOperation(t *testing.T) {
 	emitter := &recordingSkillEmitter{}
 	svc := NewService(skillfs.New(t.TempDir()), nil, emitter, zap.NewNop())

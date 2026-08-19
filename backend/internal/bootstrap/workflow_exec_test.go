@@ -18,7 +18,7 @@ import (
 )
 
 func TestStartInputFor_ManualWithoutConversation(t *testing.T) {
-	in := startInputFor(context.Background(), "wf_1", map[string]any{"k": "v"})
+	in := startInputFor(context.Background(), "wf_1", "entry_a", map[string]any{"k": "v"})
 	if in.Origin != flowrundomain.OriginManual {
 		t.Fatalf("origin = %q, want manual (no conversation in ctx)", in.Origin)
 	}
@@ -28,11 +28,14 @@ func TestStartInputFor_ManualWithoutConversation(t *testing.T) {
 	if in.WorkflowID != "wf_1" || in.Payload["k"] != "v" {
 		t.Fatalf("workflow/payload must pass through: %+v", in)
 	}
+	if in.EntryNode != "entry_a" {
+		t.Fatalf("entry node must pass through: %q", in.EntryNode)
+	}
 }
 
 func TestStartInputFor_ChatWithConversation(t *testing.T) {
 	ctx := reqctxpkg.SetConversationID(context.Background(), "cv_9")
-	in := startInputFor(ctx, "wf_1", nil)
+	in := startInputFor(ctx, "wf_1", "", nil)
 	if in.Origin != flowrundomain.OriginChat {
 		t.Fatalf("origin = %q, want chat (conversation in ctx)", in.Origin)
 	}

@@ -1210,6 +1210,9 @@ class Translations$library$en {
 	/// en: 'Updated to the upstream version'
 	String get skillUpdateDone => 'Updated to the upstream version';
 
+	/// en: 'Update failed: $reason'
+	String skillUpdateFailedWithReason({required Object reason}) => 'Update failed: ${reason}';
+
 	/// en: 'Local edits exist — updating will overwrite them. Force update?'
 	String get skillLocallyModified => 'Local edits exist — updating will overwrite them. Force update?';
 
@@ -3938,6 +3941,21 @@ class Translations$scheduler$home$en {
 
 	/// en: 'Run started · $id'
 	String runNowStarted({required Object id}) => 'Run started · ${id}';
+
+	/// en: 'Choose a trigger'
+	String get runNowChooseTitle => 'Choose a trigger';
+
+	/// en: 'This workflow has more than one trigger. Choose the entry for this manual run.'
+	String get runNowChooseHint => 'This workflow has more than one trigger. Choose the entry for this manual run.';
+
+	/// en: 'Trigger $id'
+	String runNowTriggerFallback({required Object id}) => 'Trigger ${id}';
+
+	/// en: '$kind trigger'
+	String runNowTriggerKind({required Object kind}) => '${kind} trigger';
+
+	/// en: 'Cancel'
+	String get runNowCancel => 'Cancel';
 
 	/// en: 'Edit in Entities'
 	String get menuEdit => 'Edit in Entities';
@@ -7559,6 +7577,18 @@ class Translations$entities$detail$editor$en {
 
 	/// en: 'Tool…'
 	String get refPickTool => 'Tool…';
+
+	/// en: 'No targets available yet'
+	String get refNoTargets => 'No targets available yet';
+
+	/// en: 'This handler has no methods'
+	String get refNoMethods => 'This handler has no methods';
+
+	/// en: 'No MCP servers configured yet'
+	String get refNoMcpServers => 'No MCP servers configured yet';
+
+	/// en: 'This MCP server has no tools'
+	String get refNoMcpTools => 'This MCP server has no tools';
 }
 
 // Path: entities.run.danger
@@ -8549,6 +8579,11 @@ extension on Translations {
 			'scheduler.home.moreA11y' => 'More actions',
 			'scheduler.home.runNow' => 'Run now',
 			'scheduler.home.runNowStarted' => ({required Object id}) => 'Run started · ${id}',
+			'scheduler.home.runNowChooseTitle' => 'Choose a trigger',
+			'scheduler.home.runNowChooseHint' => 'This workflow has more than one trigger. Choose the entry for this manual run.',
+			'scheduler.home.runNowTriggerFallback' => ({required Object id}) => 'Trigger ${id}',
+			'scheduler.home.runNowTriggerKind' => ({required Object kind}) => '${kind} trigger',
+			'scheduler.home.runNowCancel' => 'Cancel',
 			'scheduler.home.menuEdit' => 'Edit in Entities',
 			'scheduler.home.menuKill' => 'Kill workflow…',
 			'scheduler.home.killTitle' => 'Kill this workflow',
@@ -8677,13 +8712,13 @@ extension on Translations {
 			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
 			'scheduler.run.closeA11y' => 'Close this run',
 			'scheduler.range.today' => 'Today',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.h24' => 'Last 24 hours',
 			'scheduler.range.d7' => 'Last 7 days',
 			'scheduler.range.d30' => 'Last 30 days',
 			'scheduler.range.all' => 'All time',
 			'scheduler.range.customTitle' => 'Custom range',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.from' => 'From',
 			'scheduler.range.to' => 'To',
 			'scheduler.range.apply' => 'Apply',
@@ -9152,6 +9187,10 @@ extension on Translations {
 			'entities.detail.editor.refPickTarget' => 'Select…',
 			'entities.detail.editor.refPickMethod' => 'Method…',
 			'entities.detail.editor.refPickTool' => 'Tool…',
+			'entities.detail.editor.refNoTargets' => 'No targets available yet',
+			'entities.detail.editor.refNoMethods' => 'This handler has no methods',
+			'entities.detail.editor.refNoMcpServers' => 'No MCP servers configured yet',
+			'entities.detail.editor.refNoMcpTools' => 'This MCP server has no tools',
 			'entities.run.method' => 'Method',
 			'entities.run.streaming' => 'streaming',
 			'entities.run.example' => 'Example',
@@ -9187,6 +9226,8 @@ extension on Translations {
 			'entities.run.recentCount' => ({required Object n}) => 'Recent · ${n}',
 			'entities.run.reproduce' => 'Use this input',
 			'entities.run.inputHeading' => 'input',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.origin.manual' => 'Manual',
 			'entities.run.origin.chat' => 'Chat',
 			'entities.run.origin.agent' => 'Agent',
@@ -9196,8 +9237,6 @@ extension on Translations {
 			'entities.run.origin.fsnotify' => 'File change',
 			'entities.run.origin.sensor' => 'Sensor',
 			'entities.val.yes' => 'yes',
-			_ => null,
-		} ?? switch (path) {
 			'entities.val.no' => 'no',
 			'entities.overview.title' => 'Overview',
 			'entities.overview.accessory' => 'Parts',
@@ -9337,6 +9376,7 @@ extension on Translations {
 			'library.skillApproveTools' => 'Approve pre-authorized tools',
 			'library.skillCheckUpdate' => 'Check for updates',
 			'library.skillUpdateDone' => 'Updated to the upstream version',
+			'library.skillUpdateFailedWithReason' => ({required Object reason}) => 'Update failed: ${reason}',
 			'library.skillLocallyModified' => 'Local edits exist — updating will overwrite them. Force update?',
 			'library.skillForceUpdate' => 'Force update',
 			'library.skillInstallTitle' => 'Install skills from a source',
@@ -9700,6 +9740,8 @@ extension on Translations {
 			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importing' => 'Importing…',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
 			'settings.mcp.importInvalidShape' => 'Add mcpServers to JSON',
 			'settings.mcp.importTooLarge' => 'Keep the JSON under 1 MiB',
@@ -9710,8 +9752,6 @@ extension on Translations {
 			'settings.mcp.installNamed' => ({required Object name}) => 'Install ${name}',
 			'settings.mcp.installing' => 'Installing…',
 			'settings.mcp.marketEmptyLead' => 'Install your first MCP server from the marketplace',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.marketLoadFailed' => 'Couldn\'t load the marketplace',
 			'settings.mcp.marketLoadFailedHint' => 'Check the connection and try again.',
 			'settings.mcp.planLoadFailed' => 'Couldn\'t prepare the install',

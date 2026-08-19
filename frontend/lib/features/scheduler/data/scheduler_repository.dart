@@ -247,8 +247,9 @@ abstract interface class SchedulerRepository {
   /// 只取 run 头(limit=1):terminal 落账的廉价对账读,原位补一行、不拖节点史。
   Future<Flowrun> getRun(String flowrunId);
 
-  /// Run the workflow once now (`POST /workflows/{id}:trigger`, 202 → the new flowrun id). Run now。
-  Future<String> runNow(String workflowId);
+  /// Run the workflow once now (`POST /workflows/{id}:trigger`, 202 → the new flowrun id). [entryNode]
+  /// selects a trigger entry when the graph has more than one. Run now。
+  Future<String> runNow(String workflowId, {String? entryNode});
 
   /// Hard-stop the workflow (`POST /workflows/{id}:kill`): stop listening + cancel every in-flight
   /// run + inactive. Returns the post-action entity snapshot. 硬停 workflow,返动作后快照。
@@ -629,8 +630,11 @@ class LiveSchedulerRepository implements SchedulerRepository {
   )).flowrun;
 
   @override
-  Future<String> runNow(String workflowId) =>
-      _api.postForId('/api/v1/workflows/$workflowId:trigger');
+  Future<String> runNow(String workflowId, {String? entryNode}) =>
+      _api.postForId(
+        '/api/v1/workflows/$workflowId:trigger',
+        body: entryNode == null ? null : {'entryNode': entryNode},
+      );
 
   @override
   Future<WorkflowEntity> killWorkflow(String workflowId) => _api.postEntity(

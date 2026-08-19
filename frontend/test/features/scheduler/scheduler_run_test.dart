@@ -5,6 +5,7 @@ import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/contract/entities/workflow.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
+import 'package:anselm/core/graph/graph_model.dart';
 import 'package:anselm/core/run/flowrun_node_list.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/runtime.dart';
@@ -443,6 +444,20 @@ void main() {
         );
       },
     );
+
+    testWidgets('the flagship run map stays readable beside the inspector', (
+      tester,
+    ) async {
+      _desktop(tester);
+      await _pump(tester, _repo());
+      final canvas = tester.widget<AnGraphCanvas>(find.byType(AnGraphCanvas));
+      expect(
+        canvas.dir,
+        GraphDirection.tb,
+        reason:
+            'the narrow flagship rail must not shrink a five-node map into a hairline',
+      );
+    });
 
     testWidgets(
       'with NO map to draw, the altitude says «we cannot know» — it never vanishes in '

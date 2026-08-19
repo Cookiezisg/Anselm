@@ -98,6 +98,30 @@ void main() {
       );
     });
 
+    test(
+      'redacts machine-local traceback paths while retaining the filename',
+      () {
+        const raw =
+            'Traceback (most recent call last):\n'
+            '  File "/private/tmp/anselm-data/functions/v1/main.py", line 17\n'
+            '  File "/Users/dev/project/worker.py", line 4';
+        expect(
+          errorForDisplay(raw),
+          'Traceback (most recent call last):\n'
+          '  File "main.py", line 17\n'
+          '  File "worker.py", line 4',
+        );
+        expect(
+          errorForDisplay('failed at /private/tmp/anselm-data/result.json'),
+          'failed at <local path>',
+        );
+        expect(
+          errorSentence('File "/private/tmp/anselm-data/main.py", line 17'),
+          'File "main.py", line 17',
+        );
+      },
+    );
+
     test('null in → null out; an all-blank blob is NOT an error sentence', () {
       // An empty string would render an empty red line — a lie about there being an error.
       // 空串会渲出「有错误」的空红行,是撒谎。

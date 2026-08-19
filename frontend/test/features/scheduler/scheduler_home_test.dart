@@ -49,6 +49,18 @@ Graph get _graph => const Graph(
   ],
 );
 
+const _multiTriggerGraph = Graph(
+  nodes: [
+    Node(id: 'cron_entry', kind: NodeKind.trigger, ref: 'tr_cron'),
+    Node(id: 'hook_entry', kind: NodeKind.trigger, ref: 'tr_hook'),
+    Node(id: 'work', kind: NodeKind.action, ref: 'fn_fetch'),
+  ],
+  edges: [
+    Edge(id: 'cron_to_work', from: 'cron_entry', to: 'work'),
+    Edge(id: 'hook_to_work', from: 'hook_entry', to: 'work'),
+  ],
+);
+
 List<FlowrunNode> _nodes(String frId, {bool failed = false}) => [
   FlowrunNode(
     id: 'frn_${frId}_1',
@@ -488,6 +500,33 @@ void main() {
       await tester.pump();
       await _settle(tester);
       expect(repo.runNowOrder, ['wf_a']);
+      _expectNotice(
+        tester,
+        h.runNowStarted(id: truncate('fr_new0000000000', AnTrunc.id)),
+        AnTone.ok,
+      );
+    });
+
+    testWidgets('Run now lets the user choose a multi-trigger entry', (
+      tester,
+    ) async {
+      final repo = _repo();
+      repo.graphByWorkflow['wf_a'] = _multiTriggerGraph;
+      await _pump(tester, repo);
+
+      final h = tester.element(find.text('数据清洗流水线')).t.scheduler.home;
+      await tester.tap(find.text(h.runNow));
+      await tester.pump();
+      expect(find.text(h.runNowChooseTitle), findsOneWidget);
+      expect(find.text('每日 09:00'), findsWidgets);
+      expect(find.text('发票回调'), findsWidgets);
+
+      await tester.tap(find.text('发票回调').last);
+      await tester.pump();
+      await _settle(tester);
+
+      expect(repo.runNowOrder, ['wf_a']);
+      expect(repo.runNowEntryOrder, ['hook_entry']);
       _expectNotice(
         tester,
         h.runNowStarted(id: truncate('fr_new0000000000', AnTrunc.id)),

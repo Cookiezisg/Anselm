@@ -1,3 +1,4 @@
+import 'package:flutter/material.dart' show Material, MaterialType;
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,6 +6,7 @@ import 'package:go_router/go_router.dart';
 import '../../../core/contract/api_error.dart';
 import '../../../core/contract/entities/scheduler_stats.dart';
 import '../../../core/contract/entities/trigger.dart';
+import '../../../core/contract/entities/values.dart';
 import '../../../core/contract/entities/workflow.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
@@ -188,7 +190,7 @@ class _SchedulerHomeViewState extends ConsumerState<SchedulerHomeView> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _HealthHead(row: row, stats: stats, now: now),
+          _HealthHead(row: row, stats: stats, now: now, triggers: myTriggers),
           // ONLY the head→matrix seam needs a spacer (the head is a bare Column): every zone below
           // is an AnSection that already carries its own bottom AnGap.section — stacking another
           // Padding(top) doubled every section seam to 48px (0718 对齐审计,entities 参照=直接堆叠).
@@ -221,11 +223,13 @@ class _HealthHead extends ConsumerStatefulWidget {
     required this.row,
     required this.stats,
     required this.now,
+    required this.triggers,
   });
 
   final SchedulerWorkflowRow row;
   final WorkflowRunStats? stats;
   final DateTime now;
+  final List<TriggerEntity> triggers;
 
   @override
   ConsumerState<_HealthHead> createState() => _HealthHeadState();
@@ -241,9 +245,24 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
     final notices = ref.read(noticeCenterProvider.notifier);
     setState(() => _runBusy = true);
     try {
+      final workflow = await ref.read(
+        schedulerWorkflowProvider(widget.row.id).future,
+      );
+      if (!mounted) return;
+      final choices = _runEntryChoices(workflow, widget.triggers, context);
+      String? entryNode;
+      if (choices.length > 1) {
+        if (mounted) setState(() => _runBusy = false);
+        entryNode = await _chooseRunEntry(context, choices);
+        if (!mounted || entryNode == null) return;
+        setState(() => _runBusy = true);
+      } else if (choices.length == 1) {
+        entryNode = choices.single.nodeId;
+      }
+
       final id = await ref
           .read(schedulerRepositoryProvider)
-          .runNow(widget.row.id);
+          .runNow(widget.row.id, entryNode: entryNode);
       if (!mounted) return;
       notices.show(
         t.runNowStarted(id: truncate(id, AnTrunc.id)),
@@ -260,6 +279,55 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
       if (mounted) setState(() => _runBusy = false);
     }
   }
+
+  List<_RunEntryChoice> _runEntryChoices(
+    WorkflowEntity workflow,
+    List<TriggerEntity> triggers,
+    BuildContext context,
+  ) {
+    final home = context.t.scheduler.home;
+    final nodes =
+        workflow.activeVersion?.graphParsed?.nodes
+            .where((node) => node.kind == NodeKind.trigger)
+            .toList(growable: false) ??
+        const <Node>[];
+    if (nodes.isEmpty) return const [];
+    final triggersById = {for (final trigger in triggers) trigger.id: trigger};
+    return [
+      for (final node in nodes)
+        _RunEntryChoice(
+          nodeId: node.id,
+          label: triggersById[node.ref]?.name.isNotEmpty == true
+              ? triggersById[node.ref]!.name
+              : home.runNowTriggerFallback(id: node.id),
+          meta: home.runNowTriggerKind(
+            kind: _triggerKindLabel(context, triggersById[node.ref]?.kind),
+          ),
+          icon: AnIcons.trigger,
+        ),
+    ];
+  }
+
+  String _triggerKindLabel(BuildContext context, TriggerSource? kind) =>
+      switch (kind) {
+        TriggerSource.cron => context.t.scheduler.home.originCron,
+        TriggerSource.webhook => context.t.scheduler.home.originWebhook,
+        TriggerSource.fsnotify => context.t.scheduler.home.originFsnotify,
+        TriggerSource.sensor => context.t.scheduler.home.originSensor,
+        _ => context.t.scheduler.home.srcUnknown,
+      };
+
+  Future<String?> _chooseRunEntry(
+    BuildContext context,
+    List<_RunEntryChoice> choices,
+  ) => Navigator.of(context, rootNavigator: true).push<String>(
+    anPanelRoute<String>(
+      scrim: context.colors.scrim,
+      reduced: AnMotionPref.reduced(context),
+      barrierLabel: context.t.feedback.dialogBarrier,
+      builder: (_) => _RunEntryPicker(choices: choices),
+    ),
+  );
 
   Future<void> _kill() async {
     final t = context.t.scheduler.home;
@@ -407,6 +475,73 @@ class _HealthHeadState extends ConsumerState<_HealthHead> {
           ),
         ),
       ],
+    );
+  }
+}
+
+class _RunEntryChoice {
+  const _RunEntryChoice({
+    required this.nodeId,
+    required this.label,
+    required this.meta,
+    required this.icon,
+  });
+
+  final String nodeId;
+  final String label;
+  final String meta;
+  final IconData icon;
+}
+
+class _RunEntryPicker extends StatelessWidget {
+  const _RunEntryPicker({required this.choices});
+
+  final List<_RunEntryChoice> choices;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = context.t.scheduler.home;
+    return Material(
+      type: MaterialType.transparency,
+      child: Center(
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 480, maxHeight: 560),
+          child: AnCard(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(t.runNowChooseTitle, style: AnText.h3),
+                  const SizedBox(height: AnSpace.s8),
+                  Text(
+                    t.runNowChooseHint,
+                    style: AnText.body.copyWith(color: context.colors.inkMuted),
+                  ),
+                  const SizedBox(height: AnSpace.s16),
+                  for (final choice in choices) ...[
+                    AnRow(
+                      icon: choice.icon,
+                      label: choice.label,
+                      meta: choice.meta,
+                      onSelect: () => Navigator.of(context).pop(choice.nodeId),
+                    ),
+                    const SizedBox(height: AnSpace.s4),
+                  ],
+                  const SizedBox(height: AnSpace.s8),
+                  Align(
+                    alignment: AlignmentDirectional.centerEnd,
+                    child: AnButton(
+                      label: t.runNowCancel,
+                      onPressed: () => Navigator.of(context).pop(),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
     );
   }
 }

@@ -123,7 +123,7 @@ type Binder interface {
 // StartRun 立即跑一次（触发）、KillWorkflow 硬停所有在途 run（杀掉）。用原生参数（非 scheduler.StartInput）
 // 定义，使本包绝不 import 调度器。
 type Runner interface {
-	StartRun(ctx context.Context, workflowID string, payload map[string]any) (string, error)
+	StartRun(ctx context.Context, workflowID, entryNode string, payload map[string]any) (string, error)
 	KillWorkflow(ctx context.Context, workflowID string) (int, error)
 	// CountRunning reports only in-flight flowruns for overlap/diagnostic callers.
 	// CountRunning 只报告 running flowrun，供 overlap/诊断调用者使用。

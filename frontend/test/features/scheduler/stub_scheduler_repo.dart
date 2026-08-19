@@ -131,6 +131,7 @@ class StubSchedulerRepo implements SchedulerRepository {
   final Set<String> replayed = {};
   final List<String> replayOrder = [];
   final List<String> runNowOrder = [];
+  final List<String?> runNowEntryOrder = [];
   final List<String> killOrder = [];
   final Map<String, bool> pausedById = {};
   final List<String> pauseOrder = [];
@@ -586,8 +587,9 @@ class StubSchedulerRepo implements SchedulerRepository {
   }
 
   @override
-  Future<String> runNow(String workflowId) async {
+  Future<String> runNow(String workflowId, {String? entryNode}) async {
     runNowOrder.add(workflowId);
+    runNowEntryOrder.add(entryNode);
     return 'fr_new0000000000';
   }
 

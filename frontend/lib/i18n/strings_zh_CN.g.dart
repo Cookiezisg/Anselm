@@ -558,6 +558,7 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skillApproveTools => '授权预授权工具';
 	@override String get skillCheckUpdate => '检查更新';
 	@override String get skillUpdateDone => '已更新到上游版本';
+	@override String skillUpdateFailedWithReason({required Object reason}) => '更新未完成：${reason}';
 	@override String get skillLocallyModified => '本地有改动——更新会覆盖，确认强制更新？';
 	@override String get skillForceUpdate => '强制更新';
 	@override String get skillInstallTitle => '从来源安装 Skill';
@@ -1562,6 +1563,11 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get moreA11y => '更多操作';
 	@override String get runNow => '立即运行';
 	@override String runNowStarted({required Object id}) => '已开跑 · ${id}';
+	@override String get runNowChooseTitle => '选择触发入口';
+	@override String get runNowChooseHint => '这个 workflow 有多个触发入口。请选择这次手动运行的起点。';
+	@override String runNowTriggerFallback({required Object id}) => '触发器 ${id}';
+	@override String runNowTriggerKind({required Object kind}) => '${kind} 触发器';
+	@override String get runNowCancel => '取消';
 	@override String get menuEdit => '去 Entities 编辑';
 	@override String get menuKill => '终止 workflow…';
 	@override String get killTitle => '终止这个 workflow';
@@ -3106,6 +3112,10 @@ class _Translations$entities$detail$editor$zh_CN extends Translations$entities$d
 	@override String get refPickTarget => '选择…';
 	@override String get refPickMethod => '选择方法…';
 	@override String get refPickTool => '选择工具…';
+	@override String get refNoTargets => '暂无可用目标';
+	@override String get refNoMethods => '该处理器暂无方法';
+	@override String get refNoMcpServers => '尚未配置 MCP 服务器';
+	@override String get refNoMcpTools => '该 MCP 服务器暂无工具';
 }
 
 // Path: entities.run.danger
@@ -4062,6 +4072,11 @@ extension on TranslationsZhCn {
 			'scheduler.home.moreA11y' => '更多操作',
 			'scheduler.home.runNow' => '立即运行',
 			'scheduler.home.runNowStarted' => ({required Object id}) => '已开跑 · ${id}',
+			'scheduler.home.runNowChooseTitle' => '选择触发入口',
+			'scheduler.home.runNowChooseHint' => '这个 workflow 有多个触发入口。请选择这次手动运行的起点。',
+			'scheduler.home.runNowTriggerFallback' => ({required Object id}) => '触发器 ${id}',
+			'scheduler.home.runNowTriggerKind' => ({required Object kind}) => '${kind} 触发器',
+			'scheduler.home.runNowCancel' => '取消',
 			'scheduler.home.menuEdit' => '去 Entities 编辑',
 			'scheduler.home.menuKill' => '终止 workflow…',
 			'scheduler.home.killTitle' => '终止这个 workflow',
@@ -4190,13 +4205,13 @@ extension on TranslationsZhCn {
 			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
 			'scheduler.run.closeA11y' => '关闭本次运行页',
 			'scheduler.range.today' => '今天',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.range.h24' => '近 24 小时',
 			'scheduler.range.d7' => '近 7 天',
 			'scheduler.range.d30' => '近 30 天',
 			'scheduler.range.all' => '全部',
 			'scheduler.range.customTitle' => '自定义范围',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.from' => '从',
 			'scheduler.range.to' => '到',
 			'scheduler.range.apply' => '应用',
@@ -4665,6 +4680,10 @@ extension on TranslationsZhCn {
 			'entities.detail.editor.refPickTarget' => '选择…',
 			'entities.detail.editor.refPickMethod' => '选择方法…',
 			'entities.detail.editor.refPickTool' => '选择工具…',
+			'entities.detail.editor.refNoTargets' => '暂无可用目标',
+			'entities.detail.editor.refNoMethods' => '该处理器暂无方法',
+			'entities.detail.editor.refNoMcpServers' => '尚未配置 MCP 服务器',
+			'entities.detail.editor.refNoMcpTools' => '该 MCP 服务器暂无工具',
 			'entities.run.method' => '方法',
 			'entities.run.streaming' => '流式',
 			'entities.run.example' => '示例',
@@ -4700,6 +4719,8 @@ extension on TranslationsZhCn {
 			'entities.run.recentCount' => ({required Object n}) => '最近执行 · ${n}',
 			'entities.run.reproduce' => '用这份输入',
 			'entities.run.inputHeading' => '输入',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.origin.manual' => '手动',
 			'entities.run.origin.chat' => '对话',
 			'entities.run.origin.agent' => '智能体',
@@ -4709,8 +4730,6 @@ extension on TranslationsZhCn {
 			'entities.run.origin.fsnotify' => '文件变更',
 			'entities.run.origin.sensor' => '传感器',
 			'entities.val.yes' => '是',
-			_ => null,
-		} ?? switch (path) {
 			'entities.val.no' => '否',
 			'entities.overview.title' => '总览',
 			'entities.overview.accessory' => '配件',
@@ -4850,6 +4869,7 @@ extension on TranslationsZhCn {
 			'library.skillApproveTools' => '授权预授权工具',
 			'library.skillCheckUpdate' => '检查更新',
 			'library.skillUpdateDone' => '已更新到上游版本',
+			'library.skillUpdateFailedWithReason' => ({required Object reason}) => '更新未完成：${reason}',
 			'library.skillLocallyModified' => '本地有改动——更新会覆盖，确认强制更新？',
 			'library.skillForceUpdate' => '强制更新',
 			'library.skillInstallTitle' => '从来源安装 Skill',
@@ -5213,6 +5233,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importing' => '导入中…',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
 			'settings.mcp.importInvalidShape' => 'JSON 中需要 mcpServers',
 			'settings.mcp.importTooLarge' => '请将 JSON 控制在 1 MiB 以内',
@@ -5223,8 +5245,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.installNamed' => ({required Object name}) => '安装 ${name}',
 			'settings.mcp.installing' => '安装中…',
 			'settings.mcp.marketEmptyLead' => '从市场安装第一个 MCP 服务器',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.marketLoadFailed' => '市场加载失败',
 			'settings.mcp.marketLoadFailedHint' => '请检查连接后重试。',
 			'settings.mcp.planLoadFailed' => '安装准备失败',

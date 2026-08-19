@@ -21,9 +21,34 @@ String? errorSentence(String? error) {
   if (error == null) return null;
   for (final line in error.split('\n')) {
     final s = line.trim();
-    if (s.isNotEmpty) return s;
+    if (s.isNotEmpty) return errorForDisplay(s);
   }
   return null;
+}
+
+/// Remove machine-local paths before an error reaches a user-facing Scheduler surface. The raw
+/// error remains in the backend journal and run audit; the app only needs the useful filename in a
+/// traceback, never `/private/tmp/...` or a developer home directory. 用户面只保留文件名,不泄露本机绝对路径;
+/// 后端 journal/审计仍保留原文供诊断。
+String? errorForDisplay(String? error) {
+  if (error == null) return null;
+  final text = error.trim();
+  if (text.isEmpty) return null;
+
+  final filePath = RegExp(r'''(\bFile\s+["'])([^"']+)(["'])''');
+  var redacted = text.replaceAllMapped(filePath, (match) {
+    final path = match.group(2)!.replaceAll('\\', '/');
+    final slash = path.lastIndexOf('/');
+    final basename = slash >= 0 ? path.substring(slash + 1) : path;
+    return '${match.group(1)}$basename${match.group(3)}';
+  });
+
+  // Catch absolute paths that are not inside a Python `File "..."` frame as well.
+  final absolutePath = RegExp(
+    r'''(?<![A-Za-z0-9_])/(?:private/tmp|private/var|tmp|Users|var/folders)/[^\s"'`()]+''',
+  );
+  redacted = redacted.replaceAll(absolutePath, '<local path>');
+  return redacted;
 }
 
 /// A (node, iteration)'s time split — [queue] = readyAt→startedAt (工单⑫), [exec] = the audit row's

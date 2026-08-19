@@ -92,6 +92,12 @@ Flutter 窗口真正出现后按 CoreGraphics window ID 解析其几何区域，
 `appWindowId` 与 `appWindowBounds`，`rig-check` 对两者和 recorder 命令做归属复核。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
+`rig-check` 还会用 CoreGraphics 按前后层级扫描 Anselm 窗口上方的外部窗口；会话自己的 App 与 recorder PID
+明确排除；Computer Use 自己的 `Software Cursor` 也作为仪器层明确列入白名单，任何其他与录制区域相交的
+系统弹窗或其他应用都会硬失败。窗口区域录制不能证明“画面只属于产品”，所以不能用裁剪或“这只是权限弹窗”
+放行；先清除外部遮挡，再重新录制整段 session。扫描器不调用 AppleScript / System Events，避免验收工具自己
+触发新的 macOS 自动化授权弹窗。
+
 ## 两条铁律(都以真事故立法,自检强制执行)
 
 - **D1 journal 归属**:持有服务端口的 PID 必须 == 捕获 stdout 的 PID。抢端口失败的后端瞬间死掉、

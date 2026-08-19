@@ -182,7 +182,7 @@ class _RunPeekCardState extends ConsumerState<RunPeekCard> {
                 (comp.flowrun.error?.trim().isNotEmpty ?? false)) ...[
               const SizedBox(height: AnGap.block),
               AnCallout(
-                comp.flowrun.error!.trim(),
+                errorForDisplay(comp.flowrun.error)!,
                 severity: AnCalloutSeverity.danger,
               ),
             ],

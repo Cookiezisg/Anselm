@@ -1178,9 +1178,15 @@ class _SkillProvenanceGroup extends ConsumerWidget {
         }
         return;
       }
+      final reason = e.message.trim();
       ref
           .read(noticeCenterProvider.notifier)
-          .show(context.t.library.actionFailed, tone: AnTone.danger);
+          .show(
+            reason.isEmpty
+                ? context.t.library.actionFailed
+                : context.t.library.skillUpdateFailedWithReason(reason: reason),
+            tone: AnTone.danger,
+          );
     } catch (_) {
       if (context.mounted) {
         ref

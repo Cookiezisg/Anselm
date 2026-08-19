@@ -48,7 +48,7 @@ String handlerSourceOf(HandlerVersion v) {
     if (v.shutdownBody.trim().isNotEmpty)
       'def __del__(self):\n${_indent(v.shutdownBody.trim())}',
     for (final m in v.methods)
-      'def ${m.name}(self):${m.body.trim().isEmpty ? ' ...' : '\n${_indent(m.body.trim())}'}',
+      'def ${m.name}(${['self', for (final input in m.inputs) input.name].join(', ')}):${m.body.trim().isEmpty ? ' ...' : '\n${_indent(m.body.trim())}'}',
   ];
   return parts.join('\n\n');
 }

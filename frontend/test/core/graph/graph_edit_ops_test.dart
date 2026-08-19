@@ -114,6 +114,28 @@ void main() {
       expect((ops.first['patch'] as Map)['input'], {'x': 'trigger.payload'});
     });
 
+    test('change retry → whole-policy replace', () {
+      final original = base.copyWith(
+        nodes: [
+          for (final node in base.nodes)
+            node.id == 'work'
+                ? node.copyWith(retry: const RetryConfig(maxAttempts: 3))
+                : node,
+        ],
+      );
+      final working = original.copyWith(
+        nodes: [
+          for (final node in original.nodes)
+            node.id == 'work'
+                ? node.copyWith(retry: const RetryConfig(maxAttempts: 4))
+                : node,
+        ],
+      );
+      final ops = workflowEditOps(original, working);
+      expect(ops, hasLength(1));
+      expect((ops.first['patch'] as Map)['retry'], {'maxAttempts': 4});
+    });
+
     test('change edge port → update_edge', () {
       final w = base.copyWith(
         edges: [

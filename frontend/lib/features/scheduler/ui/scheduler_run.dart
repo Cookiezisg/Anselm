@@ -11,6 +11,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/graph/flowrun_timeline.dart';
+import '../../../core/graph/graph_model.dart';
 import '../../../core/graph/graph_run_state.dart';
 import '../../../core/model/time_format.dart';
 import '../../../core/perf/frame_safe.dart';
@@ -578,6 +579,12 @@ class _GraphZone extends StatelessWidget {
         AnGraphCanvas(
           graph: graph,
           framed: true,
+          // The flagship keeps the inspector open beside a narrow main rail. A top-to-bottom
+          // read-only map preserves node label legibility there; authored workflow direction is
+          // still pinned in the graph itself and the graph editor remains left-to-right.
+          // 旗舰右岛常驻在窄主轨旁;只读图改为纵向以保住节点标签可读性,不改变钉版图数据或编辑器横向布局。
+          dir: GraphDirection.tb,
+          reflowPinned: true,
           // Read-only run colouring; the graph is a NAVIGATOR — picking a node moves the page's one
           // selection (§5.2 图=导航器). 只读染色;图=导航器,点节点即移动全页唯一选区。
           run: deriveRunState(
@@ -787,7 +794,7 @@ class _LedgerZone extends ConsumerWidget {
       kind: n.kind,
       iteration: n.iteration,
       error: errorSentence(n.error),
-      errorFull: n.error,
+      errorFull: errorForDisplay(n.error),
       measure: _measure(context, n, byKey['${n.nodeId}#${n.iteration}']),
     );
     return FlowrunNodeLine(
@@ -797,7 +804,7 @@ class _LedgerZone extends ConsumerWidget {
       iterations: e.iterations,
       iteration: latest.iteration,
       error: errorSentence(latest.error),
-      errorFull: latest.error,
+      errorFull: errorForDisplay(latest.error),
       measure: _measure(
         context,
         latest,

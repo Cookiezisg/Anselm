@@ -50,6 +50,7 @@ class AnGraphCanvas extends StatefulWidget {
   const AnGraphCanvas({
     required this.graph,
     this.dir = GraphDirection.lr,
+    this.reflowPinned = false,
     this.run,
     this.framed = false,
     this.framedHeight,
@@ -69,6 +70,11 @@ class AnGraphCanvas extends StatefulWidget {
 
   final Graph graph;
   final GraphDirection dir;
+
+  /// Read-only presentation escape hatch: auto-layout even when the persisted graph has authored
+  /// positions. The graph data stays pinned; only this viewport's presentation is reflowed.
+  /// 只读展示开关:钉版数据不变,仅当前视口忽略作者坐标重排。
+  final bool reflowPinned;
 
   /// The run overlay (W3): node states + walked/live edges painted over the definition. Null = pure
   /// definition view. 运行覆层:节点态 + 已走/活跃边;null = 纯定义视图。
@@ -225,8 +231,11 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
     super.dispose();
   }
 
-  GraphLayout get layout =>
-      _layout ??= layoutGraph(widget.graph, dir: widget.dir);
+  GraphLayout get layout => _layout ??= layoutGraph(
+    widget.graph,
+    dir: widget.dir,
+    respectPositions: !widget.reflowPinned,
+  );
 
   @override
   void didUpdateWidget(AnGraphCanvas old) {
@@ -236,7 +245,9 @@ class _AnGraphCanvasState extends State<AnGraphCanvas>
     // This keeps a pristine editor usable after adding a node without yanking an intentional close-up.
     // 真换图/换向重布局。只读/运行面恒 fit;编辑面仅在用户尚未碰过视口时 fit。用户手动平移/缩放后视口
     // 神圣不可夺,但刚加节点的干净编辑器必须仍整图可用。
-    if (old.graph != widget.graph || old.dir != widget.dir) {
+    if (old.graph != widget.graph ||
+        old.dir != widget.dir ||
+        old.reflowPinned != widget.reflowPinned) {
       _layout = null;
       if (!widget.editable || !_userTransformed) {
         WidgetsBinding.instance.addPostFrameCallback((_) {

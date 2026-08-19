@@ -34,14 +34,16 @@ func (f *fakeBinder) AttachReplay(_ context.Context, t, w string) error {
 func (f *fakeBinder) Detach(t, w string) { f.detach = append(f.detach, t+"|"+w) }
 
 type fakeRunner struct {
-	started []string
-	killed  []string
-	running int
-	pending int
+	started    []string
+	entryNodes []string
+	killed     []string
+	running    int
+	pending    int
 }
 
-func (f *fakeRunner) StartRun(_ context.Context, w string, _ map[string]any) (string, error) {
+func (f *fakeRunner) StartRun(_ context.Context, w, entryNode string, _ map[string]any) (string, error) {
 	f.started = append(f.started, w)
+	f.entryNodes = append(f.entryNodes, entryNode)
 	return "fr_test", nil
 }
 func (f *fakeRunner) KillWorkflow(_ context.Context, w string) (int, error) {
@@ -108,12 +110,15 @@ func TestExecutionLifecycle(t *testing.T) {
 	}
 
 	// trigger → StartRun, returns the flowrun id
-	runID, err := svc.Trigger(ctx, wf, map[string]any{"x": 1})
+	runID, err := svc.Trigger(ctx, wf, "entry_a", map[string]any{"x": 1})
 	if err != nil {
 		t.Fatalf("Trigger: %v", err)
 	}
 	if runID != "fr_test" || !slices.Contains(runner.started, wf) {
 		t.Fatalf("trigger wrong: runID=%q started=%v", runID, runner.started)
+	}
+	if runner.entryNodes[len(runner.entryNodes)-1] != "entry_a" {
+		t.Fatalf("trigger entry node not forwarded: %v", runner.entryNodes)
 	}
 
 	// kill → Detach + KillWorkflow (returns count) + inactive
@@ -232,7 +237,7 @@ func TestExecutionPortsUnwired(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Create: %v", err)
 	}
-	if _, err := svc.Trigger(ctx, w.ID, nil); !errors.Is(err, errExecUnavailable) {
+	if _, err := svc.Trigger(ctx, w.ID, "", nil); !errors.Is(err, errExecUnavailable) {
 		t.Fatalf("Trigger unwired: want errExecUnavailable, got %v", err)
 	}
 	if _, err := svc.Activate(ctx, w.ID); !errors.Is(err, errExecUnavailable) {

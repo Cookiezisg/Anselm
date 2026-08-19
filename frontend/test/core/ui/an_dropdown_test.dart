@@ -114,6 +114,39 @@ void main() {
     expect(find.text('Apple'), findsNothing);
   });
 
+  testWidgets('empty without an explanation is inert', (tester) async {
+    await tester.pumpWidget(
+      host(
+        AnDropdown<String>(options: const [], value: null, onChanged: (_) {}),
+      ),
+    );
+    await tester.tap(find.byType(AnDropdown<String>), warnIfMissed: false);
+    await tester.pump(const Duration(milliseconds: 50));
+    expect(find.byType(AnMenuSurface), findsNothing);
+  });
+
+  testWidgets('empty menu explains why there is nothing to choose', (
+    tester,
+  ) async {
+    String? picked;
+    await tester.pumpWidget(
+      host(
+        AnDropdown<String>(
+          options: const [],
+          value: null,
+          emptyLabel: 'No MCP servers configured yet',
+          onChanged: (value) => picked = value,
+        ),
+      ),
+    );
+    await tester.tap(find.byType(AnDropdown<String>));
+    await tester.pumpAndSettle();
+    expect(find.byType(AnMenuSurface), findsOneWidget);
+    expect(find.text('No MCP servers configured yet'), findsOneWidget);
+    expect(picked, isNull);
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets(
     'block dropdown in a wide container opens menu without non-normalized constraints',
     (tester) async {

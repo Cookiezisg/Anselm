@@ -926,6 +926,11 @@
       "moreA11y": "More actions",
       "runNow": "Run now",
       "runNowStarted": "Run started · $id",
+      "runNowChooseTitle": "Choose a trigger",
+      "runNowChooseHint": "This workflow has more than one trigger. Choose the entry for this manual run.",
+      "runNowTriggerFallback": "Trigger $id",
+      "runNowTriggerKind": "$kind trigger",
+      "runNowCancel": "Cancel",
       "menuEdit": "Edit in Entities",
       "menuKill": "Kill workflow…",
       "killTitle": "Kill this workflow",
@@ -1605,7 +1610,11 @@
         "refFamilyMcp": "MCP",
         "refPickTarget": "Select…",
         "refPickMethod": "Method…",
-        "refPickTool": "Tool…"
+        "refPickTool": "Tool…",
+        "refNoTargets": "No targets available yet",
+        "refNoMethods": "This handler has no methods",
+        "refNoMcpServers": "No MCP servers configured yet",
+        "refNoMcpTools": "This MCP server has no tools"
       }
     },
     "run": {
@@ -1817,6 +1826,7 @@
     "skillApproveTools": "Approve pre-authorized tools",
     "skillCheckUpdate": "Check for updates",
     "skillUpdateDone": "Updated to the upstream version",
+    "skillUpdateFailedWithReason": "Update failed: $reason",
     "skillLocallyModified": "Local edits exist — updating will overwrite them. Force update?",
     "skillForceUpdate": "Force update",
     "skillInstallTitle": "Install skills from a source",

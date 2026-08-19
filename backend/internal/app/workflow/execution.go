@@ -33,11 +33,11 @@ var errExecUnavailable = errorspkg.New(errorspkg.KindInternal, "WORKFLOW_EXECUTI
 //
 // Trigger 用形如入口 trigger 信号的 payload 立即跑一次（LLM/UI「现在跑」）。不碰监听状态——任何 lifecycle 下
 // 都能跑。返新 flowrun id。无 active 版本 / trigger 入口由调度器以干净 422 上呈。
-func (s *Service) Trigger(ctx context.Context, id string, payload map[string]any) (string, error) {
+func (s *Service) Trigger(ctx context.Context, id, entryNode string, payload map[string]any) (string, error) {
 	if s.runner == nil {
 		return "", errExecUnavailable
 	}
-	return s.runner.StartRun(ctx, id, payload)
+	return s.runner.StartRun(ctx, id, entryNode, payload)
 }
 
 // ensureRunnable refuses to arm/activate a workflow whose active graph is not capability-sound — a

@@ -23,26 +23,27 @@ final _t = DateTime.utc(2026, 6, 27);
 const _graph =
     '{"nodes":[{"id":"start","kind":"trigger","ref":"tr_x"},{"id":"work","kind":"action","ref":"fn_1"}],"edges":[{"id":"e1","from":"start","to":"work"}]}';
 
-FixtureEntityRepository _repo() => FixtureEntityRepository(
-  runDelay: Duration.zero,
-  workflows: [
-    WorkflowEntity(
-      id: 'wf_1',
-      name: 'pipe',
-      createdAt: _t,
-      updatedAt: _t,
-      activeVersionId: 'wf_1_v1',
-      activeVersion: WorkflowVersion(
-        id: 'wf_1_v1',
-        workflowId: 'wf_1',
-        version: 1,
-        graph: _graph,
-        createdAt: _t,
-        updatedAt: _t,
-      ),
-    ),
-  ],
-);
+FixtureEntityRepository _repo({String graph = _graph}) =>
+    FixtureEntityRepository(
+      runDelay: Duration.zero,
+      workflows: [
+        WorkflowEntity(
+          id: 'wf_1',
+          name: 'pipe',
+          createdAt: _t,
+          updatedAt: _t,
+          activeVersionId: 'wf_1_v1',
+          activeVersion: WorkflowVersion(
+            id: 'wf_1_v1',
+            workflowId: 'wf_1',
+            version: 1,
+            graph: graph,
+            createdAt: _t,
+            updatedAt: _t,
+          ),
+        ),
+      ],
+    );
 
 Widget _host(FixtureEntityRepository repo) => ProviderScope(
   overrides: [
@@ -136,6 +137,51 @@ void main() {
     // The saved version carries the renamed ref. 新版本带改名。
     expect(wf.activeVersion!.graph.contains('fn_renamed'), isTrue);
   });
+
+  testWidgets(
+    'editing retry max attempts commits before Save and persists the value',
+    (tester) async {
+      wide(tester);
+      final repo = _repo(
+        graph:
+            '{"nodes":[{"id":"start","kind":"trigger","ref":"tr_x"},'
+            '{"id":"work","kind":"action","ref":"fn_1",'
+            '"retry":{"maxAttempts":3}}],'
+            '"edges":[{"id":"e1","from":"start","to":"work"}]}',
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pump(const Duration(milliseconds: 60));
+      const ref = EntityRef(EntityKind.workflow, 'wf_1');
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(WorkflowEditorPage)),
+      );
+
+      await tester.tap(find.text('work'));
+      await tester.pump();
+      final maxAttempts = find.byKey(const ValueKey('retry_work'));
+      expect(maxAttempts, findsOneWidget);
+      await tester.enterText(maxAttempts, '4');
+      await tester.pump();
+
+      expect(
+        container
+            .read(workflowEditorProvider(ref))
+            .value!
+            .working
+            .nodes
+            .firstWhere((n) => n.id == 'work')
+            .retry
+            ?.maxAttempts,
+        4,
+      );
+      await tester.tap(find.text(e.save));
+      await tester.pumpAndSettle();
+
+      final wf = await repo.getWorkflow('wf_1');
+      expect(wf.activeVersion!.version, 2);
+      expect(wf.activeVersion!.graph, contains('"maxAttempts":4'));
+    },
+  );
 
   testWidgets('add-node menu inserts a node', (tester) async {
     wide(tester);

@@ -122,14 +122,22 @@ Set<String> backEdgeIds(Graph g) {
 /// Lay out the whole graph. Persisted positions win: when EVERY node carries a `pos`, the authored
 /// coordinates are used verbatim (normalized so the top-left node sits at the padding); any node
 /// missing `pos` sends the whole graph through auto-layout — a mixed graph has no meaningful
-/// mixed geometry (an authored island floating over an auto grid reads as broken).
+/// mixed geometry (an authored island floating over an auto grid reads as broken). Read-only
+/// surfaces may set [respectPositions] false to present the same graph in a viewport-specific layout.
 /// 布局整图。持久化坐标优先:全节点带 `pos` 时逐字用之(归一化到留白起点);任一节点缺 `pos` 则整图
 /// 自动布局——混合几何无意义(手摆孤岛浮在自动网格上读作坏)。
-GraphLayout layoutGraph(Graph g, {GraphDirection dir = GraphDirection.lr}) {
+GraphLayout layoutGraph(
+  Graph g, {
+  GraphDirection dir = GraphDirection.lr,
+  bool respectPositions = true,
+}) {
   final back = backEdgeIds(g);
   final origins = <String, Offset>{};
 
-  final allPinned = g.nodes.isNotEmpty && g.nodes.every((n) => n.pos != null);
+  final allPinned =
+      respectPositions &&
+      g.nodes.isNotEmpty &&
+      g.nodes.every((n) => n.pos != null);
   if (allPinned) {
     var minX = double.infinity, minY = double.infinity;
     for (final n in g.nodes) {

@@ -247,7 +247,7 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
             children: [
               AnWindow(
                 child: Text(
-                  run.error!.trim(),
+                  errorForDisplay(run.error)!,
                   style: AnText.code.copyWith(color: c.danger),
                 ),
               ),
@@ -476,7 +476,10 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
         ],
         if (node.error != null && node.error!.trim().isNotEmpty) ...[
           const SizedBox(height: AnGap.block),
-          AnCallout(node.error!.trim(), severity: AnCalloutSeverity.danger),
+          AnCallout(
+            errorForDisplay(node.error)!,
+            severity: AnCalloutSeverity.danger,
+          ),
         ],
         // The I/O — the ONE place in the whole flagship that renders JSON (§6 650KB 物理隔离于此).
         // AnJsonTree is lazy + collapsible, so even a monstrous result costs only what you open.

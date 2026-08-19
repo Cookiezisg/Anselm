@@ -19,8 +19,8 @@ import (
 // 这是 D1 执行生命周期接线，使 workflow service 能驱动 trigger / kill / 排空计数。
 type runnerAdapter struct{ sched *schedulerapp.Service }
 
-func (a runnerAdapter) StartRun(ctx context.Context, workflowID string, payload map[string]any) (string, error) {
-	return a.sched.StartRun(ctx, startInputFor(ctx, workflowID, payload))
+func (a runnerAdapter) StartRun(ctx context.Context, workflowID, entryNode string, payload map[string]any) (string, error) {
+	return a.sched.StartRun(ctx, startInputFor(ctx, workflowID, entryNode, payload))
 }
 
 // startInputFor stamps run provenance on the shared workflowapp.Trigger throat. The Runner port is
@@ -35,8 +35,8 @@ func (a runnerAdapter) StartRun(ctx context.Context, workflowID string, payload 
 // 不识调度器词表），故调用方之分走 ctx：chat 回合（trigger_workflow——chat loop / subagent host 埋了
 // conversation id）盖 chat + 该对话；裸 HTTP `:trigger` 请求 ctx 无对话、盖 manual。flowrun **内**跑的
 // agent 节点同样带其调用对话，故 workflow 里发起的 trigger_workflow 如实记下发起它的对话。
-func startInputFor(ctx context.Context, workflowID string, payload map[string]any) schedulerapp.StartInput {
-	in := schedulerapp.StartInput{WorkflowID: workflowID, Payload: payload, Origin: flowrundomain.OriginManual}
+func startInputFor(ctx context.Context, workflowID, entryNode string, payload map[string]any) schedulerapp.StartInput {
+	in := schedulerapp.StartInput{WorkflowID: workflowID, EntryNode: entryNode, Payload: payload, Origin: flowrundomain.OriginManual}
 	if convID, ok := reqctxpkg.GetConversationID(ctx); ok {
 		in.Origin = flowrundomain.OriginChat
 		in.ConversationID = convID

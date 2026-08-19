@@ -83,6 +83,26 @@ void main() {
     });
 
     test(
+      'read-only reflow can turn authored positions without changing graph data',
+      () {
+        final g = Graph(
+          nodes: [
+            n('a', NodeKind.trigger, pos: const NodePosition(x: 0, y: 0)),
+            n('b', NodeKind.action, pos: const NodePosition(x: 300, y: 0)),
+          ],
+          edges: [e('e1', 'a', 'b')],
+        );
+        final l = layoutGraph(
+          g,
+          dir: GraphDirection.tb,
+          respectPositions: false,
+        );
+        expect(l.nodeRects['a']!.top, lessThan(l.nodeRects['b']!.top));
+        expect(g.nodes.first.pos, const NodePosition(x: 0, y: 0));
+      },
+    );
+
+    test(
       'back edge does not feed ranks (loop target keeps its early layer)',
       () {
         final l = layoutGraph(branchGraph);

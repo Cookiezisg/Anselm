@@ -236,6 +236,12 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
       });
       widget.onManifestSaved?.call();
       ref.invalidate(skillFilesProvider(widget.name));
+      // The open file's text is a separate family cache from the file list. Invalidate it as well so
+      // leaving the editor cannot reveal the pre-save snapshot on the same mounted preview.
+      // 当前文件正文与文件清单是两条独立缓存;保存后必须一并失效,否则同一预览树会露出旧快照。
+      ref.invalidate(
+        skillFileTextProvider((name: widget.name, path: widget.path)),
+      );
       return true;
     } catch (error) {
       _showSaveError(error);
@@ -339,8 +345,8 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
       (bytes, size) => Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Flexible(
-            child: Image.memory(
+          _boundedMedia(
+            Image.memory(
               Uint8List.fromList(bytes),
               fit: BoxFit.contain,
               errorBuilder: (_, _, _) => _infoCard(),
@@ -360,11 +366,8 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
           _modeToggleRow(preview: true),
-          Flexible(
-            child: SvgPicture.memory(
-              Uint8List.fromList(bytes),
-              fit: BoxFit.contain,
-            ),
+          _boundedMedia(
+            SvgPicture.memory(Uint8List.fromList(bytes), fit: BoxFit.contain),
           ),
           const SizedBox(height: AnSpace.s8),
           _fileMetaLine(size),
@@ -530,6 +533,16 @@ class _SkillFilePreviewState extends ConsumerState<SkillFilePreview> {
   }
 
   // ── shared bits ────────────────────────────────────────────────────────────
+  /// Media previews live inside [AnPage]'s vertical scroll view, whose child height is unbounded.
+  /// A bounded, non-flex frame keeps intrinsic small assets crisp while giving large assets a calm
+  /// viewport; [Flexible] here would make Flutter fail the whole preview tree at runtime.
+  /// 媒体预览位于 AnPage 纵向滚动体内,子项高度无界;用有界媒体框保留小图清晰度并钳住大图,
+  /// 不能在此使用 Flexible,否则运行时会让整棵预览树布局失败。
+  Widget _boundedMedia(Widget child) => ConstrainedBox(
+    constraints: const BoxConstraints(maxHeight: AnSize.proseViewport),
+    child: Center(child: child),
+  );
+
   Widget _bytesView(Widget Function(List<int> bytes, int size) builder) {
     return AnLastGood(
       value: ref.watch(

@@ -1,8 +1,10 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:anselm/core/contract/entities/document.dart';
 import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/entities/skill.dart';
+import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/router/navigation.dart';
 import 'package:anselm/core/entity/mention_source.dart';
@@ -29,6 +31,7 @@ import 'package:anselm/features/library/ui/library_rail.dart';
 import 'package:anselm/features/library/ui/library_rail_model.dart';
 import 'package:anselm/features/library/ui/library_inspector.dart';
 import 'package:anselm/features/library/ui/skill_install_dialog.dart';
+import 'package:anselm/features/library/ui/skill_file_preview.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
@@ -690,6 +693,32 @@ void main() {
     );
   });
 
+  test('outline jump keeps the target heading below the fixed shell band', () {
+    const editorTop = 240.0;
+    const headingTop = 800.0;
+    final target = AnDocumentEditorState.headingScrollTarget(
+      editorTop: editorTop,
+      headingTop: headingTop,
+      maxScrollExtent: 2_000,
+    );
+
+    expect(
+      editorTop + headingTop - target,
+      AnSize.islandHead + AnSpace.s12 + AnSpace.s16,
+      reason:
+          'a jumped heading must clear the floating head and retain s16 breathing room',
+    );
+    expect(
+      AnDocumentEditorState.headingScrollTarget(
+        editorTop: editorTop,
+        headingTop: headingTop,
+        maxScrollExtent: 900,
+      ),
+      900,
+      reason: 'the final heading still respects the page scroll extent',
+    );
+  });
+
   group('LibraryOcean', () {
     testWidgets(
       'B2 passive: no selection → a DRAFT editor (empty, uncreated — NOT a pick tombstone)',
@@ -938,6 +967,55 @@ void main() {
         isNull,
       ); // no @ mentions on skills. skill 不接 @。
     });
+
+    testWidgets(
+      'saving the manifest source refreshes the mounted preview with the new text',
+      (tester) async {
+        final repo = _repo();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [libraryRepositoryProvider.overrideWithValue(repo)],
+            child: TranslationProvider(
+              child: MaterialApp(
+                theme: AnTheme.light(),
+                home: const Scaffold(
+                  body: SkillFilePreview(
+                    name: 'commit-helper',
+                    path: 'SKILL.md',
+                    skillDir: '',
+                    rawMode: true,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final edit = tester
+            .widgetList<AnButton>(find.byType(AnButton))
+            .firstWhere((button) => button.semanticLabel == 'Edit');
+        edit.onPressed!();
+        await tester.pump();
+        await tester.enterText(
+          find.byType(EditableText),
+          '---\nname: commit-helper\ndescription: x\n---\n# saved manifest',
+        );
+        await tester.pump();
+
+        final save = tester
+            .widgetList<AnButton>(find.byType(AnButton))
+            .firstWhere((button) => button.label == 'Save');
+        save.onPressed!();
+        await tester.pumpAndSettle();
+
+        expect(find.textContaining('# saved manifest'), findsOneWidget);
+        expect(
+          utf8.decode(await repo.readSkillFile('commit-helper', 'SKILL.md')),
+          contains('# saved manifest'),
+        );
+      },
+    );
 
     testWidgets(
       'a stale skill-file delete refreshes the tree and returns from the dead preview',

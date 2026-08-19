@@ -57,8 +57,25 @@ class _EntityRailState extends ConsumerState<EntityRail> {
   // Debounce keystrokes before hitting the server-side ?search (the provider re-pages from the top on
   // change; firing per key would storm the backend). 逐键防抖再打服务端 ?search(每键一请求会打爆后端)。
   void _onFilter(String v) => _debounce.run(() {
-    if (mounted) ref.read(entitySearchProvider.notifier).set(v);
+    if (!mounted) return;
+    _clearSelectionIfExcluded(v);
+    ref.read(entitySearchProvider.notifier).set(v);
   });
+
+  // A filtered rail must not leave the ocean showing an entity that is no longer in the visible result
+  // set: that makes the user's query and the detail page disagree. Keep a matching selection (and keep
+  // the selection while the query is empty), but return to the explicit Overview when this query rules
+  // the selected row out. 搜索结果排除当前实体时清选区,避免 rail 与详情错位;命中则保留。
+  void _clearSelectionIfExcluded(String query) {
+    final term = query.trim().toLowerCase();
+    if (term.isEmpty) return;
+    final selected = ref.read(selectedEntityProvider);
+    if (selected == null) return;
+    final row = rowForId(ref.read(railModelProvider), selected.id);
+    if (row != null && !row.name.toLowerCase().contains(term)) {
+      context.go('/');
+    }
+  }
 
   // A kind section's tail fires with that kind's pageKey → page THAT kind's list (each kind is its own
   // keyset axis). 段尾携该 kind 的 pageKey → 翻该 kind 的列表(每 kind 独立 keyset 轴)。

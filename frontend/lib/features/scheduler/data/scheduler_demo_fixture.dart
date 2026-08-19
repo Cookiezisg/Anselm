@@ -748,7 +748,7 @@ class FixtureSchedulerRepository implements SchedulerRepository {
   }
 
   @override
-  Future<String> runNow(String workflowId) async {
+  Future<String> runNow(String workflowId, {String? entryNode}) async {
     final id = 'fr_now${(_runSeq++).toString().padLeft(12, '0')}';
     _manualRuns.insert(
       0,

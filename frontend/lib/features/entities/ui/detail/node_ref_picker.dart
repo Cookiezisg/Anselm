@@ -96,6 +96,9 @@ class NodeRefPicker extends ConsumerWidget {
       block: true,
       value: t,
       placeholder: e.refPickTarget,
+      emptyLabel: parsed.family == RefFamily.mcp
+          ? e.refNoMcpServers
+          : e.refNoTargets,
       options: options,
       onChanged: (id) =>
           onChanged(parsed.copyWith(target: id, member: null).format()),
@@ -128,6 +131,9 @@ class NodeRefPicker extends ConsumerWidget {
       placeholder: parsed.family == RefFamily.mcp
           ? e.refPickTool
           : e.refPickMethod,
+      emptyLabel: parsed.family == RefFamily.mcp
+          ? e.refNoMcpTools
+          : e.refNoMethods,
       options: options,
       onChanged: (v) => onChanged(parsed.copyWith(member: v).format()),
     );

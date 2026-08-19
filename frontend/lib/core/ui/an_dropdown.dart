@@ -39,6 +39,7 @@ class AnDropdown<T> extends StatefulWidget {
     required this.value,
     required this.onChanged,
     this.placeholder = '—',
+    this.emptyLabel,
     this.variant = AnDropdownVariant.normal,
     this.block = false,
     this.enabled = true,
@@ -51,6 +52,11 @@ class AnDropdown<T> extends StatefulWidget {
   final T? value;
   final ValueChanged<T>? onChanged;
   final String placeholder;
+
+  /// Optional explanation shown when the menu has no selectable options. A dropdown with no
+  /// options and no explanation is inert, so an empty overlay can never appear. 无可选项时的说明。
+  final String? emptyLabel;
+
   final AnDropdownVariant variant;
   final bool block;
   final bool enabled;
@@ -107,7 +113,10 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
 
   @override
   Widget build(BuildContext context) {
-    final enabled = widget.enabled && widget.onChanged != null;
+    final enabled =
+        widget.enabled &&
+        widget.onChanged != null &&
+        (widget.options.isNotEmpty || widget.emptyLabel != null);
     final ghost = widget.variant == AnDropdownVariant.ghost;
 
     final trigger = AnInteractive(
@@ -226,19 +235,42 @@ class _AnDropdownState<T> extends State<AnDropdown<T>> {
       // so the selected/hover pill floats inset, not edge-to-edge. 共用面板壳(与 AnMenu 同标准、药丸内缩)。
       child: AnMenuSurface(
         children: [
-          for (final o in widget.options)
-            _MenuRow(
-              option: o,
-              selected: o.value == widget.value,
-              autofocus:
-                  _autofocusValue ==
-                  o.value, // seed focus on the selected (else first) row 聚焦选中行
-              onTap: () => _pick(o.value),
-            ),
+          if (widget.options.isEmpty)
+            _EmptyMenuRow(label: widget.emptyLabel ?? '—')
+          else
+            for (final o in widget.options)
+              _MenuRow(
+                option: o,
+                selected: o.value == widget.value,
+                autofocus:
+                    _autofocusValue ==
+                    o.value, // seed focus on the selected (else first) row 聚焦选中行
+                onTap: () => _pick(o.value),
+              ),
         ],
       ),
     );
   }
+}
+
+class _EmptyMenuRow extends StatelessWidget {
+  const _EmptyMenuRow({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => SizedBox(
+    height: AnSize.row,
+    child: Align(
+      alignment: Alignment.centerLeft,
+      child: Text(
+        label,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: AnText.meta.copyWith(color: context.colors.inkMuted),
+      ),
+    ),
+  );
 }
 
 class _MenuRow<T> extends StatelessWidget {

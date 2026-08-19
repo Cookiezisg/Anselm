@@ -89,6 +89,18 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   static const double _activeBand =
       AnSpace.s64; // a heading within this of the viewport top is "active" 活动带
 
+  /// Compute a jump target with the heading below the shell's fixed fade band, not underneath it.
+  /// 大纲跳转目标必须把标题放在壳固定渐隐带下方,不能送进浮层里。
+  @visibleForTesting
+  static double headingScrollTarget({
+    required double editorTop,
+    required double headingTop,
+    required double maxScrollExtent,
+  }) => (editorTop + headingTop - _headTopPad - AnSpace.s16).clamp(
+    0.0,
+    maxScrollExtent,
+  );
+
   @override
   void initState() {
     super.initState();
@@ -192,11 +204,12 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
     final top = _editorKey.currentState?.contentTopForNode(ids[index]);
     final editorTop = _editorRevealOffset();
     if (top == null || editorTop == null) return;
-    // s16 = breathing room left above the heading after the jump (scroll-coordinate composition, not a
-    // spacing tier). s16=跳转后标题上方呼吸位(滚动坐标合成,非档位)。
-    final target = (editorTop + top - AnSpace.s16).clamp(
-      0.0,
-      _scroll.position.maxScrollExtent,
+    // Leave the fixed shell band + s16 above the heading; placing it at only s16 would hide it under
+    // the floating breadcrumb's fade. 让出固定壳带+s16;只留 s16 会把标题藏进浮层面包屑的渐隐区。
+    final target = headingScrollTarget(
+      editorTop: editorTop,
+      headingTop: top,
+      maxScrollExtent: _scroll.position.maxScrollExtent,
     );
     _scroll.animateTo(target, duration: AnMotion.mid, curve: AnMotion.easeOut);
   }

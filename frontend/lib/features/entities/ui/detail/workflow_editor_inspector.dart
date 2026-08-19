@@ -330,6 +330,13 @@ class _RetryEditor extends StatelessWidget {
   final Node node;
   final WorkflowEditorNotifier notifier;
 
+  void _commitMaxAttempts(String value) {
+    final retry = node.retry;
+    final maxAttempts = int.tryParse(value);
+    if (retry == null || maxAttempts == null) return;
+    notifier.setNodeRetry(node.id, retry.copyWith(maxAttempts: maxAttempts));
+  }
+
   @override
   Widget build(BuildContext context) {
     final e = context.t.entities.detail.editor;
@@ -363,12 +370,10 @@ class _RetryEditor extends StatelessWidget {
                 key: ValueKey('retry_${node.id}'),
                 initialValue: '${retry.maxAttempts}',
                 block: true,
-                onSubmitted: (v) => notifier.setNodeRetry(
-                  node.id,
-                  retry.copyWith(
-                    maxAttempts: int.tryParse(v) ?? retry.maxAttempts,
-                  ),
-                ),
+                // Commit while typing so clicking Save immediately after editing cannot leave the
+                // rendered value ahead of the working graph. 输入即提交,避免显示值领先工作图。
+                onChanged: _commitMaxAttempts,
+                onSubmitted: _commitMaxAttempts,
               ),
             ),
           ),

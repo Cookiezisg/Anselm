@@ -85,6 +85,8 @@ func (s *Service) previewOf(ctx context.Context, c skillfetch.Candidate) Install
 	}
 	manifest, ok := candidateManifest(c)
 	switch {
+	case hasReservedCandidateFile(c):
+		p.Reason = "source contains reserved installation metadata"
 	case !ok:
 		p.Reason = "no SKILL.md manifest"
 	case len(manifest) > skilldomain.MaxBodyBytes:
@@ -116,6 +118,21 @@ func candidateManifest(c skillfetch.Candidate) ([]byte, bool) {
 	}
 	m, ok := c.Files["skill.md"]
 	return m, ok
+}
+
+func candidateFileError(c skillfetch.Candidate) error {
+	if hasReservedCandidateFile(c) {
+		return skilldomain.ErrFilePathInvalid.WithDetails(map[string]any{
+			"reason": "source contains reserved installation metadata",
+			"path":   skilldomain.InstallSidecarName,
+		})
+	}
+	return nil
+}
+
+func hasReservedCandidateFile(c skillfetch.Candidate) bool {
+	_, reserved := c.Files[skilldomain.InstallSidecarName]
+	return reserved
 }
 
 // Install fetches the source and lands the picked candidates on disk: bundled files through
@@ -179,6 +196,11 @@ func (s *Service) Install(ctx context.Context, source string, names []string, fo
 // landCandidate 落一个候选：force 先清、附属文件、清单、sidecar、关系边，并只发与操作相符的一条
 // 生命周期事件。更新绝不能先伪装成 created 再补 updated。
 func (s *Service) landCandidate(ctx context.Context, src skillfetch.Source, c skillfetch.Candidate, action string) error {
+	// Validate protected paths before the destructive force-wipe. A bad upstream archive must
+	// never turn an installed skill into a local one just because a later file write failed.
+	if err := candidateFileError(c); err != nil {
+		return err
+	}
 	if exists, _ := s.repo.Exists(ctx, c.Name); exists {
 		if err := s.repo.Delete(ctx, c.Name); err != nil {
 			return fmt.Errorf("wipe before reinstall: %w", err)
@@ -256,6 +278,14 @@ func (s *Service) UpdateInstalled(ctx context.Context, name string, force bool) 
 	for _, c := range cands {
 		if c.Name != name {
 			continue
+		}
+		if err := candidateFileError(c); err != nil {
+			return nil, err
+		}
+		if preview := s.previewOf(ctx, c); !preview.Installable {
+			return nil, skilldomain.ErrInstallNoSkills.WithDetails(map[string]any{
+				"reason": preview.Reason,
+			})
 		}
 		if err := s.landCandidate(ctx, src, c, "updated"); err != nil {
 			return nil, fmt.Errorf("skillapp.UpdateInstalled: %w", err)

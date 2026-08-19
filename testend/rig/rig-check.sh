@@ -174,6 +174,12 @@ PY
   else
     bad "✗ channel 4 Flutter app dead or PID reused (manifest PID $APID)"
   fi
+  if [ -n "$AWID" ] && [ -n "$AWBOUNDS" ] && alive_as "$APID" '/anselm\.app/Contents/MacOS/anselm($| )'; then
+    OVERLAY_SCAN="$(swift "$(dirname "$0")/check_visible_overlay.swift" "$AWID" "$APID" "$RECORDER_PID" "$AWBOUNDS" 2>&1)" || {
+      bad "✗ channel 1 external window overlaps the Anselm recording region: $OVERLAY_SCAN"
+    }
+    [ -n "$OVERLAY_SCAN" ] || note "✓ channel 1 recording region has no external overlay"
+  fi
   [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
   if [ -n "$APP_LAUNCH_PID" ]; then
     grep -q '\[conductor\] direct macOS App started' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log has no direct App launch marker"

@@ -1,5 +1,6 @@
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/design/theme.dart';
+import 'package:anselm/core/graph/graph_model.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/gestures.dart';
@@ -87,6 +88,29 @@ void main() {
         );
       }
     });
+
+    testWidgets(
+      'read-only reflow presents authored positions in requested direction',
+      (tester) async {
+        final g = Graph(
+          nodes: [
+            n('a', NodeKind.trigger, ref: 'trg_a'),
+            n('b', NodeKind.action, ref: 'fn_b'),
+          ],
+          edges: [e('e1', 'a', 'b')],
+        );
+        await tester.pumpWidget(
+          host(
+            AnGraphCanvas(graph: g, dir: GraphDirection.tb, reflowPinned: true),
+          ),
+        );
+        await tester.pump();
+        expect(
+          tester.getCenter(find.text('a')).dy,
+          lessThan(tester.getCenter(find.text('b')).dy),
+        );
+      },
+    );
 
     testWidgets('node tap reports id; background tap reports null', (
       tester,

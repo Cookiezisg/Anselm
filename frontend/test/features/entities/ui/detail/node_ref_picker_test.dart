@@ -17,7 +17,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 final _t = DateTime.utc(2026, 7, 4);
 
-FixtureEntityRepository _repo() => FixtureEntityRepository(
+FixtureEntityRepository _repo({bool withMcp = true}) => FixtureEntityRepository(
   runDelay: Duration.zero,
   functions: [
     FunctionEntity(
@@ -48,13 +48,17 @@ FixtureEntityRepository _repo() => FixtureEntityRepository(
       ),
     ),
   ],
-  mcpServers: const [(id: 'github', name: 'github', meta: 'connected')],
-  mcpTools: const {
-    'github': [
-      (id: 'create_issue', name: 'create_issue', meta: 'Open an issue'),
-      (id: 'list_prs', name: 'list_prs', meta: null),
-    ],
-  },
+  mcpServers: withMcp
+      ? const [(id: 'github', name: 'github', meta: 'connected')]
+      : const [],
+  mcpTools: withMcp
+      ? const {
+          'github': [
+            (id: 'create_issue', name: 'create_issue', meta: 'Open an issue'),
+            (id: 'list_prs', name: 'list_prs', meta: null),
+          ],
+        }
+      : const {},
   triggers: const [(id: 'trg_cron', name: 'nightly', meta: null)],
 );
 
@@ -65,11 +69,14 @@ void main() {
     WidgetTester tester, {
     required NodeKind kind,
     required String initial,
+    bool withMcp = true,
   }) async {
     var ref = initial;
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [entityRepositoryProvider.overrideWithValue(_repo())],
+        overrides: [
+          entityRepositoryProvider.overrideWithValue(_repo(withMcp: withMcp)),
+        ],
         child: TranslationProvider(
           child: MaterialApp(
             theme: AnTheme.light(),
@@ -181,6 +188,26 @@ void main() {
       expect(refOf(), 'mcp:github/create_issue');
     },
   );
+
+  testWidgets('mcp with no servers explains the empty target state', (
+    tester,
+  ) async {
+    await pumpPicker(
+      tester,
+      kind: NodeKind.action,
+      initial: 'mcp:',
+      withMcp: false,
+    );
+    final dropdown = tester.widget<AnDropdown<String>>(
+      find.byType(AnDropdown<String>),
+    );
+    expect(dropdown.options, isEmpty);
+    expect(dropdown.emptyLabel, isNotNull);
+
+    await tester.tap(find.byType(AnDropdown<String>));
+    await tester.pumpAndSettle();
+    expect(find.text(dropdown.emptyLabel!), findsOneWidget);
+  });
 
   // Regression (stage-2 review, HIGH): reach the mcp family via the family DROPDOWN starting from a
   // plain function ref — the transition that used to revert to function.

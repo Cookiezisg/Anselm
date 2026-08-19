@@ -926,6 +926,11 @@
       "moreA11y": "更多操作",
       "runNow": "立即运行",
       "runNowStarted": "已开跑 · $id",
+      "runNowChooseTitle": "选择触发入口",
+      "runNowChooseHint": "这个 workflow 有多个触发入口。请选择这次手动运行的起点。",
+      "runNowTriggerFallback": "触发器 $id",
+      "runNowTriggerKind": "$kind 触发器",
+      "runNowCancel": "取消",
       "menuEdit": "去 Entities 编辑",
       "menuKill": "终止 workflow…",
       "killTitle": "终止这个 workflow",
@@ -1605,7 +1610,11 @@
         "refFamilyMcp": "MCP",
         "refPickTarget": "选择…",
         "refPickMethod": "选择方法…",
-        "refPickTool": "选择工具…"
+        "refPickTool": "选择工具…",
+        "refNoTargets": "暂无可用目标",
+        "refNoMethods": "该处理器暂无方法",
+        "refNoMcpServers": "尚未配置 MCP 服务器",
+        "refNoMcpTools": "该 MCP 服务器暂无工具"
       }
     },
     "run": {
@@ -1817,6 +1826,7 @@
     "skillApproveTools": "授权预授权工具",
     "skillCheckUpdate": "检查更新",
     "skillUpdateDone": "已更新到上游版本",
+    "skillUpdateFailedWithReason": "更新未完成：$reason",
     "skillLocallyModified": "本地有改动——更新会覆盖，确认强制更新？",
     "skillForceUpdate": "强制更新",
     "skillInstallTitle": "从来源安装 Skill",

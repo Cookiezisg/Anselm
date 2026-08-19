@@ -36,6 +36,7 @@ func (t *TriggerWorkflow) Parameters() json.RawMessage {
 		"required": ["workflowId"],
 		"properties": {
 			"workflowId": {"type": "string"},
+			"entryNode": {"type": "string", "description": "Optional trigger node id to select when the workflow graph has multiple trigger entries. Required in that case; use the node id from the workflow graph."},
 			"payload": {"type": "object", "description": "Data fed to the entry trigger node as its result (the workflow reads <triggerNode>.field). MUST match the entry trigger's fire-payload shape: a webhook nests the POSTed JSON under 'body' (so {\"body\":{...your fields...}}, NOT the fields flat); cron emits {\"firedAt\":...}; fsnotify emits {\"path\":...,\"eventKind\":...,\"firedAt\":...}; a sensor emits its configured output. create_trigger documents each kind's fire payload. Optional; defaults to {}. For hosted-model compatibility, an exact JSON-encoded object string is also accepted; arrays, numbers, and malformed strings are rejected."}
 		}
 	}`)
@@ -43,6 +44,7 @@ func (t *TriggerWorkflow) Parameters() json.RawMessage {
 
 type triggerWorkflowArgs struct {
 	WorkflowID string            `json:"workflowId"`
+	EntryNode  string            `json:"entryNode"`
 	Payload    toolapp.ObjectMap `json:"payload"`
 }
 
@@ -62,7 +64,7 @@ func (t *TriggerWorkflow) Execute(ctx context.Context, argsJSON string) (string,
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("trigger_workflow: bad args: %w", err)
 	}
-	runID, err := t.svc.Trigger(ctx, args.WorkflowID, args.Payload)
+	runID, err := t.svc.Trigger(ctx, args.WorkflowID, args.EntryNode, args.Payload)
 	if err != nil {
 		return "", fmt.Errorf("trigger_workflow: %w", err)
 	}

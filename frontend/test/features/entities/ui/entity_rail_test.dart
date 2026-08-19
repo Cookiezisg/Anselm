@@ -79,14 +79,16 @@ TriggerEntity _tr(
   paused: paused,
 );
 
-Widget _host(EntityRepository repo, {AnOverlayController? overlay}) =>
-    routedHost(
-      const Scaffold(
-        body: SizedBox(width: 300, height: 600, child: EntityRail()),
-      ),
-      repository: repo,
-      overlay: overlay,
-    );
+Widget _host(
+  EntityRepository repo, {
+  AnOverlayController? overlay,
+  String initialLocation = '/',
+}) => routedHost(
+  const Scaffold(body: SizedBox(width: 300, height: 600, child: EntityRail())),
+  initialLocation: initialLocation,
+  repository: repo,
+  overlay: overlay,
+);
 
 /// A scripted overlay: [confirm] returns [result] (no real dialog / navigator needed) — mirrors
 /// conversation_rail_test.dart's twin. 脚本化浮层,镜像 conversation_rail_test 的同款。
@@ -388,6 +390,40 @@ void main() {
     expect(find.text(t.entities.noResults), findsOneWidget);
     expect(find.text('normalize-input'), findsNothing);
   });
+
+  testWidgets(
+    'filtering away the selected entity returns to the Overview route',
+    (tester) async {
+      final repo = FixtureEntityRepository(
+        approvalForms: [
+          _apf('apf_note', 'note-gate'),
+          _apf('apf_refund', 'refund-gate'),
+        ],
+      );
+      await tester.pumpWidget(
+        _host(
+          repo,
+          initialLocation: selectionLocation(EntityKind.approval, 'apf_note'),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final container = ProviderScope.containerOf(
+        tester.element(find.byType(EntityRail)),
+      );
+      expect(
+        container.read(selectedEntityProvider),
+        const EntityRef(EntityKind.approval, 'apf_note'),
+      );
+
+      await tester.enterText(find.byType(TextField), 'refund');
+      await tester.pump(const Duration(milliseconds: 350));
+
+      expect(container.read(selectedEntityProvider), isNull);
+      expect(find.text('refund-gate'), findsOneWidget);
+      expect(find.text('note-gate'), findsNothing);
+    },
+  );
 
   testWidgets('loading → deferred skeleton (after the anti-flash delay)', (
     tester,

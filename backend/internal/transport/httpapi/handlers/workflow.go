@@ -218,19 +218,20 @@ func (h *WorkflowHandler) revert(w http.ResponseWriter, r *http.Request, id stri
 	responsehttpapi.Success(w, http.StatusOK, v)
 }
 
-// trigger backs :trigger — run the workflow once now with an optional payload. 202 Accepted
+// trigger backs :trigger — run the workflow once now with an optional entry node and payload. 202 Accepted
 // (the run is dispatched; the flowrun id is returned for follow-up).
 //
 // trigger 支撑 :trigger——带可选 payload 立即跑一次。202 Accepted（run 已派发；返 flowrun id 供追踪）。
 func (h *WorkflowHandler) trigger(w http.ResponseWriter, r *http.Request, id string) {
 	var req struct {
-		Payload map[string]any `json:"payload"`
+		EntryNode string         `json:"entryNode"`
+		Payload   map[string]any `json:"payload"`
 	}
 	if err := decodeJSONOptional(r, &req); err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
-	runID, err := h.svc.Trigger(r.Context(), id, req.Payload)
+	runID, err := h.svc.Trigger(r.Context(), id, req.EntryNode, req.Payload)
 	if err != nil {
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
