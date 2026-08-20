@@ -6152,6 +6152,9 @@ class Translations$settings$storage$en {
 
 	/// en: 'Erase everything & relaunch'
 	String get factoryConfirm => 'Erase everything & relaunch';
+
+	/// en: 'Factory reset couldn't finish. Close any external backend using this data folder, then try again.'
+	String get factoryFailed => 'Factory reset couldn\'t finish. Close any external backend using this data folder, then try again.';
 }
 
 // Path: settings.limits
@@ -9800,6 +9803,7 @@ extension on Translations {
 			'settings.storage.factoryWarn' => 'Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.',
 			'settings.storage.factoryHint' => 'Type “Anselm” to confirm',
 			'settings.storage.factoryConfirm' => 'Erase everything & relaunch',
+			'settings.storage.factoryFailed' => 'Factory reset couldn\'t finish. Close any external backend using this data folder, then try again.',
 			'settings.limits.scopeNote' => 'Machine-wide — every workspace edits this machine\'s single set of limits',
 			'settings.limits.resetAll' => 'Reset all to defaults',
 			'settings.limits.resetAllTitle' => 'Reset every limit to its default?',

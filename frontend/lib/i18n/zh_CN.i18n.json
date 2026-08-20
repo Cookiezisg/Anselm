@@ -2266,7 +2266,8 @@
       "factoryTitle": "恢复出厂设置",
       "factoryWarn": "将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。",
       "factoryHint": "输入「Anselm」以确认",
-      "factoryConfirm": "抹掉一切并重启"
+      "factoryConfirm": "抹掉一切并重启",
+      "factoryFailed": "出厂重置未完成。请先关闭占用此数据目录的外部后端，再重试。"
     },
     "limits": {
       "scopeNote": "全机生效——任一工作区修改的都是这台机器的同一份上限",

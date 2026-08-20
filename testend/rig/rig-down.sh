@@ -69,6 +69,7 @@ RUNNER_PID=$(field runnerPid)
 APP_LAUNCH_PID=$(field appLaunchPid)
 APP_PID=$(field appPid)
 BACKEND_PID=$(field backendPid)
+APP_OWNS_BACKEND=$(field appOwnsBackend)
 TAP_PID=$(field tapPid)
 LLMTAP_PID=$(field llmtapPid)
 APP_PROXY_PID=$(field appProxyPid)
@@ -88,6 +89,15 @@ stop_matching "App API perturbation proxy" "$APP_PROXY_PID" '/appproxy($| )'
 stop_matching "backend" "$BACKEND_PID" '/server($| )'
 stop_matching "ssetap" "$TAP_PID" '/ssetap($| )'
 stop_matching "llmtap" "$LLMTAP_PID" '/llmtap($| )'
+
+if [ "$APP_OWNS_BACKEND" = "1" ]; then
+  # BackendController captured the owned sidecar stderr in frontend.log. Seal its channel-2
+  # projection only after the App and child have stopped so no final lines are lost.
+  awk '
+    /\[backend\] / { sub(/^.*\[backend\] /, ""); print; next }
+    /^flutter: 20[0-9][0-9]-[0-9][0-9-]+T/ { sub(/^flutter: /, ""); print }
+  ' "$SESSION/frontend.log" >"$SESSION/backend.log"
+fi
 
 if [ -f "$SESSION/screen.mov" ]; then
   ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$SESSION/screen.mov" >"$SESSION/screen.duration" 2>"$SESSION/ffprobe.log" || {

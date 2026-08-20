@@ -44,6 +44,8 @@ if [ ! -f "$MANIFEST" ]; then
 else
   PORT=$(field port)
   BPID=$(field backendPid)
+  APP_OWNS_BACKEND=$(field appOwnsBackend)
+  APP_AUTH_TOKEN_FILE=$(field appAuthTokenFile)
   TPID=$(field tapPid)
   LPID=$(field llmtapPid)
   LPORT=$(field llmtapPort)
@@ -53,19 +55,40 @@ else
   RUNNER_PID=$(field runnerPid)
   APP_LAUNCH_PID=$(field appLaunchPid)
   APID=$(field appPid)
+  APP_REBINDS=$(field appRebindCount)
+  APP_REBIND_JOURNAL=$(field appRebindJournal)
   AWID=$(field appWindowId)
   AWBOUNDS=$(field appWindowBounds)
   RECORDER_PID=$(field recorderPid)
   RLIFE=$(field recordingLifecycle)
   SESSION=$(field session)
 
+  AUTH_ARGS=()
+  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+    [ -s "$APP_AUTH_TOKEN_FILE" ] || bad "✗ App-owned backend token file missing"
+    if [ -s "$APP_AUTH_TOKEN_FILE" ]; then
+      APP_AUTH_TOKEN=$(head -1 "$APP_AUTH_TOKEN_FILE")
+      AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
+    fi
+  fi
+
+  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+    # In App-owned mode BackendController captures sidecar stderr into frontend.log. Project that
+    # stream into the backend-only journal before checking it; the process/port check remains D1.
+    awk '
+      /\[backend\] / { sub(/^.*\[backend\] /, ""); print; next }
+      /^flutter: 20[0-9][0-9]-[0-9][0-9-]+T/ { sub(/^flutter: /, ""); print }
+    ' "$SESSION/frontend.log" >"$SESSION/backend.log"
+  fi
   LISTENER=$(lsof -ti ":$PORT" -sTCP:LISTEN 2>/dev/null | sort -u || true)
-  if [ "$LISTENER" = "$BPID" ] && alive_as "$BPID" '/server($| )'; then
+  BACKEND_PATTERN='/server($| )'
+  [ "$APP_OWNS_BACKEND" = "1" ] && BACKEND_PATTERN='/anselm-server($| )'
+  if [ "$LISTENER" = "$BPID" ] && alive_as "$BPID" "$BACKEND_PATTERN"; then
     note "✓ channel 2 backend attributed: :$PORT holder == PID $BPID"
   else
     bad "✗ channel 2 attribution broken: holder [$LISTENER], manifest PID [$BPID]"
   fi
-  curl -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null && note "✓ backend health ok" || bad "✗ backend health failed"
+  curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}" >/dev/null && note "✓ backend health ok" || bad "✗ backend health failed"
   [ -s "$SESSION/backend.log" ] || bad "✗ backend.log missing or empty"
   if grep -Eq 'panic:|(^|[^A-Za-z])FATAL([^A-Za-z]|$)' "$SESSION/backend.log" 2>/dev/null; then
     bad "✗ backend journal contains panic/FATAL"
@@ -78,7 +101,7 @@ else
   fi
   WORKSPACES=""
   WORKSPACE_ROSTER_OK=0
-  if WORKSPACES_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces"); then
+  if WORKSPACES_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces" "${AUTH_ARGS[@]}"); then
     if WORKSPACES=$(printf '%s' "$WORKSPACES_JSON" | python3 -c '
 import json,sys
 payload=json.load(sys.stdin)
@@ -121,7 +144,7 @@ PY
     [ -f "$SESSION/llm.jsonl" ] || bad "✗ llm.jsonl missing"
     if [ -n "$WORKSPACES" ]; then
       for ws in $WORKSPACES; do
-        if KEYS_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws"); then
+        if KEYS_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" "${AUTH_ARGS[@]}" -H "X-Anselm-Workspace-ID: $ws"); then
           CHECK=$(printf '%s' "$KEYS_JSON" | python3 "$(dirname "$0")/channel5_wiring.py" --port "$LPORT") || {
             bad "✗ channel 5 wiring response for $ws is malformed: $CHECK"
             continue
@@ -163,6 +186,13 @@ PY
     note "✓ channel 4 Flutter runner alive (PID $RUNNER_PID)"
   else
     bad "✗ channel 4 Flutter runner/direct App dead or PID reused (manifest runner [$RUNNER_PID], launch [$APP_LAUNCH_PID])"
+  fi
+  if [ "${APP_REBINDS:-0}" -gt 0 ] 2>/dev/null; then
+    if [ -s "$APP_REBIND_JOURNAL" ] && grep -q '"event": "app_rebounded"\|"event":"app_rebounded"' "$APP_REBIND_JOURNAL" 2>/dev/null; then
+      note "· channel 4 App identity explicitly rebound ${APP_REBINDS} time(s); journal: $APP_REBIND_JOURNAL"
+    else
+      bad "✗ channel 4 manifest claims App rebind without an app-rebind journal"
+    fi
   fi
   if alive_as "$APID" '/anselm\.app/Contents/MacOS/anselm($| )'; then
     WINDOW_PID=$(swift -e 'import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let number = w[kCGWindowNumber as String] as? Int ?? -1; if number == target { print(w[kCGWindowOwnerPID as String] ?? ""); exit(0) } }' "$AWID" 2>/dev/null | tr -d '[:space:]')

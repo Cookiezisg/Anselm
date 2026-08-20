@@ -73,6 +73,8 @@ Models & Keys 的受管免费档配额行将已用量、上限和重置时间格
 - Cloned voices 是受管档的持久库存：列表与剩余槽位必须来自同一次 `GET /voices` 权威重读；读取失败显示错误态与重试，不得伪装成「暂无音色」。即使库存为空，也要展示 `remaining/capacity` 算术，不能让 settled-empty 遮住库存上限。Settings 海洋跨 workspace 常驻，故 `activeWorkspaceProvider` 是库存 provider 的代际边界：切换后旧 workspace 的音色行必须立即消失，新的 `GET /voices` 未落定期间显示 loading，不能把旧列表穿透到新 workspace；同一边界也必须清掉旧 workspace 的确认意图，但不能把真实在途删除伪装成已结束：操作保持单飞直到原请求结算，旧异步完成不得回写新 workspace 或在切回时复活破坏性确认。删除与其后的权威 `GET /voices` 都固定使用发起删除时的 workspace header，避免热切换竞态串域。Chat 中的登记会改变这份持久库存；由于 Settings 海洋可能仍挂在壳的常驻 `IndexedStack` 中，进入 Models & keys 或离开后重新进入 Settings 必须失效 `voicesProvider` 并重读权威库存，不能把登记前的 `AsyncData` 继续显示。删除是上游持久登记的破坏性动作：行级危险区必须先要求精确输入音色名，明确费用不会退回、只恢复一个库存位；取消不发请求，确认后服务端先删上游再删本地行，失败时保留行并给出可重试反馈。若 DELETE 已成功但紧随其后的库存重读失败，旧行不得继续显示或再次提供删除入口，界面必须明确“删除已提交、库存待刷新”并只提供 Retry；Retry 成功后才恢复服务端确认的行与库存算术。
 - Advanced limits 是机器级单一配置：页面由 `GET /limits/schema` 的字段元数据驱动、由 `GET /limits` 水化具体值；每一行都展示 schema 提供的边界语义（含开区间、无上界）与默认值，输入框会先在本地拒绝非数字/越界值，再使用 dotted key 对应的部分嵌套 PATCH。输入框按回车只提交一次并以权威 GET 收敛，点按移出也提交一次；Reset all 必须先确认并明确告知“全部当前修改会被服务端默认值覆盖”，成功后重新读取全部服务端默认值，不能由前端猜默认或留下重复写入；请求失败时先重读服务端真相并给出可重试的人话反馈。后端仍是最终校验者，服务端拒绝时行回滚并展示人话错误。
 - master key 由系统 secure storage 管理；旧安装不能在缺 key 时静默铸新钥覆盖既有密文，详见 [`ADR 0008`](../../../decisions/0008-master-key-keychain.md)。
+  既有安装探测必须先检查显式配置的 `ANSELM_DATA_DIR`，只有未配置时才回退到 `$HOME/.anselm`；否则 App
+  可能在实际数据根已有数据库时误铸新钥，令密文与运行中的 sidecar 脱节。
 - 危险删除与出厂重置使用精确 type-to-confirm；确认输入框填满危险区可用宽度，长对象名不能被输入控件最小宽截断；数据库 `VACUUM` 不删业务行，不伪装成危险删除。
 - 更新检查使用独立外网 client，不携带 loopback bearer 或 workspace header。
 
@@ -82,7 +84,11 @@ Models & Keys 的受管免费档配额行将已用量、上限和重置时间格
 - 全局快捷键目录是默认键位唯一源；用户覆盖只存非默认差异，修改后热生效。
 - 快捷键宿主位于 app 根 autofocus 之上，冷启动无需先点击页面。
 - 网络代理写入后明确提示需要重启 sidecar 才能完整生效。
-- 工厂重置由前端编排停止 sidecar、删除数据目录、清本地声明偏好并重启 app。
+- 工厂重置由前端编排停止 sidecar、删除数据目录、清本地声明偏好并重启 app。删除失败必须回到可再次
+  操作的危险区，并明确提示仍有外部后端占用数据根；不能把失败留成永久 busy，也不能显示成功后的 onboarding。
+  macOS 直接启动当前
+  bundle executable 而不是走 LaunchServices 的 `open -n`，以保留开发台架的 `ANSELM_BACKEND_URL`
+  等 attach 环境；验收台架可显式设置 `ANSELM_RELAUNCH_LOG` 接住 replacement App 的 console，正式打包不改变用户可见的重启语义。
 
 ## 5. 关键不变量
 

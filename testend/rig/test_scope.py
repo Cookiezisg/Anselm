@@ -93,6 +93,27 @@ class ExplicitRigHomeTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0)
             self.assertIn("Usage:", result.stdout)
             self.assertFalse((Path(tmp) / ".anselm-rig").exists())
+
+    def test_rig_rebind_help_is_read_only_without_scope(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            env = os.environ.copy()
+            env.pop("RIG_HOME", None)
+            env["HOME"] = tmp
+            result = subprocess.run(
+                [str(ROOT / "rig-rebind-app.sh"), "--help"],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            self.assertEqual(result.returncode, 0)
+            self.assertIn("Usage:", result.stdout)
+            self.assertFalse((Path(tmp) / ".anselm-rig").exists())
+
+    def test_rig_rebind_refuses_missing_scope(self):
+        result = self.run_shell_without_scope("rig-rebind-app.sh")
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("RIG_HOME must be explicitly", result.stderr)
     def run_without_scope(self, script: str, *args: str) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()

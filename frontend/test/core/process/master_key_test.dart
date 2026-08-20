@@ -1,3 +1,4 @@
+import 'dart:io';
 import 'dart:math';
 
 import 'package:anselm/core/process/master_key.dart';
@@ -8,6 +9,14 @@ import 'package:flutter_test/flutter_test.dart';
 // null. ADR 0008 分支矩阵:有条目直用/全新铸钥读回/旧装机绝不铸/静默写失败与抛错都退化 null。
 
 void main() {
+  test('custom data root is used for the existing-database probe', () async {
+    final dir = await Directory.systemTemp.createTemp('anselm-master-key-');
+    addTearDown(() => dir.delete(recursive: true));
+    expect(MasterKey.hasDatabaseAt(dir.path), isFalse);
+    await File('${dir.path}/anselm.db').writeAsString('');
+    expect(MasterKey.hasDatabaseAt(dir.path), isTrue);
+  });
+
   test('existing keychain entry wins — no mint, no db check', () async {
     var wrote = false;
     final mk = MasterKey(

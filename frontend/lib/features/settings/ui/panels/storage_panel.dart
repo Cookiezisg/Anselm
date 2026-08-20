@@ -230,7 +230,7 @@ class StoragePanel extends ConsumerWidget {
     // Relaunch so every startup-applied derived value (theme / zoom / window geometry / shortcuts)
     // actually reverts — an in-place invalidate would leave those live values stale until restart, so
     // the reset would look like it did nothing. 重启使启动时应用的派生态(主题/缩放/窗口/快捷键)真回退。
-    relaunchApp();
+    await relaunchApp();
   }
 }
 
@@ -342,8 +342,18 @@ class _FactoryZoneState extends ConsumerState<_FactoryZone> {
       onConfirm: () async {
         if (dataDir == null) return;
         setState(() => _busy = true);
-        // No return: stops the sidecar, deletes the tree, relaunches. 不归路:停引擎删树重启。
-        await ref.read(factoryResetProvider).run(dataDir: dataDir);
+        // Stops the sidecar, deletes the tree, and relaunches. If the filesystem refuses the
+        // destructive step, return the gate to an actionable state instead of leaving the whole
+        // danger zone disabled forever after an uncaught async error.
+        try {
+          await ref.read(factoryResetProvider).run(dataDir: dataDir);
+        } catch (_) {
+          if (!mounted) return;
+          setState(() => _busy = false);
+          ref
+              .read(noticeCenterProvider.notifier)
+              .show(t.settings.storage.factoryFailed, tone: AnTone.danger);
+        }
       },
     );
   }

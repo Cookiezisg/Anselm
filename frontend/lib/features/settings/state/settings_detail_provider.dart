@@ -11,13 +11,31 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 /// 网格据此过滤同类家——不编进 kind)。
 typedef SettingsDetail = ({String kind, String? id, String? category});
 
+typedef SettingsDetailPopGuard = Future<bool> Function();
+
 class SettingsDetailController extends Notifier<SettingsDetail?> {
+  SettingsDetailPopGuard? _popGuard;
+
   @override
   SettingsDetail? build() => null;
 
   void push(String kind, {String? id, String? category}) =>
       state = (kind: kind, id: id, category: category);
-  void pop() => state = null;
+
+  void setPopGuard(SettingsDetailPopGuard guard) => _popGuard = guard;
+
+  void clearPopGuard() => _popGuard = null;
+
+  Future<void> requestPop() async {
+    final guard = _popGuard;
+    if (guard != null && !await guard()) return;
+    pop();
+  }
+
+  void pop() {
+    _popGuard = null;
+    state = null;
+  }
 }
 
 final settingsDetailProvider =

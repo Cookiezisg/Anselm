@@ -41,6 +41,7 @@ LLM_UPSTREAM="${RIG_LLM_UPSTREAM:-https://api.anselm.website}"
 RECORD="${RIG_RECORD:-1}"
 APP="${RIG_APP:-1}"
 APP_FIRST="${RIG_APP_FIRST:-0}"
+APP_OWNS_BACKEND="${RIG_APP_OWNS_BACKEND:-0}"
 BACKEND_START_DELAY_SEC="${RIG_BACKEND_START_DELAY_SEC:-0}"
 APP_PROXY="${RIG_APP_PROXY:-0}"
 APP_PROXY_PORT="${RIG_APP_PROXY_PORT:-8790}"
@@ -52,6 +53,10 @@ APP_BACKEND_URL="http://127.0.0.1:$PORT"
 MISE="${MISE:-mise}"
 
 BACKEND_PID=""
+APP_SIDECAR_PID=""
+APP_AUTH_TOKEN=""
+APP_AUTH_TOKEN_FILE=""
+BACKEND_LOG_PID=""
 TAP_PID=""
 LLMTAP_PID=""
 APP_PROXY_PID=""
@@ -59,6 +64,7 @@ APP_PROXY_JOURNAL=""
 RUNNER_PID=""
 APP_LAUNCH_PID=""
 APP_PID=""
+APP_BINARY=""
 APP_WINDOW_ID=""
 APP_WINDOW_BOUNDS=""
 RECORDER_PID=""
@@ -152,9 +158,19 @@ start_app_and_record() {
     exit 1
   }
   startup_event app_launch_requested
-  APP_LAUNCH_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/frontend.log" -- \
-    env ANSELM_BACKEND_URL="$APP_BACKEND_URL" ANSELM_DATA_DIR="$DATA" LANG=en_US.UTF-8 \
-    "$APP_BINARY")
+  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+    # The production App owns this child.  Keep the sidecar next to the exact bundle executable so
+    # the in-product relaunch follows the same resolution path as a shipped install.
+    cp "$RIG_HOME/bin/server" "$(dirname "$APP_BINARY")/anselm-server"
+    chmod +x "$(dirname "$APP_BINARY")/anselm-server"
+    APP_LAUNCH_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/frontend.log" -- \
+      env ANSELM_DEV=1 ANSELM_DATA_DIR="$DATA" ANSELM_RELAUNCH_LOG="$SESSION/frontend.log" \
+      LANG=en_US.UTF-8 "${GATEWAY_ENV[@]}" "$APP_BINARY")
+  else
+    APP_LAUNCH_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/frontend.log" -- \
+      env ANSELM_BACKEND_URL="$APP_BACKEND_URL" ANSELM_DATA_DIR="$DATA" \
+      ANSELM_RELAUNCH_LOG="$SESSION/frontend.log" LANG=en_US.UTF-8 "$APP_BINARY")
+  fi
   printf '[conductor] direct macOS App started (PID %s; backend=%s)\n' \
     "$APP_LAUNCH_PID" "$APP_BACKEND_URL" >>"$SESSION/frontend.log"
   for _ in $(seq 1 360); do
@@ -177,7 +193,7 @@ start_app_and_record() {
   startup_event app_binary_resident
   echo "✓ direct macOS App up (PID $APP_PID, console journaled)"
 
-  # The direct binary inherits ANSELM_BACKEND_URL; resolving the exact PID below is still required
+  # The direct binary inherits its attach/owned-backend environment; resolving the exact PID below is still required
   # for the window binding and for refusing PID reuse.  There is deliberately no Flutter runner in
   # this mode: flutter run's launch-services child did not inherit env from the PTY runner.
   for _ in $(seq 1 120); do
@@ -223,6 +239,39 @@ start_app_and_record() {
   fi
 }
 
+discover_app_backend() {
+  local child port
+  for _ in $(seq 1 240); do
+    child=$(ps -axo pid=,ppid=,command= | awk -v parent="$APP_PID" \
+      '$2 == parent && $0 ~ /\/anselm\.app\/Contents\/MacOS\/anselm-server([ ]|$)/ {print $1; exit}')
+    if [ -n "$child" ]; then
+      port=$(lsof -a -p "$child" -iTCP -sTCP:LISTEN -n -P 2>/dev/null | \
+        sed -n '2,$p' | sed -n 's/.*127\.0\.0\.1:\([0-9][0-9]*\).*/\1/p' | head -1)
+      if [ -n "$port" ]; then
+        APP_SIDECAR_PID="$child"
+        BACKEND_PID="$child"
+        PORT="$port"
+        APP_BACKEND_URL="http://127.0.0.1:$PORT"
+        APP_AUTH_TOKEN=$(ps eww -p "$child" | sed -n 's/.*ANSELM_AUTH_TOKEN=\([^ ]*\).*/\1/p' | head -1)
+        [ -n "$APP_AUTH_TOKEN" ] || {
+          echo "✗ App-owned sidecar exposed a port but no ANSELM_AUTH_TOKEN was observable" >&2
+          return 1
+        }
+        APP_AUTH_TOKEN_FILE="$SESSION/app-auth-token"
+        printf '%s\n' "$APP_AUTH_TOKEN" >"$APP_AUTH_TOKEN_FILE"
+        chmod 600 "$APP_AUTH_TOKEN_FILE"
+        printf '{"ts":"%s","event":"app_auth_token_observed","length":%s}\n' \
+          "$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)" "${#APP_AUTH_TOKEN}" >>"$SESSION/startup-gate.jsonl"
+        return 0
+      fi
+    fi
+    sleep 0.25
+  done
+  echo "✗ App-owned sidecar did not expose a discoverable loopback listener" >&2
+  tail -80 "$SESSION/frontend.log" >&2
+  return 1
+}
+
 mkdir -p "$SESSION/evidence" "$RIG_HOME/bin" "$DATA"
 : >"$SESSION/startup-gate.jsonl"
 echo "→ rig session: $SESSION (port :$PORT, data $DATA)"
@@ -232,6 +281,17 @@ case "$APP_FIRST" in
   0|1) ;;
   *) echo "✗ RIG_APP_FIRST must be 0 or 1, got '$APP_FIRST'" >&2; exit 2 ;;
 esac
+case "$APP_OWNS_BACKEND" in
+  0|1) ;;
+  *) echo "✗ RIG_APP_OWNS_BACKEND must be 0 or 1, got '$APP_OWNS_BACKEND'" >&2; exit 2 ;;
+esac
+if [ "$APP_OWNS_BACKEND" = "1" ]; then
+  APP_FIRST=1
+  [ "$APP_PROXY" = "0" ] || {
+    echo "✗ RIG_APP_OWNS_BACKEND=1 cannot be combined with RIG_APP_PROXY" >&2
+    exit 2
+  }
+fi
 if ! [[ "$BACKEND_START_DELAY_SEC" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
   echo "✗ RIG_BACKEND_START_DELAY_SEC must be a non-negative number, got '$BACKEND_START_DELAY_SEC'" >&2
   exit 2
@@ -265,7 +325,8 @@ if [ "$APP_PROXY" = "1" ]; then
   [ -n "$APP_PROXY_PATH" ] || { echo "✗ RIG_APP_PROXY_PATH must not be empty" >&2; exit 2; }
 fi
 
-PREFLIGHT_PORTS=("$PORT")
+PREFLIGHT_PORTS=()
+[ "$APP_OWNS_BACKEND" = "0" ] && PREFLIGHT_PORTS+=("$PORT")
 [ "$LLMTAP" = "1" ] && PREFLIGHT_PORTS+=("$LLMTAP_PORT")
 [ "$APP_PROXY" = "1" ] && PREFLIGHT_PORTS+=("$APP_PROXY_PORT")
 for p in "${PREFLIGHT_PORTS[@]}"; do
@@ -309,27 +370,42 @@ if [ "$APP_FIRST" = "1" ]; then
   # normal rig keeps its historical backend-first order; this switch is for deterministic gate
   # acceptance only and is intentionally opt-in.
   start_app_and_record
-  startup_event backend_start_delayed
-  sleep "$BACKEND_START_DELAY_SEC"
+  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+    startup_event app_backend_discovery_requested
+    discover_app_backend
+    startup_event app_backend_discovered
+    echo "✓ App-owned backend up (PID $APP_SIDECAR_PID, port :$PORT)"
+  else
+    startup_event backend_start_delayed
+    sleep "$BACKEND_START_DELAY_SEC"
+  fi
 fi
 
-startup_event backend_launch_requested
-if [ "$LLMTAP" = "1" ]; then
-  BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
-    env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "${GATEWAY_ENV[@]}" "$RIG_HOME/bin/server")
+AUTH_ARGS=()
+[ "$APP_OWNS_BACKEND" = "1" ] && AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
+if [ "$APP_OWNS_BACKEND" = "0" ]; then
+  startup_event backend_launch_requested
+  if [ "$LLMTAP" = "1" ]; then
+    BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
+      env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "${GATEWAY_ENV[@]}" "$RIG_HOME/bin/server")
+  else
+    BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
+      env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "$RIG_HOME/bin/server")
+  fi
 else
-  BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
-    env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "$RIG_HOME/bin/server")
+  # The App captures its owned sidecar stderr into the Flutter console journal.  Materialize the
+  # backend-only projection for the independent channel-2 artifact at every live check and at down.
+  : >"$SESSION/backend.log"
 fi
 if ! [[ "$BACKEND_WAIT_SEC" =~ ^[1-9][0-9]*$ ]]; then
   echo "✗ RIG_BACKEND_WAIT_SEC must be a positive integer, got '$BACKEND_WAIT_SEC'" >&2
   exit 2
 fi
 for _ in $(seq 1 $((BACKEND_WAIT_SEC * 4))); do
-  curl -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null 2>&1 && break
+  curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}" >/dev/null 2>&1 && break
   sleep 0.25
 done
-curl -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null || {
+curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}" >/dev/null || {
   echo "✗ backend did not come up within ${BACKEND_WAIT_SEC}s" >&2; tail -20 "$SESSION/backend.log" >&2; exit 1;
 }
 startup_event backend_healthy
@@ -363,7 +439,7 @@ fi
 
 check_channel5_wiring() {
   local workspaces_json workspaces ws keys_json check
-  if ! workspaces_json=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces"); then
+  if ! workspaces_json=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces" "${AUTH_ARGS[@]}"); then
     echo "✗ channel 5 preflight could not read the workspace roster" >&2
     return 1
   fi
@@ -384,7 +460,7 @@ print("\n".join(row["id"] for row in rows))
   fi
   while IFS= read -r ws; do
     [ -n "$ws" ] || continue
-    if ! keys_json=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws"); then
+    if ! keys_json=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" "${AUTH_ARGS[@]}" -H "X-Anselm-Workspace-ID: $ws"); then
       echo "✗ channel 5 preflight could not read API keys for $ws" >&2
       return 1
     fi
@@ -420,16 +496,20 @@ fi
 if [ "$APP_FIRST" != "1" ]; then
   # Dynamic discovery is essential: with RIG_SEED=0 there is no workspace until onboarding, and later
   # workspace-switch journeys create more. One resident process discovers and taps all of them.
+  SSETAP_ARGS=(-base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
+  [ "$APP_OWNS_BACKEND" = "1" ] && SSETAP_ARGS+=(-token "$APP_AUTH_TOKEN")
   TAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/ssetap.log" -- \
-    "$RIG_HOME/bin/ssetap" -base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
+    "$RIG_HOME/bin/ssetap" "${SSETAP_ARGS[@]}")
   startup_event ssetap_started
   echo "✓ ssetap discovery up (PID $TAP_PID)"
   start_app_and_record
 else
   # The App was deliberately started before the backend. Start the SSE witness only after the
   # backend is healthy; its connection time is still captured in the same session manifest.
+  SSETAP_ARGS=(-base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
+  [ "$APP_OWNS_BACKEND" = "1" ] && SSETAP_ARGS+=(-token "$APP_AUTH_TOKEN")
   TAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/ssetap.log" -- \
-    "$RIG_HOME/bin/ssetap" -base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
+    "$RIG_HOME/bin/ssetap" "${SSETAP_ARGS[@]}")
   startup_event ssetap_started
   echo "✓ ssetap discovery up (PID $TAP_PID)"
 fi
@@ -439,6 +519,9 @@ import json, sys
 json.dump({
   "port": $PORT,
   "backendPid": "$BACKEND_PID",
+  "appSidecarPid": "$APP_SIDECAR_PID",
+  "appOwnsBackend": "$APP_OWNS_BACKEND",
+  "appAuthTokenFile": "$APP_AUTH_TOKEN_FILE",
   "tapPid": "$TAP_PID",
   "llmtapPid": "$LLMTAP_PID",
   "llmtapPort": $LLMTAP_PORT,
@@ -453,10 +536,14 @@ json.dump({
   "runnerPid": "$RUNNER_PID",
   "appLaunchPid": "$APP_LAUNCH_PID",
   "appPid": "$APP_PID",
+  "appBinary": "$APP_BINARY",
+  "initialAppLaunchPid": "$APP_LAUNCH_PID",
   "appWindowId": "$APP_WINDOW_ID",
   "appWindowBounds": "$APP_WINDOW_BOUNDS",
   "recorderPid": "$RECORDER_PID",
   "recordingLifecycle": "$RECORDER_LIFECYCLE",
+  "appRebindJournal": "$SESSION/app-rebind.jsonl",
+  "appRebindCount": 0,
   "startupGateJournal": "$SESSION/startup-gate.jsonl",
   "data": "$DATA",
   "session": "$SESSION",

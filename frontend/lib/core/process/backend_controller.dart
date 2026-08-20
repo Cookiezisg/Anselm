@@ -323,6 +323,7 @@ class BackendController {
     _stopped = true;
     final child = _child;
     _child = null;
+    debugPrint('[backend] stop requested child=${child?.pid}');
     if (child == null) return;
     child.kill(ProcessSignal.sigterm);
     try {

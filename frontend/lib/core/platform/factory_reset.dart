@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../runtime.dart';
@@ -9,11 +10,12 @@ import 'app_relaunch.dart';
 /// The factory reset choreography (WRK-062 拍板 #12) — FRONTEND-orchestrated (a single-user local
 /// app already holds the process + directory handles; no backend destruction endpoint): ① stop the
 /// sidecar (its files must be closed before the tree goes), ② delete the data directory, ③ clear
-/// the declared local preference set, ④ relaunch (macOS re-opens the bundle; elsewhere we just
-/// exit and the user reopens). The double gate (AnTypeToConfirm) lives in the UI.
+/// the declared local preference set, ④ relaunch (macOS starts the current bundle executable so
+/// the dev attach environment survives; elsewhere we just exit and the user reopens). The double
+/// gate (AnTypeToConfirm) lives in the UI.
 ///
 /// 出厂重置编排(拍板 #12)——前端编排(单用户本地 app 本就握有进程与目录权柄,不做后端毁灭端点):
-/// ①停 sidecar(删树前文件必须先关)②删数据目录③清声明键集本地偏好④重启(macOS 重开 bundle;
+/// ①停 sidecar(删树前文件必须先关)②删数据目录③清声明键集本地偏好④重启(macOS 直接启动当前 bundle executable;
 /// 其他平台退出由用户重开)。双闸(输名解锁)在 UI 层。
 class FactoryReset {
   FactoryReset(this._ref);
@@ -21,13 +23,22 @@ class FactoryReset {
   final Ref _ref;
 
   Future<void> run({required String dataDir}) async {
-    await _ref.read(backendControllerProvider).stop();
+    final backend = _ref.read(backendControllerProvider);
+    // Keep the ownership boundary observable in debug logs: factory reset must stop the exact
+    // supervisor that owns the sidecar before attempting to remove its files.
+    debugPrint('[factory-reset] stopping backend controller');
+    await backend.stop();
+    debugPrint('[factory-reset] backend controller stopped');
     if (dataDir.isNotEmpty) {
       final dir = Directory(dataDir);
-      if (dir.existsSync()) dir.deleteSync(recursive: true);
+      if (await dir.exists()) {
+        // Keep the event loop responsive while a populated install is removed. The caller owns
+        // the error surface; a failed delete must never be mistaken for a successful reset.
+        await dir.delete(recursive: true).timeout(const Duration(seconds: 30));
+      }
     }
     await _ref.read(settingsPrefsProvider).resetAll();
-    relaunchApp();
+    await relaunchApp();
   }
 }
 

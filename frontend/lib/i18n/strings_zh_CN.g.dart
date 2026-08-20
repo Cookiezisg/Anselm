@@ -2469,6 +2469,7 @@ class _Translations$settings$storage$zh_CN extends Translations$settings$storage
 	@override String get factoryWarn => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。';
 	@override String get factoryHint => '输入「Anselm」以确认';
 	@override String get factoryConfirm => '抹掉一切并重启';
+	@override String get factoryFailed => '出厂重置未完成。请先关闭占用此数据目录的外部后端，再重试。';
 }
 
 // Path: settings.limits
@@ -5293,6 +5294,7 @@ extension on TranslationsZhCn {
 			'settings.storage.factoryWarn' => '将停止引擎、永久删除整个数据目录(所有工作区/对话/实体/文档/密钥)并重启应用。',
 			'settings.storage.factoryHint' => '输入「Anselm」以确认',
 			'settings.storage.factoryConfirm' => '抹掉一切并重启',
+			'settings.storage.factoryFailed' => '出厂重置未完成。请先关闭占用此数据目录的外部后端，再重试。',
 			'settings.limits.scopeNote' => '全机生效——任一工作区修改的都是这台机器的同一份上限',
 			'settings.limits.resetAll' => '全部恢复默认',
 			'settings.limits.resetAllTitle' => '恢复全部默认限额?',

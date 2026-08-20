@@ -1,10 +1,15 @@
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/contract/api_key.dart';
+import 'package:anselm/core/contract/memory.dart';
+import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/shell/oceans.dart';
 import 'package:anselm/core/shell/shell_chrome.dart';
+import 'package:anselm/features/notifications/data/notification_fixture.dart';
+import 'package:anselm/features/notifications/data/notification_providers.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/model/settings_catalog.dart';
+import 'package:anselm/features/settings/state/settings_detail_provider.dart';
 import 'package:anselm/features/settings/ui/settings_ocean.dart';
 import 'package:anselm/features/settings/ui/settings_rail.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -193,6 +198,65 @@ void main() {
         findsNWidgets(2),
         reason: '旧枚举名回落 general',
       );
+    },
+  );
+
+  testWidgets(
+    'memory breadcrumb protects unsaved edits before leaving the detail',
+    (tester) async {
+      final prefs = SettingsPrefs.inMemory({'an.settings.panel': 'memory'});
+      final repo = FixtureSettingsRepository()
+        ..memories.add(
+          const Memory(name: 'safety-rule', content: 'saved content'),
+        );
+      final navigatorKey = GlobalKey<NavigatorState>();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsPrefsProvider.overrideWithValue(prefs),
+            settingsRepositoryProvider.overrideWithValue(repo),
+            notificationRepositoryProvider.overrideWithValue(
+              FixtureNotificationRepository(),
+            ),
+          ],
+          child: TranslationProvider(
+            child: AnOverlayHost(
+              navigatorKey: navigatorKey,
+              child: MaterialApp(
+                debugShowCheckedModeBanner: false,
+                navigatorKey: navigatorKey,
+                theme: AnTheme.light(),
+                home: const Scaffold(body: SettingsOcean()),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      final panelEl = tester.element(find.byType(SettingsOcean));
+      final container = ProviderScope.containerOf(panelEl, listen: false);
+      final t = Translations.of(panelEl);
+      container
+          .read(settingsDetailProvider.notifier)
+          .push('memory', id: 'safety-rule');
+      await tester.pumpAndSettle();
+
+      await tester.enterText(find.byType(TextField).last, 'draft content');
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.settings.panels.memory).first);
+      await tester.pumpAndSettle();
+      expect(find.text(t.settings.mem.dirtyTitle), findsOneWidget);
+      expect(container.read(settingsDetailProvider), isNotNull);
+
+      await tester.tap(find.text(t.settings.mem.keepEditing));
+      await tester.pumpAndSettle();
+      expect(container.read(settingsDetailProvider), isNotNull);
+
+      await tester.tap(find.text(t.settings.panels.memory).first);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(t.settings.mem.discard));
+      await tester.pumpAndSettle();
+      expect(container.read(settingsDetailProvider), isNull);
     },
   );
 }

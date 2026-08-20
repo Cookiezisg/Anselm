@@ -139,7 +139,9 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
       if (detailLabel != null)
         AnCrumb(
           label,
-          onTap: () => ref.read(settingsDetailProvider.notifier).pop(),
+          onTap: () {
+            ref.read(settingsDetailProvider.notifier).requestPop();
+          },
         ),
     ];
     _bindHead(blackTitle);
@@ -185,7 +187,7 @@ class _SettingsOceanState extends ConsumerState<SettingsOcean> {
         // Esc returns from the pushed third level (§1). Esc 从推入级返回。
         if (detail != null)
           const SingleActivator(LogicalKeyboardKey.escape): () =>
-              ref.read(settingsDetailProvider.notifier).pop(),
+              ref.read(settingsDetailProvider.notifier).requestPop(),
       },
       child: Focus(
         autofocus: false,

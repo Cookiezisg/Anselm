@@ -41,6 +41,7 @@ FlutterError/DartError/RenderFlex」后才可把它从产品缺陷中分流，�
 testend/rig/rig-up.sh      # 建二进制→起 llmtap/后端/ssetap/真实 App/窗口录像→manifest
 testend/rig/rig-check.sh   # 五通道自检:权限/进程与端口归属/三流连接/受管接线/journal
 testend/rig/rig-down.sh    # 先封口录像,再停 App→后端→双 tap;ffprobe MOV,journal 全保留
+testend/rig/rig-rebind-app.sh # 产品内重启后显式重绑新 App PID/窗口,不自动收养外部进程
 ```
 
 `rig-up.sh`、`rig-check.sh` 和 `rig-down.sh` 都不接受位置参数；`-h/--help` 只打印用法并退出，未知参数直接拒绝。
@@ -64,6 +65,13 @@ App、录屏、后端健康和 SSE 的事件时序。
 重置，也不会改动 backend 或 SSE witness 的真实端口。
 `RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
 
+出厂重置等“App 必须删除自己数据目录”的路径使用 `RIG_APP_OWNS_BACKEND=1`。此模式强制 App-first，
+conductor 把刚构建的 `server` 放到真实 bundle executable 旁，由 `BackendController` 自己启动并监督；
+conductor 再从精确子进程的 loopback listener 发现端口，继续接入 `ssetap` 和健康门。因为 Flutter
+进程负责接收 owned sidecar 的 stderr，channel-2 的 `backend.log` 是从同一 session 的
+`frontend.log` 中按 `[backend]` 前缀投影出的 sidecar-only journal，不能与外接 backend 模式混写；
+manifest 会记录 `appOwnsBackend=1` 与 `appSidecarPid`，D1 仍以端口 holder、PID 和命令身份三者相等为准。
+
 `RIG_HOME` 是本次验收的账本根：`judgments.jsonl`、`alarms.json`、`anchor-check.json` 和 `current`
 必须来自同一个显式绝对目录。正式 session 使用 `RIG_HOME=/private/tmp/anselm-rig-formal-...` 时，
 先在 shell 中 `export RIG_HOME=/private/tmp/anselm-rig-formal-...`，再运行 `rig-up.sh`、`rig-check.sh`、
@@ -85,7 +93,18 @@ clean 结果当作当前 session 的门禁证据。
 因为 Flutter runner 交给 launch services 的子进程不会可靠继承 PTY runner 环境。`appLaunchPid` 与
 `appPid` 必须相同且都活着；旧 session 若仍有 `runnerPid`，`rig-check` 仍兼容检查。台架启动前拒绝已有
 Anselm App，启动后只接收新出现的精确 App 进程，并由录屏窗口反查 owner PID，不能把一个残留进程误判
-为前端在线。`frontend-build.log` 保存构建 console，`frontend.log` 保存真实 App stdout/stderr。
+为前端在线。产品内「重置本地偏好」或「出厂重置」会让 App 自己退出并启动新 PID；这不是外部进程，
+但也不能由门禁猜测。重启后必须显式运行 `rig-rebind-app.sh`：旧 PID 已死、manifest 中的精确
+`appBinary` 只有一个新候选、候选窗口 owner 是 Anselm 且几何与现有录屏区域完全一致，四项同时满足才更新
+`appPid/appWindowId`，并把 `app_rebounded` 写入 `app-rebind.jsonl`。任一项不满足都拒绝，不能用
+「看起来像同一个 App」放行；`rig-check` 会验证 rebind 账与当前五通道归属。`frontend-build.log` 保存
+构建 console，`frontend.log` 保存真实 App stdout/stderr。正式验收还会向 App 注入 debug-only 的
+`ANSELM_RELAUNCH_LOG`；出厂重置/本地偏好重启后的 replacement App 必须把 stdout/stderr 追加回同一
+`frontend.log`，否则只能看到旧 PID，L2 不得放行。
+若 replacement window 的几何发生变化，`rig-rebind-app.sh` 会先以 SIGINT 封口旧
+`screen.mov`，再以新几何启动 `screen-rebind-<pid>.mov`；manifest 记录
+`screenRecordingSegments` 和新的微秒 lifecycle，不会静默沿用 stale crop。需要单文件回放时，
+收台后用同编码 segment 生成 `screen-final.mov`，并保留原段与重绑段供审计。
 录像在
 Flutter 窗口真正出现后按 CoreGraphics window ID 解析其几何区域，使用 `-R x,y,w,h` 录制该 App 区域；这样
 同一窗口内的 OverlayPortal / 菜单浮层也进入连续帧，同时拒绝把全桌面录屏当作帧证据。manifest 同时保留

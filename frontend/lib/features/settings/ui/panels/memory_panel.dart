@@ -337,6 +337,7 @@ class MemoryEditor extends ConsumerStatefulWidget {
 }
 
 class _MemoryEditorState extends ConsumerState<MemoryEditor> {
+  late final SettingsDetailController _detailController;
   final TextEditingController _name = TextEditingController();
   final TextEditingController _desc = TextEditingController();
   final TextEditingController _content = TextEditingController();
@@ -352,7 +353,15 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
   bool get _creating => widget.name == null;
 
   @override
+  void initState() {
+    super.initState();
+    _detailController = ref.read(settingsDetailProvider.notifier);
+    _detailController.setPopGuard(_confirmBack);
+  }
+
+  @override
   void dispose() {
+    _detailController.clearPopGuard();
     _name.dispose();
     _desc.dispose();
     _content.dispose();
@@ -393,12 +402,17 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
   }
 
   Future<void> _back() async {
+    if (await _confirmBack() && mounted) {
+      ref.read(settingsDetailProvider.notifier).pop();
+    }
+  }
+
+  Future<bool> _confirmBack() async {
     final t = Translations.of(context);
     if (!_dirty) {
-      ref.read(settingsDetailProvider.notifier).pop();
-      return;
+      return true;
     }
-    final discard = await ref
+    return ref
         .read(overlayProvider.notifier)
         .confirm(
           title: t.settings.mem.dirtyTitle,
@@ -407,7 +421,13 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
           cancelLabel: t.settings.mem.keepEditing,
           barrierLabel: t.settings.mem.dirtyTitle,
         );
-    if (discard && mounted) ref.read(settingsDetailProvider.notifier).pop();
+  }
+
+  void _markDirty() {
+    setState(() {
+      _dirty = true;
+      _error = null;
+    });
   }
 
   @override
@@ -439,7 +459,7 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
                     placeholder: t.settings.mem.nameHint,
                     mono: true,
                     autofocus: true,
-                    onChanged: (_) => setState(() => _dirty = true),
+                    onChanged: (_) => _markDirty(),
                   )
                 : AnTooltip(
                     message: t.settings.mem.nameLocked,
@@ -453,10 +473,7 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
           const SizedBox(height: AnSpace.s12),
           AnFormField(
             label: t.settings.mem.description,
-            child: AnInput(
-              controller: _desc,
-              onChanged: (_) => setState(() => _dirty = true),
-            ),
+            child: AnInput(controller: _desc, onChanged: (_) => _markDirty()),
           ),
           const SizedBox(height: AnSpace.s12),
           AnFormField(
@@ -470,7 +487,7 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
                 controller: _content,
                 multiline: true,
                 mono: true,
-                onChanged: (_) => setState(() => _dirty = true),
+                onChanged: (_) => _markDirty(),
               ),
             ),
           ),
@@ -486,6 +503,7 @@ class _MemoryEditorState extends ConsumerState<MemoryEditor> {
                 onChanged: (v) => setState(() {
                   _pinned = v;
                   _dirty = true;
+                  _error = null;
                 }),
                 semanticLabel: t.settings.mem.pinTip,
               ),

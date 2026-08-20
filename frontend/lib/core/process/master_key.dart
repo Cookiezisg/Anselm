@@ -46,13 +46,22 @@ class MasterKey {
       _storage.write(key: key, value: value);
 
   /// The backend's default data root is `$HOME/.anselm` (sandboxed: HOME is the container Data dir,
-  /// so this check follows the same redirection the sidecar sees). 后端默认数据根;沙盒下 HOME 同被
-  /// 重定向,此检查与 sidecar 看到的是同一处。
+  /// so this check follows the same redirection the sidecar sees). When a launch explicitly supplies
+  /// `ANSELM_DATA_DIR`, that configured root is authoritative instead of HOME.
+  /// 后端默认数据根;沙盒下 HOME 同被重定向,此检查与 sidecar 看到的是同一处。启动显式提供
+  /// `ANSELM_DATA_DIR` 时,以该配置根为准,不能误查 HOME。
   static bool _defaultHasDatabase() {
+    final configured = Platform.environment['ANSELM_DATA_DIR'];
+    if (configured != null && configured.isNotEmpty) {
+      return hasDatabaseAt(configured);
+    }
     final home = Platform.environment['HOME'] ?? '';
-    if (home.isEmpty) return false;
-    return File('$home/.anselm/anselm.db').existsSync();
+    return home.isNotEmpty && hasDatabaseAt('$home/.anselm');
   }
+
+  /// Shared for the environment resolver and its filesystem seam test. 供环境解析与文件系统缝测试共用。
+  static bool hasDatabaseAt(String dataDir) =>
+      File('$dataDir/anselm.db').existsSync();
 
   /// Resolve the key to inject, or null for the legacy fingerprint path. 解析注入钥;null=旧径。
   Future<String?> resolve() async {

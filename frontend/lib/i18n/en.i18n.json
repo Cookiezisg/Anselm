@@ -2266,7 +2266,8 @@
       "factoryTitle": "Factory reset",
       "factoryWarn": "Stops the engine, permanently deletes the ENTIRE data directory (all workspaces / conversations / entities / documents / keys) and relaunches the app.",
       "factoryHint": "Type “Anselm” to confirm",
-      "factoryConfirm": "Erase everything & relaunch"
+      "factoryConfirm": "Erase everything & relaunch",
+      "factoryFailed": "Factory reset couldn't finish. Close any external backend using this data folder, then try again."
     },
     "limits": {
       "scopeNote": "Machine-wide — every workspace edits this machine's single set of limits",
