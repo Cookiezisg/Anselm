@@ -32,6 +32,7 @@ class AnSeamlessField extends StatelessWidget {
     this.tabular = false,
     this.framed = false,
     this.style,
+    this.semanticLabel,
     super.key,
   });
 
@@ -57,6 +58,7 @@ class AnSeamlessField extends StatelessWidget {
 
   /// Text-style override to match the display text it replaces (e.g. an H2 title). 文字样式覆写(匹配被替换文字)。
   final TextStyle? style;
+  final String? semanticLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -75,6 +77,7 @@ class AnSeamlessField extends StatelessWidget {
             mono: mono,
             tabular: tabular,
             style: style,
+            semanticLabel: semanticLabel,
             onSubmitted: (_) => onCommit(),
             onTapOutside: onTapOutside,
           ),

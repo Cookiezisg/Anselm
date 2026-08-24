@@ -97,7 +97,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get actionFailed => '操作失败';
 	@override late final _Translations$chat$time$zh_CN time = _Translations$chat$time$zh_CN._(_root);
 	@override late final _Translations$chat$bucket$zh_CN bucket = _Translations$chat$bucket$zh_CN._(_root);
-	@override String get placeholder => 'Ask anything…';
+	@override String get placeholder => '想聊点什么？';
 	@override String get send => '发送';
 	@override String get voiceInput => '语音输入';
 	@override String get stopVoiceInput => '停止语音输入';
@@ -135,13 +135,13 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get transcriptErrorHint => 'The local engine didn’t return the messages.';
 	@override String get backToPresent => '回到现场';
 	@override late final _Translations$chat$toc$zh_CN toc = _Translations$chat$toc$zh_CN._(_root);
-	@override String get landingGreeting => 'What should we dig into?';
-	@override String get modelAuto => 'Auto';
+	@override String get landingGreeting => '想从哪里开始？';
+	@override String get modelAuto => '自动';
 	@override String get modelCatalogLoading => '正在读取模型能力…';
 	@override String get modelCatalogFailed => '模型能力读取失败';
 	@override String get modelCatalogRetry => '重新读取模型能力';
-	@override String get mentionEntity => 'Mention an entity';
-	@override String get attachFile => 'Attach files';
+	@override String get mentionEntity => '提及实体';
+	@override String get attachFile => '添加附件';
 	@override String get attachMenuFiles => '选择文件';
 	@override String get dropToAttach => 'Drop files to attach';
 	@override late final _Translations$chat$tool$zh_CN tool = _Translations$chat$tool$zh_CN._(_root);
@@ -491,17 +491,17 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	final TranslationsZhCn _root; // ignore: unused_field
 
 	// Translations
-	@override String get onboardingPreviewTitle => 'Anselm · Onboarding Preview';
+	@override String get onboardingPreviewTitle => 'Anselm · 首次使用预览';
 	@override String get connecting => '正在准备工作区…';
 	@override String get errorTitle => '无法准备工作区';
 	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
-	@override String get createWorkspace => 'Create a workspace';
-	@override String get nameLabel => 'Workspace name';
+	@override String get createWorkspace => '创建工作区';
+	@override String get nameLabel => '工作区名称';
 	@override String get alreadyExists => '该工作区已存在';
 	@override String get createFailed => '无法创建工作区';
-	@override String get workIndex => 'WORK №001';
-	@override String get artCredit => 'Christoffel Bisschop · 1862 · Rijksmuseum';
-	@override String get artTitle => 'Heemskerck 与 Barents 规划第二次远征极北之地';
+	@override String get workIndex => '工作 №001';
+	@override String get artCredit => '克里斯托费尔·比肖普 · 1862 · 荷兰国立博物馆';
+	@override String get artTitle => '海姆斯科克与巴伦支规划第二次极北远征';
 }
 
 // Path: library
@@ -1604,14 +1604,14 @@ class _Translations$scheduler$home$zh_CN extends Translations$scheduler$home$en 
 	@override String get srcWebhookBare => 'webhook';
 	@override String srcWithName({required Object kind, required Object name}) => '${kind} · ${name}';
 	@override String get srcUnknown => '未知来源';
-	@override String get replayTitle => '重放这个 run?';
+	@override String get replayTitle => '重放这次运行？';
 	@override String replayBody({required Object failed, required Object completed}) => '重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。';
 	@override String get replayBodyUnknown => '重跑失败节点;已完成结果按记忆化复用。';
 	@override String get replayAction => '重放';
 	@override String get replayed => '重放已开始';
-	@override String get notReplayable => '该 run 已不可重放';
+	@override String get notReplayable => '这次运行已不可重放';
 	@override String get batchReplay => '批量重放';
-	@override String batchReplayTitle({required Object n}) => '重放 ${n} 个 run?';
+	@override String batchReplayTitle({required Object n}) => '重放 ${n} 次运行？';
 	@override String batchReplayBody({required Object failed, required Object completed}) => '共重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。';
 	@override String sumReplayed({required Object n}) => '已重放 ${n}';
 	@override String sumNotReplayable({required Object n}) => '${n} 个已不可重放';
@@ -1658,6 +1658,7 @@ class _Translations$scheduler$run$zh_CN extends Translations$scheduler$run$en {
 
 	// Translations
 	@override String get notFoundTitle => '找不到这次运行';
+	@override String get executionFailed => '执行失败。';
 	@override String get notFoundHint => '它可能已被保留策略清理。从 workflow 里另选一次运行。';
 	@override String get errorTitle => '这次运行加载失败';
 	@override String get errorHint => '后端没有响应。检查连接后重试。';
@@ -1919,6 +1920,9 @@ class _Translations$entities$run$zh_CN extends Translations$entities$run$en {
 	@override String tokens({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}';
 	@override String get errorHeading => '错误';
 	@override String get detailsHeading => '详细信息';
+	@override String get executionFailed => '执行失败，请检查输入后重试。';
+	@override String get missingInput => '缺少必填输入';
+	@override String get technicalDetails => '技术详情';
 	@override late final _Translations$entities$run$danger$zh_CN danger = _Translations$entities$run$danger$zh_CN._(_root);
 	@override String get inboxEmpty => '没有待审批';
 	@override String get inboxEmptyHint => '等待决断的审批会出现在这里。';
@@ -3263,7 +3267,7 @@ extension on TranslationsZhCn {
 			'chat.time.daysAgo' => ({required Object n}) => '${n} 天前',
 			'chat.bucket.pinned' => '置顶',
 			'chat.bucket.recents' => '最近',
-			'chat.placeholder' => 'Ask anything…',
+			'chat.placeholder' => '想聊点什么？',
 			'chat.send' => '发送',
 			'chat.voiceInput' => '语音输入',
 			'chat.stopVoiceInput' => '停止语音输入',
@@ -3308,13 +3312,13 @@ extension on TranslationsZhCn {
 			'chat.toc.empty' => '还没有可跳转的场次',
 			'chat.toc.attachment' => '附件',
 			'chat.toc.loadFailed' => '没能加载完整场次目录。重新打开菜单再试一次。',
-			'chat.landingGreeting' => 'What should we dig into?',
-			'chat.modelAuto' => 'Auto',
+			'chat.landingGreeting' => '想从哪里开始？',
+			'chat.modelAuto' => '自动',
 			'chat.modelCatalogLoading' => '正在读取模型能力…',
 			'chat.modelCatalogFailed' => '模型能力读取失败',
 			'chat.modelCatalogRetry' => '重新读取模型能力',
-			'chat.mentionEntity' => 'Mention an entity',
-			'chat.attachFile' => 'Attach files',
+			'chat.mentionEntity' => '提及实体',
+			'chat.attachFile' => '添加附件',
 			'chat.attachMenuFiles' => '选择文件',
 			'chat.dropToAttach' => 'Drop files to attach',
 			'chat.tool.calling' => '正在调用',
@@ -4114,14 +4118,14 @@ extension on TranslationsZhCn {
 			'scheduler.home.srcWebhookBare' => 'webhook',
 			'scheduler.home.srcWithName' => ({required Object kind, required Object name}) => '${kind} · ${name}',
 			'scheduler.home.srcUnknown' => '未知来源',
-			'scheduler.home.replayTitle' => '重放这个 run?',
+			'scheduler.home.replayTitle' => '重放这次运行？',
 			'scheduler.home.replayBody' => ({required Object failed, required Object completed}) => '重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。',
 			'scheduler.home.replayBodyUnknown' => '重跑失败节点;已完成结果按记忆化复用。',
 			'scheduler.home.replayAction' => '重放',
 			'scheduler.home.replayed' => '重放已开始',
-			'scheduler.home.notReplayable' => '该 run 已不可重放',
+			'scheduler.home.notReplayable' => '这次运行已不可重放',
 			'scheduler.home.batchReplay' => '批量重放',
-			'scheduler.home.batchReplayTitle' => ({required Object n}) => '重放 ${n} 个 run?',
+			'scheduler.home.batchReplayTitle' => ({required Object n}) => '重放 ${n} 次运行？',
 			'scheduler.home.batchReplayBody' => ({required Object failed, required Object completed}) => '共重跑 ${failed} 个失败节点 · 复用 ${completed} 个已完成结果。',
 			'scheduler.home.sumReplayed' => ({required Object n}) => '已重放 ${n}',
 			'scheduler.home.sumNotReplayable' => ({required Object n}) => '${n} 个已不可重放',
@@ -4159,6 +4163,7 @@ extension on TranslationsZhCn {
 			'scheduler.home.rowCancel' => '终止',
 			'scheduler.home.rowRetry' => '重试',
 			'scheduler.run.notFoundTitle' => '找不到这次运行',
+			'scheduler.run.executionFailed' => '执行失败。',
 			'scheduler.run.notFoundHint' => '它可能已被保留策略清理。从 workflow 里另选一次运行。',
 			'scheduler.run.errorTitle' => '这次运行加载失败',
 			'scheduler.run.errorHint' => '后端没有响应。检查连接后重试。',
@@ -4205,9 +4210,9 @@ extension on TranslationsZhCn {
 			'scheduler.run.relayFailedTitle' => '解析不出这次运行',
 			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
 			'scheduler.run.closeA11y' => '关闭本次运行页',
-			'scheduler.range.today' => '今天',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.today' => '今天',
 			'scheduler.range.h24' => '近 24 小时',
 			'scheduler.range.d7' => '近 7 天',
 			'scheduler.range.d30' => '近 30 天',
@@ -4709,6 +4714,9 @@ extension on TranslationsZhCn {
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}',
 			'entities.run.errorHeading' => '错误',
 			'entities.run.detailsHeading' => '详细信息',
+			'entities.run.executionFailed' => '执行失败，请检查输入后重试。',
+			'entities.run.missingInput' => '缺少必填输入',
+			'entities.run.technicalDetails' => '技术详情',
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
 			'entities.run.inboxEmpty' => '没有待审批',
@@ -4716,12 +4724,12 @@ extension on TranslationsZhCn {
 			'entities.run.source' => '来源',
 			'entities.run.sourceManual' => '手动',
 			'entities.run.openFlowrun' => '打开 run →',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.openRunPage' => '在运行页打开 →',
 			'entities.run.recentCount' => ({required Object n}) => '最近执行 · ${n}',
 			'entities.run.reproduce' => '用这份输入',
 			'entities.run.inputHeading' => '输入',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.origin.manual' => '手动',
 			'entities.run.origin.chat' => '对话',
 			'entities.run.origin.agent' => '智能体',
@@ -4752,17 +4760,17 @@ extension on TranslationsZhCn {
 			'entities.graph.verb.link' => '链接了',
 			'entities.graph.verb.create' => '创建了',
 			'entities.graph.verb.edit' => '编辑了',
-			'coldStart.onboardingPreviewTitle' => 'Anselm · Onboarding Preview',
+			'coldStart.onboardingPreviewTitle' => 'Anselm · 首次使用预览',
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
-			'coldStart.createWorkspace' => 'Create a workspace',
-			'coldStart.nameLabel' => 'Workspace name',
+			'coldStart.createWorkspace' => '创建工作区',
+			'coldStart.nameLabel' => '工作区名称',
 			'coldStart.alreadyExists' => '该工作区已存在',
 			'coldStart.createFailed' => '无法创建工作区',
-			'coldStart.workIndex' => 'WORK №001',
-			'coldStart.artCredit' => 'Christoffel Bisschop · 1862 · Rijksmuseum',
-			'coldStart.artTitle' => 'Heemskerck 与 Barents 规划第二次远征极北之地',
+			'coldStart.workIndex' => '工作 №001',
+			'coldStart.artCredit' => '克里斯托费尔·比肖普 · 1862 · 荷兰国立博物馆',
+			'coldStart.artTitle' => '海姆斯科克与巴伦支规划第二次极北远征',
 			'library.documents' => '文档',
 			'library.skills' => '技能',
 			'library.untitled' => '未命名',
@@ -5230,12 +5238,12 @@ extension on TranslationsZhCn {
 			'settings.mcp.addFailedHonest' => '连接失败也会落盘为 failed,可稍后重连',
 			'settings.mcp.importTitle' => '导入 mcp.json',
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.overwrite' => '覆盖同名',
 			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',
 			'settings.mcp.importing' => '导入中…',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.importInvalid' => 'JSON 无法解析',
 			'settings.mcp.importInvalidShape' => 'JSON 中需要 mcpServers',
 			'settings.mcp.importTooLarge' => '请将 JSON 控制在 1 MiB 以内',

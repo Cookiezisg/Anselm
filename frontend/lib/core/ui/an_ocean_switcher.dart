@@ -292,6 +292,11 @@ class AnOceanSwitcherFrame extends StatelessWidget {
     );
     return AnInteractive(
       onTap: onTap == null ? null : () => onTap!(i),
+      // Icon-only resting slots still need a native name; the selected slot happens to expose its
+      // visible label, while the other three would otherwise be anonymous buttons in AX.
+      // 收起态槽只有图标也必须有原生名称；当前槽碰巧有可见字，其余三槽否则会变成 AX 无名按钮。
+      semanticLabel: it.label,
+      semanticFocusable: true,
       selected: i == toIndex,
       // The highlight is the shared pill behind; the slot itself stays transparent. 高亮由后方共享药丸提供,槽透明。
       builder: (context, states) => content,

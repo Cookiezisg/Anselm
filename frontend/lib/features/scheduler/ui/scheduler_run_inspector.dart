@@ -189,7 +189,7 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
     final c = context.colors;
     final d = widget.data;
     final run = d.run;
-    final error = errorSentence(run.error);
+    final error = errorSentence(run.error, fallback: t.executionFailed);
     final entryPayload = d.nodes
         .where((node) => node.kind == NodeKind.trigger.name)
         .firstOrNull;
@@ -277,7 +277,7 @@ class _RunDossierFaceState extends ConsumerState<_RunDossierFace> {
             children: [
               AnWindow(
                 child: Text(
-                  errorForDisplay(run.error)!,
+                  errorForDisplay(run.error, fallback: t.executionFailed)!,
                   style: AnText.code.copyWith(color: c.danger),
                 ),
               ),
@@ -507,7 +507,7 @@ class _NodeInspectorFaceState extends ConsumerState<_NodeInspectorFace> {
         if (node.error != null && node.error!.trim().isNotEmpty) ...[
           const SizedBox(height: AnGap.block),
           AnCallout(
-            errorForDisplay(node.error)!,
+            errorForDisplay(node.error, fallback: t.executionFailed)!,
             severity: AnCalloutSeverity.danger,
           ),
         ],

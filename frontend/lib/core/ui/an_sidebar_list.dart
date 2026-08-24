@@ -944,6 +944,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
             Expanded(
               child: AnInlineEdit(
                 value: r.label,
+                fieldLabel: r.label,
                 startEditing: true,
                 minHeight: AnSize.row,
                 onCommit: (v) => widget.onRenameCommit?.call(r.id, v),

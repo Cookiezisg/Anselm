@@ -2,9 +2,11 @@ import 'dart:async';
 
 import 'package:flutter/widgets.dart';
 
+import '../../i18n/strings.g.dart';
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import 'an_a11y.dart';
 import 'an_button.dart';
 import 'an_edit_affordance.dart';
 import 'an_seamless_field.dart';
@@ -34,6 +36,7 @@ class AnInlineEdit extends StatefulWidget {
     required this.onCommit,
     this.onAbort,
     this.onCommitError,
+    this.fieldLabel,
     this.enabled = true,
     this.startEditing = false,
     this.commitOnTapOutside = false,
@@ -51,6 +54,11 @@ class AnInlineEdit extends StatefulWidget {
   /// failure through the shared notice band; the editor itself deliberately does not own product
   /// copy or a second error layout. 异步提交失败时保留草稿并调用此钩子;宿主经顶带提示错误。
   final ValueChanged<Object>? onCommitError;
+
+  /// Optional field identity for both the pencil and the live text field. A generic inline edit keeps
+  /// the old `Edit` label; product fields should provide a human field name so screen readers never
+  /// encounter an anonymous editor. 具体字段身份同时用于铅笔和编辑框;未传则保留通用 Edit。
+  final String? fieldLabel;
 
   /// Empty-field GUIDE: when [value] is empty and idle, the row shows this text in [AnColors.inkFaint]
   /// and a tap on it opens the field (design-system 空字段引导律 — the guide is grey, clickable, and
@@ -130,11 +138,22 @@ class _AnInlineEditState extends State<AnInlineEdit> {
     extentOffset: _ctl.text.length,
   );
 
-  void _begin() => setState(() {
-    _ctl.text = _committed;
-    _selectAll();
-    _editing = true;
-  });
+  void _begin() {
+    setState(() {
+      _ctl.text = _committed;
+      _selectAll();
+      _editing = true;
+    });
+    if (widget.fieldLabel != null) {
+      // macOS exposes Flutter's native TextField role but may omit its custom AX title. Announce the
+      // field identity at the mode transition so keyboard/VoiceOver users still get an unambiguous cue.
+      // macOS 会保留原生 TextField 角色却可能省略自定义 AX 标题,故在模式切换时播报字段身份。
+      AnA11y.announce(
+        context,
+        context.t.a11y.editingField(field: widget.fieldLabel!),
+      );
+    }
+  }
 
   // Keyboard finishes (Enter/Esc) RETURN focus to the pencil so keyboard nav continues; POINTER finishes
   // (Save/Cancel click, blur) drop focus SYNCHRONOUSLY before the rebuild — else removing the focused
@@ -229,6 +248,9 @@ class _AnInlineEditState extends State<AnInlineEdit> {
 
     final affordance = AnEditAffordance(
       editing: _editing,
+      editLabel: widget.fieldLabel == null
+          ? null
+          : context.t.a11y.editField(field: widget.fieldLabel!),
       size: widget.affordanceSize,
       onEdit: _saving ? null : _begin,
       onCommit: _saving
@@ -276,6 +298,7 @@ class _AnInlineEditState extends State<AnInlineEdit> {
                         onTapOutside: widget.commitOnTapOutside
                             ? (_) => _commit(returnFocus: false)
                             : null,
+                        semanticLabel: widget.fieldLabel,
                       )
                     : _idleLabel(c),
               ),

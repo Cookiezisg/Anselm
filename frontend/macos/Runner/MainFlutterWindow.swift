@@ -46,6 +46,8 @@ private func anInstallWindowCornerRadius() {
 class MainFlutterWindow: NSWindow {
   private var chromeChannel: FlutterMethodChannel?
   private var systemPathChannel: FlutterMethodChannel?
+  private var accessibilityChannel: FlutterMethodChannel?
+  private weak var flutterViewController: FlutterViewController?
 
   override func awakeFromNib() {
     // Install the corner-radius override BEFORE the window is revealed. The window is hidden-at-launch (the
@@ -60,6 +62,7 @@ class MainFlutterWindow: NSWindow {
     // FlutterViewController,以便从 Dart 操控窗口(无边框 chrome + 红绿灯定位)。
     let macOSWindowUtilsViewController = MacOSWindowUtilsViewController()
     self.contentViewController = macOSWindowUtilsViewController
+    self.flutterViewController = macOSWindowUtilsViewController.flutterViewController
     self.setFrame(windowFrame, display: true)
 
     MainFlutterWindowManipulator.start(mainFlutterWindow: self)
@@ -165,7 +168,57 @@ class MainFlutterWindow: NSWindow {
     }
     self.systemPathChannel = systemPathChannel
 
+    // Flutter's macOS semantics bridge replaces an editable semantics node with its private
+    // `FlutterTextField`, which does not forward the Flutter label to AXTitle. Keep this adapter
+    // deliberately narrow: Dart supplies only the label for the currently focused field; AppKit
+    // owns the actual AX element and text-input behavior. 原生桥只补引擎丢失的字段名,不接管输入。
+    let accessibilityChannel = FlutterMethodChannel(name: "app/accessibility", binaryMessenger: messenger)
+    accessibilityChannel.setMethodCallHandler { [weak self] call, result in
+      guard let self = self else {
+        result(nil)
+        return
+      }
+      guard call.method == "setFocusedTextFieldLabel" else {
+        result(FlutterMethodNotImplemented)
+        return
+      }
+      let args = call.arguments as? [String: Any]
+      let label = args?["label"] as? String
+      // The semantics update and the native FlutterTextField are committed during the same frame.
+      // Apply on the next main-loop turn so the element exists before its AX title is changed.
+      DispatchQueue.main.async { [weak self] in
+        guard let self = self else {
+          result(false)
+          return
+        }
+        result(self.setFocusedTextFieldAccessibilityLabel(label))
+      }
+    }
+    self.accessibilityChannel = accessibilityChannel
+
     super.awakeFromNib()
+  }
+
+  private func setFocusedTextFieldAccessibilityLabel(_ label: String?) -> Bool {
+    guard let root = flutterViewController?.view,
+          let field = findFlutterTextField(in: root) else {
+      return false
+    }
+    field.setAccessibilityLabel(label?.isEmpty == true ? nil : label)
+    return true
+  }
+
+  private func findFlutterTextField(in root: NSView) -> NSView? {
+    for child in root.subviews.reversed() {
+      let className = NSStringFromClass(type(of: child))
+      if className == "FlutterTextField" || className.hasSuffix(".FlutterTextField") {
+        return child
+      }
+      if let field = findFlutterTextField(in: child) {
+        return field
+      }
+    }
+    return nil
   }
 
   // Pre-animation toolbar drop for a seamless full-screen enter (white-band fix, see awakeFromNib).

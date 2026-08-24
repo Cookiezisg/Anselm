@@ -780,10 +780,10 @@
     "err": "Failed",
     "done": "Done"
   },
-  "run": {
-    "runCompleted": "Completed",
-    "failed": "failed",
-    "agentTimeout": "Timed out",
+    "run": {
+      "runCompleted": "Completed",
+      "failed": "failed",
+      "agentTimeout": "Timed out",
     "runCancelled": "Cancelled",
     "runStillFailed": "Still failed",
     "runAwaitApproval": "Awaiting approval",
@@ -1014,6 +1014,7 @@
     },
     "run": {
       "notFoundTitle": "Run not found",
+      "executionFailed": "Execution failed.",
       "notFoundHint": "It may have been cleared by the retention policy. Pick another run from the workflow.",
       "errorTitle": "Couldn't load this run",
       "errorHint": "The backend didn't answer. Check the connection and retry.",
@@ -1642,6 +1643,9 @@
       "tokens": "$inT in · $outT out",
       "errorHeading": "error",
       "detailsHeading": "details",
+      "executionFailed": "Execution failed. Check the inputs and try again.",
+      "missingInput": "Missing required input",
+      "technicalDetails": "Technical details",
       "danger": {
         "cautious": "Cautious",
         "dangerous": "Dangerous"

@@ -149,8 +149,30 @@ class AnAttachmentChip extends StatelessWidget {
         child: body,
       ),
     );
-    if (!failed || onRetry == null) return chip;
+    final stateLabel = '$filename, $meta';
+    // Name the whole compact surface as well as its child actions. Without this stable container
+    // label, Flutter's macOS bridge can prune an uploading/failed chip because the visual Row has no
+    // native text field or named root; the action is visible but not discoverable to VoiceOver/AX.
+    // 除子动作外给紧凑面一个稳定名称。否则 macOS 桥可能因视觉 Row 没有原生文本框或命名根节点而裁掉整枚
+    // 上传中/失败 chip——眼睛看得到,VoiceOver/AX 却发现不了。
+    final namedChip = Semantics(
+      container: true,
+      explicitChildNodes: true,
+      button: !actionBusy && onAction != null,
+      enabled: !actionBusy && onAction != null,
+      focusable: true,
+      label: stateLabel,
+      onTap: !actionBusy ? onAction : null,
+      child: chip,
+    );
+    if (!failed || onRetry == null) return namedChip;
     // Failed: the chip body IS the retry affordance (the ✕ stays remove). failed:chip 体即重试。
-    return AnInteractive(onTap: onRetry, builder: (context, _) => chip);
+    return AnInteractive(
+      semanticLabel: stateLabel,
+      semanticFocusable: true,
+      onTap: onRetry,
+      builder: (context, _) =>
+          Semantics(container: true, explicitChildNodes: true, child: chip),
+    );
   }
 }

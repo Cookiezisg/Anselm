@@ -117,6 +117,45 @@ String prettyErrorDetails(Object? value, {int maxChars = 8000}) {
   return '${full.substring(0, maxChars)}\n… (+${full.length - maxChars} chars)';
 }
 
+/// Turn a traceback into a short next-step message while keeping the raw value available to an
+/// explicit details disclosure. Execution errors are often Python exceptions, but a traceback is
+/// not a useful primary product sentence.
+///
+/// 把 traceback 收敛成可行动的短句,原文仍由显式详情入口承载。执行错误常是 Python 异常,但 traceback
+/// 不是用户应该首先看到的产品文案。
+String executionErrorSummary(
+  String? raw, {
+  required String fallback,
+  required String missingInput,
+}) {
+  final text = raw?.trim() ?? '';
+  if (text.isEmpty) return fallback;
+  final lines = text
+      .split('\n')
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty);
+  final last = lines.isEmpty ? '' : lines.last;
+  final missing = RegExp(
+    r'''missing \d+ required positional argument[s]?: ['"]([^'"]+)['"]''',
+    caseSensitive: false,
+  ).firstMatch(last);
+  if (missing != null) return '$missingInput: ${missing.group(1)}';
+  if (text.contains('Traceback (most recent call last):')) return fallback;
+  return text;
+}
+
+bool hasExecutionTraceback(String? raw) =>
+    raw?.contains('Traceback (most recent call last):') ?? false;
+
+/// Keep user-authored stdout visible in the live terminal, but do not duplicate a Python traceback
+/// there: the terminal is the progress surface and the technical disclosure is the diagnostic surface.
+/// 保留用户 stdout 在实时终端可见,但不在进度面重复 Python traceback;技术详情才是诊断面。
+String executionOutputForDisplay(String raw) {
+  final marker = raw.indexOf('Traceback (most recent call last):');
+  if (marker < 0) return raw;
+  return raw.substring(0, marker).trimRight();
+}
+
 /// Structured (non-text) deltas of a function version vs its next-older neighbour, as short chips:
 /// signature fields (`+in name` / `−out name` / type changes), dependencies, python version. The code
 /// body is NOT summarized here — the text diff renders it. Pure + unit-testable.

@@ -390,7 +390,7 @@ class _DossierHeadState extends ConsumerState<_DossierHead> {
     final failed = run.status == 'failed';
     // THE sentence — computed once, rendered here, in the ledger's failed row and behind the gantt's
     // red bar (§5.1 同句同源). 唯一那句话:算一次,头/台账/甘特同源。
-    final error = errorSentence(run.error);
+    final error = errorSentence(run.error, fallback: t.executionFailed);
     final timing = runTiming(_d.nodes, _d.activity);
     final started = run.startedAt;
     final elapsed = started == null
@@ -793,8 +793,14 @@ class _LedgerZone extends ConsumerWidget {
       status: n.status,
       kind: n.kind,
       iteration: n.iteration,
-      error: errorSentence(n.error),
-      errorFull: errorForDisplay(n.error),
+      error: errorSentence(
+        n.error,
+        fallback: context.t.scheduler.run.executionFailed,
+      ),
+      errorFull: errorForDisplay(
+        n.error,
+        fallback: context.t.scheduler.run.executionFailed,
+      ),
       measure: _measure(context, n, byKey['${n.nodeId}#${n.iteration}']),
     );
     return FlowrunNodeLine(
@@ -803,8 +809,14 @@ class _LedgerZone extends ConsumerWidget {
       kind: latest.kind,
       iterations: e.iterations,
       iteration: latest.iteration,
-      error: errorSentence(latest.error),
-      errorFull: errorForDisplay(latest.error),
+      error: errorSentence(
+        latest.error,
+        fallback: context.t.scheduler.run.executionFailed,
+      ),
+      errorFull: errorForDisplay(
+        latest.error,
+        fallback: context.t.scheduler.run.executionFailed,
+      ),
       measure: _measure(
         context,
         latest,

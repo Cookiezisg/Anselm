@@ -4209,6 +4209,9 @@ class Translations$scheduler$run$en {
 	/// en: 'Run not found'
 	String get notFoundTitle => 'Run not found';
 
+	/// en: 'Execution failed.'
+	String get executionFailed => 'Execution failed.';
+
 	/// en: 'It may have been cleared by the retention policy. Pick another run from the workflow.'
 	String get notFoundHint => 'It may have been cleared by the retention policy. Pick another run from the workflow.';
 
@@ -4776,6 +4779,15 @@ class Translations$entities$run$en {
 
 	/// en: 'details'
 	String get detailsHeading => 'details';
+
+	/// en: 'Execution failed. Check the inputs and try again.'
+	String get executionFailed => 'Execution failed. Check the inputs and try again.';
+
+	/// en: 'Missing required input'
+	String get missingInput => 'Missing required input';
+
+	/// en: 'Technical details'
+	String get technicalDetails => 'Technical details';
 
 	late final Translations$entities$run$danger$en danger = Translations$entities$run$danger$en.internal(_root);
 
@@ -8668,6 +8680,7 @@ extension on Translations {
 			'scheduler.home.rowCancel' => 'Stop',
 			'scheduler.home.rowRetry' => 'Retry',
 			'scheduler.run.notFoundTitle' => 'Run not found',
+			'scheduler.run.executionFailed' => 'Execution failed.',
 			'scheduler.run.notFoundHint' => 'It may have been cleared by the retention policy. Pick another run from the workflow.',
 			'scheduler.run.errorTitle' => 'Couldn\'t load this run',
 			'scheduler.run.errorHint' => 'The backend didn\'t answer. Check the connection and retry.',
@@ -8714,9 +8727,9 @@ extension on Translations {
 			'scheduler.run.relayFailedTitle' => 'Couldn\'t resolve this run',
 			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
 			'scheduler.run.closeA11y' => 'Close this run',
-			'scheduler.range.today' => 'Today',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.range.today' => 'Today',
 			'scheduler.range.h24' => 'Last 24 hours',
 			'scheduler.range.d7' => 'Last 7 days',
 			'scheduler.range.d30' => 'Last 30 days',
@@ -9218,6 +9231,9 @@ extension on Translations {
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '${inT} in · ${outT} out',
 			'entities.run.errorHeading' => 'error',
 			'entities.run.detailsHeading' => 'details',
+			'entities.run.executionFailed' => 'Execution failed. Check the inputs and try again.',
+			'entities.run.missingInput' => 'Missing required input',
+			'entities.run.technicalDetails' => 'Technical details',
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
 			'entities.run.inboxEmpty' => 'No pending approvals',
@@ -9225,12 +9241,12 @@ extension on Translations {
 			'entities.run.source' => 'Source',
 			'entities.run.sourceManual' => 'Manual',
 			'entities.run.openFlowrun' => 'Open run →',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.openRunPage' => 'Open run page →',
 			'entities.run.recentCount' => ({required Object n}) => 'Recent · ${n}',
 			'entities.run.reproduce' => 'Use this input',
 			'entities.run.inputHeading' => 'input',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.origin.manual' => 'Manual',
 			'entities.run.origin.chat' => 'Chat',
 			'entities.run.origin.agent' => 'Agent',
@@ -9739,12 +9755,12 @@ extension on Translations {
 			'settings.mcp.addFailedHonest' => 'A failed connection still lands as failed — reconnect later',
 			'settings.mcp.importTitle' => 'Import mcp.json',
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.overwrite' => 'Overwrite same names',
 			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',
 			'settings.mcp.importing' => 'Importing…',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.importInvalid' => 'Couldn\'t parse the JSON',
 			'settings.mcp.importInvalidShape' => 'Add mcpServers to JSON',
 			'settings.mcp.importTooLarge' => 'Keep the JSON under 1 MiB',

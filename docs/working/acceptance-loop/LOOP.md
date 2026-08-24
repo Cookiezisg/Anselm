@@ -13,9 +13,83 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · SURF-085 · 批次四十四 50/50，SURF-084 已提交）
+## 当前前线覆盖声明（2026-08-25 · SURF-094 已入账 · 批次四十五 50/50；统一门禁已通过，待提交）
+
+## 2026-08-25 · SURF-094 i18n/action 通用动作词正式五级入账，批次四十五 50/50
+
+`SURF-094 i18n/action` 的八个动作键 `编辑/取消/保存/复制/展开/收起/自动换行/删除` 已完成双语资源静态核对、完整 locale 回归 `6/6` 和真实 App 走查。实体详情展示 `复制/自动换行`，文库更多操作展示 `展开全部/收起全部`，MCP 手动添加表单展示 `添加/取消`；`编辑/保存/删除` 由生成调用点与既有实体/编辑器/确认框测试覆盖，无英文旁路。
+
+绿色 session=`sessions/20260825-052544`：screen=`166.140000s / 2784x1808`，backend=`260`、SSE=`8`、frontend=`17`、llmtap=`10`。五通道物理接线、D1、health、三流 SSE 和 managed wiring 通过；后端/LLM 无应用红线。前端 journal 保留 Computer Use 快速 AX 树切换产生的 Flutter `accessibility_bridge.cc` 桥接消息，后续 AX 读取与画面均正常，正式证据不隐藏该边界。无 Chat completion 的动作只读路径不伪造 completion 或 durable 业务帧。正式证据=`sessions/20260825-052544/evidence/SURF-094-i18n-action-five-level.md`，调查=`testend/rig/formal-evidence/SURF-094-i18n-action-investigation-20260825.md`。
+
+五级=`G1/F1/B2/C4/G1`；formal journal=`2385`（2300 baseline + 85 live），`gen_coverage.py --check`=`848 rows / 477 carried judgments / 0 tombstones`，anchors=`10/10`。两条统计警报已按 `testend/rig/formal-evidence/SURF-094-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate。批次已到 `50/50`，统一长门禁已通过，记录=`testend/rig/formal-evidence/batch-45-gate-20260825.md`；提交前只剩 staged diff 审计，提交后前进到 `SURF-095`。
+
+## 2026-08-25 · SURF-093 i18n/coldStart 首启与语言轴正式五级入账，批次四十五 45/50
+
+首轮 `RIG_SEED=0` 冷启动发现 onboarding 后释放到空白 Chat 时泄漏四个英文键：`What should we dig into?`、`Auto`、`Mention an entity`、`Attach files`；红 session=`sessions/20260825-051818` 不计入判断。stop-and-fix 补齐 `coldStart` 全组文案与四个同屏 Chat 键，重新生成 slang，并以 focused suite=`11/11` 锁定完整冷启动 11 键与 Chat 4 键。
+
+绿色 session=`sessions/20260825-052124`：空 workspace 首帧、输入态、`正在准备工作区…` 创建态和释放后 Chat 均真实走通；AX/画面一致显示中文 `工作 №001`、`创建工作区`、`工作区名称`、`自动`、`想从哪里开始？`、`提及实体`、`添加附件`、`想聊点什么？`，过渡无卡死/clipping/overlap/非用户跳变。五通道 screen=`46.655000s / 2784x1808`，backend=`108`，SSE=`8`，frontend=`4`，llmtap=`10`；三流 clean EOF，本路径无 Chat completion，未伪造业务 durable 帧。正式证据=`sessions/20260825-052124/evidence/SURF-093-i18n-coldStart-five-level.md`，调查=`testend/rig/formal-evidence/SURF-093-i18n-coldStart-investigation-20260825.md`。
+
+五级=`G1/F1/B2/C4/G1`；formal journal=`2380`（2300 baseline + 80 live），`gen_coverage.py --check`=`848 rows / 476 carried judgments / 0 tombstones`，anchors=`10/10`。两条统计警报按 `testend/rig/formal-evidence/SURF-093-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，最终 `alarms.py check` clean。下一前线=`SURF-094`；当前批次=`45/50`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-25 · SURF-092 i18n/ref 引用类型与真实执行正式五级入账，批次四十五 40/50
+
+静态反查确认 `AnRefPill` 的 11 个类型分支全部经过 `entityKindWord`；新增双语完整集合回归，focused locale/ref suite=`12/12`。真实 App 走过实体、文库、MCP 设置和 Chat mention picker；选择 `sync_inventory` 后插入引用并发送最小问题，模型正确识别函数引用、执行一次并返回 `synced=42`，消息区和 Activity 侧幕一致。
+
+绿色 session=`sessions/20260825-051028`：screen=`102.840000s / 2784x1808`，backend=`228`、SSE=`76`、frontend=`4`、llmtap=`19`；三流 durable message open/tool close/message close 与 notification signal 真实可见，seq 单调、delta=`seq=0`，managed proof/install/models/chat 穿过 tap，前端无 Flutter/Dart/布局/Unhandled 红线。正式证据=`sessions/20260825-051028/evidence/SURF-092-i18n-ref-five-level.md`，调查=`testend/rig/formal-evidence/SURF-092-i18n-ref-investigation-20260825.md`。
+
+五级=`G1/F1/B2/C4/G1`；formal journal=`2375`（2300 baseline + 75 live），`gen_coverage.py --check`=`848 rows / 475 carried judgments / 0 tombstones`，anchors=`10/10`。两条统计警报按 `testend/rig/formal-evidence/SURF-092-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，最终 `alarms.py check` clean。下一前线=`SURF-093`；当前批次=`40/50`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-25 · SURF-091 i18n/shell 壳层状态与原生可达性正式五级入账，批次四十五 35/50
+
+首轮真实 AX 树发现顶部四海洋中三个折叠图标槽是无名按钮；红场不计入判断。stop-and-fix 在 `an_ocean_switcher.dart` 为每个槽增加本地化 `semanticLabel` 与 `semanticFocusable`，新增语义回归；修复后 focused suite=`35/35`。
+
+绿色 session=`sessions/20260825-050144`：真实 AX 暴露 `对话/实体/调度/文库` 并逐一切换；设置、workspace 菜单 `新建工作区/工作区设置`、通知托盘接管左岛、侧栏 `收起侧栏/展开侧栏` 均真实走通。`comingSoonTitle/Hint` 在当前五个 `OceanKind` 全 built 下结构性不可达，证据明确记录而非伪造点击。五通道 screen=`112.400000s / 2784x1808`，backend=`198`，SSE=`4`，frontend=`4`，llmtap=`10`，无应用红线；正式证据=`sessions/20260825-050144/evidence/SURF-091-i18n-shell-five-level.md`，调查=`testend/rig/formal-evidence/SURF-091-i18n-shell-investigation-20260825.md`。
+
+五级=`G1/F1/B2/C4/G1`；formal journal=`2370`（2300 baseline + 70 live），`gen_coverage.py --check`=`848 rows / 474 carried judgments / 0 tombstones`，anchors=`10/10`。两条统计警报按 `testend/rig/formal-evidence/SURF-091-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，最终 `alarms.py check` clean。下一前线=`SURF-092 i18n/ref`；当前批次=`35/50`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-25 · SURF-090 i18n/attach 正式五级入账，批次四十五 30/50
+
+首轮真实 App AX 走查发现附件 chip/失败重试虽然可见，但没有进入原生 AX 树；红场不计入判断。stop-and-fix 在 `an_attachment_chip.dart`、`an_composer.dart`、`an_interactive.dart` 增加文件名/状态/动作语义边界，focused Flutter=`36/36`；视觉布局保持不变。
+
+最终 session=`sessions/20260825-044311`：AX 可读准备中、取消准备、失败和重试；无效 PNG 真实失败并重试，有效 JPEG 经受管网关上传、视觉调用和 Chat 完成。取消动作已可达，但无效 worker 约 1 秒内完成，本次未捕获取消 HTTP 请求；该竞态已如实记录，后端取消场景有回归覆盖，未伪造端到端成功。正式证据=`sessions/20260825-044311/evidence/SURF-090-i18n-attach-five-level.md`，调查=`testend/rig/formal-evidence/SURF-090-i18n-attach-investigation-20260825.md`。
+
+五通道：screen=`363.483333s / 2784x1808`，backend=`491`，SSE=`76`，frontend=`4`，llmtap=`43`；gateway proof/install/media/chat=`200/201`，三流 SSE 无 gap，前端无 Flutter/Dart/布局/Unhandled 红线。五级=`G1/F1/B2/C4/G1`；formal journal=`2365`（2300 baseline + 65 live），`gen_coverage.py --check`=`848 rows / 473 carried judgments / 0 tombstones`，anchors=`10/10`，警报复审 ack 后 `alarms.py check` clean。下一前线=`SURF-091 i18n/shell`；当前批次=`30/50`，未到 50 格不跑统一长门禁、不提交。
+
+## 2026-08-25 · SURF-089 i18n/a11y 修复后正式五级入账，批次四十五 25/50
+
+首轮真实 AX 检查发现 inline editor 只暴露匿名 `text field (settable)`；第一次原生桥实验又因多余的 `setAccessibilityElement(true)` 把角色变成 `unknown`，两次红场均不计绿。最终修复只给 Flutter 内部原生 `FlutterTextField` 设置 `accessibilityLabel`，不改变角色、输入协议或视觉布局。
+
+绿色 session=`sessions/20260825-040519`：真实 AX 树进入编辑后显示 `text field (settable) 描述`，输入后显示 `Description: 描述, Value: Native AX`，取消后回到 `添加简介…`。五通道与 storage 封口通过，正式证据=`sessions/20260825-040519/evidence/SURF-089-i18n-a11y-five-level.md`，首轮调查=`testend/rig/formal-evidence/SURF-089-i18n-a11y-investigation-20260825.md`。
+
+`judge.py` 已串行写入 `G1/F1/B2/C4/G1`，COVERAGE=`848 rows / 472 carried judgments / 0 tombstones`，`gen_coverage.py --check` clean；写账后的两条统计警报由 `testend/rig/formal-evidence/SURF-089-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，最终 `alarms.py check` clean。未到 50 格不跑统一长门禁、不提交。下一原子前线=`SURF-090 i18n/attach`。
+
+## 2026-08-25 · SURF-088 i18n/feedback 已入账
+
+`SURF-088 i18n/feedback` 已完成真实 App 五级 `G1/F1/B2/C4/G1`。首轮发现 seed `greet` 的必填 `name` 参数缺少输入声明；修复 seed 后，第二轮又发现流式 traceback 泄漏进主输出终端。两次红场分别为 `sessions/20260825-025554` 与 `sessions/20260825-030052`，均不入账；修复后以 entity format=`3/3`、run terminal=`8/8` 回归锁定。
+
+绿色 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-030446`：真实中文 App 走通 seed greet 成功运行、临时失败 Function、中文人话摘要、`技术详情` 展开/收起、Copy=`已复制` 和删除后列表回基线。screen=`2696x1720 / 224.743333s`，backend=`330`、SSE=`25`、frontend 仅正常启动/Dart VM、llmtap proof/install/models 全 200；三流 SSE 连接/EOF、实体成功/失败 open-close durable、gap=`0`；SQLite integrity=`ok`、foreign-key check 为空、执行=`1 ok + 1 failed`。正式证据=`sessions/20260825-030446/evidence/SURF-088-i18n-feedback-five-level.md`，独立警报复核=`testend/rig/formal-evidence/SURF-088-ledger-alarm-reaudit-20260825.md`。
+
+正式 journal=`2360`（2300 baseline + 60 live），`gen_coverage.py --check`=`848 rows / 472 carried judgments / 0 tombstones`；SURF-089 五格已入账，下一前线=`SURF-090 i18n/attach`。当前批次=`25/50`，未到 50 格不跑统一长门禁、不提交；P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-25 · SURF-087 i18n/run 已入账
+
+`SURF-087 i18n/run` 已完成真实 App 五级 `G1/F1/B2/C4/G1`。首轮运行卷宗走查发现失败 fallback 泄漏英文 `Execution failed.`，修复 scheduler run model、三处 UI projection、双语 i18n 与 focused Flutter 回归 `65/65` 后重建；修复后的真实重跑又发现重放确认标题 `重放这个 run?` 混合中英文，进一步修为 `重放这次运行？` 并同步批量重放/不可重放文案，重新生成并在真实 modal 复验。
+
+绿色 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-024808`，最终 screen=`2784x1808 / 45.240s`，backend=`115`、SSE=`16`、frontend=`3`、llmtap=`1`；backend/frontend 无应用红线，SQLite integrity=`ok`、foreign-key check 为空，flowruns=`5 completed / 6 failed / 2 running`，nodes=`30`。正式证据=`sessions/20260825-024808/evidence/SURF-087-i18n-run-five-level.md`，独立警报复核=`testend/rig/formal-evidence/SURF-087-ledger-alarm-reaudit-20260825.md`。
+
+正式 journal=`2350`（2300 baseline + 50 live），`gen_coverage.py --check`=`848 rows / 470 carried judgments / 0 tombstones`；anchors=`10/10`，`gap-too-fast` 与 `discovery-collapse` 已独立复审并 ack，最终 `alarms.py check` clean，未改阈值、算法、法典、锚点或 gate。当前批次=`15/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`SURF-088 i18n/feedback`。P12 400+ Journey 继续按用户裁定推迟二期。
 
 ## 2026-08-25 当前前线重述
+
+`SURF-086 i18n/notifications` 已完成真实 App 五级 `G1/F1/B2/C4/G1`。全新 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-022809` 真实走通通知入口、今天分组、9 条通知、单条已读、仅未读、组头全部已读/全部未读、deploy 搜索、收展与 hover 标为已读；最终中文通知托盘稳定，无 clipping/overlap/非用户跳变。正式证据=`sessions/20260825-022809/evidence/SURF-086-i18n-notifications-five-level.md`，AX 复核=`sessions/20260825-022809/evidence/frontend-ax-review.md`，告警复核=`testend/rig/formal-evidence/SURF-086-ledger-alarm-reaudit-20260825.md`。
+
+五通道 rig-check/rig-down 全绿：screen=`2784x1808 / 281.475s`，backend=`380` 行无应用红线，SSE=`8` 行且三流真实连接/EOF，frontend=`45` 行只含已审阅 AXTree tooling churn 与 IMK/CapsLock 宿主行，llmtap=`10` 行 readiness/managed gateway，REST unread-count/list=`9/9`，SQLite integrity=`ok`。正式 journal=`2345`（2300 baseline + 45 live），`gen_coverage.py --check`=`848 rows / 469 carried judgments / 0 tombstones`；`gap-too-fast` 独立复审并 ack，`alarms.py check` clean。当前批次=`10/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `SURF-087 i18n/run`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+`SURF-085 i18n/library` 已完成真实 App 五级 `G1/F1/B2/C4/G1`。首轮真实场景发现中文 Chat composer 泄漏英文 `Ask anything…`；红 session=`sessions/20260825-021142` 不计入判断。stop-and-fix 修改 `zh_CN.i18n.json` 为 `想聊点什么？`，重新生成 slang，并补双语 locale 回归 `3/3`；绿场重新构建，未复用红场。
+
+绿色 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-021948` 真实走过文库 rail 五篇文档、Skill rail 三项 Skill、文档检查器正文/大纲/属性/反链/展开全部、Skill 四文件/两绑定表单，并回到 Chat 通过真实受管网关查询文库与 Skill 数量。最终 UI 显示中文 composer `想聊点什么？`，活动卡 `已列文档 · 5 个`，完整中文表格准确给出文档 `5`、技能 `3` 及名称；画面无 clipping/overlap/非用户跳变。正式证据=`sessions/20260825-021948/evidence/SURF-085-i18n-library-five-level.md`，告警复核=`testend/rig/formal-evidence/SURF-085-ledger-alarm-reaudit-20260825.md`。
+
+五通道 rig-check/rig-down 全绿：screen=`2784x1808 / 148.115s`，backend=`281` 行无应用红线，SSE=`132` 行且 messages/entities/notifications durable 序列单调，frontend=`4` 行仅正常启动/VM 与已知 IMK host noise，llmtap=`19` 行且真实 gateway challenge/install/models/chat 全 200，SQLite integrity=`ok`。正式 journal=`2340`（2300 baseline + 40 live），`gen_coverage.py --check`=`848 rows / 468 carried judgments / 0 tombstones`；`gap-too-fast` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，`alarms.py check` clean。当前批次=`5/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线为 `SURF-086 i18n/notifications`。P12 400+ Journey 继续按用户裁定推迟二期。
 
 `SURF-084 i18n/scheduler` 已完成五级 `G1/F1/B2/C4/G1`。首轮真实 scheduler 走查发现失败 run 速览卡直接暴露 Python `Traceback`、本地路径、节点 ID 与运行时包装原文；红 session=`sessions/20260825-014625` 排除。修复 `scheduler_run_model.dart` 的 traceback 用户投影，保留最终异常原因并移除技术包装，focused Flutter=`26/26`；绿色 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-014850` 为修复后重建的 App。
 

@@ -87,11 +87,29 @@ void main() {
 
     LocaleSettings.setLocaleSync(AppLocale.en);
     expect(LocaleSettings.currentLocale, AppLocale.en);
+    expect(
+      LocaleSettings.currentLocale.translations.chat.placeholder,
+      'Ask anything…',
+    );
     expect(LocaleSettings.currentLocale.translations.chat.thinking, 'thinking');
     expect(LocaleSettings.currentLocale.translations.chat.thought, 'thought');
 
     LocaleSettings.setLocaleSync(AppLocale.zhCn);
     expect(LocaleSettings.currentLocale, AppLocale.zhCn);
+    expect(
+      LocaleSettings.currentLocale.translations.chat.placeholder,
+      '想聊点什么？',
+    );
+    expect(
+      LocaleSettings.currentLocale.translations.chat.landingGreeting,
+      '想从哪里开始？',
+    );
+    expect(LocaleSettings.currentLocale.translations.chat.modelAuto, '自动');
+    expect(
+      LocaleSettings.currentLocale.translations.chat.mentionEntity,
+      '提及实体',
+    );
+    expect(LocaleSettings.currentLocale.translations.chat.attachFile, '添加附件');
     expect(LocaleSettings.currentLocale.translations.chat.thinking, '思考中');
     expect(LocaleSettings.currentLocale.translations.chat.thought, '思考');
     expect(
@@ -111,5 +129,130 @@ void main() {
           .referenceAgentOverride,
       '智能体覆盖',
     );
+  });
+
+  test('all reference kind words are translated in both supported locales', () {
+    const en = [
+      'Function',
+      'Handler',
+      'Workflow',
+      'Agent',
+      'Document',
+      'Conversation',
+      'Skill',
+      'MCP',
+      'Trigger',
+      'Control',
+      'Approval',
+    ];
+    const zh = [
+      '函数',
+      '处理器',
+      '工作流',
+      '智能体',
+      '文档',
+      '会话',
+      '技能',
+      'MCP',
+      '触发器',
+      '控制',
+      '审批',
+    ];
+
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    expect([
+      LocaleSettings.currentLocale.translations.ref.function,
+      LocaleSettings.currentLocale.translations.ref.handler,
+      LocaleSettings.currentLocale.translations.ref.workflow,
+      LocaleSettings.currentLocale.translations.ref.agent,
+      LocaleSettings.currentLocale.translations.ref.document,
+      LocaleSettings.currentLocale.translations.ref.conversation,
+      LocaleSettings.currentLocale.translations.ref.skill,
+      LocaleSettings.currentLocale.translations.ref.mcp,
+      LocaleSettings.currentLocale.translations.ref.trigger,
+      LocaleSettings.currentLocale.translations.ref.control,
+      LocaleSettings.currentLocale.translations.ref.approval,
+    ], en);
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    expect([
+      LocaleSettings.currentLocale.translations.ref.function,
+      LocaleSettings.currentLocale.translations.ref.handler,
+      LocaleSettings.currentLocale.translations.ref.workflow,
+      LocaleSettings.currentLocale.translations.ref.agent,
+      LocaleSettings.currentLocale.translations.ref.document,
+      LocaleSettings.currentLocale.translations.ref.conversation,
+      LocaleSettings.currentLocale.translations.ref.skill,
+      LocaleSettings.currentLocale.translations.ref.mcp,
+      LocaleSettings.currentLocale.translations.ref.trigger,
+      LocaleSettings.currentLocale.translations.ref.control,
+      LocaleSettings.currentLocale.translations.ref.approval,
+    ], zh);
+  });
+
+  test('cold-start onboarding copy is localized in both supported locales', () {
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    expect(
+      LocaleSettings.currentLocale.translations.coldStart.createWorkspace,
+      'Create a workspace',
+    );
+    expect(
+      LocaleSettings.currentLocale.translations.coldStart.nameLabel,
+      'Workspace name',
+    );
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    final coldStart = LocaleSettings.currentLocale.translations.coldStart;
+    expect(coldStart.onboardingPreviewTitle, 'Anselm · 首次使用预览');
+    expect(coldStart.connecting, '正在准备工作区…');
+    expect(coldStart.errorTitle, '无法准备工作区');
+    expect(coldStart.errorHint, '本地引擎已连通,但工作区未就绪。');
+    expect(coldStart.createWorkspace, '创建工作区');
+    expect(coldStart.nameLabel, '工作区名称');
+    expect(coldStart.alreadyExists, '该工作区已存在');
+    expect(coldStart.createFailed, '无法创建工作区');
+    expect(coldStart.workIndex, '工作 №001');
+    expect(coldStart.artCredit, '克里斯托费尔·比肖普 · 1862 · 荷兰国立博物馆');
+    expect(coldStart.artTitle, '海姆斯科克与巴伦支规划第二次极北远征');
+  });
+
+  test('common action words are complete in both supported locales', () {
+    const en = [
+      'Edit',
+      'Cancel',
+      'Save',
+      'Copy',
+      'Expand',
+      'Collapse',
+      'Wrap',
+      'Delete',
+    ];
+    const zh = ['编辑', '取消', '保存', '复制', '展开', '收起', '自动换行', '删除'];
+
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    final enActions = LocaleSettings.currentLocale.translations.action;
+    expect([
+      enActions.edit,
+      enActions.cancel,
+      enActions.save,
+      enActions.copy,
+      enActions.expand,
+      enActions.collapse,
+      enActions.wrap,
+      enActions.delete,
+    ], en);
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    final zhActions = LocaleSettings.currentLocale.translations.action;
+    expect([
+      zhActions.edit,
+      zhActions.cancel,
+      zhActions.save,
+      zhActions.copy,
+      zhActions.expand,
+      zhActions.collapse,
+      zhActions.wrap,
+      zhActions.delete,
+    ], zh);
   });
 }

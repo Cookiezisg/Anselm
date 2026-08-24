@@ -37,7 +37,8 @@ func main() {
 
 	fnGreet := ensure("functions", map[string]any{
 		"name": "greet", "description": "打个招呼",
-		"code": "def f(name: str) -> dict:\n    return {\"msg\": f\"你好, {name}!\"}\n",
+		"inputs": []map[string]any{{"name": "name", "type": "string", "description": "要问候的名字"}},
+		"code":   "def f(name: str) -> dict:\n    return {\"msg\": f\"你好, {name}!\"}\n",
 	})
 	ensure("functions", map[string]any{
 		"name": "sync_inventory", "description": "同步库存快照",

@@ -3,6 +3,7 @@ import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -414,6 +415,38 @@ void main() {
         tester.getSize(find.byType(AnInput)).width,
         greaterThanOrEqualTo(AnSize.inlineEditMin),
       );
+    },
+  );
+
+  testWidgets(
+    'field identity labels the edit affordance and keeps the live input',
+    (tester) async {
+      final handle = tester.ensureSemantics();
+      await tester.pumpWidget(
+        host(
+          AnInlineEdit(value: 'Title', fieldLabel: 'Title', onCommit: (_) {}),
+        ),
+      );
+      final mouse = await tester.createGesture(kind: PointerDeviceKind.mouse);
+      await mouse.moveTo(tester.getCenter(find.byType(AnInlineEdit)));
+      await tester.pumpAndSettle();
+      expect(find.bySemanticsLabel('Edit Title'), findsOneWidget);
+      await mouse.removePointer();
+
+      await tester.pumpWidget(
+        host(
+          AnInlineEdit(
+            key: const ValueKey('description-editor'),
+            value: '',
+            fieldLabel: 'Description',
+            startEditing: true,
+            onCommit: (_) {},
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.byType(AnInput), findsOneWidget);
+      handle.dispose();
     },
   );
 }

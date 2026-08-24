@@ -82,6 +82,7 @@ class AnOceanHeader extends StatelessWidget {
             child: onChange != null
                 ? AnInlineEdit(
                     value: title,
+                    fieldLabel: title,
                     style: titleStyle,
                     // H2 line box + slack for the edit frame's vertical bleed (editBoxPadY each side). H2 行盒 + 编辑框纵向余量。
                     minHeight:

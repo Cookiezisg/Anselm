@@ -1,8 +1,11 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../design/colors.dart';
 import '../design/tokens.dart';
 import '../design/typography.dart';
+import '../platform/native_accessibility.dart';
 
 /// B2 — the value leaf. Single-line by default; [multiline] grows to a textarea; [mono] is the
 /// compact monospace variant; [block] fills width (kit-wide name, like AnButton/AnDropdown). Focus deepens
@@ -132,14 +135,37 @@ class _AnInputState extends State<AnInput> {
           widget.controller ??
           (_ownController = TextEditingController(text: widget.initialValue));
     }
+    if (widget.semanticLabel != old.semanticLabel && _focus.hasFocus) {
+      unawaited(
+        NativeAccessibility.setFocusedTextFieldLabel(widget.semanticLabel),
+      );
+    }
   }
 
   void _onFocusChange() {
-    if (_focused != _focus.hasFocus) setState(() => _focused = _focus.hasFocus);
+    final focused = _focus.hasFocus;
+    if (_focused != focused) setState(() => _focused = focused);
+    if (widget.semanticLabel != null) {
+      unawaited(
+        NativeAccessibility.setFocusedTextFieldLabel(
+          focused ? widget.semanticLabel : null,
+        ),
+      );
+    }
+  }
+
+  void _onChanged(String value) {
+    // Refresh the semantic projection with the current value while preserving the existing visual
+    // callback contract. 语义投影随键入刷新,同时保持原有视觉回调契约。
+    if (widget.semanticLabel != null && mounted) setState(() {});
+    widget.onChanged?.call(value);
   }
 
   @override
   void dispose() {
+    if (widget.semanticLabel != null && _focus.hasFocus) {
+      unawaited(NativeAccessibility.setFocusedTextFieldLabel(null));
+    }
     _focus.removeListener(_onFocusChange);
     _ownController?.dispose();
     _ownFocus?.dispose();
@@ -165,7 +191,7 @@ class _AnInputState extends State<AnInput> {
       enabled: widget.enabled,
       readOnly: widget.readOnly,
       autofocus: widget.autofocus,
-      onChanged: widget.onChanged,
+      onChanged: _onChanged,
       onSubmitted: widget.onSubmitted,
       onEditingComplete: widget.onEditingComplete,
       onTapOutside: widget.onTapOutside,
@@ -190,6 +216,9 @@ class _AnInputState extends State<AnInput> {
       decoration: InputDecoration(
         isDense: true,
         isCollapsed: true,
+        // Keep the visual placeholder contract unchanged. macOS AX may omit custom names from the
+        // native TextField role; AnInlineEdit handles that transition with a named affordance and announcement.
+        // 保持视觉 placeholder 契约不变。macOS AX 可能省略原生 TextField 的自定义名称; AnInlineEdit 用有名铅笔与播报补足。
         hintText: widget.placeholder,
         hintStyle: style.copyWith(color: c.inkFaint),
         border: InputBorder.none,
@@ -247,8 +276,11 @@ class _AnInputState extends State<AnInput> {
     );
   }
 
-  /// Wrap in the screen-reader name when one is given (glyph-placeholder fields). 有读屏名才包。
-  Widget _label(Widget child) => widget.semanticLabel == null
-      ? child
-      : Semantics(container: true, label: widget.semanticLabel, child: child);
+  /// Glyph-placeholder fields retain the explicit label wrapper; seamless editors without a visible
+  /// placeholder leave the native editable node untouched to avoid duplicate semantics. 记号占位字段保留显式
+  /// label wrapper;无可见 placeholder 的 seamless 编辑器保持原生可编辑节点不变,避免重复语义。
+  Widget _label(Widget child) =>
+      widget.semanticLabel != null && widget.placeholder != null
+      ? Semantics(container: true, label: widget.semanticLabel, child: child)
+      : child;
 }

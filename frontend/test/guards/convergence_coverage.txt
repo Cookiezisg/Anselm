@@ -106,6 +106,7 @@ lib/core/platform/app_relaunch.dart	converged
 lib/core/platform/factory_reset.dart	converged
 lib/core/platform/host_platform.dart	converged
 lib/core/platform/launch_at_login.dart	converged
+lib/core/platform/native_accessibility.dart	pending
 lib/core/platform/open_external_url.dart	converged
 lib/core/platform/open_in_system.dart	pending
 lib/core/platform/window_bounds.dart	converged

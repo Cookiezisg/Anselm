@@ -14,6 +14,7 @@ import '../../../../core/ui/an_button.dart';
 import '../../../../core/ui/an_callout.dart';
 import '../../../../core/ui/an_cast_row.dart';
 import '../../../../core/ui/an_code_block.dart';
+import '../../../../core/ui/an_disclosure.dart';
 import '../../../../core/ui/an_expand_reveal.dart';
 import '../../../../core/ui/an_hover_region.dart';
 import '../../../../core/ui/an_ledger_row.dart';
@@ -57,6 +58,7 @@ class RunTerminal extends ConsumerStatefulWidget {
 class _RunTerminalState extends ConsumerState<RunTerminal> {
   final ScrollController _scroll = ScrollController();
   bool _stick = true;
+  bool _technicalErrorOpen = false;
 
   @override
   void initState() {
@@ -273,10 +275,28 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         if (state.phase == RunPhase.failed &&
             (state.errorMsg ?? '').isNotEmpty) ...[
           AnCallout(
-            state.errorMsg!,
+            executionErrorSummary(
+              state.errorMsg,
+              fallback: context.t.entities.run.executionFailed,
+              missingInput: context.t.entities.run.missingInput,
+            ),
             title: state.errorCode,
             severity: AnCalloutSeverity.danger,
           ),
+          if (hasExecutionTraceback(state.errorMsg)) ...[
+            const SizedBox(height: AnSpace.s8),
+            AnDisclosure(
+              label: context.t.entities.run.technicalDetails,
+              icon: AnIcons.byKey('code'),
+              open: _technicalErrorOpen,
+              onToggle: () =>
+                  setState(() => _technicalErrorOpen = !_technicalErrorOpen),
+              child: SelectableText(
+                prettyErrorDetails(state.errorMsg),
+                style: AnText.code.copyWith(color: context.colors.inkMuted),
+              ),
+            ),
+          ],
           const SizedBox(height: AnSpace.s12),
         ],
         ..._kindBody(context, sel, state, s),
@@ -313,7 +333,7 @@ class _RunTerminalState extends ConsumerState<RunTerminal> {
         // re-laid the WHOLE buffer every frame and dumped raw ANSI escapes once settled.
         // 两脸同件(A-095,批1 复审:活/落定不换材质,运行中可回看):有界回滚终端窗——折叠+ANSI+钉底跟随+
         // 「回到最新」+大日志只物化尾部。旧径每帧全文重排、落定还裸渲转义字节。
-        final text = s.text;
+        final text = executionOutputForDisplay(s.text);
         return [
           if (text.trim().isNotEmpty)
             _section(context, r.outputHeading, AnTermViewport(text: text)),

@@ -1,38 +1,42 @@
-import 'package:anselm/core/contract/entities/handler.dart';
-import 'package:anselm/core/contract/entities/values.dart';
-import 'package:anselm/features/entities/data/entity_format.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:anselm/features/entities/data/entity_format.dart';
+
 void main() {
-  final timestamp = DateTime.utc(2026, 8, 19);
-
   test(
-    'handlerSourceOf preserves method input parameters in the source view',
+    'executionErrorSummary localizes missing Python input and hides traceback',
     () {
-      final version = HandlerVersion(
-        id: 'hdv_1',
-        handlerId: 'hd_1',
-        version: 1,
-        methods: [
-          const MethodSpec(
-            name: 'inspect',
-            inputs: [Field(name: 'label', type: 'string')],
-            body: "return {'label': label}",
-          ),
-          const MethodSpec(name: 'health', body: 'return True'),
-        ],
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      );
+      const raw = '''Traceback (most recent call last):
+  File "/tmp/main.py", line 11, in <module>
+TypeError: f() missing 1 required positional argument: 'name'\n''';
 
       expect(
-        handlerSourceOf(version),
-        contains("def inspect(self, label):\n    return {'label': label}"),
+        executionErrorSummary(
+          raw,
+          fallback: 'Execution failed.',
+          missingInput: 'Missing required input',
+        ),
+        'Missing required input: name',
       );
-      expect(
-        handlerSourceOf(version),
-        contains('def health(self):\n    return True'),
-      );
+      expect(hasExecutionTraceback(raw), isTrue);
     },
   );
+
+  test('executionErrorSummary preserves a human backend error', () {
+    expect(
+      executionErrorSummary(
+        'FUNCTION_ENV_NOT_READY',
+        fallback: 'Execution failed.',
+        missingInput: 'Missing required input',
+      ),
+      'FUNCTION_ENV_NOT_READY',
+    );
+  });
+
+  test('executionOutputForDisplay keeps stdout and hides traceback tail', () {
+    const raw =
+        'progress 1\nTraceback (most recent call last):\nValueError: boom';
+    expect(executionOutputForDisplay(raw), 'progress 1');
+    expect(executionOutputForDisplay('progress 1'), 'progress 1');
+  });
 }

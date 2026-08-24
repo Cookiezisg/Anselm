@@ -22,6 +22,7 @@ class AnEditAffordance extends StatelessWidget {
     this.onEdit,
     this.onCommit,
     this.onAbort,
+    this.editLabel,
     this.size = AnButtonSize.sm,
     super.key,
   });
@@ -30,6 +31,7 @@ class AnEditAffordance extends StatelessWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onCommit;
   final VoidCallback? onAbort;
+  final String? editLabel;
 
   /// Control tier of the pencil/cancel/save — sm (default) inside dense 32px rows (a md pencil would
   /// outgrow the row's slack); md beside content-tier text (the chat head's 15 title, where a 12px
@@ -44,7 +46,7 @@ class AnEditAffordance extends StatelessWidget {
       return AnButton.iconOnly(
         AnIcons.edit,
         size: size,
-        semanticLabel: t.action.edit,
+        semanticLabel: editLabel ?? t.action.edit,
         onPressed: onEdit,
       );
     }

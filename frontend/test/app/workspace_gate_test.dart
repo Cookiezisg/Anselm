@@ -100,7 +100,7 @@ void main() {
 
     expect(find.byType(WorkspaceOnboarding), findsOneWidget);
     expect(find.byType(Image), findsOneWidget);
-    expect(find.text('Create a workspace'), findsOneWidget);
+    expect(find.text(t.coldStart.createWorkspace), findsOneWidget);
     expect(find.text('SHELL_READY'), findsNothing);
     expect(
       tester.takeException(),

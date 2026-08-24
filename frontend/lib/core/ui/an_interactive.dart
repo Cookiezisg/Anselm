@@ -30,6 +30,8 @@ class AnInteractive extends StatefulWidget {
   const AnInteractive({
     required this.builder,
     this.onTap,
+    this.semanticLabel,
+    this.semanticFocusable = false,
     this.enabled = true,
     this.selected,
     this.expanded,
@@ -46,6 +48,16 @@ class AnInteractive extends StatefulWidget {
   /// Activation callback. When null the surface is inert (no click cursor, not focusable).
   /// 激活回调;为 null 则惰性(无点击光标、不可聚焦)。
   final VoidCallback? onTap;
+
+  /// Optional name for an otherwise text-free interactive surface. This is deliberately separate
+  /// from the visual builder so native accessibility bridges cannot discard an unnamed action.
+  /// 无文字交互面的可选名称。刻意与视觉 builder 分开,防原生无障碍桥因动作无名而丢整棵树。
+  final String? semanticLabel;
+
+  /// Forces a named non-text surface into the native accessibility focus order when a platform
+  /// bridge prunes passive containers. Defaults off so ordinary content rows keep their existing
+  /// semantics contract. 平台桥裁掉被动容器时,强制有名无文字表面进入原生焦点序;普通内容行默认关闭。
+  final bool semanticFocusable;
   final bool enabled;
 
   /// Caller-driven selected state (surfaced as [WidgetState.selected] + [SemanticsProperties.selected]).
@@ -256,6 +268,8 @@ class _AnInteractiveState extends State<AnInteractive>
       child: Semantics(
         button: widget.onTap != null,
         enabled: widget.enabled,
+        focusable: widget.semanticFocusable,
+        label: widget.semanticLabel,
         // Never `false` — see [AnA11y.selected] (a pinned-engine defect turns an explicit false into
         // "selected"). null-when-unselected is also what a caller with no selection concept sends.
         // 绝不发 false——见 AnA11y.selected(钉住的引擎会把显式 false 念成「已选中」)。

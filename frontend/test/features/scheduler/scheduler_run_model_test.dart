@@ -84,6 +84,9 @@ const _graph = Graph(
 
 void main() {
   group('errorSentence — the ONE red string (§5.1 同句同源)', () {
+    test('localizes the generic execution fallback', () {
+      expect(errorSentence('Execution failed.', fallback: '执行失败。'), '执行失败。');
+    });
     test('takes the first non-empty line of a multi-line blob', () {
       expect(
         errorSentence('timeout: LLM 30s no answer\n  at analyze step\nstack…'),

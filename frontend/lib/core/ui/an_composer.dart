@@ -176,7 +176,16 @@ class _AnComposerState extends State<AnComposer> {
                   bottom: AnSpace.s8,
                   left: AnSpace.s4,
                 ),
-                child: widget.attachments!,
+                // Keep the attachment strip as a native AX boundary. Flutter's macOS bridge can
+                // otherwise prune compact chips nested below AnimatedSize/Wrap while the pixels remain
+                // visible; this wrapper has no paint or layout of its own.
+                // 附件条固定成原生 AX 边界。否则 macOS 桥可能在 AnimatedSize/Wrap 下裁掉紧凑 chip,虽然像素仍在;
+                // 该包装不产生绘制或布局。
+                child: Semantics(
+                  container: true,
+                  explicitChildNodes: true,
+                  child: widget.attachments!,
+                ),
               ),
             multiline ? _multilineRow(context, c) : _singleRow(context, c),
           ],
@@ -204,59 +213,71 @@ class _AnComposerState extends State<AnComposer> {
             ),
           ),
         );
-        return Stack(
-          children: [
-            // 0 — the soft outer glow, BEHIND (interior gets covered by the box). 辉光在后。
-            focusLayer(
-              opacityKey: const ValueKey('composer-halo-glow'),
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                boxShadow: [
-                  BoxShadow(
-                    color: c.accentSoft,
-                    spreadRadius: AnSpace.s2,
-                    blurRadius: AnSpace.s4,
-                  ),
-                ],
+        // Keep one explicit native boundary around the complete composer subtree. The macOS
+        // embedder may otherwise prune the attachment strip below Stack/AnimatedSize even though
+        // the editable field survives. This wrapper has no paint or layout of its own.
+        // 整个 composer 子树固定一个原生语义边界。macOS embedder 可能裁掉 Stack/AnimatedSize 下的附件条,
+        // 但保留输入框;该包装不产生绘制或布局。
+        return Semantics(
+          container: true,
+          explicitChildNodes: true,
+          child: Stack(
+            children: [
+              // 0 — the soft outer glow, BEHIND (interior gets covered by the box). 辉光在后。
+              focusLayer(
+                opacityKey: const ValueKey('composer-halo-glow'),
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  boxShadow: [
+                    BoxShadow(
+                      color: c.accentSoft,
+                      spreadRadius: AnSpace.s2,
+                      blurRadius: AnSpace.s4,
+                    ),
+                  ],
+                ),
               ),
-            ),
-            // 1 — the box itself (opaque white covers the glow's interior). 白盒盖住辉光内部。
-            AnimatedContainer(
-              duration: shape,
-              curve: AnMotion.spring,
-              decoration: BoxDecoration(
-                color: c.surface,
-                borderRadius: radius,
-                border: Border.all(
-                  color: c.line,
-                  width: AnSize.hairline,
-                ), // base border neutral 基础边中性
-                boxShadow: widget.floating ? c.shadowFloat : null,
-              ),
-              // 12 horizontal / 8 vertical — the 15-input proportion (modern chat composers run
-              // 12-16h/10-12v; with the 28 md controls the single-line pill lands inside
-              // the 44-52 industry band). 横 12 纵 8:15 号输入的配比(单行药丸高 50,业界 44-52)。
-              padding: const EdgeInsets.symmetric(
-                horizontal: AnSpace.s12,
-                vertical: AnSpace.s8,
-              ),
-              // ONE size animation for the reflow / attachments height delta; radius co-times above. 一 size 动画。
-              child: AnimatedSize(
+              // 1 — the box itself (opaque white covers the glow's interior). 白盒盖住辉光内部。
+              AnimatedContainer(
                 duration: shape,
                 curve: AnMotion.spring,
-                alignment: Alignment.topCenter,
-                child: content,
+                decoration: BoxDecoration(
+                  color: c.surface,
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: c.line,
+                    width: AnSize.hairline,
+                  ), // base border neutral 基础边中性
+                  boxShadow: widget.floating ? c.shadowFloat : null,
+                ),
+                // 12 horizontal / 8 vertical — the 15-input proportion (modern chat composers run
+                // 12-16h/10-12v; with the 28 md controls the single-line pill lands inside
+                // the 44-52 industry band). 横 12 纵 8:15 号输入的配比(单行药丸高 50,业界 44-52)。
+                padding: const EdgeInsets.symmetric(
+                  horizontal: AnSpace.s12,
+                  vertical: AnSpace.s8,
+                ),
+                // ONE size animation for the reflow / attachments height delta; radius co-times above. 一 size 动画。
+                child: AnimatedSize(
+                  duration: shape,
+                  curve: AnMotion.spring,
+                  alignment: Alignment.topCenter,
+                  child: content,
+                ),
               ),
-            ),
-            // 2 — the accent ring, ON TOP (edge only, no fill, no shadow). accent 描边在上、仅边缘。
-            focusLayer(
-              opacityKey: const ValueKey('composer-halo-ring'),
-              decoration: BoxDecoration(
-                borderRadius: radius,
-                border: Border.all(color: c.accentLine, width: AnSize.hairline),
+              // 2 — the accent ring, ON TOP (edge only, no fill, no shadow). accent 描边在上、仅边缘。
+              focusLayer(
+                opacityKey: const ValueKey('composer-halo-ring'),
+                decoration: BoxDecoration(
+                  borderRadius: radius,
+                  border: Border.all(
+                    color: c.accentLine,
+                    width: AnSize.hairline,
+                  ),
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         );
       },
     );

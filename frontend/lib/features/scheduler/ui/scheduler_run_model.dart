@@ -17,11 +17,11 @@ import '../../../core/graph/graph_run_state.dart';
 /// failed row and the gantt's red bar all speak (§5.1 同句同源). Null in / all-blank in → null out
 /// (an empty string would render an empty red line, which lies about there being an error).
 /// 错误首句:头/台账/甘特同一句;空进空出(空串会渲出「有错误」的空红行,是撒谎)。
-String? errorSentence(String? error) {
+String? errorSentence(String? error, {String fallback = 'Execution failed.'}) {
   if (error == null) return null;
   for (final line in error.split('\n')) {
     final s = line.trim();
-    if (s.isNotEmpty) return errorForDisplay(s);
+    if (s.isNotEmpty) return errorForDisplay(s, fallback: fallback);
   }
   return null;
 }
@@ -30,10 +30,14 @@ String? errorSentence(String? error) {
 /// error remains in the backend journal and run audit; the app only needs the useful filename in a
 /// traceback, never `/private/tmp/...` or a developer home directory. 用户面只保留文件名,不泄露本机绝对路径;
 /// 后端 journal/审计仍保留原文供诊断。
-String? errorForDisplay(String? error) {
+String? errorForDisplay(
+  String? error, {
+  String fallback = 'Execution failed.',
+}) {
   if (error == null) return null;
   var text = error.trim();
   if (text.isEmpty) return null;
+  if (text == 'Execution failed.') return fallback;
 
   // A traceback is durable diagnostic evidence, not user-facing copy. Keep the operation prefix
   // and the final exception sentence (the part that explains what failed), but never make users
@@ -48,7 +52,8 @@ String? errorForDisplay(String? error) {
         .map((line) => line.trim())
         .where((line) => line.isNotEmpty)
         .toList();
-    var terminal = lines.isEmpty ? 'Execution failed.' : lines.last;
+    var terminal = lines.isEmpty ? fallback : lines.last;
+    if (terminal == 'Execution failed.') terminal = fallback;
     terminal = terminal.replaceFirst(RegExp(r'^[A-Za-z_][\w.]*Error:\s*'), '');
     text = prefix.isEmpty ? terminal : '$prefix $terminal';
 
