@@ -297,7 +297,13 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十五 50/50；统一门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十六 0/50；已提交批次四十五，开始下一批)
+
+#### 2026-08-25 当前前线重述：SURF-095 开始，i18n/diff 差异查看动作语言
+
+批次四十五已完成并提交 `f0a4aa11`：`SURF-085` 至 `SURF-094` 共 50/50 个单格均完成五级裁决；统一 `make verify`、完整 backend `testend=300.030s`、rig 自测 `50/50`、coverage、anchors、alarms、gofmt、diff 和监听进程审计全绿。提交前发现并修正覆盖清册漏登记和中文 onboarding 测试断言漂移，均已纳入该提交；working 与正式 gate 证据见 `testend/rig/formal-evidence/batch-45-gate-20260825.md`。
+
+批次四十六从 `SURF-095 i18n/diff` 开始，当前 `0/50`。下一格静态目标为差异查看面中的 `新增/删除/折叠/显示全部/只显变更` 七个双语动作键；先做资源/调用点/守卫反查，再以真实 App + 五通道完成五级判定。P12 的 400+ Journey 仍按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：SURF-094 完成，i18n/action 通用动作词闭环
 

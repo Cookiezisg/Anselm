@@ -10,6 +10,12 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-25 · 批次四十五提交，批次四十六前线推进至 SURF-095
+
+- 批次四十五 `SURF-085` 至 `SURF-094` 完成 50/50 并提交 `f0a4aa11`；统一长门禁、backend `testend=300.030s`、rig 自测 `50/50`、coverage=`848 rows / 477 carried / 0 tombstones`、anchors=`10/10`、alarms=`85 live clean`、gofmt/diff/进程审计均通过。
+- 提交前的两个门禁漂移已修复并记录：新增 `native_accessibility.dart` 进入 coverage `pending` 分母；`workspace_gate_test` 改为断言当前 `zh-CN` 生成文案，不再断言退休英文。
+- 当前批次四十六从 `SURF-095 i18n/diff` 开始，进度 `0/50`；下一步静态反查差异查看动作七键 `新增/删除/折叠/显示全部/只显变更`。
+
 ## 2026-08-25 · SURF-094 i18n/action 通用动作词正式五级入账，批次四十五 50/50
 
 - 静态反查确认中英文八个通用动作键 `edit/cancel/save/copy/expand/collapse/wrap/delete` 完整且所有主要调用点走生成 locale；新增完整双语精确回归，focused locale=`6/6`，targeted analysis 通过。
