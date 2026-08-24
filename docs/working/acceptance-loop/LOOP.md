@@ -13,7 +13,7 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · SURF-084 · 批次四十四 50/50）
+## 当前前线覆盖声明（2026-08-25 · SURF-085 · 批次四十四 50/50，SURF-084 已提交）
 
 ## 2026-08-25 当前前线重述
 
@@ -21,7 +21,7 @@ landed-into:
 
 真实覆盖 scheduler 总览 KPI、空 cron 状态、approval `通过`、running/failed lane、失败 peek、Graph/Open/full detail、钉版节点图、甘特、节点台账、运行卷宗与失败节点 `重放`。速览和详情均只显示 `SURF-029 deliberate failure 1`；重放确认准确显示“重跑 1 个失败节点 · 复用 1 个已完成结果”，重放后的失败状态、钉版 v1 与成功节点复用均诚实保留。最终帧视觉检查通过，无 clipping/overlap/非用户跳变或未解释 scheduler 英文。
 
-五通道 rig-check/rig-down 全绿，screen=`2784x1808 / 188.261667s`，backend=`318` 行无应用红线，SSE=`57` 行含 run/approval/replay durable 终态，frontend=`3` 行仅正常启动/VM，llmtap challenge/install/models 全 200。证据=`sessions/20260825-014850/evidence/SURF-084-i18n-scheduler-five-level.md`，告警复核=`testend/rig/formal-evidence/SURF-084-ledger-alarm-reaudit-20260825.md`。正式 journal=`2335`（2300 baseline + 35 live），`gen_coverage.py --check`=`848 rows / 467 carried judgments / 0 tombstones`，当前批次=`50/50`；`gap-too-fast` 按原阈值独立复审并 ack，未改阈值/算法/法典/锚点/gate。现在执行统一长门禁，门禁通过后提交；下一前线由 formal sequence gate 决定，P12 400+ Journey 继续按用户裁定推迟二期。
+五通道 rig-check/rig-down 全绿，screen=`2784x1808 / 188.261667s`，backend=`318` 行无应用红线，SSE=`57` 行含 run/approval/replay durable 终态，frontend=`3` 行仅正常启动/VM，llmtap challenge/install/models 全 200。证据=`sessions/20260825-014850/evidence/SURF-084-i18n-scheduler-five-level.md`，告警复核=`testend/rig/formal-evidence/SURF-084-ledger-alarm-reaudit-20260825.md`。正式 journal=`2335`（2300 baseline + 35 live），`gen_coverage.py --check`=`848 rows / 467 carried judgments / 0 tombstones`，当前批次=`50/50`；`gap-too-fast` 按原阈值独立复审并 ack，未改阈值/算法/法典/锚点/gate。统一长门禁已通过（`make verify`、`make -C backend testend`=`314.193s`、rig=`50/50`、gofmt/compile/diff/process audit 全绿），本批已提交 `0177b9cf`；下一前线为 `SURF-085 i18n/library`，P12 400+ Journey 继续按用户裁定推迟二期。
 
 `SURF-083 i18n/entities` 已完成五级 `G1/F1/B2/C4/G1`。首轮真实实体走查发现函数空输出执行在同一详情页运行后，右侧终端更新但 Logs provider 不刷新；红 session=`sessions/20260825-012354` 排除。修复共享 `entitystream.Writer.Close` 使空运行也发 durable `open → close`，保留重复收尾幂等，并补 backend 与 Flutter 回归。绿色 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-013336` 在同一页面复验后立即出现 `1 完成 / 0 失败` 与 `manual · ok`，SSE 见同一 block id 的 `open`/`close completed`。同 session 真实覆盖总览/关系图、函数/处理器/智能体/工作流、控制/审批/触发器详情及运行/日志/版本/空态。
 

@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十四 50/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十四 50/50；已提交)
 
 #### 2026-08-25 当前前线重述：SURF-084 完成，i18n/scheduler 失败投影与审批/重放闭环
 
@@ -307,7 +307,7 @@ stop-and-fix 收紧 `frontend/lib/features/scheduler/ui/scheduler_run_model.dart
 
 同一绿色 session 真实走通 scheduler 总览 KPI（在跑/等你/24h 失败/下次调度空态）、approval `通过`、失败 run 的 Graph/Open/full detail、失败节点 `重放` 确认（重跑 1 个失败节点、复用 1 个已完成结果）与重放后的失败状态；最终画面层级清楚，无 clipping/overlap/非用户跳变或未解释英文 scheduler chrome。五通道 `rig-check`/`rig-down` 全绿；screen=`2784x1808 / 188.261667s`，backend=`318` 行无 WARN/ERROR/panic/fatal，SSE=`57` 行含 run start、node success/failure、approval resolve、run terminal 与 replay failure，frontend=`3` 行仅正常启动/VM，llmtap challenge/install/models 全 200。正式证据=`sessions/20260825-014850/evidence/SURF-084-i18n-scheduler-five-level.md`，告警复核=`testend/rig/formal-evidence/SURF-084-ledger-alarm-reaudit-20260825.md`。
 
-五级写账完成后正式 journal=`2335` 条（2300 baseline + 35 live），`gen_coverage.py --check`=`848 rows / 467 carried judgments / 0 tombstones`，本批次=`50/50`。`gap-too-fast` 按红绿 session、原始五通道证据和回归测试独立复审并 ack，未改阈值、算法、法典、锚点或 gate；现在执行统一长门禁，门禁通过后提交本批次。下一原子前线由 formal sequence gate 决定；P12 的 400+ Journey 继续按用户裁定推迟二期。
+五级写账完成后正式 journal=`2335` 条（2300 baseline + 35 live），`gen_coverage.py --check`=`848 rows / 467 carried judgments / 0 tombstones`，本批次=`50/50`。`gap-too-fast` 按红绿 session、原始五通道证据和回归测试独立复审并 ack，未改阈值、算法、法典、锚点或 gate；统一长门禁已通过（`make verify`、`make -C backend testend`=`314.193s`、rig=`50/50`、gofmt/compile/diff/process audit 全绿），本批已提交 `0177b9cf`。下一原子前线为 `SURF-085 i18n/library`；P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：SURF-083 完成，i18n/entities 全实体面与空输出日志闭环
 

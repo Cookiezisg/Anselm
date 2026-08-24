@@ -16,7 +16,7 @@ landed-into:
 - 修复 `frontend/lib/features/scheduler/ui/scheduler_run_model.dart` 的错误用户投影：traceback 只保留最终异常原因，移除本地路径和技术包装；补 scheduler model 回归，focused Flutter=`26/26`。绿色 session 使用修复后重新构建的 App，速览与完整卷宗均只显示 `SURF-029 deliberate failure 1`。
 - 真实覆盖 scheduler KPI、空 cron、approval 通过、running/failed lane、Graph/Open/full detail、钉版图、甘特、节点台账、失败节点重放确认与重放后的失败终态；重放准确显示复用已完成节点，未生成重复成功或隐藏失败。证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-014850/evidence/SURF-084-i18n-scheduler-five-level.md`，告警复核=`testend/rig/formal-evidence/SURF-084-ledger-alarm-reaudit-20260825.md`。
 - 五通道 rig-check/rig-down 全绿：screen=`2784x1808 / 188.261667s`，backend=`318` 行无 WARN/ERROR/panic/fatal，SSE=`57` 行含 run/approval/replay durable 终态，frontend=`3` 行仅正常 Flutter 启动/VM，llmtap challenge/install/models 全 200。五级=`G1/F1/B2/C4/G1`；正式 journal=`2335`（2300 baseline + 35 live），`gen_coverage.py --check`=`848 rows / 467 carried judgments / 0 tombstones`。
-- `gap-too-fast` 按红绿 session、原始五通道证据和回归测试独立复审后 ack；未改阈值、算法、法典、锚点或 gate。当前批次=`50/50`，现在执行统一长门禁，门禁通过后提交；下一前线由 formal sequence gate 决定，P12 400+ Journey 继续按用户裁定推迟二期。
+- `gap-too-fast` 按红绿 session、原始五通道证据和回归测试独立复审后 ack；未改阈值、算法、法典、锚点或 gate。当前批次=`50/50`，统一长门禁已通过（`make verify`、`make -C backend testend`=`314.193s`、rig=`50/50`、gofmt/compile/diff/process audit 全绿），本批已提交 `0177b9cf`；下一前线为 `SURF-085 i18n/library`，P12 400+ Journey 继续按用户裁定推迟二期。
 
 ## 2026-08-25 · SURF-083 i18n/entities 空输出日志刷新 stop-and-fix 后正式五级入账，批次四十四 45/50
 
