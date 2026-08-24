@@ -81,4 +81,35 @@ void main() {
           'the language must be settled BEFORE the first frame, not after it',
     );
   });
+
+  test('chat thinking labels are translated in both supported locales', () {
+    expect(LocaleSettings.currentLocale, isNotNull);
+
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    expect(LocaleSettings.currentLocale, AppLocale.en);
+    expect(LocaleSettings.currentLocale.translations.chat.thinking, 'thinking');
+    expect(LocaleSettings.currentLocale.translations.chat.thought, 'thought');
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    expect(LocaleSettings.currentLocale, AppLocale.zhCn);
+    expect(LocaleSettings.currentLocale.translations.chat.thinking, '思考中');
+    expect(LocaleSettings.currentLocale.translations.chat.thought, '思考');
+    expect(
+      LocaleSettings.currentLocale.translations.settings.keys.scenarioAgent,
+      '智能体',
+    );
+    expect(
+      LocaleSettings.currentLocale.translations.settings.keys.referenceAgent,
+      '智能体默认模型',
+    );
+    expect(
+      LocaleSettings
+          .currentLocale
+          .translations
+          .settings
+          .keys
+          .referenceAgentOverride,
+      '智能体覆盖',
+    );
+  });
 }

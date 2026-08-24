@@ -98,29 +98,30 @@ void main() {
       );
     });
 
-    test(
-      'redacts machine-local traceback paths while retaining the filename',
-      () {
-        const raw =
-            'Traceback (most recent call last):\n'
-            '  File "/private/tmp/anselm-data/functions/v1/main.py", line 17\n'
-            '  File "/Users/dev/project/worker.py", line 4';
-        expect(
-          errorForDisplay(raw),
+    test('summarizes tracebacks instead of exposing Python frames', () {
+      const raw =
+          'function fn_x failed: Traceback (most recent call last):\n'
+          '  File "/private/tmp/anselm-data/functions/v1/main.py", line 17\n'
+          'RuntimeError: deliberate failure';
+      expect(errorForDisplay(raw), 'deliberate failure');
+      expect(errorForDisplay(raw), isNot(contains('Traceback')));
+    });
+
+    test('redacts machine-local paths in non-traceback error text', () {
+      const raw =
           'Traceback (most recent call last):\n'
-          '  File "main.py", line 17\n'
-          '  File "worker.py", line 4',
-        );
-        expect(
-          errorForDisplay('failed at /private/tmp/anselm-data/result.json'),
-          'failed at <local path>',
-        );
-        expect(
-          errorSentence('File "/private/tmp/anselm-data/main.py", line 17'),
-          'File "main.py", line 17',
-        );
-      },
-    );
+          '  File "/private/tmp/anselm-data/functions/v1/main.py", line 17\n'
+          '  File "/Users/dev/project/worker.py", line 4';
+      expect(errorForDisplay(raw), 'File "worker.py", line 4');
+      expect(
+        errorForDisplay('failed at /private/tmp/anselm-data/result.json'),
+        'failed at <local path>',
+      );
+      expect(
+        errorSentence('File "/private/tmp/anselm-data/main.py", line 17'),
+        'File "main.py", line 17',
+      );
+    });
 
     test('null in → null out; an all-blank blob is NOT an error sentence', () {
       // An empty string would render an empty red line — a lie about there being an error.

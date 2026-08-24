@@ -227,7 +227,7 @@ start_app_and_record() {
     startup_event app_window_geometry_resolved
     RECORDER_LIFECYCLE="$SESSION/recording-lifecycle.json"
     RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" --lifecycle "$RECORDER_LIFECYCLE" -- \
-      screencapture -v -C -k -R "$APP_WINDOW_BOUNDS" "$SESSION/screen.mov")
+      screencapture -v -C -k -l "$APP_WINDOW_ID" "$SESSION/screen.mov")
     sleep 1
     kill -0 "$RECORDER_PID" 2>/dev/null || {
       echo "✗ screen recorder exited — check Screen Recording permission and $SESSION/recording.log" >&2; exit 1;
@@ -383,6 +383,14 @@ fi
 
 AUTH_ARGS=()
 [ "$APP_OWNS_BACKEND" = "1" ] && AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
+# Keep optional auth expansion safe under `set -u`; an empty array is valid for an external backend.
+curl_backend() {
+  if (( ${#AUTH_ARGS[@]} )); then
+    curl "$@" "${AUTH_ARGS[@]}"
+  else
+    curl "$@"
+  fi
+}
 if [ "$APP_OWNS_BACKEND" = "0" ]; then
   startup_event backend_launch_requested
   if [ "$LLMTAP" = "1" ]; then
@@ -402,10 +410,10 @@ if ! [[ "$BACKEND_WAIT_SEC" =~ ^[1-9][0-9]*$ ]]; then
   exit 2
 fi
 for _ in $(seq 1 $((BACKEND_WAIT_SEC * 4))); do
-  curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}" >/dev/null 2>&1 && break
+  curl_backend -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null 2>&1 && break
   sleep 0.25
 done
-curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}" >/dev/null || {
+curl_backend -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null || {
   echo "✗ backend did not come up within ${BACKEND_WAIT_SEC}s" >&2; tail -20 "$SESSION/backend.log" >&2; exit 1;
 }
 startup_event backend_healthy
@@ -439,7 +447,7 @@ fi
 
 check_channel5_wiring() {
   local workspaces_json workspaces ws keys_json check
-  if ! workspaces_json=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces" "${AUTH_ARGS[@]}"); then
+  if ! workspaces_json=$(curl_backend -sf "http://127.0.0.1:$PORT/api/v1/workspaces"); then
     echo "✗ channel 5 preflight could not read the workspace roster" >&2
     return 1
   fi
@@ -460,7 +468,7 @@ print("\n".join(row["id"] for row in rows))
   fi
   while IFS= read -r ws; do
     [ -n "$ws" ] || continue
-    if ! keys_json=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" "${AUTH_ARGS[@]}" -H "X-Anselm-Workspace-ID: $ws"); then
+    if ! keys_json=$(curl_backend -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws"); then
       echo "✗ channel 5 preflight could not read API keys for $ws" >&2
       return 1
     fi

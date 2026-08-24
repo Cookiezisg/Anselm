@@ -69,6 +69,31 @@ func TestWriter_NoOpWhenDisabled(t *testing.T) {
 	}
 }
 
+func TestWriter_CloseWithoutWritesEmitsTerminal(t *testing.T) {
+	b := &capBridge{}
+	scope := streamdomain.Scope{Kind: streamdomain.KindFunction, ID: "fn_empty"}
+	w := New(context.Background(), b, scope, "run", nil)
+	w.Close("completed", json.RawMessage(`{"result":"empty"}`))
+	w.Close("completed", json.RawMessage(`{"result":"duplicate"}`))
+
+	if len(b.events) != 2 {
+		t.Fatalf("want 2 frames (open + close) for an empty run, got %d", len(b.events))
+	}
+	if _, ok := b.events[0].Frame.(streamdomain.Open); !ok {
+		t.Fatalf("frame[0] not an Open: %+v", b.events[0])
+	}
+	closeFrame, ok := b.events[1].Frame.(streamdomain.Close)
+	if !ok || closeFrame.Status != "completed" {
+		t.Fatalf("frame[1] not a completed Close: %+v", b.events[1])
+	}
+	if closeFrame.Result == nil || string(closeFrame.Result.Content) != `{"result":"empty"}` {
+		t.Fatalf("empty run result snapshot lost: %+v", closeFrame.Result)
+	}
+	if b.events[0].ID == "" || b.events[1].ID != b.events[0].ID {
+		t.Fatalf("empty run frames are not anchored to one node id: %+v", b.events)
+	}
+}
+
 func TestSignal_PointNode(t *testing.T) {
 	b := &capBridge{}
 	scope := streamdomain.Scope{Kind: streamdomain.KindTrigger, ID: "trg_1"}

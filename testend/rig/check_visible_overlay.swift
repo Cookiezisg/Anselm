@@ -32,6 +32,10 @@ let chromeOwners: Set<String> = [
     "Control Center",
     "Bartender 6",
     "SystemUIServer",
+    // Codex's host window owns the Computer Use surface while an app-state
+    // capture is in flight. It is instrumentation chrome, not app evidence;
+    // every other unknown owner remains a hard overlay failure.
+    "ChatGPT",
     "ChatGPT Computer Use",
 ]
 

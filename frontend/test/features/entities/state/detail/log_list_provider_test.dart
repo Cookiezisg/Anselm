@@ -87,6 +87,35 @@ void main() {
     },
   );
 
+  test('function logs refresh after a durable empty-run close', () async {
+    final executions = <FunctionExecution>[];
+    final repo = FixtureEntityRepository(
+      functionExecutions: {'fn_1': executions},
+    );
+    final c = _container(repo, fnRef);
+
+    final initial = await c.read(logListProvider(fnRef).future);
+    expect(initial.rows, isEmpty);
+
+    executions.add(_exec('fx_empty', 'ok'));
+    final scope = EntityKind.function.scope(fnRef.id);
+    repo.emitPanel(
+      scope,
+      StreamEnvelope(
+        seq: 1,
+        scope: scope,
+        id: 'blk_empty_run',
+        frame: const FrameClose(status: 'completed'),
+      ),
+    );
+
+    await Future<void>.delayed(const Duration(milliseconds: 180));
+    final after = c.read(logListProvider(fnRef)).value!;
+    expect(after.rows.single.id, 'fx_empty');
+    expect(after.aggregates.totalCount, 1);
+    expect(after.aggregates.okCount, 1);
+  });
+
   test('handler logs lazy-load the single call record on expand', () async {
     final c = _container(
       FixtureEntityRepository(

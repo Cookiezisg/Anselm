@@ -71,6 +71,14 @@ else
       AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
     fi
   fi
+  # Keep optional auth expansion safe under `set -u`; an empty array is valid for an external backend.
+  curl_backend() {
+    if (( ${#AUTH_ARGS[@]} )); then
+      curl "$@" "${AUTH_ARGS[@]}"
+    else
+      curl "$@"
+    fi
+  }
 
   if [ "$APP_OWNS_BACKEND" = "1" ]; then
     # In App-owned mode BackendController captures sidecar stderr into frontend.log. Project that
@@ -88,7 +96,7 @@ else
   else
     bad "✗ channel 2 attribution broken: holder [$LISTENER], manifest PID [$BPID]"
   fi
-  curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}" >/dev/null && note "✓ backend health ok" || bad "✗ backend health failed"
+  curl_backend -sf "http://127.0.0.1:$PORT/api/v1/health" >/dev/null && note "✓ backend health ok" || bad "✗ backend health failed"
   [ -s "$SESSION/backend.log" ] || bad "✗ backend.log missing or empty"
   if grep -Eq 'panic:|(^|[^A-Za-z])FATAL([^A-Za-z]|$)' "$SESSION/backend.log" 2>/dev/null; then
     bad "✗ backend journal contains panic/FATAL"
@@ -101,7 +109,7 @@ else
   fi
   WORKSPACES=""
   WORKSPACE_ROSTER_OK=0
-  if WORKSPACES_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/workspaces" "${AUTH_ARGS[@]}"); then
+  if WORKSPACES_JSON=$(curl_backend -sf "http://127.0.0.1:$PORT/api/v1/workspaces"); then
     if WORKSPACES=$(printf '%s' "$WORKSPACES_JSON" | python3 -c '
 import json,sys
 payload=json.load(sys.stdin)
@@ -144,7 +152,7 @@ PY
     [ -f "$SESSION/llm.jsonl" ] || bad "✗ llm.jsonl missing"
     if [ -n "$WORKSPACES" ]; then
       for ws in $WORKSPACES; do
-        if KEYS_JSON=$(curl -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" "${AUTH_ARGS[@]}" -H "X-Anselm-Workspace-ID: $ws"); then
+        if KEYS_JSON=$(curl_backend -sf "http://127.0.0.1:$PORT/api/v1/api-keys?limit=100" -H "X-Anselm-Workspace-ID: $ws"); then
           CHECK=$(printf '%s' "$KEYS_JSON" | python3 "$(dirname "$0")/channel5_wiring.py" --port "$LPORT") || {
             bad "✗ channel 5 wiring response for $ws is malformed: $CHECK"
             continue
@@ -231,8 +239,8 @@ PY
     fi
   fi
 
-  if [ -n "$AWID" ] && [ -n "$AWBOUNDS" ] && alive_as "$RECORDER_PID" "screencapture.*-v.*-R[[:space:]]$AWBOUNDS([[:space:]]|$)"; then
-    note "✓ channel 1 app-region recorder alive (PID $RECORDER_PID, Anselm window $AWID, region $AWBOUNDS)"
+  if [ -n "$AWID" ] && [ -n "$AWBOUNDS" ] && alive_as "$RECORDER_PID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
+    note "✓ channel 1 Anselm-window recorder alive (PID $RECORDER_PID, window $AWID, bounds $AWBOUNDS)"
     if [ -s "$RLIFE" ] && python3 - "$RLIFE" "$RECORDER_PID" <<'PY'
 import datetime
 import json

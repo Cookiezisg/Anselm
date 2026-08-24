@@ -40,6 +40,7 @@ alive_exact() {
 SESSION=$(field session)
 OLD_PID=$(field appPid)
 BINARY=$(field appBinary)
+OLD_WINDOW_ID=$(field appWindowId)
 OLD_BOUNDS=$(field appWindowBounds)
 RECORDER_PID=$(field recorderPid)
 JOURNAL=$(field appRebindJournal)
@@ -48,7 +49,7 @@ OLD_BACKEND_PID=$(field appSidecarPid)
 OLD_TAP_PID=$(field tapPid)
 APP_AUTH_TOKEN_FILE=$(field appAuthTokenFile)
 [ -n "$SESSION" ] && [ -d "$SESSION" ] || { echo "✗ manifest session is missing" >&2; exit 1; }
-[ -n "$OLD_PID" ] && [ -n "$BINARY" ] && [ -n "$OLD_BOUNDS" ] || {
+[ -n "$OLD_PID" ] && [ -n "$BINARY" ] && [ -n "$OLD_WINDOW_ID" ] && [ -n "$OLD_BOUNDS" ] || {
   echo "✗ manifest lacks exact App identity or recorded geometry" >&2
   exit 1
 }
@@ -102,8 +103,14 @@ fi
 NEW_RECORDER_PID="$RECORDER_PID"
 NEW_RECORDING_LIFECYCLE=$(field recordingLifecycle)
 NEW_RECORDING_FILE="$SESSION/screen.mov"
-if [ "$NEW_BOUNDS" != "$OLD_BOUNDS" ]; then
-  echo "· replacement window geometry changed ($OLD_BOUNDS → $NEW_BOUNDS); rotating the recording segment"
+if [ "$NEW_WINDOW_ID" != "$OLD_WINDOW_ID" ] || [ "$NEW_BOUNDS" != "$OLD_BOUNDS" ]; then
+  if [ "$NEW_WINDOW_ID" != "$OLD_WINDOW_ID" ] && [ "$NEW_BOUNDS" != "$OLD_BOUNDS" ]; then
+    echo "· replacement window identity and geometry changed ($OLD_WINDOW_ID/$OLD_BOUNDS → $NEW_WINDOW_ID/$NEW_BOUNDS); rotating the recording segment"
+  elif [ "$NEW_WINDOW_ID" != "$OLD_WINDOW_ID" ]; then
+    echo "· replacement window identity changed ($OLD_WINDOW_ID → $NEW_WINDOW_ID) with unchanged geometry; rotating the recording segment"
+  else
+    echo "· replacement window geometry changed ($OLD_BOUNDS → $NEW_BOUNDS); rotating the recording segment"
+  fi
   case "$(ps -o command= -p "$RECORDER_PID" 2>/dev/null || true)" in
     *"screencapture"*) kill -INT "$RECORDER_PID" 2>/dev/null || true ;;
     *) echo "✗ refusing to rotate a non-screencapture recorder PID $RECORDER_PID" >&2; exit 1 ;;
@@ -120,7 +127,7 @@ if [ "$NEW_BOUNDS" != "$OLD_BOUNDS" ]; then
   NEW_RECORDING_LIFECYCLE="$SESSION/recording-rebind-${NEW_PID}.json"
   NEW_RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" \
     --lifecycle "$NEW_RECORDING_LIFECYCLE" -- \
-    screencapture -v -C -k -R "$NEW_BOUNDS" "$NEW_RECORDING_FILE")
+    screencapture -v -C -k -l "$NEW_WINDOW_ID" "$NEW_RECORDING_FILE")
   sleep 1
   kill -0 "$NEW_RECORDER_PID" 2>/dev/null || {
     echo "✗ replacement screen recorder exited — check $SESSION/recording.log" >&2

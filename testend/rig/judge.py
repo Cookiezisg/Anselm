@@ -25,7 +25,8 @@ from typing import Optional
 from scope import explicit_rig_home
 
 ROOT = Path(__file__).resolve().parent
-COVERAGE = Path(os.environ.get("RIG_COVERAGE", str(ROOT / "../../docs/working/acceptance-loop/COVERAGE.md")))
+DEFAULT_COVERAGE = (ROOT / "../../docs/working/acceptance-loop/COVERAGE.md").resolve()
+COVERAGE = Path(os.environ.get("RIG_COVERAGE", str(DEFAULT_COVERAGE)))
 CODEX = Path(os.environ.get("RIG_CODEX", str(ROOT / "../../docs/working/acceptance-loop/CODEX.md")))
 RIG_HOME: Optional[Path] = None
 JOURNAL: Optional[Path] = None
@@ -175,6 +176,70 @@ def judgment_already_recorded(family: str, item: str, level: int, verdict: str, 
     except (OSError, ValueError):
         fail("judgments.jsonl is unreadable")
     return False
+
+
+def ledger_continuity_problem() -> str:
+    """Refuse to start a new formal ledger when carried coverage has lost its journal.
+
+    Temporary coverage fixtures intentionally start with an empty ledger in unit tests.  The
+    repository COVERAGE.md is different: its carried cells are claims about a prior formal run,
+    so silently creating a new journal would make the alarm curves and sequence waterline lie.
+    """
+    journal = configured_path(JOURNAL, "judgment ledger")
+    try:
+        is_formal_coverage = COVERAGE.resolve() == DEFAULT_COVERAGE
+        coverage_text = COVERAGE.read_text()
+    except OSError as exc:
+        fail(f"formal coverage is unreadable: {COVERAGE} ({exc})")
+    if not is_formal_coverage:
+        return ""
+    carried = set()
+    for line in coverage_text.splitlines():
+        match = re.match(r"^\| ([A-Z]+)-\d+ \| (.+?) \| .*? \| ([·✓✗~]{5}) \|", line)
+        if not match:
+            continue
+        family, item, status = match.groups()
+        carried.update(
+            (family, item, level)
+            for level, verdict in enumerate(status, 1)
+            if verdict != "·"
+        )
+    if not carried:
+        return ""
+    if not journal.exists():
+        return (
+            "formal ledger continuity is missing: repository COVERAGE carries prior judgments "
+            f"but {journal} does not exist; restore the historical journal before writing"
+        )
+    try:
+        journal_keys = set()
+        has_baseline = False
+        for line in journal.read_text().splitlines():
+            if not line.strip():
+                continue
+            row = json.loads(line)
+            has_baseline = has_baseline or row.get("source") == "coverage-baseline"
+            journal_keys.add((row["family"], row["item"], int(row["level"])))
+    except (OSError, ValueError, KeyError, TypeError):
+        return f"formal ledger continuity is missing: {journal} is unreadable"
+    missing = carried - journal_keys
+    if missing:
+        return (
+            "formal ledger continuity is incomplete: journal is missing "
+            f"{len(missing)} carried coverage cell(s); restore the complete historical journal "
+            "or revalidate those cells before writing"
+        )
+    if has_baseline:
+        manifest_path = journal.parent / "ledger-baseline.json"
+        try:
+            manifest = json.loads(manifest_path.read_text())
+            baseline_cells = set(manifest["baselineCells"])
+            current_cells = {f"{family}|{item}|{level}" for family, item, level in carried}
+            if manifest.get("carriedCells") != len(baseline_cells) or not baseline_cells.issubset(current_cells):
+                return f"formal ledger baseline manifest does not match current COVERAGE: {manifest_path}"
+        except (OSError, ValueError, TypeError):
+            return f"formal ledger baseline manifest is missing or unreadable: {manifest_path}"
+    return ""
 
 
 @contextmanager
@@ -335,6 +400,8 @@ def main():
             fail("na requires --evidence 'note:<why this level does not apply>'")
 
     with ledger_lock():
+        if problem := ledger_continuity_problem():
+            fail(problem)
         already_recorded = judgment_already_recorded(
             args.family, args.item, args.level, args.verdict, args.law, args.evidence
         )

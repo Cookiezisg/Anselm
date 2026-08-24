@@ -84,7 +84,8 @@ def open_alarm(alarms, aid, note, through):
 
 
 def check():
-    rows = load_journal()
+    all_rows = load_journal()
+    rows = [row for row in all_rows if row.get("source") != "coverage-baseline"]
     alarms = load_alarms()
     recent = rows[-WINDOW:]
     through = rows[-1].get("ts", f"row:{len(rows)}") if rows else "empty"
@@ -115,7 +116,8 @@ def check():
         print(f"alarms: open — {a['id']}: {a['note']}")
     if live:
         sys.exit(1)
-    print(f"alarms: clean ({len(rows)} judgments on record)")
+    baseline_count = len(all_rows) - len(rows)
+    print(f"alarms: clean ({len(rows)} live judgments; {baseline_count} baseline judgments excluded from drift curves)")
 
 
 def ack(aid, note):

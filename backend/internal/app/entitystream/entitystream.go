@@ -114,6 +114,7 @@ type Writer struct {
 	mu     sync.Mutex
 	nodeID string // minted on first write; "" = not opened
 	snap   strings.Builder
+	closed bool // prevents duplicate Close calls from emitting a second empty node
 }
 
 // New builds a Writer over (bridge, scope, nodeType). open is the node's open-frame content (may be
@@ -140,6 +141,7 @@ func (w *Writer) Write(p []byte) (int, error) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.nodeID == "" {
+		w.closed = false
 		w.nodeID = idgenpkg.New("blk")
 		w.publish(streamdomain.Open{Node: streamdomain.Node{Type: w.nodeType, Content: w.open}})
 	}
@@ -149,20 +151,27 @@ func (w *Writer) Write(p []byte) (int, error) {
 }
 
 // Close terminates the node with status + a final result snapshot (deltas are ephemeral, so the
-// close snapshot is the reconnect truth). No-op if nothing was ever written.
+// close snapshot is the reconnect truth). Empty runs still emit open + close: the durable terminal
+// frame is the signal that lets log subscribers refresh after an execution with no output.
 //
-// Close 用 status + 最终快照结束节点（delta 可丢，close 快照是重连真相）。从未写过则 no-op。
+// Close 用 status + 最终快照结束节点（delta 可丢，close 快照是重连真相）。即使没有输出也发 open + close，
+// 因为 durable 终态帧是让日志订阅者在空输出执行后刷新的信号。
 func (w *Writer) Close(status string, result json.RawMessage) {
-	if w == nil {
+	if !w.enabled() {
 		return
 	}
 	w.mu.Lock()
 	defer w.mu.Unlock()
 	if w.nodeID == "" {
-		return
+		if w.closed {
+			return
+		}
+		w.nodeID = idgenpkg.New("blk")
+		w.publish(streamdomain.Open{Node: streamdomain.Node{Type: w.nodeType, Content: w.open}})
 	}
 	w.publish(streamdomain.Close{Status: status, Result: &streamdomain.Node{Type: w.nodeType, Content: result}})
 	w.nodeID = ""
+	w.closed = true
 }
 
 func (w *Writer) publish(frame streamdomain.Frame) {

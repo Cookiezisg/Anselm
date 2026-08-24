@@ -32,8 +32,35 @@ String? errorSentence(String? error) {
 /// 后端 journal/审计仍保留原文供诊断。
 String? errorForDisplay(String? error) {
   if (error == null) return null;
-  final text = error.trim();
+  var text = error.trim();
   if (text.isEmpty) return null;
+
+  // A traceback is durable diagnostic evidence, not user-facing copy. Keep the operation prefix
+  // and the final exception sentence (the part that explains what failed), but never make users
+  // read Python frames or internal implementation paths in a scheduler card.
+  const tracebackMarker = 'Traceback (most recent call last):';
+  final tracebackAt = text.indexOf(tracebackMarker);
+  if (tracebackAt >= 0) {
+    final prefix = text.substring(0, tracebackAt).trimRight();
+    final tail = text.substring(tracebackAt + tracebackMarker.length);
+    final lines = tail
+        .split('\n')
+        .map((line) => line.trim())
+        .where((line) => line.isNotEmpty)
+        .toList();
+    var terminal = lines.isEmpty ? 'Execution failed.' : lines.last;
+    terminal = terminal.replaceFirst(RegExp(r'^[A-Za-z_][\w.]*Error:\s*'), '');
+    text = prefix.isEmpty ? terminal : '$prefix $terminal';
+
+    // Scheduler errors commonly carry the engine's node/action/function breadcrumb before the
+    // traceback. It is useful in backend audit logs, but the card already names the workflow and
+    // run; exposing internal IDs here makes the failure harder to understand at a glance.
+    text = text.replaceFirst(
+      RegExp(r'^node\s+[^:]+:\s*action\s+[^:]+:\s*'),
+      '',
+    );
+    text = text.replaceFirst(RegExp(r'^function\s+\S+\s+failed:\s*'), '');
+  }
 
   final filePath = RegExp(r'''(\bFile\s+["'])([^"']+)(["'])''');
   var redacted = text.replaceAllMapped(filePath, (match) {

@@ -12,7 +12,7 @@
 
 | 通道 | 载体 | journal |
 |---|---|---|
-| ① 帧 | Computer Use 操作/稳定态截图 + conductor 绑定 Anselm 主窗口几何区域的 `screencapture -v -R` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
+| ① 帧 | Computer Use 操作/稳定态截图 + conductor 绑定 Anselm 主窗口 ID 的 `screencapture -v -l` 连续录屏 → ffmpeg 抽帧 | `screen.mov` + 抽帧目录(不入 git) |
 | ② 后端 | conductor 亲启的 sidecar,stdout 全量捕获 | `backend.log` |
 | ③ SSE | `cmd/ssetap` 动态发现全部 workspace 并独立订三条流(不经前端 demux) | `sse.jsonl` |
 | ④ 前端 | conductor 亲启的真实 `flutter run` App 与 console | `frontend.log` |
@@ -96,7 +96,8 @@ Anselm App，启动后只接收新出现的精确 App 进程，并由录屏窗�
 为前端在线。产品内「重置本地偏好」或「出厂重置」会让 App 自己退出并启动新 PID；这不是外部进程，
 但也不能由门禁猜测。重启后必须显式运行 `rig-rebind-app.sh`：旧 PID 已死、manifest 中的精确
 `appBinary` 只有一个新候选、候选窗口 owner 是 Anselm 且几何与现有录屏区域完全一致，四项同时满足才更新
-`appPid/appWindowId`，并把 `app_rebounded` 写入 `app-rebind.jsonl`。任一项不满足都拒绝，不能用
+`appPid/appWindowId`，并把 `app_rebounded` 写入 `app-rebind.jsonl`。窗口**几何不变但 window ID 改变**仍必须
+封存旧录制段并按新 ID 起新段；window identity 与 geometry 任一变化都不能继续喂旧 recorder。任一项不满足都拒绝，不能用
 「看起来像同一个 App」放行；`rig-check` 会验证 rebind 账与当前五通道归属。`frontend-build.log` 保存
 构建 console，`frontend.log` 保存真实 App stdout/stderr。正式验收还会向 App 注入 debug-only 的
 `ANSELM_RELAUNCH_LOG`；出厂重置/本地偏好重启后的 replacement App 必须把 stdout/stderr 追加回同一
@@ -106,22 +107,27 @@ Anselm App，启动后只接收新出现的精确 App 进程，并由录屏窗�
 `screenRecordingSegments` 和新的微秒 lifecycle，不会静默沿用 stale crop。需要单文件回放时，
 收台后用同编码 segment 生成 `screen-final.mov`，并保留原段与重绑段供审计。
 录像在
-Flutter 窗口真正出现后按 CoreGraphics window ID 解析其几何区域，使用 `-R x,y,w,h` 录制该 App 区域；这样
-同一窗口内的 OverlayPortal / 菜单浮层也进入连续帧，同时拒绝把全桌面录屏当作帧证据。manifest 同时保留
-`appWindowId` 与 `appWindowBounds`，`rig-check` 对两者和 recorder 命令做归属复核。首次
+Flutter 窗口真正出现后按 CoreGraphics window ID 解析窗口，使用 `-l <appWindowId>` 录制该窗口本身；这样
+Codex/其他宿主切前台时不会污染产品帧，同一窗口内的 OverlayPortal / 菜单浮层仍进入连续帧，同时拒绝把全桌面
+录屏当作帧证据。manifest 同时保留 `appWindowId` 与 `appWindowBounds`，`rig-check` 对两者和 recorder 命令做
+归属复核。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
 `rig-check` 还会用 CoreGraphics 按前后层级扫描 Anselm 窗口上方的外部窗口；会话自己的 App 与 recorder PID
-明确排除；Computer Use 自己的 `Software Cursor` 也作为仪器层明确列入白名单，任何其他与录制区域相交的
-系统弹窗或其他应用都会硬失败。窗口区域录制不能证明“画面只属于产品”，所以不能用裁剪或“这只是权限弹窗”
-放行；先清除外部遮挡，再重新录制整段 session。扫描器不调用 AppleScript / System Events，避免验收工具自己
-触发新的 macOS 自动化授权弹窗。
+明确排除；Computer Use 的 `Software Cursor` 与 Codex 宿主窗口(`ChatGPT`/旧名 `ChatGPT Computer Use`)
+作为仪器层明确列入白名单，任何其他与录制区域相交的系统弹窗或其他应用都会硬失败。宿主窗口白名单只解决
+Computer Use 返回结果时的观测器自身遮挡，不放宽未知 owner，也不把真实产品窗口当成产品证据。窗口区域录制不能
+证明“画面只属于产品”，所以不能用裁剪或“这只是权限弹窗”放行；先清除外部遮挡，再重新录制整段 session。
+扫描器不调用 AppleScript / System Events，避免验收工具自己触发新的 macOS 自动化授权弹窗。
 
 ## 两条铁律(都以真事故立法,自检强制执行)
 
 - **D1 journal 归属**:持有服务端口的 PID 必须 == 捕获 stdout 的 PID。抢端口失败的后端瞬间死掉、
   journal 却依然像样——0728 真发生过,故 rig-up 拒收外来进程、rig-check 持续复验。
   (细节坑:`lsof -ti` 必须带 `-sTCP:LISTEN`,否则 tap 的客户端连接会被算成端口持有者。)
+- **可选鉴权展开**:外接 backend 不需要 Bearer header,但 App-owned backend 必须带 token。两条
+  conductor 脚本都在 `set -u` 下通过 `curl_backend` 分支处理这两个形态；空数组不能直接展开成
+  `"${AUTH_ARGS[@]}"`,否则台架会在健康检查前自杀，不能把这种仪器故障算成产品结果。
 - **通道五接线**:受管 key 的 base_url 在 provision 时**落库**(`freetier.go` 存
   `AnselmGatewayBase()`),换过接线的旧数据目录会永远抱着旧指针——静默形态是受管流量绕开 tap
   而 `llm.jsonl` 只是安静。rig-up 在启动 ssetap、Flutter 与录制器**之前**就对每个已有 workspace
@@ -183,6 +189,13 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
   该 session 内；不能把另一个台架的证据拼进当前正式账本。
 - 每次裁决盖时戳追加 `$RIG_HOME/judgments.jsonl`——只经脚本、不手写；未设置或错误设置 `RIG_HOME` 时
   直接拒绝，不产生个人默认账本。
+- 若仓内正式 `COVERAGE.md` 已携带历史裁决而 `$RIG_HOME/judgments.jsonl` 缺失，`judge.py` 对任何新裁决
+  一律拒绝，直到恢复历史 journal；临时测试 fixture 使用外部清册时不触发此正式连续性门。
+- 若历史 runtime journal 不可恢复、但用户明确接受已提交 COVERAGE 作为历史基线，可运行
+  `RIG_HOME=/absolute/formal python3 testend/rig/rebuild_ledger.py --write --acknowledge-history`。
+  该动作会写入带清册 hash/Git HEAD 的 `ledger-baseline.json`，每条记录标记 `source=coverage-baseline`；
+  `alarms.py` 不把基线计入实时漂移曲线，之后真实 `judge.py` 裁决才进入三曲线。基线单格集合必须仍是当前
+  清册的子集，防止清册重生成后静默脱离其来源；新 live 裁决造成的清册 hash 变化是允许的。
 - `judge.py` 用 `$RIG_HOME/judge.lock` 跨进程串行保护去重判断、COVERAGE 更新和 journal 追加；同一
   `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针。
   若进程在两份持久记录之间半步退出，重跑同一命令会按已有 journal 重放清册格和证据指针；所以不能只数

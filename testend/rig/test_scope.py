@@ -14,6 +14,13 @@ ROOT = Path(__file__).resolve().parent
 
 
 class ExplicitRigHomeTests(unittest.TestCase):
+    def test_optional_auth_arrays_are_nounset_safe(self):
+        for script in ("rig-up.sh", "rig-check.sh"):
+            source = (ROOT / script).read_text()
+            self.assertIn("curl_backend()", source)
+            self.assertEqual(source.count('curl "$@" "${AUTH_ARGS[@]}"'), 1)
+            self.assertNotIn('curl -sf "http://127.0.0.1:$PORT/api/v1/health" "${AUTH_ARGS[@]}"', source)
+
     def run_shell_without_scope(self, script: str, value: Optional[str] = None) -> subprocess.CompletedProcess[str]:
         with tempfile.TemporaryDirectory() as tmp:
             env = os.environ.copy()

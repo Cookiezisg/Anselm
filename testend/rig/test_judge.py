@@ -17,6 +17,81 @@ JUDGE = ROOT / "judge.py"
 
 
 class JudgeRetryTests(unittest.TestCase):
+    def test_formal_coverage_cannot_start_a_new_ledger_after_journal_loss(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            rig_home = home / "rig"
+            coverage.write_text("| TOOL-001 | Carried fixture | test | ✓···· | old evidence |\n")
+
+            old_coverage = None
+            old_journal = None
+            old_default = None
+            old_rig_home = None
+            old_module = None
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("continuity_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                old_module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = old_module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(old_module)
+                old_coverage = old_module.COVERAGE
+                old_default = old_module.DEFAULT_COVERAGE
+                old_journal = old_module.JOURNAL
+                old_rig_home = old_module.RIG_HOME
+                old_module.COVERAGE = coverage
+                old_module.DEFAULT_COVERAGE = coverage.resolve()
+                old_module.RIG_HOME = rig_home
+                old_module.JOURNAL = rig_home / "judgments.jsonl"
+                with old_module.ledger_lock():
+                    problem = old_module.ledger_continuity_problem()
+                self.assertIn("formal ledger continuity is missing", problem)
+                self.assertFalse((rig_home / "judgments.jsonl").exists())
+            finally:
+                if old_module is not None:
+                    old_module.COVERAGE = old_coverage
+                    old_module.DEFAULT_COVERAGE = old_default
+                    old_module.JOURNAL = old_journal
+                    old_module.RIG_HOME = old_rig_home
+                sys.path[:] = old_path
+
+    def test_partial_formal_journal_cannot_unlock_carried_coverage(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            rig_home = home / "rig"
+            coverage.write_text(
+                "| TOOL-001 | First carried fixture | test | ✓✓··· | old evidence |\n"
+                "| TOOL-002 | Second carried fixture | test | ✓···· | old evidence |\n"
+            )
+            rig_home.mkdir()
+            (rig_home / "judgments.jsonl").write_text(
+                json.dumps({"family": "TOOL", "item": "First carried fixture", "level": 1}) + "\n"
+            )
+
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            module = None
+            try:
+                spec = importlib.util.spec_from_file_location("partial_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                module.DEFAULT_COVERAGE = coverage.resolve()
+                module.RIG_HOME = rig_home
+                module.JOURNAL = rig_home / "judgments.jsonl"
+                with module.ledger_lock():
+                    problem = module.ledger_continuity_problem()
+                self.assertIn("journal is missing 2 carried coverage cell(s)", problem)
+            finally:
+                sys.path[:] = old_path
+
     def test_identical_judgment_is_a_noop(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

@@ -77,7 +77,7 @@ SURF | settings/panel-limits | panel | 高级限额:`GET /limits/schema` 驱动�
 SURF | settings/panel-network | panel | 网络:http/https/no_proxy 三字段 + 整体替换 PATCH + 重启注记 AnCallout。
 SURF | settings/panel-shortcuts | panel | 快捷键:6 全局命令逐行小帽,点帽录键 + 冲突拒绝 + 单项/全部重置。
 SURF | settings/panel-about | panel | 关于:版本区 + 检查更新(GitHub Releases 三面) + 引擎版本 + 诊断 + 字体致谢。
-SURF | settings/detail-push | screen | 推入第三级(13 kind):addKey/editKey/sandboxInstall/mcpServer/mcpAdd/mcpImport/mcpMarket/mcpInstall/addMemory/memory/addWorkspace/workspace。
+SURF | settings/detail-push | screen | 推入第三级(12 kind):addKey/editKey/sandboxInstall/mcpServer/mcpAdd/mcpImport/mcpMarket/mcpInstall/addMemory/memory/addWorkspace/workspace。
 SURF | i18n/chat | i18n-group | 683 键:对话海洋全部文案(rail/composer/侧幕/工具卡/turn 动作)。
 SURF | i18n/settings | i18n-group | 399 键:13 面板 + 三段目录 + 搜索 + 三域徽全部文案。
 SURF | i18n/entities | i18n-group | 302 键:实体海洋 rail/详情/tab/调试台/关系图文案。

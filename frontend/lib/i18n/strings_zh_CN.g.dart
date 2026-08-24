@@ -119,8 +119,8 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get audioAttachmentPermissionDenied => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。';
 	@override String get audioAttachmentFailed => '音频录制无法添加为附件';
 	@override String get stop => '停止生成';
-	@override String get thinking => 'thinking';
-	@override String get thought => 'thought';
+	@override String get thinking => '思考中';
+	@override String get thought => '思考';
 	@override String get sendFailed => 'Couldn\'t send';
 	@override String attachmentsFailedDropped({required Object n}) => '${n} 个附件上传失败,未随消息发送';
 	@override String get retrySend => 'Retry';
@@ -2175,9 +2175,9 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get inUseHint => '先在以下位置解除引用:';
 	@override String get referenceDialogue => '对话默认模型';
 	@override String get referenceUtility => '工具默认模型';
-	@override String get referenceAgent => 'Agent 默认模型';
+	@override String get referenceAgent => '智能体默认模型';
 	@override String get referenceSearch => '默认搜索密钥';
-	@override String get referenceAgentOverride => 'Agent 覆盖';
+	@override String get referenceAgentOverride => '智能体覆盖';
 	@override String get referenceUnknown => '其他设置';
 	@override String get deleteKeyTitle => '删除密钥';
 	@override String deleteKeyBody({required Object name}) => '将删除「${name}」,不可恢复。';
@@ -2185,7 +2185,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get defaults => '场景默认模型';
 	@override String get scenarioDialogue => '对话';
 	@override String get scenarioUtility => '工具';
-	@override String get scenarioAgent => 'Agent';
+	@override String get scenarioAgent => '智能体';
 	@override String get scenarioDialogueDesc => '聊天回复所用模型;Auto 依赖它,不可清除';
 	@override String get scenarioUtilityDesc => '自动命名、上下文压缩等轻任务';
 	@override String get scenarioAgentDesc => 'invoke_agent 执行所用';
@@ -3285,8 +3285,8 @@ extension on TranslationsZhCn {
 			'chat.audioAttachmentPermissionDenied' => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。',
 			'chat.audioAttachmentFailed' => '音频录制无法添加为附件',
 			'chat.stop' => '停止生成',
-			'chat.thinking' => 'thinking',
-			'chat.thought' => 'thought',
+			'chat.thinking' => '思考中',
+			'chat.thought' => '思考',
 			'chat.sendFailed' => 'Couldn\'t send',
 			'chat.attachmentsFailedDropped' => ({required Object n}) => '${n} 个附件上传失败,未随消息发送',
 			'chat.retrySend' => 'Retry',
@@ -5043,9 +5043,9 @@ extension on TranslationsZhCn {
 			'settings.keys.inUseHint' => '先在以下位置解除引用:',
 			'settings.keys.referenceDialogue' => '对话默认模型',
 			'settings.keys.referenceUtility' => '工具默认模型',
-			'settings.keys.referenceAgent' => 'Agent 默认模型',
+			'settings.keys.referenceAgent' => '智能体默认模型',
 			'settings.keys.referenceSearch' => '默认搜索密钥',
-			'settings.keys.referenceAgentOverride' => 'Agent 覆盖',
+			'settings.keys.referenceAgentOverride' => '智能体覆盖',
 			'settings.keys.referenceUnknown' => '其他设置',
 			'settings.keys.deleteKeyTitle' => '删除密钥',
 			'settings.keys.deleteKeyBody' => ({required Object name}) => '将删除「${name}」,不可恢复。',
@@ -5053,7 +5053,7 @@ extension on TranslationsZhCn {
 			'settings.keys.defaults' => '场景默认模型',
 			'settings.keys.scenarioDialogue' => '对话',
 			'settings.keys.scenarioUtility' => '工具',
-			'settings.keys.scenarioAgent' => 'Agent',
+			'settings.keys.scenarioAgent' => '智能体',
 			'settings.keys.scenarioDialogueDesc' => '聊天回复所用模型;Auto 依赖它,不可清除',
 			'settings.keys.scenarioUtilityDesc' => '自动命名、上下文压缩等轻任务',
 			'settings.keys.scenarioAgentDesc' => 'invoke_agent 执行所用',

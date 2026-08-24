@@ -12,6 +12,24 @@ ROOT = Path(__file__).resolve().parent
 
 
 class ScreenRecordingGateTests(unittest.TestCase):
+    def test_recorders_bind_to_the_owned_window_not_a_screen_rectangle(self):
+        rig_up = (ROOT / "rig-up.sh").read_text()
+        rig_rebind = (ROOT / "rig-rebind-app.sh").read_text()
+        rig_check = (ROOT / "rig-check.sh").read_text()
+        self.assertIn("screencapture -v -C -k -l \"$APP_WINDOW_ID\"", rig_up)
+        self.assertIn("screencapture -v -C -k -l \"$NEW_WINDOW_ID\"", rig_rebind)
+        self.assertIn('screencapture.*-v.*-l[[:space:]]$AWID', rig_check)
+        self.assertNotIn("screencapture -v -C -k -R", rig_up)
+        self.assertNotIn("screencapture -v -C -k -R", rig_rebind)
+
+    def test_rebind_rotates_when_window_identity_changes_without_geometry_change(self):
+        rig_rebind = (ROOT / "rig-rebind-app.sh").read_text()
+        self.assertIn(
+            'if [ "$NEW_WINDOW_ID" != "$OLD_WINDOW_ID" ] || [ "$NEW_BOUNDS" != "$OLD_BOUNDS" ]; then',
+            rig_rebind,
+        )
+        self.assertIn('OLD_WINDOW_ID=$(field appWindowId)', rig_rebind)
+
     def test_recording_disabled_is_a_successful_diagnostic_mode(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
