@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/design/colors.dart';
@@ -23,10 +25,36 @@ import 'tool_card_skins.dart';
 /// emitting [emit] (each output field ← a CEL over `input.*`). 一条决策分支。
 typedef ControlBranch = ({String port, String when, Map<String, String> emit});
 
+final _controlStringBranchesCache =
+    Expando<({String raw, List<Object?> items})>('controlStringBranches');
+
+/// Read a whole branch set from the native array or the exact JSON-string compatibility shape
+/// observed at the hosted-model boundary. Partial/malformed strings stay empty so a live ladder
+/// never presents an unclosed payload as settled truth. 兼容托管模型的字符串化完整分支集。
+List<Object?> controlBranchItems(PartialJsonSession args) {
+  final native = args.arrayItemsAt(['branches']);
+  if (native.isNotEmpty) return native;
+  final raw = args.closedValueAt(['branches']);
+  if (raw is! String || raw.isEmpty) return native;
+  final cached = _controlStringBranchesCache[args];
+  if (cached != null && cached.raw == raw) return cached.items;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      final items = List<Object?>.unmodifiable(decoded);
+      _controlStringBranchesCache[args] = (raw: raw, items: items);
+      return items;
+    }
+  } on FormatException {
+    // The stream is still partial or malformed; keep the honest empty ladder.
+  }
+  return native;
+}
+
 /// Parse the branches from a control build's args (whole-set) — tolerant of a partial stream. 解析分支。
 List<ControlBranch> controlBranches(PartialJsonSession args) {
   final out = <ControlBranch>[];
-  for (final raw in args.arrayItemsAt(['branches'])) {
+  for (final raw in controlBranchItems(args)) {
     if (raw is! Map) continue;
     final emit = <String, String>{};
     final e = raw['emit'];
@@ -153,6 +181,54 @@ String approvalTemplateToMarkdown(String template) => template.replaceAllMapped(
 /// The APPROVAL FORM PREVIEW — what the approver will see: the rendered template (placeholders as chips)
 /// + the rules strip (timeout badge → its behaviour, note-allowed) + a mock decision row. Reconstructed
 /// from the args (whole snapshot). 审批表单预览:审批人视角(渲染模板 + 规则条 + mock 决策行)。
+bool approvalAllowReason(PartialJsonSession args) {
+  final raw = args.closedValueAt(['allowReason']);
+  return raw == true || raw == 'true';
+}
+
+String approvalTimeoutLabel(String raw) {
+  final value = raw.trim();
+  final seconds = int.tryParse(value);
+  if (seconds == null || seconds < 0) return raw;
+  return _approvalDuration(seconds);
+}
+
+String? approvalTimeoutFromSession(PartialJsonSession args) {
+  final raw = args.closedValueAt(['timeout']);
+  if (raw is String) return approvalTimeoutLabel(raw);
+  if (raw is int) return _approvalDuration(raw);
+  if (raw is double && raw.isFinite && raw == raw.truncateToDouble()) {
+    return _approvalDuration(raw.toInt());
+  }
+  return null;
+}
+
+String? approvalTimeoutFromArgsText(String argsFragment) {
+  final raw = argString(argsFragment, 'timeout');
+  if (raw != null) return approvalTimeoutLabel(raw);
+  try {
+    final decoded = jsonDecode(argsFragment);
+    if (decoded is Map) {
+      final value = decoded['timeout'];
+      if (value is num && value == value.toInt()) {
+        return _approvalDuration(value.toInt());
+      }
+    }
+  } on FormatException {
+    // A still-streaming fragment has no settled timeout label yet.
+  }
+  return null;
+}
+
+String _approvalDuration(int seconds) {
+  if (seconds <= 0) return '${seconds}s';
+  if (seconds % 604800 == 0) return '${seconds ~/ 604800}w';
+  if (seconds % 86400 == 0) return '${seconds ~/ 86400}d';
+  if (seconds % 3600 == 0) return '${seconds ~/ 3600}h';
+  if (seconds % 60 == 0) return '${seconds ~/ 60}m';
+  return '${seconds}s';
+}
+
 Widget approvalFormBody(BuildContext context, ToolCardState state) {
   if (state.phase == ToolCardPhase.failed &&
       state.toolName.startsWith('edit_')) {
@@ -172,7 +248,7 @@ Widget approvalFormBody(BuildContext context, ToolCardState state) {
   final c = context.colors;
   final template = argString(state.argsText, 'template') ?? '';
   final allowReason = _boolArg(state.argsText, 'allowReason');
-  final timeout = argString(state.argsText, 'timeout');
+  final timeout = approvalTimeoutFromArgsText(state.argsText);
   final behavior = argString(state.argsText, 'timeoutBehavior');
 
   return Column(
@@ -268,4 +344,4 @@ Color _behaviorColor(AnColors c, String? behavior) => switch (behavior) {
 
 /// Parse a boolean arg from a (possibly partial) args fragment. 从 args 解析 bool。
 bool _boolArg(String argsFragment, String key) =>
-    RegExp('"$key"\\s*:\\s*true').hasMatch(argsFragment);
+    RegExp('"$key"\\s*:\\s*(?:true|"true")').hasMatch(argsFragment);

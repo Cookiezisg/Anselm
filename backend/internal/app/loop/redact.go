@@ -781,6 +781,7 @@ var (
 	entityNounPrefixPattern            = regexp.MustCompile(`(?i)(?:\bthe\s+)?(?:workflow|function|handler|agent|trigger|conversation|document|skill|workspace|message|flowrun|run|attachment)\s+(?:\*{1,3}|_{1,3}|` + "`" + `)?$`)
 	isoTimestampPattern                = regexp.MustCompile(`\b\d{4}-\d{2}-\d{2}(?:T| )\d{2}:\d{2}:\d{2}(?:\.\d+)?(?:Z|[+-]\d{2}:?\d{2}| UTC)?\b`)
 	lastMessageAtFieldPattern          = regexp.MustCompile(`(?i)\blast\s*message\s*at\b\s*[:|=]\s*` + isoTimestampPattern.String())
+	nextFireAtFieldPattern             = regexp.MustCompile(`(?i)(?:\bnext[_ ]?fire[_ ]?at\b|\bnext\s+fire(?:\s+time)?\b|下次触发时间)[ \t]*[:：=|][ \t]*` + isoTimestampPattern.String())
 	mcpConnectionTimestampLabelPattern = regexp.MustCompile(`(?im)^([ \t]*(?:[-•][ \t]+)?(?:\*\*connected at:\*\*|\*connected at:\*|connected at[ \t]*[:|]|connectedat[ \t]*[:|]|connection time[ \t]*[:|]|reconnected at[ \t]*[:|])[ \t]*)` + regexp.QuoteMeta(opaqueTimestampPlaceholder) + `([ \t]*)$`)
 	longIntegerPattern                 = regexp.MustCompile(`\b\d{10,}\b`)
 	longHexPattern                     = regexp.MustCompile(`\b[0-9a-fA-F]{32,}\b`)
@@ -804,6 +805,7 @@ var (
 // separately by the product.
 func redactOpaqueMachineValues(text string) string {
 	text, restoreExactLastMessageAt := protectExplicitLastMessageAt(text)
+	text, restoreExactNextFireAt := protectExplicitNextFireAt(text)
 	text, restorePublicToolNames := protectPublicToolNames(text)
 	// Keep old durable assistant blocks readable after the placeholder vocabulary changes.
 	text = strings.ReplaceAll(text, legacyEntityPlaceholder, opaqueEntityPlaceholder)
@@ -1388,7 +1390,8 @@ func redactOpaqueMachineValues(text string) string {
 		text = strings.ReplaceAll(text, legacyEntityPlaceholder, "the supplied function identifier")
 	}
 	text = restorePublicToolNames(text)
-	return restoreExactLastMessageAt(text)
+	text = restoreExactLastMessageAt(text)
+	return restoreExactNextFireAt(text)
 }
 
 func protectPublicToolNames(text string) (string, func(string) string) {
@@ -2264,6 +2267,71 @@ func protectExplicitLastMessageAt(text string) (string, func(string) string) {
 		}
 		return redacted
 	}
+}
+
+const exactNextFireAtMarker = "__ANSELM_EXACT_NEXT_FIRE_AT__"
+
+// protectExplicitNextFireAt preserves a trigger's requested next-fire instant while the generic
+// machine-value pass still redacts unrelated timestamps. `nextFireAt` is a user-facing runtime
+// fact, not an audit timestamp: replacing it with "相应时间" makes an otherwise healthy trigger
+// report unusable. Both the JSON-shaped field and the translated Field/Value row are accepted.
+// protectExplicitNextFireAt 在通用机器值脱敏仍覆盖其它时间戳时保留用户明确要看的触发时刻。
+// nextFireAt 是运行时事实而非审计时间；改成「相应时间」会让健康状态报告失去用途。JSON 字段
+// 与翻译后的「字段/值」表行都支持。
+func protectExplicitNextFireAt(text string) (string, func(string) string) {
+	values := make([]string, 0, 4)
+	protect := func(value string) string {
+		values = append(values, value)
+		return exactNextFireAtMarker
+	}
+
+	lines := strings.Split(text, "\n")
+	for index, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if !ok || len(cells) < 2 {
+			continue
+		}
+		label := explicitNextFireLabel(cells[0])
+		if !label {
+			continue
+		}
+		changed := false
+		for column := 1; column < len(cells); column++ {
+			matches := isoTimestampPattern.FindAllStringIndex(cells[column], -1)
+			for matchIndex := len(matches) - 1; matchIndex >= 0; matchIndex-- {
+				match := matches[matchIndex]
+				value := cells[column][match[0]:match[1]]
+				cells[column] = cells[column][:match[0]] + protect(value) + cells[column][match[1]:]
+				changed = true
+			}
+		}
+		if changed {
+			lines[index] = formatMarkdownTableRow(cells)
+		}
+	}
+	text = strings.Join(lines, "\n")
+
+	text = nextFireAtFieldPattern.ReplaceAllStringFunc(text, func(match string) string {
+		location := isoTimestampPattern.FindStringIndex(match)
+		if location == nil {
+			return match
+		}
+		return match[:location[0]] + protect(match[location[0]:location[1]]) + match[location[1]:]
+	})
+
+	return text, func(redacted string) string {
+		for _, value := range values {
+			redacted = strings.Replace(redacted, exactNextFireAtMarker, value, 1)
+		}
+		return redacted
+	}
+}
+
+func explicitNextFireLabel(cell string) bool {
+	label := strings.ToLower(strings.Trim(strings.TrimSpace(cell), "`*_ "))
+	label = strings.ReplaceAll(label, " ", "")
+	label = strings.ReplaceAll(label, "_", "")
+	return label == "nextfireat" || label == "nextfire" || label == "nextfiretime" || label == "下次触发时间"
 }
 
 func redactMCPConnectionTimestampLabelLines(text string) string {
@@ -3426,6 +3494,14 @@ func (r *textRedactor) Write(delta string) (result string) {
 		return redactOpaqueMachineValues(prefix)
 	}
 	if prefix, held, ok := splitLastMessageAtFieldPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	if prefix, held, ok := splitNextFireAtTablePrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
+	}
+	if prefix, held, ok := splitNextFireAtFieldPrefix(r.pending); ok {
 		r.pending = held
 		return redactOpaqueMachineValues(prefix)
 	}
@@ -5308,6 +5384,40 @@ func splitLastMessageAtTablePrefix(text string) (prefix, held string, ok bool) {
 			return "", text, true
 		}
 		return text[:prefixEnd], text[prefixEnd:], true
+	}
+	return "", "", false
+}
+
+func splitNextFireAtFieldPrefix(text string) (prefix, held string, ok bool) {
+	lineStart := strings.LastIndexByte(text, '\n') + 1
+	line := text[lineStart:]
+	if line == "" || len([]rune(line)) > 512 {
+		return "", "", false
+	}
+	if !nextFireAtFieldPattern.MatchString(line) &&
+		!strings.Contains(strings.ToLower(line), "nextfireat") &&
+		!strings.Contains(line, "下次触发时间") {
+		return "", "", false
+	}
+	if !strings.ContainsAny(line, ":：|=") {
+		return "", "", false
+	}
+	if newline := strings.IndexByte(line, '\n'); newline >= 0 {
+		return text[:lineStart+newline+1], text[lineStart+newline+1:], true
+	}
+	return text[:lineStart], line, true
+}
+
+func splitNextFireAtTablePrefix(text string) (prefix, held string, ok bool) {
+	lines := strings.SplitAfter(text, "\n")
+	offset := 0
+	for _, raw := range lines {
+		line := strings.TrimSuffix(raw, "\n")
+		cells, rowOK := markdownTableCells(line)
+		if rowOK && len(cells) >= 2 && explicitNextFireLabel(cells[0]) && !strings.HasSuffix(raw, "\n") {
+			return text[:offset], text[offset:], true
+		}
+		offset += len(raw)
 	}
 	return "", "", false
 }

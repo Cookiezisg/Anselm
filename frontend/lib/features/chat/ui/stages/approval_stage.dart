@@ -36,8 +36,8 @@ class ApprovalStageBody extends StatelessWidget {
     }
 
     final template = session.liveStringNamed('template') ?? '';
-    final allowReason = session.closedValueAt(['allowReason']);
-    final timeout = session.closedStringAt(['timeout']);
+    final allowReason = approvalAllowReason(session);
+    final timeout = approvalTimeoutFromSession(session);
     final behavior = session.closedStringAt(['timeoutBehavior']);
 
     return Column(

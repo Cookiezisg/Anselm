@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
@@ -55,6 +57,16 @@ Widget _host(Widget child) => TranslationProvider(
 
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
+
+  test('trigger config accepts the hosted JSON-string compatibility shape', () {
+    final config = {'path': 'invoice', 'signatureAlgo': 'hmac-sha256-hex'};
+    final args = jsonEncode({
+      'name': 'inbound',
+      'kind': 'webhook',
+      'config': jsonEncode(config),
+    });
+    expect(triggerConfigFromArgsText(args), config);
+  });
 
   test('triggerReceipt: create → 未监听 (none); edit on live → 热更新 (warn)', () {
     final create = triggerReceipt(

@@ -882,6 +882,42 @@ func TestRedactOpaqueMachineValuesPreservesLastMessageAtTableColumn(t *testing.T
 	}
 }
 
+func TestRedactOpaqueMachineValuesPreservesExplicitNextFireAt(t *testing.T) {
+	input := "nextFireAt: 2026-08-26T09:00:00+08:00; createdAt: 2026-08-25T01:09:12Z"
+	want := "nextFireAt: 2026-08-26T09:00:00+08:00; createdAt: the recorded time"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("explicit nextFireAt redaction = %q, want %q", got, want)
+	}
+}
+
+func TestRedactOpaqueMachineValuesPreservesTranslatedNextFireRow(t *testing.T) {
+	input := "| 字段 | 值 |\n|---|---|\n| **下次触发时间** | 2026-08-26 09:00:00 +08:00 |"
+	want := "| 字段 | 值 |\n|---|---|\n| **下次触发时间** | 2026-08-26 09:00:00 +08:00 |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("translated nextFireAt row redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorPreservesSplitNextFireAtRow(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"| 字段 | 值 |\n|---|---|\n| **下次触发时间** | 2026-08-26 09:",
+		"00:00 +08:00 |\n\n已启用。",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, opaqueTimestampPlaceholder) {
+			t.Fatalf("split nextFireAt row leaked placeholder: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	want := "| 字段 | 值 |\n|---|---|\n| **下次触发时间** | 2026-08-26 09:00:00 +08:00 |\n\n已启用。"
+	if got.String() != want {
+		t.Fatalf("split nextFireAt row = %q, want %q", got.String(), want)
+	}
+}
+
 func TestTextRedactorPreservesLastMessageAtAcrossTableChunks(t *testing.T) {
 	var r textRedactor
 	var got strings.Builder

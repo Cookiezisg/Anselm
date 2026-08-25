@@ -37,7 +37,7 @@ class TriggerStageBody extends ConsumerWidget {
     final session = scene.session;
 
     var kind = session.closedStringAt(['kind']) ?? '';
-    final config = _closedObject(session, 'config');
+    final config = triggerConfigFromSession(session);
     final resultId = _resultId();
 
     // R-16: the settle facts come from the reconciled GET only. A LIVE edit also fetches the truth
@@ -130,22 +130,6 @@ class TriggerStageBody extends ConsumerWidget {
         ],
       ],
     );
-  }
-
-  // The config object's CLOSED keys so far (progressive while streaming). 已闭合的 config 键(流中渐进)。
-  Map<String, Object?> _closedObject(dynamic session, String key) {
-    final out = <String, Object?>{};
-    for (final e in session.events) {
-      final path = e.path as List<Object>;
-      if (path.length == 2 && path.first == key && path.last is String) {
-        out[path.last as String] = e.value;
-      } else if (path.length == 1 && path.first == key && e.value is Map) {
-        for (final me in (e.value as Map).entries) {
-          out['${me.key}'] = me.value;
-        }
-      }
-    }
-    return out;
   }
 
   String? _resultId() {

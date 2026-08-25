@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/model/partial_json.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -66,6 +68,29 @@ void main() {
   });
 
   test(
+    'controlBranches accepts the durable stringified compatibility shape',
+    () {
+      final branches = [
+        {
+          'port': 'hot',
+          'when': 'input.amount > 1000',
+          'emit': {'tier': 'high'},
+        },
+        {'port': 'cold', 'when': 'true'},
+      ];
+      final args = PartialJsonSession()
+        ..append(
+          jsonEncode({'name': 'spend-gate', 'branches': jsonEncode(branches)}),
+        );
+
+      final parsed = controlBranches(args);
+      expect(parsed.map((b) => b.port), ['hot', 'cold']);
+      expect(parsed.first.emit, {'tier': 'high'});
+      expect(parsed.last.when, 'true');
+    },
+  );
+
+  test(
     'approvalTemplateToMarkdown turns {{ input.x }} into an inline-code chip',
     () {
       expect(
@@ -76,6 +101,45 @@ void main() {
       expect(approvalTemplateToMarkdown('{{ input.a.b }}'), '`a.b`');
     },
   );
+
+  test(
+    'approval hosted scalar compatibility keeps reason and humane timeout',
+    () {
+      final args = PartialJsonSession()
+        ..append('{"allowReason":"true","timeout":"7200"}');
+      expect(approvalAllowReason(args), isTrue);
+      expect(approvalTimeoutFromSession(args), '2h');
+      expect(
+        approvalTimeoutFromArgsText(
+          '{"allowReason":"true","timeout":"7200","timeoutBehavior":"reject"}',
+        ),
+        '2h',
+      );
+      expect(approvalTimeoutLabel('0'), '0s');
+    },
+  );
+
+  testWidgets('approval preview accepts hosted scalar compatibility', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        ChatToolCard(
+          node: _node(
+            'create_approval',
+            '{"name":"hosted","template":"批准 {{ input.amount }}?",'
+                '"allowReason":"true","timeout":"7200","timeoutBehavior":"reject"}',
+            '{"id":"apf_1","activeVersionId":"apfv_1","version":1}',
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(find.textContaining('已创建审批'), warnIfMissed: false);
+    await tester.pumpAndSettle();
+    expect(find.widgetWithText(AnChip, '2h'), findsOneWidget);
+    expect(find.textContaining('可填备注'), findsOneWidget);
+  });
 
   testWidgets(
     'control body: the decision ladder (ordered rows + catch-all + emit)',

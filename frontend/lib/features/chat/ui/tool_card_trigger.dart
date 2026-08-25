@@ -5,11 +5,55 @@ import 'package:flutter/material.dart';
 import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
+import '../../../core/model/partial_json.dart';
 import '../../../core/ui/ui.dart';
 import '../../../i18n/strings.g.dart';
 import '../model/tool_card_state.dart';
 import '../model/tool_receipts.dart';
 import 'tool_card_skins.dart';
+
+/// Read trigger config from the native object or the exact JSON-encoded object string accepted by
+/// the hosted gateway. Partial live objects still expose their closed nested keys; arrays, scalar
+/// values, and malformed strings remain empty rather than becoming a fabricated face.
+/// 兼容托管模型的字符串化 config；不把部分/畸形值伪装成已落定配置。
+Map<String, Object?> triggerConfigFromSession(PartialJsonSession session) {
+  final raw = session.closedValueAt(['config']);
+  final decoded = _decodeTriggerConfig(raw);
+  if (decoded != null) return decoded;
+
+  final out = <String, Object?>{};
+  for (final event in session.events) {
+    final path = event.path;
+    if (path.length == 2 && path.first == 'config' && path.last is String) {
+      out[path.last as String] = event.value;
+    }
+  }
+  return out;
+}
+
+/// The settled card receives the whole tool-call JSON rather than a partial session.
+/// 落定卡从完整 tool-call JSON 读取同一兼容形状。
+Map<String, dynamic> triggerConfigFromArgsText(String argsText) {
+  try {
+    final args = jsonDecode(argsText);
+    if (args is! Map) return const {};
+    return _decodeTriggerConfig(args['config']) ?? const {};
+  } on FormatException {
+    return const {};
+  }
+}
+
+Map<String, dynamic>? _decodeTriggerConfig(Object? raw) {
+  if (raw is Map) return Map<String, dynamic>.from(raw);
+  if (raw is! String || raw.trim().isEmpty) return null;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is Map) return Map<String, dynamic>.from(decoded);
+  } on FormatException {
+    // Partial or malformed strings keep the honest empty face.
+  }
+  return null;
+}
 
 /// F04 create/edit_trigger — the TriggerConfigCard (WRK-056 §trigger): one of FOUR faces by kind
 /// (cron / webhook / fsnotify / sensor). Config is a whole-set replace, so the card always renders the
@@ -30,8 +74,7 @@ Widget triggerConfigBody(BuildContext context, ToolCardState state) {
   // A rejected tool call can contain malformed JSON shapes (for example the model
   // sending config as a string). The error card must still render the raw args and
   // backend error instead of crashing the transcript while expanding its face.
-  final rawConfig = args?['config'];
-  final config = rawConfig is Map ? rawConfig : const <String, dynamic>{};
+  final config = triggerConfigFromArgsText(state.argsText);
   final id = (result?['id'] ?? '').toString();
 
   final rows = <Widget>[

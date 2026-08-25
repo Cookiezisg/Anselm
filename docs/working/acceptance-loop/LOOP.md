@@ -13,7 +13,77 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · SURF-104 已提交 · 批次四十七 0/50；下一前线 SURF-105）
+## 当前前线覆盖声明（2026-08-25 · SURF-114 已入账 · 批次四十七 50/50；统一长门禁已通过，待提交）
+
+## 2026-08-25 · SURF-114 stage/generic 通用舞台与 poll 终态正式五级入账
+
+- `_GenericStage` 是共同 host，不是额外工具族：共享诚实丝带、kind 量身体、live/settling/failed 与 settled 摘要；无 stage route 的 `search_tools`、conversation、attachment 保持诚实缺席。`trigger_workflow` 的 202 只代表入队，必须等匹配 `flowrunId` 的 durable `run_terminal`。
+- 真实 App 通过实体提及选择 disposable `surf114_poll`，只调用一次 `trigger_workflow`，flowrun=`fr_b71eebde4adf9919`，8.12 秒后 completed；通用 workflow 图从运行卷收为 settled touchpoint 摘要。两次直接输入带下划线 ID 的失败是 Computer Use 输入桥负边界，保留但不计绿；提及路径精确成功。fixture 已在收台前删除。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-105440`，screen=`699.328333s / 2784x1808 / 60fps`；结果帧=`sessions/20260825-105440/evidence/frames/surf114-generic-settled.png`。messages durable=`66..74`，entities=`run_started → run tick → run_terminal`，flowrun id 一致；backend/frontend 无应用红线，LLM 正向 wire 全`200`，rig-check/rig-down 通过且无残留。正式调查=`testend/rig/formal-evidence/SURF-114-stage-generic-investigation-20260825.md`，L2=`sessions/20260825-105440/evidence/SURF-114-stage-generic-five-channel.md`。
+- 新增真实时序 focused test：`tool_result open → run_terminal → tool_result close`，通过。五级=`E2/F2/B2/C4/G1`；formal journal=`2485`（2300 baseline + 185 live），coverage=`848/497/0`，anchors=`10/10`。两条统计警报按 `SURF-114-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，最终 `alarms.py check` clean；批次四十七=`50/50` 后统一长门禁已通过：根 `make verify`、完整 `make -C backend testend`=`312.506s`、rig=`50/50`、格式/覆盖/锚点/警报/进程审计全绿，记录=`testend/rig/formal-evidence/batch-47-gate-20260825.md`，当前只剩提交。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · SURF-113 stage/mcp 接线现场与类型化工具货架正式五级入账
+
+- 静态反查确认 MCP 舞台只投影 install/reconnect/create 的 typed `tools[].name`，环境键遮罩、货架最多 12 项并显示总数；install 是危险动作必须经过一次性人闸，reconnect 是安全动作，不能把任意执行参数冒充发现结果。
+- 真实 App 搜索并安装 marketplace `microsoftdocs/mcp`，一次性允许后只调用一次 install；舞台显示已连接、3 工具与 `microsoft_docs_search`、`microsoft_code_sample_search`、`microsoft_docs_fetch` 三个 chip。随后只调用一次 reconnect，正确解释已安装实例名 `mcp` 与 marketplace 名称的差异，无重复安装/卸载/retry。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-104412`，screen=`202.041667s / 2784x1808 / 60fps`，抽帧=`sessions/20260825-104412/evidence/frames/surf113-mcp-125.png`、`surf113-mcp-175.png`；messages=`1..44`、notifications=`16..19` 连续唯一，entities `disconnected→connecting→ready` 两次，backend/frontend/LLM 五通道无未解释红线，managed wire 全`200`，rig-down 无残留。调查=`testend/rig/formal-evidence/SURF-113-stage-mcp-investigation-20260825.md`，L2=`sessions/20260825-104412/evidence/SURF-113-stage-mcp-five-channel.md`。
+- focused Flutter=`30` 项、Go MCP app/tool/infra 全绿。五级=`E2/F2/B2/C4/G1`；formal journal=`2480`（2300 baseline + 180 live），coverage=`848/496/0`，anchors=`10/10`。两条统计警报按 `SURF-113-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，未改阈值/算法/CODEX/锚点/gate，最终 `alarms.py check` clean；批次四十七由 `40→45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-114 stage/generic`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-25 · SURF-112 stage/memory 记忆笺与用户图钉边界正式五级入账
+
+- 静态反查确认 Memory 舞台只读 slug、摘要和正文，落定显示结果条；pin/unpin 不在舞台出现，只走用户 REST。`write_memory` 不暴露 pinned/source，更新已有记忆必须保留用户既有 pin 与作者归属。
+- 真实 App 通过受管网关一次 `read_memory` 读取 `handoff-note`，舞台显示 slug、来源和完整正文；随后一次 `search_tools` 激活并一次 `write_memory` 更新用户置顶的 `release-rule`，无 retry/重复 mutation。REST 证明 description 不变、`pinned=true`、`source=user`，正文为新值；REST pin/unpin `handoff-note` 均 200，SSE 仅 frame-only `memory.updated`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-103249`，screen=`257.440000s / 2696x1720 / 60fps`，抽帧=`sessions/20260825-103249/evidence/frames/surf112-memory-read.png`、`surf112-memory-write-170.png`；messages=`1..36`、notifications=`16..22` 连续唯一，backend/frontend/LLM 五通道无未解释红线，managed wire 全`200`，rig-down 无残留。调查=`testend/rig/formal-evidence/SURF-112-stage-memory-investigation-20260825.md`，L2=`sessions/20260825-103249/evidence/SURF-112-stage-memory-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2475`（2300 baseline + 175 live），coverage=`848/495/0`，anchors=`10/10`。两条统计警报按 `SURF-112-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，未改阈值/算法/CODEX/锚点/gate，`alarms.py check` clean；批次四十七由 `35→40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-113 stage/MCP`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-25 · SURF-111 stage/skill 正文、占位符与安装信任门正式五级入账
+
+- 静态反查确认 Skill 舞台为 metadata header + 真 Markdown prose；installed skill 的 `allowedTools` 在 `toolsApproved=false` 时只能显示中性“信任门未批,确认仍逐次”，批准后才显示琥珀预授权；`activate_skill` 的四类占位符和目录锚点语义已锁定。
+- 真实 App 创建 `surf111runbook` 后保留输入桥丢 `$`/下划线的负事实；精确 body 经 REST 真相面落盘，再由 App `get_skill` 读取并由 App `activate_skill` 以 `daily/review` 验证 `$1`、`$ARGUMENTS`、真实目录和 session 展开。另用本地 tarball 安装 `surf111-installed`，App 真实观察未批与批准后的两种 stage。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-101708`，screen=`531.340000s / 2784x1808`，帧=`sessions/20260825-101708/evidence/frames/surf111-400s.png`；messages=`1..75`、notifications=`16..28` 连续唯一，backend 无应用红线，frontend 仅已知 IMK 平台噪声，LLM 观测响应全`200`，rig-down 无残留。调查=`testend/rig/formal-evidence/SURF-111-stage-skill-investigation-20260825.md`，L2=`sessions/20260825-101708/evidence/SURF-111-stage-skill-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2470`（2300 baseline + 170 live），coverage=`848/494/0`，anchors=`10/10`。两条统计警报按 `SURF-111-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，阈值/算法/CODEX/锚点/gate 未改，`alarms.py check` clean；批次四十七由 `30→35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-112 stage/memory`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-25 · SURF-110 stage/agent 四槽创建与局部编辑正式五级入账
+
+- 静态反查确认 Agent 舞台同时消费 `prompt`、`tools`、`knowledge`、`modelOverride`；live 阶段未触槽保留旧真相，settled 阶段四槽回全墨，prompt 为有界视口；`create_agent` 与 `edit_agent` 的真实参数形状已冻结。
+- 真实 App 保留 knowledge 字符串化、缺 `apiKeyId` 两个失败路径和一次取消收尾 WARN；修正后只创建 `surf110-planner` v1，挂载 greet function、上手指南文档和 `anselm-auto`，随后只改 prompt 成 v2，其他字段保持不变。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-100206`，screen=`572.313333s / 2784x1808`，截图=`sessions/20260825-100206/evidence/SURF-110-stage-agent-settled.png`；REST/UI/SSE/LLM 一致，messages=`1..77`、entities=`7..10`、notifications=`16..19` 连续唯一，LLM 观测响应全`200`，backend/frontend 无未解释运行时红线，rig-down 无残留。调查=`testend/rig/formal-evidence/SURF-110-stage-agent-investigation-20260825.md`，L2=`sessions/20260825-100206/evidence/SURF-110-stage-agent-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2465`（2300 baseline + 165 live），coverage=`848/493/0`，anchors=`10/10`。两条统计警报按 `SURF-110-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，阈值/算法/CODEX/锚点/gate 未改，`alarms.py check` clean；批次四十七由 `25→30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-111 stage/skill`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-25 · SURF-109 stage/handler 生命周期与 RFC-7396 编辑正式五级入账
+
+- 静态反查确认 Handler 舞台真实契约：`set_init_args_schema(args)`、`set_init(initBody)`、`add_method(method)`、`update_method(name + patch)`、`set_shutdown(shutdownBody)`；timeout 由毫秒落盘、以秒钟词展示，sensitive init arg 掩码。focused Flutter=`12/12`，Go handler/tool 定向测试通过。
+- 真实 App 先保留模型错误 `set_method`、非法名称和 nested `method` 编辑形状的失败卡；后端与 SSE error close 诚实可见。模型自纠后创建 `surf109_notifier` v1，再用正确 RFC-7396 patch 编辑为 v2：`send` 从 `30s/sent` 变为 `45s/updated`，输入输出、init/shutdown 和 `apikey ••••`/`region` 保持不变。重新查看实体后右侧舞台展示 v2，v1 仍作为历史。
+- 五通道 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-095228`，screen=`334.810000s / 2784x1808 / 60fps`，截图=`sessions/20260825-095228/evidence/SURF-109-stage-handler-settled.png`；REST/SSE/entities/LLM/UI 均给出 v2、`timeout=45000`、`status:'updated'`、env ready/runtime running；backend 仅三条刻意失败 WARN，frontend 仅 IMK 平台噪声，managed completion 全`200`；rig-down 无残留。调查=`testend/rig/formal-evidence/SURF-109-stage-handler-investigation-20260825.md`，L2=`sessions/20260825-095228/evidence/SURF-109-stage-handler-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2460`（2300 baseline + 160 live），coverage=`848/492/0`，anchors=`10/10`。两条统计警报按 `SURF-109-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，阈值/算法/CODEX/锚点/gate 未改，`alarms.py check` clean；批次四十七由 `20→25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-110 stage/agent`。P12 的 400+ Journey 仍推迟二期。
+
+## 2026-08-25 · SURF-108 stage/subagent 一席一卡与真实终端活窗正式五级入账
+
+- 静态反查确认 `SubagentStageBody` 只消费本行 `StageScene`；`subagentTaskLabel` 从真实 `{subagent_type,prompt}` schema 取 `prompt` 首行；execution phase 才判 live，ReAct 尾和 progress 终端分别封顶 6/10 行，settle 元数据支持 nested close 与 lifted fields 双源。既有 focused Flutter 与 Go subagent/tool tests 通过。
+- 真实 App 先保留输入桥丢 `_` 导致的 Explore 负路径：只读白名单拒绝 Bash；随后用精确输入跑 `general-purpose`，真实 Bash 输出三行 `SURF108 terminal probe 1/2/3`、退出码 0；第三次短请求输出 `SURF108 LIVE 1/2/3`。AX live 显示 `正在派子代理… general-purpose` 与 `实时聆听中 · 落定以真相为准`，settling 显示 `正在落定`，settled 侧幕展开为单卡并显示 Bash、输出、退出码。负路径不计绿但留存。
+- 五通道 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-093437`，screen=`842.563333s / 2784x1808`，截图=`sessions/20260825-093437/evidence/SURF-108-stage-subagent-settled.png`；SSE 含 `Subagent`、`subagent:true`、Bash、progress、tool_result 和有序终端输出；LLM 经真实 `https://api.anselm.website` 且 completion 全`200`；backend 无 panic/fatal，只有故意失败路径的两条 Grep fallback WARN；frontend 仅已知 IMK 噪声；rig-down 封口无残留。调查=`testend/rig/formal-evidence/SURF-108-stage-subagent-investigation-20260825.md`，L2=`sessions/20260825-093437/evidence/SURF-108-stage-subagent-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2455`（2300 baseline + 155 live），coverage=`848/491/0`，anchors=`10/10`。两条统计警报按 `SURF-108-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，阈值/算法/CODEX/锚点/gate 未改，`alarms.py check` clean；批次四十七由 `15→20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-109`。P12 的 400+ Journey 仍推迟二期。
+
+## 2026-08-25 · SURF-107 stage/trigger 四脸与 nextFireAt 真相正式五级入账
+
+- 首轮真实读取 `SURF107-cron` 暴露产品红：通用 ISO 脱敏器把明确的 `nextFireAt` 替成“相应时间”，造成 REST/LLM wire 与最终 App 答案不一致；停止计绿。修复 `backend/internal/app/loop/redact.go` 的字段级窄保护，覆盖 direct field、翻译 table row 和 streaming chunk，普通 `createdAt`/`updatedAt` 仍脱敏；后端 `Test(Redact|TextRedactor)` 与 trigger focused=`21/21` 通过。
+- 修复后 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-092425`，真实 App + managed gateway + Computer Use 只读重跑；App/AX、REST、SSE close、LLM wire 均显示 `2026-08-26 09:00:00 (UTC+8)`，`listening=true`、`paused=false`、`refCount=1`，而 `最后更新`继续显示“相应时间”。四脸 setup 取自前置 session=`20260825-090642`，不把旧画面冒充修复后画面；嵌套 sensor target、畸形 ID 和输入桥残缺请求保留为负向事实。
+- 五通道：screen=`336.175000s / 2784x1808`，固定截图=`sessions/20260825-092425/evidence/SURF-107-fixed-next-fire.png`；backend 无应用红线；SSE 三流连接，messages=`1..21`、notifications=`1..2` 单调唯一、entities 无本路径业务 durable 帧；LLM managed wiring/chat 全`200`；frontend 仅已知 IMK 平台噪声，无 Flutter/Dart/布局/Unhandled 红线；rig-down 无残留。调查=`testend/rig/formal-evidence/SURF-107-stage-trigger-investigation-20260825.md`，L2=`sessions/20260825-092425/evidence/SURF-107-stage-trigger-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2450`（2300 baseline + 150 live），coverage=`848/490/0`，anchors=`10/10`。两条统计警报按 `SURF-107-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，阈值/算法/CODEX/锚点/gate 未改，`alarms.py check` clean；批次四十七由 `10→15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-108 stage/subagent`。P12 的 400+ Journey 仍推迟二期。
+
+## 2026-08-25 · SURF-106 stage/approval 审批预览正式五级入账
+
+- 静态反查发现 hosted gateway 的 `allowReason`/`timeout` 可能是字符串 scalar，timeout 为秒数；原 stage 只认 native 值。stop-and-fix 让 live stage 与 settled preview 共用 scalar seam，整秒转 `m/h/d/w`，并锁定 `"true"`、`"7200"`、`2h`、备注 chip 与零值 `0s`；focused Flutter=`22/22`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-085143`。AX 输入桥污染的首轮与旧对话 edit 路径排除；干净对话真实只调用一次 `create_approval`，创建 `SURF106-approval-clean` v1。Computer Use 展开 Activity 逐帧确认模板、amount/vendor 琥珀插值、`2h`、`2h 后自动拒绝`、`可填备注` 与批准/拒绝动作，未见 clipping/overlap/reflow/非用户跳变；REST active v1 对账一致。
+- 五通道 screen=`362.563333s`；backend 仅观测器缺 workspace 探针的 401，无应用红线；SSE durable=`messages 1..53 / notifications 1..7 / entities 1..2`，均唯一单调；LLM managed proof/install/models 与 9 次 completion 全 `200`，frontend 仅已知 IMK 噪声；rig-check/rig-down 通过且无残留。调查=`testend/rig/formal-evidence/SURF-106-stage-approval-investigation-20260825.md`，L2=`sessions/20260825-085143/evidence/SURF-106-stage-approval-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2445`（2300 baseline + 145 live），coverage=`848/489/0`，anchors=`10/10`。两条统计警报按 `SURF-106-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，阈值/算法/CODEX/锚点/gate 未改，`alarms.py check` clean；批次四十七=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`SURF-107 stage/trigger`。P12 的 400+ Journey 仍推迟二期。
+
+## 2026-08-25 · SURF-105 stage/control 决策梯正式五级入账，批次四十七 5/50
+
+- 静态反查发现 control stage 只读原生 `branches` 数组，无法消费真实托管模型产生的闭合 JSON 字符串数组；stop-and-fix 增加窄兼容 `controlBranchItems`，原生数组优先，合法闭合字符串才解码，部分/畸形流保持空集并按 session 缓存。新增回归后 focused Flutter=`20/20`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-083508` 的真实 App 先遇到 AX 输入层残缺请求，模型澄清、后端在 mutation 前拒绝坏 inputs；随后唯一 `SURF105` v1 创建成功。Computer Use 展开成功 stage，逐帧确认 hot/normal/otherwise 三段顺序、连续高度、独立“否则”徽记和明确“透传”幽灵；REST active v1 与 UI/正文一致。观察器输入负路径保留，不计产品红绿。
+- 五通道录屏总时长=`540.676667s`；backend 仅故意 validation WARN；SSE messages=`1..33`、notifications=`1..3`、entities=`1..2` 各自单调；LLM managed proof/install/models 与业务 completion 全 `200`；frontend 无 Flutter/Dart/布局/Unhandled 红线，仅已知 IMK 噪声；rebind 后 `rig-check`/`rig-down` 通过且无残留。调查=`testend/rig/formal-evidence/SURF-105-stage-control-investigation-20260825.md`，L2=`sessions/20260825-083508/evidence/SURF-105-stage-control-five-channel.md`。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2440`（2300 baseline + 140 live），coverage=`848/488/0`，anchors=`10/10`。两条统计警报按 `testend/rig/formal-evidence/SURF-105-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，`alarms.py check` clean；批次四十七当时=`5/50`，下一前线已由上方 SURF-106 整体重述接管。P12 的 400+ Journey 仍推迟二期。
 
 ## 2026-08-25 · SURF-104 stage/workflow 工作流图生长正式五级入账，批次四十六 50/50
 

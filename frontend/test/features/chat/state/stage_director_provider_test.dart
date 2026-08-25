@@ -304,6 +304,70 @@ void main() {
   );
 
   testWidgets(
+    'R-10 settles when the terminal arrives after receipt open but before receipt close',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+
+      repo.emitFrame(_conv, _open('b1', 'trigger_workflow'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(
+        _conv,
+        _callClose('b1', arguments: '{"workflowId":"wf_slow"}'),
+      );
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      await tester.pump();
+
+      // This is the production ordering observed on the entities stream: the execution receipt is
+      // open while the workflow publishes its durable terminal, and only then does the receipt close
+      // with the flowrun id.  真实顺序:回执已 open,workflow 先落 run_terminal,最后回执才带 flowrunId close。
+      repo.emitWorkflowFrame(
+        'wf_slow',
+        const StreamEnvelope(
+          seq: 12,
+          scope: StreamScope(kind: 'workflow', id: 'wf_slow'),
+          id: 'terminal-slow',
+          frame: FrameSignal(
+            node: StreamNode(
+              type: 'run_terminal',
+              content: {'flowrunId': 'fr_slow', 'status': 'completed'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
+
+      repo.emitFrame(
+        _conv,
+        StreamEnvelope(
+          seq: 13,
+          scope: _scope,
+          id: 'r1',
+          frame: const FrameClose(
+            status: 'completed',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {'content': '{"flowrunId":"fr_slow"}'},
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+
+      // It is now a normal settling state, not an eternal polling row. 此刻必须进入收卷停拍。
+      expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.following);
+      await tester.pump(const Duration(milliseconds: 2400));
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse);
+    },
+  );
+
+  testWidgets(
     'deltas on the SUBJECT do not broadcast (value equality); channel deltas badge unread',
     (tester) async {
       final repo = FixtureChatRepository();
