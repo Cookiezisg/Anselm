@@ -13,13 +13,18 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-190 已收口 · 批次六十六 50/50，统一门禁通过）
+## 当前前线覆盖声明（2026-08-26 · EDGE-190 已收口 · 批次六十六已提交 · 批次六十七 0/50）
+
+## 2026-08-26 · 批次六十六收口与提交
+
+- `EDGE-181..190` 共 50 格逐格登记，统一长门禁全绿；收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，提交=`1be292f9`（`test(rig): close batch 66 search edges`）。提交后工作树 clean，formal journal=`3436`（2300 baseline + 1136 live），COVERAGE=`848/687/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次六十七从=`0/50` 开始，下一原子前线=`EDGE-191`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-190 sifter 缺席回退
 
 - focused + 真实 LLM/HTTP 回归通过：utility 未配时两级 sifter fallback 到 index ranking，function/handler-method ref 可接线，document/skill 诱饵不泄漏；真实 App 五通道未执行，L2-L5 如实 na。
 - 正式证据=`testend/rig/formal-evidence/EDGE-190-search-sifter-absent-fallback-20260825.md`；五级=`measure:edge190-search-sifter-absent-fallback/na/na/na/na`；formal journal=`3436`（2300 baseline + 1136 live），COVERAGE=`848/687/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-190-ledger-alarm-reaudit-20260825.md`。
-- 批次六十六已达到=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，下一步提交本批；提交前不推进下一格。P12 400+ Journey 继续推迟二期。
+- 批次六十六已达到=`50/50`；统一长门禁全绿，随后已提交。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-189 Changed 队满丢事件
 

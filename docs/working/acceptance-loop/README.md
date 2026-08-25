@@ -297,7 +297,14 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-190 已完成；批次六十六 50/50，统一门禁通过)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-190 已完成；批次六十六已提交；批次六十七 0/50)
+
+#### 2026-08-26 批次六十六收口与提交
+
+批次六十六 `EDGE-181..190` 共 50 格已逐格登记，统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，
+已提交=`1be292f9`（`test(rig): close batch 66 search edges`）。提交后工作树保持 clean；当前 formal journal=`3436`
+（2300 baseline + 1136 live），COVERAGE=`848/687/0`，anchors=`10/10`，`alarms.py check` clean。批次六十七
+从 `0/50` 开始，下一原子前线=`EDGE-191`；P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-190 sifter 缺席回退
 
@@ -309,8 +316,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 `L1=measure:edge190-search-sifter-absent-fallback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3436`
 （2300 baseline + 1136 live），`gen_coverage.py --check`=`848 rows / 687 carried judgments / 0 tombstones`，
 `anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-190-ledger-alarm-reaudit-20260825.md`。
-批次六十六已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，
-下一步提交本批；提交前不推进下一格。P12 的 400+ Journey 继续按用户裁定推迟二期。
+批次六十六已达到=`50/50`；统一长门禁已通过，收口证据见上方，随后已提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-189 Changed 队满丢事件
 
