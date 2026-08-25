@@ -60,6 +60,20 @@ func agInvoke(t *testing.T, wc *harness.Client, agID string, input map[string]an
 	return res
 }
 
+// TestAgentR2_SysMountWithoutImageRoute: a capability mount must be absent when no capable image
+// route is configured; accepting it would let an agent promise generation and fail only at invoke.
+func TestAgentR2_SysMountWithoutImageRoute(t *testing.T) {
+	t.Parallel()
+	wc, _ := agentSetup(t)
+	r := wc.Do("POST", "/api/v1/agents", map[string]any{
+		"name": "No Image Route", "description": "honest capability probe", "prompt": "generate",
+		"tools": []map[string]any{{"ref": "sys:generate_image", "name": "generate image"}},
+	})
+	if r.Status != 422 || r.Code != "AGENT_MOUNT_INVALID" || !strings.Contains(string(r.Raw), "no usable route") {
+		t.Fatalf("routeless sys image mount must fail with actionable AGENT_MOUNT_INVALID, got %d/%s %s", r.Status, r.Code, r.Raw)
+	}
+}
+
 // fw 给脚本工具调用补 S18 框架字段（Framework 注入 schema、执行前剥离）。
 func fw(args map[string]any) map[string]any {
 	out := map[string]any{"summary": "scripted", "danger": "safe", "execution_group": 1}

@@ -644,6 +644,23 @@ func TestContractPlatform_SandboxGovernanceEdges(t *testing.T) {
 	}
 	wb.GET("/api/v1/sandbox/envs/"+envs[0].ID).OK(t, nil) // 单读同理机器级可达
 
+	// A resident env must reject DELETE with a stable conflict and remain visible; only
+	// after the process stops may the product surface destroy it.
+	markRunning := fmt.Sprintf("UPDATE sandbox_envs SET running_pid=4242 WHERE id='%s';", envs[0].ID)
+	if out, err := exec.Command("sqlite3", filepath.Join(srv.DataDir, "anselm.db"), markRunning).CombinedOutput(); err != nil {
+		t.Fatalf("seed resident env guard: %v\n%s", err, out)
+	}
+	if busy := wa.Do("DELETE", "/api/v1/sandbox/envs/"+envs[0].ID, nil); busy.Status != 409 || busy.Code != "SANDBOX_ENV_IN_USE" {
+		t.Fatalf("resident env DELETE = %d/%s, want 409/SANDBOX_ENV_IN_USE", busy.Status, busy.Code)
+	}
+	if still := wb.GET("/api/v1/sandbox/envs/" + envs[0].ID); still.Status != 200 {
+		t.Fatalf("resident env disappeared after rejected DELETE: %d/%s", still.Status, still.Code)
+	}
+	clearRunning := fmt.Sprintf("UPDATE sandbox_envs SET running_pid=0 WHERE id='%s';", envs[0].ID)
+	if out, err := exec.Command("sqlite3", filepath.Join(srv.DataDir, "anselm.db"), clearRunning).CombinedOutput(); err != nil {
+		t.Fatalf("clear resident env guard: %v\n%s", err, out)
+	}
+
 	// DELETE is a machine-level mutation: it removes the env, is visible from both
 	// workspace clients, and a repeat is a loud 404 rather than a false 204.
 	// DELETE 是机器级 mutation：删除后两 workspace 都不可读，重复删除明确 404 而不是假 204。

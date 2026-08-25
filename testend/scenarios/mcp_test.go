@@ -487,4 +487,12 @@ func TestMCP_OfficialFilesystemServer(t *testing.T) {
 	if page.Aggregates.OKCount != 1 {
 		t.Fatalf("fs call must be in the ledger: %+v", page.Aggregates)
 	}
+
+	// Delete the real npx-backed server through the product surface, not only via harness
+	// shutdown. The focused sandbox regression separately proves the underlying process-group
+	// kill reaches the wrapper's grandchild.
+	wc.DELETE("/api/v1/mcp-servers/fs")
+	wc.Do("GET", "/api/v1/mcp-servers/fs", nil).Fail(t, 404, "MCP_SERVER_NOT_FOUND")
+	wc.Do("POST", "/api/v1/mcp-servers/fs/tools/"+readTool+":invoke", map[string]any{}).
+		Fail(t, 404, "MCP_SERVER_NOT_FOUND")
 }
