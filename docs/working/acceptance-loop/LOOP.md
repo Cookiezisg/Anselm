@@ -13,13 +13,13 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，待提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，已提交）
 
 ## 2026-08-25 · EDGE-130 版本 cap 50 trim 回收 venv
 
 - focused `-race` 与真实 51 次 edit 通过：cap=50，最老非 active 版本被 trim，关联 venv 由 `DestroyEnv` 回收，active version 保留；REST 版本/env 列表对账成立，收台无残留句柄。
 - 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`；五级=`measure:edge130-version-cap-trim-reclaims-env/na/na/na/na`；formal journal=`3136`，COVERAGE=`848/627/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
-- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿。当前待提交；提交后下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
+- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-129 env 被 GC 后重试一次
 

@@ -10,11 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，待提交）
+## 当前前线（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，已提交）
 
 - EDGE-130 复核版本 cap 50：真实 51 次 edit 后最老非 active 版本被 trim，`DestroyEnv` 回收其 venv，active version 保留，REST 版本/env 列表对账并收台无残留。
 - 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`；`judge.py` 写入五格 `measure:edge130-version-cap-trim-reclaims-env/na/na/na/na`；formal journal=`3136`，COVERAGE=`848/627/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
-- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿。当前待提交；提交后下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
+- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
 
 - EDGE-129 复核 GC 后透明重试：真实路径回收 function env，再次 `:run` 触发重建并只重试一次，最终成功且不铸造新版本。
 - 正式证据=`testend/rig/formal-evidence/EDGE-129-env-gc-retry-once-20260825.md`；`judge.py` 写入五格 `measure:edge129-env-gc-retry-once/na/na/na/na`；formal journal=`3131`，COVERAGE=`848/626/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。

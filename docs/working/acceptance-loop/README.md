@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-130 已完成；批次六十 50/50，统一门禁通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-130 已完成；批次六十 50/50，统一门禁通过，已提交)
 
 #### 2026-08-25 当前前线重述：EDGE-130 版本 cap 50 trim 回收 venv
 
@@ -306,7 +306,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`。五级严格为
 `L1=measure:edge130-version-cap-trim-reclaims-env`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/数据库/sandbox 对账不替代独立 Computer Use、测量、视觉和 discoverability 证据。
 formal journal=`3136`（2300 baseline + 836 live），`gen_coverage.py --check`=`848 rows / 627 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
-批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿。当前待提交；提交后下一原子前线=`EDGE-131`（批次六十一从 `0/50` 开始）。P12 的 400+ Journey 继续按用户裁定推迟二期。
+批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。下一原子前线=`EDGE-131`（批次六十一从 `0/50` 开始）。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-129 env 被 GC 后重试一次
 
