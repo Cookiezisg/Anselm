@@ -13,13 +13,13 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-320 已收口 · 批次七十九 50/50，统一门禁通过，已提交=ddf7994f）
+## 当前前线覆盖声明（2026-08-26 · EDGE-332 已收口 · 批次八十 50/50，统一门禁通过，已提交=01fc5f15）
 
-## 2026-08-26 · EDGE-311..320 批次七十九收口，统一长门禁通过，已提交=ddf7994f
+## 2026-08-26 · EDGE-321..332 批次八十收口，统一长门禁通过，已提交=01fc5f15
 
-- 按序完成 10 个边界、50 个账本格：消息版本/深跳归队、编辑器 undo/caret/selection/Markdown、Library 大纲与 skill autosave；十行均为 `✓~~~~`，L2-L5 明确 `na`，没有把聚焦测试冒充真实 App 五通道证据。
-- 正式证据为 `testend/rig/formal-evidence/EDGE-311-back-to-live-reanchor-20260826.md` 至 `EDGE-320-skill-dual-writer-window-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-79-ledger-alarm-reaudit-20260826.md`。
-- formal journal=`4086`（2300 baseline + 1786 live），`COVERAGE=848/817/0`，`anchors=10/10`，`alarms.py check` clean；批次七十九已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-79-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`ddf7994f`。下一原子前线=`EDGE-321`。P12 400+ Journey 按用户裁定推迟二期。
+- 按序完成 `EDGE-321..324`、`EDGE-327..332` 共 10 个边界、50 个账本格；`EDGE-325/326` 已在先前批次完整收口。十行均为 `✓~~~~`，L2-L5 明确 `na`，没有把聚焦测试冒充真实 App 五通道证据。
+- 正式证据为 `testend/rig/formal-evidence/EDGE-321-draft-first-edit-20260826.md` 至 `EDGE-332-mcp-frame-coalescing-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-80-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`4136`（2300 baseline + 1836 live），`COVERAGE=848/827/0`，`anchors=10/10`，警报复审后 `alarms.py check` clean；批次八十已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-80-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`01fc5f15`。下一原子前线=`EDGE-333`。P12 400+ Journey 按用户裁定推迟二期。
 
 ## 历史：2026-08-26 · EDGE-301..310 批次七十八收口，统一长门禁通过，已提交=a81491a8
 

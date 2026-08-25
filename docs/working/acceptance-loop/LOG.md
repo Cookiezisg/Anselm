@@ -7875,6 +7875,13 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 - 正式证据=`testend/rig/formal-evidence/EDGE-301-notice-clear-watermark-20260826.md` 至 `EDGE-310-transcript-deep-jump-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-78-ledger-alarm-reaudit-20260826.md`。
 - formal journal=`4036`（2300 baseline + 1736 live），`COVERAGE=848/807/0`，`anchors=10/10`，最终 `alarms.py check` clean；批次七十八=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-78-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`a81491a8`。下一原子前线=`EDGE-311`。P12 400+ Journey 按用户裁定推迟二期。
 
+## 2026-08-26 · EDGE-321..332 批次八十收口，统一长门禁通过，已提交=01fc5f15
+
+- 按序完成 `EDGE-321..324`、`EDGE-327..332` 共 10 个边界、50 个账本格；`EDGE-325/326` 已在前批完整收口。L1 全部为 `✓~~~~`，L2-L5 明确 `na`，不冒充真实 App 或五通道证据。
+- 有效专项 Flutter 测试集合 `135/135` 与本批限额/MCP专项 `50/50` 通过，覆盖 Library 草稿转正、缩放、全屏壳体、窗角 token、workspace 热切换、快捷键、设置搜索、限额错误态与 MCP 刷新契约。
+- 正式证据=`testend/rig/formal-evidence/EDGE-321-draft-first-edit-20260826.md` 至 `EDGE-332-mcp-frame-coalescing-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-80-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`4136`（2300 baseline + 1836 live），`COVERAGE=848/827/0`，`anchors=10/10`；两项统计警报已独立复审销账，最终 `alarms.py check` clean。批次八十已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-80-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`01fc5f15`。下一原子前线=`EDGE-333`。P12 400+ Journey 按用户裁定推迟二期。
+
 ## 历史：2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
 
 - 按序完成 memory/todo/relation/touchpoint 台账事实、触点目录穷尽性和通知中心积压/公平/权威计数共 10 个边界、50 个账本格；十行 L1 均为 `✓~~~~`，L2-L5 明确 `na`，未冒充真实 App 五通道证据。

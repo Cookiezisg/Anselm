@@ -297,23 +297,26 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-320 已完成；批次七十九 50/50，统一门禁通过，已提交=ddf7994f)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-332 已完成；批次八十 50/50，统一门禁通过，已提交=01fc5f15)
 
-#### 2026-08-26 当前前线重述：EDGE-311..320 批次七十九已完成，统一长门禁通过
+#### 2026-08-26 当前前线重述：EDGE-321..332 批次八十已完成，统一长门禁通过
 
-批次七十九按序完成 `EDGE-311..320` 共 10 个边界、50 个账本格。十格的 L1 均由消息跳转/版本链、编辑器
-caret/selection/Markdown、Library 大纲与 skill autosave 的 Flutter 聚焦测试支持，目标行均为 `✓~~~~`；没有把
-本轮单测或源代码检查冒充新的真实 App 五通道，故 L2-L5 全部明确为 `na`。覆盖内容依次为：归队重钉贴底、
-retryOf 版本组、undo 全量重建、唯一光标、空 task 自愈、CJK 行内代码连续高亮、跨块选区缝隙、原子块点击保护、
-大纲 heading 不变式和 skill 双写者窗口。
+批次八十已按序完成 `EDGE-321..324` 与 `EDGE-327..332` 共 10 个边界、50 个账本格；`EDGE-325`、`EDGE-326`
+已在前批完整收口，未重复记账。L1 均由 Library 草稿、缩放、全屏/窗角、workspace 热切换、快捷键、设置搜索、
+限额错误态和 MCP 刷新契约
+的有效 Flutter 聚焦测试或源码契约支持，目标行均为 `✓~~~~`；没有把本轮测试或源代码检查冒充新的真实 App
+五通道，故 L2-L5 全部明确为 `na`。覆盖内容依次为：草稿首次编辑、应内缩放到顶、进全屏白带、窗角半径
+swizzle 失效、workspace 热切换三拍、快捷键冷启动、快捷键录制后释焦、设置项搜索索引漂移、限额面板载入失败、
+MCP 面板帧不可信。
 
-正式证据分别为 `testend/rig/formal-evidence/EDGE-311-back-to-live-reanchor-20260826.md` 至
-`EDGE-320-skill-dual-writer-window-20260826.md`；独立警报复审=
-`testend/rig/formal-evidence/batch-79-ledger-alarm-reaudit-20260826.md`。formal journal=`4086`
-（2300 baseline + 1786 live），`gen_coverage.py --check`=`848 rows / 817 carried judgments / 0 tombstones`，
-批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check`=`clean`。批次七十九已满=`50/50`；统一长门禁证据=
-`testend/rig/formal-evidence/batch-79-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs
-verify、格式与进程审计全绿，已提交=`ddf7994f`。下一原子前线=`EDGE-321`。P12 400+ Journey 继续按用户裁定推迟二期。
+正式证据分别为 `testend/rig/formal-evidence/EDGE-321-draft-first-edit-20260826.md` 至
+`EDGE-332-mcp-frame-coalescing-20260826.md`；独立警报复审=
+`testend/rig/formal-evidence/batch-80-ledger-alarm-reaudit-20260826.md`。formal journal=`4136`
+（2300 baseline + 1836 live），`gen_coverage.py --check`=`848 rows / 827 carried judgments / 0 tombstones`，
+目标行均=`✓~~~~`，`anchors=10/10`，警报已按复审销账，最终 `alarms.py check`=`clean`。批次八十已满=`50/50`；
+统一长门禁证据=`testend/rig/formal-evidence/batch-80-unified-gate-20260826.md`，根门禁、完整 backend testend、rig
+自测、backend/docs verify、格式与进程审计全绿，已提交=`01fc5f15`。下一原子前线=`EDGE-333`。P12 400+ Journey
+继续按用户裁定推迟二期。
 
 #### 历史收口：EDGE-301..310 批次七十八已完成，统一长门禁通过
 
