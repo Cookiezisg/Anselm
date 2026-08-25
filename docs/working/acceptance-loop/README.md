@@ -297,21 +297,23 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-230 已完成；批次七十 50/50，统一门禁通过，已提交=c1dabcde)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-240 已完成；批次七十一 50/50，统一门禁待跑)
 
-#### 2026-08-26 当前前线重述：EDGE-230 ParseWAV 遍历 chunk 表
+#### 2026-08-26 当前前线重述：EDGE-231..240 批次七十一已收口 focused L1
 
-`EDGE-230` 已完成 WAV chunk 遍历的 L1 focused regression：标准 round-trip、插入 `LIST` metadata 和插入
-`fact` metadata 均只取回精确 data PCM，不把 metadata 当样本。独立正式 App/TTS 播放和五通道 session 尚未
-执行，L2-L5 保持 `na`。
+批次七十一按序完成 `EDGE-231..240` 共 10 个边界、50 个账本格。十格的 L1 均由可定位的 focused
+回归或现有正式证据支持，五格均为 `✓~~~~`；没有把本轮单测、源代码检查或历史文字冒充真实 App 五通道，
+故 L2-L5 全部明确为 `na`。覆盖内容依次为：断网启动、模型目录刷新失败、boot 重挂与 misfire 顺序、优雅
+关停、关停预算、父进程监视、坏 settings、三段 settings 整体写、CHECK 重建和 ADD COLUMN 幂等。
 
-正式证据=`testend/rig/formal-evidence/EDGE-230-parse-wav-chunks-20260826.md`；五级=
-`measure:edge230-parse-wav-chunks/na/na/na/na`；formal journal=`3636`（2300 baseline + 1336 live），
-`gen_coverage.py --check`=`848 rows / 727 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
-`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-230-ledger-alarm-reaudit-20260826.md`。
-- 批次七十已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-70-unified-gate-20260826.md`，
-  `make verify`、完整 testend、rig 51 项、后端 verify、文档、锚点、警报、脚本语法、gofmt、diff 和进程审计
-  全部通过；已提交=`c1dabcde`。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
+正式证据分别为 `testend/rig/formal-evidence/EDGE-231-offline-boot-20260826.md` 至
+`EDGE-240-add-column-idempotency-20260826.md`；独立警报复审=
+`testend/rig/formal-evidence/batch-71-ledger-alarm-reaudit-20260826.md`。formal journal=`3686`
+（2300 baseline + 1386 live），`gen_coverage.py --check`=`848 rows / 737 carried judgments / 0 tombstones`，
+批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。
+- 批次七十一已满=`50/50`；尚未提交。下一原子前线暂不推进，必须先完成统一长门禁：根 `make verify`、完整
+  backend `testend`、rig 自测、backend/docs verify、锚点、警报、脚本语法、gofmt、diff 和进程收台审计。
+  P12 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-229 多块 TTS PCM 拼接
 

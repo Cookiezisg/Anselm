@@ -13,7 +13,18 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-230 已收口 · 批次七十 50/50，统一门禁通过，已提交=c1dabcde）
+## 当前前线覆盖声明（2026-08-26 · EDGE-240 已收口 · 批次七十一 50/50，统一门禁待跑）
+
+## 2026-08-26 · EDGE-231..240 批次七十一收口
+
+- 按序完成 10 个边界、50 个账本格：断网启动、模型目录刷新失败、boot 重挂顺序、优雅关停与预算、父进程
+  监视、坏 settings、三段 settings 写、CHECK 重建、ADD COLUMN 幂等；十行均为 `✓~~~~`，L2-L5 明确 `na`。
+- 正式证据为 `testend/rig/formal-evidence/EDGE-231-offline-boot-20260826.md` 至
+  `EDGE-240-add-column-idempotency-20260826.md`；独立警报复审=
+  `testend/rig/formal-evidence/batch-71-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`3686`（2300 baseline + 1386 live），`COVERAGE=848/737/0`，`anchors=10/10`，
+  `alarms.py check` clean；50 格已满，统一长门禁待跑，未提交。下一原子前线暂不推进。P12 400+ Journey
+  按用户裁定推迟二期。
 
 ## 2026-08-26 · EDGE-230 ParseWAV 遍历 chunk 表
 

@@ -10,7 +10,18 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-230 已收口 · 批次七十 50/50，统一门禁通过，已提交=c1dabcde）
+## 当前前线（2026-08-26 · EDGE-240 已收口 · 批次七十一 50/50，统一门禁待跑）
+
+## 2026-08-26 · EDGE-231..240 批次七十一收口
+
+- 十个边界共 50 格按序落账，L1 全部 focused 通过，五格形态均为 `✓~~~~`；没有真实 App 五通道 session 的
+  L2-L5 均明确记 `na`，不把单测冒充黑盒证据。
+- 证据=`testend/rig/formal-evidence/EDGE-231-offline-boot-20260826.md` 至
+  `testend/rig/formal-evidence/EDGE-240-add-column-idempotency-20260826.md`；警报复审=
+  `testend/rig/formal-evidence/batch-71-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`3686`（2300 baseline + 1386 live），`COVERAGE=848/737/0`，`anchors=10/10`，
+  `alarms.py check` clean；50/50，统一长门禁待跑，未提交。下一原子前线暂不推进。P12 400+ Journey
+  按用户裁定推迟二期。
 
 - `EDGE-230` focused L1 通过：WAV 标准、LIST、fact chunk 遍历均只取 data PCM；L2-L5 因无独立真实 App/TTS
   播放与五通道 session 明确为 `na`。
