@@ -45,3 +45,19 @@ func TestToolResultMediaIDs_CarriesTheToolCallID(t *testing.T) {
 		t.Fatalf("group 2 = %+v, want the generated artifact under its own call", groups[2])
 	}
 }
+
+func TestToolResultMediaIDs_FindsReceiptAfterMCPPlaceholder(t *testing.T) {
+	blocks := []messagesdomain.Block{{
+		Type:          messagesdomain.BlockTypeToolResult,
+		ParentBlockID: "tc_mcp",
+		Content:       "[image: image/png]\n{\"attachmentId\":\"att_4444444444444444\",\"source\":\"mcp_artifact\"}",
+	}}
+
+	groups := toolResultMediaIDs(blocks)
+	if len(groups) != 1 || groups[0].toolCallID != "tc_mcp" {
+		t.Fatalf("groups = %+v, want one MCP group under tc_mcp", groups)
+	}
+	if len(groups[0].ids) != 1 || groups[0].ids[0] != "att_4444444444444444" {
+		t.Fatalf("MCP placeholder receipt ids = %v, want the embedded attachment", groups[0].ids)
+	}
+}

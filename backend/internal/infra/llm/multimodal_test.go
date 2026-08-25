@@ -2,6 +2,7 @@ package llm
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"net/http"
 	"strings"
@@ -151,6 +152,15 @@ func TestDeepSeekAllTextPartsCollapse(t *testing.T) {
 	body := string(raw)
 	if strings.Contains(body, `"type":"text"`) {
 		t.Errorf("all-text parts must collapse to string content, got array\nbody: %s", body)
+	}
+	dr := deepseekBody(t, req)
+	var content string
+	if err := json.Unmarshal(dr.Messages[0].Content, &content); err != nil {
+		t.Fatalf("collapsed content must be a JSON string: %v; raw=%s", err, dr.Messages[0].Content)
+	}
+	wantContent := "看看这张图\n\n[image \"shot.png\" attached, but the current model has no vision]"
+	if content != wantContent {
+		t.Fatalf("collapsed content = %q, want exact ordered join %q", content, wantContent)
 	}
 	for _, want := range []string{"看看这张图", "shot.png"} {
 		if !strings.Contains(body, want) {

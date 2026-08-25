@@ -25,6 +25,30 @@ func TestSanitizeMessagesStubsOrphanToolCall(t *testing.T) {
 	}
 }
 
+func TestSanitizeMessagesStubsOnlyMissingCallsInBatch(t *testing.T) {
+	out := SanitizeMessages([]LLMMessage{
+		{Role: RoleUser, Content: "q"},
+		{Role: RoleAssistant, ToolCalls: []LLMToolCall{
+			{ID: "done", Name: "finished"},
+			{ID: "cancelled", Name: "interrupted"},
+		}},
+		{Role: RoleTool, ToolCallID: "done", Content: "real result"},
+		{Role: RoleUser, Content: "continue"},
+	})
+	if len(out) != 5 {
+		t.Fatalf("sanitized batch = %+v, want user + assistant + result + stub + next user", out)
+	}
+	if out[2].Role != RoleTool || out[2].ToolCallID != "done" || out[2].Content != "real result" {
+		t.Fatalf("completed tool result changed: %+v", out[2])
+	}
+	if out[3].Role != RoleTool || out[3].ToolCallID != "cancelled" || out[3].Content == "" {
+		t.Fatalf("missing call was not stubbed: %+v", out[3])
+	}
+	if out[4].Role != RoleUser || out[4].Content != "continue" {
+		t.Fatalf("next user message was not preserved: %+v", out[4])
+	}
+}
+
 func TestSanitizeMessagesDropsStrayTool(t *testing.T) {
 	out := SanitizeMessages([]LLMMessage{
 		{Role: RoleUser, Content: "q"},

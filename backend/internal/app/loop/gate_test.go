@@ -6,6 +6,7 @@ import (
 	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -112,6 +113,95 @@ func TestDispatchWithGate_ApprovalUsesResolvedToolAction(t *testing.T) {
 	}
 	if got := prompt["summary"]; got != "Permanently delete this workflow from normal reads. It is not restorable; automation is stopped and history is retained for audit." {
 		t.Fatalf("gate must use the resolved delete action, got %v", got)
+	}
+}
+
+func TestDispatchWithGate_BlocksSideEffectUntilApproval(t *testing.T) {
+	surfaced := make(chan struct{})
+	broker := humanloopapp.New(func(context.Context, humanloopapp.Request) { close(surfaced) })
+	ctx := humanloopapp.WithBroker(context.Background(), broker)
+	ran := false
+	tool := trackingTool{fakeTool: fakeTool{name: "deploy", result: "deployed"}, ran: &ran}
+	result := make(chan struct {
+		out      string
+		executed bool
+	}, 1)
+	go func() {
+		out, _, _, executed, _ := dispatchWithGate(ctx, tool, dangerTC("deploy"), []byte(`{}`), zap.NewNop())
+		result <- struct {
+			out      string
+			executed bool
+		}{out: out, executed: executed}
+	}()
+
+	select {
+	case <-surfaced:
+	case <-time.After(time.Second):
+		t.Fatal("dangerous call did not surface an interaction")
+	}
+	select {
+	case got := <-result:
+		t.Fatalf("dangerous call completed before approval: %+v", got)
+	case <-time.After(20 * time.Millisecond):
+		if ran {
+			t.Fatal("dangerous tool executed while approval was pending")
+		}
+	}
+
+	if !broker.Resolve("tc1", humanloopapp.Response{Action: humanloopapp.DecisionApprove}) {
+		t.Fatal("approval was not delivered to the pending interaction")
+	}
+	select {
+	case got := <-result:
+		if got.out != "deployed" || !got.executed || !ran {
+			t.Fatalf("approved call = %+v, ran=%v; want executed deployed", got, ran)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("approved dangerous call did not finish")
+	}
+}
+
+func TestDispatchWithGate_ApproveAlwaysIsScopedToConversationAndTool(t *testing.T) {
+	surfaced := 0
+	var broker *humanloopapp.Broker
+	broker = humanloopapp.New(func(_ context.Context, req humanloopapp.Request) {
+		surfaced++
+		go broker.Resolve(req.ToolCallID, humanloopapp.Response{Action: humanloopapp.DecisionApproveAlways})
+	})
+	ctx := reqctxpkg.SetConversationID(humanloopapp.WithBroker(context.Background(), broker), "cv1")
+
+	for i, name := range []string{"deploy", "deploy"} {
+		out, _, ok, executed, approved := dispatchWithGate(ctx, fakeTool{name: name, result: "deployed"}, dangerTC(name), []byte(`{}`), zap.NewNop())
+		if !ok || !executed || out != "deployed" {
+			t.Fatalf("call %d = out=%q ok=%v executed=%v", i+1, out, ok, executed)
+		}
+		if i == 0 && !approved {
+			t.Fatal("first call should record explicit approve_always")
+		}
+		if i == 1 && approved {
+			t.Fatal("second whitelisted call should not report a new human approval")
+		}
+	}
+	if surfaced != 1 {
+		t.Fatalf("same conversation/tool should surface once, got %d", surfaced)
+	}
+
+	ctxOtherTool := ctx
+	other := messagesdomain.ToolCallData{ID: "tc_other", Name: "publish", Danger: string(toolapp.DangerDangerous)}
+	if _, _, _, executed, _ := dispatchWithGate(ctxOtherTool, fakeTool{name: "publish", result: "published"}, other, []byte(`{}`), zap.NewNop()); !executed {
+		t.Fatal("different dangerous tool should execute only after its own approval")
+	}
+	if surfaced != 2 {
+		t.Fatalf("different tool must surface a separate approval, got %d", surfaced)
+	}
+
+	ctxOtherConversation := reqctxpkg.SetConversationID(humanloopapp.WithBroker(context.Background(), broker), "cv2")
+	otherConversation := messagesdomain.ToolCallData{ID: "tc_cv2", Name: "deploy", Danger: string(toolapp.DangerDangerous)}
+	if _, _, _, executed, _ := dispatchWithGate(ctxOtherConversation, fakeTool{name: "deploy", result: "deployed"}, otherConversation, []byte(`{}`), zap.NewNop()); !executed {
+		t.Fatal("same tool in a different conversation should require its own approval")
+	}
+	if surfaced != 3 {
+		t.Fatalf("different conversation must surface a separate approval, got %d", surfaced)
 	}
 }
 

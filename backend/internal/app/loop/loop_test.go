@@ -1355,6 +1355,11 @@ func TestRun_SelfAuthoredMediaIsFedBack(t *testing.T) {
 	if !found {
 		t.Fatalf("the follow-up request never carries the generated image: %+v", client.captured[1])
 	}
+	for _, block := range host.fin.blocks {
+		if block.Content == "Media artifacts referenced by the tool results above:" {
+			t.Fatalf("transient media follow-up user message leaked into finalized blocks: %+v", host.fin.blocks)
+		}
+	}
 }
 
 // TestRun_EvidenceMediaStillExpands is the OTHER half of the rule, and the reason it is keyed on the

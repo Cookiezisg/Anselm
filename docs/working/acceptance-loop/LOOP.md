@@ -13,7 +13,103 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-011 已收口 · 批次四十八 51/50；统一长门禁已解锁）
+## 当前前线覆盖声明（2026-08-25 · EDGE-021 已收口 · 批次四十九 50/50；统一长门禁已通过；下一前线 EDGE-022）
+
+## 2026-08-25 · EDGE-021 白名单随对话删除清除
+
+- conversation-delete cascade 通过实际 `chat.Service.ForgetConversation` 钩子清掉被删除对话全部
+  `approve_always` 授权，同时保留另一存活对话的授权。新增 chat hook 回归，并与 humanloop broker prefix
+  清理测试一起通过普通与 `go test -race`，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-021-forget-conversation-grants-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-021-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge021-forget-clears-grants/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2591`，coverage=`848/518/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`50/50`；统一长门禁证据=`testend/rig/formal-evidence/batch-49-unified-gate-20260825.md`，`make verify`、完整
+  `make -C backend testend`=`270.240s`、rig 51 tests、脚本/格式/清册/锚点/警报和进程审计全绿；本批随后提交。下一前线=`EDGE-022`。
+  P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-020 approve_always 会话白名单
+
+- approve_always 只作用于同一 `(conversation, tool)`；同键第二次直通，换工具/换会话仍 gate，越界事实闸不
+  受白名单豁免。新增 loop gate 三路径回归与 race，全绿无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-020-approve-always-scope-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-020-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge020-approve-always-scope/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2586`，coverage=`848/517/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-021`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-019 危险工具人闸阻塞
+
+- dangerous call 在 approval pending 时阻塞且不执行，显式 approve 后才放行；静态 danger floor 不能被模型
+  自报 safe 绕过。新增时序回归锁住 surface→未执行→approve→执行，相关 loop/race 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-019-danger-gate-blocking-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-019-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge019-danger-gate-blocking/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2581`，coverage=`848/516/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-020`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-018 sanitizer 孤儿 tool_call 补 stub
+
+- `SanitizeMessages` 保留已完成 result，为取消/缺失 call 按 assistant 原序补 interrupted stub，丢弃 stray
+  tool；新增多调用批次回归并通过 llm/provider 与 `go test -race`，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-018-sanitizer-orphan-tool-call-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-018-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge018-sanitizer-orphan-tool-call/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2576`，coverage=`848/515/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-019`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-017 DeepSeek 全文本 parts 坍缩
+
+- DeepSeek wire 在无媒体幸存时把全文本 parts 按 `\n\n` 拼成 JSON string content；有媒体仍保留 parts array。
+  新增回归解析真实 request body，锁住 string 类型、顺序和精确分隔符；普通测试与 `go test -race` 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-017-deepseek-text-parts-collapse-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-017-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge017-deepseek-text-parts-collapse/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2571`，coverage=`848/514/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-018`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-016 生成族产地过滤
+
+- MediaRef 不再按 `source=generate_*` 做 producer veto；生成 receipt 与 function/MCP artifact 一样进入
+  MediaExpander，并按 producing tool call 分组，字节仍由能力/信封 gate 决定。现有 loop/mediaref 与 race
+  回归全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-016-generation-no-producer-veto-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-016-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge016-generation-no-producer-veto/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2566`，coverage=`848/513/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-017`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-015 MCP 非纯 JSON 结果里的 receipt
+
+- MCP `[image: image/png]` 占位文本加嵌入 JSON receipt 的混合结果不再被整段 JSON gate 丢弃；loop 保留文本，
+  `mediaref.Collect` 解析合法 `att_<16hex>` 并按 producing tool call 分组。新增混合形状回归，普通
+  loop/mediaref 测试与 `go test -race` 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-015-mcp-embedded-receipt-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-015-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge015-mcp-embedded-receipt/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2561`，coverage=`848/512/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-016`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-014 MediaExpander 当轮回喂
+
+- MediaRef 按 producing tool call 分组，只在下一次 provider request 追加原生 content part；生成图与
+  function/MCP artifact 共用消费咽喉，无 expander/模态不支持时保留 receipt。临时 user 消息不进 finalized blocks。
+  新增回归锁住首次/后续 request、产地归属、无媒体不展开和持久隔离，普通测试与 `go test -race` 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-014-media-expander-same-turn-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-014-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge014-media-expander-same-turn/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2556`，coverage=`848/511/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-015`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-013 ObjectMap 字符串化对象参数
+
+- `run_function.args` 通过公共 `tool.ObjectMap` 接受原生 object 与 JSON 字符串承载的同一 object；数组、数字、
+  普通非 JSON 字符串和字符串化数组拒绝。新增公共边界回归，普通测试与 `go test -race` 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-013-objectmap-stringified-object-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-013-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge013-objectmap-stringified-object/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2551`，coverage=`848/510/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-014`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-012 danger 非枚举值 fail-open
+
+- 标准字段剥离器对未知/缺失 `danger` 回落 `safe`；工具的静态危险 floor 仍不可绕过，会把真实不可逆
+  操作抬回 `dangerous`。现有实现正确，无 stop-and-fix；focused tool/loop 和 race suite 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-012-invalid-danger-fail-open-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-012-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge012-danger-fail-open/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2546`，coverage=`848/509/0`，anchors=`10/10`，
+  警报 clean。批次四十九=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-013`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-011 execution_group 并发与下标拍平
 

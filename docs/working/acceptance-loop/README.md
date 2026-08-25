@@ -297,7 +297,158 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-011 已完成；批次四十八 51/50，统一长门禁已解锁)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-021 已完成；批次四十九 50/50 已过统一长门禁，下一前线 EDGE-022)
+
+#### 2026-08-25 当前前线重述：EDGE-021 白名单随对话删除清除
+
+`chat.Service.ForgetConversation` 是 conversation-delete cascade 的实际生命周期钩子：它清掉被删除对话的
+全部 `approve_always` 授权，同时保留其他存活对话的授权。新增 chat hook 回归，并与 humanloop broker 的
+prefix 清理测试一起通过普通与 `go test -race`；没有发现需 stop-and-fix 的实现缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-021-forget-conversation-grants-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-021-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge021-forget-clears-grants`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2591`（2300 baseline + 291 live），
+`gen_coverage.py --check`=`848 rows / 518 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`50/50`，统一长门禁证据=`testend/rig/formal-evidence/batch-49-unified-gate-20260825.md`：
+`make verify`、完整 `make -C backend testend`（270.240s）、rig 51 tests、脚本/格式/清册/锚点/警报和进程审计全绿；
+本批随后提交。下一前线=`EDGE-022`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-020 approve_always 会话白名单
+
+`approve_always` 只写入 broker 的 `(conversationID, tool)` 授权键：第一次危险调用仍经过 interaction，同一
+会话再次调用同一工具不再弹闸，但换工具或换会话都必须建立自己的批准；越界驻地写的事实闸仍不可豁免。
+新增 loop gate 回归实际走过三条路径并通过 race：同键一次批准后直通、换工具重新询问、换会话重新询问，
+没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-020-approve-always-scope-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-020-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge020-approve-always-scope`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2586`（2300 baseline + 286 live），
+`gen_coverage.py --check`=`848 rows / 517 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`45/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-021`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-019 危险工具人闸阻塞
+
+`dispatchWithGate` 在执行前验证输入并计算有效 danger；dangerous 调用在 broker interaction 未得到明确
+approve/approve_always 前阻塞，工具不发生副作用。interaction 由 surface 暴露，deny 或非法 action 不执行；
+静态 `DangerFloorer` 仍可将模型自报 safe 的真实不可逆/花费操作抬回 dangerous。新增时序回归先等待
+interaction、确认工具未执行，再 approve 后确认执行；相关 loop/race 全绿，没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-019-danger-gate-blocking-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-019-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge019-danger-gate-blocking`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2581`（2300 baseline + 281 live），
+`gen_coverage.py --check`=`848 rows / 516 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`40/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-020`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-018 sanitizer 孤儿 tool_call 补 stub
+
+发送 provider request 前，`SanitizeMessages` 维护 assistant `tool_calls` 与 tool messages 的配对：已完成的
+tool result 原样保留；取消或缺失的 call 按原始顺序补带 interrupted marker 的 stub；没有对应 assistant 的
+stray tool result 丢弃。新增多调用批次回归锁住“一个完成、一个取消、后续 user 消息继续存在”，并通过相关
+provider 回归与 `go test -race`，没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-018-sanitizer-orphan-tool-call-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-018-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge018-sanitizer-orphan-tool-call`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2576`（2300 baseline + 276 live），
+`gen_coverage.py --check`=`848 rows / 515 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`35/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-019`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-017 DeepSeek 全文本 parts 坍缩
+
+DeepSeek-compatible wire 在 user message 没有媒体幸存时，将全部文本 parts 按 `\n\n` 顺序拼成 JSON string
+`content`；有媒体时仍保留原生 parts array。这样附件在无 vision 模型上降级成文本占位后，冻结历史每次
+重放仍走 text-only wire，不会因 array-form content 反复 400。新增回归直接解析实际 request body，断言 content
+类型、顺序和精确分隔符；普通测试与 `go test -race` 全绿，没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-017-deepseek-text-parts-collapse-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-017-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge017-deepseek-text-parts-collapse`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2571`（2300 baseline + 271 live），
+`gen_coverage.py --check`=`848 rows / 514 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`30/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-018`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-016 生成族产地过滤
+
+MediaRef collector 不再读取 `source` 做 producer veto；`generate_image` 的 receipt 与 function/MCP artifact
+一样进入 MediaExpander，并按 producing tool call 分组。生成工具结果仍只携带 receipt，字节由附件消费咽喉
+按模型能力和信封决定。该行为遵循 ADR 0020，避免模型看不到刚生成的媒体而重复生成。现有 loop/mediaref
+回归覆盖生成来源、同轮原生媒体和调用归属，普通测试与 `go test -race` 全绿，没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-016-generation-no-producer-veto-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-016-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge016-generation-no-producer-veto`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2566`（2300 baseline + 266 live），
+`gen_coverage.py --check`=`848 rows / 513 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`25/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-017`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-015 MCP 非纯 JSON 结果里的 receipt
+
+MCP 媒体工具结果可能是 `[image: image/png]` 占位文本加换行后的 JSON receipt，不能以“整段先解析成 JSON”
+作为媒体入口。loop 对非 JSON 结果保留文本，再由 `mediaref.Collect` 解析嵌入对象；只接受合法
+`attachmentId=att_<16hex>`，并按 producing tool call 分组。新增回归使用真实混合形状，既有 collector 回归
+继续锁住散文/代码块 receipt、伪造 id、去重和封顶；普通测试与 `go test -race` 全绿，没有 stop-and-fix
+代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-015-mcp-embedded-receipt-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-015-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge015-mcp-embedded-receipt`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2561`（2300 baseline + 261 live），
+`gen_coverage.py --check`=`848 rows / 512 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`20/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-016`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-014 MediaExpander 当轮回喂
+
+loop 对 tool result 中的 MediaRef 按 producing tool call 分组，经可选 `MediaExpander` 只追加到下一次
+provider request 的原生 content parts；首次请求不带媒体，生成图与 function/MCP 产物共用同一消费咽喉。
+无 expander 或模型不支持模态时保留文本 receipt，诚实降级。临时 user 消息不进入 `allBlocks`，不会写入
+`WriteFinalize`。新增回归锁住首次/后续 request、产地归属、无媒体不展开和 finalized blocks 隔离；普通测试与
+`go test -race` 全绿，没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-014-media-expander-same-turn-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-014-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge014-media-expander-same-turn`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2556`（2300 baseline + 256 live），
+`gen_coverage.py --check`=`848 rows / 511 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`15/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-015`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-013 ObjectMap 字符串化对象参数
+
+静态追踪确认 `run_function.args` 使用公共 `tool.ObjectMap`：原生 JSON object 与一个解码后仍为 object
+的 JSON 字符串进入同一张参数 map；数组、数字、普通非 JSON 字符串和字符串化数组明确拒绝，不猜错值。
+该边界同时复用于同类 handler/agent object 参数，避免逐工具漂移。新增公共回归覆盖成功的两种编码和四种
+错误形状，普通测试与 `go test -race` 全绿；没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-013-objectmap-stringified-object-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-013-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge013-objectmap-stringified-object`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2551`（2300 baseline + 251 live），
+`gen_coverage.py --check`=`848 rows / 510 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十九=`10/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-014`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-012 danger 非枚举值 fail-open
+
+标准字段剥离器对缺失或未知的 `danger`（如 `none`、`nuclear`）回落 `safe`，避免模型协议扩展值意外
+打开人闸；但工具声明的静态危险 floor 仍不可绕过，会把非法或 safe 自报抬回真实 `dangerous`。既有
+实现符合这条边界，focused tool/loop 回归与 `go test -race` 全绿，没有 stop-and-fix 代码缺陷。
+
+正式证据=`testend/rig/formal-evidence/EDGE-012-invalid-danger-fail-open-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-012-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge012-danger-fail-open`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2546`（2300 baseline + 246 live），
+`gen_coverage.py --check`=`848 rows / 509 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。新批次四十九=`5/50`，未满 50 格不跑统一长门禁、不提交；sequence gate
+下一前线=`EDGE-013`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-011 execution_group 并发与下标拍平
 

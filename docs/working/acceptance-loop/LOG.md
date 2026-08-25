@@ -10,7 +10,90 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-011 已收口 · 批次四十八 51/50；统一长门禁已解锁）
+## 当前前线（2026-08-25 · EDGE-021 已收口 · 批次四十九 50/50；统一长门禁已通过；下一前线 EDGE-022）
+
+- EDGE-021 复核删除生命周期：conversation-delete cascade 调用实际 `chat.Service.ForgetConversation`，被删除
+  对话的全部 approve_always 授权清除，另一存活对话的授权保留；chat hook 与 humanloop broker 测试普通/race
+  全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-021-forget-conversation-grants-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-021-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge021-forget-clears-grants/na/na/na/na`；formal journal=`2591`，COVERAGE=`848/518/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`50/50`；统一长门禁证据=`testend/rig/formal-evidence/batch-49-unified-gate-20260825.md`，
+  `make verify`、完整 `make -C backend testend`=`270.240s`、rig 51 tests、脚本/格式/清册/锚点/警报和进程审计全绿；本批随后提交；下一前线=`EDGE-022`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-020 复核 approve_always 范围：同一会话同一工具第二次直通，换工具/换会话仍询问，越界事实闸不豁免；
+  loop gate 与 race 验证全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-020-approve-always-scope-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-020-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge020-approve-always-scope/na/na/na/na`；formal journal=`2586`，COVERAGE=`848/517/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-021`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-019 复核 danger gate：interaction pending 时工具未执行，approve 后执行，静态 floor 仍不可绕过；新增
+  时序回归、loop/race 验证全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-019-danger-gate-blocking-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-019-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge019-danger-gate-blocking/na/na/na/na`；formal journal=`2581`，COVERAGE=`848/516/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-020`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-018 复核 sanitizer：多调用批次中已完成 result 保留、缺失 call 按原序补 stub、后续 user 消息保留，
+  相关 llm/provider 与 race 验证全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-018-sanitizer-orphan-tool-call-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-018-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge018-sanitizer-orphan-tool-call/na/na/na/na`；formal journal=`2576`，COVERAGE=`848/515/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-019`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-017 复核 DeepSeek 全文本 parts：无媒体幸存时按 `\n\n` 拼为 string content，有媒体仍走 parts array；
+  新增 wire body 精确断言，llm/race 验证全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-017-deepseek-text-parts-collapse-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-017-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge017-deepseek-text-parts-collapse/na/na/na/na`；formal journal=`2571`，COVERAGE=`848/514/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-018`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-016 复核生成族产地过滤：`source=generate_image` 不再被拒，receipt 到达同轮 MediaExpander 且按
+  producing tool call 归属；现有 loop/mediaref/race 验证全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-016-generation-no-producer-veto-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-016-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge016-generation-no-producer-veto/na/na/na/na`；formal journal=`2566`，COVERAGE=`848/513/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-017`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-015 复核 MCP 混合媒体结果：占位文本加嵌入 receipt 会经 `mediaref.Collect` 到达正确 producing
+  tool call，合法 id 以外不收；新增 loop 回归与 mediaref/race 验证全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-015-mcp-embedded-receipt-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-015-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge015-mcp-embedded-receipt/na/na/na/na`；formal journal=`2561`，COVERAGE=`848/512/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-016`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-014 复核 MediaExpander：MediaRef 按产出 tool call 分组，只在下一次 provider request 原生回喂；首次
+  request 无媒体，临时 user 消息不进 finalized blocks，生成/function artifact 和无媒体降级路径均锁住。
+  focused loop 与 `go test -race` 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-014-media-expander-same-turn-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-014-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge014-media-expander-same-turn/na/na/na/na`；formal journal=`2556`，COVERAGE=`848/511/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-015`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-013 复核公共 `ObjectMap`：原生 object 与 JSON 字符串承载的同一 object 解码一致，数组、数字、普通非 JSON
+  字符串和字符串化数组拒绝；新增公共回归，普通测试与 `go test -race` 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-013-objectmap-stringified-object-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-013-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge013-objectmap-stringified-object/na/na/na/na`；formal journal=`2551`，COVERAGE=`848/510/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次四十九=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-014`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-012 复核现有 danger 处理：非法/缺失自报回落 `safe`，但静态危险 floor 仍强制真实风险 gate；
+  focused tool/loop 与 `go test -race` 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-012-invalid-danger-fail-open-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-012-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge012-danger-fail-open/na/na/na/na`；formal journal=`2546`，COVERAGE=`848/509/0`，anchors=`10/10`，
+  `alarms.py check` clean。批次四十九=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-013`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
 
 - EDGE-011 复核并锁住 `execution_group` 的真实并发与输入序拍平：新增屏障测试证明同组两个工具均先
   启动后才放行，普通测试和 `go test -race` 全绿；没有发现需 stop-and-fix 的实现缺陷。
