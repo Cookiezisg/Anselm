@@ -139,6 +139,11 @@ schema 的示例值。`read_attachment` 使用 canonical `id`，`inspect_media` 
 result。图片检查继续使用默认 Anselm 模型解析；受管路由用短期 remote media，BYOK
 使用有界 data URL。
 
+受管聊天的 image/video part 只携带网关签发的相对 lease 路径
+(`/v1/media/leases/{id}/content?...`)，不携带 scheme、host 或 base64。`MediaClient` 与
+`ToContentParts` 与 `inspect_media` 两层都 fail-closed 拒绝绝对路径，防止错误装配把 provider 指向客户端提供的
+任意 origin；BYOK 仍使用 data URL。
+
 Attachment 同时是 catalog source，使模型能先发现 filename/kind/MIME/size，再按需读取。
 
 ## 8. 契约

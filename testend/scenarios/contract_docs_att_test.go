@@ -9,6 +9,7 @@
 package scenarios
 
 import (
+	"archive/zip"
 	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
@@ -25,6 +26,32 @@ import (
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
+
+// docsattC_buildDOCX constructs the smallest OOXML package python-docx accepts. Keeping the
+// fixture in the scenario makes the extraction assertion independent of a checked-in binary.
+func docsattC_buildDOCX(t *testing.T, text string) []byte {
+	t.Helper()
+	var buf bytes.Buffer
+	zw := zip.NewWriter(&buf)
+	files := map[string]string{
+		"[Content_Types].xml": `<?xml version="1.0" encoding="UTF-8"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/></Types>`,
+		"_rels/.rels":         `<?xml version="1.0" encoding="UTF-8"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>`,
+		"word/document.xml":   `<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main"><w:body><w:p><w:r><w:t>` + text + `</w:t></w:r></w:p><w:sectPr/></w:body></w:document>`,
+	}
+	for name, content := range files {
+		w, err := zw.Create(name)
+		if err != nil {
+			t.Fatalf("create DOCX entry %s: %v", name, err)
+		}
+		if _, err := w.Write([]byte(content)); err != nil {
+			t.Fatalf("write DOCX entry %s: %v", name, err)
+		}
+	}
+	if err := zw.Close(); err != nil {
+		t.Fatalf("close DOCX: %v", err)
+	}
+	return buf.Bytes()
+}
 
 // docsattC_doc 是 document 的线缆形状（domain/document.go 的 JSON 投影）。
 type docsattC_doc struct {
@@ -744,6 +771,40 @@ func TestContractDocsAtt_AttachmentChatDegradeFaces(t *testing.T) {
 	}
 	if strings.Contains(raw5, "MEMOTOKEN") {
 		t.Errorf("soft-deleted attachment content must not resurrect in later turns")
+	}
+}
+
+// TestContractDocsAtt_DocxSandboxExtractionAndCap covers EDGE-191's product path: a real Office
+// attachment is uploaded, referenced by the user turn, extracted by the shared Python sandbox,
+// and projected onto the LLM wire. The tail sentinel proves the 400K-rune cap keeps the head only.
+func TestContractDocsAtt_DocxSandboxExtractionAndCap(t *testing.T) {
+	t.Parallel()
+	_, wc, mock, _ := docsattC_chatSetup(t)
+
+	const head = "DOCX_EXTRACTION_HEAD_191"
+	const tail = "DOCX_EXTRACTION_TAIL_AFTER_CAP_191"
+	text := head + strings.Repeat(" office extraction paragraph for the sandbox boundary.", 10000) + tail
+	docxID := uploadAtt(t, wc, "office-191.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document", docsattC_buildDOCX(t, text))
+
+	mock.Enqueue(dlgModel, harness.LLMTurn{Text: "docx extracted"})
+	conv := convCreate(t, wc, "docx sandbox extraction")
+	mid := sendWith(t, wc, conv, map[string]any{
+		"content":       "read the attached office document EDGE191DOCX",
+		"attachmentIds": []string{docxID},
+	})
+	turn := waitTurn(t, wc, conv, mid, 120000)
+	if turn.Status != "completed" {
+		t.Fatalf("DOCX extraction turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	raw := string(docsattC_lastDumpWith(t, mock, "EDGE191DOCX").Raw)
+	if !strings.Contains(raw, head) {
+		t.Fatalf("sandbox-extracted DOCX head sentinel missing from LLM wire")
+	}
+	if !strings.Contains(raw, "office-191.docx") || !strings.Contains(raw, "text-extracted, truncated") {
+		t.Fatalf("wire must identify the extracted and truncated DOCX: %s", raw[:min(len(raw), 500)])
+	}
+	if strings.Contains(raw, tail) {
+		t.Fatalf("DOCX tail sentinel crossed the 400K extraction cap")
 	}
 }
 

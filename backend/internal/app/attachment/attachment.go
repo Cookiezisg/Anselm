@@ -16,6 +16,7 @@ import (
 	"encoding/base64"
 	"encoding/hex"
 	"fmt"
+	"net/url"
 	"path/filepath"
 	"strings"
 
@@ -266,14 +267,30 @@ type Capabilities struct {
 	RemoteMedia *RemoteMedia
 }
 
-// RemoteMediaUploader stages one immutable byte sequence and returns its provider-fetchable,
-// expiring HTTPS URL. It is a narrow application port so attachment rendering never depends on a
-// concrete HTTP client or gateway implementation.
+// RemoteMediaUploader stages one immutable byte sequence and returns the managed gateway's
+// provider-fetchable, expiring relative lease path. It is a narrow application port so attachment
+// rendering never depends on a concrete HTTP client or gateway implementation.
 //
-// RemoteMediaUploader 暂存一份不可变字节并返回 provider 可拉取、会过期的 HTTPS URL。它是窄应用端口，
+// RemoteMediaUploader 暂存一份不可变字节并返回 provider 可拉取、会过期的相对 lease 路径。它是窄应用端口，
 // 使附件渲染永不依赖具体 HTTP client 或网关实现。
 type RemoteMediaUploader interface {
 	Upload(ctx context.Context, baseURL, installID, mime string, data []byte) (string, error)
+}
+
+// ValidateRemoteMediaSource accepts only the relative lease reference the managed gateway owns.
+// Returning the trimmed value keeps every consumer from accidentally caching or forwarding
+// surrounding whitespace.
+//
+// ValidateRemoteMediaSource 只接受受管网关拥有的相对 lease 引用，并返回去除首尾空白的值，避免不同
+// 消费面各自缓存或转发带空白的来源。
+func ValidateRemoteMediaSource(source string) (string, error) {
+	source = strings.TrimSpace(source)
+	parsed, err := url.Parse(source)
+	if err != nil || parsed.IsAbs() || parsed.Host != "" || parsed.User != nil ||
+		!strings.HasPrefix(parsed.Path, "/v1/media/leases/") || parsed.RawQuery == "" {
+		return "", fmt.Errorf("attachment: managed media returned an invalid relative lease path")
+	}
+	return source, nil
 }
 
 // ImageProxy returns a bounded model-ready image when the media worker has produced one. ready=false
@@ -559,6 +576,11 @@ func stagedMediaURL(ctx context.Context, remote *RemoteMedia, cache map[string]s
 	if source == "" {
 		return "", fmt.Errorf("attachment: managed media returned an empty source for %q", a.Filename)
 	}
+	validated, err := ValidateRemoteMediaSource(source)
+	if err != nil {
+		return "", fmt.Errorf("%w for %q", err, a.Filename)
+	}
+	source = validated
 	cache[key] = source
 	return source, nil
 }

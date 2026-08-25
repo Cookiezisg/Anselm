@@ -279,7 +279,7 @@ func TestToContentParts_ManagedMediaStagesImageAndVideoOnce(t *testing.T) {
 	videoData := []byte("\x00\x00\x00\x18ftypisom video")
 	image, _ := svc.Upload(ctx, "photo.png", "image/png", imageData)
 	video, _ := svc.Upload(ctx, "clip.mp4", "video/mp4", videoData)
-	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	uploader := &fakeRemoteMediaUploader{url: "/v1/media/leases/mls_1/content?token=t"}
 	caps := Capabilities{
 		Vision: true, Video: true,
 		RemoteMedia: &RemoteMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader},
@@ -307,7 +307,7 @@ func TestToContentParts_ManagedMediaStagesImageAndVideoOnce(t *testing.T) {
 func TestToContentParts_ManagedImageStagesModelDefaultProxyWhenReady(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	image, _ := svc.Upload(ctx, "photo.png", "image/png", []byte("original image"))
-	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	uploader := &fakeRemoteMediaUploader{url: "/v1/media/leases/mls_1/content?token=t"}
 	parts, err := svc.ToContentParts(ctx, []string{image.ID}, Capabilities{
 		Vision: true,
 		RemoteMedia: &RemoteMedia{
@@ -333,7 +333,7 @@ func TestToContentParts_ManagedImageProxyObeysEnvelope(t *testing.T) {
 	// 原图压缩后能装下,但已 ready 的模型代理装不下。网关收到的是代理字节,所以 renderer 必须退回原图,
 	// 不能把代理 staging 出去。
 	image, _ := svc.Upload(ctx, "detailed.png", "image/png", []byte("small original"))
-	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	uploader := &fakeRemoteMediaUploader{url: "/v1/media/leases/mls_1/content?token=t"}
 	parts, err := svc.ToContentParts(ctx, []string{image.ID}, Capabilities{
 		Vision:        true,
 		MaxMediaBytes: 1024,
@@ -362,6 +362,19 @@ func TestToContentParts_ManagedMediaFailureStopsTurn(t *testing.T) {
 	})
 	if err == nil || !strings.Contains(err.Error(), "gateway unavailable") || uploader.calls != 1 {
 		t.Fatalf("err = %v; uploads = %d, want surfaced staging failure", err, uploader.calls)
+	}
+}
+
+func TestToContentParts_ManagedMediaRejectsAbsoluteLeasePath(t *testing.T) {
+	svc, _, ctx := newSvc(t)
+	image, _ := svc.Upload(ctx, "photo.png", "image/png", []byte("\x89PNG image"))
+	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	_, err := svc.ToContentParts(ctx, []string{image.ID}, Capabilities{
+		Vision:      true,
+		RemoteMedia: &RemoteMedia{BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader},
+	})
+	if err == nil || !strings.Contains(err.Error(), "invalid relative lease path") || uploader.calls != 1 {
+		t.Fatalf("err = %v; uploads = %d, want absolute lease path rejected at application boundary", err, uploader.calls)
 	}
 }
 
@@ -687,7 +700,7 @@ func TestToContentParts_RemoteMediaObeysTheEnvelope(t *testing.T) {
 	video, _ := svc.Upload(ctx, "big.mp4", "video/mp4", big)
 	huge := append([]byte("\x89PNG"), make([]byte, 4096)...)
 	image, _ := svc.Upload(ctx, "big.png", "image/png", huge)
-	uploader := &fakeRemoteMediaUploader{url: "https://media.example/v1/media/leases/mls_1/content?token=t"}
+	uploader := &fakeRemoteMediaUploader{url: "/v1/media/leases/mls_1/content?token=t"}
 	caps := Capabilities{
 		Vision: true, Video: true,
 		MaxMediaBytes: 1024, // smaller than either artifact / 比任一产物都小

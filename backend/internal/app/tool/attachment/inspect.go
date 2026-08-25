@@ -648,12 +648,13 @@ func normalizedImageMIME(mime string) string {
 
 func inspectImageSource(ctx context.Context, bundle InspectMediaBundle, meta *attachmentdomain.Attachment, mime string, data []byte) (string, string, error) {
 	if bundle.RemoteMedia != nil && bundle.RemoteMedia.Uploader != nil && bundle.RemoteMedia.BaseURL != "" && bundle.RemoteMedia.InstallID != "" {
-		url, err := bundle.RemoteMedia.Uploader.Upload(ctx, bundle.RemoteMedia.BaseURL, bundle.RemoteMedia.InstallID, mime, data)
+		source, err := bundle.RemoteMedia.Uploader.Upload(ctx, bundle.RemoteMedia.BaseURL, bundle.RemoteMedia.InstallID, mime, data)
 		if err != nil {
 			return "", "", fmt.Errorf("inspect_media: stage image proxy: %w", err)
 		}
-		if strings.TrimSpace(url) == "" {
-			return "", "", fmt.Errorf("inspect_media: staged image proxy for %q returned an empty URL", meta.Filename)
+		url, err := attachmentapp.ValidateRemoteMediaSource(source)
+		if err != nil {
+			return "", "", fmt.Errorf("inspect_media: staged image proxy for %q: %w", meta.Filename, err)
 		}
 		return url, "managed-url", nil
 	}

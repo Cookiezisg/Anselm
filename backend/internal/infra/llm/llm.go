@@ -158,7 +158,8 @@ type LLMMessage struct {
 // ContentPart is one element of a multi-modal user message. Type selects the shape:
 //   - PartText       → Text
 //   - PartImageURL   → ImageURL holds a data-URL ("data:<mime>;base64,<data>") for a local
-//     attachment, or a remote https URL. Each provider parses/forwards it natively.
+//     attachment, or the managed gateway's relative lease path. Each provider parses/forwards it
+//     natively.
 //   - PartVideoURL   → VideoURL holds an inline video data-URL.
 //   - PartInputAudio → MediaType + base64 Data carry an inline audio clip. The provider owns the
 //     final wire vocabulary (for example OpenAI-compatible input_audio.format).
@@ -168,7 +169,7 @@ type LLMMessage struct {
 // provider self-contained; a provider that can't carry a part type degrades on its own).
 //
 // ContentPart 是多模态 user 消息的一个元素。Type 选形态：PartText→Text；PartImageURL→ImageURL 为
-// data-URL（本地附件）或远程 https URL；PartVideoURL→VideoURL 为内联视频 data-URL；PartInputAudio
+// data-URL（本地附件）或受管网关相对 lease 路径；PartVideoURL→VideoURL 为内联视频 data-URL；PartInputAudio
 // →MediaType + base64 Data 为内联音频；PartFile→MediaType + base64 Data + Filename 为内联文档（PDF）。
 // 各家 provider 各自渲成自己的 wire（无共享基座——各家自包含；无法承载某 part 类型的家各自优雅降级）。
 type ContentPart struct {

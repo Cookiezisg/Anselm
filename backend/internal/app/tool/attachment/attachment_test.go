@@ -565,7 +565,7 @@ func TestInspectMedia_ManagedGatewayStagesBoundedProxy(t *testing.T) {
 	}
 	client := llminfra.NewMockClient()
 	client.PushScript(llminfra.MockScript{Events: []llminfra.StreamEvent{{Type: llminfra.EventText, Delta: "ok"}}})
-	uploader := &fakeUploader{url: "https://media.example/lease"}
+	uploader := &fakeUploader{url: "/v1/media/leases/mls_inspect/content?token=t"}
 	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{
 		Client:  client,
 		Request: llminfra.Request{ModelID: "anselm-auto"},
@@ -595,7 +595,7 @@ func TestInspectMedia_ManagedProxyOverBudgetFallsBackToOriginal(t *testing.T) {
 	}
 	client := llminfra.NewMockClient()
 	client.PushScript(llminfra.MockScript{Events: []llminfra.StreamEvent{{Type: llminfra.EventText, Delta: "red"}}})
-	uploader := &fakeUploader{url: "https://media.example/lease"}
+	uploader := &fakeUploader{url: "/v1/media/leases/mls_inspect/content?token=t"}
 	tool := &InspectMedia{
 		svc: svc,
 		imageProcessor: fakeImageDeriver{result: mediaapp.DerivativeResult{
@@ -620,6 +620,26 @@ func TestInspectMedia_ManagedProxyOverBudgetFallsBackToOriginal(t *testing.T) {
 	}
 	if !strings.Contains(client.LastRequest().Messages[0].Parts[0].Text, "original image fallback") {
 		t.Fatalf("vision prompt must name the fallback source: %+v", client.LastRequest().Messages[0].Parts[0])
+	}
+}
+
+func TestInspectMedia_ManagedRejectsAbsoluteLeasePath(t *testing.T) {
+	svc, ctx := newToolSvc(t)
+	a, err := svc.Upload(ctx, "red.png", "image/png", testPNG(t, color.NRGBA{R: 255, A: 255}))
+	if err != nil {
+		t.Fatalf("upload: %v", err)
+	}
+	client := llminfra.NewMockClient()
+	uploader := &fakeUploader{url: "https://media.example/v1/media/leases/mls_inspect/content?token=t"}
+	tool := &InspectMedia{svc: svc, resolver: fakeInspectResolver{bundle: InspectMediaBundle{
+		Client: client, Request: llminfra.Request{ModelID: "anselm-auto"}, Vision: true,
+		RemoteMedia: &attachmentapp.RemoteMedia{
+			BaseURL: "https://api.example/v1", InstallID: "ins_1", Uploader: uploader,
+		},
+	}}}
+	_, err = tool.Execute(ctx, `{"attachmentId":"`+a.ID+`","question":"describe it"}`)
+	if err == nil || !strings.Contains(err.Error(), "invalid relative lease path") {
+		t.Fatalf("err = %v, want absolute managed lease path rejected", err)
 	}
 }
 

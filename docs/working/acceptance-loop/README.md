@@ -297,14 +297,163 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-190 已完成；批次六十六已提交；批次六十七 0/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-200 已完成；批次六十六已提交；批次六十七 50/50，统一门禁全绿，本批已提交)
+
+#### 2026-08-26 当前前线重述：EDGE-200 blob GC 只在 boot 跑
+
+`EDGE-200` 已完成附件 blob 生命周期回归：删除只软删附件行，不在删除时扫描或删除 blob；GC 按每个
+workspace 的 live SHA 保留集执行，仍被活跃附件共享的 SHA 保留，孤儿 blob 才清除；启动期先完成
+attachment GC，再启动 media worker，避开上传 `Put → row Create` 的竞态。
+
+正式证据=`testend/rig/formal-evidence/EDGE-200-attachment-blob-gc-boot-only-20260826.md`；五级=
+`measure:edge200-attachment-blob-gc-boot-only/na/na/na/na`；formal journal=`3486`
+（2300 baseline + 1186 live），`gen_coverage.py --check`=`848 rows / 697 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-200-ledger-alarm-reaudit-20260826.md`。
+- 批次六十七=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-67-unified-gate-20260826.md`，
+  本批已完成提交；下一原子前线=`EDGE-201`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-199 代理图未 ready
+
+`EDGE-199` 已完成准备时序回归：model-default proxy worker 被阻塞时，调用最多等待约 2 秒后返回
+`ready=false`，本回合可用原图继续；解除阻塞后后台 worker 仍将 durable derivative 处理为 ready；ready
+proxy 路径继续进入 managed staging。准备慢与 staging 失败保持不同语义。
+
+正式证据=`testend/rig/formal-evidence/EDGE-199-attachment-proxy-not-ready-20260826.md`；五级=
+`measure:edge199-attachment-proxy-not-ready/na/na/na/na`；formal journal=`3481`
+（2300 baseline + 1181 live），`gen_coverage.py --check`=`848 rows / 696 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-199-ledger-alarm-reaudit-20260826.md`。
+- 批次六十七已完成=`50/50`；统一长门禁待执行，门禁通过后提交；下一原子前线=`EDGE-201`。P12 400+ Journey
+  继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-198 staging 失败大声失败
+
+`EDGE-198` 已完成失败传播回归：受管 uploader 返回错误时，attachment 不生成成功媒体 part，chat history
+保留 `render attachments` 上下文，loop 唯一收尾落 `StatusError / StopReasonError / INTERNAL_ERROR`
+并发出终止帧；不会静默丢媒体、伪装成功或把系统故障降级成 HEIC/AVIF 的正常占位。
+
+正式证据=`testend/rig/formal-evidence/EDGE-198-attachment-staging-failure-20260826.md`；五级=
+`measure:edge198-attachment-staging-failure/na/na/na/na`；formal journal=`3476`
+（2300 baseline + 1176 live），`gen_coverage.py --check`=`848 rows / 695 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-198-ledger-alarm-reaudit-20260826.md`。
+- 批次六十七当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-199`。P12 400+ Journey
+  继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-197 lease 临期刷新
+
+`EDGE-197` 已完成 safety-window 与生命周期 focused 回归：lease 进入 30 秒窗口会重新 staging，刷新
+上传的 bytes 与原附件逐字节一致；新建 `MediaClient`（模拟 sidecar 重启）不会复用旧进程的内存 lease。
+`inspect_media` 同样复用 relative lease gate，绝对路径不会绕过视觉复查边界。
+
+正式证据=`testend/rig/formal-evidence/EDGE-197-attachment-lease-refresh-20260826.md`；五级=
+`measure:edge197-attachment-lease-refresh/na/na/na/na`；formal journal=`3471`
+（2300 baseline + 1171 live），`gen_coverage.py --check`=`848 rows / 694 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-197-ledger-alarm-reaudit-20260826.md`。
+- 批次六十七当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-198`。P12 400+ Journey
+  继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-196 受管 remote media lease
+
+`EDGE-196` 已完成应用层、resumable media client 和 device-proof focused 回归：受管图片经
+create → chunk → complete 取短期 lease，模型输入只保留 `/v1/media/leases/...?...` 相对路径；
+`MediaClient` 与 `ToContentParts` 两层均拒绝 scheme/host/错误前缀，图片 bytes/base64 不进入受管
+媒体引用。旧 attachment fake 已同步为相对路径，新增绝对路径拒绝回归；当前工作区无
+`EVALS_MANAGED=1` 凭证，未伪造本轮真实网关五通道证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-196-attachment-managed-media-lease-20260826.md`；五级=
+`measure:edge196-attachment-managed-media-lease/na/na/na/na`；formal journal=`3466`
+（2300 baseline + 1166 live），`gen_coverage.py --check`=`848 rows / 693 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-196-ledger-alarm-reaudit-20260826.md`。
+- 批次六十七当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-197`。P12 400+ Journey
+  继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-195 不可交付格式（HEIC/AVIF）
+
+`EDGE-195` 已通过 managed media focused 回归：上传 `IMG_0001.HEIC` 后投影到受管模型输入，格式闭集
+守卫在 uploader 前识别 `image/heic`，返回点名文件和 MIME 的诚实文字占位，uploader 调用数为零，
+不会把一次网关必拒请求拖成整轮失败。正式边界没有独立受管 App/五通道 session，故严格只判
+`L1=measure:edge195-attachment-undeliverable-format`，`L2=na`、`L3=na`、`L4=na`、`L5=na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-195-attachment-undeliverable-format-20260826.md`；警报复审=
+`testend/rig/formal-evidence/EDGE-195-ledger-alarm-reaudit-20260826.md`。formal journal=`3461`
+（2300 baseline + 1161 live），`gen_coverage.py --check`=`848 rows / 692 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次六十七当前=`25/50`；未满 50 格不跑统一长门禁、
+不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-194 单回合媒体额度耗尽
+
+`EDGE-194` 已通过 focused 本地与远端 envelope 回归：同一回合两张图片、`MaxMediaParts=1` 时第一张
+保持 native image part，第二张按原顺序变成含文件名和 `item limit` 的文字占位；远端 managed staging
+同样按最终 staging 字节预算拒绝超额项，不创建 lease、不把整轮打死。由于本格没有独立正式受管 App/五通道
+额度耗尽 session，严格只判 `L1=measure:edge194-attachment-media-envelope`，`L2=na`、`L3=na`、
+`L4=na`、`L5=na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-194-attachment-media-envelope-20260826.md`；警报复审=
+`testend/rig/formal-evidence/EDGE-194-ledger-alarm-reaudit-20260826.md`。formal journal=`3456`
+（2300 baseline + 1156 live），`gen_coverage.py --check`=`848 rows / 691 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次六十七当前=`25/50`；未满 50 格不跑统一长门禁、
+不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-193 模型能力缺失诚实降级
+
+`EDGE-193` 已通过 focused、provider wire 与真实 HTTP/chat 黑盒：把默认模型切换到 mock 未列出的
+text-only fixture，使解析能力明确为 `Vision=false`；上传图片并发送聊天后，真实 `role=user` content
+只包含文件名和 `no native vision input` 占位，没有 `image_url` 或 PNG base64，回合最终 `completed`，附件
+仍可通过 HTTP 下载且字节不变。DeepSeek 的 all-text parts 坍缩也由 focused 回归锁住，避免纯文本端点因
+数组形 content 永久 400。
+
+本格没有独立正式 App/五通道无 vision session，故严格只判
+`L1=measure:edge193-attachment-no-vision-degrade`，`L2=na`、`L3=na`、`L4=na`、`L5=na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-193-attachment-no-vision-degrade-20260826.md`；警报复审=
+`testend/rig/formal-evidence/EDGE-193-ledger-alarm-reaudit-20260826.md`。formal journal=`3451`
+（2300 baseline + 1151 live），`gen_coverage.py --check`=`848 rows / 690 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次六十七当前=`25/50`；未满 50 格不跑统一长门禁、
+不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-192 不认的 mime 抽取
+
+`EDGE-192` 已通过 focused 与真实 HTTP/chat 黑盒：抽取器对不在 handler 闭集内的
+`application/vnd.oasis.opendocument.text` 立即返回 `ATTACHMENT_EXTRACTION_UNSUPPORTED`，且不启动共享
+Python 环境；真实上传 ODT 后在聊天中引用，后端记录 `extraction unsupported for this mime`，LLM wire
+只出现诚实的 `could not be extracted` 占位，不出现原始字节，回合最终 `completed`。
+
+本格没有独立正式 App/五通道 unsupported-MIME session，故严格只判
+`L1=measure:edge192-attachment-unsupported-mime`，`L2=na`、`L3=na`、`L4=na`、`L5=na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-192-attachment-unsupported-mime-20260826.md`；警报复审=
+`testend/rig/formal-evidence/EDGE-192-ledger-alarm-reaudit-20260826.md`。formal journal=`3446`
+（2300 baseline + 1146 live），`gen_coverage.py --check`=`848 rows / 689 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次六十七当前=`25/50`；未满 50 格不跑统一长门禁、
+不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-191 附件 sandbox 提取路径
+
+`EDGE-191` 已通过真实 testend 黑盒：动态构造最小合法 `.docx`，上传为 Office Open XML 附件，真实发送带
+`attachmentIds` 的聊天回合；共享 Python sandbox 通过 `python-docx` 抽取正文并注入 LLM wire。正文包含头部
+哨兵、超过 400K rune 的长正文和尾部哨兵；wire 能看到文件名、`text-extracted, truncated` 和头部哨兵，
+400K 截断点之后的尾部哨兵未越界，回合最终 `completed`。同一 testend 文件已有真实 `.odt` 不支持 MIME
+降级：只给诚实占位、原始字节不上 wire、回合仍 completed。
+
+本格没有独立正式 App/五通道 sandbox session，故严格只判 `L1=measure:edge191-attachment-sandbox-docx`，
+`L2=na`、`L3=na`、`L4=na`、`L5=na`，不把 testend 证据冒充产品视觉验收。
+
+正式证据=`testend/rig/formal-evidence/EDGE-191-attachment-sandbox-docx-20260826.md`；警报复审=
+`testend/rig/formal-evidence/EDGE-191-ledger-alarm-reaudit-20260826.md`。formal journal=`3441`
+（2300 baseline + 1141 live），`gen_coverage.py --check`=`848 rows / 688 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次六十七当前=`15/50`；未满 50 格不跑统一长门禁、
+不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-26 批次六十六收口与提交
 
 批次六十六 `EDGE-181..190` 共 50 格已逐格登记，统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，
 已提交=`1be292f9`（`test(rig): close batch 66 search edges`）。提交后工作树保持 clean；当前 formal journal=`3436`
 （2300 baseline + 1136 live），COVERAGE=`848/687/0`，anchors=`10/10`，`alarms.py check` clean。批次六十七
-从 `0/50` 开始，下一原子前线=`EDGE-191`；P12 的 400+ Journey 继续按用户裁定推迟二期。
+从 `0/50` 开始，已收口 `EDGE-191..195` 为 `25/50`，下一原子前线=`EDGE-196`；P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-190 sifter 缺席回退
 

@@ -91,6 +91,11 @@ func sendWith(t *testing.T, wc *harness.Client, convID string, body map[string]a
 // 钉一个带日期的快照,供应商与 mock 都不变、而前提回来了(H7)。
 const nonNativeDocsModel = "gpt-4o-2024-11-20"
 
+// nonVisionAttachmentModel is intentionally absent from the mock provider's model list. The
+// model resolver therefore uses conservative capabilities (Vision=false), which lets this test
+// exercise the honest text-only attachment path without pretending a catalog model lacks vision.
+const nonVisionAttachmentModel = "text-only-fixture-193"
+
 // TestChatR3_AttachmentsThreeRoutes: 附件三路按模型能力门控（vision=true、nativeDocs=false）
 // ——文本直接内联、图片成 image_url part、PDF 走 sandbox 真抽取后内联。
 func TestChatR3_AttachmentsThreeRoutes(t *testing.T) {
@@ -128,6 +133,57 @@ func TestChatR3_AttachmentsThreeRoutes(t *testing.T) {
 	}
 	if !strings.Contains(raw, "PDFEXTRACT") {
 		t.Error("pdf on a non-native-docs model must arrive as sandbox-extracted text")
+	}
+}
+
+// TestChatR3_NonVisionImageDegradesOnWire covers EDGE-193: an image remains a durable attachment,
+// but a text-only model receives an explicit note rather than image bytes or a false image_url.
+func TestChatR3_NonVisionImageDegradesOnWire(t *testing.T) {
+	t.Parallel()
+	wc, mock := chatSetup(t, false)
+	var keys []struct {
+		ID string `json:"id"`
+	}
+	wc.GET("/api/v1/api-keys?limit=1").OK(t, &keys)
+	wc.PUT("/api/v1/workspaces/"+wc.WorkspaceID()+"/default-models/dialogue",
+		map[string]any{"apiKeyId": keys[0].ID, "modelId": nonVisionAttachmentModel}).OK(t, nil)
+
+	attID := uploadAtt(t, wc, "text-only-photo.png", "image/png", tinyPNG)
+	mock.Enqueue(nonVisionAttachmentModel, harness.LLMTurn{Text: "attachment noted"})
+	conv := convCreate(t, wc, "text only image")
+	mid := sendWith(t, wc, conv, map[string]any{
+		"content":       "please inspect the attached image EDGE193IMAGE",
+		"attachmentIds": []string{attID},
+	})
+	turn := waitTurn(t, wc, conv, mid, 30000)
+	if turn.Status != "completed" {
+		t.Fatalf("text-only image turn must complete, got %s err=%s/%s", turn.Status, turn.ErrorCode, turn.ErrorMessage)
+	}
+	dump := mock.DumpsFor(nonVisionAttachmentModel)[0]
+	var wire struct {
+		Messages []struct {
+			Role    string          `json:"role"`
+			Content json.RawMessage `json:"content"`
+		} `json:"messages"`
+	}
+	if err := json.Unmarshal(dump.Raw, &wire); err != nil {
+		t.Fatalf("decode captured provider wire: %v", err)
+	}
+	var userContent string
+	for _, msg := range wire.Messages {
+		if msg.Role == "user" && strings.Contains(string(msg.Content), "text-only-photo.png") {
+			userContent = string(msg.Content)
+			break
+		}
+	}
+	if !strings.Contains(userContent, "no native vision input") {
+		t.Fatalf("user wire must explain the missing vision capability: %s", userContent)
+	}
+	if strings.Contains(userContent, "image_url") || strings.Contains(userContent, "iVBORw0KGgo") {
+		t.Fatalf("text-only user message must not contain image parts or PNG bytes: %s", userContent)
+	}
+	if got := wc.DoRaw("GET", "/api/v1/attachments/"+attID+"/content", "", nil); got.Status != 200 || len(got.Raw) != len(tinyPNG) {
+		t.Fatalf("image attachment must remain downloadable after degradation: status=%d bytes=%d", got.Status, len(got.Raw))
 	}
 }
 

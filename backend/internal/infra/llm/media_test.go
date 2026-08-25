@@ -1,6 +1,7 @@
 package llm
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"io"
@@ -214,6 +215,7 @@ func TestMediaClientUpload_ReconcilesAmbiguousChunkBeforeContinuing(t *testing.T
 
 func TestMediaClientUpload_RefreshesLeaseInsideSafetyWindow(t *testing.T) {
 	creates := 0
+	var uploaded [][]byte
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch {
 		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads":
@@ -224,6 +226,7 @@ func TestMediaClientUpload_RefreshesLeaseInsideSafetyWindow(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
+			uploaded = append(uploaded, append([]byte(nil), body...))
 			_ = json.NewEncoder(w).Encode(map[string]any{"offset": len(body)})
 		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/complete"):
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -244,5 +247,18 @@ func TestMediaClientUpload_RefreshesLeaseInsideSafetyWindow(t *testing.T) {
 	}
 	if creates != 2 {
 		t.Fatalf("creates = %d, want refresh instead of reusing a near-expiry lease", creates)
+	}
+	for i, got := range uploaded {
+		if !bytes.Equal(got, []byte("data")) {
+			t.Fatalf("refresh upload %d bytes = %q, want original attachment bytes", i+1, got)
+		}
+	}
+	// A newly constructed client models a sidecar restart: the old lease is only an in-memory cache
+	// entry and must not be reused as a bearer across process lifetime.
+	if _, err := NewMediaClient(server.Client()).Upload(context.Background(), server.URL, "ins_test", "image/png", []byte("data")); err != nil {
+		t.Fatalf("upload after client restart: %v", err)
+	}
+	if creates != 3 {
+		t.Fatalf("creates after client restart = %d, want a fresh lease instead of reusing memory cache", creates)
 	}
 }

@@ -506,6 +506,64 @@ func TestModelDefaultImage_WaitsForStartedWorker(t *testing.T) {
 	}
 }
 
+func TestModelDefaultImage_FallsBackAfterBoundedWaitWhileWorkerCatchesUp(t *testing.T) {
+	repo := &fakeRepo{}
+	processor := &fakeProcessor{derived: make(chan struct{}, 1), block: make(chan struct{})}
+	artifacts := fakeArtifacts{data: map[string][]byte{}}
+	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, artifacts, zap.NewNop())
+	svc.SetProcessor(processor)
+	svc.Start([]string{"ws_1"})
+	t.Cleanup(func() {
+		select {
+		case <-processor.block:
+		default:
+			close(processor.block)
+		}
+		svc.Close(context.Background())
+	})
+
+	type result struct {
+		data  []byte
+		mime  string
+		ready bool
+		err   error
+	}
+	results := make(chan result, 1)
+	start := time.Now()
+	go func() {
+		data, mime, ready, err := svc.ModelDefaultImage(reqctxpkg.SetWorkspaceID(context.Background(), "ws_1"), "att_1")
+		results <- result{data: data, mime: mime, ready: ready, err: err}
+	}()
+	select {
+	case <-processor.derived:
+	case <-time.After(time.Second):
+		t.Fatal("media worker did not start derivative in time")
+	}
+
+	var got result
+	select {
+	case got = <-results:
+	case <-time.After(modelDefaultImageWait + 500*time.Millisecond):
+		t.Fatal("ModelDefaultImage exceeded its bounded wait while proxy worker was blocked")
+	}
+	if got.err != nil || got.ready || got.data != nil || got.mime != "" {
+		t.Fatalf("blocked proxy result = (%q, %q, %v, %v), want original fallback after bounded wait", got.data, got.mime, got.ready, got.err)
+	}
+	if elapsed := time.Since(start); elapsed < modelDefaultImageWait-100*time.Millisecond {
+		t.Fatalf("fallback returned too early after %s, want bounded wait near %s", elapsed, modelDefaultImageWait)
+	}
+
+	close(processor.block)
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if derivative := repo.derivativeSnapshot(); derivative != nil && derivative.Status == mediadomain.StatusReady {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("background worker did not finish the proxy after the chat path fell back")
+}
+
 func TestRetryDerivative_RequeuesFailedWork(t *testing.T) {
 	repo := &fakeRepo{}
 	processor := &fakeProcessor{derived: make(chan struct{}, 1)}
