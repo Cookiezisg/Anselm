@@ -297,9 +297,9 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-260 已完成；批次七十三 50/50，统一门禁待执行)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-260 已完成；批次七十三 50/50，统一门禁通过，已提交=6de8e0f4)
 
-#### 2026-08-26 当前前线重述：EDGE-251..260 批次七十三已收口 focused L1，长门禁待执行
+#### 2026-08-26 当前前线重述：EDGE-251..260 批次七十三已收口
 
 批次七十三按序完成 `EDGE-251..260` 共 10 个边界、50 个账本格。十格的 L1 均由可定位的 focused
 回归与 testend 黑盒证据支持，五格均为 `✓~~~~`；没有把本轮单测、源代码检查或黑盒场景冒充新的真实 App
@@ -310,8 +310,9 @@ panic 事务连接释放、排序切换游标、NOCASE keyset、驻地目录移�
 正式证据分别为 `testend/rig/formal-evidence/EDGE-251-last-workspace-delete-20260826.md` 至
 `EDGE-260-leading-dash-ref-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-73-ledger-alarm-reaudit-20260826.md`。
 formal journal=`3786`（2300 baseline + 1486 live），`gen_coverage.py --check`=`848 rows / 757 carried judgments / 0 tombstones`，
-批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次七十三已满=`50/50`，下一步是统一
-长门禁；通过后才提交。P12 400+ Journey 继续按用户裁定推迟二期。
+批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。批次七十三已满=`50/50`；统一长门禁
+证据=`testend/rig/formal-evidence/batch-73-unified-gate-20260826.md`，根门禁、完整 backend testend、rig
+自测与审计全绿，已提交=`6de8e0f4`。下一原子前线=`EDGE-261`，批次七十四=`0/50`。P12 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-229 多块 TTS PCM 拼接
 
