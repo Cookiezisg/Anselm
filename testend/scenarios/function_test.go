@@ -71,6 +71,85 @@ func TestFunction_ArtifactProduct(t *testing.T) {
 	}
 }
 
+// TestFunction_ArtifactPathEscape exercises the real function HTTP path for a declaration that
+// tries to leave its per-run output directory. The collector must refuse it before opening the
+// target, preserve the declaration for diagnosis, and avoid minting an attachment receipt.
+//
+// TestFunction_ArtifactPathEscape 通过真实 function HTTP 路径验证越界声明：采集器必须在打开目标前拒绝，
+// 保留原声明供诊断，且不铸造附件 receipt。
+func TestFunction_ArtifactPathEscape(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-artifact-escape"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	fnID := fnCreate(t, wc, "escape_fn", "def leak() -> dict:\n    return {'stolen': {'$media': '../outside.png'}}\n")
+	var out struct {
+		OK     bool           `json:"ok"`
+		Output map[string]any `json:"output"`
+		Logs   string         `json:"logs"`
+	}
+	wc.POST("/api/v1/functions/"+fnID+":run", map[string]any{"args": map[string]any{}}).OK(t, &out)
+	if !out.OK {
+		t.Fatalf("path escape declaration should not fail the function run: %+v", out)
+	}
+	stolen, ok := out.Output["stolen"].(map[string]any)
+	if !ok || stolen["$media"] != "../outside.png" {
+		t.Fatalf("refused declaration must remain visible, got %+v", out.Output)
+	}
+	if _, minted := stolen["attachmentId"]; minted {
+		t.Fatalf("path escape must not mint an attachment: %+v", stolen)
+	}
+	if !strings.Contains(out.Logs, "inside") {
+		t.Fatalf("path escape refusal must be explained in logs, got %q", out.Logs)
+	}
+}
+
+// TestFunction_ArtifactBadFilesArePerItem exercises the real HTTP path with one valid image, one
+// 40 MiB image and one shell script disguised as PNG. Bad declarations stay visible and are
+// explained in logs; the valid artifact and ordinary result still succeed.
+//
+// TestFunction_ArtifactBadFilesArePerItem 通过真实 HTTP 路径验证逐件失败：同一次运行里一个正常图片、一个
+// 40 MiB 图片和一个伪装 PNG 的 shell script 共存时，坏声明留在结果并进 logs，正常产物和普通字段仍成功。
+func TestFunction_ArtifactBadFilesArePerItem(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-artifact-bad-files"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	pngB64 := base64.StdEncoding.EncodeToString(tinyPNG)
+	code := "import base64, os\nPNG = '" + pngB64 + "'\ndef render() -> dict:\n    open(os.path.join(os.environ['ANSELM_OUT'], 'good.png'), 'wb').write(base64.b64decode(PNG))\n    with open(os.path.join(os.environ['ANSELM_OUT'], 'huge.png'), 'wb') as f:\n        f.truncate(40 * 1024 * 1024)\n    open(os.path.join(os.environ['ANSELM_OUT'], 'fake.png'), 'wb').write(b'#!/bin/sh\\nrm -rf /\\n')\n    return {'good': {'$media': 'good.png'}, 'huge': {'$media': 'huge.png'}, 'fake': {'$media': 'fake.png'}, 'total': 7}\n"
+	fnID := fnCreate(t, wc, "bad_files_fn", code)
+	var out struct {
+		OK     bool           `json:"ok"`
+		Output map[string]any `json:"output"`
+		Logs   string         `json:"logs"`
+	}
+	wc.POST("/api/v1/functions/"+fnID+":run", map[string]any{"args": map[string]any{}}).OK(t, &out)
+	if !out.OK || out.Output["total"] != float64(7) {
+		t.Fatalf("bad declarations must not void a correct run: %+v", out)
+	}
+	good, _ := out.Output["good"].(map[string]any)
+	if good["attachmentId"] == nil || good["source"] != "function_artifact" {
+		t.Fatalf("valid artifact was not collected: %+v", out.Output)
+	}
+	for _, key := range []string{"huge", "fake"} {
+		decl, _ := out.Output[key].(map[string]any)
+		if decl["$media"] == nil || decl["attachmentId"] != nil {
+			t.Fatalf("%s must remain an uncollected declaration: %+v", key, decl)
+		}
+	}
+	if !strings.Contains(out.Logs, "exceeds") || !strings.Contains(out.Logs, "render") {
+		t.Fatalf("both per-item rejection reasons must reach logs: %q", out.Logs)
+	}
+	content := wc.DoRaw("GET", "/api/v1/attachments/"+good["attachmentId"].(string)+"/content", "", nil)
+	if content.Status != 200 || len(content.Raw) != len(tinyPNG) || string(content.Raw) != string(tinyPNG) {
+		t.Fatalf("valid artifact bytes were not preserved: HTTP %d, %d bytes", content.Status, len(content.Raw))
+	}
+}
+
 // TestFunction_CreateRejections: A1 创建情况矩阵的出错列——无 def 的坏代码、重名。
 func TestFunction_CreateRejections(t *testing.T) {
 	t.Parallel()
@@ -267,6 +346,35 @@ func TestFunction_VersionsEditRevert(t *testing.T) {
 	}
 	if !strings.Contains(string(r.Data), `"version":2`) {
 		t.Fatalf("versions list missing v2: %s", r.Data)
+	}
+}
+
+// TestFunction_WallClockTimeout: the real HTTP function path must surface the clean
+// wall-clock error and persist a timeout execution row, not leak a sandbox launch error.
+func TestFunction_WallClockTimeout(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "fn-timeout"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+	wc.PATCH("/api/v1/limits", map[string]any{"timeout": map[string]any{"functionRunSec": 1}}).OK(t, nil)
+	fnID := fnCreate(t, wc, "runaway_fn", "def f() -> dict:\n    while True:\n        pass\n")
+
+	wc.POST("/api/v1/functions/"+fnID+":run", map[string]any{"args": map[string]any{}}).
+		Fail(t, 504, "FUNCTION_RUN_TIMEOUT")
+
+	var page struct {
+		Executions []struct {
+			Status       string `json:"status"`
+			ErrorMessage string `json:"errorMessage"`
+		} `json:"executions"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/executions").OK(t, &page)
+	if len(page.Executions) != 1 || page.Executions[0].Status != "timeout" {
+		t.Fatalf("durable function execution must be timeout: %+v", page.Executions)
+	}
+	if !strings.Contains(page.Executions[0].ErrorMessage, "wall-clock") || strings.Contains(page.Executions[0].ErrorMessage, "spawn") {
+		t.Fatalf("timeout history must name wall-clock limit, not sandbox spawn failure: %+v", page.Executions[0])
 	}
 }
 

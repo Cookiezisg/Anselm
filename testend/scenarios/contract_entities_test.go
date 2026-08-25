@@ -897,6 +897,64 @@ func TestContractEntities_FunctionVersionCapTrimReclaimsEnvs(t *testing.T) {
 	})
 }
 
+// TestContractEntities_FunctionRevertThenTrimMaintainsActivePointer —— B-fn-3 的真实产品路径。
+// revert 回 v1 后再 edit，新的 v51 成为 active；trim 必须按新的 active 指针收敛到 cap，不能把
+// active v51 误删。旧版本仍为 active 时的精确保护由 store regression 覆盖。
+func TestContractEntities_FunctionRevertThenTrimMaintainsActivePointer(t *testing.T) {
+	t.Parallel()
+	wc := entitiesC_ws(t, "fn-revert-trim")
+
+	fnID := fnCreate(t, wc, "revert_trim_fn", "def f() -> dict:\n    return {\"v\": 1}\n")
+	var first struct {
+		ActiveVersion struct {
+			EnvID string `json:"envId"`
+		} `json:"activeVersion"`
+	}
+	wc.GET("/api/v1/functions/"+fnID).OK(t, &first)
+	if first.ActiveVersion.EnvID == "" {
+		t.Fatal("v1 must carry an environment before the revert")
+	}
+	// Build v2..v50, then move the active pointer back to the oldest version.
+	for i := 2; i <= 50; i++ {
+		wc.POST("/api/v1/functions/"+fnID+":edit", map[string]any{
+			"ops": []map[string]any{{"op": "set_code",
+				"code": fmt.Sprintf("def f() -> dict:\n    return {\"v\": %d}\n", i)}},
+		}).OK(t, nil)
+	}
+	wc.POST("/api/v1/functions/"+fnID+":revert", map[string]any{"version": 1}).OK(t, nil)
+
+	// v51 crosses the cap and becomes active; the trim cutoff must not remove v51.
+	wc.POST("/api/v1/functions/"+fnID+":edit", map[string]any{
+		"ops": []map[string]any{{"op": "set_code",
+			"code": "def f() -> dict:\n    return {\"v\": 51}\n"}},
+	}).OK(t, nil)
+
+	var rows []struct {
+		Version int `json:"version"`
+	}
+	wc.GET("/api/v1/functions/"+fnID+"/versions?limit=200").OK(t, &rows)
+	if len(rows) != 50 {
+		t.Fatalf("edit after revert must converge to the version cap, got %d rows", len(rows))
+	}
+	seenV1, seenV51 := false, false
+	for _, row := range rows {
+		seenV1 = seenV1 || row.Version == 1
+		seenV51 = seenV51 || row.Version == 51
+	}
+	if seenV1 || !seenV51 {
+		t.Fatalf("trim must remove inactive v1 but retain new active v51: v1=%v v51=%v", seenV1, seenV51)
+	}
+	var current struct {
+		ActiveVersion struct {
+			Version int `json:"version"`
+		} `json:"activeVersion"`
+	}
+	wc.GET("/api/v1/functions/"+fnID).OK(t, &current)
+	if current.ActiveVersion.Version != 51 {
+		t.Fatalf("edit after revert must make v51 active, got v%d", current.ActiveVersion.Version)
+	}
+}
+
 // TestContractEntities_HandlerResidentSemantics —— B-hd-3 + B-hd-6 + B-hd-7 + B-hd-11。
 // 纯 meta 变更（PATCH / 全 set_meta edit）不铸版本不重启（内存态存活）；spawn 咽喉按 active
 // schema 过滤孤儿 config key（edit 删 arg / revert 回来都不炸 __init__）；冷启并发调用共享

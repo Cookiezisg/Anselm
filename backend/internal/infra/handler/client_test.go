@@ -1,12 +1,38 @@
 package handler
 
 import (
+	"context"
 	"errors"
+	"io"
 	"strings"
 	"testing"
 
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
+
+type discardWriteCloser struct{}
+
+func (discardWriteCloser) Write(p []byte) (int, error) { return len(p), nil }
+func (discardWriteCloser) Close() error                { return nil }
+
+// TestClient_CancelledRPCMarksPipeCrashed: a cancelled read can leave bytes in an unknown state;
+// the client must discard the resident rather than reusing a potentially dirty stdio protocol.
+func TestClient_CancelledRPCMarksPipeCrashed(t *testing.T) {
+	stdoutR, stdoutW := io.Pipe()
+	client := New(discardWriteCloser{}, stdoutR, nil)
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+	if err := client.Init(ctx, map[string]any{}); !errors.Is(err, context.Canceled) {
+		t.Fatalf("cancelled init = %v, want context.Canceled", err)
+	}
+	_ = stdoutW.Close()
+	if !client.Crashed() {
+		t.Fatal("cancelled RPC must mark the stdio client crashed")
+	}
+	if err := client.Init(context.Background(), map[string]any{}); !errors.Is(err, ErrCrashed) {
+		t.Fatalf("call after cancelled pipe = %v, want ErrCrashed", err)
+	}
+}
 
 // TestCallFailedErr_SurfacesTraceback — round-13 handlerwferr/bigsystem: a handler method's Python
 // exception used to ride in the fmt.Errorf wrap, which the LLM error surface (errorspkg.Surface,

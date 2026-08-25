@@ -157,6 +157,54 @@ func TestCollectArtifacts_OneBadArtifactDoesNotVoidTheRun(t *testing.T) {
 	}
 }
 
+// TestCollectArtifacts_RejectsBadArtifactsIndividually: an oversized image and a shell script
+// disguised as an image are both left as declarations, while the good image and plain data make
+// it through the same result. One bad artifact must not poison a correct run.
+func TestCollectArtifacts_RejectsBadArtifactsIndividually(t *testing.T) {
+	dir := t.TempDir()
+	writeOut(t, dir, "good.png", tinyPNG)
+	if err := os.WriteFile(filepath.Join(dir, "fake.png"), []byte("#!/bin/sh\nrm -rf /\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	huge, err := os.OpenFile(filepath.Join(dir, "huge.png"), os.O_CREATE|os.O_WRONLY, 0o644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := huge.Truncate(artifactMaxBytes + 1); err != nil {
+		huge.Close()
+		t.Fatal(err)
+	}
+	if err := huge.Close(); err != nil {
+		t.Fatal(err)
+	}
+	up := &fakeUploader{}
+
+	got, notes := Collect(context.Background(), up, dir, SourceFunction, map[string]any{
+		"good":  map[string]any{MediaKey: "good.png"},
+		"huge":  map[string]any{MediaKey: "huge.png"},
+		"fake":  map[string]any{MediaKey: "fake.png"},
+		"total": float64(7),
+	})
+	m, _ := got.(map[string]any)
+	good, _ := m["good"].(map[string]any)
+	if good["attachmentId"] == nil || len(up.uploads) != 1 {
+		t.Fatalf("the valid artifact must be the only upload: result=%+v uploads=%v", m, up.uploads)
+	}
+	for _, key := range []string{"huge", "fake"} {
+		decl, _ := m[key].(map[string]any)
+		if decl[MediaKey] == nil || decl["attachmentId"] != nil {
+			t.Fatalf("%s must remain an uncollected declaration: %+v", key, decl)
+		}
+	}
+	if m["total"] != float64(7) || len(notes) != 2 {
+		t.Fatalf("plain data or per-artifact notes were lost: result=%+v notes=%v", m, notes)
+	}
+	noteText := strings.Join(notes, "\n")
+	if !strings.Contains(noteText, "exceeds") || !strings.Contains(noteText, "render") {
+		t.Fatalf("both rejection reasons must be visible: %v", notes)
+	}
+}
+
 // TestCollectArtifacts_NestedAndCapped: declarations are found at any depth (inside lists and
 // nested objects), and one run cannot exceed the cap the consumption chokepoint will expand.
 func TestCollectArtifacts_NestedAndCapped(t *testing.T) {
@@ -192,9 +240,13 @@ func TestCollectArtifacts_NestedAndCapped(t *testing.T) {
 // functions correctly — the declaration simply stays a declaration.
 func TestCollectArtifacts_NoUploaderPassesThrough(t *testing.T) {
 	in := map[string]any{"chart": map[string]any{MediaKey: "chart.png"}}
-	got, notes := Collect(context.Background(), nil, t.TempDir(), SourceFunction, in)
+	outDir := filepath.Join(t.TempDir(), "must-not-be-created")
+	got, notes := Collect(context.Background(), nil, outDir, SourceFunction, in)
 	if len(notes) != 0 {
 		t.Fatalf("notes = %v", notes)
+	}
+	if _, err := os.Stat(outDir); !os.IsNotExist(err) {
+		t.Fatalf("nil uploader must not create an output directory, stat error=%v", err)
 	}
 	m, _ := got.(map[string]any)
 	decl, _ := m["chart"].(map[string]any)
