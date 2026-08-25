@@ -13,7 +13,67 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · 批次五十八已收口 · 批次五十九 0/50）
+## 当前前线覆盖声明（2026-08-25 · EDGE-120 已收口 · 批次五十九 50/50，待统一门禁）
+
+## 2026-08-25 · EDGE-120 webhook HMAC 不匹配
+
+- 真实 contract 通过：HMAC 正签名 `202`，错误签名/错误 header `401` 纯文本；明文 secret 缺失/错误同样 `401`，拒绝不进入 workflow。
+- 正式证据=`testend/rig/formal-evidence/EDGE-120-webhook-hmac-mismatch-20260825.md`；五级=`measure:edge120-webhook-hmac-mismatch/na/na/na/na`；formal journal=`3086`，COVERAGE=`848/617/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次五十九当前=`50/50`，现在执行统一长门禁；门禁未完成前不进入下一格、不提交。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-119 webhook 路径改后旧路径
+
+- 真实 contract 通过：Edit 改 `config.path` 后旧 webhook 路径 `404`，新路径 `202`，前后事件各完成一个 run，catch-all registry 无旧路由残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-119-webhook-old-path-404-20260825.md`；五级=`measure:edge119-webhook-old-path-404/na/na/na/na`；formal journal=`3081`，COVERAGE=`848/616/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次五十九当时=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-120`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-118 暂停期间的 Edit 何时生效
+
+- 应用回归与真实 sensor HTTP 路径通过：暂停期 Edit 不热挂 source，暂停/重启窗口无 run，resume 按当前编辑配置重新注册并触发新 sensor-origin run。
+- 正式证据=`testend/rig/formal-evidence/EDGE-118-edit-config-takes-effect-on-resume-20260825.md`；五级=`measure:edge118-edit-config-takes-effect-on-resume/na/na/na/na`；formal journal=`3076`，COVERAGE=`848/615/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次五十九当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-119`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-117 `Edit` 与 `:pause` 并发/暂停期配置生效
+
+- 应用层 `-race` 与真实 sensor HTTP 路径通过：暂停期编辑不热挂 source，硬重启后暂停窗无 run，resume 读取编辑后的目标并恢复 sensor-origin run。
+- 正式证据=`testend/rig/formal-evidence/EDGE-117-edit-while-paused-defers-20260825.md`；五级=`measure:edge117-edit-while-paused-defers/na/na/na/na`；formal journal=`3071`，COVERAGE=`848/614/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次五十九当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-118`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-116 `resume` 的 Register 失败回滚
+
+- focused `-race` regression 通过：首次 Resume 注册失败时返回错误、持久状态回滚为 paused、竞态报告不造 firing；source 恢复后重试 Resume 成功并恢复唯一 firing。
+- 正式证据=`testend/rig/formal-evidence/EDGE-116-resume-register-rollback-20260825.md`；五级=`measure:edge116-resume-register-rollback/na/na/na/na`；formal journal=`3066`，COVERAGE=`848/613/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次五十九当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-117`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-115 暂停时 `:fire` 大声拒
+
+- 暂停源头与真实产品路径均通过：app regression 断言暂停后 `onReport` 不产生 firing/activation、`FireManual` 返回 `ErrPaused`；真实 HTTP `:fire` 返回 `422 TRIGGER_PAUSED`，硬重启跨 cron 边界不产生 run，resume 后下一次真实 cron run 成功。
+- 正式证据=`testend/rig/formal-evidence/EDGE-115-paused-fire-rejected-20260825.md`；五级=`measure:edge115-paused-fire-rejected/na/na/na/na`；formal journal=`3061`，COVERAGE=`848/612/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已复核 ack）。
+- 批次五十九当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-116`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-114 trigger 暂停在源头注销
+
+- 新增四源 pause 护栏并通过：cron/webhook/fsnotify/sensor 都调用 source `Unregister`；真实 fsnotify/sensor pause→重启→resume 路径通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-114-pause-unregisters-source-20260825.md`；五级=`measure:edge114-pause-unregisters-source/na/na/na/na`；formal journal=`3056`，COVERAGE=`848/611/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十九当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-115`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-113 sensor 电平触发风暴
+
+- 新增 level-triggered regression 并通过：连续三轮 sustained-true probe 都 fired；真实 HTTP sensor → workflow 路径也通过，activation 保留 probe return value。
+- 正式证据=`testend/rig/formal-evidence/EDGE-113-sensor-level-trigger-storm-20260825.md`；五级=`measure:edge113-sensor-level-trigger-storm/na/na/na/na`；formal journal=`3051`，COVERAGE=`848/610/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十九当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-114`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-112 shed 孤儿 firing
+
+- scheduler regression 通过：workflow 删除后的 pending firing 首次 drain 进入 `shed`，再次 drain 不重试、不造 flowrun。
+- 正式证据=`testend/rig/formal-evidence/EDGE-112-shed-orphan-firing-20260825.md`；五级=`measure:edge112-shed-orphan-firing/na/na/na/na`；formal journal=`3046`，COVERAGE=`848/609/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十九当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-113`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-111 AppendFiring 撞键返已存在行
+
+- trigger service regression 通过：真实 fire 撞上 missed dedup key 后救回原行为唯一 pending，activation 计数与 `activation_id` 血缘正确。
+- 正式证据=`testend/rig/formal-evidence/EDGE-111-append-firing-requeues-missed-20260825.md`；五级=`measure:edge111-append-firing-requeues-missed/na/na/na/na`；formal journal=`3041`，COVERAGE=`848/608/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十九当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-112`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-110 睡醒伪 fire 吸附/丢弃
 

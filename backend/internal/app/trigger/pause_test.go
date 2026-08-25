@@ -117,6 +117,50 @@ func TestPause_GatesFiringAtTheSource(t *testing.T) {
 	}
 }
 
+// TestPause_UnregistersEverySourceKind locks the source-level stop contract for all four
+// listener families. Pause must remove the runtime machinery, not merely drop reports later.
+func TestPause_UnregistersEverySourceKind(t *testing.T) {
+	cases := []struct {
+		name   string
+		kind   string
+		config map[string]any
+		bind   func(*Service, *fakeListener)
+	}{
+		{name: "cron", kind: triggerdomain.KindCron, config: map[string]any{"expression": "* * * * *"}, bind: func(s *Service, l *fakeListener) { s.cron = l }},
+		{name: "webhook", kind: triggerdomain.KindWebhook, config: map[string]any{"path": "pause-hook"}, bind: func(s *Service, l *fakeListener) { s.webhook = l }},
+		{name: "fsnotify", kind: triggerdomain.KindFsnotify, config: map[string]any{"path": t.TempDir()}, bind: func(s *Service, l *fakeListener) { s.fsnotify = l }},
+		{name: "sensor", kind: triggerdomain.KindSensor, config: map[string]any{
+			"targetKind": "function", "targetId": "fn_probe", "intervalSec": 5,
+			"condition": "true", "output": "payload",
+		}, bind: func(s *Service, l *fakeListener) { s.sensor = l }},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			s, _ := newTestService(t)
+			tc.bind(s, &fakeListener{})
+			listener := s.listenerFor(tc.kind).(*fakeListener)
+			ctx := ctxWS("ws_1")
+			tr, err := s.Create(ctx, CreateInput{Name: "pause_" + tc.name, Kind: tc.kind, Config: tc.config})
+			if err != nil {
+				t.Fatalf("create %s: %v", tc.kind, err)
+			}
+			if err := s.Attach(ctx, tr.ID, "wf_1"); err != nil {
+				t.Fatalf("attach %s: %v", tc.kind, err)
+			}
+			if listener.registers != 1 {
+				t.Fatalf("%s must register exactly once, got %d", tc.kind, listener.registers)
+			}
+			if _, err := s.Pause(ctx, tr.ID); err != nil {
+				t.Fatalf("pause %s: %v", tc.kind, err)
+			}
+			if listener.unregisters != 1 {
+				t.Fatalf("%s pause must unregister its source exactly once, got %d", tc.kind, listener.unregisters)
+			}
+		})
+	}
+}
+
 func TestPauseResume_IdempotentAndRestoresFiring(t *testing.T) {
 	s, st := newTestService(t)
 	ctx := ctxWS("ws_1")

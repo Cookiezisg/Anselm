@@ -58,6 +58,36 @@ func TestSensor_Probe_Fires_WhenConditionHolds(t *testing.T) {
 	}
 }
 
+// TestSensor_SustainedConditionFiresEveryPoll locks the product contract that sensors are
+// level-triggered: a condition that stays true fires on every poll, not only on false→true.
+func TestSensor_SustainedConditionFiresEveryPoll(t *testing.T) {
+	cond, err := celpkg.Compile("payload.level > 0.0")
+	if err != nil {
+		t.Fatalf("compile condition: %v", err)
+	}
+	out, err := celpkg.Compile(`{"level": payload.level}`)
+	if err != nil {
+		t.Fatalf("compile output: %v", err)
+	}
+	var got []triggerinfra.Activity
+	l := New(fakeInvoker{rv: map[string]any{"level": float64(42)}}, zap.NewNop(), func(_ string, a triggerinfra.Activity) error {
+		got = append(got, a)
+		return nil
+	})
+	sc := triggerdomain.SensorConfig{TargetKind: "function", TargetID: "fn_steady"}
+	for i := 0; i < 3; i++ {
+		l.probe(context.Background(), "trg_steady", sc, cond, out)
+	}
+	if len(got) != 3 {
+		t.Fatalf("a sustained true condition must report every poll, got %d activities", len(got))
+	}
+	for i, act := range got {
+		if !act.Fired || act.Payload["level"] != float64(42) {
+			t.Fatalf("poll %d must fire with the evaluated output, got %+v", i+1, act)
+		}
+	}
+}
+
 func TestSensor_Probe_DoesNotFire_ButRecordsReturnValue(t *testing.T) {
 	act := probeOnce(t, fakeInvoker{rv: map[string]any{"count": float64(3)}})
 	if act.Fired {

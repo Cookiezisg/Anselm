@@ -297,7 +297,97 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次五十八已收口；批次五十九 0/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-120 已完成；批次五十九 50/50，待统一门禁)
+
+#### 2026-08-25 当前前线重述：EDGE-120 webhook HMAC 不匹配
+
+webhook 鉴权拒绝语义已通过真实 contract：HMAC 正签名返回 `202`，错误签名/错误 header 返回 `401` 纯文本，不进入 workflow；明文 secret 的缺失/错误同样 `401`。实现使用 `http.Error`，不误套 N1 JSON envelope。
+
+正式证据=`testend/rig/formal-evidence/EDGE-120-webhook-hmac-mismatch-20260825.md`。五级严格为
+`L1=measure:edge120-webhook-hmac-mismatch`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP 只证明鉴权语义，不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3086`（2300 baseline + 786 live），`gen_coverage.py --check`=`848 rows / 617 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次五十九当前=`50/50`，现在执行统一长门禁；门禁未完成前不进入下一格、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-119 webhook 路径改后旧路径
+
+真实 contract 已证明 webhook Edit 改 `config.path` 后旧路径立即 `404`、新路径 `202`，前后两次事件各完成一个 run；catch-all registry 没有旧路由残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-119-webhook-old-path-404-20260825.md`。五级严格为
+`L1=measure:edge119-webhook-old-path-404`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP 只证明路由真相，不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3081`（2300 baseline + 781 live），`gen_coverage.py --check`=`848 rows / 616 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次五十九当时=`45/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-120`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-118 暂停期间的 Edit 何时生效
+
+配置时序已收口：暂停 → Edit 不热更新 source，`:resume` 按当前配置重新注册；应用层回归和真实 sensor HTTP 路径共同证明暂停窗口不产生 run，恢复后使用编辑后的目标成功触发。
+
+正式证据=`testend/rig/formal-evidence/EDGE-118-edit-config-takes-effect-on-resume-20260825.md`。五级严格为
+`L1=measure:edge118-edit-config-takes-effect-on-resume`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP 只证明时序语义，不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3076`（2300 baseline + 776 live），`gen_coverage.py --check`=`848 rows / 615 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次五十九当前=`40/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-119`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-117 `Edit` 与 `:pause` 并发/暂停期配置生效
+
+暂停期间编辑不热更 source、恢复时采用最新配置的语义已通过：应用层 `-race` 回归覆盖暂停编辑窗口；真实 sensor HTTP 场景覆盖暂停、硬重启、暂停期修改目标、恢复后重新注册并使用新目标，暂停窗口没有 activation/run。
+
+正式证据=`testend/rig/formal-evidence/EDGE-117-edit-while-paused-defers-20260825.md`。五级严格为
+`L1=measure:edge117-edit-while-paused-defers`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP 只证明产品语义，不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3071`（2300 baseline + 771 live），`gen_coverage.py --check`=`848 rows / 614 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次五十九当前=`35/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-118`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-116 `resume` 的 Register 失败回滚
+
+source 拒绝重新注册时的失败态已收口：精确回归证明首次 `Resume` 显式报错、持久行回滚为 paused、竞态报告不产生 firing；source 恢复后再次 `Resume` 成功恢复 listening 并产生唯一 firing。仓内没有可稳定制造同等 source 注册失败的真实 UI/网关产品路径，因此不伪造更高等级证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-116-resume-register-rollback-20260825.md`。五级严格为
+`L1=measure:edge116-resume-register-rollback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；fake source 只证明应用回滚不变量，不能越级替代真实台架证据。
+formal journal=`3066`（2300 baseline + 766 live），`gen_coverage.py --check`=`848 rows / 613 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次五十九当前=`30/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-117`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-115 暂停时 `:fire` 大声拒
+
+暂停状态的手动 fire 已在应用源头和真实 HTTP 产品路径双重收口：app regression 证明暂停后 source 已注销，`onReport` 不产生 activation/firing，`FireManual` 返回 `ErrPaused`；真实 App/HTTP 场景证明 `POST /api/v1/triggers/<id>:fire` 返回 `422 TRIGGER_PAUSED`，硬重启跨 cron 边界仍无 run/activation，resume 后下一次真实 cron fire 成功。
+
+正式证据=`testend/rig/formal-evidence/EDGE-115-paused-fire-rejected-20260825.md`。五级严格为
+`L1=measure:edge115-paused-fire-rejected`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability 证据，不将 L1 证据越级使用。
+formal journal=`3061`（2300 baseline + 761 live），`gen_coverage.py --check`=`848 rows / 612 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（gap-too-fast 与 discovery-collapse 已按复核记录 ack）。
+批次五十九当前=`25/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-116`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-114 trigger 暂停在源头注销
+
+新增并通过四源 pause 护栏：cron、webhook、fsnotify、sensor 的 app regression 均断言 source `Unregister` 恰好一次；真实 fsnotify/sensor 场景完成 pause → hard restart → no new firing → resume → source recovery，源头没有漏闸。
+
+正式证据=`testend/rig/formal-evidence/EDGE-114-pause-unregisters-source-20260825.md`。五级严格为
+`L1=measure:edge114-pause-unregisters-source`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；虽有真实 source 生命周期路径，但没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3056`（2300 baseline + 756 live），`gen_coverage.py --check`=`848 rows / 611 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十九当前=`20/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-115`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-113 sensor 电平触发风暴
+
+新增并通过 level-triggered regression：连续三轮 sustained-true probe 均产生 fired activity；真实 HTTP 场景也完成 function → sensor poll → workflow run，并在 activation 中保留 probe return value。该边界明确由 workflow concurrency policy 治理风暴，不由 sensor 静默改成 edge-trigger。
+
+正式证据=`testend/rig/formal-evidence/EDGE-113-sensor-level-trigger-storm-20260825.md`。五级严格为
+`L1=measure:edge113-sensor-level-trigger-storm`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；虽有真实 HTTP 产品路径，但没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3051`（2300 baseline + 751 live），`gen_coverage.py --check`=`848 rows / 610 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十九当前=`15/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-114`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-112 shed 孤儿 firing
+
+真实 scheduler regression 通过：pending firing 对应的 workflow 被删除后，首次 drain 将其终结为 `shed`；第二次 drain 不再重试、不重复记错、不创建 flowrun，pending 收件箱清空。
+
+正式证据=`testend/rig/formal-evidence/EDGE-112-shed-orphan-firing-20260825.md`。五级严格为
+`L1=measure:edge112-shed-orphan-firing`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 scheduler 孤儿 firing 终态契约，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3046`（2300 baseline + 746 live），`gen_coverage.py --check`=`848 rows / 609 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十九当前=`10/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-113`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-111 AppendFiring 撞键返已存在行
+
+真实 trigger service regression 通过：真实 fire 撞上已被 misfire sweep 记为 `missed` 的 dedup key 时，原行被救回为唯一 pending run，missed 查询移除该行，activation 计数为 1，且 firing 的 `activation_id` 血缘闭合。
+
+正式证据=`testend/rig/formal-evidence/EDGE-111-append-firing-requeues-missed-20260825.md`。五级严格为
+`L1=measure:edge111-append-firing-requeues-missed`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger dedup/requeue 数据真相契约，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3041`（2300 baseline + 741 live），`gen_coverage.py --check`=`848 rows / 608 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十九当前=`5/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-112`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-110 睡醒伪 fire 吸附/丢弃
 
