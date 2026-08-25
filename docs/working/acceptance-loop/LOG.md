@@ -10,7 +10,7 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-210 已收口 · 批次六十八 50/50 · 统一门禁通过，待提交）
+## 当前前线（2026-08-26 · EDGE-210 已收口 · 批次六十八 50/50 · 统一门禁通过并已提交）
 
 - `EDGE-210` focused 通过：HTTP 402、429 耗尽码和流内 `BUDGET_EXHAUSTED` 统一为
   `LLM_QUOTA_EXHAUSTED`，不会把耗尽额度重试；瞬时限流仍保持可重试。真实无配额网关耗尽 session 尚未执行，
@@ -21,7 +21,8 @@ landed-into:
   `testend/rig/formal-evidence/EDGE-210-ledger-alarm-reaudit-20260826.md`。
 - 批次六十八达到=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-68-unified-gate-20260826.md`，
   `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
-  现在提交本批。P12 400+ Journey 继续推迟二期。
+  批次六十八已提交=`cb1d630f`；下一原子前线=`EDGE-211`（网关 install 自愈），批次六十九当前=`0/50`。
+  P12 400+ Journey 继续推迟二期。
 
 - `EDGE-209` focused 通过：附件不因时间自动删除；显式删除只软删 metadata，显式 GC 才回收无 live 引用的
   blob，共享 blob 保留。产品可逆性与容量治理边界由回归固定。

@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-210 已完成；批次六十八 50/50，统一门禁通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-210 已完成；批次六十八 50/50，统一门禁通过并已提交)
 
 #### 2026-08-26 当前前线重述：EDGE-210 免费档配额耗尽
 
@@ -312,7 +312,8 @@ session 尚未计入 L2-L5。
 `testend/rig/formal-evidence/EDGE-210-ledger-alarm-reaudit-20260826.md`。
 - 批次六十八当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-68-unified-gate-20260826.md`，
   `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
-  现在提交本批。P12 400+ Journey 继续推迟二期。
+- 批次六十八已提交=`cb1d630f`；下一原子前线=`EDGE-211`（网关 install 自愈），批次六十九当前=`0/50`。
+  P12 400+ Journey 继续推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-203 非 audio 签发 playback
 
