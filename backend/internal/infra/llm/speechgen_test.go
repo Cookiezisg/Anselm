@@ -64,6 +64,25 @@ func TestParseWAVWalksChunks(t *testing.T) {
 	}
 }
 
+func TestParseWAVWalksFactChunk(t *testing.T) {
+	pcm := silentPCM(12)
+	base := BuildWAV(pcm, speechSampleRate, speechChannels, speechBits)
+	var w bytes.Buffer
+	w.Write(base[:36])
+	w.WriteString("fact")
+	_ = binary.Write(&w, binary.LittleEndian, uint32(4))
+	w.WriteString("TEST")
+	w.Write(base[36:])
+
+	got, _, _, _, err := ParseWAV(w.Bytes())
+	if err != nil {
+		t.Fatalf("parse with fact chunk: %v", err)
+	}
+	if !bytes.Equal(got, pcm) {
+		t.Fatalf("fact metadata was treated as samples: got %d bytes, want %d", len(got), len(pcm))
+	}
+}
+
 // TestConcatAudioJoinsAtPCMLevel: two chunks become ONE stream with ONE header. A byte-level
 // append would leave a second RIFF header stranded mid-stream, where most players simply stop —
 // so the length assertion (not just "no error") is the real content of this test.

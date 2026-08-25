@@ -3,12 +3,16 @@ package generate
 import (
 	"context"
 	"encoding/json"
-	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	"errors"
 	"net/http"
+	"net/http/httptest"
+	"strings"
 	"testing"
+	"time"
 
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
+	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
 func videoTool(t *testing.T, router *Router, up Uploader) *GenerateVideo {
@@ -55,6 +59,97 @@ func TestVideo_ImpossibleLengthIsClampedNotSpent(t *testing.T) {
 	// 之前很久就拒了它。
 	if got := llminfra.VideoMaxDuration("google"); got != 0 {
 		t.Fatalf("an undrivable route must report no ceiling, got %d", got)
+	}
+}
+
+// TestVideo_ImpossibleLengthIsClampedOnWireAndReceipt verifies the product-facing invariant on
+// the live managed route: a request above the route ceiling is reduced before submission, and the
+// receipt reports the clip that was actually requested from the gateway.
+func TestVideo_ImpossibleLengthIsClampedOnWireAndReceipt(t *testing.T) {
+	var submittedSeconds float64
+	var server *httptest.Server
+	server = httptest.NewTLSServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/v1/videos/generations":
+			if got := r.Header.Get("X-Anselm-Install-ID"); got != "sk" {
+				t.Fatalf("managed install id = %q, want sk", got)
+			}
+			var body map[string]any
+			if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+				t.Fatalf("decode generation request: %v", err)
+			}
+			submittedSeconds, _ = body["seconds"].(float64)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(http.StatusAccepted)
+			_, _ = w.Write([]byte(`{"id":"video-clamp-handle"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/v1/videos/video-clamp-handle":
+			w.Header().Set("Content-Type", "application/json")
+			_, _ = w.Write([]byte(`{"status":"succeeded","url":"` + server.URL + `/artifact"}`))
+		case r.Method == http.MethodGet && r.URL.Path == "/artifact":
+			w.Header().Set("Content-Type", "video/mp4")
+			_, _ = w.Write([]byte("fake-video-bytes"))
+		default:
+			t.Fatalf("unexpected gateway request: %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	r := videoRouter(t, "anselm", server.URL+"/v1", server.Client())
+	tool := videoTool(t, r, &fakeUploader{})
+	receipt, err := tool.Execute(context.Background(), `{"prompt":"a paper boat","seconds":30}`)
+	if err != nil {
+		t.Fatalf("clamped video: %v", err)
+	}
+	if submittedSeconds != 15 {
+		t.Fatalf("submitted seconds = %v, want managed ceiling 15", submittedSeconds)
+	}
+	var got map[string]any
+	if err := json.Unmarshal([]byte(receipt), &got); err != nil {
+		t.Fatalf("receipt is not JSON: %v", err)
+	}
+	if gotSeconds, _ := got["seconds"].(float64); gotSeconds != 15 {
+		t.Fatalf("receipt seconds = %v, want the actual 15-second output", gotSeconds)
+	}
+}
+
+// TestVideo_ContextTimeoutSaysTheUpstreamMayStillComplete locks the expensive-task failure
+// contract: once the gateway accepted the job, cancelling this turn must not imply that the
+// upstream job was cancelled. The user gets the durable error code and an honest recovery hint.
+func TestVideo_ContextTimeoutSaysTheUpstreamMayStillComplete(t *testing.T) {
+	var polls int
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method == http.MethodGet {
+			polls++
+			t.Fatalf("poll %d happened after the turn was cancelled", polls)
+		}
+		if r.Method != http.MethodPost || r.URL.Path != "/v1/videos/generations" {
+			t.Fatalf("unexpected gateway request: %s %s", r.Method, r.URL.Path)
+		}
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusAccepted)
+		_, _ = w.Write([]byte(`{"id":"video-timeout-handle"}`))
+		// Let the accepted response reach the client, then cancel the local turn before its first
+		// poll. The remote task is intentionally left running from the caller's perspective.
+		time.AfterFunc(10*time.Millisecond, cancel)
+	}))
+	defer server.Close()
+
+	r := videoRouter(t, "anselm", server.URL+"/v1", http.DefaultClient)
+	tool := videoTool(t, r, &fakeUploader{})
+	_, err := tool.Execute(ctx, `{"prompt":"a quiet paper boat","seconds":5}`)
+	if err == nil {
+		t.Fatal("cancelled video turn unexpectedly succeeded")
+	}
+	if !errors.Is(err, llminfra.ErrVideoGenFailed) {
+		t.Fatalf("error = %v, want VIDEO_GEN_FAILED", err)
+	}
+	if !strings.Contains(err.Error(), "may still complete") {
+		t.Fatalf("error = %q, want an honest upstream-continuation hint", err)
+	}
+	if polls != 0 {
+		t.Fatalf("polls = %d, want no poll after the turn was cancelled", polls)
 	}
 }
 

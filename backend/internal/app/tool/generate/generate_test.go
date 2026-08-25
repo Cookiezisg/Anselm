@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"image"
 	"image/color"
@@ -151,6 +152,33 @@ func TestRoute_FiveBatteries(t *testing.T) {
 			t.Fatal("deepseek route must fail — provider has no image generation")
 		}
 	})
+}
+
+// TestImageCapability_HonestAbsenceAndDirectRace keeps the two halves of honest absence together:
+// after the last image-capable key disappears, generate_image is not injected, and a stale direct
+// call fails with the typed IMAGE_NO_ROUTE sentinel instead of trying a hidden fallback.
+func TestImageCapability_HonestAbsenceAndDirectRace(t *testing.T) {
+	r := routerWith(
+		fakePicker{err: modeldomain.ErrNotConfigured},
+		fakeKeys{},
+		fakeProbes{},
+	)
+	var image *GenerateImage
+	for _, tw := range GenerateTools(r, &fakeUploader{}, nil, nil) {
+		if tw.Tool.Name() == "generate_image" {
+			image, _ = tw.Tool.(*GenerateImage)
+			if tw.Available(context.Background()) {
+				t.Fatal("generate_image remained in the request toolset with no image route")
+			}
+		}
+	}
+	if image == nil {
+		t.Fatal("generate_image missing from the capability family")
+	}
+	_, err := image.Execute(context.Background(), `{"prompt":"a quiet paper boat"}`)
+	if !errors.Is(err, ErrNoImageRoute) {
+		t.Fatalf("direct stale call error = %v, want IMAGE_NO_ROUTE", err)
+	}
 }
 
 // TestValidateInput_ClosedShape: prompt required + bounded, aspect enum closed.

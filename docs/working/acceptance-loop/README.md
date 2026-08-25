@@ -297,7 +297,135 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-220 已完成；批次六十九 50/50，统一门禁通过并已提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-230 已完成；批次七十 50/50，统一门禁通过，待提交)
+
+#### 2026-08-26 当前前线重述：EDGE-230 ParseWAV 遍历 chunk 表
+
+`EDGE-230` 已完成 WAV chunk 遍历的 L1 focused regression：标准 round-trip、插入 `LIST` metadata 和插入
+`fact` metadata 均只取回精确 data PCM，不把 metadata 当样本。独立正式 App/TTS 播放和五通道 session 尚未
+执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-230-parse-wav-chunks-20260826.md`；五级=
+`measure:edge230-parse-wav-chunks/na/na/na/na`；formal journal=`3636`（2300 baseline + 1336 live），
+`gen_coverage.py --check`=`848 rows / 727 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-230-ledger-alarm-reaudit-20260826.md`。
+- 批次七十已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-70-unified-gate-20260826.md`，
+  `make verify`、完整 testend、rig 51 项、后端 verify、文档、锚点、警报、脚本语法、gofmt、diff 和进程审计
+  全部通过；待提交。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-229 多块 TTS PCM 拼接
+
+`EDGE-229` 已完成多块 TTS PCM 拼接的 L1 focused regression：多个 WAV 在 PCM 层重接成一个 WAV、只保留
+一个 RIFF 头；LIST metadata 不被当样本，混合采样率大声拒绝，单块原样透传，各 provider 均有显式 chunk
+limit。独立正式 App/真实 TTS 和五通道 session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-229-tts-pcm-concat-20260826.md`；五级=
+`measure:edge229-tts-pcm-concat/na/na/na/na`；formal journal=`3631`（2300 baseline + 1331 live），
+`gen_coverage.py --check`=`848 rows / 726 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-229-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-230`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-228 ASR sidecar 无受管凭证
+
+`EDGE-228` 已完成 ASR 诚实缺席的 L1 focused regression：语音服务没有 managed key 时不可用，HTTP
+`GET /api/v1/speech/asr` 明确返回 `503` + `SPEECH_UNAVAILABLE`，不会拿 BYOK fallback，也不会建立半配置
+WebSocket；有 managed key 的正常代理回归同时通过。独立正式 App/真实语音输入和五通道 session 尚未执行，
+L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-228-asr-no-managed-credential-20260826.md`；五级=
+`measure:edge228-asr-no-managed-credential/na/na/na/na`；formal journal=`3626`（2300 baseline + 1326 live），
+`gen_coverage.py --check`=`848 rows / 725 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-228-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-229`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-227 语音配额与限流分流
+
+`EDGE-227` 已完成语音错误 taxonomy 的 L1 focused regression：QUOTA/BUDGET/INSTALL_CAP 映射为
+`SPEECH_QUOTA_EXHAUSTED` 且不可重试，RATE_LIMITED/UPSTREAM_BUSY 映射为可重试的 `SPEECH_RATE_LIMITED`，
+ACCOUNT_BANNED 映射为 `SPEECH_ACCOUNT_BANNED`；握手前、HTTP 402/429 和流内错误保持同一分流。独立正式
+App/真实语音网关和五通道 session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-227-speech-error-taxonomy-20260826.md`；五级=
+`measure:edge227-speech-error-taxonomy/na/na/na/na`；formal journal=`3621`（2300 baseline + 1321 live），
+`gen_coverage.py --check`=`848 rows / 724 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-227-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-228`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-226 受管档视频路由
+
+`EDGE-226` 已完成受管视频路由的 L1 focused regression：只有 managed key 时 video/image/speech 能力可用，
+video route 使用 install id、桌面侧不伪造 model；本地 TLS 网关完整 submit/poll/fetch/receipt 回归确认线缆
+带 `X-Anselm-Install-ID`，text-to-video 与 image-to-video 的 endpoint/payload 也分别锁定，图生视频只在显式
+capability 时出现。独立正式 App/真实受管视频和五通道 session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-226-managed-video-route-20260826.md`；五级=
+`measure:edge226-managed-video-route/na/na/na/na`；formal journal=`3616`（2300 baseline + 1316 live），
+`gen_coverage.py --check`=`848 rows / 723 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-226-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-227`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-225 能力工具诚实缺席
+
+`EDGE-225` 已完成出图能力诚实缺席的 L1 focused regression：空 key/probe 集合时，`generate_image` 的
+逐请求 availability 为 false，不进入能力工具集；模拟旧回合直接调用则返回 typed `IMAGE_NO_ROUTE`，不偷偷
+换路由、不让模型看到必然失败的工具。独立正式 App/工具回合和五通道 session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-225-image-capability-honest-absence-20260826.md`；五级=
+`measure:edge225-image-capability-honest-absence/na/na/na/na`；formal journal=`3611`（2300 baseline + 1311 live），
+`gen_coverage.py --check`=`848 rows / 722 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-225-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-226`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-224 不可能的生成组合钳制
+
+`EDGE-224` 已完成生成时长钳制的 L1 focused regression。当前 main 的生成已收敛到受管网关，硬上限为 15 秒；
+本地 TLS 网关完整走 `GenerateVideo.Execute` 的 submit → poll → fetch → receipt 路径，输入 30 秒时实际提交
+15 秒，最终 receipt 也报告 15 秒。旧清册例子中的 Veo 直连不再是当前可用能力，已在正式证据中明确，不把历史
+路径伪装成现行产品。独立正式 App/真实生成和五通道 session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-224-video-duration-clamp-20260826.md`；五级=
+`measure:edge224-video-duration-clamp/na/na/na/na`；formal journal=`3606`（2300 baseline + 1306 live），
+`gen_coverage.py --check`=`848 rows / 721 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-224-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-225`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-223 视频轮询超时诚实话
+
+`EDGE-223` 已完成视频异步任务超时/取消的 L1 focused regression：本地 HTTP server 模拟网关已 `202 Accepted`
+并返回 opaque handle，随后取消本地回合；实现返回 `VIDEO_GEN_FAILED`，错误中明确写出上游任务可能仍会完成，
+且不会继续发起首次轮询。时长钳制与受管视频路由回归同时通过。独立正式 App/真实视频生成和五通道 session
+尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-223-video-poll-timeout-20260826.md`；五级=
+`measure:edge223-video-poll-timeout/na/na/na/na`；formal journal=`3601`（2300 baseline + 1301 live），
+`gen_coverage.py --check`=`848 rows / 720 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-223-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-224`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-222 生成 origin 从凭证派生
+
+`EDGE-222` 已完成生成 origin 的 L1 focused regression：Qwen/DashScope 图片、语音、视频生成路由均从
+凭证聊天 base URL 剥离 `/compatible-mode/v1` 派生原生 origin，覆盖新加坡、北京、workspace 域、尾斜杠、
+代理路径和空 base fallback；实际 Qwen 兼容请求也保留配置的区域 endpoint。独立正式 App/生成调用和五通道
+session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-222-llm-generation-origin-20260826.md`；五级=
+`measure:edge222-llm-generation-origin/na/na/na/na`；formal journal=`3596`（2300 baseline + 1296 live），
+`gen_coverage.py --check`=`848 rows / 719 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-222-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-223`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-221 写时校 apiKeyId 存在性
+
+`EDGE-221` 已完成 model reference 写时存在性校验的 L1 focused regression：conversation override、agent override、
+workspace scenario default 和 search default 四条路径均在写入时拒绝悬空 `apiKeyId` 并返回 `API_KEY_NOT_FOUND`，
+真实 key 和清除操作仍可用。独立正式多实体 API/App session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-221-modelref-key-existence-write-20260826.md`；五级=
+`measure:edge221-modelref-key-existence-write/na/na/na/na`；formal journal=`3591`（2300 baseline + 1291 live），
+`gen_coverage.py --check`=`848 rows / 718 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-221-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-222`。P12 400+ Journey 继续推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-220 未探测/custom 模型
 

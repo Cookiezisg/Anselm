@@ -10,7 +10,91 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-220 已收口 · 批次六十九 50/50 · 统一门禁通过并已提交）
+## 当前前线（2026-08-26 · EDGE-230 已收口 · 批次七十 50/50，统一门禁通过，待提交）
+
+- `EDGE-230` focused L1 通过：WAV 标准、LIST、fact chunk 遍历均只取 data PCM；L2-L5 因无独立真实 App/TTS
+  播放与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-230-parse-wav-chunks-20260826.md`；`judge.py` 写入
+  五格 `measure:edge230-parse-wav-chunks/na/na/na/na`；formal journal=`3636`（2300 baseline + 1336 live），
+  `COVERAGE=848/727/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-230-ledger-alarm-reaudit-20260826.md`。
+- 批次七十已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-70-unified-gate-20260826.md`，
+  `make verify`、完整 testend、rig 51 项、后端 verify、文档、锚点、警报、脚本语法、gofmt、diff 和进程审计
+  全部通过；待提交。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-229` focused L1 通过：TTS 多块 WAV 在 PCM 层重接、单 RIFF 头、metadata 遍历和混合格式拒绝均
+  通过；L2-L5 因无独立真实 App/TTS 与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-229-tts-pcm-concat-20260826.md`；`judge.py` 写入
+  五格 `measure:edge229-tts-pcm-concat/na/na/na/na`；formal journal=`3631`（2300 baseline + 1331 live），
+  `COVERAGE=848/726/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-229-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-230`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-228` focused L1 通过：无 managed key 的 ASR 入口返回 `503 SPEECH_UNAVAILABLE`，不走 BYOK、不建
+  半配置 WebSocket；L2-L5 因无独立真实 App/语音输入与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-228-asr-no-managed-credential-20260826.md`；`judge.py` 写入
+  五格 `measure:edge228-asr-no-managed-credential/na/na/na/na`；formal journal=`3626`（2300 baseline + 1326 live），
+  `COVERAGE=848/725/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-228-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-229`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-227` focused L1 通过：语音配额、瞬时限流、上游忙和安装封禁已分流到独立错误码，额度耗尽
+  不重试；L2-L5 因无独立真实 App/语音网关与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-227-speech-error-taxonomy-20260826.md`；`judge.py` 写入
+  五格 `measure:edge227-speech-error-taxonomy/na/na/na/na`；formal journal=`3621`（2300 baseline + 1321 live），
+  `COVERAGE=848/724/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-227-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-228`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-226` focused L1 通过：managed-only 视频路由与 install-id 线缆、submit/poll/fetch/receipt、本地
+  text/i2v endpoint 形状均通过；L2-L5 因无独立真实 App/受管视频与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-226-managed-video-route-20260826.md`；`judge.py` 写入
+  五格 `measure:edge226-managed-video-route/na/na/na/na`；formal journal=`3616`（2300 baseline + 1316 live），
+  `COVERAGE=848/723/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-226-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-227`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-225` focused L1 通过：无出图 key 时 `generate_image` 不进入逐请求工具集，模拟旧调用返回
+  `IMAGE_NO_ROUTE`；L2-L5 因无独立真实 App/工具回合与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-225-image-capability-honest-absence-20260826.md`；`judge.py` 写入
+  五格 `measure:edge225-image-capability-honest-absence/na/na/na/na`；formal journal=`3611`（2300 baseline + 1311 live），
+  `COVERAGE=848/722/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-225-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-226`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-224` focused L1 通过：受管视频 15 秒硬上限下，本地 TLS 网关完整 submit→poll→fetch→receipt 验证
+  30 秒输入被提交为 15 秒且 receipt 报 15 秒；旧清册 Veo 直连差异已在证据中诚实标注。L2-L5 因无独立真实
+  App/真实生成与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-224-video-duration-clamp-20260826.md`；`judge.py` 写入
+  五格 `measure:edge224-video-duration-clamp/na/na/na/na`；formal journal=`3606`（2300 baseline + 1306 live），
+  `COVERAGE=848/721/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-224-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-225`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-223` focused L1 通过：本地 HTTP 回归验证视频任务被网关接受后取消回合会返回 `VIDEO_GEN_FAILED`、
+  明示上游可能仍完成且不继续轮询；L2-L5 因无独立真实 App/视频生成与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-223-video-poll-timeout-20260826.md`；`judge.py` 写入
+  五格 `measure:edge223-video-poll-timeout/na/na/na/na`；formal journal=`3601`（2300 baseline + 1301 live），
+  `COVERAGE=848/720/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-223-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-224`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-222` focused L1 通过：Qwen/DashScope 图片、语音、视频生成从凭证聊天 base URL 剥离
+  `/compatible-mode/v1` 派生原生 origin，覆盖多区域和 workspace endpoint；L2-L5 因无独立正式 App/生成
+  调用与五通道 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-222-llm-generation-origin-20260826.md`；`judge.py` 写入
+  五格 `measure:edge222-llm-generation-origin/na/na/na/na`；formal journal=`3596`（2300 baseline + 1296 live），
+  `COVERAGE=848/719/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-222-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-223`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-221` focused L1 通过：conversation、agent、workspace scenario default 和 search default 四条路径写入时
+  拒绝悬空 `apiKeyId` 并返回 `API_KEY_NOT_FOUND`，真实 key 和清除仍可用。L2-L5 因无独立正式多实体 API/App session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-221-modelref-key-existence-write-20260826.md`；`judge.py` 写入
+  五格 `measure:edge221-modelref-key-existence-write/na/na/na/na`；formal journal=`3591`（2300 baseline + 1291 live），
+  `COVERAGE=848/718/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-221-ledger-alarm-reaudit-20260826.md`。
+- 批次七十当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-222`。P12 400+ Journey 继续推迟二期。
 
 - `EDGE-220` focused L1 通过：空 options 的未列模型仍可保存/运行，不硬套不存在的目录；带 native option 必须有
   公开契约，拼错 model id 保持 invoke 时 fail-loud。L2-L5 因无独立正式 model-picker/invoke session 明确为 `na`。

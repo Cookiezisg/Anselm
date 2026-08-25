@@ -133,6 +133,31 @@ func TestSpeechHandlerProxiesClientFramesToManagedGateway(t *testing.T) {
 	}
 }
 
+// TestSpeechHandlerWithoutManagedCredentialIsHonestAbsence keeps the product boundary loud:
+// ASR only uses the managed Anselm Auto route, so no managed key must produce a typed 503 rather
+// than attempting a BYOK fallback or opening a half-configured WebSocket.
+func TestSpeechHandlerWithoutManagedCredentialIsHonestAbsence(t *testing.T) {
+	h := NewSpeechHandler(speechapp.New(speechTestKeys{}), &fakeProofHeaders{}, zap.NewNop())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/speech/asr", nil)
+	recorder := httptest.NewRecorder()
+	h.ASR(recorder, req)
+
+	if recorder.Code != http.StatusServiceUnavailable {
+		t.Fatalf("status = %d, want 503; body=%s", recorder.Code, recorder.Body.String())
+	}
+	var envelope struct {
+		Error struct {
+			Code string `json:"code"`
+		} `json:"error"`
+	}
+	if err := json.Unmarshal(recorder.Body.Bytes(), &envelope); err != nil {
+		t.Fatalf("response is not JSON: %v", err)
+	}
+	if envelope.Error.Code != "SPEECH_UNAVAILABLE" {
+		t.Fatalf("error code = %q, want SPEECH_UNAVAILABLE", envelope.Error.Code)
+	}
+}
+
 func TestSpeechHandlerRelaysGatewayErrorsVerbatim(t *testing.T) {
 	upgrader := websocket.Upgrader{}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
