@@ -297,7 +297,97 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次五十九已收口；批次六十 0/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-130 已完成；批次六十 50/50，统一门禁通过，待提交)
+
+#### 2026-08-25 当前前线重述：EDGE-130 版本 cap 50 trim 回收 venv
+
+版本 cap 与 sandbox 回收已通过 focused `-race` 和真实 51 次 edit 场景：最老非 active 版本被 trim，关联 venv 经 `DestroyEnv` 回收，active version 保留；真实 `/versions` 与 `/sandbox/envs` 对账成立，收台无 sandbox 残留句柄。
+
+正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`。五级严格为
+`L1=measure:edge130-version-cap-trim-reclaims-env`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/数据库/sandbox 对账不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3136`（2300 baseline + 836 live），`gen_coverage.py --check`=`848 rows / 627 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿。当前待提交；提交后下一原子前线=`EDGE-131`（批次六十一从 `0/50` 开始）。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-129 env 被 GC 后重试一次
+
+真实 function 生命周期已通过：sandbox GC 回收当前版本环境后，下一次 `:run` 触发 `ErrEnvNotFound` 分支，系统重建同一 active version 的 env 并透明重试一次，最终仍返回 `200` 成功；没有要求用户手动编辑，也没有铸造新版本。
+
+正式证据=`testend/rig/formal-evidence/EDGE-129-env-gc-retry-once-20260825.md`。五级严格为
+`L1=measure:edge129-env-gc-retry-once`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/sandbox GC/成功回执不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3131`（2300 baseline + 831 live），`gen_coverage.py --check`=`848 rows / 626 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十当前=`45/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-130`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-128 空 ops edit 重建 env
+
+空 ops edit 的成功与失败边界已通过应用回归和真实 function HTTP 生命周期：失败环境重建失败时 active version 仍为 `failed`，不发 `function.env_rebuilt` 假成功通知；正常环境空 ops 返回原来的 `version=1`，发一条重建通知，版本列表仍只有一行。该操作重建 active env，不铸造新版本。
+
+正式证据=`testend/rig/formal-evidence/EDGE-128-empty-ops-rebuild-env-20260825.md`。五级严格为
+`L1=measure:edge128-empty-ops-rebuild-env`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；应用/HTTP/通知/版本真相不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3126`（2300 baseline + 826 live），`gen_coverage.py --check`=`848 rows / 625 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十当前=`40/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-129`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-127 env failed 仍创建成功
+
+真实 function HTTP 生命周期已通过：用不存在依赖创建 function 仍返回 `201`，实体 active version 可读且明确为 `envStatus=failed`、`envError` 非空；随后运行才返回 `422 FUNCTION_ENV_NOT_READY`。创建、失败状态可见和运行时门控被清楚分开，没有把实体创建失败或运行时缺包混成不透明错误。
+
+正式证据=`testend/rig/formal-evidence/EDGE-127-env-failed-create-visible-20260825.md`。五级严格为
+`L1=measure:edge127-env-failed-create-visible`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/状态/错误证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3121`（2300 baseline + 821 live），`gen_coverage.py --check`=`848 rows / 624 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十当前=`35/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-128`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-126 未配 utility 模型时的 envfix
+
+未配置 utility model 的 envfix 降级已通过 focused `-race` 与真实 function HTTP 生命周期：sandbox 首次安装失败后只尝试一次，`OK=false`，失败 stderr/原因保留在 History；真实 function 仍可创建为 `envStatus=failed`，运行时明确返回 `FUNCTION_ENV_NOT_READY`，不伪造可运行环境，也不把缺失模型变成裸 Go error。
+
+正式证据=`testend/rig/formal-evidence/EDGE-126-envfix-no-utility-20260825.md`。五级严格为
+`L1=measure:edge126-envfix-no-utility`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/状态/错误证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3116`（2300 baseline + 816 live），`gen_coverage.py --check`=`848 rows / 623 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十当前=`30/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-127`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-125 envfix 拒绝丢包修复
+
+envfix 的防假就绪护栏已通过 focused `-race` 回归：首次安装失败后，mock utility LLM 返回比用户原始声明更短的空依赖列表；系统拒绝该建议，不发生第二次安装，结果保持 `OK=false`，`FinalDeps` 保留用户声明，真实安装错误仍可达。生产实现比较原始 `req.Deps` 长度，避免把失败推迟成运行时缺包错误。
+
+正式证据=`testend/rig/formal-evidence/EDGE-125-envfix-reject-dep-drop-20260825.md`。五级严格为
+`L1=measure:edge125-envfix-reject-dep-drop`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；当前没有可控真实 utility model 丢包建议的产品会话，也没有独立 Computer Use、测量、视觉和 discoverability 证据，不越级使用 focused 回归。
+formal journal=`3111`（2300 baseline + 811 live），`gen_coverage.py --check`=`848 rows / 622 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十当前=`25/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-126`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-124 envfix 自愈循环
+
+envfix 失败→修复→重试状态机已通过 focused `-race` 回归：首次安装失败后 utility 修正依赖，第二次用完整修正依赖成功，历史为 `[fail, ok]`；真实 function 生命周期也证明坏依赖创建可见、运行时返回 `FUNCTION_ENV_NOT_READY`。当前 testend 未配置 utility model，repair-unavailable 会诚实停止，未伪造绿 env。
+
+正式证据=`testend/rig/formal-evidence/EDGE-124-envfix-repair-loop-20260825.md`。五级严格为
+`L1=measure:edge124-envfix-repair-loop`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；没有 utility repair 的真实 Computer Use、测量、视觉和 discoverability 证据，不越级使用 focused 回归。
+formal journal=`3106`（2300 baseline + 806 live），`gen_coverage.py --check`=`848 rows / 621 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次六十当前=`20/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-125`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-123 暂停时 `nextFireAt` 缺席
+
+暂停 cron 的投影已通过应用与真实 HTTP 双重验证：`paused=true`、`listening=false`，JSON 完全省略 `nextFireAt`；硬重启跨 cron 边界仍保持该诚实投影且无 run，恢复后下一次真实 cron run 成功。
+
+正式证据=`testend/rig/formal-evidence/EDGE-123-paused-next-fire-absent-20260825.md`。五级严格为
+`L1=measure:edge123-paused-next-fire-absent`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；HTTP 投影证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3101`（2300 baseline + 801 live），`gen_coverage.py --check`=`848 rows / 620 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次六十当前=`15/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-124`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-122 fsnotify 秒桶去重
+
+新增并通过 fsnotify 秒桶不变量回归：同一 UTC 秒内同 path+operation 共享 dedup key，下一秒或不同 path/operation 生成新 key；真实 fsnotify HTTP 场景同时证明过滤后的 create 才产生唯一 activation/firing/run，modify 与不匹配事件不新增 run。
+
+正式证据=`testend/rig/formal-evidence/EDGE-122-fsnotify-second-dedup-20260825.md`。五级严格为
+`L1=measure:edge122-fsnotify-second-dedup`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；应用与 HTTP 证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3096`（2300 baseline + 796 live），`gen_coverage.py --check`=`848 rows / 619 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次六十当前=`10/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-123`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-121 webhook 分钟桶去重
+
+真实 webhook 重试语义已通过：同一分钟相同 raw body 的两次 HTTP 请求均接受但折叠为一条 firing/run；不同 body 产生第二条独立 firing/run，未被错误去重。
+
+正式证据=`testend/rig/formal-evidence/EDGE-121-webhook-minute-dedup-20260825.md`。五级严格为
+`L1=measure:edge121-webhook-minute-dedup`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP 只证明去重语义，不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3091`（2300 baseline + 791 live），`gen_coverage.py --check`=`848 rows / 618 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
+批次六十当前=`5/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-122`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-120 webhook HMAC 不匹配
 

@@ -10,7 +10,47 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · 批次五十九已收口 · 批次六十 0/50）
+## 当前前线（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，待提交）
+
+- EDGE-130 复核版本 cap 50：真实 51 次 edit 后最老非 active 版本被 trim，`DestroyEnv` 回收其 venv，active version 保留，REST 版本/env 列表对账并收台无残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`；`judge.py` 写入五格 `measure:edge130-version-cap-trim-reclaims-env/na/na/na/na`；formal journal=`3136`，COVERAGE=`848/627/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿。当前待提交；提交后下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
+
+- EDGE-129 复核 GC 后透明重试：真实路径回收 function env，再次 `:run` 触发重建并只重试一次，最终成功且不铸造新版本。
+- 正式证据=`testend/rig/formal-evidence/EDGE-129-env-gc-retry-once-20260825.md`；`judge.py` 写入五格 `measure:edge129-env-gc-retry-once/na/na/na/na`；formal journal=`3131`，COVERAGE=`848/626/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-130`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-128 复核空 ops rebuild：failed env 重建失败不发假成功通知；正常 env 保持原版本、发一条 `function.env_rebuilt`，版本列表不新增。
+- 正式证据=`testend/rig/formal-evidence/EDGE-128-empty-ops-rebuild-env-20260825.md`；`judge.py` 写入五格 `measure:edge128-empty-ops-rebuild-env/na/na/na/na`；formal journal=`3126`，COVERAGE=`848/625/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-129`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-127 复核 env failed 仍创建成功：真实 HTTP 证明不存在依赖不阻断 `201` 创建，失败状态与错误可见，运行时明确返回 `FUNCTION_ENV_NOT_READY`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-127-env-failed-create-visible-20260825.md`；`judge.py` 写入五格 `measure:edge127-env-failed-create-visible/na/na/na/na`；formal journal=`3121`，COVERAGE=`848/624/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-128`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-126 复核无 utility 模型降级：focused `-race` 与真实 function HTTP 证明只尝试一次，失败原因进入 History，实体保持 failed，运行时返回 `FUNCTION_ENV_NOT_READY`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-126-envfix-no-utility-20260825.md`；`judge.py` 写入五格 `measure:edge126-envfix-no-utility/na/na/na/na`；formal journal=`3116`，COVERAGE=`848/623/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-127`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-125 复核 envfix 丢包护栏：focused `-race` 证明 utility 返回空依赖时被拒绝，sandbox 不发生第二次安装，结果保持 failed 并保留用户原始声明。
+- 正式证据=`testend/rig/formal-evidence/EDGE-125-envfix-reject-dep-drop-20260825.md`；`judge.py` 写入五格 `measure:edge125-envfix-reject-dep-drop/na/na/na/na`；formal journal=`3111`，COVERAGE=`848/622/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-126`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-124 复核 envfix 自愈：focused 回归证明失败依赖经 utility 修正后重试成功；真实 function 路径证明未配置 utility 时保持 failed、运行时 `FUNCTION_ENV_NOT_READY`，不伪造成功。
+- 正式证据=`testend/rig/formal-evidence/EDGE-124-envfix-repair-loop-20260825.md`；`judge.py` 写入五格 `measure:edge124-envfix-repair-loop/na/na/na/na`；formal journal=`3106`，COVERAGE=`848/621/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-125`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-123 复核暂停投影：应用与真实 cron HTTP 场景证明 `paused=true`、`listening=false` 且无 `nextFireAt`，硬重启后仍无 run，resume 后真实 cron 恢复。
+- 正式证据=`testend/rig/formal-evidence/EDGE-123-paused-next-fire-absent-20260825.md`；`judge.py` 写入五格 `measure:edge123-paused-next-fire-absent/na/na/na/na`；formal journal=`3101`，COVERAGE=`848/620/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-124`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-122 复核 fsnotify 秒桶去重：新增秒桶 key 回归，真实 fsnotify 路径证明过滤 create 唯一触发，modify/不匹配不新增 run。
+- 正式证据=`testend/rig/formal-evidence/EDGE-122-fsnotify-second-dedup-20260825.md`；`judge.py` 写入五格 `measure:edge122-fsnotify-second-dedup/na/na/na/na`；formal journal=`3096`，COVERAGE=`848/619/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-123`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-121 复核 webhook 分钟桶去重：同一分钟同 body 的重复请求折叠为一条 firing/run，不同 body 形成第二条独立执行。
+- 正式证据=`testend/rig/formal-evidence/EDGE-121-webhook-minute-dedup-20260825.md`；`judge.py` 写入五格 `measure:edge121-webhook-minute-dedup/na/na/na/na`；formal journal=`3091`，COVERAGE=`848/618/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-122`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-120 复核 webhook HMAC：真实正签名 `202`，错误签名/错误 header `401` 纯文本；明文 secret 缺失/错误 `401`，均不进入 workflow。
 - 正式证据=`testend/rig/formal-evidence/EDGE-120-webhook-hmac-mismatch-20260825.md`；`judge.py` 写入五格 `measure:edge120-webhook-hmac-mismatch/na/na/na/na`；formal journal=`3086`，COVERAGE=`848/617/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。

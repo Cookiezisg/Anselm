@@ -13,7 +13,67 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · 批次五十九已收口 · 批次六十 0/50）
+## 当前前线覆盖声明（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，待提交）
+
+## 2026-08-25 · EDGE-130 版本 cap 50 trim 回收 venv
+
+- focused `-race` 与真实 51 次 edit 通过：cap=50，最老非 active 版本被 trim，关联 venv 由 `DestroyEnv` 回收，active version 保留；REST 版本/env 列表对账成立，收台无残留句柄。
+- 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`；五级=`measure:edge130-version-cap-trim-reclaims-env/na/na/na/na`；formal journal=`3136`，COVERAGE=`848/627/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿。当前待提交；提交后下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-129 env 被 GC 后重试一次
+
+- 真实 function 生命周期通过：GC 回收 env 后下一次 `:run` 命中 `ErrEnvNotFound`，重建同一 active version 并透明重试一次，最终 `200` 成功且无新版本。
+- 正式证据=`testend/rig/formal-evidence/EDGE-129-env-gc-retry-once-20260825.md`；五级=`measure:edge129-env-gc-retry-once/na/na/na/na`；formal journal=`3131`，COVERAGE=`848/626/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-130`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-128 空 ops edit 重建 env
+
+- 应用回归与真实 function HTTP 通过：failed env 的空 ops 失败不发 `function.env_rebuilt`；正常 env 保持 `version=1`、只发一条重建通知，版本列表仍一行。
+- 正式证据=`testend/rig/formal-evidence/EDGE-128-empty-ops-rebuild-env-20260825.md`；五级=`measure:edge128-empty-ops-rebuild-env/na/na/na/na`；formal journal=`3126`，COVERAGE=`848/625/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-129`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-127 env failed 仍创建成功
+
+- 真实 function HTTP 路径通过：不存在依赖不阻断 `201` 创建，active version 明确 `envStatus=failed`/`envError`，运行时才返回 `422 FUNCTION_ENV_NOT_READY`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-127-env-failed-create-visible-20260825.md`；五级=`measure:edge127-env-failed-create-visible/na/na/na/na`；formal journal=`3121`，COVERAGE=`848/624/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-128`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-126 未配 utility 模型时的 envfix
+
+- focused `-race` 与真实 function HTTP 生命周期通过：未配 utility 时只尝试一次，失败原因留在 History，function 保持 failed，运行时返回 `FUNCTION_ENV_NOT_READY`，不造假成功。
+- 正式证据=`testend/rig/formal-evidence/EDGE-126-envfix-no-utility-20260825.md`；五级=`measure:edge126-envfix-no-utility/na/na/na/na`；formal journal=`3116`，COVERAGE=`848/623/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-127`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-125 envfix 拒绝丢包修复
+
+- focused `-race` 回归通过：utility 返回缩减依赖时被拒绝，不发生第二次安装，env 保持 failed，原始声明与真实安装错误保留，避免假 ready 后才暴露运行时缺包。
+- 正式证据=`testend/rig/formal-evidence/EDGE-125-envfix-reject-dep-drop-20260825.md`；五级=`measure:edge125-envfix-reject-dep-drop/na/na/na/na`；formal journal=`3111`，COVERAGE=`848/622/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-126`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-124 envfix 自愈循环
+
+- focused `-race` envfix 回归与真实 function 生命周期通过：失败依赖经 utility 修正后第二次安装成功；真实未配置 utility 的路径诚实停在 failed/`FUNCTION_ENV_NOT_READY`，不造假绿 env。
+- 正式证据=`testend/rig/formal-evidence/EDGE-124-envfix-repair-loop-20260825.md`；五级=`measure:edge124-envfix-repair-loop/na/na/na/na`；formal journal=`3106`，COVERAGE=`848/621/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-125`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-123 暂停时 `nextFireAt` 缺席
+
+- 应用与真实 cron HTTP 路径通过：暂停投影为 `paused=true/listening=false` 且缺席 `nextFireAt`；跨硬重启无 run，resume 后真实 cron run 成功。
+- 正式证据=`testend/rig/formal-evidence/EDGE-123-paused-next-fire-absent-20260825.md`；五级=`measure:edge123-paused-next-fire-absent/na/na/na/na`；formal journal=`3101`，COVERAGE=`848/620/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-124`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-122 fsnotify 秒桶去重
+
+- 新增秒桶 dedup-key 回归并通过；真实 fsnotify HTTP 路径证明过滤后的 create 只产生一条 run，modify/不匹配事件不新增执行。
+- 正式证据=`testend/rig/formal-evidence/EDGE-122-fsnotify-second-dedup-20260825.md`；五级=`measure:edge122-fsnotify-second-dedup/na/na/na/na`；formal journal=`3096`，COVERAGE=`848/619/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-123`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-121 webhook 分钟桶去重
+
+- 真实 webhook 重试路径通过：同一分钟同 body 两次请求只形成一条 firing/run；不同 body 形成第二条独立 firing/run。
+- 正式证据=`testend/rig/formal-evidence/EDGE-121-webhook-minute-dedup-20260825.md`；五级=`measure:edge121-webhook-minute-dedup/na/na/na/na`；formal journal=`3091`，COVERAGE=`848/618/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
+- 批次六十当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-122`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-120 webhook HMAC 不匹配
 

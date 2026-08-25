@@ -192,8 +192,14 @@ func (l *Listener) dispatch(ev notifyfsnotify.Event) {
 			"firedAt":   time.Now(),
 			"path":      ev.Name,
 			"eventKind": kind,
-		}, ev.Name+"|"+kind+"|"+time.Now().UTC().Format("20060102150405"))
+		}, dedupKey(ev.Name, kind, time.Now()))
 	}
+}
+
+// dedupKey keeps an editor's burst for one path and operation in one UTC second bucket,
+// while allowing the next real change to produce a new durable firing.
+func dedupKey(path, kind string, at time.Time) string {
+	return path + "|" + kind + "|" + at.UTC().Format("20060102150405")
 }
 
 // fire reports a fired action under a recover so a panicking handler doesn't kill the loop.
