@@ -10,7 +10,7 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-230 已收口 · 批次七十 50/50，统一门禁通过，待提交）
+## 当前前线（2026-08-26 · EDGE-230 已收口 · 批次七十 50/50，统一门禁通过，已提交=c1dabcde）
 
 - `EDGE-230` focused L1 通过：WAV 标准、LIST、fact chunk 遍历均只取 data PCM；L2-L5 因无独立真实 App/TTS
   播放与五通道 session 明确为 `na`。
@@ -20,7 +20,7 @@ landed-into:
   `testend/rig/formal-evidence/EDGE-230-ledger-alarm-reaudit-20260826.md`。
 - 批次七十已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-70-unified-gate-20260826.md`，
   `make verify`、完整 testend、rig 51 项、后端 verify、文档、锚点、警报、脚本语法、gofmt、diff 和进程审计
-  全部通过；待提交。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
+  全部通过；已提交=`c1dabcde`。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
 
 - `EDGE-229` focused L1 通过：TTS 多块 WAV 在 PCM 层重接、单 RIFF 头、metadata 遍历和混合格式拒绝均
   通过；L2-L5 因无独立真实 App/TTS 与五通道 session 明确为 `na`。

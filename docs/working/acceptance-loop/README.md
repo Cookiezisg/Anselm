@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-230 已完成；批次七十 50/50，统一门禁通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-230 已完成；批次七十 50/50，统一门禁通过，已提交=c1dabcde)
 
 #### 2026-08-26 当前前线重述：EDGE-230 ParseWAV 遍历 chunk 表
 
@@ -311,7 +311,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 `anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-230-ledger-alarm-reaudit-20260826.md`。
 - 批次七十已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-70-unified-gate-20260826.md`，
   `make verify`、完整 testend、rig 51 项、后端 verify、文档、锚点、警报、脚本语法、gofmt、diff 和进程审计
-  全部通过；待提交。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
+  全部通过；已提交=`c1dabcde`。下一原子前线暂不推进。P12 400+ Journey 继续推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-229 多块 TTS PCM 拼接
 
