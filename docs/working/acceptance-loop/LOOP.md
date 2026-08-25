@@ -13,13 +13,75 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，已提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-140 已收口 · 批次六十一 50/50，统一门禁通过并已提交）
+
+## 2026-08-25 · EDGE-140 handler ctx 取消 = 管道脏
+
+- 真实 stdio pipe 与 app manager `-race` 通过：取消 RPC 等待后 client 标记 crashed，后续调用拒绝复用，manager 下一次 Call 重生 resident；当前没有可控真实 HTTP handler 断连台架，未伪造该证据。
+- 正式证据=`testend/rig/formal-evidence/EDGE-140-handler-cancel-dirties-pipe-20260825.md`；五级=`measure:edge140-handler-cancel-dirties-pipe/na/na/na/na`；formal journal=`3186`，COVERAGE=`848/637/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-61-unified-gate-20260825.md`，全绿并已提交=`91fcbacb`；下一原子前线=`EDGE-141`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-139 handler config 不完整
+
+- focused service `-race` 与真实 HTTP 通过：缺必填 init arg 不 spawn，返回 `HANDLER_CONFIG_INCOMPLETE` 并留下 failed call；补回配置后恢复，真实 config 查询暴露 `missingConfig`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-139-handler-config-incomplete-20260825.md`；五级=`measure:edge139-handler-config-incomplete/na/na/na/na`；formal journal=`3181`，COVERAGE=`848/636/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-140`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-138 handler 孤儿 config key
+
+- focused filter `-race` 与真实 handler HTTP 通过：active schema 只接收声明参数且不改写持久 config；v2 删除 token schema 后仍能 spawn，revert v1 后保留 token 恢复生效，无 `__init__` TypeError。
+- 正式证据=`testend/rig/formal-evidence/EDGE-138-handler-orphan-config-filter-20260825.md`；五级=`measure:edge138-handler-orphan-config-filter/na/na/na/na`；formal journal=`3176`，COVERAGE=`848/635/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-139`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-137 handler spawn 单飞
+
+- manager `-race` 与真实 handler HTTP 通过：5 个并发冷调用只建立一个 resident，5 行调用台账共享唯一 `instanceId`，没有重复 env/process/`__init__`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-137-handler-spawn-singleflight-20260825.md`；五级=`measure:edge137-handler-spawn-singleflight/na/na/na/na`；formal journal=`3171`，COVERAGE=`848/634/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-138`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-136 无 uploader 时的产物声明
+
+- focused `-race` 通过：nil uploader 时 `$media` 原样透传、notes 为空，调用前不存在的 output 目录调用后仍不存在，没有附件或失败副作用；该项刻意没有可伪造的真实 product HTTP uploader 证据。
+- 正式证据=`testend/rig/formal-evidence/EDGE-136-function-artifact-no-uploader-20260825.md`；五级=`measure:edge136-function-artifact-no-uploader/na/na/na/na`；formal journal=`3166`，COVERAGE=`848/633/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-137`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-135 产物四道闸逐件失败
+
+- focused 组合回归与真实 function HTTP 通过：正常 PNG 成功成为附件，40 MiB 超限文件和 shell 伪装 PNG 各自留在原 `$media` 声明并写 logs，普通结果不失败，收台无残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-135-function-artifact-per-item-failures-20260825.md`；五级=`measure:edge135-function-artifact-per-item-failures/na/na/na/na`；formal journal=`3161`，COVERAGE=`848/632/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-136`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-134 产物路径逃逸
+
+- focused 安全回归与真实 function HTTP 通过：`../outside.png` 在读取前被 containment 拒绝；原 `$media` 声明保留、无 `attachmentId`，logs 给出拒绝原因，收台无 sandbox 残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-134-function-artifact-path-escape-20260825.md`；五级=`measure:edge134-function-artifact-path-escape/na/na/na/na`；formal journal=`3156`，COVERAGE=`848/631/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-135`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-133 function 媒体产物声明
+
+- focused collector `-race` 与真实 function HTTP 通过：`$media` 声明在 `chart` 原键就地替换为 MediaRef，`source=function_artifact`，同级字段保留；两次真实运行的附件 ID 与下载字节均独立且正确。
+- 正式证据=`testend/rig/formal-evidence/EDGE-133-function-media-artifact-20260825.md`；五级=`measure:edge133-function-media-artifact/na/na/na/na`；formal journal=`3151`，COVERAGE=`848/630/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-134`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-132 function 超时清洗
+
+- focused `-race` 与真实 function HTTP 通过：1 秒墙钟返回 `504 FUNCTION_RUN_TIMEOUT`，durable execution 为 `timeout`，错误用 wall-clock 语义，sandbox 收台无残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-132-function-timeout-cleanup-20260825.md`；五级=`measure:edge132-function-timeout-cleanup/na/na/na/na`；formal journal=`3146`，COVERAGE=`848/629/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-133`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-131 revert 到很老版本后再 trim
+
+- focused store 与真实 HTTP 通过：active 为最老 v1 时底层 trim 保留 v1、只裁 v2 env；真实 revert v1 后 edit v51 则新 v51 成为 active，版本集合收敛到 cap=50，新的 active 不被误删。
+- 正式证据=`testend/rig/formal-evidence/EDGE-131-revert-old-version-trim-20260825.md`；五级=`measure:edge131-revert-old-version-trim/na/na/na/na`；formal journal=`3141`，COVERAGE=`848/628/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
+- 批次六十一当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-132`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · 批次六十收口：EDGE-130 已提交
 
 ## 2026-08-25 · EDGE-130 版本 cap 50 trim 回收 venv
 
 - focused `-race` 与真实 51 次 edit 通过：cap=50，最老非 active 版本被 trim，关联 venv 由 `DestroyEnv` 回收，active version 保留；REST 版本/env 列表对账成立，收台无残留句柄。
 - 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`；五级=`measure:edge130-version-cap-trim-reclaims-env/na/na/na/na`；formal journal=`3136`，COVERAGE=`848/627/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按证据边界复核 ack）。
-- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。下一原子前线=`EDGE-131`，批次六十一从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
+- 批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。批次六十一从 `0/50` 开始，当前下一原子前线为 `EDGE-132`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-129 env 被 GC 后重试一次
 

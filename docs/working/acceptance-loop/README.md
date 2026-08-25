@@ -297,7 +297,99 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-130 已完成；批次六十 50/50，统一门禁通过，已提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-140 已完成；批次六十一 50/50，统一门禁通过并已提交)
+
+#### 2026-08-25 当前前线重述：EDGE-140 handler ctx 取消 = 管道脏
+
+handler RPC cancellation 已通过真实 stdio pipe 与 app manager `-race`：取消正在等待的 `Init` 后 client 标记 crashed，后续 Init 立即拒绝 `ErrCrashed`；app 下一次 Call 回收旧 resident 并重新 spawn，证明不复用状态未知的脏管道。当前 testend 没有可控的真实 HTTP handler 断连台架，未伪造该证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-140-handler-cancel-dirties-pipe-20260825.md`。五级严格为
+`L1=measure:edge140-handler-cancel-dirties-pipe`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；stdio/app 证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3186`（2300 baseline + 886 live），`gen_coverage.py --check`=`848 rows / 637 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-61-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿；代码、测试、证据和 COVERAGE 已提交=`91fcbacb`。下一原子前线=`EDGE-141`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-139 handler config 不完整
+
+handler 必填配置门已通过 focused `-race` 与真实 HTTP：未配必填 init arg 时 runner spawn 为 0，返回 `HANDLER_CONFIG_INCOMPLETE`，仍写入一条 failed call 审计；真实 Merge Patch 删除 `b` 后 `missingConfig=[b]`，补回配置才恢复调用，收台无 sandbox 残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-139-handler-config-incomplete-20260825.md`。五级严格为
+`L1=measure:edge139-handler-config-incomplete`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；配置/HTTP/spawn/审计证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3181`（2300 baseline + 881 live），`gen_coverage.py --check`=`848 rows / 636 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`45/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-140`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-138 handler 孤儿 config key
+
+handler active schema 过滤已通过 focused `-race` 与真实 HTTP：focused 证明只把当前 schema 声明的参数传入结果且不改写持久 config；真实路径配置 v1 的 token、edit 删除 schema 后 v2 正常 spawn、revert v1 后原 token 恢复，未出现 `__init__` TypeError，收台无 sandbox 残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-138-handler-orphan-config-filter-20260825.md`。五级严格为
+`L1=measure:edge138-handler-orphan-config-filter`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；schema/HTTP/spawn 证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3176`（2300 baseline + 876 live），`gen_coverage.py --check`=`848 rows / 635 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`40/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-139`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-137 handler spawn 单飞
+
+handler 冷启动并发已通过 manager `-race` 与真实 HTTP：5 个并发调用在第一次 spawn 人为阻塞期间只启动一次，释放后全部取得同一 resident；真实调用台账 5 行的 `instanceId` 去重后为 1，未重复付 env/process/`__init__`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-137-handler-spawn-singleflight-20260825.md`。五级严格为
+`L1=measure:edge137-handler-spawn-singleflight`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；并发/HTTP/台账证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3171`（2300 baseline + 871 live），`gen_coverage.py --check`=`848 rows / 634 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`35/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-138`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-136 无 uploader 时的产物声明
+
+未接 uploader 的 test/REST-only 装配已通过 focused `-race`：`$media` 声明原样透传、notes 为空，传入的 output 目录在调用前不存在且调用后仍不存在；没有隐式建目录、附件或失败副作用。该格刻意没有可伪造的真实 product HTTP uploader 证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-136-function-artifact-no-uploader-20260825.md`。五级严格为
+`L1=measure:edge136-function-artifact-no-uploader`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；未接线装配证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3166`（2300 baseline + 866 live），`gen_coverage.py --check`=`848 rows / 633 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`30/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-137`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-135 产物四道闸逐件失败
+
+function 媒体产物逐件失败已通过 focused `-race` 与真实 HTTP：同一次运行中的正常 PNG 成功落附件；40 MiB 超限文件与 shell 伪装 PNG 各自被拒绝，声明原样保留，logs 各有解释，普通结果字段保持成功，收台无 sandbox 残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-135-function-artifact-per-item-failures-20260825.md`。五级严格为
+`L1=measure:edge135-function-artifact-per-item-failures`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；逐件安全/HTTP 证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3161`（2300 baseline + 861 live），`gen_coverage.py --check`=`848 rows / 632 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`25/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-136`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-134 产物路径逃逸
+
+function 媒体产物越界声明已通过 focused `-race` 与真实 HTTP：`../outside.png` 在 containment 检查处 fail-closed，focused 路径使用真实可读的目录外 PNG 并证明 uploader 零调用；真实 function 运行成功但保留原 `$media` 声明、没有 `attachmentId`，logs 明确说明拒绝原因，收台无 sandbox 残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-134-function-artifact-path-escape-20260825.md`。五级严格为
+`L1=measure:edge134-function-artifact-path-escape`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；安全/HTTP 证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3156`（2300 baseline + 856 live），`gen_coverage.py --check`=`848 rows / 631 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`20/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-135`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-133 function 媒体产物声明
+
+function 媒体声明已通过 focused `-race` 与真实 HTTP：函数在每次 sandbox run 中写入 `ANSELM_OUT/chart.png` 并返回 `$media`，结果的 `chart` 原键就地变为可下载 MediaRef receipt，`source=function_artifact`，同级普通字段保留，两个不同运行得到不同附件 ID 且下载字节逐字匹配。
+
+正式证据=`testend/rig/formal-evidence/EDGE-133-function-media-artifact-20260825.md`。五级严格为
+`L1=measure:edge133-function-media-artifact`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 sandbox/附件证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3151`（2300 baseline + 851 live），`gen_coverage.py --check`=`848 rows / 630 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`15/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-134`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-132 function 超时清洗
+
+function wall-clock timeout 已通过 focused `-race` 与真实 HTTP：把 `functionRunSec` 设为 1，运行无限循环 function，实际返回 `504 FUNCTION_RUN_TIMEOUT`；执行历史唯一行是 `timeout`，错误明确写 wall-clock 限制且不泄漏 sandbox spawn 误导，收台时 sandbox handles 为 0。
+
+正式证据=`testend/rig/formal-evidence/EDGE-132-function-timeout-cleanup-20260825.md`。五级严格为
+`L1=measure:edge132-function-timeout-cleanup`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/durable/收台证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3146`（2300 baseline + 846 live），`gen_coverage.py --check`=`848 rows / 629 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`10/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-133`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-131 revert 到很老版本后再 trim
+
+版本指针与 cap 的边界已通过两层证据：focused store regression 直接把 active pointer 设为最老 v1 后 trim，证明 v1 保留、v2 被裁且只回收 v2 env；真实 HTTP 路径建 v1→v50、revert v1、再 edit v51，证明新 edit 按产品契约成为 active，版本集合收敛到 cap=50，不误删新的 active v51。
+
+正式证据=`testend/rig/formal-evidence/EDGE-131-revert-old-version-trim-20260825.md`。五级严格为
+`L1=measure:edge131-revert-old-version-trim`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；版本/HTTP/store 证据不替代独立 Computer Use、测量、视觉和 discoverability 证据。
+formal journal=`3141`（2300 baseline + 841 live），`gen_coverage.py --check`=`848 rows / 628 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
+批次六十一当前=`5/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-132`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 批次六十收口重述：EDGE-130 已提交
 
 #### 2026-08-25 当前前线重述：EDGE-130 版本 cap 50 trim 回收 venv
 
@@ -306,7 +398,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`。五级严格为
 `L1=measure:edge130-version-cap-trim-reclaims-env`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP/数据库/sandbox 对账不替代独立 Computer Use、测量、视觉和 discoverability 证据。
 formal journal=`3136`（2300 baseline + 836 live），`gen_coverage.py --check`=`848 rows / 627 carried judgments / 0 tombstones`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按本格证据边界复核 ack）。
-批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。下一原子前线=`EDGE-131`（批次六十一从 `0/50` 开始）。P12 的 400+ Journey 继续按用户裁定推迟二期。
+批次六十已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，根验证、完整 testend、rig 自测、backend verify、覆盖/锚点/警报、格式和残留进程审计全绿，已提交=`759c17c8`。批次六十一已从 `0/50` 开始，当前下一原子前线为 `EDGE-132`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-129 env 被 GC 后重试一次
 

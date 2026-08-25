@@ -10,7 +10,49 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-130 已收口 · 批次六十 50/50，统一门禁通过，已提交）
+## 当前前线（2026-08-25 · EDGE-140 已收口 · 批次六十一 50/50，统一门禁通过并已提交）
+
+- EDGE-140 复核 handler cancellation：真实 stdio pipe 取消等待后标记 crashed，app 下一次调用重生；当前没有可控真实 HTTP handler 断连台架，明确不伪造。
+- 正式证据=`testend/rig/formal-evidence/EDGE-140-handler-cancel-dirties-pipe-20260825.md`；`judge.py` 写入五格 `measure:edge140-handler-cancel-dirties-pipe/na/na/na/na`；formal journal=`3186`，COVERAGE=`848/637/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一已达到=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-61-unified-gate-20260825.md`，全绿并已提交=`91fcbacb`；下一原子前线=`EDGE-141`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-139 复核 handler config 不完整：focused 与真实 HTTP 都证明缺必填配置不 spawn、返回 `HANDLER_CONFIG_INCOMPLETE`、保留 failed 调用审计，补回后恢复。
+- 正式证据=`testend/rig/formal-evidence/EDGE-139-handler-config-incomplete-20260825.md`；`judge.py` 写入五格 `measure:edge139-handler-config-incomplete/na/na/na/na`；formal journal=`3181`，COVERAGE=`848/636/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-140`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-138 复核 handler 孤儿 config：focused 与真实 HTTP/edit/revert 路径证明 schema 外 key 不传入 spawn、持久 config 不被抹掉，回退旧版本后原值可用。
+- 正式证据=`testend/rig/formal-evidence/EDGE-138-handler-orphan-config-filter-20260825.md`；`judge.py` 写入五格 `measure:edge138-handler-orphan-config-filter/na/na/na/na`；formal journal=`3176`，COVERAGE=`848/635/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-139`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-137 复核 handler spawn 单飞：manager focused 与真实 HTTP 并发路径证明 5 个冷调用共享一个 resident，台账只有一个 instanceId。
+- 正式证据=`testend/rig/formal-evidence/EDGE-137-handler-spawn-singleflight-20260825.md`；`judge.py` 写入五格 `measure:edge137-handler-spawn-singleflight/na/na/na/na`；formal journal=`3171`，COVERAGE=`848/634/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-138`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-136 复核未接 uploader 装配：focused `-race` 证明 nil 分支原样返回 `$media`、notes 为空，output 目录不被创建；该项不伪造真实 HTTP uploader 证据。
+- 正式证据=`testend/rig/formal-evidence/EDGE-136-function-artifact-no-uploader-20260825.md`；`judge.py` 写入五格 `measure:edge136-function-artifact-no-uploader/na/na/na/na`；formal journal=`3166`，COVERAGE=`848/633/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-137`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-135 复核产物四道闸：focused 与真实 HTTP 都证明正常附件成功，40 MiB 超限和 shell 伪装图逐件拒绝，声明留存、logs 明确、普通结果不受污染。
+- 正式证据=`testend/rig/formal-evidence/EDGE-135-function-artifact-per-item-failures-20260825.md`；`judge.py` 写入五格 `measure:edge135-function-artifact-per-item-failures/na/na/na/na`；formal journal=`3161`，COVERAGE=`848/632/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-136`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-134 复核产物路径逃逸：focused 使用真实目录外 PNG 证明 uploader 零调用，真实 function HTTP 保留越界声明、无附件 receipt，logs 诚实提示 containment 拒绝。
+- 正式证据=`testend/rig/formal-evidence/EDGE-134-function-artifact-path-escape-20260825.md`；`judge.py` 写入五格 `measure:edge134-function-artifact-path-escape/na/na/na/na`；formal journal=`3156`，COVERAGE=`848/631/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-135`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-133 复核 function 媒体声明：focused collector 与真实 HTTP 均证明 `$media` 在原 `chart` 键就地替换，receipt 标记 `function_artifact`，真实附件可下载且两次运行不复用 ID。
+- 正式证据=`testend/rig/formal-evidence/EDGE-133-function-media-artifact-20260825.md`；`judge.py` 写入五格 `measure:edge133-function-media-artifact/na/na/na/na`；formal journal=`3151`，COVERAGE=`848/630/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-134`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-132 复核 function timeout：真实 1 秒墙钟路径返回 `504 FUNCTION_RUN_TIMEOUT`，历史行 `timeout` 且错误为 wall-clock 语义，收台无 sandbox 残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-132-function-timeout-cleanup-20260825.md`；`judge.py` 写入五格 `measure:edge132-function-timeout-cleanup/na/na/na/na`；formal journal=`3146`，COVERAGE=`848/629/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-133`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-131 复核 revert→trim：focused store 证明最老 active v1 不被裁且只回收 v2 env；真实 HTTP 证明 revert 后新的 v51 成为 active，版本集合按 cap 收敛。
+- 正式证据=`testend/rig/formal-evidence/EDGE-131-revert-old-version-trim-20260825.md`；`judge.py` 写入五格 `measure:edge131-revert-old-version-trim/na/na/na/na`；formal journal=`3141`，COVERAGE=`848/628/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十一当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-132`。P12 400+ Journey 继续推迟二期。
+
+- 批次六十收口：`EDGE-121..130` 共 50 格已通过统一门禁，证据=`testend/rig/formal-evidence/batch-60-unified-gate-20260825.md`，代码与证据提交=`759c17c8`，working 收口=`ee541759`。批次六十一从 `0/50` 开始，下一前线当时为 `EDGE-131`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-130 复核版本 cap 50：真实 51 次 edit 后最老非 active 版本被 trim，`DestroyEnv` 回收其 venv，active version 保留，REST 版本/env 列表对账并收台无残留。
 - 正式证据=`testend/rig/formal-evidence/EDGE-130-version-cap-trim-reclaims-env-20260825.md`；`judge.py` 写入五格 `measure:edge130-version-cap-trim-reclaims-env/na/na/na/na`；formal journal=`3136`，COVERAGE=`848/627/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
