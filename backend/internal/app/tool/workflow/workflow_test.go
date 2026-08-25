@@ -62,6 +62,45 @@ func TestCapFlowrunNodes(t *testing.T) {
 	}
 }
 
+func TestCapFlowrunNodesAtMaxIterationsScale(t *testing.T) {
+	const total = 2001 // MaxIterations produces this order of magnitude for a looping run.
+	nodes := make([]*flowrundomain.FlowRunNode, total)
+	for i := range nodes {
+		nodes[i] = &flowrundomain.FlowRunNode{
+			ID:        fmt.Sprintf("frn_scale_%d", i),
+			NodeID:    "loop",
+			Iteration: i,
+			Status:    flowrundomain.StatusCompleted,
+		}
+	}
+	nodes[7].Status = flowrundomain.StatusFailed
+	nodes[1500].Status = flowrundomain.NodeParked
+
+	shown, summary := capFlowrunNodes(nodes)
+	if len(shown) != maxFlowrunNodes {
+		t.Fatalf("a %d-row loop must project exactly the %d-row cap, got %d", total, maxFlowrunNodes, len(shown))
+	}
+	if summary == nil || summary["totalNodes"] != total || summary["shownNodes"] != maxFlowrunNodes {
+		t.Fatalf("large loop summary must preserve true and shown totals, got %v", summary)
+	}
+	byStatus, ok := summary["byStatus"].(map[string]int)
+	if !ok || byStatus[flowrundomain.StatusFailed] != 1 || byStatus[flowrundomain.NodeParked] != 1 {
+		t.Fatalf("large loop summary must count exceptional nodes, got %v", summary["byStatus"])
+	}
+	seen := make(map[string]bool, len(shown))
+	for _, node := range shown {
+		if seen[node.ID] {
+			t.Fatalf("capped projection duplicated node %s", node.ID)
+		}
+		seen[node.ID] = true
+	}
+	for _, index := range []int{7, 1500} {
+		if !seen[nodes[index].ID] {
+			t.Fatalf("capped projection dropped non-completed node at iteration %d", index)
+		}
+	}
+}
+
 func TestGetFlowrunDescriptionStatesLargeRunProjection(t *testing.T) {
 	d := (&GetFlowrun{}).Description()
 	for _, want := range []string{"80", "non-completed", "nodeSummary", "GET /api/v1/flowruns/{id}", "flowrunId", "character-for-character", "never abbreviate", "do not use file_path"} {

@@ -13,13 +13,79 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-091 已收口 · 批次五十六 50/50，统一长门禁已通过，待提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过，待提交）
+
+## 2026-08-25 · EDGE-100 LLM 工具 flowrun 节点封顶
+
+- 新增 2001-row scale regression 与真实 25 轮 loop HTTP 分页通过：LLM 投影封顶 80 行，保留 failure/parked 与最近 completed 尾巴，`nodeSummary` 总数正确；REST 全量分页、每轮唯一、执行审计 join 完整。
+- 正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`；五级=`measure:edge100-flowrun-node-cap/na/na/na/na`；formal journal=`2986`，COVERAGE=`848/597/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-099 flowruns 两种分页互斥
+
+- handler `-race` 单测与真实 HTTP offset-pagination scenario 通过：`cursor` 与 `offset` 同时出现时先报 `422 FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`；单独坏 offset 仍是参数错误，offset/cursor 两种分页及负值边界保持契约。
+- 正式证据=`testend/rig/formal-evidence/EDGE-099-flowruns-cursor-offset-conflict-20260825.md`；五级=`measure:edge099-flowruns-cursor-offset-conflict/na/na/na/na`；formal journal=`2981`，COVERAGE=`848/596/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-100`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-098 activity 排队段负值
+
+- Flutter `66` 项 scheduler timing/run tests、后端 activity `-race` 与真实 HTTP activity scenario 通过：负 queue span 钳零，缺真相戳诚实缺席，真实双 agent queue stamp/执行窗一致。
+- 正式证据=`testend/rig/formal-evidence/EDGE-098-activity-queue-negative-clamp-20260825.md`；五级=`measure:edge098-activity-queue-negative-clamp/na/na/na/na`；formal journal=`2976`，COVERAGE=`848/595/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-099`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-097 matrix 多迭代最坏处置
+
+## 2026-08-25 · EDGE-097 matrix 多迭代最坏处置
+
+- store `-race` 三个 rank/iteration regression 与真实 HTTP matrix scenario 通过：failed 压过 completed，parked 压过 completed，cancelled 中性不误报。
+- 正式证据=`testend/rig/formal-evidence/EDGE-097-flowrun-matrix-worst-iteration-20260825.md`；五级=`measure:edge097-flowrun-matrix-worst-iteration/na/na/na/na`；formal journal=`2971`，COVERAGE=`848/594/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-098`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-096 flowrun-matrix 未知 id
+
+## 2026-08-25 · EDGE-096 flowrun-matrix 未知 id
+
+- store `-race`、app guard 与真实 HTTP scenario 通过：异 workspace/未知 id 静默缺席，混合只返回已知，全未知为空三列表；空参数、上限、去重和裸 ctx 隔离边界通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-096-flowrun-matrix-unknown-id-20260825.md`；五级=`measure:edge096-flowrun-matrix-unknown-id/na/na/na/na`；formal journal=`2966`，COVERAGE=`848/593/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-097`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-095 flowrun-stats 倒挂窗
+
+## 2026-08-25 · EDGE-095 flowrun-stats 倒挂窗
+
+- store `-race` 与真实 HTTP scenario 通过：`until <= since` 静默给空窗口，recent/lastRunAt 保留；正常上界、未来 since、超限和坏参数也通过。port-1 free-tier warning 是隔离 harness 预期关闭端口。
+- 正式证据=`testend/rig/formal-evidence/EDGE-095-flowrun-stats-inverted-window-20260825.md`；五级=`measure:edge095-flowrun-stats-inverted-window/na/na/na/na`；formal journal=`2961`，COVERAGE=`848/592/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-096`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-094 mode=0 老库升级
+
+## 2026-08-25 · EDGE-094 mode=0 老库升级
+
+- 真实落盘 SQLite `-race` focused 通过：mode=0 Compact 后回收死空间、`migrated=true`、行完整；重开旧 DSN 仍为 INCREMENTAL；第二次 Compact `migrated=false`，相邻成功/app seam 也通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-094-mode0-compact-migration-20260825.md`；五级=`measure:edge094-mode0-compact-migration/na/na/na/na`；formal journal=`2956`，COVERAGE=`848/591/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-095`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-093 手动 VACUUM 压缩失败
+
+## 2026-08-25 · EDGE-093 手动 VACUUM 压缩失败
+
+- storage app `-race` focused 通过：只读 SQLite 模拟文件写入拒绝，稳定映射 `STORAGE_COMPACT_FAILED`，文件大小与 probe 行数不变；成功 Compact 路径同组通过。真实 ENOSPC 不在开发机制造，证据已明确标注替身边界。
+- 正式证据=`testend/rig/formal-evidence/EDGE-093-storage-compact-failure-20260825.md`；五级=`measure:edge093-storage-compact-failure/na/na/na/na`；formal journal=`2951`，COVERAGE=`848/590/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-094`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-092 磁盘回收闸；批次五十七开始
+
+- 真实落盘 SQLite `-race` focused 通过：49.3MB 死空间越过比例门后实际缩文件、3000 行存活；约 5% routine churn 低于比例与 128MiB 两道门，回收 0 且文件不动；Stat/app storage 映射通过，无生产逻辑改动。
+- 正式证据=`testend/rig/formal-evidence/EDGE-092-disk-reclamation-gate-20260825.md`；五级=`measure:edge092-disk-reclamation-gate/na/na/na/na`；formal journal=`2946`，COVERAGE=`848/589/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-093`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · 批次五十六已提交
 
 ## 2026-08-25 · EDGE-091 保留清理后的孤儿深链；批次五十六收满
 
 - Flutter scheduler focused `77` 项通过：孤儿 run host 404、墓碑、无图 fallback、不可解析深链均诚实渲染，不白屏、不伪造当前图。
 - 正式证据=`testend/rig/formal-evidence/EDGE-091-retention-orphan-deep-link-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-091-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge091-retention-orphan-deep-link/na/na/na/na`；formal journal=`2941`，COVERAGE=`848/588/0`，anchors=`10/10`，`alarms.py check` clean。
-- 批次五十六达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，待提交。P12 400+ Journey 继续推迟二期。
+- 批次五十六达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，已提交 `b93d228c`；下一前线=`EDGE-092`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-090 run 历史保留清理
 

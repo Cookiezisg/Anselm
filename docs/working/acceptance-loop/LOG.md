@@ -10,11 +10,55 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-091 已收口 · 批次五十六 50/50，统一长门禁已通过，待提交）
+## 当前前线（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过，待提交）
+
+- EDGE-100 复核 LLM 工具 flowrun 节点封顶：2001-row cap regression 与真实 25 轮 loop HTTP pagination 通过，工具结果封顶 80 行、异常节点不丢、`nodeSummary` 与 REST 全量真相正确。
+- 正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`；`judge.py` 写入五格 `measure:edge100-flowrun-node-cap/na/na/na/na`；formal journal=`2986`，COVERAGE=`848/597/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+
+- EDGE-099 复核 flowruns 两种分页互斥：handler `-race` 与真实 HTTP scenario 通过，同时给 `cursor`/`offset` 先报 `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`，单独坏 offset 仍正确报参数错误。
+- 正式证据=`testend/rig/formal-evidence/EDGE-099-flowruns-cursor-offset-conflict-20260825.md`；`judge.py` 写入五格 `measure:edge099-flowruns-cursor-offset-conflict/na/na/na/na`；formal journal=`2981`，COVERAGE=`848/596/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-100`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-098 复核 activity 排队段负值：Flutter `66` 项 timing/run、后端 activity `-race` 与真实 HTTP 通过，负 queue span 钳零、缺真相戳缺席、真实双 agent queue/exec 一致。
+- 正式证据=`testend/rig/formal-evidence/EDGE-098-activity-queue-negative-clamp-20260825.md`；`judge.py` 写入五格 `measure:edge098-activity-queue-negative-clamp/na/na/na/na`；formal journal=`2976`，COVERAGE=`848/595/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-099`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-097 复核矩阵多迭代最坏处置：store `-race` 与真实 HTTP 通过，failed 压过后续 completed，parked 优先，cancelled 中性。
+- 正式证据=`testend/rig/formal-evidence/EDGE-097-flowrun-matrix-worst-iteration-20260825.md`；`judge.py` 写入五格 `measure:edge097-flowrun-matrix-worst-iteration/na/na/na/na`；formal journal=`2971`，COVERAGE=`848/594/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-098`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-096 复核 flowrun-matrix 未知 id：store `-race`、app guard 与真实 HTTP scenario 通过，异 workspace/未知静默缺席、全未知空三列表，输入边界与裸 ctx 隔离也通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-096-flowrun-matrix-unknown-id-20260825.md`；`judge.py` 写入五格 `measure:edge096-flowrun-matrix-unknown-id/na/na/na/na`；formal journal=`2966`，COVERAGE=`848/593/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-097`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-095 复核 flowrun-stats 倒挂窗：store `-race` 与真实 HTTP scenario 通过，`until <= since` 只清空窗口统计、非窗口字段保留；其它上界与坏参数边界通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-095-flowrun-stats-inverted-window-20260825.md`；`judge.py` 写入五格 `measure:edge095-flowrun-stats-inverted-window/na/na/na/na`；formal journal=`2961`，COVERAGE=`848/592/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-096`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-094 复核 mode=0 老库升级：真实落盘 Compact 回收死空间、`migrated=true`、行完整，重开旧 DSN 仍为 INCREMENTAL，第二次 `migrated=false`；相邻成功/app seam 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-094-mode0-compact-migration-20260825.md`；`judge.py` 写入五格 `measure:edge094-mode0-compact-migration/na/na/na/na`；formal journal=`2956`，COVERAGE=`848/591/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-095`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-093 复核手动 VACUUM 失败契约：只读 SQLite 模拟文件写入拒绝，`STORAGE_COMPACT_FAILED`、文件大小和 probe 行数均保持正确；成功 Compact 路径同组通过，真实 ENOSPC 不在开发机制造。
+- 正式证据=`testend/rig/formal-evidence/EDGE-093-storage-compact-failure-20260825.md`；`judge.py` 写入五格 `measure:edge093-storage-compact-failure/na/na/na/na`；formal journal=`2951`，COVERAGE=`848/590/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-094`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-092 复核磁盘回收闸：真实落盘 SQLite `-race` focused 通过；49.3MB 死空间越过比例门后实际缩文件且 3000 行存活，约 5% routine churn 两道门均不过时回收 0、文件不动；无生产逻辑改动。
+- 正式证据=`testend/rig/formal-evidence/EDGE-092-disk-reclamation-gate-20260825.md`；`judge.py` 写入五格 `measure:edge092-disk-reclamation-gate/na/na/na/na`；formal journal=`2946`，COVERAGE=`848/589/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十七当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-093`。P12 400+ Journey 继续推迟二期。
+
+- 批次五十六已提交 `b93d228c`，统一长门禁证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`。
 
 - EDGE-091 复核孤儿深链：Flutter scheduler `77` 项 focused tests 通过，host 404/墓碑/无图/坏深链都不白屏。
 - 正式证据=`testend/rig/formal-evidence/EDGE-091-retention-orphan-deep-link-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-091-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge091-retention-orphan-deep-link/na/na/na/na`；formal journal=`2941`，COVERAGE=`848/588/0`，anchors=`10/10`，`alarms.py check` clean。
-- 批次五十六达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，待提交。P12 400+ Journey 继续推迟二期。
+- 批次五十六达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，已提交 `b93d228c`；下一前线=`EDGE-092`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-090 复核 run retention：Boot wiring + store cascade/boundary/batch/workspace 全通过，30d 线清旧 completed，running/0 永久保留存活。
 - 正式证据=`testend/rig/formal-evidence/EDGE-090-run-retention-purge-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-090-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge090-run-retention-purge/na/na/na/na`；formal journal=`2936`，COVERAGE=`848/587/0`，anchors=`10/10`，`alarms.py check` clean。

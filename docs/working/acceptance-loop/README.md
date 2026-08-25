@@ -297,7 +297,100 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-091 已完成；批次五十六 50/50，统一长门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-100 已完成；批次五十七 50/50，统一长门禁已通过，待提交)
+
+#### 2026-08-25 当前前线重述：EDGE-100 LLM 工具 flowrun 节点封顶
+
+新增 2001-row scale regression 与真实 25 轮 loop HTTP 分页均通过：LLM 工具投影严格保留不超过 80 行，保留全部 failure/parked 与最近 completed 尾巴，`nodeSummary` 保留真实总数；REST 仍能分页取回全部 52 行且每个 `(node, iteration)` 唯一，执行审计 join 完整。testend 收台 search health warning 是取消上下文噪声，不是场景失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`。五级严格为
+`L1=measure:edge100-flowrun-node-cap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 LLM 上下文安全投影与 REST 数据真相契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`2986`（2300 baseline + 686 live），`gen_coverage.py --check`=`848 rows / 597 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-099 flowruns 两种分页互斥
+
+handler `-race` 单测与真实 HTTP offset-pagination scenario 均通过：`cursor` 与 `offset` 同时出现时先返回 `422 FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`；单独的畸形 `offset` 仍返回参数错误；offset 分页、cursor 分页以及负值边界均保持契约。testend free-tier port-1 warning 是隔离 harness 预期关闭端口，不是场景失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-099-flowruns-cursor-offset-conflict-20260825.md`。五级严格为
+`L1=measure:edge099-flowruns-cursor-offset-conflict`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 API 分页互斥契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`2981`（2300 baseline + 681 live），`gen_coverage.py --check`=`848 rows / 596 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`40/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-100`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-098 activity 排队段负值
+
+Flutter `66` 项 scheduler timing/run tests、后端 activity union/join/keyset `-race` 与真实 HTTP activity scenario 通过：`readyAt > startedAt` 时 queue 段钳为零，缺真相戳时诚实缺席，真实双 agent activity 的 queue stamp 与执行窗口一致。
+
+正式证据=`testend/rig/formal-evidence/EDGE-098-activity-queue-negative-clamp-20260825.md`。五级严格为
+`L1=measure:edge098-activity-queue-negative-clamp`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；虽有 deterministic timing 证据，但没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`2976`（2300 baseline + 676 live），`gen_coverage.py --check`=`848 rows / 595 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`35/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-099`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-097 matrix 多迭代最坏处置
+
+#### 2026-08-25 当前前线重述：EDGE-097 matrix 多迭代最坏处置
+
+真实 store `-race` 三个 rank/iteration regression 与 HTTP matrix scenario 通过：failed 永远压过后续 completed，parked 压过 completed，cancelled 保持中性而不误报绿/红；多轮矩阵不会把历史失败洗成成功。收台时 search health warning 是 testend 取消噪声。
+
+正式证据=`testend/rig/formal-evidence/EDGE-097-flowrun-matrix-worst-iteration-20260825.md`。五级严格为
+`L1=measure:edge097-flowrun-matrix-worst-iteration`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 scheduler projection 不变量，没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2971`（2300 baseline + 671 live），`gen_coverage.py --check`=`848 rows / 594 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`30/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-098`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-096 flowrun-matrix 未知 id
+
+#### 2026-08-25 当前前线重述：EDGE-096 flowrun-matrix 未知 id
+
+真实 store `-race`、app guard 与 HTTP scenario 通过：异 workspace/不存在 id 静默缺席，混合请求只返回当前 workspace 已知列，全未知返回 `cols=[]/rows=[]/cells=[]`；空参数、上限、去重和裸 ctx 隔离边界均通过。testend search shutdown warning 是 harness 收台噪声。
+
+正式证据=`testend/rig/formal-evidence/EDGE-096-flowrun-matrix-unknown-id-20260825.md`。五级严格为
+`L1=measure:edge096-flowrun-matrix-unknown-id`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 scheduler projection 边界，没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2966`（2300 baseline + 666 live），`gen_coverage.py --check`=`848 rows / 593 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`25/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-097`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-095 flowrun-stats 倒挂窗
+
+#### 2026-08-25 当前前线重述：EDGE-095 flowrun-stats 倒挂窗
+
+真实 store `-race` 与 HTTP scenario 通过：`until <= since` 时窗口 totals/successRate/avgElapsedMs 为空而非错误，recent/lastRunAt 保留；正常上界、未来 since、超限和坏参数契约也保持。testend 的 port-1 free-tier warning 是隔离 harness 预期，不是场景失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-095-flowrun-stats-inverted-window-20260825.md`。五级严格为
+`L1=measure:edge095-flowrun-stats-inverted-window`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 scheduler 统计边界，没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2961`（2300 baseline + 661 live），`gen_coverage.py --check`=`848 rows / 592 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`20/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-096`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-094 mode=0 老库升级
+
+#### 2026-08-25 当前前线重述：EDGE-094 mode=0 老库升级
+
+真实落盘 SQLite `-race` focused 通过：mode=0 旧库 Compact 后回收死空间、`migrated=true`、存活行完整；同一旧 DSN 重开仍为 `INCREMENTAL`；第二次 Compact `migrated=false`；已是 INCREMENTAL 的 Compact 与 app storage 映射同组通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-094-mode0-compact-migration-20260825.md`。五级严格为
+`L1=measure:edge094-mode0-compact-migration`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 infra/db 迁移不变量，没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2956`（2300 baseline + 656 live），`gen_coverage.py --check`=`848 rows / 591 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`15/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-095`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-093 手动 VACUUM 压缩失败
+
+#### 2026-08-25 当前前线重述：EDGE-093 手动 VACUUM 压缩失败
+
+storage app focused `-race` 通过：只读 SQLite 确定性模拟 VACUUM 文件写入拒绝，`Compact` 映射为 `STORAGE_COMPACT_FAILED`，数据库文件大小与 probe 行数均不变；成功 Compact 路径同组通过。真实 ENOSPC 不在开发机上制造，证据明确标注为安全的写失败替身。
+
+正式证据=`testend/rig/formal-evidence/EDGE-093-storage-compact-failure-20260825.md`。五级严格为
+`L1=measure:edge093-storage-compact-failure`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 storage failure contract，没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2951`（2300 baseline + 651 live），`gen_coverage.py --check`=`848 rows / 590 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`10/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-094`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-092 磁盘回收闸；批次五十七开始
+
+真实落盘 SQLite focused `-race` 通过：大于比例门（49.3MB、3000 行存活）时 DELETE 后文件先不缩、`ReclaimFreePages` 后缩小；约 5% routine churn 低于比例与 128MiB 两道门时回收为 0 且文件不动；Stat 与 app storage 映射一并通过。没有生产逻辑改动。
+
+正式证据=`testend/rig/formal-evidence/EDGE-092-disk-reclamation-gate-20260825.md`。五级严格为
+`L1=measure:edge092-disk-reclamation-gate`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 infra/db 磁盘治理不变量，没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2946`（2300 baseline + 646 live），`gen_coverage.py --check`=`848 rows / 589 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十七当前=`5/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-093`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 已提交批次五十六：EDGE-082..EDGE-091
 
 #### 2026-08-25 当前前线重述：EDGE-091 保留清理后的孤儿深链；批次五十六收满
 
@@ -307,7 +400,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 `testend/rig/formal-evidence/EDGE-091-ledger-alarm-reaudit-20260825.md`。五级严格为
 `L1=measure:edge091-retention-orphan-deep-link`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；有 deterministic frontend fixture/UI 证据，但没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
 formal journal=`2941`（2300 baseline + 641 live），`gen_coverage.py --check`=`848 rows / 588 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
-批次五十六已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，待提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+批次五十六已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，已提交 `b93d228c`；下一前线=`EDGE-092`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-090 run 历史保留清理
 

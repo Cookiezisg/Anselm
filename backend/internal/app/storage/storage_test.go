@@ -2,6 +2,11 @@ package storage
 
 import (
 	"context"
+	"database/sql"
+	stderrors "errors"
+	"fmt"
+	"os"
+	"path/filepath"
 	"testing"
 
 	dbinfra "github.com/sunweilin/anselm/backend/internal/infra/db"
@@ -94,6 +99,61 @@ func TestService_StatThenCompact(t *testing.T) {
 	}
 	if after.DeadBytes >= stat.DeadBytes {
 		t.Fatalf("dead space did not drop: before=%d after=%d", stat.DeadBytes, after.DeadBytes)
+	}
+}
+
+// TestService_CompactFailureIsRetryableAndPreservesDB uses a read-only SQLite handle as a
+// deterministic stand-in for a filesystem that refuses VACUUM's scratch/write phase. The real
+// ENOSPC condition is not safe or repeatable to manufacture on a developer machine; the contract
+// under test is the same: map the failure to STORAGE_COMPACT_FAILED and leave the file untouched.
+//
+// TestService_CompactFailureIsRetryableAndPreservesDB 用只读 SQLite 句柄确定性模拟文件系统拒绝
+// VACUUM 的临时写入阶段。真实 ENOSPC 不适合在开发机上制造；这里钉住的是同一失败契约：映射为
+// STORAGE_COMPACT_FAILED，且文件不变、调用方可以重试。
+func TestService_CompactFailureIsRetryableAndPreservesDB(t *testing.T) {
+	dir := t.TempDir()
+	seed, err := dbinfra.Open(dbinfra.Config{DataDir: dir})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := seed.Exec(context.Background(), `CREATE TABLE compact_probe (id INTEGER PRIMARY KEY, value TEXT)`); err != nil {
+		_ = seed.Close()
+		t.Fatal(err)
+	}
+	if err := seed.Close(); err != nil {
+		t.Fatal(err)
+	}
+
+	dbPath := filepath.Join(dir, "anselm.db")
+	before, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw, err := sql.Open("sqlite", fmt.Sprintf("file:%s?mode=ro", dbPath))
+	if err != nil {
+		t.Fatal(err)
+	}
+	raw.SetMaxOpenConns(1)
+	readonly := ormpkg.Open(raw)
+	t.Cleanup(func() { _ = readonly.Close() })
+
+	_, err = New(readonly).Compact(context.Background())
+	if !stderrors.Is(err, ErrCompactFailed) {
+		t.Fatalf("Compact error = %v, want STORAGE_COMPACT_FAILED", err)
+	}
+	after, err := os.Stat(dbPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if after.Size() != before.Size() {
+		t.Fatalf("failed Compact changed database size: before=%d after=%d", before.Size(), after.Size())
+	}
+	var rows int
+	if err := readonly.QueryRow(context.Background(), `SELECT COUNT(*) FROM compact_probe`).Scan(&rows); err != nil {
+		t.Fatal(err)
+	}
+	if rows != 0 {
+		t.Fatalf("failed Compact changed database rows: got %d, want 0", rows)
 	}
 }
 
