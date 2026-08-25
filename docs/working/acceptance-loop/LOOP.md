@@ -13,7 +13,7 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-270 已收口 · 批次七十四 50/50，统一门禁待执行）
+## 当前前线覆盖声明（2026-08-26 · EDGE-270 已收口 · 批次七十四 50/50，统一门禁通过，已提交=8ed2e1a1）
 
 ## 2026-08-26 · EDGE-261..270 批次七十四收口
 
@@ -23,7 +23,9 @@ landed-into:
   `testend/rig/formal-evidence/EDGE-270-empty-workdir-action-20260826.md`；独立警报复审=
   `testend/rig/formal-evidence/batch-74-ledger-alarm-reaudit-20260826.md`。
 - formal journal=`3836`（2300 baseline + 1536 live），`COVERAGE=848/767/0`，`anchors=10/10`，
-  `alarms.py check` clean；批次七十四已满=`50/50`，统一长门禁待执行，尚未提交。P12 400+ Journey 按用户裁定推迟二期。
+  `alarms.py check` clean；批次七十四已满=`50/50`，统一长门禁与审计全绿，证据=
+  `testend/rig/formal-evidence/batch-74-unified-gate-20260826.md`，已提交=`8ed2e1a1`。下一原子前线=
+  `EDGE-271`，批次七十五=`0/50`。P12 400+ Journey 按用户裁定推迟二期。
 
 ## 2026-08-26 · EDGE-251..260 批次七十三收口
 
