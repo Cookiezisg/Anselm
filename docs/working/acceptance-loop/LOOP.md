@@ -13,7 +13,67 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-071 已收口 · 批次五十四 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+## 当前前线覆盖声明（2026-08-25 · EDGE-081 已收口 · 批次五十五 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+
+## 2026-08-25 · EDGE-081 并发 :replay 守卫；批次五十五收满
+
+- `WHERE status='failed'` 只允许一个 replay 逆转；输家 `FLOWRUN_NOT_REPLAYABLE`，新终态不被复活，`replay_count=1`；普通、`-race`、完整 store 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-081-replay-concurrent-guard-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-081-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge081-replay-concurrent-guard/na/na/na/na`；formal journal=`2891`，COVERAGE=`848/578/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-55-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-080 :replay 只收 failed
+
+- cancelled run 是终局，`:replay` 返回 `FLOWRUN_NOT_REPLAYABLE` 且不改状态；普通、`-race`、黑盒全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-080-replay-only-failed-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-080-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge080-replay-only-failed/na/na/na/na`；formal journal=`2886`，COVERAGE=`848/577/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-081`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-079 恢复后排队戳是新起点
+
+- 恢复 walk 为未落行节点铸造新的 `ready_at`，不回填原创建时间；普通与 `-race` timing 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-079-recovery-ready-at-new-origin-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-079-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge079-recovery-ready-at-new-origin/na/na/na/na`；formal journal=`2881`，COVERAGE=`848/576/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-080`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-078 崩溃恢复 Recover
+
+- Recover 入池而非内联；完成节点跳过、丢失节点重跑、慢 recovered run 不阻塞其它 run；普通与 `-race` 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-078-crash-recovery-rewalk-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-078-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge078-crash-recovery-rewalk/na/na/na/na`；formal journal=`2876`，COVERAGE=`848/575/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-079`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-077 被打断的在飞节点不落行
+
+- 在飞 agent 被取消后，run=`cancelled`，节点不落 `flowrun_nodes`/`failed`，后续 run 可继续；普通、`-race`、黑盒全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-077-cancel-interrupted-node-no-row-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-077-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge077-cancel-interrupted-node-no-row/na/na/na/na`；formal journal=`2871`，COVERAGE=`848/574/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-078`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-076 收割闸与永久停滞子图
+
+- first-wins 输家保留 failed run 的 parked approval，不执行收割，避免 replay 无法清理的混合子图；普通与 `-race` 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-076-cancel-loser-must-not-sweep-parked-subgraph-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-076-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge076-cancel-loser-must-not-sweep-parked-subgraph/na/na/na/na`；formal journal=`2866`，COVERAGE=`848/573/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-077`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-075 取消赢家收割 parked 审批
+
+- 取消 parked run 时只有 header guard winner 才收割 approval；node=`cancelled`、inbox 清空、无 false `failed`，普通/race/黑盒全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-075-cancel-winner-sweeps-parked-approval-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-075-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge075-cancel-winner-sweeps-parked-approval/na/na/na/na`；formal journal=`2861`，COVERAGE=`848/572/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-076`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-074 run 取消竞态输家
+
+- 自然终态先赢头守卫时，`:cancel` 返回 `FLOWRUN_NOT_CANCELLABLE`，自然 failed 头与 parked 行保持不变，取消方不发第二条 `run_terminal`；普通、`-race` 与黑盒全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-074-flowrun-cancel-natural-terminal-loser-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-074-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge074-flowrun-cancel-natural-terminal-loser/na/na/na/na`；formal journal=`2856`，COVERAGE=`848/571/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-075`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-073 approval 版本 resolve 失败
+
+- 钉死 approval 版本解析失败时，inbox 行保留 flowrun/workflow 身份并继续可决策，只省略 `deadline`；focused 普通与 `-race` scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-073-approval-version-resolve-failure-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-073-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge073-approval-version-resolve-failure/na/na/na/na`；formal journal=`2851`，COVERAGE=`848/570/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-074`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-072 approval 显式零时长
+
+- `0s`/`0ms`、非法 duration、非空 timeout 缺 behavior 均在创建前返回 422 `APPROVAL_INVALID_TIMEOUT`；`""` 仍代表永不超时。领域、应用层和黑盒契约场景全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-072-approval-explicit-zero-duration-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-072-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge072-approval-explicit-zero-duration/na/na/na/na`；formal journal=`2846`，COVERAGE=`848/569/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-073`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-071 approval 三种超时行为；批次五十四收满
 

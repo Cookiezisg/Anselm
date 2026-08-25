@@ -66,6 +66,36 @@ func TestCancelRun_NotRunning422(t *testing.T) {
 	}
 }
 
+// TestCancelRun_GuardLoserLeavesNaturalTerminalAlone pins the cancel-vs-natural-terminal race:
+// the header guard's loser must surface FLOWRUN_NOT_CANCELLABLE, emit no second terminal frame, and
+// leave a replayable failure's parked approval untouched.
+// TestCancelRun_GuardLoserLeavesNaturalTerminalAlone 钉死 cancel 与自然终态竞态：头守卫输家必须上呈
+// FLOWRUN_NOT_CANCELLABLE，不发第二条终态帧，并保留可重放失败 run 的 parked 审批。
+func TestCancelRun_GuardLoserLeavesNaturalTerminalAlone(t *testing.T) {
+	apf := &fakeApproval{byID: map[string]*approvaldomain.Version{"apf_1": {Template: "ok?"}}}
+	svc, store := mkSvc(t, approvalGraph(), newDisp(), nil, apf, "")
+	bridge := &sigBridge{}
+	svc.SetEntitiesBridge(bridge)
+	ctx := ctxWS("ws_1")
+
+	runID := mustRun(t, svc, ctx, map[string]any{"v": "99"})
+	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusRunning)
+	svc.runs = &losingRunStore{RunStore: store, loseFor: runID}
+
+	if err := svc.CancelRun(ctx, runID); !errors.Is(err, flowrundomain.ErrNotCancellable) {
+		t.Fatalf("cancel losing to natural terminal: want ErrNotCancellable, got %v", err)
+	}
+	assertRunStatus(t, store, ctx, runID, flowrundomain.StatusFailed)
+	parked, _ := store.ListParkedNodes(ctx)
+	if len(parked) != 1 || parked[0].FlowRunID != runID || parked[0].Status != flowrundomain.NodeParked {
+		t.Fatalf("cancel loser must not sweep natural failure's parked row: %+v", parked)
+	}
+	terms := bridge.signals(entitystreamapp.NodeRunTerminal)
+	if len(terms) != 0 {
+		t.Fatalf("cancel loser must not emit a second terminal frame, got %d: %+v", len(terms), terms)
+	}
+}
+
 // TestCancelRun_ParkedRun_SweepsInboxAndSettlesDrain — ④⑤⑥ on one parked run: cancel flips the
 // header, resolves the parked approval row (inbox emptied, the row lands CANCELLED — its own true
 // disposition, matching the header), fires the drain reconcile, and emits exactly one durable

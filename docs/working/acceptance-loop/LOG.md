@@ -10,7 +10,47 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-071 已收口 · 批次五十四 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+## 当前前线（2026-08-25 · EDGE-081 已收口 · 批次五十五 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+
+- EDGE-081 复核并发 replay：赢家仅一次逆转，输家不复活新终态，`replay_count` 恰为 1。
+- 正式证据=`testend/rig/formal-evidence/EDGE-081-replay-concurrent-guard-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-081-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge081-replay-concurrent-guard/na/na/na/na`；formal journal=`2891`，COVERAGE=`848/578/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-55-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+
+- EDGE-080 复核 replay 终态门：cancelled 不可 replay，稳定拒绝且不清行、不重开。
+- 正式证据=`testend/rig/formal-evidence/EDGE-080-replay-only-failed-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-080-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge080-replay-only-failed/na/na/na/na`；formal journal=`2886`，COVERAGE=`848/577/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-081`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-079 复核 recovery ready_at：恢复重走的节点从恢复 walk 重新计排队起点，不伪装连续运行。
+- 正式证据=`testend/rig/formal-evidence/EDGE-079-recovery-ready-at-new-origin-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-079-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge079-recovery-ready-at-new-origin/na/na/na/na`；formal journal=`2881`，COVERAGE=`848/576/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-080`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-078 复核 crash Recover：running run 入池，completed row 不重跑，lost row 重跑，慢 run 不挡 boot。
+- 正式证据=`testend/rig/formal-evidence/EDGE-078-crash-recovery-rewalk-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-078-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge078-crash-recovery-rewalk/na/na/na/na`；formal journal=`2876`，COVERAGE=`848/575/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-079`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-077 复核 interrupted node：取消 provider 中的 agent 不写节点行、不造 failed，run cancelled 后调度器仍可继续。
+- 正式证据=`testend/rig/formal-evidence/EDGE-077-cancel-interrupted-node-no-row-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-077-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge077-cancel-interrupted-node-no-row/na/na/na/na`；formal journal=`2871`，COVERAGE=`848/574/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-078`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-076 复核收割闸：first-wins 输家不碰 parked 行，failed/replayable run 保持可决策，不产生永久停滞混合子图。
+- 正式证据=`testend/rig/formal-evidence/EDGE-076-cancel-loser-must-not-sweep-parked-subgraph-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-076-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge076-cancel-loser-must-not-sweep-parked-subgraph/na/na/na/na`；formal journal=`2866`，COVERAGE=`848/573/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-077`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-075 复核 winner-only parked sweep：取消赢家将 parked 节点收成 `cancelled`，inbox 清空，不写 `failed`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-075-cancel-winner-sweeps-parked-approval-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-075-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge075-cancel-winner-sweeps-parked-approval/na/na/na/na`；formal journal=`2861`，COVERAGE=`848/572/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-076`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-074 复核取消与自然终态竞态：自然终态赢时 cancel 返回 `FLOWRUN_NOT_CANCELLABLE`，不发第二终态帧、不收割 parked 行。
+- 正式证据=`testend/rig/formal-evidence/EDGE-074-flowrun-cancel-natural-terminal-loser-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-074-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge074-flowrun-cancel-natural-terminal-loser/na/na/na/na`；formal journal=`2856`，COVERAGE=`848/571/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-075`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-073 复核 approval 版本 resolve 失败：钉死版本消失时 inbox 行不消失，只缺 `deadline`，保持人工决策入口。
+- 正式证据=`testend/rig/formal-evidence/EDGE-073-approval-version-resolve-failure-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-073-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge073-approval-version-resolve-failure/na/na/na/na`；formal journal=`2851`，COVERAGE=`848/570/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-074`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-072 复核 approval 显式零时长：`0s`/`0ms`、非法 duration、非空 timeout 缺 behavior 均在创建前返回 422 `APPROVAL_INVALID_TIMEOUT`，空串仍是永不超时。
+- 正式证据=`testend/rig/formal-evidence/EDGE-072-approval-explicit-zero-duration-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-072-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge072-approval-explicit-zero-duration/na/na/na/na`；formal journal=`2846`，COVERAGE=`848/569/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十五当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-073`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-071 复核 timeout 三行为：reject/no 不 publish、approve/yes publish 一次、fail 将 approval node 与 run 标 failed；focused/race/full scheduler 全绿。
 - 正式证据=`testend/rig/formal-evidence/EDGE-071-approval-timeout-behaviors-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-071-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge071-approval-timeout-behaviors/na/na/na/na`；formal journal=`2841`，COVERAGE=`848/568/0`，anchors=`10/10`，`alarms.py check` clean。

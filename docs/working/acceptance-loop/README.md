@@ -297,7 +297,136 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-071 已完成；批次五十四 50/50，统一长门禁已通过并待提交，下一前线暂不推进)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-081 已完成；批次五十五 50/50，统一长门禁已通过并待提交，下一前线暂不推进)
+
+#### 2026-08-25 当前前线重述：EDGE-072 approval 显式零时长
+
+`timeout:"0s"` 与 `"0ms"` 均在创建前被拒绝为 HTTP 422 `APPROVAL_INVALID_TIMEOUT`；非法 duration 和非空 timeout 缺少
+`timeoutBehavior` 同样拒绝，`""` 仍保留为永不超时。领域、应用层和黑盒契约场景均通过，未放宽公开契约。
+
+正式证据=`testend/rig/formal-evidence/EDGE-072-approval-explicit-zero-duration-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-072-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge072-approval-explicit-zero-duration`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2846`（2300 baseline + 546 live），
+`gen_coverage.py --check`=`848 rows / 569 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-073`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-081 并发 :replay 守卫；批次五十五收满
+
+同一 failed run 的两次 replay 只能有一个赢得 `WHERE status='failed'` 逆转守卫；赢家进入新终态后，持旧 failed 读的输家返回
+`FLOWRUN_NOT_REPLAYABLE`，不复活新终态，`replay_count` 恰为 1。普通、`-race` 和完整 flowrun store 包通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-081-replay-concurrent-guard-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-081-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge081-replay-concurrent-guard`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2891`（2300 baseline + 591 live），
+`gen_coverage.py --check`=`848 rows / 578 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-55-unified-gate-20260825.md`，待本批提交，不推进下一前线。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-080 :replay 只收 failed
+
+cancelled 是终局状态，`:replay` 只接受 failed；对 cancelled run 返回 `FLOWRUN_NOT_REPLAYABLE`，不清节点、不重开 header、不铸造新执行。
+普通、`-race` 和黑盒取消/replay 路径通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-080-replay-only-failed-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-080-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge080-replay-only-failed`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2886`（2300 baseline + 586 live），
+`gen_coverage.py --check`=`848 rows / 577 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-081`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-079 恢复后排队戳是新起点
+
+恢复重走未落行节点时，`ready_at` 不伪装成原 run 创建时间，而以恢复 walk 时刻为新排队起点；普通和 `-race` timing 回归通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-079-recovery-ready-at-new-origin-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-079-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge079-recovery-ready-at-new-origin`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2881`（2300 baseline + 581 live），
+`gen_coverage.py --check`=`848 rows / 576 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-080`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-078 崩溃恢复 Recover
+
+boot Recover 对每个 durable running run 入队而非内联阻塞；已完成节点记忆化跳过，崩溃时未落行的节点按 at-least-once 重跑，慢 run 不阻塞其它恢复。
+普通和 `-race` scheduler 回归通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-078-crash-recovery-rewalk-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-078-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge078-crash-recovery-rewalk`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2876`（2300 baseline + 576 live），
+`gen_coverage.py --check`=`848 rows / 575 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-079`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-077 被打断的在飞节点不落行
+
+取消正在 provider 调用中的 agent 后，只让 run 落 `cancelled`；被打断节点不写 `flowrun_nodes`、不误报 `failed`，调度器仍能接受下一次运行。
+普通、`-race` 和黑盒 stalled-agent 路径通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-077-cancel-interrupted-node-no-row-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-077-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge077-cancel-interrupted-node-no-row`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2871`（2300 baseline + 571 live），
+`gen_coverage.py --check`=`848 rows / 574 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-078`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-076 收割闸与永久停滞子图
+
+first-wins 输家不执行 `CancelParkedNodes`：自然 failed 且可 replay 的 run 保留 parked approval，避免节点被错误写成 `cancelled` 后形成
+无法清理的混合子图。普通和 `-race` scheduler 回归通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-076-cancel-loser-must-not-sweep-parked-subgraph-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-076-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge076-cancel-loser-must-not-sweep-parked-subgraph`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2866`（2300 baseline + 566 live），
+`gen_coverage.py --check`=`848 rows / 573 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-077`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-075 取消赢家收割 parked 审批
+
+取消 running 且 parked 的 run 时，只有赢得 durable header guard 的调用才执行 `CancelParkedNodes`；节点落 `cancelled`、inbox 清空，
+不伪造 `failed`。普通、`-race` 和黑盒 HTTP 取消路径通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-075-cancel-winner-sweeps-parked-approval-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-075-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge075-cancel-winner-sweeps-parked-approval`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2861`（2300 baseline + 561 live），
+`gen_coverage.py --check`=`848 rows / 572 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-076`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-074 run 取消竞态输家
+
+确定性复现取消与自然终态同瞬竞态：自然终态先赢头守卫后，`:cancel` 返回 `FLOWRUN_NOT_CANCELLABLE`，保留自然 failed 头，
+不发第二条 `run_terminal`，也不误收割可重放失败 run 的 parked approval。普通、`-race` 与黑盒取消路径通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-074-flowrun-cancel-natural-terminal-loser-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-074-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge074-flowrun-cancel-natural-terminal-loser`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2856`（2300 baseline + 556 live），
+`gen_coverage.py --check`=`848 rows / 571 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-075`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-073 approval 版本 resolve 失败
+
+钉死的 approval 版本无法解析时，收件箱仍保留该 parked 行及 flowrun/workflow 身份，只省略派生的 `deadline`；不丢行、不伪造零时限，
+仍可继续人工决策。focused 普通和 `-race` scheduler 测试通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-073-approval-version-resolve-failure-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-073-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge073-approval-version-resolve-failure`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2851`（2300 baseline + 551 live），
+`gen_coverage.py --check`=`848 rows / 570 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十五当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-074`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-071 approval 三种超时行为；批次五十四收满
 
