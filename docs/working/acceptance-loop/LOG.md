@@ -10,11 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，统一门禁已通过，待提交）
+## 当前前线（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，已提交）
 
 - EDGE-180 复核 embedder 孤儿回收：Unix `-race` focused 回归确认记录 pid 的 survivor 被杀，缺失/垃圾 pid 安全 no-op；真实 kill-9/App 重启未执行，L2-L5 如实 na。
 - 正式证据=`testend/rig/formal-evidence/EDGE-180-search-embedder-orphan-reap-20260825.md`；`judge.py` 写入五格 `measure:edge180-search-embedder-orphan-reap/na/na/na/na`；formal journal=`3386`（2300 baseline + 1086 live），COVERAGE=`848/677/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-180-ledger-alarm-reaudit-20260825.md`。
-- 批次六十五当前=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，本批待统一提交；下一原子前线在提交后重述。P12 400+ Journey 继续推迟二期。
+- 批次六十五当前=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，本批已提交=`1f16b056`；下一原子前线=`EDGE-181`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-179 复核首用下载中关停：`TestBuiltin_CloseBoundedDuringDownload` 以 `-race` 证明 installer context 会被 Close 取消、Close 有界返回、下载锁释放；真实下载/App SIGTERM 尚未执行，L2-L5 如实 na。
 - 正式证据=`testend/rig/formal-evidence/EDGE-179-search-first-download-shutdown-20260825.md`；`judge.py` 写入五格 `measure:edge179-search-first-download-shutdown/na/na/na/na`；formal journal=`3381`（2300 baseline + 1081 live），COVERAGE=`848/676/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-179-ledger-alarm-reaudit-20260825.md`。

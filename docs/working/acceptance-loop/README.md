@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-180 已完成；批次六十五 50/50，统一门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-180 已完成；批次六十五 50/50，已收口并提交)
 
 #### 2026-08-25 当前前线重述：EDGE-180 embedder 孤儿回收
 
@@ -310,9 +310,9 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 `L1=measure:edge180-search-embedder-orphan-reap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3386`
 （2300 baseline + 1086 live），`gen_coverage.py --check`=`848 rows / 677 carried judgments / 0 tombstones`，
 `anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-180-ledger-alarm-reaudit-20260825.md`。
-批次六十五当前=`50/50`，统一门禁已通过，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`：
+批次六十五当前=`50/50`，统一门禁已通过，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，
 根 `make verify`、完整 testend、rig 51 项、backend verify、coverage/anchors/alarms、脚本语法、gofmt、
-diff 和残留进程审计全绿。本批代码、测试、证据和 COVERAGE 待统一提交；提交后下一原子前线再重述。
+diff 和残留进程审计全绿；本批已提交=`1f16b056`。下一原子前线=`EDGE-181`。
 P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-179 首用下载途中关停

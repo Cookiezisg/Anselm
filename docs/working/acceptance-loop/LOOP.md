@@ -13,13 +13,13 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，统一门禁已通过，待提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，已提交）
 
 ## 2026-08-25 · EDGE-180 embedder 孤儿回收
 
 - Unix `-race` focused 回归通过：记录的 `embedder.pid` survivor 被杀，缺失文件/垃圾 pid 安全 no-op；真实 kill-9/App 重启未执行，L2-L5 如实 na。
 - 正式证据=`testend/rig/formal-evidence/EDGE-180-search-embedder-orphan-reap-20260825.md`；五级=`measure:edge180-search-embedder-orphan-reap/na/na/na/na`；formal journal=`3386`（2300 baseline + 1086 live），COVERAGE=`848/677/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-180-ledger-alarm-reaudit-20260825.md`。
-- 批次六十五当前=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，本批待统一提交；下一原子前线在提交后重述。P12 400+ Journey 继续推迟二期。
+- 批次六十五当前=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，本批已提交=`1f16b056`；下一原子前线=`EDGE-181`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-179 首用下载途中关停
 
