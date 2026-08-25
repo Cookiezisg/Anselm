@@ -244,11 +244,23 @@ class Translations$chat$en {
 	/// en: 'Something went wrong'
 	String get stoppedError => 'Something went wrong';
 
+	/// en: 'The model service didn't finish this response. Try again; if the request is large, send it in smaller parts.'
+	String get providerError => 'The model service didn\'t finish this response. Try again; if the request is large, send it in smaller parts.';
+
+	/// en: 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.'
+	String get chatTurnTimeout => 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.';
+
+	/// en: 'The tools kept failing, so this reply was paused. Check the inputs and try again.'
+	String get toolErrorStorm => 'The tools kept failing, so this reply was paused. Check the inputs and try again.';
+
+	/// en: 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.'
+	String get contextInputTooLarge => 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.';
+
 	/// en: 'Choose another model'
 	String get repickModel => 'Choose another model';
 
-	/// en: 'Paused — step limit reached'
-	String get stoppedMaxSteps => 'Paused — step limit reached';
+	/// en: 'This reply paused at the step limit. Send a follow-up or simplify the task to continue.'
+	String get stoppedMaxSteps => 'This reply paused at the step limit. Send a follow-up or simplify the task to continue.';
 
 	/// en: 'Paused — context window is full'
 	String get stoppedBudget => 'Paused — context window is full';
@@ -7814,8 +7826,12 @@ extension on Translations {
 			'chat.discard' => 'Discard',
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
+			'chat.providerError' => 'The model service didn\'t finish this response. Try again; if the request is large, send it in smaller parts.',
+			'chat.chatTurnTimeout' => 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.',
+			'chat.toolErrorStorm' => 'The tools kept failing, so this reply was paused. Check the inputs and try again.',
+			'chat.contextInputTooLarge' => 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.',
 			'chat.repickModel' => 'Choose another model',
-			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
+			'chat.stoppedMaxSteps' => 'This reply paused at the step limit. Send a follow-up or simplify the task to continue.',
 			'chat.stoppedBudget' => 'Paused — context window is full',
 			'chat.stoppedMaxTokens' => 'Reached the output limit',
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
@@ -8209,12 +8225,12 @@ extension on Translations {
 			'chat.tool.firingStarted' => 'run started',
 			'chat.tool.firingSkipped' => 'skipped',
 			'chat.tool.firingSuperseded' => 'superseded',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.firingShed' => 'shed',
 			'chat.tool.firingMissed' => 'missed',
 			'chat.tool.logCount' => ({required Object n}) => '${n}',
 			'chat.tool.logCountMore' => ({required Object n}) => '${n}+',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.parkRunCaption' => 'a run parked on an approval node stays running at the header',
 			'chat.tool.actReturnValue' => 'Return value',
 			'chat.tool.actId' => 'Activation ID',
@@ -8723,12 +8739,12 @@ extension on Translations {
 			'scheduler.run.nodeOut' => 'Output',
 			'scheduler.run.nodeNoIo' => 'This node recorded no result.',
 			'scheduler.run.replayNode' => 'Replay the failed nodes',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.run.relayResolving' => 'Finding this run…',
 			'scheduler.run.relayFailedTitle' => 'Couldn\'t resolve this run',
 			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
 			'scheduler.run.closeA11y' => 'Close this run',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.today' => 'Today',
 			'scheduler.range.h24' => 'Last 24 hours',
 			'scheduler.range.d7' => 'Last 7 days',
@@ -9237,12 +9253,12 @@ extension on Translations {
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
 			'entities.run.inboxEmpty' => 'No pending approvals',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.run.source' => 'Source',
 			'entities.run.sourceManual' => 'Manual',
 			'entities.run.openFlowrun' => 'Open run →',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.openRunPage' => 'Open run page →',
 			'entities.run.recentCount' => ({required Object n}) => 'Recent · ${n}',
 			'entities.run.reproduce' => 'Use this input',
@@ -9751,12 +9767,12 @@ extension on Translations {
 			'settings.mcp.url' => 'URL',
 			'settings.mcp.envKv' => 'Env (KEY=VALUE per line)',
 			'settings.mcp.headersKv' => 'Headers (KEY=VALUE per line)',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.add' => 'Add',
 			'settings.mcp.addFailedHonest' => 'A failed connection still lands as failed — reconnect later',
 			'settings.mcp.importTitle' => 'Import mcp.json',
 			'settings.mcp.importHint' => 'Paste a Claude Desktop mcpServers snippet',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.overwrite' => 'Overwrite same names',
 			'settings.mcp.doImport' => 'Import',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => 'Imported ${n} · skipped ${m}',

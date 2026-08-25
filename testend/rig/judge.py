@@ -108,8 +108,8 @@ def sequence_policy():
         fail(f"ledger sequence policy is missing or unreadable: {SEQUENCE} ({exc})")
 
 
-def sequence_problem(family: str, item: str) -> str:
-    """Refuse judgments beyond the first not-fully-settled coverage row."""
+def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
+    """Refuse new work beyond the frontier, while allowing explicit prior-row revalidation."""
     sequence_policy()
     rows = []
     row_pattern = re.compile(
@@ -148,6 +148,15 @@ def sequence_problem(family: str, item: str) -> str:
     )
     if target_index is None:
         return f"formal sequence gate: target row not found: {family}|{item}"
+    if revalidate:
+        if target_index >= frontier_index:
+            return (
+                "formal sequence gate: --revalidate is only for a settled prior row; "
+                f"target is at/current beyond frontier {frontier_family}|{frontier_item}"
+            )
+        if any(cell not in "✓~" for cell in rows[target_index][2]):
+            return "formal sequence gate: --revalidate requires the target row to be settled (✓/~)"
+        return ""
     if target_index == frontier_index:
         return ""
     frontier_family, frontier_item, frontier_verdict = rows[frontier_index]
@@ -377,6 +386,11 @@ def main():
     ap.add_argument("--law", default="", help="CODEX law id / 'measure:<...>' (required for pass/fail)")
     ap.add_argument("--evidence", required=True, help="file path under evidence dir, or 'note:<text>' for na")
     ap.add_argument("--session", default="", help="rig session dir (required for level-2 verdicts)")
+    ap.add_argument(
+        "--revalidate",
+        action="store_true",
+        help="explicitly revalidate a settled prior row after a stop-and-fix; never bypasses evidence/alarm gates",
+    )
     args = ap.parse_args()
 
     global RIG_HOME, JOURNAL, ALARMS, ANCHOR_STATUS
@@ -417,7 +431,7 @@ def main():
             # the pre-session evidence layout; replaying one must remain a repair/no-op.
             validate_l2_session(args.session, args.evidence, args.verdict)
 
-        if problem := sequence_problem(args.family, args.item):
+        if problem := sequence_problem(args.family, args.item, args.revalidate):
             fail(problem)
 
         if args.verdict == "pass":

@@ -52,4 +52,10 @@ func TestProcessTask_TurnWallClockFinalizes(t *testing.T) {
 	if got.Status == messagesdomain.StatusStreaming || got.Status == messagesdomain.StatusPending {
 		t.Fatalf("a stalled turn must finalize via the ChatTurnSec wall clock, got status=%q (stuck)", got.Status)
 	}
+	if got.Status != messagesdomain.StatusError || got.StopReason != messagesdomain.StopReasonError {
+		t.Fatalf("a wall-clock cutoff must be an explicit error terminal, got status=%q stop=%q", got.Status, got.StopReason)
+	}
+	if got.ErrorCode != "CHAT_TURN_TIMEOUT" || got.ErrorMessage == "" {
+		t.Fatalf("a wall-clock cutoff must expose an actionable timeout cause, got code=%q message=%q", got.ErrorCode, got.ErrorMessage)
+	}
 }

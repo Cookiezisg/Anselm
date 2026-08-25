@@ -93,6 +93,7 @@ audience: [human, ai]
 | `INTERACTION_INVALID_ACTION` | 422 | action must be one of: approve, approve_always, deny, accept, decline（details.validActions 带合法集） |
 | `STREAM_IN_PROGRESS` | 409 | this conversation already has an assistant turn running |
 | `TURN_TOOLS_DISABLED` | — | the isolated fork already returned; no further tools are available in this turn（模型忽略空工具 schema 时由 loop 终止，非 HTTP 请求错误） |
+| `CHAT_TURN_TIMEOUT` | — | the chat turn exceeded its total wall-clock limit and was stopped to keep the app responsive（durable message terminal, not an HTTP error） |
 
 ### `app/media`
 

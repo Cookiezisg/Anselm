@@ -297,7 +297,209 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十六已提交；批次四十七 50/50，统一长门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-011 已完成；批次四十八 51/50，统一长门禁已解锁)
+
+#### 2026-08-25 当前前线重述：EDGE-011 execution_group 并发与下标拍平
+
+现有 loop 已为每个工具调用预分配下标槽，同一 `execution_group` 由 goroutine 并发执行，完成后按原调用序
+拍平。原测试只验证了顺序，没有锁住“真的并发”；已补屏障回归，要求两个同组工具都启动后才释放，并用
+Go race detector 验证无竞态。代码行为无须 stop-and-fix，测试把等待时间回归风险固定下来。
+
+正式证据=`testend/rig/formal-evidence/EDGE-011-execution-group-parallel-order-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-011-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge011-parallel-index-order`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 帧、
+视觉时延或可发现性旅程；各 na 理由已落盘。formal journal=`2541`（2300 baseline + 241 live），
+`gen_coverage.py --check`=`848 rows / 508 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。批次四十八已达到 `51/50`，统一长门禁现在解锁；P12 的 400+ Journey
+继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-010 tool_result 256 KiB 最终硬封顶
+
+静态审阅发现旧实现把截断提示追加在 256 KiB 原文之后，失败工具的错误文本也可能把最终结果再次撑出
+上限；这会同时放大持久化、SSE 和当前 prompt。已停止推进并修复：成功结果保留头部并在合法 UTF-8
+字符边界截断，失败结果保留输出头部、错误尾部和收窄提示，三者总长度严格不超过
+`limits.Tools.ToolResultCapKB`（默认 256 KiB）。后端 loop 回归覆盖成功与“部分输出+错误”两条路径，
+前端工具卡已有超长 prose bounded excerpt、截断提示和原始长度回归；loop 全包、工具卡全测、analyzer 全绿。
+
+正式证据=`testend/rig/formal-evidence/EDGE-010-tool-result-cap-investigation-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-010-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge010-tool-result-cap`、`L2=na`、`L3=na`、`L4=E1`、`L5=na`：本条不冒充制造超大结果的
+真实五通道 session，L3 也不是时延/动效判据；na 理由已落盘。formal journal=`2536`（2300 baseline +
+236 live），`gen_coverage.py --check`=`848 rows / 507 carried judgments / 0 tombstones`，anchors=`10/10`，
+统计警报独立复审 ack 后 `alarms.py check` clean。批次四十八由 `41→46/50`，未满 50 格不跑统一长门禁、
+不提交；正式 sequence gate 下一前线=`EDGE-011`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-009 Chat 回合总墙钟语义止损修复
+
+产品复核发现 ChatTurnSec 总墙钟虽然能解除 stalled turn，却被共享 loop 归类为普通 `cancelled`；用户
+无法知道是系统为保持响应而主动截断，也没有明确下一步。已停止推进并修复：chat 在 context 中标记自身
+墙钟，loop 只将 chat-owned `DeadlineExceeded` 落成 `error/CHAT_TURN_TIMEOUT`，用户主动 Cancel 和
+其它宿主保持原有 cancelled 语义；终态消息给出发送后续消息或简化任务的可行动提示。错误码表、loop/chat
+契约文档同步更新，Flutter transcript 映射本地化提示并隐藏内部码/detail，focused widget 与 chat/loop/
+agent/subagent/reqctx focused suites、analyzer 全绿。
+
+正式证据=`testend/rig/formal-evidence/EDGE-009-chat-turn-wall-clock-stop-fix-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-009-ledger-alarm-reaudit-20260825.md`。五级严格为 `L1=E1`、`L2=na`、
+`L3=na`、`L4=E1`、`L5=na`：没有等待数分钟的真实五通道 stall session，不冒充现场时序；各 na 理由和
+实际终态/视觉证据已落盘。formal journal=`2531`（2300 baseline + 231 live），`gen_coverage.py --check`=
+`848 rows / 506 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报经独立复审 ack 后 `alarms.py
+check` clean。批次四十八由 `36→41/50`，未满 50 格不跑统一长门禁、不提交；正式 sequence gate 下一前线=
+`EDGE-010`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-008 MaxSteps 终态错误用户体验止损修复
+
+产品复核发现 `MAX_STEPS_REACHED` 虽然由 loop 正确写成非成功终态，Chat transcript 的通用分支仍会在
+“达到步数上限”后拼接 durable error code 和内部英文 detail；用户看到了实现诊断，却没有得到下一步。
+已停止推进并修复：中英文文案明确说明回复因步骤上限暂停，并告诉用户发送后续消息或简化任务继续；
+`MAX_STEPS_REACHED` 加入 transcript 的内部码屏蔽映射，focused widget regression 覆盖本条及前两条 loop
+终态，断言可行动文案存在且 raw code/detail 不出现；`make -C frontend analyze` 和 Go loop focused suite 全绿。
+
+正式证据=`testend/rig/formal-evidence/EDGE-008-max-steps-ux-stop-fix-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-008-ledger-alarm-reaudit-20260825.md`。本条五级严格为 `L1=E1`、
+`L2=na`、`L3=na`、`L4=E1`、`L5=na`：没有稳定真实网关入口制造人为 MaxSteps 上限，不冒充五通道流式时序；
+各 na 理由和 L4 实际 transcript 证据已落盘。formal journal=`2526`（2300 baseline + 226 live），
+`gen_coverage.py --check`=`848 rows / 505 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报
+经独立复审 ack 后 `alarms.py check` clean。批次四十八由 `31→36/50`，未满 50 格不跑统一长门禁、不提交；
+正式 sequence gate 下一前线=`EDGE-009`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-007 loop 终态错误用户体验止损修复
+
+产品复核发现 `TOOL_ERROR_STORM` 与 `CONTEXT_INPUT_TOO_LARGE` 虽然由后端正确落成终态，Chat transcript
+仍会把 durable error code 和内部 detail 直接拼进主文案；这不符合 CODEX E1 的“解释发生了什么、告诉用户
+下一步、隐藏内部实现码”要求。已停止推进并修复：英文/中文文案均改为本地化、可行动提示，分别说明工具连续
+失败已暂停并建议检查输入重试，以及内容超出单次处理范围并建议拆分最新附件或内容后重试；新增 focused
+widget regression 断言用户文案存在且原始错误码/detail 不出现，`make -C frontend analyze` 全绿。
+
+正式证据=`testend/rig/formal-evidence/EDGE-007-loop-terminal-error-ux-stop-fix-20260825.md`；EDGE-005 的
+旧 L4 `na` 已用 `judge.py --revalidate --law E1` 对这次真实产品表面重验为 pass，历史边界与新证据均保留。
+EDGE-007 五级严格为 `L1=E1`、`L2=na`、`L3=na`、`L4=E1`、`L5=na`：没有伪造真实五通道 storm session，L4
+只基于真实 transcript widget 与 analyzer/regression 证据，逐项理由已落盘。formal journal=`2521`
+（2300 baseline + 221 live），`gen_coverage.py --check`=`848 rows / 504 carried judgments / 0 tombstones`，
+anchors=`10/10`；统计警报经独立复审 ack 后 `alarms.py check` clean。批次四十八由 `26→31/50`，未满
+50 格不跑统一长门禁、不提交；正式 sequence gate 下一前线=`EDGE-008`。P12 的 400+ Journey 继续按用户
+裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-006 DeepSeek active tool chain 完整切分
+
+新增回归 `TestDeterministicCheckpointKeepsDeepSeekReasoningToolGroupIntact`，构造旧 group 与活动中的
+DeepSeek-like group，执行保留一组的 deterministic emergency checkpoint，断言输出是一个 marker 加一组
+完整活动协议：`reasoning_content`、`reasoningSignature`、assistant tool call 的 name/arguments/id 与
+对应 `tool_result` 全部保留，切点不落在 assistant/tool group 中间。DeepSeek provider 现有 build/request/
+parse/round-trip focused tests 同批通过。
+
+正式调查证据=`testend/rig/formal-evidence/EDGE-006-deepseek-tool-chain-investigation-20260825.md`，账本
+警报复审=`testend/rig/formal-evidence/EDGE-006-ledger-alarm-reaudit-20260825.md`。这是模型线缆 prompt 投影
+的兼容性不变量，不产生 UI、DB、SSE 或真实网关表面，五级严格为 `L1=measure:deepseek-active-tool-group`、
+`L2–L5=na`，理由已逐项落盘。formal journal=`2516`（2300 baseline + 216 live），
+`gen_coverage.py --check`=`848 rows / 503 carried judgments / 0 tombstones`，anchors=`10/10`，三条统计
+警报经复审 ack 后 `alarms.py check` clean。批次四十八由 `21→26/50`，未满 50 格不跑统一长门禁、不提交；
+正式 sequence gate 下一前线=`EDGE-007`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-005 CONTEXT_INPUT_TOO_LARGE 诚实终态
+
+新增回归 `TestRun_ContextOverflowStillTooLargeUsesActionableTerminalCode`，构造“原采样收到
+`context_length` 拒绝 → checkpoint 生成成功 → 同一步重试仍收到 `context_length` → 第二个有界恢复周期
+结束”的真实 loop 边界。测试锁定实际四次 provider/checkpoint 调用，而不是假设三次；最终 result 和
+`WriteFinalize` 都是 `error`，错误码精确为 `CONTEXT_INPUT_TOO_LARGE`，错误提示同时包含不可拆输入的
+状态解释和 `split` 下一步，不泄漏成裸 `LLM_STREAM_ERROR`，也不伪装成成功。
+
+loop 与 LLM provider focused regression 全部通过。正式调查证据=
+`testend/rig/formal-evidence/EDGE-005-context-too-large-investigation-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-005-ledger-alarm-reaudit-20260825.md`。真实 provider-error 视觉面由
+EDGE-001 覆盖，EDGE-002 的 managed 504 仍保留为红边界；本条强制重复 rejection 来自 harness、无独立
+UI/视觉/用户入口；EDGE-007 随后发现并修复 transcript 直接泄漏本条 durable code 的问题，故以
+`judge.py --revalidate --law E1` 将 L4 从历史 `na` 重验为 `pass`，当前五级为 `L1=E1`、`L2=na`、
+`L3=na`、`L4=E1`、`L5=na`，新旧证据均保留。formal journal=`2516`（2300 baseline + 216 live），
+`gen_coverage.py --check`=`848 rows / 503 carried judgments / 0 tombstones`，anchors=`10/10`，三条统计
+警报经独立复审 ack 后 `alarms.py check` clean。批次四十八仍由 `16→21/50` 表示该格首次入账，重验不
+重复计数；正式 sequence gate 下一前线=`EDGE-006`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-004 权威 context_length 透明恢复
+
+现有生产 loop 回归精确覆盖 provider 在尚未产出任何 assistant block 时返回结构化
+`context_length` 拒绝：loop 先做隔离的 semantic checkpoint，清理 prompt 视图后重试同一个逻辑采样步，
+恢复成功对用户透明，且不泄漏中间 provider error。`TestRun_ProviderContextOverflowCompactsAndRetriesSameStep`
+断言了零 block 拒绝、checkpoint 请求不带 tools、重试 prompt 变小且含 continuation checkpoint、总调用数
+恰为三次、最终 completed；`TestChat_CompactionWatermark` 与 `TestPromptR6_PostCompactionView` 通过真实
+HTTP/SSE 服务，补证 learned overflow budget、durable summary/watermark、压缩后模型视图和最近完整协议组。
+
+loop/contextcheckpoint/contextmgr 定向 Go tests 与上述 testend scenarios 均通过。正式调查证据=
+`testend/rig/formal-evidence/EDGE-004-context-overflow-recovery-investigation-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-004-ledger-alarm-reaudit-20260825.md`。真实 managed gateway 在 EDGE-002
+观察到的 504 发生在本分支之前，仍保留为红边界，没有被复用。由于本条强制 rejection 来自确定性 harness，
+且恢复没有独立 UI、视觉或用户入口，五级严格为 `L1=H3`、`L2–L5=na`，理由已逐项写入证据。formal
+journal=`2505`（2300 baseline + 205 live），`gen_coverage.py --check`=`848 rows / 501 carried judgments /
+0 tombstones`，anchors=`10/10`，三条统计警报经独立复审 ack 后 `alarms.py check` clean。批次四十八由
+`11→16/50`，未满 50 格不跑统一长门禁、不提交；正式 sequence gate 下一前线=`EDGE-005`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-003 语义压缩双失败后的确定性有损 checkpoint
+
+这是 loop 内部的故障注入边界，不是可由真实网关稳定制造的用户旅程：测试让 Host 提供的
+utility compactor 返回错误，再让主模型 checkpoint 请求返回不可重试的 `invalid_request`；同一
+逻辑采样步随后必须落到 deterministic emergency checkpoint 并继续完成。新增回归
+`TestRun_ContextOverflowFallsBackToDeterministicCheckpointWhenSemanticCompactorsFail`，固定三次
+`Stream` 顺序为“原请求 `context_length` 拒绝 → 主模型 checkpoint 拒绝 → 同步骤重试成功”，证明
+utility 只调用一次、无无界重试、最终 `completed` 且不向用户泄漏中间错误；重试 prompt 明确含
+`context_checkpoint kind="deterministic-emergency"`、`Re-fetch durable tool results`，并保留最新完整
+assistant/tool group 的 `new_call` 协议。
+
+loop、contextcheckpoint、contextmgr 定向 Go tests 全部通过。正式调查证据=
+`testend/rig/formal-evidence/EDGE-003-deterministic-checkpoint-investigation-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-003-ledger-alarm-reaudit-20260825.md`。由于该 checkpoint 只是发送给
+模型的内存 prompt 投影，不产生 UI、DB、SSE 或真实网关表面，五级裁决严格记为 `L1=H3`，`L2–L5=na`
+并逐项写明理由；没有借用 EDGE-002 的真实 session 冒充本分支的五通道证据。formal journal=`2500`
+（2300 baseline + 200 live），`gen_coverage.py --check`=`848 rows / 500 carried judgments / 0 tombstones`，
+anchors=`10/10`，两条统计警报经独立复审 ack 后 `alarms.py check` clean。批次四十八由 `6→11/50`，未满
+50 格不跑统一长门禁、不提交；正式 sequence gate 下一前线=`EDGE-004`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-002 continuation checkpoint 语义压缩
+
+真实 Flutter App 通过实体选择器选中临时 Function `edge002_checkpoint_chunk`，连续四次真实
+调用把大 tool_result 回喂到同一对话；messages/entities/notifications 三路独立 SSE witness
+记录了四组配对的 `run_function` 与 `tool_result` durable 帧，App 活动侧显示 `执行 ×4`，没有
+孤儿 tool_call。第五次追加请求的 LLM body 达 `1,116,940` bytes，受管网关在 loop 进入 semantic
+checkpoint 前返回 plain `error code: 504`；backend 对应 `predicted_input=371722`、
+`history_bytes=1051004`、`compaction_mode=""`、无 `cleared_tool_bytes`，该真实边界保留为红证据，
+没有冒充压缩成功。App 显示已修复的中英文可行动文案，不泄漏 `LLM_PROVIDER_ERROR` 或上游异常串。
+
+同一生产 loop/context-manager 的黑盒路径补齐核心证明：`TestChat_CompactionWatermark` 与
+`TestChatFork_SummaryTwoBranches` 通过，证明结构化 continuation checkpoint 保留最新完整工具组、
+不制造悬空 provider 协议、正确持久化 summary/watermark，并只在合法 fork 边界携带摘要；loop、
+contextmgr、contextcheckpoint 定向 Go tests 也通过。故五级裁决只在证据明确分层后写入，不将网关
+504 改写为绿。
+
+五通道 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-115619`，录屏=`798.073333s`，
+backend=`933` 行、SSE=`604` 行、LLM=`40` 行和 frontend=`831` 行 journal 均已封存；`rig-down.sh` 后无残留进程。frontend 中重复的 Flutter `accessibility_bridge` AXTree
+行是 Computer Use 快速 AX snapshot churn，和此前已接受的录制 session 同类，未被静默删除，独立
+写入证据。临时 Function 已真实 DELETE=204。正式证据=`sessions/20260825-115619/evidence/EDGE-002-five-channel.md`，
+账本复审=`testend/rig/formal-evidence/EDGE-002-ledger-reaudit-20260825.md`；五级由 `judge.py`
+写入 `G1/F2/A5/C4/G2`，formal journal=`2495`（2300 baseline + 195 live），`gen_coverage.py --check`=
+`848 rows / 499 carried judgments / 0 tombstones`，anchors=`10/10`，警报复审 ack 后
+`alarms.py check` clean。批次四十八由 `1→6/50`，未满 50 格不跑统一长门禁、不提交；正式 sequence
+gate 下一前线=`EDGE-003`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-001 上下文水位 80% 的 tool_result marker 机制
+
+真实 Flutter macOS App 在受管 Anselm 网关上建立一次临时 `edge001_context_chunk` function，连续生成
+大 tool_result，观察到后端在预测输入约 65.6% 且已越过 80% 编辑触发条件的时序点，实际清掉旧 tool
+group 两次(`528723`、`524292` bytes)。独立 LLM tap 的四个真实 chat body 含 7/7/9/9 个 prompt-only
+omission marker；最新三组和 reasoning/tool-call 协议仍按完整 group 留在 prompt，durable REST 历史
+中 marker 出现 0 次且完整 fixture marker 保留。临时 function 已经真实删除，两个测试对话均收口。
+
+首轮真实画面又抓到一个必须停线修的产品问题：上游 504 的主时间线直接显示
+`Something went wrong · LLM_PROVIDER_ERROR · llm: provider error (504)`，违反 E1 的三要素和裸码禁令。
+修复前画面作为红证据保留；前端现在对 `LLM_PROVIDER_ERROR` 走中英文用户文案，说明模型服务未完成回复、
+允许再次尝试、请求过大时拆分发送，并不把网关码/异常串放在主视觉。新增 focused widget 回归，结果
+`32/32` 通过。修复后未虚构新的真实 504 画面，因此该 session 的 504 仍标红，marker 机制本身才入绿。
+
+五通道 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-113116`，录屏=`935.448333s`；
+backend=`1147` 行，SSE=`1408` 行，LLM=`104` 行，frontend 无 Flutter/Dart/布局/Unhandled 红线，三个 SSE
+流真实接入，受管网关 challenge/install/models 与 chat wire 经过 llmtap。正式证据与修复边界=`sessions/20260825-113116/evidence/EDGE-001-five-channel.md`，
+统计警报复审=`testend/rig/formal-evidence/EDGE-001-ledger-alarm-reaudit-20260825.md`；五级由 `judge.py`
+写入 `G1/F2/A5/C4/G2`，COVERAGE=`848 rows / 498 carried judgments / 0 tombstones`，anchors=`10/10`，
+`alarms.py check` 在复审 ack 后 clean。批次四十八由 `0→1/50`，未满 50 格不跑统一长门禁、不提交；
+下一正式前线=`EDGE-002`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：SURF-114 完成，stage/generic 通用舞台与 poll 终态收口
 
@@ -307,7 +509,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 
 五通道 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-105440`，录屏=`699.328333s / 2784x1808 / 60fps`，结果帧=`sessions/20260825-105440/evidence/frames/surf114-generic-settled.png`；messages durable=`66..74` 单调，entities workflow=`run_started → run tick → run_terminal` 且 `flowrunId` 一致，backend/frontend 无应用级红线，LLM wire 正向调用 HTTP 全`200`，rig-check/rig-down 通过并无残留。frontend AX 固定格式观察器噪声已由 `evidence/frontend-ax-review.md` 精确审阅，不以 grep 静默。
 
-新增真实时序回归：`tool_result open → run_terminal → tool_result close`，focused Flutter 通过；五级由 `judge.py` 写入 `E2/F2/B2/C4/G1`。formal journal=`2485`（2300 baseline + 185 live），`gen_coverage.py --check`=`848 rows / 497 carried judgments / 0 tombstones`，anchors=`10/10`；`gap-too-fast`/`discovery-collapse` 按 `SURF-114-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，最终 `alarms.py check` clean。批次四十七=`50/50` 后统一长门禁已通过：根 `make verify`、完整 `make -C backend testend`=`312.506s`、rig=`50/50`、格式/覆盖/锚点/警报/进程审计全绿；完整记录=`testend/rig/formal-evidence/batch-47-gate-20260825.md`，当前只剩提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+新增真实时序回归：`tool_result open → run_terminal → tool_result close`，focused Flutter 通过；五级由 `judge.py` 写入 `E2/F2/B2/C4/G1`。formal journal=`2485`（2300 baseline + 185 live），`gen_coverage.py --check`=`848 rows / 497 carried judgments / 0 tombstones`，anchors=`10/10`；`gap-too-fast`/`discovery-collapse` 按 `SURF-114-ledger-alarm-reaudit-20260825.md` 独立复审并串行 ack，最终 `alarms.py check` clean。批次四十七=`50/50` 后统一长门禁已通过并提交 `467e12e7`：根 `make verify`、完整 `make -C backend testend`=`312.506s`、rig=`50/50`、格式/覆盖/锚点/警报/进程审计全绿；完整记录=`testend/rig/formal-evidence/batch-47-gate-20260825.md`。正式 sequence gate 下一原子前线=`EDGE-001 上下文水位 80% 触发 tool_result 换 marker`，批次四十八从 `0/50` 开始。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：SURF-113 完成，stage/mcp 接线现场与类型化工具货架闭环
 

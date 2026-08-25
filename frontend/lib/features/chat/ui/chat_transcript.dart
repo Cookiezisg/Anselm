@@ -1176,8 +1176,21 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     final code = (widget.turn.content?['errorCode'] as String?) ?? '';
     final msg = (widget.turn.content?['errorMessage'] as String?) ?? '';
     final detail = [code, msg].where((s) => s.isNotEmpty).join(' · ');
+    // Provider failures are diagnostic records, not user copy. The retry action below is the
+    // recovery path; exposing a gateway code/HTTP body in the primary transcript makes the user
+    // debug infrastructure instead of continuing the task.
+    // 上游失败是诊断记录,不是用户文案。下方重试动作才是恢复路径;主时间线不应把网关码/HTTP 原文
+    // 交给用户,否则用户被迫调试基础设施而不是继续完成任务。
+    final userLine = switch (code) {
+      'LLM_PROVIDER_ERROR' => t.chat.providerError,
+      'CHAT_TURN_TIMEOUT' => t.chat.chatTurnTimeout,
+      'MAX_STEPS_REACHED' => t.chat.stoppedMaxSteps,
+      'TOOL_ERROR_STORM' => t.chat.toolErrorStorm,
+      'CONTEXT_INPUT_TOO_LARGE' => t.chat.contextInputTooLarge,
+      _ => null,
+    };
     final line = Text(
-      detail.isEmpty ? label : '$label · $detail',
+      userLine ?? (detail.isEmpty ? label : '$label · $detail'),
       style: AnText.label.copyWith(color: color),
     );
     final canRepickModel =

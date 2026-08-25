@@ -1432,6 +1432,102 @@ void main() {
     expect(find.text(t.chat.repickModel), findsNothing);
   });
 
+  testWidgets(
+    'provider failure uses actionable copy instead of gateway details',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [_conv('cv_1')],
+        messages: {
+          'cv_1': [
+            ChatMessage(
+              id: 'msg_provider_error',
+              conversationId: 'cv_1',
+              role: 'assistant',
+              status: 'error',
+              stopReason: 'error',
+              errorCode: 'LLM_PROVIDER_ERROR',
+              errorMessage: 'llm: provider error (504)',
+              blocks: const [],
+              createdAt: DateTime.utc(2026, 7, 2, 10),
+            ),
+          ],
+        },
+      );
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 50));
+
+      final t = Translations.of(
+        tester.element(find.byType(ChatTranscriptView)),
+      );
+      expect(find.text(t.chat.providerError), findsOneWidget);
+      expect(find.textContaining('LLM_PROVIDER_ERROR'), findsNothing);
+      expect(find.textContaining('provider error (504)'), findsNothing);
+    },
+  );
+
+  testWidgets(
+    'loop terminal boundaries use actionable copy instead of internal codes',
+    (tester) async {
+      for (final entry in [
+        (
+          stop: 'error',
+          code: 'CHAT_TURN_TIMEOUT',
+          raw: 'CHAT_TURN_TIMEOUT · this reply took too long and was stopped',
+          copy: (Translations t) => t.chat.chatTurnTimeout,
+        ),
+        (
+          stop: 'max_steps',
+          code: 'MAX_STEPS_REACHED',
+          raw: 'MAX_STEPS_REACHED · reached the step limit before finishing',
+          copy: (Translations t) => t.chat.stoppedMaxSteps,
+        ),
+        (
+          stop: 'error',
+          code: 'TOOL_ERROR_STORM',
+          raw: 'TOOL_ERROR_STORM · 3 consecutive tool turns failed',
+          copy: (Translations t) => t.chat.toolErrorStorm,
+        ),
+        (
+          stop: 'error',
+          code: 'CONTEXT_INPUT_TOO_LARGE',
+          raw:
+              'CONTEXT_INPUT_TOO_LARGE · the current indivisible input still exceeds the model context',
+          copy: (Translations t) => t.chat.contextInputTooLarge,
+        ),
+      ]) {
+        final repo = FixtureChatRepository(
+          conversations: [_conv('cv_1')],
+          messages: {
+            'cv_1': [
+              ChatMessage(
+                id: 'msg_${entry.code}',
+                conversationId: 'cv_1',
+                role: 'assistant',
+                status: 'error',
+                stopReason: entry.stop,
+                errorCode: entry.code,
+                errorMessage: entry.raw,
+                blocks: const [],
+                createdAt: DateTime.utc(2026, 7, 2, 10),
+              ),
+            ],
+          },
+        );
+        await tester.pumpWidget(_host(repo));
+        await tester.pump();
+        await tester.pump(const Duration(milliseconds: 50));
+
+        final t = Translations.of(
+          tester.element(find.byType(ChatTranscriptView)),
+        );
+        expect(find.text(entry.copy(t)), findsOneWidget);
+        expect(find.textContaining(entry.code), findsNothing);
+        expect(find.textContaining(entry.raw), findsNothing);
+      }
+    },
+  );
+
   testWidgets('LLM_MODEL_NOT_FOUND banner offers the same repick CTA', (
     tester,
   ) async {

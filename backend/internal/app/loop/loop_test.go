@@ -8,6 +8,7 @@ import (
 	"iter"
 	"strings"
 	"testing"
+	"time"
 	"unicode/utf8"
 
 	"go.uber.org/zap"
@@ -16,6 +17,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -91,6 +93,16 @@ type reminderHost struct {
 	reminders []string
 }
 
+type failingCompactorHost struct {
+	*fakeHost
+	calls int
+}
+
+func (h *failingCompactorHost) CompactPrompt(context.Context, []llminfra.LLMMessage, int) ([]llminfra.LLMMessage, error) {
+	h.calls++
+	return nil, errors.New("utility checkpoint unavailable")
+}
+
 func (h reminderHost) SystemReminders(context.Context) []string { return h.reminders }
 
 type autoActivateHost struct {
@@ -148,9 +160,31 @@ func (t fakeTool) Execute(_ context.Context, _ string) (string, error) {
 
 var _ toolapp.Tool = fakeTool{}
 
+type resultThenErrorTool struct{ fakeTool }
+
+func (t resultThenErrorTool) Execute(_ context.Context, _ string) (string, error) {
+	return t.result, t.err
+}
+
 type countingTool struct {
 	name  string
 	calls *int
+}
+
+type gatedTool struct {
+	name    string
+	started chan<- string
+	release <-chan struct{}
+}
+
+func (t gatedTool) Name() string                        { return t.name }
+func (t gatedTool) Description() string                 { return "gated concurrency test tool" }
+func (t gatedTool) Parameters() json.RawMessage         { return json.RawMessage(`{"type":"object"}`) }
+func (t gatedTool) ValidateInput(json.RawMessage) error { return nil }
+func (t gatedTool) Execute(context.Context, string) (string, error) {
+	t.started <- t.name
+	<-t.release
+	return "result-" + t.name, nil
 }
 
 type disableToolsAfterExecution struct {
@@ -471,6 +505,107 @@ func TestRun_ProviderContextOverflowCompactsAndRetriesSameStep(t *testing.T) {
 	}
 }
 
+func TestRun_ContextOverflowStillTooLargeUsesActionableTerminalCode(t *testing.T) {
+	long := strings.Repeat("tool-output-", 2_000)
+	history := []llminfra.LLMMessage{
+		{Role: llminfra.RoleUser, Content: "process the newest indivisible attachment"},
+		{Role: llminfra.RoleAssistant, ToolCalls: []llminfra.LLMToolCall{{ID: "old_call", Name: "read_state", Arguments: `{"id":"wf_exact"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "old_call", Content: long},
+		{Role: llminfra.RoleAssistant, ToolCalls: []llminfra.LLMToolCall{{ID: "new_call", Name: "check_state", Arguments: `{"id":"wf_exact"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "new_call", Content: "latest exact result"},
+	}
+	contextRejected := &llminfra.RequestRejectedError{Reason: llminfra.RejectionContextLength, Status: 400}
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{errorEv(contextRejected)},
+		{textEv("checkpoint generated"), finishEv()},
+		{errorEv(contextRejected)},
+	}}
+	host := &fakeHost{history: history}
+
+	res := Run(context.Background(), host, client, llminfra.Request{InputBudgetTokens: 100_000}, 1, nil)
+
+	if client.calls != 4 {
+		t.Fatalf("calls=%d, want two bounded recovery cycles (4 provider/checkpoint calls)", client.calls)
+	}
+	if res.Status != messagesdomain.StatusError || host.fin.status != messagesdomain.StatusError {
+		t.Fatalf("result=%+v finalize=%+v, want terminal error", res, host.fin)
+	}
+	if res.ErrCode != "CONTEXT_INPUT_TOO_LARGE" || host.fin.errCode != res.ErrCode {
+		t.Fatalf("errCode result=%q finalize=%q, want CONTEXT_INPUT_TOO_LARGE", res.ErrCode, host.fin.errCode)
+	}
+	if !strings.Contains(res.ErrMsg, "indivisible input") || !strings.Contains(res.ErrMsg, "split") {
+		t.Fatalf("errMsg=%q, want actionable split guidance", res.ErrMsg)
+	}
+}
+
+func TestRun_ContextOverflowFallsBackToDeterministicCheckpointWhenSemanticCompactorsFail(t *testing.T) {
+	long := strings.Repeat("durable tool output ", 2_000)
+	history := []llminfra.LLMMessage{
+		{Role: llminfra.RoleUser, Content: "continue the migration; preserve exact ids"},
+		{Role: llminfra.RoleAssistant, ReasoningContent: "old reasoning", ToolCalls: []llminfra.LLMToolCall{{ID: "old_call", Name: "read_state", Arguments: `{"id":"wf_exact"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "old_call", Content: long},
+		{Role: llminfra.RoleAssistant, ReasoningContent: "recent reasoning", ToolCalls: []llminfra.LLMToolCall{{ID: "new_call", Name: "check_state", Arguments: `{"id":"wf_exact"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "new_call", Content: "latest exact result"},
+	}
+	contextRejected := &llminfra.RequestRejectedError{Reason: llminfra.RejectionContextLength, Status: 400}
+	checkpointRejected := &llminfra.RequestRejectedError{Reason: llminfra.RejectionInvalidRequest, Status: 400}
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{errorEv(contextRejected)},
+		{errorEv(checkpointRejected)},
+		{textEv("recovered without semantic compaction"), finishEv()},
+	}}
+	host := &failingCompactorHost{fakeHost: &fakeHost{history: history}}
+
+	res := Run(context.Background(), host, client, llminfra.Request{InputBudgetTokens: 100_000}, 1, nil)
+
+	if host.calls != 1 {
+		t.Fatalf("utility compactor calls=%d, want 1 failed attempt", host.calls)
+	}
+	if client.calls != 3 {
+		t.Fatalf("calls=%d, want provider rejection + failed semantic checkpoint + retry", client.calls)
+	}
+	if res.Status != messagesdomain.StatusCompleted || host.fin.status != messagesdomain.StatusCompleted {
+		t.Fatalf("fallback must be invisible and complete: result=%+v finalize=%+v", res, host.fin)
+	}
+	if host.fin.errCode != "" || res.ErrCode != "" {
+		t.Fatalf("semantic compactor failure leaked to user: finalize=%+v result=%+v", host.fin, res)
+	}
+	if len(client.requests) != 3 {
+		t.Fatalf("captured requests=%d, want 3", len(client.requests))
+	}
+	retry := client.requests[2]
+	if len(retry.Messages) == 0 || !strings.Contains(retry.Messages[0].Content, `context_checkpoint kind="deterministic-emergency"`) {
+		t.Fatalf("retry must carry an explicit lossy checkpoint: %+v", retry.Messages)
+	}
+	if !strings.Contains(retry.Messages[0].Content, "Re-fetch durable tool results") ||
+		!strings.Contains(retry.Messages[1].ToolCalls[0].ID, "new_call") {
+		t.Fatalf("lossy warning or recent exact tool group missing: %+v", retry.Messages)
+	}
+}
+
+func TestDeterministicCheckpointKeepsDeepSeekReasoningToolGroupIntact(t *testing.T) {
+	history := []llminfra.LLMMessage{
+		{Role: llminfra.RoleUser, Content: "preserve the exact DeepSeek tool protocol"},
+		{Role: llminfra.RoleAssistant, ReasoningContent: "old reasoning", ToolCalls: []llminfra.LLMToolCall{{ID: "old_call", Name: "read_state", Arguments: `{"id":"wf_old"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "old_call", Content: strings.Repeat("old result ", 1_000)},
+		{Role: llminfra.RoleAssistant, ReasoningContent: "active reasoning_content", ReasoningSignature: "sig-active", ToolCalls: []llminfra.LLMToolCall{{ID: "active_call", Name: "check_state", Arguments: `{"id":"wf_active"}`}}},
+		{Role: llminfra.RoleTool, ToolCallID: "active_call", Content: "active exact result"},
+	}
+
+	checkpoint, changed := deterministicCheckpoint(history, 2_000, 1)
+	if !changed || len(checkpoint) != 3 {
+		t.Fatalf("checkpoint changed=%v len=%d, want one marker plus one complete active group", changed, len(checkpoint))
+	}
+	assistant, tool := checkpoint[1], checkpoint[2]
+	if assistant.Role != llminfra.RoleAssistant || assistant.ReasoningContent != "active reasoning_content" ||
+		assistant.ReasoningSignature != "sig-active" || len(assistant.ToolCalls) != 1 || assistant.ToolCalls[0].ID != "active_call" {
+		t.Fatalf("DeepSeek active assistant protocol was changed: %+v", assistant)
+	}
+	if tool.Role != llminfra.RoleTool || tool.ToolCallID != "active_call" || tool.Content != "active exact result" {
+		t.Fatalf("DeepSeek active tool result was detached: %+v", tool)
+	}
+}
+
 func TestPromptEditsNeverSplitUTF8(t *testing.T) {
 	// A byte ceiling can land in the middle of a CJK rune. The prompt view is
 	// sent as JSON later, so it must remain valid UTF-8 rather than relying on
@@ -712,6 +847,39 @@ func TestRunTools_ResultsIndexAligned(t *testing.T) {
 	}
 }
 
+func TestRunTools_SameExecutionGroupActuallyRunsConcurrently(t *testing.T) {
+	started := make(chan string, 2)
+	release := make(chan struct{})
+	calls := []messagesdomain.ToolCallData{
+		{ID: "tc_a", Name: "a", ExecutionGroup: 7},
+		{ID: "tc_b", Name: "b", ExecutionGroup: 7},
+	}
+	byName := map[string]toolapp.Tool{
+		"a": gatedTool{name: "a", started: started, release: release},
+		"b": gatedTool{name: "b", started: started, release: release},
+	}
+
+	done := make(chan []messagesdomain.Block, 1)
+	go func() { done <- runTools(context.Background(), calls, byName, zap.NewNop()) }()
+	for range calls {
+		select {
+		case <-started:
+		case <-time.After(time.Second):
+			t.Fatal("same execution group did not start both tools concurrently")
+		}
+	}
+	close(release)
+
+	select {
+	case blocks := <-done:
+		if len(blocks) != 2 || blocks[0].Content != "result-a" || blocks[1].Content != "result-b" {
+			t.Fatalf("parallel results lost input order: %+v", blocks)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("parallel tool batch did not finish after release")
+	}
+}
+
 func TestRunTools_SuppressesIdenticalCallsInOneBatch(t *testing.T) {
 	runCount := 0
 	calls := []messagesdomain.ToolCallData{
@@ -938,6 +1106,54 @@ func TestExecuteTool_UnparseableArgsEchoTruncated(t *testing.T) {
 	}
 	if !strings.Contains(out, "truncated") || len(out) > 1200 {
 		t.Fatalf("oversized malformed echo must be truncated, got len=%d out=%.120q…", len(out), out)
+	}
+}
+
+// TestExecuteTool_ToolResultHardCap includes the narrowing hint inside the cap, so the
+// persisted block, SSE frame, and next provider request cannot exceed the configured ceiling.
+// TestExecuteTool_ToolResultHardCap 将收窄提示也计入封顶，确保落库块、SSE 帧和下一次 provider 请求
+// 都不会超过配置上限。
+func TestExecuteTool_ToolResultHardCap(t *testing.T) {
+	defer limitspkg.SetProvider(limitspkg.Default)
+	limitspkg.SetProvider(func() limitspkg.Limits {
+		limits := limitspkg.Default()
+		limits.Tools.ToolResultCapKB = 1
+		return limits
+	})
+
+	capBytes := 1 << 10
+	tail := "TAIL-SENTINEL"
+	input := strings.Repeat("头", capBytes) + tail
+
+	success, errMsg, ok := executeTool(context.Background(), fakeTool{name: "huge", result: input}, "huge", []byte(`{}`), zap.NewNop())
+	if !ok || errMsg != "" {
+		t.Fatalf("oversized successful result failed: ok=%v err=%q", ok, errMsg)
+	}
+	if len(success) > capBytes {
+		t.Fatalf("successful tool_result len=%d exceeds cap=%d", len(success), capBytes)
+	}
+	if !strings.Contains(success, "tool result truncated") || !strings.Contains(success, "narrow the query") {
+		t.Fatalf("successful tool_result lacks actionable truncation hint: %q", success)
+	}
+	if strings.Contains(success, tail) || !utf8.ValidString(success) {
+		t.Fatalf("successful tool_result leaked tail or split UTF-8: valid=%v", utf8.ValidString(success))
+	}
+
+	failure, errMsg, ok := executeTool(
+		context.Background(),
+		resultThenErrorTool{fakeTool{name: "huge", result: input, err: errors.New("upstream failed")}},
+		"huge",
+		[]byte(`{}`),
+		zap.NewNop(),
+	)
+	if ok || errMsg == "" {
+		t.Fatalf("oversized failed result unexpectedly succeeded: ok=%v err=%q", ok, errMsg)
+	}
+	if len(failure) > capBytes {
+		t.Fatalf("failed tool_result len=%d exceeds cap=%d", len(failure), capBytes)
+	}
+	if !strings.Contains(failure, "tool result truncated") || !strings.Contains(failure, "upstream failed") {
+		t.Fatalf("failed tool_result lost hint or error: %q", failure)
 	}
 }
 

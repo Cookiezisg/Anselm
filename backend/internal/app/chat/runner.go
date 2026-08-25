@@ -167,6 +167,7 @@ func (s *Service) processTask(conversationID string, q *convQueue, t task) {
 	// runQueue 协程不返回、graceful shutdown 阻塞（F100）。到点时 loop 的在飞 op 被 ctx 取消、loop.Run
 	// finalize 回合、下方 isGenerating 清除。
 	ctx, cancel := context.WithTimeout(base, time.Duration(limitspkg.Current().Timeout.ChatTurnSec)*time.Second)
+	ctx = reqctxpkg.MarkChatTurnWallClock(ctx)
 	q.mu.Lock()
 	q.cancel = cancel
 	stopping := s.isStopping()

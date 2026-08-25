@@ -36,6 +36,16 @@ var ErrToolsDisabled = errorspkg.New(
 	"the isolated fork already returned; no further tools are available in this turn",
 )
 
+// ErrChatTurnTimeout is the durable terminal vocabulary for a chat-owned total wall-clock
+// deadline. It is not an HTTP response error; the chat transcript renders its actionable copy.
+// ErrChatTurnTimeout 是 chat 自有总墙钟到期的持久终态词汇。它不是 HTTP 响应错误；Chat transcript
+// 负责渲染可行动的人话。
+var ErrChatTurnTimeout = errorspkg.New(
+	errorspkg.KindGatewayTimeout,
+	"CHAT_TURN_TIMEOUT",
+	"the chat turn exceeded its total wall-clock limit and was stopped to keep the app responsive",
+)
+
 // maxConsecutiveAllFailTurns caps how many turns in a row may end with every tool call
 // returning an error before the loop aborts (TOOL_ERROR_STORM). Three is the lowest value
 // that still gives the LLM room to self-correct from a single mistake — burn-in saw the LLM
@@ -56,9 +66,12 @@ const maxConsecutiveAllFailTurns = 3
 // 目录里、但当前账号已无法用它生成；把这个事实（或鉴权、限流、额度、请求、上游错误）压成
 // LLM_STREAM_ERROR 会让持久回合无法与真实恢复路径对应，客户端也拿不到正确的解释。未知错误继续
 // 使用历史通用码。
-func streamErrorCode(err error) string {
+func streamErrorCode(ctx context.Context, err error) string {
 	if llminfra.IsContextLengthError(err) {
 		return "CONTEXT_INPUT_TOO_LARGE"
+	}
+	if reqctxpkg.IsChatTurnWallClock(ctx) && errors.Is(err, context.DeadlineExceeded) {
+		return ErrChatTurnTimeout.Code
 	}
 	switch {
 	case errors.Is(err, llminfra.ErrAuthFailed):
@@ -368,12 +381,15 @@ func Run(
 			status := messagesdomain.StatusCancelled
 			if stopReason == messagesdomain.StopReasonError {
 				status = messagesdomain.StatusError
-				errCode = streamErrorCode(streamErr)
+				errCode = streamErrorCode(ctx, streamErr)
 				if streamErr != nil {
 					errMsg = streamErr.Error()
 				}
 				if errCode == "CONTEXT_INPUT_TOO_LARGE" {
 					errMsg = "the current indivisible input still exceeds the model context after automatic compaction; reduce or split the newest attachment/content and retry"
+				}
+				if errCode == "CHAT_TURN_TIMEOUT" {
+					errMsg = "this reply took too long and was stopped to keep the app responsive; send a follow-up or simplify the task and retry"
 				}
 				// A provider can end the stream with stopReason=error yet an empty message (e.g. a
 				// silent disconnect). Surface a non-empty, actionable reason so the turn doesn't

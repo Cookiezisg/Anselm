@@ -329,6 +329,43 @@ class JudgeRetryTests(unittest.TestCase):
             self.assertIn("EP|GET /api/v1/read-aloud/availability", second_refusal.stderr)
             self.assertFalse((rig_home / "judgments.jsonl").exists())
 
+    def test_revalidate_allows_only_a_settled_prior_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            codex = home / "CODEX.md"
+            rig_home = home / "rig"
+            coverage.write_text(
+                "| EP-220 | settled prior | test | ~~~~~ |  |\n"
+                "| EP-221 | current frontier | test | ····· |  |\n"
+            )
+            codex.write_text("")
+            env = os.environ | {
+                "RIG_COVERAGE": str(coverage),
+                "RIG_CODEX": str(codex),
+                "RIG_HOME": str(rig_home),
+            }
+            base = [
+                sys.executable,
+                str(JUDGE),
+                "settled prior",
+                "--family",
+                "EP",
+                "--level",
+                "1",
+                "--verdict",
+                "na",
+                "--evidence",
+                "note:revalidation fixture",
+            ]
+            refused = subprocess.run(base, env=env, check=False, capture_output=True, text=True)
+            self.assertNotEqual(refused.returncode, 0)
+            self.assertIn("formal sequence gate", refused.stderr)
+
+            accepted = subprocess.run(base + ["--revalidate"], env=env, check=True, capture_output=True, text=True)
+            self.assertIn("EP|settled prior", accepted.stdout)
+            self.assertEqual(len((rig_home / "judgments.jsonl").read_text().splitlines()), 1)
+
     def test_sequence_gate_rejects_malformed_ledger_rows(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

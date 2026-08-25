@@ -347,6 +347,10 @@ system-prompt-preview 端点见 [`api.md`](../api.md)。表见
 `MAX_STEPS_REACHED` 诚实终止。HumanLoop interaction 是回合内 ephemeral
 broker；重启后不存在，Workflow durable approval 由 Scheduler 独立管理。
 
+ChatTurnSec 是回合总墙钟。到期以 `error` / `CHAT_TURN_TIMEOUT` 落耐久终态并清除
+`isGenerating`；用户主动 Cancel 仍保持 `cancelled`，两者不能混淆。用户面必须给出发送后续消息
+或简化任务的下一步，不得显示 `context deadline exceeded` 等内部字样。
+
 Fork Skill 返回后，父回合最多再做一次纯文本收尾采样；工具 schema 被移除。若模型仍吐出 tool
 call，loop 跳过 AutoActivator、不执行该调用，补齐明确的 `toolsDisabled` tool-result 后以
 `TURN_TOOLS_DISABLED` 终止，避免父模型绕回主聊天文件工具或再次派 fork。

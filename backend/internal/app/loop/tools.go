@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"unicode/utf8"
 
 	"go.uber.org/zap"
 
@@ -695,12 +696,49 @@ func maxToolResultBytes() int { return limitspkg.Current().Tools.ToolResultCapKB
 //
 // capToolResult 截断超限结果（保头部——搜索类输出前面的命中才有用）并告诉 LLM 如何收窄。
 func capToolResult(s string) string {
-	if len(s) <= maxToolResultBytes() {
-		return s
+	return capToolResultWithTail(s, "")
+}
+
+// capToolResultWithTail caps a result while retaining a small authoritative tail, such as an
+// execution error that must remain visible after a large partial output. Both pieces and the
+// truncation hint fit inside the same final byte ceiling.
+// capToolResultWithTail 在封顶结果的同时保留权威尾部（如大段部分输出后的执行错误）。两部分和
+// 截断提示共同计入同一个最终字节上限。
+func capToolResultWithTail(head, tail string) string {
+	capBytes := maxToolResultBytes()
+	if capBytes <= 0 {
+		return ""
 	}
-	return s[:maxToolResultBytes()] + fmt.Sprintf(
-		"\n...[tool result truncated: %d of %d bytes shown — narrow the query (filters / head_limit / pagination) to see the rest]",
-		maxToolResultBytes(), len(s))
+	if len(head)+len(tail) <= capBytes {
+		return head + tail
+	}
+	if len(tail) >= capBytes {
+		return capToolResult(tail)
+	}
+
+	// The hint is part of the capped result, not an allowance on top of it. Keep the head
+	// at a rune boundary when the tool returned valid UTF-8; malformed bytes remain byte-exact
+	// because the JSON boundary will apply its own replacement policy later.
+	// 提示本身也计入封顶，不得叠加在上限之外。工具返回合法 UTF-8 时在字符边界截断；畸形字节
+	// 保持原样，后续 JSON 边界再按自身规则处理。
+	headBytes := capBytes - len(tail)
+	for headBytes > 0 {
+		if utf8.ValidString(head) && headBytes < len(head) {
+			for headBytes > 0 && !utf8.RuneStart(head[headBytes]) {
+				headBytes--
+			}
+		}
+		shownBytes := headBytes + len(tail)
+		footer := fmt.Sprintf(
+			"\n...[tool result truncated: %d of %d bytes shown — narrow the query (filters / head_limit / pagination)]",
+			shownBytes, len(head)+len(tail),
+		)
+		if headBytes+len(tail)+len(footer) <= capBytes {
+			return head[:headBytes] + tail + footer
+		}
+		headBytes--
+	}
+	return "...[tool result truncated]"
 }
 
 // executeTool runs ValidateInput then Execute and shapes the (output, errMsg, ok) tuple.
@@ -755,16 +793,15 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 	}
 
 	output, err := t.Execute(ctx, string(argsJSON))
-	output = capToolResult(output)
 	if err != nil {
 		msg := llmErrText(err)
 		log.Warn("tool execute failed", zap.String("tool", name), zap.String("error", msg))
 		if output != "" {
-			return output + "\n\n" + msg, msg, false
+			return capToolResultWithTail(output, "\n\n"+msg), msg, false
 		}
-		return msg, msg, false
+		return capToolResult(msg), msg, false
 	}
-	return output, "", true
+	return capToolResult(output), "", true
 }
 
 // unparsedRaw reports whether argsJSON is the single-key rawArgsKey sentinel parseToolArgs leaves

@@ -127,8 +127,12 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get discard => 'Discard';
 	@override String get stoppedCancelled => 'Stopped';
 	@override String get stoppedError => 'Something went wrong';
+	@override String get providerError => '模型服务没有完成这次回复。请再试一次；如果请求较大，拆成更小的内容再发。';
+	@override String get chatTurnTimeout => '这次回复耗时过久，已暂停以保持应用响应。请发送后续消息或简化任务后重试。';
+	@override String get toolErrorStorm => '工具连续失败，这次回复已暂停。请检查输入后重试。';
+	@override String get contextInputTooLarge => '这部分内容超出了模型一次能处理的范围。请拆分最新附件或内容后重试。';
 	@override String get repickModel => '重选模型';
-	@override String get stoppedMaxSteps => 'Paused — step limit reached';
+	@override String get stoppedMaxSteps => '这次回复已达到步骤上限。你可以继续发送消息，或简化任务后再试。';
 	@override String get stoppedBudget => 'Paused — context window is full';
 	@override String get stoppedMaxTokens => 'Reached the output limit';
 	@override String get transcriptErrorTitle => 'Couldn\'t load this conversation';
@@ -3297,8 +3301,12 @@ extension on TranslationsZhCn {
 			'chat.discard' => 'Discard',
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
+			'chat.providerError' => '模型服务没有完成这次回复。请再试一次；如果请求较大，拆成更小的内容再发。',
+			'chat.chatTurnTimeout' => '这次回复耗时过久，已暂停以保持应用响应。请发送后续消息或简化任务后重试。',
+			'chat.toolErrorStorm' => '工具连续失败，这次回复已暂停。请检查输入后重试。',
+			'chat.contextInputTooLarge' => '这部分内容超出了模型一次能处理的范围。请拆分最新附件或内容后重试。',
 			'chat.repickModel' => '重选模型',
-			'chat.stoppedMaxSteps' => 'Paused — step limit reached',
+			'chat.stoppedMaxSteps' => '这次回复已达到步骤上限。你可以继续发送消息，或简化任务后再试。',
 			'chat.stoppedBudget' => 'Paused — context window is full',
 			'chat.stoppedMaxTokens' => 'Reached the output limit',
 			'chat.transcriptErrorTitle' => 'Couldn\'t load this conversation',
@@ -3692,12 +3700,12 @@ extension on TranslationsZhCn {
 			'chat.tool.firingStarted' => '已建 run',
 			'chat.tool.firingSkipped' => '跳过',
 			'chat.tool.firingSuperseded' => '被顶替',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.firingShed' => '丢弃',
 			'chat.tool.firingMissed' => '错过',
 			'chat.tool.logCount' => ({required Object n}) => '${n} 条',
 			'chat.tool.logCountMore' => ({required Object n}) => '${n}+ 条',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.parkRunCaption' => 'park 在审批节点的 run,头仍为 running',
 			'chat.tool.actReturnValue' => '返回值',
 			'chat.tool.actId' => '活动 ID',
@@ -4206,12 +4214,12 @@ extension on TranslationsZhCn {
 			'scheduler.run.nodeOut' => '输出',
 			'scheduler.run.nodeNoIo' => '这个节点没有记录结果。',
 			'scheduler.run.replayNode' => '重放失败节点',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.run.relayResolving' => '正在定位这次运行…',
 			'scheduler.run.relayFailedTitle' => '解析不出这次运行',
 			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
 			'scheduler.run.closeA11y' => '关闭本次运行页',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.range.today' => '今天',
 			'scheduler.range.h24' => '近 24 小时',
 			'scheduler.range.d7' => '近 7 天',
@@ -4720,12 +4728,12 @@ extension on TranslationsZhCn {
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
 			'entities.run.inboxEmpty' => '没有待审批',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.run.source' => '来源',
 			'entities.run.sourceManual' => '手动',
 			'entities.run.openFlowrun' => '打开 run →',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.openRunPage' => '在运行页打开 →',
 			'entities.run.recentCount' => ({required Object n}) => '最近执行 · ${n}',
 			'entities.run.reproduce' => '用这份输入',
@@ -5234,12 +5242,12 @@ extension on TranslationsZhCn {
 			'settings.mcp.url' => 'URL',
 			'settings.mcp.envKv' => '环境变量(KEY=VALUE,每行一个)',
 			'settings.mcp.headersKv' => '请求头(KEY=VALUE,每行一个)',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.add' => '添加',
 			'settings.mcp.addFailedHonest' => '连接失败也会落盘为 failed,可稍后重连',
 			'settings.mcp.importTitle' => '导入 mcp.json',
 			'settings.mcp.importHint' => '粘贴 Claude Desktop 的 mcpServers 片段',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.overwrite' => '覆盖同名',
 			'settings.mcp.doImport' => '导入',
 			'settings.mcp.importResult' => ({required Object n, required Object m}) => '导入 ${n} · 跳过 ${m}',

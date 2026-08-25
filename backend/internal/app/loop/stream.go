@@ -3,6 +3,7 @@ package loop
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"sort"
 	"strings"
 
@@ -316,7 +317,12 @@ func streamLLM(
 
 		case llminfra.EventError:
 			if ctx.Err() != nil {
-				stopReason = messagesdomain.StopReasonCancelled
+				if reqctxpkg.IsChatTurnWallClock(ctx) && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					stopReason = messagesdomain.StopReasonError
+					streamErr = ctx.Err()
+				} else {
+					stopReason = messagesdomain.StopReasonCancelled
+				}
 			} else {
 				stopReason = messagesdomain.StopReasonError
 				if event.Err != nil {
@@ -335,7 +341,12 @@ func streamLLM(
 	// 不发 EventError，留 stopReason=EndTurn——会把悬挂 block 以 completed 关闭（与 cancelled
 	// 消息状态错配）。
 	if ctx.Err() != nil && stopReason == messagesdomain.StopReasonEndTurn {
-		stopReason = messagesdomain.StopReasonCancelled
+		if reqctxpkg.IsChatTurnWallClock(ctx) && errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			stopReason = messagesdomain.StopReasonError
+			streamErr = ctx.Err()
+		} else {
+			stopReason = messagesdomain.StopReasonCancelled
+		}
 	}
 
 	closeStatus := messagesdomain.StatusCompleted

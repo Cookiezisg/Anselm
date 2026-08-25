@@ -78,9 +78,10 @@ suppression tool_result，不再开第二次人闸或产生第二次副作用，
 仍可主动重试。只读或普通
 可重试调用不因一次失败被这条跨步保护静默吞掉。
 
-单个 tool result 有统一硬上限，防止持久化、SSE 与当前 prompt 同时被无界输出
-撑爆。Object 型参数接受真实 object 或“可解析为 object 的 JSON string”，不
-接受数组/标量的猜测转换。
+单个 tool result 有统一硬上限（默认 256 KiB，包含截断提示），防止持久化、SSE 与当前 prompt
+同时被无界输出撑爆。成功结果保留头部并附带 filters / `head_limit` / pagination 的收窄提示；若工具
+同时返回部分输出和错误，保留输出头部、错误尾部与同一提示，三者总长度仍不超过上限。Object 型参数
+接受真实 object 或“可解析为 object 的 JSON string”，不接受数组/标量的猜测转换。
 
 连续多个 step 全部工具失败触发 `TOOL_ERROR_STORM`。到达 step cap 且模型仍要
 继续时，以 `MAX_STEPS_REACHED` / `max_steps` 非成功终态结束。
@@ -162,7 +163,8 @@ Host 根据本次模型能力与 Attachment ownership 将媒体展开为原生 p
 
 ## 7. 终态
 
-Provider 分类错误保留鉴权、请求、模型、额度、限流与上游错误码；无法分类的
+Provider 分类错误保留鉴权、请求、模型、额度、限流与上游错误码；chat 自己的总墙钟
+到期使用 `CHAT_TURN_TIMEOUT`，不得伪装成用户主动取消；其它宿主仍保留其取消语义。无法分类的
 流错误使用 `LLM_STREAM_ERROR`。Stop reason 兼容
 `end_turn|max_tokens|max_steps|context_budget|cancelled|error`；
 `context_budget` 只用于读取已有持久数据，当前引擎不主动产生该软停。

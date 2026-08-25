@@ -200,6 +200,9 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
   `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针。
   若进程在两份持久记录之间半步退出，重跑同一命令会按已有 journal 重放清册格和证据指针；所以不能只数
   `judgments.jsonl`，必须同时运行 `gen_coverage.py --check` 并检查目标行五格。
+- 发现已收口旧格的新产品缺陷时，不能手改旧格或越过当前前线：修复并补回归后，使用
+  `--revalidate` 重验一个**已 settled 的前置行**。它只解除顺序门，不解除法条、证据、L2 session、锚点或
+  未销警报门；当前前线或仍含 `·/✗` 的行传该参数仍拒绝。新裁决会追加审计行并在 COVERAGE 同格留下新证据指针。
 - `ledger-sequence.json` 是仓内版本控制的正式前线顺序策略（不接受 `RIG_SEQUENCE` 等调用方环境变量替换），当前模式为
   `first_unsettled`：judge 在锁内按 COVERAGE 的真实行序找到第一条含 `·/✗` 的行，只允许该行继续落新裁决，任何后行都拒绝；
   第一行五格均为 `✓/~` 后，前线自动推进到下一条。策略版本/模式非法或 COVERAGE 无法解析时 fail-closed，不靠工作记录口头约定越序。
