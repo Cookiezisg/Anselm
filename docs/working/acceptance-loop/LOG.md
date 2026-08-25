@@ -10,7 +10,89 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-021 已收口 · 批次四十九 50/50；统一长门禁已通过；下一前线 EDGE-022）
+## 当前前线（2026-08-25 · EDGE-031 已收口 · 批次五十 50/50；统一长门禁已通过；下一前线 EDGE-032）
+
+- EDGE-031 复核回合收尾期单槽：compaction 阻塞时一条后续 Send 可入槽但不提前启动，释放后才运行；blocking
+  compactor/provider barrier 普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-031-compaction-single-slot-buffer-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-031-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge031-compaction-single-slot-buffer/na/na/na/na`；formal journal=`2641`，COVERAGE=`848/528/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`50/50`；统一长门禁证据=`testend/rig/formal-evidence/batch-50-unified-gate-20260825.md`，
+  `make verify`、完整 `make -C backend testend`=`266.081s`、rig 51 tests、脚本/格式/清册/锚点/警报和进程审计全绿；本批随后提交；下一前线=`EDGE-032`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-030 复核生成中再 Send：第一条真实进入 provider stream 后下一条立即 STREAM_IN_PROGRESS，不排队；
+  chat 回归使用 entry barrier 精确验证，普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-030-send-while-generating-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-030-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge030-send-while-generating/na/na/na/na`；formal journal=`2636`，COVERAGE=`848/527/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-031`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-029 复核重复 resolve：真实 chat interaction 首次决议后重复 resolve 返回 NO_PENDING_INTERACTION，不
+  重放、不二次转移；chat/broker 普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-029-duplicate-resolve-interaction-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-029-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge029-duplicate-resolve-interaction/na/na/na/na`；formal journal=`2631`，COVERAGE=`848/526/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-030`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-028 复核 interaction 枚举外 action：拼错 action 先返回 structured `INTERACTION_INVALID_ACTION` 与
+  五项 validActions，不静默拒绝；chat 回归普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-028-invalid-interaction-action-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-028-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge028-invalid-interaction-action/na/na/na/na`；formal journal=`2626`，COVERAGE=`848/525/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-029`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-027 复核无交互 ask_user：无 broker 时立即返回 ASK_NO_INTERACTIVE_USER，不阻塞、不伪造回答；ask tool
+  focused/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-027-ask-no-interactive-user-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-027-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge027-ask-no-interactive-user/na/na/na/na`；formal journal=`2621`，COVERAGE=`848/524/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-028`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-026 复核 skill 更新信任：allowed-tools 改变会重置授权，只改正文/description 且集合不变则保留，local
+  drift 非 force 仍拒；skill update 普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-026-skill-allowed-tools-reset-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-026-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge026-skill-allowed-tools-reset/na/na/na/na`；formal journal=`2616`，COVERAGE=`848/523/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-027`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-025 复核 skill trust gate：installed skill 未 approve 时正文/active 名称保留，allowed-tools 预授权为空，
+  未覆盖危险工具仍逐次询问；批准后才预授权，skill/loop 普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-025-skill-trust-gate-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-025-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge025-skill-trust-gate/na/na/na/na`；formal journal=`2611`，COVERAGE=`848/522/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-026`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-024 复核驻地只闸写不闸读：挂载驻地后 Read/Grep 读取外部绝对路径都直接执行，不弹人闸；扩展回归
+  普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-024-read-outside-workdir-no-gate-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-024-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge024-read-outside-workdir-no-gate/na/na/na/na`；formal journal=`2606`，COVERAGE=`848/521/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-025`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-023 首轮发现并修复真实缺口：驻地下 Write args 无法判定时，旧实现可让 safe 静默通过，畸形 JSON
+  还可能让批准 prompt 为空。现在走普通 danger 闸、不错误标 outsideWorkDir，非法 args 原样可见，批准后
+  真实 Write 校验返回 file_path required；新增 focused/race 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-023-undeterminable-workdir-target-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-023-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge023-undeterminable-workdir-target/na/na/na/na`；formal journal=`2601`，COVERAGE=`848/520/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-024`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-022 复核驻地越界写：自报 safe 的驻地外 Write 仍被事实闸拦住，payload 带 outsideWorkDir，拒绝不执行；
+  approve_always 与 skill pre-approval 都不能豁免，workdir gate 普通/race 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-022-outside-workdir-gate-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-022-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge022-outside-workdir-gate/na/na/na/na`；formal journal=`2596`，COVERAGE=`848/519/0`，
+  anchors=`10/10`，`alarms.py check` clean。批次五十=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-023`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
 
 - EDGE-021 复核删除生命周期：conversation-delete cascade 调用实际 `chat.Service.ForgetConversation`，被删除
   对话的全部 approve_always 授权清除，另一存活对话的授权保留；chat hook 与 humanloop broker 测试普通/race

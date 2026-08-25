@@ -434,13 +434,21 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 		log.Error("tool dispatch mismatch", zap.String("requested_tool", tc.Name), zap.String("resolved_tool", t.Name()))
 		return msg, msg, false, false, false
 	}
+	outsideWorkDir, indeterminableWorkDir := workDirWriteState(ctx, t, argsJSON)
+	workDirGate := outsideWorkDir || indeterminableWorkDir
 	// Validate before opening a dangerous gate. A malformed mutation must not show an "Allowed"
 	// card and only then reveal that nothing could execute; that sequence teaches users to approve
 	// blind and can leave the model asking for a second destructive gate for the same intent.
 	//
 	// 先校验再开危险闸。畸形 mutation 不得先显示「Allowed」再说根本没法执行；那会教用户盲点批准，
 	// 还可能让模型为同一意图再开第二道破坏性人闸。
-	if t != nil {
+	// A mounted writer with an indeterminable target is the one deliberate exception: it must first
+	// fall back to the ordinary human gate rather than silently trusting a `safe` self-report. Once
+	// approved, executeTool validates again and returns the concrete malformed-argument error.
+	//
+	// 挂载驻地且目标无法确定的 writer 是唯一例外：必须先落回普通人闸，不能静默信任 safe 自报。批准后
+	// executeTool 会再次校验并返回具体的畸形参数错误。
+	if t != nil && !(indeterminableWorkDir && humanloopapp.From(ctx) != nil) {
 		if err := t.ValidateInput(argsJSON); err != nil {
 			msg := "input validation failed: " + llmErrText(err)
 			log.Warn("tool validate failed before gate", zap.String("tool", tc.Name), zap.String("error", llmErrText(err)))
@@ -451,10 +459,9 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 		log.Warn("tool intent conflict before gate", zap.String("tool", tc.Name), zap.String("summary", tc.Summary), zap.String("error", conflict))
 		return conflict, conflict, false, false, false
 	}
-	outsideWorkDir := writesOutsideWorkDir(ctx, t, argsJSON)
 	effectiveDanger := toolapp.EffectiveDanger(t, toolapp.DangerLevel(tc.Danger))
 	staticDanger := toolapp.MinimumDanger(t)
-	if b := humanloopapp.From(ctx); b != nil && (effectiveDanger == toolapp.DangerDangerous || outsideWorkDir) {
+	if b := humanloopapp.From(ctx); b != nil && (effectiveDanger == toolapp.DangerDangerous || workDirGate) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
 		// An out-of-root write skips BOTH bypasses on purpose. approve_always is per (conversation, tool),
 		// so honouring it would turn one "yes, edit that file over there" into a standing licence for every
@@ -466,7 +473,7 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 		// 那边那个文件」变成此后**任何**位置每次 Write 的长期许可——用户回答的是一个**路径**、不是一个工具。
 		// active skill 的 allowed-tools 是同一形状的承诺（「本 skill 会用 Write」）,而它是在谁都还不知道
 		// 它要写到哪里之前作出的。两者都从未授权「离开驻地」。
-		if outsideWorkDir || staticDanger == toolapp.DangerDangerous || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
+		if workDirGate || staticDanger == toolapp.DangerDangerous || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
 			// The reason rides the prompt only when it IS the reason, so an ordinary danger confirmation's
 			// payload stays byte-identical to what every existing client already parses. Without this key
 			// the user would face an approval dialog for a write the model called `safe` and have no way to
@@ -483,7 +490,17 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 			// 模型自报 summary 不能决定它实际选中的动作。尤其不能因为模型在此字段写了
 			// "deactivate"，就把 delete 调用展示成 deactivate。批准句由真实解析工具名生成，
 			// 同时保持既有 payload 形状，兼容现有客户端。
-			payload := map[string]any{"summary": canonicalGateSummary(t, tc, outsideWorkDir), "args": json.RawMessage(argsJSON)}
+			// Keep structured arguments structured for the existing client, but do not let malformed
+			// provider JSON erase the whole approval prompt. The user must still see what the model sent
+			// before deciding whether to approve a call that will later fail validation.
+			//
+			// 合法参数保持原有结构；但 provider 发来的畸形 JSON 不能让整个批准提示消失。用户仍须在
+			// 决定是否批准一个随后会校验失败的调用前看到模型实际发来的内容。
+			var gateArgs any = string(argsJSON)
+			if json.Valid(argsJSON) {
+				gateArgs = json.RawMessage(argsJSON)
+			}
+			payload := map[string]any{"summary": canonicalGateSummary(t, tc, outsideWorkDir), "args": gateArgs}
 			if outsideWorkDir {
 				payload["outsideWorkDir"] = true
 			}
@@ -644,23 +661,36 @@ func toolIntentConflict(toolName, summary string) string {
 // 的那个文件；两个解析器终会互相不同意，而那份不同意会静默地成为一个洞。Inside() 是 fail-closed 的，故解不开
 // 的根或逃逸的符号链接是**设闸**、不是放行。
 func writesOutsideWorkDir(ctx context.Context, t toolapp.Tool, argsJSON []byte) bool {
+	outside, _ := workDirWriteState(ctx, t, argsJSON)
+	return outside
+}
+
+// workDirWriteState returns whether a writer escapes the mounted residency and whether its target
+// cannot be determined safely. An undeterminable target is a separate state: it must use the normal
+// danger prompt, not be mislabeled as an outside write, but it must not silently bypass the gate when
+// the model self-reports safe. With no residency, both values stay false to preserve the old path.
+//
+// workDirWriteState 返回写工具是否越出驻地，以及是否无法安全确定目标。无法确定是独立状态：它应走普通
+// danger 提示，不能被错误标成越界写，但在模型自报 safe 时也不能静默绕过人闸。无驻地时两者都为 false，
+// 保持旧行为。
+func workDirWriteState(ctx context.Context, t toolapp.Tool, argsJSON []byte) (outside, indeterminable bool) {
 	root := reqctxpkg.GetWorkDir(ctx)
 	if root == "" {
-		return false
+		return false, false
 	}
 	fw, isWriter := t.(toolapp.FileWriteTool)
 	if !isWriter {
-		return false
+		return false, false
 	}
 	raw := fw.WriteTarget(argsJSON)
 	if strings.TrimSpace(raw) == "" {
-		return false // no determinable target: Execute will refuse it anyway (see FileWriteTool)
+		return false, true // Execute will report the concrete missing-path error after approval.
 	}
 	target, err := fspathpkg.ExpandIn(root, raw)
 	if err != nil {
-		return false // an unresolvable path never reaches the filesystem; Execute reports the real reason
+		return false, true // Execute reports the concrete path-resolution error after approval.
 	}
-	return !fspathpkg.Inside(root, target)
+	return !fspathpkg.Inside(root, target), false
 }
 
 // skillPreApproves reports whether the run's active skill declared this tool in its allowed-tools.

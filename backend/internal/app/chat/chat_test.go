@@ -600,28 +600,27 @@ func TestSend_EmptyContent(t *testing.T) {
 
 func TestSend_StreamInProgress(t *testing.T) {
 	gate := make(chan struct{})
+	entered := make(chan struct{}, 1)
 	bridge := newRecordBridge()
-	svc, _ := newSvc(t, &fakeClient{script: textTurn(), gate: gate}, bridge)
+	svc, _ := newSvc(t, &fakeClient{script: textTurn(), gate: gate, entered: entered}, bridge)
 	ctx := ctxWS("ws_1")
 
-	// First Send is picked up and blocks in Stream (gate). Subsequent Sends fill the buffer and
-	// then get rejected — we only assert that the guard fires within a bounded number of attempts.
+	// First Send is picked up and blocks in Stream (gate). Once Stream is entered, the next Send is
+	// rejected immediately rather than being buffered behind the user's back.
 	//
-	// 第一个 Send 被取走并阻塞在 Stream（gate）。后续 Send 填满缓冲后被拒——只断言 guard 在有界次数内触发。
+	// 第一个 Send 被取走并阻塞在 Stream（gate）。Stream 已进入后，下一条 Send 立即拒绝，不背着用户排队。
 	if _, err := svc.Send(ctx, "cv_1", SendInput{Content: "first"}); err != nil {
 		t.Fatalf("first Send: %v", err)
 	}
-	gotInProgress := false
-	for range queueCapacity + 3 {
-		if _, err := svc.Send(ctx, "cv_1", SendInput{Content: "more"}); errors.Is(err, ErrStreamInProgress) {
-			gotInProgress = true
-			break
-		}
+	select {
+	case <-entered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for first turn to enter Stream")
+	}
+	if _, err := svc.Send(ctx, "cv_1", SendInput{Content: "more"}); !errors.Is(err, ErrStreamInProgress) {
+		t.Fatalf("Send while Stream is in flight = %v, want STREAM_IN_PROGRESS", err)
 	}
 	close(gate) // release the blocked turn(s) so goroutines drain
-	if !gotInProgress {
-		t.Fatal("expected STREAM_IN_PROGRESS once a turn is in flight + buffer full")
-	}
 }
 
 // TestIsGenerating: the read accessor reports false for unknown/idle conversations and true while a

@@ -13,7 +13,104 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-021 已收口 · 批次四十九 50/50；统一长门禁已通过；下一前线 EDGE-022）
+## 当前前线覆盖声明（2026-08-25 · EDGE-031 已收口 · 批次五十 50/50；统一长门禁已通过；下一前线 EDGE-032）
+
+## 2026-08-25 · EDGE-031 回合收尾期单槽缓冲
+
+- 可见收尾后同步 compaction 仍在进行时，running 已释放，恰一条后续 Send 可进单槽但不提前启动；compaction
+  释放后才运行。blocking compactor + provider barrier 回归普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-031-compaction-single-slot-buffer-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-031-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge031-compaction-single-slot-buffer/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2641`，coverage=`848/528/0`，anchors=`10/10`，
+  警报 clean。批次五十=`50/50`；统一长门禁证据=`testend/rig/formal-evidence/batch-50-unified-gate-20260825.md`，`make verify`、完整
+  `make -C backend testend`=`266.081s`、rig 51 tests、脚本/格式/清册/锚点/警报和进程审计全绿；本批随后提交；下一前线=`EDGE-032`。
+  P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-030 生成中再 Send
+
+- 第一条 assistant turn 已进入 provider stream 后，下一条同对话 Send 立即 `STREAM_IN_PROGRESS`，不排队；
+  回归改为 stream entry barrier 后精确发送一次，普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-030-send-while-generating-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-030-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge030-send-while-generating/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2636`，coverage=`848/527/0`，anchors=`10/10`，
+  警报 clean。批次五十=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-031`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-029 重复 resolve interaction
+
+- 真实 chat ask interaction 首次 resolve 后，再次 resolve 同一 conversation/toolCallId 返回 `NO_PENDING_INTERACTION`，
+  不重放、不二次转移；broker unknown id 也安全。新增 chat service 回归，普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-029-duplicate-resolve-interaction-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-029-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge029-duplicate-resolve-interaction/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2631`，coverage=`848/526/0`，anchors=`10/10`，
+  警报 clean。批次五十=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-030`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-028 interaction 枚举外 action
+
+- 枚举外 resolve action（如 `aprove`）在查 conversation/pending 前返回 `INTERACTION_INVALID_ACTION`，details
+  带完整 `approve/approve_always/deny/accept/decline` 集合，不静默变成 deny；新增 chat structured-error
+  回归，普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-028-invalid-interaction-action-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-028-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge028-invalid-interaction-action/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2626`，coverage=`848/525/0`，anchors=`10/10`，
+  警报 clean。批次五十=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-029`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-027 ask_user 无交互用户
+
+- workflow/agent 等无 broker context 中，ask_user 立即返回 `ASK_NO_INTERACTIVE_USER`，不等待、不伪造回答；
+  新增 ask tool focused/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-027-ask-no-interactive-user-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-027-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge027-ask-no-interactive-user/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2621`，coverage=`848/524/0`，anchors=`10/10`，
+  警报 clean。批次五十=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-028`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-026 allowed-tools 变更重置信任门
+
+- installed skill 更新时 allowed-tools 集合改变会重置旧授权；只改正文/description 且集合不变则保留授权，
+  local drift 非 force 仍拒绝。skill update 普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-026-skill-allowed-tools-reset-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-026-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge026-skill-allowed-tools-reset/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2616`，coverage=`848/523/0`，anchors=`10/10`，
+  警报 clean。批次五十=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-027`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-025 skill 信任门未批时预授权为空
+
+- installed skill 的 allowed-tools 在 `:approve-tools` 前只是 requested grant：激活仍注入正文并记 active
+  skill，但预授权集为空，未覆盖的危险工具仍逐次过人闸；显式批准后才预授权。skill trust gate 与 loop
+  gate 普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-025-skill-trust-gate-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-025-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge025-skill-trust-gate/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2611`，coverage=`848/522/0`，anchors=`10/10`，
+  警报 clean。批次五十=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-026`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-024 驻地只闸写不闸读
+
+- 驻地是 zoom、不是 jail：挂载 work directory 后，Read 与 Grep 读取驻地外绝对路径仍直接执行，不弹
+  humanloop。workdir gate 回归扩展覆盖两个非写工具，普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-024-read-outside-workdir-no-gate-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-024-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge024-read-outside-workdir-no-gate/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2606`，coverage=`848/521/0`，anchors=`10/10`，
+  警报 clean。批次五十=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-025`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-023 越界判定路径解不开
+
+- 首轮发现真实缺口：驻地下 Write args 畸形/缺 `file_path` 时，旧实现因无法判定越界而让 safe 自报静默
+  通过，且畸形 JSON 可能让批准 prompt 为空。stop-and-fix 增加不可判定目标状态：先走普通 danger 闸、不
+  错标 `outsideWorkDir`；合法 args 保持对象、非法 JSON 以字符串显示；批准后真实 Write validator 返回
+  `file_path is required`。新增 focused/race 回归全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-023-undeterminable-workdir-target-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-023-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge023-undeterminable-workdir-target/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2601`，coverage=`848/520/0`，anchors=`10/10`，
+  警报 clean。批次五十=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-024`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-022 驻地越界写人闸
+
+- 挂载驻地后，`Write` 自报 safe 但目标在驻地外时强制 humanloop，payload 带 `outsideWorkDir=true`，拒绝
+  不执行；approve_always 与 skill allowed-tools 预授权均不可绕过，驻地内 safe write 不额外设闸。现有
+  workdir gate 测试族普通/race 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-022-outside-workdir-gate-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-022-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge022-outside-workdir-gate/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2596`，coverage=`848/519/0`，anchors=`10/10`，
+  警报 clean。批次五十=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-023`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-021 白名单随对话删除清除
 

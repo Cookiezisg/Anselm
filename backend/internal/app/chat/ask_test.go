@@ -165,6 +165,9 @@ func TestResolveInteraction_ConversationScoped(t *testing.T) {
 		t.Fatalf("same-conversation resolve: %v", err)
 	}
 	waitClose(t, bridge, asstID)
+	if err := svc.ResolveInteraction(ctx, "cv_1", pending[0].ToolCallID, humanloopapp.DecisionAccept, "staging"); !errors.Is(err, ErrNoPendingInteraction) {
+		t.Fatalf("duplicate resolve = %v, want NO_PENDING_INTERACTION", err)
+	}
 }
 
 // toolResultUnder finds the tool_result block whose parent is the given tool_call id.

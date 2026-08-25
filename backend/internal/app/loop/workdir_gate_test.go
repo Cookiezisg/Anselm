@@ -5,14 +5,17 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"go.uber.org/zap"
 
 	humanloopapp "github.com/sunweilin/anselm/backend/internal/app/humanloop"
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	filesystemtool "github.com/sunweilin/anselm/backend/internal/app/tool/filesystem"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	agentstatepkg "github.com/sunweilin/anselm/backend/internal/pkg/agentstate"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -197,36 +200,67 @@ func TestDispatchWithGate_OutsideWorkDirIgnoresSkillPreApproval(t *testing.T) {
 // FileWriteTool,故挂了工作目录对它们毫无改变——「想看外面什么的,都可以」是用户自己的要求。
 func TestDispatchWithGate_NonWriterToolNeverPathGated(t *testing.T) {
 	root := t.TempDir()
-	broker, seen := gateProbe(humanloopapp.DecisionDeny)
-	ctx := residencyCtx(t, broker, root)
-	args := []byte(`{"file_path":"/etc/passwd"}`)
-	out, _, _, executed, _ := dispatchWithGate(ctx, fakeTool{name: "Read", result: "contents"}, safeTC("Read"), args, zap.NewNop())
-	if len(*seen) != 0 {
-		t.Fatalf("a non-writing tool must never be path-gated (surfaced %d)", len(*seen))
-	}
-	if !executed || out != "contents" {
-		t.Fatalf("read outside the residency must just work: out=%q executed=%v", out, executed)
+	for _, name := range []string{"Read", "Grep"} {
+		broker, seen := gateProbe(humanloopapp.DecisionDeny)
+		ctx := residencyCtx(t, broker, root)
+		args := []byte(`{"file_path":"/etc/passwd"}`)
+		out, _, _, executed, _ := dispatchWithGate(ctx, fakeTool{name: name, result: "contents"}, safeTC(name), args, zap.NewNop())
+		if len(*seen) != 0 {
+			t.Fatalf("%s outside the residency must never be path-gated (surfaced %d)", name, len(*seen))
+		}
+		if !executed || out != "contents" {
+			t.Fatalf("%s outside the residency must just work: out=%q executed=%v", name, out, executed)
+		}
 	}
 }
 
-// TestDispatchWithGate_UndeterminableTargetFallsThrough: unparseable args / no path means the gate cannot
-// name a file, and a confirmation that cannot say what it is about teaches users to click through. Execute
-// refuses such a call on its own.
+// TestDispatchWithGate_UndeterminableTargetFallsBackToDangerGate: unparseable args / no path cannot be
+// labeled as an outside write, but a mounted residency still refuses to silently trust a safe self-report.
+// The ordinary danger gate runs first; after approval the real Write validation reports the concrete error.
 //
-// TestDispatchWithGate_UndeterminableTargetFallsThrough:args 解不开 / 没有路径,意味着闸说不出是哪个文件,
-// 而一个说不清自己在问什么的确认框只会训练用户闭眼点掉。这种调用 Execute 自己会拒。
-func TestDispatchWithGate_UndeterminableTargetFallsThrough(t *testing.T) {
+// TestDispatchWithGate_UndeterminableTargetFallsBackToDangerGate：args 解不开 / 没有路径不能被标成越界写，
+// 但挂了驻地也不能静默信任 safe 自报。先走普通 danger 闸；批准后再由真实 Write 校验报告具体错误。
+func TestDispatchWithGate_UndeterminableTargetFallsBackToDangerGate(t *testing.T) {
 	root := t.TempDir()
 	for _, args := range []string{`{}`, `{"file_path":""}`, `{"file_path":"   "}`, `not json at all`} {
 		broker, seen := gateProbe(humanloopapp.DecisionDeny)
 		ctx := residencyCtx(t, broker, root)
-		_, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), []byte(args), zap.NewNop())
-		if len(*seen) != 0 {
-			t.Errorf("args %q: no determinable target must not manufacture a confirmation", args)
+		out, _, _, executed, _ := dispatchWithGate(ctx, fakeWriteTool{fakeTool{name: "Write", result: "wrote"}}, safeTC("Write"), []byte(args), zap.NewNop())
+		if len(*seen) != 1 {
+			t.Errorf("args %q: an indeterminable mounted write must use the ordinary danger gate", args)
 		}
-		if !executed {
-			t.Errorf("args %q: the call should reach Execute, which reports the real reason", args)
+		var prompt map[string]any
+		if err := json.Unmarshal((*seen)[0].Prompt, &prompt); err != nil {
+			t.Fatalf("args %q: ordinary danger prompt is not JSON: %v", args, err)
 		}
+		if _, present := prompt["outsideWorkDir"]; present {
+			t.Errorf("args %q: indeterminable target must not be mislabeled outsideWorkDir", args)
+		}
+		if executed || out != humanloopapp.DenyFeedback {
+			t.Errorf("args %q: denied indeterminable write must not execute: out=%q executed=%v", args, out, executed)
+		}
+	}
+}
+
+// TestDispatchWithGate_ApprovedUndeterminableTargetReachesExecuteValidation proves that the fallback
+// gate is not pretending malformed input is executable: approval reaches the real Write validator,
+// which returns its concrete missing-path error and no filesystem side effect occurs.
+//
+// TestDispatchWithGate_ApprovedUndeterminableTargetReachesExecuteValidation 证明回退人闸并没有把畸形输入
+// 当成可执行：批准后才到真实 Write 校验器，由它返回具体的缺路径错误，且不产生文件系统副作用。
+func TestDispatchWithGate_ApprovedUndeterminableTargetReachesExecuteValidation(t *testing.T) {
+	root := t.TempDir()
+	writeTool := filesystemtool.FilesystemTools(pathguardpkg.NewDefault())[1]
+	broker, seen := gateProbe(humanloopapp.DecisionApprove)
+	ctx := residencyCtx(t, broker, root)
+
+	out, _, ok, executed, approved := dispatchWithGate(ctx, writeTool, safeTC("Write"), []byte(`{}`), zap.NewNop())
+
+	if len(*seen) != 1 {
+		t.Fatalf("malformed mounted write must ask before validation: surfaced %d", len(*seen))
+	}
+	if !approved || !executed || ok || !strings.Contains(out, "file_path is required") {
+		t.Fatalf("approval should reach Write validation without success: out=%q ok=%v executed=%v approved=%v", out, ok, executed, approved)
 	}
 }
 
