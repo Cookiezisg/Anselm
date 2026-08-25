@@ -297,9 +297,20 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-342 已完成；批次八十一 50/50，统一门禁通过，已提交=3071083d)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-352 已完成；批次八十二 50/50，统一门禁通过，待提交)
 
-#### 2026-08-26 当前前线重述：EDGE-333..342 批次八十一已完成，统一长门禁通过
+#### 2026-08-26 当前前线重述：EDGE-343..352 批次八十二已完成，统一长门禁通过
+
+批次八十二已按序完成 `EDGE-343..352` 共 10 个边界、50 个账本格。L1 由工具参数归一、生成能力诚实缺席、音色库存/删除一致性、语音协议、限流分类与分叉黑盒及 focused 证据支持，目标行均为 `✓~~~~`；没有把本轮测试或源码检查冒充新的真实 App 五通道，故 L2-L5 全部明确为 `na`。覆盖内容依次为：工具参数双线缆形、直连生成整体退场、音色登记到指名说话、音色库存两槽、删音色上游失败保行、语音双工握手闭集拒绝、语音流中上游断线、语音帧越界、429 不动钱、分叉携带附件与 subagent 树。
+
+正式证据分别为 `testend/rig/formal-evidence/EDGE-343-tool-arguments-two-wire-shapes-20260826.md` 至
+`EDGE-352-fork-attachments-subagent-tree-20260826.md`；独立警报复审=
+`testend/rig/formal-evidence/batch-82-ledger-alarm-reaudit-20260826.md`。formal journal=`4236`
+（2300 baseline + 1936 live），`gen_coverage.py --check`=`848 rows / 847 carried judgments / 0 tombstones`，
+目标行均=`✓~~~~`，`anchors=10/10`，警报已按复审销账，最终 `alarms.py check`=`clean`。批次八十二已满=`50/50`；
+统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿；本批提交待生成。下一原子前线=`EDGE-353`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+#### 历史收口：EDGE-333..342 批次八十一已完成，统一长门禁通过
 
 批次八十一已按序完成 `EDGE-333..342` 共 10 个边界、50 个账本格。L1 由 retention wire、真实 Kill9/recovery、
 testend 进程收容、provider market、model/key 与 chat-only focused 证据支持，目标行均为 `✓~~~~`；没有把本轮

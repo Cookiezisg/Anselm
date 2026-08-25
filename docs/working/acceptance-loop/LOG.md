@@ -7889,6 +7889,12 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 - 正式证据=`testend/rig/formal-evidence/EDGE-333-retention-wire-default-20260826.md` 至 `EDGE-342-chat-only-tool-surface-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-81-ledger-alarm-reaudit-20260826.md`。
 - formal journal=`4186`（2300 baseline + 1886 live），`COVERAGE=848/837/0`，`anchors=10/10`；两项统计警报已独立复审销账，最终 `alarms.py check` clean。批次八十一已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-81-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`3071083d`。下一原子前线=`EDGE-343`。P12 400+ Journey 按用户裁定推迟二期。
 
+## 2026-08-26 · EDGE-343..352 批次八十二收口，统一长门禁通过
+
+- 按序完成 `EDGE-343..352` 共 10 个边界、50 个账本格；十行 L1 均为 `✓~~~~`，L2-L5 明确 `na`。定向后端、Flutter 与 testend 黑盒全绿；未把真实网关/Computer Use 缺席冒充高等级证据。
+- 正式证据=`testend/rig/formal-evidence/EDGE-343-tool-arguments-two-wire-shapes-20260826.md` 至 `EDGE-352-fork-attachments-subagent-tree-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-82-ledger-alarm-reaudit-20260826.md`。`anchors=10/10`，`COVERAGE=848/847/0`，formal journal=`4236`（2300 baseline + 1936 live），`alarms.py check` clean。
+- 批次八十二=`50/50`；统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，提交待生成；下一原子前线=`EDGE-353`。P12 400+ Journey 按用户裁定推迟二期。
+
 ## 历史：2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
 
 - 按序完成 memory/todo/relation/touchpoint 台账事实、触点目录穷尽性和通知中心积压/公平/权威计数共 10 个边界、50 个账本格；十行 L1 均为 `✓~~~~`，L2-L5 明确 `na`，未冒充真实 App 五通道证据。
