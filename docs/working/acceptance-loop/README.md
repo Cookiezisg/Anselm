@@ -297,7 +297,97 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-100 已完成；批次五十七 50/50，统一长门禁已通过并提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-110 已完成；批次五十八 50/50，待统一门禁)
+
+#### 2026-08-25 当前前线重述：EDGE-110 睡醒伪 fire 吸附/丢弃
+
+真实 cron infra regression 通过：准时回调与 90 秒迟到回调均吸附到合法小时刻度，50 分钟后的睡醒 stale callback 超出容差被拒绝，不会隐式补跑。
+
+正式证据=`testend/rig/formal-evidence/EDGE-110-wake-artifact-snap-or-drop-20260825.md`。五级严格为
+`L1=measure:edge110-wake-artifact-snap-or-drop`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 cron 回调归属契约，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3036`（2300 baseline + 736 live），`gen_coverage.py --check`=`848 rows / 607 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八已达到=`50/50`，现在运行统一长门禁；门禁通过后才提交本批。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-109 misfire 台账双封顶
+
+真实 trigger service regression 通过：weekly 稀疏日程全年约 52 条全部精确保留，daily 日程只保留 30 天窗口内约 30 条，minutely 日程恰好封顶 200 条且全部在窗口内；水位推进后第二次 sweep 无新增。
+
+正式证据=`testend/rig/formal-evidence/EDGE-109-misfire-double-cap-20260825.md`。五级严格为
+`L1=measure:edge109-misfire-double-cap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger backfill 上限契约，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3031`（2300 baseline + 731 live），`gen_coverage.py --check`=`848 rows / 606 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`45/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-110`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-108 catchup_one 崩溃窗不重跑
+
+真实 trigger service regression 通过：模拟 fan-out 已提交而 watermark 未推进的崩溃窗，重查相同缺口时返回 `n=0`，activation 数不变，pending catch-up 仍只有一个；系统按“真正已记账”而不是“窗口仍有刻度”决定是否补跑。
+
+正式证据=`testend/rig/formal-evidence/EDGE-108-catchup-one-crash-window-20260825.md`。五级严格为
+`L1=measure:edge108-catchup-one-crash-window`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger 崩溃窗账本契约，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3026`（2300 baseline + 726 live），`gen_coverage.py --check`=`848 rows / 605 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`40/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-109`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-107 catchup_one 补一个
+
+真实 trigger service regression 通过：`misfirePolicy=catchup_one` 跨过多个 cron 刻度后只产生一个 runnable catch-up；该刻度不再留在 missed，较早刻度保持 missed，二次 sweep 不产生第二个 catch-up。
+
+正式证据=`testend/rig/formal-evidence/EDGE-107-catchup-one-exactly-once-20260825.md`。五级严格为
+`L1=measure:edge107-catchup-one-exactly-once`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger misfire 策略契约，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3021`（2300 baseline + 721 live），`gen_coverage.py --check`=`848 rows / 604 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`35/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-108`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-106 暂停期间的错过不算 misfire
+
+真实 trigger service regression 通过：cron trigger 暂停期间的 sweep 返回 `n=0` 且不生成 missed 行；`:resume` 静默闭合暂停窗口，后续 sweep 仍返回 `n=0` 且不复活暂停期间的刻度。用户主动暂停不会被伪报成 misfire。
+
+正式证据=`testend/rig/formal-evidence/EDGE-106-pause-not-misfire-20260825.md`。五级严格为
+`L1=measure:edge106-pause-not-misfire`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger 账本语义，没有独立 Computer Use 逐帧、时延采集、视觉美观或 discoverability session。
+formal journal=`3016`（2300 baseline + 716 live），`gen_coverage.py --check`=`848 rows / 603 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`30/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-107`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-105 AttachReplay 零值纪元
+
+真实 trigger service regression 通过：同一 cron trigger 上，boot `AttachReplay` 的 `wf_old` 被正确记入停机缺口，运行中实时 `Attach` 的 `wf_new` 不被追溯收费；listener 共用、引用集和 workflow 归属均正确。
+
+正式证据=`testend/rig/formal-evidence/EDGE-105-attach-replay-zero-epoch-20260825.md`。五级严格为
+`L1=measure:edge105-attach-replay-zero-epoch`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 boot replay 与实时挂载的 misfire 归属契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`3011`（2300 baseline + 711 live），`gen_coverage.py --check`=`848 rows / 602 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`25/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-106`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-104 hotSince 下界
+
+真实 trigger service regression 通过：AttachReplay 后将 trigger 做旧到约 90 秒前，重启 entry 的 `hotSince` 下界压过 live-listener 容差，misfire sweep 立即生成 missed 行且不进 pending；重启后面板不会因等待两分钟而虚假空白。
+
+正式证据=`testend/rig/formal-evidence/EDGE-104-hot-since-lower-bound-20260825.md`。五级严格为
+`L1=measure:edge104-hot-since-lower-bound`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是重启 hotSince 下界与 misfire watermark 契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`3006`（2300 baseline + 706 live），`gen_coverage.py --check`=`848 rows / 601 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`20/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-105`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-103 窗口上界留容差尾带
+
+真实 trigger service regression 通过：`now - MisfireTolerance` 之后仍可能迟到的刻度不被本趟 sweep 记成 `missed`，避免提前占掉 dedup key；尾带之前的 gap 正常记账，watermark 停在窗口末端交给下一趟 sweep。
+
+正式证据=`testend/rig/formal-evidence/EDGE-103-misfire-tolerance-upper-bound-20260825.md`。五级严格为
+`L1=measure:edge103-misfire-tolerance-upper-bound`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger 窗口上界与 dedup-key 保护契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`3001`（2300 baseline + 701 live），`gen_coverage.py --check`=`848 rows / 600 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`15/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-104`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-102 睡眠期 misfire（进程仍活）
+
+真实 `Service.SweepMisfires` regression 通过：用 listener 注册纪元回拨精确模拟“进程仍活但睡过墙钟”，尾带之前的刻度记为 missed，仍可能迟到送达的 `MisfireTolerance` 尾带不被偷占，watermark 停在尾带之前。实际等待一小时不在开发机重复，证据明确标注时间状态替身边界。
+
+正式证据=`testend/rig/formal-evidence/EDGE-102-live-misfire-tolerance-band-20260825.md`。五级严格为
+`L1=measure:edge102-live-misfire-tolerance-band`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger 尾带与 watermark 契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`2996`（2300 baseline + 696 live），`gen_coverage.py --check`=`848 rows / 599 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`10/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-103`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-101 misfire 记账不补跑
+
+真实 HTTP 场景对 sidecar 执行 `SIGKILL`，跨过一分钟 cron 刻度后重启，boot 记账 `missed=1`；firing 查询、workspace 汇总、时间窗口和 flowrun-stats 均通过。missed 行没有 flowrun、不进入 pending，重复 sweep 不重复记账；trigger focused `-race` 同时通过幂等、重启不等容差带和活进程尾带。free-tier port-1 与 search shutdown warning 是隔离 harness 预期噪声，不是场景失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-101-misfire-missed-accounting-20260825.md`。五级严格为
+`L1=measure:edge101-misfire-missed-accounting`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 trigger 台账与重启契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
+formal journal=`2991`（2300 baseline + 691 live），`gen_coverage.py --check`=`848 rows / 598 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十八当前=`5/50`，未到 50 格不跑统一长门禁、不提交；下一前线=`EDGE-102`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-100 LLM 工具 flowrun 节点封顶
 

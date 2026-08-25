@@ -13,7 +13,67 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过并提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-110 已收口 · 批次五十八 50/50，待统一门禁）
+
+## 2026-08-25 · EDGE-110 睡醒伪 fire 吸附/丢弃
+
+- cron infra regression 通过：准时与容差内迟到回调吸附到合法刻度，超容差 wake artifact 被丢弃，不隐式补跑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-110-wake-artifact-snap-or-drop-20260825.md`；五级=`measure:edge110-wake-artifact-snap-or-drop/na/na/na/na`；formal journal=`3036`，COVERAGE=`848/607/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八已达到=`50/50`，现在运行统一长门禁；门禁通过后才提交本批。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-109 misfire 台账双封顶
+
+- trigger service regression 通过：weekly 稀疏全年精确、daily 受 30 天窗口约束、minutely 恰好 200 条封顶，第二次 sweep 无新增。
+- 正式证据=`testend/rig/formal-evidence/EDGE-109-misfire-double-cap-20260825.md`；五级=`measure:edge109-misfire-double-cap/na/na/na/na`；formal journal=`3031`，COVERAGE=`848/606/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-110`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-108 catchup_one 崩溃窗不重跑
+
+- trigger service regression 通过：fan-out 已提交、水位未推进的崩溃重查不新增 activation，pending catch-up 保持一个。
+- 正式证据=`testend/rig/formal-evidence/EDGE-108-catchup-one-crash-window-20260825.md`；五级=`measure:edge108-catchup-one-crash-window/na/na/na/na`；formal journal=`3026`，COVERAGE=`848/605/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-109`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-107 catchup_one 补一个
+
+- trigger service regression 通过：多个错过刻度只补最近一个，较早刻度保持 missed，二次 sweep 不重复补跑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-107-catchup-one-exactly-once-20260825.md`；五级=`measure:edge107-catchup-one-exactly-once/na/na/na/na`；formal journal=`3021`，COVERAGE=`848/604/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-108`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-106 暂停期间的错过不算 misfire
+
+- trigger service regression 通过：暂停期间 sweep 不记 missed；`:resume` 闭合暂停窗口，后续 sweep 仍不产生 missed。
+- 正式证据=`testend/rig/formal-evidence/EDGE-106-pause-not-misfire-20260825.md`；五级=`measure:edge106-pause-not-misfire/na/na/na/na`；formal journal=`3016`，COVERAGE=`848/603/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-107`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-105 AttachReplay 零值纪元
+
+- trigger service regression 通过：同一 cron 上，boot `AttachReplay` 的旧 workflow 记入缺口，实时 `Attach` 的新 workflow 不被追溯记账；引用集与 listener 共享关系正确。
+- 正式证据=`testend/rig/formal-evidence/EDGE-105-attach-replay-zero-epoch-20260825.md`；五级=`measure:edge105-attach-replay-zero-epoch/na/na/na/na`；formal journal=`3011`，COVERAGE=`848/602/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-106`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-104 hotSince 下界
+
+- trigger service regression 通过：AttachReplay 后做旧约 90 秒，重启 entry 的 `hotSince` 下界令死刻度立即记 missed、不进 pending，不等两分钟 live 容差。
+- 正式证据=`testend/rig/formal-evidence/EDGE-104-hot-since-lower-bound-20260825.md`；五级=`measure:edge104-hot-since-lower-bound/na/na/na/na`；formal journal=`3006`，COVERAGE=`848/601/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-105`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-103 窗口上界留容差尾带
+
+- trigger service regression 通过：尾带之前的 gap 记账，`MisfireTolerance` 内仍可能迟到的刻度不被抢先记 `missed`，watermark 不越界。
+- 正式证据=`testend/rig/formal-evidence/EDGE-103-misfire-tolerance-upper-bound-20260825.md`；五级=`measure:edge103-misfire-tolerance-upper-bound/na/na/na/na`；formal journal=`3001`，COVERAGE=`848/600/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-104`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-102 睡眠期 misfire（进程仍活）
+
+- `SweepMisfires` 时间状态 regression 通过：活 listener 睡过墙钟时，尾带前记账，`MisfireTolerance` 尾带不被偷占，watermark 不越界；不伪造实际一小时睡眠录像。
+- 正式证据=`testend/rig/formal-evidence/EDGE-102-live-misfire-tolerance-band-20260825.md`；五级=`measure:edge102-live-misfire-tolerance-band/na/na/na/na`；formal journal=`2996`，COVERAGE=`848/599/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-103`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-101 misfire 记账不补跑
+
+- 真实 HTTP `SIGKILL` 跨分钟重启场景通过：boot 记 `missed=1`，missed 行无 flowrun、不进 pending、不重复；firing/workspace/window/stats 读侧全通过。trigger focused `-race` 的幂等、重启死刻度、活进程尾带也通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-101-misfire-missed-accounting-20260825.md`；五级=`measure:edge101-misfire-missed-accounting/na/na/na/na`；formal journal=`2991`，COVERAGE=`848/598/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-102`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-100 LLM 工具 flowrun 节点封顶
 

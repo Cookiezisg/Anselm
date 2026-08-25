@@ -10,7 +10,52 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过并提交）
+## 当前前线（2026-08-25 · EDGE-110 已收口 · 批次五十八 50/50，待统一门禁）
+
+- EDGE-110 复核睡醒伪 fire：cron regression 通过，合法迟到吸附、超容差 stale callback 丢弃，不隐式补跑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-110-wake-artifact-snap-or-drop-20260825.md`；`judge.py` 写入五格 `measure:edge110-wake-artifact-snap-or-drop/na/na/na/na`；formal journal=`3036`，COVERAGE=`848/607/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八已达到=`50/50`，现在运行统一长门禁；门禁通过后才提交本批。P12 400+ Journey 继续推迟二期。
+
+- EDGE-109 复核 misfire 双封顶：trigger regression 通过，weekly/daily/minutely 三密度边界分别精确、受 30 天限制、受 200 条 cap 限制，水位推进后不重跑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-109-misfire-double-cap-20260825.md`；`judge.py` 写入五格 `measure:edge109-misfire-double-cap/na/na/na/na`；formal journal=`3031`，COVERAGE=`848/606/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-110`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-108 复核 `catchup_one` 崩溃窗：trigger regression 通过，已提交 fan-out 的重查不新增 activation，pending catch-up 不重复。
+- 正式证据=`testend/rig/formal-evidence/EDGE-108-catchup-one-crash-window-20260825.md`；`judge.py` 写入五格 `measure:edge108-catchup-one-crash-window/na/na/na/na`；formal journal=`3026`，COVERAGE=`848/605/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-109`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-107 复核 `catchup_one`：trigger regression 通过，多个错过刻度只补最近一个；较早刻度保留 missed，二次 sweep 不重复补跑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-107-catchup-one-exactly-once-20260825.md`；`judge.py` 写入五格 `measure:edge107-catchup-one-exactly-once/na/na/na/na`；formal journal=`3021`，COVERAGE=`848/604/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-108`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-106 复核暂停意图：trigger regression 通过，暂停期间不记 missed；`:resume` 闭合窗口，后续 sweep 仍为零 missed。
+- 正式证据=`testend/rig/formal-evidence/EDGE-106-pause-not-misfire-20260825.md`；`judge.py` 写入五格 `measure:edge106-pause-not-misfire/na/na/na/na`；formal journal=`3016`，COVERAGE=`848/603/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-107`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-105 复核 AttachReplay 零值纪元：boot replay 的旧 workflow 记入缺口，实时 Attach 的新 workflow 不追溯记账；trigger regression 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-105-attach-replay-zero-epoch-20260825.md`；`judge.py` 写入五格 `measure:edge105-attach-replay-zero-epoch/na/na/na/na`；formal journal=`3011`，COVERAGE=`848/602/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-106`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-104 复核 hotSince 下界：AttachReplay + 做旧约 90 秒的 trigger regression 通过，死刻度立即记 missed、不进 pending、不等 live listener 容差。
+- 正式证据=`testend/rig/formal-evidence/EDGE-104-hot-since-lower-bound-20260825.md`；`judge.py` 写入五格 `measure:edge104-hot-since-lower-bound/na/na/na/na`；formal journal=`3006`，COVERAGE=`848/601/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-105`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-103 复核窗口上界留容差尾带：trigger service regression 通过，尾带前记账、尾带内不抢 dedup key、watermark 停在边界。
+- 正式证据=`testend/rig/formal-evidence/EDGE-103-misfire-tolerance-upper-bound-20260825.md`；`judge.py` 写入五格 `measure:edge103-misfire-tolerance-upper-bound/na/na/na/na`；formal journal=`3001`，COVERAGE=`848/600/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-104`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-102 复核睡眠期 misfire：`SweepMisfires` regression 通过，活 listener 的尾带之前记账、仍可迟到的 `MisfireTolerance` 尾带不被偷占，watermark 不越界。
+- 正式证据=`testend/rig/formal-evidence/EDGE-102-live-misfire-tolerance-band-20260825.md`；`judge.py` 写入五格 `measure:edge102-live-misfire-tolerance-band/na/na/na/na`；formal journal=`2996`，COVERAGE=`848/599/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-103`。P12 400+ Journey 继续推迟二期。
+
+
+- EDGE-101 复核 misfire 记账不补跑：真实 HTTP `SIGKILL` 跨分钟重启、boot `missed=1`，行无 flowrun、不进 pending、不重复；trigger focused `-race` 的幂等、重启死刻度、活进程尾带通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-101-misfire-missed-accounting-20260825.md`；`judge.py` 写入五格 `measure:edge101-misfire-missed-accounting/na/na/na/na`；formal journal=`2991`，COVERAGE=`848/598/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十八当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-102`。P12 400+ Journey 继续推迟二期。
+
 
 - EDGE-100 复核 LLM 工具 flowrun 节点封顶：2001-row cap regression 与真实 25 轮 loop HTTP pagination 通过，工具结果封顶 80 行、异常节点不丢、`nodeSummary` 与 REST 全量真相正确。
 - 正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`；`judge.py` 写入五格 `measure:edge100-flowrun-node-cap/na/na/na/na`；formal journal=`2986`，COVERAGE=`848/597/0`，anchors=`10/10`，`alarms.py check` clean。
