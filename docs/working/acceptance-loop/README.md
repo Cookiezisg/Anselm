@@ -297,7 +297,145 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-180 已完成；批次六十五 50/50，已收口并提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-190 已完成；批次六十六 50/50，统一门禁通过)
+
+#### 2026-08-25 当前前线重述：EDGE-190 sifter 缺席回退
+
+`EDGE-190` 已验证 utility 模型缺席时 `search_blocks` 的诚实回退：focused 与真实 LLM/HTTP 场景均确认
+两级 sifter 不可用后回到纯索引排序，仍返回 function 与可接线 handler method ref；同名 document/skill
+诱饵不泄漏。当前没有独立正式 App/五通道 utility 缺席 session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-190-search-sifter-absent-fallback-20260825.md`。五级严格为
+`L1=measure:edge190-search-sifter-absent-fallback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3436`
+（2300 baseline + 1136 live），`gen_coverage.py --check`=`848 rows / 687 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-190-ledger-alarm-reaudit-20260825.md`。
+批次六十六已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，
+下一步提交本批；提交前不推进下一格。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-189 Changed 队满丢事件
+
+`EDGE-189` 已验证搜索写侧队列的丢事件自愈：focused `-race` 回归先填满 1024 项队列，真实
+`Notifier.Changed` 在队满时 100ms 内返回；随后启动 worker 执行 stamps 对账，恢复被丢的 live entity，
+并将只存在索引中的 orphan 投影为空清除。当前没有独立正式 App/五通道批量写入 session，因此 L2-L5
+保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-189-search-changed-queue-reconcile-20260825.md`。五级严格为
+`L1=measure:edge189-search-changed-queue-reconcile`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3431`
+（2300 baseline + 1131 live），`gen_coverage.py --check`=`848 rows / 686 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-189-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-190`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-188 密文红线
+
+`EDGE-188` 已通过真实 HTTP 黑盒验证密文不进搜索投影：创建带 secret 的 API key、webhook trigger、MCP
+env 后，trigger 明文名和 MCP 明文描述正控可搜，三个 secret token 均零命中；真实 Encryptor、落盘和
+search projection 均经过。当前没有独立正式 App/五通道密文搜索 session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-188-search-encrypted-redline-20260825.md`。五级严格为
+`L1=measure:edge188-search-encrypted-redline`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3426`
+（2300 baseline + 1126 live），`gen_coverage.py --check`=`848 rows / 685 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-188-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-189`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-187 fts_schema_version 不匹配
+
+`EDGE-187` 已验证搜索索引 schema 版本漂移的启动处置：focused `-race` 回归把 `fts_schema_version`
+置为旧值并预置旧 lexical hit 与旧 embedding；启动只执行一次全量 `DropAll`，写入当前版本，再从 live
+source 恢复投影，旧词法命中与旧向量均不残留；该包完整 race 回归也通过。当前没有独立正式旧库启动
+App/五通道 session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-187-search-schema-version-rebuild-20260825.md`。五级严格为
+`L1=measure:edge187-search-schema-version-rebuild`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3421`
+（2300 baseline + 1121 live），`gen_coverage.py --check`=`848 rows / 684 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-187-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-188`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-186 :reindex 并发与就地重建
+
+`EDGE-186` 已验证搜索重建的并发与数据连续性：focused `-race` 回归确认同一 workspace 第二次
+reindex 冲突、不同 workspace 不互相阻塞、完成后锁可再次取得，force-reconcile 不调用 purge；真实
+HTTP 场景得到 204 且重建后命中恢复，并继续验证设置/降级对照。当前没有独立正式 App/五通道并发
+reindex session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-186-search-reindex-singleflight-inplace-20260825.md`。五级严格为
+`L1=measure:edge186-search-reindex-singleflight-inplace`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3416`
+（2300 baseline + 1116 live），`gen_coverage.py --check`=`848 rows / 683 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-186-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-187`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-185 异查询游标
+
+`EDGE-185` 已验证搜索 cursor 与 query 的绑定：focused `-race` 回归确认 page 1→page 2 不重复，异
+query cursor 返回 `ErrCursorInvalid`，合法 base64 padding 仍可继续；真实 HTTP 场景创建 25 个 function
+完成 `10+10+5` 分页，total 稳定无重复，异 query 和坏 cursor 均返回 400 `SEARCH_CURSOR_INVALID`。
+当前没有独立正式 App/五通道分页 session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-185-search-cursor-query-binding-20260825.md`。五级严格为
+`L1=measure:edge185-search-cursor-query-binding`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3411`
+（2300 baseline + 1111 live），`gen_coverage.py --check`=`848 rows / 682 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-185-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-186`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-184 短词 LIKE 回退
+
+`EDGE-184` 已验证搜索的短词回退：focused `-race` 回归确认两字符中文在 trigram FTS 零命中时仍经
+LIKE 命中并生成高亮 snippet；长 token 走 MATCH、短 token 叠加 LIKE 后保持合取，只保留同时满足两者的
+实体；tokenizer 同时锁住两字符中英文进入 short bucket。当前没有独立正式 App/五通道搜索 session，
+因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-184-search-short-token-like-fallback-20260825.md`。五级严格为
+`L1=measure:edge184-search-short-token-like-fallback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3406`
+（2300 baseline + 1106 live），`gen_coverage.py --check`=`848 rows / 681 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-184-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-185`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-183 换 embedder 重嵌
+
+`EDGE-183` 已验证切换语义 embedder 的 model-key 闭包：新增 focused `-race` 回归先加载 builtin `m1`
+cache，再切换到 `ollama:embeddinggemma`，确认 workspace cache 失效并重新扫描，旧 model 向量不混入新
+集合；相邻 settings 回归确认 adapter 使用生效参数且 kick fan-out 覆盖已索引 workspace。真实 HTTP
+场景再次验证 reindex 命中、`off` 后词法搜索可用、Ollama 死端口软降级。当前没有独立正式 App/五通道
+模型切换 session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-183-search-embedder-switch-reembed-20260825.md`。五级严格为
+`L1=measure:edge183-search-embedder-switch-reembed`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3401`
+（2300 baseline + 1101 live），`gen_coverage.py --check`=`848 rows / 680 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-183-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-184`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-182 cosineFloor 噪声闸
+
+`EDGE-182` 已验证搜索噪声闸的两条边界：focused `-race` 回归确认自然语言乱码的 cosine `0.53` 被
+`0.55` floor 拦截，同时 identifier-shaped 乱码即使 cosine `0.63` 高于 floor、没有 lexical evidence，
+也不能召回 semantic-only agent；cosine `0.62` 的 genuine match 仍保留，避免噪声修复伤害 recall。
+当前没有独立正式 App/五通道语义检索 session，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-182-search-cosine-floor-noise-gate-20260825.md`。五级严格为
+`L1=measure:edge182-search-cosine-floor-noise-gate`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3396`
+（2300 baseline + 1096 live），`gen_coverage.py --check`=`848 rows / 679 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-182-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-183`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-181 整批 embed upsert 全失败
+
+`EDGE-181` 已验证向量补算的失败收敛：focused `-race` 回归让整批 `UpsertEmbedding` 全部失败，确认
+backfill 在预算内结束当前轮次，只尝试该批一次，不对同一缺失行立即热循环重嵌；失败行留待下一次 kick。
+当前没有真实盘满/表损与 App 五通道黑盒，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-181-search-embed-upsert-all-fail-20260825.md`。五级严格为
+`L1=measure:edge181-search-embed-upsert-all-fail`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3391`
+（2300 baseline + 1091 live），`gen_coverage.py --check`=`848 rows / 678 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-181-ledger-alarm-reaudit-20260825.md`。
+批次六十六当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-182`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-180 embedder 孤儿回收
 

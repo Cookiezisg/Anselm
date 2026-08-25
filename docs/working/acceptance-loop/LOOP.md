@@ -13,7 +13,67 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，已提交）
+## 当前前线覆盖声明（2026-08-26 · EDGE-190 已收口 · 批次六十六 50/50，统一门禁通过）
+
+## 2026-08-25 · EDGE-190 sifter 缺席回退
+
+- focused + 真实 LLM/HTTP 回归通过：utility 未配时两级 sifter fallback 到 index ranking，function/handler-method ref 可接线，document/skill 诱饵不泄漏；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-190-search-sifter-absent-fallback-20260825.md`；五级=`measure:edge190-search-sifter-absent-fallback/na/na/na/na`；formal journal=`3436`（2300 baseline + 1136 live），COVERAGE=`848/687/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-190-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六已达到=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-66-unified-gate-20260825.md`，下一步提交本批；提交前不推进下一格。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-189 Changed 队满丢事件
+
+- focused `-race` 回归通过：1024 队列填满后 `Changed` 仍在 100ms 内返回；随后 stamps reconcile 恢复被丢的 live entity 并清理 orphan；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-189-search-changed-queue-reconcile-20260825.md`；五级=`measure:edge189-search-changed-queue-reconcile/na/na/na/na`；formal journal=`3431`（2300 baseline + 1131 live），COVERAGE=`848/686/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-189-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-190`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-188 密文红线
+
+- 真实 HTTP 黑盒通过：API key 明文、webhook trigger secret、MCP env secret 均零搜索命中；trigger 明文名与 MCP 描述正控可搜；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-188-search-encrypted-redline-20260825.md`；五级=`measure:edge188-search-encrypted-redline/na/na/na/na`；formal journal=`3426`（2300 baseline + 1126 live），COVERAGE=`848/685/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-188-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-189`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-187 fts_schema_version 不匹配
+
+- focused `-race` 回归通过：旧 schema 版本启动时只执行一次全量清理，当前版本写入，live source 重建恢复；旧 lexical hit 与旧 embedding 均不残留；该包完整 race 回归通过。真实 App 五通道旧库启动未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-187-search-schema-version-rebuild-20260825.md`；五级=`measure:edge187-search-schema-version-rebuild/na/na/na/na`；formal journal=`3421`（2300 baseline + 1121 live），COVERAGE=`848/684/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-187-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-188`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-186 :reindex 并发与就地重建
+
+- focused + 真实 HTTP reindex 回归通过：同 ws 单飞、异 ws 不阻塞、force-reconcile 不 purge、204 后命中恢复；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-186-search-reindex-singleflight-inplace-20260825.md`；五级=`measure:edge186-search-reindex-singleflight-inplace/na/na/na/na`；formal journal=`3416`（2300 baseline + 1116 live），COVERAGE=`848/683/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-186-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-187`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-185 异查询游标
+
+- focused + 真实 HTTP 分页回归通过：10+10+5 无重复、total 稳定，异 query/坏 cursor 返回 `SEARCH_CURSOR_INVALID`；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-185-search-cursor-query-binding-20260825.md`；五级=`measure:edge185-search-cursor-query-binding/na/na/na/na`；formal journal=`3411`（2300 baseline + 1111 live），COVERAGE=`848/682/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-185-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-186`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-184 短词 LIKE 回退
+
+- focused `-race` tokenizer/LIKE/MATCH 回归通过：两字符中文 LIKE 命中并高亮，长短混合保持合取；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-184-search-short-token-like-fallback-20260825.md`；五级=`measure:edge184-search-short-token-like-fallback/na/na/na/na`；formal journal=`3406`（2300 baseline + 1106 live），COVERAGE=`848/681/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-184-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-185`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-183 换 embedder 重嵌
+
+- focused model-key/cache 回归与真实 HTTP settings/reindex 对照通过：切换后旧向量不混用、cache 重扫、kick fan-out 与 lexical fallback 均正确；真实 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-183-search-embedder-switch-reembed-20260825.md`；五级=`measure:edge183-search-embedder-switch-reembed/na/na/na/na`；formal journal=`3401`（2300 baseline + 1101 live），COVERAGE=`848/680/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-183-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-184`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-182 cosineFloor 噪声闸
+
+- focused `-race` 双守卫通过：cosine `0.53` 自然噪声被 `0.55` floor 拦截；identifier-shaped query 即使 cosine `0.63` 也不能纯语义召回；cosine `0.62` genuine match 保留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-182-search-cosine-floor-noise-gate-20260825.md`；五级=`measure:edge182-search-cosine-floor-noise-gate/na/na/na/na`；formal journal=`3396`（2300 baseline + 1096 live），COVERAGE=`848/679/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-182-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-183`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-181 整批 embed upsert 全失败
+
+- focused `-race` 回归通过：整批 `UpsertEmbedding` 故意失败时 backfill 有界结束，只尝试该批一次，不热循环；真实盘满/表损与 App 五通道未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-181-search-embed-upsert-all-fail-20260825.md`；五级=`measure:edge181-search-embed-upsert-all-fail/na/na/na/na`；formal journal=`3391`（2300 baseline + 1091 live），COVERAGE=`848/678/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-181-ledger-alarm-reaudit-20260825.md`。
+- 批次六十六当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-182`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-180 embedder 孤儿回收
 

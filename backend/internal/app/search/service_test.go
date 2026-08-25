@@ -12,6 +12,8 @@ import (
 	"testing"
 	"time"
 
+	"go.uber.org/zap"
+
 	searchdomain "github.com/sunweilin/anselm/backend/internal/domain/search"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -30,6 +32,7 @@ type fakeRepo struct {
 	meta         map[string]string
 	metaBatchErr error
 	purged       []string
+	dropAll      int
 	purgeGo      chan struct{} // non-nil → PurgeWorkspace blocks until closed. 非 nil → PurgeWorkspace 阻塞到关闭。
 
 	embedded     map[string][]float32 // key: model/docID
@@ -124,6 +127,8 @@ func (f *fakeRepo) DropAll(context.Context) error {
 	f.mu.Lock()
 	defer f.mu.Unlock()
 	f.hits = nil
+	f.embedded = nil
+	f.dropAll++
 	return nil
 }
 
@@ -412,6 +417,90 @@ func TestIndexer_ReconcileDiffsAndOrphans(t *testing.T) {
 	}
 	if repo.meta["fts_schema_version"] != schemaVersion {
 		t.Fatalf("schema version not stamped: %q", repo.meta["fts_schema_version"])
+	}
+}
+
+// TestIndexer_QueueOverflowIsNonBlockingAndBootReconcileHeals pins the lost-event
+// contract: a business write must not wait for a full queue, while reconcile keeps
+// its own enqueue lossless and repairs both the dropped live entity and an orphan.
+//
+// TestIndexer_QueueOverflowIsNonBlockingAndBootReconcileHeals 钉丢事件契约：
+// 业务写入不能因队列满而等待；对账自己的入队必须不丢，并同时修复被丢的活实体
+// 与索引孤儿。
+func TestIndexer_QueueOverflowIsNonBlockingAndBootReconcileHeals(t *testing.T) {
+	repo := newFakeRepo()
+	src := newFakeSource(searchdomain.TypeFunction)
+	src.stamps["fn_live"] = time.Date(2026, 8, 25, 10, 0, 0, 0, time.UTC)
+	src.docs["fn_live"] = []searchdomain.SourceDoc{{Title: "live", Body: "recovered"}}
+	repo.stamps[searchdomain.TypeFunction] = map[string]time.Time{"fn_orphan": time.Unix(1000, 0)}
+
+	ix := newIndexer(repo, map[searchdomain.EntityType]Source{searchdomain.TypeFunction: src}, zap.NewNop())
+	// Saturate the queue before a worker exists. The next Changed call must return
+	// immediately and leave recovery to reconcile.
+	for i := 0; i < queueSize; i++ {
+		ix.ch <- change{ws: "ws_a", t: searchdomain.TypeFunction, id: fmt.Sprintf("noise-%d", i)}
+	}
+	done := make(chan struct{})
+	go func() {
+		ix.Changed(ctxWS("ws_a"), searchdomain.TypeFunction, "fn_live", "")
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("Changed blocked while index queue was full")
+	}
+
+	ix.start()
+	defer ix.close()
+	ix.reconcile(reqctxpkg.Detached("ws_a"), "ws_a", false)
+	waitFor(t, func() bool {
+		repo.mu.Lock()
+		defer repo.mu.Unlock()
+		live, liveDone := repo.replaced["function/fn_live"]
+		orphan, orphanDone := repo.replaced["function/fn_orphan"]
+		return liveDone && len(live) == 1 && orphanDone && len(orphan) == 0
+	})
+}
+
+// TestStart_RebuildsOnSchemaVersionMismatch pins the boot contract: the search
+// index is derived data, so an old layout is dropped before every workspace is
+// reconciled. Stale lexical hits and embeddings must not survive the rebuild.
+//
+// TestStart_RebuildsOnSchemaVersionMismatch 钉启动契约：搜索索引是派生数据，
+// 版本漂移时先清空旧布局，再对账每个 workspace；旧词法命中和向量都不能残留。
+func TestStart_RebuildsOnSchemaVersionMismatch(t *testing.T) {
+	repo := newFakeRepo()
+	repo.meta[metaSchemaKey] = "0"
+	repo.hits = []*searchdomain.DocHit{dh(searchdomain.TypeDocument, "doc_old", 0, "", "旧索引", 1)}
+	repo.embedded = map[string][]float32{"old-model/old-doc": {1, 0, 0}}
+
+	src := newFakeSource(searchdomain.TypeDocument)
+	src.stamps["doc_live"] = time.Date(2026, 8, 25, 10, 0, 0, 0, time.UTC)
+	src.docs["doc_live"] = []searchdomain.SourceDoc{{Title: "新索引", Body: "重建后的内容"}}
+
+	svc := NewService(repo, nil)
+	svc.RegisterSource(src)
+	svc.Start([]string{"ws_a"})
+	defer svc.Close(context.Background())
+
+	waitFor(t, func() bool {
+		repo.mu.Lock()
+		defer repo.mu.Unlock()
+		_, reindexed := repo.replaced["document/doc_live"]
+		return reindexed && repo.dropAll == 1 && repo.meta[metaSchemaKey] == schemaVersion
+	})
+
+	repo.mu.Lock()
+	defer repo.mu.Unlock()
+	if len(repo.hits) != 0 {
+		t.Fatalf("stale lexical index survived schema rebuild: %+v", repo.hits)
+	}
+	if len(repo.embedded) != 0 {
+		t.Fatalf("stale embeddings survived schema rebuild: %+v", repo.embedded)
+	}
+	if docs := repo.replaced["document/doc_live"]; len(docs) != 1 || docs[0].Body != "重建后的内容" {
+		t.Fatalf("live source was not restored after rebuild: %+v", docs)
 	}
 }
 
@@ -1018,6 +1107,43 @@ func TestSettings_SwitchAndValidate(t *testing.T) {
 	}
 	if gotBase != searchdomain.DefaultOllamaBaseURL || gotModel != searchdomain.DefaultOllamaModel {
 		t.Fatalf("factory got wrong defaults: %q %q", gotBase, gotModel)
+	}
+}
+
+func TestSettings_SwitchInvalidatesCacheAndSeparatesModels(t *testing.T) {
+	repo := newFakeRepo()
+	repo.embedded = map[string][]float32{"m1/sd_old": {1, 0, 0}}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1"}, func(_, model string) searchdomain.EmbeddingProvider {
+		return &fakeProvider{model: "ollama:" + model}
+	})
+	svc.rememberWorkspace("ws_a")
+	ctx := ctxWS("ws_a")
+
+	if _, err := svc.vectors.get(ctx, repo, "ws_a", "m1"); err != nil {
+		t.Fatalf("prime builtin cache: %v", err)
+	}
+	if got := atomic.LoadInt32(&repo.wsVecScans); got != 1 {
+		t.Fatalf("builtin cache priming must scan once, got %d", got)
+	}
+
+	emb := searchdomain.EmbedderOllama
+	if _, err := svc.SetEmbedder(ctx, emb); err != nil {
+		t.Fatalf("switch embedder: %v", err)
+	}
+
+	// The old builtin vector remains durable but is not eligible for the new model.
+	// 旧 builtin 向量仍可持久化，但不能混入新 model 的语义集合。
+	newModel := "ollama:" + searchdomain.DefaultOllamaModel
+	v, err := svc.vectors.get(ctx, repo, "ws_a", newModel)
+	if err != nil {
+		t.Fatalf("load ollama cache: %v", err)
+	}
+	if len(v) != 0 {
+		t.Fatalf("new model must not inherit old vectors: %+v", v)
+	}
+	if got := atomic.LoadInt32(&repo.wsVecScans); got != 2 {
+		t.Fatalf("embedder switch must invalidate and rescan cache, got %d scans", got)
 	}
 }
 
