@@ -19,7 +19,7 @@ landed-into:
 
 - 按序完成 `EDGE-343..352` 共 10 个边界、50 个账本格；十行均为 `✓~~~~`，L2-L5 明确 `na`，没有把 focused/testend 绿结果冒充真实 App 五通道证据。
 - 正式证据为 `testend/rig/formal-evidence/EDGE-343-tool-arguments-two-wire-shapes-20260826.md` 至 `EDGE-352-fork-attachments-subagent-tree-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-82-ledger-alarm-reaudit-20260826.md`。
-- formal journal=`4236`（2300 baseline + 1936 live），`COVERAGE=848/847/0`，`anchors=10/10`，警报复审后 `alarms.py check` clean；批次八十二已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，提交待生成。下一原子前线=`EDGE-353`。P12 400+ Journey 按用户裁定推迟二期。
+- formal journal=`4236`（2300 baseline + 1936 live），`COVERAGE=848/847/0`，`anchors=10/10`，警报复审后 `alarms.py check` clean；批次八十二已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`af912dcd`。下一原子前线=`EDGE-353`。P12 400+ Journey 按用户裁定推迟二期。
 
 ## 历史：2026-08-26 · EDGE-333..342 批次八十一收口，统一长门禁通过，已提交=3071083d
 

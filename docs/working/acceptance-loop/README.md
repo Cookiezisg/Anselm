@@ -308,7 +308,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 `testend/rig/formal-evidence/batch-82-ledger-alarm-reaudit-20260826.md`。formal journal=`4236`
 （2300 baseline + 1936 live），`gen_coverage.py --check`=`848 rows / 847 carried judgments / 0 tombstones`，
 目标行均=`✓~~~~`，`anchors=10/10`，警报已按复审销账，最终 `alarms.py check`=`clean`。批次八十二已满=`50/50`；
-统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿；本批提交待生成。下一原子前线=`EDGE-353`。P12 400+ Journey 继续按用户裁定推迟二期。
+统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿；已提交=`af912dcd`。下一原子前线=`EDGE-353`。P12 400+ Journey 继续按用户裁定推迟二期。
 
 #### 历史收口：EDGE-333..342 批次八十一已完成，统一长门禁通过
 
