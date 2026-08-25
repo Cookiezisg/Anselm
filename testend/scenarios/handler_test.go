@@ -3,6 +3,7 @@ package scenarios
 import (
 	"encoding/base64"
 	"strings"
+	"sync"
 	"testing"
 
 	"github.com/sunweilin/anselm/testend/harness"
@@ -214,6 +215,195 @@ func TestHandler_PrintToStdout(t *testing.T) {
 	wc.GET("/api/v1/handler-calls/"+page.Calls[0].ID).OK(t, &detail)
 	if !strings.Contains(detail.Logs, "hello from handler") {
 		t.Fatalf("print must land in call logs, got %q", detail.Logs)
+	}
+}
+
+// TestHandler_ConcurrentCallStderrWindows exercises the resident's shared stderr fan through
+// two real HTTP calls. The RPC pipe serializes method execution, while the app-level call windows
+// may overlap; each audit must keep its own start/end lines, and extra lines from an overlapping
+// window are accepted by design rather than silently pretending strict attribution.
+//
+// TestHandler_ConcurrentCallStderrWindows 用两个真实 HTTP 调用穿过常驻实例的 stderr 扇出。RPC 管道
+// 会串行执行 method，但 app 层调用窗口可以重叠；每条审计必须保留自己的 start/end，窗口重叠带来的
+// 额外行按契约接受，不能假装成严格归属。
+func TestHandler_ConcurrentCallStderrWindows(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-concurrent-stderr"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	hdID := hdCreate(t, wc, "concurrent_stderr", map[string]any{
+		"methods": []map[string]any{{
+			"name":   "work",
+			"inputs": []map[string]any{{"name": "tag", "type": "string"}},
+			"body":   "import time\nprint('start-' + tag)\ntime.sleep(0.08)\nprint('end-' + tag)\nreturn {'tag': tag}",
+		}},
+	})
+
+	type result struct {
+		tag  string
+		resp *harness.Resp
+	}
+	results := make(chan result, 2)
+	var wg sync.WaitGroup
+	for _, tag := range []string{"alpha", "beta"} {
+		wg.Add(1)
+		go func(tag string) {
+			defer wg.Done()
+			resp, err := wc.Try("POST", "/api/v1/handlers/"+hdID+":call", map[string]any{
+				"method": "work",
+				"args":   map[string]any{"tag": tag},
+			})
+			if err != nil {
+				t.Errorf("concurrent %s call transport error: %v", tag, err)
+				return
+			}
+			results <- result{tag: tag, resp: resp}
+		}(tag)
+	}
+	wg.Wait()
+	close(results)
+	for got := range results {
+		if got.resp.Status != 200 {
+			t.Fatalf("concurrent %s call failed: %d/%s %s", got.tag, got.resp.Status, got.resp.Code, got.resp.Raw)
+		}
+	}
+
+	var page struct {
+		Calls []struct {
+			ID         string         `json:"id"`
+			Input      map[string]any `json:"input"`
+			InstanceID string         `json:"instanceId"`
+		} `json:"calls"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID+"/calls?limit=10").OK(t, &page)
+	if len(page.Calls) != 2 {
+		t.Fatalf("want two concurrent call records, got %+v", page.Calls)
+	}
+	if page.Calls[0].InstanceID == "" || page.Calls[0].InstanceID != page.Calls[1].InstanceID {
+		t.Fatalf("concurrent calls did not share one resident instance: %+v", page.Calls)
+	}
+	seenTags := map[string]bool{}
+	for _, call := range page.Calls {
+		tag, _ := call.Input["tag"].(string)
+		seenTags[tag] = true
+		var detail struct {
+			Status string `json:"status"`
+			Logs   string `json:"logs"`
+		}
+		wc.GET("/api/v1/handler-calls/"+call.ID).OK(t, &detail)
+		if detail.Status != "ok" || !strings.Contains(detail.Logs, "start-"+tag) || !strings.Contains(detail.Logs, "end-"+tag) {
+			t.Fatalf("call %s lost its own stderr window: tag=%q detail=%+v", call.ID, tag, detail)
+		}
+	}
+	if !seenTags["alpha"] || !seenTags["beta"] {
+		t.Fatalf("concurrent call inputs were not both durable: %+v", seenTags)
+	}
+}
+
+// TestHandler_ErrorSurfacesTraceback verifies that a real handler exception remains actionable at
+// both product-facing HTTP surfaces: the immediate call response and the durable call detail. The
+// Go error wrapper may retain internal breadcrumbs, but neither surface may collapse to "call failed".
+func TestHandler_ErrorSurfacesTraceback(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-traceback"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	hdID := hdCreate(t, wc, "traceback_probe", map[string]any{
+		"methods": []map[string]any{{
+			"name": "explode", "inputs": []any{}, "body": "raise ValueError('bad amount')",
+		}},
+	})
+	r := wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{
+		"method": "explode", "args": map[string]any{},
+	})
+	if r.Status < 400 || !strings.Contains(r.Code, "HANDLER_CLIENT_CALL_FAILED") {
+		t.Fatalf("handler exception must be a structured failed call: %d/%s %s", r.Status, r.Code, r.Raw)
+	}
+	if !strings.Contains(string(r.Raw), "ValueError: bad amount") || !strings.Contains(string(r.Raw), "Traceback") {
+		t.Fatalf("immediate error surface lost the Python traceback: %s", r.Raw)
+	}
+
+	var page struct {
+		Calls []struct {
+			ID           string `json:"id"`
+			Status       string `json:"status"`
+			ErrorMessage string `json:"errorMessage"`
+		} `json:"calls"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID+"/calls").OK(t, &page)
+	if len(page.Calls) != 1 || page.Calls[0].Status != "failed" {
+		t.Fatalf("failed handler call was not durably recorded: %+v", page.Calls)
+	}
+	if !strings.Contains(page.Calls[0].ErrorMessage, "ValueError: bad amount") || !strings.Contains(page.Calls[0].ErrorMessage, "Traceback") {
+		t.Fatalf("call list error message lost the traceback: %q", page.Calls[0].ErrorMessage)
+	}
+	var detail struct {
+		ErrorMessage string `json:"errorMessage"`
+	}
+	wc.GET("/api/v1/handler-calls/"+page.Calls[0].ID).OK(t, &detail)
+	if !strings.Contains(detail.ErrorMessage, "ValueError: bad amount") || !strings.Contains(detail.ErrorMessage, "Traceback") {
+		t.Fatalf("call detail error message lost the traceback: %q", detail.ErrorMessage)
+	}
+}
+
+// TestHandler_SensitiveSecretMaskedOnAllSurfaces verifies the same call across the three leak
+// surfaces: the immediate HTTP error, durable errorMessage, and durable logs from print(). A
+// platform-injected sensitive value must never appear in plaintext, while the masked value remains
+// visible enough to explain what was redacted.
+func TestHandler_SensitiveSecretMaskedOnAllSurfaces(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "hd-secret-surfaces"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+
+	hdID := hdCreate(t, wc, "secret_probe", map[string]any{
+		"initArgsSchema": []map[string]any{{"name": "token", "type": "string", "required": true, "sensitive": true}},
+		"initBody":       "self.token = token",
+		"methods": []map[string]any{{
+			"name": "explode", "inputs": []any{},
+			"body": "print(self.token)\nraise ValueError('bad token ' + self.token)",
+		}},
+	})
+	secret := "sk-live-handler-143"
+	wc.PUT("/api/v1/handlers/"+hdID+"/config", map[string]any{"token": secret}).OK(t, nil)
+	r := wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{
+		"method": "explode", "args": map[string]any{},
+	})
+	if r.Status < 400 || strings.Contains(string(r.Raw), secret) || !strings.Contains(string(r.Raw), "********") {
+		t.Fatalf("immediate HTTP error leaked or dropped the mask: %d/%s %s", r.Status, r.Code, r.Raw)
+	}
+
+	var page struct {
+		Calls []struct {
+			ID           string `json:"id"`
+			ErrorMessage string `json:"errorMessage"`
+			Logs         string `json:"logs"`
+		} `json:"calls"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID+"/calls").OK(t, &page)
+	if len(page.Calls) != 1 {
+		t.Fatalf("expected one failed call, got %+v", page.Calls)
+	}
+	if strings.Contains(page.Calls[0].ErrorMessage, secret) || !strings.Contains(page.Calls[0].ErrorMessage, "********") {
+		t.Fatalf("errorMessage leaked or dropped the mask: %q", page.Calls[0].ErrorMessage)
+	}
+	var detail struct {
+		ErrorMessage string `json:"errorMessage"`
+		Logs         string `json:"logs"`
+	}
+	wc.GET("/api/v1/handler-calls/"+page.Calls[0].ID).OK(t, &detail)
+	for surface, value := range map[string]string{
+		"detail.errorMessage": detail.ErrorMessage,
+		"detail.logs":         detail.Logs,
+	} {
+		if strings.Contains(value, secret) || !strings.Contains(value, "********") {
+			t.Fatalf("%s leaked or dropped the mask: %q", surface, value)
+		}
 	}
 }
 

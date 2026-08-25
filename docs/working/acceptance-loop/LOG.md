@@ -10,7 +10,47 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-140 已收口 · 批次六十一 50/50，统一门禁通过并已提交）
+## 当前前线（2026-08-25 · EDGE-150 已收口 · 批次六十二 50/50）
+
+- EDGE-150 复核 boot survivor 回收：真实 `sleep` PID 被整组杀、manifest `running_pid` 清零；同组 grandchild 也被杀，确认 wrapper 后代不泄漏。
+- 正式证据=`testend/rig/formal-evidence/EDGE-150-sandbox-boot-reclaim-running-pid-20260825.md`；`judge.py` 写入五格 `measure:edge150-sandbox-boot-reclaim-running-pid/na/na/na/na`；formal journal=`3236`，COVERAGE=`848/647/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二已完成=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`，根验证、完整 testend、rig 51 项、backend verify、coverage/anchors/alarms、语法、diff、进程收台全绿；现在只剩本批提交。P12 400+ Journey 继续推迟二期。
+
+- EDGE-149 复核 sandbox degraded/retry：不可用 root 使 Bootstrap 不 ready 且留错，移除障碍后 Retry 恢复目录/ready/清错；真实 HTTP `:retry-bootstrap` `{ok}` 契约通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-149-sandbox-bootstrap-degraded-retry-20260825.md`；`judge.py` 写入五格 `measure:edge149-sandbox-bootstrap-degraded-retry/na/na/na/na`；formal journal=`3231`，COVERAGE=`848/646/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-150`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-148 完成 fresh runtime 首用直装：真实上游下载、checksum、staging/原子换、二进制执行和重复 Install 幂等均通过；错误自然语言键先被 sequence gate 拒绝，未写错格，随后用正式键登记。
+- 正式证据=`testend/rig/formal-evidence/EDGE-148-sandbox-first-use-direct-install-20260825.md`；`judge.py` 写入五格 `measure:edge148-sandbox-first-use-direct-install/na/na/na/na`；formal journal=`3226`，COVERAGE=`848/645/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-149`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-147 复核同实例并发 stderr：focused fan 与真实 HTTP 共同证明两个调用共享 instance、RPC 串行而窗口可重叠；各自 start/end 与 30ms grace 尾行保留，额外窗口行按明示契约接受。
+- 正式证据=`testend/rig/formal-evidence/EDGE-147-handler-concurrent-stderr-windows-20260825.md`；`judge.py` 写入五格 `measure:edge147-handler-concurrent-stderr-windows/na/na/na/na`；formal journal=`3221`，COVERAGE=`848/644/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-148`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-146 复核 handler 产物目录恢复：真实 Python driver 在带 `out` 的异常调用后删除产物目录，下一次带 `out` 调用仍成功，随后无 `out` 调用回到启动 cwd 且 `ANSELM_OUT` 清空；真实 HTTP 产物场景确认两次调用各自产生独立附件。
+- 正式证据=`testend/rig/formal-evidence/EDGE-146-handler-chdir-restore-20260825.md`；`judge.py` 写入五格 `measure:edge146-handler-chdir-restore/na/na/na/na`；formal journal=`3216`，COVERAGE=`848/643/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-147`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-145 复核 handler meta-only：focused 与真实 HTTP 都证明 PATCH/set_meta 只改行、不铸版本、不重启 resident，count 保持连续。
+- 正式证据=`testend/rig/formal-evidence/EDGE-145-handler-meta-edit-no-restart-20260825.md`；`judge.py` 写入五格 `measure:edge145-handler-meta-edit-no-restart/na/na/na/na`；formal journal=`3211`，COVERAGE=`848/642/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-146`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-144 复核 handler 空 ops：focused 成功/失败 env rebuild 与真实 HTTP/notifications/内存计数器均通过，v1 不变、resident 重启、成功才发 `handler.env_rebuilt`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-144-handler-empty-ops-rebuild-20260825.md`；`judge.py` 写入五格 `measure:edge144-handler-empty-ops-rebuild/na/na/na/na`；formal journal=`3206`，COVERAGE=`848/641/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-145`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-143 首轮真实路径发现 backend `handler.stderr` 明文泄露 sensitive token；stop-and-fix 让 `captureStderr` 在 zap journal 与 stderr fan 入口都用 spawn secretVals 掩码，focused observer 与真实 HTTP 三面重跑通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-143-handler-secret-masked-three-surfaces-20260825.md`；`judge.py` 写入五格 `measure:edge143-handler-secret-masked-three-surfaces/na/na/na/na`；formal journal=`3201`，COVERAGE=`848/640/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-144`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-142 复核 handler traceback：focused `infra/handler -race` 锁住结构化错误 surface，真实 HTTP 方法异常路径锁住即时 502、calls 列表和 call detail 的 Python cause/traceback 保留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-142-handler-traceback-surfaces-20260825.md`；`judge.py` 写入五格 `measure:edge142-handler-traceback-surfaces/na/na/na/na`；formal journal=`3196`，COVERAGE=`848/639/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-143`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-141 复核 handler generator 终值：真实 `python3` 子进程执行生成 class + 正式 DriverScript，stdio 协议证明最后一个非 progress `yield` 与 `return` 的 `StopIteration.value` 都正确成为终值；包内 `-race` 与真实 HTTP 黑盒再次通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-141-handler-generator-finals-20260825.md`；`judge.py` 写入五格 `measure:edge141-handler-generator-finals/na/na/na/na`；formal journal=`3191`，COVERAGE=`848/638/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十二当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-142`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-140 复核 handler cancellation：真实 stdio pipe 取消等待后标记 crashed，app 下一次调用重生；当前没有可控真实 HTTP handler 断连台架，明确不伪造。
 - 正式证据=`testend/rig/formal-evidence/EDGE-140-handler-cancel-dirties-pipe-20260825.md`；`judge.py` 写入五格 `measure:edge140-handler-cancel-dirties-pipe/na/na/na/na`；formal journal=`3186`，COVERAGE=`848/637/0`，anchors=`10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。

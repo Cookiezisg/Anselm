@@ -97,7 +97,7 @@ func (s *Service) spawnInstance(ctx context.Context, handlerID string) (*Instanc
 	}
 
 	fan := newStderrFan()
-	go captureStderr(handle.Stderr(), s.log.With(zap.String("handlerId", handlerID), zap.Int("pid", handle.PID())), fan)
+	go captureStderr(handle.Stderr(), s.log.With(zap.String("handlerId", handlerID), zap.Int("pid", handle.PID())), fan, secretVals)
 
 	client := s.clientFact(handle.Stdin(), handle.Stdout(), s.log)
 	// Bound __init__ over RPC: on the Boot path this ctx has no deadline, so a handler whose constructor
@@ -170,25 +170,26 @@ func activeToDraft(v *handlerdomain.Version) *VersionDraft {
 
 // captureStderr scans the subprocess stderr line-by-line into the log (crash diagnosis)
 // AND the instance's stderr fan (per-call attribution: live progress + persisted call
-// logs). The protocol owns stdout, so stderr is the ONLY channel a handler's print()/
-// logging reaches — the fan makes it user-visible instead of zap-only.
-//
+// logs). Secrets must be scrubbed before BOTH sinks: constructor output arrives before
+// a call sink is attached, and the zap journal is itself an observed product channel.
 // captureStderr 行扫子进程 stderr 进 log（崩溃诊断）**并**进实例 stderr 扇出（per-call 归属：
-// 实时进度 + 调用日志落盘）。协议占用 stdout，stderr 是 handler 的 print()/日志唯一能到达的
-// 通道——扇出让它对用户可见、而非只进 zap。
-func captureStderr(r io.ReadCloser, log *zap.Logger, fan *stderrFan) {
+// 实时进度 + 调用日志落盘）。secret 必须在进入**两个** sink 前掩掉：构造器输出发生在调用 sink
+// 挂载前，zap journal 本身也是被观测的产品通道。协议占用 stdout，stderr 是 handler 的
+// print()/日志唯一能到达的通道——扇出让它对用户可见、而非只进 zap。
+func captureStderr(r io.ReadCloser, log *zap.Logger, fan *stderrFan, secrets []string) {
 	if r == nil {
 		return
 	}
 	sc := bufio.NewScanner(r)
 	sc.Buffer(make([]byte, 4096), 64*1024)
 	for sc.Scan() {
-		log.Info("handler.stderr", zap.ByteString("line", sc.Bytes()))
+		lineText := scrubSecrets(string(sc.Bytes()), secrets)
+		log.Info("handler.stderr", zap.String("line", lineText))
 		// Copy before appending: sc.Bytes() views the scanner's internal buffer, and an
 		// in-place append could clobber the next buffered token.
 		// 先拷再补换行：sc.Bytes() 是 scanner 内部缓冲的视图，原地 append 可能踩到下一个 token。
-		line := make([]byte, len(sc.Bytes())+1)
-		copy(line, sc.Bytes())
+		line := make([]byte, len(lineText)+1)
+		copy(line, lineText)
 		line[len(line)-1] = '\n'
 		_, _ = fan.Write(line)
 	}

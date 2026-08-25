@@ -297,7 +297,172 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-140 已完成；批次六十一 50/50，统一门禁通过并已提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-150 已完成；批次六十二 50/50)
+
+#### 2026-08-25 当前前线重述：EDGE-150 boot 回收残留 running_pid
+
+`EDGE-150` 已用真实进程回归收口：boot manifest 记录的 `sleep` survivor 被整组收割，`Wait`
+立即返回非正常退出，且 `running_pid` 清零；另一条回归模拟 `uvx/npx` wrapper，在同一进程组
+派生孙进程，确认 boot reaper 连孙进程也杀掉，不留下隐形后台服务。
+
+正式证据=`testend/rig/formal-evidence/EDGE-150-sandbox-boot-reclaim-running-pid-20260825.md`。五级严格为
+`L1=measure:edge150-sandbox-boot-reclaim-running-pid`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；
+本格没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+进程/manifest/process-group 证据冒充产品层证据。formal journal=`3236`（2300 baseline + 936 live），
+`gen_coverage.py --check`=`848 rows / 647 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按单 PID/整组收割及 na 边界复核 ack）。
+批次六十二已达到=`50/50`。统一门禁证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`：
+根验证、完整 testend、rig 51 项自测、backend verify、coverage/anchors/alarms、语法、diff 与残留
+进程审计全绿；现在只剩本批提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-149 sandbox bootstrap 失败 degraded
+
+`EDGE-149` 已把 sandbox 根路径真实替换成普通文件，验证 `Bootstrap` 失败时进入 degraded、
+`IsReady=false` 且保留可解释错误；移除文件障碍后 `RetryBootstrap` 恢复 ready、重建目录并清空
+错误。真实 HTTP governance 场景同时锁住 `:retry-bootstrap` 的 200 + `{ok}` 产品契约；故障
+注入留在 service 层，避免 harness 启动器先替测试恢复故障。
+
+正式证据=`testend/rig/formal-evidence/EDGE-149-sandbox-bootstrap-degraded-retry-20260825.md`。五级严格为
+`L1=measure:edge149-sandbox-bootstrap-degraded-retry`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；
+本格没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+filesystem/HTTP/retry 证据冒充产品层证据。formal journal=`3231`（2300 baseline + 931 live），
+`gen_coverage.py --check`=`848 rows / 646 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按失败/恢复双路径及 na 边界复核 ack）。
+批次六十二当前=`45/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-150`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-148 沙箱运行时首用直装
+
+`EDGE-148` 已在全新 `t.TempDir()` sandbox 中真实走上游直装链：UV、Node、Python 均从零下载
+钉死资产，完成发布 checksum 校验、staging 解压/原子换、二进制定位和真实 `--version` 执行；
+每个 runtime 再次 Install 也正确幂等短路，没有命中开发机已有 runtime。一次使用自然语言而非
+COVERAGE 精确键的写账命令被 sequence gate 拒绝，未污染任何错误行，改用正式键后才登记。
+
+正式证据=`testend/rig/formal-evidence/EDGE-148-sandbox-first-use-direct-install-20260825.md`。五级严格为
+`L1=measure:edge148-sandbox-first-use-direct-install`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+真实上游 sandbox e2e 冒充产品层证据。formal journal=`3226`（2300 baseline + 926 live），
+`gen_coverage.py --check`=`848 rows / 645 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 fresh-runtime 证据及 na 边界复核 ack）。
+批次六十二当前=`40/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-149`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-147 handler 同实例并发调用串扰
+
+`EDGE-147` 已用 focused fan `-race` 与真实 HTTP 并发场景收口：两个带不同 tag 的调用共享同一
+resident `instanceId`，RPC method 按 stdio mutex 串行，但上层 stderr sink 窗口按设计可以重叠。
+两条 call detail 都保留自己的 `start/end` 行，窗口重叠产生的额外行不被伪装成严格隔离；真实
+日志确认迟到尾行在 30ms grace 内保留。窗口外丢弃、detach 幂等与并发 fan-out 也由 focused
+回归锁住。
+
+正式证据=`testend/rig/formal-evidence/EDGE-147-handler-concurrent-stderr-windows-20260825.md`。五级严格为
+`L1=measure:edge147-handler-concurrent-stderr-windows`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；
+本格没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+fan/HTTP/call-log 证据冒充产品层证据。formal journal=`3221`（2300 baseline + 921 live），
+`gen_coverage.py --check`=`848 rows / 644 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按窗口重叠语义及 na 边界复核 ack）。
+批次六十二当前=`35/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-148`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-146 handler 产物目录 chdir 恢复
+
+`EDGE-146` 已用真实生成的 Python `DriverScript` 做驻留进程回归：第一次带 `out` 的调用抛出
+异常后，测试实际删除该次产物目录；同一进程随后在新的 `out-second` 目录成功执行下一次调用，
+最后无 `out` 调用回到 driver 启动目录且 `ANSELM_OUT` 为空。真实 HTTP 产物场景同时证明两次
+`:call` 各自产生并读取独立附件 receipt。异常、删除目录、后续调用和环境清理均有断言，锁住
+`finally` 恢复 cwd 的产品安全合同。
+
+正式证据=`testend/rig/formal-evidence/EDGE-146-handler-chdir-restore-20260825.md`。五级严格为
+`L1=measure:edge146-handler-chdir-restore`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+driver/HTTP/附件证据冒充产品层证据。formal journal=`3216`（2300 baseline + 916 live），
+`gen_coverage.py --check`=`848 rows / 643 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按异常后续调用覆盖及 na 边界复核 ack）。
+批次六十二当前=`30/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-147`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-145 handler 纯 meta edit 不重启
+
+`EDGE-145` 已用 focused service 和真实 `HandlerResidentSemantics` 黑盒收口：PATCH 改名与全
+`set_meta` edit 改描述都只更新 Handler 行，不增加 spawn、不铸新 version；真实计数器从 2
+继续到 3、4，证明 resident 内存态未被无关 meta 修改抹掉，GET 仍只有一个版本且名称/描述已落盘。
+
+正式证据=`testend/rig/formal-evidence/EDGE-145-handler-meta-edit-no-restart-20260825.md`。五级严格为
+`L1=measure:edge145-handler-meta-edit-no-restart`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+HTTP/version/resident 证据冒充产品层证据。formal journal=`3211`（2300 baseline + 911 live），
+`gen_coverage.py --check`=`848 rows / 642 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按两类 meta 路径及 na 边界复核 ack）。
+批次六十二当前=`25/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-146`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-144 handler 空 ops edit 抹内存态
+
+`EDGE-144` 已用 focused service 与真实 HTTP/notification/resident 证据收口：空 ops edit 返回
+原 active v1、不铸新版本，重建环境并重启 resident，成功发出 `handler.env_rebuilt`；真实计数器
+下一次调用从 1 重新开始，证明内存态已抹除。失败环境的 focused 回归同时证明只 provision 一次、
+停止旧 resident 且不发假成功通知。
+
+正式证据=`testend/rig/formal-evidence/EDGE-144-handler-empty-ops-rebuild-20260825.md`。五级严格为
+`L1=measure:edge144-handler-empty-ops-rebuild`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+HTTP/通知/版本/resident 证据冒充产品层证据。formal journal=`3206`（2300 baseline + 906 live），
+`gen_coverage.py --check`=`848 rows / 641 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按成功/失败双路径及 na 边界复核 ack）。
+批次六十二当前=`20/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-145`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-143 handler 注入 secret 掩码三面
+
+`EDGE-143` 首轮真实 HTTP 观察抓到真实缺陷：method 同时 `print(self.token)` 和将 token 放进
+traceback 时，backend journal 的 `handler.stderr` 仍记录明文 secret。验收停下修复：
+`captureStderr` 现在接收 spawn 时解析出的 `secretVals`，在写 zap journal 和 stderr fan 两个
+入口前统一掩码。修复后二次 focused observer 与真实 HTTP 均通过：即时错误、调用审计
+`errorMessage`、detail `logs` 和 backend `handler.stderr` 均无明文且保留 `********`；列表接口
+刻意省略 logs，未被错误当成缺失证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-143-handler-secret-masked-three-surfaces-20260825.md`。
+五级严格为 `L1=measure:edge143-handler-secret-masked-three-surfaces`、`L2=na`、`L3=na`、
+`L4=na`、`L5=na`；本格没有独立 Computer Use 五通道 session、时序测量、视觉成品或
+discoverability 证据，不越级把安全/HTTP/日志证据冒充产品层证据。formal journal=`3201`
+（2300 baseline + 901 live），`gen_coverage.py --check`=`848 rows / 640 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按首轮真实
+缺陷、修复后重跑及 na 边界复核 ack）。批次六十二当前=`15/50`，未到 50 格不跑统一长门禁、不提交；
+下一原子前线=`EDGE-144`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-142 handler traceback 不被剥
+
+`EDGE-142` 已用 focused 错误面回归和真实 HTTP 黑盒收口：`errorspkg.Surface` 保留
+`HANDLER_CLIENT_CALL_FAILED`/`INIT_FAILED` 分类的同时，继续浮出 Python cause 与 traceback；真实
+Handler 方法抛出 `ValueError('bad amount')` 后，即时 HTTP 502 响应、`/calls` 列表和
+`/handler-calls/{id}` 详情均保留 `ValueError: bad amount` 与 `Traceback`，没有退化成不透明的
+`call failed`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-142-handler-traceback-surfaces-20260825.md`。五级严格为
+`L1=measure:edge142-handler-traceback-surfaces`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+错误面/HTTP/审计证据冒充产品层证据。formal journal=`3196`（2300 baseline + 896 live），
+`gen_coverage.py --check`=`848 rows / 639 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按四个反向失败面及 na 边界复核 ack）。
+批次六十二当前=`10/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-143`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-141 handler generator 终值两写法
+
+`EDGE-141` 已用三层真实证据收口：新增 focused `-race` 回归把 `AssembleClass` 与生产
+`DriverScript` 写入临时目录并启动真实 `python3`，经 stdio 行 JSON 协议验证 `yield` 终值和
+`return` 产生的 `StopIteration.value` 都成为最终 `return`；既有包内生成测试与真实 HTTP
+`TestContractEntities_HandlerResidentSemantics` 再次通过，真实创建 Handler 后分别调用
+`yield_final`/`return_final` 均为 200 且返回正确值。
+
+正式证据=`testend/rig/formal-evidence/EDGE-141-handler-generator-finals-20260825.md`。五级严格为
+`L1=measure:edge141-handler-generator-finals`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+backend/driver 证据冒充产品层证据。formal journal=`3191`（2300 baseline + 891 live），
+`gen_coverage.py --check`=`848 rows / 638 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按五格共享证据包及 na 边界复核 ack）。
+批次六十二当前=`5/50`，未到 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-142`。P12 的
+400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-140 handler ctx 取消 = 管道脏
 

@@ -1113,6 +1113,58 @@ func TestContractEntities_HandlerResidentSemantics(t *testing.T) {
 	}
 }
 
+// TestContractEntities_HandlerEmptyOpsRebuild —— B-hd-12。
+// Handler 空 ops edit 只重建 active env、不铸新版本、重启 resident，并发出成功通知；失败环境不发假通知
+// 已由 app focused 回归覆盖，这里锁真实 HTTP + notification + resident state 的产品线缆。
+func TestContractEntities_HandlerEmptyOpsRebuild(t *testing.T) {
+	t.Parallel()
+	wc := entitiesC_ws(t, "hd-empty-ops")
+	ns := wc.Subscribe(t, "notifications")
+	hdID := hdCreate(t, wc, "empty_ops_keeper", map[string]any{
+		"initBody": "self.count = 0",
+		"methods": []map[string]any{{
+			"name": "bump", "inputs": []any{}, "body": "self.count += 1\nreturn {\"count\": self.count}",
+		}},
+	})
+	var out map[string]any
+	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "bump", "args": map[string]any{}}).OK(t, &out)
+	if out["count"] != float64(1) {
+		t.Fatalf("warm handler count = %+v, want 1", out)
+	}
+
+	var before struct {
+		ActiveVersion struct {
+			ID      string `json:"id"`
+			Version int    `json:"version"`
+		} `json:"activeVersion"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID).OK(t, &before)
+	wc.POST("/api/v1/handlers/"+hdID+":edit", map[string]any{"ops": []any{}}).OK(t, nil)
+	ns.WaitFor(t, 10000, "handler env rebuild notification", "handler.env_rebuilt")
+
+	var after struct {
+		ActiveVersion struct {
+			ID      string `json:"id"`
+			Version int    `json:"version"`
+		} `json:"activeVersion"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID).OK(t, &after)
+	if after.ActiveVersion.ID != before.ActiveVersion.ID || after.ActiveVersion.Version != 1 {
+		t.Fatalf("empty-ops edit must keep the active version: before=%+v after=%+v", before.ActiveVersion, after.ActiveVersion)
+	}
+	wc.POST("/api/v1/handlers/"+hdID+":call", map[string]any{"method": "bump", "args": map[string]any{}}).OK(t, &out)
+	if out["count"] != float64(1) {
+		t.Fatalf("empty-ops edit must restart the resident and reset memory, got %+v", out)
+	}
+	var versions []struct {
+		Version int `json:"version"`
+	}
+	wc.GET("/api/v1/handlers/"+hdID+"/versions").OK(t, &versions)
+	if len(versions) != 1 || versions[0].Version != 1 {
+		t.Fatalf("empty-ops edit must not mint a version: %+v", versions)
+	}
+}
+
 // TestContractEntities_AgentMountHealthMatrix —— B-ag-4。
 // mount-health 预检逐挂载独立收集（非 fail-fast）：knowledge doc 被删 → 该行 unhealthy 而
 // 其余照常健康；两挂载合成撞名 → 与 Resolve 对称、第二个挂载标 unhealthy 引撞名。

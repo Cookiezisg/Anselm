@@ -15,6 +15,7 @@ import (
 
 	_ "github.com/glebarez/go-sqlite"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zaptest/observer"
 
 	envfixapp "github.com/sunweilin/anselm/backend/internal/app/envfix"
 	mediaartifactapp "github.com/sunweilin/anselm/backend/internal/app/mediaartifact"
@@ -402,6 +403,31 @@ func TestScrubbingWriter(t *testing.T) {
 	}
 	if got := buf.String(); strings.Contains(got, "sk-SECRET123") || !strings.Contains(got, "********") {
 		t.Errorf("secret must be masked before reaching the sink, got: %q", got)
+	}
+}
+
+// TestCaptureStderr_ScrubsJournalAndFan locks the pre-call observation boundary: constructor or
+// early method stderr can arrive before a per-call scrubbingWriter is attached, so captureStderr
+// must protect both the zap journal and the fan itself.
+func TestCaptureStderr_ScrubsJournalAndFan(t *testing.T) {
+	secret := "sk-LOGGER-143"
+	core, observed := observer.New(zap.InfoLevel)
+	fan := newStderrFan()
+	sink := &recSink{}
+	detach := fan.attach(sink)
+	defer detach()
+
+	captureStderr(io.NopCloser(strings.NewReader(secret+"\n")), zap.New(core), fan, []string{secret})
+	if got := sink.String(); strings.Contains(got, secret) || !strings.Contains(got, "********") {
+		t.Fatalf("stderr fan leaked or dropped the mask: %q", got)
+	}
+	entries := observed.All()
+	if len(entries) != 1 {
+		t.Fatalf("observed %d stderr entries, want 1", len(entries))
+	}
+	line, ok := entries[0].ContextMap()["line"].(string)
+	if !ok || strings.Contains(line, secret) || !strings.Contains(line, "********") {
+		t.Fatalf("zap journal leaked or dropped the mask: %#v", entries[0].ContextMap()["line"])
 	}
 }
 
