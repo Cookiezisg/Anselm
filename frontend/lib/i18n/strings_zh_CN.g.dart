@@ -398,7 +398,7 @@ class _Translations$a11y$zh_CN extends Translations$a11y$en {
 	@override String graphNode({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}';
 	@override String codeBlock({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行';
 	@override String codeBlockPlain({required Object lines}) => '代码块,${lines} 行';
-	@override String jsonTree({required Object count}) => 'JSON 树,${count} 项';
+	@override String jsonTree({required Object count}) => 'JSON 树，${count} 项';
 	@override String diff({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}';
 	@override String get loading => '加载中';
 	@override String get timeoutBudget => '时限';
@@ -422,10 +422,10 @@ class _Translations$diff$zh_CN extends Translations$diff$en {
 	@override String get added => '新增';
 	@override String get removed => '删除';
 	@override String folded({required Object n}) => '… 省略 ${n} 行';
-	@override String showAll({required Object n}) => '展开全部(${n} 行)';
-	@override String get onlyChanges => '只显变更';
-	@override String get show => '展开 diff';
-	@override String get hide => '收起 diff';
+	@override String showAll({required Object n}) => '展开全部（${n} 行）';
+	@override String get onlyChanges => '仅显示变更';
+	@override String get show => '展开差异';
+	@override String get hide => '收起差异';
 }
 
 // Path: tree
@@ -448,10 +448,10 @@ class _Translations$startup$zh_CN extends Translations$startup$en {
 
 	// Translations
 	@override String get connecting => '正在连接本地引擎…';
-	@override String get crashedTitle => '无法连接本地引擎';
-	@override String get crashedHint => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。';
+	@override String get crashedTitle => '本地引擎无法连接';
+	@override String get crashedHint => '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。';
 	@override String get retry => '重试';
-	@override String get errorTitle => '出错了';
+	@override String get errorTitle => '界面出错了';
 	@override String get errorHint => '渲染此视图时发生了意外错误。';
 }
 
@@ -4370,7 +4370,7 @@ extension on TranslationsZhCn {
 			'a11y.graphNode' => ({required Object id, required Object kind, required Object ref}) => '节点 ${id},${kind},${ref}',
 			'a11y.codeBlock' => ({required Object lang, required Object lines}) => '代码块,${lang},${lines} 行',
 			'a11y.codeBlockPlain' => ({required Object lines}) => '代码块,${lines} 行',
-			'a11y.jsonTree' => ({required Object count}) => 'JSON 树,${count} 项',
+			'a11y.jsonTree' => ({required Object count}) => 'JSON 树，${count} 项',
 			'a11y.diff' => ({required Object added, required Object removed}) => '差异,新增 ${added},删除 ${removed}',
 			'a11y.loading' => '加载中',
 			'a11y.timeoutBudget' => '时限',
@@ -4385,18 +4385,18 @@ extension on TranslationsZhCn {
 			'diff.added' => '新增',
 			'diff.removed' => '删除',
 			'diff.folded' => ({required Object n}) => '… 省略 ${n} 行',
-			'diff.showAll' => ({required Object n}) => '展开全部(${n} 行)',
-			'diff.onlyChanges' => '只显变更',
-			'diff.show' => '展开 diff',
-			'diff.hide' => '收起 diff',
+			'diff.showAll' => ({required Object n}) => '展开全部（${n} 行）',
+			'diff.onlyChanges' => '仅显示变更',
+			'diff.show' => '展开差异',
+			'diff.hide' => '收起差异',
 			'tree.invalidJson' => '无效 JSON',
 			'tree.circular' => '[循环引用]',
 			'tree.moreItems' => ({required Object count}) => '${count} 项已省略',
 			'startup.connecting' => '正在连接本地引擎…',
-			'startup.crashedTitle' => '无法连接本地引擎',
-			'startup.crashedHint' => '后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。',
+			'startup.crashedTitle' => '本地引擎无法连接',
+			'startup.crashedHint' => '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。',
 			'startup.retry' => '重试',
-			'startup.errorTitle' => '出错了',
+			'startup.errorTitle' => '界面出错了',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',

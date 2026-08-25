@@ -8,6 +8,7 @@ import 'package:anselm/features/entities/data/entity_kind.dart';
 import 'package:anselm/features/entities/data/entity_providers.dart';
 import 'package:anselm/features/entities/state/detail/log_list_provider.dart';
 import 'package:anselm/features/entities/state/selected_entity.dart';
+import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -86,6 +87,28 @@ void main() {
       );
     },
   );
+
+  test('log rows localize universal status words', () async {
+    addTearDown(() => LocaleSettings.setLocaleSync(AppLocale.en));
+
+    for (final (locale, expected) in [
+      (AppLocale.en, 'Failed'),
+      (AppLocale.zhCn, '失败'),
+    ]) {
+      LocaleSettings.setLocaleSync(locale);
+      final c = _container(
+        FixtureEntityRepository(
+          functionExecutions: {
+            'fn_1': [_exec('failed', 'failed')],
+          },
+        ),
+        fnRef,
+      );
+
+      final row = (await c.read(logListProvider(fnRef).future)).rows.single;
+      expect(row.label, 'user · $expected');
+    }
+  });
 
   test('function logs refresh after a durable empty-run close', () async {
     final executions = <FunctionExecution>[];

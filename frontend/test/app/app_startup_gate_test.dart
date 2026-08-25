@@ -48,27 +48,26 @@ void main() {
     expect(find.text(t.startup.connecting), findsNothing);
   });
 
-  testWidgets('crashed → crashed screen with error + Retry, shell hidden', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _app(
-        const BackendState(
-          BackendPhase.crashed,
-          error: 'backend binary not found',
+  testWidgets(
+    'crashed → localized screen without raw error + Retry, shell hidden',
+    (tester) async {
+      await tester.pumpWidget(
+        _app(
+          const BackendState(
+            BackendPhase.crashed,
+            error: 'backend binary not found',
+          ),
         ),
-      ),
-    );
-    expect(find.text(t.startup.crashedTitle), findsOneWidget);
-    expect(
-      find.text('backend binary not found'),
-      findsOneWidget,
-    ); // the error detail surfaces
-    expect(find.text(t.startup.retry), findsOneWidget);
-    expect(find.byKey(const Key('shell')), findsNothing);
-    // Retry is tappable without throwing (no-op in this override).
-    await tester.tap(find.text(t.startup.retry));
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-  });
+      );
+      expect(find.text(t.startup.crashedTitle), findsOneWidget);
+      expect(find.text('backend binary not found'), findsNothing);
+      expect(find.text(t.startup.crashedHint), findsOneWidget);
+      expect(find.text(t.startup.retry), findsOneWidget);
+      expect(find.byKey(const Key('shell')), findsNothing);
+      // Retry is tappable without throwing (no-op in this override).
+      await tester.tap(find.text(t.startup.retry));
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+    },
+  );
 }

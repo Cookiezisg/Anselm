@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:anselm/core/contract/entities/values.dart';
 import 'package:anselm/core/model/partial_json.dart';
 import 'package:anselm/core/design/theme.dart';
@@ -77,6 +79,32 @@ void main() {
       expect(g.edges, isEmpty);
     },
   );
+
+  test('workflow ops accept the durable stringified compatibility shape', () {
+    final stringified = jsonEncode({
+      'workflowId': 'wf_1',
+      'ops': jsonEncode([
+        {
+          'op': 'add_node',
+          'node': {'id': 'a', 'kind': 'action', 'ref': 'fn_a'},
+        },
+        {
+          'op': 'add_edge',
+          'edge': {'id': 'e', 'from': 'start', 'to': 'a'},
+        },
+      ]),
+    });
+    final args = PartialJsonSession()..append(stringified);
+
+    final graph = graphFromWorkflowOps(args);
+    final delta = workflowEditDelta(args);
+
+    expect(graph.nodes.map((n) => n.id), ['a']);
+    expect(graph.edges.map((e) => e.id), ['e']);
+    expect(delta.addedNodes.single.id, 'a');
+    expect(delta.addedEdges, 1);
+    expect(delta.metaOnly, isFalse);
+  });
 
   test('workflowCreateReceipt: inactive → v1 · 未激活 (warn, not a failure)', () {
     LocaleSettings.setLocaleRaw('zh-CN');

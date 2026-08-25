@@ -37,7 +37,8 @@ class AppStartupGate extends ConsumerWidget {
               true, // app can't start — louder than an in-content error 应用起不来,比内容内错更响
           title: t.startup.crashedTitle,
           hint: t.startup.crashedHint,
-          detail: ref.watch(backendStartupProvider.select((s) => s.error)),
+          // Keep backend diagnostics in the journal; never expose raw URLs or internal errors in the
+          // product-facing startup gate. 后端诊断留在日志,启动门只展示可理解的用户文案。
           action: AnButton(
             label: t.startup.retry,
             variant: AnButtonVariant.primary,

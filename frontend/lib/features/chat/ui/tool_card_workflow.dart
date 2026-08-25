@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../../../core/contract/entities/values.dart';
@@ -56,11 +58,41 @@ NodeKind workflowNodeKind(Object? k) => switch (k) {
 // 同一 Graph 实例,canvas 经 identity 跳深比较+重布局。
 final _wfOpsGraphCache = Expando<({int count, Graph graph})>('wfOpsGraph');
 
+// The hosted model boundary accepts one legacy-compatible shape where `ops` is a JSON string.
+// Keep the renderer aligned with the durable result instead of calling a graph edit "metadata-only"
+// when the backend has already applied real node/edge changes. Native arrays remain the streaming
+// path; the string fallback becomes available once the value closes.
+// 后端兼容 hosted model 的旧形状: `ops` 可能是 JSON 字符串。渲染端必须与已落库真相对齐，不能把
+// 真正的节点/边变更误报成「仅改元数据」。原生数组仍走流式路径，字符串只在值闭合后回退解析。
+final _wfStringOpsCache = Expando<({String raw, List<Object?> items})>(
+  'wfStringOps',
+);
+
+List<Object?> workflowOpsFromArgs(PartialJsonSession args) {
+  final native = args.arrayItemsAt(['ops']);
+  if (native.isNotEmpty) return native;
+  final raw = args.closedValueAt(['ops']);
+  if (raw is! String || raw.isEmpty) return native;
+  final cached = _wfStringOpsCache[args];
+  if (cached != null && cached.raw == raw) return cached.items;
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is List) {
+      final items = List<Object?>.unmodifiable(decoded);
+      _wfStringOpsCache[args] = (raw: raw, items: items);
+      return items;
+    }
+  } on FormatException {
+    // A partial/malformed legacy string remains empty until a later durable refresh.
+  }
+  return native;
+}
+
 /// Build a [Graph] from a create_workflow ops fragment (add_node / add_edge) — tolerant of a PARTIAL
 /// mid-stream fragment (only COMPLETED ops surface via [PartialJsonSession.arrayItemsAt]). For CREATE the ops ARE
 /// the whole graph (from zero); edit_workflow's after-graph needs the fetch seam (B2.6). 从 ops 建全图。
 Graph graphFromWorkflowOps(PartialJsonSession args) {
-  final ops = args.arrayItemsAt(['ops']);
+  final ops = workflowOpsFromArgs(args);
   final cached = _wfOpsGraphCache[args];
   if (cached != null && cached.count == ops.length) return cached.graph;
   final nodes = <Node>[];
@@ -106,7 +138,7 @@ typedef _OpCounts = ({int nodes, int edges, List<NodeKind> kinds});
 _OpCounts _countOps(PartialJsonSession args) {
   var nodes = 0, edges = 0;
   final kinds = <NodeKind>[];
-  for (final raw in args.arrayItemsAt(['ops'])) {
+  for (final raw in workflowOpsFromArgs(args)) {
     if (raw is! Map) continue;
     if (raw['op'] == 'add_node') {
       nodes++;
@@ -174,7 +206,7 @@ WorkflowDelta workflowEditDelta(PartialJsonSession args) {
   final deleted = <String>[];
   var addedE = 0, updatedE = 0, deletedE = 0;
   var sawGraphOp = false;
-  for (final raw in args.arrayItemsAt(['ops'])) {
+  for (final raw in workflowOpsFromArgs(args)) {
     if (raw is! Map) continue;
     switch (raw['op']) {
       case 'add_node':

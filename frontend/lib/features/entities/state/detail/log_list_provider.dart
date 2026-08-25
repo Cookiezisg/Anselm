@@ -22,6 +22,14 @@ import '../run/recent_runs_provider.dart';
 import '../selected_entity.dart';
 import 'log_list_state.dart';
 
+String _statusWord(String? raw) => switch (AnStatus.fromRaw(raw)) {
+  AnStatus.idle => t.status.idle,
+  AnStatus.run => t.status.run,
+  AnStatus.wait => t.status.wait,
+  AnStatus.err => t.status.err,
+  AnStatus.done => t.status.done,
+};
+
 /// The logs tab (family over [EntityRef]) — the 日志 history: function executions / handler calls /
 /// agent executions / workflow flowruns. Pages with load-more (keeps rows on error), carries the
 /// ok/failed aggregate (function/handler/agent only), expands rows in place, and — for workflow only —
@@ -364,7 +372,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     return LogRow(
       id: e.id,
       dot: AnStatus.fromRaw(e.status),
-      label: '${e.triggeredBy} · ${e.status}',
+      label: '${e.triggeredBy} · ${_statusWord(e.status)}',
       meta: '${e.elapsedMs}ms',
       hint: fmtTime(e.startedAt ?? e.createdAt),
       run: RecentRun(
@@ -396,7 +404,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     return LogRow(
       id: c.id,
       dot: AnStatus.fromRaw(c.status),
-      label: '${c.method} · ${c.status}',
+      label: '${c.method} · ${_statusWord(c.status)}',
       meta: '${c.elapsedMs}ms',
       hint: fmtTime(c.startedAt ?? c.createdAt),
       run: RecentRun(
@@ -440,8 +448,8 @@ class LogListNotifier extends AsyncNotifier<LogListState>
     return LogRow(
       id: e.id,
       dot: AnStatus.fromRaw(e.status),
-      label: '${e.triggeredBy} · ${e.status}',
-      meta: '${e.status} · ${e.elapsedMs}ms',
+      label: '${e.triggeredBy} · ${_statusWord(e.status)}',
+      meta: '${_statusWord(e.status)} · ${e.elapsedMs}ms',
       hint: fmtTime(e.startedAt ?? e.createdAt),
       run: RecentRun(
         id: e.id,
@@ -478,7 +486,7 @@ class LogListNotifier extends AsyncNotifier<LogListState>
       id: f.id,
       dot: AnStatus.fromRaw(f.status),
       label: f.id,
-      meta: f.status,
+      meta: _statusWord(f.status),
       hint: fmtTime(f.startedAt ?? f.updatedAt),
       // Flowrun DTO projects no payload — reproduce restores the SOURCE only (与「最近」条同一打折点).
       run: RecentRun(

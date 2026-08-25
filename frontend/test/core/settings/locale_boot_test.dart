@@ -190,6 +190,114 @@ void main() {
     ], zh);
   });
 
+  test(
+    'workflow graph kind words are complete and natural in both supported locales',
+    () {
+      const en = [
+        'Trigger',
+        'Action',
+        'Agent',
+        'Branch',
+        'Approval',
+        'Unknown',
+      ];
+      const zh = ['触发', '动作', '智能体', '分支', '审批', '未知'];
+
+      LocaleSettings.setLocaleSync(AppLocale.en);
+      final enGraph = LocaleSettings.currentLocale.translations.graph.kind;
+      expect([
+        enGraph.trigger,
+        enGraph.action,
+        enGraph.agent,
+        enGraph.control,
+        enGraph.approval,
+        enGraph.unknown,
+      ], en);
+
+      LocaleSettings.setLocaleSync(AppLocale.zhCn);
+      final zhGraph = LocaleSettings.currentLocale.translations.graph.kind;
+      expect([
+        zhGraph.trigger,
+        zhGraph.action,
+        zhGraph.agent,
+        zhGraph.control,
+        zhGraph.approval,
+        zhGraph.unknown,
+      ], zh);
+    },
+  );
+
+  test('universal status words are complete in both supported locales', () {
+    const en = ['Idle', 'Running', 'Waiting', 'Failed', 'Done'];
+    const zh = ['空闲', '运行中', '等待', '失败', '完成'];
+
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    final enStatus = LocaleSettings.currentLocale.translations.status;
+    expect([
+      enStatus.idle,
+      enStatus.run,
+      enStatus.wait,
+      enStatus.err,
+      enStatus.done,
+    ], en);
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    final zhStatus = LocaleSettings.currentLocale.translations.status;
+    expect([
+      zhStatus.idle,
+      zhStatus.run,
+      zhStatus.wait,
+      zhStatus.err,
+      zhStatus.done,
+    ], zh);
+  });
+
+  test('JSON tree accessibility copy uses natural locale punctuation', () {
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    expect(
+      LocaleSettings.currentLocale.translations.a11y.jsonTree(count: 3),
+      'JSON tree, 3 items',
+    );
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    final zhTree = LocaleSettings.currentLocale.translations.a11y;
+    expect(zhTree.jsonTree(count: 3), 'JSON 树，3 项');
+    expect(
+      LocaleSettings.currentLocale.translations.tree.invalidJson,
+      '无效 JSON',
+    );
+    expect(LocaleSettings.currentLocale.translations.tree.circular, '[循环引用]');
+    expect(
+      LocaleSettings.currentLocale.translations.tree.moreItems(count: 12),
+      '12 项已省略',
+    );
+  });
+
+  test('product name remains the brand word in both supported locales', () {
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    expect(LocaleSettings.currentLocale.translations.appName, 'Anselm');
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    expect(LocaleSettings.currentLocale.translations.appName, 'Anselm');
+  });
+
+  test(
+    'markdown image fallback copy is complete in both supported locales',
+    () {
+      LocaleSettings.setLocaleSync(AppLocale.en);
+      expect(
+        LocaleSettings.currentLocale.translations.markdown.imageNotLoaded,
+        'image not loaded',
+      );
+
+      LocaleSettings.setLocaleSync(AppLocale.zhCn);
+      expect(
+        LocaleSettings.currentLocale.translations.markdown.imageNotLoaded,
+        '图片未加载',
+      );
+    },
+  );
+
   test('cold-start onboarding copy is localized in both supported locales', () {
     LocaleSettings.setLocaleSync(AppLocale.en);
     expect(
@@ -254,5 +362,92 @@ void main() {
       zhActions.wrap,
       zhActions.delete,
     ], zh);
+  });
+
+  test(
+    'version diff copy is complete and natural in both supported locales',
+    () {
+      LocaleSettings.setLocaleSync(AppLocale.en);
+      final enDiff = LocaleSettings.currentLocale.translations.diff;
+      expect(
+        [
+          enDiff.added,
+          enDiff.removed,
+          enDiff.folded(n: '3'),
+          enDiff.showAll(n: '12'),
+          enDiff.onlyChanges,
+          enDiff.show,
+          enDiff.hide,
+        ],
+        [
+          'Added',
+          'Removed',
+          '… 3 unchanged lines',
+          'Show all (12 lines)',
+          'Only changes',
+          'Show diff',
+          'Hide diff',
+        ],
+      );
+
+      LocaleSettings.setLocaleSync(AppLocale.zhCn);
+      final zhDiff = LocaleSettings.currentLocale.translations.diff;
+      expect(
+        [
+          zhDiff.added,
+          zhDiff.removed,
+          zhDiff.folded(n: '3'),
+          zhDiff.showAll(n: '12'),
+          zhDiff.onlyChanges,
+          zhDiff.show,
+          zhDiff.hide,
+        ],
+        ['新增', '删除', '… 省略 3 行', '展开全部（12 行）', '仅显示变更', '展开差异', '收起差异'],
+      );
+    },
+  );
+
+  test('startup copy is complete and user-facing in both supported locales', () {
+    LocaleSettings.setLocaleSync(AppLocale.en);
+    final enStartup = LocaleSettings.currentLocale.translations.startup;
+    expect(
+      [
+        enStartup.connecting,
+        enStartup.crashedTitle,
+        enStartup.crashedHint,
+        enStartup.retry,
+        enStartup.errorTitle,
+        enStartup.errorHint,
+      ],
+      [
+        'Connecting to the local engine…',
+        "Can't reach the local engine",
+        "The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).",
+        'Retry',
+        'Something went wrong',
+        'An unexpected error occurred while rendering this view.',
+      ],
+    );
+
+    LocaleSettings.setLocaleSync(AppLocale.zhCn);
+    final zhStartup = LocaleSettings.currentLocale.translations.startup;
+    expect(
+      [
+        zhStartup.connecting,
+        zhStartup.crashedTitle,
+        zhStartup.crashedHint,
+        zhStartup.retry,
+        zhStartup.errorTitle,
+        zhStartup.errorHint,
+      ],
+      [
+        '正在连接本地引擎…',
+        '本地引擎无法连接',
+        '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。',
+        '重试',
+        '界面出错了',
+        '渲染此视图时发生了意外错误。',
+      ],
+    );
   });
 }

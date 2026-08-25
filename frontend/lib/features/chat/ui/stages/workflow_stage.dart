@@ -119,7 +119,7 @@ class WorkflowStageBody extends ConsumerWidget {
   /// graph builder, so an update-only edit read as «no ops yet» forever. 任何闭合 op 都算开工:
   /// update/delete 不进只加图,旧判据让 update-only 编辑恒「未开工」。
   bool _hasAnyOp(PartialJsonSession session) =>
-      session.arrayItemsAt(['ops']).whereType<Map>().isNotEmpty;
+      workflowOpsFromArgs(session).whereType<Map>().isNotEmpty;
 
   /// G10/A3-14 — replay the edit's completed ops ONTO the baseline graph (REAL wire shapes:
   /// add_node `node{…}` / update_node `id`+`patch` / delete_node `id` / add_edge `edge{…}` /
@@ -128,7 +128,7 @@ class WorkflowStageBody extends ConsumerWidget {
   Graph _applyOps(Graph base, PartialJsonSession session) {
     final nodes = <String, Node>{for (final n in base.nodes) n.id: n};
     final edges = <String, Edge>{for (final e in base.edges) e.id: e};
-    for (final raw in session.arrayItemsAt(['ops'])) {
+    for (final raw in workflowOpsFromArgs(session)) {
       if (raw is! Map) continue;
       switch (raw['op']) {
         case 'add_node':
@@ -189,7 +189,7 @@ class WorkflowStageBody extends ConsumerWidget {
     Translations t,
     dynamic session,
   ) {
-    final ops = session.arrayItemsAt(['ops']) as List<Object?>;
+    final ops = workflowOpsFromArgs(session);
     Map<Object?, Object?>? latest;
     for (var i = ops.length - 1; i >= 0; i--) {
       final raw = ops[i];

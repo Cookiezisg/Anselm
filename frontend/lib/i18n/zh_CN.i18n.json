@@ -1250,7 +1250,7 @@
     "graphNode": "节点 $id,$kind,$ref",
     "codeBlock": "代码块,$lang,$lines 行",
     "codeBlockPlain": "代码块,$lines 行",
-    "jsonTree": "JSON 树,$count 项",
+    "jsonTree": "JSON 树，$count 项",
     "diff": "差异,新增 $added,删除 $removed",
     "loading": "加载中",
     "timeoutBudget": "时限",
@@ -1267,10 +1267,10 @@
     "added": "新增",
     "removed": "删除",
     "folded": "… 省略 $n 行",
-    "showAll": "展开全部($n 行)",
-    "onlyChanges": "只显变更",
-    "show": "展开 diff",
-    "hide": "收起 diff"
+    "showAll": "展开全部（$n 行）",
+    "onlyChanges": "仅显示变更",
+    "show": "展开差异",
+    "hide": "收起差异"
   },
   "tree": {
     "invalidJson": "无效 JSON",
@@ -1279,10 +1279,10 @@
   },
   "startup": {
     "connecting": "正在连接本地引擎…",
-    "crashedTitle": "无法连接本地引擎",
-    "crashedHint": "后端未启动。开发时把 ANSELM_BACKEND_URL 指向已运行的服务(make -C backend run)。",
+    "crashedTitle": "本地引擎无法连接",
+    "crashedHint": "后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。",
     "retry": "重试",
-    "errorTitle": "出错了",
+    "errorTitle": "界面出错了",
     "errorHint": "渲染此视图时发生了意外错误。"
   },
   "entities": {

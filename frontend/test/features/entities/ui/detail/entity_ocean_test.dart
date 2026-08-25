@@ -120,8 +120,8 @@ void main() {
     await tester.pump();
     await tester.pump(const Duration(milliseconds: 50)); // log page loads
     expect(
-      find.text('user · ok'),
+      find.text('user · ${t.status.done}'),
       findsWidgets,
-    ); // a function execution row label
+    ); // a function execution row label, using the active locale
   });
 }
