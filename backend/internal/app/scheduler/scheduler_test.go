@@ -965,7 +965,8 @@ func TestFiring_OverlapSerialDefers_SkipDrops(t *testing.T) {
 	ctx := ctxWS("ws_1")
 	// pre-seed a running run so the workflow is "in flight".
 	pre := &flowrundomain.FlowRun{WorkflowID: "wf_1", VersionID: "wfv_1", PinnedRefs: map[string]string{}, Status: flowrundomain.StatusRunning}
-	if _, err := store.CreateRunWithTrigger(ctx, pre, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: map[string]any{}}); err != nil {
+	preID, err := store.CreateRunWithTrigger(ctx, pre, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: map[string]any{}})
+	if err != nil {
 		t.Fatalf("pre-run: %v", err)
 	}
 	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1", Payload: map[string]any{"orderId": "o-1"}}); err != nil {
@@ -977,6 +978,23 @@ func TestFiring_OverlapSerialDefers_SkipDrops(t *testing.T) {
 	pending, _ := trg.ListPendingFirings(ctx, 10)
 	if len(pending) != 1 {
 		t.Fatalf("serial should DEFER the firing (stay pending), %d pending", len(pending))
+	}
+
+	// The next scheduler tick sees the first run settled and drains the queued firing. Serial is a
+	// queue, not a drop policy: once the in-flight run ends, the waiting firing must become a run.
+	// 下一调度 tick 看到首个 run 已结算并排空队列。serial 是排队而不是丢弃：在途结束后必须真正建 run。
+	if won, err := store.MarkRunTerminal(ctx, preID, flowrundomain.StatusCompleted, ""); err != nil || !won {
+		t.Fatalf("settle pre-run: won=%v err=%v", won, err)
+	}
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain serial after settlement: %v", err)
+	}
+	if pending, _ = trg.ListPendingFirings(ctx, 10); len(pending) != 0 {
+		t.Fatalf("serial should drain the queued firing after settlement, %d pending", len(pending))
+	}
+	rows, _, _ := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10})
+	if len(rows) != 2 || disp.actionCalls["fn_a"] != 1 {
+		t.Fatalf("serial should create exactly one successor run/action, runs=%d actions=%d", len(rows), disp.actionCalls["fn_a"])
 	}
 
 	// Skip: same setup, but a Skip workflow drops the firing.
@@ -993,7 +1011,19 @@ func TestFiring_OverlapSerialDefers_SkipDrops(t *testing.T) {
 	if p, _ := trg2.ListPendingFirings(ctx, 10); len(p) != 0 {
 		t.Fatalf("Skip should drop the firing, %d still pending", len(p))
 	}
-	_ = f2
+	firings, _, err := trg2.SearchFirings(ctx, triggerdomain.FiringFilter{})
+	if err != nil {
+		t.Fatalf("search skipped firing: %v", err)
+	}
+	if len(firings) != 1 || firings[0].ID != f2.ID || firings[0].Status != triggerdomain.FiringSkipped {
+		t.Fatalf("Skip should leave a neutral skipped audit row, got %+v", firings)
+	}
+	if rows, _, _ := store2.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10}); len(rows) != 1 {
+		t.Fatalf("Skip should not create a successor run, got %d runs", len(rows))
+	}
+	if disp2.actionCalls["fn_a"] != 0 {
+		t.Fatalf("Skip should not dispatch an action, got %d calls", disp2.actionCalls["fn_a"])
+	}
 }
 
 // TestFiring_OverlapBufferOneDefers — buffer_one keeps the latest waiting: with a run in flight, a
@@ -1018,6 +1048,62 @@ func TestFiring_OverlapBufferOneDefers(t *testing.T) {
 	}
 }
 
+func TestFiring_OverlapBufferOneConvergesToNewest(t *testing.T) {
+	disp := newDisp()
+	svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, workflowdomain.ConcurrencyBufferOne)
+	ctx := ctxWS("ws_1")
+	pre := &flowrundomain.FlowRun{WorkflowID: "wf_1", VersionID: "wfv_1", PinnedRefs: map[string]string{}, Status: flowrundomain.StatusRunning}
+	preID, err := store.CreateRunWithTrigger(ctx, pre, &flowrundomain.FlowRunNode{NodeID: "start", Kind: "trigger", Status: flowrundomain.NodeCompleted, Result: map[string]any{}})
+	if err != nil {
+		t.Fatalf("pre-run: %v", err)
+	}
+
+	var firings []*triggerdomain.Firing
+	for _, key := range []string{"k1", "k2", "k3"} {
+		f, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+			WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: key,
+			Payload: map[string]any{"orderId": key},
+		})
+		if err != nil {
+			t.Fatalf("append %s: %v", key, err)
+		}
+		firings = append(firings, f)
+	}
+
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain buffer_one while occupied: %v", err)
+	}
+	rows, _, err := trg.SearchFirings(ctx, triggerdomain.FiringFilter{})
+	if err != nil {
+		t.Fatalf("search buffer_one firings: %v", err)
+	}
+	statusByID := make(map[string]string, len(rows))
+	for _, row := range rows {
+		statusByID[row.ID] = row.Status
+	}
+	if statusByID[firings[0].ID] != triggerdomain.FiringSuperseded ||
+		statusByID[firings[1].ID] != triggerdomain.FiringSuperseded ||
+		statusByID[firings[2].ID] != triggerdomain.FiringPending {
+		t.Fatalf("buffer_one should supersede old firings and keep newest pending: %v", statusByID)
+	}
+	if disp.actionCalls["fn_a"] != 0 {
+		t.Fatalf("buffer_one must not dispatch while occupied, got %d calls", disp.actionCalls["fn_a"])
+	}
+
+	if won, err := store.MarkRunTerminal(ctx, preID, flowrundomain.StatusCompleted, ""); err != nil || !won {
+		t.Fatalf("settle pre-run: won=%v err=%v", won, err)
+	}
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain newest buffer_one firing: %v", err)
+	}
+	if pending, _ := trg.ListPendingFirings(ctx, 10); len(pending) != 0 {
+		t.Fatalf("newest buffer_one firing should drain after settlement, %d pending", len(pending))
+	}
+	if disp.actionCalls["fn_a"] != 1 {
+		t.Fatalf("newest buffer_one firing should dispatch once, got %d calls", disp.actionCalls["fn_a"])
+	}
+}
+
 // TestFiring_OverlapReplace — replace gracefully cancels the in-flight run and runs the new firing in
 // its place: the pre-seeded running run ends up cancelled and the firing is consumed (not left pending).
 func TestFiring_OverlapReplace(t *testing.T) {
@@ -1029,7 +1115,7 @@ func TestFiring_OverlapReplace(t *testing.T) {
 	if err != nil {
 		t.Fatalf("pre-run: %v", err)
 	}
-	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1", Payload: map[string]any{}}); err != nil {
+	if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "k1", Payload: map[string]any{"orderId": "o-1"}}); err != nil {
 		t.Fatalf("firing: %v", err)
 	}
 	if err := svc.DrainFirings(ctx); err != nil {
@@ -1044,6 +1130,185 @@ func TestFiring_OverlapReplace(t *testing.T) {
 	}
 	if p, _ := trg.ListPendingFirings(ctx, 10); len(p) != 0 {
 		t.Fatalf("replace should consume the firing (run it in place), %d still pending", len(p))
+	}
+	rows, _, _ := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10})
+	if len(rows) != 2 || disp.actionCalls["fn_a"] != 1 {
+		t.Fatalf("replace should leave the cancelled run plus one successful successor/action, runs=%d actions=%d", len(rows), disp.actionCalls["fn_a"])
+	}
+	var completed int
+	for _, row := range rows {
+		if row.Status == flowrundomain.StatusCompleted {
+			completed++
+		}
+	}
+	if completed != 1 {
+		t.Fatalf("replace should complete exactly the successor run, got %d completed rows", completed)
+	}
+}
+
+// TestManualTriggerBypassesOverlapPolicies proves that the manual StartRun throat used by the
+// :trigger HTTP path and chat trigger_workflow deliberately bypasses real-firing overlap rules.
+// Two concurrent manual calls must both enter and complete even when the workflow policy is replace
+// or buffer_one; those policies belong only to the trigger firing inbox.
+func TestManualTriggerBypassesOverlapPolicies(t *testing.T) {
+	for _, policy := range []string{workflowdomain.ConcurrencyReplace, workflowdomain.ConcurrencyBufferOne} {
+		t.Run(policy, func(t *testing.T) {
+			disp := newDisp()
+			disp.gateFlag, disp.gate, disp.entered = "flag", make(chan struct{}), make(chan string, 2)
+			svc, store := mkSvc(t, holGraph(), disp, nil, nil, policy)
+			ctx := ctxWS("ws_1")
+			results := make(chan struct {
+				id  string
+				err error
+			}, 2)
+			for i := 0; i < 2; i++ {
+				go func() {
+					id, err := svc.StartRun(ctx, StartInput{WorkflowID: "wf_1", Payload: map[string]any{"slow": true}})
+					results <- struct {
+						id  string
+						err error
+					}{id: id, err: err}
+				}()
+			}
+
+			for i := 0; i < 2; i++ {
+				select {
+				case <-disp.entered:
+				case <-time.After(2 * time.Second):
+					t.Fatalf("manual %s trigger %d/2 did not enter the action", policy, i+1)
+				}
+			}
+			if calls := disp.calls("fn_a"); calls != 2 {
+				t.Fatalf("manual %s triggers must both enter despite overlap policy, got %d calls", policy, calls)
+			}
+			close(disp.gate)
+
+			ids := make([]string, 0, 2)
+			for i := 0; i < 2; i++ {
+				select {
+				case result := <-results:
+					if result.err != nil {
+						t.Fatalf("manual %s trigger failed: %v", policy, result.err)
+					}
+					ids = append(ids, result.id)
+				case <-time.After(2 * time.Second):
+					t.Fatalf("manual %s trigger did not return after release", policy)
+				}
+			}
+			rows, _, err := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10})
+			if err != nil {
+				t.Fatalf("list manual %s runs: %v", policy, err)
+			}
+			if len(rows) != 2 || len(ids) != 2 {
+				t.Fatalf("manual %s triggers must create two runs, rows=%d ids=%d", policy, len(rows), len(ids))
+			}
+			for _, row := range rows {
+				if row.Status != flowrundomain.StatusCompleted {
+					t.Fatalf("manual %s successor must complete, got %q", policy, row.Status)
+				}
+			}
+		})
+	}
+}
+
+// TestDrainFiringsTwoPhaseAppliesOverlapToSameBatch locks the phase boundary: every firing in one
+// drain batch is claimed/seeded before any successor advances. The four policies therefore observe
+// the same-batch sibling and produce their distinct durable dispositions.
+func TestDrainFiringsTwoPhaseAppliesOverlapToSameBatch(t *testing.T) {
+	tests := []struct {
+		policy        string
+		wantRuns      int
+		wantActions   int
+		wantPending   int
+		wantStatuses  map[string]string
+		wantCompleted int
+		wantCancelled int
+	}{
+		{
+			policy:        workflowdomain.ConcurrencySerial,
+			wantRuns:      1,
+			wantActions:   1,
+			wantPending:   1,
+			wantStatuses:  map[string]string{"k1": triggerdomain.FiringStarted, "k2": triggerdomain.FiringPending},
+			wantCompleted: 1,
+		},
+		{
+			policy:        workflowdomain.ConcurrencySkip,
+			wantRuns:      1,
+			wantActions:   1,
+			wantStatuses:  map[string]string{"k1": triggerdomain.FiringStarted, "k2": triggerdomain.FiringSkipped},
+			wantCompleted: 1,
+		},
+		{
+			policy:        workflowdomain.ConcurrencyReplace,
+			wantRuns:      2,
+			wantActions:   1,
+			wantStatuses:  map[string]string{"k1": triggerdomain.FiringStarted, "k2": triggerdomain.FiringStarted},
+			wantCompleted: 1,
+			wantCancelled: 1,
+		},
+		{
+			policy:        workflowdomain.ConcurrencyBufferOne,
+			wantRuns:      1,
+			wantActions:   1,
+			wantStatuses:  map[string]string{"k1": triggerdomain.FiringSuperseded, "k2": triggerdomain.FiringStarted},
+			wantCompleted: 1,
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.policy, func(t *testing.T) {
+			disp := newDisp()
+			svc, store, trg := mkSvcWithInbox(t, firingGraph(), disp, tc.policy)
+			ctx := ctxWS("ws_1")
+			for _, key := range []string{"k1", "k2"} {
+				if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+					WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1",
+					DedupKey: key, Payload: map[string]any{"orderId": key},
+				}); err != nil {
+					t.Fatalf("append %s: %v", key, err)
+				}
+			}
+			if err := svc.DrainFirings(ctx); err != nil {
+				t.Fatalf("drain %s same batch: %v", tc.policy, err)
+			}
+
+			rows, _, err := trg.SearchFirings(ctx, triggerdomain.FiringFilter{})
+			if err != nil {
+				t.Fatalf("search %s firings: %v", tc.policy, err)
+			}
+			statusByKey := make(map[string]string, len(rows))
+			for _, row := range rows {
+				statusByKey[row.DedupKey] = row.Status
+			}
+			for key, want := range tc.wantStatuses {
+				if statusByKey[key] != want {
+					t.Fatalf("%s firing %s: want status %q, got %q (%v)", tc.policy, key, want, statusByKey[key], statusByKey)
+				}
+			}
+			if pending, _ := trg.ListPendingFirings(ctx, 10); len(pending) != tc.wantPending {
+				t.Fatalf("%s: want %d pending firings, got %d", tc.policy, tc.wantPending, len(pending))
+			}
+			runRows, _, err := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 10})
+			if err != nil {
+				t.Fatalf("list %s runs: %v", tc.policy, err)
+			}
+			if len(runRows) != tc.wantRuns || disp.calls("fn_a") != tc.wantActions {
+				t.Fatalf("%s: want runs/actions %d/%d, got %d/%d", tc.policy, tc.wantRuns, tc.wantActions, len(runRows), disp.calls("fn_a"))
+			}
+			var completed, cancelled int
+			for _, row := range runRows {
+				switch row.Status {
+				case flowrundomain.StatusCompleted:
+					completed++
+				case flowrundomain.StatusCancelled:
+					cancelled++
+				}
+			}
+			if completed != tc.wantCompleted || cancelled != tc.wantCancelled {
+				t.Fatalf("%s: want completed/cancelled %d/%d, got %d/%d", tc.policy, tc.wantCompleted, tc.wantCancelled, completed, cancelled)
+			}
+		})
 	}
 }
 

@@ -13,7 +13,88 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-061 已收口 · 批次五十三 50/50 已通过统一长门禁并提交；下一前线 EDGE-062）
+## 当前前线覆盖声明（2026-08-25 · EDGE-071 已收口 · 批次五十四 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+
+## 2026-08-25 · EDGE-071 approval 三种超时行为；批次五十四收满
+
+- timeout reject/approve/fail 分别落 no/yes/failed，publish 的 0/1/0 副作用与 durable node/run 状态均已断言；focused 普通/race/full scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-071-approval-timeout-behaviors-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-071-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge071-approval-timeout-behaviors/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2841`，COVERAGE=`848/568/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-54-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-070 approval 人工 vs 超时 first-wins
+
+- 人工 YES 与 timeout sweep 并发争抢同一 parked node 时只一方写入，输家 `ErrNodeNotParked`，run/下游分支与记录一致，后续重复决策拒绝。
+- focused 普通、focused `-race` 与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-070-approval-human-timeout-first-wins-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-070-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge070-approval-human-timeout-first-wins/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2836`，COVERAGE=`848/567/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-071`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-069 ClaimFiring 事务崩溃回滚
+
+- 注入 callback 在 claim 后、commit 前写 partial flowrun 关联并返回错误；事务回滚，firing 仍 pending 且无关联，不留 claimed-but-no-run。
+- focused 普通、focused `-race` 与完整 trigger store 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-069-claim-firing-rollback-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-069-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge069-claim-firing-rollback/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2831`，COVERAGE=`848/566/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-070`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-068 两阶段 drain 背靠背触发
+
+- 同批两个 firing 先全量 claim/seed、再统一 advance；serial 留 pending、skip 标 skipped、replace 一取消一成功、buffer_one supersede 旧 firing 只跑最新。
+- 普通、`-race` 与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-068-two-phase-drain-same-batch-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-068-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge068-two-phase-drain-same-batch/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2826`，COVERAGE=`848/565/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-069`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-067 手动 :trigger 绕过 overlap
+
+- HTTP `:trigger` 与 chat `trigger_workflow` 走共享手动 `StartRun`，replace/buffer_one 下两个并发手动 run 都进入 action 并完成；real-firing inbox 才应用 overlap。
+- focused 普通、focused `-race`、trigger_workflow 契约与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-067-manual-trigger-bypasses-overlap-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-067-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge067-manual-trigger-bypasses-overlap/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2821`，COVERAGE=`848/564/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-068`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-066 overlap allow_all 并发
+
+- 高频 inbox 一次灌入 8 条 allow_all firing，8 个 run 全部 seed；前四个慢 action 占满 `advanceWorkers=4`，第五个被池自然阻挡，释放后 8 个全部完成且 action 各一次。
+- 首轮失败来自测试夹具 gate 键名与图输入字段不一致，修正后重跑；生产池上限未放宽。
+- focused 普通、focused `-race`、allow_all/pool 回归与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-066-overlap-allow-all-pool-cap-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-066-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge066-overlap-allow-all-pool-cap/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2816`，COVERAGE=`848/563/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-067`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-065 overlap replace 抢占
+
+- 在途 run 被新 `replace` firing 以 guarded terminal transition 取消后，firing 被消费并创建唯一 successor；旧 run 为 `cancelled`，successor 完成，action 只执行一次。同批替换回归仍通过。
+- 首轮诊断暴露测试夹具缺 `start.orderId`，已补齐输入而非放宽断言；生产代码未改。
+- focused 普通、focused `-race` 与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-065-overlap-replace-preempts-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-065-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge065-overlap-replace-preempts/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2811`，COVERAGE=`848/562/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-066`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-064 overlap buffer_one 收敛
+
+- 三个真实 firing 在途期间收敛为两个 `superseded` + 最新 `pending`，不提前 dispatch；run 结束后下一 drain 只执行最新一个 successor/action。
+- focused 普通/race、store supersede 与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-064-overlap-buffer-one-converges-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-064-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge064-overlap-buffer-one-converges/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2806`，COVERAGE=`848/561/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-065`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-063 overlap skip 丢弃
+
+- 已验证 skip overlap：在途 run 时新 firing 直接落中性 `skipped` 审计行，不留 pending、不建 successor、不 dispatch；与 serial 排队分离。
+- focused 普通/race 与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-063-overlap-skip-neutral-disposition-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-063-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge063-overlap-skip-neutral-disposition/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2801`，COVERAGE=`848/560/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-064`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-062 overlap serial 推迟
+
+- 已验证真实 firing 的 serial 语义：在途 run 存在时新 firing 保持 pending、不建并发 run；前一 run 结算后下一次 drain 消费它，successor/action 各一个；与 skip 对照明确分离。
+- focused 普通/race 与完整 scheduler 包全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-062-overlap-serial-defers-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-062-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge062-overlap-serial-defers/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2796`，COVERAGE=`848/559/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-063`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-061 transcriptResync 不可与 lifecycleResync 互顶
 

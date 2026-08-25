@@ -76,6 +76,59 @@ func TestConc_AllowAllTwoFiringsBothComplete(t *testing.T) {
 	}
 }
 
+// TestConc_AllowAllHighFrequencyCapsAdvancePool proves the high-frequency allow_all contract at
+// the firing boundary, not only by directly enqueueing runs: every firing seeds its own run, while
+// the shared Advance pool caps slow action fan-out at advanceWorkers. The fifth firing cannot enter
+// until one of the four workers is released, then all firings converge to completed independently.
+// TestConc_AllowAllHighFrequencyCapsAdvancePool 在 firing 咽喉证明高频 allow_all：每条 firing 都独立 seed，
+// 但共享 Advance 池把慢 action 扇出封顶在 advanceWorkers；前四个未释放时第五个不得进入，释放后全部独立完成。
+func TestConc_AllowAllHighFrequencyCapsAdvancePool(t *testing.T) {
+	disp := newDisp()
+	disp.gateFlag, disp.gate, disp.entered = "flag", make(chan struct{}), make(chan string, 8)
+	svc, store, trg := mkSvcWithInbox(t, holGraph(), disp, workflowdomain.ConcurrencyAllowAll)
+	svc.StartPool()
+	defer svc.StopPool()
+	ctx := ctxWS("ws_1")
+
+	for i := 0; i < 8; i++ {
+		if _, err := trg.AppendFiring(ctx, &triggerdomain.Firing{
+			WorkspaceID: "ws_1", TriggerID: "trg_1", WorkflowID: "wf_1",
+			DedupKey: string(rune('a' + i)), Payload: map[string]any{"slow": true},
+		}); err != nil {
+			t.Fatalf("append high-frequency firing %d: %v", i, err)
+		}
+	}
+	if err := svc.DrainFirings(ctx); err != nil {
+		t.Fatalf("drain high-frequency allow_all firings: %v", err)
+	}
+
+	rows, _, err := store.ListRuns(ctx, flowrundomain.ListFilter{Limit: 20})
+	if err != nil {
+		t.Fatalf("list seeded runs: %v", err)
+	}
+	if len(rows) != 8 {
+		t.Fatalf("allow_all must seed all high-frequency firings, got %d runs", len(rows))
+	}
+	for i := 0; i < advanceWorkers; i++ {
+		select {
+		case <-disp.entered:
+		case <-time.After(2 * time.Second):
+			t.Fatalf("only %d/%d workers entered the slow action", i, advanceWorkers)
+		}
+	}
+	if calls := disp.calls("fn_a"); calls != advanceWorkers {
+		t.Fatalf("advance pool must cap slow action fan-out at %d, got %d", advanceWorkers, calls)
+	}
+
+	close(disp.gate)
+	for _, row := range rows {
+		waitForRunStatus(t, store, ctx, row.ID, flowrundomain.StatusCompleted, 2*time.Second)
+	}
+	if calls := disp.calls("fn_a"); calls != 8 {
+		t.Fatalf("all high-frequency allow_all firings must eventually dispatch once, got %d", calls)
+	}
+}
+
 // ---- D-appr-4: human decision vs timeout sweep — first-wins, exactly one winner ------------
 //
 // TestApproval_HumanVsTimeoutFirstWinsRace pins the first-wins arbiter (ResolveParkedNode's
@@ -125,6 +178,57 @@ func TestApproval_HumanVsTimeoutFirstWinsRace(t *testing.T) {
 	// The loser's follow-up is a clean no-op (first-wins): a later decide returns ErrNodeNotParked.
 	if err := svc.DecideApproval(ctx, id, "human", "no", "late"); !errors.Is(err, flowrundomain.ErrNodeNotParked) {
 		t.Fatalf("post-settlement decide must lose, got %v", err)
+	}
+}
+
+// TestApproval_TimeoutBehaviors covers all three durable timeout outcomes: reject follows the no
+// branch, approve follows the yes branch, and fail terminates the run with a failed approval node.
+func TestApproval_TimeoutBehaviors(t *testing.T) {
+	tests := []struct {
+		behavior     string
+		runStatus    string
+		nodeStatus   string
+		decision     string
+		publishCalls int
+	}{
+		{behavior: approvaldomain.TimeoutReject, runStatus: flowrundomain.StatusCompleted, nodeStatus: flowrundomain.NodeCompleted, decision: workflowdomain.ApprovalPortNo, publishCalls: 0},
+		{behavior: approvaldomain.TimeoutApprove, runStatus: flowrundomain.StatusCompleted, nodeStatus: flowrundomain.NodeCompleted, decision: workflowdomain.ApprovalPortYes, publishCalls: 1},
+		{behavior: approvaldomain.TimeoutFail, runStatus: flowrundomain.StatusFailed, nodeStatus: flowrundomain.NodeFailed, publishCalls: 0},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.behavior, func(t *testing.T) {
+			apf := &fakeApproval{byID: map[string]*approvaldomain.Version{
+				"apf_1": {Template: "ok?", Timeout: "1s", TimeoutBehavior: tc.behavior},
+			}}
+			disp := newDisp()
+			svc, store := mkSvc(t, approvalGraph(), disp, nil, apf, "")
+			ctx := ctxWS("ws_1")
+			id := mustRun(t, svc, ctx, map[string]any{"v": "1"})
+			if err := svc.CheckTimeouts(ctx, time.Now().Add(time.Hour)); err != nil {
+				t.Fatalf("CheckTimeouts(%s): %v", tc.behavior, err)
+			}
+
+			run, err := store.GetRun(ctx, id)
+			if err != nil {
+				t.Fatalf("get %s run: %v", tc.behavior, err)
+			}
+			if run.Status != tc.runStatus {
+				t.Fatalf("%s timeout: want run %q, got %q", tc.behavior, tc.runStatus, run.Status)
+			}
+			human := nodeRows(t, store, ctx, id)["human"]
+			if human == nil || human.Status != tc.nodeStatus {
+				t.Fatalf("%s timeout: want node %q, got %+v", tc.behavior, tc.nodeStatus, human)
+			}
+			if tc.decision != "" {
+				if got, _ := human.Result[flowrundomain.ResultKeyDecision].(string); got != tc.decision {
+					t.Fatalf("%s timeout: want decision %q, got %q", tc.behavior, tc.decision, got)
+				}
+			}
+			if disp.calls("fn_pub") != tc.publishCalls {
+				t.Fatalf("%s timeout: want publish calls %d, got %d", tc.behavior, tc.publishCalls, disp.calls("fn_pub"))
+			}
+		})
 	}
 }
 

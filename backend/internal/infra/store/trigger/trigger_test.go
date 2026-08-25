@@ -154,6 +154,38 @@ func TestFiring_ClaimSingleTx(t *testing.T) {
 	}
 }
 
+// TestFiring_ClaimRollbackLeavesPending proves the crash boundary of ClaimFiring: a failure after
+// the pending→claimed transition but before the flowrun callback returns must roll back every
+// write, leaving a retryable pending firing and no claimed-but-no-flowrun strand.
+func TestFiring_ClaimRollbackLeavesPending(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	f, err := s.AppendFiring(ctx, &triggerdomain.Firing{
+		TriggerID: "trg_1", WorkflowID: "wf_1", DedupKey: "rollback-k",
+	})
+	if err != nil {
+		t.Fatalf("AppendFiring: %v", err)
+	}
+
+	_, err = s.ClaimFiring(ctx, f.ID, func(tx *ormpkg.DB) (string, error) {
+		if _, err := tx.Exec(ctx, "UPDATE trigger_firings SET flowrun_id = ? WHERE id = ?", "fr_partial", f.ID); err != nil {
+			return "", err
+		}
+		return "", errors.New("simulated crash before claim commit")
+	})
+	if err == nil {
+		t.Fatal("ClaimFiring should return the injected callback failure")
+	}
+
+	got, err := s.frs.Get(ctx, f.ID)
+	if err != nil {
+		t.Fatalf("reload firing: %v", err)
+	}
+	if got.Status != triggerdomain.FiringPending || got.FlowrunID != "" {
+		t.Fatalf("failed claim must roll back to pending with no flowrun, got status=%q flowrun=%q", got.Status, got.FlowrunID)
+	}
+}
+
 func TestActivation_AppendAndSearch(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

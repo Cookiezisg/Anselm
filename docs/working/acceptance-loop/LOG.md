@@ -10,7 +10,48 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-061 已收口 · 批次五十三 50/50 已通过统一长门禁并提交；下一前线 EDGE-062）
+## 当前前线（2026-08-25 · EDGE-071 已收口 · 批次五十四 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+
+- EDGE-071 复核 timeout 三行为：reject/no 不 publish、approve/yes publish 一次、fail 将 approval node 与 run 标 failed；focused/race/full scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-071-approval-timeout-behaviors-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-071-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge071-approval-timeout-behaviors/na/na/na/na`；formal journal=`2841`，COVERAGE=`848/568/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-54-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+
+- EDGE-070 复核 approval first-wins：人工 YES 与 timeout 并发只一方写 parked node，输家干净拒绝，run 只结算一次且下游一致；focused/race/full scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-070-approval-human-timeout-first-wins-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-070-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge070-approval-human-timeout-first-wins/na/na/na/na`；formal journal=`2836`，COVERAGE=`848/567/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-071`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-069 复核 ClaimFiring 事务回滚：callback 在 pending→claimed 后注入 partial flowrun 写入并失败，最终 firing 回到 pending、flowrun 为空；focused/race/full trigger store 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-069-claim-firing-rollback-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-069-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge069-claim-firing-rollback/na/na/na/na`；formal journal=`2831`，COVERAGE=`848/566/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-070`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-068 复核同批两阶段 drain：phase-1 全量 claim/seed、phase-2 才 advance；四策略分别 serial pending、skip skipped、replace 一取消一成功、buffer_one supersede 旧条只跑最新。普通/race/full scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-068-two-phase-drain-same-batch-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-068-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge068-two-phase-drain-same-batch/na/na/na/na`；formal journal=`2826`，COVERAGE=`848/565/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-069`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-067 复核手动入口：HTTP `:trigger` 与 chat `trigger_workflow` 共享 `StartRun`，replace/buffer_one 下两个手动 run 仍同时进入并完成；real-firing overlap 不被手动路径误用。
+- 正式证据=`testend/rig/formal-evidence/EDGE-067-manual-trigger-bypasses-overlap-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-067-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge067-manual-trigger-bypasses-overlap/na/na/na/na`；formal journal=`2821`，COVERAGE=`848/564/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-068`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-066 复核高频 allow_all 与 pool 上限：8 条 firing 全部 seed；4 个 worker 先占满，第 5 条等待；释放后 8 个 run 全部 completed、action 各一次。focused 普通/race/allow_all+pool/full scheduler 全绿。
+- 首轮夹具 gate 键名错误已修正并重跑，生产实现没有放宽。
+- 正式证据=`testend/rig/formal-evidence/EDGE-066-overlap-allow-all-pool-cap-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-066-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge066-overlap-allow-all-pool-cap/na/na/na/na`；formal journal=`2816`，COVERAGE=`848/563/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-067`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-065 复核 replace 抢占：在途旧 run 先被 guarded transition 标 `cancelled`，新 firing 被消费并只执行一个 successor/action；同批替换回归保持一取消一成功。首轮失败来自测试 firing 缺少 `start.orderId`，已补齐夹具并保留严格断言，生产路径无放宽。
+- 正式证据=`testend/rig/formal-evidence/EDGE-065-overlap-replace-preempts-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-065-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge065-overlap-replace-preempts/na/na/na/na`；formal journal=`2811`，COVERAGE=`848/562/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-066`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-064 复核 buffer_one 收敛：在途期间旧 firing 标 `superseded`、只留最新 pending，结算后下一 drain 唯一执行最新 successor/action；focused 普通/race/store/完整 scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-064-overlap-buffer-one-converges-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-064-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge064-overlap-buffer-one-converges/na/na/na/na`；formal journal=`2806`，COVERAGE=`848/561/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-065`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-063 复核 skip overlap：在途 run 时新 firing 标记为中性 `skipped`，不建 successor、不执行 action，且不留 pending；focused 普通/race/完整 scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-063-overlap-skip-neutral-disposition-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-063-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge063-overlap-skip-neutral-disposition/na/na/na/na`；formal journal=`2801`，COVERAGE=`848/560/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-064`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-062 复核 serial overlap：在途 run 时新 firing 留 pending，前一 run 结束后的下一次 drain 才建唯一 successor/action；skip 对照仍丢弃。focused 普通/race/完整 scheduler 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-062-overlap-serial-defers-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-062-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge062-overlap-serial-defers/na/na/na/na`；formal journal=`2796`，COVERAGE=`848/559/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十四当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-063`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-061 复核两类 resync 不互顶：notifications 410 只服务生命周期，messages 410 才重建 live transcript；新增反向回归已证明前者不清 live 层，后者从 durable head 收口。定向 Flutter 共 `104 passed`。
 - 正式证据=`testend/rig/formal-evidence/EDGE-061-transcript-resync-boundary-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-061-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge061-transcript-resync-boundary/na/na/na/na`；formal journal=`2791`，COVERAGE=`848/558/0`，anchors=`10/10`，`alarms.py check` clean。

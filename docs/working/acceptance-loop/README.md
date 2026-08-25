@@ -297,7 +297,149 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-061 已完成；批次五十三已通过统一长门禁并提交，下一前线 EDGE-062)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-071 已完成；批次五十四 50/50，统一长门禁已通过并待提交，下一前线暂不推进)
+
+#### 2026-08-25 当前前线重述：EDGE-071 approval 三种超时行为；批次五十四收满
+
+timeout sweep 的三种配置均已锁定：`reject` 将 approval 决为 no 并裁掉 publish，`approve` 决为 yes 并执行 publish 一次，
+`fail` 将 approval node 与 run 都落为 failed。focused 普通、focused `-race` 和完整 scheduler 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-071-approval-timeout-behaviors-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-071-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge071-approval-timeout-behaviors`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2841`（2300 baseline + 541 live），
+`gen_coverage.py --check`=`848 rows / 568 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。批次五十四已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-54-unified-gate-20260825.md`，待本批提交，不推进下一前线。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-070 approval 人工 vs 超时 first-wins
+
+人工 YES 与已到期 timeout sweep 并发争夺同一个 parked approval 时，durable 条件更新只允许一个 winner；输家得到干净的
+`ErrNodeNotParked`，run 只结算一次，下游分支与记录的 decision 一致，之后重复决策继续被拒。focused 普通、focused `-race` 和完整
+scheduler 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-070-approval-human-timeout-first-wins-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-070-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge070-approval-human-timeout-first-wins`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2836`（2300 baseline + 536 live），
+`gen_coverage.py --check`=`848 rows / 567 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-071`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-069 ClaimFiring 事务崩溃回滚
+
+故障注入让 `ClaimFiring` 在 pending→claimed 后、提交前写入 partial `flowrun_id`，再从 callback 返回错误；事务回滚两次写入，
+firing 恢复为可重试的 `pending` 且 flowrun 关联为空，盘上不存在 claimed-but-no-run 半成品。focused 普通、focused `-race` 和完整
+trigger store 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-069-claim-firing-rollback-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-069-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge069-claim-firing-rollback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、视觉或
+discoverability session，不作虚假升级。formal journal=`2831`（2300 baseline + 531 live），
+`gen_coverage.py --check`=`848 rows / 566 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-070`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-068 两阶段 drain 背靠背触发
+
+同一批次两个同 workflow firing 在 phase-1 全部先 claim/seed、phase-2 再 advance；四种非 allow_all 策略分别得到正确耐久处置：
+serial 留第二条 pending，skip 留中性 skipped，replace 一条 cancelled 加一条成功 successor，buffer_one supersede 旧条且只跑最新条。
+普通、`-race` 与完整 scheduler 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-068-two-phase-drain-same-batch-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-068-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge068-two-phase-drain-same-batch`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2826`（2300 baseline + 526 live），
+`gen_coverage.py --check`=`848 rows / 565 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-069`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-067 手动 :trigger 绕过 overlap
+
+HTTP `:trigger` 与 chat `trigger_workflow` 共用手动 `StartRun` 咽喉，不进入 real-firing overlap policy。即使 workflow 策略为
+`replace` 或 `buffer_one`，两个并发手动 run 也会同时进入慢 action，释放后各自完成；真实 firing inbox 才应用 overlap。
+focused 普通、focused `-race`、`trigger_workflow` 契约测试和完整 scheduler 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-067-manual-trigger-bypasses-overlap-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-067-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge067-manual-trigger-bypasses-overlap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2821`（2300 baseline + 521 live），
+`gen_coverage.py --check`=`848 rows / 564 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-068`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-066 overlap allow_all 并发
+
+一次高频 inbox 批次灌入 8 条 `allow_all` firing 时，8 个独立 run 全部 seed；结构性的 Advance pool 上限为
+`advanceWorkers=4`，前四个慢 action 占满时第五个不会进入，释放后 8 个 run 全部完成且每个 action 只 dispatch 一次。
+focused 普通、focused `-race`、allow_all/pool 回归和完整 scheduler 包全部通过。首轮没有进入慢 action 是测试夹具把 gate 键写成
+`slow` 而图解析出的输入字段是 `flag`，已修正后重跑，生产池上限未被放宽。
+
+正式证据=`testend/rig/formal-evidence/EDGE-066-overlap-allow-all-pool-cap-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-066-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge066-overlap-allow-all-pool-cap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2816`（2300 baseline + 516 live），
+`gen_coverage.py --check`=`848 rows / 563 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-067`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-065 overlap replace 抢占
+
+已有 workflow run 在途时，新的 `replace` firing 先以受保护的终态转换取消旧 run，再消费 firing、创建并执行唯一
+successor；旧 run 保留为中性 `cancelled` 审计行，successor 完成且 action 恰执行一次。同批替换回归仍保持一取消一成功。
+focused 普通、focused `-race` 与完整 scheduler 包全部通过。首轮诊断发现的是测试 firing 缺少图所需的 `start.orderId`，已补齐
+夹具并保留严格成功断言，生产 replace 路径未被放宽。
+
+正式证据=`testend/rig/formal-evidence/EDGE-065-overlap-replace-preempts-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-065-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge065-overlap-replace-preempts`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2811`（2300 baseline + 511 live），
+`gen_coverage.py --check`=`848 rows / 562 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报复审后
+`alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-066`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-064 overlap buffer_one 收敛
+
+在途 run 期间连续三个真实 firing 进入 `buffer_one` workflow 时，旧两个落为 `superseded`，只保留最新一个
+`pending`；在途 run 结束前不 dispatch，下一次 drain 才执行最新 firing，successor/action 各一个。focused 普通/race、
+`SupersedeAllButNewestPending` store 测试和完整 scheduler 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-064-overlap-buffer-one-converges-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-064-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge064-overlap-buffer-one-converges`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、
+逐帧时延、视觉或 discoverability session，不作虚假升级。formal journal=`2806`（2300 baseline + 506 live），
+`gen_coverage.py --check`=`848 rows / 561 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立复审
+ack 后 `alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-065`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-063 overlap skip 丢弃
+
+真实触发进入 `skip` workflow 时，如果已有 run 在途，新 firing 不保持 pending，也不创建 successor 或 dispatch action；
+它留下明确的中性 `skipped` firing 审计行。该语义与 `serial` 的排队行为分离，避免把“没有执行”误报成失败或静默丢失。
+focused 普通/race 与完整 scheduler 包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-063-overlap-skip-neutral-disposition-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-063-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge063-overlap-skip-neutral-disposition`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig
+五通道、逐帧时延、视觉或 discoverability session，不作虚假升级。formal journal=`2801`（2300 baseline + 501 live），
+`gen_coverage.py --check`=`848 rows / 560 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立复审
+ack 后 `alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-064`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-062 overlap serial 推迟
+
+真实触发进入 `serial` workflow 时，如果已有 run 在途，第二个 firing 保留在 durable pending inbox，不并发建 run；
+前一个 run 结算后，下一次 drain 才消费它，并且只产生一个 successor/action。该语义与 `skip` 明确分开，手动
+`trigger_workflow` 不绕进 overlap policy。新增的“下一 tick 真执行”回归与原 skip 对照测试、focused race、完整 scheduler
+包全部通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-062-overlap-serial-defers-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-062-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge062-overlap-serial-defers`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig 五通道、
+逐帧时延、视觉或 discoverability session，不作虚假升级。formal journal=`2796`（2300 baseline + 496 live），
+`gen_coverage.py --check`=`848 rows / 559 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立复审
+ack 后 `alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-063`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-061 transcriptResync 不可与 lifecycleResync 互顶
 
