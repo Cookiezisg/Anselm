@@ -10,11 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过，待提交）
+## 当前前线（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过并提交）
 
 - EDGE-100 复核 LLM 工具 flowrun 节点封顶：2001-row cap regression 与真实 25 轮 loop HTTP pagination 通过，工具结果封顶 80 行、异常节点不丢、`nodeSummary` 与 REST 全量真相正确。
 - 正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`；`judge.py` 写入五格 `measure:edge100-flowrun-node-cap/na/na/na/na`；formal journal=`2986`，COVERAGE=`848/597/0`，anchors=`10/10`，`alarms.py check` clean。
-- 批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+- 批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，已提交 `d52047b4`；下一前线=`EDGE-101`，批次五十八从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
 
 - EDGE-099 复核 flowruns 两种分页互斥：handler `-race` 与真实 HTTP scenario 通过，同时给 `cursor`/`offset` 先报 `FLOWRUN_LIST_CURSOR_OFFSET_CONFLICT`，单独坏 offset 仍正确报参数错误。
 - 正式证据=`testend/rig/formal-evidence/EDGE-099-flowruns-cursor-offset-conflict-20260825.md`；`judge.py` 写入五格 `measure:edge099-flowruns-cursor-offset-conflict/na/na/na/na`；formal journal=`2981`，COVERAGE=`848/596/0`，anchors=`10/10`，`alarms.py check` clean。

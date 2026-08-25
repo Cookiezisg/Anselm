@@ -13,13 +13,13 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过，待提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-100 已收口 · 批次五十七 50/50，统一长门禁已通过并提交）
 
 ## 2026-08-25 · EDGE-100 LLM 工具 flowrun 节点封顶
 
 - 新增 2001-row scale regression 与真实 25 轮 loop HTTP 分页通过：LLM 投影封顶 80 行，保留 failure/parked 与最近 completed 尾巴，`nodeSummary` 总数正确；REST 全量分页、每轮唯一、执行审计 join 完整。
 - 正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`；五级=`measure:edge100-flowrun-node-cap/na/na/na/na`；formal journal=`2986`，COVERAGE=`848/597/0`，anchors=`10/10`，`alarms.py check` clean。
-- 批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 400+ Journey 继续推迟二期。
+- 批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，已提交 `d52047b4`；下一前线=`EDGE-101`，批次五十八从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-099 flowruns 两种分页互斥
 

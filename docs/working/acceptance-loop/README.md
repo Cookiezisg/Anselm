@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-100 已完成；批次五十七 50/50，统一长门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-100 已完成；批次五十七 50/50，统一长门禁已通过并提交)
 
 #### 2026-08-25 当前前线重述：EDGE-100 LLM 工具 flowrun 节点封顶
 
@@ -306,7 +306,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 正式证据=`testend/rig/formal-evidence/EDGE-100-flowrun-node-cap-20260825.md`。五级严格为
 `L1=measure:edge100-flowrun-node-cap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 LLM 上下文安全投影与 REST 数据真相契约，没有独立 Computer Use 逐帧、时延采集、视觉或 discoverability session。
 formal journal=`2986`（2300 baseline + 686 live），`gen_coverage.py --check`=`848 rows / 597 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
-批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，待本批提交，不推进下一前线。P12 的 400+ Journey 继续按用户裁定推迟二期。
+批次五十七已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-57-unified-gate-20260825.md`，已提交 `d52047b4`；下一前线=`EDGE-101`，批次五十八从 `0/50` 开始。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-099 flowruns 两种分页互斥
 
