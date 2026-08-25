@@ -13,7 +13,90 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-031 已收口 · 批次五十 50/50；统一长门禁已通过；下一前线 EDGE-032）
+## 当前前线覆盖声明（2026-08-25 · EDGE-041 已收口 · 批次五十一 50/50；统一长门禁已通过，待提交）
+
+## 2026-08-25 · EDGE-041 retryOf 在 close 快照里
+
+- retry assistant 的 `message_stop` close 快照经真实 JSON 带 `retryOf`，晚连客户端或 410 replay 仅凭 close 即可重建版本链；普通回合 close 不带指针。open companion、普通/race focused 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-041-retry-close-snapshot-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-041-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge041-retry-close-snapshot/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2691`，COVERAGE=`848/538/0`，anchors=`10/10`，`alarms.py check` clean。批次统一长门禁=`testend/rig/formal-evidence/batch-51-unified-gate-20260825.md` 已通过：根 `make verify`、完整 backend `testend=274.381s`、rig=`51/51`、docs、清册、锚点、警报、格式、diff 和进程收台审计全绿。当前批次=`50/50`，门禁已通过，待提交。下一前线暂不推进。P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-25 · EDGE-040 superseded 指针只挡 LLM 视图
+
+- 真实 chat service + messages store 验证：普通 older cursor 找回旧 assistant，`around=<oldId>` 以旧行作目标并保留当前版本，`dir=newer` 沿窗口游标到达更晚回合；只有 `LoadThreadForLLM` 过滤旧正文。普通、focused `-race`、完整 chat 包全绿。首稿因两行记录没有 newer cursor 而停下，补真实后续回合后修正测试假设。
+- 正式证据=`testend/rig/formal-evidence/EDGE-040-superseded-reads-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-040-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge040-superseded-reads/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2686`，COVERAGE=`848/537/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-041`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-039 `:retry` 编辑重发分支
+
+- 非空 retry 同时 supersede 原 user/assistant，落编辑后的 user 并保留原附件，模型只读编辑后的回合且不继承旧 @ snapshot；普通/race
+  focused 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-039-retry-edit-resend-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-039-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge039-retry-edit-resend/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2681`，coverage=`848/536/0`，anchors=`10/10`，警报 clean。
+  当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-040`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-038 `:retry` 重生成分支
+
+- 空 retry payload 只 supersede 末 assistant，旧回答/blocks 保留可读、不新增 user 问题，新答案走既有 queue，LLM 视图只见现行版本；
+  普通/race focused 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-038-retry-regenerate-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-038-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge038-retry-regenerate/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2676`，coverage=`848/535/0`，anchors=`10/10`，警报 clean。
+  当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-039`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-037 归档对话发消息自动解档
+
+- chat Send 对 archived thread 先尝试 `Unarchive`；成功照常生成，失败按软失败仍让消息落盘并完成 assistant close。两路径普通/race
+  focused 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-037-archived-send-unarchive-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-037-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge037-archived-send-unarchive/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2671`，coverage=`848/534/0`，anchors=`10/10`，警报 clean。
+  当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-038`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-036 只发生过一轮的对话标题丢失
+
+- 发现并修复真实缺口：`SetAutoTitle` 首次失败不再让一轮对话永久停在 `New chat`；保留已生成标题，在 detached lifecycle
+  中做一次有界 fresh-budget 重试。测试第一次失败、第二次成功，复用同一标题且无第二次模型调用；完整 chat 普通/race 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-036-autotitle-single-turn-retry-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-036-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge036-autotitle-single-turn-retry/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2666`，coverage=`848/533/0`，anchors=`10/10`，警报 clean。
+  当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-037`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-035 自动标题双预算
+
+- 现有双预算回归把慢标题生成缩短并让 provider 每次无视取消、吃完整生成预算；生成出的标题仍通过 detached lifecycle context
+  新取的五秒持久化预算落盘。普通/race focused 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-035-autotitle-dual-budget-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-035-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge035-autotitle-dual-budget/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2661`，coverage=`848/532/0`，anchors=`10/10`，警报 clean。
+  当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-036`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-034 硬崩溃孤儿回合清扫
+
+- 以 crash-shaped `pending`/`streaming` message 与 streaming block 验证 boot `SweepOrphans`：目标 workspace 全部变为
+  `cancelled/StopReasonCancelled`，block 同步收尾；另一个 workspace 保持原状。普通/race focused 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-034-sweep-orphans-workspace-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-034-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge034-sweep-orphans-workspace/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2656`，coverage=`848/531/0`，anchors=`10/10`，警报 clean。
+  当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-035`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-033 关页不留 streaming 孤儿
+
+- 新增真实 chat service 取消回归：provider 流式已开始后调用 conversation cancel，Detached `WriteFinalize` 仍落
+  `cancelled/StopReasonCancelled` 并发 `message_stop`；store 终态可读，queue 不再 active。普通/race focused 全绿，无 stop-and-fix。
+- 正式证据=`testend/rig/formal-evidence/EDGE-033-cancel-stream-finalize-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-033-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge033-cancel-stream-finalize/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2651`，coverage=`848/530/0`，anchors=`10/10`，警报 clean。
+  当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-034`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-032 convQueue 5 分钟自毁后重建
+
+- 生产 idle 策略仍为五分钟；测试 seam 只缩短时长以确定性验证：首回合结束后队列从 registry 消失，后续 Send 创建新队列并正常
+  `message_stop`。拆卸/投递共用 `q.mu`，没有死 channel；测试发现并修复两处 timer reset 写死常量的问题，生产默认行为不变。普通/race
+  chat 全包绿，无 stop-and-fix 遗留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-032-convqueue-idle-recreate-20260825.md`；警报复审=
+  `testend/rig/formal-evidence/EDGE-032-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge032-convqueue-idle-recreate/na/na/na/na`，
+  不伪造真实 App 五通道/视觉/导航证据。formal journal=`2646`，coverage=`848/529/0`，anchors=`10/10`，警报 clean。
+  当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-033`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-031 回合收尾期单槽缓冲
 

@@ -36,8 +36,19 @@ const idleTimeout = 5 * time.Minute
 // q.mu 下原子完成：enqueue 在同一锁下查 dead 再投，task 要么落在最终抽干之前（被服务）、要么看见
 // dead 重建队列——不可能滞留死 channel。s.stop 在关停时短路循环（在跑回合已被 Shutdown 取消）。
 func (s *Service) runQueue(conversationID string, q *convQueue) {
+	timeout := s.queueIdleTimeout
+	if timeout <= 0 {
+		timeout = idleTimeout
+	}
+	s.runQueueWithIdleTimeout(conversationID, q, timeout)
+}
+
+// runQueueWithIdleTimeout contains the queue lifecycle so focused tests can exercise the
+// five-minute teardown/recreation contract without sleeping for five minutes.
+// runQueueWithIdleTimeout 抽出队列生命周期，使聚焦测试无需真的睡五分钟就能验证拆卸/重建契约。
+func (s *Service) runQueueWithIdleTimeout(conversationID string, q *convQueue, timeout time.Duration) {
 	defer s.wg.Done()
-	idle := time.NewTimer(idleTimeout)
+	idle := time.NewTimer(timeout)
 	defer idle.Stop()
 
 	for {
@@ -60,7 +71,7 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 			q.setRunning(true)
 			s.processTask(conversationID, q, t)
 			q.setRunning(false)
-			idle.Reset(idleTimeout)
+			idle.Reset(timeout)
 
 		case <-idle.C:
 			// Atomic teardown: mark dead + deregister + final drain all under q.mu, so a
@@ -75,7 +86,7 @@ func (s *Service) runQueue(conversationID string, q *convQueue) {
 				q.setRunning(true)
 				s.processTask(conversationID, q, t)
 				q.setRunning(false)
-				idle.Reset(idleTimeout)
+				idle.Reset(timeout)
 				continue
 			default:
 			}

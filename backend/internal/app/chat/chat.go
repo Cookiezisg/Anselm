@@ -326,6 +326,10 @@ type Service struct {
 	wg       sync.WaitGroup
 	stop     chan struct{} // closed by Shutdown: short-circuits every runQueue loop
 	stopOnce sync.Once
+	// queueIdleTimeout remains the production five-minute policy; tests may shorten it without
+	// changing the runtime contract, so idle teardown and on-demand recreation stay deterministic.
+	// queueIdleTimeout 保持生产五分钟策略；测试可缩短它而不改变运行时契约，使空闲拆卸与按需重建可确定验证。
+	queueIdleTimeout time.Duration
 	// lifecycleCtx cancels best-effort background work (auto-title and compaction) at service
 	// shutdown without coupling it to the request/turn context. A background task may outlive a
 	// turn, but it must not outlive the service's database.
@@ -353,6 +357,7 @@ func NewService(messages messagesdomain.Repository, deps Deps, log *zap.Logger) 
 		mentionResolvers: map[mentiondomain.MentionType]mentiondomain.Resolver{},
 		log:              log,
 		stop:             make(chan struct{}),
+		queueIdleTimeout: idleTimeout,
 		lifecycleCtx:     lifecycleCtx,
 		lifecycleCancel:  lifecycleCancel,
 	}

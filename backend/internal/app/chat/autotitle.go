@@ -40,6 +40,13 @@ var autoTitleTimeout = 10 * time.Second
 // utility 生成的标题和本地首句兜底标题。这是把 S9 读到底:异步 finalize 不该被它之前的那一步取消。
 const autoTitlePersistTimeout = 5 * time.Second
 
+// autoTitlePersistAttempts bounds recovery from a transient local write failure without turning
+// best-effort title work into an unbounded background retry loop.
+// autoTitlePersistAttempts 限制本地写入瞬时失败的恢复次数，避免 best-effort 标题变成无界后台重试。
+const autoTitlePersistAttempts = 2
+
+var autoTitlePersistRetryDelay = 100 * time.Millisecond
+
 // autoTitleSystem instructs the utility model to produce a bare title. End-of-prompt phrasing +
 // "output only the title" keeps small models from adding quotes / preamble.
 //
@@ -138,11 +145,29 @@ func (s *Service) autoTitle(conversationID, workspaceID string) {
 	// 行 + 触发标题打字机）。这是唯一发信——chat 不再重复通知。
 	// The persist gets a FRESH deadline off the lifecycle context — never the leftover of the generate
 	// budget (WRK-083 L11). 落盘从 lifecycle context 取一个**新鲜的** deadline——绝不是生成预算的残额。
-	pctx, pcancel := context.WithTimeout(dctx, autoTitlePersistTimeout)
-	defer pcancel()
-	if err := s.deps.Titler.SetAutoTitle(pctx, conversationID, title); err != nil {
-		s.log.Warn("chatapp.autoTitle: set title failed", zap.Error(err))
-		return
+	for attempt := 1; attempt <= autoTitlePersistAttempts; attempt++ {
+		pctx, pcancel := context.WithTimeout(dctx, autoTitlePersistTimeout)
+		err := s.deps.Titler.SetAutoTitle(pctx, conversationID, title)
+		pcancel()
+		if err == nil {
+			return
+		}
+		s.log.Warn("chatapp.autoTitle: set title failed", zap.Int("attempt", attempt), zap.Error(err))
+		if attempt == autoTitlePersistAttempts {
+			return
+		}
+		timer := time.NewTimer(autoTitlePersistRetryDelay)
+		select {
+		case <-timer.C:
+		case <-dctx.Done():
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return
+		}
 	}
 }
 

@@ -10,7 +10,75 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-031 已收口 · 批次五十 50/50；统一长门禁已通过；下一前线 EDGE-032）
+## 当前前线（2026-08-25 · EDGE-041 已收口 · 批次五十一 50/50；统一长门禁已通过，待提交）
+
+- EDGE-041 复核 retry close 快照：真实 JSON 的 `message_stop` 带 `retryOf`，晚连/replay 客户端仅凭 close 可重建版本链，普通 close 不带指针；open companion、普通/race focused 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-041-retry-close-snapshot-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-041-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge041-retry-close-snapshot/na/na/na/na`；formal journal=`2691`，COVERAGE=`848/538/0`，anchors=`10/10`，`alarms.py check` clean。批次统一长门禁=`testend/rig/formal-evidence/batch-51-unified-gate-20260825.md` 已通过：根 `make verify`、完整 backend `testend=274.381s`、rig=`51/51`、docs、清册、锚点、警报、格式、diff 和进程收台审计全绿。当前批次=`50/50`，门禁已通过，待提交。下一前线暂不推进。P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-040 复核 superseded 读路径：真实 service/store 的普通 older cursor 可找回旧 assistant，`around` 可用旧 ID 定位且保留当前版本，`dir=newer` 可续到后续回合；仅 LLM projection 隐去旧正文。普通、focused `-race`、完整 chat 包全绿；首稿错误期待两行记录产生 newer cursor，已停下补后续真实回合再继续。
+- 正式证据=`testend/rig/formal-evidence/EDGE-040-superseded-reads-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-040-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge040-superseded-reads/na/na/na/na`；formal journal=`2686`，COVERAGE=`848/537/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-041`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-039 复核编辑重发：双 supersede、编辑后的 user、原附件保留、edited-only LLM view 与无旧 @ snapshot 均由普通/race focused 锁定，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-039-retry-edit-resend-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-039-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge039-retry-edit-resend/na/na/na/na`；formal journal=`2681`，COVERAGE=`848/536/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-040`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-038 复核 retry 重生成：空 payload 只换 assistant，旧版本/blocks 仍可读，不新增 user，LLM 只读现行版本；普通/race focused 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-038-retry-regenerate-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-038-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge038-retry-regenerate/na/na/na/na`；formal journal=`2676`，COVERAGE=`848/535/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-039`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-037 复核 archived Send：先尝试 `Unarchive`；成功照常生成，失败按软失败仍完成消息与 assistant close；成功/失败两路径普通/race
+  focused 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-037-archived-send-unarchive-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-037-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge037-archived-send-unarchive/na/na/na/na`；formal journal=`2671`，COVERAGE=`848/534/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-038`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-036 发现并修复一轮标题持久化缺口：首次 `SetAutoTitle` 失败不再永久留下 `New chat`，改为复用生成标题做一次有界 fresh-budget
+  重试；第一次失败、第二次成功且无第二次模型调用，完整 chat 普通/race 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-036-autotitle-single-turn-retry-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-036-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge036-autotitle-single-turn-retry/na/na/na/na`；formal journal=`2666`，COVERAGE=`848/533/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-037`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-035 复核自动标题双预算：慢生成吃完整预算后，fresh detached persist budget 仍让已生成的标题落盘；现有 focused 普通/race 全绿，
+  无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-035-autotitle-dual-budget-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-035-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge035-autotitle-dual-budget/na/na/na/na`；formal journal=`2661`，COVERAGE=`848/532/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-036`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-034 复核 boot SweepOrphans：目标 workspace 的 pending/streaming 回合及 streaming block 全部收扫为
+  `cancelled/StopReasonCancelled`，另一个 workspace 不受影响；普通/race focused 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-034-sweep-orphans-workspace-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-034-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge034-sweep-orphans-workspace/na/na/na/na`；formal journal=`2656`，COVERAGE=`848/531/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-035`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-033 复核真实 chat service 流式中取消：provider 已开始后触发 cancel，Detached `WriteFinalize` 落
+  `cancelled/StopReasonCancelled`、发 `message_stop`，store 无 streaming 孤儿且 queue 不再 active；普通/race focused 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-033-cancel-stream-finalize-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-033-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge033-cancel-stream-finalize/na/na/na/na`；formal journal=`2651`，COVERAGE=`848/530/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-034`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-032 复核 convQueue 五分钟空闲拆卸后按需重建：测试只缩短 seam，首回合完成后 registry 消失，后续 Send 取得新队列并落
+  `message_stop`；拆卸与投递共用 `q.mu`。期间发现并修复两处 timer reset 写死生产常量的问题，普通/race chat 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-032-convqueue-idle-recreate-20260825.md`；独立警报复审=
+  `testend/rig/formal-evidence/EDGE-032-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格
+  `measure:edge032-convqueue-idle-recreate/na/na/na/na`；formal journal=`2646`，COVERAGE=`848/529/0`，
+  anchors=`10/10`，`alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-033`。
+  P12 400+ Journey 继续按用户裁定推迟二期。
 
 - EDGE-031 复核回合收尾期单槽：compaction 阻塞时一条后续 Send 可入槽但不提前启动，释放后才运行；blocking
   compactor/provider barrier 普通/race 全绿，无实现红线。
