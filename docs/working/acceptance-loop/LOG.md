@@ -10,7 +10,7 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-280 已收口 · 批次七十五 50/50，统一门禁待执行）
+## 当前前线（2026-08-26 · EDGE-280 已收口 · 批次七十五 50/50，统一门禁通过，已提交=8cb72f0a）
 
 ## 2026-08-26 · EDGE-271..280 批次七十五收口
 
@@ -20,7 +20,9 @@ landed-into:
   `testend/rig/formal-evidence/EDGE-280-agent-knowledge-deleted-20260826.md`；警报复审=
   `testend/rig/formal-evidence/batch-75-ledger-alarm-reaudit-20260826.md`。
 - formal journal=`3886`（2300 baseline + 1586 live），`COVERAGE=848/777/0`，`anchors=10/10`，
-  `alarms.py check` clean；批次七十五=`50/50`，统一长门禁待执行、尚未提交。P12 400+ Journey 按用户裁定推迟二期。
+  `alarms.py check` clean；批次七十五=`50/50`，统一长门禁与审计全绿，证据=
+  `testend/rig/formal-evidence/batch-75-unified-gate-20260826.md`，已提交=`8cb72f0a`。下一原子前线=
+  `EDGE-281`，批次七十六=`0/50`。P12 400+ Journey 按用户裁定推迟二期。
 
 ## 2026-08-26 · EDGE-261..270 批次七十四收口
 
