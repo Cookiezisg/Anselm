@@ -297,23 +297,22 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-240 已完成；批次七十一 50/50，统一门禁通过，已提交=a12a0e03)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-250 已完成；批次七十二 50/50，统一门禁待跑)
 
-#### 2026-08-26 当前前线重述：EDGE-231..240 批次七十一已收口 focused L1
+#### 2026-08-26 当前前线重述：EDGE-241..250 批次七十二已收口 focused L1
 
-批次七十一按序完成 `EDGE-231..240` 共 10 个边界、50 个账本格。十格的 L1 均由可定位的 focused
-回归或现有正式证据支持，五格均为 `✓~~~~`；没有把本轮单测、源代码检查或历史文字冒充真实 App 五通道，
-故 L2-L5 全部明确为 `na`。覆盖内容依次为：断网启动、模型目录刷新失败、boot 重挂与 misfire 顺序、优雅
-关停、关停预算、父进程监视、坏 settings、三段 settings 整体写、CHECK 重建和 ADD COLUMN 幂等。
+批次七十二按序完成 `EDGE-241..250` 共 10 个边界、50 个账本格。十格的 L1 均由可定位的 focused
+回归或已有真实证据支持，五格均为 `✓~~~~`；没有把本轮单测、源代码检查或历史文字冒充新的真实 App 五通道，
+故 L2-L5 全部明确为 `na`。覆盖内容依次为：换 master key、旧装机 keychain、出厂重置、bearer/workspace
+认证门、Host rebinding 门、404/405 envelope、断连/超时、后台裸 context 与 workspace 级联删除。
 
-正式证据分别为 `testend/rig/formal-evidence/EDGE-231-offline-boot-20260826.md` 至
-`EDGE-240-add-column-idempotency-20260826.md`；独立警报复审=
-`testend/rig/formal-evidence/batch-71-ledger-alarm-reaudit-20260826.md`。formal journal=`3686`
-（2300 baseline + 1386 live），`gen_coverage.py --check`=`848 rows / 737 carried judgments / 0 tombstones`，
+正式证据分别为 `testend/rig/formal-evidence/EDGE-241-master-key-rotation-20260826.md` 至
+`EDGE-250-workspace-cascade-delete-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-72-ledger-alarm-reaudit-20260826.md`。
+formal journal=`3736`（2300 baseline + 1436 live），`gen_coverage.py --check`=`848 rows / 747 carried judgments / 0 tombstones`，
 批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。
-- 批次七十一已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-71-unified-gate-20260826.md`，根
-  `make verify`、完整 backend `testend`、rig 自测、backend/docs verify、锚点、警报、脚本语法、gofmt、diff
-  和进程收台审计全部通过；已提交=`a12a0e03`。下一原子前线=`EDGE-241`。P12 400+ Journey 继续按用户裁定推迟二期。
+- 批次七十二已满=`50/50`；统一长门禁待跑，未提交。下一原子前线暂不推进，必须先复跑根 `make verify`、完整
+  backend `testend`、rig 自测、backend/docs verify、锚点、警报、脚本语法、gofmt、diff 和进程收台审计。
+  P12 400+ Journey 继续按用户裁定推迟二期。
   P12 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-229 多块 TTS PCM 拼接
