@@ -90,6 +90,41 @@ func TestPublishEphemeralSeqZeroNotBuffered(t *testing.T) {
 	}
 }
 
+// TestPublishEphemeralDropsOnFullSubscriberWithoutBlocking locks the token-rate path: a subscriber
+// that never reads may fill its channel, but ephemeral deltas are dropped rather than applying
+// backpressure to the publisher or entering the durable replay sequence.
+//
+// TestPublishEphemeralDropsOnFullSubscriberWithoutBlocking 锁住 token 级路径：订阅者不读导致 channel 满时，
+// ephemeral delta 必须丢弃，不能反压发布方，也不能进入 durable replay 序列。
+func TestPublishEphemeralDropsOnFullSubscriberWithoutBlocking(t *testing.T) {
+	b := New(1)
+	ctx := wsCtx("ws1")
+	ch, cancel, err := b.Subscribe(ctx, 0)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer cancel()
+	_ = ch // deliberately never read
+
+	done := make(chan struct{})
+	go func() {
+		for i := 0; i < 100_000; i++ {
+			if _, err := b.Publish(ctx, ephemeralEvent()); err != nil {
+				return
+			}
+		}
+		close(done)
+	}()
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("ephemeral Publish blocked on a full subscriber")
+	}
+	if env, err := b.Publish(ctx, durableEvent()); err != nil || env.Seq != 1 {
+		t.Fatalf("ephemeral flood must not consume durable seq or block durable publish: %+v, %v", env, err)
+	}
+}
+
 func TestPublishRequiresWorkspace(t *testing.T) {
 	b := New(16)
 	_, err := b.Publish(context.Background(), durableEvent())

@@ -340,4 +340,49 @@ void main() {
       );
     },
   );
+
+  test(
+    'notifications resync cannot replace messages resync for the live transcript',
+    () async {
+      final (c, repo) = _setup(messages: {'cv_1': []});
+      c.listen(conversationStreamProvider('cv_1'), (_, _) {});
+      await pumpEventQueue();
+      final ctl = c.read(conversationStreamProvider('cv_1').notifier);
+
+      repo.emitFrame(
+        'cv_1',
+        _open('msg_a', 'message', content: {'role': 'assistant'}),
+      );
+      await pumpEventQueue();
+      expect(ctl.transcript.value.liveTurns, hasLength(1));
+
+      // A notifications gap belongs to lifecycle consumers; it must not tear down the messages live
+      // layer or pretend to have rehydrated the transcript.
+      // notifications 缺口只归生命周期消费者;不能拆 messages 活层或冒充 transcript 已水化。
+      repo.emitLifecycleResync();
+      await pumpEventQueue();
+      expect(ctl.transcript.value.liveTurns, hasLength(1));
+
+      repo.appendMessage(
+        'cv_1',
+        _turn(
+          'msg_a',
+          'assistant',
+          hour: 11,
+          blocks: [
+            ChatBlock(
+              id: 'ba',
+              type: 'text',
+              content: '完整答案',
+              status: 'completed',
+            ),
+          ],
+        ),
+      );
+      repo.emitResync();
+      await pumpEventQueue();
+      expect(ctl.transcript.value.liveTurns, isEmpty);
+      expect(ctl.transcript.value.settled.map((n) => n.id), ['msg_a']);
+    },
+  );
 }

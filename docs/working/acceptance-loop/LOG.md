@@ -10,7 +10,39 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过并提交；下一前线 EDGE-052）
+## 当前前线（2026-08-25 · EDGE-061 已收口 · 批次五十三 50/50 已通过统一长门禁并提交；下一前线 EDGE-062）
+
+- EDGE-061 复核两类 resync 不互顶：notifications 410 只服务生命周期，messages 410 才重建 live transcript；新增反向回归已证明前者不清 live 层，后者从 durable head 收口。定向 Flutter 共 `104 passed`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-061-transcript-resync-boundary-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-061-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge061-transcript-resync-boundary/na/na/na/na`；formal journal=`2791`，COVERAGE=`848/558/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十三已达到=`50/50`；统一长门禁、完整 testend、rig 自测、覆盖/锚点/警报和残留进程审计均通过，证据=`testend/rig/formal-evidence/batch-53-unified-gate-20260825.md`；本批次随后提交。下一前线=`EDGE-062`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-060 复核 notifications 410 配对：chat rail、对话头、实体列表、实体详情、Library 文档树和 Skill 列表均在同一 `lifecycleResync()` 上重取；源码守卫与 410 行为测试共同锁定。
+- 正式证据=`testend/rig/formal-evidence/EDGE-060-lifecycle-resync-six-pairing-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-060-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge060-lifecycle-resync-six-pairing/na/na/na/na`；formal journal=`2786`，COVERAGE=`848/557/0`，anchors=`10/10`，`alarms.py check` clean。
+- 当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-061`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-059 复核 ephemeral flood：慢订阅者满载时 delta 丢弃、生产不阻塞、durable seq 不被消费；普通/race/full stream 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-059-ephemeral-delta-drop-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-059-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge059-ephemeral-delta-drop/na/na/na/na`；formal journal=`2781`，COVERAGE=`848/556/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-060`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-058 复核 durable 背压：只读订阅者被断开，发布方不被阻塞，取消幂等；普通/race/full stream 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-058-durable-buffer-wedged-subscriber-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-058-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge058-durable-buffer-wedged-subscriber/na/na/na/na`；formal journal=`2776`，COVERAGE=`848/555/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-059`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-057 复核 cursor 来源：header 优先、query fallback、缺失/非法实时-only，410 映射保持一致；普通/race/full handlers 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-057-sse-cursor-sources-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-057-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge057-sse-cursor-sources/na/na/na/na`；formal journal=`2771`，COVERAGE=`848/554/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-058`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-056 复核 SSE 环淘汰：Bus 单测与真实 HTTP/SSE 场景均得到 410 `SEQ_TOO_OLD`；仅 L1 记绿，L2-L5 按 formal rig 缺席明确 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-056-sse-seq-too-old-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-056-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge056-sse-seq-too-old/na/na/na/na`；formal journal=`2766`，COVERAGE=`848/553/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-057`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-055 复核最近两条底线：两条超长 durable message 不被 persistent compaction 动作，prompt checkpoint 独立通过；普通/race/full contextmgr 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-055-recent-two-durable-floor-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-055-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge055-recent-two-durable-floor/na/na/na/na`；formal journal=`2761`，COVERAGE=`848/552/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-056`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-054 复核附件跨 watermark：summary 留 opaque attachment ID，旧 block 归档，后续可经 `read_attachment` 重读；普通/race/full contextmgr 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-054-attachment-across-compaction-watermark-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-054-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge054-attachment-across-compaction-watermark/na/na/na/na`；formal journal=`2756`，COVERAGE=`848/551/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-055`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-053 复核混合长工具链：tool-result 按梯度降级，用户原话/大粘贴与 assistant 正文不进入 demote update，普通/race/full contextmgr 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-053-demote-only-tool-results-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-053-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge053-demote-only-tool-results/na/na/na/na`；formal journal=`2751`，COVERAGE=`848/550/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-054`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-052 复核压缩读过滤：真实 `MaybeCompact` 摘要输入只含当前 assistant、不含 superseded 旧回答，水位推进到当前 block；普通/race/full contextmgr 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-052-compaction-filters-superseded-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-052-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge052-compaction-filters-superseded/na/na/na/na`；formal journal=`2746`，COVERAGE=`848/549/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-053`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-051 复核 compaction crash window：watermark 先写后崩溃，恢复不重复摘要、不重复 archive/anchor，旧 hot block 仍被水位挡住；普通/race/full contextmgr 全绿。
 - 正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge051-compaction-watermark-idempotency/na/na/na/na`；formal journal=`2741`，COVERAGE=`848/548/0`，anchors=`10/10`，`alarms.py check` clean。统一长门禁=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md` 已通过：根验证、完整 testend、rig、docs、清册、锚点、警报、格式、diff 与进程收台审计全绿。当前批次=`50/50`，门禁已通过并提交=`8ed36a5e`；下一前线=`EDGE-052`。P12 400+ Journey 继续推迟二期。

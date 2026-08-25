@@ -297,7 +297,155 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-051 已完成；批次五十二 50/50，统一长门禁已通过并提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-061 已完成；批次五十三已通过统一长门禁并提交，下一前线 EDGE-062)
+
+#### 2026-08-25 当前前线重述：EDGE-061 transcriptResync 不可与 lifecycleResync 互顶
+
+messages 流与 notifications 流的 410 语义保持严格分离：`lifecycleResync()` 只负责生命周期投影，
+`transcriptResync()` 只负责 messages 活层、人在环交互、rundown、touchpoint 和 activity dots。对话列表
+作为同时拥有两类状态的 rail 同时订阅两者；transcript controller 只订 messages。新增反向回归证明 notifications
+resync 到达时 live transcript 保持不动，随后 messages resync 才从 durable head 收口；对话流、人在环、列表、
+transcript、touchpoint 和 jump 相关测试共 `104 passed`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-061-transcript-resync-boundary-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-061-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge061-transcript-resync-boundary`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig
+五通道、逐帧时延、视觉或 discoverability session，不作虚假升级。formal journal=`2791`（2300 baseline + 491 live），
+`gen_coverage.py --check`=`848 rows / 558 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立复审
+ack 后 `alarms.py check` clean。批次五十三已达到=`50/50`，统一长门禁已通过并提交；完整证据=
+`testend/rig/formal-evidence/batch-53-unified-gate-20260825.md`。下一前线=`EDGE-062`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-060 lifecycleResync 六处配对
+
+notifications 流的 410 缺口现在由六类生命周期消费者各自回答：chat rail、对话头、实体列表、实体详情、
+Library 文档树和 Skill 列表均订阅同一 `lifecycleResync()`；文档树与 Skill 复用 400ms 去抖，列表/详情/头部
+走 provider 重取。源码守卫会拒绝未来只订 `lifecycleSignals()` 不订同流 resync 的消费者。定向 Flutter 守卫、
+对话 rail 410 行为、对话头、实体列表/详情和 Library 测试共 `115 passed`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-060-lifecycle-resync-six-pairing-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-060-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge060-lifecycle-resync-six-pairing`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：没有独立 formal rig
+五通道、逐帧时延、视觉或 discoverability session，不作虚假升级。formal journal=`2786`（2300 baseline + 486 live），
+`gen_coverage.py --check`=`848 rows / 557 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立复审
+ack 后 `alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-061`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-059 ephemeral delta 丢弃不背压
+
+真实 stream Bus 测试对一个只连接不读取的订阅者发布 100,000 个 ephemeral delta；洪峰在 2 秒守卫内完成，
+满 channel 时 delta 被丢弃而不是反压生产者。随后发布 durable frame 仍得到 seq 1，证明 ephemeral 不占 durable
+序列、不进 replay ring。普通、focused `-race` 与完整 stream 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-059-ephemeral-delta-drop-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-059-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge059-ephemeral-delta-drop`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2781`（2300 baseline + 481 live），
+`gen_coverage.py --check`=`848 rows / 556 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-060`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-058 durable buffer 满断开卡死订阅者
+
+真实 stream Bus 测试建立一个只连接不读取的订阅者，灌入 `bufSize + subscriberHeadroom + 10` 个 durable frame。
+发布方在 3 秒守卫内完成，满载订阅者被断开，没有长期持有 workspace fan-out mutex；取消路径仍幂等。普通、focused
+`-race` 与完整 stream 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-058-durable-buffer-wedged-subscriber-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-058-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge058-durable-buffer-wedged-subscriber`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2776`（2300 baseline + 476 live），
+`gen_coverage.py --check`=`848 rows / 555 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-059`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-057 续传游标三来源
+
+真实 stream handler 测试覆盖所有 cursor 来源与优先级：合法 `Last-Event-ID` header 优先于 `fromSeq` query，
+header 缺失时使用 query，缺失或非法值归零为 `0`（仅实时、不 replay）；同一 handler 也把环外 cursor 映射为
+HTTP 410。普通、focused `-race` 与完整 handlers 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-057-sse-cursor-sources-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-057-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge057-sse-cursor-sources`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、帧时延、
+视觉或导航证据；各 na 理由已落盘。formal journal=`2771`（2300 baseline + 471 live），
+`gen_coverage.py --check`=`848 rows / 554 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-058`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-056 SSE 410 SEQ_TOO_OLD 重放
+
+backend Bus 单测在小 replay ring 中证明旧 cursor 返回 `ErrSeqTooOld`；真实 HTTP/SSE 场景灌满生产环后，
+使用已淘汰 cursor 重连得到 `410 Gone + SEQ_TOO_OLD`，transport 没有静默从未知位置继续。L1 通过；没有独立
+formal rig 五通道 session，因此 L2-L5 严格记 `na`，不把 targeted harness 结果冒充完整观察链。普通、focused
+`-race`、完整 stream 包与 targeted e2e 全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-056-sse-seq-too-old-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-056-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge056-sse-seq-too-old`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App 五通道、
+帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2766`（2300 baseline + 466 live），
+`gen_coverage.py --check`=`848 rows / 553 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-057`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-055 最近 2 条 message 的 durable 底线
+
+真实 context-manager 入口收到恰好两条、且都远超触发估算的 durable message。持久化 compaction 遵守最近
+两条逐字底线：不写 summary、不归档、不落 compaction anchor、不 demote，两个 block 都保持 hot；独立的
+continuation-checkpoint 投影测试同时通过，证明 loop 仍可在内存 prompt 层收缩而不削弱 durable 底线。普通、focused
+`-race` 与完整 contextmgr 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-055-recent-two-durable-floor-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-055-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge055-recent-two-durable-floor`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2761`（2300 baseline + 461 live），
+`gen_coverage.py --check`=`848 rows / 552 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-056`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-054 附件跨压缩水位
+
+真实 `MaybeCompact` 路径收到一个携带原生附件引用的旧 user 回合；因原生媒体不适用文本 bytes/token
+估算，该回合被强制跨过压缩水位。summary 输入保留 opaque attachment ID，旧 block 归档，后续 agent 获得
+诚实的 `read_attachment` 重读路线，而不是编造媒体细节或无限重放原生内容。普通、focused `-race` 与完整
+contextmgr 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-054-attachment-across-compaction-watermark-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-054-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge054-attachment-across-compaction-watermark`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2756`（2300 baseline + 456 live），
+`gen_coverage.py --check`=`848 rows / 551 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-055`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-053 demote 只动 tool_result
+
+真实 context-manager demotion 收到一个混合长回合：同一 assistant message 含解释文本与 16 个 tool-result，
+更早 user message 含大段粘贴。demote 只按新旧给 tool-result 分配 hot/warm/cold；user 粘贴与 assistant 解释
+逐字不变、仍为 hot，且没有进入 context-role update。普通、focused `-race` 与完整 contextmgr 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-053-demote-only-tool-results-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-053-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge053-demote-only-tool-results`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2751`（2300 baseline + 451 live），
+`gen_coverage.py --check`=`848 rows / 550 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-054`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-052 压缩读过滤被取代回合
+
+真实 `MaybeCompact` 入口收到一条旧 assistant（`superseded_by` 指向当前 assistant）与当前版本。
+当前版本进入最老非保护压缩窗口；utility summary prompt 含当前回答、不含旧回答，水位推进到当前 block。
+这证明压缩读与 LLM 使用同一现行版本投影，旧 retry 回答不会经 summary 回流到后续 prompt。普通、focused
+`-race` 与完整 contextmgr 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-052-compaction-filters-superseded-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-052-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge052-compaction-filters-superseded`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2746`（2300 baseline + 446 live），
+`gen_coverage.py --check`=`848 rows / 549 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-053`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-051 压缩水位幂等键
 

@@ -13,7 +13,63 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过并提交；下一前线 EDGE-052）
+## 当前前线覆盖声明（2026-08-25 · EDGE-061 已收口 · 批次五十三 50/50 已通过统一长门禁并提交；下一前线 EDGE-062）
+
+## 2026-08-25 · EDGE-061 transcriptResync 不可与 lifecycleResync 互顶
+
+- messages 与 notifications 的 410 语义严格分离；对话列表同时订阅两者，transcript 只订 messages。新增反向回归证明 notifications resync 不会清掉 live transcript，messages resync 才能从 durable head 收口。
+- 对话流、人在环、列表、transcript、touchpoint 和 jump 相关 Flutter 测试共 `104 passed`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-061-transcript-resync-boundary-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-061-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge061-transcript-resync-boundary/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2791`，COVERAGE=`848/558/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十三已达到=`50/50`；统一长门禁、完整 testend、rig 自测、覆盖/锚点/警报和残留进程审计均通过，证据=`testend/rig/formal-evidence/batch-53-unified-gate-20260825.md`；本批次随后提交。下一前线=`EDGE-062`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-060 lifecycleResync 六处配对
+
+- notifications 流 410 的同流 resync 已由 chat rail、对话头、实体列表、实体详情、Library 文档树和 Skill 列表六类消费者接线；源码守卫阻止未来漏接。
+- 定向 Flutter 守卫、对话 rail 410 重取、对话头、实体列表/详情和 Library 测试共 `115 passed`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-060-lifecycle-resync-six-pairing-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-060-ledger-alarm-reaudit-20260825.md`。
+- 五级=`measure:edge060-lifecycle-resync-six-pairing/na/na/na/na`；不伪造真实 App 五通道、帧时延、视觉或导航证据。formal journal=`2786`，COVERAGE=`848/557/0`，anchors=`10/10`，`alarms.py check` clean。
+- 当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-061`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-059 ephemeral delta 丢弃不背压
+
+- 真实 Bus 对慢订阅者灌 100,000 个 ephemeral delta 在 bounded guard 内完成，后续 durable seq 仍从 1 开始；普通/race/full stream 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-059-ephemeral-delta-drop-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-059-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge059-ephemeral-delta-drop/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2781`，COVERAGE=`848/556/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-060`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-058 durable buffer 满断开卡死订阅者
+
+- 真实 Bus 对只读订阅者灌满 durable channel 后在 bounded guard 内完成发布并断开卡死订阅者；普通/race/full stream 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-058-durable-buffer-wedged-subscriber-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-058-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge058-durable-buffer-wedged-subscriber/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2776`，COVERAGE=`848/555/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-059`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-057 续传游标三来源
+
+- 真实 handler 测试证明 `Last-Event-ID` > `fromSeq` > 缺失/非法归零，环外仍映射 410；普通/race/full handlers 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-057-sse-cursor-sources-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-057-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge057-sse-cursor-sources/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2771`，COVERAGE=`848/554/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-058`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-056 SSE 410 SEQ_TOO_OLD 重放
+
+- backend Bus 与真实 HTTP/SSE targeted scenario 均证明环外 cursor 返回 410 `SEQ_TOO_OLD`；L1 通过，因无独立 formal rig 五通道 session，L2-L5 严格 na；普通/race/full stream 与 targeted e2e 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-056-sse-seq-too-old-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-056-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge056-sse-seq-too-old/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2766`，COVERAGE=`848/553/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-057`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-055 最近 2 条 message 的 durable 底线
+
+- 真实两条超长 durable message 证明 persistent compaction 不越过最近两条：无 summary/archive/anchor/demote；独立 checkpoint 投影仍通过；普通/race/full contextmgr 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-055-recent-two-durable-floor-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-055-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge055-recent-two-durable-floor/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2761`，COVERAGE=`848/552/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-056`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-054 附件跨压缩水位
+
+- 真实 contextmgr 路径证明旧附件回合跨水位时 summary 只保留 opaque ID、旧 block 归档，后续通过 `read_attachment` 重读；普通/race/full contextmgr 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-054-attachment-across-compaction-watermark-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-054-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge054-attachment-across-compaction-watermark/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2756`，COVERAGE=`848/551/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-055`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-053 demote 只动 tool_result
+
+- 真实混合长回合证明 demote 只给 tool-result 分配 hot/warm/cold，user 大粘贴与 assistant 解释文本原文和 hot 状态不变；普通/race/full contextmgr 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-053-demote-only-tool-results-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-053-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge053-demote-only-tool-results/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2751`，COVERAGE=`848/550/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-054`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-052 压缩读过滤被取代回合
+
+- 真实 `MaybeCompact` 入口证明旧 assistant 版本不进入 summary prompt，当前版本进入压缩并推进水位；普通/race/full contextmgr 全绿，无实现红线。
+- 正式证据=`testend/rig/formal-evidence/EDGE-052-compaction-filters-superseded-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-052-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge052-compaction-filters-superseded/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2746`，COVERAGE=`848/549/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-053`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-051 压缩水位幂等键
 

@@ -2,6 +2,7 @@ package contextmgr
 
 import (
 	"context"
+	"fmt"
 	"iter"
 	"slices"
 	"strings"
@@ -193,6 +194,36 @@ func TestMaybeCompact_UnknownWindow(t *testing.T) {
 	}
 }
 
+// TestMaybeCompact_TwoLongMessagesHonorDurableRecentFloor proves persistent compaction never crosses
+// the two-message verbatim floor, even when both messages are far above the trigger estimate. The
+// loop-level prompt checkpoint remains a separate, in-memory projection escape hatch.
+//
+// TestMaybeCompact_TwoLongMessagesHonorDurableRecentFloor 证明持久化压缩即使两条 message 都远超触发估算，也绝不
+// 越过最近两条逐字底线。loop 层的 prompt checkpoint 仍是独立的内存投影出口。
+func TestMaybeCompact_TwoLongMessagesHonorDurableRecentFloor(t *testing.T) {
+	thread := []*messagesdomain.Message{
+		trTurn("only-a", 1, 100, strings.Repeat("old durable A ", 500)),
+		trTurn("only-b", 2, 100, strings.Repeat("old durable B ", 500)),
+	}
+	msgs := &fakeMessages{thread: thread}
+	conv := &fakeConv{}
+	client := &fakeClient{out: "must not be called"}
+	svc := newSvc(msgs, conv, fakeWindow{window: 100}, client)
+
+	if err := svc.MaybeCompact(context.Background(), "cv"); err != nil {
+		t.Fatalf("MaybeCompact: %v", err)
+	}
+	if conv.setCalls != 0 || len(msgs.roleUpdates) != 0 || len(msgs.created) != 0 {
+		t.Fatalf("two-message durable floor must block persistent compaction: set=%d updates=%d anchors=%d",
+			conv.setCalls, len(msgs.roleUpdates), len(msgs.created))
+	}
+	for _, m := range thread {
+		if m.Blocks[0].ContextRole != messagesdomain.ContextRoleHot {
+			t.Fatalf("durable recent message %s was demoted: %q", m.ID, m.Blocks[0].ContextRole)
+		}
+	}
+}
+
 func TestDemote_Tiering(t *testing.T) {
 	// Newest-first over all 20 tool results: ranks 1-4 hot, 5-12 warm,
 	// 13-20 cold. Recency protects complete tool activity even when it all lives
@@ -223,6 +254,71 @@ func TestDemote_Tiering(t *testing.T) {
 	// The very oldest block is cold.
 	if thread[0].Blocks[0].ContextRole != messagesdomain.ContextRoleCold {
 		t.Fatalf("oldest block should be cold, got %s", thread[0].Blocks[0].ContextRole)
+	}
+}
+
+// TestDemote_OnlyAgesToolResultsInsideLongMixedTurns proves the first compaction step is scoped
+// to tool_result blocks even when one assistant message contains a long tool chain. User prose,
+// a large paste, and assistant explanation text must remain verbatim and hot.
+//
+// TestDemote_OnlyAgesToolResultsInsideLongMixedTurns 证明第一步压缩即使面对单个 assistant 的长工具链，也只处理
+// tool_result block。用户原话、大粘贴和 assistant 解释正文必须逐字保留且仍为 hot。
+func TestDemote_OnlyAgesToolResultsInsideLongMixedTurns(t *testing.T) {
+	largePaste := strings.Repeat("USER PASTE ", 500)
+	user := &messagesdomain.Message{
+		ID: "user_paste", ConversationID: "cv", Role: messagesdomain.RoleUser,
+		Blocks: []messagesdomain.Block{{
+			ID: "user_paste_block", Seq: 1, Type: messagesdomain.BlockTypeText,
+			Content: largePaste, ContextRole: messagesdomain.ContextRoleHot,
+		}},
+	}
+	assistant := &messagesdomain.Message{
+		ID: "assistant_chain", ConversationID: "cv", Role: messagesdomain.RoleAssistant,
+		Blocks: []messagesdomain.Block{{
+			ID: "assistant_explanation", Seq: 2, Type: messagesdomain.BlockTypeText,
+			Content: "assistant explanation", ContextRole: messagesdomain.ContextRoleHot,
+		}},
+	}
+	for i := 0; i < 16; i++ {
+		assistant.Blocks = append(assistant.Blocks, messagesdomain.Block{
+			ID: fmt.Sprintf("tool_result_%02d", i), Seq: int64(3 + i),
+			Type: messagesdomain.BlockTypeToolResult, Content: fmt.Sprintf("tool output %02d", i),
+			ContextRole: messagesdomain.ContextRoleHot,
+		})
+	}
+	recent := &messagesdomain.Message{
+		ID: "recent", ConversationID: "cv", Role: messagesdomain.RoleUser,
+		Blocks: []messagesdomain.Block{{ID: "recent_block", Seq: 30, Type: messagesdomain.BlockTypeText, Content: "recent"}},
+	}
+	thread := []*messagesdomain.Message{user, assistant, recent}
+	msgs := &fakeMessages{thread: thread}
+	svc := newSvc(msgs, &fakeConv{}, fakeWindow{}, &fakeClient{})
+	svc.demote(context.Background(), thread, len(thread)-1)
+
+	if user.Blocks[0].ContextRole != messagesdomain.ContextRoleHot || user.Blocks[0].Content != largePaste {
+		t.Fatal("user original/paste was changed by demote")
+	}
+	if assistant.Blocks[0].ContextRole != messagesdomain.ContextRoleHot || assistant.Blocks[0].Content != "assistant explanation" {
+		t.Fatal("assistant explanation text was changed by demote")
+	}
+	for i, b := range assistant.Blocks[1:] {
+		want := messagesdomain.ContextRoleCold
+		switch {
+		case i >= 12:
+			want = messagesdomain.ContextRoleHot
+		case i >= 4:
+			want = messagesdomain.ContextRoleWarm
+		}
+		if b.ContextRole != want {
+			t.Errorf("tool result %d role=%q, want %q", i, b.ContextRole, want)
+		}
+	}
+	for _, update := range msgs.roleUpdates {
+		for _, id := range update.ids {
+			if id == user.Blocks[0].ID || id == assistant.Blocks[0].ID {
+				t.Fatalf("non-tool block %q entered context-role update", id)
+			}
+		}
 	}
 }
 
@@ -378,6 +474,55 @@ func TestSummarize_WatermarkMakesCrashBetweenWritesIdempotent(t *testing.T) {
 	}
 	if len(msgs.roleUpdates) != 0 || len(msgs.created) != 0 {
 		t.Fatalf("recovery must not duplicate archive/anchor work: updates=%d anchors=%d", len(msgs.roleUpdates), len(msgs.created))
+	}
+}
+
+// TestMaybeCompact_DropsSupersededVersionsBeforeSummary proves the compaction read uses the same
+// current-version projection as the LLM. If the old answer entered the summary prompt, it would be
+// re-injected into every later request because a summary cannot filter prose back out.
+//
+// TestMaybeCompact_DropsSupersededVersionsBeforeSummary 证明压缩读与 LLM 使用同一现行版本投影。若旧回答进入摘要
+// prompt，它会回流到此后每次请求，因为摘要无法再把那段文字过滤出去。
+func TestMaybeCompact_DropsSupersededVersionsBeforeSummary(t *testing.T) {
+	old := &messagesdomain.Message{
+		ID: "m_old_answer", ConversationID: "cv", Role: messagesdomain.RoleAssistant,
+		SupersededBy: "m_current_answer",
+		Blocks: []messagesdomain.Block{{
+			ID: "b_old_answer", Seq: 1, Type: messagesdomain.BlockTypeText,
+			Content: "OLD ANSWER MUST NEVER RETURN",
+		}},
+	}
+	current := &messagesdomain.Message{
+		ID: "m_current_answer", ConversationID: "cv", Role: messagesdomain.RoleAssistant,
+		Attrs: map[string]any{"contextUsage": map[string]any{
+			"lastPromptInputTokens": 100,
+		}},
+		Blocks: []messagesdomain.Block{{
+			ID: "b_current_answer", Seq: 2, Type: messagesdomain.BlockTypeText,
+			Content: strings.Repeat("CURRENT ANSWER ", 100),
+		}},
+	}
+	thread := []*messagesdomain.Message{old, current,
+		trTurn("recent-a", 10, 100, "recent a"),
+		trTurn("recent-b", 11, 100, "recent b"),
+	}
+	msgs := &fakeMessages{thread: thread}
+	conv := &fakeConv{}
+	client := &fakeClient{out: "summary without superseded prose"}
+	svc := newSvc(msgs, conv, fakeWindow{window: 100}, client)
+
+	if err := svc.MaybeCompact(context.Background(), "cv"); err != nil {
+		t.Fatalf("MaybeCompact: %v", err)
+	}
+	if conv.setCalls != 1 || conv.watermark != 2 {
+		t.Fatalf("current answer should be compacted once through seq 2, calls=%d watermark=%d", conv.setCalls, conv.watermark)
+	}
+	prompt := client.lastReq.Messages[0].Content
+	if strings.Contains(prompt, "OLD ANSWER MUST NEVER RETURN") {
+		t.Fatalf("superseded answer leaked into compaction prompt: %q", prompt)
+	}
+	if !strings.Contains(prompt, "CURRENT ANSWER") {
+		t.Fatalf("current answer missing from compaction prompt: %q", prompt)
 	}
 }
 
