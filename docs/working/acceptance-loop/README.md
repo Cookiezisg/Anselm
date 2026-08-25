@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十六 50/50；统一长门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次四十六已提交；批次四十七 0/50，下一前线 SURF-105)
 
 #### 2026-08-25 当前前线重述：SURF-104 完成，stage/workflow 工作流图生长五级闭环
 
@@ -307,7 +307,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 
 五通道：screen=`243.491667s`；backend 无 WARN/ERROR/panic/fatal/unknown；SSE 三流均连接，messages durable=`1..15`、notifications=`16..19` 单调唯一无 gap，entities 连接无业务帧；LLM proof/install/models 与 4 次 chat completion 全 `200`；frontend 仅正常 Dart VM 与已知 IMK 平台噪声，无 Flutter/Dart/布局/Unhandled 红线；`rig-check`/`rig-down` 通过且无残留。L2 证据=`sessions/20260825-080352/evidence/SURF-104-stage-workflow-five-channel.md`。
 
-五级由 `judge.py` 写入 `E2/F2/B2/C4/G1`；formal journal=`2435`（2300 baseline + 135 live），`gen_coverage.py --check`=`848 rows / 487 carried judgments / 0 tombstones`，anchors=`10/10`。写账触发的 `gap-too-fast`/`discovery-collapse` 已按 `testend/rig/formal-evidence/SURF-104-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check` clean。批次四十六已到=`50/50`；统一长门禁已通过，完整记录=`testend/rig/formal-evidence/batch-46-gate-20260825.md`，待 staged diff 审计和提交；下一前线由提交后的 formal sequence 决定。P12 的 400+ Journey 仍按用户裁定推迟二期。
+五级由 `judge.py` 写入 `E2/F2/B2/C4/G1`；formal journal=`2435`（2300 baseline + 135 live），`gen_coverage.py --check`=`848 rows / 487 carried judgments / 0 tombstones`，anchors=`10/10`。写账触发的 `gap-too-fast`/`discovery-collapse` 已按 `testend/rig/formal-evidence/SURF-104-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，未改阈值/算法/法典/锚点/gate，最终 `alarms.py check` clean。批次四十六=`50/50` 已通过统一长门禁并提交 `4baec1b7`，完整记录=`testend/rig/formal-evidence/batch-46-gate-20260825.md`；formal sequence 下一前线=`SURF-105 stage/control`，批次四十七=`0/50`。P12 的 400+ Journey 仍按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：SURF-103 完成，stage/document 文档编辑舞台五级闭环
 

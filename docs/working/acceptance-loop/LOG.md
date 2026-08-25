@@ -15,7 +15,7 @@ landed-into:
 - 首轮真实 provider 发送字符串化 `ops`，后端写入 v2 而前端误报“仅改元数据(图未变)”；红事实保留。修复统一 `workflowOpsFromArgs`，兼容原生数组与闭合合法 JSON 数组字符串，focused Flutter=`41/41`。
 - 修复后真实 App 活动卡显示 `+1 节点 · +1 边`；Computer Use 打开活动侧幕并展开 `surf104_graph`，画布显示 `节点 2 · 边 1` 与 `start/触发 → run/动作`。session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-080352`，screen=`243.491667s`。
 - 五通道：backend 无 WARN/ERROR/panic/fatal/unknown；SSE messages=`1..15`、notifications=`16..19` 无 gap，三流均连接；LLM proof/install/models 与 4 次 chat completion 全 `200`；frontend 无 Flutter/Dart/布局/Unhandled 红线；rig-check/rig-down 通过且无残留。调查=`testend/rig/formal-evidence/SURF-104-stage-workflow-investigation-20260825.md`，L2=`sessions/20260825-080352/evidence/SURF-104-stage-workflow-five-channel.md`。
-- 五级=`E2/F2/B2/C4/G1`；formal journal=`2435`（2300 baseline + 135 live），coverage=`848/487/0`，anchors=`10/10`。两条警报已按 `SURF-104-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，`alarms.py check` clean；批次已到 `50/50`，统一长门禁已通过，记录=`testend/rig/formal-evidence/batch-46-gate-20260825.md`，待提交。
+- 五级=`E2/F2/B2/C4/G1`；formal journal=`2435`（2300 baseline + 135 live），coverage=`848/487/0`，anchors=`10/10`。两条警报已按 `SURF-104-ledger-alarm-reaudit-20260825.md` 独立复审并 ack，`alarms.py check` clean；批次四十六=`50/50` 已通过统一长门禁并提交 `4baec1b7`，记录=`testend/rig/formal-evidence/batch-46-gate-20260825.md`；下一正式前线=`SURF-105 stage/control`，批次四十七=`0/50`。
 
 ## 2026-08-25 · SURF-103 stage/document 文档编辑舞台正式五级入账，批次四十六 45/50
 
