@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-250 已完成；批次七十二 50/50，统一门禁待跑)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-250 已完成；批次七十二 50/50，统一门禁通过，已提交=04f62417)
 
 #### 2026-08-26 当前前线重述：EDGE-241..250 批次七十二已收口 focused L1
 
@@ -310,9 +310,9 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 `EDGE-250-workspace-cascade-delete-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-72-ledger-alarm-reaudit-20260826.md`。
 formal journal=`3736`（2300 baseline + 1436 live），`gen_coverage.py --check`=`848 rows / 747 carried judgments / 0 tombstones`，
 批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean。
-- 批次七十二已满=`50/50`；统一长门禁待跑，未提交。下一原子前线暂不推进，必须先复跑根 `make verify`、完整
-  backend `testend`、rig 自测、backend/docs verify、锚点、警报、脚本语法、gofmt、diff 和进程收台审计。
-  P12 400+ Journey 继续按用户裁定推迟二期。
+- 批次七十二已满=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-72-unified-gate-20260826.md`，根
+  `make verify`、完整 backend `testend`、rig 自测、backend/docs verify、锚点、警报、脚本语法、gofmt、diff
+  和进程收台审计全部通过；已提交=`04f62417`。下一原子前线=`EDGE-251`。P12 400+ Journey 继续按用户裁定推迟二期。
   P12 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-229 多块 TTS PCM 拼接
