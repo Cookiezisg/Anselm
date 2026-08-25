@@ -363,6 +363,53 @@ func TestWalk_ControlXOR_SimpleMerge(t *testing.T) {
 	}
 }
 
+// TestWalk_DiamondJoinUnselectedBranchFailsLoudly pins the deliberate author-responsibility edge:
+// capability-check accepts a merge reading a field from either control branch because both nodes
+// are structural ancestors, but an unselected branch is bound to an empty map at runtime. Reading
+// its missing field must fail the run with the CEL error, never fabricate a value or silently skip it.
+//
+// TestWalk_DiamondJoinUnselectedBranchFailsLoudly 锁住刻意留给作者负责的边界：capability-check
+// 按结构允许汇合节点读任一 control 分支（两者都是祖先），但运行时未选分支只绑定空 map。读取其
+// 缺失字段必须让 run 带 CEL 错误失败，不能编造值，也不能静默跳过。
+func TestWalk_DiamondJoinUnselectedBranchFailsLoudly(t *testing.T) {
+	g := workflowdomain.Graph{
+		Nodes: []workflowdomain.Node{
+			node("start", "trigger", "trg_1", nil),
+			node("gate", "control", "ctl_1", map[string]string{"v": "start.v"}),
+			node("pass", "action", "fn_pass", map[string]string{"x": "gate.out"}),
+			node("fallback", "action", "fn_else", map[string]string{"x": "gate.out"}),
+			node("merge", "action", "fn_merge", map[string]string{"r": "fallback.missing"}),
+		},
+		Edges: []workflowdomain.Edge{
+			edge("e1", "start", "", "gate"),
+			edge("e2", "gate", "pass", "pass"),
+			edge("e3", "gate", "else", "fallback"),
+			edge("e4", "pass", "", "merge"),
+			edge("e5", "fallback", "", "merge"),
+		},
+	}
+	ctl := &fakeControl{byID: map[string][]controldomain.Branch{
+		"ctl_1": {
+			{Port: "pass", When: "true", Emit: map[string]string{"out": "input.v"}},
+			{Port: "else", When: "false", Emit: map[string]string{"out": "input.v"}},
+		},
+	}}
+	svc, store := mkSvc(t, g, newDisp(), ctl, nil, "")
+	ctx := ctxWS("ws_1")
+	id := mustRun(t, svc, ctx, map[string]any{"v": "go"})
+
+	run, err := store.GetRun(ctx, id)
+	if err != nil {
+		t.Fatalf("GetRun: %v", err)
+	}
+	if run.Status != flowrundomain.StatusFailed {
+		t.Fatalf("reading an unselected branch field must fail the run, got %q", run.Status)
+	}
+	if !strings.Contains(run.Error, "no such key") {
+		t.Fatalf("run error must preserve the actionable missing-key failure, got %q", run.Error)
+	}
+}
+
 func TestWalk_LoopWithBackEdge(t *testing.T) {
 	g := workflowdomain.Graph{
 		Nodes: []workflowdomain.Node{

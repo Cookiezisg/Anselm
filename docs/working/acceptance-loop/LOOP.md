@@ -13,7 +13,67 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-081 已收口 · 批次五十五 50/50，统一长门禁已通过并待提交；下一前线暂不推进）
+## 当前前线覆盖声明（2026-08-25 · EDGE-091 已收口 · 批次五十六 50/50，统一长门禁已通过，待提交）
+
+## 2026-08-25 · EDGE-091 保留清理后的孤儿深链；批次五十六收满
+
+- Flutter scheduler focused `77` 项通过：孤儿 run host 404、墓碑、无图 fallback、不可解析深链均诚实渲染，不白屏、不伪造当前图。
+- 正式证据=`testend/rig/formal-evidence/EDGE-091-retention-orphan-deep-link-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-091-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge091-retention-orphan-deep-link/na/na/na/na`；formal journal=`2941`，COVERAGE=`848/588/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，待提交。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-090 run 历史保留清理
+
+- Boot wiring + store cascade/boundary/batch/workspace focused 通过；30d 清理旧 completed，running 与永久保留存活。
+- 正式证据=`testend/rig/formal-evidence/EDGE-090-run-retention-purge-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-090-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge090-run-retention-purge/na/na/na/na`；formal journal=`2936`，COVERAGE=`848/587/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-091`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-089 draining 最后一个 run 结算
+
+- `:deactivate` 先 draining，不杀在途 run；run 结算后 workflow 才 inactive；真实 HTTP 场景通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-089-draining-last-run-settles-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-089-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge089-draining-last-run-settles/na/na/na/na`；formal journal=`2931`，COVERAGE=`848/586/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-090`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-088 per-run 单飞 + redrive
+
+- 同一 run 三次 advance 只执行节点一次；中途信号走 redrive；scheduler `-race` 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-088-per-run-single-flight-redrive-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-088-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge088-per-run-single-flight-redrive/na/na/na/na`；formal journal=`2926`，COVERAGE=`848/585/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-089`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-087 sendJob 撞已关队列
+
+- 关闭 queue 上的迟到 send 被 recover，dedup 槽清掉，进程不崩；scheduler `-race` 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-087-send-job-closed-queue-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-087-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge087-send-job-closed-queue/na/na/na/na`；formal journal=`2921`，COVERAGE=`848/584/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-088`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-086 advClosing 关停不跑缓冲 run
+
+- Shutdown 置 `advClosing` 后跳过队列里的 run，run 保持 running 等 Recover；scheduler `-race` 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-086-adv-closing-skips-buffered-run-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-086-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge086-adv-closing-skips-buffered-run/na/na/na/na`；formal journal=`2916`，COVERAGE=`848/583/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-087`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-085 pin 闭包冻结在途 run
+
+- 真实 HTTP 场景验证 function/control 的 run pin：编辑后原 run 仍走旧版本，新 run 才走新 active 版本。
+- 正式证据=`testend/rig/formal-evidence/EDGE-085-pin-closure-inflight-run-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-085-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge085-pin-closure-inflight-run/na/na/na/na`；formal journal=`2911`，COVERAGE=`848/582/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-086`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-084 菱形 join 未守 has()
+
+- 未选 control 分支的缺字段读取以 `no such key` 失败；新增 scheduler regression，只增加护栏、不改逻辑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-084-diamond-join-missing-key-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-084-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge084-diamond-join-missing-key/na/na/na/na`；formal journal=`2906`，COVERAGE=`848/581/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-085`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-083 MaxIterations 栅栏
+
+- 永真回边跑到 `iteration 0..1000` 共 1001 行后失败，错误写明 `MaxIterations (1000)`；focused scheduler `-race` 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-083-max-iterations-fence-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-083-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge083-max-iterations-fence/na/na/na/na`；formal journal=`2901`，COVERAGE=`848/580/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-084`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-082 replay 与保留清理竞速
+
+- 保留清理父表删除重新检查终态；`:replay` 的 guarded UPDATE 赢时，清理输；stale replay 返回 `ErrNotReplayable`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-082-replay-retention-race-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-082-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge082-replay-retention-race/na/na/na/na`；formal journal=`2896`，COVERAGE=`848/579/0`，anchors=`10/10`，`alarms.py check` clean。
+- 批次五十六当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-083`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-081 并发 :replay 守卫；批次五十五收满
 

@@ -297,7 +297,111 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-081 已完成；批次五十五 50/50，统一长门禁已通过并待提交，下一前线暂不推进)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-091 已完成；批次五十六 50/50，统一长门禁已通过，待提交)
+
+#### 2026-08-25 当前前线重述：EDGE-091 保留清理后的孤儿深链；批次五十六收满
+
+前端 scheduler 77 项 focused Flutter 测试通过：run 所属 workflow 被删除/清理后，run 深链仍可达；host 404、钉版图缺失和不可解析 id 都诚实渲成墓碑/句子，不白屏、不伪造当前图。
+
+正式证据=`testend/rig/formal-evidence/EDGE-091-retention-orphan-deep-link-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-091-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge091-retention-orphan-deep-link`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；有 deterministic frontend fixture/UI 证据，但没有独立 Computer Use 逐帧、时延、视觉或 discoverability session。
+formal journal=`2941`（2300 baseline + 641 live），`gen_coverage.py --check`=`848 rows / 588 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-56-unified-gate-20260825.md`，待提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-090 run 历史保留清理
+
+Boot wiring 与 store retention focused 测试通过：30d 线清理 100d old completed run，fresh 与 900d old running 存活；0 线不清 ancient completed；cascade、边界、batch、workspace isolation 均通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-090-run-retention-purge-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-090-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge090-run-retention-purge`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 storage governance，没有独立 formal rig 逐帧、时延、视觉或 discoverability capture。
+formal journal=`2936`（2300 baseline + 636 live），`gen_coverage.py --check`=`848 rows / 587 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-091`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-089 draining 最后一个 run 结算
+
+真实 HTTP workflow 场景确认：`:deactivate` 对在途 approval run 先进入 draining、不杀 run；人工决策使 run completed 后，workflow 才收口 inactive。
+
+正式证据=`testend/rig/formal-evidence/EDGE-089-draining-last-run-settles-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-089-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge089-draining-last-run-settles`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；有黑盒生命周期证据，但没有独立 formal rig 逐帧、时延、视觉或 discoverability capture。
+formal journal=`2931`（2300 baseline + 631 live），`gen_coverage.py --check`=`848 rows / 586 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-090`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-088 per-run 单飞 + redrive
+
+同一 run 并发收到多个 advance 时最多一个驱动者；中途信号折叠为一次尾部 redrive，不重复执行副作用节点，也不丢推进信号。scheduler `-race` focused 护栏通过，三次 advance 下 `fn_a` 恰执行一次。
+
+正式证据=`testend/rig/formal-evidence/EDGE-088-per-run-single-flight-redrive-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-088-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge088-per-run-single-flight-redrive`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 scheduler concurrency invariant，没有独立 formal rig 逐帧、时延、视觉或 discoverability capture。
+formal journal=`2926`（2300 baseline + 626 live），`gen_coverage.py --check`=`848 rows / 585 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-089`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-087 sendJob 撞已关队列
+
+feeder 在 StopPool 关闭队列后迟到发送时，`sendJob` recover 关闭 channel panic、清理 dedup 槽，进程不崩；后续 Recover 可重新入队。scheduler `-race` focused 护栏通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-087-send-job-closed-queue-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-087-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge087-send-job-closed-queue`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 shutdown queue race，没有独立 formal rig 逐帧、时延、视觉或 discoverability capture。
+formal journal=`2921`（2300 baseline + 621 live），`gen_coverage.py --check`=`848 rows / 584 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-088`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-086 advClosing 关停不跑缓冲 run
+
+关停设置 `advClosing` 后，StopPool 排空队列只跳过缓冲 run，不在不可取消上下文中执行；run 保持 running，等下次 boot Recover。scheduler `-race` focused 护栏通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-086-adv-closing-skips-buffered-run-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-086-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge086-adv-closing-skips-buffered-run`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 shutdown scheduler 边界，没有独立 formal rig 逐帧、时延、视觉或 discoverability capture。
+formal journal=`2916`（2300 baseline + 616 live），`gen_coverage.py --check`=`848 rows / 583 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-087`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-085 pin 闭包冻结在途 run
+
+真实 HTTP workflow 场景确认：run 起跑时钉住 function/control 版本；之后编辑引用实体，原 run replay/继续仍使用旧版本，新 run 才采用 active 新版本。function pin 与 control parked pin 场景均通过；只登记已有产品护栏，不改运行逻辑。
+
+正式证据=`testend/rig/formal-evidence/EDGE-085-pin-closure-inflight-run-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-085-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge085-pin-closure-inflight-run`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；有黑盒后端证据，但没有独立 formal rig 逐帧、时延、视觉或 discoverability capture。
+formal journal=`2911`（2300 baseline + 611 live），`gen_coverage.py --check`=`848 rows / 582 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-086`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-084 菱形 join 未守 has()
+
+新增回归测试确认：capability-check 按结构允许汇合节点读取任一祖先，但运行时未选分支绑定空 map；不使用 `has()` 读取缺失字段时，run 大声失败并保留 `no such key` 上下文，绝不编造值或静默跳过。只增加测试护栏，不改变产品逻辑。
+
+正式证据=`testend/rig/formal-evidence/EDGE-084-diamond-join-missing-key-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-084-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge084-diamond-join-missing-key`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是作者责任运行时边界，没有独立 formal rig 五通道、逐帧时延、视觉或 discoverability session。
+formal journal=`2906`（2300 baseline + 606 live），`gen_coverage.py --check`=`848 rows / 581 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-085`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-083 MaxIterations 栅栏
+
+永真 CEL 回边最多落 `iteration 0..1000` 共 1001 条循环体行；下一回边被拒绝，run 失败，错误明确写出 `MaxIterations (1000)`。
+focused scheduler `-race` 回归通过，未改运行逻辑。
+
+正式证据=`testend/rig/formal-evidence/EDGE-083-max-iterations-fence-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-083-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge083-max-iterations-fence`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；这是 scheduler fence，没有独立 formal rig 五通道、逐帧时延、视觉或 discoverability session。
+formal journal=`2901`（2300 baseline + 601 live），`gen_coverage.py --check`=`848 rows / 580 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean。
+批次五十六当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-084`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-082 replay 与保留清理竞速
+
+保留清理在 `flowruns` 父表删除处重新检查终态；`:replay` 通过 `WHERE id=? AND status='failed'` 抢到逆转后，清理不能删除该 run。
+反向的 stale replay 返回 `ErrNotReplayable`，不复活新终态。生产 SQLite 是单连接，未引入测试专用生产 hook；真实 store 回归、race focused
+测试均通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-082-replay-retention-race-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-082-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge082-replay-retention-race`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：这是存储竞态，没有独立 formal rig 五通道、逐帧时延、
+视觉或 discoverability session，不作虚假升级。formal journal=`2896`（2300 baseline + 596 live），
+`gen_coverage.py --check`=`848 rows / 579 carried judgments / 0 tombstones`，anchors 保持=`10/10`，统计警报复审后 `alarms.py check` clean。
+批次五十六当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-083`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-072 approval 显式零时长
 
