@@ -13,7 +13,17 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-270 已收口 · 批次七十四 50/50，统一门禁通过，已提交=8ed2e1a1）
+## 当前前线覆盖声明（2026-08-26 · EDGE-280 已收口 · 批次七十五 50/50，统一门禁待执行）
+
+## 2026-08-26 · EDGE-271..280 批次七十五收口
+
+- 按序完成 10 个边界、50 个账本格：分组事务/分页/过滤、删除线程、文档约束与挂载缺失降级；十行均为 `✓~~~~`，
+  L2-L5 明确 `na`，没有把聚焦测试冒充真实 App 五通道证据。
+- 正式证据为 `testend/rig/formal-evidence/EDGE-271-workdir-transaction-crosscheck-20260826.md` 至
+  `testend/rig/formal-evidence/EDGE-280-agent-knowledge-deleted-20260826.md`；独立警报复审=
+  `testend/rig/formal-evidence/batch-75-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`3886`（2300 baseline + 1586 live），`COVERAGE=848/777/0`，`anchors=10/10`，
+  `alarms.py check` clean；批次七十五已满=`50/50`，统一长门禁待执行，尚未提交。P12 400+ Journey 按用户裁定推迟二期。
 
 ## 2026-08-26 · EDGE-261..270 批次七十四收口
 

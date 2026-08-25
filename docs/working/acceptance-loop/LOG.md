@@ -10,7 +10,17 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-270 已收口 · 批次七十四 50/50，统一门禁通过，已提交=8ed2e1a1）
+## 当前前线（2026-08-26 · EDGE-280 已收口 · 批次七十五 50/50，统一门禁待执行）
+
+## 2026-08-26 · EDGE-271..280 批次七十五收口
+
+- 十个边界共 50 格按序落账，L1 全部由 focused 与 testend 黑盒证据支持，五格形态均为 `✓~~~~`；没有新的真实
+  App 五通道 session，故 L2-L5 均明确记 `na`。
+- 证据=`testend/rig/formal-evidence/EDGE-271-workdir-transaction-crosscheck-20260826.md` 至
+  `testend/rig/formal-evidence/EDGE-280-agent-knowledge-deleted-20260826.md`；警报复审=
+  `testend/rig/formal-evidence/batch-75-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`3886`（2300 baseline + 1586 live），`COVERAGE=848/777/0`，`anchors=10/10`，
+  `alarms.py check` clean；批次七十五=`50/50`，统一长门禁待执行、尚未提交。P12 400+ Journey 按用户裁定推迟二期。
 
 ## 2026-08-26 · EDGE-261..270 批次七十四收口
 
