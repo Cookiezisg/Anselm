@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-220 已完成；批次六十九 50/50，统一门禁通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-220 已完成；批次六十九 50/50，统一门禁通过并已提交)
 
 #### 2026-08-26 当前前线重述：EDGE-220 未探测/custom 模型
 
@@ -311,7 +311,8 @@ invoke session 尚未执行，L2-L5 保持 `na`。
 `anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-220-ledger-alarm-reaudit-20260826.md`。
 - 批次六十九当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-69-unified-gate-20260826.md`，
   `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
-  现在提交本批。P12 400+ Journey 继续推迟二期。
+- 批次六十九已提交=`a9ef3e30`；下一原子前线=`EDGE-221`（写时校 apiKeyId 存在性），批次七十当前=`0/50`。
+  P12 400+ Journey 继续推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-219 native knob 校验
 

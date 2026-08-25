@@ -13,7 +13,7 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-220 已收口 · 批次六十九 50/50 · 统一门禁通过，待提交）
+## 当前前线覆盖声明（2026-08-26 · EDGE-220 已收口 · 批次六十九 50/50 · 统一门禁通过并已提交）
 
 ## 2026-08-26 · EDGE-220 未探测/custom 模型
 
@@ -23,7 +23,8 @@ landed-into:
   `COVERAGE=848/717/0`，目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
   `testend/rig/formal-evidence/EDGE-220-ledger-alarm-reaudit-20260826.md`。
 - 批次六十九当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-69-unified-gate-20260826.md`，完整门禁通过，
-  现在提交本批。P12 400+ Journey 继续推迟二期。
+  批次六十九已提交=`a9ef3e30`；下一原子前线=`EDGE-221`（写时校 apiKeyId 存在性），批次七十当前=`0/50`。
+  P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-26 · EDGE-219 native knob 校验
 

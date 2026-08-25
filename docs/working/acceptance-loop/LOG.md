@@ -10,7 +10,7 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-220 已收口 · 批次六十九 50/50 · 统一门禁通过，待提交）
+## 当前前线（2026-08-26 · EDGE-220 已收口 · 批次六十九 50/50 · 统一门禁通过并已提交）
 
 - `EDGE-220` focused L1 通过：空 options 的未列模型仍可保存/运行，不硬套不存在的目录；带 native option 必须有
   公开契约，拼错 model id 保持 invoke 时 fail-loud。L2-L5 因无独立正式 model-picker/invoke session 明确为 `na`。
@@ -20,7 +20,8 @@ landed-into:
   `testend/rig/formal-evidence/EDGE-220-ledger-alarm-reaudit-20260826.md`。
 - 批次六十九当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-69-unified-gate-20260826.md`，
   `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
-  现在提交本批。P12 400+ Journey 继续推迟二期。
+  批次六十九已提交=`a9ef3e30`；下一原子前线=`EDGE-221`（写时校 apiKeyId 存在性），批次七十当前=`0/50`。
+  P12 400+ Journey 继续推迟二期。
 
 - `EDGE-219` focused L1 通过：精确已探测 key/model 对只接受公开旋钮和值；未知旋钮返回 `MODEL_OPTION_UNSUPPORTED`，
   非法值返回 `MODEL_OPTION_VALUE_INVALID`；未探测/custom 模型空 options 仍可用。L2-L5 因无独立正式 model-picker session 明确为 `na`。
