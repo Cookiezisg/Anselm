@@ -14,7 +14,7 @@ landed-into:
 
 - EDGE-170 复核 MCP 失败持久化：坏 stdio 与不可达 remote 的 PUT 均保留 `failed`/`lastError`，重连可尝试但不伪报成功，failed server 调用返回 `MCP_SERVER_DOWN`；focused/真实 HTTP 均通过。
 - 正式证据=`testend/rig/formal-evidence/EDGE-170-mcp-failed-persists-20260825.md`；`judge.py` 写入五格 `measure:edge170-mcp-failed-persists/na/na/na/na`；formal journal=`3336`（2300 baseline + 1036 live），COVERAGE=`848/667/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-170-ledger-alarm-reaudit-20260825.md`。
-- 批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，本批代码/测试/证据待提交；下一原子前线暂为=`EDGE-171`。P12 400+ Journey 继续推迟二期。
+- 批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，本批代码/测试/证据已提交=`50c1c9c4`；下一原子前线暂为=`EDGE-171`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-169 复核 MCP degraded：focused bridge 断言了只筛 `status` 的 ephemeral signal，真实 HTTP 生命周期验证三次失败后仍可调用且成功恢复 ready，并核对 calls 聚合/stderr/reconnect/delete 事实；harness 的预期 free-tier 回环拒绝和收台 cancel 已披露。
 - 正式证据=`testend/rig/formal-evidence/EDGE-169-mcp-degraded-20260825.md`；`judge.py` 写入五格 `measure:edge169-mcp-degraded/na/na/na/na`；formal journal=`3331`（2300 baseline + 1031 live），COVERAGE=`848/666/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-169-ledger-alarm-reaudit-20260825.md`。

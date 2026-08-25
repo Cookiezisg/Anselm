@@ -312,7 +312,7 @@ Computer Use 五通道 session、失败重连逐帧时序、视觉成品或 disc
 （2300 baseline + 1036 live），`gen_coverage.py --check`=`848 rows / 667 carried judgments / 0 tombstones`，
 `anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-170-ledger-alarm-reaudit-20260825.md`。
 批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，
-本批代码/测试/证据待提交；下一原子前线暂为=`EDGE-171`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+本批代码/测试/证据已提交=`50c1c9c4`；下一原子前线暂为=`EDGE-171`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-169 MCP degraded 态
 

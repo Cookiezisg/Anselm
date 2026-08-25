@@ -19,7 +19,7 @@ landed-into:
 
 - focused reconnect 与真实 HTTP error paths 均通过：坏 stdio/不可达 remote PUT 保留 `failed` + `lastError`，`:reconnect` 可重试但不伪报成功，failed server 调用明确 `MCP_SERVER_DOWN`；失败通知带 outcome status。
 - 正式证据=`testend/rig/formal-evidence/EDGE-170-mcp-failed-persists-20260825.md`；五级=`measure:edge170-mcp-failed-persists/na/na/na/na`；formal journal=`3336`（2300 baseline + 1036 live），COVERAGE=`848/667/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-170-ledger-alarm-reaudit-20260825.md`。
-- 批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，本批代码/测试/证据待提交；下一原子前线暂为=`EDGE-171`。P12 400+ Journey 继续推迟二期。
+- 批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，本批代码/测试/证据已提交=`50c1c9c4`；下一原子前线暂为=`EDGE-171`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-169 MCP degraded 态
 
