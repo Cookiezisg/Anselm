@@ -10,7 +10,89 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-210 已收口 · 批次六十八 50/50 · 统一门禁通过并已提交）
+## 当前前线（2026-08-26 · EDGE-220 已收口 · 批次六十九 50/50 · 统一门禁通过，待提交）
+
+- `EDGE-220` focused L1 通过：空 options 的未列模型仍可保存/运行，不硬套不存在的目录；带 native option 必须有
+  公开契约，拼错 model id 保持 invoke 时 fail-loud。L2-L5 因无独立正式 model-picker/invoke session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-220-model-custom-unprobed-empty-options-20260826.md`；`judge.py` 写入
+  五格 `measure:edge220-model-custom-unprobed-empty-options/na/na/na/na`；formal journal=`3586`（2300 baseline + 1286 live），
+  `COVERAGE=848/717/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-220-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-69-unified-gate-20260826.md`，
+  `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
+  现在提交本批。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-219` focused L1 通过：精确已探测 key/model 对只接受公开旋钮和值；未知旋钮返回 `MODEL_OPTION_UNSUPPORTED`，
+  非法值返回 `MODEL_OPTION_VALUE_INVALID`；未探测/custom 模型空 options 仍可用。L2-L5 因无独立正式 model-picker session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-219-model-native-knob-validation-20260826.md`；`judge.py` 写入
+  五格 `measure:edge219-model-native-knob-validation/na/na/na/na`；formal journal=`3581`（2300 baseline + 1281 live），
+  `COVERAGE=848/716/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-219-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-220`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-218` focused L1 通过：用户已选的 dialogue 模型保持不变，未设置的 scenario 才被填入 managed model，
+  重复播种无副作用。L2-L5 因无独立正式 model-picker session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-218-freetier-seed-unset-only-20260826.md`；`judge.py` 写入
+  五格 `measure:edge218-freetier-seed-unset-only/na/na/na/na`；formal journal=`3576`（2300 baseline + 1276 live），
+  `COVERAGE=848/715/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-218-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-219`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-217` focused L1 通过：PATCH 旋转已成功持久化，即使后续 probe 失败也不回滚新凭证，而是诚实落为
+  error，避免状态脑裂。L2-L5 因无独立正式设置/API session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-217-apikey-rotation-probe-failure-20260826.md`；`judge.py` 写入
+  五格 `measure:edge217-apikey-rotation-probe-failure/na/na/na/na`；formal journal=`3571`（2300 baseline + 1271 live），
+  `COVERAGE=848/714/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-217-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-218`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-216` focused L1 通过：reference scanner 报告 scenario/default 等引用时删除被拒并携带结构化引用详情；
+  未引用普通 key 仍可删除。L2-L5 因无独立正式设置/API session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-216-apikey-in-use-delete-20260826.md`；`judge.py` 写入
+  五格 `measure:edge216-apikey-in-use-delete/na/na/na/na`；formal journal=`3566`（2300 baseline + 1266 live），
+  `COVERAGE=848/713/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-216-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-217`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-215` focused L1 通过：即使零引用，用户 PATCH/DELETE 受管 `anselm` key 也被拒绝；provider 仍为 managed，
+  普通用户 key 仍可编辑/删除。L2-L5 因无独立正式设置 UI/API session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-215-apikey-managed-immutable-20260826.md`；`judge.py` 写入
+  五格 `measure:edge215-apikey-managed-immutable/na/na/na/na`；formal journal=`3561`（2300 baseline + 1261 live），
+  `COVERAGE=848/712/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-215-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-216`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-214` focused L1 通过：无机器指纹、网关安装失败和持久化竞争均不阻塞 boot/onboarding；后台 ensure
+  best-effort 返回 nil，前台无 managed 行时诚实返回 `false,nil`，竞争胜者幂等。L2-L5 因无独立真实 App 冷启动/onboarding session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-214-freetier-provision-degraded-20260826.md`；`judge.py` 写入
+  五格 `measure:edge214-freetier-provision-degraded/na/na/na/na`；formal journal=`3556`（2300 baseline + 1256 live），
+  `COVERAGE=848/711/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-214-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-215`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-213` focused L1 通过：无 managed `anselm` 行时，quota reader 在解析凭证或访问网关前返回 typed
+  `FREETIER_NOT_PROVISIONED`，设置页隐藏仪表而不显示误导性的零。L2-L5 因无独立真实 App 设置页 session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-213-freetier-quota-not-provisioned-20260826.md`；`judge.py` 写入
+  五格 `measure:edge213-freetier-quota-not-provisioned/na/na/na/na`；formal journal=`3551`（2300 baseline + 1251 live），
+  `COVERAGE=848/710/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-213-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-214`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-212` focused L1 通过：断网、HTTP 429 限流、健康探测和重装失败均不轮换既有 install，只有结构化
+  `INVALID_INSTALL` 分支允许自愈；失败保持原行可重试。L2-L5 因无独立真实 App repair session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-212-freetier-transient-no-rotation-20260826.md`；`judge.py` 写入
+  五格 `measure:edge212-freetier-transient-no-rotation/na/na/na/na`；formal journal=`3546`（2300 baseline + 1246 live），
+  `COVERAGE=848/709/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-212-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-213`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-211` focused L1 通过：结构化 `INVALID_INSTALL` 才能触发重新登记和同一 managed row 的原位轮换；
+  网络失败、限流、健康结果不轮换，重装失败不破坏原行。L2-L5 因无独立真实 App repair session 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-211-freetier-install-heal-20260826.md`；`judge.py` 写入
+  五格 `measure:edge211-freetier-install-heal/na/na/na/na`；formal journal=`3541`（2300 baseline + 1241 live），
+  `COVERAGE=848/708/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-211-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-212`。P12 400+ Journey 继续推迟二期。
 
 - `EDGE-210` focused 通过：HTTP 402、429 耗尽码和流内 `BUDGET_EXHAUSTED` 统一为
   `LLM_QUOTA_EXHAUSTED`，不会把耗尽额度重试；瞬时限流仍保持可重试。真实无配额网关耗尽 session 尚未执行，

@@ -297,7 +297,128 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-210 已完成；批次六十八 50/50，统一门禁通过并已提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-220 已完成；批次六十九 50/50，统一门禁通过，待提交)
+
+#### 2026-08-26 当前前线重述：EDGE-220 未探测/custom 模型
+
+`EDGE-220` 已完成未探测/custom 模型的 L1 focused regression：空 options 的未列模型仍可保存/运行，不硬套
+不存在的目录；一旦带 native option 则必须有公开契约，拼错 model id 保持 invoke 时 fail-loud。独立正式 model-picker/
+invoke session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-220-model-custom-unprobed-empty-options-20260826.md`；五级=
+`measure:edge220-model-custom-unprobed-empty-options/na/na/na/na`；formal journal=`3586`（2300 baseline + 1286 live），
+`gen_coverage.py --check`=`848 rows / 717 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-220-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-69-unified-gate-20260826.md`，
+  `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
+  现在提交本批。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-219 native knob 校验
+
+`EDGE-219` 已完成 native model option 的 L1 focused regression：精确已探测 key/model 对只接受公开旋钮和值，
+未知旋钮返回 `MODEL_OPTION_UNSUPPORTED`，非法值返回 `MODEL_OPTION_VALUE_INVALID`；未探测/custom 模型空 options
+仍可用。独立正式 model-picker session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-219-model-native-knob-validation-20260826.md`；五级=
+`measure:edge219-model-native-knob-validation/na/na/na/na`；formal journal=`3581`（2300 baseline + 1281 live），
+`gen_coverage.py --check`=`848 rows / 716 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-219-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-220`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-218 播种只填未设
+
+`EDGE-218` 已完成受管默认播种边界的 L1 focused regression：用户已选的 dialogue 模型保持不变，未设置的
+scenario 才被填入 managed model，重复播种无副作用。独立正式 model-picker session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-218-freetier-seed-unset-only-20260826.md`；五级=
+`measure:edge218-freetier-seed-unset-only/na/na/na/na`；formal journal=`3576`（2300 baseline + 1276 live），
+`gen_coverage.py --check`=`848 rows / 715 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-218-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-219`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-217 旋转 key 重探失败
+
+`EDGE-217` 已完成 key rotation 与重探失败分离的 L1 focused regression：PATCH 旋转已成功持久化，即使
+后续 probe 失败也不回滚新凭证，而是把 `testStatus` 诚实落为 error，避免状态脑裂。独立正式设置/API session
+尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-217-apikey-rotation-probe-failure-20260826.md`；五级=
+`measure:edge217-apikey-rotation-probe-failure/na/na/na/na`；formal journal=`3571`（2300 baseline + 1271 live），
+`gen_coverage.py --check`=`848 rows / 714 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-217-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-218`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-216 被引用的 key 拒删
+
+`EDGE-216` 已完成被引用 key 删除边界的 L1 focused regression：reference scanner 报告 scenario/default 等
+引用时，删除被拒并携带结构化引用详情；未引用普通 key 仍可删除，未扩大守卫范围。独立正式设置/API session
+尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-216-apikey-in-use-delete-20260826.md`；五级=
+`measure:edge216-apikey-in-use-delete/na/na/na/na`；formal journal=`3566`（2300 baseline + 1266 live），
+`gen_coverage.py --check`=`848 rows / 713 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-216-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-217`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-215 受管 key 不可变
+
+`EDGE-215` 已完成受管 `anselm` key 不可变的 L1 focused regression：即使零引用，用户 PATCH/DELETE 也被
+拒绝；provider 元数据保持 managed，同时普通用户 key 仍可编辑/删除，守卫没有过宽。独立正式设置 UI/API
+session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-215-apikey-managed-immutable-20260826.md`；五级=
+`measure:edge215-apikey-managed-immutable/na/na/na/na`；formal journal=`3561`（2300 baseline + 1261 live），
+`gen_coverage.py --check`=`848 rows / 712 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-215-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-216`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-214 开通降级不挂 boot
+
+`EDGE-214` 已完成免费档开通降级的 L1 focused regression：无机器指纹、网关安装失败和持久化竞争均不阻塞
+boot/onboarding；后台 ensure best-effort 返回 nil，前台在没有 managed 行时诚实返回 `false,nil`，竞争胜者保持幂等。
+独立真实 App 冷启动/onboarding session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-214-freetier-provision-degraded-20260826.md`；五级=
+`measure:edge214-freetier-provision-degraded/na/na/na/na`；formal journal=`3556`（2300 baseline + 1256 live），
+`gen_coverage.py --check`=`848 rows / 711 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-214-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-215`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-213 未开通读配额
+
+`EDGE-213` 已完成未开通免费档读配额的 L1 focused regression：没有 managed `anselm` 行时，quota reader
+在解析凭证或访问网关前返回 typed `FREETIER_NOT_PROVISIONED`，设置页据此隐藏仪表而不是渲染误导性的零。
+独立真实 App 设置页 session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-213-freetier-quota-not-provisioned-20260826.md`；五级=
+`measure:edge213-freetier-quota-not-provisioned/na/na/na/na`；formal journal=`3551`（2300 baseline + 1251 live），
+`gen_coverage.py --check`=`848 rows / 710 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-213-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-214`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-212 瞬时失败绝不轮换
+
+`EDGE-212` 已完成受管 install 瞬时失败边界的 L1 focused regression：断网、HTTP 429 限流、健康探测和
+重装失败均不轮换既有 install，只有独立的 `INVALID_INSTALL` 分支允许自愈；失败保持原行并可重试。
+独立真实 App repair session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-212-freetier-transient-no-rotation-20260826.md`；五级=
+`measure:edge212-freetier-transient-no-rotation/na/na/na/na`；formal journal=`3546`（2300 baseline + 1246 live），
+`gen_coverage.py --check`=`848 rows / 709 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-212-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-213`。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-211 网关 install 自愈
+
+`EDGE-211` 已完成受管 install 自愈的 L1 focused regression：网关明确返回 `INVALID_INSTALL` 时重新登记
+设备并用 `RotateManagedCredential` 原位轮换同一 managed row；网络失败、限流、健康结果不轮换，重装失败保留
+原行。独立真实 App repair session 尚未执行，L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-211-freetier-install-heal-20260826.md`；五级=
+`measure:edge211-freetier-install-heal/na/na/na/na`；formal journal=`3541`（2300 baseline + 1241 live），
+`gen_coverage.py --check`=`848 rows / 708 carried judgments / 0 tombstones`，目标行=`✓~~~~`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-211-ledger-alarm-reaudit-20260826.md`。
+- 批次六十九当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-212`。P12 400+ Journey 继续推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-210 免费档配额耗尽
 
