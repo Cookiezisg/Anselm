@@ -10,11 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-110 已收口 · 批次五十八 50/50，待统一门禁）
+## 当前前线（2026-08-25 · 批次五十八已收口 · 批次五十九 0/50）
 
 - EDGE-110 复核睡醒伪 fire：cron regression 通过，合法迟到吸附、超容差 stale callback 丢弃，不隐式补跑。
 - 正式证据=`testend/rig/formal-evidence/EDGE-110-wake-artifact-snap-or-drop-20260825.md`；`judge.py` 写入五格 `measure:edge110-wake-artifact-snap-or-drop/na/na/na/na`；formal journal=`3036`，COVERAGE=`848/607/0`，anchors=`10/10`，`alarms.py check` clean。
-- 批次五十八已达到=`50/50`，现在运行统一长门禁；门禁通过后才提交本批。P12 400+ Journey 继续推迟二期。
+- 批次五十八已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-58-unified-gate-20260825.md`，已提交 `64bc55fd`。下一前线=`EDGE-111`，批次五十九从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
 
 - EDGE-109 复核 misfire 双封顶：trigger regression 通过，weekly/daily/minutely 三密度边界分别精确、受 30 天限制、受 200 条 cap 限制，水位推进后不重跑。
 - 正式证据=`testend/rig/formal-evidence/EDGE-109-misfire-double-cap-20260825.md`；`judge.py` 写入五格 `measure:edge109-misfire-double-cap/na/na/na/na`；formal journal=`3031`，COVERAGE=`848/606/0`，anchors=`10/10`，`alarms.py check` clean。

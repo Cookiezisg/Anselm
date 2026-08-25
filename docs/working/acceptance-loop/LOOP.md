@@ -13,13 +13,13 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-110 已收口 · 批次五十八 50/50，待统一门禁）
+## 当前前线覆盖声明（2026-08-25 · 批次五十八已收口 · 批次五十九 0/50）
 
 ## 2026-08-25 · EDGE-110 睡醒伪 fire 吸附/丢弃
 
 - cron infra regression 通过：准时与容差内迟到回调吸附到合法刻度，超容差 wake artifact 被丢弃，不隐式补跑。
 - 正式证据=`testend/rig/formal-evidence/EDGE-110-wake-artifact-snap-or-drop-20260825.md`；五级=`measure:edge110-wake-artifact-snap-or-drop/na/na/na/na`；formal journal=`3036`，COVERAGE=`848/607/0`，anchors=`10/10`，`alarms.py check` clean。
-- 批次五十八已达到=`50/50`，现在运行统一长门禁；门禁通过后才提交本批。P12 400+ Journey 继续推迟二期。
+- 批次五十八已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-58-unified-gate-20260825.md`，已提交 `64bc55fd`。下一前线=`EDGE-111`，批次五十九从 `0/50` 开始。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-109 misfire 台账双封顶
 
