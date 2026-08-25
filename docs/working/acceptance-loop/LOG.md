@@ -10,10 +10,10 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过，待提交）
+## 当前前线（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过并提交；下一前线 EDGE-052）
 
 - EDGE-051 复核 compaction crash window：watermark 先写后崩溃，恢复不重复摘要、不重复 archive/anchor，旧 hot block 仍被水位挡住；普通/race/full contextmgr 全绿。
-- 正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge051-compaction-watermark-idempotency/na/na/na/na`；formal journal=`2741`，COVERAGE=`848/548/0`，anchors=`10/10`，`alarms.py check` clean。统一长门禁=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md` 已通过：根验证、完整 testend、rig、docs、清册、锚点、警报、格式、diff 与进程收台审计全绿。当前批次=`50/50`，门禁已通过，待提交；下一前线暂不推进。P12 400+ Journey 继续推迟二期。
+- 正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge051-compaction-watermark-idempotency/na/na/na/na`；formal journal=`2741`，COVERAGE=`848/548/0`，anchors=`10/10`，`alarms.py check` clean。统一长门禁=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md` 已通过：根验证、完整 testend、rig、docs、清册、锚点、警报、格式、diff 与进程收台审计全绿。当前批次=`50/50`，门禁已通过并提交=`8ed36a5e`；下一前线=`EDGE-052`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-050 复核 source 删除后的 fork 血缘：真实 source 软删后 GET 消失，fork 与两列历史指针保留，列表只显 fork，无级联；普通/race/full conversation 全绿。
 - 正式证据=`testend/rig/formal-evidence/EDGE-050-fork-source-deleted-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-050-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge050-fork-source-deleted/na/na/na/na`；formal journal=`2736`，COVERAGE=`848/547/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-051`。P12 400+ Journey 继续推迟二期。

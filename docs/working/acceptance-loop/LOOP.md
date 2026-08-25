@@ -13,12 +13,12 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过，待提交）
+## 当前前线覆盖声明（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过并提交；下一前线 EDGE-052）
 
 ## 2026-08-25 · EDGE-051 压缩水位幂等键
 
 - contextmgr 的 crash-window 测试证明 `SetSummary` 写完 watermark 后崩溃，恢复重跑不二次摘要、不重复 archive/anchor，仍 hot 的 fixture block 不影响水位过滤；普通/race/full contextmgr 全绿，无实现红线。
-- 正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge051-compaction-watermark-idempotency/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2741`，COVERAGE=`848/548/0`，anchors=`10/10`，`alarms.py check` clean。统一长门禁=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md` 已通过：根验证、完整 testend、rig、docs、清册、锚点、警报、格式、diff 与进程收台审计全绿。当前批次=`50/50`，门禁已通过，待提交；下一前线暂不推进。P12 400+ Journey 继续推迟二期。
+- 正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。五级=`measure:edge051-compaction-watermark-idempotency/na/na/na/na`，不伪造真实 App 五通道/视觉/导航证据。formal journal=`2741`，COVERAGE=`848/548/0`，anchors=`10/10`，`alarms.py check` clean。统一长门禁=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md` 已通过：根验证、完整 testend、rig、docs、清册、锚点、警报、格式、diff 与进程收台审计全绿。当前批次=`50/50`，门禁已通过并提交=`8ed36a5e`；下一前线=`EDGE-052`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-050 fork 血缘源被删
 

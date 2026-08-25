@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-051 已完成；批次五十二 50/50，统一长门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-051 已完成；批次五十二 50/50，统一长门禁已通过并提交)
 
 #### 2026-08-25 当前前线重述：EDGE-051 压缩水位幂等键
 
@@ -313,7 +313,7 @@ contextmgr 测试模拟进程在 `SetSummary` 已持久化新 summary/watermark�
 `gen_coverage.py --check`=`848 rows / 548 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
 复审 ack 后 `alarms.py check` clean。统一长门禁证据=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md`：
 根 `make verify`、完整 `backend testend=327.911s`、rig=`51/51`、docs、清册、锚点、警报、格式、diff 与进程收台审计
-全部通过。当前批次=`50/50`，门禁已通过，待提交；下一前线暂不推进。
+全部通过。当前批次=`50/50`，门禁已通过并提交=`8ed36a5e`；下一前线=`EDGE-052`。
 P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-050 fork 血缘源被删
