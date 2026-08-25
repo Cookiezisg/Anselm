@@ -10,11 +10,11 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-120 已收口 · 批次五十九 50/50，待统一门禁）
+## 当前前线（2026-08-25 · 批次五十九已收口 · 批次六十 0/50）
 
 - EDGE-120 复核 webhook HMAC：真实正签名 `202`，错误签名/错误 header `401` 纯文本；明文 secret 缺失/错误 `401`，均不进入 workflow。
 - 正式证据=`testend/rig/formal-evidence/EDGE-120-webhook-hmac-mismatch-20260825.md`；`judge.py` 写入五格 `measure:edge120-webhook-hmac-mismatch/na/na/na/na`；formal journal=`3086`，COVERAGE=`848/617/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。
-- 批次五十九当前=`50/50`，现在执行统一长门禁；门禁未完成前不进入下一格、不提交。P12 400+ Journey 继续推迟二期。
+- 批次五十九已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-59-unified-gate-20260825.md`，已提交 `49baf1c9`。批次六十从 `0/50` 开始，下一前线=`EDGE-121`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-119 复核 webhook 路径改后旧路径：真实 contract 证明旧路径 `404`、新路径 `202`，前后两次 run 完成，catch-all registry 无旧路由残留。
 - 正式证据=`testend/rig/formal-evidence/EDGE-119-webhook-old-path-404-20260825.md`；`judge.py` 写入五格 `measure:edge119-webhook-old-path-404/na/na/na/na`；formal journal=`3081`，COVERAGE=`848/616/0`，anchors=`10/10`，`alarms.py check` clean（机械警报已复核 ack）。

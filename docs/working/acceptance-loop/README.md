@@ -297,7 +297,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-120 已完成；批次五十九 50/50，待统一门禁)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 批次五十九已收口；批次六十 0/50)
 
 #### 2026-08-25 当前前线重述：EDGE-120 webhook HMAC 不匹配
 
@@ -306,7 +306,7 @@ webhook 鉴权拒绝语义已通过真实 contract：HMAC 正签名返回 `202`�
 正式证据=`testend/rig/formal-evidence/EDGE-120-webhook-hmac-mismatch-20260825.md`。五级严格为
 `L1=measure:edge120-webhook-hmac-mismatch`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；真实 HTTP 只证明鉴权语义，不替代独立 Computer Use、测量、视觉和 discoverability 证据。
 formal journal=`3086`（2300 baseline + 786 live），`gen_coverage.py --check`=`848 rows / 617 carried judgments / 0 tombstones`，anchors=`10/10`，`alarms.py check` clean（机械警报已按复核记录 ack）。
-批次五十九当前=`50/50`，现在执行统一长门禁；门禁未完成前不进入下一格、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+批次五十九已达到=`50/50`；统一长门禁已通过，证据=`testend/rig/formal-evidence/batch-59-unified-gate-20260825.md`，已提交 `49baf1c9`。批次六十从 `0/50` 开始，下一前线=`EDGE-121`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-119 webhook 路径改后旧路径
 
