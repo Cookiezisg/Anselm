@@ -13,13 +13,15 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-300 已收口 · 批次七十七 50/50，统一门禁通过，已提交=cff3af3c）
+## 当前前线覆盖声明（2026-08-26 · EDGE-310 已收口 · 批次七十八 50/50，统一门禁通过，已提交=a81491a8）
 
-## 2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
+## 2026-08-26 · EDGE-301..310 批次七十八收口，统一长门禁通过，已提交=a81491a8
 
-- 按序完成 10 个边界、50 个账本格：memory/todo/relation/touchpoint 台账事实、触点目录穷尽性，以及通知中心的权威未读计数、积压投影和公平调度；十行均为 `✓~~~~`，L2-L5 明确 `na`，没有把聚焦测试冒充真实 App 五通道证据。
-- 正式证据为 `testend/rig/formal-evidence/EDGE-291-memory-curation-20260826.md` 至 `testend/rig/formal-evidence/EDGE-300-notice-fairness-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-77-ledger-alarm-reaudit-20260826.md`。
-- formal journal=`3986`（2300 baseline + 1686 live），`COVERAGE=848/797/0`，`anchors=10/10`，`alarms.py check` clean；批次七十七已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-77-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`cff3af3c`。下一原子前线=`EDGE-301`。P12 400+ Journey 按用户裁定推迟二期。
+- 按序完成 10 个边界、50 个账本格：通知顶带清场/OS 路由、sidestage 门控与跟随、stage director 收口、失败清除、分档时钟和 transcript 深跳；十行均为 `✓~~~~`，L2-L5 明确 `na`，没有把聚焦测试冒充真实 App 五通道证据。
+- 正式证据为 `testend/rig/formal-evidence/EDGE-301-notice-clear-watermark-20260826.md` 至 `EDGE-310-transcript-deep-jump-20260826.md`；独立警报复审=`testend/rig/formal-evidence/batch-78-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`4036`（2300 baseline + 1736 live），`COVERAGE=848/807/0`，`anchors=10/10`，`alarms.py check` clean；批次七十八已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-78-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`a81491a8`。下一原子前线=`EDGE-311`。P12 400+ Journey 按用户裁定推迟二期。
+
+## 历史：2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
 
 ## 2026-08-26 · EDGE-281..290 批次七十六收口
 

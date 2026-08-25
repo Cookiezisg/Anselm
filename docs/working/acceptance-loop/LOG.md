@@ -7861,7 +7861,14 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
   自测与审计全绿，已提交=`810ddd99`；下一前线=`EDGE-291`，批次七十七=`0/50`。P12 400+ Journey
   按用户裁定推迟二期。
 
-## 2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
+## 2026-08-26 · EDGE-301..310 批次七十八收口，统一长门禁通过，已提交=a81491a8
+
+- 按序完成通知顶带清场、OS 通知边界、sidestage、stage director 和 transcript 深跳共 10 个边界、50 个账本格；十行 L1 均为 `✓~~~~`，L2-L5 明确 `na`，未冒充真实 App 五通道证据。
+- 聚焦验证：通知中心/尾部 cue/活动岛/导演器/深跳相关 Flutter 测试全绿；通知 state/data/UI 测试全绿，其中失焦 OS 路由通过，unsigned dev bundle 的系统投递边界按代码明确保留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-301-notice-clear-watermark-20260826.md` 至 `EDGE-310-transcript-deep-jump-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-78-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`4036`（2300 baseline + 1736 live），`COVERAGE=848/807/0`，`anchors=10/10`，最终 `alarms.py check` clean；批次七十八=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-78-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`a81491a8`。下一原子前线=`EDGE-311`。P12 400+ Journey 按用户裁定推迟二期。
+
+## 历史：2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
 
 - 按序完成 memory/todo/relation/touchpoint 台账事实、触点目录穷尽性和通知中心积压/公平/权威计数共 10 个边界、50 个账本格；十行 L1 均为 `✓~~~~`，L2-L5 明确 `na`，未冒充真实 App 五通道证据。
 - 聚焦验证：后端 memory/todo/relation/touchpoint/store/bootstrap race 测试全绿；testend `TestChatR3_MemoryLLMFace`、`TestTouchpoint_LedgerEndToEnd`、`TestTouchpoint_BuildToolRecordsCreated` 全绿；通知中心、未读数、dispatcher、fixture Flutter 测试全绿。
