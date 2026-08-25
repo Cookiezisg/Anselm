@@ -7882,6 +7882,13 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 - 正式证据=`testend/rig/formal-evidence/EDGE-321-draft-first-edit-20260826.md` 至 `EDGE-332-mcp-frame-coalescing-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-80-ledger-alarm-reaudit-20260826.md`。
 - formal journal=`4136`（2300 baseline + 1836 live），`COVERAGE=848/827/0`，`anchors=10/10`；两项统计警报已独立复审销账，最终 `alarms.py check` clean。批次八十已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-80-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`01fc5f15`。下一原子前线=`EDGE-333`。P12 400+ Journey 按用户裁定推迟二期。
 
+## 2026-08-26 · EDGE-333..342 批次八十一收口，统一长门禁通过，已提交=3071083d
+
+- 按序完成 `EDGE-333..342` 共 10 个边界、50 个账本格；十行 L1 全部为 `✓~~~~`，L2-L5 明确 `na`，不冒充真实 App 或五通道证据。
+- 聚焦验证：前端设置 `48/48`，后端 resolver/chat/sandbox/reaper 包全绿；崩溃专项 `TestContractChat_CrashSweepOrphans`、`TestWorkflow_CrashRecovery`、`TestAttachmentPreparation_CrashRequeuesInterruptedWork`、`TestP4bRail_GeneratingNoResidueAfterCrash` 通过（`63.628s`）；完整 backend testend 亦已通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-333-retention-wire-default-20260826.md` 至 `EDGE-342-chat-only-tool-surface-20260826.md`；警报复审=`testend/rig/formal-evidence/batch-81-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`4186`（2300 baseline + 1886 live），`COVERAGE=848/837/0`，`anchors=10/10`；两项统计警报已独立复审销账，最终 `alarms.py check` clean。批次八十一已满=`50/50`。统一长门禁证据=`testend/rig/formal-evidence/batch-81-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿，已提交=`3071083d`。下一原子前线=`EDGE-343`。P12 400+ Journey 按用户裁定推迟二期。
+
 ## 历史：2026-08-26 · EDGE-291..300 批次七十七收口，统一长门禁通过，已提交=cff3af3c
 
 - 按序完成 memory/todo/relation/touchpoint 台账事实、触点目录穷尽性和通知中心积压/公平/权威计数共 10 个边界、50 个账本格；十行 L1 均为 `✓~~~~`，L2-L5 明确 `na`，未冒充真实 App 五通道证据。
