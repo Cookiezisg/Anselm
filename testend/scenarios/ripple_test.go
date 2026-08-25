@@ -316,6 +316,15 @@ func TestRippleR5_RelationGraphFaces(t *testing.T) {
 			strings.Contains(n, "relmcp") && strings.Contains(n, docID) && strings.Contains(n, "rel-skill")
 	})
 
+	// MCP relations may be keyed by either the public name or the internal id. Removing the
+	// server must purge both forms, otherwise the agent keeps a dangling mcp edge after the
+	// entity is gone.
+	wc.DELETE("/api/v1/mcp-servers/relmcp").OK(t, nil)
+	wc.Do("GET", "/api/v1/mcp-servers/relmcp", nil).Fail(t, 404, "MCP_SERVER_NOT_FOUND")
+	harness.Eventually(t, 15000, "removed mcp edges purge", func() bool {
+		return !strings.Contains(neighborhood("agent", agID), "relmcp")
+	})
+
 	// 水化跟名：改 fn 名 → 邻域显示新名（图存 id、名字读时取）。
 	wc.PATCH("/api/v1/functions/"+fnID, map[string]any{"name": "rel_fn_renamed"}).OK(t, nil)
 	harness.Eventually(t, 10000, "neighborhood hydrates the live name", func() bool {

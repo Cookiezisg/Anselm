@@ -13,6 +13,7 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/sunweilin/anselm/testend/harness"
 )
@@ -23,7 +24,7 @@ import (
 //
 // scriptedMCP 是零依赖 python MCP stdio server：JSON-RPC 2.0、按行分帧。工具：echo（调用方
 // 铸了 token 就发一条进度通知）、boom（isError 结果 + 一行 stderr）。启动横幅进 stderr ring。
-const scriptedMCP = `import sys, json
+const scriptedMCP = `import sys, json, time
 
 def send(obj):
     sys.stdout.write(json.dumps(obj) + "\n")
@@ -57,10 +58,11 @@ for line in sys.stdin:
         name = params.get("name")
         token = (params.get("_meta") or {}).get("progressToken")
         if name == "echo":
+            text = (params.get("arguments") or {}).get("text", "")
             if token is not None:
                 send({"jsonrpc": "2.0", "method": "notifications/progress",
-                      "params": {"progressToken": token, "progress": 1, "total": 2, "message": "echo halfway"}})
-            text = (params.get("arguments") or {}).get("text", "")
+                      "params": {"progressToken": token, "progress": 1, "total": 2, "message": "echo " + text + " halfway"}})
+            time.sleep(0.02)
             send({"jsonrpc": "2.0", "id": mid, "result": {"content": [{"type": "text", "text": "echo:" + text}]}})
         elif name == "snapshot":
             # A REAL PNG built here (zlib + struct, no deps): the media path must be exercised with
@@ -236,7 +238,7 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 		Logs string `json:"logs"`
 	}
 	wc.GET("/api/v1/mcp-calls/"+page.Calls[0].ID).OK(t, &detail)
-	if !strings.Contains(detail.Logs, "echo halfway") {
+	if !strings.Contains(detail.Logs, "echo hello halfway") {
 		t.Fatalf("progress notification must land in call logs, got %q", detail.Logs)
 	}
 
@@ -265,7 +267,7 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 		t.Fatalf("failed filter/aggregates wrong: n=%d agg=%+v", len(page.Calls), page.Aggregates)
 	}
 	wc.GET("/api/v1/mcp-calls/"+page.Calls[0].ID).OK(t, &detail)
-	if !strings.Contains(detail.Logs, "server stderr tail") || !strings.Contains(detail.Logs, "boom tool exploding") {
+	if !strings.Contains(detail.Logs, "server stderr tail (server-level, may predate this call)") || !strings.Contains(detail.Logs, "boom tool exploding") {
 		t.Fatalf("failed call logs must append stderr tail, got %q", detail.Logs)
 	}
 
@@ -300,6 +302,81 @@ func TestMCP_ScriptedServerLifecycle(t *testing.T) {
 	wc.Do("GET", "/api/v1/mcp-servers/scripted", nil).Fail(t, 404, "MCP_SERVER_NOT_FOUND")
 	wc.Do("POST", "/api/v1/mcp-servers/scripted/tools/echo:invoke", map[string]any{}).
 		Fail(t, 404, "MCP_SERVER_NOT_FOUND")
+}
+
+func TestMCP_ConcurrentProgressCorrelation(t *testing.T) {
+	t.Parallel()
+	srv := harness.Start(t)
+	c := srv.Client(t)
+	ws := c.POST("/api/v1/workspaces", map[string]any{"name": "mcp-progress-concurrency"}).OK(t, nil)
+	wc := c.WS(ws.Field(t, "id"))
+	script := writeScriptedMCP(t)
+	var st mcpStatus
+	wc.PUT("/api/v1/mcp-servers/concurrent", map[string]any{
+		"command": "python3", "args": []string{script},
+	}).OK(t, &st)
+	if st.Status != "ready" {
+		t.Fatalf("server must be ready, got %s: %s", st.Status, st.LastError)
+	}
+
+	type callResult struct {
+		value string
+		resp  *harness.Resp
+	}
+	results := make(chan callResult, 2)
+	for _, text := range []string{"alpha", "beta"} {
+		text := text
+		go func() {
+			resp := wc.POST("/api/v1/mcp-servers/concurrent/tools/echo:invoke", map[string]any{
+				"args": map[string]any{"text": text},
+			})
+			var result string
+			if resp.Status == 200 {
+				_ = json.Unmarshal(resp.Data, &result)
+			}
+			results <- callResult{value: result, resp: resp}
+		}()
+	}
+	for range 2 {
+		select {
+		case result := <-results:
+			if result.resp.Status != 200 || (result.value != "echo:alpha" && result.value != "echo:beta") {
+				t.Fatalf("unexpected concurrent result: status=%d value=%q raw=%s", result.resp.Status, result.value, result.resp.Raw)
+			}
+		case <-time.After(10 * time.Second):
+			t.Fatal("concurrent MCP calls did not finish")
+		}
+	}
+
+	var page mcpCallsPage
+	wc.GET("/api/v1/mcp-servers/concurrent/calls").OK(t, &page)
+	if len(page.Calls) != 2 {
+		t.Fatalf("want two concurrent call ledger rows, got %+v", page)
+	}
+	seen := map[string]bool{}
+	for _, call := range page.Calls {
+		var detail struct {
+			Logs string `json:"logs"`
+		}
+		wc.GET("/api/v1/mcp-calls/"+call.ID).OK(t, &detail)
+		switch {
+		case strings.Contains(detail.Logs, "echo alpha halfway"):
+			if strings.Contains(detail.Logs, "echo beta halfway") {
+				t.Fatalf("alpha call contains beta progress: %q", detail.Logs)
+			}
+			seen["alpha"] = true
+		case strings.Contains(detail.Logs, "echo beta halfway"):
+			if strings.Contains(detail.Logs, "echo alpha halfway") {
+				t.Fatalf("beta call contains alpha progress: %q", detail.Logs)
+			}
+			seen["beta"] = true
+		default:
+			t.Fatalf("call detail has no correlated progress: %q", detail.Logs)
+		}
+	}
+	if len(seen) != 2 {
+		t.Fatalf("expected one correlated progress log per call, got %v", seen)
+	}
 }
 
 // TestMCP_ErrorPaths: A6 出错列——未知工具、坏 command 连不上仍留 server（reconnect 可救语义）、
@@ -422,6 +499,9 @@ func TestMCP_ImportAndRegistry(t *testing.T) {
 	r := wc.Do("POST", "/api/v1/mcp-registry:install", map[string]any{"name": "firecrawl/firecrawl-mcp-server"})
 	if r.Status != 422 || r.Code != "MCP_ENV_MISSING" {
 		t.Fatalf("env-gated entry must 422 MCP_ENV_MISSING without keys, got %d/%s %s", r.Status, r.Code, r.Raw)
+	}
+	if !strings.Contains(string(r.Raw), "FIRECRAWL_API_KEY") {
+		t.Fatalf("missing-env response must name the required variable, got %s", r.Raw)
 	}
 }
 

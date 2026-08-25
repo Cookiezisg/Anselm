@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"reflect"
 	"strings"
@@ -248,6 +249,22 @@ func TestInstall_MissingEnv(t *testing.T) {
 	}
 	if got, _ := repo.List(ctxWS("ws_1")); len(got) != 0 {
 		t.Fatalf("missing env must not persist a partial server, got %d rows", len(got))
+	}
+}
+
+func TestInstall_NoRunnablePackage(t *testing.T) {
+	reg := &fakeRegistry{entries: []mcpdomain.RegistryEntry{{
+		Name:     "x/y",
+		Packages: []mcpdomain.Package{{Name: "snyk", RuntimeHint: "unsupported-runtime"}},
+	}}}
+	repo := newFakeRepo()
+	svc := svcWith(repo, reg, &fakeClient{})
+	_, err := svc.InstallFromRegistry(ctxWS("ws_1"), "x/y", nil)
+	if !errors.Is(err, mcpdomain.ErrNoRunnablePackage) {
+		t.Fatalf("want ErrNoRunnablePackage, got %v", err)
+	}
+	if got, _ := repo.List(ctxWS("ws_1")); len(got) != 0 {
+		t.Fatalf("no-runnable install must not persist a partial server, got %d rows", len(got))
 	}
 }
 
@@ -507,6 +524,18 @@ func TestRemove_PurgesRelationsByIdAndName(t *testing.T) {
 	}
 }
 
+func TestStderrTail_UsesByteCapAndKeepsNewestBytes(t *testing.T) {
+	const capBytes = 8 * 1024
+	input := strings.Repeat("old-", capBytes) + "newest stderr marker"
+	got := stderrTail(input, capBytes)
+	if len([]byte(got)) != capBytes {
+		t.Fatalf("stderr tail byte length = %d, want %d", len([]byte(got)), capBytes)
+	}
+	if !strings.HasSuffix(got, "newest stderr marker") {
+		t.Fatalf("stderr tail must preserve newest bytes, got suffix %q", got[len(got)-len("newest stderr marker"):])
+	}
+}
+
 func TestInstall_NameConflict(t *testing.T) {
 	svc := svcWith(newFakeRepo(), ctx7Registry(), &fakeClient{})
 	ctx := ctxWS("ws_1")
@@ -549,6 +578,25 @@ func (f *fakeUploader) Upload(_ context.Context, filename, mime string, data []b
 	return &attachmentdomain.Attachment{ID: "att_00aa00aa00aa00aa", Filename: filename, MimeType: mime, SizeBytes: int64(len(data))}, nil
 }
 
+type selectiveUploader struct {
+	uploaded []string
+	failAt   int
+}
+
+func (u *selectiveUploader) Upload(_ context.Context, filename, mime string, data []byte) (*attachmentdomain.Attachment, error) {
+	index := len(u.uploaded)
+	u.uploaded = append(u.uploaded, filename)
+	if index == u.failAt {
+		return nil, errors.New("attachment store temporarily unavailable")
+	}
+	return &attachmentdomain.Attachment{
+		ID:        fmt.Sprintf("att_%016x", index+1),
+		Filename:  filename,
+		MimeType:  mime,
+		SizeBytes: int64(len(data)),
+	}, nil
+}
+
 // TestCallTool_MediaLandsAsReceipt: an MCP tool returning binary image content produces a
 // first-class attachment and a MediaRef receipt line in the result — never a bare placeholder.
 // Without an uploader wired, the call still succeeds with the placeholder story (honest degrade).
@@ -584,5 +632,50 @@ func TestCallTool_MediaLandsAsReceipt(t *testing.T) {
 	res2, err := svc2.CallTool(ctx, st2.ID, "screenshot", json.RawMessage(`{}`), "")
 	if err != nil || strings.Contains(res2, "attachmentId") {
 		t.Fatalf("uploaderless call = %q, %v — want placeholder story, no receipt", res2, err)
+	}
+}
+
+// TestCallTool_MediaUploadBestEffortPerItem proves one failed attachment upload does not poison
+// the MCP call: successful items receive receipts, while the failed item's original placeholder
+// remains in the result for an honest partial outcome.
+//
+// TestCallTool_MediaUploadBestEffortPerItem 验证附件逐件 best-effort：一件上传失败不污染整次 MCP 调用，
+// 成功项得到 receipt，失败项保留原始占位叙事，诚实表达部分成功。
+func TestCallTool_MediaUploadBestEffortPerItem(t *testing.T) {
+	fc := &fakeClient{
+		tools:      []mcpdomain.ToolDef{{Name: "mixed-media"}},
+		callResult: "[image: first]\n[audio: failed]\n[image: third]",
+		callMedia: []mcpdomain.Media{
+			{MimeType: "image/png", Data: []byte("first")},
+			{MimeType: "audio/mpeg", Data: []byte("failed")},
+			{MimeType: "image/jpeg", Data: []byte("third")},
+		},
+	}
+	repo := newFakeRepo()
+	svc := svcWith(repo, ctx7Registry(), fc)
+	uploader := &selectiveUploader{failAt: 1}
+	svc.SetUploader(uploader)
+	ctx := ctxWS("ws_1")
+	st, err := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+
+	result, err := svc.CallTool(ctx, st.ID, "mixed-media", json.RawMessage(`{}`), "")
+	if err != nil {
+		t.Fatalf("one upload failure must not fail MCP call: %v", err)
+	}
+	if !strings.Contains(result, "[audio: failed]") {
+		t.Fatalf("failed media item must retain placeholder, got %q", result)
+	}
+	if strings.Count(result, `"source":"mcp_media"`) != 2 {
+		t.Fatalf("two successful media items must produce two receipts, got %q", result)
+	}
+	if len(uploader.uploaded) != 3 || !strings.HasSuffix(uploader.uploaded[0], ".png") ||
+		!strings.HasSuffix(uploader.uploaded[1], ".mp3") || !strings.HasSuffix(uploader.uploaded[2], ".jpg") {
+		t.Fatalf("per-item uploads must preserve media type/order, got %v", uploader.uploaded)
+	}
+	if len(repo.calls) != 1 || repo.calls[0].Status != mcpdomain.CallStatusOK {
+		t.Fatalf("partial media upload must still record one successful MCP call, got %+v", repo.calls)
 	}
 }

@@ -297,7 +297,157 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-170 已完成；批次六十四 50/50，统一门禁已通过)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-180 已完成；批次六十五 50/50，统一门禁已通过，待提交)
+
+#### 2026-08-25 当前前线重述：EDGE-180 embedder 孤儿回收
+
+`EDGE-180` 已验证 builtin embedder 的异常退出收容：Unix focused `-race` 回归把一个 `sleep` 进程
+作为上次遗留的 embedder，写入 `embedder.pid` 后确认 `reapStalePID` 杀掉记录的 survivor；不存在 pid
+文件和垃圾 pid 内容均安全 no-op，不误伤其它进程。当前没有执行真实 backend `kill -9` 后再启动的
+五通道黑盒，因此 L2-L5 保持 `na`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-180-search-embedder-orphan-reap-20260825.md`。五级严格为
+`L1=measure:edge180-search-embedder-orphan-reap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；formal journal=`3386`
+（2300 baseline + 1086 live），`gen_coverage.py --check`=`848 rows / 677 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-180-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`50/50`，统一门禁已通过，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`：
+根 `make verify`、完整 testend、rig 51 项、backend verify、coverage/anchors/alarms、脚本语法、gofmt、
+diff 和残留进程审计全绿。本批代码、测试、证据和 COVERAGE 待统一提交；提交后下一原子前线再重述。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-179 首用下载途中关停
+
+`EDGE-179` 已验证 builtin embedder 首用下载撞上关停时的 bounded shutdown：focused `-race` 回归用
+无限阻塞的 installer 模拟真实首次下载，确认 `Builtin.Close` 在预算内返回、取消 installer context、
+释放下载锁，避免 `db.Close` 被首用模型下载拖死。当前没有执行真实 600MB 下载中的 App/SIGTERM 黑盒，
+因此没有把 L2-L5 写成绿。
+
+正式证据=`testend/rig/formal-evidence/EDGE-179-search-first-download-shutdown-20260825.md`。五级严格为
+`L1=measure:edge179-search-first-download-shutdown`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的真实首用下载、Computer Use 时序、视觉 craft 或 discoverability 证据。formal journal=`3381`
+（2300 baseline + 1081 live），`gen_coverage.py --check`=`848 rows / 676 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-179-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-180`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-178 搜索 embedder 缺席降级
+
+`EDGE-178` 已验证语义 embedder 缺席时搜索的诚实降级：focused 回归先让 provider 失败，确认原有
+lexical hit 仍返回且无 error；再将 `embedder` 设为 `off`，确认完全跳过融合后仍返回同一 lexical hit。
+真实 testend 进一步验证 reindex 后命中、设置回显、跨 workspace 机器级一致性、`off` 状态下词法搜索
+继续可用，以及 Ollama 指向关闭端口时仍软降级而不打断搜索。测试使用 `127.0.0.1:1` 作为刻意无网关
+fixture，日志中的 free-tier install warning 已在证据中隔离，不作为搜索失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-178-search-embedder-off-fallback-20260825.md`。五级严格为
+`L1=measure:edge178-search-embedder-off-fallback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的 Computer Use 五通道 session、逐帧时序、视觉 craft 或 discoverability 证据。formal journal=`3376`
+（2300 baseline + 1076 live），`gen_coverage.py --check`=`848 rows / 675 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-178-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-179`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-177 无可跑 package
+
+`EDGE-177` 已验证 no-runnable 安装计划的 fail-loud 边界：自定义 registry fixture 只有不支持的
+runtime 且无 remote 时，focused app 测试返回 `MCP_NO_RUNNABLE_PACKAGE`，repository 保持零 server
+行；curated catalog 的全条目 plannability 门禁同时确认正式 marketplace 不会把这种状态暴露给用户。
+没有把被 catalog overlay 成 `npx` 的条目伪装成 no-runnable 黑盒证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-177-mcp-no-runnable-package-20260825.md`。五级严格为
+`L1=measure:edge177-mcp-no-runnable-package`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的 Computer Use 五通道 session、错误逐帧时序、视觉 craft 或 discoverability 证据。formal journal=`3371`
+（2300 baseline + 1071 live），`gen_coverage.py --check`=`848 rows / 674 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-177-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-178`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-176 MCP 市场缺必填 env
+
+`EDGE-176` 已验证 marketplace 的凭据缺失门：focused 安装测试确认 `details.missing` 结构化列出
+缺失变量且 repository 不落半行；真实 registry 安装 Firecrawl 空 env 在任何 runtime 下载前返回
+`422 MCP_ENV_MISSING`，HTTP body 明确包含 `FIRECRAWL_API_KEY`，没有静默启动零认证 server。
+
+正式证据=`testend/rig/formal-evidence/EDGE-176-mcp-marketplace-missing-env-20260825.md`。五级严格为
+`L1=measure:edge176-mcp-marketplace-missing-env`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的 Computer Use 五通道 session、错误逐帧时序、视觉 craft 或 discoverability 证据。formal journal=`3366`
+（2300 baseline + 1066 live），`gen_coverage.py --check`=`848 rows / 673 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-176-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-177`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-175 MCP 失败附 stderr 尾
+
+`EDGE-175` 已验证 MCP 失败调用的 stderr 证据边界：focused 回归确认 stderr 尾按字节封顶 8 KiB
+且保留最新字节；真实 stdio MCP `boom` 失败调用的 durable logs 同时含
+`server stderr tail (server-level, may predate this call)` 来源说明与真实 stderr 内容，避免把
+server 历史日志误报成当前调用精确时序。
+
+正式证据=`testend/rig/formal-evidence/EDGE-175-mcp-stderr-tail-20260825.md`。五级严格为
+`L1=measure:edge175-mcp-stderr-tail`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的 Computer Use 五通道 session、错误日志逐帧时序、视觉 craft 或 discoverability 证据。formal journal=`3361`
+（2300 baseline + 1061 live），`gen_coverage.py --check`=`848 rows / 672 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-175-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-176`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-174 MCP 进度关联
+
+`EDGE-174` 已验证 session 级 MCP progress handler 的 per-call token 关联：infra `-race` 回归
+交错两个 token 时，call-a 只收到 alpha、call-b 只收到 beta，未知 token 被丢弃；真实 HTTP 黑盒
+在同一 stdio server 上并发执行 alpha/beta 两个 `echo`，两个调用都成功，两个 durable `mcp_calls`
+详情分别只保留自己的 progress 文本，没有串台。
+
+正式证据=`testend/rig/formal-evidence/EDGE-174-mcp-progress-correlation-20260825.md`。五级严格为
+`L1=measure:edge174-mcp-progress-correlation`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的 Computer Use 五通道 session、并发进度逐帧时序、视觉 craft 或 discoverability 证据。formal journal=`3356`
+（2300 baseline + 1056 live），`gen_coverage.py --check`=`848 rows / 671 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-174-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-175`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-173 MCP name-or-id 双键 purge
+
+`EDGE-173` 已验证 MCP 删除的关系清理闭包：focused service 测试确认 `RemoveServer` 同时按
+`srv.ID`（`mcp_...`）与 `srv.Name`（`mcp:<name>/tool` 的常见键）调用 purge；真实 HTTP relation
+场景先把 `relmcp` 挂到 agent，再删除 server，随后 server 返回 `MCP_SERVER_NOT_FOUND` 且 agent
+邻域不再包含 `relmcp`，没有留下关系孤儿。
+
+正式证据=`testend/rig/formal-evidence/EDGE-173-mcp-name-id-purge-20260825.md`。五级严格为
+`L1=measure:edge173-mcp-name-id-purge`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+正式 rig 的 Computer Use 五通道 session、逐帧时序、视觉 craft 或 discoverability 证据。formal journal=`3351`
+（2300 baseline + 1051 live），`gen_coverage.py --check`=`848 rows / 670 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-173-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-174`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-172 无 uploader 时的 MCP 媒体
+
+`EDGE-172` 已验证没有 attachment uploader 时的诚实降级：同一 MCP media 调用在 uploader 已接线
+时产生 receipt，在 `uploader=nil` 时仍成功但保留原始 `[image: image/png]` 占位，不伪造
+`attachmentId` 或 `mcp_media` 产物，也不把可选落地能力缺席升级成整次调用失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-172-mcp-media-no-uploader-20260825.md`。五级严格为
+`L1=measure:edge172-mcp-media-no-uploader`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、无 uploader 逐帧时序、视觉成品或 discoverability 证据。formal journal=`3346`
+（2300 baseline + 1046 live），`gen_coverage.py --check`=`848 rows / 669 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-172-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-173`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-171 MCP 媒体逐件 best-effort
+
+`EDGE-171` 已验证 MCP 多媒体的部分成功语义：一次调用返回 PNG/MP3/JPEG 三件媒体时，第二件
+附件故意落库失败，调用仍为成功；两件成功媒体各自成为一等附件并追加 `mcp_media` receipt，
+失败件保留原始 `[audio: failed]` 占位叙事。既有真实 stdio→attachment→vision wire 也重跑通过，
+同一 PNG 字节确实进入下一次模型的 native image part。无 uploader 的诚实降级仍保留在相邻回归。
+
+正式证据=`testend/rig/formal-evidence/EDGE-171-mcp-media-best-effort-20260825.md`。五级严格为
+`L1=measure:edge171-mcp-media-best-effort`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、多件失败逐帧时序、视觉成品或 discoverability 证据。formal journal=`3341`
+（2300 baseline + 1041 live），`gen_coverage.py --check`=`848 rows / 668 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-171-ledger-alarm-reaudit-20260825.md`。
+批次六十五当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-172`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-170 MCP 连接失败仍落盘
 

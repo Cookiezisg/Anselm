@@ -10,7 +10,47 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-170 已收口 · 批次六十四 50/50，统一门禁已通过）
+## 当前前线（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，统一门禁已通过，待提交）
+
+- EDGE-180 复核 embedder 孤儿回收：Unix `-race` focused 回归确认记录 pid 的 survivor 被杀，缺失/垃圾 pid 安全 no-op；真实 kill-9/App 重启未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-180-search-embedder-orphan-reap-20260825.md`；`judge.py` 写入五格 `measure:edge180-search-embedder-orphan-reap/na/na/na/na`；formal journal=`3386`（2300 baseline + 1086 live），COVERAGE=`848/677/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-180-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，本批待统一提交；下一原子前线在提交后重述。P12 400+ Journey 继续推迟二期。
+
+- EDGE-179 复核首用下载中关停：`TestBuiltin_CloseBoundedDuringDownload` 以 `-race` 证明 installer context 会被 Close 取消、Close 有界返回、下载锁释放；真实下载/App SIGTERM 尚未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-179-search-first-download-shutdown-20260825.md`；`judge.py` 写入五格 `measure:edge179-search-first-download-shutdown/na/na/na/na`；formal journal=`3381`（2300 baseline + 1081 live），COVERAGE=`848/676/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-179-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-180`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-178 复核搜索 embedder 缺席降级：focused provider failure 与 `embedder=off` 均保留 lexical hit 且无 error；真实 reindex/settings 场景还验证跨 workspace 一致、off 后仍可词法搜索、Ollama 死端口软降级。
+- 正式证据=`testend/rig/formal-evidence/EDGE-178-search-embedder-off-fallback-20260825.md`；`judge.py` 写入五格 `measure:edge178-search-embedder-off-fallback/na/na/na/na`；formal journal=`3376`（2300 baseline + 1076 live），COVERAGE=`848/675/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-178-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-179`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-177 复核 no-runnable：unsupported-runtime fixture 返回 `MCP_NO_RUNNABLE_PACKAGE` 且零持久化，curated catalog 全条目 plannable；真实 marketplace 不暴露该状态，未伪造黑盒绿证据。
+- 正式证据=`testend/rig/formal-evidence/EDGE-177-mcp-no-runnable-package-20260825.md`；`judge.py` 写入五格 `measure:edge177-mcp-no-runnable-package/na/na/na/na`；formal journal=`3371`（2300 baseline + 1071 live），COVERAGE=`848/674/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-177-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-178`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-176 复核 marketplace missing env：focused `details.missing`/零持久化与真实 Firecrawl 空 env 安装均通过，HTTP 422 body 点名 `FIRECRAWL_API_KEY`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-176-mcp-marketplace-missing-env-20260825.md`；`judge.py` 写入五格 `measure:edge176-mcp-marketplace-missing-env/na/na/na/na`；formal journal=`3366`（2300 baseline + 1066 live），COVERAGE=`848/673/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-176-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-177`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-175 复核 MCP failure stderr：8 KiB byte-cap focused 与真实 lifecycle 均通过，durable detail 明确标注 server-level/may-predate 并保留 stderr 尾。
+- 正式证据=`testend/rig/formal-evidence/EDGE-175-mcp-stderr-tail-20260825.md`；`judge.py` 写入五格 `measure:edge175-mcp-stderr-tail/na/na/na/na`；formal journal=`3361`（2300 baseline + 1061 live），COVERAGE=`848/672/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-175-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-176`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-174 复核 MCP 并发 progress 归属：infra `-race` 交错 token 与真实 HTTP 同 server 并发 alpha/beta 均通过，每条 `mcp_calls` durable detail 只含自己的进度文本。
+- 正式证据=`testend/rig/formal-evidence/EDGE-174-mcp-progress-correlation-20260825.md`；`judge.py` 写入五格 `measure:edge174-mcp-progress-correlation/na/na/na/na`；formal journal=`3356`（2300 baseline + 1056 live），COVERAGE=`848/671/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-174-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-175`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-173 复核 MCP 删除关系闭包：focused `RemoveServer` 测试验证 ID/name 双键 purge，真实 HTTP relation 场景验证 `mcp:<name>/tool` 挂载后删除 server，404 与 agent 邻域去孤儿均通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-173-mcp-name-id-purge-20260825.md`；`judge.py` 写入五格 `measure:edge173-mcp-name-id-purge/na/na/na/na`；formal journal=`3351`（2300 baseline + 1051 live），COVERAGE=`848/670/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-173-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-174`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-172 复核无 uploader 的媒体能力：uploader=nil 时调用成功、placeholder 保留、没有假 attachment receipt；相邻 uploader 已接线对照同样通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-172-mcp-media-no-uploader-20260825.md`；`judge.py` 写入五格 `measure:edge172-mcp-media-no-uploader/na/na/na/na`；formal journal=`3346`（2300 baseline + 1046 live），COVERAGE=`848/669/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-172-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-173`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-171 复核 MCP 多媒体逐件 best-effort：第二件 uploader 故意失败时，第一/第三件有 receipt，失败件保留占位，整次 call 和 ledger 仍成功；真实 stdio→attachment→vision wire 通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-171-mcp-media-best-effort-20260825.md`；`judge.py` 写入五格 `measure:edge171-mcp-media-best-effort/na/na/na/na`；formal journal=`3341`（2300 baseline + 1041 live），COVERAGE=`848/668/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-171-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-172`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-170 复核 MCP 失败持久化：坏 stdio 与不可达 remote 的 PUT 均保留 `failed`/`lastError`，重连可尝试但不伪报成功，failed server 调用返回 `MCP_SERVER_DOWN`；focused/真实 HTTP 均通过。
 - 正式证据=`testend/rig/formal-evidence/EDGE-170-mcp-failed-persists-20260825.md`；`judge.py` 写入五格 `measure:edge170-mcp-failed-persists/na/na/na/na`；formal journal=`3336`（2300 baseline + 1036 live），COVERAGE=`848/667/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-170-ledger-alarm-reaudit-20260825.md`。

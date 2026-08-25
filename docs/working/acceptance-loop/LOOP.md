@@ -13,7 +13,69 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-170 已收口 · 批次六十四 50/50，统一门禁已通过）
+## 当前前线覆盖声明（2026-08-25 · EDGE-180 已收口 · 批次六十五 50/50，统一门禁已通过，待提交）
+
+## 2026-08-25 · EDGE-180 embedder 孤儿回收
+
+- Unix `-race` focused 回归通过：记录的 `embedder.pid` survivor 被杀，缺失文件/垃圾 pid 安全 no-op；真实 kill-9/App 重启未执行，L2-L5 如实 na。
+- 正式证据=`testend/rig/formal-evidence/EDGE-180-search-embedder-orphan-reap-20260825.md`；五级=`measure:edge180-search-embedder-orphan-reap/na/na/na/na`；formal journal=`3386`（2300 baseline + 1086 live），COVERAGE=`848/677/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-180-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-65-unified-gate-20260825.md`，本批待统一提交；下一原子前线在提交后重述。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-179 首用下载途中关停
+
+- focused `-race` 回归用无限首用 installer 模拟模型下载：`Builtin.Close` 在预算内返回，取消 installer context 并释放锁，不让关停阻塞在下载上。
+- 当前没有真实 600MB 下载中的 App/SIGTERM 黑盒，未伪造 L2-L5 绿证据。
+- 正式证据=`testend/rig/formal-evidence/EDGE-179-search-first-download-shutdown-20260825.md`；五级=`measure:edge179-search-first-download-shutdown/na/na/na/na`；formal journal=`3381`（2300 baseline + 1081 live），COVERAGE=`848/676/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-179-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-180`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-178 搜索 embedder 缺席降级
+
+- focused provider-failure/off 回归均通过：provider 不可用或 `embedder=off` 时 lexical hit 保留且无 error。
+- 真实 `TestSearch_ReindexAndSettings` 通过：reindex 后命中，`off` 状态在跨 workspace 一致，词法搜索继续可用；Ollama 死端口软降级不打断搜索。
+- 正式证据=`testend/rig/formal-evidence/EDGE-178-search-embedder-off-fallback-20260825.md`；五级=`measure:edge178-search-embedder-off-fallback/na/na/na/na`；formal journal=`3376`（2300 baseline + 1076 live），COVERAGE=`848/675/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-178-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-179`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-177 无可跑 package
+
+- focused unsupported-runtime fixture 与 curated catalog plannability 门禁均通过：no-runnable 返回 `MCP_NO_RUNNABLE_PACKAGE` 且不落 server 半行；正式白名单不暴露此状态。
+- 正式证据=`testend/rig/formal-evidence/EDGE-177-mcp-no-runnable-package-20260825.md`；五级=`measure:edge177-mcp-no-runnable-package/na/na/na/na`；formal journal=`3371`（2300 baseline + 1071 live），COVERAGE=`848/674/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-177-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-178`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-176 MCP 市场缺必填 env
+
+- focused missing detail/零持久化与真实 marketplace 均通过：Firecrawl 空 env 在下载前返回 `422 MCP_ENV_MISSING`，body 点名 `FIRECRAWL_API_KEY`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-176-mcp-marketplace-missing-env-20260825.md`；五级=`measure:edge176-mcp-marketplace-missing-env/na/na/na/na`；formal journal=`3366`（2300 baseline + 1066 live），COVERAGE=`848/673/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-176-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-177`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-175 MCP 失败附 stderr 尾
+
+- focused byte-cap 与真实 MCP lifecycle 均通过：失败详情带 `server-level, may predate this call` 标注和 stderr 尾，helper 保留最新 8 KiB。
+- 正式证据=`testend/rig/formal-evidence/EDGE-175-mcp-stderr-tail-20260825.md`；五级=`measure:edge175-mcp-stderr-tail/na/na/na/na`；formal journal=`3361`（2300 baseline + 1061 live），COVERAGE=`848/672/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-175-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-176`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-174 MCP 进度关联
+
+- infra `-race` 与真实 HTTP 并发场景均通过：两个 progress token 分别回到 alpha/beta 调用，两个 durable `mcp_calls` 详情无串台。
+- 正式证据=`testend/rig/formal-evidence/EDGE-174-mcp-progress-correlation-20260825.md`；五级=`measure:edge174-mcp-progress-correlation/na/na/na/na`；formal journal=`3356`（2300 baseline + 1056 live），COVERAGE=`848/671/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-174-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-175`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-173 MCP name-or-id 双键 purge
+
+- focused service 与真实 HTTP relation 场景均通过：`RemoveServer` 同时 purge `mcp_` ID 和 server name 两类键；真实挂载后的 agent 邻域在删除 MCP 后不再包含 `relmcp`，server 读接口返回 404。
+- 正式证据=`testend/rig/formal-evidence/EDGE-173-mcp-name-id-purge-20260825.md`；五级=`measure:edge173-mcp-name-id-purge/na/na/na/na`；formal journal=`3351`（2300 baseline + 1051 live），COVERAGE=`848/670/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-173-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-174`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-172 无 uploader 时的 MCP 媒体
+
+- 同一 focused 回归比较 uploader 已接线与 `nil`：无 uploader 时 MCP media call 成功、原始占位保留、不伪造 attachment receipt；能力缺席被诚实表达。
+- 正式证据=`testend/rig/formal-evidence/EDGE-172-mcp-media-no-uploader-20260825.md`；五级=`measure:edge172-mcp-media-no-uploader/na/na/na/na`；formal journal=`3346`（2300 baseline + 1046 live），COVERAGE=`848/669/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-172-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-173`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-171 MCP 媒体逐件 best-effort
+
+- focused 三件 PNG/MP3/JPEG 中间件故意失败一件：调用仍成功，两件成功项有 `mcp_media` receipts，失败项保留原始占位；真实 stdio→attachment→vision wire 证明图片原字节进入 native image part，无 uploader 降级也通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-171-mcp-media-best-effort-20260825.md`；五级=`measure:edge171-mcp-media-best-effort/na/na/na/na`；formal journal=`3341`（2300 baseline + 1041 live），COVERAGE=`848/668/0`，anchors=`10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-171-ledger-alarm-reaudit-20260825.md`。
+- 批次六十五当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-172`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-170 MCP 连接失败仍落盘
 

@@ -3,6 +3,7 @@ package mcp
 import (
 	"context"
 	"strings"
+	"sync"
 	"testing"
 
 	mcpsdk "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -47,5 +48,51 @@ func TestOnProgress_RoutesByToken(t *testing.T) {
 
 	if len(got) != 1 || !strings.Contains(got[0], "indexing") || !strings.Contains(got[0], "3/10") {
 		t.Fatalf("progress not routed/formatted to the registered sink: %v", got)
+	}
+}
+
+func TestOnProgress_RoutesConcurrentCallsByToken(t *testing.T) {
+	c := &client{}
+	a := make(chan string, 2)
+	b := make(chan string, 2)
+	c.progress.Store("call-a", func(line string) { a <- line })
+	c.progress.Store("call-b", func(line string) { b <- line })
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		c.onProgress(context.Background(), &mcpsdk.ProgressNotificationClientRequest{
+			Params: &mcpsdk.ProgressNotificationParams{ProgressToken: "call-a", Message: "alpha", Progress: 1, Total: 2},
+		})
+		c.onProgress(context.Background(), &mcpsdk.ProgressNotificationClientRequest{
+			Params: &mcpsdk.ProgressNotificationParams{ProgressToken: "unknown", Message: "stray"},
+		})
+	}()
+	go func() {
+		defer wg.Done()
+		c.onProgress(context.Background(), &mcpsdk.ProgressNotificationClientRequest{
+			Params: &mcpsdk.ProgressNotificationParams{ProgressToken: "call-b", Message: "beta", Progress: 1, Total: 2},
+		})
+		c.onProgress(context.Background(), &mcpsdk.ProgressNotificationClientRequest{
+			Params: &mcpsdk.ProgressNotificationParams{ProgressToken: "call-b", Message: "beta done"},
+		})
+	}()
+	wg.Wait()
+	close(a)
+	close(b)
+
+	var aLines, bLines []string
+	for line := range a {
+		aLines = append(aLines, line)
+	}
+	for line := range b {
+		bLines = append(bLines, line)
+	}
+	if len(aLines) != 1 || !strings.Contains(aLines[0], "alpha") || strings.Contains(aLines[0], "beta") {
+		t.Fatalf("call-a received cross-talk or wrong count: %v", aLines)
+	}
+	if len(bLines) != 2 || !strings.Contains(strings.Join(bLines, ""), "beta") || strings.Contains(strings.Join(bLines, ""), "alpha") {
+		t.Fatalf("call-b received cross-talk or wrong count: %v", bLines)
 	}
 }
