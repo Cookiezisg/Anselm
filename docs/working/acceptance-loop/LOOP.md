@@ -13,9 +13,23 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-280 已收口 · 批次七十五 50/50，统一门禁通过，已提交=8cb72f0a）
+## 当前前线覆盖声明（2026-08-26 · EDGE-290 已收口 · 批次七十六 50/50，统一门禁通过，已提交=810ddd99）
 
-## 2026-08-26 · EDGE-271..280 批次七十五收口
+## 2026-08-26 · EDGE-281..290 批次七十六收口
+
+- 按序完成 10 个边界、50 个账本格：skill 安装资源护栏、文件系统路径/manifest 守卫、脚本运行器扩展名、
+  fork skill 降级与 mention 隔离、frontmatter 扩展字段保真；十行均为 `✓~~~~`，L2-L5 明确 `na`，没有把
+  focused 或黑盒测试冒充真实 App 五通道证据。
+- 正式证据为 `testend/rig/formal-evidence/EDGE-281-skill-install-bomb-20260826.md` 至
+  `testend/rig/formal-evidence/EDGE-290-skill-frontmatter-unknown-keys-20260826.md`；独立警报复审=
+  `testend/rig/formal-evidence/batch-76-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`3936`（2300 baseline + 1636 live），`COVERAGE=848/787/0`，`anchors=10/10`，
+  `alarms.py check` clean；批次七十六已满=`50/50`。统一长门禁证据=
+  `testend/rig/formal-evidence/batch-76-unified-gate-20260826.md`，根门禁、完整 backend testend、rig
+  自测与审计全绿，已提交=`810ddd99`。下一原子前线=`EDGE-291`，批次七十七=`0/50`。P12 400+ Journey
+  按用户裁定推迟二期。
+
+## 历史：2026-08-26 · EDGE-271..280 批次七十五收口
 
 - 按序完成 10 个边界、50 个账本格：分组事务/分页/过滤、删除线程、文档约束与挂载缺失降级；十行均为 `✓~~~~`，
   L2-L5 明确 `na`，没有把聚焦测试冒充真实 App 五通道证据。

@@ -297,9 +297,27 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-280 已完成；批次七十五 50/50，统一门禁通过，已提交=8cb72f0a)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-290 已完成；批次七十六 50/50，统一门禁通过，已提交=810ddd99)
 
-#### 2026-08-26 当前前线重述：EDGE-271..280 批次七十五已收口 focused L1，长门禁待执行
+#### 2026-08-26 当前前线重述：EDGE-281..290 批次七十六已收口，统一长门禁通过
+
+批次七十六按序完成 `EDGE-281..290` 共 10 个边界、50 个账本格。十格的 L1 均由可定位的 skill
+安装/文件系统/脚本执行 focused 回归与 `TestSkillInstall_FullChain` 黑盒证据支持，目标行均为
+`✓~~~~`；没有把本轮单测、源代码检查或黑盒场景冒充新的真实 App 五通道，故 L2-L5 全部明确为
+`na`。覆盖内容依次为：安装炸弹四道护栏、installed skill 本地漂移与信任门重置、路径穿越/symlink
+越界、manifest 拒删、大小写不敏感文件系统、目录前导/占位符、脚本扩展名拒绝、fork 无 runner、
+fork skill 的 @ 语义隔离，以及未知 frontmatter 键保真。
+
+正式证据分别为 `testend/rig/formal-evidence/EDGE-281-skill-install-bomb-20260826.md` 至
+`EDGE-290-skill-frontmatter-unknown-keys-20260826.md`；独立警报复审=
+`testend/rig/formal-evidence/batch-76-ledger-alarm-reaudit-20260826.md`。formal journal=`3936`
+（2300 baseline + 1636 live），`gen_coverage.py --check`=`848 rows / 787 carried judgments / 0 tombstones`，
+批次目标十行均=`✓~~~~`，`anchors=10/10`，`alarms.py check`=`clean`。批次七十六已满=`50/50`；
+统一长门禁证据=`testend/rig/formal-evidence/batch-76-unified-gate-20260826.md`，根门禁、完整 backend
+testend、rig 自测与审计全绿，已提交=`810ddd99`。下一原子前线=`EDGE-291`，批次七十七=`0/50`。P12
+400+ Journey 继续按用户裁定推迟二期。
+
+#### 历史收口：EDGE-271..280 批次七十五已完成
 
 批次七十五按序完成 `EDGE-271..280` 共 10 个边界、50 个账本格。十格的 L1 均由可定位的 focused
 回归与 testend 黑盒证据支持，五格均为 `✓~~~~`；没有把本轮单测、源代码检查或黑盒场景冒充新的真实 App

@@ -7847,3 +7847,16 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 - 五通道证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260825-113116/evidence/EDGE-001-five-channel.md`；
   警报复审=`testend/rig/formal-evidence/EDGE-001-ledger-alarm-reaudit-20260825.md`。五级=`G1/F2/A5/C4/G2`，
   `alarms.py check` 复审后 clean；下一前线=`EDGE-002`，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-08-26 · EDGE-281..290 批次七十六收口，统一长门禁通过，已提交=810ddd99
+
+- 按序完成 skill 安装/文件系统/脚本/fork 族 10 行、50 格；L1 全部由可定位 focused 或黑盒证据支持，
+  L2-L5 明确为 `na`，不冒充真实 App、Computer Use 或五通道 session。
+- 证据=`testend/rig/formal-evidence/EDGE-281-skill-install-bomb-20260826.md` 至
+  `EDGE-290-skill-frontmatter-unknown-keys-20260826.md`；警报复审=
+  `testend/rig/formal-evidence/batch-76-ledger-alarm-reaudit-20260826.md`。
+- formal journal=`3936`（2300 baseline + 1636 live），`COVERAGE=848/787/0`，anchors=`10/10`，
+  `alarms.py check`=`clean`。批次七十六=`50/50`，统一长门禁证据=
+  `testend/rig/formal-evidence/batch-76-unified-gate-20260826.md`，根门禁、完整 backend testend、rig
+  自测与审计全绿，已提交=`810ddd99`；下一前线=`EDGE-291`，批次七十七=`0/50`。P12 400+ Journey
+  按用户裁定推迟二期。
