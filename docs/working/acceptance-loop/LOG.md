@@ -12,6 +12,8 @@ landed-into:
 
 ## 当前前线（2026-08-25 · EDGE-150 已收口 · 批次六十二 50/50）
 
+- 批次六十二 `EDGE-141..EDGE-150` 已完成 `50/50`，统一长门禁全绿并提交=`ed269a1e`；统一证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`。批次六十三从 `0/50` 开始，下一原子前线=`EDGE-151`。P12 400+ Journey 继续推迟二期。
+
 - EDGE-150 复核 boot survivor 回收：真实 `sleep` PID 被整组杀、manifest `running_pid` 清零；同组 grandchild 也被杀，确认 wrapper 后代不泄漏。
 - 正式证据=`testend/rig/formal-evidence/EDGE-150-sandbox-boot-reclaim-running-pid-20260825.md`；`judge.py` 写入五格 `measure:edge150-sandbox-boot-reclaim-running-pid/na/na/na/na`；formal journal=`3236`，COVERAGE=`848/647/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
 - 批次六十二已完成=`50/50`；统一门禁证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`，根验证、完整 testend、rig 51 项、backend verify、coverage/anchors/alarms、语法、diff、进程收台全绿；现在只剩本批提交。P12 400+ Journey 继续推迟二期。

@@ -15,6 +15,11 @@ landed-into:
 
 ## 当前前线覆盖声明（2026-08-25 · EDGE-150 已收口 · 批次六十二 50/50）
 
+## 2026-08-25 · 批次六十二已提交
+
+- `EDGE-141..EDGE-150` 已完成 `50/50`；统一长门禁全绿，证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`，代码/证据提交=`ed269a1e`。
+- 批次六十三从 `0/50` 开始，下一原子前线=`EDGE-151`。P12 400+ Journey 继续推迟二期。
+
 ## 2026-08-25 · EDGE-150 boot 回收残留 running_pid
 
 - 真实进程回归通过：boot 收割 manifest 中记录的 survivor、清零 `running_pid`，并通过同组 grandchild 模拟证明整组 SIGKILL 不留 wrapper 孙进程。

@@ -299,6 +299,14 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 
 ### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-150 已完成；批次六十二 50/50)
 
+#### 2026-08-25 当前前线重述：批次六十二已提交
+
+批次六十二（`EDGE-141..EDGE-150`）已完成 50/50，统一长门禁全绿并提交为
+`ed269a1e test(rig): close batch 62 sandbox and handler edges`。正式门禁证据为
+`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`；working 文档随后以本次
+docs 收口提交同步。批次六十三从 `0/50` 开始，下一原子前线为 `EDGE-151`；P12 的 400+ Journey
+继续按用户裁定推迟二期。
+
 #### 2026-08-25 当前前线重述：EDGE-150 boot 回收残留 running_pid
 
 `EDGE-150` 已用真实进程回归收口：boot manifest 记录的 `sleep` survivor 被整组收割，`Wait`
