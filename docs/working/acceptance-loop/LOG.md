@@ -10,7 +10,85 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-26 · EDGE-200 已收口 · 批次六十六已提交 · 批次六十七 50/50，统一门禁全绿，本批已提交）
+## 当前前线（2026-08-26 · EDGE-210 已收口 · 批次六十八 50/50 · 统一门禁通过，待提交）
+
+- `EDGE-210` focused 通过：HTTP 402、429 耗尽码和流内 `BUDGET_EXHAUSTED` 统一为
+  `LLM_QUOTA_EXHAUSTED`，不会把耗尽额度重试；瞬时限流仍保持可重试。真实无配额网关耗尽 session 尚未执行，
+  L2-L5 明确为 `na`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-210-freetier-quota-exhausted-20260826.md`；`judge.py` 写入
+  五格 `measure:edge210-freetier-quota-exhausted/na/na/na/na`；formal journal=`3536`（2300 baseline + 1236 live），
+  `COVERAGE=848/707/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-210-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八达到=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-68-unified-gate-20260826.md`，
+  `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
+  现在提交本批。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-209` focused 通过：附件不因时间自动删除；显式删除只软删 metadata，显式 GC 才回收无 live 引用的
+  blob，共享 blob 保留。产品可逆性与容量治理边界由回归固定。
+- 正式证据=`testend/rig/formal-evidence/EDGE-209-attachment-no-retention-line-20260826.md`；`judge.py` 写入
+  五格 `measure:edge209-attachment-no-retention-line/na/na/na/na`；formal journal=`3531`（2300 baseline + 1231 live），
+  `COVERAGE=848/726/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-209-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-210`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-208` focused 通过：tool result 只有本次调用铸出的附件 ID 才展开为原生媒体；其他调用 ID 和空调用
+  ID 均被收窄，保持为文本或不展开。
+- 正式证据=`testend/rig/formal-evidence/EDGE-208-origin-tool-call-narrowing-20260826.md`；`judge.py` 写入
+  五格 `measure:edge208-origin-tool-call-narrowing/na/na/na/na`；formal journal=`3526`（2300 baseline + 1226 live），
+  `COVERAGE=848/721/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-208-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-209`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-207` focused 通过：无语音路由或 availability 探测失败时后端返回 false，Flutter 不渲染朗读按钮；
+  有路由时入口保持可用。新增的 unavailable widget 守卫与既有可用/忙态测试均通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-207-readaloud-availability-20260826.md`；`judge.py` 写入
+  五格 `measure:edge207-readaloud-availability/na/na/na/na`；formal journal=`3521`（2300 baseline + 1221 live），
+  `COVERAGE=848/716/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-207-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-208`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-206` focused 通过：空白和超过 4000 rune 的朗读输入在合成器调用前被拒绝，上游调用计数为零。
+- 正式证据=`testend/rig/formal-evidence/EDGE-206-readaloud-length-limit-20260826.md`；`judge.py` 写入
+  五格 `measure:edge206-readaloud-length-limit/na/na/na/na`；formal journal=`3516`（2300 baseline + 1216 live），
+  `COVERAGE=848/711/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-206-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-207`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-205` focused 通过：朗读缓存超出预算时按 `last_used_at` 淘汰当前 workspace 的旧条目，新条目
+  不能自淘汰，另一 workspace 的缓存保持可读；ORM workspace 隔离和重复删除幂等均有回归守卫。
+- 正式证据=`testend/rig/formal-evidence/EDGE-205-readaloud-cache-lru-20260826.md`；`judge.py` 写入
+  五格 `measure:edge205-readaloud-cache-lru/na/na/na/na`；formal journal=`3511`（2300 baseline + 1211 live），
+  `COVERAGE=848/706/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-205-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-206`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-204` focused 通过：朗读重复命中缓存，第二次不合成、不上传，并发 miss 也只付一次上游。
+- 正式证据=`testend/rig/formal-evidence/EDGE-204-readaloud-cache-hit-20260826.md`；`judge.py` 写入
+  五格 `measure:edge204-readaloud-cache-hit/na/na/na/na`；formal journal=`3506`（2300 baseline + 1206 live），
+  `COVERAGE=848/701/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-204-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-205`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-203` focused 通过：非 audio playback lease 在 token 生成前返回 415，不泄露 bearerless 播放 URL。
+- 正式证据=`testend/rig/formal-evidence/EDGE-203-attachment-non-audio-playback-reject-20260826.md`；`judge.py` 写入
+  五格 `measure:edge203-attachment-non-audio-playback-reject/na/na/na/na`；formal journal=`3501`（2300 baseline + 1201 live），
+  `COVERAGE=848/700/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-203-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-204`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-202` focused 通过：playback lease 过期后 fetch 返回 404；未过期路径保持 bearerless 音频播放和 Range seek。
+- 正式证据=`testend/rig/formal-evidence/EDGE-202-attachment-audio-playback-token-expiry-20260826.md`；`judge.py` 写入
+  五格 `measure:edge202-attachment-audio-playback-token-expiry/na/na/na/na`；formal journal=`3496`（2300 baseline + 1196 live），
+  `COVERAGE=848/699/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-202-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-203`。P12 400+ Journey 继续推迟二期。
+
+- `EDGE-201` focused 通过：metadata 缺失与 blob 不可读均留下可见不可用说明并继续处理后续附件，整轮不失败。
+- 正式证据=`testend/rig/formal-evidence/EDGE-201-attachment-missing-blob-replay-20260826.md`；`judge.py` 写入
+  五格 `measure:edge201-attachment-missing-blob-replay/na/na/na/na`；formal journal=`3491`（2300 baseline + 1191 live），
+  `COVERAGE=848/698/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-201-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-202`。P12 400+ Journey 继续推迟二期。
 
 - `EDGE-200` focused 通过：删除只软删附件行，GC 按 live SHA 保留集在启动期清扫，孤儿 blob 才删除；
   attachment GC 完成后才启动 media worker，避免上传 `Put -> row Create` 竞态。

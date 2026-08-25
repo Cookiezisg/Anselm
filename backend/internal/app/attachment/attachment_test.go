@@ -461,6 +461,35 @@ func TestToContentParts_NotesMissingPreservingOrder(t *testing.T) {
 	}
 }
 
+func TestToContentParts_NotesUnreadableBlobPreservingOrder(t *testing.T) {
+	svc, blobs, ctx := newSvc(t)
+	missing, err := svc.Upload(ctx, "gone.png", "image/png", []byte("PNG"))
+	if err != nil {
+		t.Fatalf("upload missing blob candidate: %v", err)
+	}
+	if removed, err := blobs.Sweep(ctx, map[string]bool{}); err != nil || removed != 1 {
+		t.Fatalf("remove blob: removed=%d err=%v", removed, err)
+	}
+	live, err := svc.Upload(ctx, "live.txt", "text/plain", []byte("still here"))
+	if err != nil {
+		t.Fatalf("upload live attachment: %v", err)
+	}
+
+	parts, err := svc.ToContentParts(ctx, []string{missing.ID, live.ID}, Capabilities{Vision: true})
+	if err != nil {
+		t.Fatalf("ToContentParts: %v", err)
+	}
+	if len(parts) != 2 {
+		t.Fatalf("parts = %d, want 2 (unreadable-blob note + live text)", len(parts))
+	}
+	if parts[0].Type != llminfra.PartText || !strings.Contains(parts[0].Text, "gone.png") || !strings.Contains(parts[0].Text, "no longer available") {
+		t.Errorf("part[0] = %+v, want an unreadable-blob placeholder note", parts[0])
+	}
+	if parts[1].Type != llminfra.PartText || !strings.Contains(parts[1].Text, "still here") {
+		t.Errorf("part[1] = %+v, want the live text part", parts[1])
+	}
+}
+
 func TestToContentParts_EmptyIDs(t *testing.T) {
 	svc, _, ctx := newSvc(t)
 	parts, err := svc.ToContentParts(ctx, nil, Capabilities{Vision: true})

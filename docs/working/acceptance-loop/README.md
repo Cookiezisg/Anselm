@@ -297,7 +297,62 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-200 已完成；批次六十六已提交；批次六十七 50/50，统一门禁全绿，本批已提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-210 已完成；批次六十八 50/50，统一门禁通过，待提交)
+
+#### 2026-08-26 当前前线重述：EDGE-210 免费档配额耗尽
+
+`EDGE-210` 已完成免费档耗尽错误边界回归：HTTP 402、HTTP 429 耗尽码与流内
+`BUDGET_EXHAUSTED` 统一为 `LLM_QUOTA_EXHAUSTED`，不把耗尽误当瞬时限流重试；真实无配额网关耗尽
+session 尚未计入 L2-L5。
+
+正式证据=`testend/rig/formal-evidence/EDGE-210-freetier-quota-exhausted-20260826.md`；五级=
+`measure:edge210-freetier-quota-exhausted/na/na/na/na`；formal journal=`3536`
+（2300 baseline + 1236 live），`gen_coverage.py --check`=`848 rows / 707 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-210-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-68-unified-gate-20260826.md`，
+  `make verify`、完整 testend、rig 51 项、后端 verify、锚点、警报、脚本语法、gofmt 与工作树审计均通过，
+  现在提交本批。P12 400+ Journey 继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-203 非 audio 签发 playback
+
+`EDGE-203` 已完成 playback 媒体类型门禁回归：文本附件请求 playback lease 在 token 生成前返回 `415
+Unsupported Media Type`，不产生可被 bearerless fetch 使用的播放 token。
+
+正式证据=`testend/rig/formal-evidence/EDGE-203-attachment-non-audio-playback-reject-20260826.md`；五级=
+`measure:edge203-attachment-non-audio-playback-reject/na/na/na/na`；formal journal=`3501`
+（2300 baseline + 1201 live），`gen_coverage.py --check`=`848 rows / 700 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-203-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-204`。P12 400+ Journey
+  继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-202 audio playback token 过期
+
+`EDGE-202` 已完成音频播放 lease 过期回归：可控时钟推进到过期后，bearerless playback fetch 返回 404，
+不会继续读取音频；未过期路径仍支持无 bearer/workspace header 的原生播放器访问和 Range seek。
+
+正式证据=`testend/rig/formal-evidence/EDGE-202-attachment-audio-playback-token-expiry-20260826.md`；五级=
+`measure:edge202-attachment-audio-playback-token-expiry/na/na/na/na`；formal journal=`3496`
+（2300 baseline + 1196 live），`gen_coverage.py --check`=`848 rows / 699 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-202-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-203`。P12 400+ Journey
+  继续推迟二期。
+
+#### 2026-08-26 当前前线重述：EDGE-201 缺失/不可读 blob
+
+`EDGE-201` 已完成附件重放完整性回归：metadata 行仍在但 blob 被清扫后，`ToContentParts` 写告警并插入
+明确的 `no longer available` 文本说明，不让整轮失败；后续仍可读的附件保持原顺序继续送入模型。metadata
+缺失与 blob 不可读两条分支分别覆盖，不能静默消失。
+
+正式证据=`testend/rig/formal-evidence/EDGE-201-attachment-missing-blob-replay-20260826.md`；五级=
+`measure:edge201-attachment-missing-blob-replay/na/na/na/na`；formal journal=`3491`
+（2300 baseline + 1191 live），`gen_coverage.py --check`=`848 rows / 698 carried judgments / 0 tombstones`，
+目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+`testend/rig/formal-evidence/EDGE-201-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-202`。P12 400+ Journey
+  继续推迟二期。
 
 #### 2026-08-26 当前前线重述：EDGE-200 blob GC 只在 boot 跑
 

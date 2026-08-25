@@ -13,7 +13,47 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-26 · EDGE-200 已收口 · 批次六十六已提交 · 批次六十七 50/50，统一门禁全绿，本批已提交）
+## 当前前线覆盖声明（2026-08-26 · EDGE-210 已收口 · 批次六十八 50/50 · 统一门禁通过，待提交）
+
+## 2026-08-26 · EDGE-210 免费档配额耗尽
+
+- focused 回归通过：402/429/流内耗尽码统一为 `LLM_QUOTA_EXHAUSTED`，耗尽额度不可重试，瞬时限流仍可重试。
+- 正式证据=`testend/rig/formal-evidence/EDGE-210-freetier-quota-exhausted-20260826.md`；五级=
+  `measure:edge210-freetier-quota-exhausted/na/na/na/na`；formal journal=`3536`（2300 baseline + 1236 live），
+  `COVERAGE=848/707/0`，目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-210-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`50/50`；统一收口证据=`testend/rig/formal-evidence/batch-68-unified-gate-20260826.md`，完整门禁通过，
+  现在提交本批。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-26 · EDGE-203 非 audio 签发 playback
+
+- focused 回归通过：文本附件请求 playback lease 在 token 生成前返回 `415 Unsupported Media Type`，
+  不创建 bearerless 播放 token。
+- 正式证据=`testend/rig/formal-evidence/EDGE-203-attachment-non-audio-playback-reject-20260826.md`；五级=
+  `measure:edge203-attachment-non-audio-playback-reject/na/na/na/na`；formal journal=`3501`（2300 baseline + 1201 live），
+  `COVERAGE=848/700/0`，目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-203-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-204`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-26 · EDGE-202 audio playback token 过期
+
+- focused 回归通过：lease 过期后 bearerless playback fetch 返回 404；未过期 URL 仍可无 bearer 播放音频，
+  并正确支持 Range seek。
+- 正式证据=`testend/rig/formal-evidence/EDGE-202-attachment-audio-playback-token-expiry-20260826.md`；五级=
+  `measure:edge202-attachment-audio-playback-token-expiry/na/na/na/na`；formal journal=`3496`（2300 baseline + 1196 live），
+  `COVERAGE=848/699/0`，目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-202-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-203`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-26 · EDGE-201 缺失/不可读 blob
+
+- focused 回归通过：metadata 缺失与 blob 被 CAS 清扫两条路径都写告警并产生明确的不可用附件说明；
+  后续正常附件保持原顺序，整轮不失败。
+- 正式证据=`testend/rig/formal-evidence/EDGE-201-attachment-missing-blob-replay-20260826.md`；五级=
+  `measure:edge201-attachment-missing-blob-replay/na/na/na/na`；formal journal=`3491`（2300 baseline + 1191 live），
+  `COVERAGE=848/698/0`，目标行=`✓~~~~`，`anchors=10/10`，`alarms.py check` clean；警报复审=
+  `testend/rig/formal-evidence/EDGE-201-ledger-alarm-reaudit-20260826.md`。
+- 批次六十八当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-202`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-26 · EDGE-200 blob GC 只在 boot 跑
 

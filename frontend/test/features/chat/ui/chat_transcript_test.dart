@@ -267,11 +267,14 @@ class _FakeAudioDriver implements AttachmentAudioDriver {
 }
 
 class _DelayedReadAloudSource implements MediaSource {
+  _DelayedReadAloudSource({this.available = true});
+
+  final bool available;
   final pending = Completer<ReadAloudResult>();
   var readCalls = 0;
 
   @override
-  Future<bool> readAloudAvailable() async => true;
+  Future<bool> readAloudAvailable() async => available;
 
   @override
   Future<ReadAloudResult> readAloud(String text, {String? voice}) {
@@ -403,6 +406,38 @@ void main() {
       expect(find.byType(AnSpinner), findsNothing);
     },
   );
+
+  testWidgets('read-aloud affordance is absent when speech is unavailable', (
+    tester,
+  ) async {
+    final repo = _repo(
+      messages: {
+        'cv_1': [
+          _turn(
+            'msg_a',
+            'assistant',
+            blocks: [_blk('b_a', 'text', 'A reply without a speech route.')],
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          mediaSourceProvider.overrideWithValue(
+            _DelayedReadAloudSource(available: false),
+          ),
+        ],
+      ),
+    );
+    await tester.pump();
+    await _settle(tester);
+
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+    expect(find.byTooltip(t.chat.actions.readAloud), findsNothing);
+    expect(find.byTooltip(t.chat.actions.readAloudPreparing), findsNothing);
+  });
 
   testWidgets('hydrated history dispatches blocks to the locked modules', (
     tester,
