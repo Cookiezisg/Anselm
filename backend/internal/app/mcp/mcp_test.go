@@ -14,6 +14,7 @@ import (
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	mcpdomain "github.com/sunweilin/anselm/backend/internal/domain/mcp"
 	sandboxdomain "github.com/sunweilin/anselm/backend/internal/domain/sandbox"
+	streamdomain "github.com/sunweilin/anselm/backend/internal/domain/stream"
 	mcpinfra "github.com/sunweilin/anselm/backend/internal/infra/mcp"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -112,6 +113,7 @@ func (nopWC) Close() error                { return nil }
 type fakeClient struct {
 	tools      []mcpdomain.ToolDef
 	callResult string
+	callErr    error
 	initErr    error
 	closed     bool
 	callMedia  []mcpdomain.Media
@@ -122,10 +124,21 @@ func (c *fakeClient) ListTools(context.Context) ([]mcpdomain.ToolDef, error) {
 	return c.tools, nil
 }
 func (c *fakeClient) CallTool(context.Context, string, json.RawMessage) (string, []mcpdomain.Media, error) {
-	return c.callResult, c.callMedia, nil
+	return c.callResult, c.callMedia, c.callErr
 }
 func (c *fakeClient) Close() error       { c.closed = true; return nil }
 func (c *fakeClient) StderrTail() string { return "" }
+
+type statusBridge struct{ events []streamdomain.Event }
+
+func (b *statusBridge) Publish(_ context.Context, e streamdomain.Event) (streamdomain.Envelope, error) {
+	b.events = append(b.events, e)
+	return streamdomain.Envelope{Event: e}, nil
+}
+
+func (b *statusBridge) Subscribe(context.Context, int64) (<-chan streamdomain.Envelope, func(), error) {
+	return nil, func() {}, nil
+}
 
 type fakeRegistry struct{ entries []mcpdomain.RegistryEntry }
 
@@ -260,6 +273,86 @@ func TestCallTool_RoutesToClient(t *testing.T) {
 	if c.ServerID != st.ID || c.Tool != "get-library-docs" || c.Status != mcpdomain.CallStatusOK ||
 		c.TriggeredBy != mcpdomain.CallTriggeredByChat || c.Output != "DOCS" {
 		t.Fatalf("recorded call wrong: %+v", c)
+	}
+}
+
+// TestCallTool_DegradesAndSignals proves the health state and the live entity-panel signal move
+// together: three consecutive RPC failures produce one ephemeral degraded signal, degraded stays
+// callable, and one success emits the recovery signal back to ready.
+//
+// TestCallTool_DegradesAndSignals 验证健康状态和实体面板实时信号同步变化：连续三次 RPC 失败产生一条
+// ephemeral degraded signal，degraded 仍可调用，一次成功再发恢复为 ready 的 signal。
+func TestCallTool_DegradesAndSignals(t *testing.T) {
+	fc := &fakeClient{tools: []mcpdomain.ToolDef{{Name: "health"}}, callErr: errors.New("upstream boom")}
+	repo := newFakeRepo()
+	svc := svcWith(repo, ctx7Registry(), fc)
+	ctx := ctxWS("ws_1")
+	st, err := svc.InstallFromRegistry(ctx, "io.github.upstash/context7", nil)
+	if err != nil {
+		t.Fatalf("install: %v", err)
+	}
+	bridge := &statusBridge{}
+	svc.SetEntitiesBridge(bridge)
+	for i := 0; i < mcpdomain.DegradedThreshold; i++ {
+		if _, err := svc.CallTool(ctx, st.ID, "health", json.RawMessage(`{}`), "manual"); err == nil {
+			t.Fatalf("failure %d unexpectedly succeeded", i+1)
+		}
+	}
+	status, err := svc.GetServer(ctx, "context7")
+	if err != nil {
+		t.Fatalf("get degraded server: %v", err)
+	}
+	if status.Status != mcpdomain.StatusDegraded || status.ConsecutiveFailures != mcpdomain.DegradedThreshold {
+		t.Fatalf("health counters wrong after threshold: %+v", status)
+	}
+	statusEvents := make([]streamdomain.Event, 0, len(bridge.events))
+	for _, event := range bridge.events {
+		if signal, ok := event.Frame.(streamdomain.Signal); ok && signal.Node.Type == "status" {
+			statusEvents = append(statusEvents, event)
+		}
+	}
+	if len(statusEvents) != 1 {
+		t.Fatalf("threshold crossing must emit one status signal, got %d status events out of %d total", len(statusEvents), len(bridge.events))
+	}
+	first, ok := statusEvents[0].Frame.(streamdomain.Signal)
+	if !ok || !first.Ephemeral || first.Node.Type != "status" {
+		t.Fatalf("degraded event must be ephemeral status signal, got %#v", statusEvents[0].Frame)
+	}
+	var degraded map[string]string
+	if err := json.Unmarshal(first.Node.Content, &degraded); err != nil {
+		t.Fatalf("decode degraded signal: %v", err)
+	}
+	if degraded["status"] != mcpdomain.StatusDegraded || degraded["prevStatus"] != mcpdomain.StatusReady {
+		t.Fatalf("degraded signal payload wrong: %v", degraded)
+	}
+
+	fc.callErr = nil
+	if _, err := svc.CallTool(ctx, st.ID, "health", json.RawMessage(`{}`), "manual"); err != nil {
+		t.Fatalf("recovery call: %v", err)
+	}
+	status, err = svc.GetServer(ctx, "context7")
+	if err != nil || status.Status != mcpdomain.StatusReady || status.ConsecutiveFailures != 0 {
+		t.Fatalf("success must restore ready and reset failures: status=%+v err=%v", status, err)
+	}
+	statusEvents = statusEvents[:0]
+	for _, event := range bridge.events {
+		if signal, ok := event.Frame.(streamdomain.Signal); ok && signal.Node.Type == "status" {
+			statusEvents = append(statusEvents, event)
+		}
+	}
+	if len(statusEvents) != 2 {
+		t.Fatalf("recovery must emit one additional status signal, got %d status events out of %d total", len(statusEvents), len(bridge.events))
+	}
+	recovered, ok := statusEvents[1].Frame.(streamdomain.Signal)
+	if !ok || !recovered.Ephemeral || recovered.Node.Type != "status" {
+		t.Fatalf("recovery event must be ephemeral status signal, got %#v", statusEvents[1].Frame)
+	}
+	var ready map[string]string
+	if err := json.Unmarshal(recovered.Node.Content, &ready); err != nil {
+		t.Fatalf("decode recovery signal: %v", err)
+	}
+	if ready["status"] != mcpdomain.StatusReady || ready["prevStatus"] != mcpdomain.StatusDegraded {
+		t.Fatalf("recovery signal payload wrong: %v", ready)
 	}
 }
 

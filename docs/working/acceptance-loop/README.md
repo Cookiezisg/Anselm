@@ -297,7 +297,155 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-160 已完成；批次六十三 50/50；统一长门禁全绿)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-170 已完成；批次六十四 50/50，统一门禁已通过)
+
+#### 2026-08-25 当前前线重述：EDGE-170 MCP 连接失败仍落盘
+
+`EDGE-170` 已验证失败安装的诚实半状态：坏 stdio 与不可达 remote 的 PUT 都先保留 server 行，
+运行态为 `failed` 且有 `lastError`；`:reconnect` 仍可尝试但不会伪报恢复，failed server 调工具
+明确返回 `MCP_SERVER_DOWN`。focused 还核对了失败重连通知带 outcome status，真实 HTTP 路径核对了
+删除/未知动作边界。harness 的无配额回环拒绝和收台 embedder cancel 仍按隔离设计披露。
+
+正式证据=`testend/rig/formal-evidence/EDGE-170-mcp-failed-persists-20260825.md`。五级严格为
+`L1=measure:edge170-mcp-failed-persists`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、失败重连逐帧时序、视觉成品或 discoverability 证据。formal journal=`3336`
+（2300 baseline + 1036 live），`gen_coverage.py --check`=`848 rows / 667 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-170-ledger-alarm-reaudit-20260825.md`。
+批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，
+本批代码/测试/证据待提交；下一原子前线暂为=`EDGE-171`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-169 MCP degraded 态
+
+`EDGE-169` 已验证 MCP 健康状态与前端实时反馈同源：连续三次工具失败后 server 变为
+`degraded`，仍允许调用；entities bridge 收到一条 ephemeral `status` signal；成功调用后连续
+失败计数归零、状态恢复 `ready` 并再发恢复 signal。真实 HTTP 生命周期还核对了 mcp_calls 的
+成功/失败聚合、stderr tail、reconnect 与删除后的 not-found。harness 的无配额回环拒绝和收台
+embedder cancel 均按隔离设计原样记录，没有冒充产品红线或绿证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-169-mcp-degraded-20260825.md`。五级严格为
+`L1=measure:edge169-mcp-degraded`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、状态点逐帧时序、视觉成品或 discoverability 证据。formal journal=`3331`
+（2300 baseline + 1031 live），`gen_coverage.py --check`=`848 rows / 666 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-169-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-170`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-168 每租户模板 URL
+
+`EDGE-168` 已验证 Glean 类 `Remote.URLEnv` 不是目录装饰：catalog plan 暴露唯一必填 URL env；
+真实 `InstallFromRegistry` 流程先将 `{MCP_URL}` 展开，再以展开后的 `/mcp` 进入 401/PRM、AS
+metadata、DCR、PKCE、loopback callback 和 token exchange。持久 server 的 URL 与 OAuth resource
+均绑定展开后的租户地址，未把占位符带进授权受众。
+
+正式证据=`testend/rig/formal-evidence/EDGE-168-mcp-tenant-url-template-20260825.md`。五级严格为
+`L1=measure:edge168-mcp-tenant-url-template`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、浏览器逐帧时序、视觉成品或 discoverability 证据。formal journal=`3326`
+（2300 baseline + 1026 live），`gen_coverage.py --check`=`848 rows / 665 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-168-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-169`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-167 自带客户端固定端口被占
+
+`EDGE-167` 已真实占住 BYO OAuth 注册便利端口 `127.0.0.1:47100`，再启动 callback server；
+实现没有把端口占用误报成 OAuth 失败，而是退到随机 loopback 端口，并成功接收 code/state。固定
+端口继续服务于确定 redirect URI，但不再是可用性的单点故障。
+
+正式证据=`testend/rig/formal-evidence/EDGE-167-mcp-oauth-port-fallback-20260825.md`。五级严格为
+`L1=measure:edge167-mcp-oauth-port-fallback`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、浏览器逐帧时序、视觉成品或 discoverability 证据。formal journal=`3321`
+（2300 baseline + 1021 live），`gen_coverage.py --check`=`848 rows / 664 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-167-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-168`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-166 OAuth refresh 失效
+
+`EDGE-166` 补齐了 OAuth refresh 被吊销的真实失败分支：受控 token endpoint 返回 HTTP 401 +
+`invalid_grant` 时，token source 明确返回 `ErrOAuthReauthRequired`，不带死 token 继续请求，也不
+伪造成功；正常 refresh 轮换、无 refresh token 也保持原有契约。新增回归已用 `-race` 通过。
+
+正式证据=`testend/rig/formal-evidence/EDGE-166-mcp-oauth-refresh-revoked-20260825.md`。五级严格为
+`L1=measure:edge166-mcp-oauth-refresh-revoked`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、设置页逐帧时序、视觉成品或 discoverability 证据。formal journal=`3316`
+（2300 baseline + 1016 live），`gen_coverage.py --check`=`848 rows / 663 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-166-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-167`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-165 MCP OAuth 全流程
+
+`EDGE-165` 已用受控 authorization server 完成 OAuth 全链路：401 后 RFC 9728/8414 discovery、
+DCR、PKCE S256/state、loopback callback、authorization-code exchange、refresh；同时覆盖 BYO
+client 与无 DCR/无 client 的明确拒绝。infra 层补齐 path-aware well-known、跨 host PRM 防护、错误
+体截断和 token rotation。没有把 fake server 冒充第三方 App/浏览器视觉验收。
+
+正式证据=`testend/rig/formal-evidence/EDGE-165-mcp-oauth-full-flow-20260825.md`。五级严格为
+`L1=measure:edge165-mcp-oauth-full-flow`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、浏览器逐帧时序、视觉成品或 discoverability 证据。formal journal=`3311`
+（2300 baseline + 1011 live），`gen_coverage.py --check`=`848 rows / 662 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-165-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-166`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-164 被取消的 subagent 落终态
+
+`EDGE-164` 已验证取消链：父端取消正在运行的 subagent 后，父消息和子消息都在有限窗口内落
+durable terminal，detached finalize 发出 `message_stop`，没有 pending/streaming 孤儿；父层得到
+明确的 partial/non-authoritative 提示。真实场景故意让 mock provider stall 30 秒，测试替身收台的
+`httptest.Server blocked in Close` warning 已原样保留并标明不是 sidecar 残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-164-subagent-cancel-terminal-20260825.md`。五级严格为
+`L1=measure:edge164-subagent-cancel-terminal`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、逐帧取消时序、视觉成品或 discoverability 证据。formal journal=`3306`
+（2300 baseline + 1006 live），`gen_coverage.py --check`=`848 rows / 661 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-164-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-165`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-163 get_subagent_trace 隔离
+
+`EDGE-163` 已验证 trace 读取权限边界：父对话可列出和读取自己的 subagent trace；subagent 工具
+面同时剔除 `get_subagent_trace` 与 `Subagent`，不能读取父对话中其它子运行的隐藏 trace。真实
+HTTP 父子隔离回归和 focused list/detail/错误输入契约均通过，子树仍按 `SubagentID` 正常落父树。
+
+正式证据=`testend/rig/formal-evidence/EDGE-163-subagent-trace-isolation-20260825.md`。五级严格为
+`L1=measure:edge163-subagent-trace-isolation`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有
+独立 Computer Use 五通道 session、逐帧时序、视觉成品或 discoverability 证据。formal journal=`3301`
+（2300 baseline + 1001 live），`gen_coverage.py --check`=`848 rows / 660 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-163-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-164`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-162 subagent 深度守卫
+
+`EDGE-162` 已验证 subagent 深度固定为 1：Explore/Plan/general-purpose 的工具过滤都剔除
+`Subagent` 与 `get_subagent_trace`，service 层对已有 subagent context 的递归 `Spawn` 也明确拒绝。
+真实 HTTP 子树回归读取子请求工具列表，确认没有递归工具，并验证子结果仍回到父对话树。
+
+正式证据=`testend/rig/formal-evidence/EDGE-162-subagent-depth-guard-20260825.md`。五级严格为
+`L1=measure:edge162-subagent-depth-guard`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、逐帧时序、视觉成品或 discoverability 证据。formal journal=`3296`
+（2300 baseline + 996 live），`gen_coverage.py --check`=`848 rows / 659 carried judgments / 0 tombstones`，
+`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-162-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-163`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-161 subagent 墙钟
+
+`EDGE-161` 已用 focused 与真实 HTTP 双路径确认：从没有父回合 deadline 的路径进入 `Spawn` 时，
+subagent 自己建立 `ChatTurnSec` 墙钟；永不返回的 provider 在 1 秒预算后被切断，子 message
+落为 `cancelled` 终态，截断原因回传父层。真实 HTTP 子树同时确认父工具调用、子消息 `SubagentID`、
+子工具集剔除 `Subagent` 和结果回喂均接线正确。
+
+正式证据=`testend/rig/formal-evidence/EDGE-161-subagent-wall-clock-20260825.md`。五级严格为
+`L1=measure:edge161-subagent-wall-clock`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格没有独立
+Computer Use 五通道 session、逐帧时序、视觉成品或 discoverability 证据，不越级把 runtime/HTTP
+证据冒充产品层证据。formal journal=`3291`（2300 baseline + 991 live），
+`gen_coverage.py --check`=`848 rows / 658 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-161-ledger-alarm-reaudit-20260825.md`。
+批次六十四当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-162`。P12 的 400+
+Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-160 agent 墙钟压过自报终态
 

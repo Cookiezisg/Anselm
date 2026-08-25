@@ -10,7 +10,47 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-160 已收口 · 批次六十三 50/50 · 统一长门禁全绿）
+## 当前前线（2026-08-25 · EDGE-170 已收口 · 批次六十四 50/50，统一门禁已通过）
+
+- EDGE-170 复核 MCP 失败持久化：坏 stdio 与不可达 remote 的 PUT 均保留 `failed`/`lastError`，重连可尝试但不伪报成功，failed server 调用返回 `MCP_SERVER_DOWN`；focused/真实 HTTP 均通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-170-mcp-failed-persists-20260825.md`；`judge.py` 写入五格 `measure:edge170-mcp-failed-persists/na/na/na/na`；formal journal=`3336`（2300 baseline + 1036 live），COVERAGE=`848/667/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-170-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四已达到=`50/50`；统一长门禁已通过，收口证据=`testend/rig/formal-evidence/batch-64-unified-gate-20260825.md`，本批代码/测试/证据待提交；下一原子前线暂为=`EDGE-171`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-169 复核 MCP degraded：focused bridge 断言了只筛 `status` 的 ephemeral signal，真实 HTTP 生命周期验证三次失败后仍可调用且成功恢复 ready，并核对 calls 聚合/stderr/reconnect/delete 事实；harness 的预期 free-tier 回环拒绝和收台 cancel 已披露。
+- 正式证据=`testend/rig/formal-evidence/EDGE-169-mcp-degraded-20260825.md`；`judge.py` 写入五格 `measure:edge169-mcp-degraded/na/na/na/na`；formal journal=`3331`（2300 baseline + 1031 live），COVERAGE=`848/666/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-169-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-170`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-168 复核每租户模板 URL：Glean catalog plan 的唯一必填 `URLEnv` 经真实 `InstallFromRegistry` 展开后进入完整 OAuth discovery/DCR/PKCE/loopback/token 路径，持久 server URL 与 OAuth resource 一致；没有把模板字符串带入授权受众。
+- 正式证据=`testend/rig/formal-evidence/EDGE-168-mcp-tenant-url-template-20260825.md`；`judge.py` 写入五格 `measure:edge168-mcp-tenant-url-template/na/na/na/na`；formal journal=`3326`（2300 baseline + 1026 live），COVERAGE=`848/665/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-168-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-169`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-167 复核 preferred 47100 被占：真实 listener 占用后随机 callback 仍成功交付 code/state，OAuth 不因固定端口冲突失败。
+- 正式证据=`testend/rig/formal-evidence/EDGE-167-mcp-oauth-port-fallback-20260825.md`；`judge.py` 写入五格 `measure:edge167-mcp-oauth-port-fallback/na/na/na/na`；formal journal=`3321`（2300 baseline + 1021 live），COVERAGE=`848/664/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-167-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-168`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-166 复核 refresh 被吊销：新增真实 401/invalid_grant endpoint 后明确 `MCP_OAUTH_REAUTH_REQUIRED`，不带死 token fallback；正常轮换/空 refresh 边界通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-166-mcp-oauth-refresh-revoked-20260825.md`；`judge.py` 写入五格 `measure:edge166-mcp-oauth-refresh-revoked/na/na/na/na`；formal journal=`3316`（2300 baseline + 1016 live），COVERAGE=`848/663/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-166-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-167`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-165 复核 MCP OAuth 全链路：受控 server 完成 discovery/DCR/PKCE/loopback/token/refresh，BYO/no-DCR 边界与 infra 错误面通过；无第三方浏览器视觉冒充。
+- 正式证据=`testend/rig/formal-evidence/EDGE-165-mcp-oauth-full-flow-20260825.md`；`judge.py` 写入五格 `measure:edge165-mcp-oauth-full-flow/na/na/na/na`；formal journal=`3311`（2300 baseline + 1011 live），COVERAGE=`848/662/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-165-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-166`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-164 复核父取消 subagent：父/子 message 均终态、detached `message_stop` 无孤儿；故意30秒mock stall造成的 httptest 收台 warning 已原样记证，不是 App 残留。
+- 正式证据=`testend/rig/formal-evidence/EDGE-164-subagent-cancel-terminal-20260825.md`；`judge.py` 写入五格 `measure:edge164-subagent-cancel-terminal/na/na/na/na`；formal journal=`3306`（2300 baseline + 1006 live），COVERAGE=`848/661/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-164-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-165`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-163 复核 trace 隔离：父能列/读自己的 subagent trace，子工具面不含 `get_subagent_trace` 或 `Subagent`，真实 HTTP 验证父子边界与 `SubagentID` 树。
+- 正式证据=`testend/rig/formal-evidence/EDGE-163-subagent-trace-isolation-20260825.md`；`judge.py` 写入五格 `measure:edge163-subagent-trace-isolation/na/na/na/na`；formal journal=`3301`（2300 baseline + 1001 live），COVERAGE=`848/660/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-163-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-164`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-162 复核 subagent 深度守卫：focused 过滤与递归 Spawn 拒绝通过，真实 HTTP 子请求工具列表无 `Subagent`/`get_subagent_trace`，结果仍落父树。
+- 正式证据=`testend/rig/formal-evidence/EDGE-162-subagent-depth-guard-20260825.md`；`judge.py` 写入五格 `measure:edge162-subagent-depth-guard/na/na/na/na`；formal journal=`3296`（2300 baseline + 996 live），COVERAGE=`848/659/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-162-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-163`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-161 复核 subagent 自有墙钟：focused 永不返回 provider 在 1 秒内收 `cancelled`，真实 HTTP 子树保持 `SubagentID`、结果回喂与深度 1 工具裁剪；没有父 deadline 也不会无限跑。
+- 正式证据=`testend/rig/formal-evidence/EDGE-161-subagent-wall-clock-20260825.md`；`judge.py` 写入五格 `measure:edge161-subagent-wall-clock/na/na/na/na`；formal journal=`3291`（2300 baseline + 991 live），COVERAGE=`848/658/0`，`anchors=10/10`，`alarms.py check` clean；警报复审=`testend/rig/formal-evidence/EDGE-161-ledger-alarm-reaudit-20260825.md`。
+- 批次六十四当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-162`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-160 复核 agent wall-clock：focused 1 秒 deadline 与真实 HTTP 2 秒 PATCH/stall 均落 durable `timeout`，不是 loop 自报成功；execution 可查询，shutdown 收台。
 - 正式证据=`testend/rig/formal-evidence/EDGE-160-agent-wall-clock-terminal-20260825.md`；`judge.py` 写入五格 `measure:edge160-agent-wall-clock-terminal/na/na/na/na`；formal journal=`3286`（2300 baseline + 986 live），COVERAGE=`848/657/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。

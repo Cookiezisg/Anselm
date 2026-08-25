@@ -3,6 +3,8 @@ package mcp
 import (
 	"context"
 	"errors"
+	"fmt"
+	"net"
 	"net/http"
 	"net/http/httptest"
 	"net/url"
@@ -109,6 +111,43 @@ func (f *fakeOpener) Open(authURL string) error {
 	return nil
 }
 
+// TestStartCallbackServer_FallsBackWhenPreferredPortIsBusy proves a pre-registered BYO client port
+// being occupied does not brick OAuth: the native loopback callback moves to an ephemeral port.
+func TestStartCallbackServer_FallsBackWhenPreferredPortIsBusy(t *testing.T) {
+	occupied, err := net.Listen("tcp", fmt.Sprintf("127.0.0.1:%d", oauthCallbackPort))
+	if err != nil {
+		t.Skipf("preferred OAuth callback port is already occupied: %v", err)
+	}
+	t.Cleanup(func() { _ = occupied.Close() })
+
+	cb, err := startCallbackServer()
+	if err != nil {
+		t.Fatalf("startCallbackServer with preferred port occupied: %v", err)
+	}
+	t.Cleanup(cb.close)
+	u, err := url.Parse(cb.redirectURI)
+	if err != nil {
+		t.Fatalf("parse fallback redirect URI: %v", err)
+	}
+	if u.Port() == fmt.Sprint(oauthCallbackPort) {
+		t.Fatalf("occupied preferred port must fall back to a random port, got %s", cb.redirectURI)
+	}
+
+	resp, err := http.Get(cb.redirectURI + "?code=fallback-code&state=fallback-state")
+	if err != nil {
+		t.Fatalf("callback request: %v", err)
+	}
+	_ = resp.Body.Close()
+	select {
+	case hit := <-cb.result:
+		if hit.code != "fallback-code" || hit.state != "fallback-state" {
+			t.Fatalf("fallback callback = %+v", hit)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("fallback callback was not delivered")
+	}
+}
+
 // TestAuthorizeOAuth_FullFlow drives the whole interactive flow against the fake server with a fake
 // browser, asserting it returns a complete grant — discovery, DCR, PKCE authorize, and exchange all
 // wired correctly.
@@ -143,6 +182,50 @@ func TestAuthorizeOAuth_FullFlow(t *testing.T) {
 	authURL := <-hits
 	if u, _ := url.Parse(authURL); u.Query().Get("code_challenge_method") != "S256" || u.Query().Get("resource") == "" {
 		t.Errorf("authorize URL missing PKCE/resource: %s", authURL)
+	}
+}
+
+// TestInstallFromRegistry_ExpandsTenantURLBeforeOAuth proves a per-tenant URL template is
+// resolved before OAuth discovery: the fake authorization server only accepts the expanded
+// resource URL, so passing the literal placeholder would fail at the first 401 discovery.
+//
+// TestInstallFromRegistry_ExpandsTenantURLBeforeOAuth 验证每租户 URL 模板在 OAuth 发现前展开：
+// 假授权服务器只接受展开后的资源 URL，若仍传占位符，会在首个 401 发现处失败。
+func TestInstallFromRegistry_ExpandsTenantURLBeforeOAuth(t *testing.T) {
+	as := fakeAuthServer(t)
+	reg := &fakeRegistry{entries: []mcpdomain.RegistryEntry{{
+		Name:        "tenant/glean",
+		Description: "tenant-scoped OAuth MCP",
+		Remotes: []mcpdomain.Remote{{
+			Transport: "streamable-http",
+			URL:       "{MCP_URL}",
+			Auth:      mcpdomain.AuthOAuth,
+			URLEnv:    &mcpdomain.EnvVar{Name: "MCP_URL", Required: true},
+		}},
+	}}}
+	repo := newFakeRepo()
+	svc := svcWith(repo, reg, &fakeClient{})
+	svc.SetBrowserOpener(&fakeOpener{code: "testcode"})
+
+	resourceURL := as.URL + "/mcp"
+	st, err := svc.InstallFromRegistry(ctxWS("ws_tenant"), "tenant/glean", map[string]string{
+		"MCP_URL": resourceURL,
+	})
+	if err != nil {
+		t.Fatalf("install with expanded tenant URL: %v", err)
+	}
+	if st.Status != mcpdomain.StatusReady {
+		t.Fatalf("installed status = %q, want ready", st.Status)
+	}
+	srv, err := repo.GetByName(ctxWS("ws_tenant"), "glean")
+	if err != nil {
+		t.Fatalf("read persisted server: %v", err)
+	}
+	if srv.URL != resourceURL {
+		t.Fatalf("installed URL = %q, want expanded resource URL %q", srv.URL, resourceURL)
+	}
+	if srv.OAuth == nil || srv.OAuth.AccessToken != "AT-1" || srv.OAuth.Resource != resourceURL {
+		t.Fatalf("OAuth grant must bind to expanded resource URL, got %+v", srv.OAuth)
 	}
 }
 
@@ -233,5 +316,29 @@ func TestTokenSource_ReauthWhenNoRefresh(t *testing.T) {
 	ts := svc.newTokenSource(srv)
 	if _, err := ts.Token(context.Background()); err != mcpdomain.ErrOAuthReauthRequired {
 		t.Errorf("err = %v, want ErrOAuthReauthRequired", err)
+	}
+}
+
+// TestTokenSource_ReauthWhenRefreshRevoked models an authorization server revoking the refresh
+// grant: a failed refresh must become the actionable re-auth sentinel, never an unauthenticated call.
+func TestTokenSource_ReauthWhenRefreshRevoked(t *testing.T) {
+	tokenServer := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":"invalid_grant","error_description":"refresh token revoked"}`))
+	}))
+	t.Cleanup(tokenServer.Close)
+
+	svc := NewService(newFakeRepo(), nil, &fakeSandbox{}, zap.NewNop())
+	srv := &mcpdomain.Server{
+		ID: "mcp_revoked", WorkspaceID: "ws_1",
+		OAuth: &mcpdomain.OAuthCredentials{
+			AccessToken: "AT-expired", RefreshToken: "RT-revoked",
+			TokenEndpoint: tokenServer.URL, Expiry: time.Now().Add(-time.Minute),
+		},
+	}
+	ts := svc.newTokenSource(srv)
+	if _, err := ts.Token(context.Background()); !errors.Is(err, mcpdomain.ErrOAuthReauthRequired) {
+		t.Fatalf("revoked refresh must require re-auth, got %v", err)
 	}
 }
