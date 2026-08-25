@@ -10,7 +10,37 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-041 已收口 · 批次五十一 50/50；统一长门禁已通过，待提交）
+## 当前前线（2026-08-25 · EDGE-051 已收口 · 批次五十二 50/50；统一长门禁已通过，待提交）
+
+- EDGE-051 复核 compaction crash window：watermark 先写后崩溃，恢复不重复摘要、不重复 archive/anchor，旧 hot block 仍被水位挡住；普通/race/full contextmgr 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge051-compaction-watermark-idempotency/na/na/na/na`；formal journal=`2741`，COVERAGE=`848/548/0`，anchors=`10/10`，`alarms.py check` clean。统一长门禁=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md` 已通过：根验证、完整 testend、rig、docs、清册、锚点、警报、格式、diff 与进程收台审计全绿。当前批次=`50/50`，门禁已通过，待提交；下一前线暂不推进。P12 400+ Journey 继续推迟二期。
+
+- EDGE-050 复核 source 删除后的 fork 血缘：真实 source 软删后 GET 消失，fork 与两列历史指针保留，列表只显 fork，无级联；普通/race/full conversation 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-050-fork-source-deleted-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-050-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge050-fork-source-deleted/na/na/na/na`；formal journal=`2736`，COVERAGE=`848/547/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-051`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-049 复核跨消息 subagent 树：真实 store 中 block 级与 message 级 `parentBlockId` 都 remap 到 fork-local tool-call，预铸 ID 后灌行，源树不变且无指针逃逸；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-049-fork-parent-block-remap-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-049-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge049-fork-parent-block-remap/na/na/na/na`；formal journal=`2731`，COVERAGE=`848/546/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-050`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-048 复核 fork 版本指针：完整 fork 将 `superseded_by` 与 `attrs.retryOf` 双向 remap 到新线程；切出窗口的取代者留零值，悬空 `retryOf` 丢弃；普通与 focused `-race` 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-048-fork-version-pointer-remap-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-048-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge048-fork-version-pointer-remap/na/na/na/na`；formal journal=`2726`，COVERAGE=`848/545/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-049`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-047 复核 pre-watermark fork：真实 fork/store 切在摘要水位前，summary 与 watermark 双丢弃，LLM 只见真实前缀；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-047-fork-summary-drop-before-watermark-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-047-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge047-fork-summary-drop-before-watermark/na/na/na/na`；formal journal=`2721`，COVERAGE=`848/544/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-048`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-046 复核 fork summary watermark：真实 fork/store 在水位之后切压缩线程，summary 随 fork 且水位重定基到 fork block seq，LLM 投影边界正确；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-046-fork-summary-rebase-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-046-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge046-fork-summary-rebase/na/na/na/na`；formal journal=`2716`，COVERAGE=`848/543/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-047`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-045 复核 retry model override：首轮默认 → retry 显式 override → 下一轮默认，真实 resolver 与行 model id 对证，conversation head 未变；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-045-retry-model-override-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-045-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge045-retry-model-override/na/na/na/na`；formal journal=`2711`，COVERAGE=`848/542/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-046`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-044 复核 retry 双非终态闸：内存生成中的 conversation 与 durable `streaming` 尾巴均返回 `STREAM_IN_PROGRESS`，不追加行；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-044-retry-nonterminal-tail-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-044-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge044-retry-nonterminal-tail/na/na/na/na`；formal journal=`2706`，COVERAGE=`848/541/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-045`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-043 复核 retry 写序故障：真实 store 在新 user 提交后、旧指针写入前中断，原问句、编辑问句和旧回答仍可读，LLM history 无静默丢交流；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-043-retry-write-order-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-043-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge043-retry-write-order/na/na/na/na`；formal journal=`2701`，COVERAGE=`848/540/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-044`。P12 400+ Journey 继续按用户裁定推迟二期。
+
+- EDGE-042 复核 user-only crash 尾巴：真实 service/store 经 boot sweep 后空 retry 补出缺失回答，不写第二条 user、不带 `retryOf`，最终一 user + 一 assistant 且 LLM 问答齐全；普通/race/full chat 全绿。
+- 正式证据=`testend/rig/formal-evidence/EDGE-042-retry-bare-user-tail-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-042-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge042-retry-bare-user-tail/na/na/na/na`；formal journal=`2696`，COVERAGE=`848/539/0`，anchors=`10/10`，`alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交；下一前线=`EDGE-043`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-041 复核 retry close 快照：真实 JSON 的 `message_stop` 带 `retryOf`，晚连/replay 客户端仅凭 close 可重建版本链，普通 close 不带指针；open companion、普通/race focused 全绿。
 - 正式证据=`testend/rig/formal-evidence/EDGE-041-retry-close-snapshot-20260825.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-041-ledger-alarm-reaudit-20260825.md`。`judge.py` 写入五格 `measure:edge041-retry-close-snapshot/na/na/na/na`；formal journal=`2691`，COVERAGE=`848/538/0`，anchors=`10/10`，`alarms.py check` clean。批次统一长门禁=`testend/rig/formal-evidence/batch-51-unified-gate-20260825.md` 已通过：根 `make verify`、完整 backend `testend=274.381s`、rig=`51/51`、docs、清册、锚点、警报、格式、diff 和进程收台审计全绿。当前批次=`50/50`，门禁已通过，待提交。下一前线暂不推进。P12 400+ Journey 继续按用户裁定推迟二期。

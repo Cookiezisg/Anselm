@@ -80,9 +80,10 @@ func (f *fakeMessages) idsForRole(role string) []string {
 }
 
 type fakeConv struct {
-	summary   string
-	watermark int64
-	setCalls  int
+	summary         string
+	watermark       int64
+	setCalls        int
+	panicAfterWrite bool
 }
 
 func (f *fakeConv) GetSummary(context.Context, string) (string, int64, error) {
@@ -91,6 +92,9 @@ func (f *fakeConv) GetSummary(context.Context, string) (string, int64, error) {
 func (f *fakeConv) SetSummary(_ context.Context, _, summary string, coversUpToSeq int64) error {
 	f.summary, f.watermark = summary, coversUpToSeq
 	f.setCalls++
+	if f.panicAfterWrite {
+		panic("simulated crash after durable summary write")
+	}
 	return nil
 }
 
@@ -320,6 +324,60 @@ func TestSummarize_NothingPastWatermark(t *testing.T) {
 	}
 	if conv.setCalls != 0 || len(msgs.created) != 0 {
 		t.Fatal("nothing past the watermark → no summary write, no anchor")
+	}
+}
+
+// TestSummarize_WatermarkMakesCrashBetweenWritesIdempotent simulates a process dying immediately
+// after SetSummary commits but before the archive flag and anchor are written. A fresh service run
+// must treat the new watermark as truth, skip the already-covered blocks, and avoid a second summary
+// write even though the old blocks still look hot in the in-memory fixture.
+//
+// TestSummarize_WatermarkMakesCrashBetweenWritesIdempotent 模拟 SetSummary 提交后、archive 标记与锚写入前进程
+// 崩溃。新 service 重跑必须把新水位当真相，跳过已覆盖 block；即使 fixture 里的旧 block 还显示 hot，也不得
+// 第二次写 summary。
+func TestSummarize_WatermarkMakesCrashBetweenWritesIdempotent(t *testing.T) {
+	old := &messagesdomain.Message{
+		ID: "m_crash", ConversationID: "cv", Role: messagesdomain.RoleAssistant,
+		Blocks: []messagesdomain.Block{{
+			ID: "b_crash", Seq: 1, Type: messagesdomain.BlockTypeText,
+			Content: "old content", ContextRole: messagesdomain.ContextRoleHot,
+		}},
+	}
+	thread := []*messagesdomain.Message{old, trTurn("recent-a", 10, 100, "recent a"), trTurn("recent-b", 11, 100, "recent b")}
+	msgs := &fakeMessages{thread: thread}
+	conv := &fakeConv{panicAfterWrite: true}
+	client := &fakeClient{out: "summary once"}
+	first := newSvc(msgs, conv, fakeWindow{}, client)
+
+	func() {
+		defer func() {
+			if recover() == nil {
+				t.Fatal("expected the simulated crash after SetSummary")
+			}
+		}()
+		if err := first.summarize(context.Background(), "cv", thread, len(thread)-recentTurns, conv.summary, conv.watermark); err != nil {
+			t.Fatalf("first summarize: %v", err)
+		}
+	}()
+	if conv.setCalls != 1 || conv.watermark != 1 || conv.summary != "summary once" {
+		t.Fatalf("durable summary write was not the crash boundary: calls=%d watermark=%d summary=%q",
+			conv.setCalls, conv.watermark, conv.summary)
+	}
+	if len(msgs.roleUpdates) != 0 || len(msgs.created) != 0 {
+		t.Fatalf("crash must precede archive/anchor writes: updates=%d anchors=%d", len(msgs.roleUpdates), len(msgs.created))
+	}
+
+	conv.panicAfterWrite = false
+	second := newSvc(msgs, conv, fakeWindow{}, client)
+	if err := second.summarize(context.Background(), "cv", thread, len(thread)-recentTurns, conv.summary, conv.watermark); err != nil {
+		t.Fatalf("recovery summarize: %v", err)
+	}
+	if conv.setCalls != 1 || conv.watermark != 1 || conv.summary != "summary once" {
+		t.Fatalf("watermark must prevent a second fold: calls=%d watermark=%d summary=%q",
+			conv.setCalls, conv.watermark, conv.summary)
+	}
+	if len(msgs.roleUpdates) != 0 || len(msgs.created) != 0 {
+		t.Fatalf("recovery must not duplicate archive/anchor work: updates=%d anchors=%d", len(msgs.roleUpdates), len(msgs.created))
 	}
 }
 

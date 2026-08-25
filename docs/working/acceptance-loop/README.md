@@ -297,7 +297,145 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-041 已完成；批次五十一 50/50，统一长门禁已通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-051 已完成；批次五十二 50/50，统一长门禁已通过，待提交)
+
+#### 2026-08-25 当前前线重述：EDGE-051 压缩水位幂等键
+
+contextmgr 测试模拟进程在 `SetSummary` 已持久化新 summary/watermark、但 archive 标记与 compaction
+锚尚未写入时崩溃。恢复后的新 service 以 watermark 为真相，跳过已覆盖 block，不再调用第二次摘要，
+也不重复 archive/anchor；fixture 中仍为 hot 的旧 block 证明幂等性不依赖 backstop 已完成。普通、focused
+`-race` 与完整 contextmgr 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-051-compaction-watermark-idempotency-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-051-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge051-compaction-watermark-idempotency`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2741`（2300 baseline + 441 live），
+`gen_coverage.py --check`=`848 rows / 548 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。统一长门禁证据=`testend/rig/formal-evidence/batch-52-unified-gate-20260825.md`：
+根 `make verify`、完整 `backend testend=327.911s`、rig=`51/51`、docs、清册、锚点、警报、格式、diff 与进程收台审计
+全部通过。当前批次=`50/50`，门禁已通过，待提交；下一前线暂不推进。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-050 fork 血缘源被删
+
+真实 SQLite conversation service 先创建 source，再建立带切点血缘的 fork，随后软删除 source。
+source GET 诚实返回 `ErrNotFound`；fork 仍可读，`ForkedFromConversationID` 与 `ForkedFromMessageID` 两列
+保留历史 source/message ID，列表只显示存活 fork。没有外键级联，也没有为了美化而改写历史指针。
+普通、focused `-race` 与完整 conversation 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-050-fork-source-deleted-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-050-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge050-fork-source-deleted`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2736`（2300 baseline + 436 live），
+`gen_coverage.py --check`=`848 rows / 547 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`45/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-051`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-049 fork parent_block_id 跨消息 remap
+
+真实 messages store fixture 在一个 assistant message 的 tool-call block 下，跨下一条 message
+构造 subagent 子树；其 block 级 `parent_block_id` 与 message 级 `attrs.parentBlockId` 都指向源 block。
+fork 预铸全部新 block ID 后再写入，两个父指针都 remap 到 fork 自己的 tool-call，block seq 连续重排，
+源树不变且没有指针逃出 fork 的 block ID 闭包。普通、focused `-race` 与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-049-fork-parent-block-remap-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-049-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge049-fork-parent-block-remap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2731`（2300 baseline + 431 live），
+`gen_coverage.py --check`=`848 rows / 546 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`40/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-050`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-048 fork 版本指针 remap
+
+真实 SQLite fork fixture 构造一条已重试线程：旧 assistant 的 `superseded_by` 指向新 assistant，
+新 assistant 的 `attrs.retryOf` 指回旧 assistant。完整 fork 将两个指针都重映射到 fork 自己的 message ID，
+且 fork 的 LLM 投影只保留当前答案；切在旧版本时，窗口外取代者被切掉，旧行的 `superseded_by` 清零，
+窗口外目标的 `retryOf` 丢弃，没有源线程悬空引用。普通与 focused `-race` 全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-048-fork-version-pointer-remap-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-048-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge048-fork-version-pointer-remap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2726`（2300 baseline + 426 live），
+`gen_coverage.py --check`=`848 rows / 545 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`35/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-049`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-047 fork 切在水位之前不带 summary
+
+真实 fork fixture/store 在 summary watermark 覆盖范围之前切分；fork 同时丢弃 summary 与 `summaryCoversUpToSeq`，LLM 只看到自身前缀，不收到描述不存在历史的摘要。普通、focused `-race` 与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-047-fork-summary-drop-before-watermark-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-047-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge047-fork-summary-drop-before-watermark`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2721`（2300 baseline + 421 live），
+`gen_coverage.py --check`=`848 rows / 544 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`30/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-048`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-046 fork summary 水位重定基
+
+真实 messages store/fork service 在摘要水位之后切分已压缩线程；fork 携带摘要，并把 `summaryCoversUpToSeq` 重定基到 fork 自己的 block 序列，LLM 投影准确隐藏摘要已覆盖的块，不继承源线程坐标。普通、focused `-race` 与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-046-fork-summary-rebase-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-046-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge046-fork-summary-rebase`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2716`（2300 baseline + 416 live），
+`gen_coverage.py --check`=`848 rows / 543 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`25/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-047`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-045 retry 的 modelOverride 逐回合
+
+真实 chat service 的 recording resolver 记录三次生成：首轮普通消息使用线程默认，retry 使用显式 per-turn model override，下一轮普通消息再次使用线程默认；retry 行记录真实 override model id，conversation head 未被改写。普通、focused `-race` 与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-045-retry-model-override-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-045-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge045-retry-model-override`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2711`（2300 baseline + 411 live），
+`gen_coverage.py --check`=`848 rows / 542 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`20/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-046`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-044 retry 非终态尾巴
+
+内存与耐久两道 retry 闸均已验证：阻塞 provider 让 conversation queue 正在生成时，retry 立即返回 `STREAM_IN_PROGRESS`；真实 messages store
+构造 crash-shaped `streaming` assistant 尾巴时，retry 同样从耐久状态拒绝。两路径都不追加 user/assistant，原线程保持不变。普通、focused `-race`
+与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-044-retry-nonterminal-tail-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-044-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge044-retry-nonterminal-tail`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2706`（2300 baseline + 406 live），
+`gen_coverage.py --check`=`848 rows / 541 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`15/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-045`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-043 retry 写序中断留重复问句
+
+真实 messages store 在编辑重发「新 user 已提交、旧 `superseded_by` 指针写入失败」的窗口注入故障；retry 返回写入错误，但耐久历史仍保留原 user、原回答和编辑后 user，LLM 视图同时保留两种问句与旧回答，符合可见重复/后续自我修正而非静默丢交流。普通、focused `-race` 与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-043-retry-write-order-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-043-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge043-retry-write-order`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2701`（2300 baseline + 401 live），
+`gen_coverage.py --check`=`848 rows / 540 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`10/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-044`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-042 retry 尾巴是无回答的 user 行
+
+真实 chat service + messages store 构造进程在 assistant 行铸出前崩溃的 user-only 尾巴，运行 boot `SweepOrphans` 后执行空 payload retry；retry
+自然入既有 queue 产出缺失回答，不写第二条 user，不伪造 `retryOf`，耐久线程恰为一个 user + 一个 recovered assistant，LLM 视图同时保留问题和恢复答案。
+普通、focused `-race` 与完整 chat 包全绿，无 stop-and-fix。
+
+正式证据=`testend/rig/formal-evidence/EDGE-042-retry-bare-user-tail-20260825.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-042-ledger-alarm-reaudit-20260825.md`。五级严格为
+`L1=measure:edge042-retry-bare-user-tail`、`L2=na`、`L3=na`、`L4=na`、`L5=na`：不冒充真实 App
+五通道、帧时延、视觉或导航证据；各 na 理由已落盘。formal journal=`2696`（2300 baseline + 396 live），
+`gen_coverage.py --check`=`848 rows / 539 carried judgments / 0 tombstones`，anchors=`10/10`，统计警报独立
+复审 ack 后 `alarms.py check` clean。当前批次=`5/50`，未满 50 格不跑统一长门禁、不提交。下一前线=`EDGE-043`。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-041 retryOf 在 close 快照里
 

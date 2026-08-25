@@ -544,6 +544,50 @@ func TestFork_HeadCopiesConfigStampsLineageAndCarriesSummary(t *testing.T) {
 	}
 }
 
+// TestDelete_SourceAfterForkLeavesForkLineageAsHistoricalPointers locks the deliberate absence of
+// a conversation foreign key: deleting the source hides that row and removes its relation edges,
+// but must not cascade-delete the fork or rewrite the fork's durable lineage columns.
+//
+// TestDelete_SourceAfterForkLeavesForkLineageAsHistoricalPointers 锁住刻意不设 conversation 外键的语义：
+// 删除源线程会隐藏源行并清掉关系边，但不得级联删掉分叉，也不得改写分叉耐久血缘列。
+func TestDelete_SourceAfterForkLeavesForkLineageAsHistoricalPointers(t *testing.T) {
+	svc, _, _, ctx := newSvc(t)
+	source, err := svc.Create(ctx, "Source")
+	if err != nil {
+		t.Fatalf("create source: %v", err)
+	}
+	fork, err := svc.Fork(ctx, conversationdomain.ForkInput{
+		Source:      source,
+		AtMessageID: "msg_cut",
+	})
+	if err != nil {
+		t.Fatalf("fork: %v", err)
+	}
+
+	if err := svc.Delete(ctx, source.ID); err != nil {
+		t.Fatalf("delete source: %v", err)
+	}
+	if _, err := svc.Get(ctx, source.ID); !errors.Is(err, conversationdomain.ErrNotFound) {
+		t.Fatalf("deleted source must be hidden, got %v", err)
+	}
+
+	got, err := svc.Get(ctx, fork.ID)
+	if err != nil {
+		t.Fatalf("fork must survive source deletion: %v", err)
+	}
+	if got.ForkedFromConversationID != source.ID || got.ForkedFromMessageID != "msg_cut" {
+		t.Fatalf("fork lineage was rewritten: %q/%q, want %q/msg_cut",
+			got.ForkedFromConversationID, got.ForkedFromMessageID, source.ID)
+	}
+	rows, _, err := svc.List(ctx, ListFilter{})
+	if err != nil {
+		t.Fatalf("list after source deletion: %v", err)
+	}
+	if len(rows) != 1 || rows[0].ID != fork.ID {
+		t.Fatalf("only the surviving fork should remain visible, got %+v", rows)
+	}
+}
+
 // TestFork_UntitledSourceStaysUntitled: a bare "(fork)" would be a name that says nothing, so an
 // untitled source yields an untitled fork and chat's auto-titler still gets its turn.
 func TestFork_UntitledSourceStaysUntitled(t *testing.T) {
