@@ -10,9 +10,49 @@ audience: [human, ai]
 landed-into:
 ---
 
-## 当前前线（2026-08-25 · EDGE-150 已收口 · 批次六十二 50/50）
+## 当前前线（2026-08-25 · EDGE-160 已收口 · 批次六十三 50/50 · 统一长门禁全绿）
 
-- 批次六十二 `EDGE-141..EDGE-150` 已完成 `50/50`，统一长门禁全绿并提交=`ed269a1e`；统一证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`。批次六十三从 `0/50` 开始，下一原子前线=`EDGE-151`。P12 400+ Journey 继续推迟二期。
+- EDGE-160 复核 agent wall-clock：focused 1 秒 deadline 与真实 HTTP 2 秒 PATCH/stall 均落 durable `timeout`，不是 loop 自报成功；execution 可查询，shutdown 收台。
+- 正式证据=`testend/rig/formal-evidence/EDGE-160-agent-wall-clock-terminal-20260825.md`；`judge.py` 写入五格 `measure:edge160-agent-wall-clock-terminal/na/na/na/na`；formal journal=`3286`（2300 baseline + 986 live），COVERAGE=`848/657/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三 `EDGE-151..EDGE-160` 已完成=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-63-unified-gate-20260825.md`，代码/证据提交=`3e02e4ff`；下一原子前线=`EDGE-161`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-159 复核无图像路由的能力工具缺席：resolver/health 先判无 usable route，真实 agent HTTP 创建拒绝 `AGENT_MOUNT_INVALID` 并带配置方向，不把失败延迟到 invoke。
+- 正式证据=`testend/rig/formal-evidence/EDGE-159-agent-sys-image-no-route-20260825.md`；`judge.py` 写入五格 `measure:edge159-agent-sys-image-no-route/na/na/na/na`；formal journal=`3281`，COVERAGE=`848/676/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`50/50`，正在执行统一长门禁，未收口前不提交；P12 400+ Journey 继续推迟二期。
+
+- EDGE-158 复核 non-OK declared output：focused 回归证明 provider error 后 `Output=nil`，loop max-steps/tool-error-storm 码独立存在，未让裸 narration 冒充结构化输出。
+- 正式证据=`testend/rig/formal-evidence/EDGE-158-agent-non-ok-output-null-20260825.md`；`judge.py` 写入五格 `measure:edge158-agent-non-ok-output-null/na/na/na/na`；formal journal=`3276`，COVERAGE=`848/671/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-160`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-157 复核 declared output：parser/terminal `-race` 覆盖 fenced JSON、prose 拒绝、失败置空，真实 HTTP agent seat 验证 JSON 约束与成功回解析。
+- 正式证据=`testend/rig/formal-evidence/EDGE-157-agent-declared-output-parse-20260825.md`；`judge.py` 写入五格 `measure:edge157-agent-declared-output-parse/na/na/na/na`；formal journal=`3271`，COVERAGE=`848/666/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-159`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-156 复核离线 MCP 挂载归因：真实 agent seat 的 mount-health/invoke 均报 `not connected` 而非 tool-not-found；恢复后真调 `echo`，calls 台账为 agent 触发。
+- 正式证据=`testend/rig/formal-evidence/EDGE-156-agent-offline-mcp-attribution-20260825.md`；`judge.py` 写入五格 `measure:edge156-agent-offline-mcp-attribution/na/na/na/na`；formal journal=`3266`，COVERAGE=`848/661/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-158`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-155 复核删除挂载目标：真实 agent 删除 function 后 invoke failed 且保留 `not found`；focused create/edit 与 mount-health 证明 dangling knowledge/tool 不静默降级，knowledge 红行可见。
+- 正式证据=`testend/rig/formal-evidence/EDGE-155-agent-deleted-mount-target-20260825.md`；`judge.py` 写入五格 `measure:edge155-agent-deleted-mount-target/na/na/na/na`；formal journal=`3261`，COVERAGE=`848/656/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-157`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-154 复核 agent 挂载撞名：真实 invoke create/invoke 拒绝合成同名工具；真实 mount-health 按挂载逐项报告，第一项健康、第二项带 `collides` unhealthy，其余不被 fail-fast 污染。
+- 正式证据=`testend/rig/formal-evidence/EDGE-154-agent-mount-name-collision-20260825.md`；`judge.py` 写入五格 `measure:edge154-agent-mount-name-collision/na/na/na/na`；formal journal=`3256`，COVERAGE=`848/651/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-156`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-153 复核 resident env 删除保护：service `-race` 与真实 HTTP 双路径均证明占用时 `409/SANDBOX_ENV_IN_USE`、env/lock 保留；清掉 PID 后 DELETE `204`，重复删除 `404`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-153-sandbox-env-delete-in-use-20260825.md`；`judge.py` 写入五格 `measure:edge153-sandbox-env-delete-in-use/na/na/na/na`；formal journal=`3251`，COVERAGE=`848/650/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-155`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-152 复核真实 `npx` MCP 生命周期：官方 filesystem server 完成启动、工具发现、文件读取、产品 DELETE，随后 server 和工具均 404；sandbox `-race` 进程组回归确认 wrapper 孙进程随负 pgid 一起收割。
+- 正式证据=`testend/rig/formal-evidence/EDGE-152-sandbox-uvx-npx-process-group-reap-20260825.md`；`judge.py` 写入五格 `measure:edge152-sandbox-uvx-npx-process-group-reap/na/na/na/na`；formal journal=`3246`，COVERAGE=`848/649/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-154`。P12 400+ Journey 继续推迟二期。
+
+- EDGE-151 复核 `run_in_background` boot orphan：真实进程组回收、zombie leader 收割、PID 复用不误杀，以及 bootstrap 应用装配回归均通过。
+- 正式证据=`testend/rig/formal-evidence/EDGE-151-shell-boot-reap-background-orphans-20260825.md`；`judge.py` 写入五格 `measure:edge151-shell-boot-reap-background-orphans/na/na/na/na`；formal journal=`3241`，COVERAGE=`848/648/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。
+- 批次六十三当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-153`。P12 400+ Journey 继续推迟二期。
+
+- 批次六十二 `EDGE-141..EDGE-150` 已完成 `50/50`，统一长门禁全绿并提交=`ed269a1e`；统一证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`。批次六十三已从 `0/50` 开始并收口 `EDGE-151..EDGE-159`，下一原子前线=`EDGE-160`。P12 400+ Journey 继续推迟二期。
 
 - EDGE-150 复核 boot survivor 回收：真实 `sleep` PID 被整组杀、manifest `running_pid` 清零；同组 grandchild 也被杀，确认 wrapper 后代不泄漏。
 - 正式证据=`testend/rig/formal-evidence/EDGE-150-sandbox-boot-reclaim-running-pid-20260825.md`；`judge.py` 写入五格 `measure:edge150-sandbox-boot-reclaim-running-pid/na/na/na/na`；formal journal=`3236`，COVERAGE=`848/647/0`，`anchors=10/10`，`alarms.py check` clean（`gap-too-fast`/`discovery-collapse` 已复核 ack）。

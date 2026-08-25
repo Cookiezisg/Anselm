@@ -13,12 +13,72 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
-## 当前前线覆盖声明（2026-08-25 · EDGE-150 已收口 · 批次六十二 50/50）
+## 当前前线覆盖声明（2026-08-25 · EDGE-160 已收口 · 批次六十三 50/50 · 统一长门禁全绿）
+
+## 2026-08-25 · EDGE-160 agent 墙钟压过自报终态
+
+- focused 与真实 HTTP timeout 双路径通过：1 秒/2 秒 invocation deadline 切断阻塞流，结果非 OK 且 durable execution 为 `timeout`；真实 testend PATCH limits、stall LLM、查询 execution 与优雅 shutdown 均收口。
+- 正式证据=`testend/rig/formal-evidence/EDGE-160-agent-wall-clock-terminal-20260825.md`；五级=`measure:edge160-agent-wall-clock-terminal/na/na/na/na`；formal journal=`3286`（2300 baseline + 986 live），COVERAGE=`848/657/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 focused/HTTP timeout 双路径与 L2-L5 na 边界复核 ack）。
+- 批次六十三 `EDGE-151..EDGE-160` 已达到=`50/50`；统一长门禁全绿，收口证据=`testend/rig/formal-evidence/batch-63-unified-gate-20260825.md`，代码/证据提交=`3e02e4ff`；下一原子前线=`EDGE-161`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-159 sys: 能力工具无路由
+
+- sys resolver/health 与真实 HTTP agent 创建双路径通过：没有图像路由时 `sys:generate_image` 不可解析且 mount-health unhealthy；真实 agent 创建返回 `422 AGENT_MOUNT_INVALID`，响应带 `no usable route` 和配置 capable key/free tier 的方向。
+- 正式证据=`testend/rig/formal-evidence/EDGE-159-agent-sys-image-no-route-20260825.md`；五级=`measure:edge159-agent-sys-image-no-route/na/na/na/na`；formal journal=`981` live（2300 baseline），COVERAGE=`848/676/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 resolver/HTTP 双路径与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`50/50`，正在执行统一长门禁，未收口前不提交；P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-158 agent 非 OK 终态置空输出
+
+- declared-output agent 的非 OK focused 回归通过：provider error 后状态非 OK 且 `Output=nil`，不会让 partial narration 冒充结构化对象；loop 层 max-steps/tool-error-storm 终止码已有独立回归。
+- 正式证据=`testend/rig/formal-evidence/EDGE-158-agent-non-ok-output-null-20260825.md`；五级=`measure:edge158-agent-non-ok-output-null/na/na/na/na`；formal journal=`976` live（2300 baseline），COVERAGE=`848/671/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 non-OK output 边界与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-160`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-157 agent 声明输出回解析
+
+- parser/terminal `-race` 与真实 HTTP agent seat 均通过：declared output 的 JSON/fenced JSON 正确回解析，多字段 prose 大声失败，非 OK 终态 `Output=nil`；真实 prompt 明确要求单一 JSON object。
+- 正式证据=`testend/rig/formal-evidence/EDGE-157-agent-declared-output-parse-20260825.md`；五级=`measure:edge157-agent-declared-output-parse/na/na/na/na`；formal journal=`971` live（2300 baseline），COVERAGE=`848/666/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 parser/terminal/HTTP 三面与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-159`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-156 agent 离线 MCP 挂载归因
+
+- 真实 agent seat 先挂载 ready MCP，再制造 server offline：mount-health 与 invoke 都准确报 `not connected`，invoke 在 LLM 前 fail-fast；恢复 server 后挂载健康、工具真调成功并记 agent 台账。
+- 正式证据=`testend/rig/formal-evidence/EDGE-156-agent-offline-mcp-attribution-20260825.md`；五级=`measure:edge156-agent-offline-mcp-attribution/na/na/na/na`；formal journal=`966` live（2300 baseline），COVERAGE=`848/661/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 offline/reconnect/tool-call 双路径与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`35/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-158`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-155 agent 挂载目标被删
+
+- 真实 agent 删除 function 后再次 invoke 明确失败并保留 `not found` 原因；focused 回归同时锁住 dangling knowledge/tool 的 create/edit 拒绝与 knowledge 删除后的 mount-health unhealthy 行，绝不静默成功。
+- 正式证据=`testend/rig/formal-evidence/EDGE-155-agent-deleted-mount-target-20260825.md`；五级=`measure:edge155-agent-deleted-mount-target/na/na/na/na`；formal journal=`961` live（2300 baseline），COVERAGE=`848/656/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按真实删除目标与 focused 双路径及 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`30/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-157`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-154 agent 挂载撞名
+
+- 真实 agent invoke 与 mount-health 场景均通过：function/handler 合成同名工具时 create/invoke 大声拒绝，不静默覆盖；mount-health 保持第一挂载健康，仅把第二个冲突挂载标为 unhealthy 并带 `collides`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-154-agent-mount-name-collision-20260825.md`；五级=`measure:edge154-agent-mount-name-collision/na/na/na/na`；formal journal=`956` live（2300 baseline），COVERAGE=`848/651/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 invoke/mount-health 双路径与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`25/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-156`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-153 env 在用时删除
+
+- focused `-race` 锁住 running PID、env row、owner lock 和批量原子性；真实 HTTP 先把真实 env 标成 resident，DELETE 返回 `409 SANDBOX_ENV_IN_USE` 且 env 仍可读，释放后 DELETE 才 `204`，重复删除 `404`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-153-sandbox-env-delete-in-use-20260825.md`；五级=`measure:edge153-sandbox-env-delete-in-use/na/na/na/na`；formal journal=`951` live（2300 baseline），COVERAGE=`848/650/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按 resident 拒删/恢复双路径与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`20/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-155`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-152 uvx/npx 孙进程整组杀
+
+- 真实 `npx` 官方 filesystem MCP 完成 runtime 启动、工具发现、文件读取、产品 DELETE 与删除后 404；sandbox `-race` 回归再证明 wrapper 同组孙进程和 manifest survivor 都被 boot reaper 收割。
+- 正式证据=`testend/rig/formal-evidence/EDGE-152-sandbox-uvx-npx-process-group-reap-20260825.md`；五级=`measure:edge152-sandbox-uvx-npx-process-group-reap/na/na/na/na`；formal journal=`946` live（2300 baseline），COVERAGE=`848/649/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按真实 npx 产品路径、进程组证据与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`15/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-154`。P12 400+ Journey 继续推迟二期。
+
+## 2026-08-25 · EDGE-151 boot 回收 run_in_background 孤儿
+
+- 真实 `run_in_background` 进程组、zombie leader、PID 被无辜进程复用三条回归，以及 bootstrap 应用装配层回归均通过；boot 按 pid 清单整组回收并清理旧记录，不误杀复用 PID。
+- 正式证据=`testend/rig/formal-evidence/EDGE-151-shell-boot-reap-background-orphans-20260825.md`；五级=`measure:edge151-shell-boot-reap-background-orphans/na/na/na/na`；formal journal=`3241`，COVERAGE=`848/648/0`，anchors=`10/10`，`alarms.py check` clean（两条机械警报已按真实进程组证据与 L2-L5 na 边界复核 ack）。
+- 批次六十三当前=`10/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线=`EDGE-153`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · 批次六十二已提交
 
 - `EDGE-141..EDGE-150` 已完成 `50/50`；统一长门禁全绿，证据=`testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`，代码/证据提交=`ed269a1e`。
-- 批次六十三从 `0/50` 开始，下一原子前线=`EDGE-151`。P12 400+ Journey 继续推迟二期。
+- 批次六十三已从 `0/50` 开始并收口 `EDGE-151..EDGE-152`，下一原子前线=`EDGE-153`。P12 400+ Journey 继续推迟二期。
 
 ## 2026-08-25 · EDGE-150 boot 回收残留 running_pid
 

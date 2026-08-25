@@ -297,14 +297,174 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-150 已完成；批次六十二 50/50)
+### 5.2 Day 0 当前状态(整体重述,2026-08-25 EDGE-160 已完成；批次六十三 50/50；统一长门禁全绿)
+
+#### 2026-08-25 当前前线重述：EDGE-160 agent 墙钟压过自报终态
+
+`EDGE-160` 已用 focused 与真实 HTTP 双路径确认 agent invocation 的总墙钟是硬边界：focused
+将 deadline 缩为 1 秒切断阻塞流，真实产品 HTTP 将 `agentInvokeSec` PATCH 为 2 秒后给 6 秒
+stall；两者都返回非 OK `timeout`，耐久 execution 同样可查询为 timeout，后端随后优雅收台。
+
+正式证据=`testend/rig/formal-evidence/EDGE-160-agent-wall-clock-terminal-20260825.md`。五级严格为
+`L1=measure:edge160-agent-wall-clock-terminal`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、视觉成品或 discoverability 证据，不越级把 service/HTTP
+timeout 证据冒充产品层证据。formal journal=`3286`（2300 baseline + 986 live），
+`gen_coverage.py --check`=`848 rows / 657 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 focused/HTTP timeout 双路径
+及 L2-L5 na 边界复核 ack）。批次六十三 `EDGE-151..EDGE-160` 已达到=`50/50`，统一长门禁
+全绿，收口证据=`testend/rig/formal-evidence/batch-63-unified-gate-20260825.md`，代码/证据提交=`3e02e4ff`；
+下一原子前线=`EDGE-161`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-159 sys: 能力工具无路由
+
+`EDGE-159` 已验证能力工具的诚实缺席：当 workspace 没有任何图像生成路由时，resolver
+拒绝 `sys:generate_image`，mount-health 报 unhealthy 并说明 `no usable route`；真实 HTTP
+创建 agent 也返回 `422 AGENT_MOUNT_INVALID`，告诉配置 capable key 或启用免费档，避免 agent
+先承诺、到 invoke 最后一跳才失败。
+
+正式证据=`testend/rig/formal-evidence/EDGE-159-agent-sys-image-no-route-20260825.md`。五级严格为
+`L1=measure:edge159-agent-sys-image-no-route`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+resolver/HTTP agent 证据冒充产品层证据。formal journal=`3281`（2300 baseline + 981 live），
+`gen_coverage.py --check`=`848 rows / 676 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 resolver/HTTP 双路径及 L2-L5
+na 边界复核 ack）。批次六十三当前=`45/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线
+已达到 `50/50`，进入统一长门禁。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-158 agent 非 OK 终态置空输出
+
+`EDGE-158` 已验证声明 outputs 的失败终态不污染结构化结果：provider error 让执行明确非 OK，
+`Output` 为 nil，partial narration 仍保留在 transcript；不会让裸文本冒充下游可消费的声明
+对象。max-steps 与 tool-error-storm 的真实 loop 终止码由独立 loop 回归锁住，本格不把重复
+覆盖冒充新产品证据。
+
+正式证据=`testend/rig/formal-evidence/EDGE-158-agent-non-ok-output-null-20260825.md`。五级严格为
+`L1=measure:edge158-agent-non-ok-output-null`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+agent service/loop focused 证据冒充产品层证据。formal journal=`3276`（2300 baseline + 976 live），
+`gen_coverage.py --check`=`848 rows / 671 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 non-OK output 边界及 L2-L5
+na 边界复核 ack）。批次六十三当前=`40/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线
+为 `EDGE-160`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-157 agent 声明输出回解析
+
+`EDGE-157` 已验证 declared outputs 的完整终态边界：成功的裸 JSON 与 prose 前 fenced JSON
+均回解析为声明字段；多字段自由 prose 大声失败，provider error/max-steps 等非 OK 终态的
+`Output` 置空而不是留下裸文本；原始叙述仍在 transcript。真实 HTTP agent seat 同时证明
+prompt 明确要求单一 JSON object，返回 `{"verdict":"pass"}` 能成功落结构化输出。
+
+正式证据=`testend/rig/formal-evidence/EDGE-157-agent-declared-output-parse-20260825.md`。五级严格为
+`L1=measure:edge157-agent-declared-output-parse`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+agent parser/HTTP 证据冒充产品层证据。formal journal=`3271`（2300 baseline + 971 live），
+`gen_coverage.py --check`=`848 rows / 666 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 parser/terminal/HTTP 三面
+及 L2-L5 na 边界复核 ack）。批次六十三当前=`35/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-159`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-156 agent 离线 MCP 挂载归因
+
+`EDGE-156` 已在真实 agent seat 走完 MCP 的 ready→offline→reconnect→invoke 链：server
+离线后 `mount-health` 与 agent invoke 都给出 `not connected`，invoke 在 LLM 前 fail-fast，
+不误报 `tool-not-found`；恢复 server 后挂载回绿，`mcp__recover__echo` 真调成功，MCP calls
+台账明确标记为 agent 触发。
+
+正式证据=`testend/rig/formal-evidence/EDGE-156-agent-offline-mcp-attribution-20260825.md`。五级严格为
+`L1=measure:edge156-agent-offline-mcp-attribution`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+agent/MCP HTTP 证据冒充产品层证据。formal journal=`3266`（2300 baseline + 966 live），
+`gen_coverage.py --check`=`848 rows / 661 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 offline/reconnect/tool-call
+双路径及 L2-L5 na 边界复核 ack）。批次六十三当前=`30/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-158`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-155 agent 挂载目标被删
+
+`EDGE-155` 已验证挂载目标消失时的两种真实后果：function 被删除后，agent 再次 invoke
+明确落为 failed 并保留 `not found` 原因；knowledge 被删除后，focused mount-health 仍保留
+该挂载行并标 unhealthy，create/edit 对 dangling knowledge/tool 也大声拒绝，不把缺能力吞成
+成功运行。
+
+正式证据=`testend/rig/formal-evidence/EDGE-155-agent-deleted-mount-target-20260825.md`。五级严格为
+`L1=measure:edge155-agent-deleted-mount-target`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+agent HTTP/focused 证据冒充产品层证据。formal journal=`3261`（2300 baseline + 961 live），
+`gen_coverage.py --check`=`848 rows / 656 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按删除 function、knowledge
+双路径及 L2-L5 na 边界复核 ack）。批次六十三当前=`25/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-157`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-154 agent 挂载撞名
+
+`EDGE-154` 已在真实 agent invoke 与 mount-health 双路径收口：function `greeter__hello` 和
+handler `greeter.hello` 合成同一工具名时，创建或执行路径均大声报告 collision，绝不静默
+last-write-wins；mount-health 逐挂载收集，第一挂载保持健康，第二挂载 unhealthy 且带
+`collides`，删除 knowledge 的 unhealthy 也不污染其它健康挂载。
+
+正式证据=`testend/rig/formal-evidence/EDGE-154-agent-mount-name-collision-20260825.md`。五级严格为
+`L1=measure:edge154-agent-mount-name-collision`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+agent HTTP/mount-health 证据冒充产品层证据。formal journal=`3256`（2300 baseline + 956 live），
+`gen_coverage.py --check`=`848 rows / 651 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 invoke/mount-health 双路径
+及 L2-L5 na 边界复核 ack）。批次六十三当前=`20/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-156`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-153 env 在用时删除
+
+`EDGE-153` 已用 service `-race` 与真实 HTTP 双路径验证占用 env 的删除闸：真实 env 被标成
+resident 后，产品 DELETE 返回 `409 SANDBOX_ENV_IN_USE`，env、running PID 和 owner lock
+均保留；释放 PID 后同一 DELETE 才返回 `204`，两 workspace 的读侧随后均为 404，重复 DELETE
+也明确返回 404。批量 reset-all 另验证遇到 running sibling 时不会先删 idle sibling。
+
+正式证据=`testend/rig/formal-evidence/EDGE-153-sandbox-env-delete-in-use-20260825.md`。五级严格为
+`L1=measure:edge153-sandbox-env-delete-in-use`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；本格
+没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级把
+sandbox service/HTTP 证据冒充产品层证据。formal journal=`3251`（2300 baseline + 951 live），
+`gen_coverage.py --check`=`848 rows / 650 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按 resident 拒删/恢复双路径
+及 L2-L5 na 边界复核 ack）。批次六十三当前=`15/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-155`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-152 uvx/npx 孙进程整组杀
+
+`EDGE-152` 已把清册配方走成真实产品链：全新 sandbox 通过 `npx` 启动官方 filesystem MCP，
+真实发现工具并读取临时文件，随后从产品 HTTP DELETE 删除 server，GET 与工具调用均诚实返回
+`MCP_SERVER_NOT_FOUND`。sandbox 的 `-race` 回归另起独立进程组并派生同组孙进程，boot reaper
+后孙进程消失且 `running_pid` 清零，证明不是只杀 wrapper 组长。
+
+正式证据=`testend/rig/formal-evidence/EDGE-152-sandbox-uvx-npx-process-group-reap-20260825.md`。五级严格为
+`L1=measure:edge152-sandbox-uvx-npx-process-group-reap`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；
+本格没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级
+把 MCP/进程组证据冒充产品层证据。formal journal=`3246`（2300 baseline + 946 live），
+`gen_coverage.py --check`=`848 rows / 649 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按真实 npx 产品路径、进程组
+证据及 L2-L5 na 边界复核 ack）。批次六十三当前=`10/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-154`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-25 当前前线重述：EDGE-151 boot 回收 run_in_background 孤儿
+
+`EDGE-151` 已用真实 `run_in_background` 进程组回归收口：异常退出留下的 pid 清单会在下一次
+boot 被 `ReapStaleOnBoot` 读取，并按负 pgid 收割整组；zombie leader 仍能收割，PID 被无辜
+进程复用时则经过进程组归属校验而不误杀。bootstrap 应用装配层回归同时通过，旧 `.pid`
+记录被清理。
+
+正式证据=`testend/rig/formal-evidence/EDGE-151-shell-boot-reap-background-orphans-20260825.md`。五级严格为
+`L1=measure:edge151-shell-boot-reap-background-orphans`、`L2=na`、`L3=na`、`L4=na`、`L5=na`；
+本格没有独立 Computer Use 五通道 session、时序测量、视觉成品或 discoverability 证据，不越级
+把进程/清单/进程组证据冒充产品层证据。formal journal=`3241`（2300 baseline + 941 live），
+`gen_coverage.py --check`=`848 rows / 648 carried judgments / 0 tombstones`，`anchors=10/10`，
+`alarms.py check` clean（`gap-too-fast` 与 `discovery-collapse` 已按真实进程组证据及 L2-L5
+na 边界复核 ack）。批次六十三当前=`5/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线
+为 `EDGE-153`。P12 的 400+ Journey 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：批次六十二已提交
 
 批次六十二（`EDGE-141..EDGE-150`）已完成 50/50，统一长门禁全绿并提交为
 `ed269a1e test(rig): close batch 62 sandbox and handler edges`。正式门禁证据为
 `testend/rig/formal-evidence/batch-62-unified-gate-20260825.md`；working 文档随后以本次
-docs 收口提交同步。批次六十三从 `0/50` 开始，下一原子前线为 `EDGE-151`；P12 的 400+ Journey
+docs 收口提交同步。批次六十三已从 `0/50` 开始并收口 `EDGE-151`，下一原子前线为 `EDGE-152`；P12 的 400+ Journey
 继续按用户裁定推迟二期。
 
 #### 2026-08-25 当前前线重述：EDGE-150 boot 回收残留 running_pid
