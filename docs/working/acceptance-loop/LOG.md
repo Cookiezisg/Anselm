@@ -15,6 +15,7 @@ landed-into:
 - 用户授权：主循环先继续所有不需要其物理按键、系统授权或安全确认的验收，人工交互集中到自主验收完成后；这只改变调度，不改变五通道、逐帧、法条、证据或最终完成标准。
 - 已在 `testend/rig/ledger-sequence.json` 登记精确 `manual_queue`，当前后置条目为 `EDGE-031|回合收尾期单槽缓冲`、`EDGE-030|生成中再 Send`、`EDGE-033|关页不留 streaming 孤儿`、`EDGE-037|归档对话发消息自动解档`、`EDGE-038|:retry 重生成分支`、`EDGE-039|:retry 编辑重发分支`、`EDGE-251|删最后一个 workspace`、`EDGE-254|keyset 排序切换丢游标`、`EDGE-256|驻地目录被移走`、`EDGE-257|脏区切分支被拒`、`EDGE-258|新建分支不受脏区门`、`EDGE-259|切分支名拼错`、`EDGE-261|worktree 目录已存在`、`EDGE-262|worktree 分支已存在`、`EDGE-263|worktree 建成后切驻地失败`、`EDGE-264|「这里没有 git」四情形`、`EDGE-265|切驻地落 marker 块`、`EDGE-266|空线程/重复 PATCH 不落 marker`、`EDGE-267|切分支不落 marker`、`EDGE-268|驻地分组批量归档重跑`、`EDGE-269|驻地分组批量删除范围`、`EDGE-270|空 workDir 批量动作` 与 `EDGE-329|快捷键录制后吞键`。`judge.py` 先推进自主格，自主格耗尽后回到人工队列；队列项不自动变成 `na` 或 `pass`。
 - 回归已通过：`test_judge.py` 全部通过、JSON/`py_compile` 通过；当前批次已推进至 `50/50`，统一长门禁已通过；人工队列仍保持未完成。
+- `EDGE-271|分组事务交叉核对` 的 `TestWorkDirActions_AreAllOrNothing` 普通/race 回归通过，覆盖 archive/delete 两种动作以及 `RAISE(ABORT)`、`RAISE(IGNORE)` 两种半写故障，确认事务报错时无半写、无广播、无关系级联。该项是无独立产品表面的服务端事务 seam，L2-L5 以具体适用性理由收口 `na`；独立复核=`testend/rig/formal-evidence/EDGE-271-ledger-alarm-reaudit-20260830.md`。随后告警复核最终 clean，下一自动前线为 `EDGE-272|分组计数跨翻页不漂移`。
 
 ## 最新收口（2026-08-30 · 50 格批次统一门禁通过）
 
