@@ -171,6 +171,11 @@
       "family": "EDGE",
       "item": "skill 本地改动漂移",
       "reason": "skill service 与真实 HTTP 安装更新主链普通/race 已确认非 force 拒绝本地漂移、force 恢复上游、allowed-tools 变化重置信任门且未变化保留授权；但真实 App 的冲突提示、恢复选择、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 路径穿越",
+      "reason": "skill filesystem 与 service 普通/race、skill 文件 HTTP 合同普通/race 已确认 filepath.IsLocal/Clean、os.Root 及 symlink 逃逸防护有效，清单删除也不绕过守卫；但真实 App 的文件操作阻断反馈、错误文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
