@@ -12,7 +12,10 @@ import (
 
 	conversationdomain "github.com/sunweilin/anselm/backend/internal/domain/conversation"
 	gitinfoinfra "github.com/sunweilin/anselm/backend/internal/infra/gitinfo"
+	conversationstore "github.com/sunweilin/anselm/backend/internal/infra/store/conversation"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
+	"go.uber.org/zap"
 )
 
 // The residency's three git actions (WRK-077 WD2 + WD3), asserted on REAL repositories built by `git init`.
@@ -363,6 +366,64 @@ func TestAddWorktree_TheOneShot(t *testing.T) {
 	if currents != 1 {
 		t.Fatalf("exactly ONE worktree may be current, got %d in %+v", currents, info.Worktrees)
 	}
+}
+
+// TestAddWorktree_UpdateFailureLeavesAnHonestHalfState injects failure at the final persistence step.
+// The filesystem action is already complete at that point, so the contract is to leave the worktree
+// usable and keep the conversation on its old residency rather than pretending the move happened.
+//
+// TestAddWorktree_UpdateFailureLeavesAnHonestHalfState 在最后一次持久化动作注入失败。此时文件系统动作已经完成，
+// 契约是留下可用 worktree、让对话保持旧驻地，而不是假装切换已经发生。
+func TestAddWorktree_UpdateFailureLeavesAnHonestHalfState(t *testing.T) {
+	dir := gitRepoFixture(t)
+	_, em, _, sqlDB, ctx := newSvcDB(t)
+	repo := conversationstore.New(ormpkg.Open(sqlDB))
+	svc := NewService(repo, em, zap.NewNop())
+	c, err := svc.Create(ctx, "honest half state")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{WorkDir: &dir}); err != nil {
+		t.Fatalf("mount: %v", err)
+	}
+
+	// Rebuild the façade over the same store with only the final workdir update failing. This leaves all
+	// preceding git operations real while making the half-state boundary deterministic.
+	failing := NewService(&failWorkDirUpdateRepo{Repository: repo}, em, zap.NewNop())
+	info, err := failing.AddWorktree(ctx, c.ID, "half")
+	if err == nil {
+		t.Fatal("the final residency update must fail in this fixture")
+	}
+	top, ok := gitinfoinfra.Toplevel(ctx, dir)
+	if !ok {
+		t.Fatal("Toplevel must resolve")
+	}
+	target := filepath.Join(filepath.Dir(top), filepath.Base(top)+"-half")
+	t.Cleanup(func() { _ = os.RemoveAll(target) })
+	if _, statErr := os.Stat(target); statErr != nil {
+		t.Fatalf("the already-created worktree must remain usable: %v", statErr)
+	}
+	if info != nil {
+		t.Fatalf("a failed final update must not return a success projection: %+v", info)
+	}
+	row, getErr := failing.Get(ctx, c.ID)
+	if getErr != nil {
+		t.Fatalf("get after failed update: %v", getErr)
+	}
+	if row.WorkDir != dir {
+		t.Fatalf("the conversation must remain on its old residency, got %q want %q", row.WorkDir, dir)
+	}
+}
+
+type failWorkDirUpdateRepo struct {
+	conversationdomain.Repository
+}
+
+func (r *failWorkDirUpdateRepo) Update(ctx context.Context, c *conversationdomain.Conversation) error {
+	if c.WorkDir != "" {
+		return errors.New("injected residency update failure")
+	}
+	return r.Repository.Update(ctx, c)
 }
 
 // TestAddWorktree_ExistingDirectoryIsRefusedAndExistingBranchIsReused: the two collisions, each with the answer
