@@ -91,6 +91,11 @@
       "family": "EDGE",
       "item": "切驻地落 marker 块",
       "reason": "conversation service 普通/race 与真实黑盒中途切驻地场景已确认 marker 记录 from/to 且与实际驻地一致；但用户滚动回看时 marker 的真实 App 呈现、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "空线程/重复 PATCH 不落 marker",
+      "reason": "conversation service 普通/race 与真实黑盒场景已确认空线程首次挂载和同路径重复 PATCH 都不落 marker；但真实 App 中无痕状态与重复操作反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
