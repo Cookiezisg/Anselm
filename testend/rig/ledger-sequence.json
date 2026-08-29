@@ -156,6 +156,11 @@
       "family": "EDGE",
       "item": "对话挂载的文档被删",
       "reason": "该项已有真实 App 五通道 L2 证据确认缺失文档会诚实渲染警告；L3-L5 仍缺独立的顺滑、视觉 craft 与可发现性结论，按用户授权统一留到人工阶段，保留已有 L2 不重复现场操作。"
+    },
+    {
+      "family": "EDGE",
+      "item": "agent 知识文档被删",
+      "reason": "agent service 普通/race 与真实 HTTP 黑盒普通/race 已确认文档删除后 mount-health 标为 unhealthy、invoke 以 failed 返回明确缺失信息且不发 LLM 请求；但真实 App 的错误反馈、视觉 craft 和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }

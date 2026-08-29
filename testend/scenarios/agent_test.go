@@ -300,6 +300,34 @@ func TestAgentR2_RenameReresolutionAndFailFast(t *testing.T) {
 	}
 }
 
+// TestAgentR2_DeletedKnowledgeFailsFast: a knowledge document deleted after agent creation must
+// fail the invocation loudly instead of silently running without its grounding.
+func TestAgentR2_DeletedKnowledgeFailsFast(t *testing.T) {
+	t.Parallel()
+	wc, mock := agentSetup(t)
+
+	docID := wc.POST("/api/v1/documents", map[string]any{
+		"name": "ephemeral knowledge", "content": "grounding-token",
+	}).Field(t, "id")
+	agID := agCreate(t, wc, map[string]any{
+		"name": "Knowledge Guard", "description": "fail-fast probe", "prompt": "answer",
+		"knowledge": []string{docID},
+	})
+
+	if r := wc.DELETE("/api/v1/documents/" + docID); r.Status != 204 {
+		t.Fatalf("knowledge document delete: %d %s", r.Status, r.Raw)
+	}
+
+	// The provider must reject the missing grounding before consuming an LLM turn.
+	res := agInvoke(t, wc, agID, nil)
+	if res.OK || res.Status != "failed" || !strings.Contains(res.ErrorMsg, "knowledge document") || !strings.Contains(res.ErrorMsg, "missing=") {
+		t.Fatalf("deleted knowledge must fail invocation loudly, got %+v", res)
+	}
+	if got := len(mock.DumpsFor(agModel)); got != 0 {
+		t.Fatalf("missing knowledge must fail before an LLM request, got %d dumps", got)
+	}
+}
+
 func hasTool(tools []string, name string) bool {
 	for _, n := range tools {
 		if n == name {
