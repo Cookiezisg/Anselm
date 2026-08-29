@@ -201,6 +201,11 @@
       "family": "EDGE",
       "item": "fork skill 无 runner",
       "reason": "skill service 普通/race 与 skill 激活 HTTP 合同普通/race 已确认缺 runner 明确返回 SKILL_SUBAGENT_UNAVAILABLE，缺 agent/非法 agent 明确拒绝；但真实 App 的不可用反馈、文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "@ 一个 fork skill",
+      "reason": "skill service、前端 EntityMentionSource 与相关普通/race 回归已确认 inline skill 可进入 @ 候选、fork skill 不进入且 fork 不获得父回合预授权；但真实 App 中输入 @ 后的候选排序、排除反馈、视觉 craft、文案和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }

@@ -68,7 +68,12 @@ def na_note_for_level(evidence: str, level: int) -> str:
     authoritative state; reading the first one would make a provisional NA permanently reopen the
     frontier even after a valid applicability decision.
     """
-    matches = list(re.finditer(rf"(?:^|; )L{level}:na→note:(.*?)(?=; L\d+:|$)", evidence, re.IGNORECASE))
+    # A provisional note can follow a measurement pointer as well as an explicit `na` pointer.
+    # Both forms mean the cell is still `~` in COVERAGE; only the pointer prefix differs.  Ignoring
+    # `measure:*→note:` lets a local-only run masquerade as a settled applicability decision.
+    # provisional note 既可能跟在 `na` 指针后,也可能跟在 measurement 指针后;两者在清册里都仍是 `~`。
+    # 只认 `na` 会让「本轮只有本地测试」伪装成已完成的适用性裁决。
+    matches = list(re.finditer(rf"(?:^|; )L{level}:[^;→]*→note:(.*?)(?=; L\d+:|$)", evidence, re.IGNORECASE))
     return matches[-1].group(1).strip() if matches else ""
 
 

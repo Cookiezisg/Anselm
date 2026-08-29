@@ -43,6 +43,36 @@ class JudgeRetryTests(unittest.TestCase):
             finally:
                 sys.path[:] = old_path
 
+    def test_measure_note_reopens_the_autonomous_frontier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            coverage.write_text(
+                "| EDGE-001 | Missing measured App evidence | test | ✓~··· | "
+                "L1:G1→old; L2:measure:latency→note:no real App session yet |\n"
+                "| EDGE-002 | Next autonomous cell | test | ····· |  |\n"
+            )
+
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("measure_provisional_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                self.assertTrue(
+                    module.is_provisional_na(
+                        "L2:measure:latency→note:no real App session yet", 2
+                    )
+                )
+                problem = module.sequence_problem("EDGE", "Next autonomous cell")
+                self.assertIn("EDGE|Missing measured App evidence", problem)
+            finally:
+                sys.path[:] = old_path
+
     def test_explicit_not_applicable_na_remains_settled(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)

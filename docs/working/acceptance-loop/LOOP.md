@@ -15,7 +15,7 @@ landed-into:
 
 ## 调度变更（2026-08-30 · 人工交互后置）
 
-- **最新精确快照（EDGE-288 调度后）**：人工队列 `40` 项；清册 `848` 行，剩余自主 `62` 行、`176` 格，下一自动前线为 `EDGE-289|@ 一个 fork skill`。前文旧队列行是调度前快照，以此条和顺序门为准。
+- **最新精确快照（EDGE-289 调度后，按修复后的 judge.py 重算）**：人工队列 `41` 项；清册 `848` 行，其中 `111` 行未收口，剩余自主 `70` 行、`206` 格，下一自动前线为 `EDGE-222|生成 origin 从凭证派生`。本轮修复了 `L#:measure:...→note:` provisional 记录的顺序门漏检；此前 `62/176` 快照与当前判定不一致，已纠正；以此条和顺序门为准。
 - `EDGE-277|文档改名子树级联` 的 document service 与真实黑盒普通/race 回归均通过；根节点改名会重写全部后代 `path`，但真实 Library 的树刷新、路径反馈、视觉和发现性仍必须在人工阶段用五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-277-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-278|文档 Move 防环`。
 - `EDGE-279|对话挂载的文档被删` 已有真实 App 五通道 `L2:F1`，仅 L3-L5 未完成，按用户授权加入人工队列；不重复已完成的现场操作，不把旧临时 `na` 当作产品收口。正式复核=`testend/rig/formal-evidence/EDGE-279-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-280|agent 知识文档被删`。
 - `EDGE-280|agent 知识文档被删` 已有真实 App 五通道 `L2:F1`，新增 service/黑盒普通与 race 证明删除后 invoke fail-fast 且不产生 LLM 请求；L3-L5 仍后置，不重复现场操作。正式复核=`testend/rig/formal-evidence/EDGE-280-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-281|skill 安装炸弹护栏`。
@@ -26,7 +26,9 @@ landed-into:
 - `EDGE-285|大小写不敏感 FS 上的 skill.md` 的 filesystem 普通/race 回归均通过；小写回退、同 inode 防自删和独立残件清退已验证，真实 App 的跨平台反馈、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-285-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-286|skill 目录前导兜底`。
 - `EDGE-286|skill 目录前导兜底` 的 service 与 directory HTTP 合同普通/race 回归均通过；单文件/捆绑文件、占位符和 agent Guide 前导规则已验证，真实 App 的引导文案、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-286-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-287|run_skill_script 扩展名不支持`。
 - `EDGE-287|run_skill_script 扩展名不支持` 的 chat ReAct 黑盒普通/race 回归均通过；错误脚本拒绝且不执行，真实 App 的扩展名错误反馈、文案和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-287-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-288|fork skill 无 runner`。
-- `EDGE-288|fork skill 无 runner` 的 service 与激活 HTTP 合同普通/race 回归均通过；能力缺席和参数错误均明确拒绝，真实 App 的不可用反馈、文案、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-288-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-289|@ 一个 fork skill`。
+- `EDGE-288|fork skill 无 runner` 的 service 与激活 HTTP 合同普通/race 回归均通过；能力缺席和参数错误均明确拒绝，真实 App 的不可用反馈、文案、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-288-ledger-alarm-reaudit-20260830.md`；顺序门重算后的当前自动前线为 `EDGE-222|生成 origin 从凭证派生`。
+- `EDGE-289|@ 一个 fork skill` 的 skill service、前端候选源及普通/race 定向回归均通过；inline skill 保留在 @ 候选，fork skill 排除且不向父回合授予预授权，真实 App 的排序、反馈、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-289-skill-fork-mention-20260830.md`；该项已登记人工后置，不改变当前自动前线 `EDGE-222|生成 origin 从凭证派生`。
+- `judge.py` 的 provisional note 解析已修复并由 `testend/rig/test_judge.py` 20/20 锁定；`measure→note` 缺现场记录会继续挡住顺序门，明确适用性 `na` 仍可收口。正式复核=`testend/rig/formal-evidence/WRK-087-judge-measure-provisional-20260830.md`。
 
 - 用户授权主循环先推进所有不需要其物理按键、系统授权或安全确认的验收；人工动作统一收尾，不再中途打断用户。
 - `testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变前线选择，不改变证据标准；队列中的格子仍未完成，等自主格耗尽后自动回收。当前后置队列为 `EDGE-031`、`EDGE-030`、`EDGE-033`、`EDGE-037`、`EDGE-038`、`EDGE-039`、`EDGE-251`、`EDGE-254`、`EDGE-256`、`EDGE-257`、`EDGE-258`、`EDGE-259`、`EDGE-261`、`EDGE-262`、`EDGE-263`、`EDGE-264`、`EDGE-265`、`EDGE-266`、`EDGE-267`、`EDGE-268`、`EDGE-269`、`EDGE-270`、`EDGE-272`、`EDGE-273`、`EDGE-274`、`EDGE-275`、`EDGE-276` 与 `EDGE-329`；正式顺序门当前给出的下一自动前线由清册重算。
