@@ -186,6 +186,11 @@
       "family": "EDGE",
       "item": "大小写不敏感 FS 上的 skill.md",
       "reason": "skill filesystem 普通/race 已确认小写清单可读，写入大写清单时 macOS 大小写不敏感盘不会自删同 inode，大小写敏感盘会清退独立残件；但真实 App 的跨平台文件反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 目录前导兜底",
+      "reason": "skill service 普通/race 与 skill directory HTTP 合同普通/race 已确认单文件 skill 不加伪前导、带捆绑文件时注入真实目录、占位符替换且 agent Guide 共享规则；但真实 App 的引导文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
