@@ -86,6 +86,11 @@
       "family": "EDGE",
       "item": "「这里没有 git」四情形",
       "reason": "conversation service 普通/race 与新增黑盒 HTTP 场景已确认未挂、已消失、普通目录的三个写动作统一返回 CONVERSATION_WORK_DIR_NOT_GIT_REPO；没有 git 可执行文件属于未在当前机器复现的环境变体，不冒充已验证。真实 App 的错误反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "切驻地落 marker 块",
+      "reason": "conversation service 普通/race 与真实黑盒中途切驻地场景已确认 marker 记录 from/to 且与实际驻地一致；但用户滚动回看时 marker 的真实 App 呈现、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
