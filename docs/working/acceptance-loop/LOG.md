@@ -12,7 +12,7 @@ landed-into:
 
 ## 调度变更（2026-08-30 · 用户授权人工交互后置）
 
-- **最新精确快照（EDGE-286 调度后）**：`ledger-sequence.json` 已登记 `38` 个人工后置项；清册仍为 `848` 行，其中自主未收口 `64` 行、`184` 格，下一自动前线为 `EDGE-287|run_skill_script 扩展名不支持`。此前队列长列表是历史快照，不改变证据标准。
+- **最新精确快照（EDGE-287 调度后）**：`ledger-sequence.json` 已登记 `39` 个人工后置项；清册仍为 `848` 行，其中自主未收口 `63` 行、`180` 格，下一自动前线为 `EDGE-288|fork skill 无 runner`。此前队列长列表是历史快照，不改变证据标准。
 - `EDGE-277|文档改名子树级联` 的 document service `TestUpdate_PathCascade` 普通/race 与真实黑盒 `TestContractDocsAtt_DocumentNameGuardsSoftDelete` 普通/race 均通过；后代 `path` 级联事实已锁定，但真实 App 的 Library 刷新、反馈、视觉与发现性保留人工后置。独立复核=`testend/rig/formal-evidence/EDGE-277-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-278|文档 Move 防环`。
 - `EDGE-279|对话挂载的文档被删` 保留既有真实 App `L2:F1`；缺失文档警告已由五通道验证，L3-L5 的顺滑、视觉 craft、发现性继续后置，故加入人工队列且不重复现场操作。独立复核=`testend/rig/formal-evidence/EDGE-279-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-280|agent 知识文档被删`。
 - `EDGE-280|agent 知识文档被删` 保留既有真实 App `L2:F1`，新增 service/黑盒普通与 race 回归锁定删除后 invoke 明确失败且不发 LLM 请求；L3-L5 的错误反馈、视觉 craft、发现性继续后置。独立复核=`testend/rig/formal-evidence/EDGE-280-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-281|skill 安装炸弹护栏`。
@@ -22,6 +22,7 @@ landed-into:
 - `EDGE-284|skill 清单拒删` 的 service 与 skill 文件 HTTP 合同普通/race 均通过；删除 `SKILL.md` 被明确拒绝且不破坏 skill，真实 App 的阻断反馈、入口引导、视觉、发现性继续后置。独立复核=`testend/rig/formal-evidence/EDGE-284-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-285|大小写不敏感 FS 上的 skill.md`。
 - `EDGE-285|大小写不敏感 FS 上的 skill.md` 的 filesystem 普通/race 均通过；大小写回退、同 inode 安全写入和独立残件清退均锁定，真实 App 的跨平台反馈与视觉发现性继续后置。独立复核=`testend/rig/formal-evidence/EDGE-285-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-286|skill 目录前导兜底`。
 - `EDGE-286|skill 目录前导兜底` 的 service 与 directory HTTP 合同普通/race 均通过；单文件/捆绑文件、占位符和 agent Guide 路径一致，真实 App 的引导文案、视觉与发现性继续后置。独立复核=`testend/rig/formal-evidence/EDGE-286-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-287|run_skill_script 扩展名不支持`。
+- `EDGE-287|run_skill_script 扩展名不支持` 的 chat ReAct 黑盒普通/race 均通过；不存在/越界脚本拒绝并回喂模型，真实 App 的扩展名错误反馈、文案、视觉、发现性继续后置。独立复核=`testend/rig/formal-evidence/EDGE-287-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-288|fork skill 无 runner`。
 
 - 用户授权：主循环先继续所有不需要其物理按键、系统授权或安全确认的验收，人工交互集中到自主验收完成后；这只改变调度，不改变五通道、逐帧、法条、证据或最终完成标准。
 - 已在 `testend/rig/ledger-sequence.json` 登记精确 `manual_queue`，当前后置条目为 `EDGE-031|回合收尾期单槽缓冲`、`EDGE-030|生成中再 Send`、`EDGE-033|关页不留 streaming 孤儿`、`EDGE-037|归档对话发消息自动解档`、`EDGE-038|:retry 重生成分支`、`EDGE-039|:retry 编辑重发分支`、`EDGE-251|删最后一个 workspace`、`EDGE-254|keyset 排序切换丢游标`、`EDGE-256|驻地目录被移走`、`EDGE-257|脏区切分支被拒`、`EDGE-258|新建分支不受脏区门`、`EDGE-259|切分支名拼错`、`EDGE-261|worktree 目录已存在`、`EDGE-262|worktree 分支已存在`、`EDGE-263|worktree 建成后切驻地失败`、`EDGE-264|「这里没有 git」四情形`、`EDGE-265|切驻地落 marker 块`、`EDGE-266|空线程/重复 PATCH 不落 marker`、`EDGE-267|切分支不落 marker`、`EDGE-268|驻地分组批量归档重跑`、`EDGE-269|驻地分组批量删除范围`、`EDGE-270|空 workDir 批量动作`、`EDGE-272|分组计数跨翻页不漂移`、`EDGE-273|?workDir= 三态 presence`、`EDGE-274|立碑线程读消息`、`EDGE-275|文档超 1MB`、`EDGE-276|并发同父建文档` 与 `EDGE-329|快捷键录制后吞键`。`judge.py` 先推进自主格，自主格耗尽后回到人工队列；队列项不自动变成 `na` 或 `pass`。

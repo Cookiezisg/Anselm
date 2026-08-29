@@ -191,6 +191,11 @@
       "family": "EDGE",
       "item": "skill 目录前导兜底",
       "reason": "skill service 普通/race 与 skill directory HTTP 合同普通/race 已确认单文件 skill 不加伪前导、带捆绑文件时注入真实目录、占位符替换且 agent Guide 共享规则；但真实 App 的引导文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "run_skill_script 扩展名不支持",
+      "reason": "真实 chat ReAct 黑盒普通/race 已确认不存在脚本与越界脚本都以 script-not-found 语义回喂且不执行；不支持扩展名的工具输入守卫仍属于真实 App 的错误反馈、文案、视觉和发现性表面，按用户授权统一留到人工阶段。"
     }
   ]
 }
