@@ -46,6 +46,11 @@
       "family": "EDGE",
       "item": "keyset 排序切换丢游标",
       "reason": "ORM 与 HTTP acceptance 回归已通过，但列表排序切换的交互反馈、视觉呈现和用户发现性仍需真实 App 五通道观察；按用户授权统一后置人工交互，不用接口测试冒充现场证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "驻地目录被移走",
+      "reason": "后端 workdir 投影与 Bash 拒绝回归已通过，但原路径保留、exists=false 警示和 Terminal 不回落后端目录的用户体验需要真实 App 五通道观察；按用户授权统一后置人工交互，不用内部测试冒充现场证据。"
     }
   ]
 }
