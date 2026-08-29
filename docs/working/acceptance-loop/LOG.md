@@ -34,6 +34,7 @@ landed-into:
 - `EDGE-265|切驻地落 marker 块` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDir_MidThreadSwitchLeavesADurableMarker` 普通/race 回归通过；marker 的 `from/to` 与持久驻地投影一致。历史 marker 的真实 App 呈现、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-265-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - `EDGE-266|空线程/重复 PATCH 不落 marker` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDir_MidThreadSwitchLeavesADurableMarker` 普通/race 回归通过；空线程首次挂载与同路径重复 PATCH 均无 marker、无生命周期动作，后续真实切换仍正常落 marker。无痕 no-op 的真实 App 反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-266-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - `EDGE-267|切分支不落 marker` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGit_SwitchBranchMovesTheProjectionAndDirtyIsRefused` 普通/race 回归通过；分支投影跟随 Git、驻地保持不变且不产生 workdir marker。切分支后的真实 App 反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-267-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
+- `EDGE-268|驻地分组批量归档重跑` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGroups_ArchiveWholeGroup` 普通/race 回归通过；首次只归档目标组，第二次返回 `archived=0` 且不重复发回声。批量归档的真实 App 确认反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-268-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - 另修复告警 gate 的 watermark：`alarms.py ack` 现在推进 `evidenceThrough`，同一批已复核 journal 不会在下次 `check` 中重复开警报；对应回归通过，最终 `alarms.py check` clean，anchors=`10/10`，coverage=`848/848`。
 - `make verify`、完整 testend、台架单测和文档校验均通过；当前剩余未收口项仍是需要真实 App/系统物理交互的人工队列，不因自动化通过而提前结算。
 

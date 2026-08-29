@@ -101,6 +101,11 @@
       "family": "EDGE",
       "item": "切分支不落 marker",
       "reason": "conversation service 普通/race 与真实黑盒分支切换场景已确认分支投影跟随 Git 且不调用驻地 marker；但用户切分支后的真实 App 反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "驻地分组批量归档重跑",
+      "reason": "conversation service 普通/race 与真实黑盒归档场景已确认首次只归档目标组、第二次返回 archived=0 且不重复发回声；但批量归档的真实 App 确认反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
