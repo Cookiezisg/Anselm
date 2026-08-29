@@ -111,6 +111,11 @@
       "family": "EDGE",
       "item": "驻地分组批量删除范围",
       "reason": "conversation service 普通/race 与真实黑盒删除场景已确认跨归档态删除未置顶目标、保留置顶项且不改消息和文件系统；但破坏性批量删除的真实 App 确认、反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "空 workDir 批量动作",
+      "reason": "conversation service 普通/race 与真实黑盒归档场景已确认空 workDir 返回 400 INVALID_REQUEST，不把未挂载对话误扫成一个组；但用户可见的阻断反馈、文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }

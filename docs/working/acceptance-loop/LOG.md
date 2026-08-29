@@ -13,7 +13,7 @@ landed-into:
 ## 调度变更（2026-08-30 · 用户授权人工交互后置）
 
 - 用户授权：主循环先继续所有不需要其物理按键、系统授权或安全确认的验收，人工交互集中到自主验收完成后；这只改变调度，不改变五通道、逐帧、法条、证据或最终完成标准。
-- 已在 `testend/rig/ledger-sequence.json` 登记精确 `manual_queue`，当前后置条目为 `EDGE-031|回合收尾期单槽缓冲`、`EDGE-030|生成中再 Send`、`EDGE-033|关页不留 streaming 孤儿`、`EDGE-037|归档对话发消息自动解档`、`EDGE-038|:retry 重生成分支`、`EDGE-039|:retry 编辑重发分支`、`EDGE-251|删最后一个 workspace`、`EDGE-254|keyset 排序切换丢游标`、`EDGE-256|驻地目录被移走`、`EDGE-257|脏区切分支被拒`、`EDGE-258|新建分支不受脏区门`、`EDGE-259|切分支名拼错`、`EDGE-261|worktree 目录已存在`、`EDGE-262|worktree 分支已存在`、`EDGE-263|worktree 建成后切驻地失败`、`EDGE-264|「这里没有 git」四情形`、`EDGE-265|切驻地落 marker 块`、`EDGE-266|空线程/重复 PATCH 不落 marker`、`EDGE-267|切分支不落 marker`、`EDGE-268|驻地分组批量归档重跑`、`EDGE-269|驻地分组批量删除范围` 与 `EDGE-329|快捷键录制后吞键`。`judge.py` 先推进自主格，自主格耗尽后回到人工队列；队列项不自动变成 `na` 或 `pass`。
+- 已在 `testend/rig/ledger-sequence.json` 登记精确 `manual_queue`，当前后置条目为 `EDGE-031|回合收尾期单槽缓冲`、`EDGE-030|生成中再 Send`、`EDGE-033|关页不留 streaming 孤儿`、`EDGE-037|归档对话发消息自动解档`、`EDGE-038|:retry 重生成分支`、`EDGE-039|:retry 编辑重发分支`、`EDGE-251|删最后一个 workspace`、`EDGE-254|keyset 排序切换丢游标`、`EDGE-256|驻地目录被移走`、`EDGE-257|脏区切分支被拒`、`EDGE-258|新建分支不受脏区门`、`EDGE-259|切分支名拼错`、`EDGE-261|worktree 目录已存在`、`EDGE-262|worktree 分支已存在`、`EDGE-263|worktree 建成后切驻地失败`、`EDGE-264|「这里没有 git」四情形`、`EDGE-265|切驻地落 marker 块`、`EDGE-266|空线程/重复 PATCH 不落 marker`、`EDGE-267|切分支不落 marker`、`EDGE-268|驻地分组批量归档重跑`、`EDGE-269|驻地分组批量删除范围`、`EDGE-270|空 workDir 批量动作` 与 `EDGE-329|快捷键录制后吞键`。`judge.py` 先推进自主格，自主格耗尽后回到人工队列；队列项不自动变成 `na` 或 `pass`。
 - 回归已通过：`test_judge.py` 全部通过、JSON/`py_compile` 通过；当前批次已推进至 `50/50`，统一长门禁已通过；人工队列仍保持未完成。
 
 ## 最新收口（2026-08-30 · 50 格批次统一门禁通过）
@@ -36,6 +36,7 @@ landed-into:
 - `EDGE-267|切分支不落 marker` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGit_SwitchBranchMovesTheProjectionAndDirtyIsRefused` 普通/race 回归通过；分支投影跟随 Git、驻地保持不变且不产生 workdir marker。切分支后的真实 App 反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-267-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - `EDGE-268|驻地分组批量归档重跑` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGroups_ArchiveWholeGroup` 普通/race 回归通过；首次只归档目标组，第二次返回 `archived=0` 且不重复发回声。批量归档的真实 App 确认反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-268-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - `EDGE-269|驻地分组批量删除范围` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGroups_DeleteWholeGroup` 普通/race 回归通过；删除跨归档态覆盖未置顶目标、保留置顶项，消息行与文件系统均不被改动。破坏性批量删除的真实 App 确认、反馈、视觉和发现性仍需五通道现场观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-269-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
+- `EDGE-270|空 workDir 批量动作` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGroups_ArchiveWholeGroup` 普通/race 回归通过；`workDir:""` 返回 `400 INVALID_REQUEST`，不会被误解释为“未挂载对话”分组。真实 App 的阻断反馈、文案、视觉和发现性仍需五通道现场观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-270-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - 另修复告警 gate 的 watermark：`alarms.py ack` 现在推进 `evidenceThrough`，同一批已复核 journal 不会在下次 `check` 中重复开警报；对应回归通过，最终 `alarms.py check` clean，anchors=`10/10`，coverage=`848/848`。
 - `make verify`、完整 testend、台架单测和文档校验均通过；当前剩余未收口项仍是需要真实 App/系统物理交互的人工队列，不因自动化通过而提前结算。
 
