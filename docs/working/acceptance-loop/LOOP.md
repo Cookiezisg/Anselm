@@ -15,6 +15,9 @@ landed-into:
 
 ## 调度变更（2026-08-30 · 人工交互后置）
 
+- **最新精确快照（EDGE-277 收口后）**：人工队列 `29` 项；清册 `848` 行，剩余自主 `73` 行、`218` 格，下一自动前线为 `EDGE-278|文档 Move 防环`。前文旧队列行是登记 EDGE-277 前的快照，以此条和顺序门为准。
+- `EDGE-277|文档改名子树级联` 的 document service 与真实黑盒普通/race 回归均通过；根节点改名会重写全部后代 `path`，但真实 Library 的树刷新、路径反馈、视觉和发现性仍必须在人工阶段用五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-277-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-278|文档 Move 防环`。
+
 - 用户授权主循环先推进所有不需要其物理按键、系统授权或安全确认的验收；人工动作统一收尾，不再中途打断用户。
 - `testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变前线选择，不改变证据标准；队列中的格子仍未完成，等自主格耗尽后自动回收。当前后置队列为 `EDGE-031`、`EDGE-030`、`EDGE-033`、`EDGE-037`、`EDGE-038`、`EDGE-039`、`EDGE-251`、`EDGE-254`、`EDGE-256`、`EDGE-257`、`EDGE-258`、`EDGE-259`、`EDGE-261`、`EDGE-262`、`EDGE-263`、`EDGE-264`、`EDGE-265`、`EDGE-266`、`EDGE-267`、`EDGE-268`、`EDGE-269`、`EDGE-270`、`EDGE-272`、`EDGE-273`、`EDGE-274`、`EDGE-275`、`EDGE-276` 与 `EDGE-329`；正式顺序门当前给出的下一自动前线由清册重算。
 - `EDGE-270|空 workDir 批量动作` 的普通/race 服务回归和黑盒归档场景回归通过，空值明确返回 `400 INVALID_REQUEST`；真实 App 的阻断反馈、文案、视觉与发现性按用户授权后置，不以内部测试代替五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-270-ledger-alarm-reaudit-20260830.md`。
