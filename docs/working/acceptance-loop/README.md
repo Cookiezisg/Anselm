@@ -12,6 +12,258 @@ landed-into:
 
 # WRK-087 · 端到端全产品验收循环(acceptance loop)
 
+## 最新收口（2026-08-29 · 批次八十三统一门禁通过 · 已进入下一批 0/50）
+
+- 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151503`；真实 App 先显示危险删除确认卡，明确 Agent 身份与删除语义，用户点击 `Deny` 后显示“删除操作已被拒绝，如需继续，请告知”。
+- 目标 Agent REST 仍为 `200`，touchpoints 为空，notifications 无删除行；SSE 只记录 interaction、resolved 和 denied tool_result，LLM wire 保留 `dangerous` 并明确不得重试，证明没有把意图冒充执行。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，正式关键帧=`sessions/20260829-151503/evidence/EDGE-294-denied-delete.jpeg`。正式证据=`sessions/20260829-151503/evidence/EDGE-294-touchpoint-deny-no-delete-real-app-20260829.md`。
+- `judge.py` 写入 `EDGE-294 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-294-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2011 live judgments; 2300 baseline excluded)`。
+- 批次八十三由 `49→50/50` 后完成统一门禁、完整回归、警报复核和工作树审计；收口证据=`testend/rig/formal-evidence/batch-83-unified-gate-20260829.md`。根门禁、backend testend、rig 自测、锚点、清册、告警和进程审计全绿；下一批从 `0/50` 开始。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-298 未读徽标绝不据帧 +1 的真实 App L2 完成 · 新批次 49/50）
+
+- 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151051`；真实 App 通知中心显示唯一新增未读 `Memory "edge298-probe" updated`，旧 seed 通知保留但已读，左下铃铛没有按同类型广播再加一。
+- 权威 `unread-count` 实测 `0→1→0→1→1`：持久 create/update 的 Emit 增加未读，pin 的同类型 Broadcast 保持 1；SSE `inbox=true` 与无 `inbox`、REST 通知行和 Memory 行一致。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，正式关键帧=`sessions/20260829-151051/evidence/EDGE-298-unread-badge.jpeg`。正式证据=`sessions/20260829-151051/evidence/EDGE-298-unread-authoritative-count-real-app-20260829.md`。
+- `judge.py` 写入 `EDGE-298 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-298-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2010 live judgments; 2300 baseline excluded)`。
+- 批次由 `48→49/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择最后一个尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-292 todo 全完成后被问清单的真实 App L2 完成 · 新批次 48/50）
+
+- 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-150633`；真实 App 依次显示 `2 items · 0 done`、`2 items · 2 done`、`Read checklist · 2 items · 2 done`，最终准确列出两个已完成任务。
+- SSE/消息耐久结果保留 `todo_write` 建立、`todo_write` 完成、`todo_read` 读回三步；REST 与 SQLite 对账一致，未因 0-open 隐藏清单或凭模型记忆编造。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，LLM continuation 全 `200`，正式关键帧=`sessions/20260829-150633/evidence/EDGE-292-todo-completed-read.jpeg`。正式证据=`sessions/20260829-150633/evidence/EDGE-292-todo-completed-read-real-app-20260829.md`。
+- `judge.py` 写入 `EDGE-292 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-292-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2009 live judgments; 2300 baseline excluded)`。
+- 批次由 `47→48/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-291 memory 更新保留策展的真实 App L2 完成 · 新批次 47/50）
+
+- 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145816`；真实 App 通过一条 Composer 消息调用 `write_memory` 更新已有 `edge291-rule`，回执确认描述和内容已修改，切到 Settings → Memory 后仍显示置顶图钉和 `user` 来源。
+- 最终 REST 记忆行保持 `pinned=true`、`source=user`，内容与描述为更新值；SSE 收到 `memory.updated`，LLM wire 有恰好一条正式路径的 `write_memory` 调用并完成 continuation，SQLite 完整性通过。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，正式关键帧=`sessions/20260829-145816/evidence/EDGE-291-memory-chat.jpeg` 与 `EDGE-291-memory-panel.jpeg`。正式证据=`sessions/20260829-145816/evidence/EDGE-291-memory-curation-real-app-20260829.md`。
+- `judge.py` 写入 `EDGE-291 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把耐久字段保留冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-291-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2008 live judgments; 2300 baseline excluded)`。
+- 批次由 `46→47/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-293 删被依赖实体的真实 App L2 完成 · 新批次 46/50）
+
+- 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145009`；真实 App 的 Notifications 显示 Function 删除后留下 `4 references dangling`，并点名 `deploy-helper` 与三个 EDGE293 Agent，用户可以直接理解受影响对象。
+- 真实后端删除 Function 返回 `204`，relation purge 记录 `removed=4`；SSE notifications 仅发一条聚合 `relation.dependency_broken`，payload 含四个依赖者，REST notifications 与 UI 一致；SQLite 完整性检查通过。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，SSE 三流与 llmtap 连接正常，正式关键帧=`sessions/20260829-145009/evidence/EDGE-293-notification-aggregate.jpeg`。正式证据=`sessions/20260829-145009/evidence/EDGE-293-dependency-broken-real-app-20260829.md`。
+- `judge.py` 写入 `EDGE-293 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把依赖影响可见性冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-293-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2007 live judgments; 2300 baseline excluded)`。
+- 批次由 `45→46/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-279 对话挂载文档删除后的真实 App L2 完成 · 新批次 45/50）
+
+- 正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-144028`；真实 App 中打开已挂载文档的对话，删除文档后实际发送消息。
+- LLM wire 明确收到 `<document id="doc_223e10c4a400bc06" missing="true">` 缺失 grounding 标记；真实 App 回答无法读取、说明文档已删除并建议重新上传，没有假装读到正文，也没有让回合失败。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，SSE 三流和 LLM tap 证据齐全，SQLite/REST/UI 对账一致。正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-144028/evidence/EDGE-279-attached-document-deleted-real-app-20260829.md`。
+- `judge.py` 写入 `EDGE-279 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把诚实降级冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-279-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2006 live judgments; 2300 baseline excluded)`。
+- 本格只证明历史挂载文档消失后聊天仍能诚实继续；批次由 `44→45/50`，未满 50 格不跑统一长门禁、不提交。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-280 Agent 知识文档删除后的 mount-health 真实 App L2 完成 · 新批次 44/50）
+
+- 正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-143120`；真实 App 先打开挂载知识文档的 Agent 详情，随后通过真实后端删除该文档，再切换实体并返回详情。
+- 刷新后的真实画面明确显示 `1 unhealthy`、`Mount health: 1 unhealthy` 和 `knowledge document does not exist`；REST mount-health 同时返回 `healthy=false`，SSE 收到 `document.deleted` 与 `relation.dependency_broken`，没有把悬空知识挂载伪装成健康。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级红线，SSE 三流与 LLM tap 证据齐全，SQLite/REST/UI 对账一致。正式证据=`sessions/20260829-143120/evidence/EDGE-280-agent-knowledge-deleted-real-app.md`。
+- `judge.py` 写入 `EDGE-280 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把依赖断裂可见性冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`；独立警报复审=`testend/rig/formal-evidence/EDGE-280-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2005 live judgments; 2300 baseline excluded)`。
+- 本格记录的产品边界：删除文档后已打开的详情不会凭删除事件自动刷新，需重新进入详情才能显示不健康；本轮只按已实现且真实观察到的刷新路径记账，不擅自扩大结论。批次由 `43→44/50`，未满 50 格不跑统一长门禁、不提交。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-324 窗角半径 swizzle 失效真实 App L2 完成 · 新批次 43/50）
+
+- 正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-140606`；临时故障注入构建将 `NSThemeFrame` 四个私有 getter 改为不存在的 selector，真实 macOS App 仍启动并显示完整 Library，随后 Computer Use 在 Library 与 Chat 间切换后仍可用。
+- nil 守卫使私有 API 失效时回落系统窗口圆角，没有启动崩溃、黑屏、白屏或不可见窗口；故障注入源码已恢复，`MainFlutterWindow.swift` 无最终 diff。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend 无应用级 WARN/ERROR/panic，SSE 三流连接，llmtap challenge/install/models 全 `200`；frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，唯一 IMK 文本为已分类的 macOS 宿主诊断。
+- 正式证据=`testend/rig/formal-evidence/EDGE-324-window-corner-swizzle-fallback-real-app-20260829.md`；`judge.py` 写入 `EDGE-324 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；anchors=`10/10`，警报复审=`testend/rig/formal-evidence/EDGE-324-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2004 live judgments; 2300 baseline excluded)`。
+- 批次由 `42→43/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续从尚未具备正式 L2 的 `~` 格选择。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-29 · EDGE-321 草稿文档首次编辑真实 App L2 完成 · 新批次 42/50）
+
+- 正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-135745`；真实 Flutter App 在无选区 Library 草稿态中先执行空稿离开，再输入 `EDGE321 body probe` 转正，继续输入 ` + continued`，切出后重新打开。
+- 空稿离开前后文档树均为 2 条，没有幽灵文档；首次编辑只产生一次 `POST /documents` `201`，后续保存为同一 id 的 `PATCH`。AX/录屏显示正文连续、侧栏只有一个 `Untitled`，重开后正文与 REST 均为 `EDGE321 body probe + continued`，大小 `30 B`。
+- 五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend 无应用级 WARN/ERROR/panic，SSE notifications durable `seq=16,17` 单调，llmtap challenge/install/models 全 `200`；frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，唯一 IMK 文本为已分类的 macOS 宿主诊断。
+- 正式证据=`testend/rig/formal-evidence/EDGE-321-draft-first-edit-real-app-20260829.md`；`judge.py` 写入 `EDGE-321 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；anchors=`10/10`，警报复审=`testend/rig/formal-evidence/EDGE-321-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2003 live judgments; 2300 baseline excluded)`。
+- 批次由 `41→42/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续从尚未具备正式 L2 的 `~` 格选择。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-316 行内代码 CJK 断盒真实 App L2 完成 · 新批次 37/50）
+
+- 真实 App 打开含 `中文注释：计算总数并返回结果` 的行内代码文档；截图与录屏确认多个 CJK script-run 之间灰色背景连续，无白缝、断盒、前后文字遮挡或粘连。
+- 离开并重新打开后 AX 仍显示完整行内代码文本，右侧保持 `44 chars`、`130 B`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-231212`，App/window=`8497/5691`，录屏=`98.760000s`。
+- 五通道 `rig-check`/`rig-down` 通过；SSE notifications durable seq `16` 单调，LLM challenge/install/models 全 `200`；frontend/backend 无应用红线，关键帧已保存在 session evidence。
+- 正式证据=`testend/rig/formal-evidence/EDGE-316-inline-code-cjk-real-app-20260828.md`；`judge.py` 写入 `EDGE-316 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；anchors `10/10`，警报复核=`testend/rig/formal-evidence/EDGE-316-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check` clean。
+- 批次由 `36/50` 推进到 `37/50`；按规则未满 50 不统一长门禁、不提交。下一原子为 `EDGE-317`；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-315 空 task 尾空格腐化真实 App L2 完成 · 新批次 36/50）
+
+- 全新正式台架打开含前后任务和中间空 task 的真实文档；两轮点击空 task、输入 `temp`、逐字退格清空、等待保存、离开并重开后，画面始终保留三个 checkbox 行，没有 bullet 退化、字面 `[ ]` 或内容吞并。
+- 后端两轮 GET 均返回精确原文 `- [ ] first task\n- [ ] \n- [ ] last task`，`sizeBytes=39`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-230718`，App/window=`7538/5674`，录屏=`113.558333s`。
+- 五通道 `rig-check`/`rig-down` 通过；SSE notifications durable seq `16,17,18` 单调，LLM challenge/install/models 全 `200`；frontend/backend 无应用红线，唯一 frontend 文本为已分类 macOS IMK 宿主提示。
+- 正式证据=`testend/rig/formal-evidence/EDGE-315-task-whitespace-heal-real-app-20260828.md`；`judge.py` 写入 `EDGE-315 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；anchors `10/10`，警报复核=`testend/rig/formal-evidence/EDGE-315-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check` clean。
+- 批次由 `35/50` 推进到 `36/50`；按规则未满 50 不统一长门禁、不提交。下一原子为 `EDGE-316`；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-314 编辑器唯一光标真实 App L2 完成 · 新批次 35/50）
+
+- 在全新正式台架中打开含正文、Dart 代码块和表格的真实文档；先在正文建立 caret，再分别点击代码字段和表格单元格并输入 `Y`/`X`。两条路径的 AX 与录屏都证明内嵌字段拿到键盘后，正文侧没有第二根文档 caret。
+- 代码字段、表格字段均真实写入并随后通过 HTTP fixture 恢复；离开并重新打开文档后内容回到原始 Markdown，验收输入没有污染持久化 fixture。录屏=`222.475000s`，App/window=`6366/5642`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-225931`；五通道 `rig-check`/`rig-down` 通过；backend 无应用红线，SSE notifications durable seq `16,17,18,19` 单调，LLM challenge/install/models 全 `200`。唯一 frontend 文本为已分类 macOS IMK 宿主提示。
+- 正式证据=`testend/rig/formal-evidence/EDGE-314-editor-single-caret-real-app-20260828.md`；`judge.py` 写入 `EDGE-314 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；anchors `10/10`，警报复核=`testend/rig/formal-evidence/EDGE-314-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check` clean。
+- 批次由 `34/50` 推进到 `35/50`；按规则未满 50 不统一长门禁、不提交。下一原子为清册中尚未具备正式 L2 的 `EDGE-315`；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-313 编辑器 undo 全量重建真实 App L2 完成 · 新批次 34/50）
+
+- 用户在全新正式台架中先粘贴 `EDITED`，再物理按下 `Command+Z`；真实画面与 AX 最终只保留 `Original paragraph for undo.`，右侧恢复为 `25 chars`、`28 B`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-225041`；data=`/private/tmp/anselm-data-edge313-physical-20260828-r3`；App/window=`5081/5591`；录屏=`75.101667s`，五通道均由同一 manifest 归属并正常收台。
+- 后端 PATCH/GET 字节由基线 `256` → 编辑后 `262` → 撤销后 `256`；SSE notifications 的 durable seq `16,17,18` 单调，包含对应的 `document.updated`；frontend/backend 无应用红线，LLM challenge/install/models 全 `200`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-313-undo-real-app-20260828.md`；`judge.py` 写入 `EDGE-313 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`。anchors `10/10`，`alarms.py check` clean；宿主 undo 回归后 focused editor/library/error tests `126` 项通过。
+- 批次由 `33/50` 推进到 `34/50`；按规则未满 50 不统一长门禁、不提交。下一原子继续从尚未具备正式 L2 的 `~` 格选择；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 历史复验（2026-08-28 · EDGE-313 undo 手动物理结果正确，但正式 L2 暂不通过；批次 33/50 不变）
+
+- 用户在真实 App 中粘贴 `EDITED` 后物理按 `Command+Z`，画面保留原始正文、只撤销 `EDITED`；这证明最近一次独立编辑的产品语义正确。
+- 原始 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-210421` 的 frontend journal 有 `16` 条真实 `Null check operator used on a null value`，因此不能写 L2 绿灯；证据=`testend/rig/formal-evidence/EDGE-313-undo-manual-result-revalidation-20260828.md`。
+- 当前构建重新启动的正式五通道 session=`20260828-215348` 与再次收台 session=`20260828-220058` 均无 Flutter/Dart/RenderFlex/Unhandled 应用红线；后者画面保持原始正文，但没有可证明的 `EDITED` 中间态与物理快捷键操作链，故不冒充完整撤销证据。
+- 为后续红线保留可归因堆栈，`installErrorHandlers` 已将 `FlutterErrorDetails.stack` 写入 frontend console，并同步 [`docs/references/frontend/platform.md`](../../references/frontend/platform.md)；新增宿主 undo 回归后 focused Flutter editor/library/error tests `126` 项通过。
+- `EDGE-313` 维持 `✓~~~~`，不写 `judge.py`、不推进批次、不降低标准；下一步必须在同一五通道台架中完成可信物理/Computer Use undo，并且 frontend journal 零未解释应用红线。
+
+## 最新收口（2026-08-28 · EDGE-312 版本组走 retryOf 真实 App L2 完成 · 新批次 33/50）
+
+- 真实 App 从 Recents 打开带三条 assistant durable 版本的会话，默认只显示当前版 `3/3`；沿 `Previous version` 翻到 `2/3`、`1/3` 可读旧版，并显示“后续基于第 3 版”，再沿 `Next version` 回到 `3/3` 后提示消失。AX 树始终只有一个 assistant 回合容器，没有重复三行。
+- 隔离数据=`/private/tmp/anselm-data-edge312-20260828-r1`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-092651`；App/window=`83133/5155`；录屏=`91.045000s`；关键帧=`evidence/edge312-current-3of3.png`、`edge312-middle-2of3.png`、`edge312-oldest-1of3.png`、`edge312-restored-3of3.png`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-312-retry-version-groups-real-app-20260828.md`；`judge.py` 写入 `EDGE-312 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；无产品代码修改、无产品缺陷。
+- `rig-check`/`rig-down` 通过；backend 无应用红线，SSE 三路连接并正常 EOF，frontend 只有已知 macOS IMK 系统行，LLM tap 在线；`anchors=10/10`、`gen_coverage=848/848/0`。警报复审=`testend/rig/formal-evidence/EDGE-312-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check` clean，标准、阈值、法典与锚点未改。
+- 批次由 `32/50` 推进至 `33/50`；未满 50 不统一门禁、不提交。下一原子继续从尚未具备真实 L2 的 `~` 格选择；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-311 归队重钉贴底真实 App L2 完成 · 新批次 32/50）
+
+- 真实 App 从 Scenes 深跳到头部之外的老消息后，立即点击 `Jump to present`；归队沿 back-to-live 路径重拉最新 head，历史态入口消失，视口重新贴近底部，没有新增对话或持久化消息。
+- 干净 session 的 Computer Use 关键帧与 AX 状态分别确认深跳入口存在、归队后入口消失；上一段授权未完成时的混合录屏已废弃，不计入本格。正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-091845`，录屏=`66.156667s`，App/window=`81847/5138`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-311-back-to-live-reanchor-real-app-20260828.md`；警报复审=`testend/rig/formal-evidence/EDGE-311-ledger-alarm-reaudit-20260828.md`；`judge.py` 写入 `EDGE-311 L2 ✓ (F5)`，清册=`✓✓~~~`，L3-L5=`na`。
+- backend、SSE、frontend、LLM tap 与 rig lifecycle 均核验，`rig-check` 在 App 运行时无外部遮挡并通过，`rig-down` 正常收台；`anchors=10/10`、`gen_coverage=848/848/0`、最终 `alarms.py check` clean，标准、阈值、法典与锚点未改。
+- 批次由 `31/50` 推进至 `32/50`；按 50 格规则不提前统一长门禁、不提交。下一原子继续从尚未具备真实 L2 的 `~` 格选择；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-310 深跳 `?around=` 整窗替换真实 App L2 完成 · 新批次 31/50）
+
+- 真实 App 打开 64 条长对话，从 Scenes 选择当前头部之外的老消息；修正为真实 Go 时区格式的隔离数据后，`?around=` 整窗替换成功，目标消息只出现一次并落在中心锚位，画面显示整行高亮和 `Jump to present`。
+- 点击 `Jump to present` 后恢复最新头部窗口，按钮消失；Computer Use 关键帧与 AX 分别确认 `targetCount=1`、历史态存在、回现场后历史态消失。第一次错误无时区测试造成的重复画面已排除，不计入产品结论，也未修改产品代码。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-062450`；录屏=`80.973333s`；App/window=`77687/5044`；正式证据=`testend/rig/formal-evidence/EDGE-310-transcript-deep-jump-real-app-20260828.md`；警报复审=`testend/rig/formal-evidence/EDGE-310-ledger-alarm-reaudit-20260828.md`。
+- `judge.py` 写入 `EDGE-310 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；backend、SSE、frontend、LLM tap 和 rig lifecycle 均已收台，无未解释应用红线。`anchors=10/10`、`gen_coverage=848/848/0`、最终 `alarms.py check` clean，未改标准、阈值、法典或锚点。
+- 批次由 `30/50` 推进至 `31/50`；按 50 格规则不提前统一长门禁、不提交。下一原子继续从尚未具备真实 L2 的 `~` 格选择；P12 的 400+ Journey 仍按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-309 侧幕分档时钟真实 App L2 完成 · 新批次 30/50）
+
+- 真实 App 在同一 Activity 侧幕中验证相对时钟迁移：目标活动初始位于 `Just now (1)`，前一天参照位于 `Earlier (1)`；前台无操作静置约 10 分钟后，目标自动迁移到 `Earlier today (1)`，参照保持 `Earlier (1)`。最终 AX 树确认的是右侧 Activity 容器，排除了左侧对话列表的同名 `Just now`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-055857`；data=`/private/tmp/anselm-data-edge309-20260828-r1`；App/window=`75340/5002`；录屏=`891.081667s`；前后帧=`evidence/edge309-initial.png` / `evidence/edge309-migrated.png`；正式证据=`testend/rig/formal-evidence/EDGE-309-sidestage-relative-clock-real-app-20260828.md`。
+- `judge.py` 写入 `EDGE-309 L2 ✓ (F1)`，清册=`✓✓~~~`；L3-L5 明确保持 `na`，不冒充顺滑、视觉 craft 或盲走可发现性通过。backend、SSE、frontend、managed LLM wire 与录屏均属同一台架 session；backend 无应用红线，frontend 只有已知 macOS IMK 系统提示。
+- 警报复审=`testend/rig/formal-evidence/EDGE-309-ledger-alarm-reaudit-20260828.md`；`anchors=10/10`、`gen_coverage=848/848/0`、最终 `alarms.py check` clean，未修改阈值、法典、锚点或 gate。当前批次由 `29/50` 推进至 `30/50`，未满 50 不统一长门禁、不提交；下一原子继续从尚未具备真实 L2 的 `~` 单元选择。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-308 侧幕失败行清除真实 App L2 完成 · 新批次 29/50）
+
+- 首轮真实 App 发现产品缺陷：执行正文已是 `ok:false` 且中心 transcript 为红色失败，但 Activity 侧幕误显示 `Ran`，失败行没有清除出口。根因是 `tool_result` 外层 status=`completed` 掩盖了执行正文失败。
+- stop-and-fix 后，`StageDirectorController` 同时判断外层 `error/cancelled`、执行正文 `ok:false` 和 agent `status=failed|timeout`。定向 provider 回归覆盖 `failedHold` 与 `clearActivity`，Flutter 31/31 全绿。
+- 修复版真实 App 通过实体提及执行故障注入 function：侧幕正确显示 `Failed`、红点、`Run failed · inspect the error below`；鼠标移入后真实 AX 出现 `Clear this row`，点击后红色驻留清除，中心 transcript 的失败审计仍保留。session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-052018`；data=`/private/tmp/anselm-data-edge308-20260828-r2`；App/window=`71289/4911`；录屏=`110.498333s`；固定帧=`evidence/edge308-failed.png` / `evidence/edge308-cleared.png`；正式证据=`testend/rig/formal-evidence/EDGE-308-sidestage-failure-clear-real-app-20260828.md`。
+- `judge.py` 新增 `EDGE-308 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；独立警报复审=`testend/rig/formal-evidence/EDGE-308-ledger-alarm-reaudit-20260828.md`，`alarms.py check` clean，未改阈值、法典、锚点或 gate。批次由 `28/50` 推进到 `29/50`，未满 50 不统一长门禁、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-307 poll 型 202 不谢幕真实 App L2 完成 · 新批次 28/50）
+
+- 真实 App 通过实体提及选择 `edge307_poll_202_probe`，请求只触发并返回 run id；真实 function 故意等待 12 秒。等待期间中心 stage 保持 `Triggered workflow ...`，Activity 保持 `Mentioned · Live` 与 `Listening live · settle follows the truth`，没有提前谢幕；完成后才显示 `Ran` 与 `1 touched · 1 executed`。
+- 成功路径的 `trigger_workflow`、flowrun `fr_a40e4146fcdc2fb1`、workflow `wf_10e5d09d369a952c` 在真实 App、backend、三路 SSE、frontend journal、managed LLM wire 和录屏中逐一对齐；entities 顺序为 `run_started → node completed → run_terminal`。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-050413`；data=`/private/tmp/anselm-data-edge307-20260828-r1`；App/window=`68891/4858`；录屏=`291.895000s`，固定帧=`evidence/edge307-live.png` / `evidence/edge307-terminal.png`；正式证据=`testend/rig/formal-evidence/EDGE-307-poll-202-real-app-20260828.md`。
+- `judge.py` 新增 `EDGE-307 L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；独立警报复审=`testend/rig/formal-evidence/EDGE-307-ledger-alarm-reaudit-20260828.md`，`alarms.py check` 最终 clean，未改阈值、法典、锚点或 gate。早先输入桥接丢下划线的失败探针已在证据中隔离，不计入成功路径。
+- `rig-check` 与 `rig-down` 均通过；backend 唯一 warning 属于隔离的早期失败探针，frontend 仅有 Dart VM 与 macOS IMK/TSM 系统行，无 Flutter/Dart/RenderFlex/Unhandled 红线。批次由 `27/50` 推进到 `28/50`，未满 50 不统一长门禁、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-306 导演器清 Live 幽灵真实 App L2 完成 · 新批次 27/50）
+
+- 真实 App 中先由 `appproxy` 制造 messages stream 断流并返回真实 `410 SEQ_TOO_OLD`，复现同一 Bash 调用同时出现 durable completed 结果和 stale `Running command... 152 s` live 卡片；REST 确认后端工具调用与 tool result 均已 `completed`，问题定位为前端 live layer 重复。
+- stop-and-fix 后，`ConversationTranscript.applyFrame` 对 settled tree 中已有 block ID 的所有迟到 frame（包括 ephemeral `open`/`delta`）跳过 live 重建，同时保留 durable user echo reconciliation；重建真实 App 并打开同一会话后，每轮命令只剩一张 `Ran ... · exit 0` 终态卡片，结果文本只出现一次。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-043601`；data=`/private/tmp/anselm-data-edge306-20260828-r4`；替换 App/window=`64532/4782 → 66967/4830`；固定终帧=`evidence/edge306-fixed.png`，替换录屏=`screen-rebind-66967.mov`；正式证据=`testend/rig/formal-evidence/EDGE-306-live-ghost-cleanup-real-app-20260828.md`。
+- `judge.py` 新增 `EDGE-306 L2 ✓ (F1)`，既有 L1 保持通过，清册=`✓✓~~~`，L3-L5=`na`；本格不冒充顺滑、视觉 craft 或盲走可发现性通过。独立警报复审=`testend/rig/formal-evidence/EDGE-306-ledger-alarm-reaudit-20260828.md`，`alarms.py check` clean，未改阈值、法典、锚点或 gate。
+- `rig-check` 与 `rig-down` 均通过；三路 SSE、backend、frontend、LLM wire 和录屏均有归属。frontend journal 中的 connection closed/503/connection refused 是本次刻意断流和收台扰动，已在证据中明示，不计作产品红线；未发现 Flutter/Dart/RenderFlex/Unhandled runtime 红线。
+- 批次由 `26/50` 推进到 `27/50`，未满 50 不统一长门禁、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 上一收口（2026-08-28 · EDGE-305 侧幕尊重手动关真实 App L2 完成 · 新批次 26/50）
+
+- 真实 App 在首条 `create_document` 活动后打开 Activity 侧幕，用户手动关闭后入口仍保留；切到 Entities 再返回 Chat，关闭状态不被海洋切换重置；同一会话第二次真实活动完成后侧幕仍不强制弹出，中心结果与活动数据完整。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-041819`；录屏=`96.278333s`，App/window=`60542/4681`，五通道与收台审计通过；证据=`testend/rig/formal-evidence/EDGE-305-sidestage-manual-close-real-app-20260828.md`。
+- `judge.py` 写入 `EDGE-305 L1 ✓ (A5)`、`L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`。独立警报复核=`testend/rig/formal-evidence/EDGE-305-ledger-alarm-reaudit-20260828.md`，`alarms.py check` clean，未改阈值、法典、锚点或 gate。批次由 `25/50` 到 `26/50`，未满 50 不统一收口、不提交。P12 的 400+ Journey 继续推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-304 侧幕跟随三档真实 App L2 完成 · 新批次 25/50）
+
+- 真实 App 逐档验证 `Never`、`First per conversation`、`Every time`：Never 在干净会话首条活动后只显示入口；First 首次活动自动展开，手动关闭后同会话第二次活动不再弹；Every time 在全新会话活动时自动展开。三档菜单可从 Activity 的 More actions 发现。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-040938`；录屏=`318.165000s`，App/window=`59497/4643`，五通道与收台审计通过；证据=`testend/rig/formal-evidence/EDGE-304-sidestage-follow-modes-real-app-20260828.md`。
+- `judge.py` 写入 `EDGE-304 L2 ✓ (F1)`，L1 G1 为本次真实路径复核，清册=`✓✓~~~`，L3-L5=`na`。手动关闭优先于自动模式的组合行为与 EDGE-305 一致。
+- 独立警报复核=`testend/rig/formal-evidence/EDGE-304-ledger-alarm-reaudit-20260828.md`；`alarms.py check` clean，未改阈值、法典、锚点或 gate。按新增 L2 单元计，批次由 `24/50` 到 `25/50`，未满 50 不统一收口、不提交。P12 的 400+ Journey 继续推迟二期。
+
+- 真实 App 在新建工作区后进入空 Chat：没有工具/触点活动时，右岛及其入口均不存在；新建干净对话并真实创建 `EDGE-303 activity note` 后，首条 `create_document` 活动到达，入口横向出现，Activity 侧幕显示 `1 touched` 与 `Created`，中心结果、侧幕和实体名一致。关闭侧幕后入口仍保留。
+- 有效 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-035907`；App PID/window=`58176/4617`，录屏=`470.888333s`，backend=`57719`，ssetap=`57740`，llmtap=`57701`；`rig-check`/`rig-down` 通过，五通道 journal 齐全；证据=`testend/rig/formal-evidence/EDGE-303-sidestage-activity-gate-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-303 L1 ✓ (G1)`、`L2 ✓ (F1)`，清册为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。本格只证明 activity 门控和五通道真相，不冒充顺滑、视觉 craft 或可发现性深评。
+- `rig-check` 中发现的 AXTree bridge churn 已按精确已知形态独立审查并分类为台架/引擎噪声；没有 Flutter/Dart/RenderFlex/Unhandled 红线。独立警报复核=`testend/rig/formal-evidence/EDGE-303-ledger-alarm-reaudit-20260828.md`，`alarms.py check` clean，未改阈值、法典、锚点或 gate。
+- 批次由 `23/50` 推进到 `24/50`，未满 50 格不统一收口、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-340 Vertex service-account 文件校验真实 App L2 完成 · 新批次 23/50）
+
+- 在全新工作区真实启动 App，进入「模型与密钥 → 添加密钥」并选择 Vertex；表单明确显示服务账号 JSON、文件选择与 Base URL 区域占位。输入非敏感缺字段 JSON 后立即显示 `type / project_id / private_key` 校验错误，取消后 Models & keys 保持受管行和 2 个空音色槽，未产生 Vertex 行或远程探测。
+- 有效 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-035055`；App PID/window=`56376/4582`，录屏=`85.241667s`，三路 SSE 已连接新 workspace，managed key 经 llmtap，`rig-check`/`rig-down` 与收台进程审计全绿；证据=`testend/rig/formal-evidence/EDGE-340-vertex-service-account-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-340 L2 ✓ (F1)`，清册为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。本格只证明非法服务账号边界，不冒充合法 Vertex 文件或 completion 成功。
+- 首次 session=`20260828-034655` 因 Computer Use 在 Flutter build 期间触发未归属 App，且没有 workspace SSE/LLM 请求，已作为仪器红场拒绝并封存；修复 `rig-up`/`rig-check` 的同 bundle PID 归属后才重跑。红证据=`testend/rig/formal-evidence/EDGE-340-rig-attribution-red-20260828.md`。
+- 独立警报复核=`testend/rig/formal-evidence/EDGE-340-ledger-alarm-reaudit-20260828.md`；`discovery-collapse` 按复审销账，最终 `alarms.py check` clean，`anchors=10/10`，未修改阈值、法典、锚点或 gate。台架纪律同步于 [`testend/rig/README.md`](../../../testend/rig/README.md)。
+- 批次由 `22/50` 推进到 `23/50`，未满 50 格不统一收口、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+### 未计入账本的观察（2026-08-28 · EDGE-329）
+
+真实 App 已进入快捷键录制态，但 Computer Use 的 macOS 修饰键注入在多种写法下均被 App 识别为无修饰键；`rig-check` 因 App 关闭而正确拒绝，未写入 L2。该输入桥限制已封存于 `testend/rig/formal-evidence/EDGE-329-computer-use-input-blocked-20260828.md`，后续必须换物理输入能力重测，不能用 `set_value` 伪造。
+
+### 未计入账本的观察（2026-08-29 · EDGE-275）
+
+真实 App 已进入 Library 空白草稿，但 Computer Use clipboard bridge 在约 1 MiB 和 100 KiB 分块粘贴时均于 App 读取剪贴板前超时；正文仍为空，未触发 `DOCUMENT_CONTENT_TOO_LARGE`，所以不对产品 L2 下结论。现场记录见 `testend/rig/formal-evidence/EDGE-275-large-paste-bridge-blocked-20260829.md`；后续须换可承载大载荷的输入 fixture，不能把桥接超时冒充后端拒绝或 UI 通过。
+
+### 未计入账本的观察（2026-08-29 · 台架前置清理）
+
+一次故意端口冲突复验发现 `rig-up` 的早期 `EXIT` 清理会误杀已有台架 App，且 `RIG_RECORD=0` 的 `rig-check` 会因空窗口 ID 返回 `SIGTRAP(133)`。两处均已修复并复验：冲突的第二套台架返回 `1` 但第一套 App 保持存活；诊断门禁现在返回可解释的 fail-closed。完整记录见 `testend/rig/formal-evidence/rig-up-preflight-cleanup-regression-20260829.md`；不推进 COVERAGE 批次。
+
+## 最新收口（2026-08-28 · EDGE-339 BYOK base URL 模板未填占位真实 App L2 完成 · 新批次 22/50）
+
+- 正式台架复用全新工作区真实启动 App，在「模型与密钥 → 添加密钥」中进入 Azure 模板；表单明确显示 `baseUrlTemplateHint`，指出地址仍需替换，随后取消返回稳定设置面，未写入凭证或半成品 provider 行。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-031741`；录屏=`160.780000s`；backend、三路 SSE、frontend、LLM tap、manifest 与 recording lifecycle 均齐全，正式证据=`testend/rig/formal-evidence/EDGE-339-byok-base-url-template-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-339 L2 ✓ (F1)`，清册为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。本格只证明模板占位与取消无副作用，不冒充 Azure 凭证认证或 completion 成功。
+- 独立警报复核=`testend/rig/formal-evidence/EDGE-339-ledger-alarm-reaudit-20260828.md`；`pass-burst` 与 `discovery-collapse` 已按复审销账，最终 `alarms.py check` clean，`anchors=10/10`，未修改阈值、法典、锚点或 gate。
+- 批次由 `21/50` 推进到 `22/50`，未满 50 格不统一收口、不提交。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-330 设置项搜索索引漂移真实 App L2 完成 · 新批次 21/50）
+
+- 正式 conductor 在全新工作区真实启动 App、sidecar、三路 SSE witness、LLM tap、frontend journal 与窗口录屏；先在通用设置切到 English，再用真实键盘输入 `zoom`。
+- 搜索结果正确按面板分组到 General、Storage & logs、Shortcuts，共 6 个具体设置项；点击 `Reset zoom` 跳到 Shortcuts 目标行并清空搜索，随后输入 `zzzqqxx` 只显示单一 `No matching settings`，无幽灵结果或旧目录残留。
+- session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-033249`；`rig-check` 在 App 运行期间通过，`rig-down` 收束录屏=`217.146667s`，五通道日志与进程归属完整；正式证据=`testend/rig/formal-evidence/EDGE-330-settings-search-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-330 L2 ✓ (F1)`，清册为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。独立警报复核=`testend/rig/formal-evidence/EDGE-330-ledger-alarm-reaudit-20260828.md`，`alarms.py check` clean，未修改阈值、法典、锚点或 gate。
+- 批次由 `20/50` 推进到 `21/50`，未满 50 格不统一收口、不提交；本轮早先关闭旧 App 造成的系统提示已被台架识别并清除，不进入产品证据。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-341 未验证供应商诚实徽标真实 App L2 完成 · 新批次 20/50）
+
+- 标准 conductor 真实启动全新工作区、Flutter App、sidecar、三路 SSE witness、LLM tap、frontend journal 与连续录屏；在「模型与密钥 → 添加密钥」中观察到真实供应商目录 `0-100 of 213 items`，卡片同时显示供应商名、模型数量与 `未验证` 徽标。
+- 进入 `302.AI` 添加表单核对 Name/Key/Base URL/保存与测试控件后取消；没有输入、上传或保存凭证，受管 Anselm key 与工作区状态未被改变。该路径证明诚实缺席与取消无副作用，不冒充真实凭证验证成功。
+- formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-030900`；`rig-check`/`rig-down` 通过，录屏=`143.845000s / 2784x1808 / 60fps`，五通道证据齐全；正式证据=`testend/rig/formal-evidence/EDGE-341-unverified-provider-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-341 L2 ✓ (F1)`，清册为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。独立复核=`testend/rig/formal-evidence/EDGE-341-ledger-alarm-reaudit-20260828.md`，警报已复核并 ack，`alarms.py check` clean，未修改阈值、法典、锚点或历史 journal。
+- 批次由 `19/50` 推进到 `20/50`，未满 50 格不统一收口、不提交；下一项继续按 `COVERAGE.md` 的可提升 `~` 格选择。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-332 MCP 面板帧不可信真实 App L2 完成 · 新批次 19/50）
+
+- 真实 App 的 entities stream 首次 410 在 MCP provider 已建立后触发权威名册重取；随后真实 MCP server 的 4 次生命周期动作在约 100ms 内产生密集 status 帧，面板只新增 1 次 300ms 合并后的 `GET /mcp-servers`，删除后再次收敛为空态。
+- formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-025843`；`rig-check`/`rig-down` 通过，录屏=`54.981667s`，五通道证据齐全；正式证据=`testend/rig/formal-evidence/EDGE-332-mcp-frame-coalescing-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-332 L2 ✓ (G2)`，清册由 `✓~~~~` 变为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。独立复核=`testend/rig/formal-evidence/EDGE-332-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check` clean。
+- 批次由 `18/50` 推进到 `19/50`，未满 50 格不统一收口、不提交；P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 最新收口（2026-08-28 · EDGE-331 限额面板载入失败修复后 L2 完成 · 新批次 18/50）
+
+- 真实 App 在代理注入一次 schema 503 后，错误面只显示本地化“无法从引擎读取限额配置”，后端内部诊断和 wire code 均不再上脸；直接点击 Retry 后 schema/limits 完整恢复。
+- formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-024929`；`rig-check`/`rig-down` 通过，录屏=`59.141667s`，五通道证据齐全；正式证据=`testend/rig/formal-evidence/EDGE-331-limits-load-failure-real-app-20260828.md`。
+- `judge.py` 已写入 `EDGE-331 L2 ✓ (G2)`，清册由 `✓~~~~` 变为 `✓✓~~~`；L3-L5 继续诚实保持 `na`。独立复核=`testend/rig/formal-evidence/EDGE-331-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check` clean。
+- 批次由 `17/50` 推进到 `18/50`，未满 50 格不统一收口、不提交；P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+## 已解决红场记录（2026-08-28 · EDGE-331 限额面板载入失败 stop-and-fix）
+
+- formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-024219`；真实 App、sidecar、三路 SSE、llmtap、Computer Use 与录屏均已归属。
+- 代理首次让 `GET /api/v1/limits/schema` 返回 503 后，限额面进入了可重试错误态，但把后端内部诊断 `acceptance rig injected a transient failure` 直接显示在主面；这是产品红场，不计 judge、不推进批次。
+- stop-and-fix 已落地：整面错误态固定使用本地化 `errorHint`，稳定 wire code 只放 tooltip；fixture 回归锁住后端 message 不得上脸，Retry 后恢复 schema。
+- 红证据=`testend/rig/formal-evidence/EDGE-331-limits-load-failure-red-scene-20260828.md`；该红场已按同样代理注入重跑并收口，详见上方最新收口。
+
 > **历史基线摘要(2026-08-01):Day 0 已打通。conductor 亲自托管真实 App、Flutter console、屏幕录像、
 > 后端、三路 SSE 与网关线缆,并在全新数据目录完成 onboarding → 受管开通 → 五通道自检 →
 > 优雅收台的真机闭环。清册为 848 行 × 5 级 = 4240 格;锚点校准已冻结并接入 gate。
@@ -297,18 +549,345 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-26 EDGE-352 已完成；批次八十二 50/50，统一门禁通过，待提交)
+### 5.2 Day 0 当前状态(整体重述,2026-08-29 EDGE-294 触点不记幽灵删除的真实 App L2 完成；批次 50/50)
 
-#### 2026-08-26 当前前线重述：EDGE-343..352 批次八十二已完成，统一长门禁通过
+#### 2026-08-29 · EDGE-294 触点不记幽灵删除的真实 App L2 完成
 
-批次八十二已按序完成 `EDGE-343..352` 共 10 个边界、50 个账本格。L1 由工具参数归一、生成能力诚实缺席、音色库存/删除一致性、语音协议、限流分类与分叉黑盒及 focused 证据支持，目标行均为 `✓~~~~`；没有把本轮测试或源码检查冒充新的真实 App 五通道，故 L2-L5 全部明确为 `na`。覆盖内容依次为：工具参数双线缆形、直连生成整体退场、音色登记到指名说话、音色库存两槽、删音色上游失败保行、语音双工握手闭集拒绝、语音流中上游断线、语音帧越界、429 不动钱、分叉携带附件与 subagent 树。
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151503`，workspace=`ws_6b1a68d7272543a9`，conversation=`cv_67b4397afdc3e6d8`。真实后端创建临时 Agent `ag_48d56677797d099a`，真实 App 通过 Composer 请求删除；模型先搜索到唯一目标并展示危险确认卡，说明 `agentId`、删除语义和审计保留。Computer Use 点击 `Deny` 后，App 明确回执“删除操作已被拒绝。如需继续，请告知”，没有自动重试。
 
-正式证据分别为 `testend/rig/formal-evidence/EDGE-343-tool-arguments-two-wire-shapes-20260826.md` 至
-`EDGE-352-fork-attachments-subagent-tree-20260826.md`；独立警报复审=
-`testend/rig/formal-evidence/batch-82-ledger-alarm-reaudit-20260826.md`。formal journal=`4236`
-（2300 baseline + 1936 live），`gen_coverage.py --check`=`848 rows / 847 carried judgments / 0 tombstones`，
-目标行均=`✓~~~~`，`anchors=10/10`，警报已按复审销账，最终 `alarms.py check`=`clean`。批次八十二已满=`50/50`；
-统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，根门禁、完整 backend testend、rig 自测、backend/docs verify、格式与进程审计全绿；已提交=`af912dcd`。下一原子前线=`EDGE-353`。P12 400+ Journey 继续按用户裁定推迟二期。
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend 无应用级 WARN/ERROR/panic/FATAL，frontend 无 Flutter/Dart/RenderFlex/Unhandled 红线；SSE messages 记录 interaction、resolved interaction 和 denied `tool_result`，没有 `agent.deleted` 或 touchpoint deleted 帧；LLM tap 中 `delete_agent` 保持 `dangerous`，工具结果为拒绝且不得重试；收台前 Agent `GET` 为 `200`，touchpoints=`[]`，notifications 无删除行，SQLite `integrity_check=ok`、`foreign_key_check` 为空。正式关键帧=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151503/evidence/EDGE-294-denied-delete.jpeg`，正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151503/evidence/EDGE-294-touchpoint-deny-no-delete-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-294-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把安全闸正确冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2011 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。批次由 `49→50/50`，开始统一批次门禁、完整回归、工作树审计与提交流程；P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-298 未读徽标绝不据帧 +1 的真实 App L2 完成
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151051`，workspace=`ws_1837441baa7435ac`。真实后端先将 seed 通知全部标已读，权威 `unread-count=0`；创建 Memory 后变 `1`，再次清零；更新同一 Memory 的持久 `memory.updated` 后变 `1`；随后 pin 触发同类型 Broadcast，权威计数保持 `1`。真实 App 通知中心显示唯一新增未读 `Memory "edge298-probe" updated`，左下铃铛只保留一个未读提示点。
+
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend 无应用级 WARN/ERROR/panic/FATAL，frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线；SSE notifications 的 `memory.created`=`seq=16` 与持久 `memory.updated`=`seq=17` 带 `inbox=true`，pin 的同类型 Broadcast=`seq=18` 不带 `inbox`，durable seq 单调；REST notifications 只保留一条未读更新行，Memory 行返回 `pinned=true`；SQLite `integrity_check=ok`、`foreign_key_check` 为空。正式关键帧=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151051/evidence/EDGE-298-unread-badge.jpeg`，正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151051/evidence/EDGE-298-unread-authoritative-count-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-298-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把未读计数正确冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2010 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。批次由 `48→49/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择最后一个尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-292 todo 全完成后被问清单的真实 App L2 完成
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-150633`，workspace=`ws_8e85f7b70fb731d4`，conversation=`cv_6105f53dc95842cb`。真实 App 通过一条 Composer 消息依次调用 `todo_write` 建立两个任务、再次调用 `todo_write` 全部完成、最后调用 `todo_read`；画面逐步显示 `2 items · 0 done`、`2 items · 2 done`、`Read checklist · 2 items · 2 done`，最终准确报告 `EDGE292 first task` 与 `EDGE292 second task`。
+
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级 WARN/ERROR/panic/FATAL/Flutter/Dart/RenderFlex/Unhandled 红线；SSE messages durable seq 单调，三次 tool_call 与三份 tool_result 均可见；LLM tap challenge/install/models 与全部 chat-completions continuation 均为 `200`，只调用 `todo_write`、`todo_write`、`todo_read`；REST messages 与 SQLite `integrity_check=ok`、`foreign_key_check` 为空。正式关键帧=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-150633/evidence/EDGE-292-todo-completed-read.jpeg`，正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-150633/evidence/EDGE-292-todo-completed-read-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-292-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把清单读回冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2009 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。批次由 `47→48/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-291 memory 更新保留策展的真实 App L2 完成
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145816`，workspace=`ws_c7e240b31152790e`。真实 App 先通过 Memory API 建立 `edge291-rule` 并由用户动作置顶，再在干净新对话中用一条不含换行的 Composer 消息要求 `write_memory` 更新已有记忆。真实 App 回执确认“已更新 edge291-rule 记忆，描述和内容均已修改”，随后打开 Settings → Memory，画面仍显示置顶图钉、更新后的描述、`user` 来源和日期。
+
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend 无应用级 WARN/ERROR/panic/FATAL，frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线；SSE notifications 收到最终 `memory.updated`（`seq=27`）且 durable seq 单调；LLM tap 的正式单消息 continuation 链均为 `200`，出现恰好一条 `write_memory` 工具调用并完成回合；SQLite `integrity_check=ok`、`foreign_key_check` 为空。早先含换行的输入实验因 `type_text` 会把换行模拟成 Return 而拆成两条消息，已明确排除，不作为产品证据。正式关键帧=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145816/evidence/EDGE-291-memory-chat.jpeg`、`EDGE-291-memory-panel.jpeg`，正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145816/evidence/EDGE-291-memory-curation-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-291-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把 pin/source 保留冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2008 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。批次由 `46→47/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-293 删被依赖实体的真实 App L2 完成
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145009`，workspace=`ws_68ea73847fa70778`。真实后端创建三个 Agent 并让它们都挂载 Function `fn_60afa16282a3a131`（`greet`），随后删除该 Function；HTTP 返回 `204`。真实 App 打开 Notifications 后显示 `Function "fn_60afa1..." was deleted, leaving 4 references dangling`，逐一列出 `deploy-helper` 与三个 EDGE293 Agent，同时保留单独的 `Function "greet" deleted` 事件。用户可以从一个通知直接理解删除的影响范围。
+
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend 无应用级 WARN/ERROR/panic/FATAL，relation purge 实际记录 `removed=4`；SSE notifications 只有一条 `relation.dependency_broken`（`seq=21`），payload 的四个 `dependents` 与 REST `/notifications` 完全一致；frontend 真实通知列表无应用级红线；llmtap challenge/install/models 全 `200`，本场景没有虚假 LLM 调用；SQLite `integrity_check=ok`、`foreign_key_check` 为空。正式关键帧=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145009/evidence/EDGE-293-notification-aggregate.jpeg`，正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-145009/evidence/EDGE-293-dependency-broken-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-293-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把影响范围可见性冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2007 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。批次由 `45→46/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-279 对话挂载文档删除后的真实 App L2 完成
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-144028`，workspace=`ws_6161a430bf326410`，conversation=`cv_b110ec9c283373f4`。真实后端先创建文档并 PATCH 挂载到对话，再删除该文档；Computer Use 打开该对话，真实键入并发送消息。LLM wire 明确含 `<document id="doc_223e10c4a400bc06" missing="true">(this attached document no longer exists — it was deleted; its content is unavailable)</document>`，真实 App 回答无法读取、解释文档已删除并建议重新上传；回合正常完成，没有假装读到不存在的正文。
+
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级 WARN/ERROR/panic/FATAL/Flutter/Dart/RenderFlex/Unhandled 红线，SSE 三流 durable 帧单调且无 gap，llmtap challenge/install/models 与真实 chat completion 均为 `200`；SQLite/REST/UI 对账一致。正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-144028/evidence/EDGE-279-attached-document-deleted-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-279-ledger-alarm-reaudit-20260829.md`。`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把诚实降级冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，最终 `alarms.py check`=`clean (2006 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。批次由 `44→45/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-280 Agent 知识文档删除后的 mount-health 真实 App L2 完成
+
+#### 2026-08-29 · EDGE-280 Agent 知识文档删除后的 mount-health 真实 App L2 完成
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-143120`。真实 App 打开挂载知识文档的 Agent 详情；通过真实后端删除该知识文档后，切换到另一 Agent 再返回，详情重新从服务端加载并显示 `1 unhealthy`、`Mount health: 1 unhealthy` 和 `knowledge document does not exist`。REST mount-health 返回 `healthy=false`，SSE 收到对应的 `document.deleted` 与 `relation.dependency_broken`，UI、REST、SQLite 与事件事实一致。
+
+五通道 `rig-check`/`rig-down` 通过且录屏无外部遮挡；backend/frontend 无应用级 WARN/ERROR/panic/FATAL/Flutter/Dart/RenderFlex/Unhandled 红线，SSE 三流和 llmtap 证据齐全。正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-143120/evidence/EDGE-280-agent-knowledge-deleted-real-app.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-280-ledger-alarm-reaudit-20260829.md`。`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把依赖断裂可见性冒充顺滑、视觉 craft 或可发现性结论。锚点=`10/10`，最终 `alarms.py check`=`clean (2005 live judgments; 2300 baseline excluded)`，`gen_coverage.py --check`=`848/848/0`。本轮也明确记录：已打开的详情不会凭删除事件自动刷新，必须重新进入详情才能显示不健康；不扩大本格结论。批次由 `43→44/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-324 窗角半径 swizzle 失效真实 App L2 完成
+
+通过一次临时故障注入构建，将 `NSThemeFrame` 的 `_cornerRadius`、`_getCachedWindowCornerRadius`、`_topCornerSize`、`_bottomCornerSize` 全部改为不存在的 selector，模拟未来 macOS 改名；真实 App 仍启动并显示完整 Library 空选区草稿态。随后使用 Computer Use 从 Library 切换到 Chat，再切回 Library，页面持续可见、可操作，没有崩溃、黑屏、白屏或启动卡死。nil 守卫在四个私有 getter 都不存在时回落系统窗口圆角；收台后已恢复 `MainFlutterWindow.swift`，该文件最终无 diff。
+
+正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-140606`，workspace=`ws_1a9705b29c913e3b`，App/window=`28082/6017`，录屏=`30.895000s`，关键帧=`evidence/EDGE-324-missing-selectors-visible.jpeg`。五通道 `rig-check`/`rig-down` 通过且录屏区域无外部遮挡；backend 无应用级 WARN/ERROR/panic/FATAL，SSE 三流已连接，llmtap challenge/install/models 全 `200`；frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，唯一 IMK 文本为已分类的 macOS 宿主诊断。
+
+正式证据=`testend/rig/formal-evidence/EDGE-324-window-corner-swizzle-fallback-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-324-ledger-alarm-reaudit-20260829.md`。`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把故障降级可用性冒充窗口圆角视觉精度、顺滑或可发现性结论。锚点校准=`10/10`；写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2004 live judgments; 2300 baseline excluded)`。`gen_coverage.py --check`=`848/848/0`。批次由 `42→43/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-321 草稿文档首次编辑真实 App L2 完成
+
+全新 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-135745` 使用隔离数据目录和真实 Flutter App。进入 Library 无选区草稿态后，先不输入就切换到 Chat 再返回；前后 `GET /documents/tree` 都只有已播种的 2 条文档，没有空稿幽灵行。随后在真实正文区域输入 `EDGE321 body probe`，只产生一次 `POST /api/v1/documents` `201`，得到 `doc_0c0e4971321227f6`，空标题按规则为 `Untitled`。
+
+创建返回后继续输入 ` + continued`，AX 树与录屏显示正文连续、侧栏只有一个 `Untitled` 行，没有清空、重复、跳回草稿或页面重挂；防抖后同一 id 的 `PATCH` 收口，REST 读到正文 `EDGE321 body probe + continued`、`sizeBytes=30`。切出到 Chat 再回 Library，真实 UI 重新显示同一正文和 `30 B`，固定帧保存在 session evidence。
+
+五通道已封口：`rig-check`/`rig-down` 通过且录屏区域无外部遮挡；backend 健康为 `200`、无 `WARN`/`ERROR`/`panic`/`FATAL`，SSE notifications durable `seq=16,17` 单调，llmtap 的 challenge/install/models 全 `200`；frontend 无 Flutter/Dart/RenderFlex/Unhandled 应用红线，唯一 IMK 文本为已分类的 macOS 宿主诊断。正式证据=`testend/rig/formal-evidence/EDGE-321-draft-first-edit-real-app-20260829.md`，独立警报复审=`testend/rig/formal-evidence/EDGE-321-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把持久化一致性冒充顺滑、视觉 craft 或可发现性结论。锚点校准=`10/10`；写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终 `alarms.py check`=`clean (2003 live judgments; 2300 baseline excluded)`。`gen_coverage.py --check`=`848/848/0`。批次由 `41→42/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-29 · EDGE-320 skill 双写者竞态真实 App L2 完成
+
+全新 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-134830` 使用隔离数据目录和真实 Flutter App，打开
+`edge320-race` skill。中心 body 编辑器与右侧 Properties 配置表单分别作为两个真实写入者操作：正文插入 `BODYCLEAN`，右侧 Arguments
+提交 `cleanarg`；等待防抖后 REST 读到 body 与 frontmatter 两项都已保存。离开进入 `commit-helper` 再返回后，真实 UI 同时恢复正文和
+`cleanarg`，没有旧快照覆盖、空白、页面重挂或不可恢复状态。录屏=`94.406667s`，关键帧保存在 session evidence。
+
+五通道已封口：`rig-check`/`rig-down` 通过且录屏区域无外部遮挡；backend 的两次 skill PUT 与后续 GET 均为 200、无应用级 WARN/ERROR；
+ssetap 三流与 llmtap 均为当前 session 证据；frontend 没有 Flutter/Dart/RenderFlex/Unhandled 应用级红线，唯一 IMK 文本为已分类的
+macOS 输入法框架诊断。正式证据=`testend/rig/formal-evidence/EDGE-320-skill-dual-writer-window-real-app-20260829.md`，独立警报复审=
+`testend/rig/formal-evidence/EDGE-320-ledger-alarm-reaudit-20260829.md`。
+
+`judge.py` 按 `F1` 写入 `L2 ✓`，清册=`✓✓~~~`；L3-L5 保持 `na`，不把持久化保留冒充顺滑、视觉 craft 或可发现性结论。锚点重新校准为
+`10/10`；写账触发的 `discovery-collapse` 已按原阈值独立复审并 ack，未改变阈值、算法、法典、锚点或 gate，最终
+`alarms.py check`=`clean (2002 live judgments; 2300 baseline excluded)`。批次由 `40→41/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子继续选择尚未具备正式 L2 的 `~` 格。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+#### 2026-08-28 · EDGE-316 行内代码 CJK 断盒真实 App L2 完成
+
+真实 App 打开含 `中文注释：计算总数并返回结果` 的行内代码文档；截图与录屏确认多个 CJK script-run 之间灰色背景连续，无白缝、断盒、前后文字遮挡或粘连。离开并重新打开后 AX 仍显示完整行内代码文本，右侧保持 `44 chars`、`130 B`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-316-inline-code-cjk-real-app-20260828.md`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-231212`；录屏=`98.760000s`；App/window=`8497/5691`。五通道 `rig-check`/`rig-down` 通过，SSE notifications durable seq `16` 单调，LLM challenge/install/models 全 `200`；frontend/backend 无应用红线，关键帧已保存。
+
+`judge.py`=`L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；锚点校准 `10/10`，警报复核=`testend/rig/formal-evidence/EDGE-316-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check`=`clean`。`gen_coverage.py --check`=`848/848/0`。批次由 `36/50` 推进到 `37/50`，未满 50 格不跑统一长门禁、不提交；下一原子=`EDGE-317`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-28 · EDGE-315 空 task 尾空格腐化真实 App L2 完成
+
+全新正式台架打开含前后任务和中间空 task 的真实文档。两轮点击空 task、输入 `temp`、逐字退格清空、等待保存、离开并重开后，画面始终保留三个 checkbox 行，没有 bullet 退化、字面 `[ ]` 或内容吞并；后端两轮 GET 均返回精确原文 `- [ ] first task\n- [ ] \n- [ ] last task`，`sizeBytes=39`。
+
+正式证据=`testend/rig/formal-evidence/EDGE-315-task-whitespace-heal-real-app-20260828.md`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-230718`；录屏=`113.558333s`；App/window=`7538/5674`。五通道 `rig-check`/`rig-down` 通过，SSE notifications durable seq `16,17,18` 单调，LLM challenge/install/models 全 `200`；frontend/backend 无应用红线，唯一 frontend 文本为已分类 macOS IMK 宿主提示。
+
+`judge.py`=`L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；锚点校准 `10/10`，警报复核=`testend/rig/formal-evidence/EDGE-315-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check`=`clean`。`gen_coverage.py --check`=`848/848/0`。批次由 `35/50` 推进到 `36/50`，未满 50 格不跑统一长门禁、不提交；下一原子=`EDGE-316`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-28 · EDGE-314 编辑器唯一光标真实 App L2 完成
+
+全新正式台架打开含正文、Dart 代码块和表格的真实文档。正文先建立 caret，随后分别点击代码字段和表格单元格并输入 `Y`/`X`；AX 与录屏均证明内嵌字段获得键盘后，正文侧没有第二根文档 caret。两条字段路径随后经 fixture 恢复并离开/重开文档，持久化内容回到原始 Markdown。
+
+正式证据=`testend/rig/formal-evidence/EDGE-314-editor-single-caret-real-app-20260828.md`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-225931`；录屏=`222.475000s`；App/window=`6366/5642`。五通道 `rig-check`/`rig-down` 通过，backend 无应用红线，SSE notifications durable seq `16,17,18,19` 单调，LLM challenge/install/models 全 `200`；唯一 frontend 文本为已分类 macOS IMK 宿主提示。
+
+`judge.py`=`L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；锚点校准 `10/10`，警报复核=`testend/rig/formal-evidence/EDGE-314-ledger-alarm-reaudit-20260828.md`，最终 `alarms.py check`=`clean`。focused editor/library/error tests `126` 项通过，`gen_coverage.py --check`=`848/848/0`。批次由 `34/50` 推进到 `35/50`，未满 50 格不跑统一长门禁、不提交；下一原子=`EDGE-315`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-28 · EDGE-313 编辑器 undo 全量重建真实 App L2 完成
+
+用户在真实 App 中先粘贴 `EDITED`，再物理按下 `Command+Z`；画面与 AX 最终只保留原始正文，右侧显示 `25 chars`、`28 B`。后端真相为 PATCH/GET `256` → `262` → `256` bytes，三路 SSE witness 的 notifications durable seq `16,17,18` 单调，frontend/backend/LLM wire 均无应用红线。
+
+正式记录=`testend/rig/formal-evidence/EDGE-313-undo-real-app-20260828.md`；session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-225041`；录屏=`75.101667s`；`judge.py`=`L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`。
+锚点校准 `10/10`，`alarms.py check` clean；focused editor/library/error tests `126` 项通过。旧 session 的 16 条 Null check 红线和输入桥失败均保留为历史不计账证据，不污染本次正式绿证。
+
+#### 2026-08-28 · EDGE-341 未验证供应商诚实徽标真实 App 五通道 L2 完成
+
+标准 conductor 在全新工作区启动真实 Flutter App、sidecar、三路独立 SSE witness、LLM tap、frontend journal 与连续录屏。
+Computer Use 进入「模型与密钥 → 添加密钥」，真实目录显示 `0-100 of 213 items`；供应商卡同时展示名称、模型数量和
+`未验证` 徽标。打开 `302.AI` 表单核对 Name、Key、Base URL、保存/测试控件后取消，没有输入、上传或保存凭证，受管 key
+与 workspace 状态不变。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-030900`；录屏=`143.845000s / 2784x1808 /
+60fps`；`rig-check`/`rig-down` 均通过，backend、SSE、frontend、LLM 五通道证据齐全，正式证据=
+`testend/rig/formal-evidence/EDGE-341-unverified-provider-real-app-20260828.md`。独立账本复核=
+`testend/rig/formal-evidence/EDGE-341-ledger-alarm-reaudit-20260828.md`。
+
+`judge.py` 已写入 `EDGE-341 L2=✓ (F1)`，清册由 `✓~~~~` 提升为 `✓✓~~~`；L3（顺滑）、L4（视觉 craft）、L5（从零可发现性）
+均保持 `na`，不把一次目录观察冒充完整产品验收。警报复核已 ack，`alarms.py check`=`clean`，未改阈值、算法、法典、锚点或
+历史 journal。新批次由 `19/50` 推进至 `20/50`，未满 50 格不跑统一长门禁、不提交；下一项继续由清册可提升的 `~` 格决定。
+P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-28 · EDGE-327 工作区热切换真实 App 五通道 L2 完成
+
+当前版本由标准 conductor 真实启动 App、sidecar、三路 SSE、llmtap 与录屏。真实进入源工作区的 `演示对话` 深链，再从工作区菜单点击目标工作区；旧对话退出视图，目标工作区进入空 Chat landing，目标 workspace 的列表读取与三路观察面均正常，没有跨 workspace 资源残留或运行时红线。
+
+正式证据=`testend/rig/formal-evidence/EDGE-332-mcp-frame-coalescing-real-app-20260828.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-025843`；警报复审=`testend/rig/formal-evidence/EDGE-332-ledger-alarm-reaudit-20260828.md`。`judge.py` 写入 `L2=✓ (G2)`，`EDGE-332` 清册由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 继续为 `na`，没有把一次 MCP 帧合并与 410 重同步冒充为完整顺滑、视觉 craft 或从零可发现性通过。批次由 `18/50` 推进到 `19/50`，未满 50 格不跑统一长门禁、不提交。两项统计警报已按独立复审逐项 ack，最终 `alarms.py check`=`clean (1977 live judgments; 2300 baseline judgments excluded from drift curves)`；P12 的 400+ Journey 继续推迟二期。
+
+#### 2026-08-28 · EDGE-323 原生全屏真实 App 五通道 L2 完成
+
+当前版本由标准 conductor 真实启动 App、sidecar、三路 SSE、llmtap 与录屏。直接点击原生全屏按钮，确认窗口从普通态进入全屏态并铺满屏幕，再用原生快捷键退出恢复窗口态；连续录像覆盖 `1280×792 → 2696×1720 → 1280×792`，没有白带、外部遮挡、布局溢出或状态卡死。
+
+正式证据=`testend/rig/formal-evidence/EDGE-323-fullscreen-white-band-real-app-20260828.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-023137`；警报复审=`testend/rig/formal-evidence/EDGE-323-ledger-alarm-reaudit-20260828.md`。`judge.py` 写入 `L2=✓ (G2)`，`EDGE-323` 清册由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 继续为 `na`，没有把一次全屏切换成功冒充为完整顺滑、视觉 craft 或从零可发现性通过。批次由 `15/50` 推进到 `16/50`，未满 50 格不跑统一长门禁、不提交。三项统计警报已按独立复审逐项 ack，最终 `alarms.py check`=`clean (1974 live judgments; 2300 baseline judgments excluded from drift curves)`；P12 的 400+ Journey 继续推迟二期。
+
+#### 2026-08-28 · EDGE-322 应内缩放到顶真实 App 五通道 L2 完成
+
+当前版本由标准 conductor 真实启动 App、sidecar、三路 SSE、llmtap 与录屏。在「设置 → 通用」中点击 `1.1×`，确认整套 UI 同步重排且没有溢出；再点击灰置的 `1.25×`，当前值保持 `1.1×`，最后点击 `1.0×` 恢复。五通道收台、前后端日志与进程审计均通过，无 App 运行时红线。
+
+正式证据=`testend/rig/formal-evidence/EDGE-322-in-app-zoom-cap-real-app-20260828.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-022508`；警报复审=`testend/rig/formal-evidence/EDGE-322-ledger-alarm-reaudit-20260828.md`。`judge.py` 写入 `L2=✓ (G2)`，`EDGE-322` 清册由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 继续为 `na`，没有把一次缩放边界成功冒充为完整顺滑、视觉 craft 或从零可发现性通过。批次由 `14/50` 推进到 `15/50`，未满 50 格不跑统一长门禁、不提交。三项统计警报已按独立复审逐项 ack，最终 `alarms.py check`=`clean (1973 live judgments; 2300 baseline judgments excluded from drift curves)`；P12 的 400+ Journey 继续推迟二期。
+
+#### 2026-08-28 · EDGE-328 快捷键冷启动真实 App 五通道 L2 完成
+
+当前版本由标准 conductor 真实启动 App、sidecar、三路 SSE、llmtap 与录屏。在不点击任何控件的冷启动状态下直接按 `⌘B`，左岛实际折叠；再次按 `⌘B` 后恢复。截图确认真实窗口几何变化，AX 树保留隐藏语义节点不作为视觉状态判据。五通道收台、前后端日志与进程审计均通过，无 App 运行时红线。
+
+正式证据=`testend/rig/formal-evidence/EDGE-328-shortcut-cold-start-real-app-20260828.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-021456`；警报复审=`testend/rig/formal-evidence/EDGE-328-ledger-alarm-reaudit-20260828.md`。`judge.py` 写入 `L2=✓ (G2)`，`EDGE-328` 清册由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 继续为 `na`，没有把一次快捷键成功冒充为完整顺滑、视觉 craft 或从零可发现性通过。批次由 `13/50` 推进到 `14/50`，未满 50 格不跑统一长门禁、不提交。下一项继续由清册中的可提升 `~` 格选择；P12 的 400+ Journey 继续推迟二期。
+
+#### 2026-08-28 · EDGE-333 保留面板真实 App 复验（不新增账本格）
+
+当前版本由标准 conductor 真实启动 App、sidecar、三路 SSE、llmtap 与录屏，在 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-015950` 中走完“存储与日志 → 运行历史保留”的完整操作：读取 `90 天`，改为 `30 天`，再恢复 `90 天`。后端两次 PATCH 与两次 GET 全为 200；录屏 `164.161667s / 2784x1808 / 60fps`；五通道收台和进程审计通过，未发现 App 红线、布局溢出或状态卡死。
+
+正式复验=`testend/rig/formal-evidence/EDGE-333-retention-real-app-l345-20260828.md`。本次不重复写 `judge.py`：L3 没有动作帧到首反馈帧的独立 `measure latency`，L4 没有 ROI 测量，L5 不是从零盲走，因此 `EDGE-333` 的 L3-L5 仍保持 `na`，批次仍为 `13/50`。操作调用墙钟约 `1039ms/456ms` 只作边界记录，不能冒充 A1 通过。
+
+#### 2026-08-28 当前前线重述：EDGE-353 workflow 停用排空双类已完成 L2
+
+本轮没有改测试 fixture 以外的产品行为；在当前代码上重新启动标准 conductor，使用隔离数据目录真实启动 Flutter App、sidecar、三路独立
+SSE、llmtap 和窗口录屏。workflow=`wf_b0bf4d07dabdd910`，workspace=`ws_bca3098cf8eda0c3`，trigger=
+`trg_e7705c64d3809f0c`，formal session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-014157`。
+
+真实产品路径为：在 App 中确认 workflow 初始为 inactive；通过真实 webhook 送入第一个事件，App 显示 active 和审批卡，第一条 run
+进入 parked；再送入第二个事件，第二条 firing 在 serial 策略下保持 pending；从 App 行菜单点击“下线”，界面进入 draining 且显示
+在途已停；连续在 App 中批准两张审批卡，第二条 pending 被接纳并完成；最终 App 与 REST 都收口为 inactive。停用后再次 POST
+webhook 得到 404，且没有新增 firing 或 flowrun。整个过程没有红色错误卡、重试残留、重复执行或丢失 pending firing。
+
+REST/SQLite 真相为：本轮新增 firing=`trf_fa184a4a8bd50d8f`、`trf_60fc52a34c1cff98`，分别关联
+flowrun=`fr_ecbd9c939f36c4a3`、`fr_df4c377bda0f5e5d`；中间快照确实同时有一个 running run 与一个 pending firing，最终两条
+新 run 均 completed、两条新 firing 均 started，workflow=`active=false,state=inactive`。旧 fixture 历史行仍保留，未被错误清理。
+
+五通道结果：录屏=`350.406667s`；backend journal 无 `WARN|ERROR|panic|FATAL`；ssetap 观察到 notifications durable seq=`1..5`、
+entities durable seq=`1..4`，均单调且无 gap，另有预期的 ephemeral seq=0；messages 流本场景无帧。frontend journal 的 126 条
+macOS AXTree bridge churn 已在 Computer Use 观察后单独复核，3 秒 idle 未继续增长，且无 `Unhandled exception`、Dart/Flutter/layout
+运行时红线；llmtap ready、场景无模型调用。`rig-check` 与 `rig-down` 均通过，收台后无 Anselm 进程残留。
+
+正式证据=`testend/rig/formal-evidence/EDGE-353-workflow-deactivate-drains-both-20260828.md`，session 内证据同名；独立账本复核=
+`testend/rig/formal-evidence/EDGE-353-ledger-alarm-reaudit-20260828.md`，前端 AX 复核在 session evidence 中。`judge.py` 已写入
+`L2=✓ (F1)`；L3（顺滑）=`na`，L4（视觉 craft）=`na`，L5（从零可发现性）=`na`，因为本轮没有对应的独立测量、ROI craft 审查或
+从零走查，不能把功能成功冒充为完整产品通过。L2 之前错误使用旧 session 的记录仍留在历史链中，本条新证据已追加而非覆盖。
+
+本轮账本写入后统计警报按机制短暂打开，已分别 ack：连续分级写入造成 `gap-too-fast`，本轮无产品 fail 且 `na` 不等于 fail 造成
+`discovery-collapse`；没有修改任何阈值、算法、法条或锚点。最终 `alarms.py check`=`clean (1971 live judgments; 2300 baseline excluded)`，
+`anchors=10/10`，`gen_coverage=848/848/0`。本轮将批次从 `12/50` 推进到 `13/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线不硬编码编号，由 `COVERAGE.md` 的 formal sequence gate 选择下一项可提升的 `~` 格（`EDGE-354` 仅为历史媒体复验记录、不是清册行；`EDGE-003` 也已有完整账本判定）。P12 的 400+ Journey 继续按用户裁定推迟二期，COVERAGE 清册仍是覆盖真相源。
+
+#### 2026-08-28 当前前线重述：EDGE-352 分叉携带附件与 subagent 树已完成 L2
+
+本轮先在隔离数据目录预置了一条合法 durable 源线程：一个 user 回合同时带附件 ID 与冻结 @ 快照，包含一个
+`Subagent` tool_call、对应父 `tool_result` 和 subagent 子树。附件复用内容寻址行，不复制 blob。早期启动只发现并修正
+fixture 的非法 `stopReason`、缺失父 `tool_result` 和缺失 `parentBlockId`；均为测试数据形状问题，未改产品代码，最终
+session 使用校正后的完整形状。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-013112`，workspace=`ws_a0c08e8dc49d9a60`，
+由标准 conductor 启动真实 Flutter App、sidecar、三路独立 SSE、llmtap 和窗口录屏。真实 App 打开源对话后，附件卡、
+`edge352_reference` @ 药丸和“已派子代理”均正确可见；展开 subagent 卡能看到任务/回复/回答。点击“从这里分叉”后新线程
+立即打开，源线程仍在 rail；fork 线程再次展开同一 subagent 树，血缘菜单显示“分叉自 EDGE-352 fork source”，点击后可回源。
+
+SQLite/REST 对证：`fork=cv_8628f3ef127bf9c3`、`source=cv_edge352_src`；两边均为 5 messages/8 blocks；fork 保留 1 条
+subagent 行、同一附件与 mention snapshot，`parentBlockId` 和 block parent 均 remap 到 fork 自己的 block；fork seq=`1..8`，
+source 原始 IDs/links/seq 不变，附件表该 ID 只有 1 行。复制历史由导航后的 REST 重读，不伪装成 messages durable SSE；SSE
+只记录新 fork 的 `conversation.created`。
+
+五通道 `rig-check`/`rig-down` 通过，录屏=`142.600000s`；backend 无 `WARN|ERROR|panic|FATAL`，frontend 无 Flutter/Dart/布局
+运行时红线，仅有已审阅的 macOS IMK 宿主 warning；ssetap 三流连接，llmtap ready 且本场景没有模型调用。正式证据=
+`testend/rig/formal-evidence/EDGE-352-fork-attachments-subagent-tree-20260828.md`，账本复核=
+`testend/rig/formal-evidence/EDGE-352-ledger-alarm-reaudit-20260828.md`。`judge.py` 写入 L2=`✓`，证据列明 F1-F4；
+`anchors=10/10`，`gen_coverage=848/848/0`，最终 `alarms.py check`=`clean (1967 live judgments; 2300 baseline excluded)`。
+
+`EDGE-352` 清册为 `✓✓~~~`；L3-L5 诚实保持 `na`，本轮没有独立连续操作时延、视觉 craft ROI 或从零可发现性判定。
+新批次由 `11/50` 推进至 `12/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EDGE-353`。P12 的 400+ Journey
+继续按用户裁定推迟二期。
+
+#### 上一前线覆盖声明（2026-08-28 · EDGE-351 429 不动钱 L2 完成 · 新批次 11/50）
+
+#### 2026-08-28 当前前线重述：EDGE-351 429 不动钱已完成 L2
+
+首轮真实 App 复验发现产品红场：限流终态直接把 `Something went wrong · LLM_RATE_LIMITED · llm: rate limited (429)`
+展示给用户，内部码和上游错误不应进入主时间线。stop-and-fix 将 `LLM_RATE_LIMITED` 纳入既有诊断字段隔离规则，增加中英文
+本地化文案“模型服务暂时繁忙，请稍后重试”，保留可见重试入口；补 transcript widget 回归与 Chat 文档同步。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-011403`，workspace=`ws_a0c08e8dc49d9a60`，
+由标准 conductor 启动真实 Flutter App、sidecar、三路 SSE、llmtap 和窗口录屏。受控上游对 `/v1/chat/completions`
+稳定返回结构化 `RATE_LIMITED` 429；App 发送 `rate limit quota test` 后，逐帧最终只显示“模型服务暂时繁忙，请稍后重试”，
+重试按钮存在，Composer 回到发送态，无卡死、无伪成功。
+
+配额前后 REST 快照完全一致：`limit=10000, used=1234, remaining=8766, resetAt=2099-01-01T00:00:00Z, available=true`。
+LLM tap 记录首请求加三次退避重试共 4 个 429；SSE messages durable `1..4` 为 user completed、assistant error
+(`LLM_RATE_LIMITED`, `inputTokens=0`, `outputTokens=0`)，notifications 后续自动标题，无成功 completion 或生成调用。
+五通道 `rig-check`/`rig-down` 通过，录屏=`77.245000s`，backend/frontend 无应用运行时红线；一条 macOS IMK 宿主警告已审阅，
+不属于 Flutter/Dart 错误。
+
+正式证据=`testend/rig/formal-evidence/EDGE-351-rate-limit-no-spend-20260828.md`，session 内证据同名；警报复审=
+`testend/rig/formal-evidence/EDGE-351-ledger-alarm-reaudit-20260828.md`。`judge.py` 写入 `EDGE-351 L2=✓ (E1/F1/F2/F3/F4)`；
+`anchors.py check`=`10/10`，`gen_coverage.py --check`=`848/848/0`，最终 `alarms.py check`=`clean (1963 live judgments; 2300 baseline excluded)`。
+
+`EDGE-351` 清册保持 `✓✓~~~`；L3-L5 诚实保持 `na`，不把受控限流错误收口冒充完整顺滑、独立视觉 craft 或可发现性结论。
+新批次由 `10/50` 推进至 `11/50`，未满 50 格不跑统一长门禁、不提交；下一原子前线为 `EDGE-352`。P12 的 400+ Journey
+继续按用户裁定推迟二期。
+
+#### 2026-08-28 当前前线重述：EDGE-350 语音帧越界已完成 L2
+
+代码审查先发现真实红场：`SetReadLimit(256 KiB)` 会在业务层看见超限帧之前吞掉
+`SPEECH_AUDIO_FRAME_INVALID`；前端协议错误也只显示“语音输入启动失败”，缺少原因与下一步。
+修复为 `NextReader` + `LimitReader(256 KiB+1)`，先观察越界首字节，再返回闭集
+`SPEECH_AUDIO_FRAME_INVALID` 并关闭；未知控制帧返回 `SPEECH_CONTROL_INVALID`，两者均不转发上游。
+前端增加两个错误码映射，保留已转写草稿并给出可重试的人话文案；补 Go handler 与 Flutter state
+回归测试，backend/frontend 文档同步。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-005848`，workspace=`ws_a0c08e8dc49d9a60`，
+由标准 conductor 启动真实 Flutter App、sidecar、三路 SSE、llmtap 和窗口录屏；独立 witness 注入
+`256 KiB+1` binary audio 与 `{"type":"pause"}` control。前者收到 `SPEECH_AUDIO_FRAME_INVALID`，
+后者收到 `SPEECH_CONTROL_INVALID`，两条坏帧均未转发上游；录屏=`52.511667s`。
+
+五通道结果：backend/frontend 无应用红线；SSE `notifications/messages/entities` 全连接并在收台时 EOF；
+LLM tap challenge=`200`、两次 speech upgrade=`101`；`rig-check` 五通道通过，`rig-down` 正常封口且无残留。
+正式证据=`testend/rig/formal-evidence/EDGE-350-speech-frame-bounds-20260828.md`，session 内证据同名；
+警报复审=`testend/rig/formal-evidence/EDGE-350-ledger-alarm-reaudit-20260828.md`。`anchors.py check`=`10/10`，
+`gen_coverage.py --check`=`848/848/0`，最终 `alarms.py check`=`clean (1962 live judgments; 2300 baseline excluded)`。
+
+`EDGE-350` 由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 诚实保持 `na`，不把受控协议注入冒充完整顺滑、
+视觉 craft 或可发现性结论。新批次由 `9/50` 推进至 `10/50`，未满 50 格不跑统一长门禁、不提交；下一原子
+前线为 `EDGE-351`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 历史记录：2026-08-27 EDGE-344 直连生成整体退场已完成 L2
+
+用户已完成 macOS `SecurityAgent` 的 `Always Allow` 授权。新的 conductor session 在产品操作前通过五通道
+`rig-check`。上一格 `EDGE-343` 已验证同一 function 对 object/string 两种参数线缆均真实执行并完成；本格
+在全新隔离 workspace 走真实 onboarding，首次受管 provision 指向关闭回环 gateway，随后只添加 BYOK
+`qwen` key，构造“无受管 install、仅 BYOK”的真实产品状态。
+
+有效 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-220925`，录屏
+`156.893333s / 2784x1808 / 60fps`；workspace key 列表没有 `anselm`，model capabilities 只有
+`qwen-plus · EDGE-344 BYOK`。真实 App 模型菜单只有 `自动` 与该 BYOK 模型，没有 `Anselm Free`；
+两轮探测生成能力均以普通文本完成，不显示生成入口、生成卡片或隐藏必败按钮。
+
+provider wire=`/private/tmp/edge344-provider-wire.jsonl`：第二轮真实请求的 13 个工具只有基础工具，明确
+不含 `generate_image`、`generate_speech`、`generate_video`；第一轮为零工具请求。SSE messages 两轮
+durable 分别为 `1..6`、`7..12`，无 tool call/result 或生成附件；backend 仅有构造关闭 gateway 必然产生的
+两条 provision WARN，无应用 ERROR/panic/fatal，frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception
+红线。正式证据=`testend/rig/formal-evidence/EDGE-344-direct-generation-real-app-20260827.md`，警报复审
+=`testend/rig/formal-evidence/EDGE-344-ledger-alarm-reaudit-20260827.md`；`rig-check`、`rig-down` 均通过。
+
+`EDGE-344` 由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 继续写明 `na`，不把一次无生成路径冒充独立的全局顺滑、
+craft 或可发现性结论。`anchors=10/10`，`gen_coverage.py --check`=`848/848/0`，`alarms.py check` 在
+独立复审并串行 ack 后为 `clean`。账本新批次由 `3/50` 推进至 `4/50`，未满 50 格不跑统一长门禁、不提交；
+下一原子前线为 `EDGE-345`。P12 的 400+ Journey 继续按用户裁定推迟二期。
+
+#### 历史记录：2026-08-27 EDGE-242 keychain 授权挂起 stop-and-fix（已解除）
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-014259` 已启动完整五通道台架。真实 App 曾停在“正在连接本地引擎…”，检查发现 macOS `SecurityAgent` 钥匙串授权窗口覆盖 Anselm 录制区域；backend、ssetap、llmtap、App 归属均正常，但 `rig-check` 按外部窗口重叠规则失败，不能开始产品操作或写绿账。App 在开发 attach 重建后已进入真实主界面，正式 session 的遮挡仍未消失，故不把它当作录屏绿证据。
+
+stop-and-fix 已给 `MasterKey.resolve()` 的 keychain read、write、read-back 各加 3 秒有界等待；超时/异常继续返回 `null` 走 legacy fingerprint，旧装机不铸新钥，写入超时不读回。新增读挂起、写挂起守卫测试均通过，前端真实 App 重建后可进入主界面。正式证据=`testend/rig/formal-evidence/EDGE-242-keychain-startup-timeout-20260827.md`。
+
+历史结论：启动修复通过；当时的 macOS `SecurityAgent` 授权曾阻塞 `rig-check`，因此该 session 不计
+COVERAGE。用户随后已完成 `Always Allow`，后续新 session 已通过五通道 `rig-check` 并继续按顺序推进；
+P12 400+ Journey 仍按用户裁定推迟二期。
+
+#### 2026-08-27 当前前线重述：EDGE-354 媒体元数据与 Composer 收尾 stop-and-fix 完成
+
+真实生图红场发现两个产品问题：工具 durable result 正确返回真实 `attachmentId`，但中文元数据表把被用户面脱敏的 ID 显示成“这个输入”；同时消息已经收到 durable close，Composer 仍停在“停止生成”，用户无法继续发送。前者破坏元数据可信度，后者把已完成的回合伪装成进行中，均冻结前线处理。
+
+修复包括：服务端二列表格脱敏识别 `attachmentId`/`imageId`/`mediaId`，对不可展示的机器字段物理移除整行，并补完整文本与跨 provider 分片测试；前端归并已 REST 水化的 user echo 与后到的 optimistic pending bubble，即使 durable 节点已在 settled 集合也必须消费 pending。同步更新 Chat 参考文档。
+
+修复后二进制在真实 Flutter App、真实 managed gateway、Computer Use 和全程录屏下重新完成同一生图请求：图片卡显示真实预览、文件名、1344×768 与约 1.2 MB，工具卡可展开并打开大图；用户可见元数据表保留 filename、mime、width × height、sizeBytes、aspect、source、provider，`attachmentId` 整行不再出现“这个输入”。Composer 在 `message close(status=completed, stopReason=end_turn)` 后恢复可发送状态。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-012031`，证据=`testend/rig/formal-evidence/EDGE-354-media-metadata-redaction-20260827.md`。LLM tap 记录 chat、image generation 与三步 media upload 全部成功，tool-result/SSE 仍保留真实 attachment ID；messages durable `seq=1..14` 单调无缺口，notifications 自动标题随后到达。`rig-check` 在 session 存活期间五通道通过，录屏=`115.456667s / 2784x1808 / 60fps`；backend/frontend 无业务错误，`rig-down` 无残留。
+
+这是 `TOOL-119` 与 `SURF-070` 的代码变更后 revalidation，不新增 50 格；`gen_coverage.py --check` 保持 `848/848/0`，formal journal 保持 `4252`，当前批次仍=`1/50`，未满 50 不跑统一长门禁、不提交。P12 400+ Journey 继续按用户裁定推迟二期。
+
+#### 2026-08-27 当前前线重述：EDGE-353 workflow 停用排空双类 stop-and-fix 完成
+
+本轮先用全新数据目录和真实 App 复现 `:deactivate` 同时面对 running run 与 accepted pending firing 的路径。首轮发现数据库已从 `draining` 进入 `inactive`，但 notifications 没有最终 inactive durable 帧，App 因而停留在 `draining`；该红场被保留，没有写绿。修复为 store 条件更新返回是否实际改行，app 只有赢得 `draining → inactive` 的调用才发布一次 `workflow.lifecycle_changed`，重复 reconcile 不重复发帧；补 store/app 回归测试并通过 scheduler 编译回归。
+
+修复后二进制重新走真实 App：serial workflow 连续接收两次 webhook，第一条 run 停在审批、第二条 accepted firing pending；停用中间态 REST/App 均为 `active=false,lifecycleState=draining`；在 App 先后批准两条审批后，workflow 详情最终逐帧显示 `inactive`。REST 确认两条 firing 均 started、两条 flowrun 均 completed；notifications `seq=23` 是唯一最终 inactive durable 帧，三路 SSE durable seq 单调无缺口；停用后第三次 webhook 返回 404，无新增 run；backend/frontend/LLM journal 无未解释错误。录屏=`181.991667s / 2784x1808 / 60fps`，正式证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-002414/evidence/EDGE-353-workflow-deactivate-drains-both-20260827.md`，仓内副本=`testend/rig/formal-evidence/EDGE-353-workflow-deactivate-drains-both-20260827.md`。
+
+`EDGE-353` 清册由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 按本边界覆盖政策继续明确 `na`，不冒充独立视觉 craft、动效或可发现性证据。`anchors.py check`=`10/10`，警报独立复审后 `alarms.py check`=`clean`，`gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`，formal journal=`4252`（2300 baseline + 1952 live）。这是当前批次第一项新裁决，批次=`1/50`，未满 50 不跑统一长门禁、不提交；P12 400+ Journey 继续按用户裁定推迟二期。当前清册没有 `·/✗` 未决格，后续继续按工作记录选择可提升的 `~` 格做真实产品复验；不将“无未决”误写成全产品验收完成。
+
+#### 2026-08-27 当前前线重述：EDGE-020 `approve_always` stop-and-fix 复验完成
+
+本轮完成已收口旧格 `EDGE-020 approve_always 会话白名单` 的真实 App 五通道复验，不计入新 50 格批次。用 App 原生「新对话」入口后，首个 `run_function` 危险调用真实出现确认卡；Computer Use 点击「总是允许」后函数成功执行。随后同一对话再次调用同一工具，SSE 出现新的 tool call 和成功 tool result，中间没有第二个 interaction signal，durable REST 的第二个结果也没有 `humanApproval`，触点计数为 2。目标行由 `✓~~~~` 提升为 `✓✓~~~`；L3-L5 仍诚实保留 `na`，因为本条是会话授权协议，不冒充未独立测量的流式顺滑、视觉几何或入口可发现性。
+
+正式主证据=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-000103/evidence/EDGE-020-approve-always-real-app-20260827.md`，仓内副本=`testend/rig/formal-evidence/EDGE-020-approve-always-real-app-20260826.md`；独立警报复审=`testend/rig/formal-evidence/EDGE-020-ledger-alarm-reaudit-20260826.md`。本 session 录屏时长 `93.046667s`，收台前 `rig-check` 五通道通过，`rig-down` 无残留；干净路径的 messages/entities durable seq 单调，managed LLM tap 为真实 `https://api.anselm.website` 且请求返回 `200`。旧现场中一次下划线被吞导致的 `function not found`、一次静态危险 `delete_workflow` 再次拦截，以及 REST 外部建会话后的选中态错位均明确排除，不作为绿证据。
+
+`gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`，formal journal=`4251`
+（2300 baseline + 1951 live），`EDGE-020=✓✓~~~`，`anchors.py check`=`10/10`，最终
+`alarms.py check`=`clean`。本次是 settled 旧格 revalidation，批次八十二保持已提交状态，当前新批次=`0/50`，不提前跑统一长门禁、不提交。上一批统一长门禁证据=`testend/rig/formal-evidence/batch-82-unified-gate-20260826.md`，已提交=`af912dcd`。后续继续按 COVERAGE 的真实五通道提升和 stop-and-fix 推进；P12 400+ Journey 继续按用户裁定推迟二期。
 
 #### 历史收口：EDGE-333..342 批次八十一已完成，统一长门禁通过
 
@@ -7220,6 +7799,134 @@ stop-and-fix 在所有实体 ID 相关的直接/流式 redaction 族加入 `trg`
 **当前执行状态（2026-08-01 21:40）。** `TOOL-044 search_agent_executions` 的 formal-95 首轮红证据已保留：Computer Use 输入污染导致越界生命周期操作；clean retry 又暴露列表携带完整 `transcript`、模型改写 opaque cursor 导致分页重叠。前线冻结后，列表裁剪 transcript，工具 description/schema 强化 cursor byte-for-byte 原样续传，补 store/tool 回归测试并同步 agent/API/extract 文档。formal-96 以新二进制真实重跑正向 2+1 无重叠分页与负向 `status=failed` 空结果，五通道、REST、SQLite、UI、SSE、LLM wire、backend/frontend journal 一致；录屏 `414.928333s / 2784x1808 / 60fps`，SSE durable `notifications 1..5`、`entities 1..12`、`messages 1..49` 连续，LLM 28 个状态响应全 200，fixture agent/conversation DELETE=204，台架已收台。五级裁决 `TOOL-044=G1/F2/A5/C4/G2` 已落账，锚点 10/10 通过，警报复审并 ack 后中央 clean(270 judgments)。Goal 与盘上 `LOOP.md` 均为 `active`；第五批 **40 / 50**，未到 50 格不跑统一长门禁、不提交，下一前线为 `TOOL-045 get_agent_execution`。
 
 **当前执行状态（2026-08-01 21:56）。** `TOOL-045 get_agent_execution` 的 formal-97 以新二进制、真实 onboarding、真实受管网关和 Computer Use 完成正向单条 detail 与负向不存在 ID。正向真实返回并在 App 报告完整顶层审计字段、input/output 和两条 transcript（reasoning→text）；对照 raw REST/LLM wire 后确认 off-chat loop block 的空 id/message/seq/status/零值时间是既定语义，前端 hydration 会为缺 id 生成稳定 `hblk_*`，不是字段被吞。负向只调用一次并显示 `agent execution not found`，无 retry/其它工具/写操作。screen.mov `286.645000s / 2784x1808 / 60fps`，SSE durable `notifications 1..3`、`entities 1..4`、`messages 1..28` 连续，LLM 18 个状态响应全 200，backend 仅预期 not-found WARN，frontend 无 Flutter/Dart/RenderFlex/Unhandled/Exception 红线；fixture agent/conversation DELETE=204，台架已收台。五级裁决 `TOOL-045=G1/F2/A5/C4/G2` 已落账，锚点 10/10 通过，警报复审并 ack 后中央 clean(275 judgments)。Goal 与盘上 `LOOP.md` 均为 `active`；第五批 **45 / 50**，未到 50 格不跑统一长门禁、不提交，下一前线为 `TOOL-046 search_control`。
+
+## 当前前线整体重述（2026-08-27 · EDGE-333 真实设置复验）
+
+上一轮 `EDGE-345` 的真实 App 复验发现两个产品问题：用户要求用上传音频登记音色时，模型先调用
+`inspect_media` 并被“当前不能转录”卡住；在已有历史成功结果的对话里，模型还曾把新请求直接回答成“已经完成”，
+没有验证本次动作。两处都已冻结、修复并补测试：`prompt.go` 增加音频“登记/克隆=文件操作、直接走
+`enroll_voice`；转录/理解才走 `inspect_media`”的分流，以及“新变更不能凭历史成功冒充本次完成”的真相规则；
+`enroll.go` 的工具描述与 `stream-llm.md` 同步加强同一契约。
+
+修复后的真实 App session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-203732`：全新对话重新上传 WAV 后，用户只说
+“Please register this uploaded audio as a voice named acceptance-voice”，LLM wire 只选择一次 `enroll_voice`，
+没有 `inspect_media`；App 显示 `dangerous` 确认，五通道 `rig-check` 前后通过，录屏 `189.416667s / 2784x1808 /
+60fps`，messages durable `1..23`、notifications durable `1..2`，backend/frontend journal 无未解释应用红线。
+测试随后点击“拒绝”，没有新增不可逆的受管音色。正式证据为
+`testend/rig/formal-evidence/EDGE-345-voice-intent-routing-fix-20260827.md`，会话证据在该 session 的 `evidence/`
+目录；上一轮红证据与已有真实合成成功证据均保留。
+
+同一修复还在含有历史成功记录的旧对话中复验：用户再次要求登记同名音色时，模型重新发起 `enroll_voice` 并
+等待确认，没有凭历史结果报本次完成；拒绝后显示“操作已取消”。session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-204342`，证据为
+`testend/rig/formal-evidence/EDGE-345-history-truth-fix-20260827.md`。
+
+随后完成下一条安全、可逆的 `EDGE-333` 真实 App 复验。session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-204754`，真实 App 在「存储与日志」面板中显示
+服务端自持的 `90 天` 默认值；Computer Use 实际完成 `90 天 → 30 天 → 90 天`，每次均即时回显，恢复后出现
+「保留策略已更新」。backend journal 记录初始 GET 以及两次 `PATCH 200 + GET 200`，最终 REST 为
+`runRetentionDays=90`；SQLite `PRAGMA integrity_check=ok`，数据目录没有客户端 `settings.json`。录屏
+`239.690000s / 2784x1808 / 60fps`，`rig-check` 前后和 `rig-down` 均通过，frontend 无 Flutter/Dart/RenderFlex/
+Unhandled/Exception 应用红线，三路 SSE 和 llmtap wiring 健康。正式证据为
+`testend/rig/formal-evidence/EDGE-333-retention-real-app-20260827.md`，会话证据在该 session 的 `evidence/`
+目录；警报复审记录为 `testend/rig/formal-evidence/EDGE-333-ledger-alarm-reaudit.md`。
+
+本次只把 `EDGE-333` 的 `L2/F1` 真实真相层写绿，清册状态由 `✓~~~~` 变为 `✓✓~~~`；没有把同一设置截图
+冒充时延、美学或新用户发现性证据。账本先因锚点超过 4 小时拒绝写入，重新完成 10/10 锚点校准后才入账；
+写入触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立 session 证据逐条复审并 ack，未改阈值、算法、法典
+或锚点，`alarms.py check` 最终为 `clean (1953 live judgments; 2300 baseline judgments excluded)`。
+当前 formal journal 为 `4253`（2300 baseline + 1953 live），`gen_coverage.py --check` 为
+`848 rows / 848 carried judgments / 0 tombstones`；新批次为 `2/50`，未满 50 不运行统一长门禁、不提交。
+`COVERAGE` 没有 `·/✗` 未决格只代表机械账本没有空白，不代表全产品验收完成；后续继续逐项复验适用的
+`✓~~~~` 行。P12 的 400+ JOURNEYS 仍按用户裁定推迟二期。
+
+在 `EDGE-333` 之后顺序复验 `EDGE-334 testend Kill9 崩溃半场`：真实 harness 的
+`TestContractChat_CrashSweepOrphans`、`TestWorkflow_CrashRecovery`、
+`TestAttachmentPreparation_CrashRequeuesInterruptedWork`、`TestP4bRail_GeneratingNoResidueAfterCrash` 四项
+均通过，总耗时约 `64.046s`；实际观察到 orphan sweep、workflow recovery、附件 interrupted work requeue 和
+generating 无残留。正式证据为 `testend/rig/formal-evidence/EDGE-334-kill9-crash-half-20260827.md`。
+该条已有 `L1/F5` 判决，本次只是基础设施复验，L2-L5 仍没有真实 App 证据，未新增账本单元；当前批次仍为
+`2/50`，不提前运行统一长门禁、不提交。
+
+随后复验 `EDGE-335 testend 进程组泄漏自检`：完整 `make testend` 通过，
+`testend/scenarios` 用时 `292.290s`；测试期间的 backend、sandbox、`llama-server` 并发进程全部由 harness
+收容，结束后独立进程审计无 `testend-bin`、`anselm-server`、`llama-server` 残留，也无遗留 pid 文件。正式
+证据为 `testend/rig/formal-evidence/EDGE-335-process-group-leak-check-20260827.md`。该条已有 `L1/F3`，
+本次是基础设施复验，L2-L5 仍不具备真实 App 产品证据，不新增账本单元；批次仍为 `2/50`。
+
+在这两条基础设施复验后发现 `EDGE-336 testend 超时/被杀由下一轮收` 只有实现和历史全量运行证据，缺少针对
+PID 活性的专门回归锁。已补 `testend/harness/scratch_test.go` 的
+`TestReapStaleScratchUsesPIDLiveness`，真实通过 `go test ./harness`：死亡 PID 目录会被回收，非数字目录和
+当前进程目录保留；没有触碰其他进程。该改动同步写回既有证据
+`testend/rig/formal-evidence/EDGE-336-testend-dead-round-reaping-20260826.md`，不新增账本单元，批次仍为
+`2/50`。
+
+同一轮还补强 `EDGE-337 testend 缓存剥 pid` 的回归锁：`TestPrunePIDFilesKeepsRuntimeFilesOnly` 与活性回收
+测试共同通过 `go test ./harness -count=1`，确认共享 runtime cache 会删除 `*.pid` 运行态记录、保留普通
+runtime 文件，避免未来 OS PID 复用造成误杀。结果同步到
+`testend/rig/formal-evidence/EDGE-337-cache-pid-stripping-20260826.md`；该条已有 `L1/F3`，L2-L5 仍不适用
+于没有 App 产品场景的 testend 基础设施路径，不新增账本单元，批次仍为 `2/50`。
+
+回到产品面复验 `EDGE-341 未验证供应商诚实徽标`：真实 App 在 Models & keys → Add key 展示供应商目录
+`0-100 of 213 items`，卡片同时呈现供应商名、模型数量和 `未验证` 徽标；打开 `302.AI` 表单检查后取消，
+没有输入、上传或保存凭证。源码确认徽标带 `unverifiedHint` tooltip，明确说明条目来自 models.dev 且尚未由
+Anselm 试过。session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260827-210515`，录屏
+`139.223333s`，五通道 `rig-check` 前后通过，backend/frontend/SSE/llmtap 无应用红线，进程已收台；正式
+证据为 `testend/rig/formal-evidence/EDGE-341-unverified-provider-real-app-20260827.md`。因本轮没有独立
+hover/tooltip 观测，也不是全新 onboarding，不把它冒充 L4/L5 新判决；既有 `L1:E4` 保持，批次仍为 `2/50`。
+
+## 当前前线整体重述（2026-08-29 · EDGE-317 真实 App L2 收口）
+
+`EDGE-317 选区跨块缝隙` 已完成真实产品路径验收。正式 clean session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260828-235053`，隔离 workspace 为
+`ws_89eb5841c48ec008`，fixture document 为 `doc_763d224956e3eecd`。真实 Flutter App 从 Library
+打开三段文档，离开到另一类资源后重新打开，再以真实焦点和 `Shift+Down` 跨越三个块进行选区；最终画面
+显示等高、连续的蓝色选区，块间 padding 没有白缝，末行随真实文本宽度收束，工具条稳定出现。
+
+首轮真实观察确实发现独立选区 overlay 在块间显示白缝，已冻结为红并保留证据；stop-and-fix 延后选区层在
+persistent frame callback 中的重建并合并拖动更新，同时将 selection 色在独立 overlay surface 上预混为
+可见的表面色。修复后二进制重新走离开/重开和跨块选区，截图与像素采样均确认桥接生效；focused selection
+与 presenter tests 全部通过。正式证据为
+`testend/rig/formal-evidence/EDGE-317-selection-block-gaps-real-app-20260828.md`，红绿帧和五通道
+journal 保留在该 session 的 `evidence/`。
+
+五通道封口：录屏=`424.336667s`；`rig-check` 五通道通过，backend/frontend 无应用级红线；SSE witness
+三流均连接并记录预期 `notifications seq=16`，LLM witness 的 managed proof/install/models 全 `200`，
+本确定性 Library 路径没有 completion，不虚构；文档 GET `200` 的正文、路径、大小与 UI/夹具逐字一致，
+`rig-down` 无残留。`judge.py` 以 `C1` 写入 `L2 ✓`，清册由 `✓~~~~` 提升为 `✓✓~~~`，L3-L5 仍为
+`na`；anchors=`10/10`。写账打开的 `discovery-collapse` 已以独立复审记录
+`testend/rig/formal-evidence/EDGE-317-ledger-alarm-reaudit-20260829.md` 复核并 ack，最终
+`alarms.py check`=`clean (1999 live judgments; 2300 baseline judgments excluded)`。
+
+当前批次由 `37/50` 推进至 `38/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续从尚未具备正式
+L2 的 `~` 格选择。P12 的 400+ Journey 扩写仍按用户裁定推迟二期，一期以 COVERAGE 为覆盖真相源。
+
+## 当前前线整体重述（2026-08-29 · EDGE-319 大纲下标不变式真实 App L2 收口）
+
+`EDGE-319 大纲下标不变式` 已完成真实产品路径验收。正式 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-002006`，真实 App 夹具混合正文 h1-h6、围栏内
+`#`/`##`、引用内 `#` 和深层标题后的 h3。右侧 Outline 显示恰好 8 项，与编辑器 `headingNodeIds` 的文档序
+一致；围栏/引用伪标题没有混入，h4-h6 保留且没有造成后续下标漂移，8 个目录入口逐个点击完成。
+
+五通道 session 已由 `rig-check`/`rig-down` 封口，backend/frontend 无应用红线，SSE 三流 durable seq 单调，LLM
+challenge/install/models 全为 `200`，REST 夹具与画面一致。正式证据为
+`testend/rig/formal-evidence/EDGE-319-outline-heading-invariant-real-app-20260829.md`，`judge.py` 以 `F1`
+写入 `L2 ✓`，清册由 `✓~~~~` 提升为 `✓✓~~~`，L3-L5 保持 `na`；anchors=`10/10`。写账打开的
+`discovery-collapse` 已以独立复审记录 `testend/rig/formal-evidence/EDGE-319-ledger-alarm-reaudit-20260829.md`
+复核并 ack，最终 `alarms.py check`=`clean (2001 live judgments; 2300 baseline judgments excluded)`。
+当前批次由 `39/50` 推进至 `40/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续从尚未具备正式 L2 的 `~`
+格选择。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
+## 上一前线整体重述（2026-08-29 · EDGE-318 原子块双/三击真实 App L2 收口）
+
+`EDGE-318 原子块双/三击` 已完成真实产品路径验收。正式 session 为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-000303`，真实 App 夹具包含正文、可编辑 Dart
+代码块、可编辑表格、水平分隔线和后续正文。代码块与表格内部双击保持自然的内嵌编辑行为；对原子块执行双击/三击后拖动，分隔线退格探针未误删相邻正文，未形成上游 word/paragraph 手势毒态，编辑器持续可操作。
+
+这次证据刻意不把“整块蓝色高亮”冒充为已证明：代码/表格的内部命中区由编辑器接管，分隔线组件 selection 色为透明；本格 L2 只证明手势安全性和恢复性，不替 L3-L5 的视觉、动效、美学与发现性判定。五通道 session 已由 `rig-check`/`rig-down` 封口，backend/frontend 无应用红线，SSE 三流与 LLM challenge/install/models 均有同 session 记录，夹具最终 REST 内容恢复为原始 `312 B`。
+
+正式证据为 `testend/rig/formal-evidence/EDGE-318-atomic-block-tap-guard-real-app-20260829.md`，`judge.py` 以 `A5` 写入 `L2 ✓`，清册由 `✓~~~~` 提升为 `✓✓~~~`，L3-L5 保持 `na`；anchors=`10/10`。写账打开的 `discovery-collapse` 已以独立复审记录 `testend/rig/formal-evidence/EDGE-318-ledger-alarm-reaudit-20260829.md` 复核并 ack，最终 `alarms.py check`=`clean (2000 live judgments; 2300 baseline judgments excluded)`。当前批次由 `38/50` 推进至 `39/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续从尚未具备正式 L2 的 `~` 格选择。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 
 ## §6 施工中代拍台账(依据注明,用户可随时翻案)
 
