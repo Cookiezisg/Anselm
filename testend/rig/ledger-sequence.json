@@ -56,6 +56,11 @@
       "family": "EDGE",
       "item": "脏区切分支被拒",
       "reason": "conversation service 与黑盒 HTTP 回归已通过，但拒绝文案、文件不变的用户反馈、真实 App 视觉和发现性仍需现场观察；按用户授权统一后置人工交互，不用接口测试冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "新建分支不受脏区门",
+      "reason": "conversation service 与黑盒 HTTP 回归已通过，但脏区中创建分支的用户反馈、视觉和发现性仍需真实 App 现场观察；该刻意不对称行为不使用内部测试冒充完整产品证据。"
     }
   ]
 }

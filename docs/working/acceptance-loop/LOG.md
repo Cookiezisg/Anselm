@@ -24,7 +24,7 @@ landed-into:
 - `EDGE-254|keyset 排序切换丢游标` 的 ORM 普通/race 与 HTTP acceptance 回归通过；L2 已收口，L3-L5 涉及排序切换的真实交互、视觉和发现性，转入人工后置队列。下一自动前线由顺序门重新计算。
 - `EDGE-255|PageAsc collation 不一致` 的 ORM NOCASE、同键 tie-breaker 与跨页 cursor 普通/race 回归通过；该内部 seam 的 L2-L5 以具体适用性理由收口，统计告警按原阈值复审销账后 clean。下一自主前线为 `EDGE-驻地目录被移走`。
 - `EDGE-256|驻地目录被移走` 的 conversation/shell 普通与 race 回归通过；由于原路径警示、Terminal 拒绝与不回落后端目录均需真实 App/Terminal 现场，L2-L5 整项进入人工后置队列，不作 `na` 降级。下一自主前线待顺序门重新计算。
-- `EDGE-257|脏区切分支被拒` 的 conversation service/HTTP 普通与 race 回归通过；拒绝文案、文件不变的现场反馈、视觉和发现性仍需真实 App，整项进入人工后置队列，不作 `na` 降级。
+- `EDGE-257|脏区切分支被拒` 与 `EDGE-258|新建分支不受脏区门` 的 conversation service/HTTP 普通与 race 回归通过；两项的拒绝/放行文案、现场反馈、视觉和发现性仍需真实 App，整项进入人工后置队列，不作 `na` 降级。
 - 另修复告警 gate 的 watermark：`alarms.py ack` 现在推进 `evidenceThrough`，同一批已复核 journal 不会在下次 `check` 中重复开警报；对应回归通过，最终 `alarms.py check` clean，anchors=`10/10`，coverage=`848/848`。
 - `make verify`、完整 testend、台架单测和文档校验均通过；当前剩余未收口项仍是需要真实 App/系统物理交互的人工队列，不因自动化通过而提前结算。
 
