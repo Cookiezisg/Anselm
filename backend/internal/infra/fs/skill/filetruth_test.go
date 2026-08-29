@@ -156,6 +156,51 @@ func TestStore_LowercaseManifestFallback(t *testing.T) {
 	}
 }
 
+func TestStore_SaveManifestHandlesCaseInsensitiveFilesystems(t *testing.T) {
+	base := t.TempDir()
+	st := New(base)
+	ctx := ctxWS("ws_1")
+	dir := filepath.Join(base, "workspaces", "ws_1", "skills", "casefold")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Fatalf("mkdir: %v", err)
+	}
+	lower := filepath.Join(dir, "skill.md")
+	upper := filepath.Join(dir, "SKILL.md")
+	if err := os.WriteFile(lower, []byte("---\nname: casefold\ndescription: old\n---\nold\n"), 0o644); err != nil {
+		t.Fatalf("seed lowercase manifest: %v", err)
+	}
+
+	if err := st.Save(ctx, "casefold", skilldomain.Frontmatter{
+		Name: "casefold", Description: "new",
+	}, "new"); err != nil {
+		t.Fatalf("save manifest: %v", err)
+	}
+	sk, err := st.Get(ctx, "casefold")
+	if err != nil || sk.Description != "new" || sk.Body != "new" {
+		t.Fatalf("save must win over lowercase fallback: %+v err=%v", sk, err)
+	}
+
+	got, err := os.ReadFile(upper)
+	if err != nil || !bytes.Contains(got, []byte("description: new")) {
+		t.Fatalf("uppercase manifest must contain the new content: %q err=%v", got, err)
+	}
+	li, lErr := os.Lstat(lower)
+	ti, tErr := os.Lstat(upper)
+	switch {
+	case lErr == nil && tErr == nil:
+		if os.SameFile(li, ti) {
+			// APFS/HFS+ case-folding: lower and upper are one inode, so it must survive.
+			return
+		}
+		t.Fatalf("case-sensitive filesystem must retire the distinct lowercase manifest")
+	case os.IsNotExist(lErr) && tErr == nil:
+		// Case-sensitive filesystem: the stale lower-case file was removed.
+		return
+	default:
+		t.Fatalf("manifest casing state: lower=%v upper=%v", lErr, tErr)
+	}
+}
+
 func TestStore_Files_CRUD(t *testing.T) {
 	st := New(t.TempDir())
 	ctx := ctxWS("ws_1")

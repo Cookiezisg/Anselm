@@ -181,6 +181,11 @@
       "family": "EDGE",
       "item": "skill 清单拒删",
       "reason": "skill service 的 TestDeleteFile_ManifestRefused 与 skill 文件 HTTP 合同普通/race 已确认 files API 删除 SKILL.md 返回 SKILL_FILE_PATH_INVALID 且不破坏 skill；但真实 App 的阻断反馈、入口引导、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "大小写不敏感 FS 上的 skill.md",
+      "reason": "skill filesystem 普通/race 已确认小写清单可读，写入大写清单时 macOS 大小写不敏感盘不会自删同 inode，大小写敏感盘会清退独立残件；但真实 App 的跨平台文件反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
