@@ -196,6 +196,11 @@
       "family": "EDGE",
       "item": "run_skill_script 扩展名不支持",
       "reason": "真实 chat ReAct 黑盒普通/race 已确认不存在脚本与越界脚本都以 script-not-found 语义回喂且不执行；不支持扩展名的工具输入守卫仍属于真实 App 的错误反馈、文案、视觉和发现性表面，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "fork skill 无 runner",
+      "reason": "skill service 普通/race 与 skill 激活 HTTP 合同普通/race 已确认缺 runner 明确返回 SKILL_SUBAGENT_UNAVAILABLE，缺 agent/非法 agent 明确拒绝；但真实 App 的不可用反馈、文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
