@@ -6,6 +6,7 @@ import (
 	"compress/gzip"
 	"context"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -153,6 +154,57 @@ func TestFetch_GuardsAndJunk(t *testing.T) {
 	bad := serveTgz(t, []byte("this is not gzip"))
 	if _, err := Fetch(context.Background(), Source{Raw: "u", URL: bad.URL}); !errors.Is(err, skilldomain.ErrInstallFetchFailed) {
 		t.Fatalf("non-gzip must be FetchFailed, got %v", err)
+	}
+}
+
+func TestUntar_ArchiveBombLimits(t *testing.T) {
+	// Entry count is bounded before another regular file can enter the candidate map.
+	var countBuf bytes.Buffer
+	gz := gzip.NewWriter(&countBuf)
+	tw := tar.NewWriter(gz)
+	for i := 0; i <= maxFileCount; i++ {
+		name := fmt.Sprintf("skill/file-%04d", i)
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: 1, Typeflag: tar.TypeReg}); err != nil {
+			t.Fatalf("count tar header: %v", err)
+		}
+		if _, err := tw.Write([]byte("x")); err != nil {
+			t.Fatalf("count tar body: %v", err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("count tar close: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatalf("count gzip close: %v", err)
+	}
+	if _, err := untar(bytes.NewReader(countBuf.Bytes())); !errors.Is(err, skilldomain.ErrInstallTooLarge) {
+		t.Fatalf("more than %d regular entries must be rejected, got %v", maxFileCount, err)
+	}
+
+	// Repetitive data keeps the fixture small on the wire while still exercising the unpacked
+	// byte ceiling (the per-file ceiling is exactly allowed, so this cannot be skipped).
+	var bytesBuf bytes.Buffer
+	gz = gzip.NewWriter(&bytesBuf)
+	tw = tar.NewWriter(gz)
+	chunk := bytes.Repeat([]byte{0}, skilldomain.MaxFileBytes)
+	fileCount := int64(maxUnpackedBytes/skilldomain.MaxFileBytes + 1)
+	for i := int64(0); i < fileCount; i++ {
+		name := fmt.Sprintf("skill/chunk-%03d", i)
+		if err := tw.WriteHeader(&tar.Header{Name: name, Mode: 0o644, Size: int64(len(chunk)), Typeflag: tar.TypeReg}); err != nil {
+			t.Fatalf("byte tar header: %v", err)
+		}
+		if _, err := tw.Write(chunk); err != nil {
+			t.Fatalf("byte tar body: %v", err)
+		}
+	}
+	if err := tw.Close(); err != nil {
+		t.Fatalf("byte tar close: %v", err)
+	}
+	if err := gz.Close(); err != nil {
+		t.Fatalf("byte gzip close: %v", err)
+	}
+	if _, err := untar(bytes.NewReader(bytesBuf.Bytes())); !errors.Is(err, skilldomain.ErrInstallTooLarge) {
+		t.Fatalf("more than %d unpacked bytes must be rejected, got %v", maxUnpackedBytes, err)
 	}
 }
 

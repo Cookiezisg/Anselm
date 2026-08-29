@@ -161,6 +161,11 @@
       "family": "EDGE",
       "item": "agent 知识文档被删",
       "reason": "agent service 普通/race 与真实 HTTP 黑盒普通/race 已确认文档删除后 mount-health 标为 unhealthy、invoke 以 failed 返回明确缺失信息且不发 LLM 请求；但真实 App 的错误反馈、视觉 craft 和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 安装炸弹护栏",
+      "reason": "skillfetch 普通/race 已确认 symlink 与越界条目丢弃、4097 条目和超过 200 MiB 解压总量被拒，skill service 与真实 HTTP 安装主链普通/race 通过；但真实 App 的预览、阻断反馈、等待、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
