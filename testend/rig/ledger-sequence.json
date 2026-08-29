@@ -166,6 +166,11 @@
       "family": "EDGE",
       "item": "skill 安装炸弹护栏",
       "reason": "skillfetch 普通/race 已确认 symlink 与越界条目丢弃、4097 条目和超过 200 MiB 解压总量被拒，skill service 与真实 HTTP 安装主链普通/race 通过；但真实 App 的预览、阻断反馈、等待、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 本地改动漂移",
+      "reason": "skill service 与真实 HTTP 安装更新主链普通/race 已确认非 force 拒绝本地漂移、force 恢复上游、allowed-tools 变化重置信任门且未变化保留授权；但真实 App 的冲突提示、恢复选择、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
