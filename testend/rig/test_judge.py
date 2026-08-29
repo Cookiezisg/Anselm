@@ -17,6 +17,105 @@ JUDGE = ROOT / "judge.py"
 
 
 class JudgeRetryTests(unittest.TestCase):
+    def test_provisional_na_reopens_the_autonomous_frontier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            coverage.write_text(
+                "| EDGE-001 | Missing App evidence | test | ✓~··· | L1:G1→old; L2:na→note:no real App session yet |\n"
+                "| EDGE-002 | Next autonomous cell | test | ····· |  |\n"
+            )
+
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("provisional_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                self.assertEqual(module.sequence_problem("EDGE", "Missing App evidence"), "")
+                problem = module.sequence_problem("EDGE", "Next autonomous cell")
+                self.assertIn("EDGE|Missing App evidence", problem)
+                self.assertTrue(module.is_provisional_na("L2:na→note:no real App session yet", 2))
+            finally:
+                sys.path[:] = old_path
+
+    def test_explicit_not_applicable_na_remains_settled(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            coverage.write_text(
+                "| EP-001 | API-only endpoint | test | ✓~✓✓✓ | L1:G1→old; L2:na→note:API-only endpoint has no Flutter visual surface; C4 does not apply |\n"
+                "| EP-002 | Next cell | test | ····· |  |\n"
+            )
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("explicit_na_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                self.assertEqual(module.sequence_problem("EP", "Next cell"), "")
+            finally:
+                sys.path[:] = old_path
+
+    def test_latest_na_pointer_replaces_provisional_frontier_state(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            coverage.write_text(
+                "| EDGE-001 | Retried boundary | test | ✓~✓✓✓ | "
+                "L1:G1→old; L2:na→note:no real App session yet; "
+                "L2:na→note:this internal state has no independent durable product surface |\n"
+                "| EDGE-002 | Next autonomous cell | test | ····· |  |\n"
+            )
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("latest_na_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                evidence = coverage.read_text().splitlines()[0].split(" | ", 4)[4].removesuffix(" |")
+                self.assertEqual(module.na_note_for_level(evidence, 2), "this internal state has no independent durable product surface")
+                self.assertEqual(module.sequence_problem("EDGE", "Next autonomous cell"), "")
+            finally:
+                sys.path[:] = old_path
+
+    def test_na_command_rejects_provisional_note(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            codex = home / "CODEX.md"
+            rig_home = home / "rig"
+            coverage.write_text("| EDGE-001 | Provisional NA | test | ····· |  |\n")
+            codex.write_text("")
+            env = os.environ | {
+                "RIG_COVERAGE": str(coverage),
+                "RIG_CODEX": str(codex),
+                "RIG_HOME": str(rig_home),
+            }
+            result = subprocess.run(
+                [
+                    sys.executable, str(JUDGE), "Provisional NA", "--family", "EDGE",
+                    "--level", "1", "--verdict", "na",
+                    "--evidence", "note:no real App session yet",
+                ],
+                env=env, check=False, capture_output=True, text=True,
+            )
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("na is not a waiver", result.stderr)
+            self.assertFalse((rig_home / "judgments.jsonl").exists())
+
     def test_formal_coverage_cannot_start_a_new_ledger_after_journal_loss(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -218,6 +317,50 @@ class JudgeRetryTests(unittest.TestCase):
             accepted = subprocess.run(command, env=env, check=True, capture_output=True, text=True)
             self.assertIn("EP|GET /api/v1/read-aloud/availability", accepted.stdout)
             self.assertIn("~····", coverage.read_text())
+
+    def test_manual_queue_is_skipped_but_returns_after_autonomous_cells(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            policy = home / "ledger-sequence.json"
+            coverage.write_text(
+                "| EDGE-329 | Physical shortcut | test | ✓···· |  |\n"
+                "| EDGE-330 | Autonomous cell | test | ····· |  |\n"
+            )
+            policy.write_text(json.dumps({
+                "version": 1,
+                "mode": "first_unsettled",
+                "manual_queue": [{
+                    "family": "EDGE",
+                    "item": "Physical shortcut",
+                    "reason": "requires a physical modifier chord",
+                }],
+            }))
+
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            module = None
+            try:
+                spec = importlib.util.spec_from_file_location("manual_queue_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                module.SEQUENCE = policy
+
+                self.assertEqual(module.sequence_problem("EDGE", "Autonomous cell"), "")
+                problem = module.sequence_problem("EDGE", "Physical shortcut")
+                self.assertIn("manual queue", problem)
+
+                coverage.write_text(
+                    "| EDGE-329 | Physical shortcut | test | ✓···· |  |\n"
+                    "| EDGE-330 | Autonomous cell | test | ✓✓✓✓✓ |  |\n"
+                )
+                self.assertEqual(module.sequence_problem("EDGE", "Physical shortcut"), "")
+            finally:
+                sys.path[:] = old_path
 
     def test_sequence_gate_keeps_identical_replay_idempotent(self):
         with tempfile.TemporaryDirectory() as tmp:

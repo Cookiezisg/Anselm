@@ -6,6 +6,12 @@
 > 裁决引用的法典在 [`CODEX.md`](../../docs/working/acceptance-loop/CODEX.md)(WRK-088);
 > 记账的对象是 [`COVERAGE.md`](../../docs/working/acceptance-loop/COVERAGE.md)(WRK-089)。
 
+## 顺序门与人工队列
+
+`judge.py` 的 `~` 只有在证据明确说明该等级对该对象不适用时才算收口；“没有真实 App/session”“尚未独立测量顺滑度”“尚未做视觉 craft 或可发现性走查”等说明缺证据的文字属于 provisional NA，不是 waiver，会重新打开自动前线。这样清册不会因为早期 focused/API-only 证据而假装完成。
+
+`testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变顺序，不改变标准：需要用户物理按键、系统授权或安全确认的格子仍未完成、不能写成 `pass`，但在自主格耗尽前不会阻塞自动验收。自主格完成后，顺序门才回到人工队列的第一项。
+
 ## 台架是什么
 
 五条观测通道,全部落盘 journal,使「产品对不对」永远以证据回答、不以印象回答:
@@ -92,7 +98,8 @@ clean 结果当作当前 session 的门禁证据。
 故 `ANSELM_BACKEND_URL`、`ANSELM_DATA_DIR` 会进入**真实 App 进程**；这是刻意不用 `flutter run` 的地方，
 因为 Flutter runner 交给 launch services 的子进程不会可靠继承 PTY runner 环境。`appLaunchPid` 与
 `appPid` 必须相同且都活着；旧 session 若仍有 `runnerPid`，`rig-check` 仍兼容检查。台架启动前拒绝已有
-Anselm App，启动后只接收新出现的精确 App 进程，并由录屏窗口反查 owner PID，不能把一个残留进程误判
+Anselm App，并在 Flutter build 完成后再次检查；启动后只接收新出现的精确 App 进程，且 `rig-up` 与
+`rig-check` 都拒绝 manifest PID 之外的同 bundle 进程，再由录屏窗口反查 owner PID，不能把一个残留进程误判
 为前端在线。产品内「重置本地偏好」或「出厂重置」会让 App 自己退出并启动新 PID；这不是外部进程，
 但也不能由门禁猜测。重启后必须显式运行 `rig-rebind-app.sh`：旧 PID 已死、manifest 中的精确
 `appBinary` 只有一个新候选、候选窗口 owner 是 Anselm 且几何与现有录屏区域完全一致，四项同时满足才更新
@@ -125,6 +132,10 @@ Computer Use 返回结果时的观测器自身遮挡，不放宽未知 owner，�
 - **D1 journal 归属**:持有服务端口的 PID 必须 == 捕获 stdout 的 PID。抢端口失败的后端瞬间死掉、
   journal 却依然像样——0728 真发生过,故 rig-up 拒收外来进程、rig-check 持续复验。
   (细节坑:`lsof -ti` 必须带 `-sTCP:LISTEN`,否则 tap 的客户端连接会被算成端口持有者。)
+- **前置失败不伤已有台架**: `rig-up` 在端口冲突、权限或构建前失败时尚未捕获本次 App baseline，
+  `EXIT` 清理不得调用 `stop_new_apps` 扫杀已有台架；只有 baseline 已落盘后才允许收容本次尝试新出现的 App。
+  `RIG_RECORD=0` 诊断态没有窗口 ID，`rig-check` 必须显式 fail-closed，不能对空 ID 解包让门禁脚本以
+  `SIGTRAP` 崩溃。回归证据见 `formal-evidence/rig-up-preflight-cleanup-regression-20260829.md`。
 - **可选鉴权展开**:外接 backend 不需要 Bearer header,但 App-owned backend 必须带 token。两条
   conductor 脚本都在 `set -u` 下通过 `curl_backend` 分支处理这两个形态；空数组不能直接展开成
   `"${AUTH_ARGS[@]}"`,否则台架会在健康检查前自杀，不能把这种仪器故障算成产品结果。
@@ -200,12 +211,16 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
   `(family,item,level,verdict,law,evidence)` 命令重跑是幂等 no-op，不重复写 journal 或 COVERAGE 证据指针。
   若进程在两份持久记录之间半步退出，重跑同一命令会按已有 journal 重放清册格和证据指针；所以不能只数
   `judgments.jsonl`，必须同时运行 `gen_coverage.py --check` 并检查目标行五格。
+- `ledger-sequence.json` 可声明精确的 `manual_queue`。队列只改变调度顺序：列出的格子仍是未完成、仍不能写成
+  `pass`，但在需要用户物理按键/授权的动作尚未可执行时，formal sequence 会先推进非人工格；所有自主格耗尽后，
+  队列中最早的格子重新成为唯一前线。每个条目必须带 `family`、`item` 和非空 `reason`，配置损坏即 fail-closed。
 - 发现已收口旧格的新产品缺陷时，不能手改旧格或越过当前前线：修复并补回归后，使用
   `--revalidate` 重验一个**已 settled 的前置行**。它只解除顺序门，不解除法条、证据、L2 session、锚点或
   未销警报门；当前前线或仍含 `·/✗` 的行传该参数仍拒绝。新裁决会追加审计行并在 COVERAGE 同格留下新证据指针。
 - `ledger-sequence.json` 是仓内版本控制的正式前线顺序策略（不接受 `RIG_SEQUENCE` 等调用方环境变量替换），当前模式为
-  `first_unsettled`：judge 在锁内按 COVERAGE 的真实行序找到第一条含 `·/✗` 的行，只允许该行继续落新裁决，任何后行都拒绝；
-  第一行五格均为 `✓/~` 后，前线自动推进到下一条。策略版本/模式非法或 COVERAGE 无法解析时 fail-closed，不靠工作记录口头约定越序。
+  `first_unsettled`：judge 在锁内按 COVERAGE 的真实行序找到第一条含 `·/✗` 且不在 `manual_queue` 的行，只允许该行继续落新裁决，
+  任何后行都拒绝；自主行耗尽后才回到人工队列的第一条未完成行。策略版本/模式非法或 COVERAGE 无法解析时 fail-closed，
+  不靠工作记录口头约定越序，也不把人工队列当作 `na` 或通过。
   重复同一已存在裁决仍先按幂等规则重放，不被顺序策略误伤。若改变顺序机制，必须修改策略文件、测试并同步 working 记录。
 - 并发回归可用 `python3 -m unittest testend/rig/test_judge.py -v`；更换证据或裁决仍会留下新的审计行。
 - 法不够用 → **先立法再判**:按 CODEX.md 末的立法协议加新法条(只收紧、带回灌横扫),再引用它。

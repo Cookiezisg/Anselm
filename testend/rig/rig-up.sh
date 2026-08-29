@@ -49,6 +49,10 @@ APP_PROXY_DELAY_MS="${RIG_APP_PROXY_DELAY_MS:-0}"
 APP_PROXY_PATH="${RIG_APP_PROXY_PATH:-/api/v1/workspaces}"
 APP_PROXY_FAIL_COUNT="${RIG_APP_PROXY_FAIL_COUNT:-0}"
 APP_PROXY_FAIL_STATUS="${RIG_APP_PROXY_FAIL_STATUS:-503}"
+APP_PROXY_DROP_AFTER_MS="${RIG_APP_PROXY_DROP_AFTER_MS:-0}"
+APP_PROXY_DROP_COUNT="${RIG_APP_PROXY_DROP_COUNT:-0}"
+APP_PROXY_FAIL_AFTER_DROP_COUNT="${RIG_APP_PROXY_FAIL_AFTER_DROP_COUNT:-0}"
+APP_PROXY_FAIL_AFTER_DROP_DELAY_MS="${RIG_APP_PROXY_FAIL_AFTER_DROP_DELAY_MS:-0}"
 APP_BACKEND_URL="http://127.0.0.1:$PORT"
 MISE="${MISE:-mise}"
 
@@ -70,6 +74,7 @@ APP_WINDOW_BOUNDS=""
 RECORDER_PID=""
 RECORDER_LIFECYCLE=""
 BASELINE_APP_PIDS=""
+BASELINE_APP_PIDS_CAPTURED=0
 ARMED=1
 
 stop_pid() {
@@ -99,7 +104,11 @@ stop_new_apps() {
 cleanup_failed_start() {
   [ "$ARMED" = "1" ] || return
   stop_exact_pid "$APP_PID"
-  stop_new_apps
+  # Before start_app_and_record captures a baseline, every visible App is external to this
+  # attempt. Never kill it while cleaning up an early preflight failure (for example, a port
+  # collision with an already-running rig). 在捕获 baseline 前，所有 App 都不属于本次尝试；
+  # 前置失败清理不能把现有台架的 App 当成新进程误杀。
+  [ "$BASELINE_APP_PIDS_CAPTURED" = "1" ] && stop_new_apps
   stop_pid "$APP_LAUNCH_PID"
   stop_pid "$RUNNER_PID"
   stop_pid "$APP_PROXY_PID"
@@ -137,6 +146,7 @@ start_app_and_record() {
     return
   fi
   BASELINE_APP_PIDS=$(app_pids)
+  BASELINE_APP_PIDS_CAPTURED=1
   EXISTING_APP_PIDS="$BASELINE_APP_PIDS"
   [ -z "$EXISTING_APP_PIDS" ] || {
     echo "✗ Anselm App already running (PID $EXISTING_APP_PIDS); the rig never adopts an external App" >&2
@@ -155,6 +165,14 @@ start_app_and_record() {
   APP_BINARY="$ROOT/frontend/build/macos/Build/Products/Debug/anselm.app/Contents/MacOS/anselm"
   [ -x "$APP_BINARY" ] || {
     echo "✗ built macOS App binary missing: $APP_BINARY" >&2
+    exit 1
+  }
+  # The build is long enough for a Computer Use probe (or another launcher) to start
+  # an App after the initial baseline check. Re-check immediately before launch so
+  # the conductor never races an unowned process into the same bundle.
+  EXISTING_APP_PIDS=$(app_pids)
+  [ -z "$EXISTING_APP_PIDS" ] || {
+    echo "✗ Anselm App appeared during build (PID $EXISTING_APP_PIDS); refusing an ambiguous rig" >&2
     exit 1
   }
   startup_event app_launch_requested
@@ -188,6 +206,12 @@ start_app_and_record() {
   [ "$APP_PID" = "$APP_LAUNCH_PID" ] || {
     echo "✗ launched App PID is not the exact Anselm process" >&2
     tail -80 "$SESSION/frontend.log" >&2
+    exit 1
+  }
+  UNATTRIBUTED_APP_PIDS=$(app_pids | awk -v expected="$APP_LAUNCH_PID" '$1 != expected {print $1}')
+  [ -z "$UNATTRIBUTED_APP_PIDS" ] || {
+    echo "✗ another Anselm App appeared beside conductor PID $APP_LAUNCH_PID: $UNATTRIBUTED_APP_PIDS" >&2
+    echo "  The rig will not record or adopt an ambiguous window." >&2
     exit 1
   }
   startup_event app_binary_resident
@@ -318,6 +342,10 @@ if [ "$APP_PROXY" = "1" ]; then
     echo "✗ RIG_APP_PROXY_FAIL_COUNT must be a non-negative integer, got '$APP_PROXY_FAIL_COUNT'" >&2
     exit 2
   fi
+  if ! [[ "$APP_PROXY_DROP_AFTER_MS" =~ ^[0-9]+$ ]] || ! [[ "$APP_PROXY_DROP_COUNT" =~ ^[0-9]+$ ]] || ! [[ "$APP_PROXY_FAIL_AFTER_DROP_COUNT" =~ ^[0-9]+$ ]] || ! [[ "$APP_PROXY_FAIL_AFTER_DROP_DELAY_MS" =~ ^[0-9]+$ ]]; then
+    echo "✗ App proxy drop/fail-after-drop values must be non-negative integers" >&2
+    exit 2
+  fi
   if ! [[ "$APP_PROXY_FAIL_STATUS" =~ ^[45][0-9][0-9]$ ]]; then
     echo "✗ RIG_APP_PROXY_FAIL_STATUS must be an HTTP status in 400..599, got '$APP_PROXY_FAIL_STATUS'" >&2
     exit 2
@@ -432,7 +460,10 @@ if [ "$APP_PROXY" = "1" ]; then
   APP_PROXY_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/appproxy.log" -- \
     "$RIG_HOME/bin/appproxy" -listen "127.0.0.1:$APP_PROXY_PORT" -upstream "http://127.0.0.1:$PORT" \
     -delay-path "$APP_PROXY_PATH" -delay-ms "$APP_PROXY_DELAY_MS" \
-    -fail-count "$APP_PROXY_FAIL_COUNT" -fail-status "$APP_PROXY_FAIL_STATUS" -out "$APP_PROXY_JOURNAL")
+    -fail-count "$APP_PROXY_FAIL_COUNT" -fail-status "$APP_PROXY_FAIL_STATUS" \
+    -drop-after-ms "$APP_PROXY_DROP_AFTER_MS" -drop-count "$APP_PROXY_DROP_COUNT" \
+    -fail-after-drop-count "$APP_PROXY_FAIL_AFTER_DROP_COUNT" \
+    -fail-after-drop-delay-ms "$APP_PROXY_FAIL_AFTER_DROP_DELAY_MS" -out "$APP_PROXY_JOURNAL")
   for _ in $(seq 1 40); do
     [ "$(lsof -ti ":$APP_PROXY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$APP_PROXY_PID" ] && break
     sleep 0.25
@@ -442,7 +473,7 @@ if [ "$APP_PROXY" = "1" ]; then
   }
   APP_BACKEND_URL="http://127.0.0.1:$APP_PROXY_PORT"
   startup_event app_proxy_started
-  echo "✓ App API perturbation proxy up (PID $APP_PROXY_PID, $APP_PROXY_PATH +${APP_PROXY_DELAY_MS}ms, failures=$APP_PROXY_FAIL_COUNT/$APP_PROXY_FAIL_STATUS)"
+  echo "✓ App API perturbation proxy up (PID $APP_PROXY_PID, $APP_PROXY_PATH +${APP_PROXY_DELAY_MS}ms, failures=$APP_PROXY_FAIL_COUNT/$APP_PROXY_FAIL_STATUS, drops=$APP_PROXY_DROP_COUNT/${APP_PROXY_DROP_AFTER_MS}ms, post-drop failures=$APP_PROXY_FAIL_AFTER_DROP_COUNT/${APP_PROXY_FAIL_AFTER_DROP_DELAY_MS}ms)"
 fi
 
 check_channel5_wiring() {

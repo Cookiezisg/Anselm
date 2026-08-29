@@ -37,6 +37,14 @@ func Handler(upstream *url.URL, onRequest func(r *http.Request, body []byte), on
 // HandlerWithResponseBody 是 Handler 外加响应体见证。响应体只做包装、不提前读完，故下游流式与
 // Flush 语义不变；客户端读到 EOF 或提前关闭时回调恰执行一次。
 func HandlerWithResponseBody(upstream *url.URL, onRequest func(r *http.Request, body []byte), onResponse func(resp *http.Response), onResponseBody func(resp *http.Response, body []byte)) http.Handler {
+	return HandlerWithResponseBodyPolicy(upstream, onRequest, onResponse, onResponseBody, nil)
+}
+
+// HandlerWithResponseBodyPolicy additionally allows a caller to decorate an upstream body
+// before ReverseProxy starts copying it. This is intentionally narrow test-rig plumbing: a
+// policy may close a live stream to exercise client reconnect and replay-gap behavior without
+// buffering or rewriting the response.
+func HandlerWithResponseBodyPolicy(upstream *url.URL, onRequest func(r *http.Request, body []byte), onResponse func(resp *http.Response), onResponseBody func(resp *http.Response, body []byte), decorate func(resp *http.Response, body io.ReadCloser) io.ReadCloser) http.Handler {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.URL.Scheme = upstream.Scheme
@@ -55,6 +63,9 @@ func HandlerWithResponseBody(upstream *url.URL, onRequest func(r *http.Request, 
 			// 101 的 body 是升级后的双工活流,不是有限 HTTP 响应体。把它包成只读 witness 会让
 			// ReverseProxy 以「non-writable body」拒绝升级。WebSocket 字节由协议测试本身见证;
 			// 普通响应仍走有界 body witness。
+			if decorate != nil && resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
+				resp.Body = decorate(resp, resp.Body)
+			}
 			if onResponseBody != nil && resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
 				resp.Body = &responseBodyWitness{
 					ReadCloser: resp.Body,
@@ -63,9 +74,12 @@ func HandlerWithResponseBody(upstream *url.URL, onRequest func(r *http.Request, 
 			}
 			return nil
 		}
-	} else if onResponseBody != nil {
+	} else if onResponseBody != nil || decorate != nil {
 		proxy.ModifyResponse = func(resp *http.Response) error {
-			if resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
+			if decorate != nil && resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
+				resp.Body = decorate(resp, resp.Body)
+			}
+			if onResponseBody != nil && resp.StatusCode != http.StatusSwitchingProtocols && resp.Body != nil {
 				resp.Body = &responseBodyWitness{
 					ReadCloser: resp.Body,
 					complete:   func(body []byte) { onResponseBody(resp, body) },

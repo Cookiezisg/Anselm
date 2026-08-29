@@ -340,7 +340,7 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	} else if !ok {
 		status = messagesdomain.StatusError
 	}
-	recordTouches(ctx, t, tc, output, ok && executed)
+	recordTouches(ctx, t, tc, output, shouldRecordToolTouch(output, errMsg, ok, executed))
 
 	em.close(ctx, blockID, status,
 		&streamdomain.Node{Type: messagesdomain.BlockTypeToolResult, Content: streamdomain.JSONContent(toolResultContent{Content: output})},
@@ -830,6 +830,17 @@ func executeTool(ctx context.Context, t toolapp.Tool, name string, argsJSON []by
 			return capToolResultWithTail(output, "\n\n"+msg), msg, false
 		}
 		return capToolResult(msg), msg, false
+	}
+	// Some tools complete their transport call successfully but return a structured business
+	// failure (for example run_function: {ok:false,errorMsg:...}). Treat that envelope as a real
+	// tool failure so the durable block, circuit breaker, and retry policy agree with the execution
+	// audit. Keep the complete receipt as output; it is useful to both the model and the UI.
+	// 某些工具 transport 调用成功，但以结构化回执报告业务失败（如 run_function 的
+	// {ok:false,errorMsg:...}）。这里把它还原成真实工具失败，使耐久块、熔断器、重试策略与执行
+	// 台账一致；完整回执仍保留给模型和 UI。
+	if businessErr := toolapp.BusinessResultError(output); businessErr != "" {
+		msg := capToolResult(output)
+		return msg, businessErr, false
 	}
 	return capToolResult(output), "", true
 }

@@ -40,6 +40,52 @@ SEQUENCE = ROOT / "ledger-sequence.json"
 
 SYM = {"pass": "✓", "fail": "✗", "na": "~"}
 
+# A tilde is settled only when its note proves that the level does not apply. Notes that merely
+# confess missing App/session/visual evidence are provisional work, not a waiver.
+PROVISIONAL_NA_MARKERS = (
+    "未启动真实",
+    "没有真实 app",
+    "no real app",
+    "no real five-channel",
+    "未完成独立",
+    "未判顺滑",
+    "未建立独立",
+    "未做该场景",
+    "未完成从零",
+    "没有本次注入",
+    "没有真实 app 录屏",
+    "未完成独立视觉",
+    "未完成独立可发现性",
+    "未完成独立美学",
+    "未冒充完整顺滑",
+)
+
+
+def na_note_for_level(evidence: str, level: int) -> str:
+    """Extract the latest level-specific NA note without treating prose semicolons as boundaries.
+
+    Revalidation appends a new pointer to preserve the audit trail. The latest pointer is the
+    authoritative state; reading the first one would make a provisional NA permanently reopen the
+    frontier even after a valid applicability decision.
+    """
+    matches = list(re.finditer(rf"(?:^|; )L{level}:na→note:(.*?)(?=; L\d+:|$)", evidence, re.IGNORECASE))
+    return matches[-1].group(1).strip() if matches else ""
+
+
+def is_provisional_na(evidence: str, level: int) -> bool:
+    """Return whether a recorded tilde is an admission that verification is missing."""
+    note = (
+        evidence.removeprefix("note:")
+        if evidence.startswith("note:")
+        else na_note_for_level(evidence, level)
+    ).lower()
+    return bool(note) and any(marker in note for marker in PROVISIONAL_NA_MARKERS)
+
+
+def cell_is_settled(verdict: str, evidence: str, level: int) -> bool:
+    """Only a pass or explicitly inapplicable NA counts as settled."""
+    return verdict == "✓" or (verdict == "~" and not is_provisional_na(evidence, level))
+
 
 def fail(msg: str):
     print(f"judge: REFUSED — {msg}", file=sys.stderr)
@@ -103,6 +149,18 @@ def sequence_policy():
             or payload.get("mode") != "first_unsettled"
         ):
             raise ValueError("unsupported policy version")
+        manual_queue = payload.get("manual_queue", [])
+        if not isinstance(manual_queue, list):
+            raise ValueError("manual_queue must be a list")
+        for entry in manual_queue:
+            if (
+                not isinstance(entry, dict)
+                or not isinstance(entry.get("family"), str)
+                or not isinstance(entry.get("item"), str)
+                or not isinstance(entry.get("reason"), str)
+                or not entry["reason"].strip()
+            ):
+                raise ValueError("manual_queue entries require family, item and reason")
         return payload
     except (OSError, ValueError, KeyError, TypeError) as exc:
         fail(f"ledger sequence policy is missing or unreadable: {SEQUENCE} ({exc})")
@@ -110,10 +168,14 @@ def sequence_policy():
 
 def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
     """Refuse new work beyond the frontier, while allowing explicit prior-row revalidation."""
-    sequence_policy()
+    policy = sequence_policy()
+    manual_items = {
+        (entry["family"], entry["item"])
+        for entry in policy.get("manual_queue", [])
+    }
     rows = []
     row_pattern = re.compile(
-        r"^\| (TOOL|EP|SURF|EDGE)-(\d+) \| (.+?) \| .* \| ([·✓✗~]{5}) \| .* \|$"
+        r"^\| (TOOL|EP|SURF|EDGE)-(\d+) \| (.+?) \| .* \| ([·✓✗~]{5}) \| (.*?) \|$"
     )
     id_pattern = re.compile(r"^\| ([A-Z]+)-(\d+) \|")
     seen_ids = set()
@@ -125,41 +187,68 @@ def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
         match = row_pattern.match(line)
         if not match:
             fail(f"ledger row is malformed: {line}")
-        row_family, row_number, row_item, verdict = match.groups()
+        row_family, row_number, row_item, verdict, evidence = match.groups()
         row_id = (row_family, row_number)
         item_key = (row_family, row_item)
         if row_id in seen_ids or item_key in seen_items:
             fail(f"duplicate ledger row: {row_family}|{row_item}")
         seen_ids.add(row_id)
         seen_items.add(item_key)
-        rows.append((row_family, row_item, verdict))
+        rows.append((row_family, row_item, verdict, evidence))
     if not rows:
         return "formal sequence gate: COVERAGE has no parseable ledger rows"
 
+    unsettled = [
+        (index, row_family, row_item, verdict)
+        for index, (row_family, row_item, verdict, evidence) in enumerate(rows)
+        if any(
+            not cell_is_settled(cell, evidence, level)
+            for level, cell in enumerate(verdict, 1)
+        )
+    ]
     frontier_index = next(
-        (index for index, (_, _, verdict) in enumerate(rows) if any(cell not in "✓~" for cell in verdict)),
+        (
+            index
+            for index, row_family, row_item, _ in unsettled
+            if (row_family, row_item) not in manual_items
+        ),
         None,
     )
+    if frontier_index is None and unsettled:
+        # Manual cells are a last-mile queue, not a waiver. Once autonomous work is exhausted,
+        # the earliest manual item becomes the only writable frontier again.
+        frontier_index = unsettled[0][0]
     if frontier_index is None:
         return ""
     target_index = next(
-        (index for index, (row_family, row_item, _) in enumerate(rows) if row_family == family and row_item == item),
+        (index for index, (row_family, row_item, _, _) in enumerate(rows) if row_family == family and row_item == item),
         None,
     )
     if target_index is None:
         return f"formal sequence gate: target row not found: {family}|{item}"
+    frontier_family, frontier_item, frontier_verdict, _ = rows[frontier_index]
     if revalidate:
         if target_index >= frontier_index:
             return (
                 "formal sequence gate: --revalidate is only for a settled prior row; "
                 f"target is at/current beyond frontier {frontier_family}|{frontier_item}"
             )
-        if any(cell not in "✓~" for cell in rows[target_index][2]):
+        target_verdict, target_evidence = rows[target_index][2:]
+        if not all(
+            cell_is_settled(cell, target_evidence, level)
+            for level, cell in enumerate(target_verdict, 1)
+        ):
             return "formal sequence gate: --revalidate requires the target row to be settled (✓/~)"
         return ""
     if target_index == frontier_index:
         return ""
-    frontier_family, frontier_item, frontier_verdict = rows[frontier_index]
+    if (family, item) in manual_items:
+        reason = next(
+            entry["reason"]
+            for entry in policy.get("manual_queue", [])
+            if entry["family"] == family and entry["item"] == item
+        )
+        return f"manual queue: {family}|{item} is deferred until autonomous cells are exhausted ({reason})"
     return (
         f"formal sequence gate: {family}|{item} is beyond current frontier "
         f"{frontier_family}|{frontier_item} (current={frontier_verdict})"
@@ -412,6 +501,11 @@ def main():
     else:  # na requires a written justification — 不适用必须说出为何
         if not args.evidence.startswith("note:") or len(args.evidence) <= len("note:"):
             fail("na requires --evidence 'note:<why this level does not apply>'")
+        if is_provisional_na(args.evidence, args.level):
+            fail(
+                "na is not a waiver: this note says verification is missing; "
+                "run the required App/session evidence and judge pass or fail"
+            )
 
     with ledger_lock():
         if problem := ledger_continuity_problem():

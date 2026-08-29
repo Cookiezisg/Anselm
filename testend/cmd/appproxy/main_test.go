@@ -28,7 +28,7 @@ func TestNewHandlerFailsTargetedRequestsThenForwards(t *testing.T) {
 
 	var journalMu sync.Mutex
 	var records []journalRecord
-	h := newHandler(u, "/api/v1/conversations", 0, 2, http.StatusServiceUnavailable, func(r journalRecord) {
+	h := newHandler(u, "/api/v1/conversations", 0, 2, http.StatusServiceUnavailable, 0, 0, 0, 0, func(r journalRecord) {
 		journalMu.Lock()
 		defer journalMu.Unlock()
 		records = append(records, r)

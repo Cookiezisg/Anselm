@@ -4,6 +4,8 @@
 
 - `testend/harness/scratch.go` 的 stale-run 清扫按 `$TMPDIR/anselm-testend/<pid>/` pid 活性识别死亡轮次，先按进程存活状态收割，再删除 scratch 目录。
 - 完整 testend 通过，收台后的进程审计为零；当前轮不会把前一轮未收尸误算成下一轮的正常缓存。
+- 2026-08-27 补充 `testend/harness/scratch_test.go`：`TestReapStaleScratchUsesPIDLiveness` 通过，确认死亡
+  PID 的目录会回收，非数字目录和当前仍存活 PID 的目录不会被误删。
 
 ## 判定
 

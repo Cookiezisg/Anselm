@@ -122,11 +122,17 @@ def check():
 
 def ack(aid, note):
     alarms = load_alarms()
+    rows = [row for row in load_journal() if row.get("source") != "coverage-baseline"]
+    through = rows[-1].get("ts", f"row:{len(rows)}") if rows else "empty"
     hit = False
     for a in alarms:
         if a["id"] == aid and not a.get("acked"):
             a["acked"] = datetime.datetime.now(datetime.timezone.utc).isoformat()
             a["resolution"] = note
+            # Ack resolves the evidence observed by this audit. Without moving the watermark,
+            # the next check mistakes the just-acknowledged journal tail for new evidence.
+            # 销账绑定本次复核看到的最新 journal 水位；否则下一次 check 会把同一轮误判为新证据。
+            a["evidenceThrough"] = through
             hit = True
     if not hit:
         print(f"alarms: no open alarm {aid!r}", file=sys.stderr)

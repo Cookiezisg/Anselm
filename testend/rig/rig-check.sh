@@ -187,6 +187,10 @@ PY
   if [ -n "$APP_LAUNCH_PID" ]; then
     if alive_as "$APP_LAUNCH_PID" '/anselm\.app/Contents/MacOS/anselm($| )' && [ "$APP_LAUNCH_PID" = "$APID" ]; then
       note "✓ channel 4 direct macOS App launch attributed (PID $APP_LAUNCH_PID)"
+      UNATTRIBUTED_APP_PIDS=$(ps -axo pid=,command= | awk -v expected="$APP_LAUNCH_PID" '$0 ~ /\/anselm\.app\/Contents\/MacOS\/anselm([ ]|$)/ && $1 != expected {print $1}')
+      if [ -n "$UNATTRIBUTED_APP_PIDS" ]; then
+        bad "✗ channel 4 ambiguous: unowned Anselm App PID(s) beside manifest PID $APP_LAUNCH_PID: $UNATTRIBUTED_APP_PIDS"
+      fi
     else
       bad "✗ channel 4 direct App dead, reused, or launch PID differs from manifest App PID"
     fi
@@ -203,11 +207,15 @@ PY
     fi
   fi
   if alive_as "$APID" '/anselm\.app/Contents/MacOS/anselm($| )'; then
-    WINDOW_PID=$(swift -e 'import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let number = w[kCGWindowNumber as String] as? Int ?? -1; if number == target { print(w[kCGWindowOwnerPID as String] ?? ""); exit(0) } }' "$AWID" 2>/dev/null | tr -d '[:space:]')
-    if [ "$WINDOW_PID" = "$APID" ]; then
-      note "✓ channel 4 Flutter app alive and window-owned (PID $APID)"
+    if [ -n "$AWID" ]; then
+      WINDOW_PID=$(swift -e 'import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let number = w[kCGWindowNumber as String] as? Int ?? -1; if number == target { print(w[kCGWindowOwnerPID as String] ?? ""); exit(0) } }' "$AWID" 2>/dev/null | tr -d '[:space:]')
+      if [ "$WINDOW_PID" = "$APID" ]; then
+        note "✓ channel 4 Flutter app alive and window-owned (PID $APID)"
+      else
+        bad "✗ channel 4 window owner mismatch (window PID [$WINDOW_PID], manifest App PID [$APID])"
+      fi
     else
-      bad "✗ channel 4 window owner mismatch (window PID [$WINDOW_PID], manifest App PID [$APID])"
+      bad "✗ channel 4 window ID missing — recording-disabled diagnostic cannot satisfy full acceptance"
     fi
   else
     bad "✗ channel 4 Flutter app dead or PID reused (manifest PID $APID)"

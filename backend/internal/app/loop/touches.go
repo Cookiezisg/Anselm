@@ -32,6 +32,23 @@ type entityTool interface {
 	TouchEntity() (kind, id, name string)
 }
 
+// shouldRecordToolTouch separates execution fact from tool-level success. A structured business
+// failure is still a real execution and must leave a touch; gate refusal, validation failure, and
+// executor errors are not executions and must not create phantom ledger rows.
+//
+// shouldRecordToolTouch 将「确实执行」与「工具层成功」分开。结构化业务失败仍是真执行，必须留下触碰；
+// 人闸拒绝、参数校验失败和执行器错误都没有执行，不得制造幽灵台账行。
+func shouldRecordToolTouch(output, errMsg string, ok, executed bool) bool {
+	if !executed {
+		return false
+	}
+	if ok {
+		return true
+	}
+	businessErr := toolapp.BusinessResultError(output)
+	return businessErr != "" && businessErr == errMsg
+}
+
 // recordTouches books an EXECUTED, successful tool call's touch targets into the conversation
 // ledger. "Failed" here means TOOL-LEVEL failure (ok&&executed is false: denied/cancelled-before-run
 // by the danger gate, or the tool returned a Go error — bad ref, malformed args) — those never record

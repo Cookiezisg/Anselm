@@ -82,6 +82,29 @@ func TestRecordTouches_SilentSkips(t *testing.T) {
 	}
 }
 
+func TestShouldRecordToolTouchSeparatesExecutionFromFailure(t *testing.T) {
+	tests := []struct {
+		name     string
+		output   string
+		errMsg   string
+		ok       bool
+		executed bool
+		want     bool
+	}{
+		{name: "success", ok: true, executed: true, want: true},
+		{name: "business failure after execution", output: `{"ok":false,"errorMsg":"scripted failure"}`, errMsg: "scripted failure", executed: true, want: true},
+		{name: "executor error", output: "executor failed", errMsg: "executor failed", executed: true, want: false},
+		{name: "gate refusal", output: "The tool call was denied.", ok: true, executed: false, want: false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := shouldRecordToolTouch(tt.output, tt.errMsg, tt.ok, tt.executed); got != tt.want {
+				t.Fatalf("shouldRecordToolTouch() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 // --- entity-name stamping (B3/B4: the tool_call block carries its target's NAME, not just an id) ---
 
 type fakeNamer map[string]string

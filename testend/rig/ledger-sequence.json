@@ -1,4 +1,46 @@
 {
   "version": 1,
-  "mode": "first_unsettled"
+  "mode": "first_unsettled",
+  "manual_queue": [
+    {
+      "family": "EDGE",
+      "item": "回合收尾期单槽缓冲",
+      "reason": "后端与前端 queue 回归均通过，但连续两次真实台架启动都被 SecurityAgent/CoreServicesUIAgent 覆盖录屏区域；需用户最后清理系统授权遮挡后重录 L2/L3，不能用遮挡 session 放行。"
+    },
+    {
+      "family": "EDGE",
+      "item": "生成中再 Send",
+      "reason": "本轮真实 409 与 App 反馈已观察到，但正式 rig-check 发现 SecurityAgent/CoreServicesUIAgent 覆盖 Anselm 录屏区域；需用户最后清理系统授权遮挡后重录 L2/L3，不能用遮挡 session 放行。"
+    },
+    {
+      "family": "EDGE",
+      "item": "关页不留 streaming 孤儿",
+      "reason": "后端普通/race 与前端流状态回归通过，但 L2/L3 必须在真实 App 中停止或关闭在途回合并用五通道核验终态；该类真实录屏仍受 SecurityAgent/CoreServicesUIAgent 系统遮挡，统一留到人工队列末端，不能用内部测试冒充现场证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": ":retry 重生成分支",
+      "reason": "后端普通/race 回归通过，但重生成会改变用户可见的版本链与对话画面；L2/L3 需真实 App、SSE、backend journal、LLM wire 和 frontend console。录屏区域仍有系统遮挡，统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": ":retry 编辑重发分支",
+      "reason": "后端普通/race 回归通过，但编辑重发涉及用户可见的消息替换、附件保留与版本画面；L2/L3 需真实 App 五通道证据。录屏区域仍有系统遮挡，统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "归档对话发消息自动解档",
+      "reason": "后端普通/race 回归通过，但 archived → active 的发送结果是用户可见对话状态；L2/L3 需真实 App 五通道证据。录屏区域仍有系统遮挡，统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "删最后一个 workspace",
+      "reason": "这是用户可见的 workspace 删除保护动作；旧清册的 L2-L5 仍是‘未启动真实 App’临时记录，不能当作适用性结论。真实 App 五通道验证统一留到人工阶段，不能绕过顺序门。"
+    },
+    {
+      "family": "EDGE",
+      "item": "快捷键录制后吞键",
+      "reason": "需要用户在 macOS 上物理按下录制后的全局组合键；Computer Use 当前不能可靠注入该组合键。"
+    }
+  ]
 }
