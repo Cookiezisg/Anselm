@@ -302,6 +302,53 @@ func TestChatWorkDirGit_ReusesExistingBranch(t *testing.T) {
 	}
 }
 
+// TestChatWorkDirGit_NotARepoWriteActions: every write action gives the same actionable answer when the
+// residency is absent, gone, or merely a plain directory. The read projection may distinguish these states;
+// the user's next step for all three is still to mount a Git repository.
+//
+// TestChatWorkDirGit_NotARepoWriteActions：驻地未挂、已消失或只是普通目录时，所有写动作都给同一个可行动答案。读投影
+// 可以区分三态，但用户下一步在三种情况下都一样：挂载一个 Git 仓库。
+func TestChatWorkDirGit_NotARepoWriteActions(t *testing.T) {
+	t.Parallel()
+	wc, _ := chatSetup(t, false)
+	plain := t.TempDir()
+	vanished := filepath.Join(t.TempDir(), "vanished")
+	if err := os.MkdirAll(vanished, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.RemoveAll(vanished); err != nil {
+		t.Fatal(err)
+	}
+
+	cases := []struct {
+		name string
+		dir  string
+	}{
+		{name: "unmounted"},
+		{name: "plain directory", dir: plain},
+		{name: "gone directory", dir: vanished},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			convID := convCreate(t, wc, tc.name)
+			if tc.dir != "" {
+				wdMount(t, wc, convID, tc.dir)
+			}
+			for _, action := range []struct {
+				path string
+				body map[string]any
+			}{
+				{path: "workdir:switch-branch", body: map[string]any{"branch": "main"}},
+				{path: "workdir:create-branch", body: map[string]any{"branch": "new"}},
+				{path: "workdir:add-worktree", body: map[string]any{"name": "new"}},
+			} {
+				wc.POST("/api/v1/conversations/"+convID+"/"+action.path, action.body).
+					Fail(t, 422, "CONVERSATION_WORK_DIR_NOT_GIT_REPO")
+			}
+		})
+	}
+}
+
 // wdGitInfoRow is the projection as WD2/WD3 extend it — the WD1 shape plus the two bounded lists.
 //
 // wdGitInfoRow 是被 WD2/WD3 扩写后的投影——WD1 那个形状 + 两个有界列表。

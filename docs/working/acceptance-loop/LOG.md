@@ -30,6 +30,7 @@ landed-into:
 - `EDGE-261|worktree 目录已存在` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGit_WorktreeOneShot` 回归通过；已有目录返回 `CONVERSATION_WORKTREE_EXISTS`，`details.path` 指向冲突目录，驻地不移动且不重复写 marker。真实 App 冲突反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-261-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-262|worktree 分支已存在`。
 - `EDGE-262|worktree 分支已存在` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGit_ReusesExistingBranch` 回归通过；已有 `wt/<name>` 分支被复用，按主仓库兄弟规则创建 worktree 并切换对话驻地。真实 App 恢复反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-262-ledger-alarm-reaudit-20260830.md`；下一自动前线由顺序门重新计算。
 - `EDGE-263|worktree 建成后切驻地失败` 的故障注入、conversation service 普通/race 与真实黑盒 worktree 回归通过；最后一步持久化失败时，已创建 worktree 保留、对话仍在旧驻地且不返回成功投影。真实 App 错误反馈、恢复指引、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-263-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-264|「这里没有 git」四情形`。
+- `EDGE-264|「这里没有 git」四情形` 的 conversation service 普通/race 与新增黑盒 `TestChatWorkDirGit_NotARepoWriteActions` 普通/race 回归通过；未挂、已消失、普通目录三态下三个写动作统一返回 `CONVERSATION_WORK_DIR_NOT_GIT_REPO`。无 Git 可执行文件变体未在当前机器伪造验证；真实 App 错误反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-264-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-265|切驻地落 marker 块`。
 - 另修复告警 gate 的 watermark：`alarms.py ack` 现在推进 `evidenceThrough`，同一批已复核 journal 不会在下次 `check` 中重复开警报；对应回归通过，最终 `alarms.py check` clean，anchors=`10/10`，coverage=`848/848`。
 - `make verify`、完整 testend、台架单测和文档校验均通过；当前剩余未收口项仍是需要真实 App/系统物理交互的人工队列，不因自动化通过而提前结算。
 

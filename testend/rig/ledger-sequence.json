@@ -81,6 +81,11 @@
       "family": "EDGE",
       "item": "worktree 建成后切驻地失败",
       "reason": "新增故障注入单测确认最后一步持久化失败时 worktree 仍保留、对话仍在旧驻地且不返回成功投影；但半成功状态的真实 App 错误反馈、恢复指引、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "「这里没有 git」四情形",
+      "reason": "conversation service 普通/race 与新增黑盒 HTTP 场景已确认未挂、已消失、普通目录的三个写动作统一返回 CONVERSATION_WORK_DIR_NOT_GIT_REPO；没有 git 可执行文件属于未在当前机器复现的环境变体，不冒充已验证。真实 App 的错误反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
