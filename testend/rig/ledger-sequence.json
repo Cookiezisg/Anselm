@@ -131,6 +131,11 @@
       "family": "EDGE",
       "item": "立碑线程读消息",
       "reason": "conversation service 与真实黑盒删除场景已确认软删线程的消息读取返回 CONVERSATION_NOT_FOUND，而 messages/message_blocks 物理记录保留；但真实 App 深链的墓碑呈现、用户反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "文档超 1MB",
+      "reason": "document service 与真实黑盒文档守卫场景已确认超过 1MB 的正文返回 DOCUMENT_CONTENT_TOO_LARGE/413 且不自动拆分；但真实 App 编辑器的超限反馈、文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
