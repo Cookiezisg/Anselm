@@ -51,6 +51,11 @@
       "family": "EDGE",
       "item": "驻地目录被移走",
       "reason": "后端 workdir 投影与 Bash 拒绝回归已通过，但原路径保留、exists=false 警示和 Terminal 不回落后端目录的用户体验需要真实 App 五通道观察；按用户授权统一后置人工交互，不用内部测试冒充现场证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "脏区切分支被拒",
+      "reason": "conversation service 与黑盒 HTTP 回归已通过，但拒绝文案、文件不变的用户反馈、真实 App 视觉和发现性仍需现场观察；按用户授权统一后置人工交互，不用接口测试冒充完整产品证据。"
     }
   ]
 }
