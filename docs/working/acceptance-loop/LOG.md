@@ -15,7 +15,7 @@ landed-into:
 - 正式 session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151503`；真实 App 危险删除卡明确显示目标，点击 `Deny` 后人话收尾，Agent 仍存在；关键帧=`evidence/EDGE-294-denied-delete.jpeg`。
 - SSE 只有 interaction/resolved/denied tool_result，REST Agent=`200`、touchpoints=`[]`、notifications 无 delete 行，SQLite 完整性通过；`rig-check`/`rig-down` 通过，录屏=`105.826667s`，五通道归属成立。
 - 正式证据=`testend/rig/formal-evidence/EDGE-294-touchpoint-deny-no-delete-real-app-20260829.md`；anchors=`10/10` 后 `judge.py` 写入 `L2 ✓ (F1)`，清册=`✓✓~~~`，L3-L5=`na`；警报复审=`testend/rig/formal-evidence/EDGE-294-ledger-alarm-reaudit-20260829.md`，最终 `alarms.py check`=`clean (2011 live judgments; 2300 baseline excluded)`。
-- 批次八十三由 `49→50/50` 后完成统一门禁、完整回归、警报复核、工作树审计与提交准备；收口证据=`testend/rig/formal-evidence/batch-83-unified-gate-20260829.md`，下一批从 `0/50` 开始。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+- 批次八十三由 `49→50/50` 后完成统一门禁、完整回归、警报复核、工作树审计并已提交=`cccdf27a`；收口证据=`testend/rig/formal-evidence/batch-83-unified-gate-20260829.md`，下一批从 `0/50` 开始。P12 的 400+ Journey 扩写按用户裁定推迟二期。
 
 ## 上一收口（2026-08-29 · EDGE-298 未读徽标绝不据帧 +1 的真实 App L2 完成，批次 49/50）
 
