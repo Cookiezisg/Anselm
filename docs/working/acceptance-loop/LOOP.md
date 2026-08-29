@@ -16,12 +16,13 @@ landed-into:
 ## 调度变更（2026-08-30 · 人工交互后置）
 
 - 用户授权主循环先推进所有不需要其物理按键、系统授权或安全确认的验收；人工动作统一收尾，不再中途打断用户。
-- `testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变前线选择，不改变证据标准；队列中的格子仍未完成，等自主格耗尽后自动回收。当前后置队列为 `EDGE-031`、`EDGE-030`、`EDGE-033`、`EDGE-037`、`EDGE-038`、`EDGE-039`、`EDGE-251`、`EDGE-254`、`EDGE-256`、`EDGE-257`、`EDGE-258`、`EDGE-259`、`EDGE-261`、`EDGE-262`、`EDGE-263`、`EDGE-264`、`EDGE-265`、`EDGE-266`、`EDGE-267`、`EDGE-268`、`EDGE-269`、`EDGE-270`、`EDGE-272`、`EDGE-273` 与 `EDGE-329`；正式顺序门当前给出的下一自动前线由清册重算。
+- `testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变前线选择，不改变证据标准；队列中的格子仍未完成，等自主格耗尽后自动回收。当前后置队列为 `EDGE-031`、`EDGE-030`、`EDGE-033`、`EDGE-037`、`EDGE-038`、`EDGE-039`、`EDGE-251`、`EDGE-254`、`EDGE-256`、`EDGE-257`、`EDGE-258`、`EDGE-259`、`EDGE-261`、`EDGE-262`、`EDGE-263`、`EDGE-264`、`EDGE-265`、`EDGE-266`、`EDGE-267`、`EDGE-268`、`EDGE-269`、`EDGE-270`、`EDGE-272`、`EDGE-273`、`EDGE-274` 与 `EDGE-329`；正式顺序门当前给出的下一自动前线由清册重算。
 - `EDGE-270|空 workDir 批量动作` 的普通/race 服务回归和黑盒归档场景回归通过，空值明确返回 `400 INVALID_REQUEST`；真实 App 的阻断反馈、文案、视觉与发现性按用户授权后置，不以内部测试代替五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-270-ledger-alarm-reaudit-20260830.md`。
 - 当前批次保持 `23/50`，不因这次调度调整虚增进度；已有 `~` 仍是明确不适用裁决。
 - `EDGE-271|分组事务交叉核对` 的普通/race 回归通过，ABORT/IGNORE 两种半写形状都整批回滚；该事务 seam 没有独立用户状态、交互、视觉或发现入口，L2-L5 已用具体适用性理由收口 `na`。正式复核=`testend/rig/formal-evidence/EDGE-271-ledger-alarm-reaudit-20260830.md`，告警最终 clean；下一自动前线为 `EDGE-272|分组计数跨翻页不漂移`。
 - `EDGE-272|分组计数跨翻页不漂移` 的普通/race 服务回归与黑盒跨页回归通过；该 rail 行为的滚动反馈、视觉稳定性和发现性按用户授权后置，不以接口测试代替真实 App 五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-272-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-273|?workDir= 三态 presence`。
 - `EDGE-273|?workDir= 三态 presence` 的普通/race store 回归与黑盒筛选回归通过；该 rail 行为的筛选切换、空态反馈、视觉稳定性和发现性按用户授权后置，不以接口测试代替真实 App 五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-273-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-274|立碑线程读消息`。
+- `EDGE-274|立碑线程读消息` 的普通/race 服务回归与黑盒删除回归通过；软删后消息读取诚实返回 `404 CONVERSATION_NOT_FOUND`，物理日志保留，删除后的深链墓碑呈现与发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-274-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-275|文档超 1MB`。
 
 ## 当前前线（2026-08-29 · EDGE-327 workspace 热切换三拍 L3 完成 · 新批次 23/50）
 

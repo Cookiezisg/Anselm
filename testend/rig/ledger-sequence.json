@@ -126,6 +126,11 @@
       "family": "EDGE",
       "item": "`?workDir=` 三态 presence",
       "reason": "conversation store 与真实黑盒列表场景已确认缺席 workDir 不过滤、空值只取未挂载、具体值只取该驻地，且 pinned/非 pinned 分区不重复；但真实 App 中筛选切换、空态反馈、视觉稳定性和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "立碑线程读消息",
+      "reason": "conversation service 与真实黑盒删除场景已确认软删线程的消息读取返回 CONVERSATION_NOT_FOUND，而 messages/message_blocks 物理记录保留；但真实 App 深链的墓碑呈现、用户反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
