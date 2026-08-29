@@ -15,13 +15,14 @@ landed-into:
 
 ## 调度变更（2026-08-30 · 人工交互后置）
 
-- **最新精确快照（EDGE-283 调度后）**：人工队列 `35` 项；清册 `848` 行，剩余自主 `67` 行、`196` 格，下一自动前线为 `EDGE-284|skill 清单拒删`。前文旧队列行是调度前快照，以此条和顺序门为准。
+- **最新精确快照（EDGE-284 调度后）**：人工队列 `36` 项；清册 `848` 行，剩余自主 `66` 行、`192` 格，下一自动前线为 `EDGE-285|大小写不敏感 FS 上的 skill.md`。前文旧队列行是调度前快照，以此条和顺序门为准。
 - `EDGE-277|文档改名子树级联` 的 document service 与真实黑盒普通/race 回归均通过；根节点改名会重写全部后代 `path`，但真实 Library 的树刷新、路径反馈、视觉和发现性仍必须在人工阶段用五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-277-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-278|文档 Move 防环`。
 - `EDGE-279|对话挂载的文档被删` 已有真实 App 五通道 `L2:F1`，仅 L3-L5 未完成，按用户授权加入人工队列；不重复已完成的现场操作，不把旧临时 `na` 当作产品收口。正式复核=`testend/rig/formal-evidence/EDGE-279-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-280|agent 知识文档被删`。
 - `EDGE-280|agent 知识文档被删` 已有真实 App 五通道 `L2:F1`，新增 service/黑盒普通与 race 证明删除后 invoke fail-fast 且不产生 LLM 请求；L3-L5 仍后置，不重复现场操作。正式复核=`testend/rig/formal-evidence/EDGE-280-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-281|skill 安装炸弹护栏`。
 - `EDGE-281|skill 安装炸弹护栏` 的数量、symlink、越界、平台 junk 与安装主链普通/race 回归均通过；真实 App 的预览、阻断反馈、等待、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-281-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-282|skill 本地改动漂移`。
 - `EDGE-282|skill 本地改动漂移` 的更新冲突、force 恢复及 trust gate 普通/race 回归均通过；真实 App 的冲突提示、恢复选择、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-282-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-283|skill 路径穿越`。
 - `EDGE-283|skill 路径穿越` 的 filesystem/service、symlink/TOCTOU 与 skill 文件 HTTP 合同普通/race 回归均通过；真实 App 的阻断反馈、文案、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-283-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-284|skill 清单拒删`。
+- `EDGE-284|skill 清单拒删` 的 service 与 HTTP 合同普通/race 回归均通过；files API 不能删除 `SKILL.md`，真实 App 的阻断反馈、入口引导、视觉和发现性按用户授权后置。正式复核=`testend/rig/formal-evidence/EDGE-284-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-285|大小写不敏感 FS 上的 skill.md`。
 
 - 用户授权主循环先推进所有不需要其物理按键、系统授权或安全确认的验收；人工动作统一收尾，不再中途打断用户。
 - `testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变前线选择，不改变证据标准；队列中的格子仍未完成，等自主格耗尽后自动回收。当前后置队列为 `EDGE-031`、`EDGE-030`、`EDGE-033`、`EDGE-037`、`EDGE-038`、`EDGE-039`、`EDGE-251`、`EDGE-254`、`EDGE-256`、`EDGE-257`、`EDGE-258`、`EDGE-259`、`EDGE-261`、`EDGE-262`、`EDGE-263`、`EDGE-264`、`EDGE-265`、`EDGE-266`、`EDGE-267`、`EDGE-268`、`EDGE-269`、`EDGE-270`、`EDGE-272`、`EDGE-273`、`EDGE-274`、`EDGE-275`、`EDGE-276` 与 `EDGE-329`；正式顺序门当前给出的下一自动前线由清册重算。

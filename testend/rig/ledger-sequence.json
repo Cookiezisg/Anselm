@@ -176,6 +176,11 @@
       "family": "EDGE",
       "item": "skill 路径穿越",
       "reason": "skill filesystem 与 service 普通/race、skill 文件 HTTP 合同普通/race 已确认 filepath.IsLocal/Clean、os.Root 及 symlink 逃逸防护有效，清单删除也不绕过守卫；但真实 App 的文件操作阻断反馈、错误文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 清单拒删",
+      "reason": "skill service 的 TestDeleteFile_ManifestRefused 与 skill 文件 HTTP 合同普通/race 已确认 files API 删除 SKILL.md 返回 SKILL_FILE_PATH_INVALID 且不破坏 skill；但真实 App 的阻断反馈、入口引导、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
