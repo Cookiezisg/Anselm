@@ -116,6 +116,11 @@
       "family": "EDGE",
       "item": "空 workDir 批量动作",
       "reason": "conversation service 普通/race 与真实黑盒归档场景已确认空 workDir 返回 400 INVALID_REQUEST，不把未挂载对话误扫成一个组；但用户可见的阻断反馈、文案、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "分组计数跨翻页不漂移",
+      "reason": "conversation service 与真实黑盒跨页场景已确认每次翻页重问分组投影都返回相同计数，且页面合计与投影一致；但 rail 组头数字在真实 App 中的稳定感、滚动反馈、视觉层级和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
