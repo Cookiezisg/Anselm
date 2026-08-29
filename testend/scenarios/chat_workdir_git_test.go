@@ -267,6 +267,41 @@ func TestChatWorkDirGit_WorktreeOneShot(t *testing.T) {
 	}
 }
 
+// TestChatWorkDirGit_ReusesExistingBranch: the HTTP route must preserve the Makefile recovery path.
+// A branch left behind by `make worktree-rm` is reusable; the endpoint must not demand a fresh branch
+// or report a false conflict when its sibling target does not exist yet.
+//
+// TestChatWorkDirGit_ReusesExistingBranch:HTTP 入口必须保留 Makefile 的恢复路径。`make worktree-rm` 留下的分支可以
+// 复用；只要目标兄弟目录尚不存在，端点就不能强求新分支，也不能误报冲突。
+func TestChatWorkDirGit_ReusesExistingBranch(t *testing.T) {
+	t.Parallel()
+	wc, _ := chatSetup(t, false)
+	repo := wdGitRepo(t)
+	wdGit(t, repo, "branch", "wt/kept")
+	top := wdGit(t, repo, "rev-parse", "--show-toplevel")
+	want := filepath.Join(filepath.Dir(top), filepath.Base(top)+"-kept")
+
+	convID := convCreate(t, wc, "reuse a worktree branch")
+	wdMount(t, wc, convID, repo)
+	var info wdGitInfoRow
+	wc.POST("/api/v1/conversations/"+convID+"/workdir:add-worktree",
+		map[string]any{"name": "kept"}).OK(t, &info)
+	if info.Path != want || info.Branch != "wt/kept" {
+		t.Fatalf("existing branch must be reused at the derived sibling: path=%q branch=%q", info.Path, info.Branch)
+	}
+	if _, err := os.Stat(want); err != nil {
+		t.Fatalf("reusing the existing branch must create the worktree directory: %v", err)
+	}
+
+	var head struct {
+		WorkDir string `json:"workDir"`
+	}
+	wc.GET("/api/v1/conversations/"+convID).OK(t, &head)
+	if head.WorkDir != want {
+		t.Fatalf("conversation residency = %q, want reused worktree %q", head.WorkDir, want)
+	}
+}
+
 // wdGitInfoRow is the projection as WD2/WD3 extend it — the WD1 shape plus the two bounded lists.
 //
 // wdGitInfoRow 是被 WD2/WD3 扩写后的投影——WD1 那个形状 + 两个有界列表。

@@ -71,6 +71,11 @@
       "family": "EDGE",
       "item": "worktree 目录已存在",
       "reason": "conversation service 普通/race 与真实黑盒 worktree 场景已确认已有目录返回 409、details.path 指向冲突目录、驻地不移动且不重复写 marker；但冲突错误的真实 App 反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "worktree 分支已存在",
+      "reason": "conversation service 普通/race 与新增真实黑盒 HTTP 场景已确认已有 wt/<name> 分支会复用、按主仓库兄弟规则建目录并切换对话驻地；但恢复路径的真实 App 反馈、视觉和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
     }
   ]
 }
