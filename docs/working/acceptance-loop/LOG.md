@@ -27,6 +27,7 @@ landed-into:
 - `EDGE-257|脏区切分支被拒` 与 `EDGE-258|新建分支不受脏区门` 的 conversation service/HTTP 普通与 race 回归通过；两项的拒绝/放行文案、现场反馈、视觉和发现性仍需真实 App，整项进入人工后置队列，不作 `na` 降级。
 - `EDGE-259|切分支名拼错` 的 conversation service/HTTP 普通与 race 回归通过；404 错误反馈、分支状态不变、视觉和发现性仍需真实 App，整项进入人工后置队列，不作 `na` 降级。
 - `EDGE-260|前导 - 的合法 ref` 的 conversation service/HTTP 普通与 race 回归通过；该项是命令参数安全 seam，不拥有独立持久状态、交互反馈、视觉表面或用户入口，L2-L5 以具体适用性理由记为 `na`。独立告警复审=`testend/rig/formal-evidence/EDGE-260-ledger-alarm-reaudit-20260830.md`，anchors=`10/10`，最终 `alarms.py check`=`clean`；下一自动前线为 `EDGE-261|worktree 目录已存在`。
+- `EDGE-261|worktree 目录已存在` 的 conversation service 普通/race 与真实黑盒 `TestChatWorkDirGit_WorktreeOneShot` 回归通过；已有目录返回 `CONVERSATION_WORKTREE_EXISTS`，`details.path` 指向冲突目录，驻地不移动且不重复写 marker。真实 App 冲突反馈、视觉和发现性仍需五通道观察，整项进入人工后置队列，不作 `na` 降级。独立复核=`testend/rig/formal-evidence/EDGE-261-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-262|worktree 分支已存在`。
 - 另修复告警 gate 的 watermark：`alarms.py ack` 现在推进 `evidenceThrough`，同一批已复核 journal 不会在下次 `check` 中重复开警报；对应回归通过，最终 `alarms.py check` clean，anchors=`10/10`，coverage=`848/848`。
 - `make verify`、完整 testend、台架单测和文档校验均通过；当前剩余未收口项仍是需要真实 App/系统物理交互的人工队列，不因自动化通过而提前结算。
 
