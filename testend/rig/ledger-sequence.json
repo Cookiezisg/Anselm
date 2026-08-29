@@ -61,6 +61,11 @@
       "family": "EDGE",
       "item": "新建分支不受脏区门",
       "reason": "conversation service 与黑盒 HTTP 回归已通过，但脏区中创建分支的用户反馈、视觉和发现性仍需真实 App 现场观察；该刻意不对称行为不使用内部测试冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "切分支名拼错",
+      "reason": "conversation service 与黑盒 HTTP 回归已通过，但 404 错误反馈、分支状态不变、视觉和发现性仍需真实 App 现场观察；不使用接口测试冒充完整产品证据。"
     }
   ]
 }
