@@ -620,6 +620,25 @@ func TestSend_StreamInProgress(t *testing.T) {
 	if _, err := svc.Send(ctx, "cv_1", SendInput{Content: "more"}); !errors.Is(err, ErrStreamInProgress) {
 		t.Fatalf("Send while Stream is in flight = %v, want STREAM_IN_PROGRESS", err)
 	}
+	bridge.mu.Lock()
+	var assistantIDs []string
+	for _, event := range bridge.events {
+		open, ok := event.Frame.(streamdomain.Open)
+		if !ok || open.Node.Type != nodeTypeMessage {
+			continue
+		}
+		var content messageOpenContent
+		if err := json.Unmarshal(open.Node.Content, &content); err == nil && content.Role == messagesdomain.RoleAssistant {
+			assistantIDs = append(assistantIDs, event.ID)
+		}
+	}
+	bridge.mu.Unlock()
+	if len(assistantIDs) != 2 {
+		t.Fatalf("assistant opens = %v, want first turn plus rejected turn", assistantIDs)
+	}
+	if !bridge.frameFor(assistantIDs[1], streamdomain.Close{}) {
+		t.Fatal("rejected assistant turn must emit a terminal message_stop close")
+	}
 	close(gate) // release the blocked turn(s) so goroutines drain
 }
 

@@ -4,13 +4,13 @@
   "manual_queue": [
     {
       "family": "EDGE",
-      "item": "回合收尾期单槽缓冲",
-      "reason": "后端与前端 queue 回归均通过，但连续两次真实台架启动都被 SecurityAgent/CoreServicesUIAgent 覆盖录屏区域；需用户最后清理系统授权遮挡后重录 L2/L3，不能用遮挡 session 放行。"
+      "item": "视频轮询超时诚实话",
+      "reason": "generate_video 是明确标记为 dangerous 的最慢、最贵真实操作；L2 需要真实 App 触发、真实网关轮询超时和五通道/逐帧证据，当前用户已授权将强制安全确认统一后置。保留 L1 与未完成 L2-L5，不用本地 mock 或临时 na 冒充收口。"
     },
     {
       "family": "EDGE",
-      "item": "生成中再 Send",
-      "reason": "本轮真实 409 与 App 反馈已观察到，但正式 rig-check 发现 SecurityAgent/CoreServicesUIAgent 覆盖 Anselm 录屏区域；需用户最后清理系统授权遮挡后重录 L2/L3，不能用遮挡 session 放行。"
+      "item": "不可能的生成组合钳制",
+      "reason": "该路径必须在真实 generate_video 调用前验证供应商时长钳制，并会触发明确标记为 dangerous 的视频生成；当前用户已授权把强制安全确认统一后置。保留 L1 与未完成 L2-L5，不用本地 TLS/mock 结果冒充真实 App 产品证据。"
     },
     {
       "family": "EDGE",
@@ -206,6 +206,666 @@
       "family": "EDGE",
       "item": "@ 一个 fork skill",
       "reason": "skill service、前端 EntityMentionSource 与相关普通/race 回归已确认 inline skill 可进入 @ 候选、fork skill 不进入且 fork 不获得父回合预授权；但真实 App 中输入 @ 后的候选排序、排除反馈、视觉 craft、文案和发现性仍需五通道现场观察，按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "能力工具诚实缺席",
+      "reason": "真实 App 已观察到无图像能力时不展示 generate_image，但本次 session 被 SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，且 Computer Use 输入桥把中文请求压成异常字符；无法满足正式 L2/L3 的无遮挡与干净用户意图条件。保留 L1 和未完成 L2-L5，统一留到人工阶段，不用临时兼容上游冒充受管网关产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "受管档视频路由",
+      "reason": "该路径必须真实调用受管 generate_video 并提交/轮询视频任务，属于会花费额度的危险外部操作；按用户授权将安全确认与真实受管网关现场统一后置。保留 L1 和未完成 L2-L5，不用本地 TLS/mock 回归冒充真实产品收口。"
+    },
+    {
+      "family": "EDGE",
+      "item": "语音配额与限流分流",
+      "reason": "后端/传输层与前端错误码映射回归已通过，但完整产品路径需要语音输入与真实受管语音网关返回拒绝，涉及系统麦克风权限和现场五通道证据；按用户授权统一留到人工阶段。保留 L1 与未完成 L2-L5，不把本地分类测试冒充真实 App 收口。"
+    },
+    {
+      "family": "EDGE",
+      "item": "ASR sidecar 无受管凭证",
+      "reason": "真实 App 已观察到无受管凭证时 Composer 不展示语音输入入口，但本次 session 被 SecurityAgent/CoreServicesUIAgent 覆盖录屏区域；无法满足正式 L2 的无遮挡五通道条件。保留 L1 和未完成 L2-L5，统一留到人工阶段，不用这次非放行 session 冒充完整产品收口。"
+    },
+    {
+      "family": "EDGE",
+      "item": "多块 TTS PCM 拼接",
+      "reason": "PCM/WAV 与长文本切块的 backend/infra race 回归已通过，但完整行为直接决定真实 TTS 产物；当前没有无遮挡的真实 App/受管语音 session，不能用本地合成结果冒充产品证据。保留 L1 和未完成 L2-L5，统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "ParseWAV 遍历 chunk 表",
+      "reason": "WAV parser focused/race 回归已通过，但该解析路径需要绑定真实语音产物的五通道证据；当前真实 App 录屏仍被系统窗口覆盖，保留 L1 和未完成 L2-L5，统一留到人工阶段，不以 parser 单测冒充完整产品收口。"
+    },
+    {
+      "family": "EDGE",
+      "item": "断网启动",
+      "reason": "本项的产品定义动作是物理断网后冷启动并观察真实 App 的离线壳、免费档降级、模型目录与更新检查；本地启动、网关失败与缓存回归已通过，但不能用死端口替代整机断网语义。按用户授权将需要改变机器网络状态的动作放到人工尾队，保留 L1 与未完成 L2-L5。"
+    },
+    {
+      "family": "EDGE",
+      "item": "SSE 410 SEQ_TOO_OLD 重放",
+      "reason": "真实 App + SSE/LLM/backend 台架已启动且 D1 归属正确，但正式 rig-check 发现 macOS SecurityAgent/CoreServicesUIAgent 覆盖 Anselm 录屏区域；EDGE-056 的 L2 不能用遮挡 session 放行。L1 与 targeted HTTP/SSE 回归保留，无遮挡五通道复验统一留到人工尾队，不降低证据标准。"
+    },
+    {
+      "family": "EDGE",
+      "item": "每租户模板 URL",
+      "reason": "MCP OAuth 的 focused InstallFromRegistry/目录回归已通过，但产品路径包含真实 App 的 marketplace 入口、必填租户 URL 表单与浏览器授权；当前 macOS SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，无法取得无遮挡 Computer Use 与五通道证据。保留 L1、未完成 L2-L5，统一留到人工尾队，不以受控 OAuth server 冒充产品现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP degraded 态",
+      "reason": "MCP health/ephemeral status signal 与真实 HTTP lifecycle 的 focused/race/black-box 回归已通过，但剩余等级要求真实 App 的实体状态变色、设置面板提示与新用户发现性逐帧核验；当前 macOS SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，无法取得正式无遮挡五通道证据。保留 L1、未完成 L2-L5，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP 连接失败仍落盘",
+      "reason": "MCP reconnect 状态持久化、失败后 MCP_SERVER_DOWN 与真实 HTTP 错误链的 focused/race/black-box 回归已通过，但剩余等级要求真实 App 的失败卡片、重连入口和新用户理解原因的逐帧核验；当前 macOS SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，无法取得正式无遮挡五通道证据。保留 L1、未完成 L2-L5，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP 媒体逐件 best-effort",
+      "reason": "MCP 多媒体逐件上传、单件失败保留占位、成功件 receipt 以及 stdio 到 vision wire 的 focused/race/black-box 回归已通过，但剩余等级要求真实 App 的部分成功媒体呈现、失败提示和发现性逐帧核验；当前 macOS SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，无法取得正式无遮挡五通道证据。保留 L1、未完成 L2-L5，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "无 uploader 时的 MCP 媒体",
+      "reason": "MCP 无 uploader 时的占位降级与不伪造 attachment receipt 已由 focused 回归确认，但该结果会进入用户聊天叙事，剩余等级要求真实 App 的占位文案、视觉和可发现性逐帧核验；当前 macOS SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，无法取得正式无遮挡五通道证据。保留 L1、未完成 L2-L5，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP name-or-id 双键 purge",
+      "reason": "MCP 双键关系清理与真实 HTTP 关系邻域回归已通过，但剩余等级要求真实 App 的实体关系视图确认删除后的孤儿节点、反馈与发现性；当前 macOS SecurityAgent/CoreServicesUIAgent 覆盖录屏区域，无法取得正式无遮挡五通道证据。保留 L1、未完成 L2-L5，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP 进度关联",
+      "reason": "MCP session 级 progress 的 per-call token 关联已由 infra -race 与真实 HTTP 并发黑盒回归锁定，但真实 App 中两条并发进度轨迹的状态反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段，不用接口测试冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP 失败附 stderr 尾",
+      "reason": "MCP stderr 尾部的字节封顶、失败调用持久化与真实 HTTP 黑盒回归已通过，但真实 App 的错误详情、server-level 时间语义和新用户理解路径仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段，不用接口测试冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP 市场缺必填 env",
+      "reason": "MCP marketplace 缺失 env 的结构化校验与真实 HTTP 422 黑盒回归已通过，但真实 App 的 marketplace 表单阻断反馈、缺失变量文案、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段，不用接口测试冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "无可跑 package",
+      "reason": "MCP no-runnable package 的 service fixture 与 curated catalog 可规划回归已通过；真实 App 中该错误态仍需错误反馈、文案、视觉 craft 与发现性的无遮挡五通道观察，且不能用被 overlay 成可运行的 marketplace 条目伪造现场；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "搜索 embedder 缺席降级",
+      "reason": "搜索 provider 失败/off 的 focused 与真实黑盒回归已确认词法结果透明保留、跨 workspace 设置一致且不报错；真实 App 的设置状态、结果反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察，按用户授权统一留到人工阶段，不用接口测试冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "首用下载途中关停",
+      "reason": "搜索引擎首用下载取消、锁释放与有界 Close 的 race 回归已通过，但真实下载中 SIGTERM 的 App 谢幕、进程收束、视觉反馈与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段，不用受控慢 Ensurer 冒充真实产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "embedder 孤儿回收",
+      "reason": "Unix embedder PID survivor 回收及异常 pid 安全 no-op 的 race 回归已通过，但真实 kill-9 后重启的进程收容、App 状态反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段，不用临时 sleep fixture 冒充真实产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "整批 embed upsert 全失败",
+      "reason": "搜索 backfill 整批 upsert 失败时有界结束且不热循环的 race 回归已通过，但真实盘满/表损故障、App 侧状态反馈、视觉 craft 与发现性仍需系统级无遮挡五通道观察；按用户授权统一留到人工阶段，不用 fake repository 冒充真实产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "cosineFloor 噪声闸",
+      "reason": "搜索 cosine floor、identifier-shaped 噪声过滤与 genuine-match recall 的 focused/race 回归已通过，但真实 App 语义检索的噪声空态、首个结果反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段，不用向量 fixture 冒充完整产品证据。"
+    },
+    {
+      "family": "EDGE",
+      "item": "换 embedder 重嵌",
+      "reason": "搜索 embedder 切换、model-key 隔离、cache invalidate 与跨 workspace fan-out 的 focused/race 及真实 HTTP 回归已通过，但真实 App 的切换等待、重嵌状态、结果反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "短词 LIKE 回退",
+      "reason": "搜索短词 tokenizer、LIKE 回退、长短词合取与真实黑盒全量投影/高亮回归已通过，但真实 App 的输入反馈、短词结果高亮、空态视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "异查询游标",
+      "reason": "搜索 cursor 绑定、padding、分页去重与真实 HTTP 异查询/坏 cursor 黑盒回归已通过，但真实 App 的分页交互、错误反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": ":reindex 并发与就地重建",
+      "reason": "搜索 reindex 单飞、per-workspace 隔离、就地 force-reconcile 与真实 HTTP 命中恢复回归已通过，但真实 App 的重建状态、冲突反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "fts_schema_version 不匹配",
+      "reason": "搜索旧 schema 启动时清理派生索引、写入当前版本并从 live source 重建的 focused/race 回归已通过，但真实旧库启动的 App 等待、恢复反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "密文红线",
+      "reason": "搜索加密落盘字段零命中与公开字段正控的真实 HTTP 回归已通过，但真实 App 的敏感字段零命中反馈、视觉 craft 与新用户理解边界的发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "Changed 队满丢事件",
+      "reason": "搜索 Changed 队列溢出非阻塞、启动 stamps 对账恢复丢失投影并清理孤儿的 focused/race 与真实 kill/restart 黑盒回归已通过，但真实 App 的批量写入、恢复等待、反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "sifter 缺席回退",
+      "reason": "search_blocks utility 缺席回退、六类可接线范围与真实 LLM 黑盒回归已通过，但真实 App 的 fallback 状态、结果反馈、视觉 craft 与新用户发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "附件 sandbox 提取路径",
+      "reason": "DOCX sandbox 抽取、400K 字符截断、ODT/不支持格式降级的真实 HTTP 黑盒回归已通过，但真实 App 的附件状态、抽取等待、截断反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "不认的 mime 抽取",
+      "reason": "不支持 MIME 的 extractor short-circuit 与真实 ODT 聊天降级、原始字节不泄漏、completed 终态的 focused/race 和真实 HTTP 回归已通过，但真实 App 的格式拒绝反馈、占位展示、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "模型能力缺失诚实降级",
+      "reason": "无 vision 模型下图片附件保留可下载事实、provider wire 仅发送明确占位且不发送 image_url/图片字节的 focused/race 与真实 HTTP 回归已通过，但真实 App 的降级提示、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "单回合媒体额度耗尽",
+      "reason": "媒体件数/字节 envelope、顺序保留、超额占位及远端 staging 字节预算的 focused/race 回归已通过，但真实 App 的多附件预算反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "不可交付格式（HEIC/AVIF）",
+      "reason": "受管媒体对 HEIC/AVIF 等不可交付格式在上传前降级、保留文件名/MIME、跳过 uploader 且不阻断回合的 focused/race 回归已通过，但真实 App 的格式提示、重新附加建议、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "受管 remote media lease",
+      "reason": "受管媒体相对 lease 校验、resumable upload、chunk 重协商、临期刷新与 device-proof audience 的 focused/race 回归已通过，但真实 App/网关五通道线缆、lease 等待反馈、视觉 craft 与发现性仍需无遮挡现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "lease 临期刷新",
+      "reason": "受管 lease safety-window 刷新、同字节重传、sidecar 重启不复用 bearer，以及 inspect_media 相对 lease 校验的 focused/race 回归已通过，但真实 App 长 ReAct 刷新提示、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "staging 失败大声失败",
+      "reason": "受管 staging failure 经 attachment、chat history 传到 loop 并唯一收口为显式错误终态/终止帧的 focused/race 回归已通过，但真实 App 的失败卡片、重试入口、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "代理图未 ready",
+      "reason": "model-default 代理的 ready/worker 等待/约 2 秒有界回退与后台追上、受管 ready staging 的 focused/race 及真实 HTTP 生命周期回归已通过，但真实 App 的等待提示、原图回退状态、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "blob GC 只在 boot 跑",
+      "reason": "附件删除保留 blob、共享 SHA 保留、孤儿 boot GC、blob sweep 与 bootstrap 回收的 focused/race 及真实 HTTP/restart 回归已通过，但真实 App 的重启反馈、存储状态视觉与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "缺失/不可读 blob",
+      "reason": "metadata/blob 缺口的顺序保留、明确不可用说明、不阻断回合与真实聊天黑盒回归已通过，但真实 App 的附件缺失呈现、后续附件续送、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "audio playback token 过期",
+      "reason": "音频 playback lease 的 bearerless 播放、Range seek、过期 404、软删失效与 token 日志脱敏的 handler/race 及真实 HTTP 回归已通过，但真实桌面播放器的过期反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "非 audio 签发 playback",
+      "reason": "playback lease 的非音频 kind gate、415 错误、token 写入前拒绝及真实音频播放合同黑盒回归已通过，但真实 App 的类型提示、播放控件反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "朗读缓存命中",
+      "reason": "朗读缓存的首次合成/上传一次、第二次零上游命中、并发相同请求单飞及输入形状拒绝的 focused/race 与真实 HTTP 回归已通过，但真实 App 连续点击、播放反馈、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "朗读缓存 LRU 淘汰",
+      "reason": "朗读缓存按 workspace/last_used_at 淘汰、跨 workspace 隔离、淘汰附件回收与删除幂等的 store focused/race 回归已通过，但真实 App 的缓存边界反馈、播放状态、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "朗读长度上限",
+      "reason": "朗读空白/4000 rune 上限、明确错误码与合成前零上游副作用的 focused/race 和真实 HTTP 回归已通过，但真实 App 的长度错误反馈、文案、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "origin_tool_call_id 收窄展开",
+      "reason": "tool-result 只展开当前调用铸造附件、拒绝其他/猜测 ID 及缺少调用归属时不展开的 attachment focused/race 回归已通过，但真实 App/SSE/LLM wire 的媒体呈现、视觉 craft 与发现性仍需无遮挡五通道现场观察；按用户授权统一留到人工阶段。"
+    },
+    {
+      "family": "EDGE",
+      "item": "网关 install 自愈",
+      "reason": "INVALID_INSTALL 触发原 install 原地轮换并恢复、瞬时网络/限流失败绝不轮换、修复中途失败保留原行的 freetier focused/race 回归已通过；真实网关清库后的 Repair CTA、五通道反馈与视觉发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "瞬时失败绝不轮换",
+      "reason": "断网、HTTP 429 限流、健康探测和重装失败均不轮换既有 install，只有结构化 INVALID_INSTALL 允许自愈的 freetier focused/race 回归已通过；真实 App Repair 交互、SSE/LLM wire 与视觉发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "未开通读配额",
+      "reason": "无 managed anselm 行时先返回 FREETIER_NOT_PROVISIONED，不解析凭证、不触网关的 freetier focused/race 回归已通过；设置页隐藏配额仪表的真实 App 状态、文案、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "开通降级不挂 boot",
+      "reason": "无机器指纹、网关 install 失败、持久化冲突和现有行状态的 freetier focused/race 回归已通过；后台失败不阻塞 boot/onboarding，真实冷启动、设置页反馈、SSE 与视觉发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "受管 key 不可变",
+      "reason": "managed anselm key 的 PATCH/DELETE 均返回 API_KEY_IMMUTABLE，零引用也不例外，且普通 user key 仍可编辑/删除的 apikey focused/race 回归已通过；真实设置页禁用态、错误反馈、SSE 与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "被引用的 key 拒删",
+      "reason": "workspace 默认模型、默认搜索 key、agent modelOverride 三类引用均返回 API_KEY_IN_USE 和结构化引用详情，无引用普通 key 仍可删除的 apikey focused/race 与真实 HTTP 回归已通过；设置页引用引导与视觉发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "旋转 key 重探失败",
+      "reason": "PATCH 旋转先持久化新凭证，后续 probe 失败仍返回成功并诚实落 TestStatus=error，成功重探则恢复 ok 的 apikey focused/race 与真实 HTTP 回归已通过；设置页状态反馈、SSE 与视觉发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "播种只填未设",
+      "reason": "workspace 默认播种保留用户显式 dialogue 选择，只填未设置场景且重复播种幂等的 focused/race 回归已通过；真实 model-picker 的保留反馈、SSE、视觉 craft 与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "native knob 校验",
+      "reason": "不支持的 model option 返回 MODEL_OPTION_UNSUPPORTED，非法值返回 MODEL_OPTION_VALUE_INVALID，未探测 custom model 且无 options 不做写时误判的 model/modelref focused/race 回归已通过；model-picker 错误反馈、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "未探测/custom 模型",
+      "reason": "未探测/custom model 在 options 为空时允许写入，带 options 时不绕过已发布契约，未知模型调用保持 fail-loud 的 model/modelref focused/race 回归已通过；真实选择器、调用失败反馈、SSE 与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "写时校 apiKeyId 存在性",
+      "reason": "conversation override、agent override、workspace scenario default 与 workspace search default 均在写入时拒绝缺失 key 并返回 API_KEY_NOT_FOUND 的 modelref/conversation/agent/workspace focused/race 回归已通过；多实体 App 反馈与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "模型目录运行时刷新失败",
+      "reason": "model catalog 的缓存优先于 vendored、刷新失败保留旧目录且不 panic 的 focused/race 回归已通过；真实 App boot 后刷新、网络断开、能力呈现与五通道仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "boot 顺序 SweepMisfires",
+      "reason": "trigger SweepMisfires 全套幂等/容差/重启/暂停/catchup/边界回归与 workflow ReattachActive_UsesReplayPath 普通/race 均通过，确认 boot 必须先重挂 active listener 再记 misfire；真实 App 停机重启、网关、SSE/wire、日志与视觉仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "关停预算格",
+      "reason": "bootstrap shutdown budget golden test 普通/race 已通过，确认 shell.WaitDelay、drainShutdownGrace、shutdownGrace 与前端 8s SIGTERM 宽限严格嵌套，避免慢退出升级 SIGKILL；真实 App 多常驻进程 SIGTERM、SSE drain、日志与视觉仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "父进程死人开关",
+      "reason": "backend cmd/server TestWatchParent 普通/race 已通过，确认静默存活父管道不误触发、stdin EOF 进入统一关停；前端源码覆盖 ANSELM_PARENT_WATCH=1 但 Flutter/Dart 工具链缺席，真实父进程 kill-9 App 五通道仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "坏 settings.json",
+      "reason": "settings Load/retention malformed-file 与 bootstrap health/boot-shutdown 普通/race 回归已通过，确认缺失文件使用纯默认、损坏 JSON/非法 retention 让 boot 失败；真实 App 启动失败提示、日志、视觉与五通道仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "settings 三段整体写",
+      "reason": "settings 的 limits/network/retention 跨段持久化、网络热切换、重载保留与成功后 hook 普通/race 回归已通过，确认 PATCH 任一段不会丢掉其余两段；真实 App 设置反馈、SSE、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "CHECK 加词整表重建",
+      "reason": "通用 MigrateRebuild 及真实 trigger_firings、flowrun_nodes、message_blocks 旧库升级/数据保留/CHECK/索引/二次幂等普通/race 回归已通过；真实旧库 App 启动迁移反馈、日志、视觉与五通道仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "ADD COLUMN 结果幂等",
+      "reason": "db.Migrate 的重复 ADD COLUMN 只按 duplicate column name 结果视为已应用，其他真实迁移错误仍失败的普通/race 回归已通过；真实旧库 App 启动、迁移日志、反馈与五通道仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "换 master key 种子",
+      "reason": "AES-GCM round-trip、不同 master key 拒绝旧密文、篡改与版本保护及 bootstrap 健康普通/race 回归已通过；Flutter/Dart keychain 测试与真实旧库重启 App 五通道仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "keychain 铸钥只对全新安装",
+      "reason": "前端源码已保留既有安装无 key 时回落 legacy fingerprint、仅新安装生成 keychain seed 的实现与测试；当前环境无 flutter/dart，不能执行该测试，也不触发系统钥匙串权限，真实新装/旧装 App 五通道留人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "bearer token 缺失",
+      "reason": "bearer middleware/router 普通/race 与真实 HTTP contract 回归已通过，缺失或错误 token 返回 401 UNAUTH_BAD_TOKEN，Host 门优先且 OPTIONS/webhook 例外保持正确；真实 App 重启提示、前端不清 workspace、SSE/wire 与视觉仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "workspace 头缺失",
+      "reason": "workspace middleware 普通/race 与真实 HTTP contract 回归已通过，缺失或非法 workspace 上下文返回 401 UNAUTH_NO_WORKSPACE，普通隔离路由不进入 handler，SSE 查询参数路径保持独立；真实 App 清 workspace 重选、SSE/wire、文案、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "DNS rebinding 防护",
+      "reason": "loopback Host middleware/router 普通/race 与真实 HTTP contract 回归已通过，非 loopback Host 返回 403 FORBIDDEN_BAD_HOST，Host 门优先于 bearer 且 localhost/127.0.0.1/::1 正常放行；真实 App 启动访问、网络错误面、SSE/wire、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "ServeMux 纯文本 404/405 改写",
+      "reason": "ServeMux envelope middleware/router 与 notification handler 普通/race、平台合同普通回归已通过，/api/v1 未匹配路由和错误方法均返回 N1 ROUTE_NOT_FOUND/METHOD_NOT_ALLOWED，Allow 保留且已匹配 handler 的领域 404 不被覆盖；真实 App 错误呈现、文案、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "客户端断连与请求超时",
+      "reason": "response error-map 普通/race 回归已通过，context.Canceled 映射 499 CLIENT_CLOSED、context.DeadlineExceeded 映射 504 REQUEST_TIMEOUT，wrapped/unknown error 行为保持正确且不泄露内部异常；真实 App 中途断连、超时反馈、SSE/wire、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "后台裸 ctx 播种缺失",
+      "reason": "bootstrap background-context focused/race 回归已通过，裸 context.Background() 对 workspace-scoped 查询返回 MISSING_WORKSPACE_ID，逐 workspace Detached ctx 可读到种入行；真实 App 后台故障、日志、SSE/wire、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "workspace 删除级联",
+      "reason": "真实 HTTP workspace cascade 普通/race 回归已通过，保留 workspace 存活，被删 workspace 的行、function、conversation 均不可达，最后一个 workspace 保护有效；真实 App 破坏性删除确认、进度/反馈、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 未知 frontmatter 键保真",
+      "reason": "skill filesystem/app 普通/race 回归已通过，结构化编辑保留未知 frontmatter 键、键序与注释，安装 provenance 不写回原始 SKILL.md，关系投影仍同步；真实 App 表单往返、视觉与发现性仍需人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "memory 更新保留策展",
+      "reason": "memory app focused/race 回归与既有真实 App L2 五通道证据已通过，AI write_memory 更新内容/描述时保留用户 pinned=true 与 source=user；真实 App 的 L3 顺滑、L4 craft、L5 发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "todo 全完成后被问清单",
+      "reason": "todo app focused/race 回归与既有真实 App L2 五通道证据已通过，0-open 时抑制 reminder 但 todo_read 仍返回已完成项；真实 App 的剩余顺滑、视觉 craft、发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "删被依赖实体",
+      "reason": "relation ripple 与 chat touchpoint contract 普通/race 回归及既有真实 App L2 证据已通过，删除前快照入向依赖，删除后一次聚合 dependency_broken，拒绝/失败不造幽灵删除足迹；真实 App 断裂通知的剩余顺滑、视觉 craft、发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "触点不记幽灵删除",
+      "reason": "chat danger gate 与 touchpoint contract 普通/race 回归及既有真实 App L2 证据已通过，拒绝 delete_agent 不执行工具也不写 deleted 触点，真实执行失败仍记 executed；真实 App 审批交互剩余顺滑、视觉 craft、发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "触点记真执行的失败",
+      "reason": "touchpoint subagent/failure contract 普通/race 回归已通过，实际执行后即使 function 抛错仍记录 executed 触点并保留 actor/entity 快照；真实 App 失败执行的剩余顺滑、视觉 craft、发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "触点 deleted 行借名",
+      "reason": "touchpoint hydrate handler 普通/race 与真实 contract 普通/race 回归已通过，已触碰实体删除后借用历史名称，未触碰实体保持诚实空名；真实 App 删除后台账呈现、视觉与发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "触点目录穷尽性",
+      "reason": "真实装配工具集的 TestTouchpointCatalog_CoversEveryTool 普通/race 门禁已通过，新增工具若未进入覆盖目录会在启动期失败；真实 App 的后台账呈现、视觉与发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "未读徽标绝不据帧 +1",
+      "reason": "通知分径的后端存储/HTTP 普通/race 与真实黑盒 TestPlatformR4_NotificationAllDomains 普通/race 已通过，Emit/Broadcast 同 type 不会以帧形直接驱动未读数，权威 unread-count 与已读操作保持一致；真实 App 的徽标刷新、视觉与发现性仍需最后人工现场。"
+    },
+    {
+      "family": "EDGE",
+      "item": "顶带 5000 条积压",
+      "reason": "真实隔离工作区已用 POST /skills 生成 5000 条 skill.created 通知，unread-count 与 notifications SSE durable 帧均对上；但 SecurityAgent/CoreServicesUIAgent 覆盖录制区域，真实 App 的顶带投影、顺滑、视觉 craft 与发现性无法合法取证，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "顶带公平调度",
+      "reason": "priority/normal 三比一调度已有 Flutter 自动回归；真实 App 压力现场被 SecurityAgent/CoreServicesUIAgent 覆盖，不能用无画面的自动测试替代通知顶带的真实顺滑与视觉证据，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "顶带清场水位",
+      "reason": "clearVisibleSnapshot 与到达期间保留新消息已有 Flutter 自动回归；真实 App 清场动画现场被 SecurityAgent/CoreServicesUIAgent 覆盖，不能判真实帧级顺滑、视觉 craft 与发现性，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "OS 通知被静默拒",
+      "reason": "unsigned dev bundle 的 UserNotifications 静默拒绝是平台边界，已有 F1 文档证据；正式判断必须在真实失焦 App 与签名/未签名 bundle 上观察系统反馈，属于 OS 交互，统一留到人工尾队，不把 NoopOsNotifier 测试当作真实投递。"
+    },
+    {
+      "family": "EDGE",
+      "item": "侧幕 activity 门控",
+      "reason": "真实 App 现场的 activity 面板入口、首次活动登台和可发现性需要无遮挡窗口观察；当前录制区域被 SecurityAgent/CoreServicesUIAgent 覆盖，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "侧幕跟随三档",
+      "reason": "真实 App 现场需切换三档偏好并观察活动登台的自动开岛行为；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "侧幕尊重手动关",
+      "reason": "真实 App 现场需观察手动关闭后的后续活动行为；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "导演器清 Live 幽灵",
+      "reason": "真实 App 现场需制造流缺口并观察活动树收敛；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "poll 型 202 不谢幕",
+      "reason": "真实 App 现场需观察长运行期间侧幕驻留和 terminal 谢幕；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "侧幕失败行清除",
+      "reason": "真实 App 现场需观察失败活动行的清除触点与反馈；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "侧幕分档时钟",
+      "reason": "真实 App 现场需跨越时间窗口观察静置活动的分档；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "深跳 ?around= 整窗替换",
+      "reason": "真实 App 现场需从活动条深跳历史消息并观察视口替换；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "归队重钉贴底",
+      "reason": "真实 App 现场需从历史窗回到 live 并观察重钉动画；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "版本组走 retryOf",
+      "reason": "真实 App 现场需在重试版本链间导航并观察分组呈现；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "编辑器 undo 全量重建",
+      "reason": "真实 App 现场需执行编辑器 undo 并观察全文重建；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "编辑器唯一光标铁律",
+      "reason": "真实 App 现场需进入嵌入代码块/表格字段观察焦点与选区；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "空 task 尾空格腐化",
+      "reason": "真实 App 现场需输入、清空、保存并重开 task 观察编辑器修复；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "行内代码 CJK 断盒",
+      "reason": "真实 App 现场需观察 CJK 行内代码跨视觉行的灰底连续性；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "选区跨块缝隙",
+      "reason": "真实 App 现场需拖选跨块内容并做帧级 overlay 审查；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "原子块双/三击",
+      "reason": "真实 App 现场需双击/三击原子块并观察拖动与焦点；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "大纲下标不变式",
+      "reason": "真实 App 现场需导航刁钻标题文档并观察大纲定位；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "skill 双写者竞态",
+      "reason": "真实 App 现场需同时编辑中心正文与右岛表单并观察防抖收敛；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "草稿文档首次编辑",
+      "reason": "真实 App 现场需在空 Library 状态首次输入并观察文档认领；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "应内缩放到顶",
+      "reason": "真实 App 现场需连续触发缩放上限并观察布局稳定性；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "进全屏白带",
+      "reason": "真实 App 现场需进入/退出原生全屏观察过渡帧；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "窗角半径 swizzle 失效",
+      "reason": "真实 App 现场需观察窗口外观降级与稳定态；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "workspace 热切换三拍",
+      "reason": "真实 App 现场需在深链对话中切换 workspace 并观察三拍收敛；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "快捷键冷启动",
+      "reason": "真实 App 现场需冷启动后直接触发全局快捷键并观察焦点行为；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "设置项搜索索引漂移",
+      "reason": "真实 App 现场需在设置搜索中验证新增行的索引投影；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "限额面板载入失败",
+      "reason": "真实 App 现场需观察加载失败的人话错误面、重试和视觉反馈；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "MCP 面板帧不可信",
+      "reason": "真实 App 现场需观察 entities 帧 coalesce 与 MCP 面板刷新；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "保留面板无客户端默认",
+      "reason": "真实 App 现场需打开存储设置并核对服务端保留值呈现；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "BYOK base URL 模板未填占位",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 设置页的等待、阻断反馈、视觉 craft 与发现性复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "Vertex service-account 文件校验",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 文件选择/错误反馈的逐帧与发现性复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "未验证供应商诚实徽标",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App provider market 的视觉层级、文案理解和发现性复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "chat-only 模型的工具面",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 模型选择、能力缺席提示和 Composer 行为的逐帧复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "工具参数双线缆形",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 工具卡、参数流式呈现和用户可理解性的复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "直连生成整体退场",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 在无生成能力时的空态、文案、视觉和发现性复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "音色登记→指名说话全链",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 音色登记、选择、播放反馈的时延与视觉 craft 复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "音色库存 2 槽上限",
+      "reason": "已有 L2；剩余 L3-L4 需要真实 App 库存满态、阻断文案和布局复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "删音色上游失败保行",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 删除失败、重试和保行反馈的逐帧复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "语音双工握手拒绝闭集",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 语音握手拒绝时的可理解反馈、动画和发现性复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "语音流中上游断线",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 断线恢复提示、状态切换时序和视觉复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "语音帧越界",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 非法帧错误反馈、恢复路径和视觉复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "429 不动钱",
+      "reason": "已有 L2；剩余 L3-L5 需要真实 App 限流提示、可重试语义、配额卡视觉和发现性复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "分叉携带附件与 subagent 树",
+      "reason": "已有 L2；剩余 L4-L5 需要真实 App 分叉后复杂内容层级、血缘入口和视觉秩序复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
+    },
+    {
+      "family": "EDGE",
+      "item": "workflow 停用排空双类",
+      "reason": "已有 L2；剩余 L3-L4 需要真实 App draining 状态、长运行反馈与视觉收口复核，当前系统窗口覆盖录制区域，统一留到人工尾队。"
     }
   ]
 }

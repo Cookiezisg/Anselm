@@ -34,6 +34,10 @@ Send 先确认 Conversation 存在并自动解档，再同步落 user 与空 ass
 turn：
 
 - generation 中再次 Send 返回 `STREAM_IN_PROGRESS`；
+- 若并发请求在 assistant turn 已创建并广播 open 后被 `STREAM_IN_PROGRESS` 拒绝，服务端仍必须
+  finalize 该 assistant 行并发送配对的 durable `message close(error)`；否则持久状态虽已终态，
+  依赖 messages 流的客户端仍会永久显示 thinking。拒绝请求不得再进入 LLM wire。
+
 - 可见回复已 finalize、同步 tail work 尚未结束时允许一个 follow-up 槽；
 - idle queue 自动释放；
 - Shutdown 取消所有 running turn 并在传入的关停预算内停止 queue；可选的首轮自动标题不占用 queue

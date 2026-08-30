@@ -73,6 +73,40 @@ class JudgeRetryTests(unittest.TestCase):
             finally:
                 sys.path[:] = old_path
 
+    def test_chinese_missing_evidence_variants_reopen_frontier(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            coverage.write_text(
+                "| EDGE-001 | Chinese missing evidence | test | ✓~~~~ | "
+                "L1:G1→old; L2:na→note:本格未在独立正式 rig session 中完成五通道 App 录制; "
+                "L3:na→note:没有本格独立真实 App 的 Computer Use 逐帧时序测量; "
+                "L4:na→note:关系邻域无视觉 craft 断言，不能冒充视觉成品验收; "
+                "L5:na→note:没有本格独立真实 App 的新用户 discoverability session |\n"
+                "| EDGE-002 | Next autonomous cell | test | ····· |  |\n"
+            )
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("chinese_provisional_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                self.assertTrue(
+                    module.is_provisional_na(
+                        "L2:na→note:本格没有独立 formal rig 五通道 session", 2
+                    )
+                )
+                self.assertTrue(module.is_provisional_na("L2:na→note:没有独立真实 App session", 2))
+                self.assertTrue(module.is_provisional_na("L4:na→note:不能冒充视觉成品验收", 4))
+                problem = module.sequence_problem("EDGE", "Next autonomous cell")
+                self.assertIn("EDGE|Chinese missing evidence", problem)
+            finally:
+                sys.path[:] = old_path
+
     def test_explicit_not_applicable_na_remains_settled(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -91,6 +125,12 @@ class JudgeRetryTests(unittest.TestCase):
                 self.assertIsNotNone(spec.loader)
                 spec.loader.exec_module(module)
                 module.COVERAGE = coverage
+                self.assertFalse(
+                    module.is_provisional_na(
+                        "L2:na→note:这是 API 分页互斥契约；本格没有独立 Computer Use 逐帧、时延、视觉美观或可发现性会话。",
+                        2,
+                    )
+                )
                 self.assertEqual(module.sequence_problem("EP", "Next cell"), "")
             finally:
                 sys.path[:] = old_path
@@ -456,6 +496,119 @@ class JudgeRetryTests(unittest.TestCase):
                     judge.sequence_policy()
             finally:
                 judge.SEQUENCE = original
+
+    def test_sequence_policy_rejects_duplicate_manual_items(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("duplicate_queue_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                judge = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = judge
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(judge)
+            finally:
+                sys.path[:] = old_path
+
+            original = judge.SEQUENCE
+            try:
+                judge.SEQUENCE = home / "sequence.json"
+                entry = {
+                    "family": "EDGE",
+                    "item": "same item",
+                    "reason": "requires the final physical interaction",
+                }
+                judge.SEQUENCE.write_text(json.dumps({
+                    "version": 1,
+                    "mode": "first_unsettled",
+                    "manual_queue": [entry, dict(entry)],
+                }))
+                with self.assertRaises(SystemExit):
+                    judge.sequence_policy()
+            finally:
+                judge.SEQUENCE = original
+
+    def test_formal_manual_queue_rejects_missing_coverage_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("missing_queue_row_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                judge = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = judge
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(judge)
+            finally:
+                sys.path[:] = old_path
+
+            original_coverage = judge.COVERAGE
+            original_default = judge.DEFAULT_COVERAGE
+            try:
+                coverage = home / "COVERAGE.md"
+                coverage.write_text(
+                    "| EDGE-001 | Present row | test | ✓···· | old evidence |\n"
+                )
+                judge.COVERAGE = coverage
+                judge.DEFAULT_COVERAGE = coverage.resolve()
+                policy = {
+                    "manual_queue": [{
+                        "family": "EDGE",
+                        "item": "Missing row",
+                        "reason": "requires the real App",
+                    }]
+                }
+                rows = [("EDGE", "Present row", "✓····", "old evidence")]
+                problem = judge.manual_queue_problem(policy, rows)
+                self.assertIn("references missing COVERAGE row", problem)
+            finally:
+                judge.COVERAGE = original_coverage
+                judge.DEFAULT_COVERAGE = original_default
+
+    def test_formal_manual_queue_rejects_settled_row(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("settled_queue_row_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                judge = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = judge
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(judge)
+            finally:
+                sys.path[:] = old_path
+
+            original_coverage = judge.COVERAGE
+            original_default = judge.DEFAULT_COVERAGE
+            try:
+                coverage = home / "COVERAGE.md"
+                coverage.write_text(
+                    "| EDGE-001 | Settled row | test | ✓~~~~ | "
+                    "L1:G1→old; L2:na→note:internal seam has no UI; "
+                    "L3:na→note:no independent user timing surface; "
+                    "L4:na→note:no independent visual surface; "
+                    "L5:na→note:no user-discoverable entry |\n"
+                )
+                judge.COVERAGE = coverage
+                judge.DEFAULT_COVERAGE = coverage.resolve()
+                policy = {
+                    "manual_queue": [{
+                        "family": "EDGE",
+                        "item": "Settled row",
+                        "reason": "stale queue entry",
+                    }]
+                }
+                rows = [("EDGE", "Settled row", "✓~~~~", "L1:G1→old; L2:na→note:internal seam has no UI; L3:na→note:no independent user timing surface; L4:na→note:no independent visual surface; L5:na→note:no user-discoverable entry")]
+                problem = judge.manual_queue_problem(policy, rows)
+                self.assertIn("contains settled COVERAGE row", problem)
+            finally:
+                judge.COVERAGE = original_coverage
+                judge.DEFAULT_COVERAGE = original_default
 
     def test_sequence_gate_blocks_every_row_after_the_frontier(self):
         with tempfile.TemporaryDirectory() as tmp:

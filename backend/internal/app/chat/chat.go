@@ -511,6 +511,12 @@ func (s *Service) Send(ctx context.Context, conversationID string, in SendInput)
 		asstMsg.StopReason = messagesdomain.StopReasonError
 		asstMsg.ErrorCode = "STREAM_IN_PROGRESS"
 		_ = s.messages.FinalizeMessage(ctx, asstMsg, nil)
+		// The assistant open was already broadcast above. Close it as well, otherwise clients that
+		// rely on the messages stream keep rendering an endless thinking bubble even though the
+		// durable row is already terminal.
+		// assistant open 已在上面广播；这里必须同样广播 close，否则依赖 messages 流的客户端会在耐久行已终态后仍
+		// 渲染永远转圈的 thinking 气泡。
+		s.emitMessageStop(ctx, conversationID, asstMsg)
 		return "", err
 	}
 	return asstMsg.ID, nil

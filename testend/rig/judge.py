@@ -44,6 +44,20 @@ SYM = {"pass": "✓", "fail": "✗", "na": "~"}
 # confess missing App/session/visual evidence are provisional work, not a waiver.
 PROVISIONAL_NA_MARKERS = (
     "未启动真实",
+    "未在独立正式",
+    "未建立新的真实",
+    "未重新建立真实",
+    "未重新走真实",
+    "未启动真实桌面",
+    "本轮未执行真实",
+    "本格当前仅完成",
+    "本格本批仅完成",
+    "本格本轮仅完成",
+    "没有独立真实 app",
+    "没有独立 formal rig",
+    "没有本格独立真实",
+    "本格没有独立真实",
+    "不能冒充视觉成品",
     "没有真实 app",
     "no real app",
     "no real five-channel",
@@ -157,6 +171,7 @@ def sequence_policy():
         manual_queue = payload.get("manual_queue", [])
         if not isinstance(manual_queue, list):
             raise ValueError("manual_queue must be a list")
+        seen_manual_items = set()
         for entry in manual_queue:
             if (
                 not isinstance(entry, dict)
@@ -166,9 +181,45 @@ def sequence_policy():
                 or not entry["reason"].strip()
             ):
                 raise ValueError("manual_queue entries require family, item and reason")
+            item_key = (entry["family"], entry["item"])
+            if item_key in seen_manual_items:
+                raise ValueError(
+                    "manual_queue contains duplicate item: "
+                    f"{entry['family']}|{entry['item']}"
+                )
+            seen_manual_items.add(item_key)
         return payload
     except (OSError, ValueError, KeyError, TypeError) as exc:
         fail(f"ledger sequence policy is missing or unreadable: {SEQUENCE} ({exc})")
+
+
+def manual_queue_problem(policy, rows) -> str:
+    """Reject a formal manual queue that no longer describes the coverage ledger.
+
+    Queue entries are a scheduling control, not a second coverage inventory.  A stale entry for
+    a settled row would inflate the reported tail and could hide an accidental queue edit, so the
+    formal ledger fails closed instead of silently accepting drift. Temporary test ledgers may use
+    partial fixtures and are intentionally checked only when ``COVERAGE`` is the repository ledger.
+    """
+    if COVERAGE.resolve() != DEFAULT_COVERAGE:
+        return ""
+    row_by_item = {(family, item): (verdict, evidence) for family, item, verdict, evidence in rows}
+    manual_entries = policy.get("manual_queue", [])
+    missing = [
+        f"{entry['family']}|{entry['item']}"
+        for entry in manual_entries
+        if (entry["family"], entry["item"]) not in row_by_item
+    ]
+    if missing:
+        return "manual_queue references missing COVERAGE row(s): " + ", ".join(missing)
+    settled = []
+    for entry in manual_entries:
+        verdict, evidence = row_by_item[(entry["family"], entry["item"])]
+        if all(cell_is_settled(cell, evidence, level) for level, cell in enumerate(verdict, 1)):
+            settled.append(f"{entry['family']}|{entry['item']}")
+    if settled:
+        return "manual_queue contains settled COVERAGE row(s): " + ", ".join(settled)
+    return ""
 
 
 def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
@@ -202,6 +253,9 @@ def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
         rows.append((row_family, row_item, verdict, evidence))
     if not rows:
         return "formal sequence gate: COVERAGE has no parseable ledger rows"
+    queue_problem = manual_queue_problem(policy, rows)
+    if queue_problem:
+        fail(queue_problem)
 
     unsettled = [
         (index, row_family, row_item, verdict)

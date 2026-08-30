@@ -13,9 +13,33 @@ landed-into:
 
 # WRK-093 · 验收循环执行协议
 
+## 当前精确状态（2026-08-30 · EDGE-030 L3 收口，告警复审完成）
+
+- 账本人工队列 `175` 条唯一登记；清册 `848` 行，其中人工未收口 `175` 行、`459` 格，`673` 行已结算；此前队列中 4 条已明确结算的 stale entry 已清理，并由顺序 gate 防止再次出现。自主前线已清空，人工尾队首项为 `EDGE-030|生成中再 Send`。`EDGE-299` 已在隔离真实工作区生成 `5000` 条 `skill.created` 通知，后端未读数与 SSE durable 帧均对上，但录制区域被 `SecurityAgent/CoreServicesUIAgent` 覆盖，故 UI 的 L2-L5 不放行；边界记录见 `testend/rig/formal-evidence/EDGE-299-notice-backlog-stress-real-app-nonqualifying-20260830.md`。通知顶带与其余真实 App 视觉/交互项因同一系统窗口统一转人工尾队；不需要用户操作的后端、协议、测试台架和模型合同项已推进完毕。`EDGE-210` 至 `EDGE-298` 的其余真实网关/App 五通道现场仍后置；该状态以 `testend/rig/ledger-sequence.json` 为准，不改变五级标准。
+- `EDGE-030` 的五通道物理门槛通过，`judge.py` 已写入 `L2 ✓ (F1)` 与 `L3 ✓ (A5)`。L3 精确帧证据显示，发送动作后一帧首次出现 `1 waiting to send` 和可移除队列胶囊，`measure latency=16.7ms`；直接 HTTP POST 在生成中仍返回 `409 STREAM_IN_PROGRESS`，两条路径均不产生并发 turn。证据=`testend/rig/formal-evidence/EDGE-030-real-app-20260830-l3-queue.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-130007`；L4-L5 仍未完成。
+- 本次 L3 写账触发的 `gap-too-fast` 与 `discovery-collapse` 已按独立复审记录 `testend/rig/formal-evidence/EDGE-030-ledger-alarm-reaudit-l3-20260830.md` ack；未改阈值、算法、CODEX、锚点或 gate，复查后的 `alarms.py check` 为 `clean (2105 live judgments; 2300 baseline judgments excluded)`。批次由 `48/50` 到 `49/50`，自主前线已清空，人工队列仍为 `175` 条唯一未收口项。
+- 自动线收口：`EDGE-334..338` 的当前回归和五行台架维度 NA 已完成；此前批次达到 `47/50`。独立告警复审=`testend/rig/formal-evidence/EDGE-334-338-ledger-alarm-reaudit-20260830.md`，人工产品格仍不越级放行。
+
+自动回归复验：`EDGE-334` 的四个真实 `Kill9` 场景、`EDGE-335/337` harness race、`EDGE-338` 关闭回环网关隔离均通过；相邻后端核心包、黑盒生成/语音缺席与 workflow/chat fork 场景、前端设置/语音/转录定向测试也通过。随后五行台架维度按具体适用性理由记为 `na`，本批达到 `47/50`；人工产品格仍不越级放行。详见 `testend/rig/formal-evidence/EDGE-334-338-current-regression-20260830.md`。
+
+合并后根门禁复验：后端 `make verify` 通过；前端官方 formatter 修正一处测试格式后，`make verify` 的 codegen、`flutter analyze` 和四组测试全部通过，共 `5448` 项。期间只有主动构造边界的 harness 诊断，没有失败；自动门禁不替代真实 App 五通道产品验收。
+
+仓库根门禁与完整黑盒复验：根目录 `make verify` 的 backend/frontend/docs/demo 四子门全部通过；随后 backend `make testend` 完整 scenarios 通过（`304.063s`，exit `0`）。该回归结果不写 COVERAGE，不替代真实 App 五通道产品验收。
+
+最新正式台架尝试=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-101710`：当前工作树新构建的真实 App 启动、五通道接线和 recorder 均成功，但 `rig-check` 被 macOS `SecurityAgent` 高层窗口阻断；已正常收台，证据=`testend/rig/formal-evidence/20260830-101710-real-app-rig-blocked-by-securityagent.md`。该 session 不计入任何产品格，系统安全交互继续留在人工尾阶段。
+
+非正式 smoke：当前代码经 `make -C frontend app` 真实启动，用真实键盘路径完成一次受管网关 Chat，创建线程并得到 `READY`；backend 记录 `POST /conversations=201`、`POST /messages=202` 及正常收尾，随后只读巡检 Library/Entities/Scheduler 无新增应用级红线。该 smoke 不写 COVERAGE，不替代正式五通道 L2/L3。
+
+队列机制修复：`manual_queue` 的重复 `(family,item)` 登记已清理，顺序策略现在对重复条目 fail-closed，并由 `testend/rig/test_judge.py` 回归锁定；人工尾队只保留唯一键，不改变未结算格或五级标准。
+
+provisional-N/A 复核：补齐“没有独立 formal rig 五通道 session”词形与回归；任何承认缺真实现场证据的 `~` 都不能被顺序门当作 settled。
+
 ## 调度变更（2026-08-30 · 人工交互后置）
 
-- **最新精确快照（EDGE-289 调度后，按修复后的 judge.py 重算）**：人工队列 `41` 项；清册 `848` 行，其中 `111` 行未收口，剩余自主 `70` 行、`206` 格，下一自动前线为 `EDGE-222|生成 origin 从凭证派生`。本轮修复了 `L#:measure:...→note:` provisional 记录的顺序门漏检；此前 `62/176` 快照与当前判定不一致，已纠正；以此条和顺序门为准。
+- **最新精确快照（EDGE-190 产品现场后置）**：人工队列 `74` 项；清册 `848` 行，其中自主 provisional 未收口 `106` 行，剩余自主未收口 `106` 行、`224` 格，`668` 行已结算。`EDGE-056`、`EDGE-168` 至 `EDGE-190` 保留 L1 与未完成现场等级，下一自动前线为 `EDGE-191|附件 sandbox 提取路径`；`EDGE-099` 至 `EDGE-105` 的 API-only 适用性结论仍有效。EDGE-222 的 L2 绑定正式五通道 session，L3-L5 是明确适用性 `na`；EDGE-225/228/056/168/169/170/171/172/173/174/175/176/177/178/179/180/181/182/183/184/185/186/187/188/189/190 的现场因系统窗口遮挡录屏不放行，EDGE-227 的完整语音路径因系统麦克风权限后置，EDGE-229/230 不以本地 PCM/WAV 回归替代真实语音产物证据，EDGE-231 不以死端口替代物理断网。标准不降低，顺序门仍以 `ledger-sequence.json` 为准。
+- `EDGE-228` 非放行记录=`testend/rig/formal-evidence/EDGE-228-asr-no-managed-credential-real-app-nonqualifying-20260830.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-060148`；真实 App Composer 无语音入口，但不替代正式五通道放行。
+- `EDGE-225` 非放行记录=`testend/rig/formal-evidence/EDGE-225-image-capability-real-app-nonqualifying-20260830.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-055055`。`EDGE-226` 因真实受管视频危险调用统一后置；本地回归仍保留，不以 mock/TLS 证据替代真实产品收口。
+- `EDGE-222` 的真实 App 证据=`testend/rig/formal-evidence/EDGE-222-llm-generation-origin-real-app-20260830.md`，session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-052929`；告警复审=`testend/rig/formal-evidence/EDGE-222-ledger-alarm-reaudit-20260830.md`。批次由 `23/50` 到 `27/50`，`alarms.py check` clean，`gen_coverage.py --check`=`848/848/0`。
 - `EDGE-277|文档改名子树级联` 的 document service 与真实黑盒普通/race 回归均通过；根节点改名会重写全部后代 `path`，但真实 Library 的树刷新、路径反馈、视觉和发现性仍必须在人工阶段用五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-277-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-278|文档 Move 防环`。
 - `EDGE-279|对话挂载的文档被删` 已有真实 App 五通道 `L2:F1`，仅 L3-L5 未完成，按用户授权加入人工队列；不重复已完成的现场操作，不把旧临时 `na` 当作产品收口。正式复核=`testend/rig/formal-evidence/EDGE-279-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-280|agent 知识文档被删`。
 - `EDGE-280|agent 知识文档被删` 已有真实 App 五通道 `L2:F1`，新增 service/黑盒普通与 race 证明删除后 invoke fail-fast 且不产生 LLM 请求；L3-L5 仍后置，不重复现场操作。正式复核=`testend/rig/formal-evidence/EDGE-280-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-281|skill 安装炸弹护栏`。
@@ -33,7 +57,7 @@ landed-into:
 - 用户授权主循环先推进所有不需要其物理按键、系统授权或安全确认的验收；人工动作统一收尾，不再中途打断用户。
 - `testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变前线选择，不改变证据标准；队列中的格子仍未完成，等自主格耗尽后自动回收。当前后置队列为 `EDGE-031`、`EDGE-030`、`EDGE-033`、`EDGE-037`、`EDGE-038`、`EDGE-039`、`EDGE-251`、`EDGE-254`、`EDGE-256`、`EDGE-257`、`EDGE-258`、`EDGE-259`、`EDGE-261`、`EDGE-262`、`EDGE-263`、`EDGE-264`、`EDGE-265`、`EDGE-266`、`EDGE-267`、`EDGE-268`、`EDGE-269`、`EDGE-270`、`EDGE-272`、`EDGE-273`、`EDGE-274`、`EDGE-275`、`EDGE-276` 与 `EDGE-329`；正式顺序门当前给出的下一自动前线由清册重算。
 - `EDGE-270|空 workDir 批量动作` 的普通/race 服务回归和黑盒归档场景回归通过，空值明确返回 `400 INVALID_REQUEST`；真实 App 的阻断反馈、文案、视觉与发现性按用户授权后置，不以内部测试代替五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-270-ledger-alarm-reaudit-20260830.md`。
-- 当前批次保持 `23/50`，不因这次调度调整虚增进度；已有 `~` 仍是明确不适用裁决。
+- 当前批次为 `27/50`；新增单元均由 `judge.py` 写入，已有 `~` 仍须区分 provisional 与明确不适用裁决，不因调度调整虚增进度。
 - `EDGE-271|分组事务交叉核对` 的普通/race 回归通过，ABORT/IGNORE 两种半写形状都整批回滚；该事务 seam 没有独立用户状态、交互、视觉或发现入口，L2-L5 已用具体适用性理由收口 `na`。正式复核=`testend/rig/formal-evidence/EDGE-271-ledger-alarm-reaudit-20260830.md`，告警最终 clean；下一自动前线为 `EDGE-272|分组计数跨翻页不漂移`。
 - `EDGE-272|分组计数跨翻页不漂移` 的普通/race 服务回归与黑盒跨页回归通过；该 rail 行为的滚动反馈、视觉稳定性和发现性按用户授权后置，不以接口测试代替真实 App 五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-272-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-273|?workDir= 三态 presence`。
 - `EDGE-273|?workDir= 三态 presence` 的普通/race store 回归与黑盒筛选回归通过；该 rail 行为的筛选切换、空态反馈、视觉稳定性和发现性按用户授权后置，不以接口测试代替真实 App 五通道收口。正式复核=`testend/rig/formal-evidence/EDGE-273-ledger-alarm-reaudit-20260830.md`；下一自动前线为 `EDGE-274|立碑线程读消息`。
