@@ -1,0 +1,8 @@
+# EDGE-191 ledger/alarm re-audit · real App L2
+
+- Trigger: `judge.py` accepted `EDGE|附件 sandbox 提取路径 L2` from the independent formal session `20260831-012918`; the normal statistical interlock opened `gap-too-fast` and `discovery-collapse`.
+- Evidence reviewed: `/private/tmp/anselm-rig-formal-20260801-7/sessions/20260831-012918/evidence/EDGE-191-L2.md`, with the session's `manifest.json`, `screen.mov`, `backend.log`, `sse.jsonl`, `frontend.log`, `llm.jsonl`, and raw LLM request/response bodies.
+- The result is not a rubber stamp: the first real completion acknowledged the upload but did not answer the three explicit sentinel questions. That variance remains in the evidence. A direct follow-up in the same App/session returned `HEAD_SENTINEL: 是`, `TAIL_AFTER_400K_SENTINEL: 否`, `截断: 是`; the original request wire independently shows `text-extracted, truncated`, the head, and no tail.
+- The five-channel session is complete: real file chooser upload and recorded App frames; conductor-owned backend; independent SSE witness with extractor `installing -> ready` and completed message close; managed LLM wire with HTTP 200; frontend console with no Flutter/Dart/layout error. The only backend `context canceled` is orderly embedder teardown after the completed product path.
+- The re-audit confirms that the opened alarms represent a real statistical review trigger, not a reason to lower the bar. No threshold, alarm algorithm, CODEX law, anchor set, evidence requirement, or sequence gate was changed.
+- Decision: re-audit complete; acknowledge only these two alarm instances and keep the EDGE-191 product variance documented for later model-following review.

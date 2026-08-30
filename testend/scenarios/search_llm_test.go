@@ -183,11 +183,25 @@ func TestSearchLLM_BlocksTier2IndexNarrowed(t *testing.T) {
 	// substr(body,1,240)（连 title+ref 约 70 token），70 行带余量越过 4000。
 	pad := strings.Repeat("verbose capability prose for catalog budget padding. ", 12)
 	for i := 0; i < 70; i++ {
-		fnCreate(t, wc, fmt.Sprintf("padfn_%02d", i),
-			"def f() -> dict:\n    \"\"\"catalog filler "+pad+"\"\"\"\n    return {}\n")
+		wc.POST("/api/v1/functions", map[string]any{
+			"name": fmt.Sprintf("padfn_%02d", i),
+			// Keep the padding on the entity card: BlockRows reads this catalog row
+			// directly, while code chunks are indexed asynchronously.
+			// 填充放在实体卡：BlockRows 直接读目录行，代码 chunk 则异步索引。
+			"description": pad,
+			"code":        "def f() -> dict:\n    return {}\n",
+		}).OK(t, nil)
 	}
 	waitIndexed(t, wc, "metricflush", "function")
 	waitIndexed(t, wc, "oddgate", "control")
+	// Function indexing is asynchronous. Wait for all filler rows, otherwise BlockRows
+	// may observe only a partial catalog and accidentally take tier 1.
+	// function 索引异步；要等填充行齐全，否则 BlockRows 可能读到半份目录，误走第一档。
+	harness.Eventually(t, 20000, "catalog filler rows indexed", func() bool {
+		// The API caps one page at 50; Total is the readiness signal for all 70 rows.
+		// API 单页上限为 50；用 Total 判断 70 行是否全部可见。
+		return searchQ(t, wc, "q=verbose&types=function&limit=50").Total >= 70
+	})
 
 	mock.Enqueue(utilModel, harness.LLMTurn{Text: "[1]"})
 	out := driveTool(t, wc, mock, "search_blocks", map[string]any{"query": "flush metrics"})

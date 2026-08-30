@@ -46,6 +46,32 @@ func TestHandlerWitnessesResponseBodyAfterStreaming(t *testing.T) {
 	}
 }
 
+func TestHandlerJoinsUpstreamBasePath(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.URL.Path != "/v1/chat/completions" {
+			t.Errorf("upstream path = %q, want %q", r.URL.Path, "/v1/chat/completions")
+		}
+		_, _ = io.WriteString(w, "ok")
+	}))
+	defer upstream.Close()
+
+	u, err := url.Parse(upstream.URL + "/v1/")
+	if err != nil {
+		t.Fatal(err)
+	}
+	proxy := httptest.NewServer(Handler(u, nil, nil))
+	defer proxy.Close()
+
+	resp, err := http.Get(proxy.URL + "/chat/completions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("status = %d, want 200", resp.StatusCode)
+	}
+}
+
 func TestHandlerForwardsProtocolUpgrade(t *testing.T) {
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		conn, rw, err := http.NewResponseController(w).Hijack()

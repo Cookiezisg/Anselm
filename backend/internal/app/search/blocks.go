@@ -103,7 +103,12 @@ func (s *Service) SearchBlocks(ctx context.Context, query string, kinds []search
 		}
 	}
 
-	hits, err := s.window(ctx, &searchdomain.Query{Q: query, Types: kinds, IncludeArchived: true}, false)
+	// Tier 2 is deliberately lexical-only: it is the index narrowing stage, not the
+	// semantic recall stage. Letting vector-only neighbours back in can leak unrelated
+	// blocks into the bounded sifter pool and defeats the precision guarantee.
+	// 第二档刻意只走词法：这是索引收窄阶段，不是语义召回阶段。若把纯向量邻居带回，
+	// 无关积木会进入有界 sifter 候选池，破坏精度保证。
+	hits, err := s.window(ctx, &searchdomain.Query{Q: query, Types: kinds, IncludeArchived: true, LexicalOnly: true}, false)
 	if err != nil {
 		return nil, err
 	}

@@ -17,6 +17,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strings"
 	"sync"
 )
 
@@ -49,6 +50,7 @@ func HandlerWithResponseBodyPolicy(upstream *url.URL, onRequest func(r *http.Req
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.URL.Scheme = upstream.Scheme
 			pr.Out.URL.Host = upstream.Host
+			pr.Out.URL.Path = joinUpstreamPath(upstream.Path, pr.In.URL.Path)
 			pr.Out.Host = upstream.Host
 		},
 		FlushInterval: -1,
@@ -96,6 +98,13 @@ func HandlerWithResponseBodyPolicy(upstream *url.URL, onRequest func(r *http.Req
 		}
 		proxy.ServeHTTP(&flushingWriter{ResponseWriter: w}, r)
 	})
+}
+
+func joinUpstreamPath(base, request string) string {
+	if base == "" || base == "/" {
+		return request
+	}
+	return strings.TrimRight(base, "/") + "/" + strings.TrimLeft(request, "/")
 }
 
 type responseBodyWitness struct {

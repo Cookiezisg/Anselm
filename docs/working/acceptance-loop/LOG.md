@@ -10,6 +10,14 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-196 受管 remote media lease 真实 App L2-L5 收口，批次 50/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260801-7/sessions/20260831-033112`。真实 Anselm App 通过 macOS 原生文件选择器附加 PNG，managed gateway 完成 `POST /v1/media/uploads`、分片 `PUT`、`POST .../complete`，随后 chat completion 返回 `200`。LLM wire 的 user content 仅含 `/v1/media/leases/.../content?token=...` 相对路径，未出现绝对 URL、`data:image`、base64 或图片字节；SSE、backend、frontend 与窗口录屏属于同一 session，收台后进程归零。
+
+最终画面中附件缩略图、用户消息、助手 `RECEIVED` 和 Composer 均完整可见。L2-L5 分别按 `F2/A4/C4/G1` 写账，证据=`sessions/20260831-033112/evidence/EDGE-196-L{2,3,4,5}.md`，产品复核=`testend/rig/formal-evidence/EDGE-196-managed-media-lease-real-app-20260831.md`。本次只证明受管 upload 到模型 wire 的相对 lease 交付闭环，不把远端 lease 下载夸大为额外独立结论。
+
+四次写账均触发既定统计警报并完成独立复核/ack；最终 `alarms.py check`=`clean (2212 live judgments; 2300 baseline judgments excluded from drift curves)`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。权威状态=`848` 行、`706` 行五级结算、`142` 行仍开放，`3785/4240` 单元结算、`455` 单元开放；本批次从 `46/50` 收口至 `50/50`。统一门禁证据=`testend/rig/formal-evidence/batch-85-unified-gate-20260831.md`，其中根 `make verify`、完整 `make -C backend testend`、rig 68 项和 proxycore 均通过。当前已无非人工自主前线，人工/强制首项仍为 `EDGE|视频轮询超时诚实话`；P12 的 400+ Journey 按用户裁定推迟二期。
+
 ## 当前精确状态（2026-08-30 · EDGE-030 L3 收口，告警复审完成）
 
 - 账本人工队列 `175` 条唯一登记；清册 `848` 行，其中人工未收口 `175` 行、`459` 格，`673` 行已结算；此前队列中 4 条已明确结算的 stale entry 已清理，并由顺序 gate 防止再次出现。自主前线已清空，人工尾队首项为 `EDGE-030|生成中再 Send`。`EDGE-299` 已在隔离真实工作区生成 `5000` 条 `skill.created` 通知，后端未读数与 SSE durable 帧均对上，但录制区域被 `SecurityAgent/CoreServicesUIAgent` 覆盖，故 UI 的 L2-L5 不放行；边界记录见 `testend/rig/formal-evidence/EDGE-299-notice-backlog-stress-real-app-nonqualifying-20260830.md`。通知顶带与其余真实 App 视觉/交互项因同一系统窗口统一转人工尾队；不需要用户操作的后端、协议、测试台架和模型合同项已推进完毕。`EDGE-210` 至 `EDGE-298` 的其余真实网关/App 五通道现场仍后置；该状态以 `testend/rig/ledger-sequence.json` 为准，不改变五级标准。

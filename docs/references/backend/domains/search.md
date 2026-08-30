@@ -106,6 +106,8 @@ HTTP shape。
 
 `search_blocks`：
 
+当目录超过 utility 精选预算时，第二档先用词法索引收窄候选，再交给 utility 精选；该收窄阶段刻意不混入纯语义向量邻居，避免与查询无关的积木进入 sifter 候选池。普通综搜仍可按全局搜索合同使用混合语义召回。
+
 1. 小目录直接交 utility sifter 选；
 2. 大目录先从索引取候选，再交 sifter；
 3. Sifter 缺席/失败则使用索引排序。
