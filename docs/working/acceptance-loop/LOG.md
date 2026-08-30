@@ -8569,6 +8569,12 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 - 真实回归：第二套冲突启动返回 `1`，第一套 App PID `31971` 保持存活；修复后诊断 `rig-check` 返回 `1` 而非 `133`；`test_screen_recording`/`test_scope` 共 `23` 项、`gen_coverage --check`=`848/848/0`、`alarms.py check` clean、`make -C docs verify` 全通过。
 - 证据：`testend/rig/formal-evidence/rig-up-preflight-cleanup-regression-20260829.md`。不计入 COVERAGE，批次保持 `43/50`。
 
+## 2026-08-30 · 自动前线复核与人工尾队边界
+
+- 在上一批次提交后重新运行根目录 `make verify`，backend/frontend/docs/demo 四个子门全部通过；随后运行完整 `make -C backend testend`，`github.com/sunweilin/anselm/testend/scenarios` 以退出码 `0` 完成，耗时 `375.999s`。
+- 独立复核 `gen_coverage.py --check`=`848/848/0`、anchors=`10/10`、`alarms.py check`=`clean`、`test_judge.py`=`24/24`，并通过 `py_compile` 与 `git diff --check`。本次只证明自动合同与台架控制器无回归，不新增 COVERAGE 产品格。
+- 按当前 `judge.py` 语义重算：`848` 行、`675` 行完全结算、`3783` 个单元已结算、`457` 个单元未收口；`manual_queue`=`173`，自主未收口单元=`0`。下一前线为 `EDGE|视频轮询超时诚实话`，需真实视频危险调用和真实 App 五通道证据，按用户授权继续后置，不以本地回归或旧现场记录冒充通过。
+
 ## 2026-08-29 · EDGE-280 Agent 知识文档删除后的 mount-health 真实 App L2 收口，批次 44/50
 
 - 正式 clean session=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-143120`。真实 App 打开挂载知识文档的 Agent 详情，删除文档后重新进入详情，画面显示 `1 unhealthy`、`Mount health: 1 unhealthy` 和 `knowledge document does not exist`。

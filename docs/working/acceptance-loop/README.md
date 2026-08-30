@@ -21,7 +21,7 @@ landed-into:
 
 合并后自动根门禁复验（2026-08-30）：后端 `make verify` 通过；前端官方 formatter 修正 `test/app/entity_mention_source_test.dart` 的格式后，`make verify` 的 codegen、`flutter analyze` 和四组测试全部通过，共 `5448` 项。测试期间仅有主动构造边界的 harness 诊断，没有失败；该结果不提升任何真实 App 五通道产品格。
 
-仓库根门禁与完整黑盒复验（2026-08-30）：根目录 `make verify` 的 backend/frontend/docs/demo 四个子门全部通过；随后 backend `make testend` 的完整 scenarios 通过，耗时 `304.063s`、退出码 `0`。这证明当前代码的自动合同和隔离黑盒回归没有回归，但不写入 COVERAGE，也不替代真实 App 五通道产品格。
+仓库根门禁与完整黑盒复验（2026-08-30）：根目录 `make verify` 的 backend/frontend/docs/demo 四个子门全部通过；本次继续运行的 backend `make testend` 完整 scenarios 通过，耗时 `375.999s`、退出码 `0`。这证明当前代码的自动合同和隔离黑盒回归没有回归，但不写入 COVERAGE，也不替代真实 App 五通道产品格。
 
 最新台架尝试=`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-101710`：当前工作树新构建的真实 App 启动和五通道接线均成功，但 `rig-check` 被 macOS `SecurityAgent` 高层窗口阻断，已正常收台并保留 `13.170000s` 录像；证据=`testend/rig/formal-evidence/20260830-101710-real-app-rig-blocked-by-securityagent.md`。该 session 不计入任何产品格，系统安全交互继续留在人工尾阶段。
 
