@@ -244,10 +244,13 @@ class _ServerCard extends ConsumerWidget {
     final t = Translations.of(context);
     final c = context.colors;
     // Zero counts are noise (P1-3) — stat segments render only when n>0. 零计数不显。
-    final statParts = [
+    final statParts = <String>[
       statusLabel(t, s.status),
       if (s.tools.isNotEmpty) t.settings.mcp.tools(n: s.tools.length),
-      if (s.totalCalls > 0) t.settings.mcp.calls(n: s.totalCalls),
+      if (s.totalCalls > 0)
+        s.totalCalls == 1
+            ? t.settings.mcp.call(n: s.totalCalls)
+            : t.settings.mcp.calls(n: s.totalCalls),
     ];
     return AnCard(
       selectable: true,
@@ -308,9 +311,19 @@ class _ServerCard extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: AnSpace.s6),
-          Text(
-            statParts.join(' · '),
-            style: AnText.meta.copyWith(color: c.inkMuted),
+          Wrap(
+            spacing: 0,
+            runSpacing: AnSpace.s2,
+            children: [
+              for (var i = 0; i < statParts.length; i++) ...[
+                if (i > 0)
+                  Text(' · ', style: AnText.meta.copyWith(color: c.inkMuted)),
+                Text(
+                  statParts[i],
+                  style: AnText.meta.copyWith(color: c.inkMuted),
+                ),
+              ],
+            ],
           ),
           if (mcpShowsActiveError(s)) ...[
             const SizedBox(height: AnSpace.s4),
