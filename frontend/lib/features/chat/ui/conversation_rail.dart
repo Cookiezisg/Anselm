@@ -217,6 +217,10 @@ class _ConversationRailState extends ConsumerState<ConversationRail> {
           // minted by the click itself). 新对话=回 '/' landing(首发才建线程,点击本身不铸)。
           onNew: _newChat,
           menuEntries: _menu(t, sort, archived, showCount, showTime),
+          // A sort/archive change replaces the server query axis. Keep ordinary row/SSE updates from
+          // moving the reader, but make the first frame of a new axis start at its semantic head.
+          // 排序/归档改变会替换服务端查询轴;普通行/SSE 更新不打断阅读,新轴首帧从语义头开始。
+          scrollResetKey: Object.hash(sort, archived),
           // The row id IS the conversation id — navigate straight to it (route is the source of truth).
           onSelect: (id) => context.go(conversationLocation(id)),
           onFilterChanged: _onFilter,

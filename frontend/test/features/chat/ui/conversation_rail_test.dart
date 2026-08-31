@@ -263,6 +263,40 @@ void main() {
     },
   );
 
+  testWidgets('changing sort resets the rail viewport to the new axis head', (
+    tester,
+  ) async {
+    final rows = [
+      for (var i = 1; i <= 25; i++)
+        _c(
+          'cv_${i.toString().padLeft(2, '0')}',
+          'Sort Probe ${i.toString().padLeft(2, '0')}',
+          at: DateTime.utc(2026, 1, 1).add(Duration(minutes: i)),
+        ),
+    ];
+    await tester.pumpWidget(_host(FixtureChatRepository(conversations: rows)));
+    await tester.pump(const Duration(milliseconds: 50));
+
+    final list = find.byType(CustomScrollView);
+    expect(list, findsOneWidget);
+    await tester.drag(list, const Offset(0, -500));
+    await tester.pumpAndSettle();
+    final scroll = tester.widget<CustomScrollView>(list).controller!;
+    expect(scroll.offset, greaterThan(0));
+
+    await tester.tap(find.byIcon(AnIcons.sliders));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.chat.sortName));
+    await tester.pumpAndSettle();
+    expect(scroll.offset, 0);
+
+    await tester.tap(find.byIcon(AnIcons.sliders));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text(t.chat.sortActivity));
+    await tester.pumpAndSettle();
+    expect(scroll.offset, 0);
+  });
+
   // ── STEP 7: the per-row ⋯ menu (rename / fork / pin / archive / delete) ──
 
   testWidgets(

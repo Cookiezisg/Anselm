@@ -10,6 +10,34 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-254 keyset 排序切换丢游标真实 App 五格收口，批次 87 105/50
+
+初轮真实 App session=`/private/tmp/anselm-rig-formal-20260831-15/sessions/20260831-195035`
+发现产品缺陷：从 Name 排序滚到中段后切回 Recently active，列表仍停在旧的
+`Sort Probe 47` 中段。后端排序和 cursor 正确，问题在共享 `AnSidebarList` 保留了旧查询轴的
+`ScrollController` offset；红证据=`testend/rig/formal-evidence/EDGE-254-sort-switch-scroll-offset-red-20260831.md`。
+
+停止推进并修复：查询轴由 sort/archive 改变时通过 `scrollResetKey` 在新 sliver 首帧将 rail
+视口归零；普通 SSE 行更新和加载下一页不移动当前阅读位置。同步更新
+`docs/references/frontend/features/chat.md`，并新增 conversation rail widget test；focused
+suite 共 21 项全部通过。
+
+正式复验 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-200325`，真实
+App 使用 60 条后端创建的排序 fixture，Computer Use 完成 Name→中段滚动→Recently active，
+切换后的首项为 `Sort Probe 60`，65.33 秒录屏抽帧未见空白、旧中段闪回或二次跳回。三路 SSE、
+backend、frontend、managed LLM tap 和收台均归属于同一 manifest；backend 无应用级
+WARN/ERROR/panic，frontend 唯一 IMKCFRunLoopWakeUpReliable 为 macOS 输入法框架诊断。
+正式证据=`testend/rig/formal-evidence/EDGE-254-sort-switch-scroll-offset-fixed-20260831.md`，
+完整 session 证据=`sessions/20260831-200325/evidence/EDGE-254-real-app-fixed.md`。
+
+`judge.py` 写账：L2=`F1`、L3=`B2`、L4=`C5`、L5=`G1`；四次写账后的统计警报均按原
+阈值独立复审并 ack，复审=`testend/rig/formal-evidence/EDGE-254-ledger-alarm-reaudit-20260831.md`。
+最终 `alarms.py check`=`clean (163 live judgments; 4240 baseline judgments excluded from
+drift curves)`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，
+锚点仍有效。权威清册由 `743/3900/340` 推进为 `744/3903/337`，本批次由 `101/50` 推进至
+`105/50`；未改阈值、法典、锚点、五级标准或顺序 gate。下一自主前线为
+`EDGE|驻地目录被移走`，人工强制交互继续后置。
+
 ## 2026-08-31 · EDGE-249 后台裸 ctx 播种缺失适用性收口，批次 87 101/50
 
 `backend/internal/bootstrap/background_ctx_test.go:TestBackgroundPaths_RequireWorkspaceSeeding`

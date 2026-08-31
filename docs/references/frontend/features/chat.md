@@ -26,6 +26,8 @@ audience: [human, ai]
 | 工具与人在环 | 工具卡按工具族渲染，默认收起；失败与交互门自动展开；用户停止执行中的工具时必须显示中性取消态，不得显示 `Search failed` 或 `context canceled` 等内部错误；坏参数也必须安全降级并显示后端错误，不能把 transcript widget 树打崩，也不能因此回显敏感参数；危险调用、提问与审批都走同一 interaction broker；`replay_flowrun` 被后端拒绝时明确显示“未执行重放”，不得沿用“已重放运行”；可空 query 的实体搜索才可切到“列”声道，`search_documents` 的 query 必填，畸形空参数必须仍显示“搜索失败”；`search_conversations` 命中卡逐项显示标题、snippet、匹配块数和消息锚点（消息 ID 芯片可复制，点击该行直接执行 transcript deep-jump；标题命中没有消息锚点时只打开对话），正文不能把 5 个命中压成 2 个，也不能把 opaque ID 脱敏成 `the requested item` 坏占位；`delete_document` 的 not-found completed 软失败必须显示失败动词与原始证据，不得显示“已删除”或“软删除,可恢复”；`Subagent` 在 `subagent_type` 校验失败时必须显示“校验失败 · 未启动”，不展示 `get_subagent_trace` 回放提示，也不把校验错误当作子代理回答；终局拒绝后的重复工具调用保留在线缆与 durable 证据，但不在 transcript 追加第二条“未执行”噪音卡 |
 | 右岛 | 触点台账 + 流式侧幕；只在存在 Activity 时可揭示，详见 [`chat-sidestage.md`](chat-sidestage.md) |
 
+排序、归档范围或搜索改变的是列表的查询轴，不只是换一批行：前端必须丢弃旧 cursor，并在新轴的首帧把 rail 视口归零到列表头部。普通 SSE 行更新和加载下一页不得移动用户当前阅读位置；共享 `AnSidebarList` 通过宿主提供的 `scrollResetKey` 区分这两类变化。
+
 ## 2. 数据与状态边界
 
 - `ChatRepository` 是唯一数据缝；`LiveChatRepository` 接 HTTP/SSE，`FixtureChatRepository` 驱动 demo 与测试，两者保持同一契约形状。普通发送成功后若首条 user SSE 回声因新线程订阅竞态丢失，transcript 用 REST 头做窄对账，不让耐久 user 行与 optimistic bubble 同时可见；若 durable 回声在 REST 水化期间进入 prelude，且同一 block 已落在 `settled`，跨层 idempotency 会跳过它，不把同一回合再折进 `live`；失败气泡的 retry 保持同一气泡，仍由 SSE/重同步收口。自动标题在头部与 rail 同步做一次性揭示，头部标题槽预留最终宽度，模型选择器不能因逐字揭示而横向移动，揭示结束后也不得换槽；utility 无正文时使用首句本地兜底，长请求在可读边界加省略号，不把半个词当作标题。列表 provider 对每条 pinned/驻地轴独立保存 cursor 和 `total`，任何查询轴变化都丢弃旧 cursor 后重新取首屏；生命周期变更只合帧刷新响应头总数，不用已加载 rows 猜段头；驻地组的 `lastMessageAt` 变化（包括一条回合完成）也会合帧重读服务端投影，保证“最近活跃”组头不会停在旧位置。

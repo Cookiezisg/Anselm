@@ -73,6 +73,7 @@ class AnSidebarList extends StatefulWidget {
     this.onRenameCancel,
     this.onRowDropped,
     this.canDragRow,
+    this.scrollResetKey,
     super.key,
   });
 
@@ -149,6 +150,12 @@ class AnSidebarList extends StatefulWidget {
   /// Which rows participate (as drag SOURCE and drop TARGET). null → all rows, when drag is enabled.
   /// 哪些行参与(既是拖源也是落点);null=全部(启用时)。
   final bool Function(String rowId)? canDragRow;
+
+  /// A host-controlled identity for a query-axis change that must return the viewport to its head.
+  /// Model updates alone do not reset scrolling: append, SSE patches, and ordinary row updates must keep
+  /// the user's place. Hosts that replace the server ordering/filter axis change this key.
+  /// 宿主控制的查询轴身份。轴替换时回到头部;普通追加、SSE 更新不能打断用户当前阅读位置。
+  final Object? scrollResetKey;
 
   @override
   State<AnSidebarList> createState() => _AnSidebarListState();
@@ -231,6 +238,11 @@ class _AnSidebarListState extends State<AnSidebarList> {
   @override
   void didUpdateWidget(AnSidebarList old) {
     super.didUpdateWidget(old);
+    if (old.scrollResetKey != widget.scrollResetKey && _scroll.hasClients) {
+      // Reset before the new sliver lays out, so the first painted frame is already the head of the new
+      // axis rather than a stale middle window. 在新 sliver 布局前归零,避免先画旧轴中段再跳回头部。
+      _scroll.jumpTo(0);
+    }
     // A model change (loadMore append / SSE patch / sort) rebuilds instantly — the fold TWEEN is only for
     // user toggles, not data churn. model 变(loadMore/SSE/sort)瞬时重建——折叠补间只给用户 toggle。
     if (!identical(old.model, widget.model)) {
@@ -523,6 +535,7 @@ class _AnSidebarListState extends State<AnSidebarList> {
     onChanged: (v) {
       setState(() {
         _query = v;
+        if (_scroll.hasClients) _scroll.jumpTo(0);
         _rebuildFlat();
       });
       widget.onFilterChanged?.call(v);
