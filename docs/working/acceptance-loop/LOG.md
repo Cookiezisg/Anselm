@@ -10,6 +10,212 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-249 后台裸 ctx 播种缺失适用性收口，批次 87 101/50
+
+`backend/internal/bootstrap/background_ctx_test.go:TestBackgroundPaths_RequireWorkspaceSeeding`
+focused race 回归通过：裸 `context.Background()` 访问 workspace-scoped store 失败，逐 workspace
+`reqctx.Detached("ws_1")` 能读到种入行；生产后台入口使用后者。
+
+本格只描述后台接线不变量，没有独立用户操作、等待/动效、视觉组件或可发现入口。L2-L5
+由 `judge.py` 写入逐级正式 `na`，并明确归属 owning journey；没有把“未建立真实 App
+session”当成豁免。正式复核=`testend/rig/formal-evidence/EDGE-249-applicability-reaudit-20260831.md`。
+
+四条 NA 写账后 `pass-burst` 与 `discovery-collapse` 按原阈值打开；复核确认它们只是裁决
+间隔/判断分布信号，没有改变阈值、法典、锚点、五级标准或顺序门，随后逐条 ack。最终
+`alarms.py check`=`clean (159 live judgments; 4240 baseline judgments excluded)`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`；清册由
+`742/3896/344` 推进为 `743/3900/340`，批次由 `97/50` 推进至 `101/50`，下一自主前线为
+`EDGE-254|keyset 排序切换丢游标`。
+
+## 2026-08-31 · EDGE-248 客户端断连与请求超时真实 App 边界收口，批次 87 97/50
+
+focused `errmap`/router tests 先通过：`context.Canceled` 映射 `499 CLIENT_CLOSED`，
+`context.DeadlineExceeded` 映射 `504 REQUEST_TIMEOUT`，wrapped/unknown error 不吞类型且不
+泄漏内部异常。
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-192329`：真实
+macOS App 通过 appproxy 发起 `GET /api/v1/workspaces`，台架只对该路径施加 `15000ms`
+延迟。Computer Use 看到稳定的 `Setting up your workspace...`；在请求 pending 时终止
+App，appproxy journal 记录同一请求 `canceled=true`，录屏=`3104x1844/60fps/50.706667s`。
+
+本场明确保留一个负向边界：取消发生在代理向 backend 转发之前，因此 backend 没有收到这
+个请求，也没有产生 `CLIENT_CLOSED/499`；backend 中其他透明 workspace retries 是真实
+`200`，不把它们改写成 499。L2 仅据此收 `F2` 的真实客户端取消/五通道收台事实；L3-L5 由
+`judge.py` 以具体适用性理由写 `na`，因为 response taxonomy seam 不拥有独立的用户操作/
+动效、视觉组件或可发现入口，不能把上层功能体验倒灌进本格。
+
+三路 SSE、frontend console、managed bootstrap LLM tap 与录屏均在同一 manifest 下有记录，
+`rig-down` 正常完成，当前台架无残留进程。警报复审=`testend/rig/formal-evidence/EDGE-248-ledger-alarm-reaudit-20260831.md`；
+`alarms.py check`=`clean (155 live judgments; 4240 baseline judgments excluded)`，
+`anchors.py check`=`10/10`，`gen_coverage.py --check`=`848 rows, 848 carried judgments,
+0 tombstones`。权威清册由 `741/3892/348` 推进为 `742/3896/344`，EDGE-248=`✓✓~~~`，
+批次由 `93/50` 推进至 `97/50`；未改阈值、曲线算法、CODEX、锚点、五级标准或顺序 gate。
+
+## 2026-08-31 · EDGE-247 ServeMux 错误 envelope 真实 App 五格收口，批次 87 93/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-191204`，由真实
+macOS App、Go backend、有限次 appproxy、三路独立 SSE witness、managed LLM tap、frontend
+console 和窗口录屏共同归属。appproxy 只对两次真实启动请求做有限扰动：第一次将
+`GET /api/v1/conversations` 改到未知 `/api/v1/rig-unknown`，第二次将同目标 `GET` 改为
+`PUT`；appproxy journal 与 manifest 均记录原始/转发目标，后续请求透明转发。
+
+backend journal 同场真实记录未知路由 `404` 和错误方法 `405`，透明恢复请求为 `200`。
+Computer Use 在真实 App 中看到 `Couldn't load conversations`、人话原因和可操作的
+`Try again`；点击后恢复 `Recents 1`、`演示对话`、`演示工作台` 与正常 Composer。录屏为
+`3104x1844/60fps/51.513333s`；抽帧确认错误态稳定，恢复态无裁切、重排或自主跳变。首轮
+误用 `GET→POST` 的尝试命中合法 create route 返回 `400`，已明确排除，不作为正式证据。
+
+focused router tests 另证 N1 `ROUTE_NOT_FOUND`/`METHOD_NOT_ALLOWED`、`Allow` 保留、匹配
+handler 的业务 404 不被改写以及 SSE `Flusher` 透传。`rig-check`/`rig-down` 通过；三路
+SSE 均连接并在收台时 clean EOF，frontend 无 Flutter/Dart/Unhandled/RenderFlex/Exception
+应用红线，唯一 `IMKCFRunLoopWakeUpReliable` 是 macOS 输入法框架诊断；managed gateway
+challenge/install/models 全部 `200`，本路径没有 completion，不虚构模型结果。
+
+`judge.py` 按 `E1/F2/A4/C4/G1` 写入 L1-L5，EDGE-247 清册现为 `✓✓✓✓✓`。每次 L2-L5
+写账后的 `discovery-collapse` 均按原阈值独立复审并 ack，复审记录=
+`testend/rig/formal-evidence/EDGE-247-ledger-alarm-reaudit-20260831.md`；最终
+`alarms.py check`=`clean (151 live judgments; 4240 baseline judgments excluded)`，
+`anchors.py check`=`10/10`，`gen_coverage.py --check`=`848 rows, 848 carried judgments,
+0 tombstones`。未改阈值、曲线算法、CODEX、锚点、五级标准或顺序 gate。权威清册由
+`740/3888/352` 推进为 `741/3892/348`，批次由 `89/50` 推进至 `93/50`；下一自主原子由
+正式序列脚本选择，强制人工队列继续后置，P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-246 DNS rebinding 防护真实 App 五格收口，批次 87 89/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-184415-edge246`，由真实
+macOS App、Go backend、只改 Host 的 appproxy、三路 SSE witness、managed LLM tap、frontend
+console 和窗口录屏共同归属。appproxy 只对第一次真实 `GET /api/v1/conversations` 将出站
+Host 改为 `evil.example.com`，TCP 仍连接 conductor 的真实 backend；backend journal 真实
+返回 `403 FORBIDDEN_BAD_HOST`，点击 `Try again` 后规范 Host 恢复 `200`。这证明 DNS
+rebinding 防护在真实 App 入口生效，且负向注入没有被启动探针消耗。
+
+Computer Use 看到稳定的 `Couldn't load conversations`、可理解的说明和 `Try again`，没有
+Host、路由或堆栈泄漏；点击后恢复 `Recents 1`、`演示对话` 和 `演示工作台`，主 Chat 没有
+塌陷。录屏为 `3104x1844/60fps/62.178333s`；`measure latency`=`100.0ms`，稳定帧无白闪、
+裁切、重排或自主跳变。frontend console 无 Flutter/Dart/Unhandled 红线，SSE witness 三流
+连接正常，LLM tap 的 challenge/install/models 均为 `200`；本旅程没有 completion，不虚构
+模型调用证据。
+
+`judge.py` 按 `F2/A4/C4/G1` 写入 L2-L5，EDGE-246 清册现为 `✓✓✓✓✓`。每次写账触发的
+`discovery-collapse` 均由 `testend/rig/formal-evidence/EDGE-246-discovery-alarm-reaudit-20260831.md`
+独立复核后 ack；`anchors.py check`=`10/10`，最终 `alarms.py check`=`clean`，未改阈值、
+曲线算法、CODEX、锚点、五级标准或顺序门。清册为 `740/108` 行、`3888/352` 格，批次由
+`85→89/50`；下一自主原子为 `EDGE|ServeMux 纯文本 404/405 改写`。P12 的 400+ Journey
+扩写仍按用户裁定推迟二期，强制人工队列继续后置。
+
+## 2026-08-31 · EDGE-245 workspace 头缺失真实 App 五格收口，批次 87 85/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-182639-edge245`
+由真实 macOS App、Go backend、App API proxy、三路 SSE witness、managed LLM tap 和窗口录屏
+组成。proxy 只对第一次带 workspace header 的 `GET /api/v1/conversations` 剥离
+`X-Anselm-Workspace-ID`，`appproxy.jsonl` 记录唯一 `workspace_header_dropped`；同一目标请求
+在 backend journal 中真实返回 `401 UNAUTH_NO_WORKSPACE`，随后恢复 `200`。这证明负向注入
+没有打错路径或被启动探针消耗。
+
+首轮真实现场暴露产品/终端问题：`ApiClient` 没有把 `UNAUTH_NO_WORKSPACE` 转成 workspace
+恢复动作，侧栏曾显示泛化加载失败；修复后 `ApiClient` 清理活动 workspace，`WorkspaceGate`
+使 durable bootstrap 失效并重新从名册解析。第二轮发现三路 SSE 在这个正常过渡期间把 401
+打印成完整 Dio 异常；`SseConnection` 现在仅对“401 且无活动 workspace”记录
+`waiting for workspace selection`，其他 401 仍保留原始错误。对应 focused API/SSE/WorkspaceGate
+测试与 `flutter analyze` 均通过。
+
+Computer Use 收台时看到正常 Chat、`Recents 1`、`演示对话` 和 `演示工作台`。封口录屏为
+`3104x1844/60fps/47.531667s`；10fps 抽帧中首个 `100ms` 变化明确是骨架 shimmer，业务语义
+切换为 `frame-0048→0049`、`changedFrac=0.02069`，没有错误页、空白或布局塌陷。frontend
+console 只剩三条恢复状态日志，无 Dio/Flutter/Unhandled 红线；三路 SSE 均连接，LLM tap
+在线但本旅程不需要模型调用，不虚构 completion 证据。`rig-check` 与 `rig-down` 均通过。
+
+`judge.py` 按 `F2/A4/C4/G1` 写入 L2-L5，EDGE-245 清册现为 `✓✓✓✓✓`；每次写账后的
+`discovery-collapse` 均以独立复审=`testend/rig/formal-evidence/EDGE-245-discovery-alarm-reaudit-20260831.md`
+复核后 ack，最终 `alarms.py check`=`clean (143 live judgments; 4240 baseline judgments
+excluded from drift curves)`，anchors=`10/10`，`gen_coverage.py --check`=`848 rows, 848 carried
+judgments, 0 tombstones`。批次由 `81→85/50`，下一自主前线为 `EDGE|DNS rebinding 防护`；
+强制人工交互仍后置，P12 的 400+ Journey 扩写按用户裁定推迟二期。正式证据=
+`testend/rig/formal-evidence/EDGE-245-workspace-header-missing-real-app-fixed-20260831.md`。
+
+## 2026-08-31 · EDGE-244 bearer token 缺失真实 App L5 收口，批次 87 81/50
+
+修复后的真实 App session=`/private/tmp/anselm-rig-formal-20260831-13/sessions/20260831-175540`
+从普通启动入口进入认证错误态；用户无需知道 `ANSELM_AUTH_TOKEN`、`UNAUTH_BAD_TOKEN`、
+workspace API 或台架命令，即可从 `Restart the local engine`、认证原因和
+`Restart the backend, then retry.` 识别下一步，`Retry` 直接可见且可操作。Computer Use
+AX 树与封口录屏一致，backend 保留 raw 诊断但产品面不泄漏内部异常。五通道
+`rig-check`/`rig-down` 通过，正式证据=`testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app-l5-fixed-20260831.md`。
+
+`judge.py` 按 `G1` 写入 L5=`pass`，EDGE-244 五级现为 `✓✓✓✓✓`；写账触发的
+`discovery-collapse` 已用 `testend/rig/formal-evidence/EDGE-244-l5-ledger-alarm-reaudit-20260831.md`
+独立复核并按原阈值 ack，未改算法、法典、锚点、五级标准或顺序门。权威清册由
+`737/3879/361` 推进为 `738/3880/360`，开放行数由 `111` 降至 `110`；批次 87
+由 `80/50` 推进至 `81/50`。下一自主原子为 `EDGE|workspace 头缺失`，P12 的 400+
+Journey 扩写按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-244 bearer token 缺失真实 App L4 修复复验收口，批次 87 80/50
+
+首轮 L4 稳定尾帧发现产品缺陷：认证专用标题和 Retry 已正确，但页面仍把
+`ApiException(UNAUTH_BAD_TOKEN, http=401)` 原始诊断显示给用户；红证据保留于
+`testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app-l4-raw-detail-red-20260831.md`。
+停止推进后移除 WorkspaceGate 对 `AnState.detail` 的传入，原始异常只留在 backend/frontend
+journal，并新增 widget 回归断言内部码、异常类型和 bearer 原文不进入产品面。
+
+修复复验正式 session=`/private/tmp/anselm-rig-formal-20260831-13/sessions/20260831-175540`：
+真实 App 仍经 `2500ms` workspace 延迟和缺失 bearer 负例，稳定尾帧只显示认证原因、清晰
+Retry 和双行恢复说明，没有 raw detail、重叠、裁切或残留 loading。`measure regions` 得到
+单一按钮连通域 `127×56px`，白字/蓝底对比度 `4.31:1`，达到 CODEX D1 对 UI component
+的 `3:1` 下限；`AnRadius.button=8` 与画面一致。新 session 的 `rig-check`/`rig-down`、
+backend 401、三路 SSE、frontend console、managed LLM tap 和封口录屏均可复核。
+
+`judge.py` 先按 `C4` 写入首轮 L4=`pass`，发现缺陷后写入红账，再以新 session 按 `C4`
+恢复 L4=`pass`，本格最终为 `✓✓✓✓~`；L5 继续开放，下一原子为本格 L5。红绿两次
+写账触发的统计警报均由 `testend/rig/formal-evidence/EDGE-244-l4-fixed-ledger-alarm-reaudit-20260831.md`
+独立复审后按原阈值串行 ack，最终 `alarms.py check` clean；锚点=`10/10`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，未改阈值、
+法典、锚点、五级标准或顺序门。
+
+权威清册由 `737/3878/362` 推进为 `737/3879/361`，开放行数仍为 `111`；
+`manual_queue=173`、`forced_queue=26`，批次 87 由 `79/50` 推进至 `80/50`。
+P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-244 bearer token 缺失真实 App L3 收口，批次 87 79/50
+
+在 L2 修复后的同一产品负例上，使用新正式 session
+`/private/tmp/anselm-rig-formal-20260831-12/sessions/20260831-174529` 构造
+`GET /api/v1/workspaces` 的 `2500ms` 可控延迟。真实 App 在等待期间持续显示 spinner
+和 `Setting up your workspace...`，随后切换到认证专用错误态；Computer Use、封口
+`screen.mov`、backend/proxy journal、三路 SSE、frontend console、managed LLM tap
+和 `rig-check`/`rig-down` 全部绑定同一 manifest。`measure latency`=`200.0ms` 首个
+可见反馈，严格 `1%` diff 只出现一次 loading→错误切换，后续稳定无跳变。
+
+`judge.py` 按 `A4` 写入 L3=`pass`，本格为 `✓✓✓~~`；L4-L5 继续开放，下一原子为
+本格 L4。写账触发的 `gap-too-fast` 与 `discovery-collapse` 已用
+`testend/rig/formal-evidence/EDGE-244-l3-ledger-alarm-reaudit-20260831.md` 独立
+复审，复审确认真实帧测量和五通道证据后按原阈值串行 ack；未改阈值、法典、锚点、五级
+标准或顺序门。锚点=`10/10`，`gen_coverage.py --check`=`848 rows, 848 carried
+judgments, 0 tombstones`，最终 `alarms.py check` clean。
+
+权威清册由 `737/3877/363` 推进为 `737/3878/362`，开放行数仍为 `111`；
+`manual_queue=173`、`forced_queue=26`，批次 87 由 `78/50` 推进至 `79/50`。
+P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-244 bearer token 缺失真实 App L2 收口，批次 87 78/50
+
+真实 App 在健康探针可达、workspace 请求故意缺少 bearer 的正式 session
+`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-173413` 中收到真实
+`401 UNAUTH_BAD_TOKEN`。首轮 Computer Use 观察确认认证失败被错误泛化成 workspace
+失败；停止推进后将 `WorkspaceGate` 改为明确的“请重启本地引擎/重启后端,然后重试”双语
+错误态，并保留 Retry、不清理 workspace、不误入 onboarding。定向 Flutter widget test
+与 app-proxy 单测通过，五通道 `rig-check`/`rig-down` 通过，backend/frontend 无应用红线，
+SSE 三流和 managed LLM tap 的接线均有同 session 记录。
+
+`judge.py` 仅写入 L2=`E1`，本格为 `✓✓~~~`；L3-L5 继续开放，下一原子仍为本格 L3。
+写账触发的 `gap-too-fast` 与 `discovery-collapse` 已由
+`testend/rig/formal-evidence/EDGE-244-ledger-alarm-reaudit-20260831.md` 独立复审后按
+原阈值串行 ack，最终 `alarms.py check` clean；未改阈值、法典、锚点、五级标准或顺序门。
+锚点=`10/10`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。
+
+权威清册由 `737/3876/364` 推进为 `737/3877/363`（已结算行/已结算格/开放格），仍有
+`111` 行开放；`manual_queue=173`、`forced_queue=26`。批次 87 由 `77/50` 推进至
+`78/50`，本批尚未重复执行统一长门禁。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
 ## 2026-08-31 · EDGE-240 ADD COLUMN 结果幂等真实 App 五格收口，批次 87 73/50
 
 正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-165453`。从同一有效旧安装
