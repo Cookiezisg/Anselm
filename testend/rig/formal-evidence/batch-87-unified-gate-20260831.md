@@ -2,55 +2,39 @@
 
 ## Scope
 
-Batch 87 crossed the required 50-cell threshold at `56/50`. The final cells were
-`EDGE-210|免费档配额耗尽` and `EDGE-234|三步优雅关停`, both completed through the
-real-App stop-and-fix path before this gate. The gate does not touch the forced queue,
-the 400+ Journey deferral, or any acceptance threshold.
-
-## Product evidence sealed in this batch
-
-- `EDGE-210` used two fresh real-App sessions against the managed gateway line. The
-  llmtap fault was deliberately limited to the chat completion: one HTTP `402
-  QUOTA_EXHAUSTED` and one HTTP `200` stream carrying `BUDGET_EXHAUSTED`; challenge,
-  install, models and other gateway traffic remained real. The first run exposed raw
-  provider diagnostics in the transcript; the stop-and-fix replaced them with actionable
-  bilingual quota copy and a `Settings → Models & keys` route. No real gateway quota
-  exhaustion is claimed.
-- `EDGE-234` used a real App session with three resident SSE streams. Shutdown cancelled
-  the request context before HTTP shutdown, all three streams reached clean EOF, backend
-  graceful shutdown completed, and conductor-owned processes exited without SIGKILL
-  escalation. L5 was explicitly recorded as not applicable because this internal
-  lifecycle action has no user-discoverable feature surface.
-- Both items retained red evidence where the first observation was invalid or defective;
-  no failed observation was overwritten by a green claim. Independent ledger/alarm
-  re-audits are `EDGE-210-ledger-alarm-reaudit-fixed-real-app-20260831.md` and
-  `EDGE-234-ledger-alarm-reaudit-real-app-20260831.md`.
+Batch 87 crossed the required 50-cell threshold at `60/50` after `EDGE-235|关停预算格`
+was closed as `L2=F2/L3=A4/L4=C4/L5=na`. The real App redline found in the first
+shutdown session was fixed and re-tested before the ledger was closed. The gate did not
+touch the forced queue or resume the deferred 400+ Journey expansion.
 
 ## Required checks
 
 | Check | Result | Recorded fact |
 |---|---|---|
 | Root verification | PASS | `make verify`; backend, frontend, docs and demo all passed |
-| Full black-box testend | PASS | `make -C backend testend`; acceptance scenarios passed, `317.372s`, exit 0 |
-| Rig unit tests | PASS | `python3 -m unittest discover -s testend/rig -p 'test_*.py' -q`; 70 tests |
-| Proxy/wire tests | PASS | `mise exec -- go test ./cmd/llmtap ./harness/proxycore -count=1 -race -v` |
-| Go formatting | PASS | `gofmt -l` returned no files for touched llmtap sources |
-| Script/whitespace audit | PASS | `py_compile`, `bash -n` for rig scripts, and `git diff --check` |
-| Coverage regeneration | PASS | `gen_coverage.py --check`: 848 rows, 848 carried judgments, 0 tombstones |
-| Alarm drift gate | PASS | `alarms.py check`: 109 live judgments, 4240 baseline judgments excluded |
-| Anchor calibration | PASS | `anchors.py check`: 10/10 anchors; judge unlocked for 4h |
-| Process cleanup | PASS | no conductor-owned App/backend/tap/recorder/testend process remained |
+| Full black-box testend | PASS | `make -C backend testend`; scenarios passed in `359.528s` |
+| Rig unit tests | PASS | `python3 -m unittest discover -s testend/rig -p 'test_*.py' -q`; `70/70` |
+| Proxy/wire race tests | PASS | `go test ./harness/proxycore ./cmd/llmtap -count=1 -race` |
+| Go format audit | PASS | all `backend` and `testend` Go files formatted |
+| Coverage regeneration | PASS | `gen_coverage.py --check`: `848 rows, 848 carried judgments, 0 tombstones` |
+| Alarm drift gate | PASS | `alarms.py check`: `113 live judgments`, `4240` baseline judgments excluded |
+| Anchor calibration | PASS | `10/10` anchors; judge unlocked for 4h |
+| Script/whitespace audit | PASS | `py_compile`, `bash -n`, `git diff --check` |
+| Owned-process audit | PASS | no conductor-owned App/backend/tap/recorder/embedder remains |
 
-## Ledger state after gate
+## Ledger state
 
-The authoritative matrix is `848` rows: `731` fully settled and `117` open; `3852`
-cells are settled and `388` remain open. `forced_queue=25` remains untouched. The next
-autonomous frontier is `EDGE-235|关停预算格`; user-forced interactions remain deferred
-to the final manual phase.
+The semantic matrix is `848` rows: `732` fully settled and `116` open; `3856/4240`
+cells are settled and `384` remain open. The mechanical first open row is `EDGE-168`,
+but it is in the explicitly deferred manual/forced queue; the active formal sequence
+therefore advances to `EDGE-236|父进程死人开关`, which remains deferred until the user can
+perform the required parent-process `kill -9` interaction. `manual_queue=173` and
+`forced_queue=25` are unchanged.
 
 ## Integrity
 
-The gate did not change the CODEX, anchor answers, alarm thresholds/algorithm, formal
-sequence, five-level standard, or forced/manual queue semantics. The gate records the
-current working state only; the current working tree also contains unrelated changes
-from the other team, which must not be included in the acceptance commit.
+The alarm threshold and algorithm, CODEX, anchor answers, five-level standard, formal
+sequence and queue semantics were not changed. The repository contains unrelated
+uncommitted work from the other team; the eventual commit must stage only this batch's
+acceptance evidence, working-record updates, recorder retry, and the scoped startup-copy
+fix, without reverting or absorbing unrelated changes.

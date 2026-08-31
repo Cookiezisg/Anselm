@@ -10,6 +10,30 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-235 关停预算格真实 App L2-L4 收口、L5 适用性 na，批次 87 60/50
+
+初轮 formal session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-145945` 由同一
+conductor 真实启动 App、backend、三路 resident SSE、frontend console、llmtap 与录屏；通过公共
+HTTP 夹具建立三个 45 秒 slow workflow，真实 Scheduler 显示 `Running 3`。向真实 backend 发送
+SIGTERM 后，backend 正常收台、三路 SSE clean EOF、owned process 归零且没有 SIGKILL；SQLite
+保留三条 `running` flowrun，符合下次 boot Recover 的 durable 设计，未伪造 completed/failed。
+
+初轮发现产品红线：backend 已经正常服务过，App 却显示“backend didn't start”。停止推进后以
+`BackendFailureReason` 区分 startup、已运行后失联和 unexpected exit，新增中英文停止响应文案及
+定向 Flutter 回归。复验 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-150438`
+使用新编译真实 App，backend 被 SIGTERM 后 Computer Use 的画面和 AX 树均显示“本地引擎已停止响应。
+点击重试以重新连接。”，没有 startup hint。
+
+正式证据=`testend/rig/formal-evidence/EDGE-235-shutdown-budget-real-app-fixed-20260831.md`，账本
+复审=`testend/rig/formal-evidence/EDGE-235-ledger-alarm-reaudit-real-app-20260831.md`；`judge.py`
+写入 `L2=F2/L3=A4/L4=C4/L5=na`，清册目标行=`✓✓✓✓~`。每次写账触发的
+`gap-too-fast`/`discovery-collapse` 均在原阈值下由真实证据独立复审并 ack；最终
+`anchors.py check`=`10/10`、`alarms.py check`=`clean (113 live judgments; 4240 baseline judgments
+excluded from drift curves)`、`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。
+清册为 `732/3856/384`（已结算行/已结算格/开放格），当前顺序门为 `EDGE-236|父进程死人开关`；
+该项需真实父进程 kill-9 和强制交互，按用户授权后置。批次 87 已达 `60/50`，现在执行统一长门禁，
+门禁通过前不提交。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
 ## 2026-08-31 · EDGE-234 三步优雅关停真实 App L2-L4 收口、L5 适用性 na，批次 87 56/50
 
 正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-140051-edge234`。

@@ -988,6 +988,9 @@ class Translations$startup$en {
 	/// en: 'The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).'
 	String get crashedHint => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).';
 
+\t/// en: 'The local engine stopped responding. Retry to reconnect.'
+\tString get stoppedHint => 'The local engine stopped responding. Retry to reconnect.';
+
 	/// en: 'Retry'
 	String get retry => 'Retry';
 
@@ -8988,6 +8991,7 @@ extension on Translations {
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
+\t\t\t'startup.stoppedHint' => 'The local engine stopped responding. Retry to reconnect.',
 			'startup.retry' => 'Retry',
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',

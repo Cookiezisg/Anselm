@@ -257,11 +257,29 @@ start_app_and_record() {
     }
     startup_event app_window_geometry_resolved
     RECORDER_LIFECYCLE="$SESSION/recording-lifecycle.json"
-    RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" --lifecycle "$RECORDER_LIFECYCLE" -- \
-      screencapture -v -C -k -l "$APP_WINDOW_ID" "$SESSION/screen.mov")
-    sleep 1
-    kill -0 "$RECORDER_PID" 2>/dev/null || {
-      echo "✗ screen recorder exited — check Screen Recording permission and $SESSION/recording.log" >&2; exit 1;
+    # A newly-created Flutter window can be visible to CoreGraphics before ScreenCaptureKit has
+    # accepted it as a recordable source. Retry the bounded hand-off instead of turning that
+    # one-frame startup race into a false channel-1 permission failure. Each retry overwrites the
+    # lifecycle record, so the surviving recorder is the only one whose microsecond timestamps are
+    # used by later measurements.
+    #
+    # Flutter 新窗口可能已经被 CoreGraphics 看见，但 ScreenCaptureKit 尚未接受它作为可录制源。
+    # 这里对交接做有界重试，避免一次启动竞态被误判成 channel-1 权限失败。每次重试覆盖 lifecycle，
+    # 因而后续测量使用的微秒时间戳只属于最后存活的 recorder。
+    RECORDER_PID=""
+    for RECORD_ATTEMPT in $(seq 1 5); do
+      RECORDER_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/recording.log" --lifecycle "$RECORDER_LIFECYCLE" -- \
+        screencapture -v -C -k -l "$APP_WINDOW_ID" "$SESSION/screen.mov")
+      sleep 1
+      if kill -0 "$RECORDER_PID" 2>/dev/null; then
+        break
+      fi
+      printf '[conductor] screen recorder attempt %s exited before the recordable window hand-off\n' \
+        "$RECORD_ATTEMPT" >>"$SESSION/recording.log"
+      RECORDER_PID=""
+    done
+    [ -n "$RECORDER_PID" ] && kill -0 "$RECORDER_PID" 2>/dev/null || {
+      echo "✗ screen recorder exited after bounded retries — check Screen Recording permission and $SESSION/recording.log" >&2; exit 1;
     }
     startup_event window_recording_started
     echo "✓ window recording (Anselm window $APP_WINDOW_ID, PID $RECORDER_PID)"

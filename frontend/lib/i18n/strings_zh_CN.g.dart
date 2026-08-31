@@ -462,6 +462,7 @@ class _Translations$startup$zh_CN extends Translations$startup$en {
 	@override String get crashedTitle => '本地引擎无法连接';
 	@override String get crashedHint => '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。';
 	@override String get retry => '重试';
+\t@override String get stoppedHint => '本地引擎已停止响应。点击重试以重新连接。';
 	@override String get errorTitle => '界面出错了';
 	@override String get errorHint => '渲染此视图时发生了意外错误。';
 }
@@ -4433,6 +4434,7 @@ extension on TranslationsZhCn {
 			'startup.crashedHint' => '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。',
 			'startup.retry' => '重试',
 			'startup.errorTitle' => '界面出错了',
+\t\t\t'startup.stoppedHint' => '本地引擎已停止响应。点击重试以重新连接。',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',

@@ -70,4 +70,21 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('stopped backend → reconnection guidance, not startup guidance', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _app(
+        const BackendState(
+          BackendPhase.crashed,
+          error: 'external backend stopped responding',
+          failureReason: BackendFailureReason.stoppedResponding,
+        ),
+      ),
+    );
+    expect(find.text(t.startup.stoppedHint), findsOneWidget);
+    expect(find.text(t.startup.crashedHint), findsNothing);
+    expect(find.byKey(const Key('shell')), findsNothing);
+  });
 }

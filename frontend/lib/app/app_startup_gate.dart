@@ -23,7 +23,8 @@ class AppStartupGate extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final phase = ref.watch(backendStartupProvider.select((s) => s.phase));
+    final backend = ref.watch(backendStartupProvider);
+    final phase = backend.phase;
     final t = context.t;
     return switch (phase) {
       BackendPhase.ready => child,
@@ -36,7 +37,11 @@ class AppStartupGate extends ConsumerWidget {
           fatal:
               true, // app can't start — louder than an in-content error 应用起不来,比内容内错更响
           title: t.startup.crashedTitle,
-          hint: t.startup.crashedHint,
+          hint: switch (backend.failureReason) {
+            BackendFailureReason.stoppedResponding => t.startup.stoppedHint,
+            BackendFailureReason.startup ||
+            BackendFailureReason.unexpectedExit => t.startup.crashedHint,
+          },
           // Keep backend diagnostics in the journal; never expose raw URLs or internal errors in the
           // product-facing startup gate. 后端诊断留在日志,启动门只展示可理解的用户文案。
           action: AnButton(

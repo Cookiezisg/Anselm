@@ -161,6 +161,11 @@ Codex/其他宿主切前台时不会污染产品帧，同一窗口内的 Overlay
 归属复核。首次
 注册场景用 `RIG_SEED=0`，ssetap 会在 onboarding 创建 workspace 后一秒内自动接管三条流。
 
+窗口被 CoreGraphics 解析出来后，conductor 对 `screencapture -l <appWindowId>` 做最多 5 次、每次 1 秒的
+有界启动重试。macOS 可能在窗口已可见但尚未被 ScreenCaptureKit 接受的瞬间让第一次 recorder 退出；这不是
+权限成功或失败的新状态，只有最终存活的 recorder 才会写入正式 `recording-lifecycle.json`，失败尝试只留在
+`recording.log`。5 次仍失败才停止台架，不能用无帧会话继续验收。
+
 `rig-check` 还会用 CoreGraphics 按前后层级扫描 Anselm 窗口上方的外部窗口；会话自己的 App 与 recorder PID
 明确排除；Computer Use 的 `Software Cursor` 与 Codex 宿主窗口(`ChatGPT`/旧名 `ChatGPT Computer Use`)
 作为仪器层明确列入白名单，任何其他与录制区域相交的系统弹窗或其他应用都会硬失败。宿主窗口白名单只解决

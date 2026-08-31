@@ -13,6 +13,13 @@ import 'package:flutter/foundation.dart';
 /// 本地 Go 后端处于生命周期何处。整个 app 据此门控:单一横幅/启动屏读它,非逐 feature 处理。
 enum BackendPhase { starting, ready, crashed }
 
+/// Why the backend gate is crashed. The distinction matters to users: a backend that never came
+/// up needs startup guidance, while one that was serving and then disappeared needs reconnection
+/// guidance instead.
+///
+/// 后端门为何进入 crashed。这个区别直接影响用户理解：从未起来需要启动指引，已经服务后消失则应提示重新连接。
+enum BackendFailureReason { startup, stoppedResponding, unexpectedExit }
+
 /// The supervised backend's snapshot: the base URL + the per-launch bearer token the rest of
 /// the app needs to talk to it (both null until ready; token also null on dev-attach).
 ///
@@ -26,12 +33,14 @@ class BackendState {
     this.authToken,
     this.dataDir,
     this.error,
+    this.failureReason = BackendFailureReason.startup,
   });
   final BackendPhase phase;
   final String? baseUrl;
   final String? authToken;
   final String? dataDir;
   final String? error;
+  final BackendFailureReason failureReason;
 
   bool get isReady => phase == BackendPhase.ready && baseUrl != null;
 }
