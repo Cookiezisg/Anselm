@@ -16,7 +16,8 @@ Start a complete acceptance rig. Configure the rig with environment variables su
 RIG_HOME, RIG_PORT, RIG_DATA, RIG_SEED, RIG_LLMTAP, RIG_RECORD, RIG_APP, RIG_APP_FIRST,
 RIG_BACKEND_START_DELAY_SEC, RIG_APP_PROXY, RIG_APP_PROXY_PORT, RIG_APP_PROXY_DELAY_MS,
 RIG_APP_PROXY_FAIL_COUNT, RIG_APP_PROXY_FAIL_STATUS, RIG_LLMTAP_FAIL_PATH, RIG_LLMTAP_FAIL_COUNT,
-RIG_LLMTAP_FAIL_STATUS, and ANSELM_RIG_MEDIA_PROCESS_DELAY_MS.
+RIG_LLMTAP_FAIL_STATUS, RIG_LLMTAP_FAIL_KIND, RIG_LLMTAP_INJECT_WAV_METADATA, ANSELM_RIG_MODEL_CATALOG_URL, and
+ANSELM_RIG_MEDIA_PROCESS_DELAY_MS.
 The command takes no positional arguments; use --help only to print this message.
 EOF
 }
@@ -42,6 +43,8 @@ LLM_UPSTREAM="${RIG_LLM_UPSTREAM:-https://api.anselm.website}"
 LLMTAP_FAIL_PATH="${RIG_LLMTAP_FAIL_PATH:-}"
 LLMTAP_FAIL_COUNT="${RIG_LLMTAP_FAIL_COUNT:-0}"
 LLMTAP_FAIL_STATUS="${RIG_LLMTAP_FAIL_STATUS:-503}"
+LLMTAP_FAIL_KIND="${RIG_LLMTAP_FAIL_KIND:-generic}"
+LLMTAP_INJECT_WAV_METADATA="${RIG_LLMTAP_INJECT_WAV_METADATA:-0}"
 RECORD="${RIG_RECORD:-1}"
 APP="${RIG_APP:-1}"
 APP_FIRST="${RIG_APP_FIRST:-0}"
@@ -381,9 +384,22 @@ fi
 
 GATEWAY_ENV=()
 if [ "$LLMTAP" = "1" ]; then
+  case "$LLMTAP_INJECT_WAV_METADATA" in
+    0|1) ;;
+    *) echo "✗ RIG_LLMTAP_INJECT_WAV_METADATA must be 0 or 1" >&2; exit 2 ;;
+  esac
+  LLMTAP_ARGS=(
+    -listen "127.0.0.1:$LLMTAP_PORT"
+    -upstream "$LLM_UPSTREAM"
+    -out "$SESSION/llm.jsonl"
+    -fail-path "$LLMTAP_FAIL_PATH"
+    -fail-count "$LLMTAP_FAIL_COUNT"
+    -fail-status "$LLMTAP_FAIL_STATUS"
+    -fail-kind "$LLMTAP_FAIL_KIND"
+  )
+  [ "$LLMTAP_INJECT_WAV_METADATA" = "1" ] && LLMTAP_ARGS+=(-inject-wav-metadata)
   LLMTAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/llmtap.log" -- \
-    "$RIG_HOME/bin/llmtap" -listen "127.0.0.1:$LLMTAP_PORT" -upstream "$LLM_UPSTREAM" -out "$SESSION/llm.jsonl" \
-    -fail-path "$LLMTAP_FAIL_PATH" -fail-count "$LLMTAP_FAIL_COUNT" -fail-status "$LLMTAP_FAIL_STATUS")
+    "$RIG_HOME/bin/llmtap" "${LLMTAP_ARGS[@]}")
   for _ in $(seq 1 40); do
     [ "$(lsof -ti ":$LLMTAP_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$LLMTAP_PID" ] && break
     sleep 0.25
@@ -573,6 +589,9 @@ json.dump({
   "llmtapFailPath": "$LLMTAP_FAIL_PATH",
   "llmtapFailCount": $LLMTAP_FAIL_COUNT,
   "llmtapFailStatus": $LLMTAP_FAIL_STATUS,
+  "llmtapFailKind": "$LLMTAP_FAIL_KIND",
+  "llmtapInjectWAVMetadata": "$LLMTAP_INJECT_WAV_METADATA",
+  "modelCatalogURL": "${ANSELM_RIG_MODEL_CATALOG_URL:-}",
   "mediaProcessDelayMs": "${ANSELM_RIG_MEDIA_PROCESS_DELAY_MS:-0}",
   "speechCacheBudgetBytes": "${ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES:-0}",
   "playbackLeaseTtlMs": "${ANSELM_RIG_PLAYBACK_LEASE_TTL_MS:-0}",

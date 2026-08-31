@@ -133,6 +133,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get stoppedError => 'Something went wrong';
 	@override String get providerError => '模型服务没有完成这次回复。请再试一次；如果请求较大，拆成更小的内容再发。';
 	@override String get rateLimited => '模型服务暂时繁忙，请稍后重试。';
+	@override String get quotaExhausted => '本月免费档额度已用完。额度恢复后再试，或打开设置 → 模型与密钥，改用其他模型或密钥。';
 	@override String get chatTurnTimeout => '这次回复耗时过久，已暂停以保持应用响应。请发送后续消息或简化任务后重试。';
 	@override String get toolErrorStorm => '工具连续失败，这次回复已暂停。请检查输入后重试。';
 	@override String get contextInputTooLarge => '这部分内容超出了模型一次能处理的范围。请拆分最新附件或内容后重试。';
@@ -2216,6 +2217,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get searchDefaultDesc => 'WebSearch 工具所用——只提供探测通过的搜索密钥';
 	@override String get searchKeyNotProbedHint => '尚未通过探测,不会进入默认候选';
 	@override String get keyOpFailed => '操作失败';
+	@override String get keySavedProbeFailed => '密钥已保存,但连通性探测失败。请检查密钥或 Base URL 后重试。';
 	@override String get refreshModels => '刷新模型列表';
 	@override String get modelCatalogLoading => '正在读取模型能力…';
 	@override String get modelCatalogFailed => '模型能力读取失败';
@@ -3321,6 +3323,7 @@ extension on TranslationsZhCn {
 			'chat.stoppedError' => 'Something went wrong',
 			'chat.providerError' => '模型服务没有完成这次回复。请再试一次；如果请求较大，拆成更小的内容再发。',
 			'chat.rateLimited' => '模型服务暂时繁忙，请稍后重试。',
+			'chat.quotaExhausted' => '本月免费档额度已用完。额度恢复后再试，或打开设置 → 模型与密钥，改用其他模型或密钥。',
 			'chat.chatTurnTimeout' => '这次回复耗时过久，已暂停以保持应用响应。请发送后续消息或简化任务后重试。',
 			'chat.toolErrorStorm' => '工具连续失败，这次回复已暂停。请检查输入后重试。',
 			'chat.contextInputTooLarge' => '这部分内容超出了模型一次能处理的范围。请拆分最新附件或内容后重试。',
@@ -3713,9 +3716,9 @@ extension on TranslationsZhCn {
 			'chat.tool.byChat' => '对话',
 			'chat.tool.byAgent' => '智能体',
 			'chat.tool.byWorkflow' => '工作流',
-			'chat.tool.byManual' => '手动',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.byManual' => '手动',
 			'chat.tool.searchingFlowruns' => '正在翻查运行',
 			'chat.tool.searchedFlowruns' => '已翻查运行',
 			'chat.tool.searchingFirings' => '正在翻查派发',
@@ -4227,9 +4230,9 @@ extension on TranslationsZhCn {
 			'scheduler.run.glanceSuccess' => ({required Object pct}) => '近 7 天 ${pct}% 成功',
 			'scheduler.run.glanceStreak' => ({required Object n}) => '连败 ${n}',
 			'scheduler.run.payloadHead' => '入口 payload',
-			'scheduler.run.pinnedRefsHead' => '钉住的引用',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.run.pinnedRefsHead' => '钉住的引用',
 			'scheduler.run.errorHead' => '错误',
 			'scheduler.run.replayHistory' => ({required Object n}) => '已重放 ×${n}',
 			'scheduler.run.replayNever' => '从未重放',
@@ -4741,9 +4744,9 @@ extension on TranslationsZhCn {
 			'entities.run.traceHeading' => '轨迹',
 			'entities.run.reasoning' => '推理',
 			'entities.run.toolCall' => '工具调用',
-			'entities.run.nodesHeading' => '节点',
 			_ => null,
 		} ?? switch (path) {
+			'entities.run.nodesHeading' => '节点',
 			'entities.run.noTrace' => '等待输出…',
 			'entities.run.steps' => ({required Object n}) => '${n} 步',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}',
@@ -5106,6 +5109,7 @@ extension on TranslationsZhCn {
 			'settings.keys.searchDefaultDesc' => 'WebSearch 工具所用——只提供探测通过的搜索密钥',
 			'settings.keys.searchKeyNotProbedHint' => '尚未通过探测,不会进入默认候选',
 			'settings.keys.keyOpFailed' => '操作失败',
+			'settings.keys.keySavedProbeFailed' => '密钥已保存,但连通性探测失败。请检查密钥或 Base URL 后重试。',
 			'settings.keys.refreshModels' => '刷新模型列表',
 			'settings.keys.modelCatalogLoading' => '正在读取模型能力…',
 			'settings.keys.modelCatalogFailed' => '模型能力读取失败',
@@ -5254,10 +5258,10 @@ extension on TranslationsZhCn {
 			'settings.mcp.deleteTitle' => '删除 MCP 服务器',
 			'settings.mcp.deleteBody' => ({required Object name}) => '将移除「${name}」及其配置(软删)。',
 			'settings.mcp.confirmDelete' => '删除',
-			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
-			'settings.mcp.call' => ({required Object n}) => '${n} 次调用',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
+			'settings.mcp.call' => ({required Object n}) => '${n} 次调用',
 			'settings.mcp.calls' => ({required Object n}) => '${n} 次调用',
 			'settings.mcp.statusReady' => '就绪',
 			'settings.mcp.statusFailed' => '失败',

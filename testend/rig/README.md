@@ -76,6 +76,25 @@ App、录屏、后端健康和 SSE 的事件时序。
 `llm.jsonl`；其他请求继续透明转发到 `RIG_LLM_UPSTREAM`，默认关闭。它用于真实 App 的失败传播验收，证据必须
 明确标注“故障由台架注入、上游为真实网关”，不能把注入响应写成真实网关自身的故障统计，也不能用于绿色成功路径。
 
+额度耗尽故障路径使用显式的 `RIG_LLMTAP_FAIL_KIND=quota-http`（`RIG_LLMTAP_FAIL_STATUS=402` 或 `429`）
+或 `RIG_LLMTAP_FAIL_KIND=quota-stream`。前者返回网关 `QUOTA_EXHAUSTED` HTTP 信封，后者返回
+`BUDGET_EXHAUSTED` SSE 错误帧；两者只拦截 `RIG_LLMTAP_FAIL_PATH=/v1/chat/completions`，其余
+challenge/install/models/quota 仍逐字节通过真实 managed gateway。该模式是无配额网关上的受控故障注入，
+只证明产品错误路径，不冒充真实网关扣费耗尽事实。
+
+要验收 `EDGE-230` 的 WAV chunk 遍历，可显式设置 `RIG_LLMTAP_INJECT_WAV_METADATA=1`。独立
+`llmtap` 只读取成功的 `/v1/audio/speech` body，在 `data` 前插入合法的 `LIST` 与 `fact` chunk，
+修正 RIFF 长度，并落 `event=wav_metadata_injected`；其他路径和普通 session 仍逐字节透明。这个
+开关是对真实网关响应的本地受控扰动，不代表网关自身会发这些 chunk。正式证据必须证明 App 仍
+产生可播放最终产物，且最终 PCM 长度等于真实响应 payload 之和；manifest 会记录
+`llmtapInjectWAVMetadata=1`。
+
+要验收 `EDGE-232` 的模型目录运行时刷新失败，可显式设置
+`ANSELM_RIG_MODEL_CATALOG_URL=http://127.0.0.1:9/api.json`。该变量只覆盖 backend
+boot 后约 30 秒触发的 models.dev catalog fetch，默认为空，不改变真实 managed gateway、device-proof
+或聊天线路；manifest 会记录 `modelCatalogURL`。正式证据必须证明 fetch 失败后保留 vendored/last-good
+目录，模型能力和真实聊天仍可用，且 backend 只留下可解释的 warning。
+
 要验收真实 App 的“代理未 ready → 聊天有界等待 → 原图回退 → 后台代理追上”时，可显式设置
 `ANSELM_RIG_MEDIA_PROCESS_DELAY_MS=5000`。这是后端 media worker 的台架专用延迟，不替代真实
 `ImageProcessor`：真实附件仍上传、真实 worker 仍执行并落 durable `model-default` derivative，只有

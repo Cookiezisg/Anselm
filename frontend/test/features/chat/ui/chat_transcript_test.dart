@@ -439,6 +439,35 @@ void main() {
     expect(find.byTooltip(t.chat.actions.readAloudPreparing), findsNothing);
   });
 
+  testWidgets('read-aloud explains and disables an over-limit turn', (
+    tester,
+  ) async {
+    final source = _DelayedReadAloudSource();
+    final repo = _repo(
+      messages: {
+        'cv_1': [
+          _turn(
+            'msg_a',
+            'assistant',
+            blocks: [_blk('b_a', 'text', '界' * (readAloudMaxRunes + 1))],
+          ),
+        ],
+      },
+    );
+    await tester.pumpWidget(
+      _host(repo, overrides: [mediaSourceProvider.overrideWithValue(source)]),
+    );
+    await tester.pump();
+    await _settle(tester);
+
+    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
+    final tooLong = find.byTooltip(t.chat.actions.readAloudTooLong);
+    expect(tooLong, findsOneWidget);
+    expect(find.byTooltip(t.chat.actions.readAloud), findsNothing);
+    await tester.tap(tooLong, warnIfMissed: false);
+    expect(source.readCalls, 0);
+  });
+
   testWidgets('hydrated history dispatches blocks to the locked modules', (
     tester,
   ) async {
@@ -1530,6 +1559,32 @@ void main() {
               'CONTEXT_INPUT_TOO_LARGE · the current indivisible input still exceeds the model context',
           copy: (Translations t) => t.chat.contextInputTooLarge,
         ),
+        (
+          stop: 'error',
+          code: 'LLM_RATE_LIMITED',
+          raw: 'LLM_RATE_LIMITED · llm: rate limited (429)',
+          copy: (Translations t) => t.chat.rateLimited,
+        ),
+        (
+          stop: 'error',
+          code: 'LLM_QUOTA_EXHAUSTED',
+          raw: 'LLM_QUOTA_EXHAUSTED · llm: free-tier quota exhausted (402)',
+          copy: (Translations t) => t.chat.quotaExhausted,
+        ),
+        (
+          stop: 'error',
+          code: 'LLM_STREAM_ERROR',
+          raw:
+              'LLM_STREAM_ERROR · llm.custom: do: Post "http://127.0.0.1:65534/chat/completions": connection refused',
+          copy: (Translations t) => t.chat.providerError,
+        ),
+        (
+          stop: 'error',
+          code: 'ATTACHMENT_STAGING_FAILED',
+          raw:
+              'load history: attachment: stage "photo.png" for managed media: provider error (503)',
+          copy: (Translations t) => t.chat.attachmentStagingFailed,
+        ),
       ]) {
         final repo = FixtureChatRepository(
           conversations: [_conv('cv_1')],
@@ -1742,6 +1797,19 @@ void main() {
       expect(find.text('LAST REPLY'), findsOneWidget);
       expect(find.byTooltip(t.chat.actions.retry), findsOneWidget);
       expect(find.byTooltip(t.chat.actions.editResend), findsOneWidget);
+      final editOpacity = tester.widget<AnimatedOpacity>(
+        find
+            .ancestor(
+              of: find.byTooltip(t.chat.actions.editResend),
+              matching: find.byType(AnimatedOpacity),
+            )
+            .first,
+      );
+      expect(
+        editOpacity.opacity,
+        1,
+        reason: 'the editable tail must be discoverable without hover',
+      );
       // Copy is on every turn (CH-a), so the row itself is present on the history — only these two are not.
       // 复制在每个回合上(CH-a),故历史上动作排本身在——只有这两个不在。
       expect(

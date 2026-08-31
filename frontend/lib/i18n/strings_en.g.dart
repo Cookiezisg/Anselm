@@ -262,6 +262,9 @@ class Translations$chat$en {
 	/// en: 'The model service is temporarily busy. Please try again shortly.'
 	String get rateLimited => 'The model service is temporarily busy. Please try again shortly.';
 
+	/// en: 'This month's free-tier quota is used up. Try again after it resets, or open Settings → Models & keys to choose another model or key.'
+	String get quotaExhausted => 'This month\'s free-tier quota is used up. Try again after it resets, or open Settings → Models & keys to choose another model or key.';
+
 	/// en: 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.'
 	String get chatTurnTimeout => 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.';
 
@@ -5484,6 +5487,9 @@ class Translations$settings$keys$en {
 	/// en: 'Operation failed'
 	String get keyOpFailed => 'Operation failed';
 
+	/// en: 'The key was saved, but its connectivity probe failed. Check the key or Base URL and try again.'
+	String get keySavedProbeFailed => 'The key was saved, but its connectivity probe failed. Check the key or Base URL and try again.';
+
 	/// en: 'Refresh model list'
 	String get refreshModels => 'Refresh model list';
 
@@ -7874,6 +7880,7 @@ extension on Translations {
 			'chat.stoppedError' => 'Something went wrong',
 			'chat.providerError' => 'The model service didn\'t finish this response. Try again; if the request is large, send it in smaller parts.',
 			'chat.rateLimited' => 'The model service is temporarily busy. Please try again shortly.',
+			'chat.quotaExhausted' => 'This month\'s free-tier quota is used up. Try again after it resets, or open Settings → Models & keys to choose another model or key.',
 			'chat.chatTurnTimeout' => 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.',
 			'chat.toolErrorStorm' => 'The tools kept failing, so this reply was paused. Check the inputs and try again.',
 			'chat.contextInputTooLarge' => 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.',
@@ -8266,9 +8273,9 @@ extension on Translations {
 			'chat.tool.byChat' => 'chat',
 			'chat.tool.byAgent' => 'agent',
 			'chat.tool.byWorkflow' => 'workflow',
-			'chat.tool.byManual' => 'manual',
 			_ => null,
 		} ?? switch (path) {
+			'chat.tool.byManual' => 'manual',
 			'chat.tool.searchingFlowruns' => 'Searching runs',
 			'chat.tool.searchedFlowruns' => 'Searched runs',
 			'chat.tool.searchingFirings' => 'Searching firings',
@@ -8780,9 +8787,9 @@ extension on Translations {
 			'scheduler.run.glanceSuccess' => ({required Object pct}) => '${pct}% ok / 7d',
 			'scheduler.run.glanceStreak' => ({required Object n}) => '${n} failing',
 			'scheduler.run.payloadHead' => 'Entry payload',
-			'scheduler.run.pinnedRefsHead' => 'Pinned refs',
 			_ => null,
 		} ?? switch (path) {
+			'scheduler.run.pinnedRefsHead' => 'Pinned refs',
 			'scheduler.run.errorHead' => 'Error',
 			'scheduler.run.replayHistory' => ({required Object n}) => 'Replayed ×${n}',
 			'scheduler.run.replayNever' => 'Never replayed',
@@ -9294,9 +9301,9 @@ extension on Translations {
 			'entities.run.traceHeading' => 'Trace',
 			'entities.run.reasoning' => 'Reasoning',
 			'entities.run.toolCall' => 'Tool call',
-			'entities.run.nodesHeading' => 'Nodes',
 			_ => null,
 		} ?? switch (path) {
+			'entities.run.nodesHeading' => 'Nodes',
 			'entities.run.noTrace' => 'Waiting for output…',
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '${inT} in · ${outT} out',
@@ -9659,6 +9666,7 @@ extension on Translations {
 			'settings.keys.searchDefaultDesc' => 'Used by the WebSearch tool — only probed-OK search keys are offered',
 			'settings.keys.searchKeyNotProbedHint' => 'Hasn\'t passed its probe yet — won\'t be offered as the default',
 			'settings.keys.keyOpFailed' => 'Operation failed',
+			'settings.keys.keySavedProbeFailed' => 'The key was saved, but its connectivity probe failed. Check the key or Base URL and try again.',
 			'settings.keys.refreshModels' => 'Refresh model list',
 			'settings.keys.modelCatalogLoading' => 'Reading model capabilities…',
 			'settings.keys.modelCatalogFailed' => 'Model capabilities couldn\'t be read',
@@ -9807,10 +9815,10 @@ extension on Translations {
 			'settings.mcp.deleteTitle' => 'Delete MCP server',
 			'settings.mcp.deleteBody' => ({required Object name}) => 'Removes “${name}” and its config (soft delete).',
 			'settings.mcp.confirmDelete' => 'Delete',
-			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
-			'settings.mcp.call' => ({required Object n}) => '${n} call',
 			_ => null,
 		} ?? switch (path) {
+			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
+			'settings.mcp.call' => ({required Object n}) => '${n} call',
 			'settings.mcp.calls' => ({required Object n}) => '${n} calls',
 			'settings.mcp.statusReady' => 'ready',
 			'settings.mcp.statusFailed' => 'failed',

@@ -10,6 +10,251 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-234 三步优雅关停真实 App L2-L4 收口、L5 适用性 na，批次 87 56/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-140051-edge234`。
+真实 App、backend、三路 resident SSE、frontend console、llmtap 与 H.264 录屏由同一 conductor
+托管；收到 SIGTERM 后先取消请求上下文，三路 SSE 均 clean EOF，backend 完成 graceful shutdown，
+owned processes 全部退出且无 SIGKILL escalation。L2=`F2`、L3=`A4`、L4=`C4`；L5 记明确适用性
+`na`，因为内部生命周期动作没有用户寻找的独立功能入口。正式证据=
+`testend/rig/formal-evidence/EDGE-234-graceful-shutdown-real-app-20260831.md`，账本复审=
+`testend/rig/formal-evidence/EDGE-234-ledger-alarm-reaudit-real-app-20260831.md`。
+
+Edge210 与 Edge234 的连续写账触发的 `gap-too-fast`/`discovery-collapse` 均经独立复审逐条 ack，
+未改阈值、曲线算法、CODEX、锚点、五级标准或顺序门。最终 `anchors.py check`=`10/10`、
+`alarms.py check`=`clean (109 live judgments; 4240 baseline judgments excluded from drift curves)`、
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。权威清册为
+`731/3852/388`（已结算行/已结算格/开放格），当前自主前线为 `EDGE|关停预算格`；批次 87 由
+`8/50` 推进至 `56/50`，开始统一长门禁，门禁通过前不提交。
+
+## 2026-08-31 · EDGE-232 模型目录运行时刷新失败真实 App L2-L3 收口，批次 87 43/50
+
+## 2026-08-31 · EDGE-233 boot 顺序 SweepMisfires 真实重启 L2-L5 收口，批次 87 48/50
+
+setup session=`/private/tmp/anselm-rig-ep233-setup-20260831/sessions/20260831-135329` 建立并激活
+真实 `surf040_hot_cron`；回拨该测试数据的 misfire watermark 后正常收台。formal session=
+`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-135552-edge233` 使用同一 data dir
+真实重启。boot 后 `trigger_firings` 有 2 条 `status=missed` 且 `flowrun_id` 均为空，workflow
+`flowruns=0`，证明 `ReattachActive` 先恢复监听、`SweepMisfires` 后记账且不补跑；Scheduler 终帧
+显示 `Missed · 24h: 1`、`0 runs in 24h: 0 ok, 0 failed, 1 missed` 和下一刻度。
+
+录屏为 H.264 `3104x1844 / 60fps / 58.195000s`，三路 SSE 各连接一次并 clean EOF，llmtap 的持久
+managed key 经过 fresh tap，frontend/backend 无应用红线；`rig-check` 与 `rig-down` 均通过。正式证据=
+`testend/rig/formal-evidence/EDGE-233-boot-sweep-order-real-app-20260831.md`，账本复审=
+`testend/rig/formal-evidence/EDGE-233-ledger-alarm-reaudit-real-app-20260831.md`。`judge.py` 写入
+`L2=F2/L3=A4/L4=C4/L5=G1`；五次统计告警均按原阈值复审 ack，`alarms.py check`=`clean (101 live judgments)`。
+`gen_coverage.py --check`、rig tests、docs verify、`git diff --check` 通过；清册由 `730/3848/392`
+推进为 `731/3853/387`，批次由 `43/50` 到 `48/50`，未满 50 格不统一长门禁、不提交。下一前线为
+`EDGE|三步优雅关停`。
+
+真实 App session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-134318-edge232`。
+台架只设置 `ANSELM_RIG_MODEL_CATALOG_URL=http://127.0.0.1:9/api.json`，不改变真实
+managed gateway。boot 后约 30 秒 backend 记录 `model catalog refresh failed (previous catalog kept)`；
+Models & keys 仍显示 managed model 与六个 scenario defaults，随后真实 Chat 返回
+`EDGE232CHATOK`。录屏 `147.233333s / 3104x1844 / 60fps`，三路 SSE 各连接一次并 clean EOF，
+frontend 无 Flutter/Dart/布局异常，llmtap 的 challenge/install/models/quota 与两次 completion 全为
+`200`。正式证据=`testend/rig/formal-evidence/EDGE-232-model-catalog-refresh-failure-real-app-20260831.md`，
+账本复审=`testend/rig/formal-evidence/EDGE-232-ledger-alarm-reaudit-20260831.md`。
+
+`judge.py` 写入 L2=`E7`、L3=`A4`，L4/L5 以后台内部路径无独立视觉成品/入口的明确适用性边界记
+`na`；写账触发的两条统计告警均按原阈值复审并 ack，`alarms.py check`=`clean (97 live judgments)`。
+`gen_coverage.py --check` 与 rig tests 通过；权威清册从 `729/3844/396` 推进为 `730/3848/392`，
+批次由 `39/50` 推进至 `43/50`，未满 50 格不执行统一长门禁、不提交。下一前线由 formal sequence
+重算为 `EDGE|boot 顺序 SweepMisfires`。
+
+## 2026-08-31 · EDGE-230 ParseWAV chunk 遍历真实 App L2 收口，批次 87 39/50
+
+第一轮 session=`/private/tmp/anselm-rig-formal-20260831-13-edge230/sessions/20260831-132421` 真实走通
+受管语音，但台架注入器因误判真实网关的超大 `data` 长度哨兵而没有插入元数据；该红证据保留，未写绿。
+修复注入器先定位 `data`、保留 HTTP EOF 语义，并增加未知长度边界单测后，在全新 session=
+`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-132910-edge230` 重跑。
+
+主 session 真实 App 使用自然语言请求完整朗读，没有在用户文本中写工具名。真实 managed gateway 的
+3 个 `/v1/audio/speech` 响应均为 `200`；llmtap 的显式 `RIG_LLMTAP_INJECT_WAV_METADATA=1` 记录
+3 条 `wav_metadata_injected`，每条插入 `LIST` 与 `fact` 共 `24` bytes。三个实际 PCM 区为
+`1,350,240`、`1,384,800`、`414,720` bytes，最终 durable blob 的单一 WAV data 区为
+`3,149,760` bytes，只有一个 `RIFF` 和一个 `data` chunk。App 终态显示约 `65s` 的单一音频附件；
+处理中/完成截图、H.264 `3104x1844/60fps` `204.156667s` 录屏、backend、三流 SSE、frontend console
+和 LLM wire 均来自同一封存 session。
+
+正式证据=`testend/rig/formal-evidence/EDGE-230-parse-wav-chunks-injected-real-app-20260831.md`，
+红证据=`testend/rig/formal-evidence/EDGE-230-parse-wav-chunks-injection-missed-red-20260831.md`，
+账本复审=`testend/rig/formal-evidence/EDGE-230-ledger-alarm-reaudit-20260831.md`。`judge.py` 写入
+L2=`measure:edge230-parse-wav-chunks`；L3/L4/L5 以内部 parser 没有独立用户表面的具体理由记 `na`，
+不是 waiver。三次写账后的两个统计告警均按独立复审逐条 ack，`anchors.py check`、`alarms.py check`
+和 `gen_coverage.py --check` 均通过；清册从 `728/3840/400` 推进为 `729/3844/396`，批次由 `38/50`
+推进至 `39/50`，未满 50 格不执行统一长门禁、不提交。下一自主前线由 formal sequence 重新计算。
+
+## 2026-08-31 · EDGE-229 多块 TTS PCM 拼接真实 App L2-L5 收口，批次 87 38/50
+
+正式主 session=`/private/tmp/anselm-rig-formal-20260831-12-edge229b/sessions/20260831-130955`，交叉
+session=`/private/tmp/anselm-rig-formal-20260831-12-edge229/sessions/20260831-130336`。主场景从自然语言
+请求开始：用户没有写 `generate_speech` 工具名，只要求“把完整段落做成可播放音频，不要总结或省略”。
+真实 App 选择正确能力，返回覆盖 10 个部分的单一 WAV；AX 树、录屏和最终画面显示清晰的音频卡、
+`WAV`、`2:16` 与播放入口。
+
+两次真实请求均经受管 gateway，分别产生 5 次 `POST /v1/audio/speech` 分块调用，每次 `200`；主场景
+最终附件为 `att_fb8b5acac2b9e772`，`6,513,164` bytes，`24kHz/16bit/mono`，`135.69s`。五个原始
+响应去掉各自 44-byte WAV 头后的 PCM payload 总和为 `6,513,120` bytes，正好等于最终 data 区；最终
+文件只有一个 `RIFF/WAVE` 头和一个 `fmt `/`data` chunk 结构，证明不是 WAV 字节级追加。
+
+loading 帧显示 `Synthesizing speech…`、持续耗时和 Stop 控件，完成帧显示单一生成结果和可播放附件；
+录屏为 H.264 `3104x1844`、`60fps`，五通道、`rig-check`/`rig-down` 通过，backend/frontend 无应用级
+红线。正式证据=`testend/rig/formal-evidence/EDGE-229-real-app-tts-pcm-concat-20260831.md`，
+账本复审=`testend/rig/formal-evidence/EDGE-229-ledger-alarm-reaudit-20260831.md`，法条=`measure:edge229-tts-pcm-concat/F2/A4/C4/G1`。
+五格写账后的 `gap-too-fast` 与 `discovery-collapse` 已独立复核并 ack，未改任何阈值、算法、法典、锚点
+或顺序 gate。最终 `alarms.py check`=`clean (89 live judgments; 4240 baseline judgments excluded from
+drift curves)`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。
+权威状态=`728/848` 行、`3840/4240` 格结算、`120` 行开放、普通自主开放行 `95`、强制人工队列 `25`，
+批次 87 从 `33/50` 到 `38/50`；下一自主前线为 `EDGE-230|ParseWAV 遍历 chunk 表`，未满 50 格不统一长门禁、不提交。
+
+## 2026-08-31 · EDGE-228 ASR sidecar 无受管凭证真实 App L2 收口，L3-L5 适用性 na，批次 87 33/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-125311-edge228`。此前独立
+RIG_HOME 下的原始 session 已原样归档到主正式 session 根，复制后只更新 manifest 的绝对 session 身份，
+录屏与五类 journal 内容未改。`RIG_SEED=0` 创建空 workspace，`RIG_LLM_UPSTREAM=http://127.0.0.1:9`
+只用于让 managed provision 确定性失败；本格不声称成功调用真实网关。
+
+真实 App 完成 onboarding 后进入空白 Chat，Computer Use 的 AX 树和关键帧均只有 `Mention an entity`、
+`Attach files` 与文本输入，没有麦克风/语音入口。backend、三路 SSE、frontend console、managed LLM
+wire、60fps `screen.mov` 与该 App 属于同一 manifest；`rig-check` 与 `rig-down` 均通过，收台无残留
+Anselm/tap/recorder 进程。正式证据=`testend/rig/formal-evidence/EDGE-228-real-app-no-managed-asr-20260831.md`，
+session 内副本=`sessions/20260831-125311-edge228/evidence/EDGE-228-real-app-no-managed-asr-20260831.md`。
+
+L2 按 `F2` 通过。L3/L4/L5 分别按 `A4/C4/G1` 写明确适用性 `na`：无受管凭证时没有独立语音操作状态、
+语音结果卡/媒体产物或可发现入口，不把 absence seam 冒充顺滑、视觉或发现性证据。账本复审=
+`testend/rig/formal-evidence/EDGE-228-ledger-alarm-reaudit-20260831.md`；写账后的 `gap-too-fast` 与
+`discovery-collapse` 已依据独立复核逐条 ack，未改阈值、算法、法典、锚点或顺序 gate。
+
+最终 `alarms.py check`=`clean (85 live judgments; 4240 baseline judgments excluded from drift curves)`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。权威状态为
+`727/848` 行五级结算、`3836/4240` 格结算、`121` 行开放；普通自主开放行 `96`，强制人工队列 `25`，
+批次 87 从 `29/50` 到 `33/50`。未满 50 格不跑统一长门禁、不提交；下一自主前线为
+`EDGE-229|多块 TTS PCM 拼接`。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-227 语音拒绝 taxonomy 后置到强制人工尾队
+
+本格的本地分类、传输层闭集映射和前端错误码回归已通过，但完整 L2-L5 需要真实受管 ASR
+网关主动返回额度耗尽、限流、封禁三类拒绝，并需要麦克风权限与完整产品现场。当前 API Serve
+没有可由客户端安全触发这些拒绝的演练开关；用本地假网关只能证明实现，不是用户要求的真实
+产品证据。按用户“需要我强行交互的放到最后”裁定，`EDGE-227` 已加入
+`testend/rig/ledger-sequence.json` 的 `forced_queue`，保留 L1 与未完成 L2-L5，不写假绿格。
+
+这次队列调整不是 waiver，也没有修改标准、阈值、法典、锚点或账本裁决。下一自主前线改为
+`EDGE-228|ASR sidecar 无受管凭证`；清册仍为 `726/848` 行五级结算、`3832/4240` 格结算、
+`122` 行开放，强制人工队列 `25` 项，批次 87 仍为 `29/50`，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-08-31 · EDGE-225 能力工具诚实缺席真实 App stop-and-fix 后 L1-L5 收口，批次 87 29/50
+
+首个真实尝试 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-122936` 只删除了
+`defaultImage`，managed fallback 仍然真实生成图片；这证明的是验收前置条件不足，不是能力缺席缺陷，未写绿。
+修正后的正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-123648` 在新 workspace
+中设置非图像 BYOK placeholder 为 `defaultImage`，Dialogue 保持 managed route。真实 App 的实际工具 schema
+没有 `generate_image`，LLM wire 没有 `/v1/images/generations`，用户最终看到：
+`Image generation is unavailable in this workspace — there's no image-capable model configured.`，并得到
+准确的 `Settings → Models & keys → Image generation` 配置路径。
+
+首轮观察还发现模型被错误引导去“安装 MCP”来启用内建出图；这是产品指导缺陷，已 stop-and-fix：
+`backend/internal/app/chat/prompt.go` 增加内建 Image generation 设置路径规则，
+`backend/internal/app/chat/chat_test.go` 增加回归断言，`docs/references/backend/domains/chat.md` 同步规则。
+focused chat tests 通过。修复后的真实 App、backend journal、三路 SSE、frontend console、managed gateway
+LLM tap 和录屏属于同一 rig session；`rig-check` 与 `rig-down` 通过，收台无残留进程，前端仅保留已知
+macOS IMK 平台诊断，backend 无应用级 WARN/ERROR/panic。
+
+正式证据=`testend/rig/formal-evidence/EDGE-225-real-app-image-capability-honest-absence-20260831.md`，
+账本/警报复审=`testend/rig/formal-evidence/EDGE-225-ledger-alarm-reaudit-20260831.md`；L1-L5 分别以
+`E4/F2/A4/C4/G1` 收口。五次写账后 `alarms.py check`=`clean (81 live judgments; 4240 baseline judgments
+excluded from drift curves)`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，
+`anchors.py`=`10/10`。权威清册为 `726/848` 行五级结算、`3832/4240` 格结算、`122` 行开放、`98` 行普通
+自主前线、`24` 行强制人工队列；批次 87 从 `24/50` 到 `29/50`，未满 50 格不跑统一长门禁、不提交。
+下一自主前线按 `ledger-sequence.json` 重算为 `EDGE-227|语音配额与限流分流`；人工后置不是 waiver。
+
+## 2026-08-31 · EDGE-221 写时校 apiKeyId 存在性真实 App/API L2 收口，L3-L5 适用性 na，批次 87 24/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-122143`。真实 App 完成
+onboarding 后，同一 conductor sidecar 对四个写入口送入不存在的 `aki_missing_edge221`：conversation
+override、agent override、workspace scenario default、workspace search default 均在写入时返回统一
+`404 API_KEY_NOT_FOUND`。重新读取 REST 与 SQLite 证明 conversation 的 `modelOverride` 仍为 null、workspace
+六个模型默认与搜索默认均未被污染，四类悬挂引用计数均为 0。
+
+真实 App 窗口、录屏、backend、三路 SSE、frontend console 与 managed gateway llmtap 均属于同一 session；
+`rig-check`/`rig-down` 通过，录屏=`171.705000s / 3104x1844 / H.264 / 60fps`，收台后无残留 Anselm/tap
+进程。managed challenge/install/models 全部经 llmtap 返回 200；本格不需要调用模型，没有伪造 completion。
+正式证据=`testend/rig/formal-evidence/EDGE-221-real-app-write-time-key-existence-20260831.md`，
+session 内副本=`sessions/20260831-122143/evidence/EDGE-221-real-app-write-time-key-existence-20260831.md`。
+
+L1 focused/race 回归已通过；L2 按 `F2` 通过。L3/L4/L5 分别以 `A4/C4/G1` 记明确适用性 `na`：该 seam
+没有独立用户等待状态、视觉产物或 invalid-key 可发现入口，不把 API 响应耗时、onboarding 健康帧或低层
+合同冒充产品级顺滑/视觉/发现性证据。账本复审=`testend/rig/formal-evidence/EDGE-221-ledger-alarm-reaudit-20260831.md`；
+`gap-too-fast` 与 `discovery-collapse` 已独立复审并 ack，未改阈值、法典、锚点或顺序 gate。
+最终 `alarms.py check`=`clean (76 live judgments; 4240 baseline judgments excluded from drift curves)`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。
+权威状态=`848` 行、`725` 行五级结算、`123` 行开放，`3828/4240` 单元结算、`412` 单元开放；普通自主
+开放行 `99`，强制人工队列 `24`，批次 87 从 `20/50` 到 `24/50`。未满 50 格，不跑统一长门禁、不提交。
+
+## 2026-08-31 · EDGE-220 未探测/custom 模型真实 App L2-L4 收口，L5 适用性 na，批次 87 20/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-121247`。
+真实 App 从同一 data dir 重启后读取 custom key `EDGE220 Unprobed`，其 Dialogue 默认是
+`edge220-unprobed-model` 且 options 为空。真实 Chat 调用确实打到未监听的 custom endpoint，
+messages SSE 与 SQLite 共同记录 `status=error`、`errorCode=LLM_STREAM_ERROR` 以及连接拒绝原文；
+没有 managed fallback、伪造 assistant 或把未探测模型加入能力目录。
+
+stop-and-fix 发现主时间线原先泄漏 `LLM_STREAM_ERROR`、内部 `127.0.0.1` URL 与 socket 细节。
+前端 `chat_transcript.dart` 将该稳定错误码纳入既有 provider-error 人话映射，并补充 widget 回归；
+fresh App 终帧现在只显示 `The model service didn't finish this response. Try again; if the request
+is large, send it in smaller parts.`，原始诊断仍留在 durable/backend/SSE。Models & keys 的真实
+选择器只显示 probe-OK 的 `Anselm Auto`，明确证明 custom 未探测 modelId 没有当前 App 可发现入口。
+
+L2-L4 按 `F2/A4/C4` 写账；L5 按明确适用性 `na` 写账，不是 waiver：这是 API/持久化 escape hatch，
+不是独立 discoverability journey；若未来公开任意 custom modelId 输入，必须撤销本项 `na` 并重跑。
+证据=`testend/rig/formal-evidence/EDGE-220-real-app-unprobed-custom-model-20260831.md`，
+账本复审=`testend/rig/formal-evidence/EDGE-220-real-app-ledger-alarm-reaudit-20260831.md`；
+前端定点测试通过，`rig-check`/`rig-down` 通过，managed challenge/title wire 通过，frontend 仅有已知
+macOS IMK 诊断，backend 无应用级 panic/ERROR/FATAL。四次写账后的 `alarms.py check`=`clean (72 live
+judgments; 4240 baseline judgments excluded from drift curves)`，`gen_coverage.py --check`=`848 rows,
+848 carried judgments, 0 tombstones`，anchors=`10/10`。权威状态=`848` 行、`724` 行五级结算、`124`
+行开放，`3824/4240` 单元结算、`416` 单元开放；普通自主开放行 `100`，强制人工队列 `24`，批次 87
+从 `16/50` 到 `20/50`。未满 50 格，不跑统一长门禁、不提交。
+
+## 2026-08-31 · EDGE-219 native knob 校验真实 App L2-L5 收口，批次 87 16/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-115738-edge219`。
+真实 App 从启动时读取受控 BYOK key，在 Models & keys → Dialogue → External model
+选择 `gpt-5.5`，逐帧展示并操作 `Reasoning effort`、`Verbosity` 两个已发布原生旋钮，
+选择 `high/high` 后保存。对同一真实 backend 的精确请求验证：未知旋钮返回
+`422 MODEL_OPTION_UNSUPPORTED`，已知旋钮非法值返回 `400 MODEL_OPTION_VALUE_INVALID`，
+合法值返回 `200` 且 REST 持久状态为 `reasoning_effort=high, verbosity=high`。
+
+managed gateway 的 challenge/install/models/quota 全部经真实 llmtap 返回 200；本地
+兼容端点仅提供受控 BYOK 的 `gpt-5.5` 目录，不承担 managed route。五通道、Computer Use
+最终帧、`rig-check`/`rig-down` 均通过，frontend 仅有已知 macOS IMK 诊断，backend 无
+panic/ERROR/FATAL。Computer Use JSON 标点注入限制被明确排除，不冒充 UI 错误证据。
+L2-L5 按 `F2/A4/C4/G1` 写账，证据=`testend/rig/formal-evidence/EDGE-219-real-app-native-knobs-20260831.md`，
+独立账本/警报复审=`testend/rig/formal-evidence/EDGE-219-real-app-native-knobs-ledger-alarm-reaudit-20260831.md`。
+四次写账后的 `alarms.py check`=`clean (68 live judgments; 4240 baseline judgments excluded from drift curves)`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。
+权威状态=`848` 行、`723` 行五级结算、`125` 行开放，`3820/4240` 单元结算、`420` 单元开放；
+普通自主开放行 `101`，强制人工队列 `24`，批次 87 从 `12/50` 到 `16/50`。未满 50 格，不跑统一长门禁、不提交。
+
+## 2026-08-31 · EDGE-218 播种只填未设真实 App L2-L5 收口，批次 87 12/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-113541-edge218`。
+真实 App 在空工作区中通过 Models & keys 选定受控显式 Dialogue 模型
+`gpt-4o · EDGE218 Explicit`，随后调用真实 `POST /freetier:provision`；最终 REST、
+SQLite 与 App 同步证明显式 Dialogue 选择未被覆盖，而 Utility、Agent、Image、Speech、
+Video 五个未设 scenario 被填入 managed `anselm-auto`。managed gateway 的
+challenge/install/models/quota 均经真实 llmtap 返回 200；本场景不包含聊天 completion，
+不作虚构。
+
+五通道、Computer Use 最终帧、`rig-check`/`rig-down` 均通过，frontend 仅有已知 macOS
+IMK 诊断，backend 无 panic/ERROR/FATAL。L2-L5 按 `F2/A4/C4/G1` 写账，证据=`testend/rig/formal-evidence/EDGE-218-real-app-seed-defaults-unset-only-20260831.md`，
+独立账本/警报复审=`testend/rig/formal-evidence/EDGE-218-real-app-seed-defaults-ledger-alarm-reaudit-20260831.md`。
+四次写账后的 `alarms.py check`=`clean (64 live judgments; 4240 baseline judgments excluded from drift curves)`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。
+权威状态=`848` 行、`722` 行五级结算、`126` 行开放，`3816/4240` 单元结算、`424` 单元开放；
+普通自主开放行 `102`，强制人工队列 `24`，批次 87 从 `8/50` 到 `12/50`。未满 50 格，不跑统一长门禁、不提交。
+
 ## 2026-08-31 · EDGE-196 受管 remote media lease 真实 App L2-L5 收口，批次 50/50
 
 正式 session=`/private/tmp/anselm-rig-formal-20260801-7/sessions/20260831-033112`。真实 Anselm App 通过 macOS 原生文件选择器附加 PNG，managed gateway 完成 `POST /v1/media/uploads`、分片 `PUT`、`POST .../complete`，随后 chat completion 返回 `200`。LLM wire 的 user content 仅含 `/v1/media/leases/.../content?token=...` 相对路径，未出现绝对 URL、`data:image`、base64 或图片字节；SSE、backend、frontend 与窗口录屏属于同一 session，收台后进程归零。
@@ -8604,3 +8849,15 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 - Both sessions passed five-channel `rig-check`/`rig-down`; raw frame, backend, SSE, frontend console and wire journals remain under `/private/tmp/anselm-rig-formal-20260831-11/sessions/`. Alarm re-audits are `testend/rig/formal-evidence/EDGE-212-real-app-ledger-alarm-reaudit-20260831.md` and `EDGE-213-real-app-ledger-alarm-reaudit-20260831.md`; final `alarms.py check` is clean.
 - The formal gate also exposed and fixed a ledger defect: the exact Chinese batch note `本格本批没有独立...` was not recognized as provisional NA. `judge.py` now keeps those cells open, while explicit applicability notes remain settled; `test_batch_missing_evidence_phrase_reopens_frontier` locks the distinction.
 - Batch 86 crossed `48→52/50`. Unified gate=`testend/rig/formal-evidence/batch-86-unified-gate-20260831.md`: root `make verify` PASS, full `make -C backend testend` PASS (`307.552s`), rig unit tests `69/69`, proxycore/llmtap race PASS, coverage `848/848/0`, anchors `10/10`, alarms clean, `git diff --check` clean. No thresholds, CODEX laws, anchor set, sequence gate, five-level standard, or forced queue changed. Next ordinary frontier=`EDGE-214|开通降级不挂 boot`; next batch starts `0/50`. P12 400+ Journey expansion remains deferred to phase 2.
+
+## 2026-08-31 · EDGE-214 completion, batch 87 at 4/50
+
+- `EDGE-214|开通降级不挂 boot` completed L2-L5 in real App session `20260831-110713`: with `RIG_SEED=0` and a closed loopback upstream, managed installation failed twice but onboarding released into the normal Chat shell after creating `EDGE214 degraded boot`. The final frame shows the workspace, primary navigation, and Composer; there is no provisioning dead end or phantom quota. The no-fingerprint and persistence-failure branches remain backed by focused/race Go tests rather than being overstated as real-gateway observations.
+- Five-channel `rig-check`/`rig-down` passed; the finalized recording is `33.421667s`, all three SSE streams connected, backend logged the expected best-effort install failures with no panic/ERROR/FATAL, frontend has only the known macOS IMK host diagnostic, and the wire contains only the recorder-ready event plus two failed proof-challenge attempts. Product evidence=`testend/rig/formal-evidence/EDGE-214-real-app-provision-degraded-green-20260831.md`; alarm re-audit=`testend/rig/formal-evidence/EDGE-214-real-app-ledger-alarm-reaudit-20260831.md`.
+- The four judgments use `F2/A4/C4/G1`. Re-audit acknowledged the expected `gap-too-fast` and `discovery-collapse` alarms without changing thresholds, CODEX, anchors, five-level standard, or sequence gate. Current state is `720/848` fully settled rows, `3808/4240` settled cells, `104` ordinary autonomous open rows, `24` forced rows, and batch 87=`4/50`; next ordinary frontier is `EDGE|旋转 key 重探失败`. P12 400+ Journey expansion remains deferred to phase 2.
+
+## 2026-08-31 · EDGE-217 completion, batch 87 at 8/50
+
+- `EDGE-217|旋转 key 重探失败` completed L2-L5 in real App session `20260831-112438-edge217`: a disposable OpenAI-shaped key was created for the test workspace, then the real App opened its edit form and submitted a new disposable credential with a deliberately failing user-supplied endpoint. The durable row retained the new mask and recorded `testStatus=error`; the original generic failure-only form was stopped and fixed to say explicitly that the key was saved while its connectivity probe failed, with a clear retry path. The URL punctuation limitation of this Computer Use host is recorded; the evidence claims probe failure, not a specific closed-port response.
+- The repaired session passed `rig-check` and `rig-down`; the finalized window recording is `108.678333s`, all three SSE streams connected, the managed route completed real gateway challenge/install/models/quota, backend/frontend journals contain no application panic/error, and all conductor-owned processes were stopped. Product evidence=`testend/rig/formal-evidence/EDGE-217-real-app-key-rotation-probe-failure-fixed-20260831.md`; alarm re-audit=`testend/rig/formal-evidence/EDGE-217-real-app-key-rotation-ledger-alarm-reaudit-20260831.md`.
+- The four judgments use `F2/A4/C4/G1`. `gap-too-fast` and `discovery-collapse` were independently acknowledged after the alarm commands were serialized; no threshold, CODEX law, anchor set, five-level standard, sequence rule, or forced queue changed. Current state is `721/848` fully settled rows, `3812/4240` settled cells, `103` ordinary autonomous open rows, `24` forced rows, and batch 87=`8/50`. P12 400+ Journey expansion remains deferred to phase 2.

@@ -50,6 +50,12 @@ PROVISIONAL_NA_MARKERS = (
     "未重新走真实",
     "未启动真实桌面",
     "本轮未执行真实",
+    # "仅有/只有 focused 回归" admits that the requested product evidence was not run.
+    # It is not an applicability decision, even when the note also mentions a backend test.
+    "本轮仅有",
+    "本轮只有",
+    "本格仅有",
+    "本格只有",
     "本格当前仅完成",
     "本格本批仅完成",
     # Batch notes that explicitly confess missing real-App evidence are provisional. Keep this

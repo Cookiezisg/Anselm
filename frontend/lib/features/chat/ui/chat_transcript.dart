@@ -21,6 +21,7 @@ import '../../../core/media/attachment_image_provider.dart';
 import '../../../core/media/media_source.dart';
 import '../data/chat_providers.dart';
 import '../model/conversation_transcript.dart';
+import '../model/tool_receipts.dart';
 import '../model/user_attachment.dart';
 import '../state/attachment_audio_player.dart';
 import '../state/attachment_meta.dart';
@@ -553,8 +554,8 @@ class _TranscriptListState extends ConsumerState<_TranscriptList> {
       // 版本坐标**进缓存键**、不只是 turn id:`2/3` 是这一行渲染内容的一部分,而后续某页带进第 4 个版本时,被缓存的行
       // 会永远宣称 `2/3`——与上面 isLast 排除所防的是同一种冻结。
       final cacheKey = group.count == 1
-          ? turn.id
-          : '${turn.id}#${index + 1}/${group.count}';
+          ? '${turn.id}#r${turn.revision}'
+          : '${turn.id}#${index + 1}/${group.count}#r${turn.revision}';
       row = _settledRowCache[cacheKey] ??= () {
         if (_settledRowCache.length >= _rowCacheCap) {
           _settledRowCache.remove(_settledRowCache.keys.first);
@@ -828,8 +829,13 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
   Widget _assistant(BuildContext context, WidgetRef ref) {
     final c = context.colors;
     final t = Translations.of(context);
+    // A failed tool can produce more than one assistant text block while the model repairs its
+    // answer. After the failure projection, identical blocks are one user-facing sentence, not two
+    // separate updates; keep the durable blocks untouched for audit and technical disclosure.
+    final seenProse = <String>{};
     final blocks = <Widget>[
-      for (final b in widget.turn.children) ?_block(context, ref, b),
+      for (final b in widget.turn.children)
+        ?_block(context, ref, b, seenText: seenProse),
     ];
     final banner = _stopBanner(context, ref);
     if (blocks.isEmpty && banner == null && widget.streaming) {
@@ -892,7 +898,12 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
       child: TurnActions(
         copyText: ConversationTranscript.turnCopyText(widget.turn),
         role: role,
-        alwaysVisible: widget.isLast,
+        // The editable tail is the last USER turn, not necessarily the last overall turn: its assistant
+        // answer is rendered after it. Keep that one action row visible instead of making edit-resend
+        // depend on hovering an invisible row.
+        // 可编辑尾巴是最后一条 USER 回合,不一定是总体最后一条:它后面还会渲染 assistant 答复。让这一个动作排常显,
+        // 不把编辑重发建立在 hover 一个不可见动作排之上。
+        alwaysVisible: widget.isLast || widget.canEdit,
         onFork: _fork,
         onRetry: widget.canRetry ? _retry : null,
         retryCaps: caps,
@@ -1075,7 +1086,12 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     }
   }
 
-  Widget? _block(BuildContext context, WidgetRef ref, BlockNode b) {
+  Widget? _block(
+    BuildContext context,
+    WidgetRef ref,
+    BlockNode b, {
+    Set<String>? seenText,
+  }) {
     final c = context.colors;
     final t = Translations.of(context);
     switch (b.kind) {
@@ -1088,13 +1104,18 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
         // SAME instance and GptMarkdown never re-parses settled prose.
         // 开块走 AnStreamingMarkdown(S9):流过安全段界的 prose 提交成身份缓存段,合并帧只重解析活动
         // 尾段(裸 AnMarkdown 每帧全文重解析,O(全文)——最后一个稳态热路径);闭块终态按 id 缓存。
+        final projected = assistantMcpFailureProjection(
+          b.displayText,
+          handoff: t.chat.tool.mcpAssistantHandoff,
+        );
+        if (seenText != null && !seenText.add(projected)) return null;
         if (b.isOpen) {
           TranscriptProbe.hit('block-text-live');
-          return _StreamingAnswerMarkdown(b.displayText);
+          return _StreamingAnswerMarkdown(projected);
         }
         return _textCache.putIfAbsent(b.id, () {
           TranscriptProbe.hit('block-text-parse');
-          return _AnswerMarkdown(b.displayText);
+          return _AnswerMarkdown(projected);
         });
       case BlockKind.reasoning:
         return ChatThinking(
@@ -1183,10 +1204,19 @@ class _TurnRowState extends ConsumerState<_TurnRow> {
     // 交给用户,否则用户被迫调试基础设施而不是继续完成任务。
     final userLine = switch (code) {
       'LLM_PROVIDER_ERROR' => t.chat.providerError,
+      // A transport failure can retain the generic stream code when no provider-side category was
+      // available. It is still a provider failure from the user's perspective; keep its raw URL
+      // and socket details in the durable diagnostic record, not in the primary transcript.
+      // 没有 provider 分类时传输失败会保留通用 stream 码；对用户仍是模型服务失败，原始 URL/套接字
+      // 细节留在耐久诊断记录，不进入主时间线。
+      'LLM_STREAM_ERROR' => t.chat.providerError,
+      'LLM_RATE_LIMITED' => t.chat.rateLimited,
+      'LLM_QUOTA_EXHAUSTED' => t.chat.quotaExhausted,
       'CHAT_TURN_TIMEOUT' => t.chat.chatTurnTimeout,
       'MAX_STEPS_REACHED' => t.chat.stoppedMaxSteps,
       'TOOL_ERROR_STORM' => t.chat.toolErrorStorm,
       'CONTEXT_INPUT_TOO_LARGE' => t.chat.contextInputTooLarge,
+      'ATTACHMENT_STAGING_FAILED' => t.chat.attachmentStagingFailed,
       _ => null,
     };
     final line = Text(
@@ -1565,6 +1595,7 @@ class _ReadAloudSlotState extends ConsumerState<_ReadAloudSlot> {
     // honest render is "no button yet", not a button that might turn out to be a lie.
     // 用 `.value ?? false` 而非 loading 态:可用性答案在途时,诚实的渲法是「暂无按钮」,不是一个
     // 可能变成谎言的按钮。
+    final tooLong = widget.turnText.runes.length > readAloudMaxRunes;
     final available =
         (ref.watch(readAloudAvailableProvider).value ?? false) &&
         widget.turnText.isNotEmpty;
@@ -1575,7 +1606,11 @@ class _ReadAloudSlotState extends ConsumerState<_ReadAloudSlot> {
     final t = Translations.of(context);
     final label = _busy
         ? t.chat.actions.readAloudPreparing
-        : (playing ? t.chat.actions.readAloudStop : t.chat.actions.readAloud);
+        : (playing
+              ? t.chat.actions.readAloudStop
+              : (tooLong
+                    ? t.chat.actions.readAloudTooLong
+                    : t.chat.actions.readAloud));
     return Padding(
       padding: const EdgeInsets.only(left: AnSpace.s4),
       child: AnButton.iconOnly(
@@ -1583,7 +1618,10 @@ class _ReadAloudSlotState extends ConsumerState<_ReadAloudSlot> {
         size: AnButtonSize.sm,
         busy: _busy,
         semanticLabel: label,
-        onPressed: _busy ? null : _readAloud,
+        // A long turn cannot be sent as one utterance. Keep the affordance visible but inert so
+        // hover/a11y explains the limit instead of letting a predictable 400 become a vague toast.
+        // 长回合无法作为一整段发送。保留入口但置灰，让 hover/读屏解释上限，而不是点击后才得到泛化错误。
+        onPressed: _busy || tooLong ? null : _readAloud,
       ),
     );
   }
@@ -1613,9 +1651,20 @@ class _ReadAloudSlotState extends ConsumerState<_ReadAloudSlot> {
       if (!mounted) return;
       setState(() => _attachmentId = res.attachmentId);
       await _play(playback, res.attachmentId);
-    } catch (_) {
+    } on ApiException catch (error) {
       // A failed synthesis says so and leaves no half state; the next press retries cleanly.
       // 合成失败就说出来、不留半吊子状态;下次按下干净重试。
+      if (mounted) {
+        ref
+            .read(noticeCenterProvider.notifier)
+            .show(
+              error.code == AnselmErr.readAloudTextTooLong
+                  ? context.t.chat.actions.readAloudTooLong
+                  : context.t.chat.actions.readAloudFailed,
+              tone: AnTone.danger,
+            );
+      }
+    } catch (_) {
       if (mounted) {
         ref
             .read(noticeCenterProvider.notifier)
