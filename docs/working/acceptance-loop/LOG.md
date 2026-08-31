@@ -31,8 +31,9 @@ SIGTERM 后，backend 正常收台、三路 SSE clean EOF、owned process 归零
 `anchors.py check`=`10/10`、`alarms.py check`=`clean (113 live judgments; 4240 baseline judgments
 excluded from drift curves)`、`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。
 清册为 `732/3856/384`（已结算行/已结算格/开放格），当前顺序门为 `EDGE-236|父进程死人开关`；
-该项需真实父进程 kill-9 和强制交互，按用户授权后置。批次 87 已达 `60/50`，现在执行统一长门禁，
-门禁通过前不提交。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+该项需真实父进程 kill-9 和强制交互，已正式登记为 `forced_queue` 并按用户授权后置；顺序门当前
+跳过它，推进 `EDGE-237|坏 settings.json`。批次 87 已达 `60/50`，统一长门禁已经通过并已提交；
+本次 forced-queue 机制修正另行记录。P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
 
 ## 2026-08-31 · EDGE-234 三步优雅关停真实 App L2-L4 收口、L5 适用性 na，批次 87 56/50
 

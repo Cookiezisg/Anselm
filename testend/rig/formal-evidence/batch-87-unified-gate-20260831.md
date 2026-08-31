@@ -29,7 +29,9 @@ cells are settled and `384` remain open. The mechanical first open row is `EDGE-
 but it is in the explicitly deferred manual/forced queue; the active formal sequence
 therefore advances to `EDGE-236|父进程死人开关`, which remains deferred until the user can
 perform the required parent-process `kill -9` interaction. `manual_queue=173` and
-`forced_queue=25` are unchanged.
+`forced_queue=26` after `EDGE-236|父进程死人开关` was correctly promoted from the
+manual queue because it requires a real parent-process `kill -9` interaction; the queue
+change does not alter any verdict or acceptance standard.
 
 ## Integrity
 

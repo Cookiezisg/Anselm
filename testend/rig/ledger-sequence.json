@@ -4,6 +4,7 @@
   "forced_queue": [
     {"family": "EDGE", "item": "视频轮询超时诚实话"},
     {"family": "EDGE", "item": "不可能的生成组合钳制"},
+    {"family": "EDGE", "item": "语音配额与限流分流"},
     {"family": "EDGE", "item": "删最后一个 workspace"},
     {"family": "EDGE", "item": "快捷键录制后吞键"},
     {"family": "EDGE", "item": "驻地分组批量删除范围"},
@@ -24,6 +25,7 @@
     {"family": "EDGE", "item": "OS 通知被静默拒"},
     {"family": "EDGE", "item": "快捷键冷启动"},
     {"family": "EDGE", "item": "删音色上游失败保行"},
+    {"family": "EDGE", "item": "父进程死人开关"},
     {"family": "EDGE", "item": "每租户模板 URL"},
     {"family": "EDGE", "item": "MCP 市场缺必填 env"}
   ],
