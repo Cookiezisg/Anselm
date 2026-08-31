@@ -10,6 +10,29 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-256 驻地目录被移走真实 App 五格收口，批次 87 109/50
+
+正式台架 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-201616`，由同一
+conductor 归属真实 macOS App、窗口录制、Computer Use、backend journal、frontend console、
+三路独立 SSE witness 与 managed bootstrap LLM tap。真实对话先挂载
+`/private/tmp/anselm-edge256-workdir.QmsUCq`，再在 App 运行中将目录移到
+`/private/tmp/anselm-edge256-workdir.QmsUCq.moved`。
+
+App 菜单仍显示原路径和 `This directory no longer exists`，Finder/Terminal 动作被禁用，
+Switch/Leave 保持可用；5 秒抽帧未见未挂状态闪回、空白或探测导致的重排。backend 对缺失
+驻地投影真实返回 `200`，三路 SSE、frontend、LLM tap 和收台均通过；frontend 仅有已知
+macOS IMKCFRunLoopWakeUpReliable 平台诊断，没有应用级 Flutter/Dart 红线。完整证据为
+`sessions/20260831-201616/evidence/EDGE-256-moved-workdir-real-app.md`，正式指针为
+`testend/rig/formal-evidence/EDGE-256-moved-workdir-real-app-20260831.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`；四次写账后的
+`discovery-collapse` 均按原阈值独立复审并 ack，复审记录为
+`testend/rig/formal-evidence/EDGE-256-ledger-alarm-reaudit-20260831.md`。最终
+`alarms.py check`=`clean (167 live judgments; 4240 baseline judgments excluded from drift curves)`，
+`gen_coverage.py --check` 保持 `848 rows / 848 carried judgments / 0 tombstones`，锚点不变。
+权威清册由 `744/3903/337` 推进为 `745/3907/333`，批次由 `105/50` 推进为 `109/50`；
+下一顺序前线为 `EDGE|脏区切分支被拒`，未提前跑统一长门禁。
+
 ## 2026-08-31 · EDGE-254 keyset 排序切换丢游标真实 App 五格收口，批次 87 105/50
 
 初轮真实 App session=`/private/tmp/anselm-rig-formal-20260831-15/sessions/20260831-195035`

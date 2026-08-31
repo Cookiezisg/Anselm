@@ -12,22 +12,23 @@ landed-into:
 
 # WRK-087 · 端到端全产品验收循环(acceptance loop)
 
-## 当前精确状态（2026-08-31 · EDGE-254 keyset 排序切换完成；批次 87 已达 105/50）
+## 当前精确状态（2026-08-31 · EDGE-256 驻地目录被移走完成；批次 87 已达 109/50）
 
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
 
 当前权威结果：`EDGE-244|bearer token 缺失`、`EDGE-245|workspace 头缺失`、
-`EDGE-246|DNS rebinding 防护`、`EDGE-247|ServeMux 纯文本 404/405 改写` 与
-`EDGE-248|客户端断连与请求超时` 均已完成
-`✓✓✓✓✓`。EDGE-244 L4 曾因真实尾帧暴露
+`EDGE-246|DNS rebinding 防护` 与 `EDGE-247|ServeMux 纯文本 404/405 改写` 均已完成
+`✓✓✓✓✓`；`EDGE-248|客户端断连与请求超时` 已完成其适用的 `✓✓~~~` 五级结算。
+EDGE-244 L4 曾因真实尾帧暴露
 `ApiException` raw detail 而写红，已修复并以新 session 重跑；L5 确认普通启动无需内部
 知识即可发现认证原因和 Retry。最终证据=`testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app-l4-fixed-20260831.md`、
 `...-l5-fixed-20260831.md`，红证据=`...-l4-raw-detail-red-20260831.md`。
 
-清册准确重算为 `848` 行：`744` 行五级已结算、`104` 行开放；`3903` 个单元已结算、
-`337` 个单元开放。`manual_queue=173`、`forced_queue=26`；批次 87=`105/50`，下一
+清册准确重算为 `848` 行：`745` 行五级已结算、`103` 行开放；`3907` 个单元已结算、
+`333` 个单元开放。`manual_queue=173`、`forced_queue=26`；批次 87=`109/50`，下一
 自主原子继续按顺序门从首个未结算的自主 `~` 格选择。EDGE-254 的真实 session、五通道日志、
-测量与逐次警报复审均已写入 LOG；P12 的 400+ Journey 扩写按用户裁定推迟二期。
+测量与逐次警报复审均已写入 LOG；EDGE-256 的 L2-L5 真实 App 证据和四次警报复审也已写入
+LOG；P12 的 400+ Journey 扩写按用户裁定推迟二期。
 
  - `EDGE-244|bearer token 缺失` 已完成真实 App 的 L2-L5，且 L4 经 stop-and-fix 重跑：L2 在干净 session 中确认 backend 只对 health 注入合法 bearer、真实 App 的 workspace 请求返回 `401 UNAUTH_BAD_TOKEN`；首轮发现并修复了泛化 workspace 错误文案，随后又发现错误页泄漏 `ApiException` raw detail，保留红证据并移除用户面的内部异常。最终 L3 使用延迟 `2500ms` 的同类负向现场，真实 App 持续显示 loading 后切换到认证错误态，`measure latency`=`200.0ms`、严格 diff 只见一次语义切换；法条=`A4`。最终 L4 session=`/private/tmp/anselm-rig-formal-20260831-13/sessions/20260831-175540` 的稳定尾帧不再显示内部码，按钮连通域 `127×56px`、白字/蓝底 `4.31:1`，法条=`C4`；L5 确认普通启动无需内部知识即可发现认证原因和 Retry，法条=`G1`。五通道 `rig-check`/`rig-down` 均通过，L2 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-173413`，L3 session=`/private/tmp/anselm-rig-formal-20260831-12/sessions/20260831-174529`，L4/L5 修复复验 session=`/private/tmp/anselm-rig-formal-20260831-13/sessions/20260831-175540`，正式证据为 `testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app.md`、`...-l3-20260831.md`、`...-l4-fixed-20260831.md`、`...-l5-fixed-20260831.md`；清册现为 `✓✓✓✓✓`。
  - `EDGE-245|workspace 头缺失` 已完成真实 App 的 L2-L5。正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-182639-edge245`：App proxy 只对第一次带 header 的 `GET /api/v1/conversations` 剥离 `X-Anselm-Workspace-ID`，proxy journal 记录唯一 `workspace_header_dropped`，backend 同一目标请求真实返回 `401 UNAUTH_NO_WORKSPACE` 后恢复 `200`。真实 App 通过 `ApiClient` 清理活动 workspace，`WorkspaceGate` 从 durable 名册重新解析；SSE 在过渡窗口只记 `waiting for workspace selection`，不再把可恢复状态打印成原始 Dio 异常。Computer Use 最终看到 Chat、Recents、演示对话和演示工作台，录屏无错误页、空白或布局塌陷；`measure latency`=`100.0ms` 的首个变化明确归因于骨架 shimmer，`measure diff` 的业务语义切换为 `frame-0048→0049`、`changedFrac=0.02069`。L2=`F2`、L3=`A4`、L4=`C4`、L5=`G1`，正式证据=`testend/rig/formal-evidence/EDGE-245-workspace-header-missing-real-app-fixed-20260831.md`，告警复审=`testend/rig/formal-evidence/EDGE-245-discovery-alarm-reaudit-20260831.md`；清册现为 `✓✓✓✓✓`，下一自主原子为 `EDGE|DNS rebinding 防护`。
@@ -35,11 +36,12 @@ landed-into:
  - `EDGE-247|ServeMux 纯文本 404/405 改写` 已完成真实 App 的 L2-L5。正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-191204`：appproxy 仅对第一次真实 `GET /api/v1/conversations` 做路径改写到未知 `/api/v1/rig-unknown`，并对第二次同目标做 `GET→PUT` 方法改写；backend 同场真实记录 `404` 与 `405`，透明恢复请求返回 `200`。Computer Use 看到 `Couldn't load conversations`、人话原因和 `Try again`，点击后恢复 `Recents 1`、`演示对话`、`演示工作台` 与正常 Composer；抽帧无自主跳变、裁切或重排。focused router tests 另证 N1 `ROUTE_NOT_FOUND`/`METHOD_NOT_ALLOWED`、`Allow` 保留、业务 404 不被改写和 SSE `Flusher` 透传。录屏=`3104x1844/60fps/51.513333s`，五通道 `rig-check`/`rig-down` 通过，正式证据=`testend/rig/formal-evidence/EDGE-247-mux-error-envelope-real-app-20260831.md`，告警复审=`testend/rig/formal-evidence/EDGE-247-ledger-alarm-reaudit-20260831.md`；L2=`F2`、L3=`A4`、L4=`C4`、L5=`G1`，清册现为 `✓✓✓✓✓`。首轮误用 `GET→POST` 的 400 台架构造不计入正式证据。
  - `EDGE-248|客户端断连与请求超时` 已完成真实 App 边界验收。正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-192329`：appproxy 对真实 App 的 `GET /api/v1/workspaces` 施加 `15000ms` 延迟，Computer Use 看到稳定的 `Setting up your workspace...`，随后在请求 pending 时终止客户端，proxy journal 真实记录 `canceled=true`。本次不虚构 backend `CLIENT_CLOSED/499`：取消发生在 proxy 向 backend 转发前；服务端 `context.Canceled→499 CLIENT_CLOSED` 与 `context.DeadlineExceeded→504 REQUEST_TIMEOUT` 由 focused errmap tests 独立锁定。L2=`F2`；L3-L5 按具体适用性理由为 `na`，因为 transport 分类不拥有独立的操作/动效、视觉组件或可发现入口，分别归属上层功能旅程。录屏=`3104x1844/60fps/50.706667s`，三路 SSE、frontend、managed bootstrap LLM tap 与收台均有同场记录；正式证据=`testend/rig/formal-evidence/EDGE-248-client-close-timeout-real-app-20260831.md`，告警复审=`testend/rig/formal-evidence/EDGE-248-ledger-alarm-reaudit-20260831.md`；清册现为 `✓✓~~~`。旧的 `GET→POST` 现场不计入本格，强制项继续留在人工尾队。
  - `EDGE-249|后台裸 ctx 播种缺失` 已完成边界验收。`backend/internal/bootstrap/background_ctx_test.go:TestBackgroundPaths_RequireWorkspaceSeeding` 的 focused race 回归通过，证明裸 `context.Background()` 访问 workspace-scoped store 失败，而逐 workspace 的 `reqctx.Detached("ws_1")` 能读到种入行；生产后台入口均使用后者。L1 保留原 `F5`；L2-L5 通过 `judge.py` 写入逐级适用性 `na`，不是缺少现场证据的临时豁免：本格没有独立用户操作、等待/动效、视觉组件或可发现入口，这些维度分别归属 owning journey。正式复核=`testend/rig/formal-evidence/EDGE-249-applicability-reaudit-20260831.md`；写账后的 `pass-burst`/`discovery-collapse` 已独立复核并销账，最终 `alarms.py check`=`clean (159 live judgments; 4240 baseline judgments excluded)`。清册现为 `✓~~~~`，但五级均已结算。
- - `EDGE-254|keyset 排序切换丢游标` 已完成真实 App 五级验收。初轮真实 session=`/private/tmp/anselm-rig-formal-20260831-15/sessions/20260831-195035` 发现从 Name 排序中段切回 Recently active 后仍显示 `Sort Probe 47`，红证据=`testend/rig/formal-evidence/EDGE-254-sort-switch-scroll-offset-red-20260831.md`；停止推进并修复共享 `AnSidebarList` 的查询轴视口重置。正式复验 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-200325`，切回后首项为 `Sort Probe 60`，65.33 秒录屏抽帧无空白、旧中段闪回或二次跳回。L2=`F1`、L3=`B2`、L4=`C5`、L5=`G1`；focused conversation rail suite 21 tests 全通过。正式证据=`testend/rig/formal-evidence/EDGE-254-sort-switch-scroll-offset-fixed-20260831.md`，完整 session 证据=`sessions/20260831-200325/evidence/EDGE-254-real-app-fixed.md`，告警复审=`testend/rig/formal-evidence/EDGE-254-ledger-alarm-reaudit-20260831.md`；清册现为 `✓✓✓✓✓`，下一自主原子为 `EDGE|驻地目录被移走`。
+ - `EDGE-254|keyset 排序切换丢游标` 已完成真实 App 五级验收。初轮真实 session=`/private/tmp/anselm-rig-formal-20260831-15/sessions/20260831-195035` 发现从 Name 排序中段切回 Recently active 后仍显示 `Sort Probe 47`，红证据=`testend/rig/formal-evidence/EDGE-254-sort-switch-scroll-offset-red-20260831.md`；停止推进并修复共享 `AnSidebarList` 的查询轴视口重置。正式复验 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-200325`，切回后首项为 `Sort Probe 60`，65.33 秒录屏抽帧无空白、旧中段闪回或二次跳回。L2=`F1`、L3=`B2`、L4=`C5`、L5=`G1`；focused conversation rail suite 21 tests 全通过。正式证据=`testend/rig/formal-evidence/EDGE-254-sort-switch-scroll-offset-fixed-20260831.md`，完整 session 证据=`sessions/20260831-200325/evidence/EDGE-254-real-app-fixed.md`，告警复审=`testend/rig/formal-evidence/EDGE-254-ledger-alarm-reaudit-20260831.md`；清册现为 `✓✓✓✓✓`。
+ - `EDGE-256|驻地目录被移走` 已完成真实 App 五级验收。正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-201616`：真实 App 先挂载 `/private/tmp/anselm-edge256-workdir.QmsUCq`，再在台架外将目录移走；Computer Use 打开驻地菜单后仍看到原路径、`This directory no longer exists`，Finder/Terminal 动作禁用，而 Switch/Leave 保持可用。5 秒抽帧未见未挂状态闪回、空白或探测导致的重排；backend 同场真实返回 `200` 的缺失投影，三路 SSE、frontend console、managed bootstrap LLM tap、录屏与 `rig-check`/`rig-down` 均可追溯。L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`；正式证据=`testend/rig/formal-evidence/EDGE-256-moved-workdir-real-app-20260831.md`，完整 session 证据=`sessions/20260831-201616/evidence/EDGE-256-moved-workdir-real-app.md`，告警复审=`testend/rig/formal-evidence/EDGE-256-ledger-alarm-reaudit-20260831.md`；清册现为 `✓✓✓✓✓`，下一自主原子为 `EDGE|脏区切分支被拒`。
  - 本轮发现并修复的是产品语义缺陷，不是台架噪声：认证失败不能被呈现为 workspace 名册失败。新增前端双语文案与 `WorkspaceGate` 定向 widget test；`frontend/test/app/workspace_gate_test.dart` 定向测试通过。
  - 告警在每次写账后按机制进入复审：L2 的 `gap-too-fast`/`discovery-collapse` 由 `testend/rig/formal-evidence/EDGE-244-ledger-alarm-reaudit-20260831.md` 独立复核后销账；L3 的同两条告警由 `testend/rig/formal-evidence/EDGE-244-l3-ledger-alarm-reaudit-20260831.md` 独立复核后销账；L4 首轮绿账与红账、修复后绿账产生的统计信号均由 `testend/rig/formal-evidence/EDGE-244-l4-fixed-ledger-alarm-reaudit-20260831.md` 独立复核后销账，红证据=`...-l4-raw-detail-red-20260831.md` 保留；未改阈值、法典、锚点、五级标准或顺序门。
- - 权威清册重算为 `848` 行：`739` 行五级已结算、`109` 行仍开放；`3884` 个单元已结算、`356` 个单元开放。`manual_queue=173`、`forced_queue=26`；P12 的 400+ Journey 扩写按用户裁定推迟二期。当前自动前线为 `EDGE|DNS rebinding 防护`，强制人工交互仍后置。
- - 批次 87 已由 `80/50` 推进至 `85/50`；统一长门禁的最新完整结果仍以已通过的批次记录为准，本轮未以警报压制、旧证据覆盖或标准降级推进。
+ - 权威清册重算为 `848` 行：`745` 行五级已结算、`103` 行仍开放；`3907` 个单元已结算、`333` 个单元开放。`manual_queue=173`、`forced_queue=26`；P12 的 400+ Journey 扩写按用户裁定推迟二期。当前自动前线为 `EDGE|脏区切分支被拒`，强制人工交互仍后置；该项已有 focused service/HTTP 回归，但 L2-L5 的真实 App 产品证据仍未结算，不能把回归说明当作完成。
+ - 批次 87 已由 `105/50` 推进至 `109/50`；统一长门禁不因本次追加四格而提前运行，仍按每 50 格执行；本轮未以警报压制、旧证据覆盖或标准降级推进。
 
 ## 近期完成项历史快照
 
