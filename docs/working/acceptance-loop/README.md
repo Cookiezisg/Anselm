@@ -902,9 +902,9 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-08-31 EDGE-199 L2-L5 收口；批次 86 进行中)
+### 5.2 Day 0 当前状态(整体重述,2026-08-31 EDGE-213 L2-L5 收口；批次 86 已封存)
 
-当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：清册 `848` 行，`709` 行五级结算，`139` 行仍开放；`3797` 个单元已结算、`443` 个单元开放；`manual_queue=173`，其中实际需要用户强制交互的 `forced_queue=24`，仍有 `115` 行普通自主前线开放，首项为 `EDGE-200|blob GC 只在 boot 跑`。`EDGE-196` 至 `EDGE-199` 均已完成真实 App L2-L5；上一批次 85 已完成 `50/50` 并封存于 `testend/rig/formal-evidence/batch-85-unified-gate-20260831.md`，当前批次 86 为 `12/50`，未满 50 格不执行统一长门禁、不提交。强制队列项目继续不写绿格、不降低标准，历史候选但不在 `forced_queue` 的项目按 formal sequence 正常推进。人工后置不是 waiver，不降低五级标准；物理按键、系统授权、安全确认、不可逆删除、物理网络切换以及必须依赖真实用户操作的视觉/交互判断继续后置，自动回归不得冒充现场证据。
+当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：清册 `848` 行，`719` 行五级结算，`129` 行仍开放；`3804` 个单元已结算、`436` 个单元开放；`manual_queue=173`，其中实际需要用户强制交互的 `forced_queue=24`，仍有 `105` 行普通自主前线开放，首项为 `EDGE-214|开通降级不挂 boot`。`EDGE-196` 至 `EDGE-213` 中已完成的各项均以顶部逐项记录和 COVERAGE 的最新判定为准；上一批次 85 已完成 `50/50` 并封存于 `testend/rig/formal-evidence/batch-85-unified-gate-20260831.md`，批次 86 已完成 `52/50` 并封存于 `testend/rig/formal-evidence/batch-86-unified-gate-20260831.md`，下一批次从 `0/50` 开始。强制队列项目继续不写绿格、不降低标准，历史候选但不在 `forced_queue` 的项目按 formal sequence 正常推进。人工后置不是 waiver，不降低五级标准；物理按键、系统授权、安全确认、不可逆删除、物理网络切换以及必须依赖真实用户操作的视觉/交互判断继续后置，自动回归不得冒充现场证据。
 
 `EDGE-196|受管 remote media lease` 的正式 session=`/private/tmp/anselm-rig-formal-20260801-7/sessions/20260831-033112`：真实 App 通过 macOS 文件选择器附加真实 PNG 图片；managed gateway 的 create/chunk/complete 上传全部成功，LLM wire 的 user content 只有 `/v1/media/leases/...` 相对 `image_url`，没有绝对 URL、base64 或图片字节，最终回答为 `RECEIVED`。SSE 记录 attachment touchpoint、reasoning/text open-delta-close 和 completed assistant close；backend 无 ERROR/panic，frontend 无 Flutter/Dart 异常，录屏收台后进程归零。L2-L5 证据=`sessions/20260831-033112/evidence/EDGE-196-L{2,3,4,5}.md`，法条=`F2/A4/C4/G1`；产品复核=`testend/rig/formal-evidence/EDGE-196-managed-media-lease-real-app-20260831.md`。
 
