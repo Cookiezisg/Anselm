@@ -48,6 +48,8 @@ audience: [human, ai]
 - MCP 生命周期卡的安装/重连失败也可能是 loop 浮出的纯文本（例如 `required environment variables missing (missing=[ENTRA_CLIENT_ID])`），不能沿用成功语气：必须红色回执、自动展开，并保留具体缺失变量；失败帧的纯文本由底盘错误区唯一承载，族体不重复渲染；卸载成功的普通文本回执不误判为失败。结构化状态以后端 `ready` 为正常、`degraded` 为可调用警告，旧 `connected` 仅作兼容别名；不能把 `ready` 投影成 `disconnected`，也不能把 `degraded` 当成失败。成功状态卡必须显示后端 `connectedAt` 转换后的本地化绝对时间点；助手的 `Connected at` label/value 行或表格只能显示指向该卡的明确提示，不得显示 raw ISO 或 `the recorded time`。`uninstall_mcp_server` 是受危险闸保护的持久化删除：最终卡片必须能区分拒绝、失败和成功，不能在一次失败后静默追加第二次模型重试。
 - MCP 调用详情的结构化卡必须保留输入、输出/错误、stderr 尾部和精确 timing；助手正文未被用户点名时不重复抄写 `startedAt`/`endedAt`/`createdAt`。若模型仍把时间字段写进 Markdown 表，loop 必须把值投影为明确的“精确时间见旁边的 MCP 调用卡片。”，不得出现字段名作为值的“相应时间”坏表格。
 
+- 驻地 Git 动作的失败通知必须在顶带固定最大宽度内完整呈现“发生了什么 + 下一步”；英文不得依赖一行省略号隐藏恢复动作。需要更长解释时放到可展开的详情面，而不是扩大顶带或让用户猜下一步。
+
 ## 3. 路由与生命周期
 
 - Chat 无选中时显示 landing；`/chat/:id` 是线程路由。首次发送才创建对话，并在发首条消息前写入 landing 选择的模型。另一个客户端发出 durable `conversation.deleted` 时，rail 同时移除列表行并把当前已选的死深链导航回 landing；notifications 流 410 resync 会重读当前行，仅在服务端明确返回 404 时离开深链。

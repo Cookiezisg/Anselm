@@ -1830,8 +1830,8 @@ class Translations$chat$workDir$en {
 	/// en: 'Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.'
 	String get errInvalidBranch => 'Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.';
 
-	/// en: 'That branch is gone. Reopen the menu to see the branches that are there now.'
-	String get errBranchMissing => 'That branch is gone. Reopen the menu to see the branches that are there now.';
+	/// en: 'Branch gone. Reopen.'
+	String get errBranchMissing => 'Branch gone. Reopen.';
 
 	/// en: 'A branch by that name already exists. Pick another name, or switch to it from the menu.'
 	String get errBranchExists => 'A branch by that name already exists. Pick another name, or switch to it from the menu.';
@@ -7824,7 +7824,7 @@ extension on Translations {
 			'chat.workDir.errDirty' => 'The working directory has uncommitted changes. Commit or stash them, then switch branches.',
 			'chat.workDir.errNotRepo' => 'This working directory is not a git repository. Switch to one that is.',
 			'chat.workDir.errInvalidBranch' => 'Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.',
-			'chat.workDir.errBranchMissing' => 'That branch is gone. Reopen the menu to see the branches that are there now.',
+			'chat.workDir.errBranchMissing' => 'Branch gone. Reopen.',
 			'chat.workDir.errBranchExists' => 'A branch by that name already exists. Pick another name, or switch to it from the menu.',
 			'chat.workDir.errWorktreeName' => 'A worktree name has to be a single folder name — no “/” and no “..”.',
 			'chat.workDir.errWorktreeExists' => 'That folder already exists. Pick another name, or switch this conversation into it from the menu.',

@@ -5,6 +5,7 @@ import 'package:anselm/core/ui/an_notice_close_affordance.dart';
 import 'package:anselm/core/ui/icons.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -274,6 +275,37 @@ void main() {
       expect(shellW(), greaterThan(midW));
     },
   );
+
+  testWidgets('branch refusal copy fits the one-line notice capsule', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      host(
+        AnNoticeCapsule(
+          text: 'Branch gone. Reopen.',
+          viewLabel: 'View',
+          closeLabel: 'Dismiss notice',
+          hold: const Duration(seconds: 30),
+          onDismissed: () {},
+        ),
+      ),
+    );
+    await tester.pump(const Duration(milliseconds: 700));
+
+    final paragraph = tester.renderObject<RenderParagraph>(
+      find
+          .descendant(
+            of: find.byType(AnNoticeCapsule),
+            matching: find.byType(RichText),
+          )
+          .first,
+    );
+    expect(
+      paragraph.didExceedMaxLines,
+      isFalse,
+      reason: 'branch recovery guidance must be fully visible, not ellipsized',
+    );
+  });
 
   testWidgets('X reverses and dismisses exactly once', (tester) async {
     var closed = 0;

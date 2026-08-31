@@ -61,7 +61,7 @@
       "errDirty": "The working directory has uncommitted changes. Commit or stash them, then switch branches.",
       "errNotRepo": "This working directory is not a git repository. Switch to one that is.",
       "errInvalidBranch": "Git will not accept that name. Letters, digits, “-”, “_” and “/” are safe.",
-      "errBranchMissing": "That branch is gone. Reopen the menu to see the branches that are there now.",
+      "errBranchMissing": "Branch gone. Reopen.",
       "errBranchExists": "A branch by that name already exists. Pick another name, or switch to it from the menu.",
       "errWorktreeName": "A worktree name has to be a single folder name — no “/” and no “..”.",
       "errWorktreeExists": "That folder already exists. Pick another name, or switch this conversation into it from the menu.",

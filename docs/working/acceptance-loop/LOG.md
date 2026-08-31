@@ -10,6 +10,37 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-259 切分支名拼错真实 App 五格收口，批次 87 121/50
+
+首轮 red session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-210547` 在真实 App
+已打开分支菜单时删除本地 `typo-target`，保留同名 `remotes/origin/typo-target`，再点击菜单旧行。
+backend 真实返回 `404 CONVERSATION_BRANCH_NOT_FOUND`；workdir 投影与 Git HEAD 保持 `main`，没有
+发生 tracking branch 创建。首轮 Computer Use 同时发现顶带通知在固定宽度下被视觉省略为
+`That branch is gone. Reopen the menu to ...`，隐藏了恢复动作，停止推进并保留红帧=
+`testend/rig/formal-evidence/EDGE-259-branch-typo-red.png`。
+
+stop-and-fix 将英文文案改为 `Branch gone. Reopen.`，不扩大共享 340px 顶带；新增渲染级测试直接
+断言正文 `RenderParagraph.didExceedMaxLines == false`。focused notice、conversation/HTTP/gitinfo
+回归均通过。fixed session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-211452` 用
+同一竞态重跑，顶带完整显示 `Branch gone. Reopen.`，后端仍为 404，投影仍为 `main`，Git 仍只有
+远端 ref；修复帧=`testend/rig/formal-evidence/EDGE-259-branch-typo-fixed.png`，录屏=
+`3104x1844/60fps/75.398333s`。
+
+两次 session 均由 conductor 持有真实 App、窗口录制、Computer Use、backend journal、三路 SSE
+witness、frontend console 与 managed bootstrap LLM tap；fixed session 的 `rig-check`/`rig-down`
+通过，frontend 只有已知 macOS IMK 诊断，无 Dart/Flutter/RenderFlex/overflow/Unhandled 应用红线，
+本路径无 chat completion，未虚构该调用。session witness=
+`sessions/20260831-211452/evidence/EDGE-259-branch-typo-real-app.md`，正式证据=
+`testend/rig/formal-evidence/EDGE-259-branch-typo-real-app-20260831.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`。L2 首次误用仓库级证据被门禁拒绝，改为
+session-local witness 后才接受，证明 level-2 绑定未被绕过。每次写账后的
+`discovery-collapse`，以及最终的 `gap-too-fast`/`discovery-collapse`，均按原阈值复核并 ack，
+复核记录=`testend/rig/formal-evidence/EDGE-259-branch-typo-ledger-alarm-reaudit-20260831.md`。
+最终 `gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`，锚点=`10/10`。
+权威清册由 `747/3915/325` 推进为 `748/3919/321`，批次由 `117/50` 推进为 `121/50`；下一自主
+前线为 `EDGE|worktree 目录已存在`，强制人工交互继续后置。
+
 ## 2026-08-31 · EDGE-258 新建分支不受脏区门真实 App 五格收口，批次 87 117/50
 
 正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-205254`，fixture=
