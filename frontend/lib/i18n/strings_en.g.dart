@@ -184,6 +184,18 @@ class Translations$chat$en {
 	/// en: 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.'
 	String get voiceInputTooLong => 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.';
 
+	/// en: 'This month's voice input allowance is used up. Try again when it renews.'
+	String get voiceInputQuotaExhausted => 'This month\'s voice input allowance is used up. Try again when it renews.';
+
+	/// en: 'Voice input is busy right now. Please try again shortly.'
+	String get voiceInputRateLimited => 'Voice input is busy right now. Please try again shortly.';
+
+	/// en: 'This Anselm Auto installation is not permitted to use voice input.'
+	String get voiceInputAccountBanned => 'This Anselm Auto installation is not permitted to use voice input.';
+
+	/// en: 'This voice data could not be understood. I kept the text already transcribed; please record it again.'
+	String get voiceInputFrameInvalid => 'This voice data could not be understood. I kept the text already transcribed; please record it again.';
+
 	/// en: 'Voice input was interrupted'
 	String get voiceRetryTitle => 'Voice input was interrupted';
 
@@ -247,6 +259,9 @@ class Translations$chat$en {
 	/// en: 'The model service didn't finish this response. Try again; if the request is large, send it in smaller parts.'
 	String get providerError => 'The model service didn\'t finish this response. Try again; if the request is large, send it in smaller parts.';
 
+	/// en: 'The model service is temporarily busy. Please try again shortly.'
+	String get rateLimited => 'The model service is temporarily busy. Please try again shortly.';
+
 	/// en: 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.'
 	String get chatTurnTimeout => 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.';
 
@@ -255,6 +270,9 @@ class Translations$chat$en {
 
 	/// en: 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.'
 	String get contextInputTooLarge => 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.';
+
+	/// en: 'This attachment couldn't be prepared for the reply, so the reply couldn't continue. Retry to try preparing it again.'
+	String get attachmentStagingFailed => 'This attachment couldn\'t be prepared for the reply, so the reply couldn\'t continue. Retry to try preparing it again.';
 
 	/// en: 'Choose another model'
 	String get repickModel => 'Choose another model';
@@ -2834,6 +2852,18 @@ class Translations$chat$tool$en {
 	/// en: 'MCP error'
 	String get mcpError => 'MCP error';
 
+	/// en: 'The MCP tool didn't return a result'
+	String get mcpFailedTitle => 'The MCP tool didn\'t return a result';
+
+	/// en: 'The server connection ended while it was running. Check the MCP server and try again.'
+	String get mcpFailedHint => 'The server connection ended while it was running. Check the MCP server and try again.';
+
+	/// en: 'The failure and next step are shown in the tool card above.'
+	String get mcpAssistantHandoff => 'The failure and next step are shown in the tool card above.';
+
+	/// en: 'Technical details'
+	String get mcpTechnicalDetails => 'Technical details';
+
 	/// en: 'Calling method'
 	String get hdCalling => 'Calling method';
 
@@ -3689,6 +3719,9 @@ class Translations$chat$actions$en {
 
 	/// en: 'Preparing read-aloud…'
 	String get readAloudPreparing => 'Preparing read-aloud…';
+
+	/// en: 'Too long to read aloud in one go (maximum 4,000 characters)'
+	String get readAloudTooLong => 'Too long to read aloud in one go (maximum 4,000 characters)';
 
 	/// en: 'Read-aloud failed'
 	String get readAloudFailed => 'Read-aloud failed';
@@ -5286,6 +5319,9 @@ class Translations$settings$keys$en {
 	/// en: 'Couldn't read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.'
 	String get freeRepairHint => 'Couldn\'t read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.';
 
+	/// en: 'Couldn't read the free-tier quota right now. Your existing device registration was left untouched; try again.'
+	String get freeTransientRepairHint => 'Couldn\'t read the free-tier quota right now. Your existing device registration was left untouched; try again.';
+
 	/// en: 'Repair free tier'
 	String get freeRepair => 'Repair free tier';
 
@@ -5519,6 +5555,9 @@ class Translations$settings$keys$en {
 
 	/// en: 'One or more values are not valid for this model'
 	String get nativeSettingsInvalidValue => 'One or more values are not valid for this model';
+
+	/// en: 'No tools: choose an agent-capable model'
+	String get agentModelNotCapable => 'No tools: choose an agent-capable model';
 
 	/// en: 'Vision'
 	String get visionBadge => 'Vision';
@@ -5927,6 +5966,9 @@ class Translations$settings$mcp$en {
 
 	/// en: '$n tools'
 	String tools({required Object n}) => '${n} tools';
+
+	/// en: '$n call'
+	String call({required Object n}) => '${n} call';
 
 	/// en: '$n calls'
 	String calls({required Object n}) => '${n} calls';
@@ -7806,6 +7848,10 @@ extension on Translations {
 			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
 			'chat.voiceInputConnectionLost' => 'Voice input disconnected. I kept the text that was already transcribed.',
 			'chat.voiceInputTooLong' => 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.',
+			'chat.voiceInputQuotaExhausted' => 'This month\'s voice input allowance is used up. Try again when it renews.',
+			'chat.voiceInputRateLimited' => 'Voice input is busy right now. Please try again shortly.',
+			'chat.voiceInputAccountBanned' => 'This Anselm Auto installation is not permitted to use voice input.',
+			'chat.voiceInputFrameInvalid' => 'This voice data could not be understood. I kept the text already transcribed; please record it again.',
 			'chat.voiceRetryTitle' => 'Voice input was interrupted',
 			'chat.voiceRetryBody' => 'I kept the draft and can replay the local recording once to transcribe it again.',
 			'chat.voiceRetryAction' => 'Retry transcription',
@@ -7827,9 +7873,11 @@ extension on Translations {
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
 			'chat.providerError' => 'The model service didn\'t finish this response. Try again; if the request is large, send it in smaller parts.',
+			'chat.rateLimited' => 'The model service is temporarily busy. Please try again shortly.',
 			'chat.chatTurnTimeout' => 'This reply took too long and was stopped to keep the app responsive. Send a follow-up or simplify the task, then try again.',
 			'chat.toolErrorStorm' => 'The tools kept failing, so this reply was paused. Check the inputs and try again.',
 			'chat.contextInputTooLarge' => 'This content is too large for the model to process in one go. Split the newest attachment or content, then try again.',
+			'chat.attachmentStagingFailed' => 'This attachment couldn\'t be prepared for the reply, so the reply couldn\'t continue. Retry to try preparing it again.',
 			'chat.repickModel' => 'Choose another model',
 			'chat.stoppedMaxSteps' => 'This reply paused at the step limit. Send a follow-up or simplify the task to continue.',
 			'chat.stoppedBudget' => 'Paused — context window is full',
@@ -8173,6 +8221,10 @@ extension on Translations {
 			'chat.tool.mcpCalling' => 'Calling MCP tool',
 			'chat.tool.mcpCalled' => 'Called MCP tool',
 			'chat.tool.mcpError' => 'MCP error',
+			'chat.tool.mcpFailedTitle' => 'The MCP tool didn\'t return a result',
+			'chat.tool.mcpFailedHint' => 'The server connection ended while it was running. Check the MCP server and try again.',
+			'chat.tool.mcpAssistantHandoff' => 'The failure and next step are shown in the tool card above.',
+			'chat.tool.mcpTechnicalDetails' => 'Technical details',
 			'chat.tool.hdCalling' => 'Calling method',
 			'chat.tool.hdCalled' => 'Called method',
 			'chat.tool.hdResult' => 'result',
@@ -8215,6 +8267,8 @@ extension on Translations {
 			'chat.tool.byAgent' => 'agent',
 			'chat.tool.byWorkflow' => 'workflow',
 			'chat.tool.byManual' => 'manual',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.searchingFlowruns' => 'Searching runs',
 			'chat.tool.searchedFlowruns' => 'Searched runs',
 			'chat.tool.searchingFirings' => 'Searching firings',
@@ -8225,8 +8279,6 @@ extension on Translations {
 			'chat.tool.firingStarted' => 'run started',
 			'chat.tool.firingSkipped' => 'skipped',
 			'chat.tool.firingSuperseded' => 'superseded',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.firingShed' => 'shed',
 			'chat.tool.firingMissed' => 'missed',
 			'chat.tool.logCount' => ({required Object n}) => '${n}',
@@ -8465,6 +8517,7 @@ extension on Translations {
 			'chat.actions.readAloud' => 'Read aloud',
 			'chat.actions.readAloudStop' => 'Stop',
 			'chat.actions.readAloudPreparing' => 'Preparing read-aloud…',
+			'chat.actions.readAloudTooLong' => 'Too long to read aloud in one go (maximum 4,000 characters)',
 			'chat.actions.readAloudFailed' => 'Read-aloud failed',
 			'appName' => 'Anselm',
 			'status.idle' => 'Idle',
@@ -8728,6 +8781,8 @@ extension on Translations {
 			'scheduler.run.glanceStreak' => ({required Object n}) => '${n} failing',
 			'scheduler.run.payloadHead' => 'Entry payload',
 			'scheduler.run.pinnedRefsHead' => 'Pinned refs',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.run.errorHead' => 'Error',
 			'scheduler.run.replayHistory' => ({required Object n}) => 'Replayed ×${n}',
 			'scheduler.run.replayNever' => 'Never replayed',
@@ -8739,8 +8794,6 @@ extension on Translations {
 			'scheduler.run.nodeOut' => 'Output',
 			'scheduler.run.nodeNoIo' => 'This node recorded no result.',
 			'scheduler.run.replayNode' => 'Replay the failed nodes',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.run.relayResolving' => 'Finding this run…',
 			'scheduler.run.relayFailedTitle' => 'Couldn\'t resolve this run',
 			'scheduler.run.relayFailedHint' => 'No run with this id in this workspace. Check the id, or pick a run from a workflow.',
@@ -9242,6 +9295,8 @@ extension on Translations {
 			'entities.run.reasoning' => 'Reasoning',
 			'entities.run.toolCall' => 'Tool call',
 			'entities.run.nodesHeading' => 'Nodes',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.noTrace' => 'Waiting for output…',
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '${inT} in · ${outT} out',
@@ -9253,8 +9308,6 @@ extension on Translations {
 			'entities.run.danger.cautious' => 'Cautious',
 			'entities.run.danger.dangerous' => 'Dangerous',
 			'entities.run.inboxEmpty' => 'No pending approvals',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => 'Approvals waiting for a decision will appear here.',
 			'entities.run.source' => 'Source',
 			'entities.run.sourceManual' => 'Manual',
@@ -9551,6 +9604,7 @@ extension on Translations {
 			'settings.keys.freeEnableHint' => 'Registers this machine\'s anonymous fingerprint with the Anselm gateway for a quota',
 			'settings.keys.freeProvisioning' => 'Provisioning…',
 			'settings.keys.freeRepairHint' => 'Couldn\'t read the free-tier quota — the device registration may have been revoked. Repair re-registers this device; conversations and settings are untouched.',
+			'settings.keys.freeTransientRepairHint' => 'Couldn\'t read the free-tier quota right now. Your existing device registration was left untouched; try again.',
 			'settings.keys.freeRepair' => 'Repair free tier',
 			'settings.keys.freeRefresh' => 'Refresh',
 			'settings.keys.freeFailed' => 'Provisioning incomplete (offline or gateway unreachable) — retry later',
@@ -9629,6 +9683,7 @@ extension on Translations {
 			'settings.keys.nativeSettingsInvalid' => 'Enter a JSON object with string setting values',
 			'settings.keys.nativeSettingsUnsupported' => 'This JSON includes a setting this model has not published',
 			'settings.keys.nativeSettingsInvalidValue' => 'One or more values are not valid for this model',
+			'settings.keys.agentModelNotCapable' => 'No tools: choose an agent-capable model',
 			'settings.keys.visionBadge' => 'Vision',
 			'settings.keys.chatOnlyBadge' => 'Chat only — no tools',
 			'settings.keys.videoBadge' => 'Video',
@@ -9753,6 +9808,9 @@ extension on Translations {
 			'settings.mcp.deleteBody' => ({required Object name}) => 'Removes “${name}” and its config (soft delete).',
 			'settings.mcp.confirmDelete' => 'Delete',
 			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
+			'settings.mcp.call' => ({required Object n}) => '${n} call',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.calls' => ({required Object n}) => '${n} calls',
 			'settings.mcp.statusReady' => 'ready',
 			'settings.mcp.statusFailed' => 'failed',
@@ -9767,8 +9825,6 @@ extension on Translations {
 			'settings.mcp.url' => 'URL',
 			'settings.mcp.envKv' => 'Env (KEY=VALUE per line)',
 			'settings.mcp.headersKv' => 'Headers (KEY=VALUE per line)',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.add' => 'Add',
 			'settings.mcp.addFailedHonest' => 'A failed connection still lands as failed — reconnect later',
 			'settings.mcp.importTitle' => 'Import mcp.json',

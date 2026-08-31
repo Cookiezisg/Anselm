@@ -10,7 +10,7 @@
 
 `judge.py` 的 `~` 只有在证据明确说明该等级对该对象不适用时才算收口；“没有真实 App/session”“尚未独立测量顺滑度”“尚未做视觉 craft 或可发现性走查”等说明缺证据的文字属于 provisional NA，不是 waiver，会重新打开自动前线。这样清册不会因为早期 focused/API-only 证据而假装完成。
 
-`testend/rig/ledger-sequence.json` 的 `manual_queue` 只改变顺序，不改变标准：需要用户物理按键、系统授权或安全确认的格子仍未完成、不能写成 `pass`，但在自主格耗尽前不会阻塞自动验收。自主格完成后，顺序门才回到人工队列的第一项。
+`testend/rig/ledger-sequence.json` 的 `manual_queue` 保存所有曾因人工现场条件后置的候选项；其中 `forced_queue` 是当前真正需要用户物理按键、系统授权、安全确认、不可逆删除或物理网络动作的显式子集。只有 `forced_queue` 改变顺序：这些格子仍未完成、不能写成 `pass`，但在自主格耗尽前不会阻塞自动验收。其余候选项只需要 Computer Use 进行真实 App 现场观察，会先按清册顺序推进。两队都不改变五级标准；自主格完成后，顺序门才回到 `forced_queue` 的第一项。
 
 ## 台架是什么
 
@@ -70,6 +70,28 @@ App、录屏、后端健康和 SSE 的事件时序。
 只服务台架构造，不能拿它代替真实后端故障或正式性能数字。失败次数是并发安全的一次性预算，不能跨 session
 重置，也不会改动 backend 或 SSE witness 的真实端口。
 `RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
+
+媒体故障场景可显式设置 `RIG_LLMTAP_FAIL_PATH=/v1/media/uploads`、`RIG_LLMTAP_FAIL_COUNT=1` 和
+`RIG_LLMTAP_FAIL_STATUS=503`。这只在本地 `llmtap` 处拦截匹配路径，按预算返回结构化测试故障并落入
+`llm.jsonl`；其他请求继续透明转发到 `RIG_LLM_UPSTREAM`，默认关闭。它用于真实 App 的失败传播验收，证据必须
+明确标注“故障由台架注入、上游为真实网关”，不能把注入响应写成真实网关自身的故障统计，也不能用于绿色成功路径。
+
+要验收真实 App 的“代理未 ready → 聊天有界等待 → 原图回退 → 后台代理追上”时，可显式设置
+`ANSELM_RIG_MEDIA_PROCESS_DELAY_MS=5000`。这是后端 media worker 的台架专用延迟，不替代真实
+`ImageProcessor`：真实附件仍上传、真实 worker 仍执行并落 durable `model-default` derivative，只有
+处理开始到真实处理器调用前的等待被延长，以稳定制造可观察的竞态。该变量只用于本地 acceptance rig，
+manifest 会记录 `mediaProcessDelayMs`；未设置时为 `0`，普通运行不改变。使用该旋钮取得的证据必须同时
+证明聊天路径确实走过原图回退和之后的真实 ready 收口，不能只凭 chip 文案判定。
+
+要在不制造十几次真实上游语音调用的前提下验收朗读缓存的字节预算淘汰，可显式设置
+`ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES`（例如 `5000000`）。这是仅供 acceptance rig 的缓存预算覆盖，
+未设置时生产默认仍为领域常量 `50 MiB`；manifest 会记录实际旋钮。正式证据必须仍使用真实语音产物，
+证明 LRU 顺序、缓存行物理淘汰和对应附件软删，不能用伪造的 size 字段替代真实字节。
+
+要验收真实 App 原生音频播放器的短期 playback lease 过期时，可显式设置
+`ANSELM_RIG_PLAYBACK_LEASE_TTL_MS=1500`。这是仅供 acceptance rig 的毫秒级 TTL 覆盖，生产未设置时仍为
+5 分钟；manifest 会记录 `playbackLeaseTtlMs`。正式证据必须证明真实播放器先拿 lease 播放、跨过过期点后失败
+显示可理解的重试状态，再重新签发 lease 并恢复播放，不能只用 REST 取 404 代替播放器现场。
 
 出厂重置等“App 必须删除自己数据目录”的路径使用 `RIG_APP_OWNS_BACKEND=1`。此模式强制 App-first，
 conductor 把刚构建的 `server` 放到真实 bundle executable 旁，由 `BackendController` 自己启动并监督；
@@ -171,6 +193,10 @@ SESSION=$RIG_HOME/sessions/<时间戳>
 mkdir -p "$SESSION/frames"
 ffmpeg -i "$SESSION/screen.mov" -vf fps=30 "$SESSION/frames/f%06d.png"
 ```
+
+启用录屏时，`rig-down.sh` 找不到非空 `screen.mov` 或无法用 `ffprobe` 读取它会以失败收台；这不是可忽略的
+日志异常，而是 channel 1 缺失，后续正式裁决必须停止。只有显式设置 `RIG_RECORD=0` 生成的
+`recording.disabled` 诊断 session 才允许没有 MOV，且不能作为正式五通道证据。
 
 ROI 应只框目标控件，排除时钟、鼠标、呼吸动画等无关变化；不使用 ROI 的全屏延迟数字通常无意义。
 

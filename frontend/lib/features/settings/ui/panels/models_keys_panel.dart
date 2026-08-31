@@ -45,6 +45,12 @@ import '../../state/settings_detail_provider.dart';
 import '../../state/workspace_prefs_provider.dart';
 import 'voices_card.dart';
 
+String _modelOperationError(Translations t, ApiException error) =>
+    switch (error.code) {
+      AnselmErr.modelNotAgentCapable => t.settings.keys.agentModelNotCapable,
+      _ => error.message,
+    };
+
 /// ④ 模型与密钥 — the resource flagship, THREE zones (0725 重构 — category finally drawn on the
 /// face, WRK-077 施工序⑪): ① the MODEL-KEYS zone — the managed free-tier card (quota meter / enable
 /// CTA) atop brand-logo BYOK rows for llm-category providers (managed row locked on top), the add
@@ -308,7 +314,10 @@ class _FreeTierCardState extends ConsumerState<_FreeTierCard> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  t.settings.keys.freeRepairHint,
+                  quota.error is ApiException &&
+                          (quota.error as ApiException).isTransient
+                      ? t.settings.keys.freeTransientRepairHint
+                      : t.settings.keys.freeRepairHint,
                   style: AnText.meta.copyWith(color: c.danger),
                 ),
                 const SizedBox(height: AnSpace.s8),
@@ -979,6 +988,7 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
     String modelId,
     Map<String, String> options,
   ) async {
+    final t = Translations.of(context);
     try {
       await ref
           .read(workspacePrefsProvider.notifier)
@@ -992,11 +1002,12 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
     } on ApiException catch (e) {
       ref
           .read(noticeCenterProvider.notifier)
-          .show(e.message, tone: AnTone.danger);
+          .show(_modelOperationError(t, e), tone: AnTone.danger);
     }
   }
 
   Future<void> _clear() async {
+    final t = Translations.of(context);
     try {
       await ref
           .read(workspacePrefsProvider.notifier)
@@ -1005,7 +1016,7 @@ class _ScenarioDefaultRowState extends ConsumerState<_ScenarioDefaultRow> {
     } on ApiException catch (e) {
       ref
           .read(noticeCenterProvider.notifier)
-          .show(e.message, tone: AnTone.danger);
+          .show(_modelOperationError(t, e), tone: AnTone.danger);
     }
   }
 
@@ -1916,6 +1927,7 @@ class _GenScenarioRowState extends ConsumerState<_GenScenarioRow> {
   bool _open = false;
 
   Future<void> _apply(String apiKeyId, String modelId) async {
+    final t = Translations.of(context);
     try {
       await ref
           .read(workspacePrefsProvider.notifier)
@@ -1929,11 +1941,12 @@ class _GenScenarioRowState extends ConsumerState<_GenScenarioRow> {
     } on ApiException catch (e) {
       ref
           .read(noticeCenterProvider.notifier)
-          .show(e.message, tone: AnTone.danger);
+          .show(_modelOperationError(t, e), tone: AnTone.danger);
     }
   }
 
   Future<void> _clear() async {
+    final t = Translations.of(context);
     try {
       await ref
           .read(workspacePrefsProvider.notifier)
@@ -1942,7 +1955,7 @@ class _GenScenarioRowState extends ConsumerState<_GenScenarioRow> {
     } on ApiException catch (e) {
       ref
           .read(noticeCenterProvider.notifier)
-          .show(e.message, tone: AnTone.danger);
+          .show(_modelOperationError(t, e), tone: AnTone.danger);
     }
   }
 

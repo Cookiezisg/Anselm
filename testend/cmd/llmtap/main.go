@@ -12,9 +12,11 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"flag"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -38,10 +40,32 @@ type record struct {
 	Status       int    `json:"status,omitempty"`
 }
 
+type failureBudget struct {
+	mu        sync.Mutex
+	path      string
+	remaining int
+}
+
+func (b *failureBudget) take(r *http.Request) bool {
+	if b.path == "" || r.URL.Path != b.path {
+		return false
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.remaining <= 0 {
+		return false
+	}
+	b.remaining--
+	return true
+}
+
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8788", "listen address")
 	upstream := flag.String("upstream", "", "real upstream origin, e.g. https://api.anselm.website (required)")
 	out := flag.String("out", "", "journal JSONL path (required)")
+	failPath := flag.String("fail-path", "", "test-only path to fail before forwarding (default: disabled)")
+	failCount := flag.Int("fail-count", 0, "test-only number of matching requests to fail")
+	failStatus := flag.Int("fail-status", http.StatusServiceUnavailable, "test-only injected HTTP status")
 	flag.Parse()
 	if *upstream == "" || *out == "" {
 		fmt.Fprintln(os.Stderr, "llmtap: -upstream and -out are required")
@@ -50,6 +74,10 @@ func main() {
 	u, err := url.Parse(strings.TrimRight(*upstream, "/"))
 	if err != nil || u.Host == "" {
 		fmt.Fprintf(os.Stderr, "llmtap: bad upstream %q\n", *upstream)
+		os.Exit(2)
+	}
+	if *failCount < 0 || *failStatus < 400 || *failStatus > 599 {
+		fmt.Fprintln(os.Stderr, "llmtap: fail-count must be non-negative and fail-status must be 400..599")
 		os.Exit(2)
 	}
 	journal, err := os.OpenFile(*out, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
@@ -90,7 +118,7 @@ func main() {
 	// and pretending to pair them would fabricate an ordering the wire does not guarantee.
 	// 请求与响应各落一行(共 method+path 的先后序)而非并成一条:ModifyResponse 与请求钩子的调度
 	// 不同,假装配对等于伪造一个线缆并不保证的顺序。
-	handler := proxycore.HandlerWithResponseBody(u, func(r *http.Request, body []byte) {
+	recordRequest := func(r *http.Request, body []byte) {
 		mu.Lock()
 		n++
 		seq := n
@@ -101,9 +129,11 @@ func main() {
 			_ = os.WriteFile(bf, body, 0o644)
 		}
 		writeRec(record{Method: r.Method, Path: r.URL.Path, Size: len(body), BodyFile: bf})
-	}, func(resp *http.Response) {
+	}
+	recordResponse := func(resp *http.Response) {
 		writeRec(record{Method: resp.Request.Method, Path: resp.Request.URL.Path, Status: resp.StatusCode})
-	}, func(resp *http.Response, body []byte) {
+	}
+	recordResponseBody := func(resp *http.Response, body []byte) {
 		mu.Lock()
 		responseN++
 		seq := responseN
@@ -113,7 +143,29 @@ func main() {
 			return
 		}
 		writeRec(record{Method: resp.Request.Method, Path: resp.Request.URL.Path, Size: len(body), ResponseFile: file, Status: resp.StatusCode})
-	})
+	}
+	passThrough := proxycore.HandlerWithResponseBody(u, recordRequest, recordResponse, recordResponseBody)
+	budget := &failureBudget{path: strings.TrimSpace(*failPath), remaining: *failCount}
+	handler := http.Handler(passThrough)
+	if budget.path != "" && budget.remaining > 0 {
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if !budget.take(r) {
+				passThrough.ServeHTTP(w, r)
+				return
+			}
+			body, _ := io.ReadAll(r.Body)
+			r.Body = io.NopCloser(bytes.NewReader(body))
+			recordRequest(r, body)
+			payload := []byte(`{"error":{"code":"RIG_INJECTED_STAGING_FAILURE","message":"rig injected media staging failure","details":{"reason":"media_staging"}}}`)
+			resp := &http.Response{Request: r, StatusCode: *failStatus}
+			recordResponse(resp)
+			w.Header().Set("Content-Type", "application/json")
+			w.WriteHeader(*failStatus)
+			_, _ = w.Write(payload)
+			recordResponseBody(resp, payload)
+			writeRec(record{Event: "fault_injected", Upstream: u.String(), Method: r.Method, Path: r.URL.Path, Size: len(payload), Status: *failStatus})
+		})
+	}
 
 	fmt.Printf("llmtap: %s → %s (journal %s)\n", *listen, u.String(), *out)
 	if err := http.ListenAndServe(*listen, handler); err != nil {

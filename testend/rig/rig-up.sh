@@ -15,7 +15,8 @@ Usage: testend/rig/rig-up.sh
 Start a complete acceptance rig. Configure the rig with environment variables such as
 RIG_HOME, RIG_PORT, RIG_DATA, RIG_SEED, RIG_LLMTAP, RIG_RECORD, RIG_APP, RIG_APP_FIRST,
 RIG_BACKEND_START_DELAY_SEC, RIG_APP_PROXY, RIG_APP_PROXY_PORT, RIG_APP_PROXY_DELAY_MS,
-RIG_APP_PROXY_FAIL_COUNT, and RIG_APP_PROXY_FAIL_STATUS.
+RIG_APP_PROXY_FAIL_COUNT, RIG_APP_PROXY_FAIL_STATUS, RIG_LLMTAP_FAIL_PATH, RIG_LLMTAP_FAIL_COUNT,
+RIG_LLMTAP_FAIL_STATUS, and ANSELM_RIG_MEDIA_PROCESS_DELAY_MS.
 The command takes no positional arguments; use --help only to print this message.
 EOF
 }
@@ -38,6 +39,9 @@ BACKEND_WAIT_SEC="${RIG_BACKEND_WAIT_SEC:-60}"
 LLMTAP="${RIG_LLMTAP:-1}"
 LLMTAP_PORT="${RIG_LLMTAP_PORT:-8788}"
 LLM_UPSTREAM="${RIG_LLM_UPSTREAM:-https://api.anselm.website}"
+LLMTAP_FAIL_PATH="${RIG_LLMTAP_FAIL_PATH:-}"
+LLMTAP_FAIL_COUNT="${RIG_LLMTAP_FAIL_COUNT:-0}"
+LLMTAP_FAIL_STATUS="${RIG_LLMTAP_FAIL_STATUS:-503}"
 RECORD="${RIG_RECORD:-1}"
 APP="${RIG_APP:-1}"
 APP_FIRST="${RIG_APP_FIRST:-0}"
@@ -378,7 +382,8 @@ fi
 GATEWAY_ENV=()
 if [ "$LLMTAP" = "1" ]; then
   LLMTAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/llmtap.log" -- \
-    "$RIG_HOME/bin/llmtap" -listen "127.0.0.1:$LLMTAP_PORT" -upstream "$LLM_UPSTREAM" -out "$SESSION/llm.jsonl")
+    "$RIG_HOME/bin/llmtap" -listen "127.0.0.1:$LLMTAP_PORT" -upstream "$LLM_UPSTREAM" -out "$SESSION/llm.jsonl" \
+    -fail-path "$LLMTAP_FAIL_PATH" -fail-count "$LLMTAP_FAIL_COUNT" -fail-status "$LLMTAP_FAIL_STATUS")
   for _ in $(seq 1 40); do
     [ "$(lsof -ti ":$LLMTAP_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$LLMTAP_PID" ] && break
     sleep 0.25
@@ -565,6 +570,12 @@ json.dump({
   "llmtapPid": "$LLMTAP_PID",
   "llmtapPort": $LLMTAP_PORT,
   "llmUpstream": "$LLM_UPSTREAM",
+  "llmtapFailPath": "$LLMTAP_FAIL_PATH",
+  "llmtapFailCount": $LLMTAP_FAIL_COUNT,
+  "llmtapFailStatus": $LLMTAP_FAIL_STATUS,
+  "mediaProcessDelayMs": "${ANSELM_RIG_MEDIA_PROCESS_DELAY_MS:-0}",
+  "speechCacheBudgetBytes": "${ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES:-0}",
+  "playbackLeaseTtlMs": "${ANSELM_RIG_PLAYBACK_LEASE_TTL_MS:-0}",
   "appProxyPid": "$APP_PROXY_PID",
   "appProxyPort": $APP_PROXY_PORT,
   "appProxyJournal": "$APP_PROXY_JOURNAL",

@@ -52,10 +52,15 @@ PROVISIONAL_NA_MARKERS = (
     "本轮未执行真实",
     "本格当前仅完成",
     "本格本批仅完成",
+    # Batch notes that explicitly confess missing real-App evidence are provisional. Keep this
+    # more specific than the shorter "本格没有独立" phrase, which may appear in a valid
+    # applicability explanation after a semicolon.
+    "本格本批没有独立",
     "本格本轮仅完成",
     "没有独立真实 app",
     "没有独立 formal rig",
     "没有本格独立真实",
+    "没有本格独立",
     "本格没有独立真实",
     "不能冒充视觉成品",
     "没有真实 app",
@@ -188,6 +193,39 @@ def sequence_policy():
                     f"{entry['family']}|{entry['item']}"
                 )
             seen_manual_items.add(item_key)
+        forced_queue = payload.get("forced_queue")
+        if forced_queue is None:
+            # Older temporary fixtures had one queue and therefore treated every queued item as
+            # manual. Keep that fixture contract while the formal policy uses an explicit subset.
+            # 旧的临时 fixture 只有一条队列,继续把其中全部项目视为人工;正式策略使用显式子集。
+            forced_queue = [
+                {"family": entry["family"], "item": entry["item"]}
+                for entry in manual_queue
+            ]
+        if not isinstance(forced_queue, list):
+            raise ValueError("forced_queue must be a list")
+        manual_keys = {(entry["family"], entry["item"]) for entry in manual_queue}
+        seen_forced_items = set()
+        for entry in forced_queue:
+            if (
+                not isinstance(entry, dict)
+                or not isinstance(entry.get("family"), str)
+                or not isinstance(entry.get("item"), str)
+            ):
+                raise ValueError("forced_queue entries require family and item")
+            item_key = (entry["family"], entry["item"])
+            if item_key in seen_forced_items:
+                raise ValueError(
+                    "forced_queue contains duplicate item: "
+                    f"{entry['family']}|{entry['item']}"
+                )
+            if item_key not in manual_keys:
+                raise ValueError(
+                    "forced_queue references item missing from manual_queue: "
+                    f"{entry['family']}|{entry['item']}"
+                )
+            seen_forced_items.add(item_key)
+        payload["forced_queue"] = forced_queue
         return payload
     except (OSError, ValueError, KeyError, TypeError) as exc:
         fail(f"ledger sequence policy is missing or unreadable: {SEQUENCE} ({exc})")
@@ -196,10 +234,10 @@ def sequence_policy():
 def manual_queue_problem(policy, rows) -> str:
     """Reject a formal manual queue that no longer describes the coverage ledger.
 
-    Queue entries are a scheduling control, not a second coverage inventory.  A stale entry for
-    a settled row would inflate the reported tail and could hide an accidental queue edit, so the
-    formal ledger fails closed instead of silently accepting drift. Temporary test ledgers may use
-    partial fixtures and are intentionally checked only when ``COVERAGE`` is the repository ledger.
+    Queue entries are a scheduling control, not a second coverage inventory.  The historical
+    ``manual_queue`` may contain ordinary items that have since been released and settled; only
+    the active ``forced_queue`` must remain unsettled. Temporary test ledgers may use partial
+    fixtures and are intentionally checked only when ``COVERAGE`` is the repository ledger.
     """
     if COVERAGE.resolve() != DEFAULT_COVERAGE:
         return ""
@@ -212,8 +250,12 @@ def manual_queue_problem(policy, rows) -> str:
     ]
     if missing:
         return "manual_queue references missing COVERAGE row(s): " + ", ".join(missing)
+    active_entries = policy.get("forced_queue")
+    if active_entries is None:
+        # Backward-compatible fixture shape: one queue meant all entries were manual.
+        active_entries = manual_entries
     settled = []
-    for entry in manual_entries:
+    for entry in active_entries:
         verdict, evidence = row_by_item[(entry["family"], entry["item"])]
         if all(cell_is_settled(cell, evidence, level) for level, cell in enumerate(verdict, 1)):
             settled.append(f"{entry['family']}|{entry['item']}")
@@ -227,7 +269,7 @@ def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
     policy = sequence_policy()
     manual_items = {
         (entry["family"], entry["item"])
-        for entry in policy.get("manual_queue", [])
+        for entry in policy.get("forced_queue", policy.get("manual_queue", []))
     }
     rows = []
     row_pattern = re.compile(

@@ -99,7 +99,15 @@ if [ "$APP_OWNS_BACKEND" = "1" ]; then
   ' "$SESSION/frontend.log" >"$SESSION/backend.log"
 fi
 
-if [ -f "$SESSION/screen.mov" ]; then
+if [ -f "$SESSION/recording.disabled" ]; then
+  echo "· recording disabled — channel 1 was intentionally omitted"
+elif [ ! -s "$SESSION/screen.mov" ]; then
+  # A successful shutdown without a sealed MOV is not an acceptance session. Do not let a
+  # missing recorder artifact silently turn a five-channel run into a four-channel claim.
+  rm -f "$RIG_HOME/current"
+  echo "✗ screen.mov is missing or empty; evidence channel 1 invalid" >&2
+  exit 1
+else
   ffprobe -v error -show_entries format=duration -of default=nw=1:nk=1 "$SESSION/screen.mov" >"$SESSION/screen.duration" 2>"$SESSION/ffprobe.log" || {
     echo "✗ screen.mov is not readable; evidence channel 1 invalid" >&2; exit 1;
   }

@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
 
 	"go.uber.org/zap"
 
@@ -384,7 +386,13 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	// Read-aloud (WRK-082 批C, P10): the SAME speech router the tool uses, driven by a button
 	// instead of an LLM. Its cache is what makes a second listen free.
 	// 朗读(批C,P10):与工具**同一个**语音路由,由按钮而非 LLM 驱动。它的缓存让第二次听免费。
-	readAloud := readaloudapp.NewService(genRouter, att, st.speechCache, log)
+	readAloud := readaloudapp.NewServiceWithBudget(
+		genRouter,
+		att,
+		st.speechCache,
+		trigSpeechCacheBudget(log),
+		log,
+	)
 	// sys: mount registry (批B'/P14): the same capability tools, mountable by agents — one truth
 	// for「什么算能力工具」, two consumers (chat per-request injection + agent mounts).
 	// sys: 挂载注册表(批B'/P14):同一批能力工具供 agent 挂载——「什么算能力工具」一份真相,
@@ -482,6 +490,8 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	ag.SetOptionValidator(modelCaps)
 	conv.SetOptionValidator(modelCaps)
 	ws.SetOptionValidator(modelCaps)
+	ag.SetScenarioValidator(modelCaps)
+	ws.SetScenarioValidator(modelCaps)
 	// stats ports: blob walk + chat's in-flight snapshot (WRK-062 S-11). stats 端口。
 	ws.SetStatsPorts(st.blob, chat.GeneratingIDs)
 
@@ -703,6 +713,26 @@ func registerSandboxStack(svc *sandboxapp.Service) {
 	svc.RegisterEnvManager(sandboxinfra.NewNodeEnvManager())
 	svc.RegisterEnvManager(sandboxinfra.NewDockerEnvManager())
 	svc.RegisterEnvManager(sandboxinfra.NewDotnetEnvManager())
+}
+
+// trigSpeechCacheBudget reads the acceptance-rig-only byte-budget override. An invalid or absent
+// value is deliberately indistinguishable from production: the normal 50 MiB domain budget wins.
+//
+// trigSpeechCacheBudget 读取仅供验收台架使用的字节预算覆盖。值缺失或非法时刻意退回生产行为：
+// 由领域层的 50 MiB 默认预算生效。
+func trigSpeechCacheBudget(log *zap.Logger) int64 {
+	const envName = "ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES"
+	raw := strings.TrimSpace(os.Getenv(envName))
+	if raw == "" {
+		return 0
+	}
+	budget, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || budget <= 0 {
+		log.Warn("invalid rig speech cache budget; using production default", zap.String("env", envName), zap.String("value", raw))
+		return 0
+	}
+	log.Warn("acceptance rig speech cache budget override enabled", zap.String("env", envName), zap.Int64("budgetBytes", budget))
+	return budget
 }
 
 // concat flattens tool groups into one slice.

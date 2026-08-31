@@ -107,6 +107,10 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get voiceInputPermissionDenied => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。';
 	@override String get voiceInputConnectionLost => '语音输入已断开。已转写出的文字已保留在输入框中。';
 	@override String get voiceInputTooLong => '语音输入最长 2 分钟。已转写出的文字已保留在输入框中。';
+	@override String get voiceInputQuotaExhausted => '本月语音输入额度已用完，请在额度恢复后再试。';
+	@override String get voiceInputRateLimited => '语音服务正忙，请稍后重试。';
+	@override String get voiceInputAccountBanned => '当前 Anselm Auto 安装未获准使用语音输入。';
+	@override String get voiceInputFrameInvalid => '这段语音数据格式不受支持。已转写的文字已保留，请重新录音。';
 	@override String get voiceRetryTitle => '语音输入中断';
 	@override String get voiceRetryBody => '草稿已保留，可用本地录音重放一次重新转写。';
 	@override String get voiceRetryAction => '重试转写';
@@ -128,9 +132,11 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get stoppedCancelled => 'Stopped';
 	@override String get stoppedError => 'Something went wrong';
 	@override String get providerError => '模型服务没有完成这次回复。请再试一次；如果请求较大，拆成更小的内容再发。';
+	@override String get rateLimited => '模型服务暂时繁忙，请稍后重试。';
 	@override String get chatTurnTimeout => '这次回复耗时过久，已暂停以保持应用响应。请发送后续消息或简化任务后重试。';
 	@override String get toolErrorStorm => '工具连续失败，这次回复已暂停。请检查输入后重试。';
 	@override String get contextInputTooLarge => '这部分内容超出了模型一次能处理的范围。请拆分最新附件或内容后重试。';
+	@override String get attachmentStagingFailed => '这个附件暂时无法准备给本次回复，因此这次回复无法继续。点击重试，再试一次。';
 	@override String get repickModel => '重选模型';
 	@override String get stoppedMaxSteps => '这次回复已达到步骤上限。你可以继续发送消息，或简化任务后再试。';
 	@override String get stoppedBudget => 'Paused — context window is full';
@@ -1156,6 +1162,10 @@ class _Translations$chat$tool$zh_CN extends Translations$chat$tool$en {
 	@override String get mcpCalling => '正在调用 MCP 工具';
 	@override String get mcpCalled => '已调用 MCP 工具';
 	@override String get mcpError => 'MCP 错误';
+	@override String get mcpFailedTitle => 'MCP 工具没有返回结果';
+	@override String get mcpFailedHint => '服务器在执行过程中断开了连接。请检查 MCP 服务器状态后重试。';
+	@override String get mcpAssistantHandoff => '失败原因和下一步已显示在上方工具卡中。';
+	@override String get mcpTechnicalDetails => '技术详情';
 	@override String get hdCalling => '正在调用方法';
 	@override String get hdCalled => '已调用方法';
 	@override String get hdResult => '返回';
@@ -1461,6 +1471,7 @@ class _Translations$chat$actions$zh_CN extends Translations$chat$actions$en {
 	@override String get readAloud => '朗读';
 	@override String get readAloudStop => '停止朗读';
 	@override String get readAloudPreparing => '正在准备朗读…';
+	@override String get readAloudTooLong => '文本过长，无法一次朗读（最多 4000 字）';
 	@override String get readAloudFailed => '朗读失败';
 }
 
@@ -2138,7 +2149,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String voicesDeleteBody({required Object name}) => '将从受管网关永久删除「${name}」。登记费用不会退回;删除只会腾出一个库存位。';
 	@override String voicesDeleteHint({required Object name}) => '输入「${name}」以确认';
 	@override String get voicesDeleteConfirm => '永久删除';
-	@override String get voicesDeleteFailed => '上游登记没能删掉,音色**保留**了,你可以重试。';
+	@override String get voicesDeleteFailed => '上游登记没能删掉，音色仍保留，可以重试。';
 	@override String get voicesDeleteCommitted => '音色已删除,但库存暂时读不回来。';
 	@override String get voicesDeleteCommittedHint => '重试以确认剩余库存位。';
 	@override String get voicesManagedOnly => '克隆音色属于免费档。';
@@ -2150,6 +2161,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get freeEnableHint => '将向 Anselm 网关注册本机匿名指纹以分配额度';
 	@override String get freeProvisioning => '正在开通…';
 	@override String get freeRepairHint => '读不到免费档配额——设备注册可能已失效。修复会重新登记本设备;对话与设置不受影响。';
+	@override String get freeTransientRepairHint => '暂时读不到免费档配额。现有设备注册未改动，请稍后重试。';
 	@override String get freeRepair => '修复免费档';
 	@override String get freeRefresh => '刷新';
 	@override String get freeFailed => '开通未完成(离线或网关不可达),稍后可重试';
@@ -2228,6 +2240,7 @@ class _Translations$settings$keys$zh_CN extends Translations$settings$keys$en {
 	@override String get nativeSettingsInvalid => '请输入值均为字符串的 JSON 对象';
 	@override String get nativeSettingsUnsupported => 'JSON 包含此模型未公开的设置';
 	@override String get nativeSettingsInvalidValue => '一个或多个值不符合此模型的契约';
+	@override String get agentModelNotCapable => '不能当智能体：请改选支持工具的模型';
 	@override String get visionBadge => '视觉';
 	@override String get chatOnlyBadge => '仅聊天 · 不能当 agent';
 	@override String get videoBadge => '视频';
@@ -2388,6 +2401,7 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String deleteBody({required Object name}) => '将移除「${name}」及其配置(软删)。';
 	@override String get confirmDelete => '删除';
 	@override String tools({required Object n}) => '${n} 工具';
+	@override String call({required Object n}) => '${n} 次调用';
 	@override String calls({required Object n}) => '${n} 次调用';
 	@override String get statusReady => '就绪';
 	@override String get statusFailed => '失败';
@@ -3281,6 +3295,10 @@ extension on TranslationsZhCn {
 			'chat.voiceInputPermissionDenied' => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。',
 			'chat.voiceInputConnectionLost' => '语音输入已断开。已转写出的文字已保留在输入框中。',
 			'chat.voiceInputTooLong' => '语音输入最长 2 分钟。已转写出的文字已保留在输入框中。',
+			'chat.voiceInputQuotaExhausted' => '本月语音输入额度已用完，请在额度恢复后再试。',
+			'chat.voiceInputRateLimited' => '语音服务正忙，请稍后重试。',
+			'chat.voiceInputAccountBanned' => '当前 Anselm Auto 安装未获准使用语音输入。',
+			'chat.voiceInputFrameInvalid' => '这段语音数据格式不受支持。已转写的文字已保留，请重新录音。',
 			'chat.voiceRetryTitle' => '语音输入中断',
 			'chat.voiceRetryBody' => '草稿已保留，可用本地录音重放一次重新转写。',
 			'chat.voiceRetryAction' => '重试转写',
@@ -3302,9 +3320,11 @@ extension on TranslationsZhCn {
 			'chat.stoppedCancelled' => 'Stopped',
 			'chat.stoppedError' => 'Something went wrong',
 			'chat.providerError' => '模型服务没有完成这次回复。请再试一次；如果请求较大，拆成更小的内容再发。',
+			'chat.rateLimited' => '模型服务暂时繁忙，请稍后重试。',
 			'chat.chatTurnTimeout' => '这次回复耗时过久，已暂停以保持应用响应。请发送后续消息或简化任务后重试。',
 			'chat.toolErrorStorm' => '工具连续失败，这次回复已暂停。请检查输入后重试。',
 			'chat.contextInputTooLarge' => '这部分内容超出了模型一次能处理的范围。请拆分最新附件或内容后重试。',
+			'chat.attachmentStagingFailed' => '这个附件暂时无法准备给本次回复，因此这次回复无法继续。点击重试，再试一次。',
 			'chat.repickModel' => '重选模型',
 			'chat.stoppedMaxSteps' => '这次回复已达到步骤上限。你可以继续发送消息，或简化任务后再试。',
 			'chat.stoppedBudget' => 'Paused — context window is full',
@@ -3648,6 +3668,10 @@ extension on TranslationsZhCn {
 			'chat.tool.mcpCalling' => '正在调用 MCP 工具',
 			'chat.tool.mcpCalled' => '已调用 MCP 工具',
 			'chat.tool.mcpError' => 'MCP 错误',
+			'chat.tool.mcpFailedTitle' => 'MCP 工具没有返回结果',
+			'chat.tool.mcpFailedHint' => '服务器在执行过程中断开了连接。请检查 MCP 服务器状态后重试。',
+			'chat.tool.mcpAssistantHandoff' => '失败原因和下一步已显示在上方工具卡中。',
+			'chat.tool.mcpTechnicalDetails' => '技术详情',
 			'chat.tool.hdCalling' => '正在调用方法',
 			'chat.tool.hdCalled' => '已调用方法',
 			'chat.tool.hdResult' => '返回',
@@ -3690,6 +3714,8 @@ extension on TranslationsZhCn {
 			'chat.tool.byAgent' => '智能体',
 			'chat.tool.byWorkflow' => '工作流',
 			'chat.tool.byManual' => '手动',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.searchingFlowruns' => '正在翻查运行',
 			'chat.tool.searchedFlowruns' => '已翻查运行',
 			'chat.tool.searchingFirings' => '正在翻查派发',
@@ -3700,8 +3726,6 @@ extension on TranslationsZhCn {
 			'chat.tool.firingStarted' => '已建 run',
 			'chat.tool.firingSkipped' => '跳过',
 			'chat.tool.firingSuperseded' => '被顶替',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.firingShed' => '丢弃',
 			'chat.tool.firingMissed' => '错过',
 			'chat.tool.logCount' => ({required Object n}) => '${n} 条',
@@ -3940,6 +3964,7 @@ extension on TranslationsZhCn {
 			'chat.actions.readAloud' => '朗读',
 			'chat.actions.readAloudStop' => '停止朗读',
 			'chat.actions.readAloudPreparing' => '正在准备朗读…',
+			'chat.actions.readAloudTooLong' => '文本过长，无法一次朗读（最多 4000 字）',
 			'chat.actions.readAloudFailed' => '朗读失败',
 			'appName' => 'Anselm',
 			'status.idle' => '空闲',
@@ -4203,6 +4228,8 @@ extension on TranslationsZhCn {
 			'scheduler.run.glanceStreak' => ({required Object n}) => '连败 ${n}',
 			'scheduler.run.payloadHead' => '入口 payload',
 			'scheduler.run.pinnedRefsHead' => '钉住的引用',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.run.errorHead' => '错误',
 			'scheduler.run.replayHistory' => ({required Object n}) => '已重放 ×${n}',
 			'scheduler.run.replayNever' => '从未重放',
@@ -4214,8 +4241,6 @@ extension on TranslationsZhCn {
 			'scheduler.run.nodeOut' => '输出',
 			'scheduler.run.nodeNoIo' => '这个节点没有记录结果。',
 			'scheduler.run.replayNode' => '重放失败节点',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.run.relayResolving' => '正在定位这次运行…',
 			'scheduler.run.relayFailedTitle' => '解析不出这次运行',
 			'scheduler.run.relayFailedHint' => '本工作区没有这个 id 的运行。检查 id,或从某个 workflow 里选一次运行。',
@@ -4717,6 +4742,8 @@ extension on TranslationsZhCn {
 			'entities.run.reasoning' => '推理',
 			'entities.run.toolCall' => '工具调用',
 			'entities.run.nodesHeading' => '节点',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.noTrace' => '等待输出…',
 			'entities.run.steps' => ({required Object n}) => '${n} 步',
 			'entities.run.tokens' => ({required Object inT, required Object outT}) => '输入 ${inT} · 输出 ${outT}',
@@ -4728,8 +4755,6 @@ extension on TranslationsZhCn {
 			'entities.run.danger.cautious' => '谨慎',
 			'entities.run.danger.dangerous' => '危险',
 			'entities.run.inboxEmpty' => '没有待审批',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.inboxEmptyHint' => '等待决断的审批会出现在这里。',
 			'entities.run.source' => '来源',
 			'entities.run.sourceManual' => '手动',
@@ -5014,7 +5039,7 @@ extension on TranslationsZhCn {
 			'settings.keys.voicesDeleteBody' => ({required Object name}) => '将从受管网关永久删除「${name}」。登记费用不会退回;删除只会腾出一个库存位。',
 			'settings.keys.voicesDeleteHint' => ({required Object name}) => '输入「${name}」以确认',
 			'settings.keys.voicesDeleteConfirm' => '永久删除',
-			'settings.keys.voicesDeleteFailed' => '上游登记没能删掉,音色**保留**了,你可以重试。',
+			'settings.keys.voicesDeleteFailed' => '上游登记没能删掉，音色仍保留，可以重试。',
 			'settings.keys.voicesDeleteCommitted' => '音色已删除,但库存暂时读不回来。',
 			'settings.keys.voicesDeleteCommittedHint' => '重试以确认剩余库存位。',
 			'settings.keys.voicesManagedOnly' => '克隆音色属于免费档。',
@@ -5026,6 +5051,7 @@ extension on TranslationsZhCn {
 			'settings.keys.freeEnableHint' => '将向 Anselm 网关注册本机匿名指纹以分配额度',
 			'settings.keys.freeProvisioning' => '正在开通…',
 			'settings.keys.freeRepairHint' => '读不到免费档配额——设备注册可能已失效。修复会重新登记本设备;对话与设置不受影响。',
+			'settings.keys.freeTransientRepairHint' => '暂时读不到免费档配额。现有设备注册未改动，请稍后重试。',
 			'settings.keys.freeRepair' => '修复免费档',
 			'settings.keys.freeRefresh' => '刷新',
 			'settings.keys.freeFailed' => '开通未完成(离线或网关不可达),稍后可重试',
@@ -5104,6 +5130,7 @@ extension on TranslationsZhCn {
 			'settings.keys.nativeSettingsInvalid' => '请输入值均为字符串的 JSON 对象',
 			'settings.keys.nativeSettingsUnsupported' => 'JSON 包含此模型未公开的设置',
 			'settings.keys.nativeSettingsInvalidValue' => '一个或多个值不符合此模型的契约',
+			'settings.keys.agentModelNotCapable' => '不能当智能体：请改选支持工具的模型',
 			'settings.keys.visionBadge' => '视觉',
 			'settings.keys.chatOnlyBadge' => '仅聊天 · 不能当 agent',
 			'settings.keys.videoBadge' => '视频',
@@ -5228,6 +5255,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.deleteBody' => ({required Object name}) => '将移除「${name}」及其配置(软删)。',
 			'settings.mcp.confirmDelete' => '删除',
 			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
+			'settings.mcp.call' => ({required Object n}) => '${n} 次调用',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.calls' => ({required Object n}) => '${n} 次调用',
 			'settings.mcp.statusReady' => '就绪',
 			'settings.mcp.statusFailed' => '失败',
@@ -5242,8 +5272,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.url' => 'URL',
 			'settings.mcp.envKv' => '环境变量(KEY=VALUE,每行一个)',
 			'settings.mcp.headersKv' => '请求头(KEY=VALUE,每行一个)',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.add' => '添加',
 			'settings.mcp.addFailedHonest' => '连接失败也会落盘为 failed,可稍后重连',
 			'settings.mcp.importTitle' => '导入 mcp.json',

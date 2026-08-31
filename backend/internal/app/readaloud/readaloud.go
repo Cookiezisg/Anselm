@@ -71,12 +71,13 @@ type Uploader interface {
 
 // Service runs read-aloud over its cache.
 type Service struct {
-	synth  Synthesizer
-	att    Uploader
-	cache  attachmentdomain.SpeechCacheRepository
-	log    *zap.Logger
-	missMu sync.Mutex
-	misses map[string]*readMiss
+	synth       Synthesizer
+	att         Uploader
+	cache       attachmentdomain.SpeechCacheRepository
+	log         *zap.Logger
+	budgetBytes int64
+	missMu      sync.Mutex
+	misses      map[string]*readMiss
 }
 
 // readMiss is a per-workspace/key gate for the only part of read-aloud that may spend money. A
@@ -93,15 +94,29 @@ type readMiss struct {
 }
 
 func NewService(synth Synthesizer, att Uploader, cache attachmentdomain.SpeechCacheRepository, log *zap.Logger) *Service {
+	return NewServiceWithBudget(synth, att, cache, attachmentdomain.SpeechCacheBudget, log)
+}
+
+// NewServiceWithBudget is the constructor used by the acceptance rig when it needs to make an
+// otherwise expensive byte-budget transition observable. Production callers use NewService and
+// therefore retain the domain's 50 MiB budget.
+//
+// NewServiceWithBudget 是验收台架用来把本来昂贵的字节预算转移变得可观察的构造器。生产调用者走
+// NewService，故仍然使用领域层固定的 50 MiB 预算。
+func NewServiceWithBudget(synth Synthesizer, att Uploader, cache attachmentdomain.SpeechCacheRepository, budgetBytes int64, log *zap.Logger) *Service {
 	if log == nil {
 		log = zap.NewNop()
 	}
+	if budgetBytes <= 0 {
+		budgetBytes = attachmentdomain.SpeechCacheBudget
+	}
 	return &Service{
-		synth:  synth,
-		att:    att,
-		cache:  cache,
-		log:    log.Named("readaloud"),
-		misses: make(map[string]*readMiss),
+		synth:       synth,
+		att:         att,
+		cache:       cache,
+		log:         log.Named("readaloud"),
+		budgetBytes: budgetBytes,
+		misses:      make(map[string]*readMiss),
 	}
 }
 
@@ -178,7 +193,7 @@ func (s *Service) Read(ctx context.Context, text, voice string) (*Result, error)
 	entry := &attachmentdomain.SpeechCacheEntry{
 		ID: idgenpkg.New("spc"), CacheKey: key, AttachmentID: att.ID, SizeBytes: att.SizeBytes,
 	}
-	evicted, err := s.cache.Put(ctx, entry, attachmentdomain.SpeechCacheBudget)
+	evicted, err := s.cache.Put(ctx, entry, s.budgetBytes)
 	if err != nil {
 		// A cache write failure must not lose the audio the user is waiting for — the artifact is
 		// already persisted and playable; the only cost is that the next press re-synthesizes.

@@ -43,6 +43,16 @@ class ApiException implements Exception {
   bool get isUnauthorized => httpStatus == 401;
   bool get isGone => httpStatus == 410;
 
+  /// A response that may succeed unchanged on retry. Callers should not describe these as a
+  /// revoked credential: a transient read failure does not establish that the install is dead.
+  ///
+  /// 可重试且不应归因于凭证失效的响应。瞬时读取失败不能证明 install 已失效，调用方不应这样向用户描述。
+  bool get isTransient =>
+      isTransport ||
+      httpStatus == 408 ||
+      httpStatus == 429 ||
+      httpStatus >= 500;
+
   /// Build from a decoded N1 error body `{code,message,details}` + the status.
   ///
   /// 从解码后的 N1 错误体 `{code,message,details}` + status 构造。
@@ -100,6 +110,11 @@ abstract final class AnselmErr {
   /// 422 — approval decision lost the first-wins race (already decided / timed out).
   static const approvalAlreadyDecided = 'APPROVAL_ALREADY_DECIDED';
 
+  /// 422 — the selected model is valid for chat but cannot call tools as an agent.
+  ///
+  /// 422 — 所选模型可以聊天,但不能调用工具运行智能体。
+  static const modelNotAgentCapable = 'MODEL_NOT_AGENT_CAPABLE';
+
   /// 401 — the localhost backend rejected the per-launch bearer token (loopback hardening:
   /// missing/wrong `ANSELM_AUTH_TOKEN`). The sidecar is misconfigured, NOT a workspace problem
   /// — show a restart-backend banner, do NOT clear/reselect the workspace.
@@ -142,4 +157,9 @@ abstract final class AnselmErr {
   ///
   /// 404 — skill 文件在变更完成前已被另一处删除;刷新文件树并明确说明删除结果已生效。
   static const skillFileNotFound = 'SKILL_FILE_NOT_FOUND';
+
+  /// 400 — one read-aloud request is longer than the backend can synthesize as a single utterance.
+  ///
+  /// 400 — 单次朗读请求超过后端可合成的整段上限。
+  static const readAloudTextTooLong = 'READALOUD_TEXT_TOO_LONG';
 }

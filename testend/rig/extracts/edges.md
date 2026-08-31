@@ -27,7 +27,7 @@ EDGE | allowed-tools 变更重置信任门 | skill | 对已授权的 installed s
 EDGE | ask_user 无交互用户 | loop | 在 agent invoke / workflow 节点（无 broker）路径上触发 `ask_user` | 503 `ASK_NO_INTERACTIVE_USER`，提示继续而不阻塞
 EDGE | interaction 枚举外 action | chat | POST resolve-interaction 传 `"aprove"` 拼错 | 先于 broker 查找 422 `INTERACTION_INVALID_ACTION` + `details.validActions`，绝不静默当 deny
 EDGE | 重复 resolve interaction | chat | 同一 toolCallId 连发两次决议 | 第二次 404 `NO_PENDING_INTERACTION`，幂等安全
-EDGE | 生成中再 Send | chat | 回合流式期间再 POST 一条消息 | 409 `STREAM_IN_PROGRESS`，不排队
+EDGE | 生成中再 Send | chat | 回合流式期间直接 POST 一条消息；在 Composer 中按 Enter | 直接 POST 返回 409 `STREAM_IN_PROGRESS` 且不创建第二回合；Composer 将消息放入可见 FIFO 队列，回合收尾后按序发送
 EDGE | 回合收尾期单槽缓冲 | chat | 在压缩检查（可达秒级 LLM 调用）窗口内 Send | 落进单槽缓冲紧随其后被服务；槽已满仍 409
 EDGE | convQueue 5 分钟自毁后重建 | chat | 让对话空闲 >5min 再发消息 | 队列拆卸后按需重建，task 不滞留死 channel
 EDGE | 关页不留 streaming 孤儿 | chat | 回合流式中直接关闭客户端/取消请求 | WriteFinalize 在 Detached ctx 落 blocks + message_stop

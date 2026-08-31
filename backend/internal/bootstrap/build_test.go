@@ -8,7 +8,21 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"go.uber.org/zap"
 )
+
+func TestTrigSpeechCacheBudget(t *testing.T) {
+	t.Setenv("ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES", "5000000")
+	if got := trigSpeechCacheBudget(zap.NewNop()); got != 5000000 {
+		t.Fatalf("rig speech cache budget = %d, want 5000000", got)
+	}
+
+	t.Setenv("ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES", "not-a-number")
+	if got := trigSpeechCacheBudget(zap.NewNop()); got != 0 {
+		t.Fatalf("invalid rig speech cache budget = %d, want production default sentinel 0", got)
+	}
+}
 
 // TestBuild_ServesHealth is the composition-root smoke test: Build wires the whole backend
 // against an in-memory DB (empty DataDir), and the assembled handler serves the health probe

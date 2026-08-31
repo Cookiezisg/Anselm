@@ -41,6 +41,14 @@ void main() {
       expect(ApiException.fromEnvelope(const {}, 404).isNotFound, isTrue);
     });
 
+    test('transient failures do not imply a revoked install', () {
+      expect(ApiException.transport('offline').isTransient, isTrue);
+      expect(ApiException.fromEnvelope(const {}, 408).isTransient, isTrue);
+      expect(ApiException.fromEnvelope(const {}, 429).isTransient, isTrue);
+      expect(ApiException.fromEnvelope(const {}, 502).isTransient, isTrue);
+      expect(ApiException.fromEnvelope(const {}, 401).isTransient, isFalse);
+    });
+
     test('the curated codes the new 4.0 flows branch on exist', () {
       expect(AnselmErr.unauthNoWorkspace, 'UNAUTH_NO_WORKSPACE');
       expect(

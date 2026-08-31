@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Regression tests for the conductor's frame-observation startup gate."""
 
+import json
 import os
 import subprocess
 import tempfile
@@ -53,6 +54,58 @@ class ScreenRecordingGateTests(unittest.TestCase):
             )
             self.assertNotEqual(result.returncode, 0)
             self.assertNotIn("Screen Recording permission unavailable", result.stderr)
+
+    def test_rig_down_fails_closed_when_recording_artifact_is_missing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "rig"
+            session = home / "sessions" / "session"
+            current = home / "current"
+            session.mkdir(parents=True)
+            current.symlink_to(session, target_is_directory=True)
+            (session / "manifest.json").write_text(
+                json.dumps({"session": str(session)}), encoding="utf-8"
+            )
+
+            env = os.environ.copy()
+            env["RIG_HOME"] = str(home)
+            result = subprocess.run(
+                ["bash", str(ROOT / "rig-down.sh")],
+                cwd=ROOT.parent.parent,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("screen.mov is missing or empty", result.stderr)
+            self.assertFalse(current.exists())
+
+    def test_rig_down_allows_explicit_recording_disabled_mode(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp) / "rig"
+            session = home / "sessions" / "session"
+            current = home / "current"
+            session.mkdir(parents=True)
+            current.symlink_to(session, target_is_directory=True)
+            (session / "recording.disabled").touch()
+            (session / "manifest.json").write_text(
+                json.dumps({"session": str(session)}), encoding="utf-8"
+            )
+
+            env = os.environ.copy()
+            env["RIG_HOME"] = str(home)
+            result = subprocess.run(
+                ["bash", str(ROOT / "rig-down.sh")],
+                cwd=ROOT.parent.parent,
+                env=env,
+                text=True,
+                capture_output=True,
+                check=False,
+            )
+
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("recording disabled", result.stdout)
 
     def test_rig_up_refuses_to_start_any_observer_when_capture_is_denied(self):
         with tempfile.TemporaryDirectory() as tmp:

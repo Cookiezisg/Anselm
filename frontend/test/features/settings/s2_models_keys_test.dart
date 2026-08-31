@@ -17,6 +17,7 @@ import 'package:anselm/core/overlay/an_overlay.dart';
 import 'package:anselm/core/contract/model_capability.dart';
 import 'package:anselm/core/media/media_source.dart';
 import 'package:anselm/core/net/api_client.dart';
+import 'package:anselm/core/notice/notice_center.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/state/api_keys_provider.dart';
@@ -34,6 +35,7 @@ import 'package:flutter_test/flutter_test.dart';
 Widget _host(
   FixtureSettingsRepository repo, {
   List<ModelCapability>? capabilities,
+  bool includeNoticeProbe = false,
 }) {
   final navigatorKey = GlobalKey<NavigatorState>();
   return ProviderScope(
@@ -50,13 +52,52 @@ Widget _host(
           navigatorKey: navigatorKey,
           debugShowCheckedModeBanner: false,
           theme: AnTheme.light(),
-          home: const Scaffold(
-            body: SingleChildScrollView(child: ModelsKeysPanel()),
+          home: Scaffold(
+            body: Stack(
+              children: [
+                const SingleChildScrollView(child: ModelsKeysPanel()),
+                if (includeNoticeProbe) const _NoticeProbe(),
+              ],
+            ),
           ),
         ),
       ),
     ),
   );
+}
+
+class _NoticeProbe extends ConsumerWidget {
+  const _NoticeProbe();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) =>
+      Text(ref.watch(noticeCenterProvider).current?.message.text ?? '');
+}
+
+class _RejectingAgentDefaultRepository extends FixtureSettingsRepository {
+  _RejectingAgentDefaultRepository({super.workspace});
+
+  @override
+  Future<Workspace> putDefaultModel(
+    String scenario, {
+    required String apiKeyId,
+    required String modelId,
+    Map<String, String>? options,
+  }) async {
+    if (scenario == 'agent') {
+      throw const ApiException(
+        code: 'MODEL_NOT_AGENT_CAPABLE',
+        message: 'selected model cannot call tools and cannot run as an agent',
+        httpStatus: 422,
+      );
+    }
+    return super.putDefaultModel(
+      scenario,
+      apiKeyId: apiKeyId,
+      modelId: modelId,
+      options: options,
+    );
+  }
 }
 
 class _AvailabilitySource implements MediaSource {
@@ -160,6 +201,25 @@ void main() {
       },
     );
 
+    testWidgets('transient quota failure says the install was kept', (
+      tester,
+    ) async {
+      final repo = FixtureSettingsRepository()
+        ..failNextQuota = const ApiException(
+          code: 'LLM_RATE_LIMITED',
+          message: 'gateway is rate limited',
+          httpStatus: 429,
+        );
+      await tester.pumpWidget(_host(repo));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(t.settings.keys.freeTransientRepairHint),
+        findsOneWidget,
+      );
+      expect(find.text(t.settings.keys.freeRepairHint), findsNothing);
+    });
+
     testWidgets('available=false renders the amber budget banner', (
       tester,
     ) async {
@@ -209,7 +269,10 @@ void main() {
           reason: 'live read 失败后不能继续显示旧的绿色额度',
         );
         expect(find.text(t.settings.keys.freeRepair), findsOneWidget);
-        expect(find.text(t.settings.keys.freeRepairHint), findsOneWidget);
+        expect(
+          find.text(t.settings.keys.freeTransientRepairHint),
+          findsOneWidget,
+        );
       },
     );
 
@@ -897,6 +960,84 @@ void main() {
             options: {'reasoning_effort': 'high'},
           ),
           reason: '高级 JSON 与通用旋钮共用同一份持久化 options',
+        );
+      },
+    );
+
+    testWidgets(
+      'chat-only agent selection keeps the old default and localizes the server error',
+      (tester) async {
+        const managed = ModelCapability(
+          apiKeyId: 'aki_anselm',
+          keyName: 'Anselm Free',
+          provider: 'anselm',
+          modelId: 'anselm-auto',
+          displayName: 'Anselm Auto',
+        );
+        const chatOnly = ModelCapability(
+          apiKeyId: 'aki_qwen',
+          keyName: 'Local Qwen',
+          provider: 'qwen',
+          modelId: 'qwen-vl-ocr',
+          displayName: 'Qwen vision chat',
+          vision: true,
+          tools: false,
+        );
+        final repo = _RejectingAgentDefaultRepository(
+          workspace: Workspace(
+            id: 'ws_agent_error',
+            name: 'Agent error',
+            language: 'zh-CN',
+            defaultAgent: const ModelRef(
+              apiKeyId: 'aki_anselm',
+              modelId: 'anselm-auto',
+            ),
+            createdAt: DateTime.utc(2026, 7, 1),
+            updatedAt: DateTime.utc(2026, 7, 1),
+          ),
+        );
+
+        await tester.pumpWidget(
+          _host(
+            repo,
+            capabilities: const [managed, chatOnly],
+            includeNoticeProbe: true,
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final agentRow = find.ancestor(
+          of: find.text(t.settings.keys.scenarioAgent),
+          matching: find.byType(AnSettingRow),
+        );
+        await tester.ensureVisible(agentRow);
+        await tester.tap(
+          find.descendant(
+            of: agentRow,
+            matching: find.text(t.settings.keys.pickerChange),
+          ),
+        );
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(t.settings.keys.externalModel));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Local Qwen'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Qwen vision chat'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text(t.settings.keys.pickerApply));
+        await tester.pumpAndSettle();
+
+        expect(find.text(t.settings.keys.agentModelNotCapable), findsOneWidget);
+        expect(
+          find.text(
+            'selected model cannot call tools and cannot run as an agent',
+          ),
+          findsNothing,
+        );
+        expect(
+          repo.workspace.defaultAgent,
+          const ModelRef(apiKeyId: 'aki_anselm', modelId: 'anselm-auto'),
+          reason: 'failed write must not replace the usable agent default',
         );
       },
     );

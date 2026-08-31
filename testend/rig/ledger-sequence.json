@@ -1,6 +1,32 @@
 {
   "version": 1,
   "mode": "first_unsettled",
+  "forced_queue": [
+    {"family": "EDGE", "item": "视频轮询超时诚实话"},
+    {"family": "EDGE", "item": "不可能的生成组合钳制"},
+    {"family": "EDGE", "item": "删最后一个 workspace"},
+    {"family": "EDGE", "item": "快捷键录制后吞键"},
+    {"family": "EDGE", "item": "驻地分组批量删除范围"},
+    {"family": "EDGE", "item": "立碑线程读消息"},
+    {"family": "EDGE", "item": "agent 知识文档被删"},
+    {"family": "EDGE", "item": "skill 清单拒删"},
+    {"family": "EDGE", "item": "受管档视频路由"},
+    {"family": "EDGE", "item": "断网启动"},
+    {"family": "EDGE", "item": "网关 install 自愈"},
+    {"family": "EDGE", "item": "受管 key 不可变"},
+    {"family": "EDGE", "item": "被引用的 key 拒删"},
+    {"family": "EDGE", "item": "MCP name-or-id 双键 purge"},
+    {"family": "EDGE", "item": "keychain 铸钥只对全新安装"},
+    {"family": "EDGE", "item": "workspace 删除级联"},
+    {"family": "EDGE", "item": "删被依赖实体"},
+    {"family": "EDGE", "item": "触点不记幽灵删除"},
+    {"family": "EDGE", "item": "触点 deleted 行借名"},
+    {"family": "EDGE", "item": "OS 通知被静默拒"},
+    {"family": "EDGE", "item": "快捷键冷启动"},
+    {"family": "EDGE", "item": "删音色上游失败保行"},
+    {"family": "EDGE", "item": "每租户模板 URL"},
+    {"family": "EDGE", "item": "MCP 市场缺必填 env"}
+  ],
   "manual_queue": [
     {
       "family": "EDGE",
