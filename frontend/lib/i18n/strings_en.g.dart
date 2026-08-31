@@ -1800,8 +1800,8 @@ class Translations$chat$workDir$en {
 	/// en: 'Create and switch'
 	String get newBranchConfirm => 'Create and switch';
 
-	/// en: 'Commit or stash your changes first, then switch branches'
-	String get dirtyBlocksSwitch => 'Commit or stash your changes first, then switch branches';
+	/// en: 'Commit or stash changes before switching'
+	String get dirtyBlocksSwitch => 'Commit or stash changes before switching';
 
 	/// en: 'Worktrees'
 	String get worktreeSection => 'Worktrees';
@@ -7814,7 +7814,7 @@ extension on Translations {
 			'chat.workDir.newBranchExplainer' => 'Created at the commit you have checked out, then switched to. Uncommitted changes come along — nothing can conflict.',
 			'chat.workDir.newBranchField' => 'feat/my-change',
 			'chat.workDir.newBranchConfirm' => 'Create and switch',
-			'chat.workDir.dirtyBlocksSwitch' => 'Commit or stash your changes first, then switch branches',
+			'chat.workDir.dirtyBlocksSwitch' => 'Commit or stash changes before switching',
 			'chat.workDir.worktreeSection' => 'Worktrees',
 			'chat.workDir.worktreeNew' => 'Open a worktree for this conversation…',
 			'chat.workDir.worktreeTitle' => 'Open a worktree',

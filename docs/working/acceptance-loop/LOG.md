@@ -10,6 +10,34 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-257 脏区切分支被拒真实 App 五格收口，批次 87 113/50
+
+首轮真实 App session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-202851` 在脏
+Git 驻地打开分支菜单时发现产品缺陷：阻断文案在固定宽度菜单中被省略为
+`Commit or stash your changes first, then switc...`，用户无法完整读到下一步。该轮停止推进，红帧
+`testend/rig/formal-evidence/EDGE-257-dirty-switch-branch-red-20260831.jpg` 永久保留。
+
+stop-and-fix 将文案改为 `Commit or stash changes before switching`，并同步前端功能文档的菜单宽度
+可读性规则。focused conversation/HTTP/gitinfo 回归通过；修复后的真实 App session=
+`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-203407` 完整显示阻断文案，键盘遍历
+可到达 `New branch...` 与 `Open a worktree for this conversation...`，后者仅打开后取消，未产生副作用。
+正式修复帧=`testend/rig/formal-evidence/EDGE-257-dirty-switch-branch-fixed-20260831.jpg`，录屏=
+`3104x1844/60fps/218.643333s`。
+
+真实 backend 重新读取脏态并拒绝切分支，HTTP 保持 422 `CONVERSATION_WORK_DIR_DIRTY`；前端失败不改
+workdir/branch 投影。backend journal 无 WARN/ERROR/panic/FATAL；SSE 三流均有 durable 帧且通知 seq 单调；
+frontend 无 Dart/Flutter/RenderFlex/overflow/Unhandled 应用红线，AX tree churn 通过 session-local
+`evidence/frontend-ax-review.md` 明确归类为 observer/tooling 噪声；managed bootstrap LLM tap 完成
+challenge/install/models，未执行 chat completion，故不虚构该通道的聊天调用。`rig-check` 与 `rig-down`
+均通过，收台无残留进程。完整 session witness=`sessions/20260831-203407/evidence/EDGE-257-dirty-switch-branch-real-app.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`；每次写账后出现的
+`discovery-collapse` 均按原阈值独立复核并 ack，复核记录=`testend/rig/formal-evidence/EDGE-257-dirty-switch-branch-ledger-alarm-reaudit-20260831.md`。
+最终 `alarms.py check`=`clean (171 live judgments; 4240 baseline judgments excluded from drift curves)`，
+锚点=`10/10`，`gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`。权威清册由
+`745/3907/333` 推进为 `746/3911/329`，批次由 `109/50` 推进为 `113/50`；未提前运行统一长门禁，
+下一自主前线为 `EDGE|新建分支不受脏区门`。
+
 ## 2026-08-31 · EDGE-256 驻地目录被移走真实 App 五格收口，批次 87 109/50
 
 正式台架 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-201616`，由同一

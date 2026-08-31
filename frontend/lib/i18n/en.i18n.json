@@ -51,7 +51,7 @@
       "newBranchExplainer": "Created at the commit you have checked out, then switched to. Uncommitted changes come along — nothing can conflict.",
       "newBranchField": "feat/my-change",
       "newBranchConfirm": "Create and switch",
-      "dirtyBlocksSwitch": "Commit or stash your changes first, then switch branches",
+      "dirtyBlocksSwitch": "Commit or stash changes before switching",
       "worktreeSection": "Worktrees",
       "worktreeNew": "Open a worktree for this conversation…",
       "worktreeTitle": "Open a worktree",
