@@ -10,6 +10,38 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-258 新建分支不受脏区门真实 App 五格收口，批次 87 117/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-205254`，fixture=
+`/private/tmp/anselm-edge258-repo.yK8jXF`，workspace=`ws_0f27f9cfd230884e`，conversation=
+`cv_92dce39cd5570793`。真实 Git 驻地从 `main` 开始，保留未跟踪的 `in-progress.txt` 制造脏区；
+对话菜单同时显示 `Uncommitted changes`、完整的 `Commit or stash changes before switching`，
+已有分支切换被阻断，而 `New branch...` 保持可用。新建分支对话框明确说明未提交改动会随分支带走、
+不会发生冲突。第一次用 AX `set_value` 未改变可见输入框，改用真实点击、全选、键盘输入
+`feature/edge258` 后成功创建并切换；这是台架操作路径差异，不计为产品缺陷。
+
+动作完成后的产品与后端真相一致：菜单显示 `Branch feature/edge258`，
+`GET /api/v1/conversations/cv_92dce39cd5570793/workdir` 与 `git branch --show-current` 均为
+`feature/edge258`，`git status --short` 仍保留 `?? in-progress.txt`。重开菜单的最终帧无裁切、
+空白或重排，终帧=`testend/rig/formal-evidence/EDGE-258-dirty-create-branch-final.png`。
+首次误用 create payload 直接携带 `workDir` 得到的 `INVALID_REQUEST` 已排除在产品红证据之外，
+因为真实产品流程是先建对话再挂载驻地。
+
+backend journal 无 WARN/ERROR/panic/FATAL；SSE 三流均连接并正常收台，通知 durable seq 单调；
+frontend console 无 Dart/Flutter/RenderFlex/overflow/Unhandled 应用红线；managed bootstrap LLM tap
+完成 challenge/install/models，未执行 chat completion，故不虚构该通道的聊天调用。`rig-check` 与
+`rig-down` 均通过，录屏=`3104x1844/60fps/201.396667s`，无残留进程。session witness=
+`sessions/20260831-205254/evidence/EDGE-258-dirty-create-branch-real-app.md`，正式证据=
+`testend/rig/formal-evidence/EDGE-258-dirty-create-branch-real-app-20260831.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`；本次五级写账触发的
+`gap-too-fast`/`discovery-collapse` 均按原阈值独立复核并 ack，复核记录=
+`testend/rig/formal-evidence/EDGE-258-dirty-create-branch-ledger-alarm-reaudit-20260831.md`。
+最终 `alarms.py check`=`clean (175 live judgments; 4240 baseline judgments excluded from drift curves)`，
+锚点=`10/10`，`gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`。
+权威清册由 `746/3911/329` 推进为 `747/3915/325`，批次由 `113/50` 推进为 `117/50`；下一
+自主前线为 `EDGE|切分支名拼错`。
+
 ## 2026-08-31 · EDGE-257 脏区切分支被拒真实 App 五格收口，批次 87 113/50
 
 首轮真实 App session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-202851` 在脏
