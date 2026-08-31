@@ -8,6 +8,7 @@ import '../../../core/settings/settings_prefs.dart';
 import '../data/chat_providers.dart';
 import '../data/chat_repository.dart';
 import 'conversation_header.dart';
+import 'conversation_stream_provider.dart';
 
 /// The open thread's RESIDENCY state — the live projection of its mounted work dir (`GET /{id}/workdir`) plus
 /// the two writes that change it. Split from [conversationHeaderProvider] on purpose: the header holds the
@@ -73,7 +74,16 @@ class WorkDirController extends AsyncNotifier<WorkDirInfo> {
       ref.read(recentWorkDirsProvider.notifier).remember(updated.workDir);
     }
     final info = await _probe();
-    if (ref.mounted) state = AsyncData(info);
+    if (ref.mounted) {
+      state = AsyncData(info);
+      // The backend persists a workdir marker but deliberately emits no transcript frame. Rehydrate an
+      // already-open transcript so the user sees the timeline marker in the same action, not after reopening.
+      // 后端会持久化驻地标记,但刻意不发 transcript 帧。已有打开的 transcript 要在本动作内重拉,不能等重开线程。
+      final stream = conversationStreamProvider(conversationId);
+      if (ref.exists(stream)) {
+        ref.read(stream.notifier).refreshHistory();
+      }
+    }
     return updated;
   }
 

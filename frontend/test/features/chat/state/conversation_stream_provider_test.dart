@@ -1,4 +1,5 @@
 import 'package:anselm/core/contract/conversation.dart';
+import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/contract/messages/chat_message.dart';
 import 'package:anselm/core/sse/frame.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
@@ -151,6 +152,56 @@ void main() {
       expect(ctl.transcript.value.turns.map((n) => n.id), ['msg_u', 'msg_a']);
       expect(repo.seen, ['cv_1']); // open ⇒ :seen 打开即清未读
       sub.close();
+    },
+  );
+
+  test(
+    'refreshHistory rehydrates a durable marker when the mutation has no SSE frame',
+    () async {
+      final (c, repo) = _setup();
+      c.listen(conversationStreamProvider('cv_1'), (_, _) {});
+      await pumpEventQueue();
+      final ctl = c.read(conversationStreamProvider('cv_1').notifier);
+      expect(
+        ctl.transcript.value.turns.any(
+          (n) => n.children.any((child) => child.kind == BlockKind.marker),
+        ),
+        isFalse,
+      );
+
+      repo.appendMessage(
+        'cv_1',
+        _turn(
+          'msg_marker',
+          'assistant',
+          hour: 12,
+          blocks: [
+            ChatBlock(
+              id: 'blk_marker',
+              type: 'marker',
+              attrs: const {
+                'kind': 'workdir',
+                'from': '/tmp/old',
+                'to': '/tmp/new',
+              },
+              status: 'completed',
+            ),
+          ],
+        ),
+      );
+
+      ctl.refreshHistory();
+      await pumpEventQueue();
+
+      expect(
+        ctl.transcript.value.turns.any(
+          (n) => n.children.any(
+            (child) =>
+                child.kind == BlockKind.marker && child.id == 'blk_marker',
+          ),
+        ),
+        isTrue,
+      );
     },
   );
 

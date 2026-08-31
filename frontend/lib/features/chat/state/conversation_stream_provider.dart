@@ -169,6 +169,14 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
     unawaited(_hydrate());
   }
 
+  /// Re-read the durable transcript after a local mutation that intentionally has no transcript SSE frame.
+  /// This keeps the active view honest without disposing the live stream or creating a provider that was not
+  /// already mounted.
+  ///
+  /// 在本地改动刻意不发 transcript SSE 帧之后重读持久化 transcript。既保持当前视图诚实,又不销毁活流或
+  /// 凭空创建一个原本没有挂载的 provider。
+  void refreshHistory() => _onResync();
+
   // ── deep jump (W6 re-anchor) 深跳 ──
 
   /// Jump the transcript to [messageId]. A live target is already in the present and is only highlighted;

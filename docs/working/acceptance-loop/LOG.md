@@ -10,6 +10,160 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · Batch 87 150/50 统一长门禁通过并提交
+
+批次范围为 `EDGE-266`、`EDGE-267` 与 `EDGE-268 L2` 的新增 150 个账本单元。
+统一门禁证据=`testend/rig/formal-evidence/batch-87-unified-gate-20260831-r3.md`。
+根 `make verify`（backend/frontend/docs/demo）、完整 `make -C backend testend`
+（`testend/scenarios`，`332.728s`）、rig Python 自测（70 项）、
+`proxycore`/`llmtap` race、Go/Python/Shell 格式语法、coverage、10/10 anchors、
+alarms、docs 与 `git diff --check` 全部通过；进程审计确认无本批 owned App/backend/tap/recorder/embedder
+残留。自测中打印的损坏 sequence、coverage drift、i2v unavailable 等均为预期负例断言，
+套件最终 `OK`。
+
+收口时清册为 `755/848` 行完成、`93` 行开放，`3948` 个单元完成、`292` 个开放；
+`manual_queue=173`、`forced_queue=26`。未改阈值、法典、锚点、五级标准或顺序 gate；
+P12 的 400+ Journey 扩写仍按用户裁定推迟二期。下一自主前线为 `EDGE-268 L3`，人工与强制项继续后置。
+
+## 2026-08-31 · EDGE-268 驻地分组批量归档重跑 L2，批次 87 达到 150/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-233736`，workspace=`ws_8fe797430dcf8f75`。创建两个专用线程并置于 `/private/tmp/anselm-edge268-group`，真实 App 观察活动 rail；产品端点第一次归档返回 `archived=2`，第二次同请求返回 `archived=0`。App 活动 rail 移除该组而保留其他活动驻地组。
+
+REST `archived=all` 确认两条专用线程均为 `archived=true`，`workdir-groups` 确认 `activeCount=0, archivedCount=2`；SSE 同场收到两条对应的 `conversation.archived` durable notifications，没有 messages 帧。backend/frontend 无应用级红线，frontend 仅已知 macOS IMK 系统诊断；本路径不需要 chat completion，llmtap 仅记录真实 managed bootstrap 接线。`rig-check`/`rig-down` 通过，录屏封存=`72.845000s`，终帧=`sessions/20260831-233736/evidence/EDGE-268-archive-idempotent-real-app.png`，正式证据=`testend/rig/formal-evidence/EDGE-268-archive-idempotent-real-app-20260831.md`。
+
+本批只写入 `L2=F2`，L3-L5 继续开放；账本复审=`testend/rig/formal-evidence/EDGE-268-ledger-alarm-reaudit-20260831.md`。写账后的 `gap-too-fast` 与 `discovery-collapse` 按原阈值逐项复审并串行 ack，最终 `alarms.py check`=`clean (208 live judgments; 4240 baseline judgments excluded)`。
+
+清册重算为 `755/848` 行完成、`93` 行开放，`3948` 个单元已结算、`292` 个开放；批次由 `149` 推进至 `150/50`。现在触发统一长门禁；在门禁通过并提交前不推进下一前线。P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-267 切分支不落 marker 真实 App 五格收口，批次 87 149/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-233046`，workspace=`ws_8fe797430dcf8f75`，conversation=`cv_cb9d986e2daae9a0`。真实 App 在 `/private/tmp/anselm-edge261-repo.JMXK9e` 的 Git 驻地菜单中看到 `Branch edge267`，点击真实 `main` 分支后菜单显示 `Branch main` 与 `No uncommitted changes`；驻地路径不变，空历史不变，没有 marker。专用本地分支只用于准备可选择目标，产品动作由 App 完成。
+
+最终 REST workdir 投影为 `branch=main, dirty=false`，messages 返回空数组；SQLite 该 conversation 的 `message_blocks=0`、marker=0。SSE 只有线程创建与驻地 notifications durable 帧，没有 messages 流帧或 transcript marker；本路径不需要 chat completion，llmtap 仅记录真实 managed bootstrap 接线，不伪造模型证据。`rig-check`/`rig-down` 通过，录屏封存=`98.133333s`，frontend 仅已知 macOS IMK 系统诊断，backend 无应用级红线。终帧=`sessions/20260831-233046/evidence/EDGE-267-branch-no-marker-real-app.png`，正式证据=`testend/rig/formal-evidence/EDGE-267-branch-no-marker-fixed-real-app-20260831.md`。
+
+`judge.py` 写入 L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`。写账后 `alarms.py check` 打开 `gap-too-fast` 与 `discovery-collapse`；逐项复审确认真实 App 操作发生在已封存 session，App/REST/SQLite/SSE 五通道一致，保持原阈值后串行 ack；复审=`testend/rig/formal-evidence/EDGE-267-ledger-alarm-reaudit-20260831.md`，最终 `alarms.py check`=`clean (207 live judgments; 4240 baseline judgments excluded)`。
+
+清册重算为 `755/848` 行完成、`93` 行开放，`3947` 个单元已结算、`293` 个开放；批次由 `145` 推进至 `149/50`，距下一次统一长门禁还差 1 格。`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`；P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-266 空线程/重复 PATCH 不落 marker 真实 App 五格收口，批次 87 145/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-232410`，workspace=`ws_8fe797430dcf8f75`，空线程=`cv_be98a3eee30d8c67`。真实 App 打开空线程后首次挂载 `/private/tmp/anselm-edge265-first`，再对同一路径重复 PATCH；面包屑显示目标目录，历史区始终为空，没有伪 marker。前一次选择器探索出现短暂路径漂移，未纳入正式判定；随后用同一真实 session 的明确 PATCH 序列重跑并以最终 REST/SQLite/App 状态为准。
+
+两次 PATCH 均返回 200 与同一绝对路径；`GET /messages` 返回空数组，SQLite 中该 conversation 的 `message_blocks=0`、`type=marker=0`。SSE witness 只收到两条 `notifications/conversation.work_dir` durable 帧，没有 messages 流帧；本路径没有 LLM completion，llmtap 仅记录 managed bootstrap 接线，不伪造模型证据。`rig-check`/`rig-down` 通过，录屏封存=`199.826667s`，backend/frontend journal 无应用级红线，frontend 仅已知 macOS IMK 系统诊断。终帧=`sessions/20260831-232410/evidence/EDGE-266-workdir-marker-noop-real-app.png`，正式证据=`testend/rig/formal-evidence/EDGE-266-workdir-marker-noop-fixed-real-app-20260831.md`。
+
+`judge.py` 第一次写 L2 时按设计拒绝：录屏仍未封存、`screen.mov` 不存在。正常收台后重新按 L2-L5 写入：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`。随后 `alarms.py check` 打开 `gap-too-fast` 与 `discovery-collapse`；逐项复审确认本次不是跳过观察后的橡皮章，保持原阈值、法典、锚点和门禁互锁，分别 ack；复审=`testend/rig/formal-evidence/EDGE-266-ledger-alarm-reaudit-20260831.md`，最终 `alarms.py check`=`clean (203 live judgments; 4240 baseline judgments excluded)`。
+
+清册重算为 `754/848` 行完成、`94` 行开放，`3943` 个单元已结算、`297` 个开放；批次由 `141` 推进至 `145/50`，距下一次统一长门禁还差 5 格，故不提交。`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`；P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-265 切驻地落 marker 块真实 App 修复后五格收口，批次 87 141/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-230948`，workspace=`ws_8fe797430dcf8f75`，conversation=`cv_c1e12d0949b1494e`。真实 App 通过 managed gateway 完成聊天后，首轮驻地动作暴露产品缺陷：PATCH 已成功、durable marker 已落库、按钮和 rail 也已更新，但当前 transcript 不重拉历史，用户必须离开再回来才能看见 marker。停止推进并修复 `WorkDirController`：仅当该 conversation stream 已存在时调用现有 transcript resync/hydration 路径；不销毁活流、不为未打开线程创建 provider。新增 `conversation_stream_provider_test.dart` 回归覆盖“无 transcript SSE 帧仍能重拉 durable marker”。
+
+修复后用同一真实 App 连续验证三态：挂载 `/private/tmp/anselm-edge265-second`，当前 transcript 立即显示 `Working directory → ...second`；切换 `/private/tmp/anselm-edge265-first`，立即显示 `...second → ...first`；退出驻地，立即显示 `Left the working directory ...first`。未离开线程、未重开页面。最终 Computer Use tree 与窗口帧已保存为 `sessions/20260831-230948/evidence/EDGE-265-workdir-marker-fixed.png`，session witness=`sessions/20260831-230948/evidence/EDGE-265-workdir-marker-fixed-session-witness.md`，正式证据=`testend/rig/formal-evidence/EDGE-265-workdir-marker-fixed-real-app-20260831.md`。
+
+五通道同场归属并通过 `rig-check`/`rig-down`：backend PID=`82137` 与 `:8742` D1 一致，SSE `ssetap` PID=`82284` 三路连接，LLM `llmtap` PID=`82106` 记录 managed challenge/install/models 与聊天线缆，真实 App PID=`82760`、window=`12299`，录屏=`223.920000s`。frontend journal 仅有已知 macOS IMK 系统诊断；backend 两条 WARN 是我在测试中主动停止无关 RAG 搜索回合后的 context-canceled 记录，已在正式证据中解释，不伪装成零日志。`sse.jsonl=133`、`llm.jsonl=19`、`backend.log=671`、`frontend.log=5`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`；L2 绑定同场 session evidence，L3-L5 绑定正式证据。首个写账后 `alarms.py check` 按原阈值打开 `gap-too-fast` 与 `discovery-collapse`，两项均独立复核后串行 ack，复核=`testend/rig/formal-evidence/EDGE-265-ledger-alarm-reaudit-20260831.md`；未改阈值、法典、锚点、五级标准或顺序 gate。最终 `alarms.py check`=`clean (199 live judgments; 4240 baseline judgments excluded)`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`。清册推进为 `753/3939/301`，批次由 `137` 推进为 `141/50`；未满下一次 50 格，不执行统一长门禁、不提交。下一自主前线由顺序门重新计算，P12 400+ Journey 继续按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-264 「这里没有 git」四情形真实 App 五格收口，批次 87 137/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-224712`，workspace=`ws_3aadf4d05fc4258a`，ordinary=`cv_62650b86741eeb17`，unmounted=`cv_186a37a8eb990c94`，gone=`cv_6ebd512b02493b36`。
+真实 App 在普通目录 `/private/tmp/anselm-edge264-ordinary-v4` 的线程中打开驻地菜单。第一眼发现 Git 区域静默消失，普通用户无法判断是未加载还是不支持；停止推进并修为只读状态行 `Not a Git repository` + `Choose a repo`，短提示最终完整落在固定菜单次级栏，无省略、溢出或重排。最终截图=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-224712/evidence/EDGE-264-not-a-git-menu-fixed.jpeg`。
+
+同场 API 真实探针分别对普通目录、未挂载、路径消失三态执行 `switch-branch`、`create-branch`、`add-worktree`，九次均返回 `422 CONVERSATION_WORK_DIR_NOT_GIT_REPO`，没有分支/worktree/marker/residency 误写。无 Git 二进制由 `TestGitActions_NoGitBinaryUsesTheSameAnswer` 以空 `PATH` 的真实进程测试覆盖；读侧仍成功回答 `isGitRepo=false`。focused backend 普通/race、frontend `chat_work_dir_button_test.dart`=`24/24`、`make gen` 通过。
+
+五通道全部有记录：Computer Use/录屏、backend、三路 SSE、frontend console、managed LLM wire；backend 无应用错误，frontend 只有已知 macOS IMK 诊断，LLM tap 为真实 challenge/install/models，无 chat completion，本路径不虚构。`rig-check`/`rig-down` 通过，录屏=`71.790000s`，导演器进程全部停止。L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`，session witness=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-224712/evidence/EDGE-264-not-a-git-real-app.md`，正式证据=`testend/rig/formal-evidence/EDGE-264-not-a-git-four-states-real-app-20260831.md`，账本复审=`testend/rig/formal-evidence/EDGE-264-ledger-alarm-reaudit-20260831.md`。
+
+写账后的 `gap-too-fast`/`discovery-collapse` 每次均按原阈值独立复核并串行 ack，最终 `alarms.py check`=`clean (195 live judgments; 4240 baseline judgments excluded)`，`anchors.py check`=`10/10`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。清册由 `749/3931/309` 推进为 `750/3935/305`，本批次由 `133` 推进为 `137/50`；未满 50 格不执行统一长门禁、不提交。下一自主前线为 `EDGE|切驻地落 marker 块`，强制人工交互继续后置，P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-263 worktree 建成后切驻地失败真实 App 五格收口，批次 87 133/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-221640`，workspace=`ws_cee284e99b62b8d4`，conversation=`cv_f7eece35070559f0`。
+真实 App 在 `/private/tmp/anselm-edge263-repo.qGepjk` 的 `main` 驻地中完成真实 managed-gateway 基线聊天，随后通过 Computer Use 输入 `partial` 并提交 worktree 创建。
+台架故障注入只让 `AddWorktree` 的最后一步驻地持久化失败；Git 文件系统一半已完成，
+`/private/tmp/anselm-edge263-repo.qGepjk-partial` 保留并位于 `wt/partial`，对话仍保持原
+`main` 驻地。
+
+首轮真实现场暴露产品语义缺陷：后端返回未映射 500，前端错误地显示
+`That did not work, and nothing was changed. Try again.`，与已创建的 worktree 事实相反。
+停止推进并保留红帧=`testend/rig/formal-evidence/EDGE-263-worktree-update-failure-red.jpg`。
+修复新增结构化 `CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED` 与 `details.path`，前端改为
+明确说明 worktree 已创建、对话仍在原目录并指向从菜单切入；focused backend 普通/race 和
+frontend `chat_work_dir_button_test.dart`=`24` 项通过。
+
+固定 session 的 App 弹窗保留 `partial`，完整显示恢复文案，无裁切、溢出或重排；backend
+真实动作记录 HTTP `500`，重复同名探针返回 `409 CONVERSATION_WORKTREE_EXISTS`，REST/Git
+证明旧驻地和新 worktree 均未被错误抹掉。五通道同场归属并通过 `rig-check`/`rig-down`，
+录屏=`234.660000s`；backend 无 panic/fatal/unmapped/application error，SSE 三流连接且失败
+动作没有虚假 workdir mutation，frontend 仅有已知 macOS IMK 诊断，LLM wire 含 managed
+bootstrap 与两次真实 chat completion，未伪造不相关信号。session witness=
+`sessions/20260831-221640/evidence/EDGE-263-worktree-update-failure-real-app.md`，正式证据=
+`testend/rig/formal-evidence/EDGE-263-worktree-update-failure-real-app-20260831.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`。每次写账后的
+`gap-too-fast`/`discovery-collapse` 均按原阈值独立复核并串行 ack，复核记录=
+`testend/rig/formal-evidence/EDGE-263-worktree-update-failure-ledger-alarm-reaudit-20260831.md`；
+未改阈值、法典、锚点、五级标准或顺序门。最终 `alarms.py check`=`clean (191 live judgments;
+4240 baseline judgments excluded from drift curves)`，锚点=`10/10`，
+`gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`。权威清册由
+`748/3927/313` 推进为 `749/3931/309`，批次由 `129/50` 推进为 `133/50`；未满 50 格不执行
+统一长门禁、不提交。下一自主前线为 `EDGE|「这里没有 git」四情形`，强制人工交互继续后置。
+
+## 2026-08-31 · EDGE-262 worktree 分支已存在真实 App 五格收口，批次 87 129/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-215145`，workspace=`ws_ecf86636e456d809`，conversation=`cv_4906192ef9d5a0a0`。
+真实 App 在 `/private/tmp/anselm-edge262-repo.pq0ZA4` 中先复用已有 `wt/kept` 分支并创建
+`/private/tmp/anselm-edge262-repo.pq0ZA4-kept`，再对在
+`/private/tmp/anselm-edge262-other-worktree.pq0ZA4` 占用的 `wt/occupied` 分支提交创建。
+backend 真实记录 `POST .../workdir:add-worktree`=`422`；固定后的对话框保留输入并完整
+显示 Git stderr，明确指出冲突分支和占用目录。
+
+首轮真实现场发现前端 `_gitReason` 只保留 stderr 第一行，隐藏了用户真正需要的占用路径，
+因此停止推进并保留红帧=`testend/rig/formal-evidence/EDGE-262-branch-occupied-red.jpg`。
+修复为保留完整 backend-forwarded stderr 后重建 App 复验；固定帧=
+`testend/rig/formal-evidence/EDGE-262-branch-occupied-fixed.jpg`，无裁切、溢出或不可读
+重排。Git 主仓库仍为 `main`，外部 `wt/occupied` 和已创建的 `wt/kept` 均保持，
+`...-occupied` 目标未生成；失败动作没有改变对话的驻地。
+
+五通道同场归属并通过 `rig-check`/`rig-down`，录屏=`400.165000s`；backend 无
+WARN/ERROR/panic/fatal，SSE 三流连接且无失败动作的虚假 mutation，frontend 仅有已知
+macOS IMK 诊断，无 Dart/Flutter/RenderFlex/overflow/Unhandled 应用红线，LLM tap 仅记录
+managed challenge/install/models bootstrap，本路径无 chat completion，未虚构该通道。
+focused `chat_work_dir_button_test.dart`=`23` 项通过。session witness=
+`sessions/20260831-215145/evidence/EDGE-262-branch-occupied-real-app.md`，正式证据=
+`testend/rig/formal-evidence/EDGE-262-branch-occupied-real-app-20260831.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`。每次写账后的
+`gap-too-fast`/`discovery-collapse` 均按原阈值独立复核并 ack，复核记录=
+`testend/rig/formal-evidence/EDGE-262-branch-occupied-ledger-alarm-reaudit-20260831.md`；
+未改阈值、法典、锚点、五级标准或顺序门。最终 `alarms.py check`=`clean (187 live judgments;
+4240 baseline judgments excluded from drift curves)`，锚点=`10/10`，
+`gen_coverage.py --check`=`848 rows / 848 carried judgments / 0 tombstones`。权威清册由
+`748/3923/317` 推进为 `748/3927/313`，批次由 `125/50` 推进为 `129/50`；未满 50
+格不执行统一长门禁、不提交。下一自主前线为 `EDGE|worktree 建成后切驻地失败`，强制人工
+交互继续后置。
+
+## 2026-08-31 · EDGE-261 worktree 目录已存在真实 App 五格收口，批次 87 125/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-213052`。真实 App
+在 `/private/tmp/anselm-edge261-repo.JMXK9e` 的 `main` 驻地中尝试创建已存在的 sibling
+目录 `/private/tmp/anselm-edge261-repo.JMXK9e-taken`，Computer Use 输入 `taken` 并提交。
+backend 真实记录 `POST .../workdir:add-worktree`=`409`；对话框保留输入并完整展示
+`That folder already exists. Pick another name, or switch this conversation into it from the menu.`。
+
+文件系统真相仍为 `main`，占用目录 `SENTINEL.txt` 的 sha256=`70e85898d13a5318b2a0c59dad361eb2d9cd5be94208b5b16a3e1c21cc31c4cb`，没有
+`wt/taken` 分支或新 worktree。最终录屏抽帧=`testend/rig/formal-evidence/EDGE-261-worktree-directory-exists-fixed.jpg`，
+三路 SSE、backend、frontend、managed bootstrap LLM tap、录屏均保留；`rig-check` 五通道通过，
+`rig-down` 收台无残留。frontend 仅有已知 macOS IMK/TSM 诊断，无 Dart/Flutter/RenderFlex/overflow/
+Unhandled 应用红线，本路径无 chat completion，未虚构该通道。session witness 与正式证据=
+`testend/rig/formal-evidence/EDGE-261-worktree-directory-exists-real-app-20260831.md`。
+
+`judge.py` 写账：L2=`F2`、L3=`B2`、L4=`C5`、L5=`G1`。写账后的告警按原阈值独立复核并
+ack，记录=`testend/rig/formal-evidence/EDGE-261-worktree-directory-exists-ledger-alarm-reaudit-20260831.md`；
+未改阈值、法典、锚点、五级标准或顺序门。focused `testend` 场景测试通过。权威清册由
+`748/3919/321` 推进为 `748/3923/317`，本批新增四个 settled cell；下一自主前线按顺序门
+重算，强制人工交互继续后置。
+
 ## 2026-08-31 · EDGE-259 切分支名拼错真实 App 五格收口，批次 87 121/50
 
 首轮 red session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-210547` 在真实 App
