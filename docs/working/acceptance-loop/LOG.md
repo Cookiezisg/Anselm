@@ -10,6 +10,29 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-240 ADD COLUMN 结果幂等真实 App 五格收口，批次 87 73/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-165453`。从同一有效旧安装
+复制 fixture，移除 `conversations` 的 `forked_from_conversation_id`、`forked_from_message_id`、`work_dir`
+三列，保留 1 条 conversation 与三个旧索引。第一次真实 App 启动后三列和依赖索引补齐，原有数据仍为 1 条，
+`integrity_check`=`ok`、`foreign_key_check` 为空；第二次使用同一 data directory 启动，重复 ADD COLUMN 的
+`duplicate column name` 结果被精确当作已应用，App 再次稳定进入 Chat，数据、索引和完整性不变。
+
+两次启动均由同一 conductor 归属真实 App、App-owned backend、三路 SSE、frontend console、managed LLM tap
+和录屏；第二次 `rig-check`、`rig-down` 通过，录屏封口 `32.213333s`，owned process 清零。Computer Use 逐帧
+观察到 startup spinner 正常过渡，没有白屏、黑屏、卡死或布局重叠。frontend 唯一 WARN 是 macOS sandbox 阻止
+本地 `llama-server` 后的已知 lexical fallback，本格未发起聊天，不影响迁移判断。
+
+正式证据=`testend/rig/formal-evidence/EDGE-240-add-column-idempotency-real-app-20260831.md`，账本复审
+=`testend/rig/formal-evidence/EDGE-240-ledger-alarm-reaudit-real-app-20260831.md`；`judge.py` 写入
+`L2=F1/L3=na/L4=na/L5=na`。三个 `na` 是后台迁移没有独立动作、视觉对象或可发现入口的适用性边界，不是
+降低标准。新增 `gap-too-fast`/`discovery-collapse` 已由独立复审后 ack，`alarms.py check`=`clean (129
+live judgments; 4240 baseline judgments excluded from drift curves)`，anchors=`10/10`。
+
+清册由 `735/3868/372` 推进为 `736/3872/368`（已结算行/已结算格/开放格），批次 87 由 `69` 推进至
+`73/50`；当前自主前线为 `EDGE-241|换 master key 种子`，`EDGE-236|父进程死人开关` 继续保留在强制人工尾队。
+P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
 ## 2026-08-31 · EDGE-239 CHECK 加词整表重建真实 App 五格收口，批次 87 69/50
 
 正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-162419`。先将真实旧安装的
