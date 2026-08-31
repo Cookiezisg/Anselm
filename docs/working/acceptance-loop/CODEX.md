@@ -80,6 +80,7 @@ landed-into:
 | F3 | 场景收尾:后端 journal 零未解释 WARN/ERROR;前端 console 零红行 | journal grep | WRK-087 N1 |
 | F4 | LLM 线缆与 UI 声称一致:「模型看见了」= 线缆有字节;「零计费/走缓存」= 上游调用数不变 | llmtap journal(数调用、验 body) | ADR 0017 · P19 不采信模型自述 |
 | F5 | 重启/刷新后状态还原:关 app 重开,在场的一切可从 DB 重建,无孤儿 streaming 态 | 重启走查 + REST 对证 | 仓内 durable 纪律 |
+| F6 | 启动失败闭环: sidecar 在监听前退出时，App 必须在有界时间内展示可理解失败态；修复配置后 Retry 必须恢复；不存在的 SSE/LLM 连接必须结构化记为 `not_applicable`，不得伪造空成功 | sidecar fatal journal + 无 listener + Computer Use 失败/恢复帧 + 启动台架记录 | WRK-087 现场立法 · 用户高标准 |
 
 ## G · 可发现性与引导
 

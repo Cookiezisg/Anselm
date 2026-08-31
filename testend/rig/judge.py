@@ -539,6 +539,11 @@ def validate_l2_session(session_arg: str, evidence_arg: str, verdict: str) -> No
             f"({manifest_session} != {session_path})"
         )
 
+    # A backend that fails before binding a port cannot produce SSE connections or an LLM request.
+    # The rig must mark those channels explicitly, rather than fabricate empty normal-session data.
+    # 启动前失败的 backend 不可能连接 SSE 或发 LLM 请求；台架必须显式记 not_applicable，不能伪造普通会话。
+    startup_failure_probe = manifest.get("startupFailureProbe") is True
+
     required = ("manifest.json", "backend.log", "sse.jsonl", "frontend.log", "llm.jsonl", "screen.mov")
     for journal_name in required:
         journal_path = session_path / journal_name
@@ -567,6 +572,33 @@ def validate_l2_session(session_arg: str, evidence_arg: str, verdict: str) -> No
         sse = [json.loads(line) for line in (session_path / "sse.jsonl").read_text().splitlines()]
     except (OSError, ValueError):
         fail("sse.jsonl is unreadable")
+    if startup_failure_probe:
+        if manifest.get("startupFailureReason") != "malformed_settings":
+            fail("startup failure probe must identify malformed_settings")
+        if manifest.get("startupFailureBackendExitObserved") is not True:
+            fail("startup failure probe has no observed sidecar exit")
+        missing = {
+            stream
+            for stream in ("messages", "entities", "notifications")
+            if not any(
+                row.get("tap") == "not_applicable"
+                and row.get("stream") == stream
+                and "backend" in str(row.get("reason", ""))
+                for row in sse
+            )
+        }
+        if missing:
+            fail(f"startup failure probe lacks explicit SSE not_applicable records: {sorted(missing)}")
+        try:
+            llm = [json.loads(line) for line in (session_path / "llm.jsonl").read_text().splitlines()]
+        except (OSError, ValueError):
+            fail("llm.jsonl is unreadable")
+        if not any(
+            row.get("event") == "not_applicable" and "backend" in str(row.get("reason", ""))
+            for row in llm
+        ):
+            fail("startup failure probe lacks explicit LLM not_applicable record")
+        return
     connected = {row.get("stream") for row in sse if row.get("tap") == "connect"}
     missing = {"messages", "entities", "notifications"} - connected
     if missing:

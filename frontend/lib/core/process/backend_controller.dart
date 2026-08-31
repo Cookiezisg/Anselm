@@ -80,6 +80,8 @@ class BackendController {
     String Function()? tokenGen,
     Duration probeInterval = const Duration(milliseconds: 200),
     int maxHealthAttempts = 100,
+    Duration externalHealthInterval = const Duration(milliseconds: 500),
+    int externalHealthFailureThreshold = 3,
     int maxRestarts = 5,
     Duration restartWindow = const Duration(seconds: 60),
     Duration restartBackoffBase = const Duration(milliseconds: 300),
@@ -96,6 +98,8 @@ class BackendController {
        _tokenGen = tokenGen ?? (() => _mintToken(random ?? Random.secure())),
        _probeInterval = probeInterval,
        _maxHealthAttempts = maxHealthAttempts,
+       _externalHealthInterval = externalHealthInterval,
+       _externalHealthFailureThreshold = externalHealthFailureThreshold,
        _maxRestarts = maxRestarts,
        _restartWindow = restartWindow,
        _restartBackoffBase = restartBackoffBase,
@@ -116,6 +120,8 @@ class BackendController {
   final String Function() _tokenGen;
   final Duration _probeInterval;
   final int _maxHealthAttempts;
+  final Duration _externalHealthInterval;
+  final int _externalHealthFailureThreshold;
   final int _maxRestarts;
   final Duration _restartWindow;
   final Duration _restartBackoffBase;
@@ -130,6 +136,7 @@ class BackendController {
   String? _authToken; // null on dev-attach
   String? _baseUrl;
   final _restarts = <DateTime>[]; // sliding window of restart timestamps
+  int _externalHealthGeneration = 0;
 
   /// Launch + health-gate. On any failure the state goes [BackendPhase.crashed] (never throws
   /// to the caller — the UI gates on [state]). 启动 + 健康门控;失败转 crashed、绝不抛(UI 据 state 门控)。
@@ -174,6 +181,7 @@ class BackendController {
         _baseUrl = external;
         await _awaitHealth(external, token: null);
         _setReady();
+        _watchExternalHealth(external);
         return;
       }
       await _spawnAndGate();
@@ -193,7 +201,7 @@ class BackendController {
     _authToken = _tokenGen();
     _baseUrl = await _spawn(_authToken!);
     final spawnedMs = sw.elapsedMilliseconds;
-    await _awaitHealth(_baseUrl!, token: _authToken);
+    await _awaitHealthOrExit(_baseUrl!, token: _authToken, child: _child!);
     debugPrint(
       '[startup] backend: spawn=${spawnedMs}ms '
       'health-wait=${sw.elapsedMilliseconds - spawnedMs}ms total=${sw.elapsedMilliseconds}ms',
@@ -208,6 +216,49 @@ class BackendController {
     authToken: _authToken,
     dataDir: _resolvedDataDir(),
   );
+
+  /// Keep the external/dev attach honest after startup. The app-managed child has [exitCode]
+  /// supervision; an externally-owned backend has no process handle, so health polling is its
+  /// equivalent. Three consecutive failures tolerate a brief local restart without leaving the
+  /// shell silently connected to a dead sidecar.
+  ///
+  /// 外接/dev attach 在启动后也必须诚实。受管子进程有 [exitCode] 监督，外接后端没有进程句柄，
+  /// 因此用健康探测补上同等监督。连续三次失败容忍短暂重启，但不会让壳层静默停在死 sidecar 上。
+  void _watchExternalHealth(String baseUrl) {
+    final generation = ++_externalHealthGeneration;
+    unawaited(() async {
+      var failures = 0;
+      while (!_stopped &&
+          generation == _externalHealthGeneration &&
+          state.value.phase == BackendPhase.ready) {
+        await Future<void>.delayed(_externalHealthInterval);
+        if (_stopped ||
+            generation != _externalHealthGeneration ||
+            state.value.phase != BackendPhase.ready) {
+          return;
+        }
+        final healthy = await _isHealthy(baseUrl);
+        if (_stopped ||
+            generation != _externalHealthGeneration ||
+            state.value.phase != BackendPhase.ready) {
+          return;
+        }
+        if (healthy) {
+          failures = 0;
+          continue;
+        }
+        failures++;
+        if (failures >= _externalHealthFailureThreshold) {
+          state.value = const BackendState(
+            BackendPhase.crashed,
+            failureReason: BackendFailureReason.stoppedResponding,
+            error: 'external backend stopped responding',
+          );
+          return;
+        }
+      }
+    }());
+  }
 
   Future<String> _spawn(String token) async {
     final exe = binaryPath ?? _defaultBinaryPath();
@@ -271,6 +322,7 @@ class BackendController {
     if (_restarts.length >= _maxRestarts) {
       state.value = BackendState(
         BackendPhase.crashed,
+        failureReason: BackendFailureReason.unexpectedExit,
         error:
             'backend crashed $_maxRestarts× within ${_restartWindow.inSeconds}s (last code $code) — giving up',
       );
@@ -283,7 +335,11 @@ class BackendController {
     try {
       await _spawnAndGate();
     } catch (e) {
-      state.value = BackendState(BackendPhase.crashed, error: e.toString());
+      state.value = BackendState(
+        BackendPhase.crashed,
+        failureReason: BackendFailureReason.unexpectedExit,
+        error: e.toString(),
+      );
     }
   }
 
@@ -307,29 +363,51 @@ class BackendController {
   Future<void> _awaitHealth(String baseUrl, {String? token}) async {
     for (var i = 0; i < _maxHealthAttempts; i++) {
       if (_stopped) return;
-      try {
-        final r = await _probe.get<dynamic>(
-          '$baseUrl/api/v1/health',
-          options: Options(
-            sendTimeout: const Duration(seconds: 2),
-            receiveTimeout: const Duration(seconds: 2),
-            headers: {if (token != null) 'Authorization': 'Bearer $token'},
-            validateStatus: (s) => s == 200,
-          ),
-        );
-        if (r.statusCode == 200) return;
-      } catch (_) {
-        // not up yet
-      }
+      if (await _isHealthy(baseUrl, token: token)) return;
       await Future<void>.delayed(_probeInterval);
     }
     throw StateError('backend did not become healthy at $baseUrl');
+  }
+
+  /// Do not spend the full health-poll budget after the child has already failed during boot.
+  /// A malformed settings file is deterministic; leaving the user on a motionless connecting
+  /// screen for 20 seconds hides the actionable failure and violates the startup feedback law.
+  /// 启动期 child 已死时不得继续耗完整健康轮询预算。坏 settings 是确定性失败，继续让用户在 connecting
+  /// 面停 20 秒会掩盖可行动错误，违反启动反馈法条。
+  Future<void> _awaitHealthOrExit(
+    String baseUrl, {
+    required String? token,
+    required Process child,
+  }) async {
+    final childExit = child.exitCode.then<void>(
+      (code) => throw StateError('backend exited during startup (code $code)'),
+    );
+    await Future.any<void>([_awaitHealth(baseUrl, token: token), childExit]);
+  }
+
+  Future<bool> _isHealthy(String baseUrl, {String? token}) async {
+    try {
+      final r = await _probe.get<dynamic>(
+        '$baseUrl/api/v1/health',
+        options: Options(
+          sendTimeout: const Duration(seconds: 2),
+          receiveTimeout: const Duration(seconds: 2),
+          headers: {if (token != null) 'Authorization': 'Bearer $token'},
+          validateStatus: (s) => s == 200,
+        ),
+      );
+      return r.statusCode == 200;
+    } catch (_) {
+      // The caller decides whether one failed probe is transient or terminal.
+      return false;
+    }
   }
 
   /// Graceful shutdown tied to app termination: SIGTERM (the backend does an ordered shutdown),
   /// wait out a grace window, then SIGKILL if it overstays. 优雅关停:SIGTERM→宽限→逾时 SIGKILL。
   Future<void> stop() async {
     _stopped = true;
+    _externalHealthGeneration++;
     final child = _child;
     _child = null;
     debugPrint('[backend] stop requested child=${child?.pid}');
@@ -343,6 +421,8 @@ class BackendController {
   }
 
   void dispose() {
+    _stopped = true;
+    _externalHealthGeneration++;
     state.dispose();
     _probe
         .close(); // close the health-probe Dio too, not just the state notifier 一并关探测 Dio

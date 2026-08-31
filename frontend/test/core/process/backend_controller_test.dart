@@ -57,6 +57,31 @@ class _FixedAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+class _MutableHealthAdapter implements HttpClientAdapter {
+  bool healthy = true;
+  int calls = 0;
+
+  @override
+  Future<ResponseBody> fetch(
+    RequestOptions o,
+    Stream<Uint8List>? rs,
+    Future<void>? cf,
+  ) async {
+    calls++;
+    if (!healthy) throw Exception('connection refused');
+    return ResponseBody.fromString(
+      '{"data":{"status":"ok"}}',
+      200,
+      headers: {
+        Headers.contentTypeHeader: [Headers.jsonContentType],
+      },
+    );
+  }
+
+  @override
+  void close({bool force = false}) {}
+}
+
 Dio _probe({required bool ok}) {
   final d = Dio();
   d.httpClientAdapter = _FixedAdapter((o) {
@@ -106,6 +131,40 @@ void main() {
         isNull,
       ); // dev backend has no per-launch token
       expect(launched, isEmpty); // nothing spawned
+      addTearDown(() async {
+        await c.stop();
+        c.dispose();
+      });
+    },
+  );
+
+  test(
+    'dev-attach: a backend that dies after ready gates the whole app as crashed',
+    () async {
+      final adapter = _MutableHealthAdapter();
+      final probe = Dio()..httpClientAdapter = adapter;
+      final c = BackendController(
+        externalUrl: () => 'http://127.0.0.1:12345',
+        probe: probe,
+        externalHealthInterval: const Duration(milliseconds: 1),
+        externalHealthFailureThreshold: 3,
+      );
+      addTearDown(() async {
+        await c.stop();
+        c.dispose();
+      });
+
+      await c.start();
+      expect(c.state.value.phase, BackendPhase.ready);
+      adapter.healthy = false;
+
+      await _until(() => c.state.value.phase == BackendPhase.crashed);
+      expect(c.state.value.error, 'external backend stopped responding');
+      expect(
+        c.state.value.failureReason,
+        BackendFailureReason.stoppedResponding,
+      );
+      expect(adapter.calls, greaterThanOrEqualTo(4));
     },
   );
 
@@ -256,6 +315,35 @@ void main() {
     expect(c.state.value.phase, BackendPhase.crashed);
     expect(c.state.value.error, contains('did not become healthy'));
   });
+
+  test(
+    'child exit during health gate fails immediately instead of waiting the full budget',
+    () async {
+      final proc = _FakeProcess();
+      final c = BackendController(
+        binaryPath: Platform.resolvedExecutable,
+        externalUrl: () => null,
+        probe: _probe(ok: false),
+        launcher: (exe, args, {environment}) async {
+          unawaited(
+            Future<void>.delayed(
+              const Duration(milliseconds: 5),
+              () => proc.crash(78),
+            ),
+          );
+          return proc;
+        },
+        maxHealthAttempts: 100,
+        probeInterval: const Duration(milliseconds: 100),
+      );
+      final sw = Stopwatch()..start();
+      await c.start();
+      expect(c.state.value.phase, BackendPhase.crashed);
+      expect(c.state.value.error, contains('exited during startup (code 78)'));
+      expect(sw.elapsed, lessThan(const Duration(seconds: 1)));
+      c.dispose();
+    },
+  );
 
   test(
     'graceful shutdown: SIGTERM, then SIGKILL when the child overstays the grace',

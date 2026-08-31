@@ -10,6 +10,45 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-08-31 · EDGE-239 CHECK 加词整表重建真实 App 五格收口，批次 87 69/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-162419`。先将真实旧安装的
+`trigger_firings`、`flowrun_nodes`、`message_blocks` 三张表恢复为缺少新 CHECK marker 的旧 schema；真实
+桌面 App 启动后，boot migration 恢复 `missed`、`cancelled`、`marker` 三个约束，保留行数与索引，
+`integrity_check`=`ok`、`foreign_key_check` 为空。首次放在 `/private/tmp` 的尝试被 macOS App sandbox
+拒绝，未计入证据；有效 fixture 位于 App 容器数据目录，避免把环境权限失败误报成产品结果。
+
+Computer Use 观察到 startup spinner 正常过渡到 Storage & logs/Chat，未出现白屏、黑屏、卡死或布局重叠；
+五通道 rig-check、录屏、backend journal、三路 SSE、LLM readiness、frontend console 和 rig-down 均按同一
+manifest 归属，owned processes 清零。正式证据=`testend/rig/formal-evidence/EDGE-239-check-rebuild-migration-real-app-20260831.md`，
+独立账本复审=`testend/rig/formal-evidence/EDGE-239-ledger-alarm-reaudit-real-app-20260831.md`；`judge.py`
+写入 `L2=F1/L3=na/L4=na/L5=na`。三个 `na` 是后台迁移没有独立动作、视觉对象或可发现入口的适用性边界，
+不是降低标准。写账后的告警已用独立复审证据 ack，`alarms.py check`=`clean`，anchors=`10/10`。
+
+清册由 `734/3864/376` 推进为 `735/3868/372`（已结算行/已结算格/开放格），批次 87 由 `65` 推进至
+`69/50`；当前自主前线为 `EDGE-240|ADD COLUMN 结果幂等`，`EDGE-236|父进程死人开关` 继续保留在强制人工尾队。
+P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
+## 2026-08-31 · EDGE-237 坏 settings.json 真实 App 五格收口，批次 87 65/50
+
+正式 session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-154826`。同一 conductor
+真实启动 App、malformed `settings.json`、frontend console 和录屏；sidecar 在监听前退出，backend
+journal 保留明确的 JSON parse fatal，App 没有继续等待完整 health budget，而是展示可理解的启动失败态。
+首轮发现的“sidecar 已退出但连接页静止等待约 20 秒”产品问题已停止推进并修复为
+`BackendController._awaitHealthOrExit`，定向 Flutter 回归 `17/17` 通过。
+
+修复文件后通过 Computer Use 点击 `Retry`，真实 App 恢复到 onboarding，后端以新端口健康启动；失败态、
+恢复态、backend journal、frontend console、负启动台架的三路 SSE/LLM `not_applicable` 记录与封口
+`screen.mov` 均绑定同一 manifest。`rig-check` 的 negative startup probe、`rig-down` 和进程收尸通过，
+无 conductor-owned survivor。正式证据=`testend/rig/formal-evidence/EDGE-237-malformed-settings-real-app-fixed-20260831.md`，
+账本复审=`testend/rig/formal-evidence/EDGE-237-ledger-alarm-reaudit-real-app-20260831.md`；
+`judge.py` 写入 `L2=F6/L3=A1/L4=C4/L5=G1`，清册目标行=`✓✓✓✓✓`。
+
+`anchors.py check`=`10/10`、`alarms.py check`=`clean (117 live judgments; 4240 baseline judgments excluded
+from drift curves)`、`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。清册由
+`732/3856/384` 推进为 `733/3860/380`（已结算行/已结算格/开放格）；强制交互的
+`EDGE-236|父进程死人开关` 仍后置，当前自主前线为 `EDGE-238|设置三段整体写`。P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
 ## 2026-08-31 · EDGE-235 关停预算格真实 App L2-L4 收口、L5 适用性 na，批次 87 60/50
 
 初轮 formal session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260831-145945` 由同一

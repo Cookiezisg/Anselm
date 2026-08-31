@@ -62,6 +62,69 @@ else
   RECORDER_PID=$(field recorderPid)
   RLIFE=$(field recordingLifecycle)
   SESSION=$(field session)
+  STARTUP_FAILURE_PROBE=$(field startupFailureProbe)
+
+  if [ "$STARTUP_FAILURE_PROBE" = "True" ]; then
+    # A negative boot probe has no HTTP listener by definition. It is still a complete product
+    # observation: the App window/recorder and both failure journals must be live, while the three
+    # SSE streams and the LLM wire explicitly record why no connection/request could exist.
+    # 负向 boot 探针按定义没有 HTTP listener；仍是完整产品观察：App/录屏与失败日志必须在场，
+    # 三路 SSE 和 LLM 线缆明确记下为何不可能连接/发请求。
+    if [ -n "$BPID" ]; then
+      kill -0 "$BPID" 2>/dev/null && bad "✗ startup failure probe sidecar is still alive" || true
+    fi
+    [ -z "$(lsof -ti ":$PORT" -sTCP:LISTEN 2>/dev/null || true)" ] || bad "✗ startup failure probe unexpectedly has a backend listener"
+    [ -s "$SESSION/backend.log" ] || bad "✗ backend.log missing or empty"
+    grep -Eiq 'settings|parse|bootstrap' "$SESSION/backend.log" || bad "✗ backend journal does not identify the startup failure"
+    [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
+    grep -q '\[conductor\] direct macOS App started' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log has no direct App launch marker"
+    if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)' "$SESSION/frontend.log" 2>/dev/null; then
+      bad "✗ frontend.log contains an unreviewed Flutter failure"
+    fi
+    for stream in messages entities notifications; do
+      python3 - "$SESSION/sse.jsonl" "$stream" <<'PY' || bad "✗ startup failure probe lacks explicit SSE not_applicable record"
+import json, sys
+try:
+    rows = (json.loads(x) for x in open(sys.argv[1]))
+    ok = any(r.get("tap") == "not_applicable" and r.get("stream") == sys.argv[2] and "backend" in r.get("reason", "") for r in rows)
+except (OSError, ValueError):
+    ok = False
+raise SystemExit(0 if ok else 1)
+PY
+    done
+    python3 - "$SESSION/llm.jsonl" <<'PY' || bad "✗ startup failure probe lacks explicit LLM not_applicable record"
+import json, sys
+try:
+    ok = any(json.loads(x).get("event") == "not_applicable" and "backend" in json.loads(x).get("reason", "") for x in open(sys.argv[1]))
+except (OSError, ValueError):
+    ok = False
+raise SystemExit(0 if ok else 1)
+PY
+    if [ -n "$APP_LAUNCH_PID" ] && alive_as "$APP_LAUNCH_PID" '/anselm\.app/Contents/MacOS/anselm($| )' && [ "$APP_LAUNCH_PID" = "$APID" ]; then
+      note "✓ startup failure probe App attributed (PID $APP_LAUNCH_PID)"
+    else
+      bad "✗ startup failure probe App dead, reused, or not attributed"
+    fi
+    if [ -n "$AWID" ] && [ -n "$AWBOUNDS" ] && alive_as "$APID" '/anselm\.app/Contents/MacOS/anselm($| )'; then
+      WINDOW_PID=$(swift -e 'import CoreGraphics; let target = Int(CommandLine.arguments[1])!; let ws = CGWindowListCopyWindowInfo([.optionOnScreenOnly, .excludeDesktopElements], kCGNullWindowID) as? [[String: Any]] ?? []; for w in ws { let number = w[kCGWindowNumber as String] as? Int ?? -1; if number == target { print(w[kCGWindowOwnerPID as String] ?? ""); exit(0) } }' "$AWID" 2>/dev/null | tr -d '[:space:]')
+      [ "$WINDOW_PID" = "$APID" ] && note "✓ startup failure probe window owned by App" || bad "✗ startup failure probe window owner mismatch"
+      if alive_as "$RECORDER_PID" "screencapture.*-v.*-l[[:space:]]$AWID([[:space:]]|$)"; then
+        note "✓ startup failure probe recorder alive (window $AWID)"
+      else
+        bad "✗ startup failure probe recorder dead or unbound"
+      fi
+      [ -s "$RLIFE" ] || bad "✗ startup failure probe recorder lifecycle missing"
+    else
+      bad "✗ startup failure probe has no live App window geometry"
+    fi
+    if [ "$FAIL" = "0" ]; then
+      echo "✓ rig-check: negative startup probe physically observed"
+    else
+      echo "✗ rig-check FAILED"
+      exit 1
+    fi
+    exit 0
+  fi
 
   AUTH_ARGS=()
   if [ "$APP_OWNS_BACKEND" = "1" ]; then

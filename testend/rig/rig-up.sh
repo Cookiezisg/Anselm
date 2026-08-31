@@ -14,6 +14,7 @@ Usage: testend/rig/rig-up.sh
 
 Start a complete acceptance rig. Configure the rig with environment variables such as
 RIG_HOME, RIG_PORT, RIG_DATA, RIG_SEED, RIG_LLMTAP, RIG_RECORD, RIG_APP, RIG_APP_FIRST,
+RIG_EXPECT_BACKEND_FAILURE, RIG_STARTUP_FAILURE_SETTLE_SEC,
 RIG_BACKEND_START_DELAY_SEC, RIG_APP_PROXY, RIG_APP_PROXY_PORT, RIG_APP_PROXY_DELAY_MS,
 RIG_APP_PROXY_FAIL_COUNT, RIG_APP_PROXY_FAIL_STATUS, RIG_LLMTAP_FAIL_PATH, RIG_LLMTAP_FAIL_COUNT,
 RIG_LLMTAP_FAIL_STATUS, RIG_LLMTAP_FAIL_KIND, RIG_LLMTAP_INJECT_WAV_METADATA, ANSELM_RIG_MODEL_CATALOG_URL, and
@@ -49,6 +50,8 @@ RECORD="${RIG_RECORD:-1}"
 APP="${RIG_APP:-1}"
 APP_FIRST="${RIG_APP_FIRST:-0}"
 APP_OWNS_BACKEND="${RIG_APP_OWNS_BACKEND:-0}"
+EXPECTED_BACKEND_FAILURE="${RIG_EXPECT_BACKEND_FAILURE:-0}"
+STARTUP_FAILURE_SETTLE_SEC="${RIG_STARTUP_FAILURE_SETTLE_SEC:-3}"
 BACKEND_START_DELAY_SEC="${RIG_BACKEND_START_DELAY_SEC:-0}"
 APP_PROXY="${RIG_APP_PROXY:-0}"
 APP_PROXY_PORT="${RIG_APP_PROXY_PORT:-8790}"
@@ -96,6 +99,12 @@ stop_exact_pid() {
 
 app_pids() {
   ps -axo pid=,command= | awk '$0 ~ /\/anselm\.app\/Contents\/MacOS\/anselm([ ]|$)/ {print $1}'
+}
+
+listener_pid() {
+  local pids
+  pids=$(lsof -ti ":$1" -sTCP:LISTEN 2>/dev/null || true)
+  printf '%s\n' "$pids" | awk 'NF {print; exit}'
 }
 
 stop_new_apps() {
@@ -200,7 +209,7 @@ start_app_and_record() {
     "$APP_LAUNCH_PID" "$APP_BACKEND_URL" >>"$SESSION/frontend.log"
   for _ in $(seq 1 360); do
     kill -0 "$APP_LAUNCH_PID" 2>/dev/null || break
-    APP_PID=$(app_pids | awk -v pid="$APP_LAUNCH_PID" '$1 == pid {print $1; exit}')
+    APP_PID=$(app_pids | awk -v pid="$APP_LAUNCH_PID" '$1 == pid {print $1}')
     [ "$APP_PID" = "$APP_LAUNCH_PID" ] && break
     sleep 0.5
   done
@@ -209,7 +218,7 @@ start_app_and_record() {
     tail -80 "$SESSION/frontend.log" >&2
     exit 1
   }
-  APP_PID=$(app_pids | awk -v pid="$APP_LAUNCH_PID" '$1 == pid {print $1; exit}')
+  APP_PID=$(app_pids | awk -v pid="$APP_LAUNCH_PID" '$1 == pid {print $1}')
   [ "$APP_PID" = "$APP_LAUNCH_PID" ] || {
     echo "✗ launched App PID is not the exact Anselm process" >&2
     tail -80 "$SESSION/frontend.log" >&2
@@ -228,7 +237,7 @@ start_app_and_record() {
   # for the window binding and for refusing PID reuse.  There is deliberately no Flutter runner in
   # this mode: flutter run's launch-services child did not inherit env from the PTY runner.
   for _ in $(seq 1 120); do
-    APP_PID=$(app_pids | awk -v pid="$APP_LAUNCH_PID" '$1 == pid {print $1; exit}')
+    APP_PID=$(app_pids | awk -v pid="$APP_LAUNCH_PID" '$1 == pid {print $1}')
     [ -n "$APP_PID" ] && break
     sleep 0.25
   done
@@ -289,19 +298,19 @@ start_app_and_record() {
 }
 
 discover_app_backend() {
-  local child port
+  local child port socket_info
   for _ in $(seq 1 240); do
     child=$(ps -axo pid=,ppid=,command= | awk -v parent="$APP_PID" \
-      '$2 == parent && $0 ~ /\/anselm\.app\/Contents\/MacOS\/anselm-server([ ]|$)/ {print $1; exit}')
+      '$2 == parent && $0 ~ /\/anselm\.app\/Contents\/MacOS\/anselm-server([ ]|$)/ {print $1}')
     if [ -n "$child" ]; then
-      port=$(lsof -a -p "$child" -iTCP -sTCP:LISTEN -n -P 2>/dev/null | \
-        sed -n '2,$p' | sed -n 's/.*127\.0\.0\.1:\([0-9][0-9]*\).*/\1/p' | head -1)
+      socket_info=$(lsof -a -p "$child" -iTCP -sTCP:LISTEN -n -P 2>/dev/null || true)
+      port=$(printf '%s\n' "$socket_info" | awk 'match($0, /127\.0\.0\.1:[0-9]+/) {print substr($0, RSTART+10, RLENGTH-10); exit}')
       if [ -n "$port" ]; then
         APP_SIDECAR_PID="$child"
         BACKEND_PID="$child"
         PORT="$port"
         APP_BACKEND_URL="http://127.0.0.1:$PORT"
-        APP_AUTH_TOKEN=$(ps eww -p "$child" | sed -n 's/.*ANSELM_AUTH_TOKEN=\([^ ]*\).*/\1/p' | head -1)
+        APP_AUTH_TOKEN=$(ps eww -p "$child" | awk 'match($0, /ANSELM_AUTH_TOKEN=[^ ]+/) {print substr($0, RSTART+18, RLENGTH-18)}')
         [ -n "$APP_AUTH_TOKEN" ] || {
           echo "✗ App-owned sidecar exposed a port but no ANSELM_AUTH_TOKEN was observable" >&2
           return 1
@@ -321,6 +330,93 @@ discover_app_backend() {
   return 1
 }
 
+wait_expected_backend_failure() {
+  local child state
+  for _ in $(seq 1 20); do
+    child=$(ps -axo pid=,ppid=,command= | awk -v parent="$APP_PID" \
+      '$2 == parent && $0 ~ /\/anselm\.app\/Contents\/MacOS\/anselm-server([ ]|$)/ {print $1}')
+    [ -n "$child" ] && break
+    sleep 0.25
+  done
+  if [ -n "${child:-}" ]; then
+    APP_SIDECAR_PID="$child"
+    BACKEND_PID="$child"
+    for _ in $(seq 1 120); do
+      state=$(ps -o state= -p "$child" 2>/dev/null | tr -d '[:space:]')
+      case "$state" in
+        ""|Z*) break ;;
+      esac
+      sleep 0.25
+    done
+    state=$(ps -o state= -p "$child" 2>/dev/null | tr -d '[:space:]')
+    case "$state" in
+      ""|Z*) ;;
+      *) echo "✗ expected startup failure sidecar is still alive (PID $child)" >&2; return 1 ;;
+    esac
+  else
+    # A malformed settings file can make the sidecar exit before the 250ms process scan sees it.
+    # The App's stderr pipe is the authoritative child-output witness in this mode: accept only an
+    # explicit bootstrap/settings fatal line, and only with no loopback listener. Do not invent a PID.
+    # 坏配置可能在 250ms 进程扫描前就让 sidecar 退出；此模式以 App stderr 管道为子进程输出真相，
+    # 必须同时有明确 bootstrap/settings 致命行和无 loopback listener，绝不编造 PID。
+    APP_SIDECAR_PID=""
+    BACKEND_PID=""
+    grep -Eiq '\[backend\].*(bootstrap|settings.*parse)' "$SESSION/frontend.log" || {
+      echo "✗ expected startup failure found no sidecar bootstrap/settings fatal line" >&2
+      return 1
+    }
+  fi
+  startup_event backend_expected_startup_failure
+  # BackendController's bounded health gate needs to finish before the final frame is captured;
+  # otherwise the probe would only prove the connecting screen, not the user-visible failure.
+  sleep "$STARTUP_FAILURE_SETTLE_SEC"
+  awk '/\[backend\] / { sub(/^.*\[backend\] /, ""); print; next }
+       /^flutter: 20[0-9][0-9]-[0-9][0-9-]+T/ { sub(/^flutter: /, ""); print }' \
+    "$SESSION/frontend.log" >"$SESSION/backend.log"
+  [ -s "$SESSION/backend.log" ] || {
+    echo "✗ expected startup failure produced no backend journal" >&2
+    return 1
+  }
+}
+
+write_startup_failure_manifest() {
+  for stream in messages entities notifications; do
+    printf '{"tap":"not_applicable","stream":"%s","reason":"backend failed before an HTTP listener existed"}\n' "$stream" >>"$SESSION/sse.jsonl"
+  done
+  printf '%s\n' '{"event":"not_applicable","reason":"backend failed before an LLM request could be issued"}' >>"$SESSION/llm.jsonl"
+  python3 - "$SESSION/manifest.json" <<PY
+import json, sys
+json.dump({
+  "port": $PORT,
+  "backendPid": "$BACKEND_PID",
+  "appSidecarPid": "$APP_SIDECAR_PID",
+  "appOwnsBackend": "1",
+  "appAuthTokenFile": "",
+  "tapPid": "",
+  "llmtapPid": "$LLMTAP_PID",
+  "llmtapPort": $LLMTAP_PORT,
+  "llmUpstream": "$LLM_UPSTREAM",
+  "startupFailureProbe": True,
+  "startupFailureReason": "malformed_settings",
+  "startupFailureBackendExitObserved": True,
+  "startupGateJournal": "$SESSION/startup-gate.jsonl",
+  "session": "$SESSION",
+  "data": "$DATA",
+  "appLaunchPid": "$APP_LAUNCH_PID",
+  "appPid": "$APP_PID",
+  "appBinary": "$APP_BINARY",
+  "appWindowId": "$APP_WINDOW_ID",
+  "appWindowBounds": "$APP_WINDOW_BOUNDS",
+  "recorderPid": "$RECORDER_PID",
+  "recordingLifecycle": "$RECORDER_LIFECYCLE",
+  "appRebindJournal": "$SESSION/app-rebind.jsonl",
+  "appRebindCount": 0,
+  "startedAt": "$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+}, open(sys.argv[1], "w"), indent=2)
+PY
+  ln -sfn "$SESSION" "$RIG_HOME/current"
+}
+
 mkdir -p "$SESSION/evidence" "$RIG_HOME/bin" "$DATA"
 : >"$SESSION/startup-gate.jsonl"
 echo "→ rig session: $SESSION (port :$PORT, data $DATA)"
@@ -334,6 +430,21 @@ case "$APP_OWNS_BACKEND" in
   0|1) ;;
   *) echo "✗ RIG_APP_OWNS_BACKEND must be 0 or 1, got '$APP_OWNS_BACKEND'" >&2; exit 2 ;;
 esac
+case "$EXPECTED_BACKEND_FAILURE" in
+  0|1) ;;
+  *) echo "✗ RIG_EXPECT_BACKEND_FAILURE must be 0 or 1, got '$EXPECTED_BACKEND_FAILURE'" >&2; exit 2 ;;
+esac
+if [ "$EXPECTED_BACKEND_FAILURE" = "1" ]; then
+  [ "$APP_OWNS_BACKEND" = "1" ] || {
+    echo "✗ RIG_EXPECT_BACKEND_FAILURE=1 requires RIG_APP_OWNS_BACKEND=1" >&2; exit 2;
+  }
+  [ "$APP_FIRST" = "1" ] || [ "$APP_OWNS_BACKEND" = "1" ] || {
+    echo "✗ RIG_EXPECT_BACKEND_FAILURE=1 requires App-first mode" >&2; exit 2;
+  }
+  [[ "$STARTUP_FAILURE_SETTLE_SEC" =~ ^[0-9]+([.][0-9]+)?$ ]] || {
+    echo "✗ RIG_STARTUP_FAILURE_SETTLE_SEC must be a non-negative number" >&2; exit 2;
+  }
+fi
 if [ "$APP_OWNS_BACKEND" = "1" ]; then
   APP_FIRST=1
   [ "$APP_PROXY" = "0" ] || {
@@ -383,7 +494,7 @@ PREFLIGHT_PORTS=()
 [ "$LLMTAP" = "1" ] && PREFLIGHT_PORTS+=("$LLMTAP_PORT")
 [ "$APP_PROXY" = "1" ] && PREFLIGHT_PORTS+=("$APP_PROXY_PORT")
 for p in "${PREFLIGHT_PORTS[@]}"; do
-  if HOLDER=$(lsof -ti ":$p" -sTCP:LISTEN 2>/dev/null | head -1) && [ -n "${HOLDER:-}" ]; then
+  if HOLDER=$(listener_pid "$p") && [ -n "${HOLDER:-}" ]; then
     echo "✗ port :$p already held by PID $HOLDER ($(ps -o comm= -p "$HOLDER" 2>/dev/null || echo '?'))." >&2
     echo "  The rig never adopts a process it did not start (D1). Stop it or change the rig port." >&2
     exit 1
@@ -419,10 +530,10 @@ if [ "$LLMTAP" = "1" ]; then
   LLMTAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/llmtap.log" -- \
     "$RIG_HOME/bin/llmtap" "${LLMTAP_ARGS[@]}")
   for _ in $(seq 1 40); do
-    [ "$(lsof -ti ":$LLMTAP_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$LLMTAP_PID" ] && break
+    [ "$(listener_pid "$LLMTAP_PORT")" = "$LLMTAP_PID" ] && break
     sleep 0.25
   done
-  [ "$(lsof -ti ":$LLMTAP_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$LLMTAP_PID" ] || {
+  [ "$(listener_pid "$LLMTAP_PORT")" = "$LLMTAP_PID" ] || {
     echo "✗ llmtap did not acquire :$LLMTAP_PORT" >&2; exit 1;
   }
   UPSTREAM_HOST=$(python3 -c "from urllib.parse import urlparse; print(urlparse('$LLM_UPSTREAM').netloc)")
@@ -437,7 +548,16 @@ if [ "$APP_FIRST" = "1" ]; then
   # normal rig keeps its historical backend-first order; this switch is for deterministic gate
   # acceptance only and is intentionally opt-in.
   start_app_and_record
-  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+  if [ "$EXPECTED_BACKEND_FAILURE" = "1" ]; then
+    startup_event app_backend_failure_probe_requested
+    wait_expected_backend_failure
+    write_startup_failure_manifest
+    ARMED=0
+    trap - EXIT INT TERM
+    echo "✓ expected startup failure captured — five-channel negative probe in $SESSION"
+    echo "  run: testend/rig/rig-check.sh"
+    exit 0
+  elif [ "$APP_OWNS_BACKEND" = "1" ]; then
     startup_event app_backend_discovery_requested
     discover_app_backend
     startup_event app_backend_discovered
@@ -504,10 +624,10 @@ if [ "$APP_PROXY" = "1" ]; then
     -fail-after-drop-count "$APP_PROXY_FAIL_AFTER_DROP_COUNT" \
     -fail-after-drop-delay-ms "$APP_PROXY_FAIL_AFTER_DROP_DELAY_MS" -out "$APP_PROXY_JOURNAL")
   for _ in $(seq 1 40); do
-    [ "$(lsof -ti ":$APP_PROXY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$APP_PROXY_PID" ] && break
+    [ "$(listener_pid "$APP_PROXY_PORT")" = "$APP_PROXY_PID" ] && break
     sleep 0.25
   done
-  [ "$(lsof -ti ":$APP_PROXY_PORT" -sTCP:LISTEN 2>/dev/null | head -1)" = "$APP_PROXY_PID" ] || {
+  [ "$(listener_pid "$APP_PROXY_PORT")" = "$APP_PROXY_PID" ] || {
     echo "✗ appproxy did not acquire :$APP_PROXY_PORT" >&2; exit 1;
   }
   APP_BACKEND_URL="http://127.0.0.1:$APP_PROXY_PORT"

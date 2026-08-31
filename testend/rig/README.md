@@ -60,6 +60,13 @@ testend/rig/rig-rebind-app.sh # 产品内重启后显式重绑新 App PID/窗口
 `RIG_BACKEND_START_DELAY_SEC=25` 可让前端健康等待先落 `crashed`，后端随后仍由 conductor 启动，点击真实 `Retry`
 即可复验恢复。该旋钮默认关闭，不改变普通台架的 backend-first 顺序；`startup-gate.jsonl` 与 manifest 一起记录
 App、录屏、后端健康和 SSE 的事件时序。
+对“配置损坏导致 sidecar 在绑定端口前退出”的负向启动格，使用
+`RIG_APP_OWNS_BACKEND=1 RIG_EXPECT_BACKEND_FAILURE=1`，并让 `RIG_DATA/settings.json` 预先包含坏 JSON。
+该模式只接受 App-owned sidecar 的明确 bootstrap/settings 致命输出和无 loopback listener；sidecar 可能在
+进程扫描前退出，因此不编造 PID。三路 `sse.jsonl` 与 `llm.jsonl` 会写结构化 `not_applicable` 原因，表示
+“后端未启动所以不存在连接/请求”，不是空 journal 伪装。`rig-check` 和 L2 gate 对该旗标走专门的负向
+启动校验，普通 session 的五通道连接要求不变。`RIG_STARTUP_FAILURE_SETTLE_SEC`（默认 3 秒）保证录屏包含
+最终用户可见的启动失败态，而不只包含 connecting 面。
 需要验收 workspace 名册解析中的中间 loading 面时，使用默认 backend-first 顺序加
 `RIG_APP_PROXY=1 RIG_APP_PROXY_DELAY_MS=2500`；它只把真实 App 的精确 `GET /api/v1/workspaces`
 请求延迟，其他请求透明转发，backend 端口仍由 conductor 直接持有，ssetap 也仍直连 backend。
