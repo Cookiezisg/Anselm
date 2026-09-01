@@ -10,6 +10,16 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-09-01 · 批次 88 提交后状态
+
+批次 88 的统一长门禁已通过并完成提交：主提交=`fabce116`，随后对 20 个历史证据文件做纯格式清理的补提交=`6e49d0ec`。
+提交包含验收 working 状态、COVERAGE、formal evidence、账本/台架文件，以及本轮修复的 demo `write_memory`
+tool-result 执行括号；其他团队仍在工作树中的 backend/frontend 改动没有被暂存或修改。
+
+提交后的权威计数：清册 `848` 行，其中 `802` 行五级已结算、`46` 行开放；`4089/4240` 个单元已结算，
+`151` 个单元开放；`manual_queue=173`、`forced_queue=27`；新批次计数=`0/50`。目标保持 active，
+下一自主前线由 `ledger-sequence.json` 的顺序门实时计算，人工交互项继续后置，不以旧日志中的 next 指针为准。
+
 ## 2026-09-01 · 批次 88 统一长门禁通过，补齐 demo 执行结果括号
 
 批次 88 的 `EDGE-324` L4/L5 适用性收口后，首轮根 `make verify` 在 frontend group 1 的
