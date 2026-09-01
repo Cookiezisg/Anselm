@@ -28,4 +28,3 @@ The 60fps windows were extracted from the sealed recording:
 - SSE: `ssetap` connected to messages, entities and notifications for the workspace; no business durable frame was expected for a machine-level settings change
 - frontend console: 4 lines, no Flutter exception, `RenderFlex`, `RenderBox`, overflow or unhandled error; the known macOS IMK diagnostic is host-level and reviewed
 - LLM wire: managed challenge/install/models requests were all HTTP 200; no chat model call was needed by this journey
-

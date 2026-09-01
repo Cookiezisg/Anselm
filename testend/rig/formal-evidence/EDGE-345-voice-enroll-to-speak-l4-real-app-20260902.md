@@ -23,4 +23,3 @@ L4 通过，法典 `C4`：圆角遵循五档尺度阶梯，胶囊使用 pill；�
 - 五通道有效性沿用同场 L3 证据：backend 无应用级红线，frontend 只有已分类 macOS IMK 宿主诊断，SSE durable seq 单调，LLM wire 的登记、合成和删除响应成功，录屏由 `rig-down.sh` 正常封存。
 - Settings 画面在登记后显示 `1 of 2 slots free`，删除确认层保持该事实；上游删除 `204` 和本地删除 `204` 后，画面显示 `2 of 2 slots free`，与后端列表为空一致。
 - 本判定只针对本轮真实 App 的视觉 craft，不把单张截图或工具 wire 代替逐帧观察；没有修改 C4 标准或任何视觉阈值。
-

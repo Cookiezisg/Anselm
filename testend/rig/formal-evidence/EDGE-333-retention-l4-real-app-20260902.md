@@ -21,4 +21,3 @@
 - `measure latency` local change boxes were `(2072,842)-(2551,950)` and `(2098,844)-(2524,944)`
 - representative body text sample measured `5.33:1` against white; heading sample measured `18.10:1`, both meeting `D1` AA thresholds
 - backend, SSE, frontend-console and LLM-wire evidence is recorded in the same complete session; no channel was substituted with a fixture-only assertion
-

@@ -21,4 +21,3 @@ L5 通过，法典 `G1`：入口、命名和 affordance 使新用户不读文档
 - 全部观察来自同一封存 session：`/private/tmp/anselm-rig-formal-20260902-18/sessions/20260902-041857/`。
 - 录屏确认入口、失败卡、删除 affordance 和最终空态在真实窗口中可见；SSE/REST/LLM wire 对应同一库存事实，backend 仅保留预期业务 WARN，frontend 无应用级异常。
 - 本判定衡量用户能否发现并完成处理路径，不把模型选择了正确工具本身当作发现性证据。
-

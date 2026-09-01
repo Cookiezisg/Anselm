@@ -17,4 +17,3 @@ The path was executed against workspace `ws_8397891fc75d3e99` in session `/priva
 ## Honest boundaries
 
 The control is disabled until the server value resolves in code, so it cannot invent a 90-day client default during loading. There is no modified/reset affordance that would require an unowned client-side default. The same real session contains the complete frame, backend, SSE, frontend-console and LLM-wire journals; the settings journey correctly produces no business durable SSE event.
-
