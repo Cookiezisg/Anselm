@@ -5,6 +5,7 @@ import 'package:anselm/core/model/model_capabilities.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
+import 'package:anselm/features/chat/data/conversation_signal.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/state/title_reveals.dart';
 import 'package:anselm/features/chat/ui/chat_head.dart';
@@ -152,6 +153,49 @@ void main() {
   );
 
   testWidgets(
+    'chat-only models stay selectable and disclose their tool limit',
+    (tester) async {
+      late Translations t;
+      await tester.pumpWidget(
+        TranslationProvider(
+          child: MaterialApp(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            home: Builder(
+              builder: (context) {
+                t = Translations.of(context);
+                return Scaffold(
+                  body: chatModelMenu(
+                    t: t,
+                    caps: const [
+                      ModelCapability(
+                        apiKeyId: 'key-chat-only',
+                        provider: 'fixture',
+                        modelId: 'chat-only-model',
+                        displayName: 'Chat-only model',
+                        tools: false,
+                      ),
+                    ],
+                    current: null,
+                    onSelect: (_) {},
+                  ),
+                );
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text(t.chat.modelAuto));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Chat-only model'), findsOneWidget);
+      expect(find.textContaining(t.chat.chatOnlyBadge), findsOneWidget);
+    },
+  );
+
+  testWidgets(
     'landing (no selection) renders the sticky model picker, no title',
     (tester) async {
       final repo = FixtureChatRepository(conversations: [], messages: {});
@@ -278,6 +322,58 @@ void main() {
     expect(find.textContaining(t.chat.forkedFromUnknown), findsNothing);
     expect(find.textContaining('Forked from'), findsNothing);
   });
+
+  testWidgets(
+    'a fork lineage refreshes when the source title arrives on the lifecycle stream',
+    (tester) async {
+      final at = DateTime.utc(2026, 7, 2, 9);
+      final src = _conv('cv_src', title: 'Before auto-title');
+      final fork = Conversation(
+        id: 'cv_fork',
+        title: 'New chat',
+        createdAt: at,
+        updatedAt: at,
+        lastMessageAt: at,
+        forkedFromConversationId: 'cv_src',
+        forkedFromMessageId: 'msg_a1',
+      );
+      final repo = FixtureChatRepository(
+        conversations: [fork, src],
+        messages: const {},
+      );
+      final (w, _, _) = _hostRouted(repo, const ConversationRef('cv_fork'));
+      await tester.pumpWidget(w);
+      await tester.pumpAndSettle();
+      final t = Translations.of(tester.element(find.byType(ChatHead)));
+
+      await tester.tap(find.byIcon(AnIcons.control).first);
+      await tester.pumpAndSettle();
+      expect(
+        find.text(t.chat.forkedFrom(title: 'Before auto-title')),
+        findsOneWidget,
+      );
+
+      repo.upsert(src.copyWith(title: 'Fresh source title', autoTitled: true));
+      repo.emitSignal(
+        const ConversationSignal(
+          id: 'cv_src',
+          action: ConversationAction.updated,
+          durable: true,
+        ),
+      );
+      await tester.pump();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(t.chat.forkedFrom(title: 'Fresh source title')),
+        findsOneWidget,
+      );
+      expect(
+        find.text(t.chat.forkedFrom(title: 'Before auto-title')),
+        findsNothing,
+      );
+    },
+  );
 
   testWidgets(
     'a fork whose source is GONE degrades to the generic line — a fork outlives its parent by design',

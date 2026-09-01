@@ -15,7 +15,9 @@ import 'conversation_list_provider.dart';
 /// "cannot read the source" is a normal steady state, not an error to keep retrying.
 ///
 /// Read here rather than embedded in the fork's own row because the wire carries only the id: lineage
-/// is provenance, and a copied title would go stale the moment the source is renamed.
+/// is provenance, and a copied title would go stale the moment the source is renamed. The lifecycle
+/// subscription closes the race where a fork is created before the source's auto-title notification lands:
+/// the provider re-reads only this source, without waking the whole conversation rail.
 ///
 /// 分叉**源**的行,供头部血缘行用。null = 读不到(已删,或传输失败),血缘行降级为泛称形态。
 ///
@@ -24,11 +26,23 @@ import 'conversation_list_provider.dart';
 /// 父长(id 只是悬空、不级联任何东西),故「读不到源」是正常稳态、不是要不断重试的错误。
 ///
 /// 在此读、而非内嵌在分叉自己的行里,因为线缆只带 id:血缘是溯源,而复制来的标题在源改名那一刻就过期了。
+/// 订阅生命周期流则封住「分叉先发生、源的自动命名通知后到」的竞态:只重读这个源,不唤醒整条对话 rail。
 final forkSourceProvider = FutureProvider.autoDispose
     .family<Conversation?, String>((ref, id) async {
       if (id.isEmpty) return null;
+      final repo = ref.watch(chatRepositoryProvider);
+      final sub = repo.lifecycleSignals().listen((signal) {
+        if (signal.durable && signal.id == id) {
+          ref.invalidateSelf();
+        }
+      });
+      final resync = repo.lifecycleResync().listen((_) {
+        ref.invalidateSelf();
+      });
+      ref.onDispose(sub.cancel);
+      ref.onDispose(resync.cancel);
       try {
-        return await ref.watch(chatRepositoryProvider).getConversation(id);
+        return await repo.getConversation(id);
       } catch (_) {
         return null;
       }

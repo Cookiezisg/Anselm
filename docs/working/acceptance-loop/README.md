@@ -12,11 +12,24 @@ landed-into:
 
 # WRK-087 · 端到端全产品验收循环(acceptance loop)
 
-## 当前精确状态（2026-09-01 · 批次 88 已收口并提交；下一批次 0/50）
+## 当前精确状态（2026-09-02 · EDGE-352 L3-L5 已收口；批次 89 已封批，批次 90 为 0/50）
 
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
 
-EDGE-309、EDGE-310、EDGE-311 的 L4/L5、EDGE-312 的 L4/L5、EDGE-314 的 L4/L5、EDGE-315 的 L4/L5、EDGE-316 的 L4/L5、EDGE-317 的 L4/L5、EDGE-318 的 L4/L5、EDGE-319 的 L4/L5、EDGE-320 的 L4/L5、EDGE-321 的 L4/L5、EDGE-322 的 L4/L5 以及 EDGE-323 的 L4/L5 已在真实 App 台架中收口；EDGE-324 的 L4/L5 已按平台故障态适用性收口；下一自主前线由顺序门实时计算，不以旧历史段落为准。
+最新硬水位：`EDGE-352|分叉携带附件与 subagent 树` 已在真实 App 完成 L3/L4/L5=`A4/C4/G1`。
+首轮真实现场发现分叉创建早于源线程自动标题时，血缘菜单永久停留泛化文案；已冻结并保留红证据，修复
+`forkSourceProvider` 订阅对应 durable lifecycle 信号后，以全新 session 重跑通过，血缘菜单显示源标题并可回源。
+修复同时补充 widget 回归测试，且不启动 conversation rail、不新增 SSE 通道。
+正式 session=`/private/tmp/anselm-rig-formal-20260902-33/sessions/20260902-060049`，录屏
+`3104x1848 / 60fps / 200.926667s`，anchors=`10/10`，alarms 独立复审后 clean。
+上一水位 `EDGE-351|RATE_LIMIT` 的真实网关与受控故障传播记录仍保留在下方历史和 LOG 中；它不是当前
+水位，当前水位仅以上面的 `EDGE-352` 及本批次门禁结果为准。
+当前清册为 `820/848` 行完全结算、`4141/4240` 格结算、`99` 格开放；
+`manual_queue=173`、`forced_queue=27`；批次 89=`51/50` 的统一长门禁已全绿，正式记录=
+`testend/rig/formal-evidence/batch-89-unified-gate-20260902.md`；批次 90 已从 `0/50` 起算。下一自主前线由顺序门实时选择，
+P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
+EDGE-309、EDGE-310、EDGE-311 的 L4/L5、EDGE-312 的 L4/L5、EDGE-314 的 L4/L5、EDGE-315 的 L4/L5、EDGE-316 的 L4/L5、EDGE-317 的 L4/L5、EDGE-318 的 L4/L5、EDGE-319 的 L4/L5、EDGE-320 的 L4/L5、EDGE-321 的 L4/L5、EDGE-322 的 L4/L5、EDGE-323 的 L4/L5、EDGE-327 的 L4/L5、EDGE-330 的 L3/L4/L5、EDGE-331 的 L3/L4/L5、EDGE-332 的 L3/L4/L5、EDGE-333 的 L3/L4/L5 以及 EDGE-339、EDGE-340、EDGE-341、EDGE-342 的 L3/L4/L5 已在真实 App 台架中收口；EDGE-324 的 L4/L5 已按平台故障态适用性收口；下一自主前线由顺序门实时计算，不以旧历史段落为准。
 
 当前权威结果：`EDGE-244|bearer token 缺失`、`EDGE-245|workspace 头缺失`、
 `EDGE-246|DNS rebinding 防护` 与 `EDGE-247|ServeMux 纯文本 404/405 改写` 均已完成
@@ -26,9 +39,9 @@ EDGE-244 L4 曾因真实尾帧暴露
 知识即可发现认证原因和 Retry。最终证据=`testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app-l4-fixed-20260831.md`、
 `...-l5-fixed-20260831.md`，红证据=`...-l4-raw-detail-red-20260831.md`。
 
-清册准确重算为 `848` 行：`802` 行五级已结算、`46` 行开放；`4089` 个单元已结算、
-`151` 个单元开放。`manual_queue=173`、`forced_queue=27`；批次 87=`250/50` 的统一长门禁已通过，
-批次 88 已推进至 `50/50`，统一长门禁已通过并提交于 `fabce116`（随后以 `6e49d0ec` 清理证据格式），正式记录=`testend/rig/formal-evidence/batch-88-unified-gate-20260901.md`。
+清册准确重算为 `848` 行：`811` 行五级已结算、`37` 行开放；`4116` 个单元已结算、
+`124` 个单元开放。`manual_queue=173`、`forced_queue=27`；批次 87=`250/50` 的统一长门禁已通过，
+批次 88 已推进至 `50/50`，统一长门禁已通过并提交于 `fabce116`（随后以 `6e49d0ec` 清理证据格式），正式记录=`testend/rig/formal-evidence/batch-88-unified-gate-20260901.md`。批次 89 当前为 `25/50`：`EDGE-327|workspace 热切换三拍` 的 L4=`C2`、L5=`G1`，`EDGE-330|设置项搜索索引漂移` 的 L3=`A1`、L4=`C4`、L5=`G1`，`EDGE-331|限额面板载入失败` 的 L3=`A1`、L4=`C4`、L5=`G1`，`EDGE-332|MCP 面板帧不可信` 的 L3=`B2`、L4=`C4`、L5=`G1`，`EDGE-333|保留面板无客户端默认` 的 L3=`A1`、L4=`C4`、L5=`G1`，以及 `EDGE-339|BYOK base URL 模板未填占位` 的 L3=`A1`、L4=`C4`、L5=`G1`，以及 `EDGE-340|Vertex service-account 文件校验` 的 L3=`A1`、L4=`C4`、L5=`G1`，以及 `EDGE-341|未验证供应商诚实徽标` 的 L3=`A1`、L4=`C4`、L5=`G1`，以及 `EDGE-342|chat-only 模型的工具面` 的 L3=`A1`、L4=`C4`、L5=`G1`，以及 `EDGE-343|工具参数双线缆形` 的 L3=`A1` 均已由真实 App 五通道证据收口。EDGE-343 正式 session=`/private/tmp/anselm-rig-formal-20260902-09/sessions/20260902-023042`，全新隔离对话中的对象与 JSON 字符串参数均按用户输入执行成功，wire、SSE、function result 与 UI 卡片一致，台架问题在入账前修复并重跑，警报独立复核后 clean。EDGE-342 正式 session=`/private/tmp/anselm-rig-formal-20260902-06/sessions/20260902-015651`，录屏 `346.335000s`；外部模型 picker 修复后完成两轮 chat-only 对话，backend `tool_schema_bytes=0`，独立 provider wire 与 UI 能力徽标一致，警报独立复核后 clean。EDGE-332 先在红场发现 `E1` 裸异常泄露并停止，修复后以新构建重跑；正式 session=`/private/tmp/anselm-rig-formal-20260902-01/sessions/20260902-000524`，代理一次性 410 后重连、失败卡默认人话且技术详情按需展开、删除后回 marketplace，录像 `62.496667s`，红场与三次独立警报复审均已归档。EDGE-333 正式 session=`/private/tmp/anselm-rig-formal-20260902-02/sessions/20260902-001814`，录屏 `102.666667s`，四档菜单和 180→90 回读路径的 `A1/C4/G1` 证据已归档。EDGE-339 正式 session=`/private/tmp/anselm-rig-formal-20260902-04/sessions/20260902-004134`，录屏 `46.650000s`；Azure 编辑表单占位地址真实探针失败后显示保存结果、Base URL 诊断和下一步，60fps 首反馈 `33.3ms`，三次警报均 clean。EDGE-340 正式 session=`/private/tmp/anselm-rig-formal-20260902-06/sessions/20260902-010913`，录屏 `168.698333s`；Vertex 无效 service-account JSON 在前端即时拒绝，合法结构才进入真实保存与探针，60fps 首反馈 `33.3ms`，三次警报均 clean。EDGE-341 正式 session=`/private/tmp/anselm-rig-formal-20260902-07/sessions/20260902-012607`，录屏 `90.246667s`；302.AI 未验证供应商保存与探针失败后显示“我们从未测试过这家”，保存动作即时进入 `Saving & probing…`，测量首反馈 `33.3ms`，L3/L4/L5=`A1/C4/G1`，三次警报均 clean。下一自主前线由顺序门实时计算。
 首轮 frontend group 1 因 demo 缺失 `write_memory` 的 `tool_result` 执行括号而停住，
 补齐真实执行括号后 focused test 与完整 Flutter 四组 `5472` 项通过；首轮 black-box 的非零结果也以同命令完整复跑通过，
 均已如实记录在正式 gate 证据中。`EDGE-323|进全屏白带` 已完成
@@ -1104,10 +1117,16 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-09-01 批次 88 已提交；下一批次 0/50)
+### 5.2 Day 0 当前状态(整体重述,2026-09-02 EDGE-351 L3-L5 已收口；批次 89 为 48/50)
 
 当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：
-本次新增 `EDGE-324|窗角半径 swizzle 失效|L4/L5` 的适用性裁决 `~~`：未来 getter 改名后的圆角由 macOS 系统接管，没有产品-owned 的独立 craft 表面，且故障态没有用户可导航入口；证据=`testend/rig/formal-evidence/EDGE-324-window-corner-swizzle-fallback-20260829.md`、`testend/rig/formal-evidence/EDGE-324-discovery-collapse-ledger-reaudit-20260901.md`，账本 gate 已写入 `RIG_HOME` journal。当前 `802/848` 行已结算、`4089/4240` 格已结算，批次 `88=50/50`；警报已按锚点复审并销账，统一长门禁已通过并提交于 `fabce116`，证据格式补提交于 `6e49d0ec`；下一批次已重置为 `0/50`，下一自主前线由顺序门实时计算。
+本次覆盖性快照：`EDGE-351|429 不动钱` 已在真实 App 完成 L3/L4/L5=`A4/C4/G1`，清册由 `✓✓~~~` 提升为 `✓✓✓✓✓`。最终 session=`/private/tmp/anselm-rig-formal-20260902-31/sessions/20260902-053825`；Computer Use 从普通 Chat 消息开始，llmtap 对真实受管网关的 `/v1/chat/completions` 注入 `429 RATE_LIMITED`；App 显示准确的服务繁忙提示、保留 Retry 菜单且 Composer 可继续输入。
+首次真实 session 发现旧 `quota-http + 429` fixture 错误返回 `QUOTA_EXHAUSTED`，已停止推进并保留红证据；修复为 `429=RATE_LIMITED`、`402=QUOTA_EXHAUSTED` 并补单测锁定。修复后 Computer Use 看到完整人话文案，无额度耗尽误导、内部码、遮挡、重叠或布局跳变；既有真实 quota before/after 快照保持 `limit=10000, used=1234, remaining=8766`。
+五通道交叉核对：`rig-check.sh`/`rig-down.sh` 通过且 owned processes 已收台；窗口录屏 `screen.mov` 为 `3104x1848 / 60fps / 234.080000s`；backend 健康检查为 `200`、回合以 `LLM_RATE_LIMITED` 收口且无应用级 WARN/ERROR/panic；frontend 无 Flutter/Dart/PlatformException/RenderFlex/Unhandled/Exception/overflow 红线，仅有已分类 macOS IMK 宿主诊断；SSE 三流均连接并 clean EOF，messages 记录 user 与 assistant error close；LLM recorder 四次受控请求均为真实 `429` 且响应体为 `RATE_LIMITED`，未发生成功 completion 或配额扣减。
+当前清册为 `819/848` 行五级结算、`4138/4240` 格结算、开放 `102` 格；`manual_queue=173`、`forced_queue=27`；批次 89=`48/50`；`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`，最终 `alarms.py check`=`clean (2165 live judgments; 2300 baseline judgments excluded from drift curves)`。本格三次写账后的 `discovery-collapse` 已按原阈值分别独立复审并 ack，复审记录=`testend/rig/formal-evidence/EDGE-351-rate-limit-no-spend-l3-ledger-alarm-reaudit-20260902.md`、`testend/rig/formal-evidence/EDGE-351-rate-limit-no-spend-l4-ledger-alarm-reaudit-20260902.md`、`testend/rig/formal-evidence/EDGE-351-rate-limit-no-spend-l5-ledger-alarm-reaudit-20260902.md`；未修改阈值、算法、法典、锚点或五级标准。下一自主前线由顺序门实时选择为 `EDGE-352|分叉携带附件与 subagent 树`，强制人工项继续留在尾队；P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+下方内容均为历史现场快照，只用于保留决策与修复轨迹，不覆盖本段当前数字或下一前线。
+本段后续记录中的“`gen_coverage.py --check` 待本次本地验证”是写入前的临时措辞，已由本轮本地验证完成并更正为 `848 rows, 848 carried judgments, 0 tombstones`；以下 EDGE-342、EDGE-341、EDGE-340、EDGE-339、EDGE-333 及 EDGE-332 状态以本段当前快照为准。
+`EDGE-327|workspace 热切换三拍`、`EDGE-330|设置项搜索索引漂移`、`EDGE-331|限额面板载入失败`、`EDGE-332|MCP 面板帧不可信`、`EDGE-333|保留面板无客户端默认`、`EDGE-339|BYOK base URL 模板未填占位`、`EDGE-340|Vertex service-account 文件校验`、`EDGE-341|未验证供应商诚实徽标` 的本轮真实 App 结果均已按对应法条写入；EDGE-341 L3/L4/L5=`A1/C4/G1`，正式 session=`/private/tmp/anselm-rig-formal-20260902-07/sessions/20260902-012607`，录屏 `90.246667s`，目录徽标、未验证诊断和保存即时反馈均通过逐帧检查，首反馈 `33.3ms`。当前 `810/848` 行五级结算、`4112/4240` 格结算、开放 `128` 格，批次 89=`23/50`；`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，`alarms.py check`=`clean`，anchors=`10/10`，下一自主前线为 `EDGE-342|chat-only 模型的工具面` L3，强制人工项继续留在尾队。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 本轮最新收口为 `EDGE-323|进全屏白带` 的 L4/L5：真实 App 通过原生窗口入口进入全屏，再以标准快捷键退出；稳定的 WindowServer 整屏帧和绑定窗口 `screen.mov` 均显示顶边连续、无白带、无 toolbar 残影、无内容位移，窗口化恢复同样干净。Computer Use 在原生全屏截图中稳定产生约 30px 彩色噪带，但窗口化 Computer Use、WindowServer 独立帧和绑定窗口录屏均不复现；该差异已作为采集适配层边界原样留证，不冒充产品缺陷，也不删除异常截图。L4=`C4`、L5=`G1`，session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-215951`，证据=`testend/rig/formal-evidence/EDGE-323-fullscreen-white-band-l4-real-app-20260901.md`、`testend/rig/formal-evidence/EDGE-323-fullscreen-white-band-l5-real-app-20260901.md`，警报复审=`testend/rig/formal-evidence/EDGE-323-fullscreen-white-band-ledger-alarm-reaudit-20260901.md`；五通道、D1、`rig-down` 和 owned process 收台通过。独立复核 `anchors.py check`=`10/10`、`gen_coverage.py --check`=`848/848/0`，最终 `alarms.py check`=`clean (348 live judgments; 4240 baseline judgments excluded from drift curves)`。下一顺序格为 `EDGE-168|每租户模板 URL|L2`，其持久 OAuth 授权动作保持在强制尾队，未用替代证据越过。
 本轮最新收口为 `EDGE-322|应内缩放到顶` 的 L4/L5：真实 App 在设置 General 中将 UI zoom 调到 `1.1×`，确认 `1.25×/1.5×` 在当前屏幕灰置，再恢复 `1.0×`；整页重排无白带、截断、溢出或持续漂移。L4=`C4`、L5=`G1`，session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-214830`，证据=`testend/rig/formal-evidence/EDGE-322-in-app-zoom-cap-l4-real-app-20260901.md`、`testend/rig/formal-evidence/EDGE-322-in-app-zoom-cap-l5-real-app-20260901.md`，独立警报复核按原阈值完成；`anchors.py check`=`10/10`、`gen_coverage.py --check`=`848/848/0`，最终 `alarms.py check`=`clean (346 live judgments; 4240 baseline judgments excluded from drift curves)`。下一自主前线由顺序门实时选择，强制人工项继续留在尾队。
 随后收口的 `EDGE-321|草稿文档首次编辑` L4/L5：清洁真实 App 台架中，空稿先离开再返回不落盘；在 `Start writing` 处首次输入后只创建一个 `Untitled`，继续输入、离开和重返后左树、中心和 Inspector 指向同一文档，未见重复、重挂或布局跳变。L4=`C4`、L5=`G1`，session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-214332`，证据与污染副本作废说明已归档。
