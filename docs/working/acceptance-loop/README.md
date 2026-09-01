@@ -12,7 +12,7 @@ landed-into:
 
 # WRK-087 · 端到端全产品验收循环(acceptance loop)
 
-## 当前精确状态（2026-09-01 · EDGE-285 收口；批次 87 继续推进）
+## 当前精确状态（2026-09-01 · EDGE-299 收口；批次 87 统一长门禁通过）
 
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
 
@@ -24,15 +24,36 @@ EDGE-244 L4 曾因真实尾帧暴露
 知识即可发现认证原因和 Retry。最终证据=`testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app-l4-fixed-20260831.md`、
 `...-l5-fixed-20260831.md`，红证据=`...-l4-raw-detail-red-20260831.md`。
 
-清册准确重算为 `848` 行：`768` 行五级已结算、`80` 行开放；`3998` 个单元已结算、
-`242` 个单元开放。`manual_queue=173`、`forced_queue=26`；批次 87=`207/50`，统一
-长门禁仍按每满 50 格执行，未在本批提前提交。`EDGE-272|分组计数跨翻页不漂移` 已完成
+清册准确重算为 `848` 行：`779` 行五级已结算、`69` 行开放；`4039` 个单元已结算、
+`201` 个单元开放。`manual_queue=173`、`forced_queue=26`；批次 87=`250/50` 的统一长门禁已通过，
+批次 88 从 `0/50` 开始。`EDGE-272|分组计数跨翻页不漂移` 已完成
 真实 App 的分页、顺滑、视觉和可发现性五级验收；`EDGE-273|?workDir= 三态 presence` 也已完成
 真实 App 的三态筛选五级验收，`EDGE-277|文档改名子树级联` 已完成修复后的真实 App 五级验收，
 `EDGE-278|文档 Move 防环` 已完成真实 App 五级验收，`EDGE-285|大小写不敏感 FS 上的 skill.md`
 已完成真实 App/sidecar/SSE/LLM tap/录屏交叉验收，L2=`F2`、L3-L5 为明确适用性 `na`；
-顺序门将强制人工项 `EDGE-284|skill 清单拒删` 留在尾队，当前下一自主前线为
-`EDGE-286|skill 目录前导兜底`。
+顺序门将强制人工项 `EDGE-284|skill 清单拒删` 留在尾队，`EDGE-288|fork skill 无 runner` 已完成
+服务层防线与完整真实装配的可达性核验，L2-L5 为明确适用性 `na`；随后
+`EDGE-289|@ 一个 fork skill` 已完成真实 App 的候选入口、选中 chip、顺滑、视觉和发现性五级验收；
+`EDGE-290|skill 未知 frontmatter 键保真` 已完成真实 App 的右岛结构化编辑与原始文件保真五级验收；
+`EDGE-291|memory 更新保留策展` 已完成真实 App 录像复审与当前代码回归支持的 L3-L5；
+`EDGE-292|todo 全完成后被问清单` 已完成真实 App L2 与 L3-L5 复审；`EDGE-295|触点记真执行的失败`
+已完成真实 App 五级验收。EDGE-295 首轮发现助手正文泄露 `RuntimeError` 和 fixture 实现，已停止推进；
+修复后原始 traceback 仅保留在失败工具卡、执行历史、durable SSE close 和 LLM wire，普通助手正文收敛为
+用户可理解的失败摘要与检查路径。正式证据=`testend/rig/formal-evidence/EDGE-295-touchpoint-failed-executed-real-app-20260901.md`，
+session=`sessions/20260901-134446`，L1-L5=`F1/F1/B2/C4/G1`；五通道封口、owned process 收台和
+`rig-check`/`rig-down` 均通过，最终 `alarms.py check`=`clean (289 live judgments; 4240 baseline
+ excluded)`。`EDGE-298|未读徽标绝不据帧 +1` 已完成真实 App 的 L3-L5 验收，分别以 `B2/C4/G1` 收口；
+`EDGE-299|顶带 5000 条积压` 已完成真实 App 的 L2-L5 验收，分别以 `F2/A4/C4/G1` 收口；正式
+session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-141545`，证据=
+`testend/rig/formal-evidence/EDGE-299-notice-backlog-real-app-20260901.md`，警报复审=
+`testend/rig/formal-evidence/EDGE-299-ledger-alarm-reaudit-20260901.md`；10,000 条真实 skill 创建
+请求均为 201，独立 SSE witness 的通知 durable seq=`16..10015` 连续无 gap，封存录屏为
+`3104x1844/60fps/313.828333s`，五通道与收台均通过，最终 `alarms.py check`=`clean (300 live
+judgments; 4240 baseline judgments excluded from drift curves)`。顶带保持一张当前卡、最多两个 cue
+和视觉 `999+`，AX 保留 `Clear all <exact count>`，未将 5000 条膨胀为 5000 个 widget；下一自主
+前线由顺序门重算为 `EDGE-300|顶带公平调度` L2。`EDGE-296|触点 deleted 行借名`
+仍在强制人工尾队。`EDGE-286|skill 目录前导兜底` 已完成真实
+App/sidecar/SSE/LLM tap/录屏交叉验收，L2=`F2`、L3-L5 为明确适用性 `na`。
 `EDGE-269|驻地分组批量删除范围` 仍保留在强制人工队列，不能越过或降为 `na`。
 EDGE-254、EDGE-256、EDGE-257、
 EDGE-258、EDGE-259、EDGE-261、EDGE-262、EDGE-263 与 EDGE-264 的
@@ -1061,10 +1082,10 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-09-01 EDGE-285 收口；批次 87 207/50)
+### 5.2 Day 0 当前状态(整体重述,2026-09-01 EDGE-299 收口；批次 87 门禁通过，批次 88 0/50)
 
 当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：
-清册 `848` 行，`768` 行五级结算，`80` 行仍开放；`3998` 个单元已结算、`242` 个单元开放；
+清册 `848` 行，`779` 行五级结算，`69` 行仍开放；`4039` 个单元已结算、`201` 个单元开放；
 `manual_queue=173`，`forced_queue=26`。`EDGE-285|大小写不敏感 FS 上的 skill.md` 已在真实
 macOS App 台架完成：先在隔离 workspace 形成小写 `skill.md`，再经真实 App 所接 sidecar 写入
 `SKILL.md`，macOS 大小写别名保持同一 inode，内容、REST 回读与 Library 展示一致；五通道、
@@ -1077,6 +1098,126 @@ macOS App 台架完成：先在隔离 workspace 形成小写 `skill.md`，再经
 `207/50`；未改阈值、法典、锚点、五级标准或顺序 gate。强制人工尾项 `EDGE-284|skill 清单拒删`
 仍不得越过，当前下一自主前线为 `EDGE-286|skill 目录前导兜底`；P12 的 400+ Journey 扩写按用户
 裁定推迟二期。
+
+`EDGE-286|skill 目录前导兜底` 的真实 session=`sessions/20260901-123754`：不含
+`${CLAUDE_SKILL_DIR}` 的 bundled skill 通过真实 `:activate` 返回一次性的绝对目录前导，
+正文保持不变；真实 Library 同步显示 `2 files`、`SKILL.md` 与 `references/notes.md`。
+五通道、录屏封口和 owned process 收台均通过，L2=`F2`，L3-L5 为明确适用性 `na`。
+本格四次裁决的 gap/discovery 警报均按 anchors=`10/10` 复核并串行 ack，最终
+`alarms.py check`=`clean (262 live judgments; 4240 baseline judgments excluded from drift curves)`；
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。未改阈值、法典、
+锚点、五级标准或顺序 gate；下一自主前线为 `EDGE-288|fork skill 无 runner`。
+
+`EDGE-287|run_skill_script 扩展名不支持` 的真实 session=`sessions/20260901-124541`：真实 App
+通过 `@edge287-scripts` 激活含 `scripts/probe.rb` 的 skill 并发送执行请求；工具在进入 sandbox
+前返回 `SKILL_SCRIPT_UNSUPPORTED`，明确列出支持扩展名并指向 Bash。模型补齐一次缺失的 skill 名称
+后按该替代路径通过 Bash 在 skill 目录执行 Ruby，画面、SSE、backend journal 和 LLM wire 均对应
+记录 `run_skill_script` 拒绝、Bash 调用、`probe` 输出与退出码 `0`；这不是 sandbox 越界误执行。
+五通道、录屏封口和 owned process 收台均通过。正式证据=`testend/rig/formal-evidence/EDGE-287-skill-script-extension-real-app-20260901.md`；
+L1=`F1`、L2=`F2`、L3=`A5`、L4=`E1`、L5=`G1`。四次裁决触发的 gap/discovery 警报均按 anchors=`10/10`
+复核并串行 ack，最终 `alarms.py check`=`clean (266 live judgments; 4240 baseline judgments excluded
+from drift curves)`；批次 87 由 `211` 推进至 `216/50`。未改阈值、法典、锚点、五级标准或顺序 gate。
+
+`EDGE-288|fork skill 无 runner` 已完成真实发行装配核验。服务层普通/race 回归与合同黑盒覆盖
+`SKILL_SUBAGENT_UNAVAILABLE`、缺 agent、非法 agent 和不污染 active skill 的防线；真实 App 在
+同一完整装配中创建合法 `Explore` fork skill，Library 正确显示 `Context: Fork` 与 agent 字段，
+真实 `:activate` 返回隔离 runner 结果 `200`。代码确认 `build_services.go` 无条件创建并注入
+`subagentSvc`，所以“无 runner”不是当前发行装配可由用户进入的状态，不能把成功路径冒充 503。
+正式证据=`testend/rig/formal-evidence/EDGE-288-skill-fork-no-runner-real-app-20260901.md`，真实
+session=`sessions/20260901-125841`；五通道、录屏封口和 owned process 收台均通过。L1 保留既有
+`E4`，L2-L5 以装配事实支持的明确适用性 `na` 收口；四次裁决后的 `alarms.py check`=`clean
+(270 live judgments; 4240 baseline judgments excluded from drift curves)`。账本自检曾对下一行
+`EDGE-289` 产生一条错误的 `note:probe`，已立即用既有 `G1` 幂等修复并从 COVERAGE 指针移除，
+journal 保留该纠错审计痕迹；最终 live journal=`271`，不改变产品判定。清册由 `770/848` 行、
+`4007` 单元完成推进为 `771/848` 行、`4010` 单元完成，开放 `77` 行、`230` 单元；批次 87 由
+`216` 推进至 `220/50`。未改阈值、法典、锚点、五级标准或顺序 gate；下一自主前线转为
+`EDGE-289|@ 一个 fork skill`。
+
+`EDGE-289|@ 一个 fork skill` 已完成真实 App 的候选入口、选中 chip、顺滑、视觉和发现性五级
+验收。真实 session=`sessions/20260901-130723`：同一 workspace 创建 inline 与 fork 两类 skill，
+在 Chat 打开 `@` 候选列表时 `edge289-inline` 可见而 `edge289-fork` 不出现；选择 inline 后
+composer 稳定显示 `@edge289-inline`。抽帧与 `measure diff` 确认列表只发生一次展开/收起，稳定
+态无额外重排、裁切或跳变。五通道、录屏封口和 owned process 收台均通过，backend/frontend 无
+应用级红线，SSE 三流连接及 skill durable signals 与 REST 创建事实一致，LLM managed bootstrap
+全为 `200`。正式证据=`testend/rig/formal-evidence/EDGE-289-skill-fork-mention-real-app-20260901.md`；
+L1=`G1`、L2=`F2`、L3=`A1`、L4=`C4`、L5=`G1`。四次裁决后的统计警报均按同一 session 与原始
+帧证据复核并串行 ack，最终 `alarms.py check`=`clean (275 live judgments; 4240 baseline judgments
+excluded from drift curves)`；清册由 `771/848` 行、`4010` 单元完成推进为 `772/848` 行、`4014`
+单元完成，开放 `76` 行、`226` 单元；批次 87 由 `220` 推进至 `225/50`。未改阈值、法典、锚点、
+五级标准或顺序 gate；当前下一自主前线为 `EDGE-290|skill 未知 frontmatter 键保真`。
+
+`EDGE-290|skill 未知 frontmatter 键保真` 已完成真实 App 的右岛结构化编辑与原始文件保真五级验收。
+真实 session=`sessions/20260901-131705`：在隔离 workspace 创建带注释、`license`、`x-vendor-thing`、
+`author`、`version` 等未知键的 `edge290-fidelity`，从 Library 打开后将右岛 `User-invocable` 从
+`On` 改为 `Off`，等待自动保存。原始 `SKILL.md` 保存后仍保留未知键、注释、键序和正文；typed GET、
+中心描述/正文与右岛状态一致，只发生受控字段变化。五通道、录屏封口、owned process 收台和
+`rig-check`/`rig-down` 均通过，未发现 stop-and-fix 问题。正式证据=
+`testend/rig/formal-evidence/EDGE-290-skill-frontmatter-unknown-keys-real-app-20260901.md`，L1-L5=
+`F1/F2/A1/C4/G1`；四次裁决后的统计警报均按同场证据逐次复核并串行 ack，最终
+`alarms.py check`=`clean (279 live judgments; 4240 baseline judgments excluded from drift curves)`。
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`；清册由 `772/848` 行、`4014`
+单元完成推进为 `773/848` 行、`4018` 单元完成，开放 `75` 行、`222` 单元；批次 87 由 `225` 推进至
+`229/50`。未改阈值、法典、锚点、五级标准或顺序 gate；当前下一自主前线为
+`EDGE-291|memory 更新保留策展` 的 L3。
+
+`EDGE-291|memory 更新保留策展` 的 L3-L5 已按既有真实 App session 做独立复审：聊天完成态、
+Settings → Memory 置顶行和入口路径均稳定，当前 memory 普通/race 与 widget 回归也通过；没有旧值
+回闪、残留 loading、空白、错位或非用户跳变。复审证据=`testend/rig/formal-evidence/EDGE-291-memory-curation-real-app-l3-l5-reaudit-20260901.md`，
+L3=`B2`、L4=`C4`、L5=`G1`；本次不重复网关调用，不把原 L2 证据扩写成新的 L2。三次裁决后的统计警报
+均按原 session 画面、代码回归和五通道记录逐次复核并串行 ack，最终 `alarms.py check`=`clean
+(282 live judgments; 4240 baseline judgments excluded from drift curves)`。清册由 `773/848` 行、`4018`
+单元完成推进为 `774/848` 行、`4021` 单元完成，开放 `74` 行、`219` 单元；批次 87 由 `229` 推进至
+`232/50`。未改阈值、法典、锚点、五级标准或顺序 gate；当前下一自主前线为
+`EDGE-296|触点 deleted 行借名` L2。
+
+`EDGE-292|todo 全完成后被问清单` 已完成真实 App L2 与 L3-L5 复审：0-open 清单不再注入 reminder，
+但 `todo_read` 仍准确读回全部已完成项；原始 session 与复审证据分别保留在
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-150633` 和
+`testend/rig/formal-evidence/EDGE-292-todo-completed-read-real-app-l3-l5-reaudit-20260901.md`。
+
+`EDGE-295|触点记真执行的失败` 已完成真实 App 五级验收。正式 session=
+`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-134446`；首轮助手正文泄露裸
+`RuntimeError` 的红证据已保留，修复后普通助手正文确定性收敛为失败摘要，完整 traceback 仍可在失败工具卡、
+执行历史、durable SSE close 与 LLM wire 中核验。正式证据=`testend/rig/formal-evidence/EDGE-295-touchpoint-failed-executed-real-app-20260901.md`；
+L1-L5=`F1/F1/B2/C4/G1`，五通道封口与 `rig-check`/`rig-down` 均通过，未再发现产品问题。四次裁决后的
+统计警报均已按同场证据与 anchors=`10/10` 串行复核并 ack，最终 `alarms.py check`=`clean (293 live
+judgments; 4240 baseline judgments excluded from drift curves)`。清册由 `774/848` 行、`4021` 单元完成
+推进为 `777/848` 行、`4032` 单元完成，开放 `71` 行、`208` 单元；批次 87 由 `232` 推进至 `243/50`。
+未改阈值、法典、锚点、五级标准或顺序 gate；该阶段快照的下一自主前线为 `EDGE-298|未读徽标绝不据帧 +1` L3；
+上方新增 L3 复核后，当前下一自主前线已推进为该项 L4。
+
+`EDGE-298|未读徽标绝不据帧 +1` 已完成真实 App 的 L3-L5 验收：L3 动态窗口以 `B2` 确认通知中心只发生一次
+展开并进入稳定尾段，L4 稳定帧以 `C4` 确认 badge/托盘层级、圆角、边界和未读标记清晰无重叠，L5 以 `G1`
+确认从默认 Chat 画面的铃铛和红点即可发现通知入口。L3 不声称用户动作到首帧的具体毫秒延迟；三格证据分别为
+`testend/rig/formal-evidence/EDGE-298-unread-authoritative-count-l3-real-app-20260901.md`、
+`testend/rig/formal-evidence/EDGE-298-unread-authoritative-count-l4-real-app-20260901.md`、
+`testend/rig/formal-evidence/EDGE-298-unread-authoritative-count-l5-real-app-20260901.md`，源 session 均为
+`/private/tmp/anselm-rig-formal-20260801-3/sessions/20260829-151051`。三次写账后的统计警报均按同场五通道证据
+与 anchors=`10/10` 串行复核并 ack，最终 `alarms.py check`=`clean (296 live judgments; 4240 baseline excluded)`。
+清册由 `777/848` 行、`4032` 单元完成推进为 `778/848` 行、`4035` 单元完成，开放 `70` 行、`205` 单元；批次 87
+由 `243` 推进至 `246/50`。未改阈值、法典、锚点、五级标准或顺序 gate；当前下一自主前线由顺序门重新计算，
+`EDGE-296|触点 deleted 行借名` 仍在强制人工尾队。
+
+`EDGE-299|顶带 5000 条积压` 已完成真实 App 的 L2-L5 验收，分别以 `F2/A4/C4/G1` 收口。正式
+session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-141545`，证据=
+`testend/rig/formal-evidence/EDGE-299-notice-backlog-real-app-20260901.md`，独立警报复审=
+`testend/rig/formal-evidence/EDGE-299-ledger-alarm-reaudit-20260901.md`；10,000 条真实 skill 创建
+请求均为 201，独立 SSE witness 的通知 durable seq=`16..10015` 连续无 gap，封存录屏为
+`3104x1844/60fps/313.828333s`，五通道与收台均通过。压力期顶带保持一张当前卡、最多两个 cue
+和视觉 `999+`，AX 保留 `Clear all <exact count>`，未将 5000 条膨胀为 5000 个 widget；最终
+`alarms.py check`=`clean (300 live judgments; 4240 baseline judgments excluded from drift curves)`。
+清册由 `778/848` 行、`4035` 单元完成推进为 `779/848` 行、`4039` 单元完成，开放 `69` 行、`201` 单元；
+批次 87 由 `246` 推进至 `250/50`，统一长门禁已通过并封存于
+`testend/rig/formal-evidence/batch-87-unified-gate-20260901.md`；批次 88 从 `0/50` 开始。下一自主前线由
+顺序门重算为 `EDGE-300|顶带公平调度` L2；未改阈值、法典、锚点、五级标准或顺序 gate。
+
+`EDGE-297|触点目录穷尽性` 已完成 L2-L5 的严格适用性裁决。该格只验证 bootstrap 组装出的工具全集
+是否逐项拥有 extraction 或 no-touch 表态，不产生独立用户状态、交互等待、视觉成品或发现入口，因此
+L2-L5 均为明确 `na`，不是缺少真实 App 证据的 waiver。L1 focused 装配门禁与本格边界证据分别见
+`testend/rig/formal-evidence/EDGE-297-touchpoint-catalog-exhaustive-20260826.md` 和
+`testend/rig/formal-evidence/EDGE-297-touchpoint-catalog-exhaustive-applicability-20260901.md`；
+四次告警均已按证据串行复核并 ack，`alarms.py check`=`clean (293 live judgments; 4240 baseline
+judgments excluded)`。该历史段不覆盖上方当前快照；当前自主前线为 `EDGE-298|未读徽标绝不据帧 +1` L4。
 
 > 以下为早期批次的历史快照，仅保留审计上下文，不覆盖上面的当前重算结果。
 
