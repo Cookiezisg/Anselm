@@ -39,6 +39,8 @@ guard。Manifest、description 与 bundled file 有物理大小上限。
 Files API 包含 SKILL.md 与附属文件。相对路径先做词法/clean 检查，再通过
 `os.Root` 阻断 symlink 与 TOCTOU 逃逸。Manifest 不能作为普通 file 删除；
 写 manifest 进入 raw replace 校验并重算 relation。
+物理层遇到已存在的 symlink 或非目录父路径时，同样归一为 `400 SKILL_FILE_PATH_INVALID`，
+不把安全边界错误泄漏成 `500 INTERNAL_ERROR`。
 
 ## 3. 激活
 
@@ -111,6 +113,10 @@ Conversation active-skill，也不触发 fork。
 `InspectSource` 对 GitHub shorthand/URL 或 HTTP(S) tarball 做无写入预览。
 Fetcher 限制压缩/解压大小、条目数和单文件大小，丢弃 symlink 与平台垃圾；
 含 SKILL.md 的目录形成候选。
+
+Fetcher 在解析前拒绝超过 `100 MiB` 的压缩包；解包累计上限为 `200 MiB`，最多 `4096`
+个普通条目，附属单文件上限为 `1 MiB`。超过压缩包上限返回 `SKILL_INSTALL_TOO_LARGE`，
+而不是把截断的 gzip 误报成普通抓取失败；symlink、设备文件和平台垃圾直接丢弃。
 
 Install 写 manifest 与 bundled files，并创建隐藏的
 `.anselm-install.json`：

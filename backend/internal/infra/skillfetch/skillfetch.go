@@ -13,6 +13,7 @@ package skillfetch
 
 import (
 	"archive/tar"
+	"bytes"
 	"compress/gzip"
 	"context"
 	"fmt"
@@ -152,11 +153,32 @@ func Fetch(ctx context.Context, src Source) ([]Candidate, error) {
 			"status": resp.StatusCode, "url": src.URL,
 		})
 	}
-	files, err := untar(io.LimitReader(resp.Body, maxArchiveBytes+1))
+	archive, err := readArchive(resp.Body)
+	if err != nil {
+		return nil, err
+	}
+	files, err := untar(bytes.NewReader(archive))
 	if err != nil {
 		return nil, err
 	}
 	return carve(files, src), nil
+}
+
+// readArchive enforces the compressed-byte ceiling before gzip parsing. Parsing a truncated
+// stream would otherwise turn an archive-size violation into a misleading generic fetch error.
+//
+// readArchive 在 gzip 解析前执行压缩字节上限；若先解析被截断的流，超限会被误报成普通抓取失败。
+func readArchive(r io.Reader) ([]byte, error) {
+	archive, err := io.ReadAll(io.LimitReader(r, maxArchiveBytes+1))
+	if err != nil {
+		return nil, skilldomain.ErrInstallFetchFailed.WithCause(err)
+	}
+	if len(archive) > maxArchiveBytes {
+		return nil, skilldomain.ErrInstallTooLarge.WithDetails(map[string]any{
+			"limit": "archive bytes", "max": maxArchiveBytes,
+		})
+	}
+	return archive, nil
 }
 
 // untar gunzips + walks the tar, collecting regular files (symlinks/devices dropped) under

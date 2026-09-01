@@ -23,14 +23,20 @@ import '../state/library_state.dart';
 /// wiring体验. Renders as a centered panel inside an overlay barrier.
 /// 从来源安装流:粘来源→解析→勾选候选(allowedTools 前置=信任门起点)→装。镜像 MCP 接线体验。
 class SkillInstallDialog extends ConsumerStatefulWidget {
-  const SkillInstallDialog({super.key});
+  const SkillInstallDialog({this.initialSource, super.key});
+
+  /// A compile-time-only acceptance-rig seed. Normal builds leave this null, so the install
+  /// dialog remains an empty user input. 台架专用编译期预填;普通构建恒为空,不改变用户路径。
+  final String? initialSource;
 
   @override
   ConsumerState<SkillInstallDialog> createState() => _SkillInstallDialogState();
 }
 
 class _SkillInstallDialogState extends ConsumerState<SkillInstallDialog> {
-  final _sourceCtl = TextEditingController();
+  late final _sourceCtl = TextEditingController(
+    text: widget.initialSource ?? '',
+  );
   List<SkillInstallPreview>? _previews;
   final Set<String> _picked = {};
   bool _busy = false;

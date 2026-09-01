@@ -60,6 +60,11 @@ testend/rig/rig-rebind-app.sh # 产品内重启后显式重绑新 App PID/窗口
 `RIG_BACKEND_START_DELAY_SEC=25` 可让前端健康等待先落 `crashed`，后端随后仍由 conductor 启动，点击真实 `Retry`
 即可复验恢复。该旋钮默认关闭，不改变普通台架的 backend-first 顺序；`startup-gate.jsonl` 与 manifest 一起记录
 App、录屏、后端健康和 SSE 的事件时序。
+外接后端的 bearer 负向场景可显式设置 `RIG_BACKEND_AUTH_TOKEN=<ephemeral-token>`。conductor 只把该值交给
+自己启动的 backend、health probe 和 `ssetap`，并以 `0600` 文件保存在 session 目录供 `rig-check` 复读；manifest
+只记录文件路径，不记录 token。真实 App 仍以 `ANSELM_BACKEND_URL` 外接 backend，`BackendController` 的
+dev-attach 分支不会设置 `authToken`，因此 App 的请求确实缺少 bearer，后端返回 `UNAUTH_BAD_TOKEN`。该旋钮
+只用于构造鉴权边界，不改变产品代码；不要把 token 写进证据正文或提交。
 对“配置损坏导致 sidecar 在绑定端口前退出”的负向启动格，使用
 `RIG_APP_OWNS_BACKEND=1 RIG_EXPECT_BACKEND_FAILURE=1`，并让 `RIG_DATA/settings.json` 预先包含坏 JSON。
 该模式只接受 App-owned sidecar 的明确 bootstrap/settings 致命输出和无 loopback listener；sidecar 可能在
@@ -70,12 +75,35 @@ App、录屏、后端健康和 SSE 的事件时序。
 需要验收 workspace 名册解析中的中间 loading 面时，使用默认 backend-first 顺序加
 `RIG_APP_PROXY=1 RIG_APP_PROXY_DELAY_MS=2500`；它只把真实 App 的精确 `GET /api/v1/workspaces`
 请求延迟，其他请求透明转发，backend 端口仍由 conductor 直接持有，ssetap 也仍直连 backend。
+鉴权负向现场在此基础上设置 `RIG_BACKEND_AUTH_TOKEN=<token>`，并设置
+`RIG_APP_PROXY_AUTH_TOKEN=<同一 token> RIG_APP_PROXY_AUTH_PATH=/api/v1/health`：代理只给健康探针补回
+合法 token，workspace 等其他 App 请求保持无 token，因而真实 App 能进入 ready 后再看到
+`UNAUTH_BAD_TOKEN`，不会把“启动失败”和“运行中请求未授权”混为一谈。代理会在转发前清掉其他路径的
+`Authorization`，仅用于该受控负向场景；token 不进 manifest 正文。
 要验收某个首载列表的**真实错误+重试**，在同一路径上再给
 `RIG_APP_PROXY_FAIL_COUNT=2 RIG_APP_PROXY_FAIL_STATUS=503`；对话 rail 首载的两条并行列表 `GET` 返回 N1
 `RIG_INJECTED_FAILURE`，之后恢复透明转发，故可在同一冷载中观察骨架→错误、点击一次真实 Retry→列表。
 `appproxy.jsonl`、`appProxyPid`、`appBackendUrl` 和 delay/failure 配置会写进 manifest；该扰动默认关闭，
 只服务台架构造，不能拿它代替真实后端故障或正式性能数字。失败次数是并发安全的一次性预算，不能跨 session
 重置，也不会改动 backend 或 SSE witness 的真实端口。
+需要验收 workspace 身份缺失时，在同一代理上设置
+`RIG_APP_PROXY_DROP_WORKSPACE_HEADER_COUNT=1`。代理只在一次转发前删除
+`X-Anselm-Workspace-ID`，不会删除 bearer；因此 `/workspaces` 名册仍可读取，随后真实 App 对隔离
+资源会收到真实 `401 UNAUTH_NO_WORKSPACE`，后续请求恢复透明转发。该开关只制造缺失 header 的受控负向场景，manifest 会记录
+`appProxyDropWorkspaceHeaderCount=1`，不能把代理注入当成产品成功证据。
+要验收 DNS rebinding 防护的真实 App 负向现场，在同一代理上设置
+`RIG_APP_PROXY_REWRITE_HOST_PATH=/api/v1/conversations RIG_APP_PROXY_REWRITE_HOST=evil.example.com RIG_APP_PROXY_REWRITE_HOST_COUNT=1`。
+代理保持连接目标仍为 conductor 的真实 backend，只对一次精确 App 请求把出站 `Host` 改成非 loopback
+名称；backend 必须真实返回 `403 FORBIDDEN_BAD_HOST`，后续请求恢复规范 Host。`appproxy.jsonl` 与
+manifest 记录 `host_rewritten` 和一次性预算。这个开关只构造 DNS-rebinding 负向路径，不能拿来
+证明正常请求成功，也不能修改真实 backend 的 allowlist。
+要验收 ServeMux 的未知路由 404 与错误方法 405，设置两组一次性注入：
+`RIG_APP_PROXY_REWRITE_PATH_FROM=/api/v1/conversations RIG_APP_PROXY_REWRITE_PATH_TO=/api/v1/rig-unknown RIG_APP_PROXY_REWRITE_PATH_COUNT=1`
+以及
+`RIG_APP_PROXY_REWRITE_METHOD_PATH=/api/v1/conversations RIG_APP_PROXY_REWRITE_METHOD_FROM=GET RIG_APP_PROXY_REWRITE_METHOD_TO=PUT RIG_APP_PROXY_REWRITE_METHOD_COUNT=1`。
+代理只在转发前改变这两次真实请求，记录 `path_rewritten`/`method_rewritten` 后恢复透明；backend
+必须真实产生 `ROUTE_NOT_FOUND` 与 `METHOD_NOT_ALLOWED`，包括 405 的 `Allow`，后续 Retry 必须
+恢复正常列表。两个预算都默认关闭，不能用代理自身伪造的响应替代 ServeMux 证据。
 `RIG_LLMTAP=0` 时后端不注入网关环境，适合只用本地 API 清理 fixture；该模式仍保留 D1 端口归属检查。
 
 媒体故障场景可显式设置 `RIG_LLMTAP_FAIL_PATH=/v1/media/uploads`、`RIG_LLMTAP_FAIL_COUNT=1` 和
@@ -118,6 +146,24 @@ manifest 会记录 `mediaProcessDelayMs`；未设置时为 `0`，普通运行不
 `ANSELM_RIG_PLAYBACK_LEASE_TTL_MS=1500`。这是仅供 acceptance rig 的毫秒级 TTL 覆盖，生产未设置时仍为
 5 分钟；manifest 会记录 `playbackLeaseTtlMs`。正式证据必须证明真实播放器先拿 lease 播放、跨过过期点后失败
 显示可理解的重试状态，再重新签发 lease 并恢复播放，不能只用 REST 取 404 代替播放器现场。
+
+要验收 `EDGE-263` 的 worktree 半成功边界，可显式设置
+`ANSELM_RIG_FAIL_WORKDIR_UPDATE=1`。该变量只让 `POST .../workdir:add-worktree` 的最后一次驻地持久化在
+`Service.Update` 前受控失败；前面的真实 `git worktree add` 已完成，因此可验证“worktree 留下、对话仍在旧驻地”
+的诚实半状态。该变量默认关闭，只用于 acceptance rig，不改变普通 PATCH 驻地更新。
+
+要验收 `EDGE-263` 的 worktree 半成功边界，可显式设置
+`ANSELM_RIG_FAIL_WORKDIR_UPDATE=1`。该变量只让 `POST .../workdir:add-worktree` 的最后一次驻地持久化在
+`Service.Update` 前受控失败；前面的真实 `git worktree add` 已完成，因此可验证“worktree 留下、对话仍在旧驻地”
+的诚实半状态。该变量默认关闭，只用于 acceptance rig，不改变普通 PATCH 驻地更新。
+
+要验收 `EDGE-281` 的 skill 安装大小护栏，可显式设置
+`ANSELM_RIG_PREFILL_SKILL_SOURCE=http://127.0.0.1:<port>/<fixture>`。`rig-up` 会把它作为
+`--dart-define` 编入本次真实 macOS App，使安装弹窗的来源框在打开时显示该地址；普通构建未设置该变量时
+来源框仍为空，产品路径不变。这个入口只解决 Computer Use/Flutter 输入桥接无法稳定输入 URL 特殊字符的问题，
+不绕过 inspect/install API，也不自动点击任何动作；`manifest.json` 只记录
+`prefillSkillSourceConfigured=true`，不记录来源值。正式证据仍必须来自真实 App 的 inspect 结果、后端响应和
+五通道台架，不得把预填本身当成产品能力。
 
 出厂重置等“App 必须删除自己数据目录”的路径使用 `RIG_APP_OWNS_BACKEND=1`。此模式强制 App-first，
 conductor 把刚构建的 `server` 放到真实 bundle executable 旁，由 `BackendController` 自己启动并监督；

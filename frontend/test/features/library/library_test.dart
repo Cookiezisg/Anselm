@@ -235,6 +235,37 @@ void main() {
   setUp(() => BlinkController.indeterminateAnimationsEnabled = false);
   tearDown(() => BlinkController.indeterminateAnimationsEnabled = true);
 
+  group('document metadata merge', () {
+    test(
+      'external tree rename overlays the loaded header without replacing body',
+      () {
+        final loaded = _doc(
+          'doc_1',
+          null,
+          'Old name',
+          0,
+          content: 'body stays loaded',
+          path: '/Old name',
+        );
+        final tree = loaded.copyWith(
+          name: 'New name',
+          description: 'new description',
+          path: '/New name',
+          sizeBytes: 17,
+          updatedAt: _t.add(const Duration(minutes: 1)),
+        );
+
+        final merged = mergeDocumentTreeMetadata(loaded, tree);
+
+        expect(merged.name, 'New name');
+        expect(merged.description, 'new description');
+        expect(merged.path, '/New name');
+        expect(merged.content, 'body stays loaded');
+        expect(merged.updatedAt, tree.updatedAt);
+      },
+    );
+  });
+
   group('buildLibraryRailModel', () {
     test(
       'assembles the nested document tree by parentId + a flat skill section',
@@ -651,6 +682,28 @@ void main() {
           find.widgetWithText(AnButton, t.library.skillInstallGo),
         );
         expect(install.onPressed, isNull);
+      },
+    );
+
+    testWidgets(
+      'install dialog accepts a rig-provided source without changing the normal empty field',
+      (tester) async {
+        const source = 'http://127.0.0.1:8753/oversize.tar.gz';
+        await tester.pumpWidget(
+          _host(
+            _repo(),
+            const SkillInstallDialog(initialSource: source),
+            width: 900,
+            height: 700,
+          ),
+        );
+        await tester.pump();
+        await tester.pump();
+
+        expect(
+          tester.widget<TextField>(find.byType(TextField)).controller!.text,
+          source,
+        );
       },
     );
 

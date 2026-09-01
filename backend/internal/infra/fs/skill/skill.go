@@ -15,12 +15,14 @@ package skill
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io/fs"
 	"os"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 
 	skilldomain "github.com/sunweilin/anselm/backend/internal/domain/skill"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -563,6 +565,12 @@ func (s *Store) WriteFile(ctx context.Context, name, rel string, data []byte) er
 	defer root.Close()
 	if parent := filepath.Dir(filepath.FromSlash(c)); parent != "." {
 		if mkErr := root.MkdirAll(parent, 0o755); mkErr != nil {
+			// An existing symlink/file in the parent is a rejected path, not an
+			// internal server failure. os.Root reports both physical escape forms
+			// through the filesystem's existence/not-a-directory errors.
+			if errors.Is(mkErr, fs.ErrExist) || errors.Is(mkErr, syscall.ENOTDIR) {
+				return skilldomain.ErrFilePathInvalid
+			}
 			return fmt.Errorf("skillfs.WriteFile mkdir: %w", mkErr)
 		}
 	}

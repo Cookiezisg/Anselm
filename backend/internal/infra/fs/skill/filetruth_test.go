@@ -279,6 +279,17 @@ func TestStore_Files_SymlinkEscapeBlocked(t *testing.T) {
 	if err == nil {
 		t.Fatalf("symlink escape must be blocked, read %q", data)
 	}
+	outsideDir := filepath.Join(base, "outside-dir")
+	if err := os.Mkdir(outsideDir, 0o755); err != nil {
+		t.Fatalf("mkdir outside dir: %v", err)
+	}
+	dirLink := filepath.Join(base, "workspaces", "ws_1", "skills", "sly", "dir-link")
+	if err := os.Symlink(outsideDir, dirLink); err != nil {
+		t.Skipf("directory symlink unavailable: %v", err)
+	}
+	if err := st.WriteFile(ctx, "sly", "dir-link/child.txt", []byte("escape")); !errors.Is(err, skilldomain.ErrFilePathInvalid) {
+		t.Fatalf("directory symlink escape must be FilePathInvalid, got %v", err)
+	}
 }
 
 func TestStore_Files_SizeGuard(t *testing.T) {

@@ -20,6 +20,12 @@ import '../state/library_state.dart';
 import 'skill_install_dialog.dart';
 import 'library_rail_model.dart';
 
+// Only rig-up supplies this compile-time value. A normal build has no prefilled source.
+// 仅 rig-up 提供此编译期值;普通构建不预填来源。
+const _rigPrefillSkillSource = String.fromEnvironment(
+  'ANSELM_RIG_PREFILL_SKILL_SOURCE',
+);
+
 /// The left-island Documents navigator — one [AnSidebarList] over two sections (the recursive document
 /// page tree + the flat skill list). The rail's TOP stays search-only (0723 拍板): creation sinks to each
 /// section's type head instead — Documents' head trailing `[+]` (and each page row's hover `[+]`) creates
@@ -245,7 +251,11 @@ class _LibraryRailState extends ConsumerState<LibraryRail> {
         scrim: context.colors.scrim,
         reduced: AnMotionPref.reduced(context),
         barrierLabel: context.t.feedback.dialogBarrier,
-        builder: (_) => const SkillInstallDialog(),
+        builder: (_) => const SkillInstallDialog(
+          initialSource: _rigPrefillSkillSource == ''
+              ? null
+              : _rigPrefillSkillSource,
+        ),
       ),
     );
   }

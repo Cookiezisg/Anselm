@@ -17,8 +17,14 @@ RIG_HOME, RIG_PORT, RIG_DATA, RIG_SEED, RIG_LLMTAP, RIG_RECORD, RIG_APP, RIG_APP
 RIG_EXPECT_BACKEND_FAILURE, RIG_STARTUP_FAILURE_SETTLE_SEC,
 RIG_BACKEND_START_DELAY_SEC, RIG_APP_PROXY, RIG_APP_PROXY_PORT, RIG_APP_PROXY_DELAY_MS,
 RIG_APP_PROXY_FAIL_COUNT, RIG_APP_PROXY_FAIL_STATUS, RIG_LLMTAP_FAIL_PATH, RIG_LLMTAP_FAIL_COUNT,
-RIG_LLMTAP_FAIL_STATUS, RIG_LLMTAP_FAIL_KIND, RIG_LLMTAP_INJECT_WAV_METADATA, ANSELM_RIG_MODEL_CATALOG_URL, and
-ANSELM_RIG_MEDIA_PROCESS_DELAY_MS.
+RIG_LLMTAP_FAIL_STATUS, RIG_LLMTAP_FAIL_KIND, RIG_LLMTAP_INJECT_WAV_METADATA, RIG_BACKEND_AUTH_TOKEN,
+RIG_APP_PROXY_AUTH_TOKEN, RIG_APP_PROXY_AUTH_PATH, RIG_APP_PROXY_DROP_WORKSPACE_HEADER_COUNT,
+RIG_APP_PROXY_REWRITE_HOST_PATH, RIG_APP_PROXY_REWRITE_HOST, RIG_APP_PROXY_REWRITE_HOST_COUNT,
+RIG_APP_PROXY_REWRITE_PATH_FROM, RIG_APP_PROXY_REWRITE_PATH_TO, RIG_APP_PROXY_REWRITE_PATH_COUNT,
+RIG_APP_PROXY_REWRITE_METHOD_PATH, RIG_APP_PROXY_REWRITE_METHOD_FROM, RIG_APP_PROXY_REWRITE_METHOD_TO,
+RIG_APP_PROXY_REWRITE_METHOD_COUNT,
+ANSELM_RIG_MODEL_CATALOG_URL,
+ANSELM_RIG_MEDIA_PROCESS_DELAY_MS, ANSELM_RIG_PREFILL_SKILL_SOURCE.
 The command takes no positional arguments; use --help only to print this message.
 EOF
 }
@@ -63,13 +69,30 @@ APP_PROXY_DROP_AFTER_MS="${RIG_APP_PROXY_DROP_AFTER_MS:-0}"
 APP_PROXY_DROP_COUNT="${RIG_APP_PROXY_DROP_COUNT:-0}"
 APP_PROXY_FAIL_AFTER_DROP_COUNT="${RIG_APP_PROXY_FAIL_AFTER_DROP_COUNT:-0}"
 APP_PROXY_FAIL_AFTER_DROP_DELAY_MS="${RIG_APP_PROXY_FAIL_AFTER_DROP_DELAY_MS:-0}"
+APP_PROXY_AUTH_TOKEN="${RIG_APP_PROXY_AUTH_TOKEN:-}"
+APP_PROXY_AUTH_PATH="${RIG_APP_PROXY_AUTH_PATH:-}"
+APP_PROXY_DROP_WORKSPACE_HEADER_COUNT="${RIG_APP_PROXY_DROP_WORKSPACE_HEADER_COUNT:-0}"
+APP_PROXY_REWRITE_HOST_PATH="${RIG_APP_PROXY_REWRITE_HOST_PATH:-}"
+APP_PROXY_REWRITE_HOST="${RIG_APP_PROXY_REWRITE_HOST:-}"
+APP_PROXY_REWRITE_HOST_COUNT="${RIG_APP_PROXY_REWRITE_HOST_COUNT:-0}"
+APP_PROXY_REWRITE_PATH_FROM="${RIG_APP_PROXY_REWRITE_PATH_FROM:-}"
+APP_PROXY_REWRITE_PATH_TO="${RIG_APP_PROXY_REWRITE_PATH_TO:-}"
+APP_PROXY_REWRITE_PATH_COUNT="${RIG_APP_PROXY_REWRITE_PATH_COUNT:-0}"
+APP_PROXY_REWRITE_METHOD_PATH="${RIG_APP_PROXY_REWRITE_METHOD_PATH:-}"
+APP_PROXY_REWRITE_METHOD_FROM="${RIG_APP_PROXY_REWRITE_METHOD_FROM:-}"
+APP_PROXY_REWRITE_METHOD_TO="${RIG_APP_PROXY_REWRITE_METHOD_TO:-}"
+APP_PROXY_REWRITE_METHOD_COUNT="${RIG_APP_PROXY_REWRITE_METHOD_COUNT:-0}"
 APP_BACKEND_URL="http://127.0.0.1:$PORT"
 MISE="${MISE:-mise}"
+PREFILL_SKILL_SOURCE_CONFIGURED=False
+[ -n "${ANSELM_RIG_PREFILL_SKILL_SOURCE:-}" ] && PREFILL_SKILL_SOURCE_CONFIGURED=True
 
 BACKEND_PID=""
 APP_SIDECAR_PID=""
 APP_AUTH_TOKEN=""
 APP_AUTH_TOKEN_FILE=""
+BACKEND_AUTH_TOKEN="${RIG_BACKEND_AUTH_TOKEN:-}"
+BACKEND_AUTH_TOKEN_FILE=""
 BACKEND_LOG_PID=""
 TAP_PID=""
 LLMTAP_PID=""
@@ -172,7 +195,19 @@ start_app_and_record() {
   : >"$SESSION/frontend.log"
   : >"$SESSION/frontend-build.log"
   startup_event app_build_requested
-  if ! (cd "$ROOT/frontend" && "$MISE" exec -- flutter build macos --debug -t lib/main.dart) \
+  if [ -n "${ANSELM_RIG_PREFILL_SKILL_SOURCE:-}" ]; then
+    FRONTEND_BUILD=(--dart-define="ANSELM_RIG_PREFILL_SKILL_SOURCE=${ANSELM_RIG_PREFILL_SKILL_SOURCE}")
+  else
+    FRONTEND_BUILD=()
+  fi
+  if [ "${#FRONTEND_BUILD[@]}" -eq 0 ]; then
+    (cd "$ROOT/frontend" && "$MISE" exec -- flutter build macos --debug -t lib/main.dart) \
+      >"$SESSION/frontend-build.log" 2>&1 || {
+      echo "✗ Flutter macOS build failed" >&2
+      tail -80 "$SESSION/frontend-build.log" >&2
+      exit 1
+    }
+  elif ! (cd "$ROOT/frontend" && "$MISE" exec -- flutter build macos --debug -t lib/main.dart "${FRONTEND_BUILD[@]}") \
       >"$SESSION/frontend-build.log" 2>&1; then
     echo "✗ Flutter macOS build failed" >&2
     tail -80 "$SESSION/frontend-build.log" >&2
@@ -420,6 +455,13 @@ PY
 mkdir -p "$SESSION/evidence" "$RIG_HOME/bin" "$DATA"
 : >"$SESSION/startup-gate.jsonl"
 echo "→ rig session: $SESSION (port :$PORT, data $DATA)"
+if [ -n "$BACKEND_AUTH_TOKEN" ]; then
+  BACKEND_AUTH_TOKEN_FILE="$SESSION/backend-auth-token"
+  printf '%s\n' "$BACKEND_AUTH_TOKEN" >"$BACKEND_AUTH_TOKEN_FILE"
+  chmod 600 "$BACKEND_AUTH_TOKEN_FILE"
+  printf '{"ts":"%s","event":"backend_auth_token_configured","length":%s}\n' \
+    "$(date -u +%Y-%m-%dT%H:%M:%S.%NZ)" "${#BACKEND_AUTH_TOKEN}" >>"$SESSION/startup-gate.jsonl"
+fi
 check_screen_recording_permission
 
 case "$APP_FIRST" in
@@ -487,6 +529,34 @@ if [ "$APP_PROXY" = "1" ]; then
     exit 2
   fi
   [ -n "$APP_PROXY_PATH" ] || { echo "✗ RIG_APP_PROXY_PATH must not be empty" >&2; exit 2; }
+  if [ -n "$APP_PROXY_AUTH_TOKEN" ] && [ -z "$APP_PROXY_AUTH_PATH" ]; then
+    echo "✗ RIG_APP_PROXY_AUTH_PATH is required with RIG_APP_PROXY_AUTH_TOKEN" >&2
+    exit 2
+  fi
+  if ! [[ "$APP_PROXY_DROP_WORKSPACE_HEADER_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "✗ RIG_APP_PROXY_DROP_WORKSPACE_HEADER_COUNT must be a non-negative integer, got '$APP_PROXY_DROP_WORKSPACE_HEADER_COUNT'" >&2
+    exit 2
+  fi
+  if ! [[ "$APP_PROXY_REWRITE_HOST_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "✗ RIG_APP_PROXY_REWRITE_HOST_COUNT must be a non-negative integer, got '$APP_PROXY_REWRITE_HOST_COUNT'" >&2
+    exit 2
+  fi
+  if [ "$APP_PROXY_REWRITE_HOST_COUNT" -gt 0 ] && { [ -z "$APP_PROXY_REWRITE_HOST_PATH" ] || [ -z "$APP_PROXY_REWRITE_HOST" ]; }; then
+    echo "✗ RIG_APP_PROXY_REWRITE_HOST_PATH and RIG_APP_PROXY_REWRITE_HOST are required with a rewrite budget" >&2
+    exit 2
+  fi
+  if ! [[ "$APP_PROXY_REWRITE_PATH_COUNT" =~ ^[0-9]+$ ]] || ! [[ "$APP_PROXY_REWRITE_METHOD_COUNT" =~ ^[0-9]+$ ]]; then
+    echo "✗ App proxy path/method rewrite counts must be non-negative integers" >&2
+    exit 2
+  fi
+  if [ "$APP_PROXY_REWRITE_PATH_COUNT" -gt 0 ] && { [ -z "$APP_PROXY_REWRITE_PATH_FROM" ] || [ -z "$APP_PROXY_REWRITE_PATH_TO" ]; }; then
+    echo "✗ App proxy path rewrite requires from/to paths with a rewrite budget" >&2
+    exit 2
+  fi
+  if [ "$APP_PROXY_REWRITE_METHOD_COUNT" -gt 0 ] && { [ -z "$APP_PROXY_REWRITE_METHOD_PATH" ] || [ -z "$APP_PROXY_REWRITE_METHOD_FROM" ] || [ -z "$APP_PROXY_REWRITE_METHOD_TO" ]; }; then
+    echo "✗ App proxy method rewrite requires path/from/to with a rewrite budget" >&2
+    exit 2
+  fi
 fi
 
 PREFLIGHT_PORTS=()
@@ -569,7 +639,11 @@ if [ "$APP_FIRST" = "1" ]; then
 fi
 
 AUTH_ARGS=()
-[ "$APP_OWNS_BACKEND" = "1" ] && AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
+if [ "$APP_OWNS_BACKEND" = "1" ]; then
+  AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
+elif [ -n "$BACKEND_AUTH_TOKEN" ]; then
+  AUTH_ARGS=(-H "Authorization: Bearer $BACKEND_AUTH_TOKEN")
+fi
 # Keep optional auth expansion safe under `set -u`; an empty array is valid for an external backend.
 curl_backend() {
   if (( ${#AUTH_ARGS[@]} )); then
@@ -580,12 +654,14 @@ curl_backend() {
 }
 if [ "$APP_OWNS_BACKEND" = "0" ]; then
   startup_event backend_launch_requested
+  BACKEND_ENV=(ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA")
+  [ -n "$BACKEND_AUTH_TOKEN" ] && BACKEND_ENV+=(ANSELM_AUTH_TOKEN="$BACKEND_AUTH_TOKEN")
   if [ "$LLMTAP" = "1" ]; then
     BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
-      env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "${GATEWAY_ENV[@]}" "$RIG_HOME/bin/server")
+      env "${BACKEND_ENV[@]}" "${GATEWAY_ENV[@]}" "$RIG_HOME/bin/server")
   else
     BACKEND_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/backend.log" -- \
-      env ANSELM_DEV=1 ANSELM_ADDR=":$PORT" ANSELM_DATA_DIR="$DATA" "$RIG_HOME/bin/server")
+      env "${BACKEND_ENV[@]}" "$RIG_HOME/bin/server")
   fi
 else
   # The App captures its owned sidecar stderr into the Flutter console journal.  Materialize the
@@ -616,13 +692,29 @@ fi
 
 if [ "$APP_PROXY" = "1" ]; then
   APP_PROXY_JOURNAL="$SESSION/appproxy.jsonl"
+  APP_PROXY_ARGS=(
+    "$RIG_HOME/bin/appproxy" -listen "127.0.0.1:$APP_PROXY_PORT" -upstream "http://127.0.0.1:$PORT"
+    -delay-path "$APP_PROXY_PATH" -delay-ms "$APP_PROXY_DELAY_MS"
+    -fail-count "$APP_PROXY_FAIL_COUNT" -fail-status "$APP_PROXY_FAIL_STATUS"
+    -drop-after-ms "$APP_PROXY_DROP_AFTER_MS" -drop-count "$APP_PROXY_DROP_COUNT"
+    -fail-after-drop-count "$APP_PROXY_FAIL_AFTER_DROP_COUNT"
+    -fail-after-drop-delay-ms "$APP_PROXY_FAIL_AFTER_DROP_DELAY_MS"
+    -drop-workspace-header-count "$APP_PROXY_DROP_WORKSPACE_HEADER_COUNT" -out "$APP_PROXY_JOURNAL"
+    -rewrite-host-path "$APP_PROXY_REWRITE_HOST_PATH" -rewrite-host "$APP_PROXY_REWRITE_HOST"
+    -rewrite-host-count "$APP_PROXY_REWRITE_HOST_COUNT"
+    -rewrite-path-from "$APP_PROXY_REWRITE_PATH_FROM" -rewrite-path-to "$APP_PROXY_REWRITE_PATH_TO"
+    -rewrite-path-count "$APP_PROXY_REWRITE_PATH_COUNT"
+    -rewrite-method-path "$APP_PROXY_REWRITE_METHOD_PATH" -rewrite-method-from "$APP_PROXY_REWRITE_METHOD_FROM"
+    -rewrite-method-to "$APP_PROXY_REWRITE_METHOD_TO" -rewrite-method-count "$APP_PROXY_REWRITE_METHOD_COUNT"
+  )
+  if [ -n "$APP_PROXY_AUTH_TOKEN" ]; then
+    APP_PROXY_ARGS+=(
+      -upstream-auth-token "$APP_PROXY_AUTH_TOKEN"
+      -upstream-auth-path "$APP_PROXY_AUTH_PATH"
+    )
+  fi
   APP_PROXY_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/appproxy.log" -- \
-    "$RIG_HOME/bin/appproxy" -listen "127.0.0.1:$APP_PROXY_PORT" -upstream "http://127.0.0.1:$PORT" \
-    -delay-path "$APP_PROXY_PATH" -delay-ms "$APP_PROXY_DELAY_MS" \
-    -fail-count "$APP_PROXY_FAIL_COUNT" -fail-status "$APP_PROXY_FAIL_STATUS" \
-    -drop-after-ms "$APP_PROXY_DROP_AFTER_MS" -drop-count "$APP_PROXY_DROP_COUNT" \
-    -fail-after-drop-count "$APP_PROXY_FAIL_AFTER_DROP_COUNT" \
-    -fail-after-drop-delay-ms "$APP_PROXY_FAIL_AFTER_DROP_DELAY_MS" -out "$APP_PROXY_JOURNAL")
+    "${APP_PROXY_ARGS[@]}")
   for _ in $(seq 1 40); do
     [ "$(listener_pid "$APP_PROXY_PORT")" = "$APP_PROXY_PID" ] && break
     sleep 0.25
@@ -632,7 +724,7 @@ if [ "$APP_PROXY" = "1" ]; then
   }
   APP_BACKEND_URL="http://127.0.0.1:$APP_PROXY_PORT"
   startup_event app_proxy_started
-  echo "✓ App API perturbation proxy up (PID $APP_PROXY_PID, $APP_PROXY_PATH +${APP_PROXY_DELAY_MS}ms, failures=$APP_PROXY_FAIL_COUNT/$APP_PROXY_FAIL_STATUS, drops=$APP_PROXY_DROP_COUNT/${APP_PROXY_DROP_AFTER_MS}ms, post-drop failures=$APP_PROXY_FAIL_AFTER_DROP_COUNT/${APP_PROXY_FAIL_AFTER_DROP_DELAY_MS}ms)"
+  echo "✓ App API perturbation proxy up (PID $APP_PROXY_PID, $APP_PROXY_PATH +${APP_PROXY_DELAY_MS}ms, failures=$APP_PROXY_FAIL_COUNT/$APP_PROXY_FAIL_STATUS, drops=$APP_PROXY_DROP_COUNT/${APP_PROXY_DROP_AFTER_MS}ms, post-drop failures=$APP_PROXY_FAIL_AFTER_DROP_COUNT/${APP_PROXY_FAIL_AFTER_DROP_DELAY_MS}ms, drop-workspace-header-count=$APP_PROXY_DROP_WORKSPACE_HEADER_COUNT)"
 fi
 
 check_channel5_wiring() {
@@ -695,7 +787,11 @@ if [ "$APP_FIRST" != "1" ]; then
   # Dynamic discovery is essential: with RIG_SEED=0 there is no workspace until onboarding, and later
   # workspace-switch journeys create more. One resident process discovers and taps all of them.
   SSETAP_ARGS=(-base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
-  [ "$APP_OWNS_BACKEND" = "1" ] && SSETAP_ARGS+=(-token "$APP_AUTH_TOKEN")
+  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+    SSETAP_ARGS+=(-token "$APP_AUTH_TOKEN")
+  elif [ -n "$BACKEND_AUTH_TOKEN" ]; then
+    SSETAP_ARGS+=(-token "$BACKEND_AUTH_TOKEN")
+  fi
   TAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/ssetap.log" -- \
     "$RIG_HOME/bin/ssetap" "${SSETAP_ARGS[@]}")
   startup_event ssetap_started
@@ -705,7 +801,11 @@ else
   # The App was deliberately started before the backend. Start the SSE witness only after the
   # backend is healthy; its connection time is still captured in the same session manifest.
   SSETAP_ARGS=(-base "http://127.0.0.1:$PORT" -all-workspaces -out "$SESSION/sse.jsonl")
-  [ "$APP_OWNS_BACKEND" = "1" ] && SSETAP_ARGS+=(-token "$APP_AUTH_TOKEN")
+  if [ "$APP_OWNS_BACKEND" = "1" ]; then
+    SSETAP_ARGS+=(-token "$APP_AUTH_TOKEN")
+  elif [ -n "$BACKEND_AUTH_TOKEN" ]; then
+    SSETAP_ARGS+=(-token "$BACKEND_AUTH_TOKEN")
+  fi
   TAP_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/ssetap.log" -- \
     "$RIG_HOME/bin/ssetap" "${SSETAP_ARGS[@]}")
   startup_event ssetap_started
@@ -720,6 +820,7 @@ json.dump({
   "appSidecarPid": "$APP_SIDECAR_PID",
   "appOwnsBackend": "$APP_OWNS_BACKEND",
   "appAuthTokenFile": "$APP_AUTH_TOKEN_FILE",
+  "backendAuthTokenFile": "$BACKEND_AUTH_TOKEN_FILE",
   "tapPid": "$TAP_PID",
   "llmtapPid": "$LLMTAP_PID",
   "llmtapPort": $LLMTAP_PORT,
@@ -733,12 +834,24 @@ json.dump({
   "mediaProcessDelayMs": "${ANSELM_RIG_MEDIA_PROCESS_DELAY_MS:-0}",
   "speechCacheBudgetBytes": "${ANSELM_RIG_SPEECH_CACHE_BUDGET_BYTES:-0}",
   "playbackLeaseTtlMs": "${ANSELM_RIG_PLAYBACK_LEASE_TTL_MS:-0}",
+  "prefillSkillSourceConfigured": $PREFILL_SKILL_SOURCE_CONFIGURED,
   "appProxyPid": "$APP_PROXY_PID",
   "appProxyPort": $APP_PROXY_PORT,
   "appProxyJournal": "$APP_PROXY_JOURNAL",
   "appProxyDelayMs": $APP_PROXY_DELAY_MS,
   "appProxyFailCount": $APP_PROXY_FAIL_COUNT,
   "appProxyFailStatus": $APP_PROXY_FAIL_STATUS,
+  "appProxyDropWorkspaceHeaderCount": $APP_PROXY_DROP_WORKSPACE_HEADER_COUNT,
+  "appProxyRewriteHostPath": "$APP_PROXY_REWRITE_HOST_PATH",
+  "appProxyRewriteHost": "$APP_PROXY_REWRITE_HOST",
+  "appProxyRewriteHostCount": $APP_PROXY_REWRITE_HOST_COUNT,
+  "appProxyRewritePathFrom": "$APP_PROXY_REWRITE_PATH_FROM",
+  "appProxyRewritePathTo": "$APP_PROXY_REWRITE_PATH_TO",
+  "appProxyRewritePathCount": $APP_PROXY_REWRITE_PATH_COUNT,
+  "appProxyRewriteMethodPath": "$APP_PROXY_REWRITE_METHOD_PATH",
+  "appProxyRewriteMethodFrom": "$APP_PROXY_REWRITE_METHOD_FROM",
+  "appProxyRewriteMethodTo": "$APP_PROXY_REWRITE_METHOD_TO",
+  "appProxyRewriteMethodCount": $APP_PROXY_REWRITE_METHOD_COUNT,
   "appBackendUrl": "$APP_BACKEND_URL",
   "runnerPid": "$RUNNER_PID",
   "appLaunchPid": "$APP_LAUNCH_PID",

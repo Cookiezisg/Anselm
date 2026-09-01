@@ -208,6 +208,23 @@ func TestUntar_ArchiveBombLimits(t *testing.T) {
 	}
 }
 
+func TestReadArchive_CompressedByteLimit(t *testing.T) {
+	// Use an endless reader so the test exercises the exact boundary without building a second
+	// gzip fixture; the fetch layer must reject before handing truncated bytes to gzip.
+	if _, err := readArchive(endlessReader{}); !errors.Is(err, skilldomain.ErrInstallTooLarge) {
+		t.Fatalf("archive over %d bytes must be too large, got %v", maxArchiveBytes, err)
+	}
+}
+
+type endlessReader struct{}
+
+func (endlessReader) Read(p []byte) (int, error) {
+	for i := range p {
+		p[i] = 0
+	}
+	return len(p), nil
+}
+
 func TestFetch_PlatformJunkDropped(t *testing.T) {
 	// AppleDouble ._* / .DS_Store / __MACOSX/ / Thumbs.db 绝不作为 skill 文件落盘（真机实测缺口）。
 	body := tgz(t, map[string]string{

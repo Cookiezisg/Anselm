@@ -350,20 +350,14 @@ void main() {
           reason: '二级带返回',
         );
 
+        Finder day(int value) => find.bySemanticsLabel(
+          '${now.year}-${now.month.toString().padLeft(2, '0')}-${value.toString().padLeft(2, '0')}',
+        );
+
         // First pick starts, second (later) ends; the preview line echoes in plain ink. 首击起次击收。
-        await tester.tap(
-          find.descendant(
-            of: find.byType(AnCalendar),
-            matching: find.text('10'),
-          ),
-        );
+        await tester.tap(day(10));
         await tester.pump();
-        await tester.tap(
-          find.descendant(
-            of: find.byType(AnCalendar),
-            matching: find.text('20'),
-          ),
-        );
+        await tester.tap(day(20));
         await tester.pump();
         expect(changes, isEmpty, reason: '未应用不提交');
         expect(
