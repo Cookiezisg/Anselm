@@ -27,7 +27,8 @@
     {"family": "EDGE", "item": "删音色上游失败保行"},
     {"family": "EDGE", "item": "父进程死人开关"},
     {"family": "EDGE", "item": "每租户模板 URL"},
-    {"family": "EDGE", "item": "MCP 市场缺必填 env"}
+    {"family": "EDGE", "item": "MCP 市场缺必填 env"},
+    {"family": "EDGE", "item": "编辑器 undo 全量重建"}
   ],
   "manual_queue": [
     {
@@ -733,7 +734,7 @@
     {
       "family": "EDGE",
       "item": "编辑器 undo 全量重建",
-      "reason": "真实 App 现场需执行编辑器 undo 并观察全文重建；当前系统窗口覆盖录制区域，统一留到人工尾队。"
+      "reason": "真实 App 现场需执行编辑器 undo 并观察全文重建；本轮 Computer Use 无法可靠形成正文编辑焦点或发送可验证的 Command+Z，误插入诊断已封存为 testend/rig/formal-evidence/EDGE-313-editor-undo-rebuild-l4-computer-use-blocked-20260901.md；等待真实物理输入或修复后的输入桥，统一留到人工尾队。"
     },
     {
       "family": "EDGE",

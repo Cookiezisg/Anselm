@@ -2,7 +2,7 @@
 
 ## L1 focused evidence
 
-- `backend/internal/transport/httpapi/response/errmap_test.go:TestFromDomainErrorContextCanceled` 通过，标准 context canceled/deadline 分别映射 `CLIENT_CLOSED` 与 `REQUEST_TIMEOUT`。
+- `backend/internal/transport/httpapi/response/errmap_test.go:TestFromDomainErrorContextCanceled` 与 `TestFromDomainErrorContextDeadlineExceeded` 通过，标准 context canceled/deadline 分别映射 `CLIENT_CLOSED` 与 `REQUEST_TIMEOUT`。
 - `backend/internal/transport/httpapi/response/errmap_test.go` 的 wrapped/unknown error 回归确认 typed error 不被吞、未知错误不泄露内部异常；通过。
 
 ## 判定

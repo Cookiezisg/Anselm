@@ -758,6 +758,7 @@ class DemoChatRepository extends FixtureChatRepository {
     // ACT 2.8 — write_memory: the memo slip (a long-tail stage spot-check on the real machine).
     // 幕 2.8:记忆笺(长尾舞台真机抽查)。
     final memId = 'blk_demo_mm${_demoSeq++}';
+    final memResultId = 'blk_demo_mmr${_demoSeq++}';
     frame(
       31,
       memId,
@@ -804,6 +805,33 @@ class DemoChatRepository extends FixtureChatRepository {
         ),
       ),
       step: 300,
+    );
+    // Every tool call has an execution-result bracket. Keeping this in the fixture is important because
+    // the transcript's terminal recovery guard uses the same invariant as the real stream.
+    // 每个工具调用都必须有执行结果括号;终局恢复守卫与真流共用这条不变量,夹具不能省略。
+    frame(
+      51,
+      memResultId,
+      FrameOpen(
+        parentId: memId,
+        node: const StreamNode(
+          type: 'tool_result',
+          content: {'content': 'Memory "retry-policy" saved.'},
+        ),
+      ),
+      step: 40,
+    );
+    frame(
+      52,
+      memResultId,
+      const FrameClose(
+        status: 'completed',
+        result: StreamNode(
+          type: 'tool_result',
+          content: {'content': 'Memory "retry-policy" saved.'},
+        ),
+      ),
+      step: 80,
     );
     _timers.add(
       Timer(Duration(milliseconds: at + 40), () {

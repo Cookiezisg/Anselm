@@ -1,0 +1,16 @@
+EDGE-308 L4 Computer Use AX witness
+session: /private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-174601
+
+Failure state, after moving the pointer over the failed Activity row:
+  button edge308_failure_l4
+    button Clear this row
+  text Run failed · inspect the error below
+
+After clicking Clear this row:
+  button edge308_failure_l4
+  Ran
+
+The center transcript remained unchanged after the row-level clear: the failed
+tool call, traceback, and assistant explanation were still present. The clear
+action removed the failure-hold presentation only; it did not delete or rerun
+the durable execution.

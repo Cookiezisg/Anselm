@@ -46,6 +46,7 @@ else
   BPID=$(field backendPid)
   APP_OWNS_BACKEND=$(field appOwnsBackend)
   APP_AUTH_TOKEN_FILE=$(field appAuthTokenFile)
+  BACKEND_AUTH_TOKEN_FILE=$(field backendAuthTokenFile)
   TPID=$(field tapPid)
   LPID=$(field llmtapPid)
   LPORT=$(field llmtapPort)
@@ -133,6 +134,9 @@ PY
       APP_AUTH_TOKEN=$(head -1 "$APP_AUTH_TOKEN_FILE")
       AUTH_ARGS=(-H "Authorization: Bearer $APP_AUTH_TOKEN")
     fi
+  elif [ -n "$BACKEND_AUTH_TOKEN_FILE" ] && [ -s "$BACKEND_AUTH_TOKEN_FILE" ]; then
+    BACKEND_AUTH_TOKEN=$(head -1 "$BACKEND_AUTH_TOKEN_FILE")
+    AUTH_ARGS=(-H "Authorization: Bearer $BACKEND_AUTH_TOKEN")
   fi
   # Keep optional auth expansion safe under `set -u`; an empty array is valid for an external backend.
   curl_backend() {
