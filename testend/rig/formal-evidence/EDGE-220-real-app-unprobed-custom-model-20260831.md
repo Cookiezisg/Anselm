@@ -70,4 +70,3 @@ modelId 输入或选择入口，必须撤销本项 `na` 并重新跑 L2-L5；不
 - SSE：notifications/messages/entities 三流均连接；消息 user open/close、assistant open/error close 完整
 - frontend：只有已知 macOS `IMKCFRunLoopWakeUpReliable` 平台诊断，无 Flutter/Dart 应用红线
 - LLM wire：managed challenge 与自动标题请求均 `200`；custom dead endpoint 是目标故障注入，不伪装为 managed 失败
-

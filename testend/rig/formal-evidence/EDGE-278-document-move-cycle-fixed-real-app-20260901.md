@@ -55,4 +55,3 @@
 - `testend/scenarios/contract_docs_att_test.go:TestContractDocsAtt_DocumentChildrenDuplicateMove` 通过。
 - 实现位于 `backend/internal/app/document/document.go:348`，自指和后代目标均返回
   `ErrInvalidParent`，事务不写入部分结果。
-

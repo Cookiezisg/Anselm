@@ -29,4 +29,3 @@ SIGTERM、installer `context canceled`、lexical fallback 与快速 sidecar 退�
 因此本告警属于已识别的统计阈值信号，不发现裁判停止寻找证据或证据污染；未修改阈值、
 算法、法典、锚点、顺序门或覆盖清册生成规则。按 `alarms.py ack` 销账，继续时仍受
 同一套 gate 约束。
-

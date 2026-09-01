@@ -33,4 +33,3 @@ Session: `/private/tmp/anselm-rig-formal-20260801-3/sessions/20260830-150746`
   no streaming orphan remained.
 - **L3/L4/L5 remain open**: this scenario proves lifecycle recovery, not independent timing,
   geometry/aesthetic, or discoverability quality.
-

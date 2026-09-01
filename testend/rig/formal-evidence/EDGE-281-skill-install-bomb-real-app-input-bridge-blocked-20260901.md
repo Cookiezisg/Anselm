@@ -33,4 +33,3 @@
   与原有 symlink、条目数、解压累计上限测试均通过。
 - `docs/references/backend/domains/skill.md` 已同步记录 `100 MiB / 200 MiB / 4096 / 1 MiB`
   四个阈值和错误语义。
-

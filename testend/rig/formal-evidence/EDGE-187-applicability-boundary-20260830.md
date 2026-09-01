@@ -22,4 +22,3 @@ L4（该 seam 专属的视觉 craft）和 L5（该 seam 专属的发现入口）
 - `frontend/lib`：未发现 schema migration 状态、控件或 reindex/migration 调用点。
 - focused 证据：
   `testend/rig/formal-evidence/EDGE-187-search-schema-version-rebuild-20260825.md`
-

@@ -71,4 +71,3 @@ finalized the `234.660000s` recording and stopped all conductor-owned processes.
   clipping, overflow, or reflow damage.
 - L5 `G1`: a normal user can recover from the message alone by switching into the created
   worktree from the menu; no Git internals or acceptance-rig knowledge is required.
-

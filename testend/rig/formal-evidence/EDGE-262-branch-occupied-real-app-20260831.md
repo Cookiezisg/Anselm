@@ -79,4 +79,3 @@ Focused regression:
 cd frontend && mise exec -- flutter test test/features/chat/ui/chat_work_dir_button_test.dart
 00:01 +23: All tests passed!
 ```
-

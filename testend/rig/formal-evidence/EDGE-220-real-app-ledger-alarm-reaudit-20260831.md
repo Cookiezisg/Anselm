@@ -16,4 +16,3 @@
 - `anchors.py check` remains `10/10`; after these notes are acknowledged, `alarms.py check` must be
   clean before the next judgment. `gen_coverage.py --check` must remain `848 rows, 848 carried
   judgments, 0 tombstones`.
-

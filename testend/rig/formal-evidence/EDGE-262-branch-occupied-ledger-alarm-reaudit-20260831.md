@@ -17,4 +17,3 @@ The re-audit changed no alarm threshold, curve algorithm, CODEX law, anchor answ
 five-level standard, or sequence gate. Discovery-collapse and pass-burst signals caused
 by the four judgment writes were independently re-audited and acknowledged. The final
 alarm check was clean.
-

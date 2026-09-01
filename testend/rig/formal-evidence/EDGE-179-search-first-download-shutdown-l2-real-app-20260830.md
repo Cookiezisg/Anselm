@@ -44,4 +44,3 @@ GET /api/v1/search/settings
 本证据只证明首用下载中的 engine Close 能在真实台架上取消 installer 并快速收口，
 且五个观察通道均已存在。由于 App 没有进入可见的搜索设置/下载状态页面，L3 的
 可见终态时序、L4 的视觉 craft、L5 的新用户发现性均不由本格覆盖，保持未收口。
-

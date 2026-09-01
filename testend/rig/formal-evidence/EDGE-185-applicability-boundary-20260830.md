@@ -24,4 +24,3 @@ hash 约束 opaque cursor，异查询必须返回 `SEARCH_CURSOR_INVALID`。当�
   由 REST 侧承载，不构成独立 Flutter 操作面。
 - L2 现场证据：
   `/private/tmp/anselm-rig-formal-20260801-7/sessions/20260830-233247/evidence/EDGE-185-search-cursor-query-binding-l2-real-app-20260830.md`
-

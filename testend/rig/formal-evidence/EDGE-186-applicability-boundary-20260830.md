@@ -26,4 +26,3 @@
   数据与响应体验；本行只额外定义并发单飞与就地重建 seam。
 - focused/black-box 证据：
   `testend/rig/formal-evidence/EDGE-186-search-reindex-singleflight-inplace-20260825.md`
-

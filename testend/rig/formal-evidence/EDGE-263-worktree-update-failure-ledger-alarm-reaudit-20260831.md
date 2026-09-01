@@ -17,4 +17,3 @@ The gap-too-fast and discovery-collapse alarms raised by the four sequential jud
 writes were independently acknowledged under the existing policy. No alarm threshold,
 curve algorithm, CODEX law, anchor answer, five-level standard, or sequence gate changed.
 The final alarm check was clean.
-
