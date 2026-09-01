@@ -12,7 +12,7 @@ landed-into:
 
 # WRK-087 · 端到端全产品验收循环(acceptance loop)
 
-## 当前精确状态（2026-09-01 · EDGE-283 收口；批次 87 继续推进）
+## 当前精确状态（2026-09-01 · EDGE-285 收口；批次 87 继续推进）
 
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
 
@@ -24,13 +24,15 @@ EDGE-244 L4 曾因真实尾帧暴露
 知识即可发现认证原因和 Retry。最终证据=`testend/rig/formal-evidence/EDGE-244-bearer-token-missing-real-app-l4-fixed-20260831.md`、
 `...-l5-fixed-20260831.md`，红证据=`...-l4-raw-detail-red-20260831.md`。
 
-清册准确重算为 `848` 行：`767` 行五级已结算、`81` 行开放；`3995` 个单元已结算、
-`245` 个单元开放。`manual_queue=173`、`forced_queue=26`；批次 87=`202/50`，统一
+清册准确重算为 `848` 行：`768` 行五级已结算、`80` 行开放；`3998` 个单元已结算、
+`242` 个单元开放。`manual_queue=173`、`forced_queue=26`；批次 87=`207/50`，统一
 长门禁仍按每满 50 格执行，未在本批提前提交。`EDGE-272|分组计数跨翻页不漂移` 已完成
 真实 App 的分页、顺滑、视觉和可发现性五级验收；`EDGE-273|?workDir= 三态 presence` 也已完成
 真实 App 的三态筛选五级验收，`EDGE-277|文档改名子树级联` 已完成修复后的真实 App 五级验收，
-`EDGE-278|文档 Move 防环` 已完成真实 App 五级验收，顺序门当前下一自主前线为
-`EDGE-280` 已保留在强制队列，当前下一自主前线为 `EDGE-284`（skill 清单拒删）。
+`EDGE-278|文档 Move 防环` 已完成真实 App 五级验收，`EDGE-285|大小写不敏感 FS 上的 skill.md`
+已完成真实 App/sidecar/SSE/LLM tap/录屏交叉验收，L2=`F2`、L3-L5 为明确适用性 `na`；
+顺序门将强制人工项 `EDGE-284|skill 清单拒删` 留在尾队，当前下一自主前线为
+`EDGE-286|skill 目录前导兜底`。
 `EDGE-269|驻地分组批量删除范围` 仍保留在强制人工队列，不能越过或降为 `na`。
 EDGE-254、EDGE-256、EDGE-257、
 EDGE-258、EDGE-259、EDGE-261、EDGE-262、EDGE-263 与 EDGE-264 的
@@ -1059,7 +1061,24 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-09-01 EDGE-272 收口；批次 87 162/50)
+### 5.2 Day 0 当前状态(整体重述,2026-09-01 EDGE-285 收口；批次 87 207/50)
+
+当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：
+清册 `848` 行，`768` 行五级结算，`80` 行仍开放；`3998` 个单元已结算、`242` 个单元开放；
+`manual_queue=173`，`forced_queue=26`。`EDGE-285|大小写不敏感 FS 上的 skill.md` 已在真实
+macOS App 台架完成：先在隔离 workspace 形成小写 `skill.md`，再经真实 App 所接 sidecar 写入
+`SKILL.md`，macOS 大小写别名保持同一 inode，内容、REST 回读与 Library 展示一致；五通道、
+录屏封口和 owned process 收台均通过。L2=`F2`；L3-L5 为明确适用性 `na`，不将没有独立交互等待、
+视觉组件或发现决策的 filesystem 边界伪装成产品层通过。session=`sessions/20260901-123103`，
+正式证据=`testend/rig/formal-evidence/EDGE-285-skill-case-insensitive-manifest-real-app-20260901.md`。
+本格四次裁决后的 discovery/gap 警报均按同一 anchor set `10/10` 复核并串行 ack，最终
+`alarms.py check`=`clean (258 live judgments; 4240 baseline judgments excluded from drift curves)`，
+`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。批次 87 由 `202` 推进至
+`207/50`；未改阈值、法典、锚点、五级标准或顺序 gate。强制人工尾项 `EDGE-284|skill 清单拒删`
+仍不得越过，当前下一自主前线为 `EDGE-286|skill 目录前导兜底`；P12 的 400+ Journey 扩写按用户
+裁定推迟二期。
+
+> 以下为早期批次的历史快照，仅保留审计上下文，不覆盖上面的当前重算结果。
 
 当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：清册 `848` 行，`758` 行五级结算，`90` 行仍开放；`3959` 个单元已结算、`281` 个单元开放；`manual_queue=173`，其中实际需要用户强制交互的 `forced_queue=26`。`EDGE-272|分组计数跨翻页不漂移` 已完成真实 App 五级验收：同一 session 中 31 个 active、1 个 archived 的驻地成员拆成 16 页，每页 2 条；每页后服务端投影均为 `activeCount=31, archivedCount=1`，最终 32 个唯一成员闭合且 pinned 未混入；真实 App 组头在滚动前后稳定显示 `31`，无空白、重复、旧计数或 spinner。L2=`F2`、L3=`B2`、L4=`C4`、L5=`G1`；session=`sessions/20260901-091811`，L2 证据=`sessions/20260901-091811/evidence/EDGE-272-count-paging-real-app.md`，L3-L5 证据分别为 `testend/rig/formal-evidence/EDGE-272-count-paging-{smooth,craft,discoverability}-real-app-20260901.md`，账本复审=`testend/rig/formal-evidence/EDGE-272-count-paging-ledger-alarm-reaudit-20260901.md`。五通道、`rig-check`/`rig-down` 和进程收台均通过；四次统计警报均按原阈值逐条复核并串行 ack，最终 `alarms.py check`=`clean (219 live judgments; 4240 baseline judgments excluded)`，`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`。批次 87 已由 `157` 推进至 `162/50`；未改阈值、法典、锚点、五级标准或顺序 gate。下一自主前线为 `EDGE-273`（`?workDir=` 三态 presence）；`EDGE-269|驻地分组批量删除范围` 仍在强制人工队列，待自动项耗尽后再写入，不因已有现场证据而越过顺序门。P12 的 400+ Journey 扩写按用户裁定推迟二期。
 

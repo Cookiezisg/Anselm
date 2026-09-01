@@ -10,6 +10,25 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-09-01 · EDGE-285 大小写不敏感 manifest 真实台架收口，批次 87 207/50
+
+在隔离 workspace 启动完整 acceptance rig，真实 macOS App、backend、三路 SSE witness、LLM tap
+和窗口录屏均由同一 manifest 归属。通过真实 sidecar API 创建 `edge285-casefold`，将实际
+`SKILL.md` 改为小写 `skill.md`，再经 files API 写回 `SKILL.md`。响应为 `204`；macOS 大小写
+别名解析为同一 inode，写回后的 description/body 正确，目录没有被误清理，真实 Library 打开
+skill 后标题、描述和正文均显示新内容。
+
+session=`/private/tmp/anselm-rig-formal-20260831-11/sessions/20260901-123103`，录像 77.006667s，
+`rig-check`/`rig-down` 通过，backend 无 ERROR/WARN/panic，frontend 无 Dart/Flutter/layout 红线，
+SSE 三流连接并记录 `skill.created`/`skill.updated` durable signal，LLM tap 完成真实 managed
+challenge/install/models wiring（本场景无模型调用，不伪造聊天 wire 证据）。正式证据=
+`testend/rig/formal-evidence/EDGE-285-skill-case-insensitive-manifest-real-app-20260901.md`；
+L2=`F2`，L3-L5 为明确适用性 `na`。四次裁决触发的统计警报均按同一 anchors=`10/10` 复核并串行
+ack，最终 `alarms.py check`=`clean (258 live judgments; 4240 baseline judgments excluded)`；
+`gen_coverage.py --check`=`848/848/0`。清册由 `767/848` 行、`3995` 单元完成推进为 `768/848` 行、
+`3998` 单元完成，开放 `80` 行、`242` 单元；批次 `202→207/50`。未改阈值、法典、锚点、五级标准
+或顺序 gate。强制人工 `EDGE-284` 留在尾队，下一自主前线为 `EDGE-286`。
+
 ## 2026-09-01 · EDGE-283 skill 路径穿越修复后真实台架收口，批次 87 202/50
 
 真实台架在隔离 workspace 的已安装 `commit-helper` skill 下，对相对穿越、编码 dot-segment、编码
