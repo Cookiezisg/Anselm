@@ -2,7 +2,6 @@
   "version": 1,
   "mode": "first_unsettled",
   "forced_queue": [
-    {"family": "EDGE", "item": "触点 deleted 行借名"},
     {"family": "EDGE", "item": "OS 通知被静默拒"},
     {"family": "EDGE", "item": "快捷键冷启动"},
     {"family": "EDGE", "item": "父进程死人开关"},

@@ -34,7 +34,7 @@ nightly repetition; no code or gate threshold was changed to make it pass.
 
 After the four EDGE-296 judgments, the authoritative matrix is 848 rows: 834 fully settled and
 50 cells open; 4190 cells are settled and 50 remain open. `manual_queue=165` and
-`forced_queue=15`; the current batch is 53/50. The next forced item is
+`forced_queue=14`; the current batch is 53/50. The next forced item is
 `EDGE|OS 通知被静默拒`, which requires a signed build and macOS notification permission and is
 not replaced by an unsigned development-bundle result.
 
