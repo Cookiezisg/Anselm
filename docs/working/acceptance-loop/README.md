@@ -26,9 +26,14 @@ landed-into:
 自主格耗尽后，严格选择 `ledger-sequence.json` 的 `forced_queue` 第一条未完成项；不再按 COVERAGE 的行序
 间接决定人工前线。当前内部人工前线为 `EDGE|被引用的 key 拒删`；完成一格后按同一显式队列继续。
 
-## 当前精确状态（2026-09-05 · EDGE-294 修复后五级收口；批次 90 为 49/50）
+## 当前精确状态（2026-09-05 · EDGE-296 五级收口；Batch 90 统一门禁已通过）
 
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
+
+当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=14`。Batch 90=`53/50`
+的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；当前强制前线为
+`EDGE|OS 通知被静默拒`。它依赖签名构建和 macOS 通知权限，不能用 unsigned dev bundle 的静默拒绝冒充产品验收；P12 的
+400+ Journey 扩写仍按用户裁定推迟二期。
 
 上一停驻：`EDGE-215|受管 key 不可变` 已在正式真实 App session
 `/private/tmp/anselm-rig-formal-20260905-edge293/sessions/20260905-024959` 完成验收。真实 Settings → Models & keys
@@ -62,11 +67,11 @@ hover-only 删除按钮，因此 L3（拒绝反馈时延）、L4（错误态视�
 LLM wire 全部 `200`。正式证据=`testend/rig/formal-evidence/EDGE-294-touchpoint-deny-no-delete-real-app-fixed-20260905.md`；
 红证据=`testend/rig/formal-evidence/EDGE-294-duplicate-repeat-no-final-red-20260905.md`；账本已写入 `L2:F1`、`L3:A4`、`L4:C4`、`L5:G1`。
 本次修复没有削弱重复调用的“不二次执行、不二次审批”门，且最终文本同时进入真实画面与 durable SSE。Edge-294 已从 `forced_queue` 移除。
-当前清册为 `833/848` 行五级结算、`4186/4240` 格结算，开放 `54` 格；`manual_queue=165`、`forced_queue=14`；批次 90=`49/50`，
+历史快照当时为 `833/848` 行五级结算、`4186/4240` 格结算，开放 `54` 格；`manual_queue=165`、`forced_queue=14`；批次 90=`49/50`，
 未满 50 格不执行统一长门禁、不提交。`EDGE-242|keychain 铸钥只对全新安装` 的 8 分支 Flutter focused test
 已自动通过，但真实旧数据库 + 无登录 keychain 条目的冷启动条件无法在当前安装上安全隔离；没有把它写成 L2-L5 的 pass/na，
 已保留在 manual_queue 并移到 forced queue 尾部。正式边界记录=`testend/rig/formal-evidence/EDGE-242-keychain-existing-install-autonomous-boundary-20260905.md`；
-顺序门当前前线释放为 `EDGE|触点 deleted 行借名`；Edge-216 的 L3-L5、Edge-294 之前的红证据审计均保持可追溯。
+该历史快照的顺序门曾释放为 `EDGE|触点 deleted 行借名`；Edge-216 的 L3-L5、Edge-294 之前的红证据审计均保持可追溯。
 P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 
 上一停驻：`EDGE-293|删被依赖实体` 首轮发现删除确认没有告知三个 Agent 挂载影响，已按 stop-and-fix 冻结并修复；随后用全新夹具完成真实 App 的最终删除复跑。删除确认中的主句和详情现在均自然换行且完整显示三个 Agent 名称，不以省略号隐藏影响范围；删除后 Function 名册与关系图均为空，通知保留完整的删除对象、三个依赖者和“需要修复”后果。首轮截断红证据=`testend/rig/formal-evidence/EDGE-293-dependency-delete-visual-red-20260905.md`，最终证据=`testend/rig/formal-evidence/EDGE-293-dependency-delete-real-app-20260905.md`，五通道会话证据=`/private/tmp/anselm-rig-formal-20260905-edge293/sessions/20260905-005633/evidence/EDGE-293-five-channel.md`。
@@ -1240,7 +1245,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-09-05 · Edge296 L2-L3 已收口；批次 90 已越过 50 格)
+### 5.2 Day 0 当前状态(整体重述,2026-09-05 · Edge296 五级收口；Batch 90 统一门禁已通过)
 
 当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准。前线 `EDGE-296|触点 deleted 行借名` 已完成真实 App 的删除、Activity 台账和五通道复核：实体详情返回 `AGENT_NOT_FOUND`，持久触点保留 `itemName=""`，Activity 显示实体 ID 与 `Deleted`，没有从无关兄弟借名；正式证据=`testend/rig/formal-evidence/EDGE-296-touchpoint-deleted-name-real-app-20260905.md`，session=`/private/tmp/anselm-rig-formal-20260905-edge296/sessions/20260905-042111`。L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1` 已由 `judge.py` 写账。最终自然语言曾把含数字后缀的测试名称改写成英文短语，但 REST、SSE、LLM tool result、搜索 thought 和 Activity 台账的真实值一致；该现象另记为文本保真度观察，不掩盖也不改变本 edge 的触点判定。
 
