@@ -31,9 +31,9 @@ landed-into:
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
 
 当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=14`。Batch 90=`53/50`
-的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；当前强制前线为
-`EDGE|OS 通知被静默拒`。它依赖签名构建和 macOS 通知权限，不能用 unsigned dev bundle 的静默拒绝冒充产品验收；P12 的
-400+ Journey 扩写仍按用户裁定推迟二期。
+的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；`OS 通知被静默拒` 已确认依赖
+签名构建和 macOS 通知权限，按“实在无法自动完成则跳过”的裁定后置到 forced queue 末尾，不判绿、不写 `na`；当前强制前线为
+`EDGE|快捷键冷启动`。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 
 上一停驻：`EDGE-215|受管 key 不可变` 已在正式真实 App session
 `/private/tmp/anselm-rig-formal-20260905-edge293/sessions/20260905-024959` 完成验收。真实 Settings → Models & keys
@@ -1249,7 +1249,7 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 
 当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准。前线 `EDGE-296|触点 deleted 行借名` 已完成真实 App 的删除、Activity 台账和五通道复核：实体详情返回 `AGENT_NOT_FOUND`，持久触点保留 `itemName=""`，Activity 显示实体 ID 与 `Deleted`，没有从无关兄弟借名；正式证据=`testend/rig/formal-evidence/EDGE-296-touchpoint-deleted-name-real-app-20260905.md`，session=`/private/tmp/anselm-rig-formal-20260905-edge296/sessions/20260905-042111`。L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1` 已由 `judge.py` 写账。最终自然语言曾把含数字后缀的测试名称改写成英文短语，但 REST、SSE、LLM tool result、搜索 thought 和 Activity 台账的真实值一致；该现象另记为文本保真度观察，不掩盖也不改变本 edge 的触点判定。
 
-本轮 session 已由 `rig-down.sh` 封口，`screen.mov` 可读；`rig-check.sh` 通过五通道物理归属，backend/frontend 无应用级红线，三路 SSE 已连接且 durable seq 单调，LLM wire 请求/响应齐全。历史账本已连续接回，`anchors.py check`=`10/10`，L2-L5 写账后的独立警报复审均已销账，最终 `alarms.py check`=`clean`；当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=14`。Batch 90=`53/50` 的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；提交后下一批次从 `0/50` 重新计数。Edge296 已从 `forced_queue` 移除，下一强制前线按显式队列为 `EDGE|OS 通知被静默拒`；该项依赖签名构建与 macOS 通知权限，不以当前 unsigned dev bundle 冒充通过。其余强制尾队保持原顺序，不写 provisional `na`，P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+本轮 session 已由 `rig-down.sh` 封口，`screen.mov` 可读；`rig-check.sh` 通过五通道物理归属，backend/frontend 无应用级红线，三路 SSE 已连接且 durable seq 单调，LLM wire 请求/响应齐全。历史账本已连续接回，`anchors.py check`=`10/10`，L2-L5 写账后的独立警报复审均已销账，最终 `alarms.py check`=`clean`；当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=14`。Batch 90=`53/50` 的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；提交后下一批次从 `0/50` 重新计数。Edge296 已从 `forced_queue` 移除，`OS 通知被静默拒` 因签名构建和 macOS 通知权限阻碍已后置到 forced queue 末尾，不判绿、不写 `na`；当前强制前线为 `EDGE|快捷键冷启动`。其余强制尾队保持原顺序，不写 provisional `na`，P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 下方内容均为历史现场快照，只用于保留决策与修复轨迹，不覆盖本段当前数字或下一前线。
 本段后续记录中的“`gen_coverage.py --check` 待本次本地验证”是写入前的临时措辞，已由本轮本地验证完成并更正为 `848 rows, 848 carried judgments, 0 tombstones`；以下 EDGE-342、EDGE-341、EDGE-340、EDGE-339、EDGE-333 及 EDGE-332 状态以本段当前快照为准。
 `EDGE-327|workspace 热切换三拍`、`EDGE-330|设置项搜索索引漂移`、`EDGE-331|限额面板载入失败`、`EDGE-332|MCP 面板帧不可信`、`EDGE-333|保留面板无客户端默认`、`EDGE-339|BYOK base URL 模板未填占位`、`EDGE-340|Vertex service-account 文件校验`、`EDGE-341|未验证供应商诚实徽标` 的本轮真实 App 结果均已按对应法条写入；EDGE-341 L3/L4/L5=`A1/C4/G1`，正式 session=`/private/tmp/anselm-rig-formal-20260902-07/sessions/20260902-012607`，录屏 `90.246667s`，目录徽标、未验证诊断和保存即时反馈均通过逐帧检查，首反馈 `33.3ms`。当前 `810/848` 行五级结算、`4112/4240` 格结算、开放 `128` 格，批次 89=`23/50`；`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，`alarms.py check`=`clean`，anchors=`10/10`，下一自主前线为 `EDGE-342|chat-only 模型的工具面` L3，强制人工项继续留在尾队。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
