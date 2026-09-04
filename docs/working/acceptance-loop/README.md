@@ -1240,27 +1240,11 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 - Flutter runner 与 console、录像、后端和两类 tap 全部由同一 manifest 归属；外部手起 App 或旧
   sidecar 不算验收证据。
 
-### 5.2 Day 0 当前状态(整体重述,2026-09-05 EDGE-294 修复后五级收口；批次 90 为 49/50)
+### 5.2 Day 0 当前状态(整体重述,2026-09-05 · Edge296 L2-L3 已收口；批次 90 已越过 50 格)
 
-当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准：
-最新停驻：`EDGE-294|触点不记幽灵删除` 的首轮真实 App 发现重复 `delete_agent` 被安全抑制后缺少最终答复，已按 stop-and-fix
-修复 loop 并在真实 App 复跑。两次危险调用都由 operator 明确拒绝；收台前 Agent=`200`、touchpoints=`[]`，没有拒绝导致的删除或幽灵触点。
-修复后的真实画面出现完整终态文本；SSE messages `seq=40..44` 记录 suppression tool result、text open/delta/close 与 completed message close，
-backend journal、frontend console、LLM wire 和录屏均属于同一封口 session。正式证据=`testend/rig/formal-evidence/EDGE-294-touchpoint-deny-no-delete-real-app-fixed-20260905.md`，
-红证据=`testend/rig/formal-evidence/EDGE-294-duplicate-repeat-no-final-red-20260905.md`；L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1`。
-该项已从 `forced_queue` 移除，当前前线为 `EDGE|触点 deleted 行借名`。
-本次覆盖性快照：`EDGE-293|删被依赖实体` 在真实 App 完成 L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1`，清册由 `✓✓~~~` 提升为 `✓✓✓✓✓`。首轮真实确认面发现依赖影响被窄 rail 省略，按 stop-and-fix 停止；修复后最终场景以新隔离 Function 与三个挂载 Agent 真实删除，确认内容自然换行且完整显示，删除后关系图与 Function 列表同步为空，通知完整保留三个依赖者和修复后果。L2 的既有正式指针保持不动，本次最终 session 对 L2 五通道事实作独立复核；红证据=`testend/rig/formal-evidence/EDGE-293-dependency-delete-visual-red-20260905.md`，最终证据=`testend/rig/formal-evidence/EDGE-293-dependency-delete-real-app-20260905.md`，同场五通道=`/private/tmp/anselm-rig-formal-20260905-edge293/sessions/20260905-005633/evidence/EDGE-293-five-channel.md`。
-五通道交叉核对：`rig-check.sh` 与 `rig-down.sh` 通过且 owned processes 已收台；backend journal 无应用级 WARN/ERROR/panic，DELETE 返回 `204` 且关系 purge 删除 3 条入向依赖；SSE 的 messages/entities/notifications 三流均连接，目标 durable 帧为 `function.deleted` 后的单条聚合 `relation.dependency_broken`；frontend console 无 Dart/Flutter/RenderFlex/runtime 红线；LLM recorder 仅有 ready、无 completion，符合确定性删除路径事实。
-本次覆盖性快照：`EDGE-173|MCP name-or-id 双键 purge` 已在正式真实 App session
-`/private/tmp/anselm-rig-formal-20260905-edge293/sessions/20260905-032135` 完成 L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1`；
-真实 App 走过 MCP servers → More actions → Delete → Delete，删除后由 loading 过渡落到 marketplace 空态。backend DELETE=`204`、
-关系 purge=`1`，删除后 MCP 取单与 ID/name 两种关系查询均为空；SSE notifications durable `seq=1 relation.dependency_broken`
-后为 `seq=2 mcp.removed`；frontend console 无应用级红线，LLM tap 对确定性设置路径无 completion。正式证据=
-`testend/rig/formal-evidence/EDGE-173-mcp-name-id-purge-real-app-20260905.md`，session 证据与录屏已封口；局部测量写入
-`sessions/20260905-032135/evidence/EDGE-173-visual-measurement.txt`。五级写账后 `alarms.py check`、`anchors.py check` 与
-`gen_coverage.py --check` 均通过，Edge-173 已从 `forced_queue` 移除。
-`EDGE-242|keychain 铸钥只对全新安装` 的 8 分支 focused Flutter test 已自动通过，但当前真实登录 keychain 无法安全替换为独立空 profile，故旧数据库无条目的真实 App 冷启动条件尚未建立；L2-L5 不写 pass、na 或 provisional，正式边界记录=`testend/rig/formal-evidence/EDGE-242-keychain-existing-install-autonomous-boundary-20260905.md`，该项已保留在 manual_queue 并移到 forced queue 尾部。
-当前清册为 `833/848` 行五级结算、`4186/4240` 格结算、开放 `54` 格；`manual_queue=165`、`forced_queue=15`；批次 90=`49/50`，未满 50 格不执行统一长门禁、不提交；`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，anchors=`10/10`，最终 `alarms.py check`=`clean (28 live judgments; 4240 baseline judgments excluded from drift curves)`。本轮保留红证据并完成修复后五通道复验，未修改阈值、算法、法典、锚点或五级标准。Edge-216 的 L2 exact-ID 三来源拒删与夹具清理证据已归档；其 L3-L5 因当前 Computer Use 的 hover-only pointer 限制保留在 forced queue 尾部。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准。前线 `EDGE-296|触点 deleted 行借名` 已完成真实 App 的删除、Activity 台账和五通道复核：实体详情返回 `AGENT_NOT_FOUND`，持久触点保留 `itemName=""`，Activity 显示实体 ID 与 `Deleted`，没有从无关兄弟借名；正式证据=`testend/rig/formal-evidence/EDGE-296-touchpoint-deleted-name-real-app-20260905.md`，session=`/private/tmp/anselm-rig-formal-20260905-edge296/sessions/20260905-042111`。L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1` 已由 `judge.py` 写账。最终自然语言曾把含数字后缀的测试名称改写成英文短语，但 REST、SSE、LLM tool result、搜索 thought 和 Activity 台账的真实值一致；该现象另记为文本保真度观察，不掩盖也不改变本 edge 的触点判定。
+
+本轮 session 已由 `rig-down.sh` 封口，`screen.mov` 可读；`rig-check.sh` 通过五通道物理归属，backend/frontend 无应用级红线，三路 SSE 已连接且 durable seq 单调，LLM wire 请求/响应齐全。历史账本已连续接回，`anchors.py check`=`10/10`，L2-L5 写账后的独立警报复审均已销账，最终 `alarms.py check`=`clean`；当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=15`。Batch 90=`53/50` 的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；提交后下一批次从 `0/50` 重新计数。Edge296 已从 `forced_queue` 移除，下一强制前线按显式队列为 `EDGE|OS 通知被静默拒`；该项依赖签名构建与 macOS 通知权限，不以当前 unsigned dev bundle 冒充通过。其余强制尾队保持原顺序，不写 provisional `na`，P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 下方内容均为历史现场快照，只用于保留决策与修复轨迹，不覆盖本段当前数字或下一前线。
 本段后续记录中的“`gen_coverage.py --check` 待本次本地验证”是写入前的临时措辞，已由本轮本地验证完成并更正为 `848 rows, 848 carried judgments, 0 tombstones`；以下 EDGE-342、EDGE-341、EDGE-340、EDGE-339、EDGE-333 及 EDGE-332 状态以本段当前快照为准。
 `EDGE-327|workspace 热切换三拍`、`EDGE-330|设置项搜索索引漂移`、`EDGE-331|限额面板载入失败`、`EDGE-332|MCP 面板帧不可信`、`EDGE-333|保留面板无客户端默认`、`EDGE-339|BYOK base URL 模板未填占位`、`EDGE-340|Vertex service-account 文件校验`、`EDGE-341|未验证供应商诚实徽标` 的本轮真实 App 结果均已按对应法条写入；EDGE-341 L3/L4/L5=`A1/C4/G1`，正式 session=`/private/tmp/anselm-rig-formal-20260902-07/sessions/20260902-012607`，录屏 `90.246667s`，目录徽标、未验证诊断和保存即时反馈均通过逐帧检查，首反馈 `33.3ms`。当前 `810/848` 行五级结算、`4112/4240` 格结算、开放 `128` 格，批次 89=`23/50`；`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，`alarms.py check`=`clean`，anchors=`10/10`，下一自主前线为 `EDGE-342|chat-only 模型的工具面` L3，强制人工项继续留在尾队。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
