@@ -138,6 +138,13 @@ manifest 记录 `host_rewritten` 和一次性预算。这个开关只构造 DNS-
 challenge/install/models/quota 仍逐字节通过真实 managed gateway。该模式是无配额网关上的受控故障注入，
 只证明产品错误路径，不冒充真实网关扣费耗尽事实。
 
+要验收 `EDGE-223` 的视频轮询超时，使用 `RIG_LLMTAP_FAIL_COUNT=3
+RIG_LLMTAP_FAIL_KIND=video-poll-timeout`（不需要 `RIG_LLMTAP_FAIL_PATH`）。台架只拦截真实提交后
+动态 `/v1/videos/<opaque-id>` 的 GET 轮询，返回合法的 `pending` 状态；challenge/install/models 和
+视频提交仍逐字节通过真实受管网关。真实后端的 `ChatTurnSec` 必须截断本地等待并产生
+`VIDEO_GEN_FAILED` 及“上游任务可能仍会完成”的提示；这证明受控轮询扰动下的产品错误传播，不声称网关
+本身超时，也不能用它替代绿色视频路径。
+
 要验收语音 WebSocket **握手期**拒绝的闭集映射，使用
 `RIG_LLMTAP_FAIL_PATH=/v1/speech/asr RIG_LLMTAP_FAIL_COUNT=1 RIG_LLMTAP_FAIL_STATUS=401
 RIG_LLMTAP_FAIL_KIND=speech-handshake`。台架只拦截带 WebSocket upgrade 头的那一次真实上游请求，
@@ -220,6 +227,10 @@ manifest 会记录 `appOwnsBackend=1` 与 `appSidecarPid`，D1 仍以端口 hold
 `rig-down.sh` 或 `judge.py`、`alarms.py`、`anchors.py`；所有台架入口在变量缺失、相对路径或 `~` 路径时都会
 fail-closed，不会再静默回落到个人默认目录。只有 `--help` 这种只读用法不要求作用域。不能把未绑定作用域的
 clean 结果当作当前 session 的门禁证据。
+
+App-owned 模式下，`rig-up.sh` 将 App 动态生成的 loopback bearer 传给 `backend/cmd/seed` 的
+可选 `-auth-token` 参数；外接 backend 仍保持无 token 的 dev seed 行为。这样 seed 只能在显式
+拥有该 sidecar token 时写入数据，不会把 `401` 误报为后端未启动。
 
 `RIG_RECORD=1`(默认)时，`rig-up.sh` 会在构建后端、启动 observer、编译 Flutter 或启动真实 App **之前**
 先用一次性 PNG 探测 Screen Recording 权限；探测失败立即退出并提示授权，不产生半启动的产品 session，也不把

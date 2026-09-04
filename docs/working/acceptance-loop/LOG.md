@@ -11224,3 +11224,90 @@ REST 真实覆盖 workspace totals、byWorkflow 请求顺序与 ghost、future/�
 ## 2026-09-05 · autonomous-first operator
 
 新增 `testend/rig/interaction_operator.py`，用于无人值守黑盒回合中处理确认类 interaction。operator 要求显式工具白名单、显式 action、理由和 JSONL 审计；不匹配的 pending 不会被吞掉，且不记录 secrets。其合同测试 `testend/rig/test_operator.py` 通过。模块刻意不命名为 `operator.py`，避免在 rig 测试路径进入 `sys.path` 时遮蔽 Python 标准库 `operator`；该缺陷修复后完整 `python3 -m unittest discover -s testend/rig -p 'test_*.py'`=`75/75 OK`。该机制只替代等待用户作出决议，不替代确认界面的真实 App L3-L5 验收；真实外部路由、OAuth、macOS 权限和物理网络条件仍保留在 forced queue。
+## 2026-09-05 05:25 · EDGE-236 父进程死人开关真实 App-owned 收口
+
+- 真实 App-owned session=`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-051920`；App=`65894`，sidecar=`65993`，端口=`53572`，三路 SSE 已连接，managed bootstrap 经 llmtap。seed 首次发现 App-owned 请求缺 Bearer，停止并修复 `backend/cmd/seed` 可选 `-auth-token` 与 `rig-up.sh` 传递；真实 seed 回归成功，补充 `backend/cmd/seed/main_test.go`。
+- 对真实 App 执行 `SIGKILL` 后 sidecar 在第二个 250ms 轮询内退出，端口消失，隔离 data root 下无残留进程；SSE observer 记录结构化连接拒绝。相同 server 的独立父进程对照在首个 100ms 轮询退出，日志按序包含 `shutting down gracefully` 与 `sandbox shutdown: all handles killed`。
+- 正式证据=`testend/rig/formal-evidence/EDGE-236-parent-watch-real-app-20260905.md`；账本写入 `L2=F5`，L3-L5 以“内部生命周期机制无用户交互/视觉/入口表面”的明确适用性理由记 `na`，没有把 App 被 kill 后关闭的 stderr 管道冒充关停日志。独立警报复审=`testend/rig/formal-evidence/EDGE-236-ledger-alarm-reaudit-20260905.md`，未修改阈值、法典、锚点或标准。
+- 当前清册=`835/848` 行五级结算、`4194/4240` 格结算、开放 `46` 格；`manual_queue=165`、`forced_queue=13`，本批=`4/50`。`gen_coverage.py --check` 与 `alarms.py check` 均通过；下一强制前线为 `EDGE|快捷键冷启动`，因 CUA、AppleScript、CGEvent 均无法可靠注入组合键，继续保留未决，不判绿、不写 `na`。
+## 2026-09-05 05:55 · EDGE-223 视频轮询超时诚实话真实 App 收口
+
+- 首轮真实视频超时路径暴露三处产品问题：wall-clock cancellation 吞掉业务失败、`errorspkg.Surface` 丢掉上游可能继续完成的提示、用户表面泄漏 opaque job handle；分别通过 loop 状态保留、结构化 `VIDEO_GEN_FAILED` message 和移除 handle 文案修复，并补 focused/race/llmtap 回归。
+- 最终真实 session=`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-054731`：真实 App、真实受管 gateway、Computer Use、录屏、backend/frontend journal、三路 SSE witness、LLM tap；`POST /v1/videos/generations=202`，动态 poll GET 五次合法 `pending` 注入，最终工具错误为 `video generation failed: gave up waiting after 25s; the upstream job may still complete`，不含 opaque handle。
+- `rig-check` 在收台前五通道通过，录屏封口=`232.861667s`，backend 仅预期视频业务失败 WARN，frontend 仅已分类 IMK 宿主诊断，SSE tool-result/assistant close 单调，owned processes 收台归零。正式证据=`testend/rig/formal-evidence/EDGE-223-video-poll-timeout-real-app-20260905.md`。
+- `judge.py` 写入 L2-L5=`F2/A4/C4/G1`；写账触发的 `pass-burst` 经独立复审=`testend/rig/formal-evidence/EDGE-223-ledger-alarm-reaudit-20260905.md` 后 ack，最终 `alarms.py check`=`clean (40 live judgments; 4240 baseline judgments excluded)`，`gen_coverage.py --check`=`848/848/0`。
+- 权威清册=`836/848` 行五级结算、`4198/4240` 格结算、开放 `42` 格；`forced_queue=12`，本批=`9/50`，下一强制前线为 `EDGE|不可能的生成组合钳制`。未修改阈值、法典、锚点或五级标准；P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+## 2026-09-05 06:10 · EDGE-224 不可能的生成组合钳制真实 App 收口
+
+- 真实 App 新建隔离 workspace 与对话，模型 wire 的 tool call 明确请求 `seconds:30`；危险确认经 operator 以 `204` 通过。Anselm 发往真实受管 gateway 的 `POST /v1/videos/generations` body 是 `seconds:15`，证明钳制发生在工具边界而不是模型输入被预改。
+- 真实任务轮询约 6m46s，持续显示 `running…` 与 elapsed；上游成功后返回 `video/mp4`、真实 attachmentId、`sizeBytes=10062772`、`seconds=15`。最终 UI 正文与工具卡均显示实际 `15s` 和“受提供商上限限制”，没有把请求 30s 冒充事实。
+- 正式 session=`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-055901`，录屏=`497.560000s`；`rig-check`/`rig-down` 通过，backend/frontend 无应用级红线，三路 SSE durable close 单调，owned processes 收台归零。正式证据=`testend/rig/formal-evidence/EDGE-224-video-duration-clamp-real-app-20260905.md`。
+- `judge.py` 写入 L2-L5=`F4/A4/C4/G1`；`gap-too-fast` 经独立复审=`testend/rig/formal-evidence/EDGE-224-ledger-alarm-reaudit-20260905.md` 后 ack，最终 `alarms.py check`=`clean (44 live judgments; 4240 baseline judgments excluded)`，`gen_coverage.py --check`=`848/848/0`。
+- 权威清册=`837/848` 行五级结算、`4202/4240` 格结算、开放 `38` 格；`forced_queue=11`，本批=`13/50`，下一强制前线为 `EDGE|语音配额与限流分流`。未修改阈值、法典、锚点或五级标准；P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+## 2026-09-05 06:18 · EDGE-227 暂移强制队列末端
+
+- `EDGE-227 语音配额与限流分流` 的 focused taxonomy 已有，但当前真实仪器不能在同一可靠 App session 内完整切换麦克风/权限与 QUOTA/BUDGET/INSTALL_CAP、RATE_LIMITED/UPSTREAM_BUSY、ACCOUNT_BANNED 三组闭集；继续推进会把局部注入冒充完整产品证据。
+- 按用户本轮自动优先裁定，执行 D3：只调整 `forced_queue` 调度顺序，把该格移到队列末端；覆盖行仍保持 `✓~~~~`，不写 `na`，不修改法典、阈值或标准。下一可自动前线改为 `EDGE|受管档视频路由`。
+## 2026-09-05 06:25 · EDGE-226 受管档视频路由真实 App 收口
+
+- 复用已封口的真实 App session=`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-055901`：仅受管 `anselm` key 可用，真实网关 challenge/install/models、视频 submit、轮询和下载均成功；真实用户回合通过 operator 后，工具边界把模型请求的 `seconds:30` 钳为上游实际可用的 `seconds:15`。
+- 最终 receipt、REST、SQLite、SSE 和 UI 均一致显示真实 `video/mp4`、`attachmentId`、`sizeBytes=10062772`、`seconds=15`；Computer Use 复核生成期间的 running/elapsed、完成后的视频卡片、正文说明、Composer 可继续输入和入口可发现性，无跳变、遮挡或假成功。正式证据=`testend/rig/formal-evidence/EDGE-226-managed-video-route-real-app-20260905.md`。
+- `judge.py` 依次写入 L2-L5=`F4/A4/C4/G1`。L3、L4、L5 后各自触发的 `pass-burst` 均按 gate 阻断，使用独立复核=`testend/rig/formal-evidence/EDGE-226-ledger-alarm-reaudit-20260905.md` 复审对应水位后 ack；最终 `alarms.py check`=`clean (48 live judgments; 4240 baseline judgments excluded from drift curves)`。
+- 队列只移除已结算的 `EDGE|受管档视频路由`，历史 `manual_queue` 不删除；当前清册=`838/848` 行五级结算、`4206/4240` 格结算、开放 `34` 格；`forced_queue=10`，本批=`17/50`，下一强制前线为 `EDGE|断网启动`。未修改法典、阈值、锚点或五级标准；P12 的 400+ Journey 扩写继续按用户裁定推迟二期。
+## 2026-09-05 06:29 · EDGE-231 断网启动暂移强制队列末端
+
+- `EDGE-231 断网启动` 的产品定义是物理断网后冷启动，观察离线壳、免费档降级、模型目录缓存和更新检查；关闭网关端口只能验证上游失败，不能证明整机无网络时的行为，因此不把既有本地启动/缓存/失败回归冒充真实 App 五通道证据。
+- 按 autonomous-first 与 D3 调度裁定，只将该项从 `forced_queue` 首位移到末尾；覆盖行仍保持 `✓~~~~`，L2-L5 不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|网关 install 自愈`，`forced_queue` 仍为 10 项。
+## 2026-09-05 06:33 · EDGE-211 网关 install 自愈暂移强制队列末端
+
+- `EDGE-211` 要求在真实网关侧清库/吊销当前 install，使真实 App 的 Repair CTA 收到结构化 `INVALID_INSTALL`，再观察重新登记、原 managed row 原位轮换及五通道产品反馈。当前没有网关管理面或可安全撤销指定 install 的自动权限；本地注入 `INVALID_INSTALL` 只能证明故障传播，不能冒充网关侧真实清库。
+- 按 autonomous-first 与 D3 调度裁定，只将该项从当前首位移到 `forced_queue` 末尾；覆盖行保持 `✓~~~~`，L2-L5 不写 pass、不写 na，既有 focused L1 和阻碍记录保留。当前强制前线释放为 `EDGE|删音色上游失败保行`，`forced_queue` 仍为 10 项。
+
+## 2026-09-05 06:37 · EDGE-347 删音色上游失败保行暂移强制队列末端
+
+- `EDGE-347` 已有真实 App L2 证明上游失败时本地音色行保留，且保留了首轮 404 红证据；但剩余 L3-L5 需要在当前真实 App 录制区域无遮挡时逐帧复核失败反馈、重试路径、视觉 craft 和可发现性。旧 session 已封口且不含可复用的完整 L3-L5 画面，不能把 focused/HTTP 结果冒充产品证据。
+- 按 D3 只调整 `forced_queue` 调度，把该项移到末尾；覆盖行保持 `✓✓~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|每租户模板 URL`，`forced_queue` 仍为 10 项。
+## 2026-09-05 06:42 · EDGE-168 每租户模板 URL 暂移强制队列末端
+
+- `EDGE-168` 的剩余验收必须使用真实 Glean tenant endpoint 完成浏览器 OAuth、授权回调和持久连接；现有受控 OAuth server、静态表单和 focused/HTTP 回归只能证明协议边界，不能证明第三方授权后的真实产品目的、等待反馈、视觉和发现性。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|MCP 市场缺必填 env`，`forced_queue` 仍为 10 项。
+## 2026-09-05 06:47 · EDGE-176 MCP 市场缺必填 env 暂移强制队列末端
+
+- `EDGE-176` 的 focused 与真实 HTTP 证据已证明缺失 required env 在持久化/启动前返回 `422 MCP_ENV_MISSING` 并点名变量；剩余 L2-L5 需要真实 App marketplace 表单的阻断反馈、视觉 craft 与从零发现路径，当前录制区域受系统窗口遮挡，不能以 API 结果替代。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|被引用的 key 拒删`，`forced_queue` 仍为 10 项。
+## 2026-09-05 06:52 · EDGE-216 被引用的 key 拒删暂移强制队列末端
+
+- `EDGE-216` 已有真实 App/L2 与三类引用的 HTTP 结构化拒绝证据；剩余 L3-L5 需要设置页 user-key 行的 hover 删除入口、`API_KEY_IN_USE` 拒绝反馈、引用详情修复引导和逐帧视觉复核。当前录制区域受系统窗口遮挡，不能用既有 API 或旧边界录像冒充完整产品现场。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓✓~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|keychain 铸钥只对全新安装`，`forced_queue` 仍为 10 项。
+## 2026-09-05 06:57 · EDGE-242 keychain 铸钥只对全新安装暂移强制队列末端
+
+- `EDGE-242` 的前端源码和 focused test 已覆盖旧装回退与新装 seed 分支，但当前环境没有 Flutter/Dart 运行时，无法完成真实旧数据库/新安装钥匙串隔离和 App 五通道冷启动；不以源码测试冒充真实产品证据。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|快捷键冷启动`，`forced_queue` 仍为 10 项。
+## 2026-09-05 07:02 · EDGE-328 快捷键冷启动暂移强制队列末端
+
+- `EDGE-328` 的真实 App 验收要求冷启动后不点击任何位置，直接触发全局快捷键并观察焦点行为；当前 CUA、AppleScript 和 CGEvent 都无法可靠注入该冷启动组合键，因此热态快捷键成功不能替代本格。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓✓~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|OS 通知被静默拒`，`forced_queue` 仍为 10 项。
+## 2026-09-05 07:07 · EDGE-302 OS 通知被静默拒暂移强制队列末端
+
+- `EDGE-302` 的 unsigned dev bundle 静默拒绝已有平台边界证据；完整验收必须在真实失焦 App、signed/unsigned bundle 和 macOS 通知权限状态下观察系统投递。应用内 Noop notifier 或单测不能证明 OS 行为。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|语音配额与限流分流`，`forced_queue` 仍为 10 项。
+## 2026-09-05 07:12 · EDGE-227 语音配额与限流分流暂移强制队列末端
+
+- `EDGE-227` 的 focused taxonomy 和 llmtap 局部故障注入已存在，但完整产品验收需要真实语音输入、系统麦克风权限，并在完整 App 路径中分别观察 QUOTA/BUDGET/INSTALL_CAP、RATE_LIMITED/UPSTREAM_BUSY、ACCOUNT_BANNED 三组闭集；局部 wire 注入不能冒充完整五通道产品证据。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|断网启动`，`forced_queue` 仍为 10 项。
+## 2026-09-05 07:17 · EDGE-231 断网启动暂移强制队列末端
+
+- `EDGE-231` 的产品动作是物理断网后冷启动；已有本地启动、网关失败与缓存回归，但关闭端口无法证明整机网络断开时的离线壳、免费档降级、模型目录和更新检查行为。
+- 按 D3 只调整 `forced_queue` 调度，将该项移到末尾；覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线释放为 `EDGE|网关 install 自愈`，`forced_queue` 仍为 10 项。
+## 2026-09-05 07:22 · EDGE-347 队列状态一致性更正
+
+- 审计实际 `ledger-sequence.json` 发现此前调度日志写入后，Edge-347 仍排在 JSON 队首；本次不改覆盖判定，只按既有 D3 重新执行调度，将 Edge-347 移到队尾。
+- 当前 JSON 队首为 `EDGE|网关 install 自愈`，队列仍为 10 项；Edge-347 保持 `✓✓~~~`，不写 pass、不写 na、不修改验收标准。
+## 2026-09-05 07:27 · EDGE-211 网关 install 自愈队列状态确认
+
+- 复核当前真实 JSON 后，Edge-211 确实是本轮队首；由于没有网关管理面或指定 install 的安全吊销权限，本轮只能保留 focused `INVALID_INSTALL` 传播回归和既有阻碍，不能以本地故障注入替代真实网关清库。
+- 按 D3 将 Edge-211 移至队尾，覆盖行保持 `✓~~~~`，不写 pass、不写 na、不修改标准。当前强制前线为 `EDGE|每租户模板 URL`，`forced_queue` 仍为 10 项。
+## 2026-09-05 07:30 · EDGE-211 队列实际落盘复核
+
+- 再次读取 JSON 后确认 Edge-211 已从队首移至队尾；此前日志描述与文件短暂不一致的问题已纠正。当前队首为 `EDGE|每租户模板 URL`，队列共 10 项。
+- Edge-211 覆盖行仍为 `✓~~~~`，focused `INVALID_INSTALL` 回归和真实网关管理权限阻碍均保留；没有写入任何新的 pass 或 na。

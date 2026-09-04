@@ -13,6 +13,7 @@ import (
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 )
 
 func videoTool(t *testing.T, router *Router, up Uploader) *GenerateVideo {
@@ -147,6 +148,12 @@ func TestVideo_ContextTimeoutSaysTheUpstreamMayStillComplete(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "may still complete") {
 		t.Fatalf("error = %q, want an honest upstream-continuation hint", err)
+	}
+	if strings.Contains(err.Error(), "video-timeout-handle") {
+		t.Fatalf("user-facing timeout must not expose the opaque upstream handle: %q", err)
+	}
+	if surfaced := errorspkg.Surface(err); !strings.Contains(surfaced, "may still complete") {
+		t.Fatalf("user-facing error surface = %q, want the honest upstream-continuation hint", surfaced)
 	}
 	if polls != 0 {
 		t.Fatalf("polls = %d, want no poll after the turn was cancelled", polls)

@@ -3,8 +3,10 @@ package loop
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"strings"
 	"testing"
+	"time"
 
 	"go.uber.org/zap"
 
@@ -132,6 +134,37 @@ func TestRunOneTool_CancelledExecutionIsNeutral(t *testing.T) {
 	close, ok := b.events[1].Frame.(streamdomain.Close)
 	if !ok || close.Status != streamdomain.StatusCancelled || close.Error != "" {
 		t.Fatalf("cancel close = %+v, want status=cancelled with no error", b.events[1])
+	}
+}
+
+type wallClockDomainErrorTool struct{}
+
+func (wallClockDomainErrorTool) Name() string        { return "video" }
+func (wallClockDomainErrorTool) Description() string { return "" }
+func (wallClockDomainErrorTool) Parameters() json.RawMessage {
+	return json.RawMessage(`{"type":"object"}`)
+}
+func (wallClockDomainErrorTool) ValidateInput(json.RawMessage) error { return nil }
+func (wallClockDomainErrorTool) Execute(ctx context.Context, _ string) (string, error) {
+	<-ctx.Done()
+	return "", errors.New("video generation failed: the upstream job may still complete")
+}
+
+// TestRunOneTool_WallClockPreservesDomainError distinguishes a protective chat deadline from a
+// user cancellation: an already-classified tool failure must remain visible in the tool card and
+// its durable error field, rather than being rewritten as a neutral cancellation.
+func TestRunOneTool_WallClockPreservesDomainError(t *testing.T) {
+	ctx, cancel := context.WithTimeout(reqctxpkg.MarkChatTurnWallClock(context.Background()), 10*time.Millisecond)
+	defer cancel()
+	blocks := runOneTool(ctx, wallClockDomainErrorTool{}, messagesdomain.ToolCallData{ID: "tc1", Name: "video"}, zap.NewNop())
+	if len(blocks) != 1 {
+		t.Fatalf("want one tool_result block, got %+v", blocks)
+	}
+	if blocks[0].Status != messagesdomain.StatusError || blocks[0].Error == "" {
+		t.Fatalf("wall-clock domain failure = %+v, want error status and preserved error", blocks[0])
+	}
+	if !strings.Contains(blocks[0].Content, "may still complete") || !strings.Contains(blocks[0].Error, "may still complete") {
+		t.Fatalf("wall-clock domain failure lost actionable hint: %+v", blocks[0])
 	}
 }
 

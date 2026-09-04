@@ -26,14 +26,24 @@ landed-into:
 自主格耗尽后，严格选择 `ledger-sequence.json` 的 `forced_queue` 第一条未完成项；不再按 COVERAGE 的行序
 间接决定人工前线。当前内部人工前线为 `EDGE|被引用的 key 拒删`；完成一格后按同一显式队列继续。
 
-## 当前精确状态（2026-09-05 · EDGE-296 五级收口；Batch 90 统一门禁已通过）
+## 当前精确状态（2026-09-05 · EDGE-226 受管档视频路由收口；Batch 90 统一门禁已通过）
 
 > **本段是当前权威快照，覆盖下方旧条目中的 next 指针和历史计数；历史快照不回写。**
 
-当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=14`。Batch 90=`53/50`
-的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；`OS 通知被静默拒` 已确认依赖
-签名构建和 macOS 通知权限，按“实在无法自动完成则跳过”的裁定后置到 forced queue 末尾，不判绿、不写 `na`；当前强制前线为
-`EDGE|快捷键冷启动`。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+当前清册为 `838/848` 行五级结算、`4206/4240` 格结算、开放 `34` 格；`manual_queue=165`、`forced_queue=10`，本批=`17/50`。
+Batch 90=`53/50` 的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；
+`EDGE-226|受管档视频路由` 已由真实 App、真实受管网关和五通道 session 完成 L2-L5=`F4/A4/C4/G1`，
+三次新水位统计警报均经独立复核后销账，最终 `alarms.py check`=`clean (48 live judgments; 4240 baseline judgments excluded)`。
+当前强制前线为 `EDGE|每租户模板 URL`；`EDGE|网关 install 自愈` 因必须在真实网关侧清库/吊销 install、`EDGE|断网启动` 因必须改变整机网络状态、`EDGE|语音配额与限流分流` 因需要真实语音输入、系统麦克风权限和完整三组网关拒绝路径、`EDGE|OS 通知被静默拒` 因需要 signed/unsigned bundle 与真实 macOS 通知权限、`EDGE|快捷键冷启动` 因当前系统无法可靠注入冷启动后的全局组合键、`EDGE|删音色上游失败保行`、`EDGE|MCP 市场缺必填 env` 与 `EDGE|被引用的 key 拒删` 因当前真实录制区域受系统窗口遮挡、`EDGE|keychain 铸钥只对全新安装` 因需要隔离旧装/新装钥匙串状态且当前 Flutter 运行时不可用，均暂移队尾；
+`EDGE|被引用的 key 拒删`、`EDGE|keychain 铸钥只对全新安装`、`EDGE|快捷键冷启动`、`EDGE|OS 通知被静默拒`、
+`EDGE|语音配额与限流分流` 仍按真实外部/系统条件保留在强制队列，未判绿、不写 `na`；P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
+上一停驻：`EDGE-226|受管档视频路由` 使用正式真实 App session
+`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-055901`。只有受管 `anselm` key 时，模型请求的 30 秒意图
+在 Anselm 工具边界被钳为真实上游可用的 15 秒；真实网关提交、轮询、下载、attachment receipt、REST、SSE、SQLite 和最终 UI
+均显示 15 秒。真实录屏、backend/frontend journal、独立 SSE witness、LLM wire 和 `rig-check`/`rig-down` 均已封口；正式证据=
+`testend/rig/formal-evidence/EDGE-226-managed-video-route-real-app-20260905.md`，账本警报复审=
+`testend/rig/formal-evidence/EDGE-226-ledger-alarm-reaudit-20260905.md`。
 
 上一停驻：`EDGE-215|受管 key 不可变` 已在正式真实 App session
 `/private/tmp/anselm-rig-formal-20260905-edge293/sessions/20260905-024959` 完成验收。真实 Settings → Models & keys
@@ -1247,9 +1257,11 @@ llmtap，最后以 SIGINT 封口录像。收台后无幸存进程，`screen.mov`
 
 ### 5.2 Day 0 当前状态(整体重述,2026-09-05 · Edge296 五级收口；Batch 90 统一门禁已通过)
 
+**最新前线重述（覆盖本节下方旧快照）：** `835/848` 行五级结算、`4194/4240` 格结算、开放 `46` 格；`manual_queue=165`、`forced_queue=13`，本批=`4/50`。`EDGE|父进程死人开关` 已完成真实 App-owned 五通道 L2=`F5`、L3-L5=`na` 并移出 forced queue；`backend/cmd/seed` 的 App-owned token 缺失已修复并经真实 seed 回归。`EDGE|快捷键冷启动` 的 L2 旧证据仍有效，但当前 CUA、AppleScript 与 CGEvent 均无法可靠注入组合键，后置到系统/外部依赖尾部，不判绿、不写 `na`。当前强制前线为 `EDGE|视频轮询超时诚实话`；`OS 通知被静默拒` 仍因签名构建和 macOS 通知权限阻碍留在 forced queue 末尾。`gen_coverage.py --check`、`alarms.py check` 均通过，标准未降低，P12 的 400+ Journey 扩写按用户裁定推迟二期。
+
 当前唯一权威状态以 `COVERAGE.md`、`ledger-sequence.json`、`judgments.jsonl` 及脚本实时重算为准。前线 `EDGE-296|触点 deleted 行借名` 已完成真实 App 的删除、Activity 台账和五通道复核：实体详情返回 `AGENT_NOT_FOUND`，持久触点保留 `itemName=""`，Activity 显示实体 ID 与 `Deleted`，没有从无关兄弟借名；正式证据=`testend/rig/formal-evidence/EDGE-296-touchpoint-deleted-name-real-app-20260905.md`，session=`/private/tmp/anselm-rig-formal-20260905-edge296/sessions/20260905-042111`。L2=`F1`、L3=`A4`、L4=`C4`、L5=`G1` 已由 `judge.py` 写账。最终自然语言曾把含数字后缀的测试名称改写成英文短语，但 REST、SSE、LLM tool result、搜索 thought 和 Activity 台账的真实值一致；该现象另记为文本保真度观察，不掩盖也不改变本 edge 的触点判定。
 
-本轮 session 已由 `rig-down.sh` 封口，`screen.mov` 可读；`rig-check.sh` 通过五通道物理归属，backend/frontend 无应用级红线，三路 SSE 已连接且 durable seq 单调，LLM wire 请求/响应齐全。历史账本已连续接回，`anchors.py check`=`10/10`，L2-L5 写账后的独立警报复审均已销账，最终 `alarms.py check`=`clean`；当前清册为 `834/848` 行五级结算、`4190/4240` 格结算、开放 `50` 格；`manual_queue=165`、`forced_queue=14`。Batch 90=`53/50` 的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；提交后下一批次从 `0/50` 重新计数。Edge296 已从 `forced_queue` 移除，`OS 通知被静默拒` 因签名构建和 macOS 通知权限阻碍已后置到 forced queue 末尾，不判绿、不写 `na`；当前强制前线为 `EDGE|快捷键冷启动`。其余强制尾队保持原顺序，不写 provisional `na`，P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+本轮 session 已由 `rig-down.sh` 封口，`screen.mov` 可读；`rig-check.sh` 通过五通道物理归属，backend/frontend 无应用级红线，三路 SSE 已连接且 durable seq 单调，LLM wire 请求/响应齐全。历史账本已连续接回，`anchors.py check`=`10/10`，L2-L5 写账后的独立警报复审均已销账，最终 `alarms.py check`=`clean`；当前清册为 `835/848` 行五级结算、`4194/4240` 格结算、开放 `46` 格；`manual_queue=165`、`forced_queue=13`。Batch 90=`53/50` 的统一长门禁已通过，正式记录=`testend/rig/formal-evidence/batch-90-unified-gate-20260905.md`；提交后下一批次当前为 `4/50`。Edge296 已从 `forced_queue` 移除；`EDGE|父进程死人开关` 已在真实 App-owned 五通道 session=`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-051920` 完成 L2=`F5`、L3-L5=`na`，并已从 forced queue 移除；`backend/cmd/seed` 的 App-owned token 缺失已修复并通过真实 seed 回归。`EDGE|快捷键冷启动` 的真实 App L2 旧证据仍有效，但当前 CUA、AppleScript 与 CGEvent 均无法可靠注入组合键，不判绿、不写 `na`，当前强制前线为 `EDGE|快捷键冷启动`；`OS 通知被静默拒` 因签名构建和 macOS 通知权限阻碍仍在 forced queue 末尾。其余强制尾队保持原顺序，不写 provisional `na`，P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 下方内容均为历史现场快照，只用于保留决策与修复轨迹，不覆盖本段当前数字或下一前线。
 本段后续记录中的“`gen_coverage.py --check` 待本次本地验证”是写入前的临时措辞，已由本轮本地验证完成并更正为 `848 rows, 848 carried judgments, 0 tombstones`；以下 EDGE-342、EDGE-341、EDGE-340、EDGE-339、EDGE-333 及 EDGE-332 状态以本段当前快照为准。
 `EDGE-327|workspace 热切换三拍`、`EDGE-330|设置项搜索索引漂移`、`EDGE-331|限额面板载入失败`、`EDGE-332|MCP 面板帧不可信`、`EDGE-333|保留面板无客户端默认`、`EDGE-339|BYOK base URL 模板未填占位`、`EDGE-340|Vertex service-account 文件校验`、`EDGE-341|未验证供应商诚实徽标` 的本轮真实 App 结果均已按对应法条写入；EDGE-341 L3/L4/L5=`A1/C4/G1`，正式 session=`/private/tmp/anselm-rig-formal-20260902-07/sessions/20260902-012607`，录屏 `90.246667s`，目录徽标、未验证诊断和保存即时反馈均通过逐帧检查，首反馈 `33.3ms`。当前 `810/848` 行五级结算、`4112/4240` 格结算、开放 `128` 格，批次 89=`23/50`；`gen_coverage.py --check`=`848 rows, 848 carried judgments, 0 tombstones`，`alarms.py check`=`clean`，anchors=`10/10`，下一自主前线为 `EDGE-342|chat-only 模型的工具面` L3，强制人工项继续留在尾队。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
@@ -8920,12 +8932,59 @@ challenge/install/models 全为 `200`，REST 夹具与画面一致。正式证�
 
 正式证据为 `testend/rig/formal-evidence/EDGE-318-atomic-block-tap-guard-real-app-20260829.md`，`judge.py` 以 `A5` 写入 `L2 ✓`，清册由 `✓~~~~` 提升为 `✓✓~~~`，L3-L5 保持 `na`；anchors=`10/10`。写账打开的 `discovery-collapse` 已以独立复审记录 `testend/rig/formal-evidence/EDGE-318-ledger-alarm-reaudit-20260829.md` 复核并 ack，最终 `alarms.py check`=`clean (2000 live judgments; 2300 baseline judgments excluded)`。当前批次由 `38/50` 推进至 `39/50`，未满 50 格不跑统一长门禁、不提交；下一原子继续从尚未具备正式 L2 的 `~` 格选择。P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
 
+## 当前前线整体重述（2026-09-05 · EDGE-223 视频轮询超时真实 App 收口）
+
+`EDGE-223 视频轮询超时诚实话` 已完成真实 App、真实受管 Anselm gateway、Computer Use、backend journal、
+三路独立 SSE witness、frontend console 和 LLM wire 的完整五级验收。最终 session=
+`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-054731`，录屏
+`232.861667s`；真实 `POST /v1/videos/generations` 返回 `202`，仅对动态 poll GET 注入五次合法
+`{"status":"pending"}`，challenge/install/models/chat completions 仍由真实 gateway 透明返回 `200`。
+
+首轮真实故障暴露并已 stop-and-fix 三处产品问题：保护性回合墙钟曾把视频业务失败降成通用 cancelled，结构化
+错误曾丢失“上游任务可能仍会完成”的诚实提示，随后用户表面还曾泄漏 opaque job handle。最终 binary 修复
+后重跑：工具卡明确失败，错误正文保留继续提示，外层回合提示给出发送后续消息/简化任务/重试，Composer 可
+继续使用，UI 无 handle、裸异常、假进度、残留 generating 或布局跳变。
+
+正式证据=`testend/rig/formal-evidence/EDGE-223-video-poll-timeout-real-app-20260905.md`；L2-L5 分别按
+`F2/A4/C4/G1` 写入，独立警报复审=`testend/rig/formal-evidence/EDGE-223-ledger-alarm-reaudit-20260905.md`。
+写账触发的 `pass-burst` 已按同一 session 的 manifest、录屏和五通道事实独立复核后 ack，没有修改警报阈值、
+法典、锚点或五级标准；最终 `alarms.py check`=`clean (40 live judgments; 4240 baseline judgments excluded)`。
+
+当前权威清册为 `836/848` 行五级结算、`4198/4240` 格结算、开放 `42` 格；`forced_queue=12`，下一强制前线为
+`EDGE|不可能的生成组合钳制`。本批由 `4/50` 推进至 `9/50`，未满 50 格不运行统一长门禁、不提交；
+P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
+## 当前前线整体重述（2026-09-05 · EDGE-224 真实生成时长钳制收口）
+
+`EDGE-224 不可能的生成组合钳制` 已完成真实 App、真实受管 Anselm gateway、Computer Use、backend journal、
+三路独立 SSE witness、frontend console 和 LLM wire 的完整五级验收。真实模型 tool call 请求了
+`seconds:30`；Anselm 发给供应商的真实 submit body 被钳到 `seconds:15`，上游任务最终成功并生成真实
+`video/mp4` 附件，receipt 的 `seconds` 也是 `15`。
+
+最终 session=`/private/tmp/anselm-rig-formal-20260905-edge236d/sessions/20260905-055901`，录屏
+`497.560000s`。真实异步任务约 6 分 46 秒期间持续显示 `running…` 与已耗时；完成后正文明确说明
+“实际时长为 15 秒（未达请求的 30 秒，受提供商上限限制）”，工具卡显示 `Saved as a video attachment · 15s`。
+REST、SQLite、SSE、LLM wire、UI 和附件 receipt 没有把 30 秒冒充成实际结果，也没有假视频、裸 payload、
+内部 job handle、残留 generating 或 Composer 锁死。
+
+正式证据=`testend/rig/formal-evidence/EDGE-224-video-duration-clamp-real-app-20260905.md`；L2-L5 分别按
+`F4/A4/C4/G1` 写入，独立警报复审=`testend/rig/formal-evidence/EDGE-224-ledger-alarm-reaudit-20260905.md`。
+写账触发的 `gap-too-fast` 已按同一 session 的 30s 模型意图、15s submit、上游成功、SSE/REST/UI 和长任务
+进度独立复核后 ack，没有修改警报阈值、法典、锚点或五级标准；最终 `alarms.py check`=`clean (44 live judgments; 4240 baseline judgments excluded)`。
+
+当前权威清册为 `837/848` 行五级结算、`4202/4240` 格结算、开放 `38` 格；`forced_queue=11`，下一可自动
+完成前线为 `EDGE|受管档视频路由`。`EDGE|语音配额与限流分流` 保留未决并按 D3 暂移至强制队列末端：当前
+仪器无法在同一可靠真实 App session 内完整覆盖麦克风/权限与三类上游闭集，不写 `na`、不降标准、不阻塞
+其它可自动路径。本批为 `13/50`，未满 50 格不运行统一长门禁、不提交；P12 的 400+ Journey 扩写仍按
+用户裁定推迟二期。
+
 ## §6 施工中代拍台账(依据注明,用户可随时翻案)
 
 | # | 代拍决策 | 依据 | 状态 |
 |---|---|---|---|
 | D1 | 台架自检增加「journal 归属验证」:服务端口持有者 PID == stdout 捕获对象 PID | §5.1 试用轮当场事故 | ✅ 立法,Day 0 实现 |
 | D2 | 台架代码住 `testend/`:SSE tap 等 Go 观察者进 `testend/cmd/`(它本就是零 backend import、打纯 HTTP/SSE 的黑盒家),编排脚本进 `testend/rig/` | 复用既有模块与 harness 纪律,不为战役开新顶层目录 | ✅ Day 0 实现 |
+| D3 | 对当前无法可靠构造完整真实产品现场的 forced cell，只移到队列末端并保留未决；不写 `na`、不改变标准，先继续其它可自动路径 | 用户本轮目标:「遇到实在不行的就跳过…直到所有的东西都是这些实在没招的」;EDGE-227 缺少同场语音闭集/权限证据 | ✅ 调度变更,证据债保留 |
 
 ## §7 施工序与完成判据
 

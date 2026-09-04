@@ -22,8 +22,9 @@ import (
 )
 
 var (
-	base = flag.String("base", "http://127.0.0.1:8742", "dev backend base URL")
-	ws   string
+	base      = flag.String("base", "http://127.0.0.1:8742", "dev backend base URL")
+	authToken = flag.String("auth-token", "", "optional loopback bearer token")
+	ws        string
 )
 
 func main() {
@@ -102,7 +103,12 @@ func main() {
 
 func healthy() bool {
 	c := http.Client{Timeout: 2 * time.Second}
-	r, err := c.Get(*base + "/api/v1/health")
+	req, err := http.NewRequest("GET", *base+"/api/v1/health", nil)
+	if err != nil {
+		return false
+	}
+	withAuth(req)
+	r, err := c.Do(req)
 	if err != nil {
 		return false
 	}
@@ -182,6 +188,7 @@ func ensure(resource string, body map[string]any) string {
 
 func putRaw(path, content string) {
 	req, _ := http.NewRequest("PUT", *base+path, bytes.NewReader([]byte(content)))
+	withAuth(req)
 	req.Header.Set("X-Anselm-Workspace-ID", ws)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	if r, err := http.DefaultClient.Do(req); err == nil {
@@ -191,6 +198,7 @@ func putRaw(path, content string) {
 
 func get(path string, out any) {
 	req, _ := http.NewRequest("GET", *base+path, nil)
+	withAuth(req)
 	if ws != "" {
 		req.Header.Set("X-Anselm-Workspace-ID", ws)
 	}
@@ -205,6 +213,7 @@ func get(path string, out any) {
 func do(method, path string, body map[string]any, out any, withWS bool) int {
 	b, _ := json.Marshal(body)
 	req, _ := http.NewRequest(method, *base+path, bytes.NewReader(b))
+	withAuth(req)
 	req.Header.Set("Content-Type", "application/json")
 	if withWS && ws != "" {
 		req.Header.Set("X-Anselm-Workspace-ID", ws)
@@ -219,4 +228,10 @@ func do(method, path string, body map[string]any, out any, withWS bool) int {
 		_ = json.NewDecoder(r.Body).Decode(out)
 	}
 	return r.StatusCode
+}
+
+func withAuth(req *http.Request) {
+	if *authToken != "" {
+		req.Header.Set("Authorization", "Bearer "+*authToken)
+	}
 }

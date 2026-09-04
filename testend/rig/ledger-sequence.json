@@ -2,20 +2,16 @@
   "version": 1,
   "mode": "first_unsettled",
   "forced_queue": [
-    {"family": "EDGE", "item": "快捷键冷启动"},
-    {"family": "EDGE", "item": "父进程死人开关"},
-    {"family": "EDGE", "item": "视频轮询超时诚实话"},
-    {"family": "EDGE", "item": "不可能的生成组合钳制"},
-    {"family": "EDGE", "item": "语音配额与限流分流"},
-    {"family": "EDGE", "item": "受管档视频路由"},
-    {"family": "EDGE", "item": "断网启动"},
-    {"family": "EDGE", "item": "网关 install 自愈"},
-    {"family": "EDGE", "item": "删音色上游失败保行"},
     {"family": "EDGE", "item": "每租户模板 URL"},
     {"family": "EDGE", "item": "MCP 市场缺必填 env"},
     {"family": "EDGE", "item": "被引用的 key 拒删"},
     {"family": "EDGE", "item": "keychain 铸钥只对全新安装"},
-    {"family": "EDGE", "item": "OS 通知被静默拒"}
+    {"family": "EDGE", "item": "快捷键冷启动"},
+    {"family": "EDGE", "item": "OS 通知被静默拒"},
+    {"family": "EDGE", "item": "语音配额与限流分流"},
+    {"family": "EDGE", "item": "断网启动"},
+    {"family": "EDGE", "item": "删音色上游失败保行"},
+    {"family": "EDGE", "item": "网关 install 自愈"}
   ],
   "manual_queue": [
     {

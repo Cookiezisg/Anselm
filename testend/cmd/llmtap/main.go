@@ -61,6 +61,19 @@ func (b *failureBudget) take(r *http.Request) bool {
 	return true
 }
 
+func (b *failureBudget) takeVideoPoll(r *http.Request) bool {
+	if r.Method != http.MethodGet || !strings.HasPrefix(r.URL.Path, "/v1/videos/") {
+		return false
+	}
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.remaining <= 0 {
+		return false
+	}
+	b.remaining--
+	return true
+}
+
 func main() {
 	listen := flag.String("listen", "127.0.0.1:8788", "listen address")
 	upstream := flag.String("upstream", "", "real upstream origin, e.g. https://api.anselm.website (required)")
@@ -68,7 +81,7 @@ func main() {
 	failPath := flag.String("fail-path", "", "test-only path to fail before forwarding (default: disabled)")
 	failCount := flag.Int("fail-count", 0, "test-only number of matching requests to fail")
 	failStatus := flag.Int("fail-status", http.StatusServiceUnavailable, "test-only injected HTTP status")
-	failKind := flag.String("fail-kind", "generic", "test-only fault payload: generic, quota-http, quota-stream, speech-handshake, speech-upstream-closed, or speech-frame-invalid")
+	failKind := flag.String("fail-kind", "generic", "test-only fault payload: generic, quota-http, quota-stream, speech-handshake, speech-upstream-closed, speech-frame-invalid, or video-poll-timeout")
 	injectMetadata := flag.Bool("inject-wav-metadata", false, "test-only: insert LIST and fact chunks into successful /v1/audio/speech WAV responses")
 	flag.Parse()
 	if *upstream == "" || *out == "" {
@@ -84,7 +97,7 @@ func main() {
 		fmt.Fprintln(os.Stderr, "llmtap: fail-count must be non-negative and fail-status must be 400..599")
 		os.Exit(2)
 	}
-	if *failKind != "generic" && *failKind != "quota-http" && *failKind != "quota-stream" && *failKind != "speech-handshake" && *failKind != "speech-upstream-closed" && *failKind != "speech-frame-invalid" {
+	if *failKind != "generic" && *failKind != "quota-http" && *failKind != "quota-stream" && *failKind != "speech-handshake" && *failKind != "speech-upstream-closed" && *failKind != "speech-frame-invalid" && *failKind != "video-poll-timeout" {
 		fmt.Fprintf(os.Stderr, "llmtap: unsupported fail-kind %q\n", *failKind)
 		os.Exit(2)
 	}
@@ -188,7 +201,7 @@ func main() {
 	passThrough := proxycore.HandlerWithResponseBodyPolicy(u, recordRequest, recordResponse, recordResponseBody, decorate)
 	budget := &failureBudget{path: strings.TrimSpace(*failPath), remaining: *failCount}
 	handler := http.Handler(passThrough)
-	if budget.path != "" && budget.remaining > 0 {
+	if (budget.path != "" || *failKind == "video-poll-timeout") && budget.remaining > 0 {
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if (*failKind == "speech-upstream-closed" || *failKind == "speech-frame-invalid") && isWebSocketUpgrade(r) {
 				if budget.take(r) {
@@ -213,7 +226,13 @@ func main() {
 				passThrough.ServeHTTP(w, r)
 				return
 			}
-			if !budget.take(r) {
+			injected := false
+			if *failKind == "video-poll-timeout" {
+				injected = budget.takeVideoPoll(r)
+			} else {
+				injected = budget.take(r)
+			}
+			if !injected {
 				passThrough.ServeHTTP(w, r)
 				return
 			}
@@ -249,6 +268,10 @@ func injectedFailure(kind string, status int) (int, string, []byte) {
 		return status, "application/json", []byte(`{"error":{"code":"QUOTA_EXHAUSTED","message":"monthly gateway budget exhausted"}}`)
 	case "quota-stream":
 		return http.StatusOK, "text/event-stream", []byte("data: {\"error\":{\"code\":\"BUDGET_EXHAUSTED\",\"message\":\"monthly gateway budget exhausted\"}}\n\n")
+	case "video-poll-timeout":
+		// Keep the accepted job in a valid non-terminal state. The real backend owns the
+		// wall-clock cutoff and must produce VIDEO_GEN_FAILED with its honest continuation hint.
+		return http.StatusOK, "application/json", []byte(`{"status":"pending"}`)
 	default:
 		return status, "application/json", []byte(`{"error":{"code":"RIG_INJECTED_STAGING_FAILURE","message":"rig injected media staging failure","details":{"reason":"media_staging"}}}`)
 	}

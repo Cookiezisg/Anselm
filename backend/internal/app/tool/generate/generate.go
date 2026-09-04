@@ -753,8 +753,12 @@ func (r *Router) generateVideo(ctx context.Context, route genRoute, req llminfra
 			// The turn's wall clock ran out (or the user cancelled). The upstream job keeps going and
 			// the money is already spent — say so rather than implying nothing happened.
 			// 回合墙钟到点(或用户取消)。上游任务仍在跑、钱已经花了——说出来,别暗示什么都没发生。
-			return llminfra.GeneratedVideo{}, fmt.Errorf("%w: gave up waiting after %s; the upstream job %s may still complete",
-				llminfra.ErrVideoGenFailed, time.Since(started).Round(time.Second), job.Handle)
+			return llminfra.GeneratedVideo{}, errorspkg.New(
+				llminfra.ErrVideoGenFailed.Kind,
+				llminfra.ErrVideoGenFailed.Code,
+				fmt.Sprintf("%s: gave up waiting after %s; the upstream job may still complete",
+					llminfra.ErrVideoGenFailed.Message, time.Since(started).Round(time.Second)),
+			)
 		case <-time.After(interval):
 		}
 		var st llminfra.VideoStatus

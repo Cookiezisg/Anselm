@@ -34,6 +34,29 @@ func TestFailureBudgetDisabledByEmptyPath(t *testing.T) {
 	}
 }
 
+func TestFailureBudgetVideoPollMatchesOnlyDynamicVideoGets(t *testing.T) {
+	b := &failureBudget{remaining: 2}
+	poll := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/v1/videos/opaque-handle", nil)
+	submit := httptest.NewRequest(http.MethodPost, "http://127.0.0.1/v1/videos/generations", nil)
+	chat := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/v1/chat/completions", nil)
+	if !b.takeVideoPoll(poll) || !b.takeVideoPoll(poll) {
+		t.Fatal("dynamic video poll requests should consume the budget")
+	}
+	if b.takeVideoPoll(poll) {
+		t.Fatal("video poll budget should be exhausted")
+	}
+	if b.takeVideoPoll(submit) || b.takeVideoPoll(chat) {
+		t.Fatal("video submit and unrelated requests must not consume the poll budget")
+	}
+}
+
+func TestInjectedVideoPollTimeoutIsValidPendingGatewayResponse(t *testing.T) {
+	status, contentType, body := injectedFailure("video-poll-timeout", http.StatusServiceUnavailable)
+	if status != http.StatusOK || contentType != "application/json" || string(body) != `{"status":"pending"}` {
+		t.Fatalf("video poll timeout = %d/%q/%s, want 200/application/json/pending", status, contentType, body)
+	}
+}
+
 func TestInjectedFailureQuotaVariantsUseGatewayContracts(t *testing.T) {
 	status, contentType, body := injectedFailure("quota-http", http.StatusPaymentRequired)
 	if status != http.StatusPaymentRequired || contentType != "application/json" {

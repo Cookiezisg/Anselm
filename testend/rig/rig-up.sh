@@ -728,7 +728,9 @@ LISTENER=$(lsof -ti ":$PORT" -sTCP:LISTEN | sort -u)
 echo "✓ backend up (PID $BACKEND_PID == port holder)"
 
 if [ "$SEED" = "1" ]; then
-  (cd "$ROOT/backend" && "$MISE" exec -- go run ./cmd/seed -base "http://127.0.0.1:$PORT") | tail -3
+  SEED_ARGS=(-base "http://127.0.0.1:$PORT")
+  [ -n "$APP_AUTH_TOKEN" ] && SEED_ARGS+=(-auth-token "$APP_AUTH_TOKEN")
+  (cd "$ROOT/backend" && "$MISE" exec -- go run ./cmd/seed "${SEED_ARGS[@]}") | tail -3
 fi
 
 if [ "$APP_PROXY" = "1" ]; then

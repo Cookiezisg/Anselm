@@ -3,6 +3,7 @@ package loop
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -329,14 +330,28 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 
 	status := messagesdomain.StatusCompleted
 	if ctx.Err() != nil {
-		// A user cancellation is a distinct product outcome, not a failed tool. In particular,
-		// search/shell implementations may return the raw context error; never leak that internal
-		// executor detail into the transcript. The execution journal still contains the WARN.
-		status = messagesdomain.StatusCancelled
-		if executed {
-			output = toolCancelledProse
+		// A chat wall-clock deadline can race with a tool that has already obtained a
+		// meaningful domain failure. Preserve that failure (for example the video
+		// generator's honest "upstream may still complete" hint); only a user cancel
+		// or a bare context error gets the neutral cancelled result.
+		// 回合墙钟可能与工具已经拿到的明确领域错误竞态。保留该错误（例如视频生成器诚实提示
+		// 「上游可能仍完成」）；只有用户取消或裸 context 错误才收束成中性 cancelled。
+		preserveWallClockError := reqctxpkg.IsChatTurnWallClock(ctx) &&
+			errors.Is(ctx.Err(), context.DeadlineExceeded) &&
+			errMsg != "" &&
+			!isContextCancellationText(errMsg)
+		if preserveWallClockError {
+			status = messagesdomain.StatusError
+		} else {
+			// A user cancellation is a distinct product outcome, not a failed tool. In particular,
+			// search/shell implementations may return the raw context error; never leak that internal
+			// executor detail into the transcript. The execution journal still contains the WARN.
+			status = messagesdomain.StatusCancelled
+			if executed {
+				output = toolCancelledProse
+			}
+			errMsg = ""
 		}
-		errMsg = ""
 	} else if !ok {
 		status = messagesdomain.StatusError
 	}
@@ -369,6 +384,15 @@ func runOneTool(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallD
 	// progress 块（Execute 期间发的）排在 tool_result 前——时序 + tool_call 下正确的兄弟序。通常为空
 	// （多数工具不发进度）。
 	return append(pcap.take(), result)
+}
+
+func isContextCancellationText(text string) bool {
+	switch strings.ToLower(strings.TrimSpace(text)) {
+	case "context canceled", "context cancelled", "context deadline exceeded":
+		return true
+	default:
+		return false
+	}
 }
 
 // toolDisabledResults closes provider-emitted calls that arrived after a run-local tool
