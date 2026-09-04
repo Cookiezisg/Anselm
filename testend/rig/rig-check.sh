@@ -79,7 +79,7 @@ else
     grep -Eiq 'settings|parse|bootstrap' "$SESSION/backend.log" || bad "✗ backend journal does not identify the startup failure"
     [ -s "$SESSION/frontend.log" ] || bad "✗ frontend.log missing or empty"
     grep -q '\[conductor\] direct macOS App started' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log has no direct App launch marker"
-    if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)' "$SESSION/frontend.log" 2>/dev/null; then
+    if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)|ImpellerValidationBreak|Contents::SetInheritedOpacity should never be called' "$SESSION/frontend.log" 2>/dev/null; then
       bad "✗ frontend.log contains an unreviewed Flutter failure"
     fi
     for stream in messages entities notifications; do
@@ -299,7 +299,7 @@ PY
   else
     grep -q 'Flutter run key commands' "$SESSION/frontend.log" 2>/dev/null || bad "✗ frontend.log never reached resident app"
   fi
-  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)' "$SESSION/frontend.log" 2>/dev/null; then
+  if grep -Eq 'Unhandled exception|══╡ EXCEPTION CAUGHT|FlutterError|Lost connection to device|Dart (Error|Exception)|ImpellerValidationBreak|Contents::SetInheritedOpacity should never be called' "$SESSION/frontend.log" 2>/dev/null; then
     bad "✗ frontend.log contains an unreviewed Flutter failure"
   fi
   AX_PATTERN='accessibility_bridge\.cc.*Failed to update ui::AXTree, error: [0-9][0-9]* will not be in the tree and is not the new root'

@@ -112,13 +112,21 @@ class NotificationRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _primaryLine(context, line, muted: muted, name: name),
+        _primaryLine(
+          context,
+          line,
+          muted: muted,
+          name: name,
+          allowWrap: line.detail != null && line.detail!.isNotEmpty,
+        ),
         if (line.detail != null && line.detail!.isNotEmpty) ...[
           const SizedBox(height: AnSpace.s2),
           Text(
             line.detail!,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+            maxLines: line.detail != null && line.detail!.isNotEmpty ? null : 1,
+            overflow: line.detail != null && line.detail!.isNotEmpty
+                ? TextOverflow.clip
+                : TextOverflow.ellipsis,
             style: AnText.meta.copyWith(color: c.inkFaint),
           ),
         ],
@@ -131,15 +139,38 @@ class NotificationRow extends StatelessWidget {
     NotificationLine line, {
     required TextStyle muted,
     required TextStyle name,
+    required bool allowWrap,
   }) {
     final nameText = line.name;
     if (nameText == null || nameText.isEmpty) {
       return Text(
         line.trail,
-        maxLines: 1,
+        maxLines: allowWrap ? 2 : 1,
         overflow: TextOverflow.ellipsis,
-        softWrap: false,
+        softWrap: allowWrap,
         style: muted,
+      );
+    }
+
+    if (allowWrap) {
+      // Important rows have a second line, so preserve the complete subject sentence across two
+      // visual lines instead of letting the narrow rail hide its consequence behind an ellipsis.
+      // 有详情的告警行允许主句自然换两行，避免窄 rail 把影响范围藏在省略号后。
+      return Text.rich(
+        TextSpan(
+          children: [
+            if (line.lead != null && line.lead!.isNotEmpty)
+              TextSpan(text: '${line.lead!} ', style: muted),
+            TextSpan(
+              text: context.t.notifications.nameQuoted(name: nameText),
+              style: name,
+            ),
+            TextSpan(text: ' ${line.trail}', style: muted),
+          ],
+        ),
+        maxLines: null,
+        overflow: TextOverflow.clip,
+        softWrap: true,
       );
     }
 

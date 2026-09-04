@@ -12,6 +12,20 @@
 
 `testend/rig/ledger-sequence.json` 的 `manual_queue` 保存所有曾因人工现场条件后置的候选项；其中 `forced_queue` 是当前真正需要用户物理按键、系统授权、安全确认、不可逆删除或物理网络动作的显式子集。只有 `forced_queue` 改变顺序：这些格子仍未完成、不能写成 `pass`，但在自主格耗尽前不会阻塞自动验收。其余候选项只需要 Computer Use 进行真实 App 现场观察，会先按清册顺序推进。两队都不改变五级标准；自主格完成后，顺序门才回到 `forced_queue` 的第一项。
 
+### 无人值守确认 operator
+
+对只需要人为决议、而确认框本身不是本格被测表面的场景，使用 `interaction_operator.py` 代替等待用户点击：
+
+```bash
+python3 testend/rig/interaction_operator.py \
+  --base-url "$BASE_URL" --workspace "$WORKSPACE" --conversation "$CONVERSATION" \
+  --tool delete_agent --action deny \
+  --reason "negative-path fixture authorization" \
+  --journal "$SESSION/evidence/operator.jsonl"
+```
+
+`--tool` 是精确白名单且可重复指定；脚本只决议匹配的 pending interaction，未知工具不会被顺手放行。每次成功决议都记录 conversation、tool call、action、actor 和 reason，但不记录 token、提示词或参数。operator 只能证明决议后的状态/数据事实；如果产品的确认面、按钮、文案、动画或可发现性是验收对象，仍必须用真实 App 现场证据完成 L3-L5，不得用 operator 代替。
+
 ## 台架是什么
 
 五条观测通道,全部落盘 journal,使「产品对不对」永远以证据回答、不以印象回答:
@@ -60,6 +74,12 @@ testend/rig/rig-rebind-app.sh # 产品内重启后显式重绑新 App PID/窗口
 `RIG_BACKEND_START_DELAY_SEC=25` 可让前端健康等待先落 `crashed`，后端随后仍由 conductor 启动，点击真实 `Retry`
 即可复验恢复。该旋钮默认关闭，不改变普通台架的 backend-first 顺序；`startup-gate.jsonl` 与 manifest 一起记录
 App、录屏、后端健康和 SSE 的事件时序。
+`RIG_APP_ARGS` 可传递空格分隔的 direct App 参数，并原样写入 manifest 的
+`appArgs`；它只用于对照实验或记录明确的运行配置，不得用参数屏蔽产品或前端错误。`frontend.log` 中的
+Impeller validation ERROR 与 Flutter/Dart/布局异常一样是硬红线，不能按 AXTree 观察噪声审阅放行。
+需要控制 Flutter engine 时使用 `RIG_ENGINE_SWITCHES`（例如 `enable-impeller=false`）；conductor 会将其转为
+`FLUTTER_ENGINE_SWITCH_*`，写入 manifest 的 `engineSwitches`，这是 Flutter desktop runner 的正式传递通道，
+不是伪造的 App 命令行参数。
 外接后端的 bearer 负向场景可显式设置 `RIG_BACKEND_AUTH_TOKEN=<ephemeral-token>`。conductor 只把该值交给
 自己启动的 backend、health probe 和 `ssetap`，并以 `0600` 文件保存在 session 目录供 `rig-check` 复读；manifest
 只记录文件路径，不记录 token。真实 App 仍以 `ANSELM_BACKEND_URL` 外接 backend，`BackendController` 的

@@ -25,6 +25,10 @@ analyzer:
     # it through every build/test. 上游 vendored 源码(ADR 0009):上游代码风格不受本项目 lint 约束,
     # 编译器在每次构建/测试中仍全量类型检查。
     - "third_party/**"
+    - build/**
+    - windows/**
+    - macos/**
+    - linux/**
 
 linter:
   # The lint rules applied to this project can be customized in the

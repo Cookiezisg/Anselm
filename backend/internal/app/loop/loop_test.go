@@ -460,6 +460,7 @@ func TestRun_SuppressesRepeatedToolCallAcrossReactSteps(t *testing.T) {
 				t.Fatalf("LLM calls=%d, want initial call plus one suppression observation", client.calls)
 			}
 			var suppressed bool
+			var notice bool
 			for _, block := range host.fin.blocks {
 				if block.Attrs["duplicateScope"] == "turn" {
 					suppressed = true
@@ -467,9 +468,15 @@ func TestRun_SuppressesRepeatedToolCallAcrossReactSteps(t *testing.T) {
 						t.Fatalf("suppression block=%+v, want completed authoritative result", block)
 					}
 				}
+				if block.Type == messagesdomain.BlockTypeText && block.Content == repeatedToolNotice {
+					notice = true
+				}
 			}
 			if !suppressed {
 				t.Fatalf("final blocks contain no cross-step suppression result: %+v", host.fin.blocks)
+			}
+			if !notice || res.LastMessage != repeatedToolNotice {
+				t.Fatalf("repeated-call turn has no user-facing terminal notice: notice=%v last=%q blocks=%+v", notice, res.LastMessage, host.fin.blocks)
 			}
 		})
 	}

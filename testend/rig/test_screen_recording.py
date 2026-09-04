@@ -55,6 +55,11 @@ class ScreenRecordingGateTests(unittest.TestCase):
             self.assertNotEqual(result.returncode, 0)
             self.assertNotIn("Screen Recording permission unavailable", result.stderr)
 
+    def test_frontend_render_validation_errors_are_hard_failures(self):
+        rig_check = (ROOT / "rig-check.sh").read_text()
+        self.assertIn("ImpellerValidationBreak", rig_check)
+        self.assertIn("Contents::SetInheritedOpacity should never be called", rig_check)
+
     def test_rig_down_fails_closed_when_recording_artifact_is_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp) / "rig"

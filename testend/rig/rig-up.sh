@@ -24,6 +24,8 @@ RIG_APP_PROXY_REWRITE_HOST_PATH, RIG_APP_PROXY_REWRITE_HOST, RIG_APP_PROXY_REWRI
 RIG_APP_PROXY_REWRITE_PATH_FROM, RIG_APP_PROXY_REWRITE_PATH_TO, RIG_APP_PROXY_REWRITE_PATH_COUNT,
 RIG_APP_PROXY_REWRITE_METHOD_PATH, RIG_APP_PROXY_REWRITE_METHOD_FROM, RIG_APP_PROXY_REWRITE_METHOD_TO,
 RIG_APP_PROXY_REWRITE_METHOD_COUNT,
+RIG_APP_ARGS (space-separated arguments passed to the direct macOS App),
+RIG_ENGINE_SWITCHES (space-separated Flutter engine switches),
 ANSELM_RIG_MODEL_CATALOG_URL,
 ANSELM_RIG_MEDIA_PROCESS_DELAY_MS, ANSELM_RIG_PREFILL_SKILL_SOURCE.
 The command takes no positional arguments; use --help only to print this message.
@@ -103,6 +105,21 @@ RUNNER_PID=""
 APP_LAUNCH_PID=""
 APP_PID=""
 APP_BINARY=""
+APP_ARGS_STRING="${RIG_APP_ARGS:-}"
+APP_ARGS=()
+if [ -n "$APP_ARGS_STRING" ]; then
+  read -r -a APP_ARGS <<<"$APP_ARGS_STRING"
+fi
+ENGINE_SWITCHES_STRING="${RIG_ENGINE_SWITCHES:-}"
+ENGINE_SWITCHES=()
+ENGINE_ENV=()
+if [ -n "$ENGINE_SWITCHES_STRING" ]; then
+  read -r -a ENGINE_SWITCHES <<<"$ENGINE_SWITCHES_STRING"
+  ENGINE_ENV+=("FLUTTER_ENGINE_SWITCHES=${#ENGINE_SWITCHES[@]}")
+  for i in "${!ENGINE_SWITCHES[@]}"; do
+    ENGINE_ENV+=("FLUTTER_ENGINE_SWITCH_$((i + 1))=${ENGINE_SWITCHES[$i]}")
+  done
+fi
 APP_WINDOW_ID=""
 APP_WINDOW_BOUNDS=""
 RECORDER_PID=""
@@ -228,19 +245,40 @@ start_app_and_record() {
     exit 1
   }
   startup_event app_launch_requested
+  launch_direct_app() {
+    local -a command=(env)
+    if [ "$APP_OWNS_BACKEND" = "1" ]; then
+      command+=(
+        ANSELM_DEV=1
+        ANSELM_DATA_DIR="$DATA"
+        ANSELM_RELAUNCH_LOG="$SESSION/frontend.log"
+        LANG=en_US.UTF-8
+      )
+      command+=("${GATEWAY_ENV[@]}")
+    else
+      command+=(
+        ANSELM_BACKEND_URL="$APP_BACKEND_URL"
+        ANSELM_DATA_DIR="$DATA"
+        ANSELM_RELAUNCH_LOG="$SESSION/frontend.log"
+        LANG=en_US.UTF-8
+      )
+    fi
+    if [ "${#ENGINE_ENV[@]}" -gt 0 ]; then
+      command+=("${ENGINE_ENV[@]}")
+    fi
+    command+=("$APP_BINARY")
+    if [ "${#APP_ARGS[@]}" -gt 0 ]; then
+      command+=("${APP_ARGS[@]}")
+    fi
+    python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/frontend.log" -- "${command[@]}"
+  }
   if [ "$APP_OWNS_BACKEND" = "1" ]; then
     # The production App owns this child.  Keep the sidecar next to the exact bundle executable so
     # the in-product relaunch follows the same resolution path as a shipped install.
     cp "$RIG_HOME/bin/server" "$(dirname "$APP_BINARY")/anselm-server"
     chmod +x "$(dirname "$APP_BINARY")/anselm-server"
-    APP_LAUNCH_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/frontend.log" -- \
-      env ANSELM_DEV=1 ANSELM_DATA_DIR="$DATA" ANSELM_RELAUNCH_LOG="$SESSION/frontend.log" \
-      LANG=en_US.UTF-8 "${GATEWAY_ENV[@]}" "$APP_BINARY")
-  else
-    APP_LAUNCH_PID=$(python3 "$ROOT/testend/rig/spawn.py" --cwd "$ROOT" --out "$SESSION/frontend.log" -- \
-      env ANSELM_BACKEND_URL="$APP_BACKEND_URL" ANSELM_DATA_DIR="$DATA" \
-      ANSELM_RELAUNCH_LOG="$SESSION/frontend.log" LANG=en_US.UTF-8 "$APP_BINARY")
   fi
+  APP_LAUNCH_PID=$(launch_direct_app)
   printf '[conductor] direct macOS App started (PID %s; backend=%s)\n' \
     "$APP_LAUNCH_PID" "$APP_BACKEND_URL" >>"$SESSION/frontend.log"
   for _ in $(seq 1 360); do
@@ -441,6 +479,8 @@ json.dump({
   "appLaunchPid": "$APP_LAUNCH_PID",
   "appPid": "$APP_PID",
   "appBinary": "$APP_BINARY",
+  "appArgs": "$APP_ARGS_STRING",
+  "engineSwitches": "$ENGINE_SWITCHES_STRING",
   "appWindowId": "$APP_WINDOW_ID",
   "appWindowBounds": "$APP_WINDOW_BOUNDS",
   "recorderPid": "$RECORDER_PID",
@@ -858,6 +898,8 @@ json.dump({
   "appLaunchPid": "$APP_LAUNCH_PID",
   "appPid": "$APP_PID",
   "appBinary": "$APP_BINARY",
+  "appArgs": "$APP_ARGS_STRING",
+  "engineSwitches": "$ENGINE_SWITCHES_STRING",
   "initialAppLaunchPid": "$APP_LAUNCH_PID",
   "appWindowId": "$APP_WINDOW_ID",
   "appWindowBounds": "$APP_WINDOW_BOUNDS",

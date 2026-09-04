@@ -131,6 +131,41 @@ void main() {
     expect(find.textContaining('pipeline', findRichText: true), findsOneWidget);
   });
 
+  testWidgets('dependency warning gives its subject and detail room to wrap', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _host(
+        NotificationRow(
+          item: _n(
+            'relation.dependency_broken',
+            payload: {
+              'deletedKind': 'function',
+              'deletedId': 'fn_0d6524e8478d9ae8',
+              'dependents': [
+                {'kind': 'agent', 'name': 'edge293_formal_agent_a'},
+                {'kind': 'agent', 'name': 'edge293_formal_agent_b'},
+                {'kind': 'agent', 'name': 'edge293_formal_agent_c'},
+              ],
+            },
+          ),
+          now: _now,
+        ),
+      ),
+    );
+    await tester.pump();
+
+    final richTexts = tester.widgetList<RichText>(find.byType(RichText));
+    final primary = richTexts.firstWhere(
+      (widget) => widget.text.toPlainText().contains('fn_0d6524e8478d9ae8'),
+    );
+    final detail = richTexts.firstWhere(
+      (widget) => widget.text.toPlainText().contains('edge293_formal_agent_a'),
+    );
+    expect(primary.maxLines, isNull);
+    expect(detail.maxLines, isNull);
+  });
+
   testWidgets(
     'overlong name + <script> injection: no overflow, script is inert text',
     (tester) async {

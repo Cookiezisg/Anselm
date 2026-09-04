@@ -21,6 +21,7 @@ import (
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
+	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
 
@@ -45,6 +46,14 @@ var ErrChatTurnTimeout = errorspkg.New(
 	"CHAT_TURN_TIMEOUT",
 	"the chat turn exceeded its total wall-clock limit and was stopped to keep the app responsive",
 )
+
+// repeatedToolNotice is the user-facing close for a run-local duplicate guard. The tool_result
+// satisfies the provider protocol, but a model can emit the duplicate as its final sample; without
+// this text block the turn would be completed with no answer visible to the user.
+//
+// repeatedToolNotice 是本回合重复调用闸的用户面收尾。tool_result 已满足 provider 协议，但模型可能
+// 把重复调用作为最后一个 sample；没有这个 text block，回合会无答复地 completed。
+const repeatedToolNotice = "The repeated tool request was not run again because the same operation was already handled earlier in this turn."
 
 // maxConsecutiveAllFailTurns caps how many turns in a row may end with every tool call
 // returning an error before the loop aborts (TOOL_ERROR_STORM). Three is the lowest value
@@ -196,6 +205,22 @@ type Result struct {
 	TokensOut   int
 	Steps       int
 	LastMessage string
+}
+
+// repeatedToolNoticeBlock makes the duplicate guard visible in both live and durable chat views.
+// It uses the same block lifecycle as provider text, so a reconnect cannot observe a completed
+// assistant message whose final user-facing text was only added at finalize time.
+//
+// repeatedToolNoticeBlock 让重复调用闸在实时和耐久 Chat 视图都可见。它沿用 provider text 的 block
+// 生命周期，使重连不会看到「消息已 completed、最终用户文案却只在 finalize 时才补上」的半真相。
+func repeatedToolNoticeBlock(ctx context.Context, log *zap.Logger) messagesdomain.Block {
+	blockID := idgenpkg.New("blk")
+	messageID, _ := reqctxpkg.GetMessageID(ctx)
+	em := newEmitter(ctx, log)
+	em.open(ctx, blockID, messageID, messagesdomain.BlockTypeText, nil)
+	em.delta(ctx, blockID, repeatedToolNotice)
+	em.close(ctx, blockID, messagesdomain.StatusCompleted, textSnapshot(repeatedToolNotice), "")
+	return messagesdomain.Block{ID: blockID, Type: messagesdomain.BlockTypeText, Content: repeatedToolNotice}
 }
 
 // Run executes the ReAct loop. baseReq.Messages is composed from host.LoadHistory; tools are
@@ -576,6 +601,7 @@ runLoop:
 		// 此处结束回合，防止模型无视 suppression 反馈继续吐无限重复调用。下一条用户消息拥有新台账，
 		// 仍可有意重试。
 		if repeatedCall {
+			allBlocks = append(allBlocks, repeatedToolNoticeBlock(ctx, log))
 			host.WriteFinalize(ctx, allBlocks, messagesdomain.StatusCompleted, messagesdomain.StopReasonEndTurn, "", "", totalIn, totalOut)
 			finalWritten = true
 			break
