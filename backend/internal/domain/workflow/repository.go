@@ -76,10 +76,12 @@ type Repository interface {
 	// it still being draining — the scheduler calls this when a draining workflow's last in-flight run
 	// settles (graceful-drain complete). A no-op if the workflow already moved off draining (the user
 	// re-activated it, or it was never draining). Idempotent; not an error if 0 rows match.
-	// MarkInactiveIfDraining 把 draining 的 workflow 翻成 inactive（+ active=false），条件是它仍 draining
-	// ——调度器在 draining workflow 最后一个在途 run 结算时调（优雅排空完成）。若 workflow 已离开 draining
-	// （用户重新激活、或本就非 draining）则 no-op。幂等；0 行匹配不算错。
-	MarkInactiveIfDraining(ctx context.Context, workflowID string) error
+	// MarkInactiveIfDraining returns whether a draining workflow was changed to inactive (+ active=false).
+	// A false result is the expected idempotent no-op when the row is already off draining or gone.
+	//
+	// MarkInactiveIfDraining 返回 workflow 是否确实从 draining 改成 inactive（+ active=false）。
+	// 行已离开 draining 或不存在时返回 false，这是幂等 no-op 的正常结果。
+	MarkInactiveIfDraining(ctx context.Context, workflowID string) (changed bool, err error)
 
 	// --- versions (immutable, cap-trimmed) ---
 

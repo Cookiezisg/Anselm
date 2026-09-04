@@ -222,6 +222,8 @@ abstract final class AnSize {
       36; // shared compact/header crown: 28 control + 4px breathing on both sides 顶带共用冠部高(28 控件上下各 4)
   static const double noticeMaxWidth =
       340; // centred island + worst 68px tail still fits the 480px ocean floor 居中岛+最坏 68 尾仍住 480 海洋
+  static const double noticeCapsuleMaxWidth =
+      400; // ordinary notices keep complete actionable copy while leaving room for the queue tail 普通通知保留完整可行动文案,并给候场尾留空间
   static const double noticeTailSlot =
       row; // fixed 32px count runway; hover shows a centred tile-less 28px X face 候场计数定槽,hover 内显居中无底 X
   static const double tagFieldMaxWidth =

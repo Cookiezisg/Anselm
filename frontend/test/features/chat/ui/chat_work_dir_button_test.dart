@@ -222,9 +222,11 @@ void main() {
       expect(find.text(t.chat.workDir.dirty), findsOneWidget);
     });
 
-    // A plain (non-repo) directory has NO git section — showing an empty one would be chrome that says
-    // nothing. 普通(非仓库)目录**没有** git 段——摆一个空的等于摆一块什么都不说的 chrome。
-    testWidgets('a non-repo directory grows no git section', (tester) async {
+    // A plain directory explains why Git actions are absent without offering fake actions. 普通目录解释 Git 动作为何
+    // 不在这里，而不是静默缩短菜单或摆出必定失败的按钮。
+    testWidgets('a non-repo directory explains the absent git actions', (
+      tester,
+    ) async {
       final h = _host(
         workDir: _root,
         projections: const {_root: WorkDirInfo(path: _root, exists: true)},
@@ -235,7 +237,9 @@ void main() {
 
       final t = await _t();
       expect(find.text(_root), findsOneWidget);
-      expect(find.text(t.chat.workDir.git), findsNothing);
+      expect(find.text(t.chat.workDir.git), findsOneWidget);
+      expect(find.text(t.chat.workDir.notRepository), findsOneWidget);
+      expect(find.text(t.chat.workDir.notRepositoryHint), findsOneWidget);
       expect(find.text(t.chat.workDir.clean), findsNothing);
     });
 
@@ -777,9 +781,8 @@ void main() {
       expect(copy, contains('wt/x'));
       expect(
         copy,
-        isNot(contains('hint')),
-        reason:
-            'the FIRST line is the reason; the rest is git talking to itself',
+        contains('hint: ignored'),
+        reason: 'git stderr is the evidence that names the occupied worktree',
       );
       // An error that is not ours at all still says the one thing that matters: nothing changed.
       // 一个压根不是我们的错误,仍然说出唯一要紧的那件事:什么都没有改动。
@@ -788,6 +791,26 @@ void main() {
         t.chat.workDir.errFallback,
       );
     });
+
+    test(
+      'a partial worktree failure tells the truth about the half-state',
+      () async {
+        final t = await _t();
+        expect(
+          gitActionFailure(
+            t,
+            const ApiException(
+              code: 'CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED',
+              message:
+                  'worktree created but conversation residency was not updated',
+              httpStatus: 500,
+              details: {'path': '/tmp/anselm-partial'},
+            ),
+          ),
+          t.chat.workDir.errWorktreePartial,
+        );
+      },
+    );
   });
 }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../core/contract/api_error.dart';
 import '../core/contract/workspace.dart';
 import '../core/design/tokens.dart';
 import '../core/shell/oceans.dart';
@@ -10,6 +11,7 @@ import '../core/ui/an_state.dart';
 import '../core/ui/an_workspace_composer_flight.dart';
 import '../core/workspace/workspace_bootstrap.dart';
 import '../core/workspace/workspace_journey.dart';
+import '../core/runtime.dart';
 import '../i18n/strings.g.dart';
 import 'gate_backdrop.dart';
 import 'workspace_onboarding.dart';
@@ -42,6 +44,7 @@ class _WorkspaceGateState extends ConsumerState<WorkspaceGate>
   bool _transitionDone = false;
   Rect? _sourceRect;
   Rect? _destinationRect;
+  ProviderSubscription<String?>? _workspaceSubscription;
 
   @override
   void initState() {
@@ -51,6 +54,16 @@ class _WorkspaceGateState extends ConsumerState<WorkspaceGate>
       duration: AnMotion.onboardingJourney,
     )..addListener(_syncDestinationOpacity);
     _journey = WorkspaceJourney();
+    _workspaceSubscription = ref.listenManual<String?>(activeWorkspaceProvider, (
+      previous,
+      next,
+    ) {
+      if (previous != null && next == null) {
+        // A scoped request proved the active id unusable. Re-resolve from the durable roster rather
+        // than leaving the routed shell on a misleading rail error. 后端证明活动 id 不可用时回到名册重选。
+        ref.invalidate(workspaceBootstrapProvider);
+      }
+    });
   }
 
   @override
@@ -59,6 +72,7 @@ class _WorkspaceGateState extends ConsumerState<WorkspaceGate>
       ..removeListener(_syncDestinationOpacity)
       ..dispose();
     _journey.dispose();
+    _workspaceSubscription?.close();
     super.dispose();
   }
 
@@ -90,20 +104,30 @@ class _WorkspaceGateState extends ConsumerState<WorkspaceGate>
           title: t.coldStart.connecting,
         ),
       ),
-      error: (e, _) => GateBackdrop(
-        child: AnState(
-          kind: AnStateKind.error,
-          fatal: true,
-          title: t.coldStart.errorTitle,
-          hint: t.coldStart.errorHint,
-          detail: e.toString(),
-          action: AnButton(
-            label: t.startup.retry,
-            variant: AnButtonVariant.primary,
-            onPressed: () => ref.invalidate(workspaceBootstrapProvider),
+      error: (e, _) {
+        final authFailed =
+            e is ApiException && e.code == AnselmErr.unauthBadToken;
+        return GateBackdrop(
+          child: AnState(
+            kind: AnStateKind.error,
+            fatal: true,
+            title: authFailed
+                ? t.coldStart.authErrorTitle
+                : t.coldStart.errorTitle,
+            hint: authFailed
+                ? t.coldStart.authErrorHint
+                : t.coldStart.errorHint,
+            // Keep raw exception details in backend/frontend journals. The workspace gate is a
+            // product-facing startup surface and must not expose implementation codes or provider
+            // messages to users. 原始异常留在日志;工作区启动门只显示用户文案,不泄漏内部码。
+            action: AnButton(
+              label: t.startup.retry,
+              variant: AnButtonVariant.primary,
+              onPressed: () => ref.invalidate(workspaceBootstrapProvider),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

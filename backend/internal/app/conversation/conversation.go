@@ -521,6 +521,9 @@ func (s *Service) Update(ctx context.Context, id string, in UpdateInput) (*conve
 		s.markRuntime(c)
 		return c, nil
 	}
+	if err := rigWorkDirUpdateFailure(ctx, workDirChanged, markerTo); err != nil {
+		return nil, err
+	}
 	if err := s.repo.Update(ctx, c); err != nil {
 		return nil, err
 	}

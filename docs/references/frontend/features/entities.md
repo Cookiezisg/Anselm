@@ -59,11 +59,12 @@ audience: [human, ai]
 经共享 `hydrateTranscriptTree` 水合，复用调试台的 `BlockTreeView` 显示嵌套 reasoning/text/tool-call/tool-result
 轨迹；列表页的轻量投影不能冒充“没有日志”，详情请求失败也不能静默留白。
 
-实体 rail 的删除确认必须说明对象会从当前目录移除且不可撤销；确认后才调用统一 `DELETE`，列表按 durable
-`deleted` 信号对账，打开中的详情回到实体首页。删除不会因入向关系阻塞，后端清边并保留适用的历史/审计事实；前端
-不得用含糊的“已删除”成功文案掩盖软删与后续不可用状态。Trigger 的确认框是更严格的专用预检：动作前刷新
-`GET /api/v1/relgraph`，列出入向 `equip/link` 使用者，并在 listener 热时明确说明删除会停止监听；关系快照读失败时
-不继续执行删除。这样用户在确认前能知道受影响的工作流，删除后的 `trigger.deleted` 与
+实体 rail 的删除确认必须说明对象会从当前目录移除且不可撤销；确认前对所有实体刷新
+`GET /api/v1/relgraph`，列出入向 `equip/link` 使用者（最多显示三个名称并汇总剩余数量）；关系快照读失败时
+不继续执行删除。确认后才调用统一 `DELETE`，列表按 durable `deleted` 信号对账，打开中的详情回到实体首页。
+删除不会因入向关系阻塞，后端清边并保留适用的历史/审计事实；前端不得用含糊的“已删除”成功文案掩盖软删与后续不可用状态。
+Trigger 的确认框是更严格的专用预检：在通用依赖影响说明之外，listener 热时明确说明删除会停止监听。
+这样用户在确认前能知道受影响的实体，删除后的 `trigger.deleted` 与
 `relation.dependency_broken` 仍由 durable 流和 REST 真相收口。
 
 调试台始终展示一份可直接修改和运行的 JSON。schema 示例优先使用 example/default/enum，缺失时生成类型骨架；workflow 按触发源生成点火 payload。编辑器的可见文本、session 草稿、实时 JSON lint 和 Run CTA 必须共享同一份当前文本：非法 JSON 立即显示可解释的红色错误并禁用 Run，禁止把旧草稿静默送入 HTTP；只有合法对象才进入 `:run`。无执行历史时不制造 Idle 墓碑，只有真实结果、错误或在飞状态才出现。

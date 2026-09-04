@@ -3,6 +3,8 @@ import 'dart:async';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../../core/contract/api_error.dart';
+import '../../../core/contract/messages/block_content.dart';
+import '../../../core/messages/block_tree_reducer.dart';
 import '../../../core/perf/coalescing_notifier.dart';
 import '../../../core/sse/frame.dart';
 import '../data/chat_providers.dart';
@@ -148,10 +150,49 @@ class ConversationStreamController extends Notifier<ConversationStreamState> {
           .firstOrNull;
       if (node != null &&
           ConversationTranscript.turnRole(node) == 'assistant') {
+        // A 410 can land after tool_call CLOSE but before the in-memory tool_result blocks are
+        // finalized. The subsequent assistant CLOSE is durable, but it carries only message metadata;
+        // if the result CLOSEs were swallowed by the gap, the live cards would otherwise remain running
+        // forever. Re-read only this anomalous terminal shape so ordinary completed turns keep their
+        // single-pass streaming path and do not flicker through a full rebuild.
+        // 410 可能发生在 tool_call CLOSE 之后、tool_result 块最终落盘之前。之后抵达的 assistant CLOSE
+        // 只有回合元数据；若结果 CLOSE 被缺口吞掉，活卡会永久 running。仅对这个异常终态形状重取，
+        // 正常完成回合仍走单次流路径，不增加请求或视觉抖动。
+        if (_hasUnresolvedToolResults(node)) {
+          _onResync();
+          return;
+        }
         _syncPin();
         if (_isSelected) unawaited(_quietlySeen());
       }
     }
+  }
+
+  /// Whether a terminal assistant snapshot still contains a tool call without a closed execution
+  /// result. This is the signature of an execution-result gap: the result may have completed before
+  /// the stream reconnect, but the final REST snapshot is the only place that can recover it.
+  /// 是否是终态 assistant 仍含「tool_call 没有已闭合执行结果」——这是执行结果缺口的特征；结果可能在
+  /// 重连前已经完成，只有最终 REST 快照能把它补回来。
+  bool _hasUnresolvedToolResults(BlockNode root) {
+    var unresolved = false;
+    void walk(BlockNode node) {
+      if (unresolved) return;
+      if (node.kind == BlockKind.toolCall) {
+        final result = node.children
+            .where((child) => child.kind == BlockKind.toolResult)
+            .firstOrNull;
+        if (result == null || result.isOpen) {
+          unresolved = true;
+          return;
+        }
+      }
+      for (final child in node.children) {
+        walk(child);
+      }
+    }
+
+    walk(root);
+    return unresolved;
   }
 
   void _onResync() {

@@ -43,11 +43,15 @@ class VoicesCard extends ConsumerStatefulWidget {
 class _VoicesCardState extends ConsumerState<VoicesCard> {
   String? _deleting;
   String? _confirming;
+  String? _deleteErrorId;
   int _workspaceGeneration = 0;
 
   void _toggleConfirmation(String id) {
     if (_deleting != null) return;
-    setState(() => _confirming = _confirming == id ? null : id);
+    setState(() {
+      _confirming = _confirming == id ? null : id;
+      _deleteErrorId = null;
+    });
   }
 
   Future<void> _remove(String id) async {
@@ -65,6 +69,9 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
       // 后端**先删上游登记**、那一步失败意味着音色仍可用;但删除已提交而重读失败是另一种状态:
       // 旧行不再安全,provider 进入明确的重读错误态,通知也不能诱导用户再删一次。
       final committed = error is VoiceDeleteCommittedRefreshException;
+      if (!committed) {
+        setState(() => _deleteErrorId = id);
+      }
       ref
           .read(noticeCenterProvider.notifier)
           .show(
@@ -99,7 +106,10 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
       // 切换边界只清这个意图。在途删除直到结算前仍保持单飞,代际守卫阻止旧错误在新 workspace 涂回界面。
       runFrameSafe(() {
         if (!mounted) return;
-        setState(() => _confirming = null);
+        setState(() {
+          _confirming = null;
+          _deleteErrorId = null;
+        });
       });
     });
     final inv = ref.watch(voicesProvider);
@@ -189,6 +199,9 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
               padding: const EdgeInsets.only(top: AnSpace.s8),
               child: AnTypeToConfirm(
                 title: t.settings.keys.voicesDeleteTitle,
+                warning: _deleteErrorId == v.id
+                    ? t.settings.keys.voicesDeleteFailed
+                    : null,
                 body: Text(
                   t.settings.keys.voicesDeleteBody(name: v.name),
                   style: AnText.label.copyWith(color: c.inkMuted),

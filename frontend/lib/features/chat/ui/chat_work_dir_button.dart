@@ -154,15 +154,14 @@ class ChatWorkDirButton extends ConsumerWidget {
         : t.chat.workDir.buttonMissing(path: info.path);
   }
 
-  /// The three-section grammar the right island speaks (身份头 / 动作 / git), expressed in AnMenu's own
-  /// vocabulary: a section LABEL is the identity head (it carries the full path — the one place with room for
-  /// it), then the residency actions, then the git段 only when the directory really is a repo.
+  /// The menu grammar the right island speaks (identity / actions / Git), expressed in AnMenu's own vocabulary:
+  /// a section label carries the full path, then the residency actions, then either Git status or its absence reason.
   ///
   /// An UNMOUNTED thread gets the small menu §3.1 specifies — 「选择工作目录…」+ recent — because there is no
   /// identity to head and nothing to leave.
   ///
-  /// 右岛那套三段式文法（身份头 / 动作 / git），用 AnMenu 自己的词汇表达:一个 section **标签**就是身份头(它承载
-  /// 完整路径——唯一放得下它的地方)，接着是驻地动作，最后 git 段**仅在**目录真是仓库时出现。
+  /// 右岛菜单文法（身份头 / 动作 / Git），用 AnMenu 自己的词汇表达:section 标签承载完整路径，接着是驻地动作，
+  /// 最后显示 Git 状态，或解释 Git 动作为何不可用的只读状态。
   ///
   /// **未挂**线程拿到 §3.1 指定的那个小菜单——「选择工作目录…」+ 最近——因为没有身份可作头、也没有什么可退出。
   List<AnMenuEntry> _entries(
@@ -205,6 +204,19 @@ class ChatWorkDirButton extends ConsumerWidget {
           icon: AnIcons.laptop,
           onTap: () => _apply(context, ref, ''),
         ),
+      // A real directory that is not a repository needs an explanation, not a silent omission. Keep the
+      // row disabled: there is no Git action to run here, but the user should know what becomes available
+      // after choosing a repository. Missing paths keep their stronger "no longer exists" message.
+      // 真实存在但不是仓库的目录需要解释、不能静默消失。此行保持禁用:这里没有 Git 动作可运行，但用户应知道选中
+      // 仓库后会获得什么。已消失路径保留更强的「目录已不存在」提示。
+      if (mounted && info.exists && !info.isGitRepo) ...[
+        AnMenuSection(w.git),
+        AnMenuItem(
+          label: w.notRepository,
+          meta: w.notRepositoryHint,
+          disabled: true,
+        ),
+      ],
       // The recency list — machine-level, zero backend. The CURRENT residency is filtered out: offering to
       // switch to where you already are is a menu row that does nothing.
       // 最近列表——机器级、零后端。**当前**驻地被滤掉:提议切到你已经在的地方，是一行什么都不做的菜单项。
@@ -226,8 +238,8 @@ class ChatWorkDirButton extends ConsumerWidget {
             onTap: () => _apply(context, ref, path),
           ),
       ],
-      // ③ git — the state (WD1) and then the three ACTIONS (WD2 switch / new branch, WD3 worktree).
-      // 只在真是仓库时出现:git 段——先是状态(WD1),再是三个**动作**(WD2 切/新建分支、WD3 worktree)。
+      // ③ Git — repository state and actions, or a read-only explanation when the mounted directory is
+      // not a repository. 不是真仓库时也要解释 Git 动作为何缺席，但绝不摆出必定失败的操作项。
       if (info.isGitRepo) ...[
         AnMenuSection(w.git),
         AnMenuItem(

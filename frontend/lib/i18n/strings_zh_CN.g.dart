@@ -106,13 +106,16 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get voiceInputUnavailable => '语音输入仅支持 Anselm Auto';
 	@override String get voiceInputPermissionDenied => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。';
 	@override String get voiceInputConnectionLost => '语音输入已断开。已转写出的文字已保留在输入框中。';
+	@override String get voiceInputConnectionLostNoText => '语音输入已断开。尚未转写出文字，本地录音已保留，可重试转写。';
 	@override String get voiceInputTooLong => '语音输入最长 2 分钟。已转写出的文字已保留在输入框中。';
 	@override String get voiceInputQuotaExhausted => '本月语音输入额度已用完，请在额度恢复后再试。';
 	@override String get voiceInputRateLimited => '语音服务正忙，请稍后重试。';
 	@override String get voiceInputAccountBanned => '当前 Anselm Auto 安装未获准使用语音输入。';
 	@override String get voiceInputFrameInvalid => '这段语音数据格式不受支持。已转写的文字已保留，请重新录音。';
+	@override String get voiceInputFrameInvalidNoText => '这段语音数据格式不受支持。尚未转写出文字，请重新录音。';
 	@override String get voiceRetryTitle => '语音输入中断';
 	@override String get voiceRetryBody => '草稿已保留，可用本地录音重放一次重新转写。';
+	@override String get voiceRetryBodyNoText => '尚未转写出文字。本地录音已保留，可重试一次。';
 	@override String get voiceRetryAction => '重试转写';
 	@override String get voiceDiscardAction => '删除语音草稿';
 	@override String get voiceInputFailed => '语音输入启动失败';
@@ -151,6 +154,7 @@ class _Translations$chat$zh_CN extends Translations$chat$en {
 	@override String get modelCatalogLoading => '正在读取模型能力…';
 	@override String get modelCatalogFailed => '模型能力读取失败';
 	@override String get modelCatalogRetry => '重新读取模型能力';
+	@override String get chatOnlyBadge => '仅聊天 · 不能当 agent';
 	@override String get mentionEntity => '提及实体';
 	@override String get attachFile => '添加附件';
 	@override String get attachMenuFiles => '选择文件';
@@ -461,8 +465,8 @@ class _Translations$startup$zh_CN extends Translations$startup$en {
 	@override String get connecting => '正在连接本地引擎…';
 	@override String get crashedTitle => '本地引擎无法连接';
 	@override String get crashedHint => '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。';
+	@override String get stoppedHint => '本地引擎已停止响应。点击重试以重新连接。';
 	@override String get retry => '重试';
-\t@override String get stoppedHint => '本地引擎已停止响应。点击重试以重新连接。';
 	@override String get errorTitle => '界面出错了';
 	@override String get errorHint => '渲染此视图时发生了意外错误。';
 }
@@ -507,6 +511,8 @@ class _Translations$coldStart$zh_CN extends Translations$coldStart$en {
 	@override String get connecting => '正在准备工作区…';
 	@override String get errorTitle => '无法准备工作区';
 	@override String get errorHint => '本地引擎已连通,但工作区未就绪。';
+	@override String get authErrorTitle => '请重启本地引擎';
+	@override String get authErrorHint => '引擎拒绝了 Anselm 的认证令牌。请重启后端,然后重试。';
 	@override String get createWorkspace => '创建工作区';
 	@override String get nameLabel => '工作区名称';
 	@override String get alreadyExists => '该工作区已存在';
@@ -527,6 +533,9 @@ class _Translations$library$zh_CN extends Translations$library$en {
 	@override String get skills => '技能';
 	@override String get untitled => '未命名';
 	@override String get editorHint => '输入正文,按 / 唤起命令';
+	@override String get documentTooLargeTitle => '这篇文档太大,无法在线编辑';
+	@override String get documentTooLargeHint => '下面仍显示完整正文,但当前为只读。点击“复制全文”后可在其他应用中编辑。';
+	@override String get documentCopyAll => '复制全文';
 	@override String get addDescription => '添加简介…';
 	@override String get addTag => '添加标签';
 	@override String get filter => '搜索页面…';
@@ -764,6 +773,8 @@ class _Translations$chat$workDir$zh_CN extends Translations$chat$workDir$en {
 	@override String get revealFinder => '在访达中显示';
 	@override String get openTerminal => '在终端打开';
 	@override String get git => 'Git';
+	@override String get notRepository => '不是 Git 仓库';
+	@override String get notRepositoryHint => '请选择仓库';
 	@override String branch({required Object name}) => '分支 ${name}';
 	@override String get detached => '游离 HEAD';
 	@override String get dirty => '有未提交改动';
@@ -801,6 +812,7 @@ class _Translations$chat$workDir$zh_CN extends Translations$chat$workDir$en {
 	@override String get errBranchExists => '已有同名分支。换个名字，或从菜单切到它。';
 	@override String get errWorktreeName => 'worktree 的名字必须是一个文件夹名——不能带「/」，也不能是「..」。';
 	@override String get errWorktreeExists => '那个文件夹已经存在。换个名字，或从菜单把本对话切进去。';
+	@override String get errWorktreePartial => 'worktree 已经创建，但本对话还留在原来的目录。请先从菜单切进去，再不要重复创建。';
 	@override String errGit({required Object reason}) => 'git 拒绝了：${reason}';
 	@override String get errFallback => '没成功，什么都没有改动。再试一次。';
 }
@@ -1867,6 +1879,7 @@ class _Translations$entities$rail$zh_CN extends Translations$entities$rail$en {
 	@override String iterateRequest({required Object name}) => '帮我用 AI 修改「${name}」。';
 	@override String get deleteTitle => '删除这个实体?';
 	@override String deleteBody({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。';
+	@override String deleteBodyWithDependents({required Object name, required Object dependents}) => '「${name}」正在被 ${dependents} 使用。删除后这些实体需要修复。此操作无法撤销。';
 	@override String get deleteTriggerTitle => '删除这个触发器?';
 	@override String deleteTriggerBody({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。';
 	@override String deleteTriggerBodyWithDependents({required Object name, required Object dependents}) => '「${name}」正在被 ${dependents} 使用。删除后会停止监听，并让这些工作流需要修复。此操作无法撤销。';
@@ -2411,6 +2424,9 @@ class _Translations$settings$mcp$zh_CN extends Translations$settings$mcp$en {
 	@override String get statusDegraded => '降级';
 	@override String get statusConnecting => '连接中';
 	@override String get statusDisconnected => '未连接';
+	@override String get failedTitle => 'MCP 服务器连接失败';
+	@override String get failedHint => '请检查服务器配置或运行环境,然后选择“重连”。';
+	@override String get technicalDetails => '技术详情';
 	@override String get name => '名称';
 	@override String get transport => '传输';
 	@override String get runtime => '运行时';
@@ -3232,6 +3248,8 @@ extension on TranslationsZhCn {
 			'chat.workDir.revealFinder' => '在访达中显示',
 			'chat.workDir.openTerminal' => '在终端打开',
 			'chat.workDir.git' => 'Git',
+			'chat.workDir.notRepository' => '不是 Git 仓库',
+			'chat.workDir.notRepositoryHint' => '请选择仓库',
 			'chat.workDir.branch' => ({required Object name}) => '分支 ${name}',
 			'chat.workDir.detached' => '游离 HEAD',
 			'chat.workDir.dirty' => '有未提交改动',
@@ -3269,6 +3287,7 @@ extension on TranslationsZhCn {
 			'chat.workDir.errBranchExists' => '已有同名分支。换个名字，或从菜单切到它。',
 			'chat.workDir.errWorktreeName' => 'worktree 的名字必须是一个文件夹名——不能带「/」，也不能是「..」。',
 			'chat.workDir.errWorktreeExists' => '那个文件夹已经存在。换个名字，或从菜单把本对话切进去。',
+			'chat.workDir.errWorktreePartial' => 'worktree 已经创建，但本对话还留在原来的目录。请先从菜单切进去，再不要重复创建。',
 			'chat.workDir.errGit' => ({required Object reason}) => 'git 拒绝了：${reason}',
 			'chat.workDir.errFallback' => '没成功，什么都没有改动。再试一次。',
 			'chat.pin' => '置顶',
@@ -3297,13 +3316,16 @@ extension on TranslationsZhCn {
 			'chat.voiceInputUnavailable' => '语音输入仅支持 Anselm Auto',
 			'chat.voiceInputPermissionDenied' => '麦克风权限未开启。请在系统设置里允许麦克风访问后重试。',
 			'chat.voiceInputConnectionLost' => '语音输入已断开。已转写出的文字已保留在输入框中。',
+			'chat.voiceInputConnectionLostNoText' => '语音输入已断开。尚未转写出文字，本地录音已保留，可重试转写。',
 			'chat.voiceInputTooLong' => '语音输入最长 2 分钟。已转写出的文字已保留在输入框中。',
 			'chat.voiceInputQuotaExhausted' => '本月语音输入额度已用完，请在额度恢复后再试。',
 			'chat.voiceInputRateLimited' => '语音服务正忙，请稍后重试。',
 			'chat.voiceInputAccountBanned' => '当前 Anselm Auto 安装未获准使用语音输入。',
 			'chat.voiceInputFrameInvalid' => '这段语音数据格式不受支持。已转写的文字已保留，请重新录音。',
+			'chat.voiceInputFrameInvalidNoText' => '这段语音数据格式不受支持。尚未转写出文字，请重新录音。',
 			'chat.voiceRetryTitle' => '语音输入中断',
 			'chat.voiceRetryBody' => '草稿已保留，可用本地录音重放一次重新转写。',
+			'chat.voiceRetryBodyNoText' => '尚未转写出文字。本地录音已保留，可重试一次。',
 			'chat.voiceRetryAction' => '重试转写',
 			'chat.voiceDiscardAction' => '删除语音草稿',
 			'chat.voiceInputFailed' => '语音输入启动失败',
@@ -3349,6 +3371,7 @@ extension on TranslationsZhCn {
 			'chat.modelCatalogLoading' => '正在读取模型能力…',
 			'chat.modelCatalogFailed' => '模型能力读取失败',
 			'chat.modelCatalogRetry' => '重新读取模型能力',
+			'chat.chatOnlyBadge' => '仅聊天 · 不能当 agent',
 			'chat.mentionEntity' => '提及实体',
 			'chat.attachFile' => '添加附件',
 			'chat.attachMenuFiles' => '选择文件',
@@ -3710,6 +3733,8 @@ extension on TranslationsZhCn {
 			'chat.tool.searchedAgentExec' => '已翻查智能体执行',
 			'chat.tool.searchingMcpCalls' => '正在翻查 MCP 调用',
 			'chat.tool.searchedMcpCalls' => '已翻查 MCP 调用',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.aggRollup' => ({required Object ok, required Object failed}) => '${ok} ✓ · ${failed} ✗',
 			'chat.tool.aggNote' => '✗ 含取消/超时',
 			'chat.tool.logNoRecords' => '无记录',
@@ -3717,8 +3742,6 @@ extension on TranslationsZhCn {
 			'chat.tool.byChat' => '对话',
 			'chat.tool.byAgent' => '智能体',
 			'chat.tool.byWorkflow' => '工作流',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.byManual' => '手动',
 			'chat.tool.searchingFlowruns' => '正在翻查运行',
 			'chat.tool.searchedFlowruns' => '已翻查运行',
@@ -4224,6 +4247,8 @@ extension on TranslationsZhCn {
 			'scheduler.run.notRun' => '未及',
 			'scheduler.run.ledgerHead' => '节点台账',
 			'scheduler.run.ledgerEmpty' => '还没有节点落定。',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.run.dossierTitle' => '运行卷宗',
 			'scheduler.run.kvStatus' => '状态',
 			'scheduler.run.inspectorTitle' => '检查器',
@@ -4231,8 +4256,6 @@ extension on TranslationsZhCn {
 			'scheduler.run.glanceSuccess' => ({required Object pct}) => '近 7 天 ${pct}% 成功',
 			'scheduler.run.glanceStreak' => ({required Object n}) => '连败 ${n}',
 			'scheduler.run.payloadHead' => '入口 payload',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.run.pinnedRefsHead' => '钉住的引用',
 			'scheduler.run.errorHead' => '错误',
 			'scheduler.run.replayHistory' => ({required Object n}) => '已重放 ×${n}',
@@ -4432,9 +4455,9 @@ extension on TranslationsZhCn {
 			'startup.connecting' => '正在连接本地引擎…',
 			'startup.crashedTitle' => '本地引擎无法连接',
 			'startup.crashedHint' => '后端没有启动。开发时可将 ANSELM_BACKEND_URL 指向已运行的服务（make -C backend run）。',
+			'startup.stoppedHint' => '本地引擎已停止响应。点击重试以重新连接。',
 			'startup.retry' => '重试',
 			'startup.errorTitle' => '界面出错了',
-\t\t\t'startup.stoppedHint' => '本地引擎已停止响应。点击重试以重新连接。',
 			'startup.errorHint' => '渲染此视图时发生了意外错误。',
 			'entities.kNew' => '新建',
 			'entities.filter' => '搜索实体…',
@@ -4465,6 +4488,7 @@ extension on TranslationsZhCn {
 			'entities.rail.iterateRequest' => ({required Object name}) => '帮我用 AI 修改「${name}」。',
 			'entities.rail.deleteTitle' => '删除这个实体?',
 			'entities.rail.deleteBody' => ({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。',
+			'entities.rail.deleteBodyWithDependents' => ({required Object name, required Object dependents}) => '「${name}」正在被 ${dependents} 使用。删除后这些实体需要修复。此操作无法撤销。',
 			'entities.rail.deleteTriggerTitle' => '删除这个触发器?',
 			'entities.rail.deleteTriggerBody' => ({required Object name}) => '「${name}」将从当前目录移除，此操作无法撤销。',
 			'entities.rail.deleteTriggerBodyWithDependents' => ({required Object name, required Object dependents}) => '「${name}」正在被 ${dependents} 使用。删除后会停止监听，并让这些工作流需要修复。此操作无法撤销。',
@@ -4737,6 +4761,8 @@ extension on TranslationsZhCn {
 			'entities.run.close' => '关闭运行终端',
 			'entities.run.cancelled' => '已取消',
 			'entities.run.glanceTotal' => ({required Object n}) => '共 ${n} 次执行',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.glanceLastOk' => '上次成功',
 			'entities.run.glanceLastFailed' => '上次失败',
 			'entities.run.glanceLastCancelled' => '上次取消',
@@ -4746,8 +4772,6 @@ extension on TranslationsZhCn {
 			'entities.run.traceHeading' => '轨迹',
 			'entities.run.reasoning' => '推理',
 			'entities.run.toolCall' => '工具调用',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.nodesHeading' => '节点',
 			'entities.run.noTrace' => '等待输出…',
 			'entities.run.steps' => ({required Object n}) => '${n} 步',
@@ -4802,6 +4826,8 @@ extension on TranslationsZhCn {
 			'coldStart.connecting' => '正在准备工作区…',
 			'coldStart.errorTitle' => '无法准备工作区',
 			'coldStart.errorHint' => '本地引擎已连通,但工作区未就绪。',
+			'coldStart.authErrorTitle' => '请重启本地引擎',
+			'coldStart.authErrorHint' => '引擎拒绝了 Anselm 的认证令牌。请重启后端,然后重试。',
 			'coldStart.createWorkspace' => '创建工作区',
 			'coldStart.nameLabel' => '工作区名称',
 			'coldStart.alreadyExists' => '该工作区已存在',
@@ -4813,6 +4839,9 @@ extension on TranslationsZhCn {
 			'library.skills' => '技能',
 			'library.untitled' => '未命名',
 			'library.editorHint' => '输入正文,按 / 唤起命令',
+			'library.documentTooLargeTitle' => '这篇文档太大,无法在线编辑',
+			'library.documentTooLargeHint' => '下面仍显示完整正文,但当前为只读。点击“复制全文”后可在其他应用中编辑。',
+			'library.documentCopyAll' => '复制全文',
 			'library.addDescription' => '添加简介…',
 			'library.addTag' => '添加标签',
 			'library.filter' => '搜索页面…',
@@ -5246,6 +5275,8 @@ extension on TranslationsZhCn {
 			'settings.mcp.browse' => '浏览市场',
 			'settings.mcp.manualAdd' => '手动添加',
 			'settings.mcp.importJson' => '导入 mcp.json',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.empty' => '还没有 MCP 服务器',
 			'settings.mcp.loading' => '正在加载 MCP 服务器…',
 			'settings.mcp.loadFailed' => 'MCP 服务器加载失败',
@@ -5260,8 +5291,6 @@ extension on TranslationsZhCn {
 			'settings.mcp.deleteTitle' => '删除 MCP 服务器',
 			'settings.mcp.deleteBody' => ({required Object name}) => '将移除「${name}」及其配置(软删)。',
 			'settings.mcp.confirmDelete' => '删除',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.tools' => ({required Object n}) => '${n} 工具',
 			'settings.mcp.call' => ({required Object n}) => '${n} 次调用',
 			'settings.mcp.calls' => ({required Object n}) => '${n} 次调用',
@@ -5270,6 +5299,9 @@ extension on TranslationsZhCn {
 			'settings.mcp.statusDegraded' => '降级',
 			'settings.mcp.statusConnecting' => '连接中',
 			'settings.mcp.statusDisconnected' => '未连接',
+			'settings.mcp.failedTitle' => 'MCP 服务器连接失败',
+			'settings.mcp.failedHint' => '请检查服务器配置或运行环境,然后选择“重连”。',
+			'settings.mcp.technicalDetails' => '技术详情',
 			'settings.mcp.name' => '名称',
 			'settings.mcp.transport' => '传输',
 			'settings.mcp.runtime' => '运行时',

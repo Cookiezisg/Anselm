@@ -114,6 +114,11 @@ final apiClientProvider = Provider<ApiClient>((ref) {
     dio: ref.watch(dioProvider),
     workspaceId: () => ref.read(activeWorkspaceProvider),
     authToken: () => ref.read(backendStartupProvider).authToken,
+    onWorkspaceUnauthorized: () {
+      if (ref.read(activeWorkspaceProvider) != null) {
+        ref.read(activeWorkspaceProvider.notifier).clear();
+      }
+    },
   );
 });
 

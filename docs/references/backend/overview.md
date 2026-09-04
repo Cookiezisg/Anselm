@@ -94,6 +94,7 @@ LLM 调 create_function（ops 数组；外层 JSON 字符串与无歧义 I/O 字
 
 - **workspace 隔离链**：HTTP 中间件注入 → ctx 一路下传 → orm 自动过滤/填充（D2）；异步用 `reqctx.Detached(wsID)` 重播种；**后台入口逐 workspace 播种**（`forEachWorkspace` 铁律 + 守护测试）。
 - **错误系统**：一个类型（`pkg/errors`）、一种造法（`errorspkg.New(kind, code, msg)`）、全 wire code 在 registry 登记；HTTP 读 Kind/Code、LLM 读 Message；机械守卫防回退（`standard_test.go`：sentinel 全用 errorspkg.New · 码全库唯一 · transport 走 FromDomainError）。
+- **失败的用户面分层**：失败工具的完整异常、traceback 和 stderr 只在相邻工具卡与执行历史中保留；紧跟失败结果的普通助手正文由 loop 确定性收敛为人话摘要。用户明确索要原始技术详情时才保留正文中的诊断词，且该策略不改变工具结果或审计数据。
 - **版本模型（方案 A，全实体统一）**：线性只增版本 + 自由 active 指针；无 pending/accept；revert=移指针；Trim cap 50 放过 active；**create（实体行+v1）与 edit（新版本+移指针）各为单事务**（store 复合方法 CreateWithVersion / SaveVersionAndActivate——不留无版本实体或孤儿版本+旧指针）。
 - **执行审计（四执行单元统一）**：Log 表只增（D1）+ 溯源 6 列（conversation/message/toolCall 由 loop 注入 ctx；flowrun 3 列 id/node_id/iteration 由调度器派发注入，F175-M12）+ Detached 记账（被取消也落账）。
 - **ID 体系**：`<prefix>_<16hex>`（S15）；infra 侧自有前缀（fnenv_/hdenv_）。

@@ -28,6 +28,13 @@ void installErrorHandlers() {
     // 档位就值得开。
     if (kDebugMode) FlutterError.resetErrorCount();
     debugPrint('[anselm] flutter error: ${details.exceptionAsString()}');
+    // Keep the stack beside the compact error line. The real-app console is one of the acceptance
+    // witnesses, and an exception-only line cannot identify the offending build/layout callback.
+    // 将堆栈紧邻短错误行写出。真实 App 的 console 是验收观测通道,只有异常文本无法定位构建/布局回调。
+    final stack = details.stack;
+    if (stack != null) {
+      debugPrint('[anselm] flutter stack:\n$stack');
+    }
   };
   PlatformDispatcher.instance.onError = (Object error, StackTrace stack) {
     debugPrint('[anselm] uncaught: $error\n$stack');

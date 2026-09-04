@@ -18,6 +18,7 @@ import 'package:anselm/features/library/state/doc_group_collapse.dart';
 import 'package:anselm/features/library/ui/an_document_editor.dart';
 import 'package:super_text_layout/super_text_layout.dart' show BlinkController;
 import 'package:anselm/core/ui/an_button.dart';
+import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/an_switch.dart';
 import 'package:anselm/core/ui/an_sidebar_list.dart'
     show AnRowDropZone, AnSidebarList;
@@ -1835,23 +1836,31 @@ void main() {
       DocSelection sel, {
       List<DocOutlineEntry> outline = const [],
       SettingsPrefs? prefs,
-    }) => ProviderScope(
-      overrides: [
-        libraryRepositoryProvider.overrideWithValue(repo),
-        selectedDocProvider.overrideWith(() => _PinnedSelection(sel)),
-        if (outline.isNotEmpty)
-          docOutlineProvider.overrideWith(() => _PinnedOutline(outline)),
-        if (prefs != null) settingsPrefsProvider.overrideWithValue(prefs),
-      ],
-      child: TranslationProvider(
-        child: MaterialApp(
-          theme: AnTheme.light(),
-          home: const Scaffold(
-            body: SizedBox(width: 320, height: 640, child: LibraryInspector()),
+    }) {
+      final router = buildTestRouter(
+        initialLocation: '/',
+        page: const Scaffold(
+          body: SizedBox(width: 320, height: 640, child: LibraryInspector()),
+        ),
+      );
+      return ProviderScope(
+        overrides: [
+          libraryRepositoryProvider.overrideWithValue(repo),
+          selectedDocProvider.overrideWith(() => _PinnedSelection(sel)),
+          goRouterProvider.overrideWithValue(router),
+          if (outline.isNotEmpty)
+            docOutlineProvider.overrideWith(() => _PinnedOutline(outline)),
+          if (prefs != null) settingsPrefsProvider.overrideWithValue(prefs),
+        ],
+        child: TranslationProvider(
+          child: MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            theme: AnTheme.light(),
+            routerConfig: router,
           ),
         ),
-      ),
-    );
+      );
+    }
 
     FixtureLibraryRepository linkedRepo() => FixtureLibraryRepository(
       documents: [
@@ -2039,6 +2048,37 @@ void main() {
         ); // §2 零人话律: no 反链 segment
       },
     );
+
+    testWidgets('skill file count excludes bindings', (tester) async {
+      final repo = FixtureLibraryRepository(
+        documents: const [],
+        skills: [
+          Skill(
+            name: 'bound-skill',
+            description: 'x',
+            context: 'inline',
+            body: '# bound-skill',
+            frontmatter: const Frontmatter(
+              name: 'bound-skill',
+              allowedTools: ['fn_demo'],
+            ),
+            updatedAt: _t,
+          ),
+        ],
+        skillFiles: const {
+          'bound-skill': {'references/notes.md': '# Notes'},
+        },
+      );
+      await tester.pumpWidget(host(repo, (isSkill: true, id: 'bound-skill')));
+      await tester.pumpAndSettle();
+
+      final filesRow = tester
+          .widgetList<AnRow>(find.byType(AnRow))
+          .firstWhere((row) => row.label == 'Files');
+      expect(filesRow.meta, '2');
+      expect(find.text('Bindings'), findsOneWidget);
+      expect(find.text('demo-function'), findsWidgets);
+    });
 
     testWidgets(
       'outline row tap fires the jump intent (existing linkage intact)',

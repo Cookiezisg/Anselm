@@ -187,6 +187,37 @@ func TestFinalizeMessage(t *testing.T) {
 	}
 }
 
+func TestFinalizeMessage_PreservesFailedToolResult(t *testing.T) {
+	s := newStore(t)
+	ctx := ctxWS("ws_1")
+	m := &messagesdomain.Message{ID: "msg_failed_tool", ConversationID: "cv_failed_tool", Role: messagesdomain.RoleAssistant, Status: messagesdomain.StatusStreaming}
+	if err := s.CreateMessage(ctx, m, nil); err != nil {
+		t.Fatalf("open turn: %v", err)
+	}
+	blocks := []messagesdomain.Block{{
+		ID:            "blk_failed_tool",
+		Type:          messagesdomain.BlockTypeToolResult,
+		ParentBlockID: "blk_tool_call",
+		Content:       `{"ok":false,"errorMsg":"business failed"}`,
+		Status:        messagesdomain.StatusError,
+		Error:         "business failed",
+	}}
+	m.Status = messagesdomain.StatusError
+	m.StopReason = messagesdomain.StopReasonError
+	m.ErrorCode = "TOOL_ERROR_STORM"
+	m.ErrorMessage = "tool failures accumulated"
+	if err := s.FinalizeMessage(ctx, m, blocks); err != nil {
+		t.Fatalf("FinalizeMessage: %v", err)
+	}
+	got, err := s.GetMessage(ctx, m.ID)
+	if err != nil {
+		t.Fatalf("GetMessage: %v", err)
+	}
+	if len(got.Blocks) != 1 || got.Blocks[0].Status != messagesdomain.StatusError || got.Blocks[0].Error != "business failed" {
+		t.Fatalf("failed tool result did not round-trip: %+v", got.Blocks)
+	}
+}
+
 func TestAppendBlocksWhileMessageIsStreaming(t *testing.T) {
 	s := newStore(t)
 	ctx := ctxWS("ws_1")

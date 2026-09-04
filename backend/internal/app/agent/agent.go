@@ -169,14 +169,15 @@ type RelationSyncer interface {
 //
 // Service 编排 agent domain。
 type Service struct {
-	repo            agentdomain.Repository
-	search          searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
-	invoke          InvokeDeps
-	relations       RelationSyncer                  // nil disables relation hooks
-	notif           notificationdomain.Emitter      // nil-tolerant
-	keyChecker      modelrefapp.KeyExistenceChecker // nil → modelOverride apiKeyId existence not checked at write (F153)
-	optionValidator modelrefapp.OptionValidator     // nil → native option contract not checked at write
-	log             *zap.Logger
+	repo              agentdomain.Repository
+	search            searchdomain.Notifier // nil → search indexing disabled. nil → 不接搜索索引。
+	invoke            InvokeDeps
+	relations         RelationSyncer                  // nil disables relation hooks
+	notif             notificationdomain.Emitter      // nil-tolerant
+	keyChecker        modelrefapp.KeyExistenceChecker // nil → modelOverride apiKeyId existence not checked at write (F153)
+	optionValidator   modelrefapp.OptionValidator     // nil → native option contract not checked at write
+	scenarioValidator modelrefapp.ScenarioValidator   // nil → known chat-only model check not wired
+	log               *zap.Logger
 }
 
 // NewService wires the service; nil repo / log is a wiring bug. invoke deps + relations are
@@ -216,6 +217,11 @@ func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecke
 //
 // SetOptionValidator 为 model override 装入探测派生的原生设置契约。
 func (s *Service) SetOptionValidator(v modelrefapp.OptionValidator) { s.optionValidator = v }
+
+// SetScenarioValidator installs destination-scenario capability validation for agent overrides.
+//
+// SetScenarioValidator 为 agent override 装入目标 scenario 能力校验。
+func (s *Service) SetScenarioValidator(v modelrefapp.ScenarioValidator) { s.scenarioValidator = v }
 
 // nameOfAgent returns a.Name, or "" when a is nil (best-effort notify name never breaks business).
 //

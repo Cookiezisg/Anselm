@@ -496,6 +496,14 @@ var (
 	// 那场事故。
 	ErrWorktreeExists = errorspkg.New(errorspkg.KindConflict, "CONVERSATION_WORKTREE_EXISTS", "that worktree directory already exists")
 
+	// ErrWorktreeResidencyUpdateFailed means the filesystem half of WD3 completed but the conversation row
+	// could not be moved. The worktree is intentionally not removed: it may contain a valid checkout, and
+	// deleting it would turn a persistence failure into data loss. Details.path names the created directory.
+	//
+	// ErrWorktreeResidencyUpdateFailed 表示 WD3 的文件系统一半已经完成，但对话行未能移动。刻意不删除 worktree：
+	// 它可能是有效 checkout，删除会把一次持久化失败扩大成数据丢失。Details.path 点出已创建的目录。
+	ErrWorktreeResidencyUpdateFailed = errorspkg.New(errorspkg.KindInternal, "CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED", "worktree created but conversation residency was not updated")
+
 	// ErrGitFailed: git itself refused, for a reason this layer did not pre-check. Details carries git's
 	// VERBATIM stderr under `git`. The honest catch-all: the alternatives are inventing a sentinel per git
 	// message (an endless, always-incomplete table) or swallowing the reason — and git's own sentence is the

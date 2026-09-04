@@ -56,7 +56,7 @@ Widget _host(Widget child) => TranslationProvider(
 void main() {
   setUpAll(() => LocaleSettings.setLocaleRaw('zh-CN'));
 
-  testWidgets('duplicate suppression is visibly not executed, not deleted', (
+  testWidgets('duplicate suppression stays in durable truth, not transcript', (
     tester,
   ) async {
     await tester.pumpWidget(
@@ -71,12 +71,9 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    expect(find.text('未执行'), findsOneWidget);
+    expect(find.text('未执行'), findsNothing);
     expect(find.text('已删除'), findsNothing);
-    expect(
-      find.textContaining('Duplicate tool call suppressed'),
-      findsOneWidget,
-    );
+    expect(find.textContaining('Duplicate tool call suppressed'), findsNothing);
   });
 
   testWidgets('terminal rejection duplicate stays out of the transcript', (

@@ -1240,6 +1240,7 @@ class FixtureSettingsRepository implements SettingsRepository {
       desc: 'Compaction trigger.',
     ),
   ];
+  Object? limitsSchemaError;
   Map<String, dynamic> fixtureLimits = {
     'agent': {'maxSteps': 30},
     'context': {'triggerRatio': 0.8},
@@ -1319,7 +1320,13 @@ class FixtureSettingsRepository implements SettingsRepository {
   Future<Map<String, dynamic>> getLimits() async => fixtureLimits;
 
   @override
-  Future<List<LimitField>> limitsSchema() async => fixtureSchema;
+  Future<List<LimitField>> limitsSchema() async {
+    final failure = limitsSchemaError;
+    if (failure != null) {
+      throw failure is Exception ? failure : StateError('$failure');
+    }
+    return fixtureSchema;
+  }
 
   @override
   Future<Map<String, dynamic>> patchLimits(Map<String, dynamic> partial) async {

@@ -17,6 +17,34 @@ JUDGE = ROOT / "judge.py"
 
 
 class JudgeRetryTests(unittest.TestCase):
+    def test_new_user_discoverability_na_reopens_frontier(self):
+        """The explicit Chinese wording used by the formal ledger stays provisional."""
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            coverage = home / "COVERAGE.md"
+            coverage.write_text(
+                "| EDGE-001 | Missing discoverability evidence | test | ✓✓✓✓~ | "
+                "L1:G1→old; L5:na→note:本次真实 session 未完成新用户可发现性验收 |\n"
+                "| EDGE-002 | Next autonomous cell | test | ····· |  |\n"
+            )
+
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("discoverability_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                module = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = module
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(module)
+                module.COVERAGE = coverage
+                evidence = "L5:na→note:本次真实 session 未完成新用户可发现性验收"
+                self.assertTrue(module.is_provisional_na(evidence, 5))
+                problem = module.sequence_problem("EDGE", "Next autonomous cell")
+                self.assertIn("EDGE|Missing discoverability evidence", problem)
+            finally:
+                sys.path[:] = old_path
+
     def test_provisional_na_reopens_the_autonomous_frontier(self):
         with tempfile.TemporaryDirectory() as tmp:
             home = Path(tmp)
@@ -664,6 +692,56 @@ class JudgeRetryTests(unittest.TestCase):
                 self.assertIn(
                     "manual queue: EDGE|Dangerous video",
                     judge.sequence_problem("EDGE", "Dangerous video"),
+                )
+            finally:
+                judge.SEQUENCE = original
+                judge.COVERAGE = original_coverage
+
+    def test_manual_frontier_uses_forced_queue_order_after_autonomous_cells(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            home = Path(tmp)
+            old_path = list(sys.path)
+            sys.path.insert(0, str(ROOT))
+            try:
+                spec = importlib.util.spec_from_file_location("forced_order_judge", JUDGE)
+                self.assertIsNotNone(spec)
+                judge = importlib.util.module_from_spec(spec)
+                sys.modules[spec.name] = judge
+                self.assertIsNotNone(spec.loader)
+                spec.loader.exec_module(judge)
+            finally:
+                sys.path[:] = old_path
+
+            original = judge.SEQUENCE
+            original_coverage = judge.COVERAGE
+            try:
+                judge.SEQUENCE = home / "sequence.json"
+                judge.COVERAGE = home / "COVERAGE.md"
+                judge.COVERAGE.write_text(
+                    "| EDGE-001 | Later coverage row | test | ····· |  |\n"
+                    "| EDGE-002 | Earlier forced row | test | ····· |  |\n"
+                )
+                later = {
+                    "family": "EDGE",
+                    "item": "Later coverage row",
+                    "reason": "requires a physical interaction",
+                }
+                earlier = {
+                    "family": "EDGE",
+                    "item": "Earlier forced row",
+                    "reason": "requires a second physical interaction",
+                }
+                judge.SEQUENCE.write_text(json.dumps({
+                    "version": 1,
+                    "mode": "first_unsettled",
+                    "manual_queue": [later, earlier],
+                    "forced_queue": [earlier, later],
+                }))
+
+                self.assertEqual(judge.sequence_problem("EDGE", "Earlier forced row"), "")
+                self.assertIn(
+                    "manual queue: EDGE|Later coverage row",
+                    judge.sequence_problem("EDGE", "Later coverage row"),
                 )
             finally:
                 judge.SEQUENCE = original

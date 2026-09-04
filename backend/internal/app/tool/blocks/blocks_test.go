@@ -39,3 +39,23 @@ func TestSearchBlocksHostedModelStringifiedArgsRejectsWrongShapes(t *testing.T) 
 		})
 	}
 }
+
+func TestSearchBlocksDescriptionRoutesChatExecutionToSearchTools(t *testing.T) {
+	description := (&SearchBlocks{}).Description()
+	for _, want := range []string{
+		"workflow-palette discovery only",
+		"Triggers are not workflow blocks",
+		"do not send trigger or notification as a kinds value here",
+		"Notification behavior belongs to the underlying function, handler, or MCP tool",
+		"use its exact entityId with get_function/get_handler",
+		"Keep exact refs in the adjacent result card",
+		"do not use search_blocks to decide that a capability cannot run in the current conversation",
+		"use search_tools to activate its callable tool",
+		"including a connected MCP tool",
+		"call it directly",
+	} {
+		if !strings.Contains(description, want) {
+			t.Fatalf("SearchBlocks.Description() missing routing guard %q: %s", want, description)
+		}
+	}
+}

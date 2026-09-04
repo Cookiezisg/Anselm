@@ -44,6 +44,15 @@ type OptionValidator interface {
 	ValidateOptions(ctx context.Context, ref modeldomain.ModelRef) error
 }
 
+// ScenarioValidator checks capabilities that depend on the destination scenario. It is separate
+// from OptionValidator because a chat-only model is valid for dialogue but not for an agent.
+//
+// ScenarioValidator 校验依赖目标 scenario 的能力。它刻意独立于 OptionValidator：chat-only 模型对
+// dialogue 合法，但对 agent 不合法。
+type ScenarioValidator interface {
+	ValidateScenario(ctx context.Context, scenario string, ref modeldomain.ModelRef) error
+}
+
 // Validate checks a model selection before it is persisted (F153). A nil ref (unset / clear) passes —
 // nothing to validate. A set ref must carry both apiKeyId and modelId (structural; the caller supplies
 // its own entity-specific structErr so the existing per-entity wire codes are preserved). When a

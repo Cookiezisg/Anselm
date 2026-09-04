@@ -97,3 +97,17 @@ func TestCapabilityValidateOptions_OnlyPermitsPublishedNativeContract(t *testing
 		t.Fatalf("unknown model with no native settings remains usable: %v", err)
 	}
 }
+
+func TestCapabilityValidateScenario_RejectsKnownChatOnlyAgent(t *testing.T) {
+	svc := NewCapabilityService(fakeProbeReader{keys: []apikeydomain.ProbedKey{{
+		ID: "aki_qwen", Provider: "qwen", TestStatus: apikeydomain.TestStatusOK,
+		TestResponse: `{"object":"list","data":[{"id":"qwen-vl-ocr"}]}`,
+	}}}, zap.NewNop())
+	ref := modeldomain.ModelRef{APIKeyID: "aki_qwen", ModelID: "qwen-vl-ocr"}
+	if err := svc.ValidateScenario(context.Background(), modeldomain.ScenarioAgent, ref); !errors.Is(err, modeldomain.ErrNotAgentCapable) {
+		t.Fatalf("known chat-only agent model = %v, want MODEL_NOT_AGENT_CAPABLE", err)
+	}
+	if err := svc.ValidateScenario(context.Background(), modeldomain.ScenarioDialogue, ref); err != nil {
+		t.Fatalf("known chat-only dialogue model must remain valid: %v", err)
+	}
+}

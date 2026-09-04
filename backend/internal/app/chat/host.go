@@ -2,6 +2,7 @@ package chat
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"go.uber.org/zap"
@@ -56,7 +57,9 @@ type chatHost struct {
 	// system prompt 没有 content part——故一份 @ 进来的文档里的图表,到达模型时会是字面字符串
 	// `![chart](anselm://media/att_…)`,模型一个像素也看不到。这些 id 传到 LoadHistory,由它展开到
 	// **正在被回答的**那一轮上。
-	attachedDocIDs []string
+	attachedDocIDs          []string
+	mediaSlots              []mediaHistorySlot
+	audioEnrollmentReminder string
 }
 
 // Interface assertions: a compile error fires if chatHost drifts from the loop hook surface.
@@ -70,6 +73,7 @@ var (
 	_ loopapp.ContextObserver       = (*chatHost)(nil)
 	_ loopapp.RuntimeBudgetResolver = (*chatHost)(nil)
 	_ loopapp.BlockRecorder         = (*chatHost)(nil)
+	_ loopapp.MediaHistoryRefresher = (*chatHost)(nil)
 )
 
 // RuntimeInputBudget asks the learned-profile service for the exact rendered
@@ -89,6 +93,40 @@ func (h *chatHost) RuntimeInputBudget(ctx context.Context, route string) int {
 		return 0
 	}
 	return budget
+}
+
+// RefreshHistoryMedia re-renders the persisted user attachment turns in place. ReAct history is
+// intentionally kept in memory between steps, so calling LoadHistory again would lose the live
+// assistant/tool suffix. The slots captured by LoadHistory let us refresh only the durable user
+// media while preserving that suffix and any in-turn media follow-up messages.
+//
+// RefreshHistoryMedia 原地重渲染持久 user 附件回合。ReAct 步之间历史刻意留在内存，重新调用 LoadHistory
+// 会丢掉正在进行的 assistant/tool 后缀；LoadHistory 记录的 slot 让我们只刷新持久 user 媒体，同时保住
+// 后缀及本回合的媒体 follow-up 消息。
+func (h *chatHost) RefreshHistoryMedia(ctx context.Context, history []llminfra.LLMMessage) error {
+	for _, slot := range h.mediaSlots {
+		if slot.index < 0 || slot.index >= len(history) || history[slot.index].Role != llminfra.RoleUser {
+			continue
+		}
+		if slot.anchor != historyText(history[slot.index]) {
+			// Prompt compaction may have removed or reshaped this old user turn. It no longer carries
+			// the lease that needs refreshing, so leave the compacted projection untouched.
+			continue
+		}
+		if slot.message != nil {
+			rendered, err := h.userMessage(ctx, slot.message)
+			if err != nil {
+				return fmt.Errorf("refresh user attachment media: %w", err)
+			}
+			history[slot.index] = rendered
+		} else if slot.baseParts <= len(history[slot.index].Parts) {
+			history[slot.index].Parts = append([]llminfra.ContentPart(nil), history[slot.index].Parts[:slot.baseParts]...)
+		}
+		if slot.attachedDocs {
+			history[slot.index].Parts = append(history[slot.index].Parts, h.attachedDocParts(ctx)...)
+		}
+	}
+	return nil
 }
 
 // CompactPrompt delegates semantic in-turn checkpointing to contextmgr when
@@ -295,13 +333,16 @@ func (h *chatHost) TryActivateForTool(ctx context.Context, name string) []toolap
 // SystemReminders（loop.ReminderProvider）每步前把 live todo 清单作为临时 <system-reminder> 注入
 // ——把清单顶在模型眼前、又不污染持久历史。无 todo 服务或清单空时为空。
 func (h *chatHost) SystemReminders(ctx context.Context) []string {
-	if h.svc.deps.Todo == nil {
-		return nil
+	var reminders []string
+	if h.audioEnrollmentReminder != "" {
+		reminders = append(reminders, h.audioEnrollmentReminder)
 	}
-	if text, ok := h.svc.deps.Todo.SystemReminder(ctx); ok {
-		return []string{text}
+	if h.svc.deps.Todo != nil {
+		if text, ok := h.svc.deps.Todo.SystemReminder(ctx); ok {
+			reminders = append(reminders, text)
+		}
 	}
-	return nil
+	return reminders
 }
 
 // WriteFinalize lands the assistant turn: it updates the message's terminal fields, persists it
@@ -384,7 +425,22 @@ func (h *chatHost) RecordBlocks(ctx context.Context, blocks []messagesdomain.Blo
 	if len(pending) == 0 {
 		return nil
 	}
-	if err := appender.AppendBlocks(ctx, h.assistantMsg, pending); err != nil {
+	// The loop invokes this hook after a provider deadline/cancel so the finalizer can still
+	// preserve the last visible sampling boundary. Reuse the same detached workspace discipline
+	// as WriteFinalize; passing the dead turn context here turns an expected recovery write into a
+	// WARN and loses the block even though the assistant row is still finalized successfully.
+	//
+	// loop 可能在 provider deadline/cancel 后调用此 hook，使终态仍保留最后一段可见 sampling 边界。
+	// 这里沿用 WriteFinalize 的 detached workspace 纪律；把已死的 turn context 传进来会把本应成功的
+	// 恢复写变成 WARN，并在 assistant 仍能正常终态时丢掉该 block。
+	appendCtx := ctx
+	if ctx.Err() != nil {
+		if workspaceID, ok := reqctxpkg.GetWorkspaceID(ctx); ok {
+			appendCtx = reqctxpkg.Detached(workspaceID)
+			appendCtx = reqctxpkg.SetConversationID(appendCtx, h.conversationID)
+		}
+	}
+	if err := appender.AppendBlocks(appendCtx, h.assistantMsg, pending); err != nil {
 		return err
 	}
 	// Copy the store-assigned values back to the caller's slice. Text/reasoning blocks do not have

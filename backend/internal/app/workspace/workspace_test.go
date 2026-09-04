@@ -492,6 +492,32 @@ func (f fakeKeyChecker) KeyExists(_ context.Context, id string) error {
 	return apikeydomain.ErrNotFound
 }
 
+type fakeScenarioValidator struct{}
+
+func (fakeScenarioValidator) ValidateScenario(_ context.Context, scenario string, ref modeldomain.ModelRef) error {
+	if scenario == modeldomain.ScenarioAgent && ref.ModelID == "chat-only" {
+		return modeldomain.ErrNotAgentCapable
+	}
+	return nil
+}
+
+func TestSetDefault_RejectsKnownChatOnlyAgent(t *testing.T) {
+	s := newService()
+	s.SetKeyChecker(fakeKeyChecker{known: map[string]bool{"aki_1": true}})
+	s.SetScenarioValidator(fakeScenarioValidator{})
+	w, _ := s.Create(context.Background(), CreateInput{Name: "WS"})
+	ref := &modeldomain.ModelRef{APIKeyID: "aki_1", ModelID: "chat-only"}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioAgent, ref); !errors.Is(err, modeldomain.ErrNotAgentCapable) {
+		t.Fatalf("chat-only agent default = %v, want MODEL_NOT_AGENT_CAPABLE", err)
+	}
+	if _, err := s.Pick(reqctxpkg.SetWorkspaceID(context.Background(), w.ID), modeldomain.ScenarioAgent); !errors.Is(err, modeldomain.ErrNotConfigured) {
+		t.Fatalf("rejected agent default must not persist, pick error = %v", err)
+	}
+	if _, err := s.SetDefault(context.Background(), w.ID, modeldomain.ScenarioDialogue, ref); err != nil {
+		t.Fatalf("the same chat-only model must remain valid for dialogue: %v", err)
+	}
+}
+
 type scopedModelRefValidator struct {
 	wantWorkspace   string
 	keyWorkspace    string

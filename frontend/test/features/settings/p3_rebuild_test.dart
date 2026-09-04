@@ -394,16 +394,22 @@ void main() {
               status: 'failed',
               lastError: 'connect refused',
             ),
+            const McpServerStatus(
+              id: 'mcp_3',
+              name: 'single-call',
+              status: 'ready',
+              totalCalls: 1,
+            ),
           ]);
         await tester.pumpWidget(host(repo, const McpPanel()));
         await tester.pumpAndSettle();
-        expect(find.byType(AnCard), findsNWidgets(2), reason: '双列卡,一台一卡');
+        expect(find.byType(AnCard), findsNWidgets(3), reason: '双列卡,一台一卡');
         expect(find.text('github'), findsOneWidget);
-        expect(
-          find.text('connect refused'),
-          findsOneWidget,
-          reason: '失败卡诚实错误句',
-        );
+        expect(find.text(t.settings.mcp.calls(n: 42)), findsOneWidget);
+        expect(find.text(t.settings.mcp.call(n: 1)), findsOneWidget);
+        expect(find.text(t.settings.mcp.failedTitle), findsOneWidget);
+        expect(find.text(t.settings.mcp.failedHint), findsOneWidget);
+        expect(find.text('connect refused'), findsNothing);
         // The failed server has 0 tools + 0 calls — neither segment renders. 零计数不显。
         expect(find.textContaining(t.settings.mcp.tools(n: 0)), findsNothing);
         expect(find.textContaining(t.settings.mcp.calls(n: 0)), findsNothing);

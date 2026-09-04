@@ -124,6 +124,50 @@ func TestMediaClientUpload_NormalizesWAVAliasesAtGatewayBoundary(t *testing.T) {
 	}
 }
 
+func TestMediaClientUploadFresh_DoesNotReuseSpentLease(t *testing.T) {
+	creates := 0
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch {
+		case r.Method == http.MethodPost && r.URL.Path == "/media/uploads":
+			creates++
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"uploadId":      "upl_" + strconv.Itoa(creates),
+				"chunkMaxBytes": 64,
+			})
+		case r.Method == http.MethodPut:
+			body, _ := io.ReadAll(r.Body)
+			_ = json.NewEncoder(w).Encode(map[string]any{"offset": len(body)})
+		case r.Method == http.MethodPost && strings.HasSuffix(r.URL.Path, "/complete"):
+			_ = json.NewEncoder(w).Encode(map[string]any{
+				"fetchPath": "/v1/media/leases/mls_" + strconv.Itoa(creates) + "/content?token=opaque",
+				"expiresAt": time.Now().Add(time.Hour).UTC().Format(time.RFC3339),
+			})
+		default:
+			t.Fatalf("unexpected %s %s", r.Method, r.URL.Path)
+		}
+	}))
+	defer server.Close()
+
+	client := NewMediaClient(server.Client())
+	first, err := client.UploadFresh(context.Background(), server.URL, "ins_test", "audio/wav", []byte("data"))
+	if err != nil {
+		t.Fatalf("first UploadFresh: %v", err)
+	}
+	second, err := client.UploadFresh(context.Background(), server.URL, "ins_test", "audio/wav", []byte("data"))
+	if err != nil {
+		t.Fatalf("second UploadFresh: %v", err)
+	}
+	if first == second || creates != 2 {
+		t.Fatalf("fresh uploads = (%q, %q), creates=%d; want two distinct leases", first, second, creates)
+	}
+	// The one-shot lease must not leak into the repeatable-media cache: a later upload needs a new
+	// lease rather than reusing the one the enrollment provider has already consumed.
+	repeat, err := client.Upload(context.Background(), server.URL, "ins_test", "audio/wav", []byte("data"))
+	if err != nil || repeat == second || creates != 3 {
+		t.Fatalf("repeatable upload = (%q, %v), creates=%d; want a new lease after fresh uploads", repeat, err, creates)
+	}
+}
+
 func TestMediaClientUpload_RejectsBadAppendAcknowledgement(t *testing.T) {
 	cancels := 0
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

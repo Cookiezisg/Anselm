@@ -102,6 +102,34 @@ func (c *MediaClient) Upload(ctx context.Context, baseURL, installID, mime strin
 	return source, err
 }
 
+// UploadFresh always mints a new gateway lease for a one-shot consumer. Voice enrollment is the
+// current example: API Serve revokes the lease after the upstream has fetched it, so serving a
+// cached path for the same attachment makes the next enrollment submit an already-spent lease.
+// The fresh result is deliberately not cached: this lease is expected to be spent by the caller.
+// This only guarantees that this call itself never reads a previous cache entry or joins its
+// in-flight upload.
+//
+// UploadFresh 为**一次性消费者**始终铸造新的网关 lease。音色登记就是当前的例子:API Serve 在上游取走
+// 内容后会撤销 lease,故同一附件若拿缓存路径给下一次登记,提交的就是已经花掉的 lease。新结果仍写入普通
+// 媒体缓存供可重复消费者使用;fresh 结果**不回写**那个缓存,因为它预期会被调用方消费。这里保证的只是
+// **本次调用**绝不读旧缓存、也不并入旧的 in-flight 上传。
+func (c *MediaClient) UploadFresh(ctx context.Context, baseURL, installID, mime string, data []byte) (string, error) {
+	if c == nil || c.http == nil || len(data) == 0 {
+		return "", fmt.Errorf("llm.media: invalid client or data")
+	}
+	mime = normalizedMediaMIME(mime)
+	sum := sha256.Sum256(data)
+	key := strings.TrimRight(baseURL, "/") + "\x00" + installID + "\x00" + mime + "\x00" + hex.EncodeToString(sum[:])
+	c.mu.Lock()
+	delete(c.leases, key)
+	c.mu.Unlock()
+	source, _, err := c.upload(ctx, baseURL, installID, mime, data, sum)
+	if err != nil {
+		return "", err
+	}
+	return source, nil
+}
+
 func (c *MediaClient) cached(key string, now time.Time) (string, bool) {
 	c.mu.Lock()
 	defer c.mu.Unlock()

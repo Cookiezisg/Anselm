@@ -462,7 +462,14 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
         hint: t.library.errorHint,
       ),
       builder: (context, doc) {
-        final title = doc.name.isEmpty ? t.library.untitled : doc.name;
+        // Structural signals refresh the tree without rebuilding the editor's loaded body. Overlay the
+        // tree row so an external rename/move updates every visible header immediately. 结构信号不重建正文,
+        // 但要用树行覆盖元数据,使外部改名/移动同时更新所有可见头部。
+        final treeDoc = tree.where((row) => row.id == widget.id).firstOrNull;
+        final displayDoc = mergeDocumentTreeMetadata(doc, treeDoc);
+        final title = displayDoc.name.isEmpty
+            ? t.library.untitled
+            : displayDoc.name;
         bindHead(title);
         seedOutline(doc.content, liveKey: widget.id);
         // Resolve the `[[id]]` mention names BEFORE mounting the editor, so its pills load with names
@@ -481,8 +488,8 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
                   crumbs: libraryCrumbs(context, tree, widget.id),
                   name: title,
                   autofocusName: _autofocusName,
-                  description: doc.description,
-                  tags: doc.tags,
+                  description: displayDoc.description,
+                  tags: displayDoc.tags,
                   initialMarkdown: doc.content,
                   resolvedNames: names,
                   onChangedMarkdown: _onChanged,
@@ -495,13 +502,15 @@ class _DocEditViewState extends ConsumerState<_DocEditView>
                     final name = (m['name'] as String?)?.trim();
                     final desc = m['description'] as String?;
                     final tags = (m['tags'] as List?)?.cast<String>();
-                    if (name != null && name.isNotEmpty && name != doc.name) {
+                    if (name != null &&
+                        name.isNotEmpty &&
+                        name != displayDoc.name) {
                       patch['name'] = name;
                     }
-                    if (desc != null && desc != doc.description) {
+                    if (desc != null && desc != displayDoc.description) {
                       patch['description'] = desc;
                     }
-                    if (tags != null && !listEquals(tags, doc.tags)) {
+                    if (tags != null && !listEquals(tags, displayDoc.tags)) {
                       patch['tags'] = tags;
                     }
                     if (patch.isNotEmpty) _patchMeta(patch);

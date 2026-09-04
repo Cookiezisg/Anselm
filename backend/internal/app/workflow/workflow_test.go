@@ -13,6 +13,7 @@ import (
 	"go.uber.org/zap"
 
 	mentiondomain "github.com/sunweilin/anselm/backend/internal/domain/mention"
+	notificationdomain "github.com/sunweilin/anselm/backend/internal/domain/notification"
 	relationdomain "github.com/sunweilin/anselm/backend/internal/domain/relation"
 	workflowdomain "github.com/sunweilin/anselm/backend/internal/domain/workflow"
 	workflowstore "github.com/sunweilin/anselm/backend/internal/infra/store/workflow"
@@ -32,7 +33,22 @@ func (f *fakeResolver) Resolve(_ context.Context, ref string) (RefInfo, error) {
 	return info, nil
 }
 
-func newSvc(t *testing.T, resolver RefResolver) (*Service, context.Context) {
+type recordingEmitter struct {
+	events  []string
+	payload []map[string]any
+}
+
+func (e *recordingEmitter) Emit(_ context.Context, eventType string, payload map[string]any) error {
+	e.events = append(e.events, eventType)
+	e.payload = append(e.payload, payload)
+	return nil
+}
+
+func (e *recordingEmitter) Broadcast(_ context.Context, eventType string, payload map[string]any) error {
+	return e.Emit(context.Background(), eventType, payload)
+}
+
+func newSvcWithEmitter(t *testing.T, resolver RefResolver, notif notificationdomain.Emitter) (*Service, context.Context) {
 	t.Helper()
 	sqlDB, err := sql.Open("sqlite", ":memory:")
 	if err != nil {
@@ -45,8 +61,12 @@ func newSvc(t *testing.T, resolver RefResolver) (*Service, context.Context) {
 			t.Fatalf("schema: %v", err)
 		}
 	}
-	svc := NewService(workflowstore.New(ormpkg.Open(sqlDB)), resolver, nil, zap.NewNop())
+	svc := NewService(workflowstore.New(ormpkg.Open(sqlDB)), resolver, notif, zap.NewNop())
 	return svc, reqctxpkg.SetWorkspaceID(context.Background(), "ws_1")
+}
+
+func newSvc(t *testing.T, resolver RefResolver) (*Service, context.Context) {
+	return newSvcWithEmitter(t, resolver, nil)
 }
 
 // opsJSON parses an ops JSON array into []workflowdomain.Op.
@@ -342,6 +362,37 @@ func TestLifecycleTransitions(t *testing.T) {
 
 	if _, err := svc.SetLifecycle(ctx, w.ID, "bogus", workflowdomain.ActorUser); !errors.Is(err, workflowdomain.ErrInvalidLifecycle) {
 		t.Fatalf("bogus state should be ErrInvalidLifecycle, got %v", err)
+	}
+}
+
+func TestMarkInactiveIfDrainedPublishesOnlyWinningTransition(t *testing.T) {
+	notif := &recordingEmitter{}
+	svc, ctx := newSvcWithEmitter(t, nil, notif)
+	w, _, err := svc.Create(ctx, CreateInput{Name: "drain", Ops: linearOps(t)})
+	if err != nil {
+		t.Fatalf("Create: %v", err)
+	}
+	if _, err := svc.SetLifecycle(ctx, w.ID, workflowdomain.LifecycleDraining, workflowdomain.ActorSystem); err != nil {
+		t.Fatalf("SetLifecycle draining: %v", err)
+	}
+	notif.events = nil
+	notif.payload = nil
+
+	if err := svc.MarkInactiveIfDrained(ctx, w.ID); err != nil {
+		t.Fatalf("first reconcile: %v", err)
+	}
+	if len(notif.events) != 1 || notif.events[0] != "workflow.lifecycle_changed" {
+		t.Fatalf("winning reconcile should publish one lifecycle event, got %v", notif.events)
+	}
+	if got := notif.payload[0]["lifecycleState"]; got != workflowdomain.LifecycleInactive {
+		t.Fatalf("lifecycle event state = %v, want inactive", got)
+	}
+
+	if err := svc.MarkInactiveIfDrained(ctx, w.ID); err != nil {
+		t.Fatalf("idempotent reconcile: %v", err)
+	}
+	if len(notif.events) != 1 {
+		t.Fatalf("idempotent reconcile must not duplicate event, got %v", notif.events)
 	}
 }
 

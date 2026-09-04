@@ -906,6 +906,52 @@ void main() {
   );
 
   testWidgets(
+    'Function Delete → fresh dependency preflight names mounted agents',
+    (tester) async {
+      final spy = _SpyRepo(
+        functions: [_fn('fn_1', 'shared function')],
+        relGraph: const EntityRelGraph(
+          edges: [
+            EntityRelation(
+              id: 'rel_1',
+              kind: 'equip',
+              fromKind: 'agent',
+              fromId: 'ag_1',
+              fromName: 'planner',
+              toKind: 'function',
+              toId: 'fn_1',
+              toName: 'shared function',
+            ),
+            EntityRelation(
+              id: 'rel_2',
+              kind: 'equip',
+              fromKind: 'agent',
+              fromId: 'ag_2',
+              fromName: 'reviewer',
+              toKind: 'function',
+              toId: 'fn_1',
+              toName: 'shared function',
+            ),
+          ],
+        ),
+      );
+      final fake = _FakeOverlay(false);
+      await tester.pumpWidget(_host(spy, overlay: fake));
+      await tester.pump(const Duration(milliseconds: 50));
+      await _openRowMenu(tester, 'shared function');
+
+      await tester.tap(find.text(t.action.delete));
+      await tester.pumpAndSettle();
+
+      expect(fake.confirmCalled, isTrue);
+      expect(fake.confirmMessage, contains('planner'));
+      expect(fake.confirmMessage, contains('reviewer'));
+      expect(fake.confirmMessage, contains('needing repair'));
+      expect(spy.deleteCalled, isFalse);
+    },
+  );
+
+  testWidgets(
     'Trigger Delete → fresh dependency preflight explains listener and workflows',
     (tester) async {
       final spy = _SpyRepo(

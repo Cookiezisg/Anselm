@@ -55,7 +55,7 @@ func BlocksToAssistantLLM(blocks []messagesdomain.Block) []llminfra.LLMMessage {
 				}
 			}
 			assistant.ToolCalls = append(assistant.ToolCalls, llminfra.LLMToolCall{
-				ID: b.ID, Name: blockToolName(b), Arguments: b.Content, Signature: signature,
+				ID: b.ID, Name: blockToolName(b), Arguments: projectToolCallArguments(b), Signature: signature,
 			})
 
 		case messagesdomain.BlockTypeToolResult:
@@ -63,15 +63,49 @@ func BlocksToAssistantLLM(blocks []messagesdomain.Block) []llminfra.LLMMessage {
 			if approved, _ := b.Attrs[messagesdomain.AttrHumanApproval].(bool); approved {
 				// The rendered tool card already carries the approval chip. This model-only
 				// note prevents a post-gate assistant turn from inventing that no gate existed.
-				content += "\n[Human approval granted before this tool executed.]"
+				// Include the exact preceding call identity: an unscoped sentence can be
+				// misattributed to a later user turn that has not actually been gated.
+				toolName := blockToolName(b)
+				content += fmt.Sprintf(
+					"\n[Human approval granted before the preceding tool call only: tool=%s, tool_call_id=%s. This note does not describe or authorize later calls.]",
+					toolName,
+					b.ParentBlockID,
+				)
 			}
 			toolResults = append(toolResults, llminfra.LLMMessage{
-				Role: llminfra.RoleTool, Content: content, ToolCallID: b.ParentBlockID,
+				Role: llminfra.RoleTool, Content: content, ToolCallID: b.ParentBlockID, ToolError: b.Error != "",
 			})
 		}
 	}
 
 	return append([]llminfra.LLMMessage{assistant}, toolResults...)
+}
+
+// projectToolCallArguments restores framework fields that were stripped before execution so the
+// next LLM sees the exact risk and intent it emitted for the preceding call. Business tools still
+// receive only their stripped arguments; this is only the assistant-history projection.
+//
+// projectToolCallArguments 恢复执行前剥掉的 framework 字段，使下一次 LLM 能看到自己对上一调用发出的
+// 风险与意图。业务工具仍只收到剥离后的参数；这里只是 assistant history 的投影。
+func projectToolCallArguments(b messagesdomain.Block) string {
+	if b.Attrs == nil || (b.Attrs["summary"] == nil && b.Attrs["danger"] == nil) {
+		return b.Content
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(b.Content), &args); err != nil || args == nil {
+		return b.Content
+	}
+	if summary, ok := b.Attrs["summary"].(string); ok && summary != "" {
+		args["summary"] = summary
+	}
+	if danger, ok := b.Attrs["danger"].(string); ok && danger != "" {
+		args["danger"] = danger
+	}
+	projected, err := json.Marshal(args)
+	if err != nil {
+		return b.Content
+	}
+	return string(projected)
 }
 
 // projectToolResultContent renders tool_result per ContextRole (hot full / warm preview /

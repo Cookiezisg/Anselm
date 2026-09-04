@@ -24,10 +24,9 @@ import 'tone.dart';
 ///     pill's own dot, one and the same throughout);
 ///  2. stretch — the circle pulls open SYMMETRICALLY into the pill (fixed height, width H→W; the pill
 ///     radius is width-invariant so circle→stadium is one continuous shape);
-///  3. text sweep — the copy is REVEALED first-character-first: content is start-anchored inside the
-///     shell, so the shell's right edge sweeps the (laid-out-once) text out as it opens — the dot sits
-///     ~center of the newborn circle and "slides" to the start edge purely as a consequence of the
-///     geometry, zero extra choreography;
+///  3. copy reveal — after the shell has opened, the complete sentence fades in as one readable unit.
+///     A partially clipped sentence is not useful feedback ("This page" can be mistaken for the final
+///     message), so the expanding shell carries only the tone dot until its width is settled;
 ///  4. dwell (hover pauses, WCAG) → the SAME line played in reverse (text tucks back, pill shrinks to
 ///     the dot, gone). Exit is `reverse()` — symmetry is structural, not re-animated.
 ///
@@ -37,9 +36,9 @@ import 'tone.dart';
 /// Reduced motion: instant in/out, dwell unchanged.
 ///
 /// chrome 带通知胶囊。动画=用户亲述的对称时间线:像素→圆点(tone 点即圆心,与药丸自带的点是同一颗)→对称
-/// 拉开成药丸(定高只动宽,pill 半径不随宽变,圆→药丸连续)→字从第一个字被右缘扫出(内容首端锚定,排版一次、
-/// 局部壳扫出)→停留(hover 暂停)→同线倒放收回。性能:预测量一次排版、正文只建一次、小动画子树局部
-/// layout/clip/transform、RepaintBoundary 隔离,绝无逐帧文本重建;reduced 即时进出。
+/// 拉开成药丸(定高只动宽,pill 半径不随宽变,圆→药丸连续)→壳体落定后整句淡入(绝不露半句)→停留(hover
+/// 暂停)→同线倒放收回。性能:预测量一次排版、正文只建一次,仅包一层 opacity 做局部绘制、RepaintBoundary
+/// 隔离,绝无逐帧文本重建;reduced 即时进出。
 class AnNoticeCapsule extends StatefulWidget {
   const AnNoticeCapsule({
     required this.text,
@@ -112,7 +111,7 @@ class _AnNoticeCapsuleState extends State<AnNoticeCapsule>
 
   /// Content width, measured once before ignition; the paragraph itself stays stable while the local
   /// shell reveals it. 内容宽点火前测一次;正文稳定,仅局部壳负责扫出。
-  double _targetW = AnSize.noticeMaxWidth;
+  double _targetW = AnSize.noticeCapsuleMaxWidth;
 
   // WCAG hover-pause bookkeeping: remaining time shrinks across re-arms. 暂停记账:剩余时长跨重臂递减。
   late int _remainingMs;
@@ -240,7 +239,7 @@ class _AnNoticeCapsuleState extends State<AnNoticeCapsule>
     // exact-width Flexible then trips ellipsis. Ellipsis stays legitimate past the max-width clamp.
     // +8 余量:离屏测量在中英混排上系统性偏窄几 px(字形定位取整累积,实测 5.25/14 字形),恰宽 Flexible
     // 会误省略;真超 340 上限时 ellipsis 依然正当。
-    _targetW = (w + 8).clamp(_h, AnSize.noticeMaxWidth);
+    _targetW = (w + 8).clamp(_h, AnSize.noticeCapsuleMaxWidth);
   }
 
   @override
@@ -339,10 +338,27 @@ class _AnNoticeCapsuleState extends State<AnNoticeCapsule>
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
-    // Content is laid out ONCE at its final width; the animated shell clips it. Start-anchored so the
-    // opening right edge sweeps the text out first-character-first, and the dot rides the start edge
-    // (≈ the newborn circle's center) for free. 内容按终宽排版一次,动画壳裁切;首端锚定=字从第一个字
-    // 被扫出、点天然坐圆心再滑到首端。
+    // Content is laid out ONCE at its final width; the shell expands first, then reveals the complete
+    // copy. The dot remains visible throughout, so the motion has a clear anchor without exposing a
+    // misleading sentence fragment. 内容按终宽排版一次;壳先展开、整句后显。点全程可见,动效有锚点但不露误导半句。
+    final copy = Text.rich(
+      TextSpan(
+        text: widget.text,
+        style: AnText.body.copyWith(color: c.ink),
+        children: widget.onTap == null
+            ? null
+            : <InlineSpan>[
+                TextSpan(
+                  text: '  · ${widget.viewLabel}',
+                  style: AnText.meta.copyWith(color: c.inkFaint),
+                ),
+              ],
+      ),
+      key: const ValueKey<String>('notice-copy'),
+      maxLines: 1,
+      overflow: TextOverflow.ellipsis,
+      softWrap: false,
+    );
     final main = Padding(
       padding: const EdgeInsetsDirectional.only(start: AnInset.noticeCoast),
       child: Row(
@@ -361,22 +377,16 @@ class _AnNoticeCapsuleState extends State<AnNoticeCapsule>
           ],
           const SizedBox(width: AnGap.inline),
           Flexible(
-            child: Text.rich(
-              TextSpan(
-                text: widget.text,
-                style: AnText.body.copyWith(color: c.ink),
-                children: widget.onTap == null
-                    ? null
-                    : <InlineSpan>[
-                        TextSpan(
-                          text: '  · ${widget.viewLabel}',
-                          style: AnText.meta.copyWith(color: c.inkFaint),
-                        ),
-                      ],
+            child: AnimatedBuilder(
+              animation: _c,
+              child: copy,
+              builder: (context, child) => Opacity(
+                key: const ValueKey<String>('notice-copy-opacity'),
+                opacity: Curves.easeOut.transform(
+                  ((_c.value - 0.86) / 0.14).clamp(0.0, 1.0),
+                ),
+                child: child,
               ),
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              softWrap: false,
             ),
           ),
         ],

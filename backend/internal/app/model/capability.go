@@ -164,6 +164,31 @@ func (s *CapabilityService) ValidateOptions(ctx context.Context, ref modeldomain
 	return nil
 }
 
+// ValidateScenario rejects a known model that cannot call tools when the destination is an agent.
+// Unknown or unprobed models remain allowed here and fail loudly at invocation, preserving the
+// custom-provider escape hatch while preventing a known-invalid picker choice from being saved.
+//
+// ValidateScenario 在目标是 agent 时拒绝已知不能调工具的模型。未知或未探测模型仍在这里放行、在
+// invoke 时大声失败，保留 custom provider 逃生口，同时不让已知无效选择落进设置。
+func (s *CapabilityService) ValidateScenario(ctx context.Context, scenario string, ref modeldomain.ModelRef) error {
+	if scenario != modeldomain.ScenarioAgent {
+		return nil
+	}
+	caps, err := s.List(ctx)
+	if err != nil {
+		return err
+	}
+	for _, cap := range caps {
+		if cap.APIKeyID == ref.APIKeyID && cap.ModelID == ref.ModelID {
+			if !cap.Tools {
+				return modeldomain.ErrNotAgentCapable
+			}
+			return nil
+		}
+	}
+	return nil
+}
+
 func validKnobValue(knob llmpkg.Knob, value string) bool {
 	switch knob.Type {
 	case "enum":

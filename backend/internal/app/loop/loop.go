@@ -90,6 +90,13 @@ func streamErrorCode(ctx context.Context, err error) string {
 	return "LLM_STREAM_ERROR"
 }
 
+func loadHistoryErrorCode(err error) string {
+	if errors.Is(err, errorspkg.ErrAttachmentStagingFailed) {
+		return errorspkg.ErrAttachmentStagingFailed.Code
+	}
+	return "INTERNAL_ERROR"
+}
+
 // Host is the per-run hook surface: the loop asks it for the starting history and the
 // current tool set, and hands it the terminal write. Block persistence is the host's job —
 // the loop produces blocks in memory and streams them live; finalize is where they land.
@@ -166,6 +173,16 @@ type MediaExpander interface {
 	ExpandToolMedia(ctx context.Context, toolCallID string, ids []string) []llminfra.ContentPart
 }
 
+// MediaHistoryRefresher is an OPTIONAL Host capability: before every ReAct step after the first,
+// it refreshes expiring provider-facing media references in the in-memory history. The persisted
+// attachment identity remains the source of truth; only the short-lived transport lease changes.
+//
+// MediaHistoryRefresher 是 Host 的可选能力：除第一步外，每个 ReAct 步发送前刷新内存历史中即将过期的
+// provider 媒体引用。持久化附件身份仍是真相源；变化的只有短期传输 lease。
+type MediaHistoryRefresher interface {
+	RefreshHistoryMedia(ctx context.Context, history []llminfra.LLMMessage) error
+}
+
 // Result is the terminal summary of one Run.
 //
 // Result 是一次 Run 的终态汇总。
@@ -208,7 +225,7 @@ func Run(
 	if err != nil {
 		host.WriteFinalize(ctx, nil,
 			messagesdomain.StatusError, messagesdomain.StopReasonError,
-			"INTERNAL_ERROR", "load history: "+err.Error(), 0, 0)
+			loadHistoryErrorCode(err), "load history: "+err.Error(), 0, 0)
 		return Result{Status: messagesdomain.StatusError, StopReason: messagesdomain.StopReasonError}
 	}
 
@@ -242,6 +259,7 @@ func Run(
 		}
 	}
 
+runLoop:
 	for step := range maxSteps {
 		stepsRun = step + 1
 		var (
@@ -252,6 +270,25 @@ func Run(
 			streamErr error
 			iT, oT    int
 		)
+
+		// A managed media lease may expire while a tool is running. Refresh the provider-facing
+		// references before the next sample, using the immutable attachment ids behind the history;
+		// otherwise the gateway correctly rejects the stale URL and the whole turn fails at its tail.
+		// 受管媒体 lease 可能在工具执行期间过期。下一次采样前用历史背后的不可变附件 id 刷新 provider 引用；
+		// 否则网关会正确拒绝旧 URL，整轮却在尾部失败。
+		if step > 0 {
+			if refresher, ok := host.(MediaHistoryRefresher); ok {
+				if err := refresher.RefreshHistoryMedia(ctx, history); err != nil {
+					stopReason = messagesdomain.StopReasonError
+					finalStatus = messagesdomain.StatusError
+					errCode = "MEDIA_LEASE_REFRESH_FAILED"
+					errMsg = "attachment media could not be refreshed before the next model step: " + err.Error()
+					host.WriteFinalize(ctx, allBlocks, finalStatus, stopReason, errCode, errMsg, totalIn, totalOut)
+					finalWritten = true
+					break runLoop
+				}
+			}
+		}
 
 		// One logical sampling step may make a bounded number of invisible
 		// recovery attempts when the provider authoritatively reports a context

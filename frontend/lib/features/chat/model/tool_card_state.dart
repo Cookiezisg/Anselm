@@ -37,8 +37,6 @@ const String declinedProsePrefix = 'The user declined to answer this question';
 const String cancelledBeforeRunProse =
     'The run was cancelled before this tool ran';
 const String duplicateSuppressedProse = 'Duplicate tool call suppressed:';
-const String terminalDuplicateSuppressedProse =
-    'Duplicate tool call suppressed: terminal rejection';
 
 /// ask_user's exact completed-but-empty answer (backend `ask/ask.go`): an accept with a blank answer
 /// closes status=completed with this prose — the card reads it as 空答案, not a real answer.

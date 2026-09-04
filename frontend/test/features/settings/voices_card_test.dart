@@ -436,6 +436,11 @@ void main() {
       );
       expect(find.byType(AnTypeToConfirm), findsOneWidget, reason: '保留重试入口');
       expect(
+        find.text(t.settings.keys.voicesDeleteFailed),
+        findsOneWidget,
+        reason: '失败必须在当前危险区持久说明,不能只依赖会消失的顶带通知',
+      );
+      expect(
         find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
         findsOneWidget,
         reason: '失败不能伪造库存位已释放',

@@ -242,6 +242,7 @@ String gitActionFailure(Translations t, Object error) {
     'CONVERSATION_BRANCH_EXISTS' => g.errBranchExists,
     'CONVERSATION_INVALID_WORKTREE_NAME' => g.errWorktreeName,
     'CONVERSATION_WORKTREE_EXISTS' => g.errWorktreeExists,
+    'CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED' => g.errWorktreePartial,
     'CONVERSATION_GIT_FAILED' => g.errGit(reason: _gitReason(error)),
     _ => g.errFallback,
   };
@@ -256,7 +257,7 @@ String _gitReason(ApiException e) {
   final details = e.details;
   if (details is Map && details['git'] is String) {
     final raw = (details['git'] as String).trim();
-    if (raw.isNotEmpty) return raw.split('\n').first;
+    if (raw.isNotEmpty) return raw;
   }
   return e.message;
 }

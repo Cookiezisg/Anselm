@@ -205,7 +205,7 @@ func (s *Service) Retry(ctx context.Context, conversationID string, in RetryInpu
 func retryTargets(thread []*messagesdomain.Message) (oldUser, oldAsst *messagesdomain.Message, err error) {
 	current := make([]*messagesdomain.Message, 0, len(thread))
 	for _, m := range thread {
-		if m.SubagentID == "" && m.SupersededBy == "" {
+		if m.SubagentID == "" && m.SupersededBy == "" && !isSyntheticRetryMarker(m) {
 			current = append(current, m)
 		}
 	}
@@ -229,6 +229,28 @@ func retryTargets(thread []*messagesdomain.Message) (oldUser, oldAsst *messagesd
 		}
 	}
 	return oldUser, oldAsst, nil
+}
+
+// isSyntheticRetryMarker keeps timeline annotations out of retry target selection. Compaction and
+// workdir markers use assistant-shaped message rows for durable chronology, but they are not answers
+// a reader can regenerate. Without this filter, a compressed thread retries the marker and leaves the
+// visible assistant version current, producing a second answer instead of a version replacement.
+//
+// isSyntheticRetryMarker 把时间线标记排除出 retry 目标。压缩与驻地标记为了耐久时序使用 assistant
+// 形状的 message 行，但它们不是读者可以重生成的回答。没有这个过滤，有压缩的线程会重试标记，令可见
+// assistant 版本仍是 current，结果是追加第二个回答而不是替换版本。
+func isSyntheticRetryMarker(m *messagesdomain.Message) bool {
+	if m.Role != messagesdomain.RoleAssistant || len(m.Blocks) == 0 {
+		return false
+	}
+	for _, block := range m.Blocks {
+		switch block.Type {
+		case messagesdomain.BlockTypeCompaction, messagesdomain.BlockTypeMarker:
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 // isRetryTerminal reports whether a turn has stopped. Mirrors the three terminal statuses

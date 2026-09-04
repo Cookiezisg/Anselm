@@ -9,6 +9,9 @@ import (
 	"io"
 	"mime"
 	"net/http"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -56,7 +59,13 @@ func NewAttachmentHandler(svc *attachmentapp.Service, media AttachmentPreparatio
 	if log == nil {
 		log = zap.NewNop()
 	}
-	return &AttachmentHandler{svc: svc, media: media, log: log.Named("handlers.attachment")}
+	log = log.Named("handlers.attachment")
+	return &AttachmentHandler{
+		svc:              svc,
+		media:            media,
+		log:              log,
+		playbackLeaseTTL: playbackLeaseTTLFromEnv(log),
+	}
 }
 
 // Register wires the endpoints onto mux.
@@ -79,6 +88,24 @@ func (h *AttachmentHandler) Register(mux Registrar) {
 // uploadHeadroom 是请求体在 MaxBytes 之上的余量（multipart 封装开销）；文件本身在 Service 再按
 // MaxBytes 复检。
 const uploadHeadroom = 1 << 20
+
+const rigPlaybackLeaseTTLEnv = "ANSELM_RIG_PLAYBACK_LEASE_TTL_MS"
+
+// playbackLeaseTTLFromEnv is a testend-only seam. Production keeps the five-minute default;
+// the acceptance rig may shorten it so a real native player can cross expiry without a five-minute
+// idle. An invalid value is ignored rather than changing the production safety default.
+func playbackLeaseTTLFromEnv(log *zap.Logger) time.Duration {
+	raw := strings.TrimSpace(os.Getenv(rigPlaybackLeaseTTLEnv))
+	if raw == "" {
+		return 0
+	}
+	ms, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || ms <= 0 {
+		log.Warn("invalid rig playback lease TTL; using production default", zap.String("value", raw))
+		return 0
+	}
+	return time.Duration(ms) * time.Millisecond
+}
 
 // Upload handles POST /api/v1/attachments — a multipart form with a single "file" field.
 //

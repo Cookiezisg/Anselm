@@ -237,6 +237,20 @@ func TestClaimDerivative_CanonicalParamsAndSourceAreTheIdentity(t *testing.T) {
 	}
 }
 
+func TestAcceptanceProcessDelay_ReadsOnlyExplicitRigEnvironment(t *testing.T) {
+	t.Setenv(acceptanceProcessDelayEnv, "37")
+	delay, err := acceptanceProcessDelayFromEnv()
+	if err != nil || delay != 37*time.Millisecond {
+		t.Fatalf("delay = %s, err=%v; want 37ms", delay, err)
+	}
+
+	t.Setenv(acceptanceProcessDelayEnv, "not-a-duration")
+	delay, err = acceptanceProcessDelayFromEnv()
+	if err == nil || delay != 0 {
+		t.Fatalf("invalid delay = %s, err=%v; want zero and error", delay, err)
+	}
+}
+
 func TestClaimPerception_HashesTaskInsteadOfPersistingIt(t *testing.T) {
 	repo := &fakeRepo{}
 	svc := NewService(fakeAttachments{row: &attachmentdomain.Attachment{ID: "att_1", SHA256: "source-a"}}, repo, fakeArtifacts{}, zap.NewNop())

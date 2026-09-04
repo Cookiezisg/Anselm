@@ -181,11 +181,14 @@ class Translations$chat$en {
 	/// en: 'Voice input disconnected. I kept the text that was already transcribed.'
 	String get voiceInputConnectionLost => 'Voice input disconnected. I kept the text that was already transcribed.';
 
+	/// en: 'Voice input disconnected. No text was transcribed; your local recording is ready to retry.'
+	String get voiceInputConnectionLostNoText => 'Voice input disconnected. No text was transcribed; your local recording is ready to retry.';
+
 	/// en: 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.'
 	String get voiceInputTooLong => 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.';
 
-	/// en: 'This month's voice input allowance is used up. Try again when it renews.'
-	String get voiceInputQuotaExhausted => 'This month\'s voice input allowance is used up. Try again when it renews.';
+	/// en: 'Voice quota. Try later.'
+	String get voiceInputQuotaExhausted => 'Voice quota. Try later.';
 
 	/// en: 'Voice input is busy right now. Please try again shortly.'
 	String get voiceInputRateLimited => 'Voice input is busy right now. Please try again shortly.';
@@ -196,11 +199,17 @@ class Translations$chat$en {
 	/// en: 'This voice data could not be understood. I kept the text already transcribed; please record it again.'
 	String get voiceInputFrameInvalid => 'This voice data could not be understood. I kept the text already transcribed; please record it again.';
 
+	/// en: 'This voice data could not be understood. No text was transcribed; please record it again.'
+	String get voiceInputFrameInvalidNoText => 'This voice data could not be understood. No text was transcribed; please record it again.';
+
 	/// en: 'Voice input was interrupted'
 	String get voiceRetryTitle => 'Voice input was interrupted';
 
 	/// en: 'I kept the draft and can replay the local recording once to transcribe it again.'
 	String get voiceRetryBody => 'I kept the draft and can replay the local recording once to transcribe it again.';
+
+	/// en: 'No text was transcribed. I kept the local recording so you can retry once.'
+	String get voiceRetryBodyNoText => 'No text was transcribed. I kept the local recording so you can retry once.';
 
 	/// en: 'Retry transcription'
 	String get voiceRetryAction => 'Retry transcription';
@@ -314,6 +323,9 @@ class Translations$chat$en {
 
 	/// en: 'Refresh model capabilities'
 	String get modelCatalogRetry => 'Refresh model capabilities';
+
+	/// en: 'Chat only — no tools'
+	String get chatOnlyBadge => 'Chat only — no tools';
 
 	/// en: 'Mention an entity'
 	String get mentionEntity => 'Mention an entity';
@@ -988,8 +1000,8 @@ class Translations$startup$en {
 	/// en: 'The backend didn't start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).'
 	String get crashedHint => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).';
 
-\t/// en: 'The local engine stopped responding. Retry to reconnect.'
-\tString get stoppedHint => 'The local engine stopped responding. Retry to reconnect.';
+	/// en: 'The local engine stopped responding. Retry to reconnect.'
+	String get stoppedHint => 'The local engine stopped responding. Retry to reconnect.';
 
 	/// en: 'Retry'
 	String get retry => 'Retry';
@@ -1079,6 +1091,12 @@ class Translations$coldStart$en {
 	/// en: 'The local engine is reachable but the workspace didn't resolve.'
 	String get errorHint => 'The local engine is reachable but the workspace didn\'t resolve.';
 
+	/// en: 'Restart the local engine'
+	String get authErrorTitle => 'Restart the local engine';
+
+	/// en: 'The engine rejected Anselm's authentication token. Restart the backend, then retry.'
+	String get authErrorHint => 'The engine rejected Anselm\'s authentication token. Restart the backend, then retry.';
+
 	/// en: 'Create a workspace'
 	String get createWorkspace => 'Create a workspace';
 
@@ -1120,6 +1138,15 @@ class Translations$library$en {
 
 	/// en: 'Start writing, or press / for commands'
 	String get editorHint => 'Start writing, or press / for commands';
+
+	/// en: 'This page is too large to edit inline'
+	String get documentTooLargeTitle => 'This page is too large to edit inline';
+
+	/// en: 'The complete text is still shown below in a read-only view. Copy the full text to edit it elsewhere.'
+	String get documentTooLargeHint => 'The complete text is still shown below in a read-only view. Copy the full text to edit it elsewhere.';
+
+	/// en: 'Copy full text'
+	String get documentCopyAll => 'Copy full text';
 
 	/// en: 'Add a description…'
 	String get addDescription => 'Add a description…';
@@ -1731,6 +1758,12 @@ class Translations$chat$workDir$en {
 	/// en: 'Git'
 	String get git => 'Git';
 
+	/// en: 'Not a Git repository'
+	String get notRepository => 'Not a Git repository';
+
+	/// en: 'Choose a repo'
+	String get notRepositoryHint => 'Choose a repo';
+
 	/// en: 'Branch $name'
 	String branch({required Object name}) => 'Branch ${name}';
 
@@ -1841,6 +1874,9 @@ class Translations$chat$workDir$en {
 
 	/// en: 'That folder already exists. Pick another name, or switch this conversation into it from the menu.'
 	String get errWorktreeExists => 'That folder already exists. Pick another name, or switch this conversation into it from the menu.';
+
+	/// en: 'The worktree was created, but this conversation stayed in its current directory. Switch to it from the menu before trying again.'
+	String get errWorktreePartial => 'The worktree was created, but this conversation stayed in its current directory. Switch to it from the menu before trying again.';
 
 	/// en: 'Git refused: $reason'
 	String errGit({required Object reason}) => 'Git refused: ${reason}';
@@ -4689,6 +4725,9 @@ class Translations$entities$rail$en {
 	/// en: '“$name” will be removed from the active catalog. This can't be undone.'
 	String deleteBody({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.';
 
+	/// en: '“$name” is used by $dependents. Deleting it will leave those entities needing repair. This can't be undone.'
+	String deleteBodyWithDependents({required Object name, required Object dependents}) => '“${name}” is used by ${dependents}. Deleting it will leave those entities needing repair. This can\'t be undone.';
+
 	/// en: 'Delete this trigger?'
 	String get deleteTriggerTitle => 'Delete this trigger?';
 
@@ -5996,6 +6035,15 @@ class Translations$settings$mcp$en {
 
 	/// en: 'disconnected'
 	String get statusDisconnected => 'disconnected';
+
+	/// en: 'MCP server connection failed'
+	String get failedTitle => 'MCP server connection failed';
+
+	/// en: 'Check the server configuration or runtime, then choose Reconnect.'
+	String get failedHint => 'Check the server configuration or runtime, then choose Reconnect.';
+
+	/// en: 'Technical details'
+	String get technicalDetails => 'Technical details';
 
 	/// en: 'Name'
 	String get name => 'Name';
@@ -7791,6 +7839,8 @@ extension on Translations {
 			'chat.workDir.revealFinder' => 'Reveal in Finder',
 			'chat.workDir.openTerminal' => 'Open in Terminal',
 			'chat.workDir.git' => 'Git',
+			'chat.workDir.notRepository' => 'Not a Git repository',
+			'chat.workDir.notRepositoryHint' => 'Choose a repo',
 			'chat.workDir.branch' => ({required Object name}) => 'Branch ${name}',
 			'chat.workDir.detached' => 'Detached HEAD',
 			'chat.workDir.dirty' => 'Uncommitted changes',
@@ -7828,6 +7878,7 @@ extension on Translations {
 			'chat.workDir.errBranchExists' => 'A branch by that name already exists. Pick another name, or switch to it from the menu.',
 			'chat.workDir.errWorktreeName' => 'A worktree name has to be a single folder name — no “/” and no “..”.',
 			'chat.workDir.errWorktreeExists' => 'That folder already exists. Pick another name, or switch this conversation into it from the menu.',
+			'chat.workDir.errWorktreePartial' => 'The worktree was created, but this conversation stayed in its current directory. Switch to it from the menu before trying again.',
 			'chat.workDir.errGit' => ({required Object reason}) => 'Git refused: ${reason}',
 			'chat.workDir.errFallback' => 'That did not work, and nothing was changed. Try again.',
 			'chat.pin' => 'Pin',
@@ -7856,13 +7907,16 @@ extension on Translations {
 			'chat.voiceInputUnavailable' => 'Voice input is available only with Anselm Auto',
 			'chat.voiceInputPermissionDenied' => 'Microphone permission is off. Enable microphone access in system settings, then try again.',
 			'chat.voiceInputConnectionLost' => 'Voice input disconnected. I kept the text that was already transcribed.',
+			'chat.voiceInputConnectionLostNoText' => 'Voice input disconnected. No text was transcribed; your local recording is ready to retry.',
 			'chat.voiceInputTooLong' => 'Voice input is limited to 2 minutes. I kept the text that was already transcribed.',
-			'chat.voiceInputQuotaExhausted' => 'This month\'s voice input allowance is used up. Try again when it renews.',
+			'chat.voiceInputQuotaExhausted' => 'Voice quota. Try later.',
 			'chat.voiceInputRateLimited' => 'Voice input is busy right now. Please try again shortly.',
 			'chat.voiceInputAccountBanned' => 'This Anselm Auto installation is not permitted to use voice input.',
 			'chat.voiceInputFrameInvalid' => 'This voice data could not be understood. I kept the text already transcribed; please record it again.',
+			'chat.voiceInputFrameInvalidNoText' => 'This voice data could not be understood. No text was transcribed; please record it again.',
 			'chat.voiceRetryTitle' => 'Voice input was interrupted',
 			'chat.voiceRetryBody' => 'I kept the draft and can replay the local recording once to transcribe it again.',
+			'chat.voiceRetryBodyNoText' => 'No text was transcribed. I kept the local recording so you can retry once.',
 			'chat.voiceRetryAction' => 'Retry transcription',
 			'chat.voiceDiscardAction' => 'Delete voice draft',
 			'chat.voiceInputFailed' => 'Voice input couldn\'t start',
@@ -7908,6 +7962,7 @@ extension on Translations {
 			'chat.modelCatalogLoading' => 'Reading model capabilities…',
 			'chat.modelCatalogFailed' => 'Model capabilities couldn\'t be read',
 			'chat.modelCatalogRetry' => 'Refresh model capabilities',
+			'chat.chatOnlyBadge' => 'Chat only — no tools',
 			'chat.mentionEntity' => 'Mention an entity',
 			'chat.attachFile' => 'Attach files',
 			'chat.attachMenuFiles' => 'Choose files',
@@ -8269,6 +8324,8 @@ extension on Translations {
 			'chat.tool.searchedAgentExec' => 'Searched agent runs',
 			'chat.tool.searchingMcpCalls' => 'Searching MCP calls',
 			'chat.tool.searchedMcpCalls' => 'Searched MCP calls',
+			_ => null,
+		} ?? switch (path) {
 			'chat.tool.aggRollup' => ({required Object ok, required Object failed}) => '${ok} ✓ · ${failed} ✗',
 			'chat.tool.aggNote' => '✗ incl. cancelled/timeout',
 			'chat.tool.logNoRecords' => 'No records',
@@ -8276,8 +8333,6 @@ extension on Translations {
 			'chat.tool.byChat' => 'chat',
 			'chat.tool.byAgent' => 'agent',
 			'chat.tool.byWorkflow' => 'workflow',
-			_ => null,
-		} ?? switch (path) {
 			'chat.tool.byManual' => 'manual',
 			'chat.tool.searchingFlowruns' => 'Searching runs',
 			'chat.tool.searchedFlowruns' => 'Searched runs',
@@ -8783,6 +8838,8 @@ extension on Translations {
 			'scheduler.run.notRun' => 'not reached',
 			'scheduler.run.ledgerHead' => 'Nodes',
 			'scheduler.run.ledgerEmpty' => 'No node has settled yet.',
+			_ => null,
+		} ?? switch (path) {
 			'scheduler.run.dossierTitle' => 'Run dossier',
 			'scheduler.run.kvStatus' => 'Status',
 			'scheduler.run.inspectorTitle' => 'Inspector',
@@ -8790,8 +8847,6 @@ extension on Translations {
 			'scheduler.run.glanceSuccess' => ({required Object pct}) => '${pct}% ok / 7d',
 			'scheduler.run.glanceStreak' => ({required Object n}) => '${n} failing',
 			'scheduler.run.payloadHead' => 'Entry payload',
-			_ => null,
-		} ?? switch (path) {
 			'scheduler.run.pinnedRefsHead' => 'Pinned refs',
 			'scheduler.run.errorHead' => 'Error',
 			'scheduler.run.replayHistory' => ({required Object n}) => 'Replayed ×${n}',
@@ -8991,7 +9046,7 @@ extension on Translations {
 			'startup.connecting' => 'Connecting to the local engine…',
 			'startup.crashedTitle' => 'Can\'t reach the local engine',
 			'startup.crashedHint' => 'The backend didn\'t start. For development, set ANSELM_BACKEND_URL to an already-running server (make -C backend run).',
-\t\t\t'startup.stoppedHint' => 'The local engine stopped responding. Retry to reconnect.',
+			'startup.stoppedHint' => 'The local engine stopped responding. Retry to reconnect.',
 			'startup.retry' => 'Retry',
 			'startup.errorTitle' => 'Something went wrong',
 			'startup.errorHint' => 'An unexpected error occurred while rendering this view.',
@@ -9024,6 +9079,7 @@ extension on Translations {
 			'entities.rail.iterateRequest' => ({required Object name}) => 'Help me edit “${name}” with AI.',
 			'entities.rail.deleteTitle' => 'Delete this entity?',
 			'entities.rail.deleteBody' => ({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.',
+			'entities.rail.deleteBodyWithDependents' => ({required Object name, required Object dependents}) => '“${name}” is used by ${dependents}. Deleting it will leave those entities needing repair. This can\'t be undone.',
 			'entities.rail.deleteTriggerTitle' => 'Delete this trigger?',
 			'entities.rail.deleteTriggerBody' => ({required Object name}) => '“${name}” will be removed from the active catalog. This can\'t be undone.',
 			'entities.rail.deleteTriggerBodyWithDependents' => ({required Object name, required Object dependents}) => '“${name}” is used by ${dependents}. Deleting it will stop its listener and leave those workflows needing repair. This can\'t be undone.',
@@ -9296,6 +9352,8 @@ extension on Translations {
 			'entities.run.close' => 'Close run terminal',
 			'entities.run.cancelled' => 'Cancelled',
 			'entities.run.glanceTotal' => ({required Object n}) => '${n} total runs',
+			_ => null,
+		} ?? switch (path) {
 			'entities.run.glanceLastOk' => 'last ok',
 			'entities.run.glanceLastFailed' => 'last failed',
 			'entities.run.glanceLastCancelled' => 'last cancelled',
@@ -9305,8 +9363,6 @@ extension on Translations {
 			'entities.run.traceHeading' => 'Trace',
 			'entities.run.reasoning' => 'Reasoning',
 			'entities.run.toolCall' => 'Tool call',
-			_ => null,
-		} ?? switch (path) {
 			'entities.run.nodesHeading' => 'Nodes',
 			'entities.run.noTrace' => 'Waiting for output…',
 			'entities.run.steps' => ({required Object n}) => '${n} steps',
@@ -9361,6 +9417,8 @@ extension on Translations {
 			'coldStart.connecting' => 'Setting up your workspace…',
 			'coldStart.errorTitle' => 'Couldn\'t set up the workspace',
 			'coldStart.errorHint' => 'The local engine is reachable but the workspace didn\'t resolve.',
+			'coldStart.authErrorTitle' => 'Restart the local engine',
+			'coldStart.authErrorHint' => 'The engine rejected Anselm\'s authentication token. Restart the backend, then retry.',
 			'coldStart.createWorkspace' => 'Create a workspace',
 			'coldStart.nameLabel' => 'Workspace name',
 			'coldStart.alreadyExists' => 'This workspace already exists',
@@ -9372,6 +9430,9 @@ extension on Translations {
 			'library.skills' => 'Skills',
 			'library.untitled' => 'Untitled',
 			'library.editorHint' => 'Start writing, or press / for commands',
+			'library.documentTooLargeTitle' => 'This page is too large to edit inline',
+			'library.documentTooLargeHint' => 'The complete text is still shown below in a read-only view. Copy the full text to edit it elsewhere.',
+			'library.documentCopyAll' => 'Copy full text',
 			'library.addDescription' => 'Add a description…',
 			'library.addTag' => 'Add a tag',
 			'library.filter' => 'Search pages…',
@@ -9805,6 +9866,8 @@ extension on Translations {
 			'settings.mcp.browse' => 'Browse marketplace',
 			'settings.mcp.manualAdd' => 'Add manually',
 			'settings.mcp.importJson' => 'Import mcp.json',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.empty' => 'No MCP servers yet',
 			'settings.mcp.loading' => 'Loading MCP servers…',
 			'settings.mcp.loadFailed' => 'Couldn\'t load MCP servers',
@@ -9819,8 +9882,6 @@ extension on Translations {
 			'settings.mcp.deleteTitle' => 'Delete MCP server',
 			'settings.mcp.deleteBody' => ({required Object name}) => 'Removes “${name}” and its config (soft delete).',
 			'settings.mcp.confirmDelete' => 'Delete',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.tools' => ({required Object n}) => '${n} tools',
 			'settings.mcp.call' => ({required Object n}) => '${n} call',
 			'settings.mcp.calls' => ({required Object n}) => '${n} calls',
@@ -9829,6 +9890,9 @@ extension on Translations {
 			'settings.mcp.statusDegraded' => 'degraded',
 			'settings.mcp.statusConnecting' => 'connecting',
 			'settings.mcp.statusDisconnected' => 'disconnected',
+			'settings.mcp.failedTitle' => 'MCP server connection failed',
+			'settings.mcp.failedHint' => 'Check the server configuration or runtime, then choose Reconnect.',
+			'settings.mcp.technicalDetails' => 'Technical details',
 			'settings.mcp.name' => 'Name',
 			'settings.mcp.transport' => 'Transport',
 			'settings.mcp.runtime' => 'Runtime',

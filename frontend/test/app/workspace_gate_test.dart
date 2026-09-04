@@ -1,5 +1,6 @@
 import 'package:anselm/app/workspace_gate.dart';
 import 'package:anselm/app/workspace_onboarding.dart';
+import 'package:anselm/core/contract/api_error.dart';
 import 'package:anselm/core/contract/workspace.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/workspace/workspace_create_control.dart';
@@ -18,6 +19,15 @@ class _NeedsWorkspace extends WorkspaceBootstrap {
 class _ReadyWorkspace extends WorkspaceBootstrap {
   @override
   Future<String?> build() async => 'ws_ready';
+}
+
+class _UnauthorizedWorkspace extends WorkspaceBootstrap {
+  @override
+  Future<String?> build() async => throw const ApiException(
+    code: AnselmErr.unauthBadToken,
+    message: 'unauthorized: invalid or missing bearer token',
+    httpStatus: 401,
+  );
 }
 
 class _TransitionWorkspace extends WorkspaceBootstrap {
@@ -137,6 +147,28 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.byType(WorkspaceOnboarding), findsNothing);
       expect(find.text('SHELL_READY'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    'bad backend token gets restart guidance, not workspace guidance',
+    (tester) async {
+      await tester.pumpWidget(_host(_UnauthorizedWorkspace.new));
+      await tester.pumpAndSettle();
+
+      expect(find.text(t.coldStart.authErrorTitle), findsOneWidget);
+      expect(find.text(t.coldStart.authErrorHint), findsOneWidget);
+      expect(find.textContaining('ApiException'), findsNothing);
+      expect(find.textContaining(AnselmErr.unauthBadToken), findsNothing);
+      expect(
+        find.textContaining('invalid or missing bearer token'),
+        findsNothing,
+      );
+      expect(find.text(t.coldStart.errorTitle), findsNothing);
+      expect(find.text(t.startup.retry), findsOneWidget);
+      expect(find.byType(WorkspaceOnboarding), findsNothing);
+      expect(find.text('SHELL_READY'), findsNothing);
+      expect(tester.takeException(), isNull);
     },
   );
 

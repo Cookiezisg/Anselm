@@ -270,8 +270,13 @@ class StageDirectorController extends Notifier<StageState> {
           // The tool_result close is the ONE true execution terminal. Its durable snapshot is also
           // where a poll receipt's flowrun id now lives. tool_result Close 才是真正执行终态；其耐久快照
           // 同时承载 poll 回执的 flowrun id。
-          final ok = status != 'error' && status != 'cancelled';
           final body = '${result?.content?['content'] ?? ''}';
+          // The transport close is `completed` even when an execution returns a structured
+          // `{ok:false}` result (run_function/call_handler). Treat that payload as a failed activity;
+          // otherwise the transcript is red while the Activity row falsely says Ran and the G3 clear
+          // affordance never appears. 线缆关帧虽是 completed,执行回执仍可能是 `{ok:false}`;必须把它
+          // 判成失败,否则 transcript 红而 Activity 误报 Ran,失败行也没有 G3 清除出口。
+          final ok = !_executionResultFailed(toolName ?? '', status, body);
           // G7/A2-11 — the CREATE receipt carries the newborn's REAL id: resolving it here merges
           // the synthetic live row with the touchpoint ledger row the moment it lands (the old
           // display-name fallback minted `function:<名字>` keys that never matched `function:fn_…`
@@ -404,6 +409,28 @@ class StageDirectorController extends Notifier<StageState> {
       // Plain-text receipts (LLM prose) carry no id — the row stays block-keyed. 纯文本回执无 id。
     }
     return null;
+  }
+
+  /// Execution tools encode a process failure inside a normally completed tool_result frame. The
+  /// outer frame status only describes the tool protocol, so it cannot be the sole activity verdict.
+  /// 执行工具把失败编码在 completed tool_result 的正文里;外层 status 只描述工具协议,不能单独作活动结论。
+  static bool _executionResultFailed(
+    String toolName,
+    String status,
+    String body,
+  ) {
+    if (status == 'error' || status == 'cancelled') return true;
+    try {
+      final value = jsonDecode(body);
+      if (value is! Map) return false;
+      if (toolName == 'invoke_agent') {
+        final agentStatus = value['status'];
+        return agentStatus == 'failed' || agentStatus == 'timeout';
+      }
+      return value['ok'] == false;
+    } catch (_) {
+      return false;
+    }
   }
 
   /// Subscribe ONE workflow's entities frames for the held poll stage: node `run` ticks (matched

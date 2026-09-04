@@ -155,7 +155,9 @@ draining→inactive 结算。
 
 completed、failed、cancelled 都通过 first-wins 的头状态写入。
 `afterRunSettled` 只有在 workflow 没有 running run 且没有已接受 pending
-firing 时才把 draining 收为 inactive。
+firing 时才把 draining 收为 inactive。该转换使用条件更新；只有实际改行的调用
+发布一次 durable `workflow.lifecycle_changed`，因此并发或重复 reconcile 不会制造
+重复的 inactive 事件，前端可用实时帧收敛到最终状态。
 
 - completed/failed/cancelled 的赢家发 durable `run_terminal`；
 - failed 发 `workflow.run_failed` 并点亮 attention；

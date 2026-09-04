@@ -402,6 +402,18 @@ func TestAttachmentHandlerPlaybackLeaseServesAudioWithoutBearerHeader(t *testing
 	}
 }
 
+func TestPlaybackLeaseTTLFromEnv(t *testing.T) {
+	t.Setenv(rigPlaybackLeaseTTLEnv, "1500")
+	if got := playbackLeaseTTLFromEnv(zap.NewNop()); got != 1500*time.Millisecond {
+		t.Fatalf("TTL = %s, want 1.5s", got)
+	}
+
+	t.Setenv(rigPlaybackLeaseTTLEnv, "not-a-duration")
+	if got := playbackLeaseTTLFromEnv(zap.NewNop()); got != 0 {
+		t.Fatalf("invalid TTL = %s, want production default sentinel 0", got)
+	}
+}
+
 func TestAttachmentHandlerPlaybackLeaseRejectsNonAudio(t *testing.T) {
 	svc, ctx := newAttachmentHandlerTestService(t)
 	a, err := svc.Upload(ctx, "note.txt", "text/plain", []byte("hello"))

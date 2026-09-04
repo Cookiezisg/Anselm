@@ -12,6 +12,14 @@ import (
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 )
 
+type mediaHistorySlot struct {
+	index        int
+	message      *messagesdomain.Message
+	baseParts    int
+	anchor       string
+	attachedDocs bool
+}
+
 // LoadHistory composes the LLM message history the loop generates against: the conversation's
 // compaction summary (if any) first, then every persisted turn oldest-first. User turns render
 // to text (+ multimodal attachment parts gated by the model's capabilities); assistant turns
@@ -22,6 +30,8 @@ import (
 // user 回合渲成文本（+ 按模型能力门控的多模态附件部件）；assistant 回合经 loopapp.BlocksToAssistantLLM
 // 投影其 block 树（hot/warm/cold）。在飞的 assistant 回合（本次生成、开时暂无 block）被跳过。
 func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, error) {
+	h.mediaSlots = nil
+	h.audioEnrollmentReminder = ""
 	// Read-minimized load: the SQL already drops subagent sub-messages (never in the parent's LLM
 	// history) and the compaction-folded blocks (seq ≤ watermark, content now in the summary), so a
 	// long single-conversation session stops re-reading the whole folded-inclusive block table from
@@ -78,6 +88,10 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 			if err != nil {
 				return nil, fmt.Errorf("chatapp.LoadHistory: render user message %s: %w", m.ID, err)
 			}
+			h.audioEnrollmentReminder = audioEnrollmentReminder(userText(m), attachmentIDsOf(m))
+			h.mediaSlots = append(h.mediaSlots, mediaHistorySlot{
+				index: len(out), message: m, anchor: historyText(user),
+			})
 			out = append(out, user)
 		case messagesdomain.RoleAssistant:
 			if m.ID == h.assistantMsgID {
@@ -116,11 +130,44 @@ func (h *chatHost) LoadHistory(ctx context.Context) ([]llminfra.LLMMessage, erro
 				out[i].Parts = []llminfra.ContentPart{{Type: llminfra.PartText, Text: out[i].Content}}
 				out[i].Content = ""
 			}
+			baseParts := len(out[i].Parts)
 			out[i].Parts = append(out[i].Parts, parts...)
+			slot := h.mediaSlotAt(i)
+			if slot == nil {
+				h.mediaSlots = append(h.mediaSlots, mediaHistorySlot{
+					index: i, baseParts: baseParts, anchor: historyText(out[i]),
+				})
+			} else {
+				slot.attachedDocs = true
+				slot.anchor = historyText(out[i])
+			}
 			break
 		}
 	}
 	return out, nil
+}
+
+func (h *chatHost) mediaSlotAt(index int) *mediaHistorySlot {
+	for i := range h.mediaSlots {
+		if h.mediaSlots[i].index == index {
+			return &h.mediaSlots[i]
+		}
+	}
+	return nil
+}
+
+func historyText(m llminfra.LLMMessage) string {
+	var b strings.Builder
+	if m.Content != "" {
+		b.WriteString(m.Content)
+	}
+	for _, p := range m.Parts {
+		if p.Type == llminfra.PartText {
+			b.WriteString("\x00")
+			b.WriteString(p.Text)
+		}
+	}
+	return b.String()
 }
 
 // attachedDocParts expands the attached documents' media references through the SAME chokepoint
@@ -221,6 +268,14 @@ func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) (
 	if err != nil {
 		return llminfra.LLMMessage{}, fmt.Errorf("render attachments: %w", err)
 	}
+	if hasUnavailableVisual(parts) {
+		// Low-capability models often stop after paraphrasing the first limitation sentence. Put the
+		// complete, user-actionable answer before the question so the model cannot mistake an already
+		// attached image for a request to upload it again.
+		// 低能力模型常在复述第一句限制后就停止。把完整且可执行的答案放在问题之前，避免模型把已附加的
+		// 图片误解成需要再次上传。
+		text = unavailableVisualInstruction + "\n\n" + text
+	}
 
 	msg := llminfra.LLMMessage{Role: llminfra.RoleUser}
 	if text != "" {
@@ -228,6 +283,18 @@ func (h *chatHost) userMessage(ctx context.Context, m *messagesdomain.Message) (
 	}
 	msg.Parts = append(msg.Parts, parts...)
 	return msg, nil
+}
+
+const unavailableVisualInstruction = `<attachment_capability_notice>Required answer in the user's language: "The current model cannot see or inspect the pixels in the attached image. To continue, switch to a vision-capable model, or describe or paste the relevant content here." The image is already attached: never ask the user to re-attach it, infer its contents, claim to access the file, or add unrelated assistance.</attachment_capability_notice>`
+
+func hasUnavailableVisual(parts []llminfra.ContentPart) bool {
+	for _, part := range parts {
+		if part.Type == llminfra.PartText &&
+			(strings.HasPrefix(part.Text, "[UNAVAILABLE IMAGE]") || strings.HasPrefix(part.Text, "[UNAVAILABLE VIDEO]")) {
+			return true
+		}
+	}
+	return false
 }
 
 // renderAttachmentToolHint makes the exact IDs from this user turn available to attachment
@@ -251,6 +318,41 @@ func renderAttachmentToolHint(ids []string) string {
 	}
 	b.WriteString("</uploaded_attachments_for_tools>")
 	return b.String()
+}
+
+// audioEnrollmentReminder is transient guidance for the supported file operation. It does not
+// authorize the tool; enroll_voice's dangerous gate still waits for user approval.
+func audioEnrollmentReminder(text string, ids []string) string {
+	if len(ids) == 0 || !hasAudioEnrollmentIntent(text) {
+		return ""
+	}
+	return "This turn has uploaded audio and asks to register or clone it as a named voice. " +
+		"This is a file operation, not audio understanding; the current model does not need to hear it. " +
+		"Call enroll_voice directly now with the exact attachmentId from the attachment directory. " +
+		"Do not call inspect_media, ask for a transcript, or answer with an audio-capability limitation. " +
+		"The dangerous confirmation gate remains mandatory. If the user also asks for speech, only after a successful enrollment call generate_speech with the requested text and returned voice name."
+}
+
+func hasAudioEnrollmentIntent(text string) bool {
+	lower := strings.ToLower(strings.TrimSpace(text))
+	if lower == "" {
+		return false
+	}
+	if strings.HasPrefix(lower, "what is ") || strings.HasPrefix(lower, "what are ") ||
+		strings.HasPrefix(lower, "explain ") || strings.HasPrefix(lower, "tell me about ") {
+		return false
+	}
+	return containsAny(lower, "register", "enroll", "clone", "cloned", "登记", "注册", "克隆") &&
+		containsAny(lower, "voice", "声音", "音色")
+}
+
+func containsAny(text string, needles ...string) bool {
+	for _, needle := range needles {
+		if strings.Contains(text, needle) {
+			return true
+		}
+	}
+	return false
 }
 
 // userText concatenates a turn's text blocks (newline-joined). User turns carry only text blocks;

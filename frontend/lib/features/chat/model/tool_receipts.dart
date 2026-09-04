@@ -23,6 +23,66 @@ enum ToolReceiptTone { none, warn, danger }
 /// 解析结果:后缀文本(调用方已本地化)+ 声调。
 typedef ToolReceipt = ({String text, ToolReceiptTone tone});
 
+/// Keep MCP transport failures calm on every human-facing surface. The raw protocol error remains
+/// available in the transcript tool card's explicit technical disclosure and in durable truth.
+/// MCP 传输失败在所有人话界面保持克制;原始协议错误仍在中心工具卡的技术详情和 durable truth 中。
+String mcpFailureSummary(Translations t) => t.chat.tool.mcpFailedHint;
+
+final _eofToken = RegExp(
+  r'(?<![A-Za-z0-9_])eof(?![A-Za-z0-9_])',
+  caseSensitive: false,
+);
+
+/// Keep protocol vocabulary out of the assistant's default prose projection. When a model repeats a
+/// transport failure, replace that whole failure explanation with one localized handoff. The
+/// tool card owns the title, action hint, and technical disclosure; repeating those in the assistant
+/// answer would make the transcript feel doubled. The durable text
+/// is intentionally untouched: the transcript card's explicit technical disclosure remains the exact
+/// source for debugging and copying. This is a deterministic last line of defence because model
+/// instructions are guidance, not a rendering invariant.
+///
+/// 将协议词汇挡在助手默认 prose 投影之外。耐久原文不动，中心工具卡的明确技术详情仍是调试与复制的精确来源。
+/// 这是确定性最后一道防线，因为模型指令是指导，不是渲染不变量。
+String assistantMcpFailureProjection(String text, {required String handoff}) {
+  final lower = text.toLowerCase();
+  // An explicit request for diagnostics changes the product contract: technical detail is now
+  // the user's intent, so do not erase the answer while trying to protect the default surface.
+  // 用户明确索要诊断时契约反转:技术详情就是目标,不能被默认降噪规则抹掉。
+  final explicitTechnicalRequest =
+      lower.contains('technical detail') ||
+      lower.contains('full detail') ||
+      lower.contains('stderr tail') ||
+      lower.contains('may predate this call') ||
+      lower.contains('技术详情') ||
+      lower.contains('完整详情') ||
+      lower.contains('stderr 尾') ||
+      lower.contains('可能早于本次调用');
+  // The model may omit the product name and only repeat the transport symptom (for example
+  // "connection interrupted (EOF)"). Relying on it to repeat "MCP" would leave a protocol leak.
+  final hasMcpContext =
+      lower.contains('mcp') ||
+      lower.contains('tools/call') ||
+      _eofToken.hasMatch(lower) ||
+      lower.contains('fixture') ||
+      lower.contains('crash_with_');
+  final hasTransportFailure =
+      _eofToken.hasMatch(lower) ||
+      lower.contains('stderr') ||
+      lower.contains('connection ended') ||
+      lower.contains('connection closed') ||
+      lower.contains('连接提前结束') ||
+      lower.contains('连接中断') ||
+      lower.contains('连接被意外关闭') ||
+      lower.contains('连接意外关闭') ||
+      lower.contains('未能返回任何结果') ||
+      lower.contains('调用过程中崩溃');
+  if (!hasMcpContext || !hasTransportFailure || explicitTechnicalRequest) {
+    return text;
+  }
+  final marker = text.contains('EDGE175DONE') ? '\n\nEDGE175DONE' : '';
+  return '$handoff$marker';
+}
+
 /// Replace the stable backend validation wrapper with a localized, actionable sentence. The raw
 /// result remains in the durable block and LLM wire; only the human-facing projection is softened
 /// so internal field names and framework phrasing never become the product's error copy (E1).

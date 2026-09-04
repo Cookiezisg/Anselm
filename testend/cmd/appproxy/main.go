@@ -16,6 +16,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"os"
 	"os/signal"
@@ -36,6 +37,8 @@ type journalRecord struct {
 	Status    int    `json:"status,omitempty"`
 	Remaining int    `json:"remaining,omitempty"`
 	Canceled  bool   `json:"canceled,omitempty"`
+	Host      string `json:"host,omitempty"`
+	To        string `json:"to,omitempty"`
 }
 
 type journalWriter struct {
@@ -80,6 +83,12 @@ type failureBudget struct {
 type dropBudget struct {
 	mu        sync.Mutex
 	remaining int
+}
+
+type rewriteHostContextKey struct{}
+
+type rewriteHostContext struct {
+	host string
 }
 
 func (b *dropBudget) take() bool {
@@ -148,12 +157,29 @@ func newHandler(
 	dropCount int,
 	failAfterDropCount int,
 	failAfterDropDelay time.Duration,
+	upstreamAuthToken string,
+	upstreamAuthPath string,
+	dropWorkspaceHeaderCount int,
+	rewriteHostPath string,
+	rewriteHostName string,
+	rewriteHostCount int,
+	rewritePathFrom string,
+	rewritePathTo string,
+	rewritePathCount int,
+	rewriteMethodPath string,
+	rewriteMethodFrom string,
+	rewriteMethodTo string,
+	rewriteMethodCount int,
 	write func(journalRecord),
 ) http.Handler {
 	failures := &failureBudget{remaining: failCount}
 	drops := &dropBudget{remaining: dropCount}
+	workspaceHeaderDrops := &dropBudget{remaining: dropWorkspaceHeaderCount}
 	postDropFailures := &failureBudget{remaining: failAfterDropCount}
-	proxy := proxycore.HandlerWithResponseBodyPolicy(upstream, func(r *http.Request, _ []byte) {
+	rewriteHosts := &dropBudget{remaining: rewriteHostCount}
+	rewritePaths := &dropBudget{remaining: rewritePathCount}
+	rewriteMethods := &dropBudget{remaining: rewriteMethodCount}
+	proxy := proxycore.HandlerWithResponseBodyPolicyAndRewrite(upstream, func(r *http.Request, _ []byte) {
 		targeted := matchesDelayPath(r, delayPath)
 		record := journalRecord{Event: "request", Method: r.Method, Path: r.URL.Path}
 		if targeted {
@@ -175,9 +201,41 @@ func newHandler(
 			}
 		}
 		return body
+	}, func(pr *httputil.ProxyRequest) {
+		if override, ok := pr.In.Context().Value(rewriteHostContextKey{}).(rewriteHostContext); ok {
+			pr.Out.Host = override.host
+		}
 	})
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if matchesDelayPath(r, delayPath) &&
+			r.Header.Get("X-Anselm-Workspace-ID") != "" &&
+			workspaceHeaderDrops.take() {
+			r.Header.Del("X-Anselm-Workspace-ID")
+			write(journalRecord{Event: "workspace_header_dropped", Method: r.Method, Path: r.URL.Path})
+		}
+		if upstreamAuthToken != "" {
+			r.Header.Del("Authorization")
+			if r.URL.Path == upstreamAuthPath {
+				r.Header.Set("Authorization", "Bearer "+upstreamAuthToken)
+			}
+		}
+		if rewriteHostPath != "" && r.URL.Path == rewriteHostPath && rewriteHosts.take() {
+			r = r.WithContext(context.WithValue(r.Context(), rewriteHostContextKey{}, rewriteHostContext{host: rewriteHostName}))
+			write(journalRecord{Event: "host_rewritten", Method: r.Method, Path: r.URL.Path, Host: rewriteHostName})
+		}
+		if rewritePathFrom != "" && r.URL.Path == rewritePathFrom && rewritePaths.take() {
+			originalPath := r.URL.Path
+			r.URL.Path = rewritePathTo
+			r.URL.RawPath = ""
+			r.RequestURI = r.URL.RequestURI()
+			write(journalRecord{Event: "path_rewritten", Method: r.Method, Path: originalPath, To: rewritePathTo})
+		}
+		if rewriteMethodPath != "" && r.URL.Path == rewriteMethodPath && r.Method == rewriteMethodFrom && rewriteMethods.take() {
+			originalMethod := r.Method
+			r.Method = rewriteMethodTo
+			write(journalRecord{Event: "method_rewritten", Method: originalMethod, Path: r.URL.Path, To: rewriteMethodTo})
+		}
 		if matchesDelayPath(r, delayPath) {
 			if taken, remaining := failures.take(); taken {
 				write(journalRecord{
@@ -233,10 +291,23 @@ func main() {
 	dropCount := flag.Int("drop-count", 0, "number of targeted response streams to close after drop-after-ms")
 	failAfterDropCount := flag.Int("fail-after-drop-count", 0, "number of targeted requests to fail after the drop budget is exhausted")
 	failAfterDropDelayMS := flag.Int("fail-after-drop-delay-ms", 0, "delay those post-drop failures without delaying the initial stream")
+	upstreamAuthToken := flag.String("upstream-auth-token", "", "inject this bearer only on upstream-auth-path")
+	upstreamAuthPath := flag.String("upstream-auth-path", "", "exact path receiving upstream-auth-token")
+	dropWorkspaceHeaderCount := flag.Int("drop-workspace-header-count", 0, "remove X-Anselm-Workspace-ID for this many requests (acceptance perturbation)")
+	rewriteHostPath := flag.String("rewrite-host-path", "", "exact request path whose upstream Host header is rewritten (acceptance perturbation)")
+	rewriteHostName := flag.String("rewrite-host", "", "Host header sent upstream for rewrite-host-path (acceptance perturbation)")
+	rewriteHostCount := flag.Int("rewrite-host-count", 0, "number of targeted requests whose upstream Host header is rewritten")
+	rewritePathFrom := flag.String("rewrite-path-from", "", "exact request path whose upstream path is rewritten (acceptance perturbation)")
+	rewritePathTo := flag.String("rewrite-path-to", "", "upstream path used by rewrite-path-from (acceptance perturbation)")
+	rewritePathCount := flag.Int("rewrite-path-count", 0, "number of targeted requests whose upstream path is rewritten")
+	rewriteMethodPath := flag.String("rewrite-method-path", "", "exact request path whose method is rewritten (acceptance perturbation)")
+	rewriteMethodFrom := flag.String("rewrite-method-from", "", "request method selected for rewrite-method-path")
+	rewriteMethodTo := flag.String("rewrite-method-to", "", "upstream method used by rewrite-method-path")
+	rewriteMethodCount := flag.Int("rewrite-method-count", 0, "number of targeted requests whose method is rewritten")
 	failStatus := flag.Int("fail-status", http.StatusServiceUnavailable, "HTTP status for injected failures")
 	out := flag.String("out", "", "JSONL journal path (required)")
 	flag.Parse()
-	if *upstream == "" || *out == "" || *delayPath == "" || *delayMS < 0 || *failCount < 0 || *dropAfterMS < 0 || *dropCount < 0 || *failAfterDropCount < 0 || *failAfterDropDelayMS < 0 || *failStatus < 400 || *failStatus > 599 {
+	if *upstream == "" || *out == "" || *delayPath == "" || *delayMS < 0 || *failCount < 0 || *dropAfterMS < 0 || *dropCount < 0 || *failAfterDropCount < 0 || *failAfterDropDelayMS < 0 || *dropWorkspaceHeaderCount < 0 || *rewriteHostCount < 0 || *rewritePathCount < 0 || *rewriteMethodCount < 0 || (*rewriteHostCount > 0 && (*rewriteHostPath == "" || *rewriteHostName == "")) || (*rewritePathCount > 0 && (*rewritePathFrom == "" || *rewritePathTo == "")) || (*rewriteMethodCount > 0 && (*rewriteMethodPath == "" || *rewriteMethodFrom == "" || *rewriteMethodTo == "")) || *failStatus < 400 || *failStatus > 599 || (*upstreamAuthToken != "" && *upstreamAuthPath == "") {
 		fmt.Fprintln(os.Stderr, "appproxy: -upstream, -out, -delay-path, non-negative delay/failure/drop values, and fail-status 400..599 are required")
 		os.Exit(2)
 	}
@@ -255,7 +326,7 @@ func main() {
 	delay := time.Duration(*delayMS) * time.Millisecond
 	w.write(journalRecord{Event: "ready", Path: *delayPath, DelayMS: *delayMS, Status: *failStatus, Remaining: *failCount})
 
-	handler := newHandler(u, *delayPath, delay, *failCount, *failStatus, time.Duration(*dropAfterMS)*time.Millisecond, *dropCount, *failAfterDropCount, time.Duration(*failAfterDropDelayMS)*time.Millisecond, w.write)
+	handler := newHandler(u, *delayPath, delay, *failCount, *failStatus, time.Duration(*dropAfterMS)*time.Millisecond, *dropCount, *failAfterDropCount, time.Duration(*failAfterDropDelayMS)*time.Millisecond, *upstreamAuthToken, *upstreamAuthPath, *dropWorkspaceHeaderCount, *rewriteHostPath, *rewriteHostName, *rewriteHostCount, *rewritePathFrom, *rewritePathTo, *rewritePathCount, *rewriteMethodPath, *rewriteMethodFrom, *rewriteMethodTo, *rewriteMethodCount, w.write)
 
 	server := &http.Server{Addr: *listen, Handler: handler}
 	listener, err := net.Listen("tcp", *listen)

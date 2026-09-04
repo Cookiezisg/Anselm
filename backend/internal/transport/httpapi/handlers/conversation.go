@@ -379,7 +379,9 @@ func (h *ConversationHandler) CreateBranch(w http.ResponseWriter, r *http.Reques
 // SIBLING of the work tree's root named `<root>-<name>`, on branch `wt/<name>`. An existing `wt/<name>`
 // branch is REUSED exactly as the Makefile reuses it (`make worktree-rm` keeps the branch on purpose, so
 // re-opening a worktree on it is the documented way back); an existing DIRECTORY is refused 409
-// `CONVERSATION_WORKTREE_EXISTS` with the path in `details.path`. An illegal name → 422
+// `CONVERSATION_WORKTREE_EXISTS` with the path in `details.path`; if the filesystem half completes but the
+// residency row cannot be persisted, `CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED` carries the created path
+// so the client can explain the honest half-state. An illegal name → 422
 // `CONVERSATION_INVALID_WORKTREE_NAME` (stricter than a branch name — it becomes a directory segment too,
 // which is what keeps the derived path provably a sibling).
 //
@@ -392,7 +394,8 @@ func (h *ConversationHandler) CreateBranch(w http.ResponseWriter, r *http.Reques
 // body `{name}`、绝不是路径。目标按本仓自己的 `make worktree` 约定派生:工作树根的**兄弟**位、名为 `<根>-<name>`、
 // 分支 `wt/<name>`。已存在的 `wt/<name>` 分支被**复用**，与 Makefile 的复用完全一致（`make worktree-rm` **刻意**
 // 保留分支，故在它之上重开一份 worktree 正是被写进文档的回头路）;已存在的**目录**拒为 409
-// `CONVERSATION_WORKTREE_EXISTS`，路径在 `details.path` 里。非法名 → 422 `CONVERSATION_INVALID_WORKTREE_NAME`
+// `CONVERSATION_WORKTREE_EXISTS`，路径在 `details.path` 里；如果文件系统一半已完成但驻地行无法持久化，
+// `CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED` 会带出已创建路径，使客户端能诚实解释半成功状态。非法名 → 422
 // （比分支名更严——它**也会**成为一个目录段，而正是这份更严让派生路径可证明地落在兄弟位）。
 //
 // 移动驻地走的是文件夹按钮用的同一条 PATCH 路径，故线程白得它那条持久 `marker` 块与 `conversation.work_dir`

@@ -130,6 +130,26 @@ void main() {
   });
 
   testWidgets(
+    'undo restores the host document after an inserted edit without an error',
+    (tester) async {
+      await tester.pumpWidget(_host());
+      await tester.pumpAndSettle();
+      await tester.placeCaretInParagraph('p1', 'hello world foo bar'.length);
+      await tester.typeImeText(' EDITED');
+      await tester.pumpAndSettle();
+
+      tester.state<AnEditorState>(find.byType(AnEditor)).undoForTesting();
+      await tester.pumpAndSettle();
+
+      expect(
+        SuperEditorInspector.findTextInComponent('p1').toPlainText(),
+        'hello world foo bar',
+      );
+      expect(tester.takeException(), isNull);
+    },
+  );
+
+  testWidgets(
     'double-tap selects the word — and pumpAndSettle completes (no freeze)',
     (tester) async {
       await tester.pumpWidget(_host());

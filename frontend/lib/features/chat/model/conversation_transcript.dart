@@ -376,20 +376,45 @@ class ConversationTranscript {
   /// Fold one stream frame; reconcile a durable user echo against the oldest pending bubble.
   /// 折一帧;durable 用户回声对账最老乐观泡。
   void applyFrame(StreamEnvelope env) {
-    // Hydration and the scoped stream intentionally overlap: a durable frame can be buffered while
-    // REST loads the same terminal row. The row already lives in [settled], so folding that frame into
-    // [_live] would render one message twice across the layer boundary. Terminal settled rows never
-    // receive later updates; skip only this exact durable block id and keep the live seed path intact.
-    // 水化与 scoped stream 刻意重叠:REST 正在加载同一终态行时,durable 帧可能先入缓冲。该行已在 settled,
-    // 再折进 live 就会跨层渲两遍。终态 settled 行不会再有后续更新,只跳过同一 durable block id,保留在飞种子。
-    if (env.durable && _settledContainsId(env.id)) return;
-    _live.apply(env);
+    // Hydration and the scoped stream intentionally overlap: a frame can be buffered while REST loads
+    // the same terminal row. The row already lives in [settled], so folding ANY later frame for that
+    // block into [_live] would render a second copy across the layer boundary. This includes ephemeral
+    // open/delta frames: they have no replay cursor, but they can still be queued before the resync
+    // fetch completes. Durable settled rows never receive later updates; skip the live fold for every
+    // settled block id, while keeping durable user-echo reconciliation below. A send can add its pending
+    // bubble after hydration has settled the row and before the overlapping echo arrives; returning here
+    // would pin the composer in stop-state forever.
+    // 水化与 scoped stream 刻意重叠:REST 重拉同一终态行时,**任意**迟到帧都不能再折进 live,否则跨层渲两遍。
+    // 这也包括 ephemeral open/delta:它们没有续传游标,但仍可能在重同步拉取完成前排队。已 settled
+    // 的块跳过 live 折叠,下面仍做 durable user echo 对账;否则发送泡会因直接 return 永久钉住 composer。
+    final settledNode = _settledNodeById(env.id);
+    final frame = env.frame;
+    if (settledNode != null &&
+        settledNode.kind == BlockKind.message &&
+        frame is FrameClose) {
+      // REST can win the race with the terminal close while returning a still-open or stale snapshot.
+      // Do not create a live duplicate, but do apply the close metadata so the terminal banner and
+      // error state are visible without requiring a second reload.
+      // REST 可能先于终态 close 返回仍在流中或过期快照。不能造 live 重复,但必须合并 close 元数据,
+      // 让终态提示和错误状态无需二次重载即可可见。
+      settledNode.status = frame.status.isEmpty ? 'completed' : frame.status;
+      settledNode.error = frame.error;
+      if (frame.result?.content != null) {
+        settledNode.content = frame.result!.content;
+      }
+      // Settled rows are identity-cached by the view. Bump the node revision so a terminal close that
+      // arrives after hydration invalidates that cache without making unrelated settled rows rebuild.
+      // 落定行按身份缓存。水化后迟到的终态 close 必须递增版本使缓存失效,且不能弄脏其它落定行。
+      settledNode.revision++;
+    }
+    if (settledNode == null) {
+      _live.apply(env);
+    }
     // A Subagent tool_call opening/closing is the ONLY live event that changes the subagent
     // structure (the open frame carries the tool name — the stage director routes on it the same
     // way). Deltas fall through untouched. Subagent tool_call 开/合是唯一改变 subagent 结构的
     // live 事件(open 帧带工具名,导演器同样据此路由);delta 直落、不 bump。
-    final frame = env.frame;
-    if (frame is FrameOpen || frame is FrameClose) {
+    if (settledNode == null && (frame is FrameOpen || frame is FrameClose)) {
       final opened = _live.nodeById(env.id);
       if (opened != null &&
           opened.kind == BlockKind.toolCall &&
@@ -398,7 +423,10 @@ class ConversationTranscript {
       }
     }
     if (!env.durable) return;
-    final node = _live.nodeById(env.id);
+    // An overlapping durable echo has no live node by design; reconcile against its settled node
+    // instead. This preserves the no-duplicate invariant without leaking an optimistic bubble.
+    // 重叠 durable 回声刻意没有 live 节点;改用 settled 节点对账,同时守住不重复渲染与不漏泡。
+    final node = settledNode ?? _live.nodeById(env.id);
     if (node == null ||
         node.kind != BlockKind.message ||
         turnRole(node) != 'user') {
@@ -437,19 +465,21 @@ class ConversationTranscript {
     }
   }
 
-  bool _settledContainsId(String id) {
-    bool walk(BlockNode node) {
-      if (node.id == id) return true;
-      for (final child in node.children) {
-        if (walk(child)) return true;
-      }
-      return false;
-    }
-
+  BlockNode? _settledNodeById(String id) {
     for (final root in settled) {
-      if (walk(root)) return true;
+      final found = _findNode(root, id);
+      if (found != null) return found;
     }
-    return false;
+    return null;
+  }
+
+  BlockNode? _findNode(BlockNode node, String id) {
+    if (node.id == id) return node;
+    for (final child in node.children) {
+      final found = _findNode(child, id);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   /// Drop the live layer (410 resync: the caller refetches the head via [setHistory], which re-seeds any

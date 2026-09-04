@@ -34,6 +34,32 @@ import (
 	gitinfoinfra "github.com/sunweilin/anselm/backend/internal/infra/gitinfo"
 )
 
+const rigFailWorkDirUpdateEnv = "ANSELM_RIG_FAIL_WORKDIR_UPDATE"
+
+// rigWorkDirUpdateFailureKey marks only the final Update performed by AddWorktree. The hook is an
+// acceptance-rig seam, disabled by default, so a real persistence error can be observed without making
+// ordinary PATCH workdir updates fail as collateral.
+//
+// rigWorkDirUpdateFailureKey 只标记 AddWorktree 最后一次 Update。该钩子是默认关闭的验收台架 seam，
+// 使真实持久化失败可以被观察，同时不把普通 PATCH 驻地更新误伤成失败。
+type rigWorkDirUpdateFailureKey struct{}
+
+func withRigWorkDirUpdateFailure(ctx context.Context) context.Context {
+	if strings.TrimSpace(os.Getenv(rigFailWorkDirUpdateEnv)) != "1" {
+		return ctx
+	}
+	return context.WithValue(ctx, rigWorkDirUpdateFailureKey{}, true)
+}
+
+func rigWorkDirUpdateFailure(ctx context.Context, changed bool, target string) error {
+	if changed && target != "" {
+		if injected, _ := ctx.Value(rigWorkDirUpdateFailureKey{}).(bool); injected {
+			return errors.New("acceptance rig injected workdir persistence failure")
+		}
+	}
+	return nil
+}
+
 // SwitchBranch moves the residency's work tree onto an EXISTING local branch and returns the freshly
 // re-probed projection (WD2).
 //
@@ -175,8 +201,8 @@ func (s *Service) AddWorktree(ctx context.Context, id, name string) (*conversati
 	// honest half-state to be in: nothing was destroyed and the user can mount it by hand.
 	// 驻地**跟着** worktree 走——那**就是**这个功能（「为**此对话**开一个 worktree」）。此处失败会留下一份完好的
 	// worktree 与仍在原处的线程，那是可以停在的那个诚实的半状态:什么都没被毁，用户手动挂上即可。
-	if _, err := s.Update(ctx, id, UpdateInput{WorkDir: &target}); err != nil {
-		return nil, err
+	if _, err := s.Update(withRigWorkDirUpdateFailure(ctx), id, UpdateInput{WorkDir: &target}); err != nil {
+		return nil, conversationdomain.ErrWorktreeResidencyUpdateFailed.WithCause(err).WithDetails(map[string]any{"path": target})
 	}
 	return s.WorkDirInfo(ctx, id)
 }
@@ -199,14 +225,14 @@ func (s *Service) gitTarget(ctx context.Context, id, branch string) (dir, name s
 
 // gitResidency returns the conversation's mounted directory, refusing when it cannot host a git action.
 //
-// All three flavours of "there is no git here" collapse into ONE answer (ErrWorkDirNotGitRepo) on purpose:
+// All four flavours of "there is no git here" collapse into ONE answer (ErrWorkDirNotGitRepo) on purpose:
 // unmounted, gone, not a repository, no `git` binary — the caller's next step is the same in every case
 // (mount a directory that is a repository), and splitting them would be four messages saying one thing.
 // That mirrors gitinfo's own read contract, which also declines to distinguish them.
 //
 // gitResidency 返回对话已挂的目录，当它无法承载一个 git 动作时拒绝。
 //
-// 「这里没有 git」的三种形态**刻意**收成**一个**答案（ErrWorkDirNotGitRepo）:未挂、已消失、不是仓库、没有 `git`
+// 「这里没有 git」的四种形态**刻意**收成**一个**答案（ErrWorkDirNotGitRepo）:未挂、已消失、不是仓库、没有 `git`
 // 二进制——调用方的下一步在每种情形下都一样（挂一个是仓库的目录），把它们拆开等于四句话说同一件事。这与 gitinfo
 // 自己的读契约同构，它同样拒绝区分它们。
 func (s *Service) gitResidency(ctx context.Context, id string) (string, error) {

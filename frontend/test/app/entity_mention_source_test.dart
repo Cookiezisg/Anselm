@@ -114,34 +114,37 @@ void main() {
     },
   );
 
-  test('@ candidates exclude fork skills while retaining inline skills', () async {
-    final found = await hosting(
-      seeded(),
-      library: FixtureLibraryRepository(
-        skills: [
-          Skill(
-            name: 'inline-one',
-            description: 'shown in the mention picker',
-            context: kSkillContextInline,
-            updatedAt: _t,
-          ),
-          Skill(
-            name: 'fork-one',
-            description: 'dispatched as a subagent',
-            context: kSkillContextFork,
-            updatedAt: _t,
-          ),
-        ],
-      ),
-    ).search('');
+  test(
+    '@ candidates exclude fork skills while retaining inline skills',
+    () async {
+      final found = await hosting(
+        seeded(),
+        library: FixtureLibraryRepository(
+          skills: [
+            Skill(
+              name: 'inline-one',
+              description: 'shown in the mention picker',
+              context: kSkillContextInline,
+              updatedAt: _t,
+            ),
+            Skill(
+              name: 'fork-one',
+              description: 'dispatched as a subagent',
+              context: kSkillContextFork,
+              updatedAt: _t,
+            ),
+          ],
+        ),
+      ).search('');
 
-    final skillNames = found
-        .where((candidate) => candidate.type == 'skill')
-        .map((candidate) => candidate.name)
-        .toList();
-    expect(skillNames, contains('inline-one'));
-    expect(skillNames, isNot(contains('fork-one')));
-  });
+      final skillNames = found
+          .where((candidate) => candidate.type == 'skill')
+          .map((candidate) => candidate.name)
+          .toList();
+      expect(skillNames, contains('inline-one'));
+      expect(skillNames, isNot(contains('fork-one')));
+    },
+  );
 }
 
 /// A repository where exactly one kind is having a bad day. 恰好一类不舒服的仓储。

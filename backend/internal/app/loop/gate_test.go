@@ -327,7 +327,11 @@ func TestRunOneTool_ApprovedGateFactReachesModelOnly(t *testing.T) {
 		t.Fatal("the approval fact must not pollute the visible tool result")
 	}
 	llm := BlocksToAssistantLLM(blocks)
-	if len(llm) != 2 || !strings.Contains(llm[1].Content, "Human approval granted before this tool executed") {
+	if len(llm) != 2 ||
+		!strings.Contains(llm[1].Content, "Human approval granted before the preceding tool call only") ||
+		!strings.Contains(llm[1].Content, "tool=deploy") ||
+		!strings.Contains(llm[1].Content, "tool_call_id=tc1") ||
+		!strings.Contains(llm[1].Content, "does not describe or authorize later calls") {
 		t.Fatalf("LLM tool result = %#v, want explicit approval fact", llm)
 	}
 }

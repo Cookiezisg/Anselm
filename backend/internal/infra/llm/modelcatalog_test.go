@@ -198,6 +198,20 @@ func TestCatalogRefresh_FailSilent(t *testing.T) {
 	}
 }
 
+func TestCatalogRefresh_RigURLOverrideIsScopedToRefresh(t *testing.T) {
+	old := catalogUpstreamURL
+	catalogUpstreamURL = "https://models.dev/api.json"
+	t.Cleanup(func() { catalogUpstreamURL = old })
+	t.Setenv("ANSELM_RIG_MODEL_CATALOG_URL", "http://127.0.0.1:1/api.json")
+	if got := catalogRefreshURL(); got != "http://127.0.0.1:1/api.json" {
+		t.Fatalf("catalogRefreshURL = %q, want rig override", got)
+	}
+	refreshCatalogOnce(t.Context(), t.TempDir(), nil)
+	if models, err := newQwenProvider().DescribeModels(`{"data":[{"id":"qwen3.7-plus"}]}`); err != nil || len(models) != 1 {
+		t.Errorf("catalog degraded after rig override failure: %v %v", models, err)
+	}
+}
+
 // TestDescribe_MaskGatesProjection pins capability advertising = catalog modality ∧ dialect mask:
 // kimi-k2.6 lists video input upstream but the Moonshot dialect cannot carry a video part, so
 // Video must stay false; gpt-5.5 lists pdf and the OpenAI dialect renders file parts, so

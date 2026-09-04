@@ -424,7 +424,7 @@ void main() {
   );
 
   testWidgets(
-    'detail: status card + three tabs; failed server leads with the error',
+    'detail: status card + three tabs; failed server leads with human guidance',
     (tester) async {
       final repo = FixtureSettingsRepository()
         ..mcpServers.add(
@@ -449,11 +449,12 @@ void main() {
           .read(settingsDetailProvider.notifier)
           .push('mcpServer', id: 'broken');
       await tester.pumpAndSettle();
-      expect(
-        find.textContaining('spawn npx ENOENT'),
-        findsOneWidget,
-        reason: '错误置顶',
-      );
+      expect(find.text(t.settings.mcp.failedTitle), findsOneWidget);
+      expect(find.text(t.settings.mcp.failedHint), findsOneWidget);
+      expect(find.textContaining('spawn npx ENOENT'), findsNothing);
+      await tester.tap(find.text(t.settings.mcp.technicalDetails));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('spawn npx ENOENT'), findsOneWidget);
       expect(find.text('do-thing'), findsOneWidget, reason: '工具 tab 默认开');
 
       await tester.tap(find.text(t.settings.mcp.tabStderr));

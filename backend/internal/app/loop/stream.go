@@ -128,7 +128,10 @@ func streamLLM(
 	// rawTextBuf 使 close snapshot 能对完整 text block 跑确定性 redactor。delta 级脱敏仍需流式进行，但
 	// Markdown 表格和标题可能跨 provider chunk；耐久 close 是应用整行规则的最终位置。
 	var rawTextBuf strings.Builder
-	redactor := textRedactor{stripLeadingSectionClose: true}
+	redactor := textRedactor{
+		stripLeadingSectionClose: true,
+		suppressTechnicalErrors:  suppressTechnicalFailureProse(req.Messages),
+	}
 	// Reasoning is rendered in the chat transcript while a turn is live, so it follows the same
 	// user-facing redaction boundary as text. It is not a workflow data channel: workflow-agent
 	// turns keep the raw reasoning below, just like raw agent text and receipts.
@@ -136,7 +139,10 @@ func streamLLM(
 	// reasoning 也会在回合进行时渲染到 chat transcript，因此与正文共享同一用户面脱敏边界；它不是
 	// workflow 数据通道，workflow-agent 回合和 raw agent text/receipt 一样保留原值。
 	var rawReasonBuf strings.Builder
-	reasonRedactor := textRedactor{stripLeadingSectionClose: true}
+	reasonRedactor := textRedactor{
+		stripLeadingSectionClose: true,
+		suppressTechnicalErrors:  suppressTechnicalFailureProse(req.Messages),
+	}
 	// Workflow agent text is also a data boundary: downstream CEL wiring may consume a
 	// MediaRef receipt from the node result. Redacting it here would turn a usable attachment
 	// reference into prose and break agent -> workflow -> agent media handoff. Ordinary chat
@@ -172,7 +178,7 @@ func streamLLM(
 				// by redactor.Write; this only replaces the final durable snapshot. Use the
 				// same context-aware pass as live deltas so close cannot regress the wording.
 				textBuf.Reset()
-				textBuf.WriteString(redactCompleteUserBlock(rawTextBuf.String()))
+				textBuf.WriteString(redactCompleteUserBlockWithFailurePolicy(rawTextBuf.String(), redactor.suppressTechnicalErrors))
 			}
 			em.close(ctx, textBlockID, status, textSnapshot(textBuf.String()), "")
 			textBlockID = ""
@@ -197,7 +203,7 @@ func streamLLM(
 				// Re-redact the complete accumulated reasoning so multiline prose is safe at durable
 				// close, using the same context-aware pass as the live reasoning stream.
 				reason.buf.Reset()
-				reason.buf.WriteString(redactCompleteUserBlock(rawReasonBuf.String()))
+				reason.buf.WriteString(redactCompleteUserBlockWithFailurePolicy(rawReasonBuf.String(), reasonRedactor.suppressTechnicalErrors))
 			}
 			em.close(ctx, reasonBlockID, status, reasonSnapshot(reason), "")
 			reasonBlockID = ""

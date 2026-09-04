@@ -1,6 +1,7 @@
 import 'package:anselm/core/contract/api_key.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
+import 'package:anselm/core/ui/an_button.dart';
 import 'package:anselm/core/ui/an_input.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
 import 'package:anselm/features/settings/ui/panels/models_keys_panel.dart';
@@ -100,6 +101,30 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text(t.settings.keys.serviceAccountBad), findsOneWidget);
 
+    final inputs = find.byType(AnInput);
+    await tester.enterText(inputs.at(0), 'invalid file');
+    await tester.enterText(
+      inputs.at(2),
+      'https://us-central1-aiplatform.googleapis.com',
+    );
+    await tester.pumpAndSettle();
+    expect(
+      tester
+          .widget<AnButton>(
+            find.widgetWithText(AnButton, t.settings.keys.saveKey),
+          )
+          .onPressed,
+      isNull,
+      reason: 'invalid service-account JSON must block persistence and probing',
+    );
+
+    await tester.enterText(
+      saBox,
+      '{"type":"service_account","project_id":"p","private_key":123}',
+    );
+    await tester.pumpAndSettle();
+    expect(find.text(t.settings.keys.serviceAccountBad), findsOneWidget);
+
     // A real service-account shape clears it.
     await tester.enterText(
       saBox,
@@ -107,5 +132,15 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(find.text(t.settings.keys.serviceAccountBad), findsNothing);
+    expect(
+      tester
+          .widget<AnButton>(
+            find.widgetWithText(AnButton, t.settings.keys.saveKey),
+          )
+          .onPressed,
+      isNotNull,
+      reason:
+          'a structurally valid service-account JSON may proceed to probing',
+    );
   });
 }

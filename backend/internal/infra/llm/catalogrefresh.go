@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"go.uber.org/zap"
@@ -32,6 +33,17 @@ const (
 // catalogUpstreamURL is a var only so the fail-silent test can point it at a dead port.
 // catalogUpstreamURL 用 var 仅为让 fail-silent 测试指向死端口。
 var catalogUpstreamURL = "https://models.dev/api.json"
+
+// catalogRefreshURL permits the acceptance rig to point only this background fetch at a
+// controlled endpoint. It is empty by default and must never be used as a production setting.
+//
+// catalogRefreshURL 允许验收台架只把这条后台 fetch 指向受控端点。默认为空，生产不能依赖它。
+func catalogRefreshURL() string {
+	if override := strings.TrimSpace(os.Getenv("ANSELM_RIG_MODEL_CATALOG_URL")); override != "" {
+		return override
+	}
+	return catalogUpstreamURL
+}
 
 // LoadCatalogCache applies a previously cached trim if one exists and validates; a missing or
 // corrupt cache is not an error — the vendored snapshot simply stays active.
@@ -134,7 +146,7 @@ func refreshCatalogOnce(ctx context.Context, dir string, log *zap.Logger) {
 func fetchTrimmedCatalog(ctx context.Context) (*ModelCatalog, []byte, error) {
 	fctx, cancel := context.WithTimeout(ctx, catalogFetchBudget)
 	defer cancel()
-	req, err := http.NewRequestWithContext(fctx, http.MethodGet, catalogUpstreamURL, nil)
+	req, err := http.NewRequestWithContext(fctx, http.MethodGet, catalogRefreshURL(), nil)
 	if err != nil {
 		return nil, nil, err
 	}

@@ -60,6 +60,7 @@ audience: [human, ai]
 | `NOT_FOUND` | 404 | not found（路由 / 未知 :action / handler 派发未命中的统一兜底，S6） |
 | `METHOD_NOT_ALLOWED` | 405 | this method is not allowed for this path（路径存在但 HTTP method 不属于其契约；handler 与 ServeMux 405 共用） |
 | `INTERNAL_ERROR` | 500 | internal error（recover 的 panic；原始细节记日志、不上线缆） |
+| `ATTACHMENT_STAGING_FAILED` | 502 | managed attachment could not be prepared（受管附件无法准备给模型；底层传输/provider 细节只记日志，transcript 提供可行动重试） |
 | `STREAMING_UNSUPPORTED` | 500 | streaming not supported（SSE 端点遇非流式 ResponseWriter；`response/sse.go` 经 `FromDomainError` 发此 sentinel） |
 
 ### transport 合成码（非 `errorspkg.New` sentinel）
@@ -431,6 +432,7 @@ audience: [human, ai]
 | `CONVERSATION_WORK_DIR_DIRTY` | 422 | the working directory has uncommitted changes — commit or stash them, then switch branches（**WD2 的护栏**、本批唯一真正的决定;只守**切到已存在的分支**，**新建**分支刻意不受此门——立法见 [domains/conversation.md](domains/conversation.md)） |
 | `CONVERSATION_WORK_DIR_NOT_GIT_REPO` | 422 | the conversation's working directory is not a git repository（未挂 / 已消失 / 普通目录 / 无 `git` 二进制**收成一个**答案——四种情形下用户的下一步完全相同;**读**侧对同样这些情形只答 `isGitRepo=false`，因为一次读不该失败、而一次**写**必须说出「改动没发生」） |
 | `CONVERSATION_WORKTREE_EXISTS` | 409 | that worktree directory already exists（WD3;**`details.path`** 带挡路的那个目录——一句不带路径的「这名字被占了」会让用户去猜。目录里装着某人的活、可能是另一个会话的，静默接管它正是两个 agent 编辑同一棵树的方式） |
+| `CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED` | 500 | worktree created but conversation residency was not updated（WD3 的诚实半成功状态；**`details.path`** 带已创建目录，客户端必须说明 worktree 已存在、对话仍在原驻地，不能声称“什么都没改”或静默删除 checkout） |
 
 ### `domain/document`
 

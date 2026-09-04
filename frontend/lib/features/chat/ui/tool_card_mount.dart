@@ -4,6 +4,7 @@ import '../../../core/design/colors.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/design/typography.dart';
 import '../../../core/ui/an_json_tree.dart';
+import '../../../core/ui/an_disclosure.dart';
 import '../../../core/ui/an_window.dart';
 import '../../../core/ui/an_live_tail.dart';
 import '../../../i18n/strings.g.dart';
@@ -46,7 +47,8 @@ ToolCardSpec? mountSpecFor(String toolName) {
 
 // ── MCP tool skin ──
 final RegExp _mcpErr = RegExp(
-  r'MCP_SERVER_NOT_FOUND|MCP_TOOL_NOT_FOUND|is not connected|MCP_SERVER_NOT_CONNECTED',
+  r'MCP_SERVER_NOT_FOUND|MCP_TOOL_NOT_FOUND|is not connected|MCP_SERVER_NOT_CONNECTED|mcp tool call failed|calling "tools/call"',
+  caseSensitive: false,
 );
 
 ToolCardSpec _mcpToolSpec(String toolName) {
@@ -60,6 +62,7 @@ ToolCardSpec _mcpToolSpec(String toolName) {
         ? (text: t.chat.tool.mcpError, tone: ToolReceiptTone.danger)
         : null,
     body: _mcpToolBody,
+    ownsError: true,
   );
 }
 
@@ -81,7 +84,8 @@ Widget _mcpToolBody(BuildContext context, ToolCardState state) {
     );
   }
   final result = state.resultText;
-  final isErr = _mcpErr.hasMatch(result);
+  final isErr = state.phase == ToolCardPhase.failed || _mcpErr.hasMatch(result);
+  if (isErr) return _McpFailureBody(raw: result);
   final over = result.length > AnCap.window;
   final shown = over ? result.substring(0, AnCap.window) : result;
   return Column(
@@ -115,6 +119,65 @@ Widget _mcpToolBody(BuildContext context, ToolCardState state) {
       ),
     ],
   );
+}
+
+/// One failure face: human summary first, raw protocol detail behind an explicit disclosure.
+/// 单一失败脸:先给人话摘要,原始协议细节放进明确的可选披露。
+class _McpFailureBody extends StatefulWidget {
+  const _McpFailureBody({required this.raw});
+
+  final String raw;
+
+  @override
+  State<_McpFailureBody> createState() => _McpFailureBodyState();
+}
+
+class _McpFailureBodyState extends State<_McpFailureBody> {
+  bool _detailsOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final t = Translations.of(context);
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnWindow(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                t.chat.tool.mcpFailedTitle,
+                style: AnText.label.copyWith(color: c.danger),
+              ),
+              const SizedBox(height: AnSpace.s2),
+              Text(
+                mcpFailureSummary(t),
+                style: AnText.meta.copyWith(color: c.inkMuted),
+              ),
+            ],
+          ),
+        ),
+        const SizedBox(height: AnSpace.s4),
+        AnDisclosure(
+          label: t.chat.tool.mcpTechnicalDetails,
+          open: _detailsOpen,
+          onToggle: () => setState(() => _detailsOpen = !_detailsOpen),
+          child: AnWindow(
+            maxHeight: AnSize.jsonViewport,
+            child: Text(
+              widget.raw,
+              style: AnText.code.copyWith(color: c.inkMuted),
+              maxLines: 40,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
 }
 
 // ── handler-method tool skin ──

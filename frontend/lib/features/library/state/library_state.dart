@@ -33,6 +33,27 @@ final documentTreeProvider =
       DocumentTreeList.new,
     );
 
+/// Overlay the latest tree metadata on a loaded document without replacing its content. The tree is
+/// the authoritative source for external rename/move echoes, while the loaded body remains the editor's
+/// stable source of truth. 用最新树元数据覆盖已载文档,但不替换正文。
+DocumentNode mergeDocumentTreeMetadata(
+  DocumentNode loaded,
+  DocumentNode? treeDoc,
+) {
+  if (treeDoc == null) return loaded;
+  return loaded.copyWith(
+    parentId: treeDoc.parentId,
+    name: treeDoc.name,
+    description: treeDoc.description,
+    hasContent: treeDoc.hasContent,
+    tags: treeDoc.tags,
+    position: treeDoc.position,
+    path: treeDoc.path,
+    sizeBytes: treeDoc.sizeBytes,
+    updatedAt: treeDoc.updatedAt,
+  );
+}
+
 class DocumentTreeList extends AsyncNotifier<List<DocumentNode>> {
   Timer? _debounce;
 

@@ -54,7 +54,10 @@ type EnrollVoice struct {
 func (*EnrollVoice) Name() string { return "enroll_voice" }
 
 func (*EnrollVoice) Description() string {
-	return "Register an EXISTING audio attachment as a named voice, so later speech can be spoken in " +
+	return "Register an EXISTING audio attachment as a named voice. This is a FILE operation, not " +
+		"audio understanding: if the user asks to register, clone, or use an uploaded recording as a " +
+		"voice, call this directly with its exact attachmentId even when the current model cannot hear " +
+		"audio; do not call inspect_media or ask for a transcript first. Later speech can be spoken in " +
 		"it. Give the attachmentId of a clean sample (up to 30 seconds of one speaker) and a short " +
 		"name; pass that name as generate_speech's `voice` afterwards. Creates PERSISTENT state on the " +
 		"provider's servers for a voice belonging to a real person, and costs a one-off fee — declare " +

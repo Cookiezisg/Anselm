@@ -38,9 +38,11 @@ class SseConnection {
     required String? Function() authToken,
     Dio? dio,
     Random? random,
+    void Function(String)? logger,
   }) : _workspaceId = workspaceId,
        _authToken = authToken,
        _rng = random ?? Random(),
+       _logger = logger ?? debugPrint,
        _dio =
            dio ??
            Dio(
@@ -62,6 +64,7 @@ class SseConnection {
   /// 每次启动的 loopback bearer token;后端对 SSE GET 也强制(loopback 加固)。回调注入。
   final String? Function() _authToken;
   final Random _rng;
+  final void Function(String) _logger;
   final Dio _dio;
 
   final _envelopes = StreamController<StreamEnvelope>.broadcast();
@@ -118,7 +121,17 @@ class SseConnection {
         continue;
       } catch (e) {
         if (_stopped) break;
-        debugPrint('SSE $streamPath error: $e');
+        final workspace = _workspaceId();
+        if (e is DioException &&
+            e.response?.statusCode == 401 &&
+            (workspace == null || workspace.isEmpty)) {
+          // Workspace reset is a normal recovery transition. Do not present the transient
+          // reconnect as an unhandled frontend error while the gate reselects a workspace.
+          // workspace 重置是正常恢复过渡；门控重选期间不把瞬时重连伪装成前端错误。
+          _logger('SSE $streamPath waiting for workspace selection');
+        } else {
+          _logger('SSE $streamPath error: $e');
+        }
       }
       if (_stopped) break;
       await Future<void>.delayed(Duration(milliseconds: _nextBackoff()));

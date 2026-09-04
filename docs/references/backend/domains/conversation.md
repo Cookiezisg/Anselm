@@ -84,6 +84,12 @@ per-conversation ephemeral state。Messages 的耐久边界不由 Conversation �
 Auto-title 只在无标题首轮后执行。生成与持久化使用独立有界 context；失败不
 影响回合，仍无标题时可在后续回合重试。
 
+`:retry` 的重生成分支只选择末个现行的真实 user/assistant 回合。只含
+`compaction` 或 `marker` block 的 assistant-shaped synthetic row 是时间线锚点，
+不属于可重生成回答；它们必须保留在 REST 历史中，但不能成为 `retryOf` 目标，也不能
+被写上 `superseded_by`。编辑重发同样以此规则寻找真实回合，避免上下文压缩后的重试把
+时间线锚点误当成用户可见回答。
+
 ## 4. Fork
 
 Fork 创建新 Conversation，并复制选定 Message 之前的 durable prefix；源
@@ -132,7 +138,9 @@ Conversation 只提供与“住在哪里”有关的三个 git 动作：
 - switch existing local branch：重新读取 dirty，脏工作树拒绝；
 - create branch at current HEAD：允许 dirty，因为工作树内容不变化；
 - add worktree：名称派生 sibling path 与 `wt/<name>` branch，成功后 residency
-  移入新 worktree。
+  移入新 worktree；若 Git 创建成功但 residency 持久化失败，保留已创建的 worktree、
+  对话仍留在旧目录，并返回 `CONVERSATION_WORKTREE_RESIDENCY_UPDATE_FAILED` 与
+  `details.path`，不得把半成功状态说成“什么都没改变”。
 
 路径不由调用方自由指定。已存在目录拒绝；已存在的 worktree branch 可复用。
 写操作通过参数数组调用 git，不拼 shell。无法预分类的 git 失败保留稳定错误码，

@@ -10,6 +10,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/design/an_fonts.dart';
 import '../../../core/design/tokens.dart';
 import '../../../core/editor/an_editor.dart';
+import '../../../core/editor/an_large_document_preview.dart';
 import '../../../core/entity/mention_source.dart';
 import '../../../core/perf/frame_safe.dart';
 import '../../../core/settings/app_prefs_providers.dart';
@@ -80,6 +81,7 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   GlobalKey<AnEditorState> _editorKey = GlobalKey<AnEditorState>();
   final GlobalKey _headerKey = GlobalKey();
   int _editorGeneration = 0;
+  late bool _boundedPreview;
 
   // The An reading text column — aligned pixel-for-pixel with the AnPage oceans (chat/entities/settings):
   // AnPage renders an [AnSize.content] (720) region with [AnInset.pageX] (24) padding, so its TEXT is
@@ -104,6 +106,9 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   @override
   void initState() {
     super.initState();
+    _boundedPreview = AnLargeDocumentPreview.requiresBoundedPreview(
+      widget.initialMarkdown,
+    );
     _scroll.addListener(_onScroll);
   }
 
@@ -155,6 +160,9 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
   void didUpdateWidget(covariant AnDocumentEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.initialMarkdown != widget.initialMarkdown) {
+      _boundedPreview = AnLargeDocumentPreview.requiresBoundedPreview(
+        widget.initialMarkdown,
+      );
       // A provider refresh can replace the source of truth (for example, an installed skill update).
       // Keep the page shell alive, but give the native editor a new state so it cannot display the old
       // document after the header/files have already moved to the new generation. 若正文真换代,保页面壳
@@ -285,23 +293,25 @@ class AnDocumentEditorState extends ConsumerState<AnDocumentEditor> {
             ),
             SliverPadding(
               padding: hpad,
-              sliver: AnEditor(
-                key: _editorKey,
-                initialMarkdown: widget.initialMarkdown,
-                resolvedNames: widget.resolvedNames,
-                mentionSource: widget.mentionSource,
-                onChangedMarkdown: (markdown) {
-                  // AnEditor flushes its debounce during dispose. If this editor was replaced because
-                  // upstream content changed, that flush is stale and must not write the old body back.
-                  // 普通离页时代际相同,末次编辑仍会 flush;正文换代时旧实例的 flush 丢弃,不反写旧正文。
-                  if (_editorGeneration == editorGeneration) {
-                    widget.onChangedMarkdown(markdown);
-                  }
-                },
-                shrinkWrap: true,
-                prose: prose,
-                pickAndUploadMedia: _pickAndUploadMedia,
-              ),
+              sliver: _boundedPreview
+                  ? AnLargeDocumentPreview(markdown: widget.initialMarkdown)
+                  : AnEditor(
+                      key: _editorKey,
+                      initialMarkdown: widget.initialMarkdown,
+                      resolvedNames: widget.resolvedNames,
+                      mentionSource: widget.mentionSource,
+                      onChangedMarkdown: (markdown) {
+                        // AnEditor flushes its debounce during dispose. If this editor was replaced because
+                        // upstream content changed, that flush is stale and must not write the old body back.
+                        // 普通离页时代际相同,末次编辑仍会 flush;正文换代时旧实例的 flush 丢弃,不反写旧正文。
+                        if (_editorGeneration == editorGeneration) {
+                          widget.onChangedMarkdown(markdown);
+                        }
+                      },
+                      shrinkWrap: true,
+                      prose: prose,
+                      pickAndUploadMedia: _pickAndUploadMedia,
+                    ),
             ),
           ],
         );

@@ -15,6 +15,7 @@ import (
 	"go.uber.org/zap"
 
 	speechapp "github.com/sunweilin/anselm/backend/internal/app/speech"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	responsehttpapi "github.com/sunweilin/anselm/backend/internal/transport/httpapi/response"
 )
 
@@ -61,17 +62,37 @@ func (h *SpeechHandler) Register(mux Registrar) {
 }
 
 func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
+	var downConn *websocket.Conn
+	if websocket.IsWebSocketUpgrade(r) {
+		var err error
+		downConn, err = h.upgradeDownstream(w, r)
+		if err != nil {
+			return
+		}
+	}
 	if h.svc == nil || h.proof == nil {
+		if downConn != nil {
+			h.writeHandshakeError(downConn, speechapp.ErrUnavailable.Code)
+			return
+		}
 		responsehttpapi.FromDomainError(w, h.log, speechapp.ErrUnavailable)
 		return
 	}
 	gw, err := h.svc.ManagedGateway(r.Context())
 	if err != nil {
+		if downConn != nil {
+			h.writeHandshakeError(downConn, speechapp.ErrUnavailable.Code)
+			return
+		}
 		responsehttpapi.FromDomainError(w, h.log, err)
 		return
 	}
 	upURL, err := speechURL(gw.BaseURL, r.URL.Query().Get("language"))
 	if err != nil {
+		if downConn != nil {
+			h.writeHandshakeError(downConn, speechapp.ErrUnavailable.Code)
+			return
+		}
 		responsehttpapi.FromDomainError(w, h.log, speechapp.ErrUnavailable.WithCause(err))
 		return
 	}
@@ -85,6 +106,10 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 		// 一下」要求相反的用户行为,把两者压成「语音不可用」等于邀请无限重试。未知码保持 ErrUnavailable
 		// ——绝不臆造含义。
 		if classified := speechapp.ClassifyHandshakeCode(handshakeRefusalCode(err)); classified != nil {
+			if downConn != nil {
+				h.writeHandshakeError(downConn, domainErrorCode(classified))
+				return
+			}
 			responsehttpapi.FromDomainError(w, h.log, classified)
 			return
 		}
@@ -92,22 +117,22 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 		// outage produced zero log lines anywhere, and attributing it took a middleware bisection.
 		// 未分类的握手失败把起因留在本地日志——今晚的 WS 故障两侧零日志,归因靠中间件二分。
 		h.log.Warn("asr gateway handshake failed (unclassified)", zap.Error(err))
+		if downConn != nil {
+			h.writeHandshakeError(downConn, speechapp.ErrUnavailable.Code)
+			return
+		}
 		responsehttpapi.FromDomainError(w, h.log, speechapp.ErrUnavailable.WithCause(err))
 		return
 	}
 	defer func() { _ = upConn.Close() }()
 
-	upgrader := websocket.Upgrader{
-		ReadBufferSize:  speechMaxFrameBytes,
-		WriteBufferSize: speechMaxFrameBytes,
-		CheckOrigin:     func(*http.Request) bool { return true },
-	}
-	downConn, err := upgrader.Upgrade(w, r, nil)
-	if err != nil {
-		return
+	if downConn == nil {
+		downConn, err = h.upgradeDownstream(w, r)
+		if err != nil {
+			return
+		}
 	}
 	defer func() { _ = downConn.Close() }()
-	downConn.SetReadLimit(speechMaxFrameBytes)
 	deadline := time.Now().Add(speechSessionMaxAge)
 	_ = downConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
 	_ = upConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
@@ -156,11 +181,15 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 			return
 		default:
 		}
-		mt, payload, err := downConn.ReadMessage()
+		mt, payload, oversized, err := readSpeechClientMessage(downConn)
 		if err != nil {
 			return
 		}
 		_ = downConn.SetReadDeadline(speechReadDeadline(deadline, h.pongWait))
+		if oversized {
+			_ = client.writeJSON(map[string]string{"type": "error", "code": "SPEECH_AUDIO_FRAME_INVALID"})
+			return
+		}
 		switch mt {
 		case websocket.BinaryMessage:
 			if len(payload) == 0 || len(payload) > speechMaxFrameBytes {
@@ -180,6 +209,46 @@ func (h *SpeechHandler) ASR(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+}
+
+// readSpeechClientMessage reads only one bounded data message. The extra byte is intentional:
+// Gorilla's SetReadLimit reports ErrReadLimit before the handler can send our typed error, so the
+// bounded read must observe the first byte beyond the contract itself.
+// readSpeechClientMessage 只读取一个有界数据消息。多读一个字节是刻意的: Gorilla 的 SetReadLimit 会在
+// handler 有机会发送类型化错误之前返回 ErrReadLimit,所以这里必须亲自观察越过契约的第一个字节。
+func readSpeechClientMessage(conn *websocket.Conn) (mt int, payload []byte, oversized bool, err error) {
+	mt, reader, err := conn.NextReader()
+	if err != nil {
+		return 0, nil, false, err
+	}
+	limited := io.LimitReader(reader, speechMaxFrameBytes+1)
+	payload, err = io.ReadAll(limited)
+	if err != nil {
+		return mt, nil, false, err
+	}
+	return mt, payload, len(payload) > speechMaxFrameBytes, nil
+}
+
+func (h *SpeechHandler) upgradeDownstream(w http.ResponseWriter, r *http.Request) (*websocket.Conn, error) {
+	upgrader := websocket.Upgrader{
+		ReadBufferSize:  speechMaxFrameBytes,
+		WriteBufferSize: speechMaxFrameBytes,
+		CheckOrigin:     func(*http.Request) bool { return true },
+	}
+	return upgrader.Upgrade(w, r, nil)
+}
+
+func (h *SpeechHandler) writeHandshakeError(conn *websocket.Conn, code string) {
+	_ = conn.WriteJSON(map[string]string{"type": "error", "code": code})
+	_ = conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""), time.Now().Add(speechWriteWait))
+}
+
+func domainErrorCode(err error) string {
+	var domainErr *errorspkg.Error
+	if errors.As(err, &domainErr) && domainErr.Code != "" {
+		return domainErr.Code
+	}
+	return speechapp.ErrUnavailable.Code
 }
 
 func (h *SpeechHandler) dialUpstream(ctx context.Context, rawURL, installID string) (*websocket.Conn, error) {

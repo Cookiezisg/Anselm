@@ -24,6 +24,7 @@ import (
 
 	attachmentdomain "github.com/sunweilin/anselm/backend/internal/domain/attachment"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	idgenpkg "github.com/sunweilin/anselm/backend/internal/pkg/idgen"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -563,7 +564,7 @@ func managedImageBytes(ctx context.Context, remote *RemoteMedia, a *attachmentdo
 
 func stagedMediaURL(ctx context.Context, remote *RemoteMedia, cache map[string]string, a *attachmentdomain.Attachment, mime string, data []byte) (string, error) {
 	if remote == nil || remote.Uploader == nil || remote.BaseURL == "" || remote.InstallID == "" {
-		return "", fmt.Errorf("attachment: managed media destination is unavailable")
+		return "", fmt.Errorf("%w: attachment: managed media destination is unavailable", errorspkg.ErrAttachmentStagingFailed)
 	}
 	key := a.SHA256 + "\x00" + normalizedMIME(mime)
 	if source := cache[key]; source != "" {
@@ -571,14 +572,14 @@ func stagedMediaURL(ctx context.Context, remote *RemoteMedia, cache map[string]s
 	}
 	source, err := remote.Uploader.Upload(ctx, remote.BaseURL, remote.InstallID, mime, data)
 	if err != nil {
-		return "", fmt.Errorf("attachment: stage %q for managed media: %w", a.Filename, err)
+		return "", fmt.Errorf("%w: attachment: stage %q for managed media: %w", errorspkg.ErrAttachmentStagingFailed, a.Filename, err)
 	}
 	if source == "" {
-		return "", fmt.Errorf("attachment: managed media returned an empty source for %q", a.Filename)
+		return "", fmt.Errorf("%w: attachment: managed media returned an empty source for %q", errorspkg.ErrAttachmentStagingFailed, a.Filename)
 	}
 	validated, err := ValidateRemoteMediaSource(source)
 	if err != nil {
-		return "", fmt.Errorf("%w for %q", err, a.Filename)
+		return "", fmt.Errorf("%w: %w for %q", errorspkg.ErrAttachmentStagingFailed, err, a.Filename)
 	}
 	source = validated
 	cache[key] = source
@@ -608,13 +609,13 @@ func distinctMediaKindNote(kind, filename string, max int) llminfra.ContentPart 
 
 func unavailableMediaNote(kind, filename string, enabled bool, capability string, caps Capabilities, usedParts int, usedBytes, nextBytes int64) llminfra.ContentPart {
 	if !enabled {
-		return textNote("%s %q attached, but the current model has no native %s input", kind, filename, capability)
+		return textNote("[UNAVAILABLE %s] %q is already attached, but the current model cannot see or inspect its pixels because it has no native %s input. Do not ask the user to re-attach it, do not infer or describe its contents, and do not claim to access the file. If the user asks about this media, say directly: the current model cannot see or inspect the pixels in the attached %s; to continue, switch to a %s-capable model, or describe or paste the relevant content here. Do not add a generic upload acknowledgement or offer unrelated assistance", strings.ToUpper(kind), filename, capability, kind, capability)
 	}
 	if caps.MaxMediaParts > 0 && usedParts >= caps.MaxMediaParts {
-		return textNote("%s %q attached, but the model's inline-media item limit was reached", kind, filename)
+		return textNote("%s %q attached at its original position, but the model's inline-media item limit was reached; this quoted filename is authoritative and must not be inferred or renamed", kind, filename)
 	}
 	if caps.MaxMediaBytes > 0 && nextBytes > caps.MaxMediaBytes-usedBytes {
-		return textNote("%s %q attached, but it exceeds the model's inline-media size budget", kind, filename)
+		return textNote("%s %q attached at its original position, but it exceeds the model's inline-media size budget; this quoted filename is authoritative and must not be inferred or renamed", kind, filename)
 	}
 	return textNote("%s %q attached, but it could not be sent natively", kind, filename)
 }

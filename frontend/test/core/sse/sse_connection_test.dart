@@ -55,6 +55,8 @@ class _SseAdapter implements HttpClientAdapter {
   void close({bool force = false}) {}
 }
 
+ResponseBody _unauthorized() => ResponseBody(Stream<Uint8List>.empty(), 401);
+
 Uint8List _b(String s) => Uint8List.fromList(utf8.encode(s));
 
 const _hdr = {
@@ -159,6 +161,32 @@ void main() {
     conn.start();
     await _until(() => adapter.requests.isNotEmpty);
     expect(adapter.requests[0].headers.containsKey('Authorization'), isFalse);
+    await conn.stop();
+  });
+
+  test('workspace reset 401 is logged as recovery, not a Dio error', () async {
+    final adapter = _SseAdapter([_unauthorized]);
+    final logs = <String>[];
+    final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:9/'))
+      ..httpClientAdapter = adapter;
+    final conn = SseConnection(
+      streamPath: '/api/v1/messages/stream',
+      baseUrl: 'http://127.0.0.1:9/',
+      workspaceId: () => null,
+      authToken: () => 'tok',
+      dio: dio,
+      random: _ZeroRandom(),
+      logger: logs.add,
+    );
+
+    conn.start();
+    await _until(() => logs.isNotEmpty);
+    expect(
+      logs,
+      everyElement(
+        'SSE /api/v1/messages/stream waiting for workspace selection',
+      ),
+    );
     await conn.stop();
   });
 

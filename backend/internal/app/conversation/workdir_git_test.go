@@ -300,6 +300,27 @@ func TestGitActions_NotARepoIsOneAnswerForEveryFlavour(t *testing.T) {
 	}
 }
 
+// TestGitActions_NoGitBinaryUsesTheSameAnswer verifies the fourth environment shape without changing the
+// process-wide implementation: an empty PATH makes the real exec lookup unable to find git, and all three
+// writes must still fail closed with the same domain code as an unmounted or non-repository directory.
+// TestGitActions_NoGitBinaryUsesTheSameAnswer 验证第四种环境形态:空 PATH 让真实 exec 查找不到 git，三个写动作仍须
+// 与未挂载/非仓库目录一样，以同一个领域错误 fail-closed。
+func TestGitActions_NoGitBinaryUsesTheSameAnswer(t *testing.T) {
+	dir := gitRepoFixture(t)
+	t.Setenv("PATH", t.TempDir())
+	svc, _, id, ctx := mountedThread(t, dir)
+
+	if _, err := svc.SwitchBranch(ctx, id, "main"); !errors.Is(err, conversationdomain.ErrWorkDirNotGitRepo) {
+		t.Errorf("no git binary: SwitchBranch → ErrWorkDirNotGitRepo, got %v", err)
+	}
+	if _, err := svc.CreateBranch(ctx, id, "edge264-no-git"); !errors.Is(err, conversationdomain.ErrWorkDirNotGitRepo) {
+		t.Errorf("no git binary: CreateBranch → ErrWorkDirNotGitRepo, got %v", err)
+	}
+	if _, err := svc.AddWorktree(ctx, id, "edge264-no-git"); !errors.Is(err, conversationdomain.ErrWorkDirNotGitRepo) {
+		t.Errorf("no git binary: AddWorktree → ErrWorkDirNotGitRepo, got %v", err)
+	}
+}
+
 // TestAddWorktree_TheOneShot: WD3's whole contract in one assertion chain — the sibling directory exists on
 // disk, the `wt/<name>` branch exists, the RESIDENCY has moved into it, the thread carries the durable in-line
 // mark, and the returned projection already describes the NEW directory (so the client's next paint is right).
@@ -409,6 +430,48 @@ func TestAddWorktree_UpdateFailureLeavesAnHonestHalfState(t *testing.T) {
 	row, getErr := failing.Get(ctx, c.ID)
 	if getErr != nil {
 		t.Fatalf("get after failed update: %v", getErr)
+	}
+	if row.WorkDir != dir {
+		t.Fatalf("the conversation must remain on its old residency, got %q want %q", row.WorkDir, dir)
+	}
+}
+
+// TestAddWorktree_RigFailureHookOnlyTouchesTheFinalResidencyUpdate keeps the real-process seam narrow:
+// the acceptance hook must leave the already-created worktree behind, while an ordinary direct mount
+// remains writable in the same process.
+//
+// TestAddWorktree_RigFailureHookOnlyTouchesTheFinalResidencyUpdate 锁住真实进程台架 seam 的范围：已经建好的
+// worktree 必须留下，而同进程里的普通直接挂载仍可写入。
+func TestAddWorktree_RigFailureHookOnlyTouchesTheFinalResidencyUpdate(t *testing.T) {
+	t.Setenv(rigFailWorkDirUpdateEnv, "1")
+	dir := gitRepoFixture(t)
+	_, em, _, sqlDB, ctx := newSvcDB(t)
+	repo := conversationstore.New(ormpkg.Open(sqlDB))
+	svc := NewService(repo, em, zap.NewNop())
+	c, err := svc.Create(ctx, "rig hook")
+	if err != nil {
+		t.Fatalf("create: %v", err)
+	}
+	if _, err := svc.Update(ctx, c.ID, UpdateInput{WorkDir: &dir}); err != nil {
+		t.Fatalf("ordinary mount must not be injected: %v", err)
+	}
+
+	_, err = svc.AddWorktree(ctx, c.ID, "rig")
+	if err == nil || !strings.Contains(err.Error(), "acceptance rig injected workdir persistence failure") {
+		t.Fatalf("AddWorktree must fail only at its final residency update, got %v", err)
+	}
+	top, ok := gitinfoinfra.Toplevel(ctx, dir)
+	if !ok {
+		t.Fatal("Toplevel must resolve")
+	}
+	target := filepath.Join(filepath.Dir(top), filepath.Base(top)+"-rig")
+	t.Cleanup(func() { _ = os.RemoveAll(target) })
+	if _, statErr := os.Stat(target); statErr != nil {
+		t.Fatalf("the real worktree operation must already be complete: %v", statErr)
+	}
+	row, getErr := svc.Get(ctx, c.ID)
+	if getErr != nil {
+		t.Fatalf("get after injected failure: %v", getErr)
 	}
 	if row.WorkDir != dir {
 		t.Fatalf("the conversation must remain on its old residency, got %q want %q", row.WorkDir, dir)

@@ -21,6 +21,88 @@ func TestRedactOpaqueMachineValues(t *testing.T) {
 	}
 }
 
+func TestRedactVoiceIDParentheticalKeepsVoiceName(t *testing.T) {
+	for _, input := range []string{
+		"已注册声音 acceptance-narrator（voiceId: the requested item）。",
+		"已注册声音 acceptance-narrator (voiceId: 这个输入)。",
+		"已注册声音 acceptance-narrator (voiceId: `vce_0b93239bbd46bedd`)。",
+	} {
+		got := redactOpaqueMachineValues(input)
+		if got != "已注册声音 acceptance-narrator。" {
+			t.Fatalf("voice ID parenthetical = %q", got)
+		}
+		if strings.Contains(got, "voiceId") || strings.Contains(got, "这个输入") || strings.Contains(got, "vce_") {
+			t.Fatalf("voice ID machine detail leaked: %q", got)
+		}
+	}
+}
+
+func TestTextRedactorRemovesSplitVoiceIDParenthetical(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"已注册声音 acceptance-narrator（voiceId: ",
+		"the requested item）并已准备好。",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "已注册声音 acceptance-narrator并已准备好。" {
+		t.Fatalf("split voice ID parenthetical = %q", got.String())
+	}
+}
+
+func TestRedactVoiceIDAssignmentLineRemovesMachinePlaceholder(t *testing.T) {
+	for _, input := range []string{
+		"语音名称：edge346-fixed-first\n\n语音 ID：这个输入\n\n剩余可用槽位：1",
+		"语音名称：edge346-fixed-first\n\n- **语音 ID**：vce_7d6226ab69b44643\n- **提供方**：anselm\n- **剩余可用槽位**：1",
+	} {
+		got := redactOpaqueMachineValues(input)
+		if strings.Contains(got, "语音ID") || strings.Contains(got, "语音 ID") || strings.Contains(got, "这个输入") || strings.Contains(got, "vce_") {
+			t.Fatalf("standalone voice ID leaked: %q", got)
+		}
+		if !strings.Contains(got, "语音名称：edge346-fixed-first") || !strings.Contains(got, "剩余可用槽位") {
+			t.Fatalf("useful enrollment details were lost: %q", got)
+		}
+	}
+}
+
+func TestTextRedactorRemovesSplitVoiceIDAssignmentLine(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"语音名称：edge346-fixed-first\n\n- **语音 ID**：vce_",
+		"7d6226ab69b44643\n- **提供方**：anselm\n- **剩余可用槽位**：1",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "语音ID") || strings.Contains(got.String(), "语音 ID") || strings.Contains(got.String(), "这个输入") || strings.Contains(got.String(), "vce_") {
+		t.Fatalf("split standalone voice ID leaked: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "剩余可用槽位") || !strings.Contains(got.String(), "1") {
+		t.Fatalf("the following useful line was lost: %q", got.String())
+	}
+}
+
+func TestTextRedactorRemovesVoiceIDLineWhenProviderStartsNextBullet(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"语音已成功注册！\n\n- **语音名称**：`edge347-delete-failure`\n- voiceId: ",
+		"\n- remainingSlots: 1",
+	} {
+		got.WriteString(r.Write(delta))
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "voiceId") || strings.Contains(got.String(), "语音 ID") || strings.Contains(got.String(), "这个输入") {
+		t.Fatalf("voice ID line leaked across following bullet: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "remainingSlots") || !strings.Contains(got.String(), "1") {
+		t.Fatalf("following useful line was lost: %q", got.String())
+	}
+}
+
 func TestRedactChineseOpaqueIDAssignmentKeepsProseNatural(t *testing.T) {
 	input := "找到了，文档 ID 为 `doc_3ec2e562757ebbef`。现在查看其关系邻域："
 	want := "找到了，文档已定位。现在查看其关系邻域："
@@ -1673,6 +1755,38 @@ func TestRedactOpaqueMachineValuesKeepsMediaReasoningReadable(t *testing.T) {
 	}
 }
 
+func TestRedactOpaqueMachineValuesRemovesUnavailableMediaIDTableRow(t *testing.T) {
+	input := "海报已生成，以下是附件元数据：\n\n" +
+		"| 字段 | 值 |\n|------|------|\n" +
+		"| **attachmentId** | att_00112233445566 |\n" +
+		"| 文件名 | `generated.png` |\n" +
+		"| MIME 类型 | `image/png` |"
+	want := "海报已生成，以下是附件元数据：\n\n" +
+		"| 字段 | 值 |\n|------|------|\n" +
+		"| 文件名 | `generated.png` |\n" +
+		"| MIME 类型 | `image/png` |"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("media ID table row redaction = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorRemovesUnavailableMediaIDTableRowAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got string
+	for _, delta := range []string{
+		"海报已生成，以下是附件元数据：\n\n| 字段 | 值 |\n|------|------|\n",
+		"| **attachmentId** | att_001122",
+		"33445566 |\n| 文件名 | `generated.png` |\n| MIME 类型 | `image/png` |",
+	} {
+		got += r.Write(delta)
+	}
+	got += r.Flush()
+	want := "海报已生成，以下是附件元数据：\n\n| 字段 | 值 |\n|------|------|\n| 文件名 | `generated.png` |\n| MIME 类型 | `image/png` |"
+	if got != want {
+		t.Fatalf("stream media ID table row redaction = %q, want %q", got, want)
+	}
+}
+
 func TestRedactOpaqueMachineValuesKeepsNameAfterPositionID(t *testing.T) {
 	cases := map[string]string{
 		"- Position 0: `doc_00112233445566` (Existing First)": "- Position 0: Existing First",
@@ -1907,6 +2021,39 @@ func TestRedactOpaqueMachineValuesDoesNotConfuseSearchBlocksTableWithFlowrun(t *
 	}
 	if !strings.Contains(got, "See the exact ref in the search_blocks result card.") {
 		t.Fatalf("search_blocks ref table lost its actionable hint: %q", got)
+	}
+}
+
+func TestRedactOpaqueMachineValuesKeepsSearchBlocksPropertyRefActionable(t *testing.T) {
+	input := "### 推荐：函数 `sync_inventory`\n\n| 属性 | 值 |\n|---|---|\n| **类型** | Function（无状态函数） |\n| **引用 ID** | `fn_8e51db58507888aa` |\n| **描述** | 同步库存快照 |"
+	got := redactOpaqueMachineValues(input)
+	if strings.Contains(got, "这个输入") || strings.Contains(got, "fn_8e51db58507888aa") {
+		t.Fatalf("search_blocks property table leaked an unavailable ref: %q", got)
+	}
+	if !strings.Contains(got, "精确 ref 见相邻 search_blocks 结果卡，可直接复制。") {
+		t.Fatalf("search_blocks property table lost its actionable hint: %q", got)
+	}
+}
+
+func TestTextRedactorKeepsSearchBlocksPropertyRefActionableAcrossChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"### 推荐：函数 `sync_inventory`\n\n| 属性 | 值 |\n|---|---|\n| **类型** | Function（无状态函数） |\n| **引用 ID** | `fn_8e51",
+		"db58507888aa` |\n| **描述** | 同步库存快照 |",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "这个输入") || strings.Contains(piece, "fn_8e51db58507888aa") {
+			t.Fatalf("stream leaked search_blocks property ref: %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if strings.Contains(got.String(), "这个输入") || strings.Contains(got.String(), "fn_8e51db58507888aa") {
+		t.Fatalf("flushed stream leaked search_blocks property ref: %q", got.String())
+	}
+	if !strings.Contains(got.String(), "精确 ref 见相邻 search_blocks 结果卡，可直接复制。") {
+		t.Fatalf("stream search_blocks property table lost its actionable hint: %q", got.String())
 	}
 }
 
@@ -3474,6 +3621,33 @@ func TestRedactAttachmentPlaceholderLabeledLine(t *testing.T) {
 	}
 	if !strings.Contains(got, "The image was saved successfully.") {
 		t.Fatalf("readable result was removed with attachment placeholder: %q", got)
+	}
+}
+
+func TestRedactChineseAttachmentIDReferenceKeepsProseNatural(t *testing.T) {
+	input := "图像已保存并可通过附件 ID `att_336de2c9f26095f7` 引用。"
+	want := "图像已保存并可通过附件卡片引用。"
+	if got := redactOpaqueMachineValues(input); got != want {
+		t.Fatalf("Chinese attachment reference = %q, want %q", got, want)
+	}
+}
+
+func TestTextRedactorHoldsChineseAttachmentIDReferenceAcrossProviderChunks(t *testing.T) {
+	var r textRedactor
+	var got strings.Builder
+	for _, delta := range []string{
+		"图像已保存并可通过附件 ID `att_336de2c9",
+		"f26095f7` 引用。",
+	} {
+		piece := r.Write(delta)
+		if strings.Contains(piece, "附件 ID") || strings.Contains(piece, opaqueEntityPlaceholder) {
+			t.Fatalf("Chinese attachment reference leaked in stream piece %q", piece)
+		}
+		got.WriteString(piece)
+	}
+	got.WriteString(r.Flush())
+	if got.String() != "图像已保存并可通过附件卡片引用。" {
+		t.Fatalf("stream Chinese attachment reference = %q", got.String())
 	}
 }
 

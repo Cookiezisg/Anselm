@@ -20,7 +20,7 @@ var createDocumentSchema = json.RawMessage(`{
 		"name":        {"type": "string", "description": "REQUIRED on every call, including the first; exact requested document title, non-empty, no slashes, up to 256 chars. Never omit, guess, or use a placeholder."},
 		"parentId":    {"type": ["string", "null"], "description": "Parent doc ID; null/omit = root."},
 		"description": {"type": "string", "description": "REQUIRED on every call. Copy the user's description exactly; if none was supplied, use an empty string. Never omit or invent."},
-		"content":     {"type": "string", "description": "REQUIRED on every call. Copy the user's full Markdown exactly; if no body was supplied, use an empty string. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
+		"content":     {"type": "string", "description": "REQUIRED on every call. Copy the user's full Markdown body exactly. This is the document body, not the title: when the user says 'with body X', send X here exactly; never copy name into content. If no body was supplied, use an empty string. Embed workspace media as an image whose url is anselm://media/<attachmentId>."},
 		"tags":        {"type": "array", "items": {"type": "string"}, "description": "REQUIRED on every call. Copy one exact string per user-supplied tag; if none was supplied, use []. Hosted callers may have one extra JSON-encoded string layer; an exact encoded array is accepted, but comma-joined or arbitrary strings are invalid."}
 	}
 }`)

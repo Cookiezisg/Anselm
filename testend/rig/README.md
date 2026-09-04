@@ -111,11 +111,33 @@ manifest 记录 `host_rewritten` 和一次性预算。这个开关只构造 DNS-
 `llm.jsonl`；其他请求继续透明转发到 `RIG_LLM_UPSTREAM`，默认关闭。它用于真实 App 的失败传播验收，证据必须
 明确标注“故障由台架注入、上游为真实网关”，不能把注入响应写成真实网关自身的故障统计，也不能用于绿色成功路径。
 
-额度耗尽故障路径使用显式的 `RIG_LLMTAP_FAIL_KIND=quota-http`（`RIG_LLMTAP_FAIL_STATUS=402` 或 `429`）
-或 `RIG_LLMTAP_FAIL_KIND=quota-stream`。前者返回网关 `QUOTA_EXHAUSTED` HTTP 信封，后者返回
+额度故障路径使用显式的 `RIG_LLMTAP_FAIL_KIND=quota-http`（`RIG_LLMTAP_FAIL_STATUS=402` 或 `429`）
+或 `RIG_LLMTAP_FAIL_KIND=quota-stream`。`402` 返回网关 `QUOTA_EXHAUSTED` HTTP 信封，`429` 返回
+`RATE_LIMITED` HTTP 信封，后者返回
 `BUDGET_EXHAUSTED` SSE 错误帧；两者只拦截 `RIG_LLMTAP_FAIL_PATH=/v1/chat/completions`，其余
 challenge/install/models/quota 仍逐字节通过真实 managed gateway。该模式是无配额网关上的受控故障注入，
 只证明产品错误路径，不冒充真实网关扣费耗尽事实。
+
+要验收语音 WebSocket **握手期**拒绝的闭集映射，使用
+`RIG_LLMTAP_FAIL_PATH=/v1/speech/asr RIG_LLMTAP_FAIL_COUNT=1 RIG_LLMTAP_FAIL_STATUS=401
+RIG_LLMTAP_FAIL_KIND=speech-handshake`。台架只拦截带 WebSocket upgrade 头的那一次真实上游请求，
+返回带 `QUOTA_EXHAUSTED` 的 401 信封并把 fixture 的上游散文留在 channel-5 response 文件；普通 HTTP
+探针与 challenge/install/models 仍透明通过真实网关。后端因此必须真实走自己的 WebSocket handshake
+分类和下游协议，App 只能看到 `SPEECH_QUOTA_EXHAUSTED`。这证明的是“真实 App + 真实后端 + 真实上游
+接线下的受控拒绝传播”，不是声称真实网关本身此刻耗尽了额度。
+
+要验收 `EDGE-349` 的中途上游断线，使用
+`RIG_LLMTAP_FAIL_PATH=/v1/speech/asr RIG_LLMTAP_FAIL_COUNT=3 RIG_LLMTAP_FAIL_KIND=speech-upstream-closed`。
+`llmtap` 先对真实上游完成 WebSocket upgrade，转发首个音频帧后只关闭上游腿，后端必须真实产生
+`SPEECH_UPSTREAM_CLOSED` 并让 App 收口；它不会伪造产品错误事件，也不会截断 challenge/install/models。
+每条被注入的连接在 channel-5 journal 留下 `fault_injected`，正式证据必须同时证明 App 的草稿保留、
+至多一次自动重连和用户重试路径，不能把这个受控扰动写成真实网关本身的故障统计。
+
+要验收 `EDGE-350` 的真实 App 错误呈现，可使用
+`RIG_LLMTAP_FAIL_PATH=/v1/speech/asr RIG_LLMTAP_FAIL_COUNT=1 RIG_LLMTAP_FAIL_KIND=speech-frame-invalid`。
+`llmtap` 先对真实上游完成 WebSocket upgrade、转发一个真实音频帧，再从真实上游腿返回闭集
+`SPEECH_AUDIO_FRAME_INVALID` 错误；App 的错误文案和重试动作仍由产品代码产生，不把协议注入
+误写成真实网关故障统计。
 
 要验收 `EDGE-230` 的 WAV chunk 遍历，可显式设置 `RIG_LLMTAP_INJECT_WAV_METADATA=1`。独立
 `llmtap` 只读取成功的 `/v1/audio/speech` body，在 `data` 前插入合法的 `LIST` 与 `fact` chunk，
@@ -322,7 +344,8 @@ python3 testend/rig/judge.py "<清册行名>" --family TOOL|EP|SURF|EDGE --level
   未销警报门；当前前线或仍含 `·/✗` 的行传该参数仍拒绝。新裁决会追加审计行并在 COVERAGE 同格留下新证据指针。
 - `ledger-sequence.json` 是仓内版本控制的正式前线顺序策略（不接受 `RIG_SEQUENCE` 等调用方环境变量替换），当前模式为
   `first_unsettled`：judge 在锁内按 COVERAGE 的真实行序找到第一条含 `·/✗` 且不在 `manual_queue` 的行，只允许该行继续落新裁决，
-  任何后行都拒绝；自主行耗尽后才回到人工队列的第一条未完成行。策略版本/模式非法或 COVERAGE 无法解析时 fail-closed，
+  任何后行都拒绝；自主行耗尽后严格回到 `forced_queue` 列表中的第一条未完成行，而不是按 COVERAGE 行序猜测。
+  因此可以把软件内部可点击完成的人工项排在需要网关、OAuth、系统权限或物理设备的项目之前。策略版本/模式非法或 COVERAGE 无法解析时 fail-closed，
   不靠工作记录口头约定越序，也不把人工队列当作 `na` 或通过。
   重复同一已存在裁决仍先按幂等规则重放，不被顺序策略误伤。若改变顺序机制，必须修改策略文件、测试并同步 working 记录。
 - 并发回归可用 `python3 -m unittest testend/rig/test_judge.py -v`；更换证据或裁决仍会留下新的审计行。

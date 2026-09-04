@@ -21,10 +21,12 @@ class MasterKey {
     Future<void> Function(String key, String value)? write,
     bool Function()? hasExistingDatabase,
     Random? random,
+    Duration keychainTimeout = const Duration(seconds: 3),
   }) : _read = read ?? _storageRead,
        _write = write ?? _storageWrite,
        _hasExistingDatabase = hasExistingDatabase ?? _defaultHasDatabase,
-       _random = random ?? Random.secure();
+       _random = random ?? Random.secure(),
+       _keychainTimeout = keychainTimeout;
 
   // macOS: the legacy login keychain (NOT the data-protection keychain) — the latter requires a
   // development-certificate signature + keychain-access-groups entitlement, which local ad-hoc
@@ -40,6 +42,7 @@ class MasterKey {
   final Future<void> Function(String key, String value) _write;
   final bool Function() _hasExistingDatabase;
   final Random _random;
+  final Duration _keychainTimeout;
 
   static Future<String?> _storageRead(String key) => _storage.read(key: key);
   static Future<void> _storageWrite(String key, String value) =>
@@ -66,15 +69,18 @@ class MasterKey {
   /// Resolve the key to inject, or null for the legacy fingerprint path. 解析注入钥;null=旧径。
   Future<String?> resolve() async {
     try {
-      final existing = await _read(storageKey);
+      // A native keychain prompt or daemon can leave its future pending indefinitely. Startup must
+      // not become hostage to that UI: time out each operation and keep the documented legacy path.
+      // 原生钥匙串弹窗或 daemon 可能让 future 永久 pending。启动不能被它绑架:每步有界,超时走旧径。
+      final existing = await _read(storageKey).timeout(_keychainTimeout);
       if (existing != null && existing.isNotEmpty) return existing;
       if (_hasExistingDatabase()) return null; // pre-keychain install 旧装机
       final minted = _mint();
-      await _write(storageKey, minted);
+      await _write(storageKey, minted).timeout(_keychainTimeout);
       // Read-back guards against SILENT write failures (e.g. a missing keychain-access-groups
       // entitlement reports success but stores nothing) — a key we can't re-read next launch must
       // not seed ciphertexts. 读回防静默写失败——下次启动读不回的钥绝不能拿去封密文。
-      final back = await _read(storageKey);
+      final back = await _read(storageKey).timeout(_keychainTimeout);
       return back == minted ? minted : null;
     } catch (e) {
       debugPrint(

@@ -141,11 +141,17 @@ const (
 //
 // LLMMessage 是发给 LLM 的、与 provider 无关的对话回合。
 type LLMMessage struct {
-	Role             Role
-	Content          string
-	Parts            []ContentPart
-	ToolCalls        []LLMToolCall
-	ToolCallID       string
+	Role       Role
+	Content    string
+	Parts      []ContentPart
+	ToolCalls  []LLMToolCall
+	ToolCallID string
+	// ToolError marks a tool result that failed at the application boundary. It is an
+	// internal projection hint for the loop's user-facing prose filter; providers must
+	// never serialize this field onto their wire.
+	// ToolError 是应用边界失败的 tool result 标记，仅供 loop 的用户面正文过滤器使用；
+	// provider 绝不能把它序列化到线缆。
+	ToolError        bool
 	ReasoningContent string
 	// ReasoningSignature is the opaque Anthropic-issued signature echoed verbatim with
 	// the thinking block in subsequent requests. Empty for non-Anthropic / non-thinking.

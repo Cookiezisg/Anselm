@@ -27,7 +27,7 @@ type SearchMCPCalls struct{ svc *mcpapp.Service }
 func (t *SearchMCPCalls) Name() string { return "search_mcp_calls" }
 
 func (t *SearchMCPCalls) Description() string {
-	return "List an MCP server's tool-call history (most recent first) with an ok/failed rollup. Filter by tool name or status (ok|failed|cancelled|timeout). Use get_mcp_call on an id for the full record including logs."
+	return "List an MCP server's tool-call history (most recent first) with an ok/failed rollup. serverId accepts either the canonical mcp_ server id or the server name shown by the MCP catalog. Filter by tool name or status (ok|failed|cancelled|timeout). When the user asks for full details of a failed MCP call, search the exact server and tool with status=failed, then use get_mcp_call on the newest matching id; do not infer diagnostics from the immediate tool result or invoke the MCP tool again."
 }
 
 func (t *SearchMCPCalls) Parameters() json.RawMessage {
@@ -35,7 +35,7 @@ func (t *SearchMCPCalls) Parameters() json.RawMessage {
 		"type": "object",
 		"required": ["serverId"],
 		"properties": {
-			"serverId": {"type": "string"},
+			"serverId": {"type": "string", "description": "Canonical mcp_ server id or the server name shown by the MCP catalog."},
 			"tool": {"type": "string", "description": "Optional tool-name filter."},
 			"status": {"type": "string", "description": "Optional: ok | failed | cancelled | timeout."},
 			"limit": {"type": "integer", "description": "Optional page size (default 50); prefer a JSON integer such as 2. The exact decimal string \"2\" is also accepted from managed callers; other strings are invalid."},
@@ -118,8 +118,12 @@ func (t *SearchMCPCalls) Execute(ctx context.Context, argsJSON string) (string, 
 	if err := json.Unmarshal([]byte(argsJSON), &args); err != nil {
 		return "", fmt.Errorf("search_mcp_calls: bad args: %w", err)
 	}
+	serverID, err := t.svc.ResolveServerID(ctx, args.ServerID)
+	if err != nil {
+		return "", fmt.Errorf("search_mcp_calls: resolve serverId: %w", err)
+	}
 	res, err := t.svc.SearchCalls(ctx, mcpdomain.CallFilter{
-		ServerID: args.ServerID,
+		ServerID: serverID,
 		Tool:     args.Tool,
 		Status:   args.Status,
 		Limit:    args.Limit,
@@ -138,7 +142,7 @@ type GetMCPCall struct{ svc *mcpapp.Service }
 func (t *GetMCPCall) Name() string { return "get_mcp_call" }
 
 func (t *GetMCPCall) Description() string {
-	return "Get one MCP tool-call record (input, output, error, logs, timing) by its id. The timing fields are exact machine timestamps: omit them from prose unless the user asks for a named field; if asked, copy the returned string character-for-character and never use a field label or placeholder as its value."
+	return "Get one MCP tool-call record (input, output, error, logs, timing) by its id. logs is the persisted diagnostic record and may include progress output plus a server stderr tail labeled server-level and may predate this call; report that caveat when showing the stderr tail. The timing fields are exact machine timestamps: omit them from prose unless the user asks for a named field; if asked, copy the returned string character-for-character and never use a field label or placeholder as its value."
 }
 
 func (t *GetMCPCall) Parameters() json.RawMessage {

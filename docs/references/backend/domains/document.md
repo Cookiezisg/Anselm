@@ -99,7 +99,7 @@ Document 行补齐路径和元数据。该出口只接受有词法证据的文�
 
 LLM 工具覆盖 create/read/list/search/edit/move/delete。`create_document` 的 `name`、`description`、`content`、`tags`
 在**每一次调用**都必填，包括首次调用；`name` 必须是用户要求的原始标题，后三者没有用户值时也必须显式传空
-字符串或空数组。用户同时给出 description、tags 或 content 时，必须和标题逐字放在同一个 canonical create call 中；
+字符串或空数组。用户同时给出 description、tags 或 content 时，必须和标题逐字放在同一个 canonical create call 中；自然语言中的“with body X”明确映射为 `content=X`，标题不得复制进正文；
 禁止 name-only placeholder、先 create 再 edit/rename/delete 修复、不同参数重复创建同一文档。参数校验失败不算创建
 成功，模型不得静默用猜测的 name 重试同一个创建意图；同父同名是同一业务身份。
 `read_document` 的 `id` 必须逐字使用

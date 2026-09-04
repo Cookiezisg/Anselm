@@ -20,6 +20,10 @@ const speechInputErrorUnavailable = 'unavailable';
 const speechInputErrorPermissionDenied = 'permission_denied';
 const speechInputErrorConnectionLost = 'connection_lost';
 const speechInputErrorTooLong = 'too_long';
+const speechInputErrorQuotaExhausted = 'quota_exhausted';
+const speechInputErrorRateLimited = 'rate_limited';
+const speechInputErrorAccountBanned = 'account_banned';
+const speechInputErrorFrameInvalid = 'frame_invalid';
 const speechInputErrorFailed = 'failed';
 const _speechRetryMaxBytes = 5 * 1024 * 1024;
 const _speechReplayFrameBytes = 4096;
@@ -251,6 +255,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   bool _serverFinished = false;
   bool _replaying = false;
   var _socketGeneration = 0;
+  var _socketLossGeneration = 0;
   var _remainingLiveReconnects = 0;
   var _captureStarting = false;
   String? _pendingSocketError;
@@ -396,7 +401,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     final channel = ref.read(speechSocketConnectorProvider)(uri, headers);
     _channel = channel;
     _socketSub = channel.stream.listen(
-      _handleGatewayEvent,
+      (raw) => _handleGatewayEvent(raw, generation),
       onError: (Object e) => _handleSocketLost(generation),
       onDone: () {
         if (generation == _socketGeneration &&
@@ -430,17 +435,34 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   }
 
   Future<void> _handleSocketLost(int generation) async {
-    if (generation != _socketGeneration || !state.active || _serverFinished) {
+    if (generation != _socketGeneration ||
+        !state.active ||
+        _serverFinished ||
+        _socketLossGeneration == generation) {
       return;
     }
-    if (state.recording && await _tryLiveReconnect(socketAlreadyClosed: true)) {
-      return;
+    // A failed WebSocket commonly reports both onError and onDone. Only one of those callbacks may
+    // own recorder teardown or the one reconnect; otherwise the loser can dispose the recorder while
+    // the winner is still replaying PCM into a new socket.
+    _socketLossGeneration = generation;
+    try {
+      if (state.recording &&
+          await _tryLiveReconnect(socketAlreadyClosed: true)) {
+        return;
+      }
+      if (_captureStarting) {
+        _pendingSocketError = speechInputErrorConnectionLost;
+        return;
+      }
+      await _failAsync(
+        speechInputErrorConnectionLost,
+        socketAlreadyClosed: true,
+      );
+    } finally {
+      if (_socketLossGeneration == generation) {
+        _socketLossGeneration = 0;
+      }
     }
-    if (_captureStarting) {
-      _pendingSocketError = speechInputErrorConnectionLost;
-      return;
-    }
-    await _failAsync(speechInputErrorConnectionLost, socketAlreadyClosed: true);
   }
 
   Future<bool> _tryLiveReconnect({bool socketAlreadyClosed = false}) async {
@@ -491,7 +513,7 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     return headers;
   }
 
-  void _handleGatewayEvent(dynamic raw) {
+  void _handleGatewayEvent(dynamic raw, [int? generation]) {
     if (raw is! String) return;
     final decoded = jsonDecode(raw);
     if (decoded is! Map<String, dynamic>) return;
@@ -515,14 +537,16 @@ class SpeechInputController extends Notifier<SpeechInputState> {
     if (type == 'error') {
       final code = decoded['code']?.toString() ?? '';
       final error = _errorFromGatewayCode(code);
+      if (_captureStarting) {
+        // The socket can report a handshake refusal before the recorder has finished creating its
+        // platform stream. Defer the one teardown until start() owns the recorder; closing both
+        // concurrently makes record plugins report "not yet created or already disposed".
+        _pendingSocketError = error;
+        _serverFinished = true;
+        return;
+      }
       if (error == speechInputErrorConnectionLost && state.recording) {
-        unawaited(
-          _tryLiveReconnect(socketAlreadyClosed: true).then((ok) {
-            if (!ok) {
-              return _failAsync(error, socketAlreadyClosed: true);
-            }
-          }),
-        );
+        unawaited(_handleSocketLost(generation ?? _socketGeneration));
       } else {
         unawaited(_failAsync(error, socketAlreadyClosed: true));
       }
@@ -600,6 +624,11 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   String _errorFromGatewayCode(String code) => switch (code) {
     'SPEECH_UPSTREAM_CLOSED' => speechInputErrorConnectionLost,
     'SPEECH_AUDIO_TOO_LONG' => speechInputErrorTooLong,
+    'SPEECH_QUOTA_EXHAUSTED' => speechInputErrorQuotaExhausted,
+    'SPEECH_RATE_LIMITED' => speechInputErrorRateLimited,
+    'SPEECH_ACCOUNT_BANNED' => speechInputErrorAccountBanned,
+    'SPEECH_AUDIO_FRAME_INVALID' ||
+    'SPEECH_CONTROL_INVALID' => speechInputErrorFrameInvalid,
     _ => speechInputErrorFailed,
   };
 
@@ -613,7 +642,10 @@ class SpeechInputController extends Notifier<SpeechInputState> {
   }) async {
     final snapshot = state;
     final retryable =
-        _retryFrames.isNotEmpty && error != speechInputErrorTooLong;
+        _retryFrames.isNotEmpty &&
+        error != speechInputErrorTooLong &&
+        error != speechInputErrorQuotaExhausted &&
+        error != speechInputErrorAccountBanned;
     await _close(
       cancelRecorder: true,
       resetState: false,

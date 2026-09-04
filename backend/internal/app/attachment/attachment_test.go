@@ -19,6 +19,7 @@ import (
 	blobfs "github.com/sunweilin/anselm/backend/internal/infra/fs/blob"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	attachmentstore "github.com/sunweilin/anselm/backend/internal/infra/store/attachment"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	ormpkg "github.com/sunweilin/anselm/backend/internal/pkg/orm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -215,8 +216,18 @@ func TestToContentParts_NonVisionDegradesImage(t *testing.T) {
 	if len(parts) != 1 || parts[0].Type != llminfra.PartText {
 		t.Fatalf("parts = %+v, want one text note", parts)
 	}
-	if !strings.Contains(parts[0].Text, "pic.png") || !strings.Contains(parts[0].Text, "vision") {
-		t.Errorf("degraded note = %q, want mention of file + vision", parts[0].Text)
+	for _, want := range []string{
+		"[UNAVAILABLE IMAGE]",
+		"pic.png",
+		"cannot see or inspect its pixels",
+		"Do not ask the user to re-attach it",
+		"switch to a vision-capable model",
+		"describe or paste the relevant content here",
+		"Do not add a generic upload acknowledgement",
+	} {
+		if !strings.Contains(parts[0].Text, want) {
+			t.Errorf("degraded note = %q, want %q", parts[0].Text, want)
+		}
 	}
 }
 
@@ -363,6 +374,9 @@ func TestToContentParts_ManagedMediaFailureStopsTurn(t *testing.T) {
 	if err == nil || !strings.Contains(err.Error(), "gateway unavailable") || uploader.calls != 1 {
 		t.Fatalf("err = %v; uploads = %d, want surfaced staging failure", err, uploader.calls)
 	}
+	if !errors.Is(err, errorspkg.ErrAttachmentStagingFailed) {
+		t.Fatalf("err = %v, want ATTACHMENT_STAGING_FAILED classification", err)
+	}
 }
 
 func TestToContentParts_ManagedMediaRejectsAbsoluteLeasePath(t *testing.T) {
@@ -390,7 +404,8 @@ func TestToContentParts_MediaEnvelopeDegradesWithoutDroppingOrder(t *testing.T) 
 	if len(parts) != 2 || parts[0].Type != llminfra.PartImageURL || parts[1].Type != llminfra.PartText {
 		t.Fatalf("parts = %+v, want native first image + note for second", parts)
 	}
-	if !strings.Contains(parts[1].Text, "item limit") || !strings.Contains(parts[1].Text, "second.png") {
+	if !strings.Contains(parts[1].Text, "item limit") || !strings.Contains(parts[1].Text, "second.png") ||
+		!strings.Contains(parts[1].Text, "original position") || !strings.Contains(parts[1].Text, "authoritative") {
 		t.Errorf("budget note = %q, want second image + item limit", parts[1].Text)
 	}
 }
@@ -435,7 +450,8 @@ func TestToContentParts_NativeDocCountsAgainstMediaEnvelope(t *testing.T) {
 	if len(parts) != 2 || parts[0].Type != llminfra.PartFile || parts[1].Type != llminfra.PartText {
 		t.Fatalf("parts = %+v, want second document degraded after item budget", parts)
 	}
-	if !strings.Contains(parts[1].Text, "item limit") || strings.Contains(parts[1].Text, base64.StdEncoding.EncodeToString(pdfBytes)) {
+	if !strings.Contains(parts[1].Text, "item limit") || !strings.Contains(parts[1].Text, "authoritative") ||
+		strings.Contains(parts[1].Text, base64.StdEncoding.EncodeToString(pdfBytes)) {
 		t.Fatalf("budget note = %q, want item-limit note without base64 payload", parts[1].Text)
 	}
 }

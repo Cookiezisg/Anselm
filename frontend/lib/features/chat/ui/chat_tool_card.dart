@@ -153,13 +153,13 @@ class _ChatToolCardState extends State<ChatToolCard> {
     final awaiting = widget.interaction?.isAwaiting ?? false;
     final state = ToolCardState.of(widget.node, awaitingConfirm: awaiting);
     final spec = toolCardSpecFor(state.toolName);
-    // A terminal-rejection duplicate is a protocol/audit fact, not a second user-facing action.
-    // Keep it in the durable block and wire journals, but do not make the transcript show a noisy
-    // "Not run" row after the first rejection already explains the outcome.
-    // 终局拒绝的重复调用是协议/审计事实，不是第二个用户动作。保留在 durable block 与线缆，transcript
-    // 不再渲染第一条拒绝已经说明结果后的“未执行”噪音。
-    if (state.phase == ToolCardPhase.suppressed &&
-        state.resultText.startsWith(terminalDuplicateSuppressedProse)) {
+    // Duplicate suppression is a protocol/audit fact, not a second user-facing action. Keep the
+    // result in durable blocks and wire journals, but do not show an amber "Not run" row after the
+    // first call already explains the completed user action. This also covers successful duplicates,
+    // which are safe and expected to suppress without confusing the user with a failure-looking card.
+    // 重复抑制是协议/审计事实，不是第二个用户动作。结果仍保留在 durable block 和线缆，但不在首个
+    // 调用已经说明动作完成后再显示一条橙色“未执行”行；成功重复调用同样安全抑制，不制造失败错觉。
+    if (state.phase == ToolCardPhase.suppressed) {
       return const SizedBox.shrink();
     }
     final live =
@@ -249,14 +249,9 @@ class _ChatToolCardState extends State<ChatToolCard> {
                   // reveal only when THIS instance witnessed the settle. 族体读揭示信号:仅亲历落定时播。
                   ToolCardReveal(
                     revealOnMount: _transitionObserved,
-                    // A system-suppressed call is not a family success receipt. Show the raw
-                    // suppression proof even for thin lifecycle families whose normal body is
-                    // intentionally empty when there are no dependents.
-                    // 系统抑制不是族成功回执:即使生命周期族正常无依赖时没有展开体,也必须显示原始抑制证据。
-                    child: state.phase == ToolCardPhase.suppressed
-                        ? _GenericToolBody(state: state)
-                        : spec.body?.call(context, state) ??
-                              _GenericToolBody(state: state),
+                    child:
+                        spec.body?.call(context, state) ??
+                        _GenericToolBody(state: state),
                   ),
                   // Family bodies get the error section from the CHASSIS — every family shows
                   // failures without re-implementing them (the generic body has its own). A family that

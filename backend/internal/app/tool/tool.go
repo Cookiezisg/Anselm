@@ -13,6 +13,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 )
 
 // DangerLevel is the LLM's reported risk for one tool call (the injected `danger` field). Most
@@ -290,4 +291,22 @@ func ToJSON(v any) string {
 		return fmt.Sprintf("%v", v)
 	}
 	return string(b)
+}
+
+// BusinessResultError extracts the standard failure envelope used by tools that
+// return a structured result instead of a Go error. A tool execution that
+// completed its transport successfully can still fail its business operation;
+// the loop must preserve that distinction in the tool_result block.
+//
+// BusinessResultError 提取工具的标准业务失败信封。工具 transport 成功返回结构化结果，
+// 不代表业务操作成功；loop 必须把这一区分保留在 tool_result 块中。
+func BusinessResultError(result string) string {
+	var envelope struct {
+		OK       *bool  `json:"ok"`
+		ErrorMsg string `json:"errorMsg"`
+	}
+	if err := json.Unmarshal([]byte(result), &envelope); err != nil || envelope.OK == nil || *envelope.OK {
+		return ""
+	}
+	return strings.TrimSpace(envelope.ErrorMsg)
 }

@@ -50,6 +50,18 @@ var (
 	// ErrInternal：未预期的服务端故障（recover 的 panic）。原始细节记日志、绝不上线缆。
 	ErrInternal = New(KindInternal, "INTERNAL_ERROR", "internal error")
 
+	// ErrAttachmentStagingFailed is a durable chat-terminal category for a managed attachment
+	// that could not be prepared for the model. The underlying transport/provider detail stays in
+	// logs; the transcript uses this stable code to render an actionable retry message.
+	//
+	// ErrAttachmentStagingFailed 是受管附件无法准备给模型时的持久回合分类。底层传输/provider
+	// 细节只留日志；transcript 据此渲染可行动的重试文案。
+	ErrAttachmentStagingFailed = New(
+		KindBadGateway,
+		"ATTACHMENT_STAGING_FAILED",
+		"managed attachment could not be prepared",
+	)
+
 	// ErrStreamingUnsupported: the ResponseWriter can't stream (no http.Flusher) — an SSE
 	// endpoint hit a non-streaming transport.
 	//

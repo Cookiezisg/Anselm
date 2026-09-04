@@ -5,6 +5,12 @@ import 'package:dio/dio.dart';
 import '../net/api_client.dart';
 import '../runtime.dart';
 
+/// The backend accepts one read-aloud utterance up to this many Unicode runes. Keep the
+/// presentation gate aligned with the API so an impossible speaker action is never offered.
+///
+/// 后端单次朗读最多接受这么多个 Unicode rune。展示闸与 API 共用同一个事实，避免给出必然失败的喇叭动作。
+const readAloudMaxRunes = 4000;
+
 /// The shared seam every surface reads media through (WRK-082 批B'). Attachments are a PLATFORM
 /// resource, not chat's: a flowrun node result, a debug-console result and an approval payload all
 /// carry the same MediaRef and must resolve it without importing another feature (features 互不依赖).

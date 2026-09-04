@@ -45,6 +45,27 @@ import '../../state/settings_detail_provider.dart';
 import '../../state/workspace_prefs_provider.dart';
 import 'voices_card.dart';
 
+String? _serviceAccountValidationError(BuildContext context, String raw) {
+  if (raw.isEmpty) return null;
+  final t = Translations.of(context);
+  try {
+    final decoded = jsonDecode(raw);
+    if (decoded is! Map<String, dynamic>) {
+      return t.settings.keys.serviceAccountBad;
+    }
+    if (decoded['type'] != 'service_account' ||
+        decoded['private_key'] is! String ||
+        (decoded['private_key'] as String).isEmpty ||
+        decoded['project_id'] is! String ||
+        (decoded['project_id'] as String).isEmpty) {
+      return t.settings.keys.serviceAccountBad;
+    }
+    return null;
+  } on FormatException {
+    return t.settings.keys.serviceAccountBad;
+  }
+}
+
 String _modelOperationError(Translations t, ApiException error) =>
     switch (error.code) {
       AnselmErr.modelNotAgentCapable => t.settings.keys.agentModelNotCapable,
@@ -521,6 +542,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
   String? _error;
   String _errorCode = '';
   int _errorStatus = 0;
+  bool _credentialSaved = false;
   bool _saving = false;
 
   @override
@@ -598,6 +620,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
       _error = null;
       _errorCode = '';
       _errorStatus = 0;
+      _credentialSaved = false;
     });
     final keys = ref.read(apiKeysProvider.notifier);
     try {
@@ -610,6 +633,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
           apiFormat: _provider == 'custom' ? _apiFormat : null,
         );
         _boundId = row.id; // S-3: retries PATCH from here on 此后重试一律 PATCH
+        _credentialSaved = true;
       } else {
         // In edit mode an empty Base URL is an intentional clear, not an omitted PATCH field. The
         // backend treats `baseUrl: ""` as the durable reset; passing null would be removed by the
@@ -622,6 +646,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
           baseUrl: _baseUrl.text.trim(),
           key: _secret.text.isEmpty ? null : _secret.text,
         );
+        _credentialSaved = true;
       }
       _secret.clear(); // the redeemable promise ③ 可兑现承诺③
       await keys.test(_boundId!);
@@ -675,6 +700,9 @@ class _KeyFormState extends ConsumerState<KeyForm> {
     // The base URL is a HARD requirement for self-hosted dialects. 自托管方言 baseUrl 硬必填。
     final baseUrlMissing =
         (meta?.baseUrlRequired ?? false) && _baseUrl.text.trim().isEmpty;
+    final credentialInvalid =
+        meta?.credential == 'service_account_json' &&
+        _serviceAccountValidationError(context, _secret.text) != null;
 
     return ConstrainedBox(
       constraints: const BoxConstraints(maxWidth: AnSize.formMaxWidth),
@@ -793,6 +821,14 @@ class _KeyFormState extends ConsumerState<KeyForm> {
             ),
           ],
           if (_error != null) ...[
+            if (_credentialSaved && _errorCode == 'API_KEY_TEST_FAILED')
+              Padding(
+                padding: const EdgeInsets.only(top: AnSpace.s8),
+                child: Text(
+                  t.settings.keys.keySavedProbeFailed,
+                  style: AnText.label.copyWith(color: c.warn),
+                ),
+              ),
             Padding(
               // Match the other settings forms' inline-error idiom (label + s8), not meta + s12. 与其余设置表一致。
               padding: const EdgeInsets.only(top: AnSpace.s8),
@@ -840,6 +876,7 @@ class _KeyFormState extends ConsumerState<KeyForm> {
                 onPressed:
                     _saving ||
                         baseUrlMissing ||
+                        credentialInvalid ||
                         (_boundId == null &&
                             (_provider.isEmpty || _secret.text.isEmpty))
                     ? null
@@ -1228,7 +1265,20 @@ class _DefaultModelModePanelState extends State<_DefaultModelModePanel> {
                 catalogLoading: widget.catalogLoading && _externalCaps.isEmpty,
                 catalogError: widget.catalogError && _externalCaps.isEmpty,
                 onRetryCatalog: widget.onRetryCatalog,
-                initial: widget.initial,
+                // A managed default is not a valid initial selection for the external
+                // catalog. Passing it through leaves the picker with a selected key that
+                // is absent from `caps`, so the model stage renders empty on first entry.
+                // 受管默认不是外部目录的合法初始选择；否则首次进入时会选中一个不在
+                // `caps` 中的 key，导致模型阶段空白。
+                initial:
+                    widget.initial != null &&
+                        _externalCaps.any(
+                          (cap) =>
+                              cap.apiKeyId == widget.initial!.apiKeyId &&
+                              cap.modelId == widget.initial!.modelId,
+                        )
+                    ? widget.initial
+                    : null,
                 clearable: widget.clearable,
                 onApply: widget.onApply,
                 onClear: widget.onClear,
@@ -2120,22 +2170,7 @@ class _ServiceAccountFieldState extends State<_ServiceAccountField> {
   /// **在这里**查、在 key 存下之前,因为下一次机会是一次换 token,而它的失败在用户读来是「我的 Google
   /// 账号坏了」。**不是服务账号的文件**,正是这一栏真正会遇到的错误。
   String? _validate(String raw) {
-    if (raw.isEmpty) return null;
-    final t = Translations.of(context);
-    try {
-      final decoded = jsonDecode(raw);
-      if (decoded is! Map<String, dynamic>) {
-        return t.settings.keys.serviceAccountBad;
-      }
-      if (decoded['type'] != 'service_account' ||
-          (decoded['private_key'] as String?)?.isNotEmpty != true ||
-          (decoded['project_id'] as String?)?.isNotEmpty != true) {
-        return t.settings.keys.serviceAccountBad;
-      }
-      return null;
-    } on FormatException {
-      return t.settings.keys.serviceAccountBad;
-    }
+    return _serviceAccountValidationError(context, raw);
   }
 
   @override

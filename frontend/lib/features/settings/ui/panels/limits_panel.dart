@@ -28,9 +28,10 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
   Map<String, dynamic>? _limits;
   List<LimitField>? _schema;
 
-  /// The raw load failure — humanized at build time (an `ApiException` already carries the human
-  /// sentence; the wire code goes to a tooltip, never the face). 原始载入错——build 时人话化
-  /// (ApiException 自带人话句;wire 码收 tooltip,绝不上脸)。
+  /// The raw load failure — the product copy is always localised; only the stable wire code is
+  /// exposed through the tooltip. Backend messages may contain diagnostics or gateway text and
+  /// must never become the face of the settings page. 原始载入错——脸永远用本地化产品文案;
+  /// 后端 message 可能是诊断/网关文本,不得上脸;仅稳定 wire code 进 tooltip。
   Object? _loadError;
 
   @override
@@ -132,9 +133,7 @@ class _LimitsPanelState extends ConsumerState<LimitsPanel> {
       // Whole-pane load failure = AnState (the inline label+danger voice is reserved for form
       // save errors). The face speaks human; the technical detail (wire code / raw error) rides a
       // tooltip. 整面载入失败归 AnState;脸说人话,技术细节(码/原始错)收 tooltip。
-      final human = loadError is ApiException
-          ? loadError.message
-          : t.settings.limits.errorHint;
+      final human = t.settings.limits.errorHint;
       final detail = loadError is ApiException ? loadError.code : '$loadError';
       return AnTooltip(
         message: detail,

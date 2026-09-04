@@ -57,8 +57,9 @@ type Service struct {
 	// keyChecker 是可选 apikey 存在性钩子（apikeyapp，后注入）：SetDefault 在写时拒绝指向不存在 apiKeyId 的
 	// scenario 默认（API_KEY_NOT_FOUND）。与 ReferencesAPIKey（已挡删被默认引用的 key）对称——两向现一致。
 	// nil → 跳过存在性校验。（F153）
-	keyChecker      modelrefapp.KeyExistenceChecker
-	optionValidator modelrefapp.OptionValidator
+	keyChecker        modelrefapp.KeyExistenceChecker
+	optionValidator   modelrefapp.OptionValidator
+	scenarioValidator modelrefapp.ScenarioValidator
 
 	// Stats ports (bootstrap, post-build; both optional — nil degrades honestly): blobSizer walks
 	// the workspace file tree under a time budget; generating snapshots chat's in-flight ids.
@@ -126,6 +127,13 @@ func (s *Service) SetKeyChecker(c modelrefapp.KeyExistenceChecker) { s.keyChecke
 //
 // SetOptionValidator 装入探测派生的原生设置契约。nil 保持 partial wiring 与窄单测可用；生产必接模型能力目录。
 func (s *Service) SetOptionValidator(v modelrefapp.OptionValidator) { s.optionValidator = v }
+
+// SetScenarioValidator installs destination-scenario capability validation. A known chat-only
+// model remains valid for dialogue, but cannot become an agent/workflow worker.
+//
+// SetScenarioValidator 装入按目标 scenario 的能力校验。已知 chat-only 模型仍可作 dialogue，但不能
+// 成为 agent/workflow worker。
+func (s *Service) SetScenarioValidator(v modelrefapp.ScenarioValidator) { s.scenarioValidator = v }
 
 // NewService wires dependencies; panics on nil logger.
 //
@@ -375,6 +383,11 @@ func (s *Service) SetDefault(ctx context.Context, id, scenario string, ref *mode
 	// modelId 拼写留 fail-loud-at-invoke（无权威目录）。
 	if err := modelrefapp.Validate(ownerCtx, ref, modeldomain.ErrRefInvalid, s.keyChecker, s.optionValidator); err != nil {
 		return nil, err
+	}
+	if ref != nil && s.scenarioValidator != nil {
+		if err := s.scenarioValidator.ValidateScenario(ownerCtx, scenario, *ref); err != nil {
+			return nil, err
+		}
 	}
 	w.SetDefaultFor(scenario, ref)
 	w.UpdatedAt = time.Now().UTC()

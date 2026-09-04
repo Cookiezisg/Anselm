@@ -45,6 +45,12 @@ Flutter 只调用本地 sidecar。它不持 device-proof 私钥，也不直接�
 这样登记音色和其他需要公开 staging lease 的媒体都以网关实际接受的 MIME 发起上传，原始附件
 仍可按用户上传时的元数据读取。
 
+媒体 lease 的复用只适用于可重复读取的聊天媒体。API Serve 会在音色登记的上游取样完成后立即
+撤销该 lease，因此 `enroll_voice` 必须使用 `MediaClient.UploadFresh` 为每次登记重新上传同一附件；
+不能把普通 `Upload` 的内容哈希缓存路径用于第二次登记。该区别由
+`backend/internal/infra/llm/media_test.go` 的 `TestMediaClientUploadFresh_DoesNotReuseSpentLease`
+锁定。
+
 Cloned voice 的本地删除是两段式资源收口：sidecar 先向网关发送 `POST /voices:delete`，body
 为 `{\"voiceId\":\"...\"}`，并携带当前 install 的 `X-Anselm-Install-ID`；网关在 provider 已明确报告
 该 `delete_voice` 目标不存在时也按幂等删除处理，成功返回

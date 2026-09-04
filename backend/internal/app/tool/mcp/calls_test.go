@@ -49,6 +49,21 @@ func TestSearchMCPCallsParametersDocumentManagedStringCompatibility(t *testing.T
 	}
 }
 
+func TestSearchMCPCallsDescriptionDocumentsNameOrIDResolution(t *testing.T) {
+	description := (&SearchMCPCalls{}).Description()
+	for _, phrase := range []string{
+		"serverId accepts either the canonical mcp_ server id",
+		"server name shown by the MCP catalog",
+	} {
+		if !strings.Contains(description, phrase) {
+			t.Fatalf("search_mcp_calls description missing %q: %s", phrase, description)
+		}
+	}
+	if !strings.Contains(string((&SearchMCPCalls{}).Parameters()), "Canonical mcp_ server id or the server name") {
+		t.Fatal("serverId schema must document name or id resolution")
+	}
+}
+
 func TestGetMCPCallDescriptionProtectsExactTimingValues(t *testing.T) {
 	description := (&GetMCPCall{}).Description()
 	for _, phrase := range []string{

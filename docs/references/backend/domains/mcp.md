@@ -124,6 +124,10 @@ Server 可调用时出现，并可通过 `search_tools` 发现；Agent 使用
 Call 使用统一 wall-clock，写状态 `ok|failed|cancelled|timeout`、输入/输出、
 conversation/tool-call/flowrun/node/iteration 溯源。List 不带大 output，单读
 提供完整详情。Server 存在但不可调用时返回 server-down，而不是 tool-not-found。
+当用户明确要求某次失败 MCP 调用的完整详情、stderr 尾部或服务器级诊断时，模型必须先用
+`search_mcp_calls` 按同一 server、同一 tool 和 `status=failed` 找到最新记录，再用
+`get_mcp_call` 读取持久化 `logs`；不能从即时 tool result 推断，也不能为了取诊断再次执行
+失败工具。`logs` 中的 stderr 尾部必须保留 `server-level` 与 `may predate this call` 的边界说明。
 `get_mcp_call` 的 `startedAt`/`endedAt`/`createdAt` 是精确机器时间：工具描述要求模型在用户未点名时省略，
 点名时逐字复制；loop 的用户面脱敏器若把它们投影进 Markdown 详情表，则改为明确指向旁边的 MCP 调用卡，
 不会把通用占位词（中文「相应时间」）留成看似值的单元格。
@@ -132,6 +136,10 @@ conversation/tool-call/flowrun/node/iteration 溯源。List 不带大 output，�
 序列化为精确十进制字符串时制造可见的失败卡和重复查询，读取工具同时接受原生整数与
 精确十进制整数文本（首尾空白可忽略）；浮点数、数组、布尔值、对象和非整数文本仍拒绝。
 这只是等价标量的输入兼容，不改变分页边界或默认值。
+
+`search_mcp_calls.serverId` 接受 canonical `mcp_…` id，也接受 MCP catalog 展示的 server name，
+工具执行时统一解析为 canonical id 后再查账。这样模型从工具发现结果拿到 server name 时不会
+把一次刚刚完成的调用误报成空历史；未知名称仍返回明确的 server-not-found 错误。
 
 `install_mcp_server` 与 `uninstall_mcp_server` 都是不可绕过的 `dangerous` 操作；聊天中的
 调用即使会在真正安装前因缺少环境变量或找不到 registry 条目而失败，也必须先经过人在环确认，

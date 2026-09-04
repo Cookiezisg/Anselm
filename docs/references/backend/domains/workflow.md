@@ -154,7 +154,8 @@ Approval 固定 version；Agent 递归一层解析其挂载。Handler 与 MCP �
   `flowrunId`/`workflowId`，run 的节点结果和终态经 `get_flowrun` 读取。
 - `:stage`：等待一次真实 firing 后撤防，active 时拒绝；成功返回当前 workflow 实体快照（包括名称、`lifecycleState` 与 `active`），不返回只有 ID 的裸动作回执；
 - `:activate`：校验可运行后 Attach 所有入口；
-- `:deactivate`：Detach，排空 accepted firing/running run 后 inactive；
+- `:deactivate`：Detach，排空 accepted firing/running run 后 inactive；排空 reconcile 只有在条件更新真正赢得
+  `draining → inactive` 时发布一次 durable `workflow.lifecycle_changed`，重复 reconcile 不重复发帧；
 - `:kill`：Detach、shed pending firing、取消 running run、转 inactive。
 
 没有 trigger entry 的 graph 只能手动 trigger，不能 activate/stage。

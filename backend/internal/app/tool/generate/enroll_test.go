@@ -141,6 +141,9 @@ func TestEnroll_DangerAnchorIsInTheDescription(t *testing.T) {
 	if !strings.Contains(d, "PERSISTENT") || !strings.Contains(d, "real person") {
 		t.Fatalf("the anchor must name WHY (persistent state, a real person's voice), got: %s", d)
 	}
+	if !strings.Contains(d, "FILE operation") || !strings.Contains(d, "do not call inspect_media") {
+		t.Fatalf("the description must route enrollment away from audio inspection, got: %s", d)
+	}
 }
 
 // TestResolveVoice_NameBecomesTheUpstreamID guards the hop whose absence made the whole cloning

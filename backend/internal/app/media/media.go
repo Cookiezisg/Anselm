@@ -7,7 +7,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -147,13 +149,17 @@ type Service struct {
 
 	mu        sync.Mutex
 	processor Processor
-	started   bool
-	closing   bool
-	runCtx    context.Context
-	queue     chan job
-	queued    map[string]bool
-	stop      context.CancelFunc
-	wg        sync.WaitGroup
+	// acceptanceProcessDelay is a rig-only observation seam. It is zero unless the explicitly
+	// prefixed acceptance environment variable is set, so ordinary product runs are unchanged.
+	// 验收台架专用观察缝:仅显式设置带 acceptance 前缀的环境变量才非零,普通产品运行不变。
+	acceptanceProcessDelay time.Duration
+	started                bool
+	closing                bool
+	runCtx                 context.Context
+	queue                  chan job
+	queued                 map[string]bool
+	stop                   context.CancelFunc
+	wg                     sync.WaitGroup
 }
 
 type job struct {
@@ -173,7 +179,36 @@ func NewService(attachments AttachmentSource, repo mediadomain.Repository, artif
 	if attachments == nil || repo == nil || artifacts == nil || log == nil {
 		panic("mediaapp.NewService: attachments, repo, artifacts, and logger are required")
 	}
-	return &Service{attachments: attachments, repo: repo, artifacts: artifacts, log: log, queue: make(chan job, 64), queued: map[string]bool{}}
+	delay, err := acceptanceProcessDelayFromEnv()
+	if err != nil {
+		log.Warn("media: invalid acceptance process delay", zap.String("env", acceptanceProcessDelayEnv), zap.Error(err))
+	}
+	return &Service{
+		attachments:            attachments,
+		repo:                   repo,
+		artifacts:              artifacts,
+		log:                    log,
+		acceptanceProcessDelay: delay,
+		queue:                  make(chan job, 64),
+		queued:                 map[string]bool{},
+	}
+}
+
+const acceptanceProcessDelayEnv = "ANSELM_RIG_MEDIA_PROCESS_DELAY_MS"
+
+func acceptanceProcessDelayFromEnv() (time.Duration, error) {
+	raw := strings.TrimSpace(os.Getenv(acceptanceProcessDelayEnv))
+	if raw == "" {
+		return 0, nil
+	}
+	ms, err := strconv.ParseInt(raw, 10, 64)
+	if err != nil || ms < 0 {
+		if err == nil {
+			err = fmt.Errorf("must be a non-negative integer")
+		}
+		return 0, err
+	}
+	return time.Duration(ms) * time.Millisecond, nil
 }
 
 // SetProcessor must run before Start. This lets bootstrap keep the durable media contract alive
@@ -875,7 +910,14 @@ func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Der
 	}
 	a, original, err := s.attachments.Download(ctx, derivative.AttachmentID)
 	if err == nil {
-		result, processErr := s.processor.Derive(ctx, a, original, derivative)
+		var result DerivativeResult
+		var processErr error
+		if s.acceptanceProcessDelay > 0 {
+			processErr = waitAcceptanceProcessDelay(ctx, s.acceptanceProcessDelay)
+		}
+		if processErr == nil {
+			result, processErr = s.processor.Derive(ctx, a, original, derivative)
+		}
 		if processErr == nil {
 			sha, putErr := s.artifacts.Put(ctx, result.Data)
 			if putErr == nil {
@@ -908,6 +950,17 @@ func (s *Service) runDerivative(ctx context.Context, derivative *mediadomain.Der
 		// 带上原因。少了它这行只说了「失败了」,而行上的 MEDIA_DERIVATIVE_FAILED 说的是同一件事
 		// ——于是除了挂调试器复现,没有任何办法知道**为什么**。
 		s.log.Warn("media: derivative processing failed", zap.String("work_id", derivative.ID), zap.Error(err))
+	}
+}
+
+func waitAcceptanceProcessDelay(ctx context.Context, delay time.Duration) error {
+	timer := time.NewTimer(delay)
+	defer timer.Stop()
+	select {
+	case <-ctx.Done():
+		return ctx.Err()
+	case <-timer.C:
+		return nil
 	}
 }
 

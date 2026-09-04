@@ -285,6 +285,43 @@ void main() {
         ); // inline echo text 回声内联文本
       },
     );
+
+    test(
+      'a terminal close updates a settled message snapshot without creating a live duplicate',
+      () {
+        final t = ConversationTranscript('cv_1');
+        t.setHistory([_turn('msg_a', 'assistant')]);
+
+        t.applyFrame(
+          _env(
+            'msg_a',
+            FrameClose(
+              status: 'error',
+              error: 'traceback',
+              result: const StreamNode(
+                type: 'message',
+                content: {
+                  'role': 'assistant',
+                  'status': 'error',
+                  'stopReason': 'error',
+                  'errorCode': 'TOOL_ERROR_STORM',
+                  'errorMessage': 'three failures',
+                },
+              ),
+            ),
+          ),
+        );
+
+        expect(t.liveTurns, isEmpty);
+        expect(t.settled, hasLength(1));
+        final root = t.settled.single;
+        expect(root.status, 'error');
+        expect(root.error, 'traceback');
+        expect(root.content?['errorCode'], 'TOOL_ERROR_STORM');
+        expect(root.content?['errorMessage'], 'three failures');
+        expect(root.revision, 1);
+      },
+    );
   });
 
   group('optimistic FIFO reconcile', () {
@@ -358,6 +395,33 @@ void main() {
       },
     );
 
+    test(
+      'an echo overlapping settled still consumes a bubble added after hydration',
+      () {
+        final t = ConversationTranscript('cv_1')
+          ..setHistory([
+            _turn('msg_u', 'user', blocks: [_blk('text', 'text', '首条消息')]),
+          ])
+          ..addPending(PendingSend(localId: 'l1', text: '首条消息'));
+
+        // Hydration already owns the durable row, so the echo must not create a second live root.
+        // The pending bubble was added afterwards, however, and must still be reconciled.
+        // 水化已拥有 durable 行,回声不能再造 live 根;但 pending 是之后才加入,仍必须完成对账。
+        t.applyFrame(_open('msg_u', 'message', content: {'role': 'user'}));
+        t.applyFrame(
+          _close(
+            'msg_u',
+            result: {'role': 'user', 'content': '首条消息'},
+            type: 'message',
+          ),
+        );
+
+        expect(t.pending, isEmpty);
+        expect(t.turns.map((n) => n.id), ['msg_u']);
+        expect(t.hasInFlight, isFalse);
+      },
+    );
+
     test('two sends reconcile in order; an EPHEMERAL echo never reconciles', () {
       final t = ConversationTranscript('cv_1')..setHistory(const []);
       t.addPending(PendingSend(localId: 'l1', text: 'a'));
@@ -416,6 +480,44 @@ void main() {
   });
 
   group('resync', () {
+    test(
+      'late ephemeral frames for a hydrated terminal block cannot create a live duplicate',
+      () {
+        final t = ConversationTranscript('cv_1');
+        t.setHistory([
+          _turn(
+            'msg_a',
+            'assistant',
+            blocks: [
+              _blk(
+                'call_a',
+                'tool_call',
+                '{"command":"printf ok"}',
+                attrs: {'tool': 'Bash'},
+              ),
+              _blk('result_a', 'tool_result', 'ok', parent: 'call_a'),
+            ],
+          ),
+        ]);
+
+        // A resync fetch may finish after an already-buffered ephemeral open. It must not resurrect
+        // the completed call in the live layer, or the transcript shows a stale "Running" row beside
+        // its durable result.
+        t.applyFrame(
+          _open(
+            'call_a',
+            'tool_call',
+            parentId: 'msg_a',
+            content: {'name': 'Bash'},
+            seq: 0,
+          ),
+        );
+
+        expect(t.liveTurns, isEmpty);
+        expect(t.settled, hasLength(1));
+      },
+    );
+
     test(
       'dropLive clears the live layer only; a head refetch re-seeds the still-running turn',
       () {

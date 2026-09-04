@@ -634,6 +634,23 @@ func TestSearchBlocks_PaletteSemantics(t *testing.T) {
 	}
 }
 
+func TestSearchBlocks_DeduplicatesRowsWithTheSameWireableRef(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{
+		dh(searchdomain.TypeFunction, "fn_inventory", 1, "", "同步库存快照", 9.0),
+		dh(searchdomain.TypeFunction, "fn_inventory", 2, "", "def f(): return {'synced': 42}", 8.0),
+	}
+	svc := NewService(repo, nil)
+
+	hits, err := svc.SearchBlocks(ctxWS("ws_a"), "库存快照", nil, 0)
+	if err != nil {
+		t.Fatalf("blocks: %v", err)
+	}
+	if len(hits) != 1 || hits[0].Ref != "fn_inventory" || hits[0].Name != "同步库存快照" {
+		t.Fatalf("same wireable ref must produce one useful hit, got %+v", hits)
+	}
+}
+
 // --- semantic-layer fakes ----------------------------------------------------
 
 func (f *fakeRepo) UpsertEmbedding(_ context.Context, docID, model string, vec []float32) error {
@@ -879,6 +896,30 @@ func TestHybrid_IdentifierQueryRejectsSemanticOnlyNoise(t *testing.T) {
 	}
 	if len(page.Hits) != 0 {
 		t.Fatalf("unknown identifier must not surface a semantic-only agent: %+v", page.Hits)
+	}
+}
+
+func TestHybrid_SemanticOnlyRejectsFlatHighBaselineNoise(t *testing.T) {
+	repo := newFakeRepo()
+	repo.hits = []*searchdomain.DocHit{} // no lexical anchor: exercise the semantic-only gate
+	repo.docsByID = map[string]*searchdomain.DocHit{
+		"sd_one": {DocID: "sd_one", EntityType: searchdomain.TypeDocument, EntityID: "doc_one", Title: "one"},
+		"sd_two": {DocID: "sd_two", EntityType: searchdomain.TypeDocument, EntityID: "doc_two", Title: "two"},
+	}
+	repo.embedded = map[string][]float32{
+		// Both are above cosineFloor, but their top-1/top-2 gap is below semanticMargin.
+		"m1/sd_one": {0.72, 0.694, 0},
+		"m1/sd_two": {0.70, 0.714, 0},
+	}
+	svc := NewService(repo, nil)
+	svc.SetEmbeddingProviders(&fakeProvider{model: "m1", vecs: map[string][]float32{"gibberish": {1, 0, 0}}}, nil)
+
+	page, err := svc.Search(ctxWS("ws_a"), &searchdomain.Query{Q: "gibberish", IncludeArchived: true})
+	if err != nil {
+		t.Fatalf("search: %v", err)
+	}
+	if len(page.Hits) != 0 {
+		t.Fatalf("flat high-baseline semantic noise must not surface without lexical evidence: %+v", page.Hits)
 	}
 }
 

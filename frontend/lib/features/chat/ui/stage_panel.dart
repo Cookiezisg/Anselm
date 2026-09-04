@@ -48,9 +48,13 @@ import '../../../core/run/flowrun_progress.dart';
 /// 就地展开精心做的 kind 舞台;todo 板置顶为第 0 行(进度环 lead)。live 活动自动展开自身行 + 滚入一次——导演器
 /// 单主角仲裁=「自动展开谁」的信号,并行 tool call 绝不让视口跳;用户接管滚动绝不抢(§4)。
 class StagePanel extends ConsumerWidget {
-  const StagePanel({required this.conversationId, super.key});
+  const StagePanel({required this.conversationId, this.clock, super.key});
 
   final String conversationId;
+
+  /// Injectable only for deterministic time-boundary tests; production uses wall-clock time.
+  /// 仅供时间边界测试注入;生产默认使用墙上时钟。
+  final DateTime Function()? clock;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -112,7 +116,9 @@ class StagePanel extends ConsumerWidget {
               ref.read(rightPanelCollapsedProvider.notifier).set(true),
           closeSemantics: t.shell.togglePanel,
         ),
-        Expanded(child: _AccordionList(conversationId: conversationId)),
+        Expanded(
+          child: _AccordionList(conversationId: conversationId, clock: clock),
+        ),
       ],
     );
   }
@@ -287,9 +293,10 @@ enum _RowState { live, polling, settling, failed, settled }
 /// The accordion list itself — the scroll + the §4 follow rules (auto-expand once per live block, scroll it
 /// into view only when off-screen, never steal a user-held scroll). 手风琴列表:滚动 + §4 跟随规则。
 class _AccordionList extends ConsumerStatefulWidget {
-  const _AccordionList({required this.conversationId});
+  const _AccordionList({required this.conversationId, this.clock});
 
   final String conversationId;
+  final DateTime Function()? clock;
 
   @override
   ConsumerState<_AccordionList> createState() => _AccordionListState();
@@ -603,13 +610,12 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
   /// The flat display list (三段式文法 §3, 用户 0719 改判 kind→时间档——kind 轴 12 条 10 头「目录病」被否决):
   /// todo (row 0) · the ungrouped [top] active layer · then the settled Cast bucketed into three TIME tiers by
   /// each row's last-touched time (刚刚 = the current turn / a fixed 10-min window; 早些时候 = earlier today;
-  /// 更早 = past days), each a [_TierItem] (head + its rows under one collapse [AnExpandReveal]) · then the
-  /// load-more foot. **Two anti-fragmentation rules**: an empty tier is absent; a SINGLE non-empty tier draws
-  /// NO head at all — [_EntityItem] BARE rows (an all-刚刚 list needs no scaffolding, 零人话律; short threads
-  /// stay a clean column, long ones auto-layer). A tier FORCE-OPENS (never hides live / auto-expanded work)
-  /// when it holds a live row or a row the director/deep-jump has expanded — flipping `open` so the reveal
-  /// animates the same slide (§3 test-lock). 按最后触碰时间分三档;空档免头、单档全裸行;含 live/展开行的档强制
-  /// 展开(翻 open→播同一滑动)。
+  /// 更早 = past days), all under one stable [_TiersItem] · then the load-more foot. **Two anti-fragmentation
+  /// rules**: an empty tier is absent; a SINGLE non-empty tier draws NO head (an all-刚刚 list needs no
+  /// scaffolding, 零人话律; short threads stay a clean column, long ones auto-layer). A tier FORCE-OPENS (never
+  /// hides live / auto-expanded work) when it holds a live row or a row the director/deep-jump has expanded —
+  /// flipping `open` so the reveal animates the same slide (§3 test-lock). 按最后触碰时间分三档;空档免头、单档
+  /// 全裸行;含 live/展开行的档强制展开(翻 open→播同一滑动)。
   List<_Item> _computeItems(
     StageState stage,
     TouchpointLedgerState ledger,
@@ -626,7 +632,7 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     }
     // Bucket into the three time tiers by lastAt (each list stays freshest-first — the ledger's own
     // sort); `now` rides the per-minute tier clock (G11/A2-12). 按 lastAt 分三档;now 走分钟钟。
-    final now = DateTime.now();
+    final now = widget.clock?.call() ?? DateTime.now();
     final tiers = {for (final k in stageTierOrder) k: <_RowSpec>[]};
     for (final s in split.ledger) {
       tiers[sidestageTierKey(s.entity!.lastAt, now)]!.add(s);
@@ -637,28 +643,29 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
     ];
     // A single non-empty tier → bare rows, no heads (anti-目录病). 单档=裸行、无头。
     final grouped = nonEmpty.length > 1;
+    final tierItems = <_TierSpec>[];
     for (final tierKey in nonEmpty) {
       final group = tiers[tierKey]!;
-      if (grouped) {
-        // The whole tier (head + rows) is ONE list item so the fold rides a single [AnExpandReveal] (the kit
-        // standard collapse slide); force-open covers ACTIVE rows and rows WE auto-opened — never a
-        // row the USER expanded (G11/A2-13: the old whole-expanded-set test let one user-opened row
-        // lock the tier unfoldable, and the moment it closed the stale collapse token slammed the
-        // tier shut uninvited). 整档一 item;强制展开=活动行∪自动展开行——绝不含用户自展行(旧口径
-        // 让一条用户行锁死档折叠,行一收、残留折叠令又让档自动合拢)。
-        final autoRows = ref
-            .read(stageExpansionProvider(conversationId).notifier)
-            .autoOpened;
-        final forced = group.any(
-          (s) => s.view != null || autoRows.contains(s.rowId),
-        );
-        final open = forced || !collapsed.contains(tierKey);
-        items.add(_TierItem(tierKey: tierKey, rows: group, open: open));
-      } else {
-        for (final s in group) {
-          items.add(_EntityItem(s));
-        }
-      }
+      // The whole tier list is one stable ListView item. Keeping the container stable is important when
+      // a passive minute tick merges the last two time tiers: the tier headers can animate away instead
+      // of replacing a group item with bare rows in one frame. 整个时间档列共用一个稳定 ListView item;
+      // 被动分钟 tick 合并最后两档时,组头可动画收起,不会一帧把分组 item 换成裸行。
+      final autoRows = ref
+          .read(stageExpansionProvider(conversationId).notifier)
+          .autoOpened;
+      final forced = group.any(
+        (s) => s.view != null || autoRows.contains(s.rowId),
+      );
+      tierItems.add(
+        _TierSpec(
+          tierKey: tierKey,
+          rows: group,
+          open: forced || !collapsed.contains(tierKey),
+        ),
+      );
+    }
+    if (tierItems.isNotEmpty) {
+      items.add(_TiersItem(tiers: tierItems, grouped: grouped));
     }
     if (ledger.hasMore) items.add(const _FootItem());
     // The MIXED failure face (G11/A2-16): the ledger's first fetch failed while other sources have
@@ -756,9 +763,9 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
             open: expanded.contains('todo'),
           ),
         );
-      // A ungrouped active-layer row (live / settled subagent) OR a grouped settled Cast row — both render
-      // through the same [_StageRow]; only their placement differs. 活层行与分组 Cast 行同渲,仅位置异。
-      case _TopItem(:final spec) || _EntityItem(:final spec):
+      // Active-layer rows still render directly; settled Cast rows ride the stable tier-list item below.
+      // 活层行仍直接渲;落定 Cast 行统一走下方稳定时间档列。
+      case _TopItem(:final spec):
         return KeyedSubtree(
           key: _keyFor(spec.rowId),
           child: _StageRow(
@@ -769,10 +776,18 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
             onEngaged: () => _claimRow(spec.rowId),
           ),
         );
-      case _TierItem(:final tierKey, :final rows, :final open):
+      case _TiersItem(:final tiers, :final grouped):
         return KeyedSubtree(
-          key: _keyFor('group:$tierKey'),
-          child: _buildTier(tierKey, rows, open, expanded, transcript),
+          key: _keyFor('tier-list'),
+          child: _AnimatedTierList(
+            conversationId: conversationId,
+            tiers: tiers,
+            grouped: grouped,
+            expanded: expanded,
+            transcript: transcript,
+            rowKeyFor: _keyFor,
+            onEngaged: _claimRow,
+          ),
         );
       case _FootItem():
         // A failed page flips the foot to an EXPLICIT retry (G11/A2-17) — the old visible-即拉 foot
@@ -832,47 +847,169 @@ class _AccordionListState extends ConsumerState<_AccordionList> {
         );
     }
   }
+}
 
-  /// A grouped time tier as ONE list item: the [_GroupHead] over an [AnExpandReveal] wrapping the tier's rows,
-  /// so a fold/unfold — a user toggle OR a director / deep-jump force-open — rides the kit's STANDARD collapse
-  /// slide (chevron rotation [AnRow] + height slide [AnExpandReveal] play together; reduced double-gated inside
-  /// the reveal). LAZY (`.builder`): a collapsed tier never builds its rows — matching the pre-animation
-  /// behaviour + the row-body reveal nested within (ClipRect+Align nests safely, unlike AnimatedSize). The
-  /// per-row [GlobalKey]s stay put so the director's scroll-to-row still resolves once a tier is open. 分组档=
-  /// 单 item:组头 + AnExpandReveal 裹行,折叠走 kit 标准滑动(chevron 旋转 + 高度滑动同播,reduced 双闸);惰性,
-  /// 收起档不建行;行 GlobalKey 不变,档一开导演器滚动即命中。
-  Widget _buildTier(
-    String tierKey,
-    List<_RowSpec> rows,
-    bool open,
-    Set<String> expanded,
-    CoalescingNotifier<ConversationTranscript> transcript,
-  ) {
+/// A settled time tier's render data. 时间档的渲染数据。
+class _TierSpec {
+  const _TierSpec({
+    required this.tierKey,
+    required this.rows,
+    required this.open,
+  });
+
+  final String tierKey;
+  final List<_RowSpec> rows;
+  final bool open;
+}
+
+/// The ledger's stable display item. Keeping all tiers under one keyed item lets passive time re-bucketing
+/// animate headers and preserve row placement instead of replacing ListView children synchronously.
+/// 台账稳定显示 item:所有档共用一个 key,被动时间重分桶时动画收头并保住行位置,不同步替换 ListView 子项。
+class _TiersItem extends _Item {
+  const _TiersItem({required this.tiers, required this.grouped});
+
+  final List<_TierSpec> tiers;
+  final bool grouped;
+}
+
+/// Animates the only passive structural change in the tier grammar: multiple groups becoming one (or the
+/// reverse). During a merge the previous rows remain in their old sections while their headers collapse;
+/// after the standard mid motion the data adopts the final single-tier, headerless shape.
+/// 动画处理时间档语法唯一的被动结构变化:多档合一(或反向);合并时先保留旧行分区、收起组头,
+/// 标准 mid 动效结束后才落到最终单档无头形状。
+class _AnimatedTierList extends StatefulWidget {
+  const _AnimatedTierList({
+    required this.conversationId,
+    required this.tiers,
+    required this.grouped,
+    required this.expanded,
+    required this.transcript,
+    required this.rowKeyFor,
+    required this.onEngaged,
+  });
+
+  final String conversationId;
+  final List<_TierSpec> tiers;
+  final bool grouped;
+  final Set<String> expanded;
+  final CoalescingNotifier<ConversationTranscript> transcript;
+  final GlobalKey Function(String rowId) rowKeyFor;
+  final void Function(String rowId) onEngaged;
+
+  @override
+  State<_AnimatedTierList> createState() => _AnimatedTierListState();
+}
+
+class _AnimatedTierListState extends State<_AnimatedTierList> {
+  late List<_TierSpec> _visibleTiers;
+  late bool _headersVisible;
+  Timer? _transition;
+
+  @override
+  void initState() {
+    super.initState();
+    _visibleTiers = widget.tiers;
+    _headersVisible = widget.grouped;
+  }
+
+  @override
+  void didUpdateWidget(_AnimatedTierList oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.grouped == widget.grouped) {
+      _transition?.cancel();
+      _visibleTiers = widget.tiers;
+      _headersVisible = widget.grouped;
+      return;
+    }
+
+    _transition?.cancel();
+    final reduced = AnMotionPref.reduced(context);
+    if (reduced) {
+      _visibleTiers = widget.tiers;
+      _headersVisible = widget.grouped;
+      return;
+    }
+
+    if (oldWidget.grouped && !widget.grouped) {
+      // Keep both old sections while their heads collapse. The rows therefore move by the exact head
+      // height over the kit's standard curve, rather than disappearing at the first post-frame build.
+      // 多档合一时保留旧分区,组头沿套件曲线收起;行按组头真实高度平滑移动,不在首个 build 瞬移。
+      _visibleTiers = oldWidget.tiers;
+      _headersVisible = false;
+    } else {
+      // New groups start without heads, then reveal them through AnimatedSize so a new passive tier is
+      // equally quiet in the opposite direction. 新档先无头,再由 AnimatedSize 展开,反向同样安静。
+      _visibleTiers = widget.tiers;
+      _headersVisible = false;
+    }
+    _transition = Timer(AnMotion.mid, () {
+      if (!mounted) return;
+      setState(() {
+        _visibleTiers = widget.tiers;
+        _headersVisible = widget.grouped;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _transition?.cancel();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final showHeads = _headersVisible;
+    final reduced = AnMotionPref.reduced(context);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       mainAxisSize: MainAxisSize.min,
       children: [
-        _GroupHead(
-          conversationId: conversationId,
-          tierKey: tierKey,
-          count: rows.length,
-          open: open,
+        for (final tier in _visibleTiers)
+          _buildTier(context, tier, showHeads, reduced),
+      ],
+    );
+  }
+
+  Widget _buildTier(
+    BuildContext context,
+    _TierSpec tier,
+    bool showHead,
+    bool reduced,
+  ) {
+    return Column(
+      key: ValueKey('tier:${tier.tierKey}'),
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        AnimatedSize(
+          duration: reduced ? Duration.zero : AnMotion.mid,
+          curve: AnMotion.easeOut,
+          alignment: Alignment.topCenter,
+          child: showHead
+              ? _GroupHead(
+                  conversationId: widget.conversationId,
+                  tierKey: tier.tierKey,
+                  count: tier.rows.length,
+                  open: tier.open,
+                )
+              : const SizedBox.shrink(),
         ),
         AnExpandReveal.builder(
-          open: open,
+          open: tier.open,
           childBuilder: (context) => Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             mainAxisSize: MainAxisSize.min,
             children: [
-              for (final spec in rows)
+              for (final spec in tier.rows)
                 KeyedSubtree(
-                  key: _keyFor(spec.rowId),
+                  key: widget.rowKeyFor(spec.rowId),
                   child: _StageRow(
-                    conversationId: conversationId,
+                    conversationId: widget.conversationId,
                     spec: spec,
-                    open: expanded.contains(spec.rowId),
-                    transcript: transcript,
-                    onEngaged: () => _claimRow(spec.rowId),
+                    open: widget.expanded.contains(spec.rowId),
+                    transcript: widget.transcript,
+                    onEngaged: () => widget.onEngaged(spec.rowId),
                   ),
                 ),
             ],
@@ -896,26 +1033,6 @@ class _TodoItem extends _Item {
 /// An ungrouped ACTIVE-LAYER row — a synthetic live activity or a settled subagent run, riding above the fold.
 class _TopItem extends _Item {
   const _TopItem(this.spec);
-  final _RowSpec spec;
-}
-
-/// A grouped time tier — its head + rows as ONE list item so the fold rides a single [AnExpandReveal].
-/// [tierKey] = the [stageTierOrder] fold token; [open] is the RESOLVED state (user fold ∪ force-open).
-/// 分组时间档(单 item,折叠走单 AnExpandReveal)。
-class _TierItem extends _Item {
-  const _TierItem({
-    required this.tierKey,
-    required this.rows,
-    required this.open,
-  });
-  final String tierKey;
-  final List<_RowSpec> rows;
-  final bool open;
-}
-
-/// A BARE settled Cast row — the single-tier case (no head, no fold, so no reveal). 单档裸行(无头无折叠)。
-class _EntityItem extends _Item {
-  const _EntityItem(this.spec);
   final _RowSpec spec;
 }
 

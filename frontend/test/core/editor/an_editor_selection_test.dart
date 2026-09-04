@@ -142,4 +142,68 @@ void main() {
       expect(tester.takeException(), isNull);
     },
   );
+
+  testWidgets('mounts the inter-block selection gap layer', (tester) async {
+    final doc = MutableDocument(
+      nodes: [
+        ParagraphNode(id: 'p1', text: AttributedText('first')),
+        ParagraphNode(id: 'p2', text: AttributedText('second')),
+      ],
+    );
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: Scaffold(body: AnEditor.withDocument(doc)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AnSelectionGapLayer), findsOneWidget);
+  });
+
+  testWidgets('computes bridges for a real cross-node selection', (
+    tester,
+  ) async {
+    final doc = MutableDocument(
+      nodes: [
+        ParagraphNode(id: 'p1', text: AttributedText('first')),
+        ParagraphNode(id: 'p2', text: AttributedText('second')),
+        ParagraphNode(id: 'p3', text: AttributedText('third')),
+      ],
+    );
+    await tester.pumpWidget(
+      TranslationProvider(
+        child: MaterialApp(
+          debugShowCheckedModeBanner: false,
+          theme: AnTheme.light(),
+          home: Scaffold(body: AnEditor.withDocument(doc)),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    final editor = tester.state<AnEditorState>(find.byType(AnEditor));
+    editor.setSelectionForTesting(
+      const DocumentSelection(
+        base: DocumentPosition(
+          nodeId: 'p1',
+          nodePosition: TextNodePosition(offset: 1),
+        ),
+        extent: DocumentPosition(
+          nodeId: 'p3',
+          nodePosition: TextNodePosition(offset: 2),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+
+    final layer = tester.state(find.byType(AnSelectionGapLayer)) as dynamic;
+    expect(layer.debugGaps, hasLength(2));
+    expect(layer.debugGaps[0].height, greaterThan(0));
+    expect(layer.debugGaps[1].height, greaterThan(0));
+  });
 }

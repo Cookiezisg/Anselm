@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:io';
 import 'dart:math';
 
@@ -86,4 +87,35 @@ void main() {
     );
     expect(await mk.resolve(), isNull);
   });
+
+  test(
+    'a hanging keychain read is bounded — startup never waits forever',
+    () async {
+      final mk = MasterKey(
+        read: (_) => Completer<String?>().future,
+        write: (_, _) async {},
+        hasExistingDatabase: () => true,
+        keychainTimeout: const Duration(milliseconds: 10),
+      );
+      expect(await mk.resolve(), isNull);
+    },
+  );
+
+  test(
+    'a hanging keychain write is bounded — fresh install still degrades',
+    () async {
+      var reads = 0;
+      final mk = MasterKey(
+        read: (_) async {
+          reads++;
+          return null;
+        },
+        write: (_, _) => Completer<void>().future,
+        hasExistingDatabase: () => false,
+        keychainTimeout: const Duration(milliseconds: 10),
+      );
+      expect(await mk.resolve(), isNull);
+      expect(reads, 1, reason: 'a timed-out write must not start a read-back');
+    },
+  );
 }

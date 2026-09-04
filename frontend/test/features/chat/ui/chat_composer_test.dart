@@ -157,6 +157,28 @@ class _ConnectionLostSpeech extends SpeechInputController {
   }
 }
 
+class _EmptyConnectionLostSpeech extends SpeechInputController {
+  @override
+  Future<void> start() async {
+    state = const SpeechInputState(
+      elapsed: Duration(seconds: 1),
+      error: speechInputErrorConnectionLost,
+      canRetry: true,
+    );
+  }
+}
+
+class _EmptyFrameInvalidSpeech extends SpeechInputController {
+  @override
+  Future<void> start() async {
+    state = const SpeechInputState(
+      elapsed: Duration(seconds: 1),
+      error: speechInputErrorFrameInvalid,
+      canRetry: true,
+    );
+  }
+}
+
 class _TooLongSpeech extends SpeechInputController {
   @override
   Future<void> start() async {
@@ -668,6 +690,106 @@ void main() {
       container.read(noticeCenterProvider).current?.message.text,
       'Voice input disconnected. I kept the text that was already transcribed.',
     );
+  });
+
+  testWidgets('voice disconnect with no text explains the retry recording', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          ..._speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+            ],
+          ),
+          speechInputProvider.overrideWith(_EmptyConnectionLostSpeech.new),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    await tester.tap(find.byKey(const ValueKey('voice')));
+    await _settle(tester);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatComposer)),
+    );
+    expect(
+      container.read(noticeCenterProvider).current?.message.text,
+      'Voice input disconnected. No text was transcribed; your local recording is ready to retry.',
+    );
+    expect(
+      find.text(
+        'No text was transcribed. I kept the local recording so you can retry once.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('voice-retry-card')), findsOneWidget);
+  });
+
+  testWidgets('invalid voice frame with no text avoids claiming a draft', (
+    tester,
+  ) async {
+    final repo = FixtureChatRepository(
+      conversations: [_conv('cv_1')],
+      messages: {'cv_1': []},
+    );
+    await tester.pumpWidget(
+      _host(
+        repo,
+        overrides: [
+          ..._speechModelOverrides(
+            workspace: _workspaceWithDefaultModel(
+              'aki_demo_managed0',
+              'anselm-auto',
+            ),
+            caps: const [
+              ModelCapability(
+                apiKeyId: 'aki_demo_managed0',
+                provider: 'anselm',
+                modelId: 'anselm-auto',
+                displayName: 'Anselm Auto',
+              ),
+            ],
+          ),
+          speechInputProvider.overrideWith(_EmptyFrameInvalidSpeech.new),
+        ],
+      ),
+    );
+    await _settle(tester);
+
+    await tester.tap(find.byKey(const ValueKey('voice')));
+    await _settle(tester);
+
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ChatComposer)),
+    );
+    expect(
+      container.read(noticeCenterProvider).current?.message.text,
+      'This voice data could not be understood. No text was transcribed; please record it again.',
+    );
+    expect(
+      find.text(
+        'No text was transcribed. I kept the local recording so you can retry once.',
+      ),
+      findsOneWidget,
+    );
+    expect(find.byKey(const ValueKey('voice-retry-card')), findsOneWidget);
   });
 
   testWidgets('voice too long keeps draft and does not show retry card', (

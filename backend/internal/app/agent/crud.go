@@ -290,6 +290,11 @@ func (s *Service) Create(ctx context.Context, in CreateInput) (*agentdomain.Agen
 	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker, s.optionValidator); err != nil {
 		return nil, nil, err
 	}
+	if in.ModelOverride != nil && s.scenarioValidator != nil {
+		if err := s.scenarioValidator.ValidateScenario(ctx, modeldomain.ScenarioAgent, *in.ModelOverride); err != nil {
+			return nil, nil, err
+		}
+	}
 
 	now := time.Now().UTC()
 	agentID := idgenpkg.New("ag")
@@ -333,6 +338,11 @@ func (s *Service) Edit(ctx context.Context, in EditInput) (*agentdomain.Version,
 	}
 	if err := modelrefapp.Validate(ctx, in.ModelOverride, agentdomain.ErrInvalidModelOverride, s.keyChecker, s.optionValidator); err != nil {
 		return nil, err
+	}
+	if in.ModelOverride != nil && s.scenarioValidator != nil {
+		if err := s.scenarioValidator.ValidateScenario(ctx, modeldomain.ScenarioAgent, *in.ModelOverride); err != nil {
+			return nil, err
+		}
 	}
 
 	nextN, err := s.repo.NextVersionNumber(ctx, in.ID)

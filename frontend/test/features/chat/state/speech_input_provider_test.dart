@@ -85,6 +85,13 @@ class _FakeCapture implements SpeechAudioCapture {
   }
 }
 
+class _DelayedPermissionCapture extends _FakeCapture {
+  final permission = Completer<bool>();
+
+  @override
+  Future<bool> hasPermission() => permission.future;
+}
+
 class _FakeWebSocketChannel extends StreamChannelMixin<dynamic>
     implements WebSocketChannel {
   _FakeWebSocketChannel({this.readyError});
@@ -114,6 +121,11 @@ class _FakeWebSocketChannel extends StreamChannelMixin<dynamic>
   late final WebSocketSink sink = _FakeWebSocketSink(outgoing.sink, sent);
 
   void failFromServer() => incoming.addError(StateError('socket lost'));
+
+  void failFromServerWithErrorAndDone() {
+    incoming.addError(StateError('socket lost'));
+    unawaited(incoming.close());
+  }
 }
 
 class _FakeWebSocketSink implements WebSocketSink {
@@ -378,6 +390,45 @@ void main() {
     expect(sockets.last.sent.last, [4, 5]);
   });
 
+  test(
+    'duplicate socket loss callbacks do not race recorder teardown',
+    () async {
+      final capture = _FakeCapture();
+      final sockets = <_FakeWebSocketChannel>[];
+      final container = ProviderContainer(
+        overrides: [
+          speechInputAvailableProvider.overrideWithValue(true),
+          backendStartupProvider.overrideWith(_ReadyBackend.new),
+          speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+          speechSocketConnectorProvider.overrideWithValue((uri, headers) {
+            final socket = _FakeWebSocketChannel();
+            sockets.add(socket);
+            return socket;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(speechInputProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await container.read(speechInputProvider.notifier).start();
+      capture.audio.add([1, 2, 3]);
+      await _flushAsync();
+
+      sockets.single.failFromServerWithErrorAndDone();
+      await _flushAsync();
+
+      expect(sockets, hasLength(2));
+      expect(sockets.last.sent, [
+        [1, 2, 3],
+      ]);
+      expect(container.read(speechInputProvider).recording, isTrue);
+      expect(container.read(speechInputProvider).error, isNull);
+      expect(capture.cancelled, isFalse);
+      expect(capture.disposed, isFalse);
+    },
+  );
+
   test('second live socket loss falls back to retryable draft state', () async {
     final capture = _FakeCapture();
     final sockets = <_FakeWebSocketChannel>[];
@@ -452,4 +503,106 @@ void main() {
     expect(capture.cancelled, isTrue);
     expect(capture.disposed, isTrue);
   });
+
+  test(
+    'gateway rejects malformed speech frames with an actionable retry',
+    () async {
+      final capture = _FakeCapture();
+      final socket = _FakeWebSocketChannel();
+      final container = ProviderContainer(
+        overrides: [
+          speechInputAvailableProvider.overrideWithValue(true),
+          backendStartupProvider.overrideWith(_ReadyBackend.new),
+          speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+          speechSocketConnectorProvider.overrideWithValue(
+            (uri, headers) => socket,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(speechInputProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await container.read(speechInputProvider.notifier).start();
+      capture.audio.add([1, 2, 3]);
+      await _flushAsync();
+
+      socket.incoming.add(
+        '{"type":"error","code":"SPEECH_AUDIO_FRAME_INVALID"}',
+      );
+      await _flushAsync();
+
+      final state = container.read(speechInputProvider);
+      expect(state.recording, isFalse);
+      expect(state.error, speechInputErrorFrameInvalid);
+      expect(state.canRetry, isTrue);
+      expect(capture.cancelled, isTrue);
+      expect(capture.disposed, isTrue);
+    },
+  );
+
+  test(
+    'gateway handshake quota refusal is explicit and not retryable',
+    () async {
+      final capture = _FakeCapture();
+      final socket = _FakeWebSocketChannel();
+      final container = ProviderContainer(
+        overrides: [
+          speechInputAvailableProvider.overrideWithValue(true),
+          backendStartupProvider.overrideWith(_ReadyBackend.new),
+          speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+          speechSocketConnectorProvider.overrideWithValue(
+            (uri, headers) => socket,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(speechInputProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      await container.read(speechInputProvider.notifier).start();
+      socket.incoming.add('{"type":"error","code":"SPEECH_QUOTA_EXHAUSTED"}');
+      await _flushAsync();
+
+      final state = container.read(speechInputProvider);
+      expect(state.error, speechInputErrorQuotaExhausted);
+      expect(state.canRetry, isFalse);
+      expect(state.active, isFalse);
+    },
+  );
+
+  test(
+    'handshake refusal waits for recorder initialization before teardown',
+    () async {
+      final capture = _DelayedPermissionCapture();
+      final socket = _FakeWebSocketChannel();
+      final container = ProviderContainer(
+        overrides: [
+          speechInputAvailableProvider.overrideWithValue(true),
+          backendStartupProvider.overrideWith(_ReadyBackend.new),
+          speechAudioCaptureFactoryProvider.overrideWithValue(() => capture),
+          speechSocketConnectorProvider.overrideWithValue(
+            (uri, headers) => socket,
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final sub = container.listen(speechInputProvider, (_, _) {});
+      addTearDown(sub.close);
+
+      final start = container.read(speechInputProvider.notifier).start();
+      await _flushAsync();
+      socket.incoming.add('{"type":"error","code":"SPEECH_QUOTA_EXHAUSTED"}');
+      await _flushAsync();
+      capture.permission.complete(true);
+      await start;
+      await _flushAsync();
+
+      final state = container.read(speechInputProvider);
+      expect(state.error, speechInputErrorQuotaExhausted);
+      expect(state.active, isFalse);
+      expect(capture.cancelled, isTrue);
+      expect(capture.disposed, isTrue);
+    },
+  );
 }

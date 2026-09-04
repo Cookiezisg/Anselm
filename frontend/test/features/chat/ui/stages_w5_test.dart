@@ -361,4 +361,45 @@ void main() {
       expect(find.text('list_repos'), findsOneWidget);
     },
   );
+
+  testWidgets(
+    'MCP: failed activity keeps the side stage human and leaves raw transport detail to the card',
+    (tester) async {
+      final repo = _repo();
+      await tester.pumpWidget(_host(repo));
+      await tester.pump();
+      repo.emitFrame(
+        _conv,
+        _open('tc_fail', 'mcp__edge175__crash_with_stderr'),
+      );
+      repo.emitFrame(_conv, _delta('tc_fail', '{}'));
+      await _stageFrames(tester);
+      repo.emitFrame(_conv, _close('tc_fail', '{}'));
+      repo.emitFrame(_conv, _resultOpen('tr_fail', 'tc_fail'));
+      repo.emitFrame(
+        _conv,
+        const StreamEnvelope(
+          seq: 3,
+          scope: _scope,
+          id: 'tr_fail',
+          frame: FrameClose(
+            status: 'error',
+            error: 'mcp tool call failed (reason=calling "tools/call": EOF)',
+            result: StreamNode(
+              type: 'tool_result',
+              content: {
+                'content':
+                    'mcp tool call failed (reason=calling "tools/call": EOF)',
+              },
+            ),
+          ),
+        ),
+      );
+      await tester.pump(const Duration(milliseconds: 600));
+
+      expect(find.text('MCP 工具没有返回结果'), findsOneWidget);
+      expect(find.text('服务器在执行过程中断开了连接。请检查 MCP 服务器状态后重试。'), findsOneWidget);
+      expect(find.textContaining('calling "tools/call"'), findsNothing);
+    },
+  );
 }

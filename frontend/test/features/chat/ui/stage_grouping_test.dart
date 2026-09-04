@@ -36,6 +36,7 @@ FixtureChatRepository _repo() => FixtureChatRepository(
 Widget _host(
   FixtureChatRepository repo, {
   bool reduced = false,
+  DateTime Function()? clock,
 }) => ProviderScope(
   overrides: [chatRepositoryProvider.overrideWithValue(repo)],
   child: TranslationProvider(
@@ -47,7 +48,7 @@ Widget _host(
             body: SizedBox(
               width: 340,
               height: 680,
-              child: StagePanel(conversationId: _conv),
+              child: StagePanel(conversationId: _conv, clock: clock),
             ),
           );
           // reduced → the fold reveal collapses instantly (AnExpandReveal double-gate). reduced=即时。
@@ -231,6 +232,48 @@ void main() {
       expect(find.byType(AnRow), findsNWidgets(3));
       expect(find.text('sync_inventory'), findsOneWidget);
     });
+
+    testWidgets(
+      'passive minute tick merges tiers without dropping rows or jumping',
+      (tester) async {
+        var now = DateTime.now();
+        final repo = _repo();
+        repo.touchpoints[_conv] = [
+          _tp(
+            't1',
+            'function',
+            'fn_a',
+            'sync_inventory',
+            TouchpointVerb.edited,
+            const Duration(minutes: 9),
+          ),
+          _tp(
+            't2',
+            'function',
+            'fn_b',
+            'reconcile',
+            TouchpointVerb.executed,
+            const Duration(minutes: 11),
+          ),
+        ];
+        await tester.pumpWidget(_host(repo, clock: () => now));
+        await _hydrate(tester);
+
+        expect(find.text(t.chat.stage.groupJustNow), findsOneWidget);
+        expect(find.text(t.chat.stage.groupEarlierToday), findsOneWidget);
+        expect(find.text('sync_inventory'), findsOneWidget);
+        expect(find.text('reconcile'), findsOneWidget);
+
+        now = now.add(const Duration(minutes: 2));
+        await tester.pump(const Duration(minutes: 1, seconds: 1));
+        await tester.pump(AnMotion.mid);
+
+        expect(find.text(t.chat.stage.groupJustNow), findsNothing);
+        expect(find.text(t.chat.stage.groupEarlierToday), findsNothing);
+        expect(find.text('sync_inventory'), findsOneWidget);
+        expect(find.text('reconcile'), findsOneWidget);
+      },
+    );
 
     testWidgets(
       'tapping a tier head folds its rows away (the other tier is untouched)',

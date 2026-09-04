@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
@@ -158,6 +159,71 @@ func TestSpeechHandlerWithoutManagedCredentialIsHonestAbsence(t *testing.T) {
 	}
 }
 
+func TestSpeechHandlerSendsClosedSetHandshakeErrorOverWebSocket(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"code":"QUOTA_EXHAUSTED","message":"provider prose must never reach the user"}}`))
+	}))
+	defer upstream.Close()
+
+	svc := speechapp.New(speechTestKeys{
+		rows:  []*apikeydomain.APIKey{{ID: "aki_1", Provider: "anselm"}},
+		creds: apikeydomain.Credentials{Provider: "anselm", Key: "ins_1", BaseURL: upstream.URL + "/v1"},
+	})
+	h := NewSpeechHandler(svc, &fakeProofHeaders{}, zap.NewNop())
+	downstream := httptest.NewServer(http.HandlerFunc(h.ASR))
+	defer downstream.Close()
+
+	conn, _, err := websocket.DefaultDialer.Dial(strings.Replace(downstream.URL, "http://", "ws://", 1), nil)
+	if err != nil {
+		t.Fatalf("dial downstream: %v", err)
+	}
+	defer func() { _ = conn.Close() }()
+
+	_, payload, err := conn.ReadMessage()
+	if err != nil {
+		t.Fatalf("read handshake error: %v", err)
+	}
+	var event struct {
+		Type string `json:"type"`
+		Code string `json:"code"`
+	}
+	if err := json.Unmarshal(payload, &event); err != nil {
+		t.Fatalf("handshake error is not JSON: %v", err)
+	}
+	if event.Type != "error" || event.Code != "SPEECH_QUOTA_EXHAUSTED" {
+		t.Fatalf("handshake error = %s", payload)
+	}
+	if _, _, err := conn.ReadMessage(); err == nil {
+		t.Fatal("expected the handshake-error socket to close")
+	}
+}
+
+func TestSpeechHandlerKeepsHandshakeRefusalAsHTTPForNonWebSocket(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		w.WriteHeader(http.StatusUnauthorized)
+		_, _ = w.Write([]byte(`{"error":{"code":"QUOTA_EXHAUSTED","message":"provider prose"}}`))
+	}))
+	defer upstream.Close()
+
+	svc := speechapp.New(speechTestKeys{
+		rows:  []*apikeydomain.APIKey{{ID: "aki_1", Provider: "anselm"}},
+		creds: apikeydomain.Credentials{Provider: "anselm", Key: "ins_1", BaseURL: upstream.URL + "/v1"},
+	})
+	h := NewSpeechHandler(svc, &fakeProofHeaders{}, zap.NewNop())
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/speech/asr", nil)
+	recorder := httptest.NewRecorder()
+	h.ASR(recorder, req)
+	if recorder.Code != http.StatusTooManyRequests {
+		t.Fatalf("status = %d, want 429; body=%s", recorder.Code, recorder.Body.String())
+	}
+	if !strings.Contains(recorder.Body.String(), `"code":"SPEECH_QUOTA_EXHAUSTED"`) || strings.Contains(recorder.Body.String(), "provider prose") {
+		t.Fatalf("HTTP refusal leaked or lost closed-set code: %s", recorder.Body.String())
+	}
+}
+
 func TestSpeechHandlerRelaysGatewayErrorsVerbatim(t *testing.T) {
 	upgrader := websocket.Upgrader{}
 	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -298,5 +364,86 @@ func TestValidSpeechControl_AllowsKnownControlsOnly(t *testing.T) {
 		if validSpeechControl(raw) {
 			t.Fatalf("control %s should be rejected", raw)
 		}
+	}
+}
+
+func TestSpeechHandlerRejectsOutOfBoundsClientFramesBeforeUpstream(t *testing.T) {
+	tests := []struct {
+		name    string
+		message int
+		payload []byte
+		want    string
+	}{
+		{
+			name:    "oversized audio",
+			message: websocket.BinaryMessage,
+			payload: bytes.Repeat([]byte{0x7f}, speechMaxFrameBytes+1),
+			want:    "SPEECH_AUDIO_FRAME_INVALID",
+		},
+		{
+			name:    "unknown control",
+			message: websocket.TextMessage,
+			payload: []byte(`{"type":"pause"}`),
+			want:    "SPEECH_CONTROL_INVALID",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			upstreamSawData := make(chan struct{}, 1)
+			upgrader := websocket.Upgrader{}
+			upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				conn, err := upgrader.Upgrade(w, r, nil)
+				if err != nil {
+					t.Errorf("upgrade upstream: %v", err)
+					return
+				}
+				defer func() { _ = conn.Close() }()
+				if mt, _, err := conn.ReadMessage(); err == nil && (mt == websocket.BinaryMessage || mt == websocket.TextMessage) {
+					select {
+					case upstreamSawData <- struct{}{}:
+					default:
+					}
+				}
+			}))
+			defer upstream.Close()
+
+			svc := speechapp.New(speechTestKeys{
+				rows:  []*apikeydomain.APIKey{{ID: "aki_1", Provider: "anselm"}},
+				creds: apikeydomain.Credentials{Provider: "anselm", Key: "ins_1", BaseURL: upstream.URL + "/v1"},
+			})
+			h := NewSpeechHandler(svc, &fakeProofHeaders{}, zap.NewNop())
+			downstream := httptest.NewServer(http.HandlerFunc(h.ASR))
+			defer downstream.Close()
+
+			conn, _, err := websocket.DefaultDialer.Dial(strings.Replace(downstream.URL, "http://", "ws://", 1), nil)
+			if err != nil {
+				t.Fatalf("dial downstream: %v", err)
+			}
+			defer func() { _ = conn.Close() }()
+			if err := conn.WriteMessage(tt.message, tt.payload); err != nil {
+				t.Fatalf("write invalid frame: %v", err)
+			}
+
+			_, payload, err := conn.ReadMessage()
+			if err != nil {
+				t.Fatalf("read typed frame: %v", err)
+			}
+			var event struct {
+				Type string `json:"type"`
+				Code string `json:"code"`
+			}
+			if err := json.Unmarshal(payload, &event); err != nil {
+				t.Fatalf("typed frame is not JSON: %v", err)
+			}
+			if event.Type != "error" || event.Code != tt.want {
+				t.Fatalf("typed frame = %s, want %s", payload, tt.want)
+			}
+			select {
+			case <-upstreamSawData:
+				t.Fatal("invalid client frame was forwarded upstream")
+			case <-time.After(100 * time.Millisecond):
+			}
+		})
 	}
 }

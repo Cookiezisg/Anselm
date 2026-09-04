@@ -173,12 +173,28 @@ func (s *Service) Kill(ctx context.Context, id string) (int, error) {
 }
 
 // MarkInactiveIfDrained flips a draining workflow to inactive — the scheduler's drain reconcile
-// (called when a draining workflow's last in-flight run settles). Conditional + idempotent in the store.
+// (called when a draining workflow's last in-flight run settles). The conditional store update
+// reports whether this call won the transition; only the winner publishes the durable lifecycle
+// signal, so concurrent/idempotent reconciles cannot duplicate the event.
 //
 // MarkInactiveIfDrained 把 draining 的 workflow 翻 inactive——调度器的排空 reconcile（draining workflow 最后
-// 一个在途 run 结算时调）。store 层条件 + 幂等。
+// 一个在途 run 结算时调）。store 层条件 + 幂等；只有真正抢到条件更新的调用才发布 durable 生命周期帧，
+// 避免并发 / 重复 reconcile 重复发事件。
 func (s *Service) MarkInactiveIfDrained(ctx context.Context, workflowID string) error {
-	return s.repo.MarkInactiveIfDraining(ctx, workflowID)
+	changed, err := s.repo.MarkInactiveIfDraining(ctx, workflowID)
+	if err != nil {
+		return err
+	}
+	if !changed {
+		return nil
+	}
+	w, _ := s.repo.GetWorkflow(ctx, workflowID)
+	s.publish(ctx, "lifecycle_changed", workflowID, map[string]any{
+		"lifecycleState": workflowdomain.LifecycleInactive,
+		"active":         false,
+		"name":           nameOfWorkflow(w),
+	})
+	return nil
 }
 
 // ReattachActive re-engages the trigger listener for every active workflow — called at boot, because

@@ -370,31 +370,39 @@ class _EntityRailState extends ConsumerState<EntityRail> {
     var title = t.entities.rail.deleteTitle;
     var message = t.entities.rail.deleteBody(name: name);
 
+    // Read the dependency snapshot immediately before every irreversible delete. A stale or generic
+    // warning makes an otherwise valid delete feel unsafe, especially when one entity is mounted by
+    // several agents/workflows. 删除前现读所有实体的依赖快照;过期或泛化提示会掩盖真实影响范围。
+    final EntityRelGraph graph;
+    try {
+      graph = await _repo.getRelGraph();
+    } catch (error) {
+      _noticeFail(error);
+      return;
+    }
+    final dependents = <String>{
+      for (final edge in graph.edges)
+        if (edge.toKind == kind.scopeKind &&
+            edge.toId == row.id &&
+            (edge.kind == 'equip' || edge.kind == 'link'))
+          (edge.fromName.trim().isEmpty ? edge.fromId : edge.fromName.trim()),
+    }.where((value) => value.isNotEmpty).toList();
+    const maxNames = 3;
+    final shownNames = dependents.take(maxNames).toList();
+    final remaining = dependents.length - shownNames.length;
+    final dependentSummary = [
+      ...shownNames,
+      if (remaining > 0) '+$remaining',
+    ].join(', ');
+
+    if (dependents.isNotEmpty && kind != EntityKind.trigger) {
+      message = t.entities.rail.deleteBodyWithDependents(
+        name: name,
+        dependents: dependentSummary,
+      );
+    }
+
     if (kind == EntityKind.trigger) {
-      // A trigger delete also stops its source listener and can strand workflows. Read the
-      // dependency snapshot immediately before the irreversible action so the warning is current.
-      // 触发器删除还会停止源监听并让工作流悬空。不可逆动作前现读关系快照,避免警告过期。
-      final EntityRelGraph graph;
-      try {
-        graph = await _repo.getRelGraph();
-      } catch (error) {
-        _noticeFail(error);
-        return;
-      }
-      final dependents = <String>{
-        for (final edge in graph.edges)
-          if (edge.toKind == kind.scopeKind &&
-              edge.toId == row.id &&
-              (edge.kind == 'equip' || edge.kind == 'link'))
-            (edge.fromName.trim().isEmpty ? edge.fromId : edge.fromName.trim()),
-      }.where((value) => value.isNotEmpty).toList();
-      const maxNames = 3;
-      final shownNames = dependents.take(maxNames).toList();
-      final remaining = dependents.length - shownNames.length;
-      final dependentSummary = [
-        ...shownNames,
-        if (remaining > 0) '+$remaining',
-      ].join(', ');
       title = t.entities.rail.deleteTriggerTitle;
       message = dependents.isNotEmpty
           ? t.entities.rail.deleteTriggerBodyWithDependents(

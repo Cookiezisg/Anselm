@@ -422,6 +422,35 @@ func TestRetryTargets_PicksTheCurrentTailOnly(t *testing.T) {
 	}
 }
 
+// TestRetryTargets_IgnoresSyntheticMarkers prevents compaction/workdir timeline rows from being
+// mistaken for the last answer. Those rows deliberately use the assistant role but have no answer
+// content, so a retry must supersede the preceding real assistant instead.
+//
+// TestRetryTargets_IgnoresSyntheticMarkers 防止压缩/驻地时间线行被误当成最后回答。它们刻意使用 assistant
+// role 但没有回答内容，故 retry 必须取代之前真实的 assistant。
+func TestRetryTargets_IgnoresSyntheticMarkers(t *testing.T) {
+	msg := func(id, role string, blocks ...messagesdomain.Block) *messagesdomain.Message {
+		return &messagesdomain.Message{ID: id, Role: role, Status: messagesdomain.StatusCompleted, Blocks: blocks}
+	}
+	thread := []*messagesdomain.Message{
+		msg("u1", messagesdomain.RoleUser, messagesdomain.Block{Type: messagesdomain.BlockTypeText, Content: "question"}),
+		msg("a1", messagesdomain.RoleAssistant, messagesdomain.Block{Type: messagesdomain.BlockTypeText, Content: "answer"}),
+		msg("compact", messagesdomain.RoleAssistant, messagesdomain.Block{Type: messagesdomain.BlockTypeCompaction, Content: "folded"}),
+		msg("workdir", messagesdomain.RoleAssistant, messagesdomain.Block{Type: messagesdomain.BlockTypeMarker}),
+	}
+
+	user, asst, err := retryTargets(thread)
+	if err != nil {
+		t.Fatalf("retryTargets: %v", err)
+	}
+	if user == nil || user.ID != "u1" {
+		t.Errorf("user target = %+v, want u1", user)
+	}
+	if asst == nil || asst.ID != "a1" {
+		t.Errorf("synthetic marker must not become retry target, got %+v", asst)
+	}
+}
+
 // TestRetry_CloseSnapshotCarriesTheVersionPointer — the version pointer must survive the turn's END on
 // the WIRE, not only in the store (WRK-083 L6).
 //

@@ -5,6 +5,8 @@ import (
 	"encoding/binary"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
+	"strings"
 	"testing"
 )
 
@@ -41,12 +43,62 @@ func TestInjectedFailureQuotaVariantsUseGatewayContracts(t *testing.T) {
 		t.Fatalf("quota HTTP body = %s", body)
 	}
 
+	status, contentType, body = injectedFailure("quota-http", http.StatusTooManyRequests)
+	if status != http.StatusTooManyRequests || contentType != "application/json" {
+		t.Fatalf("rate-limit HTTP failure = %d/%q, want 429/application/json", status, contentType)
+	}
+	if string(body) != `{"error":{"code":"RATE_LIMITED","message":"temporarily rate limited; please retry"}}` {
+		t.Fatalf("rate-limit HTTP body = %s", body)
+	}
+
 	status, contentType, body = injectedFailure("quota-stream", http.StatusServiceUnavailable)
 	if status != http.StatusOK || contentType != "text/event-stream" {
 		t.Fatalf("quota stream failure = %d/%q, want 200/text/event-stream", status, contentType)
 	}
 	if string(body) != "data: {\"error\":{\"code\":\"BUDGET_EXHAUSTED\",\"message\":\"monthly gateway budget exhausted\"}}\n\n" {
 		t.Fatalf("quota stream body = %s", body)
+	}
+}
+
+func TestSpeechHandshakeFailureUsesClosedSetGatewayCode(t *testing.T) {
+	status, contentType, body := injectedFailure("speech-handshake", http.StatusUnauthorized)
+	if status != http.StatusUnauthorized || contentType != "application/json" {
+		t.Fatalf("speech handshake failure = %d/%q, want 401/application/json", status, contentType)
+	}
+	if string(body) != `{"error":{"code":"QUOTA_EXHAUSTED","message":"fixture upstream prose: monthly speech allowance exhausted"}}` {
+		t.Fatalf("speech handshake body = %s", body)
+	}
+}
+
+func TestIsWebSocketUpgradeRequiresUpgradeToken(t *testing.T) {
+	request := httptest.NewRequest(http.MethodGet, "http://127.0.0.1/v1/speech/asr", nil)
+	request.Header.Set("Upgrade", "websocket")
+	request.Header.Set("Connection", "keep-alive")
+	if isWebSocketUpgrade(request) {
+		t.Fatal("keep-alive must not count as a WebSocket upgrade")
+	}
+	request.Header.Set("Connection", "keep-alive, Upgrade")
+	if !isWebSocketUpgrade(request) {
+		t.Fatal("upgrade token should be recognized case-insensitively")
+	}
+	request.Header.Set("Connection", strings.ToUpper("upgrade"))
+	if !isWebSocketUpgrade(request) {
+		t.Fatal("single upgrade token should be recognized")
+	}
+}
+
+func TestSpeechUpstreamURLUsesWebSocketAndPreservesQuery(t *testing.T) {
+	base, err := url.Parse("https://api.example.test/base")
+	if err != nil {
+		t.Fatal(err)
+	}
+	request, err := url.Parse("/v1/speech/asr?language=zh")
+	if err != nil {
+		t.Fatal(err)
+	}
+	got := speechUpstreamURL(base, request)
+	if got.String() != "wss://api.example.test/base/v1/speech/asr?language=zh" {
+		t.Fatalf("speech upstream URL = %s", got)
 	}
 }
 

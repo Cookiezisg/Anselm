@@ -10,6 +10,355 @@ audience: [human, ai]
 landed-into:
 ---
 
+## 2026-09-05 · EDGE-293 stop-and-fix：删除确认补齐依赖影响说明
+
+真实 App 复核 `EDGE-293|删被依赖实体` 时，首轮删除前确认框只显示“从当前目录移除、不可撤销”，没有告诉用户函数正被三个 Agent 挂载；这是产品安全与可发现性缺陷，冻结前线而不是直接判绿。修复 `frontend/lib/features/entities/ui/entity_rail.dart`：所有实体删除确认前现读 `GET /api/v1/relgraph`，对入向 `equip/link` 最多显示三个使用者并汇总剩余数量；Trigger 继续保留停止 listener 的专用说明。同步补双语 i18n、实体功能文档和 widget 回归测试。
+
+修复后的新构建真实 App 在隔离夹具中显示：`“edge293_ui_fix_fn” is used by edge293_ui_agent_c, edge293_ui_agent_b, edge293_ui_agent_a. Deleting it will leave those entities needing repair. This can't be undone.`；AX 文本与录屏一致，确认随后取消，未重复执行破坏性删除。正式修复证据=`testend/rig/formal-evidence/EDGE-293-dependency-confirmation-fix-real-app-20260905.md`，session=`/private/tmp/anselm-rig-formal-20260903-53d/sessions/20260905-000513`。`mise exec -- flutter test test/features/entities/ui/entity_rail_test.dart`=`33/33`，`make gen` 与 Dart format 均通过；session 的固定 AXTree bridge tooling 噪声按台架规则写入专属 `evidence/frontend-ax-review.md`，无 Dart/Flutter/布局红线。
+
+本次只验证修复面，不更新 Edge-293 的 COVERAGE 判决、队列或批次计数；当前仍为 `4173/4240` 格、`67` 格开放、批次 90=`33/50`，不跑统一长门禁、不提交下一验收格。
+
+## 2026-09-03 · EDGE-250 workspace 删除级联 L5 收口；批次 90 为 33/50
+
+真实 App 在 Workspaces → Edit 中对 `edge-250-real-ui` 执行精确名称删除。该 workspace 预先包含对话、文档、Skill、四实体、MCP 与 workflow；删除确认页显示真实盘点并要求输入完整名称，确认后名册只保留 `演示工作台`。同一正式 session 的 API、SQLite、文件树、搜索和三路 SSE 对账确认：被删 workspace 单读 `404 WORKSPACE_NOT_FOUND`，workspace header 在鉴权门拒绝，文件树和 search index 清理，workflow 收口 `inactive`，无运行中 flowrun、无应用日志红线；D1 规定的业务实体/日志软删墓碑保留，不作为物理清库缺陷。
+
+正式裁决=`EDGE|workspace 删除级联|L2=pass(F1)`、`L3=pass(B2)`、`L4=pass(C4)`、`L5=pass(G1)`，证据=`/private/tmp/anselm-rig-formal-20260903-52/sessions/20260903-021645/evidence/EDGE-250-workspace-cascade-delete-fixed-real-app-20260903.md`。`rig-check.sh` 与 `rig-down.sh` 五通道收台通过，录屏 `823.803333s`；每格写账后的 `alarms.py check` 均 clean，`gen_coverage.py --check` 均为 `848 rows, 848 carried judgments, 0 tombstones`。
+
+清册由 `4169/4240` 推进至 `4173/4240`，开放单元由 `71` 降至 `67`，批次 90 由 `29/50` 推进至 `33/50`；该项已从 `manual_queue` 与 `forced_queue` 幂等移除，`manual_queue=165`、`forced_queue=19`。未满 50 格不跑统一长门禁、不提交。顺序门下一内部人工前线为 `EDGE|删被依赖实体`。
+
+## 2026-09-03 · EDGE-251 删最后一个 workspace L5 收口；批次 90 为 29/50
+
+真实 App 的 Workspaces 编辑页没有最后一个 workspace 的删除入口，用户无需理解系统保护实现即可继续编辑或离开；删除契约对同一实体返回
+`422 CANNOT_DELETE_LAST_WORKSPACE`，没有产生误导性的成功反馈或不可逆操作。最终录屏帧、五通道证据与 REST/SQLite 对证支持该边界，正式裁决=
+`EDGE|删最后一个 workspace|L5=pass(G1)`，与 L2=`F1`、L3=`B2`、L4=`C4` 共同完成该行五级结算，证据=
+`/private/tmp/anselm-rig-formal-20260903-51/sessions/20260903-020722/evidence/EDGE-251-last-workspace-delete-fixed-real-app-20260903.md`。
+清册由 `4168/4240` 推进至 `4169/4240`，开放单元降至 `71`，批次 90 由 `28/50` 推进至 `29/50`；该项已从 `manual_queue` 与 `forced_queue` 幂等移除，
+`alarms.py check` clean，未满 50 格不跑统一长门禁、不提交。顺序门下一内部人工前线为 `EDGE|workspace 删除级联`。
+
+## 2026-09-03 · EDGE-251 删最后一个 workspace L4 收口；批次 90 为 28/50
+
+录屏最终稳定帧确认 Workspaces 编辑页的产品边界表达干净：没有灰掉的假删除按钮，没有越界或裁切，名称、颜色色板、Save 与 Current 的层级稳定，
+直接拒绝删除后的状态仍可理解；未观察到闪烁、空白主区、残留 loading 或不解释的几何跳变。正式裁决=`EDGE|删最后一个 workspace|L4=pass(C4)`，
+证据=`/private/tmp/anselm-rig-formal-20260903-51/sessions/20260903-020722/evidence/EDGE-251-last-workspace-delete-fixed-real-app-20260903.md`。
+清册由 `4167/4240` 推进至 `4168/4240`，开放单元降至 `72`，批次 90 由 `27/50` 推进至 `28/50`；`alarms.py check` clean，未满 50 格不跑统一长门禁、不提交。
+L5 仍开放，当前前线仍为 `EDGE|删最后一个 workspace`。
+
+## 2026-09-03 · EDGE-251 删最后一个 workspace L3 收口；批次 90 为 27/50
+
+同一正式真实 App session 的录屏与五通道证据确认：最后 workspace 的删除保护在用户可见路径上没有等待黑洞或错误态；编辑页保持稳定，直接拒绝
+请求后页面仍停留在可编辑的实体状态，名册没有短暂清空、重复行、spinner 或视口跳变。正式裁决=`EDGE|删最后一个 workspace|L3=pass(B2)`，
+证据=`/private/tmp/anselm-rig-formal-20260903-51/sessions/20260903-020722/evidence/EDGE-251-last-workspace-delete-fixed-real-app-20260903.md`。
+清册由 `4166/4240` 推进至 `4167/4240`，开放单元降至 `73`，批次 90 由 `26/50` 推进至 `27/50`；`alarms.py check` clean，未满 50 格不跑统一长门禁、不提交。
+L4-L5 仍开放，当前前线仍为 `EDGE|删最后一个 workspace`。
+
+## 2026-09-03 · EDGE-251 删最后一个 workspace L2 收口；批次 90 为 26/50
+
+真实 App 的 Settings → Workspaces → Edit 页面只提供名称、颜色与 Save，没有给最后一个 workspace 暴露删除入口；对同一实体直接调用
+删除契约得到 `422 CANNOT_DELETE_LAST_WORKSPACE`，workspace 名册和实体状态均保持原样。录屏最终帧、backend journal、三路 SSE、frontend
+console、LLM tap 和 REST/SQLite 对证均来自同一正式 session，App 无应用红线，仪器收台无残留。正式裁决=`EDGE|删最后一个 workspace|L2=pass(F1)`，
+证据=`/private/tmp/anselm-rig-formal-20260903-51/sessions/20260903-020722/evidence/EDGE-251-last-workspace-delete-fixed-real-app-20260903.md`。
+清册由 `4165/4240` 推进至 `4166/4240`，开放单元降至 `74`，批次 90 由 `25/50` 推进至 `26/50`；`alarms.py check` clean，未满 50 格不跑统一长门禁、不提交。
+L3-L5 仍开放，当前前线仍为 `EDGE|删最后一个 workspace`。
+
+## 2026-09-03 · EDGE-269 驻地分组批量删除范围 L5 收口；批次 90 为 25/50
+
+真实 App 的普通 Chat rail 路径完整可发现：驻地组的 `More actions` 菜单提供 `Delete all conversations`，确认框明确 2 条对话、
+永久移除、磁盘不删与置顶保留；用户不需要知道 conversation id、REST、SQLite 或内部工具名。正式裁决=`EDGE|驻地分组批量删除范围|L5=pass(G1)`，
+与 L2=`F1`、L3=`B2`、L4=`C4` 共同完成该行五级结算，证据=`/private/tmp/anselm-rig-formal-20260903-50/sessions/20260903-015102/evidence/EDGE-269-workdir-delete-scope-fixed-real-app-20260903.md`。
+清册由 `4164/4240` 推进至 `4165/4240`，开放单元降至 `75`，批次 90 由 `24/50` 推进至 `25/50`；`alarms.py check` clean，
+未满 50 格不跑统一长门禁、不提交。该项已从 `manual_queue` 与 `forced_queue` 幂等移除，顺序门下一内部人工前线为
+`EDGE|删最后一个 workspace`。
+
+## 2026-09-03 · EDGE-269 驻地分组批量删除范围 L4 收口；批次 90 为 24/50
+
+录屏稳定帧确认危险操作的菜单与确认框保持清楚的层级：`Delete all conversations` 使用危险色，确认框将 2 条对话、永久移除、
+磁盘不动与 pinned 例外分层说明，背景压暗和间距稳定；最终只保留 pinned survivor，没有空组标题、重复行、残留 spinner 或
+未解释的布局跳变。正式裁决=`EDGE|驻地分组批量删除范围|L4=pass(C4)`，证据=`/private/tmp/anselm-rig-formal-20260903-50/sessions/20260903-015102/evidence/EDGE-269-workdir-delete-scope-fixed-real-app-20260903.md`。
+清册由 `4163/4240` 推进至 `4164/4240`，开放单元降至 `76`，批次 90 由 `23/50` 推进至 `24/50`；`alarms.py check` clean，
+未满 50 格不跑统一长门禁、不提交。L5 仍开放，当前前线仍为 `EDGE|驻地分组批量删除范围`。
+
+## 2026-09-03 · EDGE-269 驻地分组批量删除范围 L3 收口；批次 90 为 23/50
+
+同一真实 App 现场的录屏与五通道证据确认：确认框在等待用户决定期间保持稳定，点击后只发生一次连贯的模态退出、目标组
+收敛与 pinned survivor 保留；没有内容跳动、旧组残留、空白主区或 spinner。正式裁决=`EDGE|驻地分组批量删除范围|L3=pass(B2)`，
+证据=`/private/tmp/anselm-rig-formal-20260903-50/sessions/20260903-015102/evidence/EDGE-269-workdir-delete-scope-fixed-real-app-20260903.md`。
+清册由 `4162/4240` 推进至 `4163/4240`，开放单元降至 `77`，批次 90 由 `22/50` 推进至 `23/50`；`alarms.py check` clean，
+未满 50 格不跑统一长门禁、不提交。L4-L5 仍开放，当前前线仍为 `EDGE|驻地分组批量删除范围`。
+
+## 2026-09-03 · EDGE-269 驻地分组批量删除范围 L2 收口；批次 90 为 22/50
+
+真实 App 中用一个驻地组构造 1 条活跃、1 条已归档的非置顶对话，以及 1 条活跃、1 条已归档的置顶对话。驻地菜单与确认框
+显示完整范围后执行删除：两条非置顶对话均软删，置顶两条存活；驻地组消失，消息/blocks 没有被物理删除，工作目录和 Git
+状态完全不变。SSE 只收到两条目标 `conversation.deleted` durable 帧，backend/frontend 无应用红线，LLM bootstrap wiring
+通过。正式裁决=`EDGE|驻地分组批量删除范围|L2=pass(F1)`，证据=`/private/tmp/anselm-rig-formal-20260903-50/sessions/20260903-015102/evidence/EDGE-269-workdir-delete-scope-fixed-real-app-20260903.md`。
+清册由 `4161/4240` 推进至 `4162/4240`，开放单元降至 `78`，批次 90 由 `21/50` 推进至 `22/50`；`alarms.py check` clean，
+未满 50 格不跑统一长门禁、不提交。L3-L5 仍开放，当前前线仍为 `EDGE|驻地分组批量删除范围`。
+
+## 2026-09-03 · EDGE-284 skill 清单拒删 L5 收口；批次 90 为 21/50
+
+修复后的真实 App 稳态继续确认 `Files 1` 与独立 `Bindings` 的语义分区，`More actions` 没有误导性删除入口；用户无需
+知道 manifest 的保护实现即可从文件计数和菜单形态理解当前边界。正式裁决=`EDGE|skill 清单拒删|L5=pass(G1)`，与
+L2=`F1`、L3=`na`、L4=`C4` 共同完成该行五级结算，证据=`/private/tmp/anselm-rig-formal-20260903-49/sessions/20260903-013934/evidence/EDGE-284-skill-manifest-delete-fixed-real-app-20260903.md`。
+清册由 `4160/4240` 推进至 `4161/4240`，开放单元降至 `79`，批次 90 由 `20/50` 推进至 `21/50`；`alarms.py check`
+clean，未满 50 格不跑统一长门禁、不提交。该项已从 `manual_queue` 与 `forced_queue` 幂等移除，顺序门下一内部人工前线为
+`EDGE|驻地分组批量删除范围`。
+
+## 2026-09-03 · EDGE-284 skill 清单拒删 L2 收口；批次 90 为 18/50
+
+第一场真实 App 现场发现 `Files 2` 将 binding 混入文件计数，按 stop-and-fix 停止并修复为 `files.length`，新增
+Inspector 回归测试。修复后的第二场 session=`/private/tmp/anselm-rig-formal-20260903-49/sessions/20260903-013934`：
+真实 App 与 AX 均显示 `Files 1`、独立 `Bindings`，`More actions` 和 `SKILL.md` 行没有删除入口；第二客户端删除
+manifest 返回 `400 SKILL_FILE_PATH_INVALID`，前后文件列表和 manifest readback 一致。正式裁决=
+`EDGE|skill 清单拒删|L2=pass(F1)`，证据=`/private/tmp/anselm-rig-formal-20260903-49/sessions/20260903-013934/evidence/EDGE-284-skill-manifest-delete-fixed-real-app-20260903.md`。
+五通道 `rig-check`/`rig-down` 通过，backend/frontend 无应用红线，SSE 三流已连接且无伪造 mutation frame，managed
+LLM bootstrap 为 `200`。清册由 `4157/4240` 推进至 `4158/4240`，开放单元降至 `82`，批次 90 由 `17/50` 推进至
+`18/50`；`alarms.py check` clean，未满 50 格不跑统一长门禁、不提交。L3=`na`、L4/L5 待结算，当前前线仍为
+`EDGE|skill 清单拒删`。
+
+## 2026-09-03 · EDGE-284 skill 清单拒删 L4 收口；批次 90 为 20/50
+
+修复后的真实录屏稳态确认 `Files 1` 与独立 `Bindings` 语义一致，`SKILL.md` 行和 More actions 均没有误导性删除入口、
+裁切或布局跳变。正式裁决=`EDGE|skill 清单拒删|L4=pass(C4)`，证据=`/private/tmp/anselm-rig-formal-20260903-49/sessions/20260903-013934/evidence/EDGE-284-skill-manifest-delete-fixed-real-app-20260903.md`。
+清册由 `4159/4240` 推进至 `4160/4240`，开放单元降至 `80`，批次 90 由 `19/50` 推进至 `20/50`；`alarms.py check` clean，
+未满 50 格不跑统一长门禁、不提交。L5 仍开放，当前前线仍为 `EDGE|skill 清单拒删`。
+
+## 2026-09-03 · EDGE-284 skill 清单拒删 L3 结算为不适用；批次 90 为 19/50
+
+受保护的 `SKILL.md` 没有用户可执行的删除动作，因此不存在可独立测量的交互时延、等待反馈或动效；whole-skill
+删除入口的时延由对应 skill 删除旅程覆盖。正式裁决=`EDGE|skill 清单拒删|L3=na`，理由已写入 `judge.py` note；
+L2=`F1` 已完成，L4/L5 仍开放。清册由 `4158/4240` 推进至 `4159/4240`，开放单元降至 `81`，批次 90 由 `18/50`
+推进至 `19/50`；`alarms.py check` clean，未满 50 格不跑统一长门禁、不提交。当前前线仍为
+`EDGE|skill 清单拒删`。
+
+## 2026-09-03 · EDGE-280 agent 知识文档被删 L5 收口；批次 90 为 17/50
+
+真实 App 的最终稳定态显示完整 `This page was deleted`，不再暴露半句；用户无需知道挂载实现即可看到 Agent 的
+`1 unhealthy` 与具体 `knowledge document does not exist`。正式裁决=`EDGE|agent 知识文档被删|L5=pass(G1)`，与
+L2=`F1`、L3=`B2`、L4=`C4` 共同完成该行五级结算。清册由 `4156/4240` 推进至 `4157/4240`，开放单元降至 `83`，
+批次 90 由 `16/50` 推进至 `17/50`；该项已从 `manual_queue` 与 `forced_queue` 幂等移除，顺序门下一内部人工前线为
+`EDGE|skill 清单拒删`。告警检查 clean，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-280 agent 知识文档被删 L4 收口；批次 90 为 16/50
+
+录屏稳态帧确认通知胶囊沿用 36px 冠部、圆点与关闭 X 的既有几何，完整删除句无省略号、遮挡或半句残留；首轮发现的
+半句展示已在复跑前修复。正式裁决=`EDGE|agent 知识文档被删|L4=pass(C4)`，清册由 `4155/4240` 推进至 `4156/4240`，
+开放单元降至 `84`，批次 90 由 `15/50` 推进至 `16/50`；告警检查 clean，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-280 agent 知识文档被删 L3 收口；批次 90 为 15/50
+
+删除后 Library 立即回到干净草稿态，通知在完成展开后以整句出现；Agent 详情刷新到稳定的 `1 unhealthy`，未见旧的可编辑
+知识页或未解释等待。正式裁决=`EDGE|agent 知识文档被删|L3=pass(B2)`，清册由 `4154/4240` 推进至 `4155/4240`，
+开放单元降至 `85`，批次 90 由 `14/50` 推进至 `15/50`；告警检查 clean，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-280 agent 知识文档被删 L2 收口；批次 90 为 14/50
+
+干净真实 App session=`/private/tmp/anselm-rig-formal-20260903-47/sessions/20260903-005403`：先创建并挂载隔离知识文档，
+确认 `mount-health allHealthy=true`，再删除文档。后端 `DELETE` 返回 `204`；SSE durable seq `18` 为 `document.deleted`、
+seq `19` 为 `relation.dependency_broken`；REST mount-health 返回 `healthy=false` 与明确缺失原因；Agent invoke 返回
+`failed`、`steps=0`、`tokensIn/tokensOut=0` 的缺失信息，未发 LLM 请求。实体页显示 `1 unhealthy`，删除提示修复后录屏和
+AX 都显示完整 `This page was deleted`。正式裁决=`EDGE|agent 知识文档被删|L2=pass(F1)`，证据=
+`/private/tmp/anselm-rig-formal-20260903-47/sessions/20260903-005403/evidence/EDGE-280-agent-knowledge-deleted-fixed-real-app-20260903.md`。
+清册由 `4153/4240` 推进至 `4154/4240`，开放单元降至 `86`，批次 90 由 `13/50` 推进至 `14/50`；未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-274 立碑线程读消息 L5 结算为不适用；批次 90 为 13/50
+
+该 edge 没有独立入口、命名或 affordance 可供新用户发现；删除操作本身的入口由 conversation delete/UI journey
+承担。正式裁决=`EDGE|立碑线程读消息|L5=na`，与 L2=`F1`、L3/L4=`na` 共同完成该行五级结算；不把隐藏消息
+深链的错误契约冒充独立 discoverability。清册由 `4152/4240` 推进至 `4153/4240`，开放单元降至 `87`，批次 90
+由 `12/50` 推进至 `13/50`；该项已从 `manual_queue` 与 `forced_queue` 幂等移除，顺序门下一内部人工前线为
+`EDGE|agent 知识文档被删`。未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-274 立碑线程读消息 L4 结算为不适用；批次 90 为 12/50
+
+该 edge 只验证删除后的隐藏消息 API 错误契约，没有独立视觉构件、几何或样式对象；删除后的空态 craft 已由
+conversation delete/UI journey 承担。正式裁决=`EDGE|立碑线程读消息|L4=na`，理由已写入 `judge.py` note，
+不重复计账；清册由 `4151/4240` 推进至 `4152/4240`，开放单元降至 `88`，批次 90 由 `11/50` 推进至 `12/50`；
+L5 仍开放，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-274 立碑线程读消息 L3 结算为不适用；批次 90 为 11/50
+
+该 edge 的核心是删除后的隐藏消息深链契约，不存在独立的反馈时序对象；列表删除反馈由对应 conversation
+delete/UI journey 负责。为避免把一次稳定空态冒充顺滑证据，正式裁决=`EDGE|立碑线程读消息|L3=na`，理由已写入
+`judge.py` note，真实现场证据仍为
+`/private/tmp/anselm-rig-formal-20260903-45/sessions/20260903-002412/evidence/EDGE-274-deleted-conversation-messages-real-app-20260903.md`。
+清册由 `4150/4240` 推进至 `4151/4240`，开放单元降至 `89`，批次 90 由 `10/50` 推进至 `11/50`；L4/L5 仍开放，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-274 立碑线程读消息 L2 收口；批次 90 为 10/50
+
+在真实 App session=`/private/tmp/anselm-rig-formal-20260903-45/sessions/20260903-002412` 中，用户删除隔离的
+`演示对话`；Recents 即时回到空态，通知流收到 `conversation.deleted`。同一已删除 id 的详情和消息深链均真实
+返回 `404 CONVERSATION_NOT_FOUND`，列表返回 `200` 且 `total-count=0`。正式裁决=`EDGE|立碑线程读消息|L2=pass(F1)`，
+证据=`/private/tmp/anselm-rig-formal-20260903-45/sessions/20260903-002412/evidence/EDGE-274-deleted-conversation-messages-real-app-20260903.md`。
+清册由 `4149/4240` 推进至 `4150/4240`，开放单元降至 `90`，批次 90 由 `9/50` 推进至 `10/50`；L3-L5 仍开放，
+不把隐藏 API 的诚实 404 自动冒充视觉 craft 或发现性通过。未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-313 编辑器 undo 全量重建 L5 收口；批次 90 为 9/50
+
+同一全新真实 App session 的最终稳定态确认：顶部 `Edit` 菜单提供标准 `Undo` 入口与 `⌘Z` 语义；无可撤销
+编辑时入口正确显示为 disabled。用户实际以物理键盘完成撤销，未把 Computer Use 修饰键桥接失败写成产品行为。
+正式裁决=`EDGE|编辑器 undo 全量重建|L5=pass(G1)`，与 L2/L3/L4 共同完成该行五级结算。清册由 `4148/4240`
+推进至 `4149/4240`，开放单元降至 `91`，批次 90 由 `8/50` 推进至 `9/50`；该项已从 `manual_queue` 与 `forced_queue`
+幂等移除，顺序门下一内部人工前线为 `EDGE-274|立碑线程读消息`。未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · EDGE-313 编辑器 undo 全量重建 L4 收口；批次 90 为 8/50
+
+在全新真实 App session=`/private/tmp/anselm-rig-formal-20260903-44/sessions/20260903-000721` 中，用户物理
+按下 `⌘Z` 后，文档正文、右侧 `25 chars / 75 B` 属性和三岛 shell 均回到基线。录屏关键帧显示编辑态只出现一次，
+撤销后无残留文本、白闪、遮挡、裁切、重排或不解释的布局跳变；五通道台架与正常收台通过。正式裁决=
+`EDGE|编辑器 undo 全量重建|L4=pass(C4)`，证据=
+`/private/tmp/anselm-rig-formal-20260903-44/sessions/20260903-000721/evidence/EDGE-313-editor-undo-rebuild-l4-l5-real-app-20260903.md`。
+清册由 `4147/4240` 推进至 `4148/4240`，开放单元降至 `92`，批次 90 由 `7/50` 推进至 `8/50`；L5 仍开放，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-02 · EDGE-329 快捷键录制后吞键 L3 收口；批次 90 为 4/50
+
+同一真实 App 五通道 session 中，用户完成 `⌘⇧8` 的再次物理触发：录制完成后焦点已交还 shell，左岛成功收起；
+录制结束态、收起态均稳定，录屏后续 17.5 秒序列的 `measure diff` 无超过阈值的静止期变化。快捷键页的行高、
+文本基线、按键帽列和录制按钮关系稳定，Settings → Shortcuts → 目标功能的入口与 `Press a new chord…` 文案
+对普通用户可发现。证据=`sessions/20260902-233750/evidence/EDGE-329-shortcut-recording-release-l3-l5-real-app-20260902.md`；
+`rig-check`/`rig-down` 通过，五通道、锚点 `10/10`、账本 gate 和 `alarms.py check` 均通过；前端仅有已知 IMK
+系统诊断行，无新的应用级错误。
+
+正式裁决=`EDGE|快捷键录制后吞键|L3=pass(B2)`、`L4=pass(C4)`、`L5=pass(G1)`。清册由 `4145/4240` 推进至 `4146/4240`，开放单元降至
+`94`，批次 90 由 `5/50` 推进至 `6/50`；`EDGE-329` 五级全部收口，顺序门进入下一内部人工前线 `EDGE-313|编辑器 undo 全量重建`，未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-03 · 清理已收口人工队列项
+
+顺序门复核发现 `EDGE-329|快捷键录制后吞键` 五级已全部收口但仍残留在 `forced_queue` 与 `manual_queue`，导致下一项被错误拒绝。
+已从两个队列幂等移除该已完成项；不改历史裁决、五级标准、五通道要求或批次计数。当前队列为
+`manual_queue=172`、`forced_queue=26`，下一内部人工前线为 `EDGE-313|编辑器 undo 全量重建`。
+
+## 2026-09-03 · EDGE-313 编辑器 undo 全量重建 L2 收口；批次 90 为 7/50
+
+复用此前已封口但因顺序门未到而尚未入账的真实 App session=`/private/tmp/anselm-rig-formal-20260902-40/sessions/20260902-232559`。
+用户在文档中追加 `EDITED` 后物理按下 `⌘Z`，正文恢复为撤销前内容，右侧属性同步回到 `25 chars / 75 B`；录屏、五通道
+台架、锚点 `10/10` 和证据文件均完整。正式裁决=`EDGE|编辑器 undo 全量重建|L2=pass(F1)`；清册由 `4146/4240`
+推进至 `4147/4240`，开放单元降至 `93`，批次 90 由 `6/50` 推进至 `7/50`。该行历史 L3=`B2` 已存在，L4/L5
+继续开放；未满 50 格不跑统一长门禁、不提交。
+
+## 2026-09-02 · EDGE-329 快捷键录制后吞键 L2 收口；批次 90 为 3/50
+
+在用户人工完成第一项快捷键录制后，真实 App 现场确认设置页已保存 `⌘⇧8`；录制态结束后，用户再次物理
+按下该组合键，左侧 island 成功收起，证明键盘控制权已归还 shell，设置行没有吞掉后续组合键。正式 session=
+`/private/tmp/anselm-rig-formal-20260902-39/sessions/20260902-230331`，录屏 `840.823333s/60fps`，前后
+稳定帧=`shortcut-before.png`/`shortcut-after.png`。backend、三路 SSE、frontend console 和 managed
+LLM tap 均归属于同一 manifest；`rig-check`/`rig-down`、锚点 `10/10`、账本 gate 和 `alarms.py check`
+均通过，应用级日志无未解释红线。
+
+正式裁决=`EDGE|快捷键录制后吞键|L2=pass(G2)`，证据=`sessions/20260902-230331/evidence/EDGE-329-shortcut-recording-release-l2-real-app-20260902.md`。
+L3-L5 继续开放，不把一次真实成功冒充持续顺滑、视觉 craft 或从零发现性。清册由 `4142/4240` 推进至
+`4143/4240`，开放单元降至 `97`，批次 90 由 `2/50` 推进至 `3/50`；未满 50 格不跑统一长门禁、不提交。
+下一内部人工前线为 `EDGE-313|编辑器 undo 全量重建`；外部网关、OAuth、断网和系统依赖继续后置。
+
+## 2026-09-02 · 内部人工项优先；顺序门改为显式 forced queue 顺序
+
+用户澄清当前先验收 Anselm 内部可以通过真实 App 点击、输入和可逆状态操作完成的人工项，不先做 Glean
+tenant、OAuth、真实网关故障、断网或其他外部/操作系统依赖。此前 `judge.py` 虽在文档中声称自主格耗尽后
+回到 forced queue 第一项，实际却取 COVERAGE 行序，无法保证该产品决策。
+
+已将 `testend/rig/ledger-sequence.json` 的 `forced_queue` 重排为内部人工项优先、外部依赖后置；已修改
+`judge.py` 在自主格耗尽后的真实选择逻辑，并增加回归测试证明 forced queue 顺序优先于 COVERAGE 行序。
+本次只改变调度，不写任何产品格裁决，不改变五级标准、五通道、法典、锚点、告警阈值或 50 格批次规则。
+当前下一内部人工前线为 `EDGE|快捷键录制后吞键`；批次 90 仍为 `2/50`，未启动统一门禁或提交。
+
+## 2026-09-02 · 合并后根门禁复核
+
+针对另一团队完成后的大批后端改动运行仓库根门禁 `make verify`：backend、frontend、docs、demo 四个子门禁
+全部通过。frontend 完成 `dart format`（1080 files，0 changed）、slang/build_runner、`flutter analyze`
+和按 macOS 安全顺序执行的四组 Flutter 测试；无新的编译、分析、测试或文档错误。该结果只证明合并后的
+基础工程健康，不替代真实 App、五通道 testend、视觉复核或 50 格统一门禁；未写 COVERAGE、未增加批次、未提交。
+
+随后运行 `make -C backend testend`，完整 `testend/scenarios` 以新构建后端通过，耗时 `366.274s`，没有黑盒
+契约回归。该 suite 使用仓库默认的受控 LLM/场景环境，不能替代真实受管网关和 Computer Use 产品验收；本次
+仍未写 COVERAGE、未增加批次、未提交。
+
+随后运行 `python3 -m unittest discover -s testend/rig -p 'test_*.py'`，台架全套 `71` 项通过，覆盖告警、scope
+隔离、清册生成、账本顺序门、屏幕录制和 channel-5 接线。该结果只证明验收仪器自身健康，不产生产品格裁决；
+当前无 testend/Flutter/backend 残留进程。
+
+随后用当前 `COVERAGE.md` 和 `ledger-sequence.json` 重新计算顺序门：所有未收口单元均属于 `forced_queue`，
+没有被错误跳过的自主格；`EDGE-168|每租户模板 URL|L2` 是唯一当前前线。该审计不改变任何裁决、队列或批次。
+
+## 2026-09-02 · EDGE-168 授权前边界复核；未写账
+
+用户重启后重新启动正式台架
+`/private/tmp/anselm-rig-formal-20260902-38/sessions/20260902-205256`。本次 `rig-check.sh` 五通道全部通过：
+真实 App、窗口录制、D1 backend、三流 SSE witness 和 managed LLM tap 均完成物理归属检查。Computer Use
+从 onboarding 创建隔离 workspace，进入 `Settings → MCP servers → com.glean/mcp`，真实呈现
+`GLEAN_MCP_URL * required`、endpoint 示例和 `Connect & authorize`；未输入 URL、未点击授权、未启动浏览器，
+没有 OAuth grant 或 MCP server 持久化。
+
+backend 的 registry/plan 请求均为 `200`，无应用级 WARN/ERROR/panic；SSE 三流均连接；frontend 只有已分类的
+macOS IMK 宿主诊断，无 Flutter/Dart 红线；LLM tap 记录 managed bootstrap 成功。录屏封口
+`336.606667s`，owned processes 全部收台。正式边界证据=`testend/rig/formal-evidence/EDGE-168-mcp-tenant-url-real-app-auth-boundary-20260902.md`。
+
+本轮不调用 `judge.py`，不改变 COVERAGE，不把授权前观察写成 L2 通过。仓内 OAuth fixture 仅能证明 URL 展开
+算法，不能替代真实 App + 真实第三方租户。下一步需要真实 Glean tenant endpoint，并在输入及点击授权的明确动作
+边界完成确认；在此前顺序门保持 `EDGE-168|每租户模板 URL|L2` 为强制队列首项。批次 90 仍为 `2/50`，不跑统一
+长门禁、不提交。
+
+同时修正 `testend/rig/ledger-sequence.json` 中该条目的人工原因：旧的系统遮挡原因已不再是当前事实，现改为
+真实租户 endpoint、浏览器 OAuth 和持久授权仍未取得。队列顺序、五级标准和 COVERAGE 均未改变。
+
+## 2026-09-02 · EDGE-168 第三次前置阻塞；未写账
+
+在上一轮 session 收台后重新启动正式台架
+`/private/tmp/anselm-rig-formal-20260902-37/sessions/20260902-204925`。旧 `SecurityAgent` 已消失，
+但 `rig-check.sh` 仍在 channel 1 发现 macOS `Notification Center`（PID `15305`，layer `21`，全屏
+bounds）覆盖 Anselm 录制区域。Computer Use 能读到干净 onboarding，但 `Escape`、菜单栏入口和
+点击 Anselm 内容均无法收起该系统层窗口；未进入 marketplace、未输入租户 URL、未点击授权，故无
+`judge.py` 裁决或 COVERAGE 变化。
+
+已正常执行 `rig-down.sh`，录屏封口 `43.665000s`，owned processes 全部收台。阻塞证据=
+`testend/rig/formal-evidence/EDGE-168-mcp-tenant-url-preflight-blocked-notification-center-rerun-20260902.md`。
+该 session 不记为 `na` 或 `fail`；系统遮挡消失后从新 session 重跑。
+
+## 2026-09-02 · EDGE-168 第二次前置阻塞；未写账
+
+重启后遗留 `SecurityAgent` 已清除，重新启动正式 session
+`/private/tmp/anselm-rig-formal-20260902-36/sessions/20260902-204509`。App 已正常显示 onboarding，
+但 `rig-check.sh` 在 channel 1 拒绝：macOS `Notification Center`（PID `15305`，layer `21`，全屏
+bounds）覆盖录制区域。Computer Use 无法把它作为可操作 App 收起；`Escape` 和菜单栏入口均未改变
+窗口登记。其余五通道归属/健康检查通过，未进入 marketplace、未填写租户 URL、未点击授权，因此没有
+`judge.py` 裁决或 COVERAGE 变化。
+
+已正常执行 `rig-down.sh`，录屏封口 `144.151667s`，owned processes 全部收台。阻塞证据=
+`testend/rig/formal-evidence/EDGE-168-mcp-tenant-url-preflight-blocked-notification-center-20260902.md`。
+该 session 不记为 `na` 或 `fail`；收起 Notification Center 后从新 session 重跑。
+
+## 2026-09-02 · EDGE-168 前置阻塞；未写账
+
+按顺序门启动了 `EDGE-168|每租户模板 URL|L2` 的全新真实 App session
+`/private/tmp/anselm-rig-formal-20260902-35/sessions/20260902-065753`，但 `rig-check.sh` 在
+channel 1 拒绝：台架启动前已存在的 macOS `SecurityAgent`（PID `39701`，layer `1000`）覆盖了
+Anselm 录制区域。App 实际停在干净的 `Create a workspace` onboarding，尚未进入 marketplace、
+尚未输入租户 URL、尚未点击 `Connect & authorize`；因此没有正式产品证据、没有 `judge.py` 裁决，也
+没有改变 COVERAGE。其余 backend D1、SSE tap、LLM tap、真实 App 归属和 recorder lifecycle 均通过。
+
+已正常执行 `rig-down.sh`，封口录屏 `120.931667s`，owned processes 全部收台；阻塞证据=
+`testend/rig/formal-evidence/EDGE-168-mcp-tenant-url-preflight-blocked-securityagent-20260902.md`。
+此 session 不记为 `na` 或 `fail`，不修改门禁标准；清除遗留系统授权代理后，从新 session 重跑。
+
+## 2026-09-02 · EDGE-353 workflow 停用排空双类 L3-L4 收口；批次 90 为 2/50
+
+`EDGE-353|workflow 停用排空双类` 在真实 App 完成 L3=`A4`、L4=`C4`，L5 继续开放。正式
+session=`/private/tmp/anselm-rig-formal-20260902-34/sessions/20260902-063536`，录屏
+`3104x1848 / 60fps / 639.861667s`，证据=`testend/rig/formal-evidence/EDGE-353-workflow-deactivate-drains-both-l3-l4-real-app-20260902.md`。
+Computer Use 观察到 workflow `active → draining → inactive`；两个 serial run 均完成，停用后的
+新 fire 只有 activation 回执且 `firingCount=0`。录屏关键帧、10fps diff 和 `measure latency` 共同确认
+状态反馈首个可见变化约 `900ms`，未见白闪、遮挡、重叠、裁切或布局跳变。
+
+五通道均已收台并保留证据：backend 无应用级 WARN/ERROR/panic，SSE 三流记录 lifecycle、approval
+和两个 run terminal，frontend 仅有已分类且已书面复核的 macOS AXTree bridge churn，LLM tap 完成真实
+受管网关 bootstrap 200。早先设计失败的 v2/旧 fixture 明确排除，不作为本格证据。本轮没有代码修复，
+因此无额外 `gofmt` 或 focused regression；这不替代统一门禁。
+
+两次 `judge.py` 写账前后 anchors 均为 `10/10`，`gen_coverage.py --check` 为
+`848 rows, 848 carried judgments, 0 tombstones`，`alarms.py check` 最终 clean（`2170` live
+judgments，`2300` baseline excluded）。两次写账触发的 `discovery-collapse` 都按原阈值复核并 ack，
+没有调整阈值、算法、法典、锚点或五级标准。当前矩阵为 `820/848` 行五级结算、`4142/4240` 格结算、
+`98` 格开放；批次 90=`2/50`，未满 50 格不跑统一长门禁、不提交。L5 待后续从普通用户目标出发补充
+独立可发现性证据；P12 的 400+ Journey 扩写仍按用户裁定推迟二期。
+
 ## 2026-09-02 · Batch 89 unified gate
 
 `EDGE-352` 收口后批次达到 `51/50`，统一长门禁已通过：根验证、完整

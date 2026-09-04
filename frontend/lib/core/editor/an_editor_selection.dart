@@ -130,11 +130,12 @@ class _AnSelectionPainter extends CustomPainter {
 /// downstream node's content, horizontally spanning both anchors — the browser's cross-paragraph sweep.
 /// 跨块缝隙填充层:选区跨过的每对相邻节点,从上游节点内容底到下游节点内容顶,水平跨两锚点。
 class AnSelectionGapLayerBuilder implements SuperEditorLayerBuilder {
-  const AnSelectionGapLayerBuilder(this.color);
+  const AnSelectionGapLayerBuilder(this.color, this.surface);
 
   /// The selection colour ([AnColors.selection]) — resolved by the caller at build (StyleRule-style: no
   /// BuildContext inside the layer's compute pass). 选区色(调用处解析)。
   final Color color;
+  final Color surface;
 
   @override
   ContentLayerWidget build(
@@ -145,6 +146,7 @@ class AnSelectionGapLayerBuilder implements SuperEditorLayerBuilder {
       composer: editContext.composer,
       document: editContext.document,
       color: color,
+      surface: surface,
     );
   }
 }
@@ -155,11 +157,13 @@ class AnSelectionGapLayer extends DocumentLayoutLayerStatefulWidget {
     required this.composer,
     required this.document,
     required this.color,
+    required this.surface,
   });
 
   final DocumentComposer composer;
   final Document document;
   final Color color;
+  final Color surface;
 
   @override
   DocumentLayoutLayerState<AnSelectionGapLayer, List<Rect>> createState() =>
@@ -168,6 +172,11 @@ class AnSelectionGapLayer extends DocumentLayoutLayerStatefulWidget {
 
 class _AnSelectionGapLayerState
     extends DocumentLayoutLayerState<AnSelectionGapLayer, List<Rect>> {
+  bool _rebuildScheduled = false;
+
+  @visibleForTesting
+  List<Rect>? get debugGaps => layoutData;
+
   @override
   void initState() {
     super.initState();
@@ -190,12 +199,22 @@ class _AnSelectionGapLayerState
   }
 
   void _onSelectionChange() {
-    // Same re-entrancy guard as the caret overlay: only force a rebuild when the pipeline isn't already
-    // building (in-build changes are picked up by the layout pass that follows). 同 caret 层的重入守卫。
-    if (SchedulerBinding.instance.schedulerPhase !=
+    // Mouse selection can change during the persistent frame callback that lays out the document. A
+    // direct setState there is suppressed by Flutter, but the content is not necessarily dirty, so the
+    // old layer could stay on its initial empty gap list forever. Defer one rebuild to the next frame and
+    // coalesce drag updates. 鼠标划选可能发生在布局帧内;直接 setState 会被 Flutter 压掉,而内容未必脏,
+    // 旧层因此永远停在初始空缝隙。排到下一帧并合并拖动更新。
+    if (SchedulerBinding.instance.schedulerPhase ==
         SchedulerPhase.persistentCallbacks) {
-      setState(() {});
+      if (_rebuildScheduled) return;
+      _rebuildScheduled = true;
+      SchedulerBinding.instance.addPostFrameCallback((_) {
+        _rebuildScheduled = false;
+        if (mounted) setState(() {});
+      });
+      return;
     }
+    setState(() {});
   }
 
   @override
@@ -217,10 +236,14 @@ class _AnSelectionGapLayerState
     for (var i = 0; i < nodes.length - 1; i++) {
       final above = nodes[i];
       final below = nodes[i + 1];
-      final aboveEnd = documentLayout.getRectForPosition(
+      // Use the document's edge API rather than a zero-width character rect. The edge is the
+      // layout's canonical caret geometry at a node boundary, including the paragraph's full
+      // line box. This keeps the bridge in the actual inter-block padding instead of letting a
+      // boundary rect collapse to a baseline-sized sliver. 用边界 API 取节点首尾的规范行盒。
+      final aboveEnd = documentLayout.getEdgeForPosition(
         DocumentPosition(nodeId: above.id, nodePosition: above.endPosition),
       );
-      final belowStart = documentLayout.getRectForPosition(
+      final belowStart = documentLayout.getEdgeForPosition(
         DocumentPosition(
           nodeId: below.id,
           nodePosition: below.beginningPosition,
@@ -249,12 +272,13 @@ class _AnSelectionGapLayerState
     if (gaps == null || gaps.isEmpty) return const SizedBox.shrink();
     return IgnorePointer(
       child: Stack(
-        clipBehavior: Clip.none,
         children: [
           for (final gap in gaps)
             Positioned.fromRect(
               rect: gap,
-              child: ColoredBox(color: widget.color),
+              child: ColoredBox(
+                color: Color.alphaBlend(widget.color, widget.surface),
+              ),
             ),
         ],
       ),

@@ -279,6 +279,38 @@ void main() {
     expect(message?.tone, AnTone.danger);
   });
 
+  testWidgets(
+    'limits: load failure keeps backend diagnostics in the tooltip only',
+    (tester) async {
+      final repo = FixtureSettingsRepository()
+        ..limitsSchemaError = const ApiException(
+          code: 'RIG_INJECTED_FAILURE',
+          message: 'acceptance rig injected a transient failure',
+          httpStatus: 503,
+        );
+      await tester.pumpWidget(_host(repo, const LimitsPanel()));
+      await tester.pumpAndSettle();
+      final t = Translations.of(tester.element(find.byType(LimitsPanel)));
+
+      expect(find.text(t.settings.limits.errorTitle), findsOneWidget);
+      expect(find.text(t.settings.limits.errorHint), findsOneWidget);
+      expect(
+        find.text('acceptance rig injected a transient failure'),
+        findsNothing,
+      );
+      expect(find.text('RIG_INJECTED_FAILURE'), findsNothing);
+      final tooltip = tester.widget<Tooltip>(find.byType(Tooltip));
+      expect(tooltip.message, 'RIG_INJECTED_FAILURE');
+      expect(find.text(t.settings.limits.retry), findsOneWidget);
+
+      repo.limitsSchemaError = null;
+      await tester.tap(find.text(t.settings.limits.retry));
+      await tester.pumpAndSettle();
+      expect(find.text(t.settings.limits.errorTitle), findsNothing);
+      expect(find.text('agent.maxSteps'), findsOneWidget);
+    },
+  );
+
   testWidgets('limits: exclusive upper bound is rejected before a PATCH', (
     tester,
   ) async {

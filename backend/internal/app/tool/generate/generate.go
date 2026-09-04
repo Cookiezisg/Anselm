@@ -614,9 +614,12 @@ func (r *Router) EnrollVoice(ctx context.Context, name, mime string, data []byte
 	if route.provider != "anselm" || r.Media == nil {
 		return "", "", ErrNoVoiceCloneRoute
 	}
-	// Upload first, then name the lease. The client never supplies a host — see EnrollVoiceAnselm.
-	// 先上传、再指名 lease。客户端从不提供 host——见 EnrollVoiceAnselm。
-	fetchPath, err := r.Media.Upload(ctx, route.baseURL, route.installID, mime, data)
+	// Enrollment consumes the gateway lease after the provider fetches it. It must therefore mint
+	// a fresh lease even when this exact attachment was enrolled before; the ordinary Upload cache
+	// is for repeatable chat media, not one-shot voice enrollment.
+	// 音色登记会在 provider 取走内容后消费网关 lease。即使正是同一附件之前登记过,这里也必须铸造新 lease;
+	// 普通 Upload 缓存服务的是可重复读取的聊天媒体,不是一次性的音色登记。
+	fetchPath, err := r.Media.UploadFresh(ctx, route.baseURL, route.installID, mime, data)
 	if err != nil {
 		return "", "", err
 	}

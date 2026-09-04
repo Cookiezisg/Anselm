@@ -16,12 +16,13 @@ import 'chat_head.dart';
 
 /// The faint icon row that hugs the bottom edge of a transcript turn (§3.2 动作排).
 ///
-/// Two visibility rules, and the difference matters: the LAST turn's row is always there in pale grey,
-/// because that is the turn a reader acts on and a row that has to be discovered is a row that isn't
-/// found; a HISTORICAL turn's row appears on hover, because dozens of always-on rows down a long
-/// transcript would read as clutter and compete with the prose. A turn that is still GENERATING shows no
-/// row at all — there is nothing to copy yet, and the only meaningful action mid-stream is Stop, which
-/// lives in the composer.
+/// Two visibility rules, and the difference matters: the LAST actionable turn's row is always there in
+/// pale grey, because that is the turn a reader acts on and a row that has to be discovered is a row that
+/// isn't found. This includes the last USER turn when its assistant answer is the final overall turn:
+/// edit-resend belongs to that user row, not the answer below it. Other historical rows appear on hover,
+/// because dozens of always-on rows down a long transcript would read as clutter and compete with the
+/// prose. A turn that is still GENERATING shows no row at all — there is nothing to copy yet, and the only
+/// meaningful action mid-stream is Stop, which lives in the composer.
 ///
 /// Fork's tooltip differs by role, because the two mean different things to a reader: on an ASSISTANT
 /// turn it is "branch from here", i.e. keep everything up to and including this reply; on a USER turn
@@ -37,8 +38,9 @@ import 'chat_head.dart';
 ///
 /// transcript 回合下沿那排浅灰小图标(§3.2 动作排)。
 ///
-/// 两条可见性规则,其区别是有意义的:**最后一轮**的动作排恒在(浅灰)——那是读者要动手的那一轮,而需要被发现的
-/// 动作排就是找不到的动作排;**历史轮**hover 才现——长 transcript 上几十排常显图标读作杂乱,并与正文抢注意力。
+/// 两条可见性规则,其区别是有意义的:**最后一个可操作回合**的动作排恒在(浅灰)——那是读者要动手的那一轮,而需要被发现的
+/// 动作排就是找不到的动作排。这包括「最后一条 user + 其后的 assistant 答复」场景:编辑重发属于 user 行,不属于下方答复。
+/// 其他**历史轮**hover 才现——长 transcript 上几十排常显图标读作杂乱,并与正文抢注意力。
 /// **正在生成**的回合完全不显示动作排:此刻没有可复制的东西,而流中唯一有意义的动作是「停止」,它住在 composer。
 ///
 /// 分叉的 tooltip **按角色不同**,因为这两件事对读者的含义不同:在 **assistant** 回合上是「从这里分叉」——

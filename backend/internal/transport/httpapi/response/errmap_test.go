@@ -91,6 +91,17 @@ func TestFromDomainErrorContextCanceled(t *testing.T) {
 	}
 }
 
+func TestFromDomainErrorContextDeadlineExceeded(t *testing.T) {
+	w := httptest.NewRecorder()
+	FromDomainError(w, zap.NewNop(), context.DeadlineExceeded)
+	if w.Code != http.StatusGatewayTimeout {
+		t.Errorf("context.DeadlineExceeded status = %d, want 504", w.Code)
+	}
+	if code, _ := decodeErr(t, w.Body.Bytes()); code != "REQUEST_TIMEOUT" {
+		t.Errorf("code = %q, want REQUEST_TIMEOUT", code)
+	}
+}
+
 func TestFromDomainErrorUnknownIs500AndSuppressed(t *testing.T) {
 	w := httptest.NewRecorder()
 	FromDomainError(w, zap.NewNop(), errors.New("some internal detail that must not leak"))

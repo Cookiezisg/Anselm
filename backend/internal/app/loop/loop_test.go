@@ -17,6 +17,7 @@ import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
 	messagesdomain "github.com/sunweilin/anselm/backend/internal/domain/messages"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
+	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	limitspkg "github.com/sunweilin/anselm/backend/internal/pkg/limits"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
 )
@@ -82,10 +83,31 @@ func (h *fakeHost) WriteFinalize(_ context.Context, blocks []messagesdomain.Bloc
 	h.fin.called++
 }
 
+type mediaRefreshHost struct {
+	*fakeHost
+	refreshes int
+	err       error
+}
+
+func (h *mediaRefreshHost) RefreshHistoryMedia(_ context.Context, history []llminfra.LLMMessage) error {
+	h.refreshes++
+	if h.err != nil {
+		return h.err
+	}
+	history[0].Content = "refreshed"
+	return nil
+}
+
 type errHistoryHost struct{ fakeHost }
 
 func (errHistoryHost) LoadHistory(context.Context) ([]llminfra.LLMMessage, error) {
 	return nil, errors.New("db down")
+}
+
+type attachmentHistoryHost struct{ fakeHost }
+
+func (attachmentHistoryHost) LoadHistory(context.Context) ([]llminfra.LLMMessage, error) {
+	return nil, fmt.Errorf("render user message: %w", errorspkg.ErrAttachmentStagingFailed)
 }
 
 type reminderHost struct {
@@ -302,6 +324,49 @@ func TestRun_ToolThenText(t *testing.T) {
 	}
 	if !sawToolResult || !sawText {
 		t.Fatalf("blocks missing pieces: toolResult=%v text=%v (%+v)", sawToolResult, sawText, host.fin.blocks)
+	}
+}
+
+func TestRun_RefreshesHistoryMediaBeforeNextStep(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{toolStartEv(0, "tc_1", "echo"), toolDeltaEv(0, `{"summary":"echoing","danger":"safe"}`), finishEv()},
+		{textEv("done"), finishEv()},
+	}}
+	host := &mediaRefreshHost{fakeHost: &fakeHost{
+		history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "original"}},
+		tools:   []toolapp.Tool{fakeTool{name: "echo", result: "echoed!"}},
+	}}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if res.Status != messagesdomain.StatusCompleted || host.refreshes != 1 {
+		t.Fatalf("status=%q refreshes=%d, want completed/1", res.Status, host.refreshes)
+	}
+	if len(client.captured) != 2 || client.captured[1][0].Content != "refreshed" {
+		t.Fatalf("second request history=%+v, want refreshed media history", client.captured)
+	}
+}
+
+func TestRun_MediaHistoryRefreshFailureIsTerminal(t *testing.T) {
+	client := &fakeClient{scripts: [][]llminfra.StreamEvent{
+		{toolStartEv(0, "tc_1", "echo"), toolDeltaEv(0, `{"summary":"echoing","danger":"safe"}`), finishEv()},
+		{textEv("must not run"), finishEv()},
+	}}
+	host := &mediaRefreshHost{
+		fakeHost: &fakeHost{
+			history: []llminfra.LLMMessage{{Role: llminfra.RoleUser, Content: "original"}},
+			tools:   []toolapp.Tool{fakeTool{name: "echo", result: "echoed!"}},
+		},
+		err: errors.New("gateway unavailable"),
+	}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if res.Status != messagesdomain.StatusError || res.ErrCode != "MEDIA_LEASE_REFRESH_FAILED" {
+		t.Fatalf("result=%+v, want media refresh error", res)
+	}
+	if len(client.captured) != 1 || host.fin.called != 1 || !strings.Contains(host.fin.errMsg, "gateway unavailable") {
+		t.Fatalf("requests=%d finalize=%+v, want one request and actionable error", len(client.captured), host.fin)
 	}
 }
 
@@ -671,6 +736,40 @@ func TestRun_ToolErrorStorm(t *testing.T) {
 	}
 }
 
+func TestRun_ToolErrorStorm_BusinessFailureEnvelope(t *testing.T) {
+	loopStep := []llminfra.StreamEvent{toolStartEv(0, "tc_1", "boom"), toolDeltaEv(0, `{"summary":"s","danger":"safe"}`), finishEv()}
+	scripts := make([][]llminfra.StreamEvent, 5)
+	for i := range scripts {
+		scripts[i] = loopStep
+	}
+	client := &fakeClient{scripts: scripts}
+	// The function tool's transport succeeds, but its business operation reports failure in the
+	// standard result envelope. This must be indistinguishable from a direct Execute error to the
+	// loop's retry and circuit-breaker semantics.
+	host := &fakeHost{tools: []toolapp.Tool{fakeTool{name: "boom", result: `{"ok":false,"errorMsg":"business failed"}`}}}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 10, nil)
+
+	if res.ErrCode != "TOOL_ERROR_STORM" || host.fin.errCode != res.ErrCode {
+		t.Fatalf("errCode=%q/%q, want TOOL_ERROR_STORM", res.ErrCode, host.fin.errCode)
+	}
+	if len(host.fin.blocks) == 0 {
+		t.Fatal("finalize lost the business-failure tool result blocks")
+	}
+	var failed bool
+	for _, block := range host.fin.blocks {
+		if block.Type == messagesdomain.BlockTypeToolResult {
+			failed = true
+			if block.Status != messagesdomain.StatusError || block.Error != "business failed" {
+				t.Fatalf("business failure was not durable in memory: %+v", block)
+			}
+		}
+	}
+	if !failed {
+		t.Fatal("no tool_result block in final transcript")
+	}
+}
+
 // TestRun_StreamError_EmptyErrFillsActionableMsg pins the F34 fill — the exact F44 "0 block + null
 // error" face: a provider can end the stream with stopReason=error yet no error text (silent
 // disconnect, zero blocks emitted). The turn must finalize as error/LLM_STREAM_ERROR with a
@@ -752,6 +851,20 @@ func TestRun_LoadHistoryError(t *testing.T) {
 
 	if res.Status != messagesdomain.StatusError || host.fin.errCode != "INTERNAL_ERROR" {
 		t.Fatalf("status=%q errCode=%q, want error/INTERNAL_ERROR", res.Status, host.fin.errCode)
+	}
+	if client.calls != 0 {
+		t.Fatalf("client called %d times, want 0 (aborted before stream)", client.calls)
+	}
+}
+
+func TestRun_LoadHistoryAttachmentStagingErrorUsesStableCode(t *testing.T) {
+	host := &attachmentHistoryHost{}
+	client := &fakeClient{}
+
+	res := Run(context.Background(), host, client, llminfra.Request{}, 5, nil)
+
+	if res.Status != messagesdomain.StatusError || host.fin.errCode != "ATTACHMENT_STAGING_FAILED" {
+		t.Fatalf("status=%q errCode=%q, want error/ATTACHMENT_STAGING_FAILED", res.Status, host.fin.errCode)
 	}
 	if client.calls != 0 {
 		t.Fatalf("client called %d times, want 0 (aborted before stream)", client.calls)
@@ -1238,6 +1351,33 @@ func TestBlocksToAssistantLLM(t *testing.T) {
 	}
 	if msgs[1].Role != llminfra.RoleTool || msgs[1].Content != "out" || msgs[1].ToolCallID != "tc_1" {
 		t.Fatalf("tool msg wrong: %+v", msgs[1])
+	}
+}
+
+func TestBlocksToAssistantLLM_RestoresFrameworkToolFields(t *testing.T) {
+	blocks := []messagesdomain.Block{
+		{
+			ID:      "tc_1",
+			Type:    messagesdomain.BlockTypeToolCall,
+			Content: `{"functionId":"fn_1"}`,
+			Attrs: map[string]any{
+				"tool":    "run_function",
+				"summary": "run the probe",
+				"danger":  "dangerous",
+			},
+		},
+	}
+
+	msgs := BlocksToAssistantLLM(blocks)
+	if len(msgs) != 1 || len(msgs[0].ToolCalls) != 1 {
+		t.Fatalf("history = %#v, want one assistant tool call", msgs)
+	}
+	var args map[string]any
+	if err := json.Unmarshal([]byte(msgs[0].ToolCalls[0].Arguments), &args); err != nil {
+		t.Fatalf("projected arguments are not JSON: %v", err)
+	}
+	if args["functionId"] != "fn_1" || args["summary"] != "run the probe" || args["danger"] != "dangerous" {
+		t.Fatalf("projected arguments = %#v, want business and framework fields", args)
 	}
 }
 

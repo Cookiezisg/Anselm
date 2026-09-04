@@ -39,8 +39,15 @@ type SearchBlocks struct{ engine *searchapp.Service }
 
 func (t *SearchBlocks) Name() string { return "search_blocks" }
 
+const searchBlocksScopeGuard = " Triggers are not workflow blocks: search triggers with search_triggers, and do not send trigger or notification as a kinds value here. Notification behavior belongs to the underlying function, handler, or MCP tool that provides it."
+const searchBlocksExactIDGuard = " When a hit is found, use its exact entityId with get_function/get_handler or the matching detail tool; never use the displayed name where an Id field is required. Keep exact refs in the adjacent result card rather than repeating them in assistant prose."
+
+func (t *SearchBlocks) legacyDescription() string {
+	return "Find wireable workflow building blocks by describing the capability you need. Searches functions, handler METHODS, MCP TOOLS, agents, controls and approvals (names, descriptions AND code). Each hit carries a ref you can place directly into a workflow node (fn_<id> / hd_<id>.<method> / mcp:<server>/<tool> / agent, control, approval ids). This is workflow-palette discovery only: do not use search_blocks to decide that a capability cannot run in the current conversation. For an existing capability the user wants to run now, use search_tools to activate its callable tool, including a connected MCP tool, and then call it directly. IMPORTANT: honor every user-supplied filter exactly; if the user names kinds or a limit, include it in THIS call and do not make an unfiltered preliminary call. Use get_* for full schemas."
+}
+
 func (t *SearchBlocks) Description() string {
-	return "Find wireable workflow building blocks by describing the capability you need. Searches functions, handler METHODS, MCP TOOLS, agents, controls and approvals (names, descriptions AND code). Each hit carries a ref you can place directly into a workflow node (fn_<id> / hd_<id>.<method> / mcp:<server>/<tool> / agent, control, approval ids). IMPORTANT: honor every user-supplied filter exactly; if the user names kinds or a limit, include it in THIS call and do not make an unfiltered preliminary call. Use get_* for full schemas."
+	return t.legacyDescription() + searchBlocksScopeGuard + searchBlocksExactIDGuard
 }
 
 func (t *SearchBlocks) Parameters() json.RawMessage {

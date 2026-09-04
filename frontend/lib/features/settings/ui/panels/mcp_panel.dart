@@ -100,6 +100,54 @@ bool mcpShowsActiveError(McpServerStatus server) =>
     (server.status == 'failed' || server.status == 'degraded') &&
     (server.lastError ?? '').isNotEmpty;
 
+class _McpFailure extends StatefulWidget {
+  const _McpFailure({required this.error, this.consecutiveFailures = 0});
+
+  final String error;
+  final int consecutiveFailures;
+
+  @override
+  State<_McpFailure> createState() => _McpFailureState();
+}
+
+class _McpFailureState extends State<_McpFailure> {
+  bool _technicalOpen = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final d = context.t.settings.mcp;
+    final c = context.colors;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        AnCallout(
+          d.failedHint,
+          title: d.failedTitle,
+          severity: AnCalloutSeverity.danger,
+        ),
+        const SizedBox(height: AnSpace.s8),
+        AnDisclosure(
+          label: d.technicalDetails,
+          icon: AnIcons.byKey('code'),
+          open: _technicalOpen,
+          onToggle: () => setState(() => _technicalOpen = !_technicalOpen),
+          child: Text(
+            widget.error,
+            style: AnText.code.copyWith(color: c.inkMuted),
+          ),
+        ),
+        if (widget.consecutiveFailures > 0) ...[
+          const SizedBox(height: AnSpace.s4),
+          Text(
+            '${d.consecutiveFailures} · ${widget.consecutiveFailures}',
+            style: AnText.meta.copyWith(color: c.inkFaint),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _Roster extends ConsumerWidget {
   const _Roster();
 
@@ -327,11 +375,9 @@ class _ServerCard extends ConsumerWidget {
           ),
           if (mcpShowsActiveError(s)) ...[
             const SizedBox(height: AnSpace.s4),
-            Text(
-              s.lastError!,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              style: AnText.meta.copyWith(color: c.danger),
+            _McpFailure(
+              error: s.lastError!,
+              consecutiveFailures: s.consecutiveFailures,
             ),
           ],
         ],
@@ -441,15 +487,10 @@ class _McpServerDetailState extends ConsumerState<McpServerDetail> {
         ),
         if (mcpShowsActiveError(s)) ...[
           const SizedBox(height: AnSpace.s8),
-          Text(
-            '${t.settings.mcp.lastError} · ${s.lastError}',
-            style: AnText.label.copyWith(color: c.danger),
+          _McpFailure(
+            error: s.lastError!,
+            consecutiveFailures: s.consecutiveFailures,
           ),
-          if (s.consecutiveFailures > 0)
-            Text(
-              '${t.settings.mcp.consecutiveFailures} · ${s.consecutiveFailures}',
-              style: AnText.label.copyWith(color: c.inkFaint),
-            ),
         ],
         const SizedBox(height: AnSpace.s16),
         // AnTabs' pane stack needs a bounded height inside the document flow. tab 区在文档流中定高。

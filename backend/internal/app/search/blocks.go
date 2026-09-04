@@ -118,6 +118,7 @@ func (s *Service) SearchBlocks(ctx context.Context, query string, kinds []search
 			wireable = append(wireable, h)
 		}
 	}
+	wireable = dedupeBlockHits(wireable)
 	// Tier 2: index narrows to top-50, the utility model picks — bounded tokens,
 	// near-lossless precision. Tier 3 (no sifter / sift error): plain retrieval.
 	// 第二档：索引收窄 top-50、utility 精选——token 有界、精度近无损。第三档
@@ -171,6 +172,39 @@ func filterBlockRows(rows []*searchdomain.DocHit, kinds []searchdomain.EntityTyp
 			out = append(out, r)
 		}
 	}
+	return dedupeBlockRows(out)
+}
+
+func dedupeBlockRows(rows []*searchdomain.DocHit) []*searchdomain.DocHit {
+	seen := make(map[string]struct{}, len(rows))
+	out := make([]*searchdomain.DocHit, 0, len(rows))
+	for _, row := range rows {
+		ref := searchdomain.RefHint(row.EntityType, row.EntityID, row.Anchor)
+		if ref == "" {
+			continue
+		}
+		if _, ok := seen[ref]; ok {
+			continue
+		}
+		seen[ref] = struct{}{}
+		out = append(out, row)
+	}
+	return out
+}
+
+func dedupeBlockHits(hits []*searchdomain.Hit) []*searchdomain.Hit {
+	seen := make(map[string]struct{}, len(hits))
+	out := make([]*searchdomain.Hit, 0, len(hits))
+	for _, hit := range hits {
+		if hit.RefHint == "" {
+			continue
+		}
+		if _, ok := seen[hit.RefHint]; ok {
+			continue
+		}
+		seen[hit.RefHint] = struct{}{}
+		out = append(out, hit)
+	}
 	return out
 }
 
@@ -202,14 +236,20 @@ func (s *Service) sift(ctx context.Context, query string, rows []*searchdomain.D
 	}
 	out := make([]BlockHit, 0, limit)
 	seen := map[int]bool{}
+	seenRefs := map[string]bool{}
 	for _, p := range picks {
 		if p < 0 || p >= len(rows) || seen[p] {
 			continue
 		}
 		seen[p] = true
 		r := rows[p]
+		ref := searchdomain.RefHint(r.EntityType, r.EntityID, r.Anchor)
+		if seenRefs[ref] {
+			continue
+		}
+		seenRefs[ref] = true
 		out = append(out, BlockHit{
-			Ref:      searchdomain.RefHint(r.EntityType, r.EntityID, r.Anchor),
+			Ref:      ref,
 			Kind:     string(r.EntityType),
 			EntityID: r.EntityID,
 			Name:     r.Title,

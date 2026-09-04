@@ -308,7 +308,7 @@ active version 的声明。仅 AI 工具边界另外兼容托管模型发出的�
 
 | Method · Path | 语义 |
 |---|---|
-| `GET /speech/asr` | ASR streaming transport；客户端发送 16kHz、mono、PCM16 binary frame 与 `commit`/`finish`/`cancel` 控制帧，服务端返回 Qwen realtime 事件；部署网关的实时增量是 `conversation.item.input_audio_transcription.text`（`stash` 为累计快照），最终文本是 `.completed` 的 `transcript` |
+| `GET /speech/asr` | ASR streaming transport；客户端发送 16kHz、mono、PCM16 binary frame 与 `commit`/`finish`/`cancel` 控制帧，服务端返回 Qwen realtime 事件；部署网关的实时增量是 `conversation.item.input_audio_transcription.text`（`stash` 为累计快照），最终文本是 `.completed` 的 `transcript`。上游在 WebSocket 升级期间拒绝时，服务端先完成本地升级，再发送 `{"type":"error","code":"SPEECH_QUOTA_EXHAUSTED|SPEECH_RATE_LIMITED|SPEECH_ACCOUNT_BANNED|SPEECH_UNAVAILABLE"}` 并关闭；上游在已升级会话中途断线时发送 `{"type":"error","code":"SPEECH_UPSTREAM_CLOSED"}` 后收口；客户端空帧或超过 256 KiB 的音频帧收到 `SPEECH_AUDIO_FRAME_INVALID`，未知控制帧收到 `SPEECH_CONTROL_INVALID`，两者均不转发上游并关闭；只允许闭集 code，不转发上游 message。非 WebSocket 请求仍返回 N1 HTTP 错误信封。 |
 | `GET /read-aloud/availability` | 当前朗读可用性 |
 | `POST /read-aloud:read` | 文本朗读 |
 | `GET /voices` | 可用 voice 列表 |
@@ -350,7 +350,7 @@ Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本
 | `GET|PATCH|DELETE /workspaces/{id}` | 单读 / 更新 / 删除 |
 | `GET /workspaces/{id}/stats` | workspace 统计 |
 | `POST /workspaces/{id}:activate` | 更新最近使用并返回实体 |
-| `PUT|DELETE /workspaces/{id}/default-models/{scenario}` | 设置/清除六个 scenario（`dialogue`、`utility`、`agent`、`image`、`speech`、`video`）的 ModelRef；校验与写入均以 path `{id}` 为 owner，不以可能不同的 workspace header 为准 |
+| `PUT|DELETE /workspaces/{id}/default-models/{scenario}` | 设置/清除六个 scenario（`dialogue`、`utility`、`agent`、`image`、`speech`、`video`）的 ModelRef；校验与写入均以 path `{id}` 为 owner，不以可能不同的 workspace header 为准；已知 `tools=false` 模型对 `agent` 场景在写入时返 `MODEL_NOT_AGENT_CAPABLE`，对 `dialogue` 仍合法 |
 | `PUT|DELETE /workspaces/{id}/default-search` | 设置/清除 WebSearch key；设置时 key 必须存在于 path `{id}` 所属 workspace，不能使用 header 指向的其他 workspace 或不存在的 key |
 
 ### API key and model catalog
@@ -363,6 +363,10 @@ Memory 以 markdown 文件保存。`description` 是 frontmatter 的用户文本
 | `GET /providers` | Provider metadata |
 | `GET /model-capabilities` | Model catalog/capabilities |
 | `GET /scenarios` | Six fixed scenario slots in canonical order: `dialogue`, `utility`, `agent`, `image`, `speech`, `video` |
+
+启动时使用仓内 vendored catalog；后台刷新在 boot 后约 30 秒开始，随后按日检查，运行时缓存优先于
+vendored 快照。刷新失败只记录 warning 并保留上一份可用目录，绝不把模型选择器或能力描述降成空目录。
+`ANSELM_RIG_MODEL_CATALOG_URL` 仅供 acceptance rig 将这条后台 fetch 指向受控故障端点，生产环境不得设置。
 
 `DELETE /api-keys/{id}` 保留不可恢复的删除主行身份用于审计，但在同一条数据库更新中清空加密 secret、掩码、连接配置和 probe 回执；普通读随后返回 `API_KEY_NOT_FOUND`，不存在 restore 操作。
 

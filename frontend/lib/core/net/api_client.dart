@@ -26,9 +26,11 @@ class ApiClient {
     required Dio dio,
     required String? Function() workspaceId,
     required String? Function() authToken,
+    void Function()? onWorkspaceUnauthorized,
   }) : _dio = dio,
        _workspaceId = workspaceId,
-       _authToken = authToken {
+       _authToken = authToken,
+       _onWorkspaceUnauthorized = onWorkspaceUnauthorized {
     _dio.interceptors.add(InterceptorsWrapper(onRequest: _onRequest));
   }
 
@@ -44,6 +46,7 @@ class ApiClient {
   /// 每请求挂 `Authorization: Bearer …`(loopback 加固——后端 RequireBearerToken 中间件拒绝无它的
   /// 请求,含 /health 与 SSE GET)。sidecar supervisor 铸出前为 null。
   final String? Function() _authToken;
+  final void Function()? _onWorkspaceUnauthorized;
 
   static const _workspaceOverrideKey = 'anselm.workspaceOverride';
 
@@ -352,7 +355,16 @@ class ApiClient {
       final resp = e.response;
       if (resp != null) {
         final error = _errorEnvelope(resp.data);
-        throw ApiException.fromEnvelope(error, resp.statusCode ?? 0);
+        final exception = ApiException.fromEnvelope(
+          error,
+          resp.statusCode ?? 0,
+        );
+        if (exception.code == AnselmErr.unauthNoWorkspace) {
+          // Workspace auth is a recoverable runtime-axis failure: clear the stale selection and let
+          // the shell re-resolve it from the server roster. 原始错误仍留在日志,不扩散到 feature。
+          _onWorkspaceUnauthorized?.call();
+        }
+        throw exception;
       }
       throw ApiException.transport(e.message ?? 'transport failure');
     }

@@ -141,6 +141,17 @@ class AnEditorState extends State<AnEditor> {
   /// The live document — the host derives the outline + heading node ids from it. 活文档(供宿主抽大纲)。
   Document get document => _document;
 
+  /// Drives the real document history for focused widget tests without synthesizing a platform shortcut.
+  /// 让聚焦 widget 测试走真实文档历史,不伪造平台快捷键; macOS 快捷键仍由真机验收覆盖。
+  @visibleForTesting
+  void undoForTesting() => _editor.undo();
+
+  /// Drives the real composer from widget tests so selection-dependent document layers can be inspected.
+  /// 让 widget 测试驱动真实 composer,以便检查依赖选区的文档层。
+  @visibleForTesting
+  void setSelectionForTesting(DocumentSelection selection) =>
+      _composer.setSelectionWithReason(selection);
+
   /// The ordered node ids of the document's headings (paragraphs whose blockType is a header). A heading INSIDE
   /// a blockquote (`> # x`, quoteDepth>0) is quoted content, NOT a document heading — it renders heading-styled
   /// but is excluded from the outline (matching `extractDocOutline`, which also skips quoted `#`). 引用内的 `#`
@@ -808,7 +819,7 @@ class AnEditorState extends State<AnEditor> {
       documentOverlayBuilders: [
         for (final builder in defaultSuperEditorDocumentOverlayBuilders)
           if (builder is! DefaultCaretOverlayBuilder) builder,
-        AnSelectionGapLayerBuilder(colors.selection),
+        AnSelectionGapLayerBuilder(colors.selection, colors.surface),
         const AnCaretOverlayBuilder(),
         FunctionalSuperEditorLayerBuilder(
           (context, editContext) => AnSelectionToolbar(

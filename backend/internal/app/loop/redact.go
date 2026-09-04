@@ -58,6 +58,27 @@ var (
 	// parenthetical rather than exposing a phrase that looks like an id.
 	// 模型也可能在括号内给不可用值加 id 标签。整段移除，不能把占位词伪装成 ID 留给用户。
 	opaquePlaceholderIDParentheticalPattern = regexp.MustCompile(`(?i)\s*\(\s*(?:id|identifier)\s*[:：]?\s*` + "`?" + `(?:` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + ")`?" + `\s*\)`)
+	// Voice enrollment results can expose a machine-only voiceId beside the useful voice name,
+	// e.g. "acceptance-narrator (voiceId: the requested item)". Once the ID is unavailable to
+	// prose, remove the whole parenthetical rather than leaving the Chinese live-placeholder
+	// "这个输入" in the user's transcript. The exact ID remains in the adjacent tool card.
+	// 音色登记结果可能把机器字段 voiceId 放在人话名称旁边。脱敏后整段移除，不能把「这个输入」
+	// 留在正文；精确 ID 仍只在相邻工具卡中保留。
+	opaqueVoiceIDParentheticalPattern = regexp.MustCompile(`(?i)\s*[（(]\s*voice[_ -]?id\s*[:：=]\s*` + "`?" + `(?:` + opaqueEntityIDPatternSource + `|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `|这个输入|该输入)` + "`?" + `\s*[）)]`)
+	// Some providers render the same machine field as a standalone Markdown/list line, e.g.
+	// "语音ID：这个输入". Remove the complete line rather than leaving the internal placeholder in
+	// the user's answer; the exact ID remains available in the adjacent tool card.
+	// 有些 provider 会把同一机器字段单独渲染成 Markdown/列表行，例如「- **语音 ID**：vce_…」。整行移除，
+	// 不能让内部 placeholder 进入用户答案；精确 ID 仍在相邻工具卡中。粗体包裹和列表标记都属于展示语法，
+	// 必须在机器字段判断前被纳入，否则先走通用 ID 脱敏就会把整行变成「语音 ID：这个输入」。
+	opaqueVoiceIDAssignmentPattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*•][ \t]+)?(?:\*{1,3}|_{1,3})?(?:voice[_ -]?id|语音[ \t]*ID)(?:\*{1,3}|_{1,3})?[ \t]*[:：=][ \t]*(?:` + opaqueEntityIDPatternSource + `|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `|这个输入|该输入)[ \t]*\r?$`)
+	// A streamed redactor can already have consumed the opaque value before the durable close
+	// sees the line, leaving only an empty machine field. Remove that residue as well; otherwise
+	// the later Chinese placeholder pass turns it into "语音 ID：这个输入".
+	// 流式出口可能在 durable close 前已经消费掉 opaque value,只剩空机器字段。这里也清掉残行,
+	// 否则后续中文 placeholder pass 会把它变成「语音 ID：这个输入」。
+	opaqueVoiceIDEmptyAssignmentPattern = regexp.MustCompile(`(?im)^[ \t]*(?:[-*•][ \t]+)?(?:\*{1,3}|_{1,3})?(?:voice[_ -]?id|语音[ \t]*ID)(?:\*{1,3}|_{1,3})?[ \t]*[:：=][ \t]*\r?$`)
+	voiceIDAssignmentPrefixPattern      = regexp.MustCompile(`(?i)^[ \t]*(?:[-*•][ \t]+)?(?:\*{1,3}|_{1,3})?(?:voice[_ -]?id|语音[ \t]*ID)(?:\*{1,3}|_{1,3})?[ \t]*[:：=][ \t]*$`)
 	// A media summary may keep useful human detail beside the opaque attachment id, e.g.
 	// "(red circle, `att_…`)". Once the id is redacted, remove only that list item rather than
 	// exposing "(red circle, the requested item)" as a broken user-facing template.
@@ -174,6 +195,13 @@ var (
 	// 媒体 reasoning 常用带类型的 label。先整体改写再走通用 ID 脱敏，避免流式后变成坏占位句。
 	opaqueAttachmentIDAssignmentPattern       = regexp.MustCompile(`(?i)\b((?:the\s+)?(?:attachment|image|media))\s+id\s+(?:is|=|:)\s+` + "[\x60\"]?" + `(?:att_[A-Za-z0-9]+|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `)` + "[\x60\"]?")
 	opaqueAttachmentIDAssignmentPrefixPattern = regexp.MustCompile(`(?i)\b(?:the\s+)?(?:attachment|image|media)\s+id\s+(?:is|=|:)\s*`)
+	// Chinese prose may use the attachment ID as a reference rather than an assignment, e.g.
+	// "可通过附件 ID `att_...` 引用". Redacting only the value leaves a broken "附件 ID 这个输入"
+	// sentence, so replace the whole machine-value phrase with the human attachment card.
+	// 中文正文也会把附件 ID 写成引用句，而不是赋值句；只脱敏值会留下「附件 ID 这个输入」坏句，
+	// 因此把整段机器值短语改成可理解的附件卡片引用。
+	opaqueChineseAttachmentIDReferencePattern       = regexp.MustCompile(`(?i)(附件)[ \t]*(?:ID|标识符)[ \t]*[\x60"]?(?:` + opaqueEntityIDPatternSource + `|` + regexp.QuoteMeta(opaqueEntityPlaceholder) + `|` + regexp.QuoteMeta(legacyEntityPlaceholder) + `)[\x60"]?[ \t]*(引用|查看|打开|下载|访问)`)
+	opaqueChineseAttachmentIDReferencePrefixPattern = regexp.MustCompile(`(?i)(?:附件)[ \t]*(?:ID|标识符)[ \t]*[\x60"]?`)
 	// The model may compare the two media outputs by repeating their opaque ids. Keep the
 	// comparison meaning without inventing a placeholder value in the user-facing stream.
 	// 模型可能在比较两件媒体时重复 opaque id；保留「已就绪」事实，不伪造 placeholder 值。
@@ -812,6 +840,9 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueLeadingPromptSectionClosePattern.ReplaceAllString(text, "")
 	text = redactChineseDossierDanglingTableFragments(text)
 	text = isoTimestampPattern.ReplaceAllString(text, opaqueTimestampPlaceholder)
+	text = opaqueVoiceIDParentheticalPattern.ReplaceAllString(text, "")
+	text = opaqueVoiceIDAssignmentPattern.ReplaceAllString(text, "")
+	text = opaqueVoiceIDEmptyAssignmentPattern.ReplaceAllString(text, "")
 	text = opaqueDuplicatedRequestedItemIDPattern.ReplaceAllString(text, "the ID shown in the adjacent result card")
 	text = opaqueRequestedItemIDPattern.ReplaceAllString(text, "the ID shown in the adjacent result card")
 	// 中文紧凑执行卷宗的机器字段整行不进入 assistant prose；精确值只在相邻结构化卷宗卡中展示。
@@ -991,6 +1022,7 @@ func redactOpaqueMachineValues(text string) string {
 	text = opaqueTypedIDSubjectPattern.ReplaceAllString(text, "${1}requested ${2}")
 	text = opaqueAttachmentIDAssignmentPattern.ReplaceAllString(text, "${1} is ready")
 	text = opaqueMediaAttachmentAssignmentPattern.ReplaceAllString(text, "${1} is ready")
+	text = opaqueChineseAttachmentIDReferencePattern.ReplaceAllString(text, "附件卡片$2")
 	text = opaqueEnglishNonexistentIDReferencePattern.ReplaceAllString(text, "${1} function reference")
 	text = opaqueEnglishExactIDReferencePattern.ReplaceAllString(text, "${1} function reference")
 	text = opaqueChineseExactIDAssignmentPattern.ReplaceAllString(text, "${1}文档")
@@ -1045,6 +1077,7 @@ func redactOpaqueMachineValues(text string) string {
 	// a placeholder merely because its source prefix was not known to the first pass.
 	text = opaqueFlowrunIDPlaceholderTableRowPattern.ReplaceAllString(text, "| **Run** | Current run |")
 	text = redactFlowrunSearchRows(text)
+	text = redactSearchBlocksPropertyRefRows(text)
 	text = redactSearchBlocksTableRows(text)
 	text = opaqueFlowrunChineseWorkflowListPattern.ReplaceAllString(text, "${1}该运行${2}该工作流${3}")
 	text = opaqueFlowrunChineseStatusListPattern.ReplaceAllString(text, "${1}该运行记录${2}")
@@ -2622,7 +2655,10 @@ func redactOpaquePlaceholderFieldTableRows(text string) string {
 		cells, ok := markdownTableCells(line)
 		if ok && len(cells) >= 2 {
 			label := strings.ToLower(strings.Trim(strings.TrimSpace(cells[0]), "`*_ "))
-			if (label == "id" || label == "identifier") && isUnavailableOpaqueTableCell(cells[1]) {
+			label = strings.ReplaceAll(label, " ", "")
+			label = strings.ReplaceAll(label, "_", "")
+			label = strings.ReplaceAll(label, "-", "")
+			if isOpaqueIDFieldLabel(label) && isUnavailableOpaqueTableCell(cells[1]) {
 				// Physically remove the row. Leaving an empty line splits the Markdown table and
 				// makes the next meaningful row disappear from the rendered table.
 				continue
@@ -2631,6 +2667,15 @@ func redactOpaquePlaceholderFieldTableRows(text string) string {
 		kept = append(kept, line)
 	}
 	return strings.Join(kept, "\n")
+}
+
+func isOpaqueIDFieldLabel(label string) bool {
+	switch label {
+	case "id", "identifier", "attachmentid", "imageid", "mediaid", "附件id", "图片id", "媒体id":
+		return true
+	default:
+		return false
+	}
 }
 
 const opaquePathTableHint = "See the exact path in the tool card."
@@ -2789,7 +2834,7 @@ func isOpaqueIDHeaderCell(cell string) bool {
 func isUnavailableOpaqueTableCell(cell string) bool {
 	value := strings.ToLower(strings.TrimSpace(cell))
 	value = strings.Trim(value, "`*_ ")
-	return value == "" || value == "-" || value == "n/a" || isOpaquePlaceholderTableCell(cell)
+	return value == "" || value == "-" || value == "n/a" || value == "这个输入" || value == "该目标" || isOpaquePlaceholderTableCell(cell)
 }
 
 func isOpaquePlaceholderTableCell(cell string) bool {
@@ -2801,12 +2846,47 @@ func isOpaquePlaceholderTableCell(cell string) bool {
 const (
 	flowrunSearchRowHint         = "See the run card"
 	searchBlocksRefRowHint       = "See the exact ref in the search_blocks result card."
+	searchBlocksRefRowHintCN     = "精确 ref 见相邻 search_blocks 结果卡，可直接复制。"
 	triggerIDTableRowHint        = "See the exact trigger ID in the adjacent trigger card."
 	activationIDTableRowHint     = "See the exact activation ID in the adjacent activation card."
 	activationCreatedAtTableHint = "See the exact creation time in the adjacent activation card."
 	activationIDTableRowHintCN   = "精确激活 ID 见旁边的活动卡片。"
 	activationTriggerIDTableHint = "精确触发器 ID 见旁边的活动卡片。"
 )
+
+func isSearchBlocksPropertyRefLabel(label string) bool {
+	value := strings.ToLower(strings.Trim(strings.TrimSpace(label), "`*_ "))
+	value = strings.Join(strings.Fields(value), " ")
+	switch value {
+	case "ref", "reference", "workflow ref", "block ref", "wireable ref", "引用 id", "引用 ref", "工作流 ref", "构建块 ref", "工作流节点 ref":
+		return true
+	default:
+		return false
+	}
+}
+
+// redactSearchBlocksPropertyRefRows covers the common two-column prose table that a model
+// produces after a search_blocks hit (for example, "属性 | 值" followed by "引用 ID"). The
+// five-column hit table below is not the only user-facing shape; both must point at the adjacent
+// tool card instead of leaving a generic placeholder that looks like a real value.
+// search_blocks 命中后模型常整理成两列表格（如「属性 | 值」及「引用 ID」）。它不是下方五列
+// 命中表的唯一展示形状；两种形状都必须指向相邻工具卡，不能留下看似真实的通用占位词。
+func redactSearchBlocksPropertyRefRows(text string) string {
+	lines := strings.Split(text, "\n")
+	for i, line := range lines {
+		cells, ok := markdownTableCells(line)
+		if !ok || len(cells) != 2 || !isSearchBlocksPropertyRefLabel(cells[0]) || !isUnavailableOpaqueTableCell(cells[1]) {
+			continue
+		}
+		if containsHan(text) {
+			cells[1] = searchBlocksRefRowHintCN
+		} else {
+			cells[1] = searchBlocksRefRowHint
+		}
+		lines[i] = formatMarkdownTableRow(cells)
+	}
+	return strings.Join(lines, "\n")
+}
 
 func normalizeActivationFieldLabel(label string) string {
 	value := strings.TrimSpace(label)
@@ -3056,9 +3136,11 @@ func redactSearchBlocksTableRows(text string) string {
 // that wire chunking while preserving normal streaming for completed words.
 type textRedactor struct {
 	pending                  string
+	failureProsePending      string
 	relationIntro            string
 	hasHan                   bool
 	executionDossier         bool
+	suppressTechnicalErrors  bool
 	stripLeadingSectionClose bool
 	associationSection       bool
 	associationTablePending  string
@@ -3138,6 +3220,13 @@ func (r *textRedactor) Write(delta string) (result string) {
 	if prefix, held, ok := splitExecutionIDPlaceholderValue(r.pending); ok {
 		r.pending = held
 		return prefix
+	}
+	// A standalone voice-ID line can split after its label. Hold that line until its value and
+	// newline arrive so "语音ID：" cannot flash before the complete machine-only line is removed.
+	// 独立 voice-ID 行可能在标签后分帧；等值与换行到齐，避免「语音ID：」先闪过再留下机器行。
+	if prefix, held, ok := splitVoiceIDAssignmentPrefix(r.pending); ok {
+		r.pending = held
+		return redactOpaqueMachineValues(prefix)
 	}
 	if r.stripLeadingSectionClose {
 		trimmed := strings.TrimLeft(r.pending, " \t\r\n")
@@ -3662,6 +3751,9 @@ func (r *textRedactor) Write(delta string) (result string) {
 
 func (r *textRedactor) redactLive(text string) string {
 	text = redactOpaqueMachineValues(text)
+	if r.suppressTechnicalErrors {
+		text = r.redactTechnicalFailureProse(text)
+	}
 	// A Chinese reasoning block can split an English placeholder onto its own provider delta.
 	// The complete-block redactor has Han context, but the isolated live chunk does not; carry
 	// the block language state here so the internal placeholder never flashes between frames.
@@ -3681,6 +3773,44 @@ func (r *textRedactor) redactLive(text string) string {
 	return redactStandaloneExecutionTimingRows(text)
 }
 
+// redactTechnicalFailureProse keeps raw exception details in the adjacent tool card while
+// making the assistant's default summary stable and actionable. It deliberately works on
+// complete sentences (and holds a sentence while a provider may still be spelling an exception)
+// so a streamed response cannot flash half-redacted Python diagnostics.
+// redactTechnicalFailureProse 将裸异常留在相邻工具卡，把助手默认摘要稳定成可行动的人话。
+// 它按完整句处理，并在 provider 可能还在拼异常名时暂存整句，避免流式画面闪出半截诊断。
+func (r *textRedactor) redactTechnicalFailureProse(text string) string {
+	r.failureProsePending += text
+	if r.failureProsePending == "" {
+		return ""
+	}
+
+	last := -1
+	lastSize := 0
+	for i, ch := range r.failureProsePending {
+		if strings.ContainsRune("。！？.!?\n", ch) {
+			last = i
+			lastSize = len(string(ch))
+		}
+	}
+	if last < 0 {
+		return ""
+	}
+	cut := last + lastSize
+	complete, remainder := r.failureProsePending[:cut], r.failureProsePending[cut:]
+	r.failureProsePending = remainder
+	return technicalFailureSentencePattern.ReplaceAllStringFunc(complete, func(sentence string) string {
+		return technicalFailureSummary(sentence)
+	})
+}
+
+func technicalFailureSummary(sentence string) string {
+	if !technicalFailureMarkerPattern.MatchString(sentence) {
+		return sentence
+	}
+	return "这一步执行失败，详细技术信息见下方执行记录。"
+}
+
 // redactCompleteUserBlock applies the same context-aware redaction used for live deltas to the
 // complete durable block. The close snapshot must not fall back to the generic pass: a dossier
 // may have already been made readable live by pointing exact values to its adjacent card, while
@@ -3688,14 +3818,30 @@ func (r *textRedactor) redactLive(text string) string {
 // redactCompleteUserBlock 对完整 durable block 复用 live 的上下文脱敏。close 不能退回通用 pass：
 // dossier 的实时文本可能已被改写为「精确值见相邻卡片」，通用 pass 会把它重新变成中性 placeholder。
 func redactCompleteUserBlock(raw string) string {
+	return redactCompleteUserBlockWithFailurePolicy(raw, false)
+}
+
+func redactCompleteUserBlockWithFailurePolicy(raw string, suppressTechnicalErrors bool) string {
 	if !hasExecutionDossierContext(raw) {
-		return normalizeChineseFunctionNotFoundCopy(redactOpaqueMachineValues(raw))
+		result := normalizeChineseFunctionNotFoundCopy(redactOpaqueMachineValues(raw))
+		if suppressTechnicalErrors {
+			return redactTechnicalFailureComplete(result)
+		}
+		return result
 	}
-	r := textRedactor{stripLeadingSectionClose: true}
+	r := textRedactor{stripLeadingSectionClose: true, suppressTechnicalErrors: suppressTechnicalErrors}
 	r.executionDossier = true
 	result := r.Write(raw)
 	result += r.Flush()
-	return normalizeChineseFunctionNotFoundCopy(r.redactLive(result))
+	result = normalizeChineseFunctionNotFoundCopy(r.redactLive(result))
+	if suppressTechnicalErrors {
+		result = redactTechnicalFailureComplete(result)
+	}
+	return result
+}
+
+func redactTechnicalFailureComplete(text string) string {
+	return technicalFailureSentencePattern.ReplaceAllStringFunc(text, technicalFailureSummary)
 }
 
 // normalizeChineseFunctionNotFoundCopy gives the complete get_function failure block one stable
@@ -3742,10 +3888,20 @@ func (r *textRedactor) Flush() string {
 		return appendEmptyDossierPointer(redactOpaqueMachineValues(pending)) + r.Flush()
 	}
 	if r.pending == "" {
+		if r.suppressTechnicalErrors && r.failureProsePending != "" {
+			failure := redactTechnicalFailureComplete(r.failureProsePending)
+			r.failureProsePending = ""
+			return failure
+		}
 		return ""
 	}
 	emitted := redactOpaqueMachineValues(r.pending)
 	r.pending = ""
+	if r.suppressTechnicalErrors && r.failureProsePending != "" {
+		failure := redactTechnicalFailureComplete(r.failureProsePending + emitted)
+		r.failureProsePending = ""
+		return failure
+	}
 	return emitted
 }
 
@@ -3841,6 +3997,15 @@ func splitPlaceholderPrefix(text string) (prefix, held string, ok bool) {
 		}
 	}
 	return "", "", false
+}
+
+func splitVoiceIDAssignmentPrefix(text string) (prefix, held string, ok bool) {
+	lineStart := strings.LastIndexByte(text, '\n') + 1
+	line := text[lineStart:]
+	if !voiceIDAssignmentPrefixPattern.MatchString(line) {
+		return "", "", false
+	}
+	return text[:lineStart], text[lineStart:], true
 }
 
 func splitDuplicatedRequestedItemIDPrefix(text string) (prefix, held string, ok bool) {
@@ -4864,6 +5029,7 @@ func splitMediaAttachmentAssignmentPrefix(text string) (prefix, held string, ok 
 	}{
 		{prefix: opaqueAttachmentIDAssignmentPrefixPattern, full: opaqueAttachmentIDAssignmentPattern},
 		{prefix: opaqueMediaAttachmentAssignmentPrefixPattern, full: opaqueMediaAttachmentAssignmentPattern},
+		{prefix: opaqueChineseAttachmentIDReferencePrefixPattern, full: opaqueChineseAttachmentIDReferencePattern},
 	} {
 		for _, loc := range pair.prefix.FindAllStringIndex(text, -1) {
 			suffix := text[loc[0]:]

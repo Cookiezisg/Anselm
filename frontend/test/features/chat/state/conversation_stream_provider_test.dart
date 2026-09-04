@@ -393,6 +393,78 @@ void main() {
   );
 
   test(
+    'terminal assistant close rehydrates execution results lost before reconnect',
+    () async {
+      final streaming = _turn(
+        'msg_a',
+        'assistant',
+        status: 'streaming',
+        blocks: [
+          ChatBlock(
+            id: 'call_a',
+            type: 'tool_call',
+            content: '{"name":"create_document"}',
+            status: 'completed',
+            attrs: const {'tool': 'create_document'},
+          ),
+        ],
+      );
+      final (c, repo) = _setup(
+        messages: {
+          'cv_1': [streaming],
+        },
+      );
+      c.listen(conversationStreamProvider('cv_1'), (_, _) {});
+      await pumpEventQueue();
+      final ctl = c.read(conversationStreamProvider('cv_1').notifier);
+      expect(ctl.transcript.value.liveTurns, hasLength(1));
+
+      // The result close was in the 410 gap. By the time message CLOSE arrives, REST has the
+      // complete durable tree even though the stream frame carries only message metadata.
+      // 结果 close 被 410 吞掉；message CLOSE 到达时，REST 已有完整耐久树，但流帧只有回合元数据。
+      repo.replaceMessage(
+        'cv_1',
+        _turn(
+          'msg_a',
+          'assistant',
+          blocks: [
+            ChatBlock(
+              id: 'call_a',
+              type: 'tool_call',
+              content: '{"name":"create_document"}',
+              status: 'completed',
+              attrs: const {'tool': 'create_document'},
+            ),
+            ChatBlock(
+              id: 'result_a',
+              type: 'tool_result',
+              parentBlockId: 'call_a',
+              content: 'Created document',
+              status: 'completed',
+            ),
+          ],
+        ),
+      );
+      repo.emitFrame(
+        'cv_1',
+        _close('msg_a', 'message', {
+          'role': 'assistant',
+          'status': 'completed',
+        }),
+      );
+      await pumpEventQueue();
+
+      expect(ctl.transcript.value.liveTurns, isEmpty);
+      expect(ctl.transcript.value.settled.map((n) => n.id), ['msg_a']);
+      expect(ctl.transcript.value.settled.single.children, hasLength(1));
+      expect(
+        ctl.transcript.value.settled.single.children.single.children,
+        hasLength(1),
+      );
+    },
+  );
+
+  test(
     'notifications resync cannot replace messages resync for the live transcript',
     () async {
       final (c, repo) = _setup(messages: {'cv_1': []});

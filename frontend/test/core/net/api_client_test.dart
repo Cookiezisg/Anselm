@@ -47,6 +47,7 @@ ResponseBody _json(
   ResponseBody Function(RequestOptions) respond, {
   String? ws = 'ws_1',
   String? token = 'tok_abc',
+  void Function()? onWorkspaceUnauthorized,
 }) {
   final dio = Dio(BaseOptions(baseUrl: 'http://127.0.0.1:9/'));
   final adapter = _FakeAdapter(respond);
@@ -55,6 +56,7 @@ ResponseBody _json(
     dio: dio,
     workspaceId: () => ws,
     authToken: () => token,
+    onWorkspaceUnauthorized: onWorkspaceUnauthorized,
   );
   return (client: client, adapter: adapter);
 }
@@ -169,6 +171,31 @@ void main() {
               .having((e) => e.httpStatus, 'httpStatus', 422),
         ),
       );
+    },
+  );
+
+  test(
+    'UNAUTH_NO_WORKSPACE invokes the runtime recovery callback before rethrowing',
+    () async {
+      var recoveryCalls = 0;
+      final b = _build(
+        (_) => _json({
+          'error': {
+            'code': AnselmErr.unauthNoWorkspace,
+            'message': 'unauthorized: no valid workspace id',
+          },
+        }, 401),
+        onWorkspaceUnauthorized: () => recoveryCalls++,
+      );
+      await expectLater(
+        () => b.client.getData('/api/v1/conversations'),
+        throwsA(
+          isA<ApiException>()
+              .having((e) => e.code, 'code', AnselmErr.unauthNoWorkspace)
+              .having((e) => e.httpStatus, 'httpStatus', 401),
+        ),
+      );
+      expect(recoveryCalls, 1);
     },
   );
 

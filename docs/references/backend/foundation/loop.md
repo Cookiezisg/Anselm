@@ -48,7 +48,7 @@ store。
 | ContextObserver | 记录 sampling 尺寸/route/恢复 |
 | RuntimeBudgetResolver | 按真实 route 读取已学习预算 |
 | MediaExpander | 将 tool-result MediaRef 展成 content parts |
-| BlockRecorder | 在工具派发前增量落盘 sampling blocks；Chat 用于冷打开的人在环 tool_call |
+| BlockRecorder | 在工具派发前增量落盘 sampling blocks；Chat 用于冷打开的人在环 tool_call；turn 取消后仍用 detached workspace context 收尾 |
 
 Reminder 与媒体追加只进入后续 request，不污染 durable Message history。
 
@@ -61,6 +61,11 @@ Reminder 与媒体追加只进入后续 request，不污染 durable Message hist
 Tool 执行前 Open 空 tool_result，progress 作为子块实时/持久化，完成后 Close
 完整 result。
 
+工具的 transport 成功不等于业务成功。对采用标准业务信封的工具，`{ok:false,errorMsg:...}`
+必须在 loop 执行边界被还原为 `tool_result status=error` 与非空 `error`；完整 JSON 回执仍保留
+在 `content` 供模型和 UI 查看。熔断、重试台账与 durable transcript 只依赖这一结构化错误事实，
+不能把失败 JSON 当作普通成功文本。
+
 用户停止回合时，若 tool 已进入执行并因 `context.Canceled` 返回，loop 必须以
 `tool_result status=cancelled` 收束，使用固定的中性结果并清空 wire `error`；底层 context
 错误只进后端 journal。不得把用户主动停止显示成工具失败，也不得把 `context canceled`
@@ -71,12 +76,13 @@ Tool 执行前 Open 空 tool_result，progress 作为子块实时/持久化，�
 
 同一 `Run` 内，已经执行、参数校验失败或被人拒绝的 `dangerous`/静态危险下限/驻地越界写调用若在后续 ReAct
 step 以相同工具名和规范化业务参数再次出现，Loop 在 dispatch 前产生已完成的
-suppression tool_result，不再开第二次人闸或产生第二次副作用，并结束当前回合。
+suppression tool_result，不再开第二次人闸或产生第二次副作用，并结束当前回合。该结果是 durable
+block 与 wire audit 事实，不是第二个用户动作；前端 transcript 不再渲染第二张“未执行”噪音卡，保留首个
+真实调用的成功、拒绝或失败结果作为用户可见真相。
 工具可选声明更窄的业务 `CallIdentity`；例如 `delete_workflow` 的身份只有目标 workflow，
 所以模型第一次把无效的 `file_path` 混入参数并在下一步修正时，仍被识别为同一个破坏性意图，
 不会因为无关字段变化而重新打开危险闸。该台账只存在于本次 `Run`；下一条用户消息是新意图，
-仍可主动重试。只读或普通
-可重试调用不因一次失败被这条跨步保护静默吞掉。
+仍可主动重试。只读或普通可重试调用不因一次失败被这条跨步保护静默吞掉。
 
 单个 tool result 有统一硬上限（默认 256 KiB，包含截断提示），防止持久化、SSE 与当前 prompt
 同时被无界输出撑爆。成功结果保留头部并附带 filters / `head_limit` / pagination 的收窄提示；若工具
@@ -115,6 +121,15 @@ Assistant reasoning/tool-call/tool-result group 在裁剪时保持协议完整�
 
 Chat context 可携 ephemeral broker；独立 Agent、顶层 Subagent 与 Workflow node
 没有 broker 时按其调用边界直接执行。
+
+审批事实只进入后续 LLM history，不进入用户可见的 tool-result 文案。该内部标记必须带上前一个
+tool 的名称和 `tool_call_id`，并明确声明只指向该前一调用、不描述或授权后续调用；不能使用无归属的
+“已获人工批准”句子，否则模型在下一条用户消息没有真实 gate 时可能把旧批准误套到新调用。
+
+工具调用在执行前会从业务参数剥离 `summary`、`danger`、`execution_group` 等 framework 字段，
+但 assistant history 的投影必须把已落在 tool_call block attrs 的 `summary` 与 `danger` 恢复到该
+preceding tool call 的 JSON 中。否则模型在收到结果后会误以为自己没有发出风险声明，产生与 wire/审计
+不一致的用户可见解释；恢复只影响 LLM history，不改变工具收到的业务参数。
 
 两类 gate：
 

@@ -580,6 +580,50 @@ func TestLoadHistory_AttachmentToolHintCarriesExactIDs(t *testing.T) {
 	}
 }
 
+func TestLoadHistory_AudioEnrollmentReminderRoutesFileOperation(t *testing.T) {
+	svc, store := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
+	ctx := ctxWS("ws_1")
+	user := &messagesdomain.Message{
+		ID: "msg_user", ConversationID: "cv_1", Role: messagesdomain.RoleUser, Status: messagesdomain.StatusCompleted,
+		Attrs: map[string]any{attrAttachments: []any{"att_audio_1"}},
+	}
+	if err := store.CreateMessage(ctx, user, []messagesdomain.Block{{Type: messagesdomain.BlockTypeText, Content: "register this uploaded audio as a cloned voice named narrator"}}); err != nil {
+		t.Fatalf("create user: %v", err)
+	}
+	h := &chatHost{svc: svc, conversationID: "cv_1", assistantMsgID: "msg_assistant"}
+	if _, err := h.LoadHistory(ctx); err != nil {
+		t.Fatalf("LoadHistory: %v", err)
+	}
+	reminders := h.SystemReminders(ctx)
+	if len(reminders) != 1 || !strings.Contains(reminders[0], "Call enroll_voice directly") ||
+		!strings.Contains(reminders[0], "does not need to hear it") || !strings.Contains(reminders[0], "dangerous confirmation gate") {
+		t.Fatalf("audio enrollment reminder = %v", reminders)
+	}
+	persisted, err := store.GetMessage(ctx, user.ID)
+	if err != nil {
+		t.Fatalf("get persisted user: %v", err)
+	}
+	if got := userText(persisted); got != "register this uploaded audio as a cloned voice named narrator" {
+		t.Fatalf("durable user text changed: %q", got)
+	}
+}
+
+func TestAudioEnrollmentIntentDoesNotRouteAudioUnderstanding(t *testing.T) {
+	for _, tc := range []struct {
+		text string
+		want bool
+	}{
+		{text: "register this uploaded audio as a cloned voice named narrator", want: true},
+		{text: "please clone this recording as my voice", want: true},
+		{text: "transcribe this uploaded audio", want: false},
+		{text: "what is a cloned voice?", want: false},
+	} {
+		if got := hasAudioEnrollmentIntent(tc.text); got != tc.want {
+			t.Errorf("hasAudioEnrollmentIntent(%q) = %v, want %v", tc.text, got, tc.want)
+		}
+	}
+}
+
 func TestChatHost_RefreshHistoryMediaRotatesLeaseWithoutLosingLiveSuffix(t *testing.T) {
 	svc, store := newSvc(t, &fakeClient{script: textTurn()}, newRecordBridge())
 	ctx := ctxWS("ws_1")
@@ -792,6 +836,11 @@ func TestBuildSystemPrompt_Sections(t *testing.T) {
 	for _, want := range []string{
 		`<section name="identity">`,
 		`<section name="how_to_work">`,
+		`<section name="product_surface">`,
+		"the left navigation labels are Chat, Entities, Scheduler, Library, Settings, and Notifications",
+		"Library is the container for documents and skills; do not call that navigation item Documents",
+		"the right-hand recent-change surface is labeled Activity",
+		"point to the visible Activity surface first",
 		`<section name="tools">`,
 		`<section name="user_system_prompt">`,
 		"speak like a pirate",
@@ -862,6 +911,7 @@ func TestBuildSystemPrompt_Sections(t *testing.T) {
 		"never mutate then undo it",
 		"For document editing, treat one user request as one canonical edit_document call",
 		"Never split name, description, content, or tags across multiple calls",
+		`A phrase such as "with body X" means content=X; never copy the title into content`,
 		"For document search, a result without nextCursor is complete",
 		"Once a matching document ID is returned, use that exact ID immediately",
 		"For read-only enumeration, never repeat an identical tool call",

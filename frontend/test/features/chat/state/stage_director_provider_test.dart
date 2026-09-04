@@ -6,6 +6,8 @@ import 'package:anselm/core/settings/app_prefs_providers.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
 import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/model/stage_director.dart';
+import 'package:anselm/features/chat/model/tool_card_state.dart';
+import 'package:anselm/features/chat/state/conversation_stream_provider.dart';
 import 'package:anselm/features/chat/state/stage_director_provider.dart';
 import 'package:anselm/features/chat/state/stage_truth.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -86,6 +88,20 @@ StreamEnvelope _resultClose(String id, {String status = 'completed'}) =>
         ),
       ),
     );
+
+StreamEnvelope _resultCloseWithBody(
+  String id,
+  String body, {
+  String status = 'completed',
+}) => StreamEnvelope(
+  seq: 4,
+  scope: _scope,
+  id: id,
+  frame: FrameClose(
+    status: status,
+    result: StreamNode(type: 'tool_result', content: {'content': body}),
+  ),
+);
 
 void main() {
   testWidgets(
@@ -236,6 +252,41 @@ void main() {
       ); // breath 停拍
       await tester.pump(const Duration(milliseconds: 2000));
       expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.idle);
+    },
+  );
+
+  testWidgets(
+    'an execution payload failure stays in failedHold and exposes the row clear path',
+    (tester) async {
+      final repo = FixtureChatRepository();
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+
+      repo.emitFrame(_conv, _open('b1', 'run_function'));
+      await tester.pump(const Duration(milliseconds: 600));
+      repo.emitFrame(_conv, _callClose('b1'));
+      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
+      repo.emitFrame(
+        _conv,
+        _resultCloseWithBody(
+          'r1',
+          '{"ok":false,"errorMsg":"probe failed","elapsedMs":73}',
+        ),
+      );
+      await tester.pump();
+
+      final stage = c.read(stageDirectorProvider(_conv));
+      expect(stage.phase, StagePhase.failedHold);
+      expect(stage.subject, isNotNull);
+      expect(stage.subject!.failed, isTrue);
+
+      c.read(stageDirectorProvider(_conv).notifier).clearActivity('b1');
+      expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.idle);
+      expect(c.read(stageDirectorProvider(_conv)).subject, isNull);
     },
   );
 
@@ -616,6 +667,106 @@ void main() {
           .pump(); // coalesced notify → realign seeds the entrance 合并通知→对齐排防抖
       await tester.pump(const Duration(milliseconds: 700)); // debounce 防抖
       expect(c.read(stageDirectorProvider(_conv)).subject?.blockId, 'sa_seed');
+    },
+  );
+
+  testWidgets(
+    'G5: resync re-grounds a live turn whose tool calls completed during the gap',
+    (tester) async {
+      final repo = FixtureChatRepository(
+        conversations: [
+          Conversation(
+            id: _conv,
+            title: 'resync',
+            createdAt: DateTime.utc(2026, 7, 8),
+            updatedAt: DateTime.utc(2026, 7, 8),
+            lastMessageAt: DateTime.utc(2026, 7, 8),
+          ),
+        ],
+        messages: {
+          _conv: [
+            ChatMessage(
+              id: 'm1',
+              conversationId: _conv,
+              role: 'assistant',
+              status: 'streaming',
+              blocks: [
+                ChatBlock(
+                  id: 'call1',
+                  type: 'tool_call',
+                  content: '{"name":"first"}',
+                  status: 'open',
+                  attrs: {'tool': 'create_document'},
+                ),
+                ChatBlock(
+                  id: 'result1',
+                  type: 'tool_result',
+                  content: 'created',
+                  status: 'open',
+                  parentBlockId: 'call1',
+                ),
+              ],
+              createdAt: DateTime.utc(2026, 7, 8),
+            ),
+          ],
+        },
+      );
+      final c = ProviderContainer(
+        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
+      );
+      addTearDown(c.dispose);
+      c.listen(stageDirectorProvider(_conv), (_, _) {});
+      await tester.pump();
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
+
+      repo.replaceMessage(
+        _conv,
+        ChatMessage(
+          id: 'm1',
+          conversationId: _conv,
+          role: 'assistant',
+          status: 'streaming',
+          blocks: [
+            ChatBlock(
+              id: 'call1',
+              type: 'tool_call',
+              content: '{"name":"first"}',
+              status: 'completed',
+              attrs: {'tool': 'create_document'},
+            ),
+            ChatBlock(
+              id: 'result1',
+              type: 'tool_result',
+              content: 'created',
+              status: 'completed',
+              parentBlockId: 'call1',
+            ),
+          ],
+          createdAt: DateTime.utc(2026, 7, 8),
+        ),
+      );
+      repo.emitResync();
+      await tester.pump();
+      await tester.pump();
+
+      final transcript = c
+          .read(conversationStreamProvider(_conv).notifier)
+          .transcript
+          .value;
+      expect(transcript.liveBlock('call1'), isNotNull);
+      expect(
+        ToolCardState.of(transcript.liveBlock('call1')!).phase,
+        ToolCardPhase.succeeded,
+      );
+      expect(
+        c.read(stageDirectorProvider(_conv)).stageOpen,
+        isFalse,
+        reason: 'completed calls from the resync snapshot must not remain Live',
+      );
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse);
     },
   );
 

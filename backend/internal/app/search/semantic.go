@@ -32,8 +32,12 @@ const (
 	// clearly-genuine matches (e.g. 0.617, 0.677) the old floor chopped; the lone casualty (a 0.549
 	// match, 0.012 above noise) is genuinely noise-indistinguishable for this weak model. RRF fusion +
 	// vecTopK already rank-demote weak semantic hits downstream, so this pre-filter only needs to be a
-	// noise guard, not a precision gate.
+	// noise guard, not a precision gate. A weak model can still assign a high absolute cosine to
+	// several unrelated rows, so semantic-only recall also requires a small top-1/top-2 margin below.
 	cosineFloor = 0.55
+	// semanticMargin rejects a flat high-baseline neighborhood while preserving a distinct candidate;
+	// lexical evidence is unaffected because this only gates vector-only results.
+	semanticMargin = 0.03
 )
 
 // StatusReporter is the optional provider capability behind the settings
@@ -427,6 +431,11 @@ func (s *Service) fuseSemantic(ctx context.Context, q *searchdomain.Query, lex [
 		}
 	}
 	sort.Slice(vhits, func(i, j int) bool { return vhits[i].score > vhits[j].score })
+	if len(lex) == 0 && len(vhits) > 1 && vhits[0].score-vhits[1].score < semanticMargin {
+		// With no lexical anchor, a flat semantic neighborhood is indistinguishable from model noise.
+		// 无词法锚点时，平坦的语义邻域无法和模型噪声区分，宁可返回空结果也不编造命中。
+		return lex
+	}
 	if len(vhits) > vecTopK {
 		vhits = vhits[:vecTopK]
 	}

@@ -16,7 +16,8 @@ audience: [human, ai]
 ## 1. 启动与进程
 
 - `main.dart` 安装 Flutter/Dart 错误入口、窗口与缩放 binding，再挂 `ProviderScope`。
-- `AppStartupGate` 托管 Go sidecar：Dart 选择端口，以 `ANSELM_ADDR` 启动，等待 `/api/v1/health` 后放行；开发时 `ANSELM_BACKEND_URL` 可连接已运行后端。
+- Flutter framework 错误由 `installErrorHandlers` 以可恢复 ErrorWidget 收口；真实 App console 同时记录压缩异常行和堆栈，供台架定位构建/布局红线。
+- `AppStartupGate` 托管 Go sidecar：Dart 选择端口，以 `ANSELM_ADDR` 启动，等待 `/api/v1/health` 后放行；开发时 `ANSELM_BACKEND_URL` 可连接已运行后端，且就绪后仍由连续健康探测监督，外接 backend 失联达到阈值会回到全 App 可重试错误门。
 - 正常退出先优雅停止 sidecar；崩溃路径由 `ANSELM_PARENT_WATCH=1` 的 stdin EOF 死人开关收口。
 - `WorkspaceGate` 以服务端 workspace 名册为准；无行进入创建旅程，有行激活并进入唯一 `AppShell`。
 
@@ -37,7 +38,7 @@ audience: [human, ai]
 ## 4. 本地持久化与安全
 
 - 机器级偏好进入 `SharedPreferences`；workspace 业务设置进入后端。两条轴不混。
-- master key 由系统 keychain 铸造和保存，见 [`ADR 0008`](../../decisions/0008-master-key-keychain.md)。
+- master key 由系统 keychain 铸造和保存，见 [`ADR 0008`](../../decisions/0008-master-key-keychain.md)。读写有单步超时；授权 UI 或 keychain daemon 挂起时，应用必须在有界等待后降级到 legacy fingerprint，而不是冻结启动。
 - launch-at-login 经平台 adapter 注册，设置偏好与 OS 注册表分别承担 UI/系统事实；
   close 后后台运行与 tray 尚未形成产品合同。
 - loopback 安全由后端默认 `127.0.0.1`、bearer 与 Host 校验三层完成；前端不复制鉴权规则。

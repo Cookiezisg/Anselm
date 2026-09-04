@@ -488,7 +488,10 @@ class _DocProperties extends ConsumerWidget {
         ?.where((row) => row.id == id)
         .firstOrNull;
     final loaded = doc.value;
-    final name = loaded?.name.trim() ?? '';
+    final displayDoc = loaded == null
+        ? null
+        : mergeDocumentTreeMetadata(loaded, treeDoc);
+    final name = displayDoc?.name.trim() ?? '';
     // Live metrics keep char/byte values fresh (WRK-083 L16): openDocumentProvider is frozen mid-edit to
     // protect the caret, so `loaded.content` becomes stale the instant the writer types. The shared
     // timestamp rule separately decides whether a local edit time may outrank persisted metadata. Null
@@ -1062,7 +1065,9 @@ class _SkillFilesGroup extends ConsumerWidget {
       groupKey: kDocGroupSkillFiles,
       icon: AnIcons.folder,
       label: t.library.skillFiles,
-      count: files.length + bindings.length,
+      // The group is labelled "Files"; bindings have their own section and must not inflate
+      // this count. 组头名为「Files」,绑定已单列,不能混入文件数。
+      count: files.length,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [

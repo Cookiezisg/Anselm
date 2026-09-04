@@ -657,15 +657,29 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             switch (err) {
               speechInputErrorUnavailable => t.voiceInputUnavailable,
               speechInputErrorPermissionDenied => t.voiceInputPermissionDenied,
-              speechInputErrorConnectionLost => t.voiceInputConnectionLost,
+              speechInputErrorConnectionLost =>
+                next.text.isEmpty
+                    ? t.voiceInputConnectionLostNoText
+                    : t.voiceInputConnectionLost,
               speechInputErrorTooLong => t.voiceInputTooLong,
+              speechInputErrorQuotaExhausted => t.voiceInputQuotaExhausted,
+              speechInputErrorRateLimited => t.voiceInputRateLimited,
+              speechInputErrorAccountBanned => t.voiceInputAccountBanned,
+              speechInputErrorFrameInvalid =>
+                next.text.isEmpty
+                    ? t.voiceInputFrameInvalidNoText
+                    : t.voiceInputFrameInvalid,
               _ => t.voiceInputFailed,
             },
             tone: switch (err) {
               speechInputErrorUnavailable ||
               speechInputErrorConnectionLost ||
               speechInputErrorPermissionDenied ||
-              speechInputErrorTooLong => AnTone.warn,
+              speechInputErrorTooLong ||
+              speechInputErrorQuotaExhausted ||
+              speechInputErrorRateLimited ||
+              speechInputErrorAccountBanned ||
+              speechInputErrorFrameInvalid => AnTone.warn,
               _ => AnTone.danger,
             },
           );
@@ -985,7 +999,7 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
             speech.canRetry &&
             _speechBefore != null &&
             _speechAfter != null
-        ? _speechRetryCard(context, t)
+        ? _speechRetryCard(context, t, speech)
         : null;
     final parts = [
       ?_queueStrip(context, t),
@@ -1090,7 +1104,11 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
     _focus.requestFocus();
   }
 
-  Widget _speechRetryCard(BuildContext context, Translations t) {
+  Widget _speechRetryCard(
+    BuildContext context,
+    Translations t,
+    SpeechInputState speech,
+  ) {
     final c = context.colors;
     return AnInfoCard(
       key: const ValueKey('voice-retry-card'),
@@ -1111,7 +1129,9 @@ class _ChatComposerState extends ConsumerState<ChatComposer> {
         ),
       ],
       child: Text(
-        t.chat.voiceRetryBody,
+        speech.text.isEmpty
+            ? t.chat.voiceRetryBodyNoText
+            : t.chat.voiceRetryBody,
         style: AnText.body.copyWith(color: c.inkMuted),
       ),
     );

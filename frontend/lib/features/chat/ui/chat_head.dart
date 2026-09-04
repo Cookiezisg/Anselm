@@ -301,7 +301,7 @@ Widget chatModelMenu({
       for (final cap in caps)
         AnMenuItem(
           label: cap.displayName.isEmpty ? cap.modelId : cap.displayName,
-          meta: cap.keyName.isEmpty ? cap.provider : cap.keyName,
+          meta: _chatModelMeta(t, cap),
           checked:
               current?.modelId == cap.modelId &&
               current?.apiKeyId == cap.apiKeyId,
@@ -309,4 +309,12 @@ Widget chatModelMenu({
         ),
     ],
   );
+}
+
+String _chatModelMeta(Translations t, ModelCapability cap) {
+  final source = cap.keyName.isEmpty ? cap.provider : cap.keyName;
+  return [
+    if (source.isNotEmpty) source,
+    if (!cap.tools) t.chat.chatOnlyBadge,
+  ].join(' · ');
 }

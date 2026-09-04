@@ -46,12 +46,21 @@ func HandlerWithResponseBody(upstream *url.URL, onRequest func(r *http.Request, 
 // policy may close a live stream to exercise client reconnect and replay-gap behavior without
 // buffering or rewriting the response.
 func HandlerWithResponseBodyPolicy(upstream *url.URL, onRequest func(r *http.Request, body []byte), onResponse func(resp *http.Response), onResponseBody func(resp *http.Response, body []byte), decorate func(resp *http.Response, body io.ReadCloser) io.ReadCloser) http.Handler {
+	return HandlerWithResponseBodyPolicyAndRewrite(upstream, onRequest, onResponse, onResponseBody, decorate, nil)
+}
+
+// HandlerWithResponseBodyPolicyAndRewrite adds an optional final rewrite hook. The canonical
+// upstream target is applied first; the hook is for narrowly scoped test-rig perturbations.
+func HandlerWithResponseBodyPolicyAndRewrite(upstream *url.URL, onRequest func(r *http.Request, body []byte), onResponse func(resp *http.Response), onResponseBody func(resp *http.Response, body []byte), decorate func(resp *http.Response, body io.ReadCloser) io.ReadCloser, rewrite func(pr *httputil.ProxyRequest)) http.Handler {
 	proxy := &httputil.ReverseProxy{
 		Rewrite: func(pr *httputil.ProxyRequest) {
 			pr.Out.URL.Scheme = upstream.Scheme
 			pr.Out.URL.Host = upstream.Host
 			pr.Out.URL.Path = joinUpstreamPath(upstream.Path, pr.In.URL.Path)
 			pr.Out.Host = upstream.Host
+			if rewrite != nil {
+				rewrite(pr)
+			}
 		},
 		FlushInterval: -1,
 	}

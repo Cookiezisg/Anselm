@@ -114,7 +114,21 @@ HTTP shape。
 
 没有可直接接线 ref 的 hit 会从 blocks 结果剔除。
 
+该工具只覆盖能直接接进 workflow 图的六类节点：function、handler 方法、MCP tool、agent、
+control、approval。Trigger 不是 workflow block，必须使用 `search_triggers`；notification 也不是
+独立的 blocks kind，应搜索实际提供通知能力的 function、handler 或 MCP tool。`trigger` 和
+`notification` 作为 `kinds` 值会被严格拒绝，不做静默转换。
+
+用户询问“哪个 workflow step 可以连接/接线/放入图中”时，聊天路由应优先调用 `search_blocks`，
+即使用户已经说出 function 或 handler；需要详情时再用命中返回的 `entityId` 调用对应 `get_*`。
+
+命中后读取详情时必须把返回的 `entityId` 原样传给对应的 `get_*` 工具，不能把展示名当作
+`functionId` 或 `handlerId`。可接线 ref 的精确值由相邻 blocks 结果卡承载，助手正文只保留名称、
+类型和用途，避免脱敏后留下不完整的接线句。
+
 `search_blocks` 的 `kinds` 原生形状是字符串数组、`limit` 原生形状是整数；为兼容部分托管模型，它们也接受**同一值的 JSON 字符串编码**（例如 `"[\"handler\"]"` 与 `"20"`）。服务端只在字符串能严格解回数组/精确十进制整数时接受；任意 kind 字符串、浮点、非数字字符串和数组以外的编码仍拒绝，不做猜测式转换。
+
+每个可接线 `ref` 只返回一条命中。统一索引可能同时为同一实体保留描述、代码或方法片段；`search_blocks` 在输出边界按最终 wireable `ref` 去重，并保留排序靠前的最佳片段，避免结果卡把同一个积木显示成多个选择。
 
 `WebSearch` 的 `limit` 公开 schema 是 integer。部分托管模型会把它编码成精确十进制字符串，执行边界可以接受这种窄兼容形状；浮点、任意文本、数组和布尔仍拒绝。WebSearch 只使用 workspace 明确选定的 search-category key，不在多个 provider 间静默轮换；未配置或 provider 失败时，tool result 必须返回可行动的配置/故障原因，不能伪造结果或重试成另一种搜索。
 

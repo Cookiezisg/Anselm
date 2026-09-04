@@ -81,6 +81,7 @@ PROVISIONAL_NA_MARKERS = (
     "没有真实 app 录屏",
     "未完成独立视觉",
     "未完成独立可发现性",
+    "未完成新用户可发现性",
     "未完成独立美学",
     "未冒充完整顺滑",
 )
@@ -322,9 +323,23 @@ def sequence_problem(family: str, item: str, revalidate: bool = False) -> str:
         None,
     )
     if frontier_index is None and unsettled:
-        # Manual cells are a last-mile queue, not a waiver. Once autonomous work is exhausted,
-        # the earliest manual item becomes the only writable frontier again.
-        frontier_index = unsettled[0][0]
+        # Forced cells are a last-mile queue, not a waiver. Once autonomous work is exhausted,
+        # its explicit list order becomes the only writable frontier again.
+        # 强制人工格不是豁免;自主格耗尽后,严格按队列显式顺序恢复唯一前线。
+        unsettled_by_item = {
+            (row_family, row_item): index
+            for index, row_family, row_item, _ in unsettled
+        }
+        frontier_index = next(
+            (
+                unsettled_by_item[(entry["family"], entry["item"])]
+                for entry in policy.get("forced_queue", policy.get("manual_queue", []))
+                if (entry["family"], entry["item"]) in unsettled_by_item
+            ),
+            None,
+        )
+        if frontier_index is None:
+            return "formal sequence gate: unsettled rows are not represented in forced_queue"
     if frontier_index is None:
         return ""
     target_index = next(

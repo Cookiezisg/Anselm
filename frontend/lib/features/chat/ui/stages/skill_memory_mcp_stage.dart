@@ -198,7 +198,7 @@ class MemoryStageBody extends StatelessWidget {
 /// error plainly (the stage exhibits; reconnect controls live on the entity page).
 ///
 /// mcp 舞台(W5)——接线现场:铭牌+env **键名**药丸(值恒 ••••)+安装 progress 终端尾;落定=工具货架逐行+
-/// 「发现 N 个工具」计数——接驳成功的 payoff。失败如实渲 lastError(操作归实体页)。
+/// 「发现 N 个工具」计数——接驳成功的 payoff。失败先渲人话摘要，原始 lastError 留在中心工具卡技术详情。
 class McpStageBody extends StatelessWidget {
   const McpStageBody({required this.scene, super.key});
 
@@ -298,15 +298,27 @@ class McpStageBody extends StatelessWidget {
           const SizedBox(height: AnSpace.s4),
           runStatBarOf(context, scene.state),
         ],
-        if (scene.failed && scene.state.errorText.isNotEmpty) ...[
+        if (scene.failed) ...[
           const SizedBox(height: AnSpace.s6),
-          // No-icon line → the text lands on the shared column (empty gutter), aligned with the shelf. 落同列。
+          // The side stage is a compact status surface; raw transport detail belongs to the
+          // center card's explicit disclosure, even when the close frame has no error text.
+          // 侧幕只承载紧凑状态;原始传输细节统一留给中心卡的明确披露,即使关帧没有错误文本。
           stageGutterRow(
-            child: Text(
-              toolErrorForDisplay(t, scene.state.errorText),
-              maxLines: 3,
-              overflow: TextOverflow.ellipsis,
-              style: AnText.meta.copyWith(color: c.danger),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  t.chat.tool.mcpFailedTitle,
+                  style: AnText.meta.copyWith(color: c.danger),
+                ),
+                const SizedBox(height: AnSpace.s2),
+                Text(
+                  mcpFailureSummary(t),
+                  maxLines: 3,
+                  overflow: TextOverflow.ellipsis,
+                  style: AnText.meta.copyWith(color: c.danger),
+                ),
+              ],
             ),
           ),
         ],

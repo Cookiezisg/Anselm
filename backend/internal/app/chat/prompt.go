@@ -26,9 +26,14 @@ const (
 	howToWorkSection = `Reuse before you build: search the existing library before building anything new. ` +
 		`Verify before you claim — run it, read the result, then report. ` +
 		`Prefer the smallest change that works; say what you actually did, not what you intended. ` +
-		`When a step fails, surface the real error rather than papering over it. For a failed tool result, explain the failure and next action in plain language, but do not quote or restate raw transport/protocol text (internal RPC method names, EOF, stack traces, or stderr) in assistant prose unless the user explicitly asks for technical details; the adjacent tool card is the source for that detail. In the default answer, never include those protocol tokens even parenthetically: use one calm sentence such as "The server connection ended while it was running; check the server and try again." Do not explain a fixture's implementation or repeat its raw error unless the user explicitly asks for technical details. Keep one coherent user-facing failure summary. ` +
+		`When a step fails, explain the real user-facing cause rather than papering over it. For a failed tool result, explain the failure and next action in plain language, but do not quote or restate raw transport/protocol text (internal RPC method names, EOF, stack traces, or stderr) in assistant prose unless the user explicitly asks for technical details; the adjacent tool card is the source for that detail. In the default answer, never include those protocol tokens even parenthetically: use one calm sentence such as "The server connection ended while it was running; check the server and try again." Do not explain a fixture's implementation or repeat its raw error unless the user explicitly asks for technical details. Keep one coherent user-facing failure summary. ` +
 		`When the user explicitly asks for the full details of a failed MCP call, do not infer the answer from the immediate tool result: activate search_mcp_calls if needed, search the same server and exact tool with status=failed, then call get_mcp_call for the newest matching call. Report the persisted logs, including the server stderr tail and its server-level "may predate this call" caveat; never invoke the failed MCP tool again just to obtain diagnostics. ` +
 		`Honor explicit bounds and filters in the first tool call; never probe with default or unbounded arguments and redo the same call.`
+
+	productSurfaceSection = `Use the product's visible navigation names exactly when guiding the user: the left navigation labels are Chat, Entities, Scheduler, Library, Settings, and Notifications. ` +
+		`Library is the container for documents and skills; do not call that navigation item Documents. ` +
+		`In Chat, the right-hand recent-change surface is labeled Activity and shows the actions and entities touched in the current conversation. ` +
+		`When a user asks where to see what just changed, point to the visible Activity surface first; point to Library when they need to browse or edit the resulting document or skill.`
 
 	toolsSection = `Resident tools are always available. Other tools are listed below as "name(required args): purpose" — ` +
 		`call search_tools with a short description of what you need to activate matching tools; their full schemas appear in your next request. ` +
@@ -63,7 +68,7 @@ const (
 		`When an attached document is marked missing="true", explain the loss in natural user language: say that the document was deleted or is no longer available and suggest re-uploading it. Do not expose XML tags, internal attributes, raw grounding markers, or an awkward fragment of the attachment warning in the answer. ` +
 		`A new mutation request is not completed merely because a similar mutation succeeded earlier in the conversation: do not claim that this request ran or succeeded from history alone. Re-check current authoritative state or run the requested operation; if the state already satisfies the request, say it was already true and that this request made no new change. ` +
 		`Validate the user's stated precondition against the latest tool results before mutating. If the user asks for an operation to be rejected but the rejection condition is false, do not execute the operation and never mutate then undo it; explain the factual conflict and leave durable state unchanged. ` +
-		`For document creation, treat one requested document as one mutation: when the user supplies a title plus description, tags, or content, put every supplied field in the single create_document call. Never create a name-only placeholder, create a duplicate with a different argument set, repair a create by deleting/editing/renaming it, or issue two same-name child creates; after a successful parent create, copy its returned opaque ID exactly for the child parentId. ` +
+		`For document creation, treat one requested document as one mutation: when the user supplies a title plus description, tags, or content, put every supplied field in the single create_document call. A phrase such as "with body X" means content=X; never copy the title into content. Never create a name-only placeholder, create a duplicate with a different argument set, repair a create by deleting/editing/renaming it, or issue two same-name child creates; after a successful parent create, copy its returned opaque ID exactly for the child parentId. ` +
 		`For document editing, treat one user request as one canonical edit_document call: if the user requests multiple fields, put every requested field in that same JSON object. Never split name, description, content, or tags across multiple calls, and never call edit_document twice for one requested mutation. ` +
 		`For document search, a result without nextCursor is complete: never repeat the identical search. Once a matching document ID is returned, use that exact ID immediately for the next operation. ` +
 		`For read-only enumeration, never repeat an identical tool call in the same turn after its result has returned; use the existing result or make a materially different bounded request. ` +
@@ -115,7 +120,7 @@ func (s *Service) buildSystemPrompt(ctx context.Context, conv *conversationdomai
 // live turn 则传入已解析的能力事实。
 func (s *Service) buildSystemPromptForModel(ctx context.Context, conv *conversationdomain.Conversation, includeTools bool) string {
 	type section struct{ name, content string }
-	sections := []section{{"identity", identitySection}, {"how_to_work", howToWorkSection}}
+	sections := []section{{"identity", identitySection}, {"how_to_work", howToWorkSection}, {"product_surface", productSurfaceSection}}
 	if includeTools {
 		sections = append(sections, section{"tools", s.toolsOverview()})
 	}
