@@ -36,7 +36,7 @@ jobs:
 
   macos:
     needs: version
-    runs-on: macos-14
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -59,9 +59,12 @@ jobs:
           done
           lipo -create -output ../build/sidecar/anselm-server \
             ../build/sidecar/anselm-server-arm64 ../build/sidecar/anselm-server-amd64
+      # The macOS host is Swift Package Manager only (no Podfile), so SPM must be on for the plugins
+      # to see the Flutter module; the runner needs an Xcode new enough for the plugins' Package.swift.
       - name: Build app
         working-directory: frontend
         run: |
+          flutter config --enable-swift-package-manager
           flutter pub get
           flutter build macos --release --no-tree-shake-icons
       - name: Package
@@ -90,7 +93,7 @@ jobs:
       - name: Desktop build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libstdc++-12-dev libmpv-dev
       - name: Build sidecar
         working-directory: backend
         run: |
