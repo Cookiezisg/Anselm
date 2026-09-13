@@ -18,8 +18,8 @@ typedef UpdateStatus = ({UpdateOutcome outcome, String latest, String url});
 
 /// The release feed of this product. 本产品的发行源。
 const kReleasesApi =
-    'https://api.github.com/repos/sunweilin/anselm/releases/latest';
-const kReleasesPage = 'https://github.com/sunweilin/anselm/releases';
+    'https://api.github.com/repos/Cookiezisg/Anselm/releases/latest';
+const kReleasesPage = 'https://github.com/Cookiezisg/Anselm/releases';
 
 class UpdateCheckController extends AsyncNotifier<UpdateStatus?> {
   @override

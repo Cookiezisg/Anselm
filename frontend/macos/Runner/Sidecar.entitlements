@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- The Go sidecar is spawned by the sandboxed app, so it must inherit the parent's sandbox
+	     instead of declaring its own; a child without this pair is killed at exec time.
+	     Go sidecar 由沙箱内的 app 拉起,必须继承父进程沙箱而不是自带一套;缺这两项子进程在 exec 时就被杀。 -->
+	<key>com.apple.security.app-sandbox</key>
+	<true/>
+	<key>com.apple.security.inherit</key>
+	<true/>
+</dict>
+</plist>

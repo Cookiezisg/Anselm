@@ -64,6 +64,13 @@ make -C demo verify
 工具链版本由 `mise.toml` 固定；依赖锁分别位于 `backend/go.mod`、
 `testend/go.mod`、`frontend/pubspec.lock` 与 `demo/package-lock.json`。
 
+## 发行
+
+打 `v<version>` tag（须等于 `frontend/pubspec.yaml` 的版本）触发
+`.github/workflows/release.yml`，为 macOS、Linux、Windows 构建带 sidecar 的桌面 app 并发布到
+GitHub Releases；本机可用 `make -C frontend package` 复现打包。细节见
+[`platform.md`](docs/references/frontend/platform.md)。
+
 ## 文档入口
 
 - 工程纪律：[`CLAUDE.md`](CLAUDE.md)

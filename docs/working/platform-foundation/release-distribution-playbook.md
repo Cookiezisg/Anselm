@@ -18,8 +18,10 @@ landed-into:
 
 ## 当前基线
 
-- 产品版本当前由 `frontend/pubspec.yaml` 表达，但尚未证明覆盖 GUI、Go sidecar 和所有
-  artifact metadata。
+- 2026-09-14 起 `.github/workflows/release.yml` 已落地 Release 0 的构建与发布半程：tag 版本必须
+  等于 `frontend/pubspec.yaml`，同一版本盖进 Go sidecar 与产物名；三平台各出一个归档 +
+  `SHA256SUMS.txt`。macOS 为 ad-hoc 签名（sidecar 继承沙箱），Linux/Windows 未签名。
+- 尚未落地：Developer ID/公证、Windows 签名、Linux 包格式、clean-machine 验收记录与安装型更新。
 - macOS/Linux application ID 已使用 `website.anselm.app`；Windows metadata 仍需发行级复核。
 - 当前仓库没有可声明为已验证的三平台签名、公证、installer、发布 CI 或安装型自动更新链。
 - 开发/测试命令与 current host 能力见

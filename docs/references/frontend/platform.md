@@ -61,13 +61,23 @@ audience: [human, ai]
 | `make -C frontend gallery` | 原语与状态目录 |
 | `make -C frontend demo` | 真壳 + fixtures |
 | `make -C frontend app` | 真壳 + sidecar |
+| `make -C frontend package` | 本机发行包：sidecar 装进 release app，归档到 `frontend/dist/` |
 | `make doctor` | 原生桌面工具链诊断 |
 
-Settings 可查询 GitHub Releases 并提示新版本，但不会下载或安装。发行签名、公证、
-安装器、sidecar bundling 与安装型自动更新尚未形成已验证流水线；未完成合同见
-[`working/platform-foundation/`](../../working/platform-foundation/)，冻结研究见
-[`archive/platform-foundation-research/`](../../archive/platform-foundation-research/)，两者都不是
-当前可照抄的发行操作手册。
+## 7. 发行
+
+`.github/workflows/release.yml` 由 `v<version>` tag 触发，版本必须等于 `frontend/pubspec.yaml`
+的 `version`；同一个数字盖进 Go sidecar（`-X main.version`）与产物名。三平台各自构建
+Flutter release app，把 sidecar 放到可执行文件旁（`BackendController` 从那里解析），经
+`frontend/tool/package.sh` 归档：macOS 为通用二进制 `Anselm-<v>-macos.dmg`，Linux 为
+`Anselm-<v>-linux-x64.tar.gz`，Windows 为 `Anselm-<v>-windows-x64.zip`，连同 `SHA256SUMS.txt`
+发布到 GitHub Release；任一平台失败则不发布。
+
+macOS bundle 为 ad-hoc 签名：sidecar 以 `Sidecar.entitlements`（app-sandbox + inherit）签名，
+bundle 以 `Release.entitlements` 重新封印。没有 Developer ID、公证与 Windows 签名，用户首次打开
+需手动放行；官网下载页读取 Releases 的最新资产。可信签名链、安装器与安装型自动更新仍是
+[`working/platform-foundation/`](../../working/platform-foundation/) 的未完成合同。Settings 的
+更新检查只查询 Releases 并提示，不下载不安装。
 
 当前 macOS 关闭最后一个窗口后会退出，Windows close 同样退出；历史研究中的“关闭后驻留后台”
 尚未落地，也仍需按当前三平台约束复核。

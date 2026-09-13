@@ -105,6 +105,15 @@ demo: deps
 		$(if $(LOCALE),--dart-define=ANSELM_DEMO_LOCALE=$(LOCALE)) \
 		-t lib/dev/demo_main.dart
 
+# package — 本机发行包:构建 Go sidecar(版本取 pubspec)+ release app,经 tool/package.sh 装进 app 并归档到
+# dist/。与 .github/workflows/release.yml 用同一脚本,本地跑一遍即可验证打包路径;签名仍是 ad-hoc。
+package: deps
+	@v=$$(sed -n 's/^version: *\([0-9][0-9.]*\).*/\1/p' pubspec.yaml); \
+	mkdir -p ../build/sidecar && \
+	(cd ../backend && CGO_ENABLED=0 $(RUN) go build -trimpath -ldflags "-s -w -X main.version=$$v" -o ../build/sidecar/anselm-server ./cmd/server) && \
+	$(RUN) flutter build $(DEVICE) --release --no-tree-shake-icons && \
+	bash tool/package.sh "$$v" ../build/sidecar/anselm-server dist
+
 # onboard — 空名册首启页→真实壳的完整视觉验收；fixture 隔离、零 sidecar、零持久化。
 onboard: deps
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d $(DEVICE) -t lib/dev/onboarding_main.dart
@@ -150,4 +159,4 @@ clean: toolchain
 	@$(RUN) flutter clean
 	@echo "" && echo "✓ 已清 build/ + .dart_tool/(flutter clean)。下次任一前端命令会自动恢复依赖。"
 
-.PHONY: help toolchain setup deps doctor format gen analyze test verify demo onboard perf gallery app shots clean
+.PHONY: help toolchain setup deps doctor format gen analyze test verify demo package onboard perf gallery app shots clean
