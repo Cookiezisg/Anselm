@@ -6,6 +6,7 @@ import '../../../../core/model/partial_json.dart';
 import '../../../../core/design/colors.dart';
 import '../../../../core/design/tokens.dart';
 import '../../../../core/design/typography.dart';
+import '../../../../core/graph/graph_model.dart';
 import '../../../../core/ui/ui.dart';
 import '../../../../i18n/strings.g.dart';
 import '../../state/stage_truth.dart';
@@ -98,8 +99,12 @@ class WorkflowStageBody extends ConsumerWidget {
             // The resting old truth reads as the stratum (R-5) — full ink returns with the first op.
             // 静置旧图=地层(R-5);首 op 后回全墨。
             opacity: showsOld ? AnOpacity.stratum : 1,
+            // The right island is narrow (island-w): a left→right layout squeezes a ten-node graph
+            // into an unreadable strip, while top→bottom reads like the run dossier does.
+            // 右岛很窄：横排会把十节点图挤成一条线，纵排与 run 卷宗一致、可读。
             child: AnGraphCanvas(
               graph: graph,
+              dir: GraphDirection.tb,
               framed: true,
               framedHeight: AnSize.graphStage,
               toolbar: false,

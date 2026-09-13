@@ -352,6 +352,17 @@ lib/dev/markdown_corpus.dart	pending
 lib/dev/onboarding_main.dart	converged
 lib/dev/perf_probe.dart	pending
 lib/dev/probe_playback.dart	pending
+lib/dev/story/story.dart	pending
+lib/dev/story/story_bible.dart	pending
+lib/dev/story/story_chat.dart	pending
+lib/dev/story/story_entities.dart	pending
+lib/dev/story/story_library.dart	pending
+lib/dev/story/story_locale.dart	pending
+lib/dev/story/story_media.dart	pending
+lib/dev/story/story_notices.dart	pending
+lib/dev/story/story_notifications.dart	pending
+lib/dev/story/story_scheduler.dart	pending
+lib/dev/story/story_settings.dart	pending
 lib/features/chat/data/chat_demo_fixture.dart	converged
 lib/features/chat/data/chat_fixtures.dart	converged
 lib/features/chat/data/chat_providers.dart	converged

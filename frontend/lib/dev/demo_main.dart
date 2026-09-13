@@ -35,6 +35,8 @@ import '../features/notifications/data/notification_providers.dart';
 import '../i18n/strings.g.dart';
 import 'demo_notice_showcase.dart';
 import 'perf_probe.dart';
+import 'story/story.dart';
+import 'story/story_notices.dart';
 import '../app/entity_mention_source.dart';
 import '../core/entity/mention_source.dart';
 
@@ -70,6 +72,17 @@ List<Override> demoOverrides(
   mentionSourceProvider.overrideWith(entityMentionSource),
 ];
 
+/// Dataset switch for `make demo DATASET=<name>`: `''` (default) keeps the test-backed demo fixtures;
+/// `story` loads the bilingual product story (`story/`). A dart-define rather than a new entry point,
+/// because the launch surface is fixed at gallery/app/demo (CLAUDE.md 前端守则「启动面」).
+/// 数据集开关：空=默认 demo fixture（测试依赖）；story=双语产品故事。用 dart-define 而非新入口，
+/// 因为启动面只许 gallery/app/demo 三类。
+const String kDemoDataset = String.fromEnvironment('ANSELM_DEMO_DATASET');
+
+/// Optional UI-locale pin for screenshot runs (`make demo LOCALE=zh|en`); empty = follow the device.
+/// 截图时可钉住界面语言；空=跟随设备。
+const String kDemoLocale = String.fromEnvironment('ANSELM_DEMO_LOCALE');
+
 Future<void> main() async {
   // The SCALED binding, byte-for-byte as main.dart creates it. Zoom is neither a data source nor a
   // gate, so the 铁律「app 与 demo 只差两点」 forbids it diverging here — and it is not decorative:
@@ -86,7 +99,11 @@ Future<void> main() async {
   );
   initMediaPlayback();
   if (kPerfProbeEnabled) installPerfProbe();
-  LocaleSettings.useDeviceLocaleSync();
+  if (kDemoLocale.isEmpty) {
+    LocaleSettings.useDeviceLocaleSync();
+  } else {
+    LocaleSettings.setLocaleSync(AppLocaleUtils.parse(kDemoLocale));
+  }
   // Real persisted prefs in the demo too — chrome memory (island widths / last ocean / window
   // geometry) survives a relaunch, same as the app. demo 也用真持久偏好,与 app 同。
   final prefs = await SettingsPrefs.load();
@@ -98,15 +115,36 @@ Future<void> main() async {
     ui: prefs.getString(SettingsKeys.fontUi),
     code: prefs.getString(SettingsKeys.fontCode),
   );
-  await initWindow(title: 'Anselm · Demo (fixtures)', prefs: prefs);
+  // A pinned locale must also win over the persisted UI-language preference the startup resolver applies
+  // (otherwise the pref flips the tree back after the first frame). 钉住的语言也要压过持久化偏好。
+  if (kDemoLocale.isNotEmpty) {
+    prefs.setString(
+      SettingsKeys.locale,
+      kDemoLocale == 'zh' ? 'zh-CN' : kDemoLocale,
+    );
+  }
+  await initWindow(
+    title: kDemoDataset == 'story'
+        ? 'Anselm · Demo (story)'
+        : 'Anselm · Demo (fixtures)',
+    prefs: prefs,
+  );
   WindowZoom.restore(); // the persisted zoom, before the first frame 首帧前恢复持久化缩放
   // Keep the fixture repository as a stable data seam; the demo-only top-band tour itself is mounted below
   // the app root, where it can enqueue operation/event/approval presentation copies and clean up its timers.
   // fixture 仓储仍是稳定数据缝;顶带巡演改挂在 app root 下,可送操作/事件/审批副本并随根卸载清计时器。
-  final notifRepo = demoNotificationRepository();
+  final story = kDemoDataset == 'story';
+  final storyLocale = StoryLocale(
+    zh: LocaleSettings.currentLocale == AppLocale.zhCn,
+  );
+  final notifRepo = story
+      ? storyNotificationRepository(storyLocale)
+      : demoNotificationRepository();
   runApp(
     ProviderScope(
-      overrides: demoOverrides(prefs, notifRepo),
+      overrides: story
+          ? storyOverrides(prefs, notifRepo, storyLocale)
+          : demoOverrides(prefs, notifRepo),
       child: TranslationProvider(
         child: const DemoRoot(showcaseNotifications: true),
       ),
@@ -175,7 +213,10 @@ class _DemoNoticeShowcaseState extends ConsumerState<_DemoNoticeShowcase> {
     super.didChangeDependencies();
     if (!widget.enabled || _scheduled) return;
     _scheduled = true;
-    for (final beat in demoTopBandShowcase(context.t)) {
+    final beats = kDemoDataset == 'story'
+        ? storyTopBandShowcase(context.t)
+        : demoTopBandShowcase(context.t);
+    for (final beat in beats) {
       _timers.add(
         Timer(beat.at, () {
           if (!mounted) return;

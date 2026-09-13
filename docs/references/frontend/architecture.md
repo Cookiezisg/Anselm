@@ -44,7 +44,7 @@ frontend/lib/
 │   ├── notifications/
 │   ├── scheduler/
 │   └── settings/
-├── dev/                      # gallery/demo/onboarding 等开发入口
+├── dev/                      # gallery/demo/onboarding 等开发入口；story/ 是 demo 的产品故事数据集
 └── i18n/                     # slang 源文案与生成物
 ```
 
@@ -97,7 +97,7 @@ app  →  features  →  core
 | 命令 | 形态 |
 |---|---|
 | `make -C frontend gallery` | `An*` 原语与状态目录 |
-| `make -C frontend demo` | 真壳 + fixture repository，零后端 |
+| `make -C frontend demo` | 真壳 + fixture repository，零后端；`DATASET=story LOCALE=zh\|en` 以 dart-define 切到 `lib/dev/story/` 的双语产品故事数据集，入口与壳不变 |
 | `make -C frontend onboard` | 首次 workspace 创建到真壳的旅程 |
 | `make -C frontend app` | 真壳 + live repository + Go sidecar |
 

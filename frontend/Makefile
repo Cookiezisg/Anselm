@@ -17,7 +17,7 @@ DEVICE ?= macos
 help:
 	@echo "Anselm 前端（Flutter）— 在 frontend/ 下:"
 	@echo "  启动:  make app      真 app + 真后端(自动起后端 + 热重载)"
-	@echo "         make demo     fixture demo"
+	@echo "         make demo     fixture demo (DATASET=story LOCALE=zh|en for the product story)"
 	@echo "         make onboard  首启创建→Chat 过渡预览(fixture,零后端)"
 	@echo "         make gallery  组件画廊（看每个 An* 全态）"
 	@echo "         make perf     profile demo + 帧探针"
@@ -94,8 +94,16 @@ verify: deps
 # demo — 真 app 形态（骨架阶段:三岛空壳;后续接 fixture 数据）。
 # demo — 真 app 壳（AppShell，同 make app）+ 假数据（fixture override、零后端、跳启动门控）。
 # 「真 app + 假数据」唯一面:凡接进 AppShell 的 feature 在此自动出现。绝不加 per-feature 入口。
+# DATASET=story swaps the seeds for the bilingual product story (lib/dev/story/, screenshots for the
+# website); LOCALE=zh|en pins the UI language for that run. Same entry, same shell — only the data.
+# DATASET=story 换成双语产品故事种子(lib/dev/story/,官网截图用);LOCALE=zh|en 钉住界面语言。同入口同壳,只换数据。
+DATASET ?=
+LOCALE ?=
 demo: deps
-	@LANG=en_US.UTF-8 $(RUN) flutter run -d $(DEVICE) -t lib/dev/demo_main.dart
+	@LANG=en_US.UTF-8 $(RUN) flutter run -d $(DEVICE) \
+		$(if $(DATASET),--dart-define=ANSELM_DEMO_DATASET=$(DATASET)) \
+		$(if $(LOCALE),--dart-define=ANSELM_DEMO_LOCALE=$(LOCALE)) \
+		-t lib/dev/demo_main.dart
 
 # onboard — 空名册首启页→真实壳的完整视觉验收；fixture 隔离、零 sidecar、零持久化。
 onboard: deps

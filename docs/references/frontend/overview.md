@@ -60,7 +60,7 @@ core  ←  features  ←  app
 | 命令 | 形态 |
 |---|---|
 | `make -C frontend gallery` | 原语与状态目录 |
-| `make -C frontend demo` | 真壳 + fixture repository，零后端 |
+| `make -C frontend demo` | 真壳 + fixture repository，零后端；`DATASET=story LOCALE=zh\|en` 换成 `lib/dev/story/` 的双语产品故事数据集（官网截图用，同壳同入口，只换种子） |
 | `make -C frontend app` | 真壳 + Go sidecar + live repository |
 
 app 与 demo 共用唯一 `app/app_shell.dart`，只替换数据源与启动门控。当前协作流程和工程纪律只在 [`CLAUDE.md`](../../../CLAUDE.md) 维护，不再另设前端 working hub。
