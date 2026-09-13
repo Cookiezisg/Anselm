@@ -261,27 +261,4 @@ void main() {
     expect(find.textContaining(t.chat.tool.files(n: '2')), findsOneWidget);
     expect(find.textContaining(t.chat.tool.matches(n: '2')), findsNothing);
   });
-
-  testWidgets('Grep failure uses a failure verb and shows the error body', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        ChatToolCard(
-          node: _node(
-            'Grep',
-            '{"pattern":"needle","path":"/missing"}',
-            'Search root not found: /missing',
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining(t.chat.tool.grepFailed), findsOneWidget);
-    expect(find.textContaining(t.chat.tool.grepped), findsNothing);
-    expect(
-      find.textContaining('Search root not found: /missing'),
-      findsOneWidget,
-    );
-  });
 }

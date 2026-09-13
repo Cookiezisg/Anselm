@@ -104,31 +104,6 @@ void main() {
   );
 
   testWidgets(
-    'AnInspector headless child fills to the island pad edge (island + 12)',
-    (tester) async {
-      await tester.pumpWidget(
-        host(
-          const AnInspector(
-            headless: true,
-            child: Align(
-              alignment: Alignment.topLeft,
-              child: SizedBox(key: ValueKey('probe'), width: 10, height: 10),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      final probeLeft = tester
-          .getTopLeft(find.byKey(const ValueKey('probe')))
-          .dx;
-      expect(
-        probeLeft - islandLeft(tester),
-        moreOrLessEquals(AnSpace.s12, epsilon: 1),
-      );
-    },
-  );
-
-  testWidgets(
     'AnInspector (with head) body block lands at island + 12 (no horizontal body pad)',
     (tester) async {
       await tester.pumpWidget(

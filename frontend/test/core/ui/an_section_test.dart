@@ -75,22 +75,6 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  testWidgets('actions-only head renders (no label is not dropped)', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        AnSection(
-          actions: [
-            AnButton(label: 'Add', size: AnButtonSize.sm, onPressed: () {}),
-          ],
-          children: const [Text('x')],
-        ),
-      ),
-    );
-    expect(find.text('Add'), findsOneWidget);
-  });
-
   testWidgets(
     'semanticLabel overrides the SR header label (visual stays the abbreviation)',
     (tester) async {

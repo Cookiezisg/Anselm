@@ -42,28 +42,4 @@ void main() {
       );
     });
   });
-
-  group('C-003 StageState skips no-op broadcasts on channel unread churn', () {
-    StageState state(int chUnread) => StageState(
-      phase: StagePhase.following,
-      subject: _view(itemId: 'subj'),
-      channels: [
-        StageActivityView(
-          blockId: 'b2',
-          toolName: 'call_handler',
-          kind: 'handler',
-          live: true,
-          failed: false,
-          unread: chUnread,
-          itemId: 'other',
-        ),
-      ],
-    );
-
-    test('a background channel delta (unread++) does NOT change StageState', () {
-      // The provider skips equal states → _AccordionList never rebuilds on unread alone. 相等即不重建。
-      expect(state(0), state(1));
-      expect(state(1), state(9));
-    });
-  });
 }

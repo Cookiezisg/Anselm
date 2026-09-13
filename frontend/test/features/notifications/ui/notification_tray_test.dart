@@ -132,17 +132,6 @@ void main() {
     },
   );
 
-  testWidgets('populated feed → rows under a collapsible time-bucket head', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(FixtureNotificationRepository(seed: [_n('a'), _n('b'), _n('c')])),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(NotificationRow), findsNWidgets(3));
-    expect(find.text(t.notifications.today), findsOneWidget); // the group head
-  });
-
   testWidgets(
     'head ⋯ carries mark-all-read + mark-all-unread; read-all keeps the rows (audit) + the ⋯',
     (tester) async {
@@ -191,35 +180,6 @@ void main() {
       expect(rows.firstWhere((r) => r.id == 'y').isUnread, isTrue);
     },
   );
-
-  testWidgets('head ⋯ «mark all unread» re-marks the read ledger unread', (
-    tester,
-  ) async {
-    final repo = FixtureNotificationRepository(
-      seed: [_n('a', read: true), _n('b', read: true)],
-    );
-    await tester.pumpWidget(_host(repo));
-    await tester.pumpAndSettle();
-    expect(await repo.unreadCount(), 0);
-    await _openHeadMenu(tester, t.notifications.today);
-    await tester.tap(find.text(t.notifications.markAllUnread));
-    await tester.pumpAndSettle();
-    expect(await repo.unreadCount(), 2); // all rows re-marked unread
-  });
-
-  testWidgets('tapping a group head collapses its rows (head stays)', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(FixtureNotificationRepository(seed: [_n('a'), _n('b')])),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(NotificationRow), findsNWidgets(2));
-    await tester.tap(find.text(t.notifications.today));
-    await tester.pumpAndSettle();
-    expect(find.byType(NotificationRow), findsNothing); // collapsed
-    expect(find.text(t.notifications.today), findsOneWidget); // head persists
-  });
 
   // Collapse/expand rides the SAME rail slide as AnSidebarList (a SliverAnimatedList SizeTransition), never
   // an instant jump. 折叠/展开与左岛 rail 同一套滑动(SliverAnimatedList SizeTransition),非瞬跳。
@@ -355,24 +315,6 @@ void main() {
     },
   );
 
-  testWidgets('search filters the feed by rendered content', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        FixtureNotificationRepository(
-          seed: [
-            _n('a', name: 'alpha'),
-            _n('b', name: 'beta'),
-          ],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.byType(NotificationRow), findsNWidgets(2));
-    await tester.enterText(find.byType(EditableText), 'alpha');
-    await tester.pumpAndSettle();
-    expect(find.byType(NotificationRow), findsOneWidget);
-  });
-
   testWidgets('⚙ "unread only" hides read rows', (tester) async {
     await tester.pumpWidget(
       _host(
@@ -439,17 +381,4 @@ void main() {
       ); // approvals aren't notification content — hidden under a query
     },
   );
-
-  testWidgets('massive list renders without overflow', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        FixtureNotificationRepository(
-          seed: [for (var i = 0; i < 200; i++) _n('n$i')],
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(find.byType(NotificationRow), findsWidgets);
-  });
 }

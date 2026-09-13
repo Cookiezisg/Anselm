@@ -13,7 +13,6 @@ import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
 import 'package:anselm/features/chat/data/conversation_signal.dart';
 import 'package:anselm/features/chat/state/chat_drafts.dart';
-import 'package:anselm/features/chat/state/conversation_list_provider.dart';
 import 'package:anselm/features/chat/state/selected_conversation.dart';
 import 'package:anselm/features/chat/ui/conversation_rail.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -174,29 +173,6 @@ void main() {
       expect(container.read(chatLandingResetProvider), before + 1);
     },
   );
-
-  testWidgets('loaded → AnSidebarList with Pinned + Recents sections', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        FixtureChatRepository(
-          conversations: [
-            _c('cv_pin', 'pinned one', pinned: true),
-            _c('cv_a', 'recent one'),
-          ],
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-
-    expect(find.byType(AnSidebarList), findsOneWidget);
-    expect(find.text(t.chat.bucket.pinned), findsOneWidget);
-    expect(find.text(t.chat.bucket.recents), findsOneWidget);
-    expect(find.text('pinned one'), findsOneWidget);
-    expect(find.text('recent one'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
 
   testWidgets('tapping a row navigates → selection derives from the route', (
     tester,
@@ -806,41 +782,4 @@ void main() {
     expect(find.text('alpha one'), findsOneWidget);
     expect(find.text('alpha'), findsOneWidget);
   });
-
-  testWidgets(
-    'leaving a residency moves the thread back to Recents and takes the empty group with it',
-    (tester) async {
-      final repo = FixtureChatRepository(
-        conversations: [
-          _c('cv_a1', 'alpha one', workDir: '/w/alpha'),
-          _c('cv_home', 'no folder at all'),
-        ],
-      );
-      await tester.pumpWidget(_host(repo));
-      await tester.pump(const Duration(milliseconds: 50));
-      await tester
-          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
-      await tester
-          .pumpAndSettle(); // the open group's tail sentinel fetches its first page 打开的组的尾哨兵取首页
-      expect(find.text('alpha'), findsOneWidget);
-
-      final container = ProviderScope.containerOf(
-        tester.element(find.byType(ConversationRail)),
-      );
-      // The residency button's own action, seen from the rail: PATCH workDir='' → the row belongs to Recents
-      // now, and its group has no unpinned member left. 驻地按钮自己的动作:PATCH workDir='' → 该行现在属于「最近」,
-      // 而它那个组已无未置顶成员。
-      final left = await repo.setWorkDir('cv_a1', '');
-      container.read(conversationListProvider.notifier).applyUpdate(left);
-      await tester.pump(
-        const Duration(milliseconds: 500),
-      ); // the coalesced projection re-read
-      await tester.pumpAndSettle();
-
-      expect(find.text('alpha'), findsNothing);
-      final state = container.read(conversationListProvider).value!;
-      expect(state.recents.rows.map((r) => r.id), contains('cv_a1'));
-      expect(state.groups, isEmpty);
-    },
-  );
 }

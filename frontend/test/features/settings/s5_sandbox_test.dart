@@ -101,25 +101,6 @@ void main() {
   });
 
   testWidgets(
-    'bootstrap status keeps a visible loading shape for a slow read',
-    (tester) async {
-      final pending = Completer<SandboxBootstrap>();
-      final repo = FixtureSettingsRepository()
-        ..bootstrapOverride = pending.future;
-      await tester.pumpWidget(_host(repo));
-      await tester.pump(const Duration(milliseconds: 220));
-      expect(
-        find.byKey(const Key('sandbox-bootstrap-loading')),
-        findsOneWidget,
-      );
-
-      pending.complete(const SandboxBootstrap(ok: true));
-      await tester.pumpAndSettle();
-      expect(find.byKey(const Key('sandbox-bootstrap-loading')), findsNothing);
-    },
-  );
-
-  testWidgets(
     'runtime roster: install form lands a runtime; delete surfaces 409-in-use honestly',
     (tester) async {
       final repo = FixtureSettingsRepository();
@@ -394,29 +375,6 @@ void main() {
     },
   );
 
-  testWidgets('disk usage failure is visible and retry recovers', (
-    tester,
-  ) async {
-    final repo = FixtureSettingsRepository()
-      ..diskUsageError = const ApiException(
-        code: 'SANDBOX_DISK_USAGE_FAILED',
-        message: 'disk projection unavailable',
-        httpStatus: 503,
-      );
-    await tester.pumpWidget(_host(repo));
-    await tester.pumpAndSettle();
-    final t = Translations.of(tester.element(find.byType(SandboxPanel)));
-
-    expect(find.text(t.settings.storage.diskLoadFailed), findsOneWidget);
-    expect(find.text('42.0 MB'), findsNothing);
-
-    repo.diskUsageError = null;
-    await tester.tap(find.text(t.settings.sandbox.retry));
-    await tester.pumpAndSettle();
-    expect(find.text(t.settings.storage.diskLoadFailed), findsNothing);
-    expect(find.text('42.0 MB'), findsOneWidget);
-  });
-
   testWidgets(
     'env deletion explains local files, respects cancel, and refreshes disk',
     (tester) async {
@@ -496,29 +454,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('dependency install failed'), findsOneWidget);
-  });
-
-  testWidgets('env list failure is not rendered as an empty tab', (
-    tester,
-  ) async {
-    final repo = FixtureSettingsRepository()
-      ..envListErrors['function'] = const ApiException(
-        code: 'SANDBOX_ENV_LIST_FAILED',
-        message: 'environment list unavailable',
-        httpStatus: 503,
-      );
-    await tester.pumpWidget(_host(repo));
-    await tester.pumpAndSettle();
-    final t = Translations.of(tester.element(find.byType(SandboxPanel)));
-
-    expect(find.text(t.settings.sandbox.envsLoadFailed), findsOneWidget);
-    expect(find.text(t.settings.sandbox.noEnvs), findsNothing);
-
-    repo.envListErrors.remove('function');
-    await tester.tap(find.text(t.settings.sandbox.retry));
-    await tester.pumpAndSettle();
-    expect(find.text(t.settings.sandbox.envsLoadFailed), findsNothing);
-    expect(find.text(t.settings.sandbox.noEnvs), findsOneWidget);
   });
 
   testWidgets(

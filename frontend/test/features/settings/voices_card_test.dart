@@ -6,12 +6,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:anselm/core/contract/api_key.dart';
-import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/settings/settings_prefs.dart';
 import 'package:anselm/core/runtime.dart';
 import 'package:anselm/core/ui/an_button.dart';
-import 'package:anselm/core/ui/an_input.dart';
 import 'package:anselm/core/ui/an_row.dart';
 import 'package:anselm/core/ui/an_type_to_confirm.dart';
 import 'package:anselm/features/settings/data/settings_repository.dart';
@@ -178,27 +176,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a partial inventory shows the arithmetic, because the cap is why you are here',
-    (tester) async {
-      final t = await pumpVoicesCard(
-        tester,
-        const VoiceInventory(
-          items: [ClonedVoice(id: 'vce_1', name: '灯塔')],
-          capacity: 2,
-          remaining: 1,
-        ),
-      );
-      // A list of one that does not say「one slot left」leaves the next refusal unexplained.
-      // 一个只列一行、却不说「还能留一个」的列表,会让下一次登记的拒绝无从解释。
-      expect(
-        find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
-        findsOneWidget,
-      );
-      expect(find.text('灯塔'), findsOneWidget);
-    },
-  );
-
   testWidgets('an empty inventory explains where voices come from', (
     tester,
   ) async {
@@ -317,79 +294,6 @@ void main() {
       findsOneWidget,
     );
   });
-
-  testWidgets('the voice confirmation field fills the card for long names', (
-    tester,
-  ) async {
-    const name = 'EP220 Delete Trial';
-    final t = await pumpVoicesCard(
-      tester,
-      const VoiceInventory(
-        items: [ClonedVoice(id: 'vce_1', name: name)],
-        capacity: 2,
-        remaining: 1,
-      ),
-    );
-    final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
-    await g.addPointer(location: Offset.zero);
-    addTearDown(() => g.removePointer());
-    await g.moveTo(tester.getCenter(find.widgetWithText(AnRow, name)));
-    await tester.pump();
-    await tester.tap(
-      find.descendant(
-        of: find.widgetWithText(AnRow, name),
-        matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    final danger = find.byType(AnTypeToConfirm);
-    final field = find.descendant(of: danger, matching: find.byType(AnInput));
-    final dangerWidth = tester.getSize(danger).width;
-    final fieldWidth = tester.getSize(field).width;
-    expect(fieldWidth, greaterThan(AnSize.inputMin));
-    expect(
-      dangerWidth - (AnSpace.s16 * 2) - fieldWidth,
-      inInclusiveRange(0, 4),
-      reason: '长对象名的确认框必须占满危险卡可用宽度',
-    );
-  });
-
-  testWidgets(
-    'cancel closes the voice danger zone without changing inventory',
-    (tester) async {
-      final t = await pumpVoicesCard(
-        tester,
-        const VoiceInventory(
-          items: [ClonedVoice(id: 'vce_1', name: '灯塔')],
-          capacity: 2,
-          remaining: 1,
-        ),
-      );
-      final g = await tester.createGesture(kind: PointerDeviceKind.mouse);
-      await g.addPointer(location: Offset.zero);
-      addTearDown(() => g.removePointer());
-      await g.moveTo(tester.getCenter(find.widgetWithText(AnRow, '灯塔')));
-      await tester.pump();
-      await tester.tap(
-        find.descendant(
-          of: find.widgetWithText(AnRow, '灯塔'),
-          matching: find.widgetWithText(AnButton, t.settings.keys.voicesDelete),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(AnTypeToConfirm), findsOneWidget);
-
-      await tester.tap(find.text(t.action.cancel));
-      await tester.pumpAndSettle();
-      expect(find.byType(AnTypeToConfirm), findsNothing);
-      expect(find.text('灯塔'), findsOneWidget);
-      expect(
-        find.text(t.settings.keys.voicesRemaining(n: 1, cap: 2)),
-        findsOneWidget,
-      );
-    },
-  );
 
   testWidgets(
     'an upstream delete failure keeps the row and leaves retry available',

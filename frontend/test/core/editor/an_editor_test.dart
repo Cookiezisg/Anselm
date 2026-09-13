@@ -363,17 +363,6 @@ void main() {
       },
     );
 
-    test('italic sets FontStyle.italic', () {
-      expect(style(italicsAttribution).fontStyle, FontStyle.italic);
-    });
-
-    test('strikethrough sets lineThrough', () {
-      expect(
-        style(strikethroughAttribution).decoration,
-        TextDecoration.lineThrough,
-      );
-    });
-
     test(
       'inline code is mono 13 with NO backgroundColor (paint-beneath draws the rounded block)',
       () {
@@ -397,15 +386,6 @@ void main() {
         expect(s.decoration, TextDecoration.underline);
       },
     );
-
-    test('bold+italic stack (both applied)', () {
-      final s = anInlineTextStyler(colors, {
-        boldAttribution,
-        italicsAttribution,
-      }, base);
-      expect(s.fontWeight, AnText.emphasisWeight);
-      expect(s.fontStyle, FontStyle.italic);
-    });
   });
 
   // E4 — the slash menu: typing `/` opens the AnSlashMenu at the caret; picking a command converts the

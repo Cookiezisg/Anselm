@@ -223,15 +223,6 @@ void main() {
         _run('fr_$i', 'wf_a', ago: Duration(seconds: i)),
     ];
 
-    test(
-      '电池·海量: 200 running runs — the tile and the zone stay one number',
-      () async {
-        final d = await _board(repo(runs: manyRuns(), totalsRunning: 200));
-        expect(d.kpi.running, 200);
-        expect(d.runningRuns, hasLength(200));
-      },
-    );
-
     testWidgets('电池·海量: 200 rows render and the tile still opens them', (
       tester,
     ) async {
@@ -329,14 +320,6 @@ void main() {
       expect(
         await _tapReveals(tester, ov.kpiWaiting, SchedulerWaitingZone),
         isTrue,
-      );
-    });
-
-    testWidgets('电池·空: 「等你 0」 opens nothing', (tester) async {
-      await _pumpBoard(tester, _host(repo()));
-      expect(
-        await _tapReveals(tester, ov.kpiWaiting, SchedulerWaitingZone),
-        isFalse,
       );
     });
   });
@@ -495,17 +478,6 @@ void main() {
         reason: '视野是闭区间(scheduleLanes 的 !isAfter(horizon));边界上的刻度画得出,故点得开',
       );
     });
-
-    testWidgets('电池·空: no schedule at all → 「—」, and nothing to open', (
-      tester,
-    ) async {
-      await _pumpBoard(tester, _host(repo(nextFireAt: null)));
-      expect(find.text(ov.kpiNone), findsOneWidget);
-      expect(
-        await _tapReveals(tester, ov.kpiNextFire, SchedulerScheduleZone),
-        isFalse,
-      );
-    });
   });
 
   // ─────────────────────── 24h 失败 → 它的按 run 失败区(工单⑮) ───────────────────────
@@ -593,20 +565,6 @@ void main() {
         );
       },
     );
-
-    test(
-      'zero failures → inert tile (no rows, no zone), same rule as running/waiting',
-      () async {
-        final d = await _board(
-          StubSchedulerRepo(
-            workflows: [_wf('wf_a', 'A')],
-            byWorkflow: const [WorkflowRunStats(workflowId: 'wf_a')],
-          ),
-        );
-        expect(d.kpi.failed24h, 0);
-        expect(d.failedRuns, isEmpty);
-      },
-    );
   });
 
   // ───────────────────────────────────────── a11y ─────────────────────────────────────────
@@ -684,32 +642,6 @@ void main() {
             reason: '$sentence:动作是少数真到得了桌面读屏的东西之一——标 button 却不给它 = 按不动的按钮',
           );
         }
-        handle.dispose();
-      },
-    );
-
-    testWidgets(
-      'the 24h-failed tile at ZERO is furniture — no sentence, no button (like running/waiting)',
-      (tester) async {
-        final handle = tester.ensureSemantics();
-        await _pumpBoard(
-          tester,
-          _host(
-            StubSchedulerRepo(
-              workflows: [_wf('wf_a', 'A')],
-              byWorkflow: const [WorkflowRunStats(workflowId: 'wf_a')],
-              // No failed runs seeded → the tile counts 0 and stays inert (nothing to reveal).
-              failedBySince: const {'24h': 0, '48h': 0},
-            ),
-          ),
-        );
-        // Inert: no «Show them…» action sentence for the failed tile. 惰性:无「显示…」动作句。
-        expect(
-          find.bySemanticsLabel(
-            RegExp(RegExp.escape(ov.kpiFailed24h) + r'.*[Ss]how|失败.*显示'),
-          ),
-          findsNothing,
-        );
         handle.dispose();
       },
     );

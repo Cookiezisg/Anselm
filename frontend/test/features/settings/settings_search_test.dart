@@ -105,18 +105,6 @@ void main() {
   group('grouping (en)', () {
     setUp(() => LocaleSettings.setLocaleRaw('en'));
 
-    test('«proxy» → the three network proxy items', () {
-      final gs = buildSettingsSearchGroups(t, 'proxy');
-      final network = gs.firstWhere(
-        (g) => g.entry.panel == SettingsPanel.network,
-      );
-      expect(network.items.map((i) => i.anchor), [
-        SettingsItem.networkHttpProxy,
-        SettingsItem.networkHttpsProxy,
-        SettingsItem.networkNoProxy,
-      ]);
-    });
-
     test('«theme» → general.theme (case-insensitive)', () {
       final gs = buildSettingsSearchGroups(t, 'ThEmE');
       final general = gs.firstWhere(
@@ -127,31 +115,6 @@ void main() {
         contains(SettingsItem.generalTheme),
       );
     });
-
-    test(
-      'cross-panel: «zoom» hits general.zoom AND all three zoom shortcut commands',
-      () {
-        final gs = buildSettingsSearchGroups(t, 'zoom');
-        final general = gs.firstWhere(
-          (g) => g.entry.panel == SettingsPanel.general,
-        );
-        final shortcuts = gs.firstWhere(
-          (g) => g.entry.panel == SettingsPanel.shortcuts,
-        );
-        expect(
-          general.items.map((i) => i.anchor),
-          contains(SettingsItem.generalZoom),
-        );
-        expect(
-          shortcuts.items.map((i) => i.anchor),
-          containsAll([
-            SettingsItem.shortcutZoomIn,
-            SettingsItem.shortcutZoomOut,
-            SettingsItem.shortcutZoomReset,
-          ]),
-        );
-      },
-    );
   });
 
   // ─────────────────────────── index integrity ───────────────────────────

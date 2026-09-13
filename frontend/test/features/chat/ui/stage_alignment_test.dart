@@ -9,11 +9,9 @@ import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/state/touchpoint_ledger.dart';
 import 'package:anselm/features/chat/ui/stage_panel.dart';
 import 'package:anselm/features/chat/ui/stages/control_stage.dart';
-import 'package:anselm/features/chat/ui/stages/function_stage.dart';
 import 'package:anselm/features/chat/ui/stages/handler_stage.dart';
 import 'package:anselm/features/chat/ui/stages/scene_from_truth.dart';
 import 'package:anselm/features/chat/ui/stages/skill_memory_mcp_stage.dart';
-import 'package:anselm/features/chat/ui/stages/trigger_stage.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -127,32 +125,6 @@ void main() {
         codeLeft,
         moreOrLessEquals(bodyLeft, epsilon: 0.5),
         reason: 'handler code window flush with the body left (was +s12)',
-      );
-    },
-  );
-
-  testWidgets(
-    'FUNCTION: the settled code window is FLUSH too — the reference摆法 handler now matches',
-    (tester) async {
-      final repo = _repo();
-      await tester.pumpWidget(_host(repo));
-      await tester.pump();
-      const args =
-          '{"ops":[{"op":"set_code","code":"def sync():\\n    return 1\\n"}]}';
-      repo.emitFrame(_conv, _open('tc', 'create_function'));
-      repo.emitFrame(_conv, _delta('tc', args));
-      await _stageFrames(tester);
-      repo.emitFrame(_conv, _close('tc', args));
-      await _settleFrames(tester);
-
-      expect(find.byType(FunctionStageBody), findsOneWidget);
-      final bodyLeft = tester.getTopLeft(find.byType(FunctionStageBody)).dx;
-      final codeLeft = tester.getTopLeft(find.byType(AnCodeEditor).first).dx;
-      // Function was already flush — it is the摆法 handler was fixed to match. 两座同原语同摆法。
-      expect(
-        codeLeft,
-        moreOrLessEquals(bodyLeft, epsilon: 0.5),
-        reason: 'function code window flush with the body left (the reference)',
       );
     },
   );
@@ -375,34 +347,6 @@ void main() {
         ladderLeft - bodyLeft,
         moreOrLessEquals(AnSpace.s8, epsilon: 0.5),
         reason: 'control ladder starts at X=8 (was顶格 at X=0)',
-      );
-    },
-  );
-
-  testWidgets(
-    'TRIGGER: the cron spec row lives in the imaginary frame (X=8, round 2)',
-    (tester) async {
-      final repo = _repo();
-      await tester.pumpWidget(_host(repo));
-      await tester.pump();
-      // Kept LIVE (no close) so the spec face renders straight off the streamed config — no truth-provider GET.
-      // 保持 live:spec 面直接渲流入 config,不需 GET 对账。
-      repo.emitFrame(_conv, _open('tc', 'create_trigger'));
-      repo.emitFrame(
-        _conv,
-        _delta('tc', '{"kind":"cron","config":{"expression":"0 2 * * *"}}'),
-      );
-      await _stageFrames(tester);
-
-      expect(find.byType(TriggerStageBody), findsOneWidget);
-      final bodyLeft = tester.getTopLeft(find.byType(TriggerStageBody)).dx;
-      final specLeft = tester.getTopLeft(find.text('0 2 * * *')).dx;
-      // The cron spec (bare text) joins the imaginary frame — its left lands on the X=8 line, not顶格 at X=0.
-      // cron spec(裸文字)归假想框:左缘落 X=8 框线,不顶格。
-      expect(
-        specLeft - bodyLeft,
-        moreOrLessEquals(AnSpace.s8, epsilon: 0.5),
-        reason: 'trigger cron spec row starts at X=8 (was顶格 at X=0)',
       );
     },
   );

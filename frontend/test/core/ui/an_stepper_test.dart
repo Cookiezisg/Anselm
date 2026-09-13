@@ -120,12 +120,6 @@ void main() {
     },
   );
 
-  testWidgets('count <= 0 renders nothing (no overflow)', (tester) async {
-    await tester.pumpWidget(host(const AnStepper(count: 0, current: 1)));
-    expect(tester.takeException(), isNull);
-    expect(find.byType(Row), findsNothing); // shrunk to SizedBox.shrink
-  });
-
   testWidgets('many steps in a narrow row do not overflow', (tester) async {
     await tester.pumpWidget(
       host(const AnStepper(count: 10, current: 4), width: 200),

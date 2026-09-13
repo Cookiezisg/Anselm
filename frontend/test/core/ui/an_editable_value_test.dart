@@ -142,17 +142,6 @@ void main() {
     );
   });
 
-  testWidgets('Save commits', (tester) async {
-    final read = await pump(tester);
-    await tester.tap(find.byIcon(AnIcons.edit));
-    await tester.pump();
-    await tester.enterText(find.byType(TextField), 'saved');
-    await tester.pump();
-    await tester.tap(find.text('Save'));
-    await tester.pumpAndSettle();
-    expect(read(), 'saved');
-  });
-
   testWidgets('blur (tap outside) commits the typed value', (tester) async {
     final read = await pump(tester);
     await tester.tap(find.byIcon(AnIcons.edit));

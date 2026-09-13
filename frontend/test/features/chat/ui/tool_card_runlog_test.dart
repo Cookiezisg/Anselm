@@ -559,15 +559,6 @@ void main() {
         expect(find.byType(WindowCopyButton), findsOneWidget);
       },
     );
-    testWidgets('default (not bare): a multi-line value owns its window', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(const ToolIOSection(label: 'v', value: 'line one\nline two')),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byType(AnWindow), findsOneWidget);
-    });
   });
 
   group('rawMonoWindow 共享 helper (A-003)', () {

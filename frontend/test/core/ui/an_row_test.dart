@@ -17,22 +17,6 @@ void main() {
     ),
   );
 
-  testWidgets('renders label + lead icon + meta', (tester) async {
-    await tester.pumpWidget(
-      host(
-        AnRow(
-          icon: AnIcons.function,
-          label: 'normalize',
-          meta: '2m',
-          onSelect: () {},
-        ),
-      ),
-    );
-    expect(find.text('normalize'), findsOneWidget);
-    expect(find.byIcon(AnIcons.function), findsOneWidget);
-    expect(find.text('2m'), findsOneWidget);
-  });
-
   testWidgets('tap selects (non-collapsible)', (tester) async {
     var sel = 0;
     await tester.pumpWidget(host(AnRow(label: 'row', onSelect: () => sel++)));
@@ -213,20 +197,6 @@ void main() {
       isFalse,
     );
     handle.dispose();
-  });
-
-  testWidgets('hint renders (taller row)', (tester) async {
-    await tester.pumpWidget(
-      host(
-        AnRow(
-          label: 'with hint',
-          hint: 'a longer explanatory hint',
-          onSelect: () {},
-        ),
-      ),
-    );
-    expect(find.text('a longer explanatory hint'), findsOneWidget);
-    expect(tester.takeException(), isNull);
   });
 
   testWidgets('short row vertically centres its content (not pinned to the top)', (

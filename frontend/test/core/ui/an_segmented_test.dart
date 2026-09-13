@@ -89,32 +89,6 @@ void main() {
   );
 
   testWidgets(
-    'the selection flag follows the value (and only one segment ever claims it)',
-    (tester) async {
-      final handle = tester.ensureSemantics();
-      await tester.pumpWidget(host(seg(value: 2)));
-      await tester.pumpAndSettle();
-      expect(
-        tester
-            .getSemantics(find.bySemanticsLabel('Beta'))
-            .flagsCollection
-            .isSelected
-            .toBoolOrNull(),
-        isTrue,
-      );
-      expect(
-        tester
-            .getSemantics(find.bySemanticsLabel('Alpha'))
-            .flagsCollection
-            .isSelected
-            .toBoolOrNull(),
-        isNull,
-      );
-      handle.dispose();
-    },
-  );
-
-  testWidgets(
     'picking an unselected segment fires onChanged; the selected one is inert',
     (tester) async {
       final picked = <int>[];

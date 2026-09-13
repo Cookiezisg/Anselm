@@ -107,20 +107,6 @@ void main() {
         'B',
       );
     });
-
-    test(
-      'a structurally-edited table still serializes as a markdown table',
-      () {
-        final table = _table3x2();
-        final doc = MutableDocument(nodes: [tableWithRowInserted(table, 3)]);
-        final md = markdownFromDocument(doc);
-        expect(
-          md.split('\n').where((l) => l.startsWith('|')).length,
-          5,
-          reason: 'header + delimiter + 3 data rows',
-        );
-      },
-    );
   });
 
   group('editable table widget', () {

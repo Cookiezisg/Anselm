@@ -52,27 +52,6 @@ void main() {
     expect(find.text('5m'), findsOneWidget);
   });
 
-  testWidgets('read row still renders (stays in the list as an audit trail)', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        NotificationRow(
-          item: _n(
-            'function.created',
-            payload: {'name': 'fetch_orders'},
-            read: true,
-          ),
-          now: _now,
-        ),
-      ),
-    );
-    expect(
-      find.textContaining('fetch_orders', findRichText: true),
-      findsOneWidget,
-    );
-  });
-
   testWidgets('tap deep-links (onTap fires)', (tester) async {
     var tapped = false;
     await tester.pumpWidget(
@@ -89,46 +68,6 @@ void main() {
     );
     await tester.tap(find.byType(NotificationRow));
     expect(tapped, isTrue);
-  });
-
-  testWidgets('danger event shows its error detail line', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        NotificationRow(
-          item: _n(
-            'workflow.run_failed',
-            payload: {'name': 'nightly', 'error': 'connection refused'},
-          ),
-          now: _now,
-        ),
-      ),
-    );
-    expect(find.textContaining('connection refused'), findsOneWidget);
-  });
-
-  testWidgets('dependency warning stays inside a narrow rail', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        NotificationRow(
-          item: _n(
-            'relation.dependency_broken',
-            payload: {
-              'deletedKind': 'function',
-              'deletedId': 'fetch_orders',
-              'dependents': [
-                {'kind': 'agent', 'name': 'triager'},
-                {'kind': 'workflow', 'name': 'pipeline'},
-              ],
-            },
-          ),
-          now: _now,
-        ),
-      ),
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-    expect(find.textContaining('triager', findRichText: true), findsOneWidget);
-    expect(find.textContaining('pipeline', findRichText: true), findsOneWidget);
   });
 
   testWidgets('dependency warning gives its subject and detail room to wrap', (

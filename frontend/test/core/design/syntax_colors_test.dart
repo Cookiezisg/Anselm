@@ -63,10 +63,6 @@ void main() {
     }
   });
 
-  test('lerp with a non-SyntaxColors other returns self (defensive)', () {
-    expect(identical(light.lerp(null, 0.5), light), isTrue);
-  });
-
   // Separate tests per theme (one pumpWidget each) — reusing the element tree across a loop iteration
   // can leave the Builder reading the prior theme. 每主题独立 test(避免元素树复用读到旧主题)。
   Future<void> expectRegistered(

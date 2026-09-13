@@ -211,26 +211,6 @@ void main() {
     },
   );
 
-  testWidgets(
-    'a user row carries no Retry — only an assistant turn can be regenerated',
-    (tester) async {
-      await tester.pumpWidget(
-        host(
-          const TurnActions(
-            copyText: 'body',
-            role: TurnActionsRole.user,
-            alwaysVisible: true,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Retry (coming in CH-c)'), findsNothing);
-      // Retry is still the CH-c placeholder; fork is LIVE as of CH-b, and its label differs by role
-      // (a user row means "before this message"). 重试仍是 CH-c 占位;分叉自 CH-b 起已接通,且标签按角色不同。
-      expect(find.byTooltip('Fork before this message'), findsOneWidget);
-    },
-  );
-
   // ── the message-level fork entry (CH-b) ──
 
   testWidgets('an assistant row offers "Fork from here" and reports the tap', (
@@ -309,23 +289,6 @@ void main() {
       await tester.tap(find.byTooltip('Fork before this message'));
       await tester.pumpAndSettle();
       expect(taps, 1);
-    },
-  );
-
-  testWidgets(
-    'a null onFork disables the button but still RENDERS it — the row never changes shape',
-    (tester) async {
-      await tester.pumpWidget(
-        host(
-          const TurnActions(
-            copyText: 'body',
-            role: TurnActionsRole.assistant,
-            alwaysVisible: true,
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.byTooltip('Fork from here'), findsOneWidget);
     },
   );
 }

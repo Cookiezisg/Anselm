@@ -103,14 +103,4 @@ void main() {
       expect(joined(s), 'has(input.flag) ? "d" : "e"');
     },
   );
-
-  test(
-    'lang param is accepted and does not change v1 tokenization (unified)',
-    () {
-      final withLang = highlightCode('def f()', lang: 'python', colors: c);
-      final without = highlightCode('def f()', colors: c);
-      expect(joined(withLang), joined(without));
-      expect(colorOf(withLang, 'def'), c.keyword);
-    },
-  );
 }

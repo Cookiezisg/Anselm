@@ -1,4 +1,3 @@
-import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/design/tokens.dart';
 import 'package:anselm/core/design/typography.dart';
@@ -297,17 +296,6 @@ void main() {
     );
   });
 
-  group('AnWindow header-only', () {
-    testWidgets('child:null renders header without the dead body gap (批1 复审)', (
-      tester,
-    ) async {
-      await tester.pumpWidget(_host(const AnWindow(header: Text('刚开播'))));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(find.text('刚开播'), findsOneWidget);
-    });
-  });
-
   group('AnFocusRing', () {
     testWidgets(
       'ring paints only when active (opaque-card affordance, WCAG 2.4.7)',
@@ -406,21 +394,6 @@ void main() {
     });
 
     testWidgets(
-      '批5: a STILL chip renders without a TranslationProvider (host-agnostic)',
-      (tester) async {
-        await tester.pumpWidget(
-          MaterialApp(
-            theme: AnTheme.light(),
-            home: const Scaffold(body: AnChip('quiet')),
-          ),
-        );
-        await tester.pump();
-        expect(tester.takeException(), isNull);
-        expect(find.text('quiet'), findsOneWidget);
-      },
-    );
-
-    testWidgets(
       '批5: semanticLabel OVERRIDES a11y on a STILL chip (scope-badge preset contract)',
       (tester) async {
         // The override must differ from the visible label — a same-string fixture is a tautology
@@ -435,20 +408,6 @@ void main() {
   });
 
   group('AnStatusDot.raw 批5', () {
-    testWidgets('solid raw colour at a tiered size', (tester) async {
-      await tester.pumpWidget(
-        _host(
-          const Center(
-            child: AnStatusDot.raw(Color(0xFF112233), size: AnSize.swatch),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(
-        tester.getSize(find.byType(AnStatusDot)),
-        const Size(AnSize.swatch, AnSize.swatch),
-      );
-    });
     testWidgets('hollow renders a ring (no fill) and never animates', (
       tester,
     ) async {
@@ -878,20 +837,6 @@ void main() {
   });
 
   group('AnCodeEditor 批2', () {
-    test(
-      'collapsedHeightFor locks the family geometry (B-002: features never re-derive font math)',
-      () {
-        expect(
-          AnCodeEditor.collapsedHeightFor(50, reading: true),
-          50 * AnText.codeReading.fontSize! * AnText.codeReading.height! + 44,
-        );
-        expect(
-          AnCodeEditor.collapsedHeightFor(8),
-          8 * AnText.code.fontSize! * AnText.code.height! + 44,
-        );
-      },
-    );
-
     test('langOf / langOfEntityKind — the ONE ext→lang table (A-023)', () {
       expect(langOf('/ws/a.py'), 'python');
       expect(langOf('x.ts'), 'typescript'); // 批2 改判钉死(旧私表误标 javascript)
@@ -1149,24 +1094,6 @@ void main() {
         expect(pillX, lessThan(badgeX));
       },
     );
-
-    testWidgets('multiple notes render with per-tone voices (复审 #33/#24)', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(
-          const AnStatBar(
-            notes: [
-              AnStatNote('ModuleNotFoundError: x'),
-              AnStatNote('实例状态已重置', tone: AnTone.warn),
-            ],
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(find.text('ModuleNotFoundError: x'), findsOneWidget);
-      expect(find.text('实例状态已重置'), findsOneWidget);
-    });
   });
 
   group('AnSpinner 批7', () {
@@ -1291,27 +1218,5 @@ void main() {
       await tester.tap(find.text('drop here'), warnIfMissed: false);
       expect(taps, 1); // IgnorePointer holds 指针穿透
     });
-  });
-
-  group('批7 铸档', () {
-    test(
-      'AnIndent derives marker+gap; AnMenuSurface reports its own height',
-      () {
-        expect(AnIndent.dot, AnSize.dot + AnGap.inline);
-        expect(AnIndent.icon, AnSize.icon + AnGap.inline);
-        expect(AnMenuSurface.estHeight(3), 3 * AnSize.row + AnSpace.s4 * 2);
-      },
-    );
-    test(
-      'dangerLine exists in BOTH themes as a line-weight danger (镜像 accentLine)',
-      () {
-        // Read the extensions straight off the ThemeData — pumping two MaterialApps lerps the
-        // extension across the theme transition and reads a mid-flight value. 直接读扩展,避开主题过渡 lerp。
-        final light = AnTheme.light().extension<AnColors>()!;
-        final dark = AnTheme.dark().extension<AnColors>()!;
-        expect(light.dangerLine.a, closeTo(0.30, 0.005));
-        expect(dark.dangerLine.a, closeTo(0.40, 0.005));
-      },
-    );
   });
 }

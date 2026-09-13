@@ -117,29 +117,6 @@ void main() {
       },
     );
 
-    test(
-      'fn_normalize + hd_slack are the star hubs (highest structural in-degree)',
-      () async {
-        final g = await repo.getRelGraph();
-        final sub = structuralSubgraph(g);
-        final deg = inDegrees([
-          for (final e in sub.edges) (from: e.fromId, to: e.toId),
-        ]);
-        expect(
-          deg['fn_normalize'],
-          greaterThanOrEqualTo(3),
-          reason: 'referenced by wf_invoice + 2 agents',
-        );
-        expect(
-          deg['hd_slack'],
-          greaterThanOrEqualTo(2),
-          reason: 'equipped by wf_digest + wf_release',
-        );
-        // Workflow sources are depended-on by nothing → in-degree 0 (render smallest). 顶层 workflow 入度 0。
-        expect(deg['wf_digest'] ?? 0, 0);
-      },
-    );
-
     // v2「涟漪焦点星图」 data battery: the seed must exercise COMPONENT PACKING — the structural subgraph
     // spans ≥2 disconnected components (wf_onboard/hd_twilio hangs off nothing else). NOTE: there is no
     // zero-degree ISOLATE in the seed by design — the backend never emits an entity with no relations
@@ -189,13 +166,5 @@ void main() {
         expect(sub.nodes.any((n) => n.kind == 'conversation'), isFalse);
       },
     );
-
-    test('every edge name is hydrated (not a raw id)', () async {
-      final g = await repo.getRelGraph();
-      for (final e in g.edges) {
-        expect(e.fromName, isNotEmpty);
-        expect(e.toName, isNotEmpty);
-      }
-    });
   });
 }

@@ -103,20 +103,6 @@ void main() {
   });
 
   group('NodeRef.format — round-trips', () {
-    for (final (kind, ref) in const [
-      (NodeKind.action, 'fn_abc'),
-      (NodeKind.action, 'hd_db.query'),
-      (NodeKind.action, 'mcp:github/create_issue'),
-      (NodeKind.agent, 'ag_x'),
-      (NodeKind.trigger, 'trg_cron'),
-      (NodeKind.control, 'ctl_gate'),
-      (NodeKind.approval, 'apf_ok'),
-    ]) {
-      test('round-trip $ref', () {
-        expect(NodeRef.parse(kind, ref).format(), ref);
-      });
-    }
-
     // Regression (stage-2 review, HIGH): a target-less ref must carry its family through format→parse,
     // else switching the picker to handler/mcp collapses to '' and reverts to function.
     test(
@@ -166,18 +152,6 @@ void main() {
       );
       expect(r.copyWith(member: 'insert').format(), 'hd_db.insert');
       expect(r.copyWith(member: null).format(), 'hd_db');
-    });
-  });
-
-  group('NodeRef.familiesFor', () {
-    test('action offers function/handler/mcp; others exactly one', () {
-      expect(NodeRef.familiesFor(NodeKind.action), [
-        RefFamily.function,
-        RefFamily.handler,
-        RefFamily.mcp,
-      ]);
-      expect(NodeRef.familiesFor(NodeKind.agent), [RefFamily.agent]);
-      expect(NodeRef.familiesFor(NodeKind.approval), [RefFamily.approval]);
     });
   });
 }

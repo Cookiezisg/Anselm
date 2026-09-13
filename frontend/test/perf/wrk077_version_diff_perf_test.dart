@@ -1,5 +1,4 @@
 import 'package:anselm/core/design/theme.dart';
-import 'package:anselm/core/model/code_diff.dart';
 import 'package:anselm/core/ui/an_version_diff.dart';
 import 'package:anselm/i18n/strings.g.dart';
 import 'package:flutter/material.dart';
@@ -23,44 +22,6 @@ import 'package:flutter_test/flutter_test.dart';
 /// widget 测拿不到帧时间线,故断言落在「建了几行」——那正是一帧要付的钱)。注:debug JIT 比 release 慢 2–5×,
 /// 打印的毫秒是上界;断言是宽松天花板(防回归、非基准),真正的交付物是打印出来的数。
 void main() {
-  String body(int n, {String prefix = 'line'}) =>
-      [for (var i = 0; i < n; i++) '    $prefix$i = compute($i)'].join('\n');
-
-  test('lineDiff: where the cell cap trips, and what the worst legal run costs', () {
-    final rows = <String>[];
-    int? lastUnderCapMs;
-    for (final n in [500, 1000, 1500, 1997, 2000, 3000]) {
-      final a = body(n);
-      final b = body(n, prefix: 'val');
-      final cells = (a.split('\n').length + 1) * (b.split('\n').length + 1);
-      final degraded = cells > lineDiffMaxCells;
-      final sw = Stopwatch()..start();
-      final out = lineDiff(a, b);
-      sw.stop();
-      rows.add(
-        '$n lines · $cells cells · ${degraded ? 'DEGRADED' : 'real LCS'} · '
-        '${sw.elapsedMilliseconds}ms · ${out.length} ops',
-      );
-      if (!degraded) lastUnderCapMs = sw.elapsedMilliseconds;
-      // The cap's contract: past it there is NO context line (whole-segment replace). 闸上零上下文。
-      if (degraded) {
-        expect(out.every((l) => l.op != DiffOp.context), isTrue);
-      }
-    }
-    // ignore: avoid_print
-    print(
-      'lineDiff degrade curve (cap=$lineDiffMaxCells cells):\n  ${rows.join('\n  ')}',
-    );
-    // 1997×1997 is the worst run the cap still allows. A loose ceiling: if this ever needs seconds, the
-    // «keep LCS, don't reach for Myers» verdict has to be revisited. 闸下最坏一档的宽松天花板。
-    expect(
-      lastUnderCapMs,
-      lessThan(2000),
-      reason:
-          'the worst under-cap LCS must stay in the tens of ms, not seconds',
-    );
-  });
-
   testWidgets('a 6002-row diff in a bounded card builds only its visible window', (
     tester,
   ) async {

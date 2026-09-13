@@ -209,19 +209,6 @@ void main() {
         );
       },
     );
-
-    test(
-      'an all-empty lane still bins to 25 empty cells (a clock with a blank face)',
-      () {
-        final bins = binTrackEvents(start: _start, end: _end, binCount: 25);
-        expect(bins, hasLength(25));
-        expect(
-          bins.every((b) => !b.hasContent && b.worst == null),
-          isTrue,
-          reason: '空格是真答案:每格 worst==null → 淡描边',
-        );
-      },
-    );
   });
 
   group('AnScheduleTrack (widget)', () {

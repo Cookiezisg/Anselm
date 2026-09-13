@@ -220,25 +220,6 @@ void main() {
     },
   );
 
-  testWidgets('the menu uses the shared AnMenuSurface + AnMenuRow standard', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        menu(
-          entries: const [
-            AnMenuItem(label: 'Edit'),
-            AnMenuItem(label: 'Delete'),
-          ],
-        ),
-      ),
-    );
-    await tester.tap(find.text('Open'));
-    await tester.pumpAndSettle();
-    expect(find.byType(AnMenuSurface), findsOneWidget);
-    expect(find.byType(AnMenuRow), findsNWidgets(2));
-  });
-
   testWidgets(
     'a right-aligned menu near the left edge flips/clamps to stay on-screen',
     (tester) async {

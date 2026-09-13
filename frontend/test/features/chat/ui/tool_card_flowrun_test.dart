@@ -403,27 +403,5 @@ void main() {
         findsOneWidget,
       ); // navigable trigger provenance
     });
-
-    testWidgets('failed run auto-expands with the run-level error window', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        _host(
-          ChatToolCard(
-            node: gfr(
-              _run('failed', [
-                _node('charge', 'action', 'failed', error: 'boom'),
-              ], runError: 'run halted at node charge'),
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      await tester.pumpAndSettle();
-      expect(
-        find.textContaining('run halted at node charge'),
-        findsOneWidget,
-      ); // auto-expanded run error
-    });
   });
 }

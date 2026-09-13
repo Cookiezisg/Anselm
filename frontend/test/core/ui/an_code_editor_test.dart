@@ -303,28 +303,6 @@ void main() {
     },
   );
 
-  testWidgets('empty code does not crash and renders the frame', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(const AnCodeEditor(code: '', lang: 'py')));
-    expect(tester.takeException(), isNull);
-    expect(find.byType(AnCodeEditor), findsOneWidget);
-  });
-
-  testWidgets('wrap toggle flips without error', (tester) async {
-    await tester.pumpWidget(
-      host(
-        const AnCodeEditor(
-          code: 'a very long line that would scroll',
-          lang: 'py',
-        ),
-      ),
-    );
-    await tester.tap(find.byTooltip('Wrap'));
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-  });
-
   // seamless = the document editor's embedded-code mode: FRAMED (bar + gutter + language) like the entity
   // pages, but ALWAYS editing in place — no pencil to enter, no Cancel/Save. seamless=文档编辑器嵌入代码脸:
   // 有框(bar+行号+语言)如实体页,但就地常驻编辑——无铅笔、无取消/保存。

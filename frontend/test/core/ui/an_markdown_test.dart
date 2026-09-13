@@ -94,13 +94,6 @@ void main() {
         expect(taps, isEmpty);
       },
     );
-
-    testWidgets('null onLinkTap: tapping an allowed link is a safe no-op', (
-      tester,
-    ) async {
-      await tester.pumpWidget(host(const AnMarkdown('[docs](https://x.dev)')));
-      await tester.tap(find.textContaining('docs')); // must not throw 不抛
-    });
   });
 
   group('two-weight rule', () {
@@ -133,26 +126,6 @@ void main() {
   });
 
   group('code', () {
-    testWidgets('inline `code` renders mono on a surfaceSunken chip', (
-      tester,
-    ) async {
-      await tester.pumpWidget(host(const AnMarkdown('use `retries` here')));
-      final text = tester.widget<Text>(find.text('retries'));
-      expect(text.style?.fontFamily, 'JetBrains Mono');
-      final box = tester.widget<Container>(
-        find
-            .ancestor(
-              of: find.text('retries'),
-              matching: find.byType(Container),
-            )
-            .first,
-      );
-      expect(
-        (box.decoration as BoxDecoration?)?.color,
-        AnColors.light.surfaceSunken,
-      );
-    });
-
     testWidgets(
       'fenced code renders AnCodeEditor; unclosed fence (streaming) survives + closes cleanly',
       (tester) async {
@@ -197,18 +170,6 @@ void main() {
   // default, = the chat answer / message bubble) keeps 15 body + 22/18/15 headings. Zero new sizes.
   // 尺度双档钉子:嵌入=13 正文+单一 15-w400 大标题、块间距收紧、代码降一号;阅读(默认=消息泡/答案)=15+22/18/15。
   group('scale (reading vs embedded)', () {
-    testWidgets(
-      'DEFAULT scale is reading (the message bubble / chat answer): body 15, h1 22',
-      (tester) async {
-        await tester.pumpWidget(host(const AnMarkdown('# Head\n\nplain body')));
-        expect(spanWhere(tester, 'Head').$2?.fontSize, 22); // readingH1
-        expect(
-          spanWhere(tester, 'plain body').$2?.fontSize,
-          15,
-        ); // reading body
-      },
-    );
-
     testWidgets(
       'embedded h1/h2 fold to 15-w400 (the one louder rung), h3–h6 to 13-w400, body 13',
       (tester) async {

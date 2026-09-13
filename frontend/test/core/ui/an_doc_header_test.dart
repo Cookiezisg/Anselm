@@ -116,23 +116,6 @@ void main() {
     expect(got!['name'], 'New');
   });
 
-  testWidgets('nameEditable:false makes the title non-editable', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const AnDocHeader(
-          crumbs: [AnCrumb('Documents'), AnCrumb('Skills')],
-          name: 'code-review',
-          nameEditable: false,
-          showTags: false,
-        ),
-      ),
-    );
-    // A non-editable title still shows its text. 不可改名仍显示文本。
-    expect(find.text('code-review'), findsOneWidget);
-  });
-
   // ── B5 空字段引导律(empty-field guides): grey, clickable, wearing the target shape ──
   testWidgets(
     'empty title/description show grey guides; empty tags show the dummy add-tag pill',

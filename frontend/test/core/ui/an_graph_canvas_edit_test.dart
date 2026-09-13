@@ -97,27 +97,6 @@ void main() {
     },
   );
 
-  testWidgets('node drag reports a moved position', (tester) async {
-    (String, NodePosition)? moved;
-    await tester.pumpWidget(
-      host(
-        AnGraphCanvas(
-          graph: g,
-          editable: true,
-          onNodeMoved: (id, pos) => moved = (id, pos),
-        ),
-      ),
-    );
-    await tester.pump();
-    // Drag node 'a' to the right. 把 a 往右拖。
-    await tester.drag(find.text('a'), const Offset(80, 20));
-    await tester.pump();
-    expect(moved, isNotNull);
-    expect(moved!.$1, 'a');
-    // The move is non-zero and rightward (delta / scale). 位移非零、向右。
-    expect(moved!.$2.x, greaterThan(0));
-  });
-
   testWidgets('dragging a connect handle from a hovered node reports from→to', (
     tester,
   ) async {

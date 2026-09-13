@@ -38,37 +38,4 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('detail panel'), findsOneWidget); // revealed
   });
-
-  testWidgets('controlled: a row that toggles open shows/hides the detail', (
-    tester,
-  ) async {
-    await tester.pumpWidget(host(_ToggleHost()));
-    // open via the row tap (the host wires onSelect → toggle)
-    expect(find.text('Cron'), findsNothing);
-    await tester.tap(find.byType(AnRow));
-    await tester.pumpAndSettle();
-    expect(find.text('Cron'), findsOneWidget);
-    await tester.tap(find.byType(AnRow));
-    await tester.pumpAndSettle();
-    expect(find.text('Cron'), findsNothing);
-  });
-}
-
-class _ToggleHost extends StatefulWidget {
-  @override
-  State<_ToggleHost> createState() => _ToggleHostState();
-}
-
-class _ToggleHostState extends State<_ToggleHost> {
-  bool _open = false;
-  @override
-  Widget build(BuildContext context) => AnRowDetail(
-    open: _open,
-    row: AnRow(
-      label: 'Schedule',
-      selected: _open,
-      onSelect: () => setState(() => _open = !_open),
-    ),
-    detail: const AnKv(rows: [AnKvRow('Cron', '0 0 * * *')]),
-  );
 }

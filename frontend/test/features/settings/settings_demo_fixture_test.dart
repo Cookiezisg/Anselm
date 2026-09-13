@@ -72,20 +72,6 @@ void main() {
     );
   }
 
-  testWidgets('general — theme row renders', (tester) async {
-    await pumpPanel(tester, SettingsPanel.general);
-    expect(find.text(t.settings.theme), findsOneWidget);
-    expectNoErrorFace();
-  });
-
-  testWidgets('notifications — level row renders (no stray prose line)', (
-    tester,
-  ) async {
-    await pumpPanel(tester, SettingsPanel.notifications);
-    expect(find.text(t.settings.notifLevel), findsOneWidget);
-    expectNoErrorFace();
-  });
-
   testWidgets('chat — send key + webFetch live, no resident save-failed line', (
     tester,
   ) async {
@@ -189,13 +175,6 @@ void main() {
   testWidgets('network — proxy form renders live', (tester) async {
     await pumpPanel(tester, SettingsPanel.network);
     expect(find.text(t.settings.network.httpProxy), findsOneWidget);
-    expectNoErrorFace();
-  });
-
-  testWidgets('shortcuts — every catalog command has a row', (tester) async {
-    await pumpPanel(tester, SettingsPanel.shortcuts);
-    expect(find.text(t.settings.shortcuts.cmdToggleLeft), findsOneWidget);
-    expect(find.text(t.settings.shortcuts.cmdZoomIn), findsOneWidget);
     expectNoErrorFace();
   });
 

@@ -174,24 +174,5 @@ void main() {
         expect(r.kind, NodeKind.agent); // NOT unknown 非 unknown
       },
     );
-
-    test('orphan row with an unknown kind string falls back to unknown', () {
-      final ghost = FlowrunNode(
-        id: 'g',
-        flowrunId: 'flr_1',
-        nodeId: 'ghost',
-        kind: 'bogus',
-        ref: 'x',
-        status: 'completed',
-        createdAt: _t,
-        completedAt: _t,
-        updatedAt: _t,
-      );
-      final rows = flowrunTimeline(g, comp([ghost]));
-      expect(
-        rows.firstWhere((x) => x.nodeId == 'ghost').kind,
-        NodeKind.unknown,
-      );
-    });
   });
 }

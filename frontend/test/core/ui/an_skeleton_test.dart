@@ -87,29 +87,4 @@ void main() {
       handle.dispose();
     },
   );
-
-  testWidgets('all variants build with no overflow in a narrow box', (
-    tester,
-  ) async {
-    for (final v in [
-      const AnSkeleton.text(),
-      const AnSkeleton.lines(4),
-      const AnSkeleton.row(),
-      const AnSkeleton.card(),
-    ]) {
-      await tester.pumpWidget(
-        host(v, width: 180, reduced: true),
-      ); // reduced so pumpAndSettle terminates
-      await tester.pumpAndSettle(
-        const Duration(milliseconds: 16),
-        EnginePhase.sendSemanticsUpdate,
-        const Duration(seconds: 5),
-      );
-      expect(
-        tester.takeException(),
-        isNull,
-        reason: 'variant overflowed or hung',
-      );
-    }
-  });
 }

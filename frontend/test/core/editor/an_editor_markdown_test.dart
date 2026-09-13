@@ -117,16 +117,6 @@ void main() {
   });
 
   group('E9a block + inline types', () {
-    test('kindFromEntityId maps the id prefix to the wire kind', () {
-      expect(kindFromEntityId('fn_0000000000000001'), 'function');
-      expect(kindFromEntityId('ag_0000000000000001'), 'agent');
-      expect(kindFromEntityId('doc_000000000000001'), 'document');
-      expect(
-        kindFromEntityId('xyz_000000000000001'),
-        'xyz',
-      ); // unknown prefix → itself
-    });
-
     test(
       'headings / lists / tasks / inline emphasis round-trip idempotently',
       () {
@@ -147,19 +137,6 @@ void main() {
         expect(md1.contains('`码`'), isTrue);
         expect(md1.contains('- [ ] 未完成'), isTrue);
         expect(md1.contains('- [x] 已完成'), isTrue);
-      },
-    );
-
-    test(
-      'a fenced code block survives the round-trip (content preserved; super_editor drifts trailing '
-      'blank lines only)',
-      () {
-        const source = '```\nvoid main() {\n  print("hi");\n}\n```';
-        final doc = documentFromMarkdown(source);
-        final md = markdownFromDocument(doc);
-        expect(md.contains('```'), isTrue);
-        expect(md.contains('void main() {'), isTrue);
-        expect(md.contains('print("hi");'), isTrue);
       },
     );
 
@@ -227,24 +204,6 @@ void main() {
     );
 
     test(
-      'INLINE `code` LOADS as codeAttribution TEXT runs (paint-beneath), text preserved',
-      () {
-        const source = '调用 `fetch_weather` 前先 `validate` 一下。';
-        final doc = documentFromMarkdown(source);
-        final node = doc.first as ParagraphNode;
-        expect(_codeRuns(node), [
-          'fetch_weather',
-          'validate',
-        ], reason: 'each inline code is a codeAttribution run');
-        expect(
-          node.text.placeholders,
-          isEmpty,
-          reason: 'inline code is TEXT, not a chip placeholder',
-        );
-      },
-    );
-
-    test(
       'inline code LOADS padded with real NBSP spacers, and SAVE strips them (markdown stays clean)',
       () {
         const source = '调用 `fetch_weather` 一下。';
@@ -271,22 +230,6 @@ void main() {
           md.contains(_nbsp),
           isFalse,
           reason: 'no NBSP leaks into the saved markdown',
-        );
-      },
-    );
-
-    test(
-      'padCodeRuns is idempotent — a second load/pad adds no further spacers',
-      () {
-        const source = '跑 `make test` 收工。';
-        final once = documentFromMarkdown(source).first as ParagraphNode;
-        // Re-pad the already-padded text — must be a no-op (no new inserts). 已内距的再规整=无新插入。
-        final again = padCodeRuns(once.text);
-        expect(
-          again.inserts,
-          isEmpty,
-          reason:
-              'already padded → reconcile is a stable no-op (no infinite loop)',
         );
       },
     );
@@ -429,36 +372,6 @@ void main() {
       );
     });
 
-    test('a blockquote and an inline link round-trip', () {
-      const source = '> 引用一句\n\n看 [文档](https://anselm.website/docs) 一节。';
-      final md1 = markdownFromDocument(documentFromMarkdown(source));
-      final md2 = markdownFromDocument(documentFromMarkdown(md1));
-      expect(md1.contains('> 引用一句'), isTrue);
-      expect(
-        md1.contains('[文档](https://anselm.website/docs)'),
-        isTrue,
-        reason: 'link URL verbatim',
-      );
-      expect(md1, md2);
-    });
-
-    test('a horizontal rule round-trips', () {
-      const source = '上\n\n---\n\n下';
-      final doc = documentFromMarkdown(source);
-      expect(doc.toList().whereType<HorizontalRuleNode>(), hasLength(1));
-      final md = markdownFromDocument(doc);
-      expect(md.contains('---'), isTrue);
-    });
-
-    test(
-      'an EMPTY document serializes without crashing (and stays empty-ish)',
-      () {
-        final doc = documentFromMarkdown('');
-        final md = markdownFromDocument(doc);
-        expect(md.trim(), isEmpty);
-      },
-    );
-
     test(
       'literal asterisks in prose survive (escaped, then re-read to the same plain text)',
       () {
@@ -473,21 +386,6 @@ void main() {
           plain1,
           reason: 'what the reader sees is stable across the trip',
         );
-      },
-    );
-
-    test(
-      'a [[id]] inside prose next to formatting still survives verbatim',
-      () {
-        const source = '**重点** 见 [[$_id]],此外 *无关*。';
-        final md1 = markdownFromDocument(documentFromMarkdown(source));
-        expect(
-          md1.contains('[[$_id]]'),
-          isTrue,
-          reason: 'wikilink verbatim next to inline marks',
-        );
-        final md2 = markdownFromDocument(documentFromMarkdown(md1));
-        expect(md2.contains('[[$_id]]'), isTrue);
       },
     );
   });

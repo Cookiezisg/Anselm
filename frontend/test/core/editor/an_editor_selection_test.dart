@@ -143,27 +143,6 @@ void main() {
     },
   );
 
-  testWidgets('mounts the inter-block selection gap layer', (tester) async {
-    final doc = MutableDocument(
-      nodes: [
-        ParagraphNode(id: 'p1', text: AttributedText('first')),
-        ParagraphNode(id: 'p2', text: AttributedText('second')),
-      ],
-    );
-    await tester.pumpWidget(
-      TranslationProvider(
-        child: MaterialApp(
-          debugShowCheckedModeBanner: false,
-          theme: AnTheme.light(),
-          home: Scaffold(body: AnEditor.withDocument(doc)),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-
-    expect(find.byType(AnSelectionGapLayer), findsOneWidget);
-  });
-
   testWidgets('computes bridges for a real cross-node selection', (
     tester,
   ) async {

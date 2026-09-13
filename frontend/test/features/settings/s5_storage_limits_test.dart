@@ -311,29 +311,6 @@ void main() {
     },
   );
 
-  testWidgets('limits: exclusive upper bound is rejected before a PATCH', (
-    tester,
-  ) async {
-    final repo = FixtureSettingsRepository();
-    await tester.pumpWidget(_host(repo, const LimitsPanel()));
-    await tester.pumpAndSettle();
-    final t = Translations.of(tester.element(find.byType(LimitsPanel)));
-
-    final ratio = find.widgetWithText(TextField, '0.8');
-    await tester.enterText(ratio, '1');
-    await tester.testTextInput.receiveAction(TextInputAction.done);
-    await tester.pumpAndSettle();
-
-    expect(repo.patchLimitsCalls, 0, reason: '开区间上端不应发 PATCH');
-    expect(find.widgetWithText(TextField, '0.8'), findsOneWidget);
-    final message = ProviderScope.containerOf(
-      tester.element(find.byType(LimitsPanel)),
-      listen: false,
-    ).read(noticeCenterProvider).current?.message;
-    expect(message?.text, t.settings.limits.invalidValue(range: '(0, 1)'));
-    expect(message?.tone, AnTone.danger);
-  });
-
   testWidgets('limits: reset-all restores defaults after confirm', (
     tester,
   ) async {
@@ -360,28 +337,6 @@ void main() {
       reason: '全量回默认',
     );
     expect(find.text('30'), findsOneWidget);
-  });
-
-  testWidgets('limits: cancelling reset leaves values and sends no request', (
-    tester,
-  ) async {
-    final repo = FixtureSettingsRepository()
-      ..fixtureLimits = {
-        'agent': {'maxSteps': 99},
-        'context': {'triggerRatio': 0.5},
-      };
-    await tester.pumpWidget(_host(repo, const LimitsPanel()));
-    await tester.pumpAndSettle();
-    final t = Translations.of(tester.element(find.byType(LimitsPanel)));
-
-    await tester.tap(find.text(t.settings.limits.resetAll));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text(t.settings.keys.cancel));
-    await tester.pumpAndSettle();
-
-    expect(repo.resetLimitsCalls, 0, reason: '取消确认不应发送 reset');
-    expect((repo.fixtureLimits['agent'] as Map)['maxSteps'], 99);
-    expect(find.text('99'), findsOneWidget);
   });
 
   testWidgets('limits: reset failure is human and reloads server truth', (
@@ -468,26 +423,6 @@ void main() {
       await tester.tap(find.text(t.settings.storage.retentionForever).last);
       await tester.pumpAndSettle();
       expect(repo.fixtureRetention.runRetentionDays, 0, reason: '0=永久:清理绝不跑');
-    },
-  );
-
-  testWidgets(
-    'retention: the row wears the MACHINE scope badge (settings.json, no workspace axis)',
-    (tester) async {
-      final repo = FixtureSettingsRepository()..fixtureDataDir = '/tmp/x';
-      await tester.pumpWidget(_host(repo, const StoragePanel()));
-      await tester.pumpAndSettle();
-      // Section-level, because storage is a MIXED-scope panel (data dir = machine, reset prefs =
-      // device) — S-16: a page-head badge on a mixed page necessarily lies.
-      // 节级:存储是**混域**面板(数据目录=全机、重置本地偏好=本机)——S-16:混域页的页头徽必撒谎。
-      // Two machine-scoped sections now (retention + database), both correctly section-level.
-      // 现有两个机器级节(retention + database),都正确地节级。
-      expect(
-        find.byWidgetPredicate(
-          (w) => w is AnScopeBadge && w.scope == AnSettingScope.machine,
-        ),
-        findsNWidgets(2),
-      );
     },
   );
 

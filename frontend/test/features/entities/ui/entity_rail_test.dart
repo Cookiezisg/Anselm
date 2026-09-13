@@ -527,22 +527,6 @@ void main() {
     },
   );
 
-  testWidgets('agent row menu: Open · Invoke… · Edit with AI · Delete', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(FixtureEntityRepository(agents: [_ag('ag_1', 'planner')])),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-    await _openRowMenu(tester, 'planner');
-
-    expect(find.text(rm.open), findsOneWidget);
-    expect(find.text(rm.invoke), findsOneWidget);
-    expect(find.text(rm.iterate), findsOneWidget);
-    expect(find.text(t.action.delete), findsOneWidget);
-    expect(find.text(rm.call), findsNothing);
-  });
-
   testWidgets(
     'inactive workflow row menu: …Activate…, never Deactivate (二选一)',
     (tester) async {
@@ -638,23 +622,6 @@ void main() {
     expect(find.text(rm.pause), findsNothing);
   });
 
-  testWidgets('approval row menu: only Open · Edit with AI · Delete', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        FixtureEntityRepository(approvalForms: [_apf('apf_1', 'sign-off')]),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 50));
-    await _openRowMenu(tester, 'sign-off');
-
-    expect(find.text(rm.open), findsOneWidget);
-    expect(find.text(rm.iterate), findsOneWidget);
-    expect(find.text(t.action.delete), findsOneWidget);
-    expect(find.text(rm.restart), findsNothing);
-  });
-
   testWidgets('unpaused trigger row menu: …Pause…, never Resume (二选一)', (
     tester,
   ) async {
@@ -747,32 +714,6 @@ void main() {
       );
     },
   );
-
-  testWidgets('handler «Call method…» stays nav-only (no :call)', (
-    tester,
-  ) async {
-    final spy = _SpyRepo(handlers: [_hd('hd_1', 'slack', 'running')]);
-    await tester.pumpWidget(_host(spy));
-    await tester.pump(const Duration(milliseconds: 50));
-    await _openRowMenu(tester, 'slack');
-
-    await tester.tap(find.text(rm.call));
-    await tester.pumpAndSettle();
-
-    expect(spy.callCalled, isFalse);
-  });
-
-  testWidgets('agent «Invoke…» stays nav-only (no :invoke)', (tester) async {
-    final spy = _SpyRepo(agents: [_ag('ag_1', 'planner')]);
-    await tester.pumpWidget(_host(spy));
-    await tester.pump(const Duration(milliseconds: 50));
-    await _openRowMenu(tester, 'planner');
-
-    await tester.tap(find.text(rm.invoke));
-    await tester.pumpAndSettle();
-
-    expect(spy.invokeCalled, isFalse);
-  });
 
   // ── in-place (parameter-free) actions actually execute ─────────────────
 

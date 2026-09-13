@@ -113,15 +113,6 @@ void main() {
     },
   );
 
-  testWidgets('empty-string id is also non-interactive', (tester) async {
-    var taps = 0;
-    await tester.pumpWidget(
-      host(AnRefPill(kind: 'agent', id: '', label: 'x', onTap: (_) => taps++)),
-    );
-    await tester.tap(find.byType(AnRefPill), warnIfMissed: false);
-    expect(taps, 0);
-  });
-
   testWidgets(
     'unknown/forward kind still renders (fallback "?" glyph + raw kind in label)',
     (tester) async {

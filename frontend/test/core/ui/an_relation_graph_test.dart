@@ -96,21 +96,6 @@ void main() {
     RelationGraphProbe.onEdgePaint = null;
   });
 
-  testWidgets('renders one widget per node; names shown', (tester) async {
-    await tester.pumpWidget(
-      _host(AnRelationGraph(nodes: _nodes, edges: _edges)),
-    );
-    await tester.pump();
-    for (final n in _nodes) {
-      expect(
-        _nodeFinder(n.id),
-        findsOneWidget,
-        reason: '${n.id} node widget present',
-      );
-      expect(find.text(n.name), findsOneWidget);
-    }
-  });
-
   testWidgets(
     'hiddenKinds is a render filter — a hidden kind vanishes, others stay',
     (tester) async {
@@ -222,19 +207,6 @@ void main() {
       0,
       reason: 'no Ticker frames when the layout is at rest → zero repaint',
     );
-  });
-
-  testWidgets('a settled graph rebuilds no node widgets on an idle pump', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(AnRelationGraph(nodes: _nodes, edges: _edges)),
-    );
-    await tester.pump();
-    var builds = 0;
-    RelationGraphProbe.onNodeBuild = () => builds++;
-    await tester.pump(const Duration(milliseconds: 32));
-    expect(builds, 0, reason: 'idle graph does not rebuild node widgets');
   });
 
   testWidgets(

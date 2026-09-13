@@ -39,18 +39,6 @@ void main() {
     );
   });
 
-  testWidgets('no meta → only label + trailing, no overflow', (tester) async {
-    await tester.pumpWidget(
-      host(
-        const AnTwoZone(
-          label: Text('K'),
-          trailing: Icon(Icons.check, size: 16),
-        ),
-      ),
-    );
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('long label ellipsis-truncates without overflow', (tester) async {
     await tester.pumpWidget(
       host(

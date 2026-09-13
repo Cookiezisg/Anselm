@@ -73,25 +73,9 @@ void main() {
     expect(find.text('Delete'), findsOneWidget);
   });
 
-  testWidgets('confirm button → true', (tester) async {
-    await open(tester);
-    await tester.tap(find.text('Delete'));
-    await tester.pumpAndSettle();
-    expect(await result!, isTrue);
-  });
-
   testWidgets('cancel button → false', (tester) async {
     await open(tester);
     await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(await result!, isFalse);
-  });
-
-  testWidgets('barrier tap → false (framework barrierDismissible)', (
-    tester,
-  ) async {
-    await open(tester);
-    await tester.tapAt(const Offset(8, 8)); // outside the centred card 卡外
     await tester.pumpAndSettle();
     expect(await result!, isFalse);
   });

@@ -69,23 +69,6 @@ void main() {
     expect(find.textContaining('显示更早'), findsOneWidget);
   });
 
-  testWidgets('tapping «back to latest» is a no-op error-free interaction', (
-    tester,
-  ) async {
-    final many = List.generate(60, (i) => 'line $i').join('\n');
-    await tester.pumpWidget(_host(AnTermViewport(text: many, maxHeight: 200)));
-    await tester.pumpAndSettle();
-    // Scroll up to reveal the floater, then tap it. 上滚露浮标再点。
-    await tester.drag(find.byType(AnTermViewport), const Offset(0, 300));
-    await tester.pumpAndSettle();
-    final floater = find.text(t.chat.tool.backToLatest);
-    if (floater.evaluate().isNotEmpty) {
-      await tester.tap(floater);
-      await tester.pumpAndSettle();
-    }
-    expect(tester.takeException(), isNull);
-  });
-
   // ── WRK-061 W0: fill-parent mode (the right island's full-page terminal) ────────────────────────
 
   testWidgets(

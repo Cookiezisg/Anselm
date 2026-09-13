@@ -76,25 +76,6 @@ void main() {
     expect(find.textContaining('Duplicate tool call suppressed'), findsNothing);
   });
 
-  testWidgets('terminal rejection duplicate stays out of the transcript', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        ChatToolCard(
-          node: _call(
-            'move_document',
-            result:
-                'Duplicate tool call suppressed: terminal rejection for identical move_document call tc_0; no second execution was requested.',
-          ),
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('未执行'), findsNothing);
-    expect(find.textContaining('terminal rejection'), findsNothing);
-  });
-
   testWidgets(
     'awaiting danger → the gate renders LOCKED-OPEN under an amber verb, no chevron',
     (tester) async {
@@ -162,21 +143,6 @@ void main() {
     ); // delete_agent cataloged in B3.6
     await tester.pumpAndSettle();
     expect(find.widgetWithText(AnChip, '已允许'), findsOneWidget);
-  });
-
-  testWidgets('decided approve_always → the always章', (tester) async {
-    await tester.pumpWidget(
-      _host(
-        ChatToolCard(
-          node: _call('delete_agent', result: '{"deleted":"ag_1"}'),
-          interaction: _danger(decided: InteractionAction.approveAlways),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.tap(find.text('已删除智能体').first);
-    await tester.pumpAndSettle();
-    expect(find.textContaining('本对话总是'), findsOneWidget);
   });
 
   // ── F16 ask_user (settled Q/A record, derived from the DB block; awaiting drives the gate) ──

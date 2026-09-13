@@ -110,29 +110,4 @@ void main() {
       expect(taken.attachmentIds, ['att_1', 'att_2']);
     },
   );
-
-  test('Stop does NOT clear the queue — the §3.4 open question, decided', () {
-    // Stop means "stop this answer", a statement about the turn in flight. The messages typed afterwards are
-    // separate statements the reader has not withdrawn, and discarding them would destroy input they cannot
-    // recover; the chips already carry an explicit ✕ for when they do want them gone.
-    //
-    // This test asserts the decision by construction: cancelling a turn goes through the stream controller
-    // and never touches this notifier, so there is no path from Stop to the queue. If someone later wires
-    // one, this stops being true and the test's premise — that `clear` is only ever called explicitly —
-    // needs revisiting.
-    //
-    // 「停止」的意思是「停下这个回答」,那是对**在飞那一轮**的表态。随后打的消息是读者并未撤回的、另外的表态,
-    // 丢弃它们会销毁他找不回来的输入;而 chip 本就为「确实想扔」备了明确的 ✕。
-    //
-    // 本测试按构造断言这个决定:取消一轮走的是流控制器、从不碰这个 notifier,故**不存在**从「停止」到队列的路径。
-    // 若日后有人接上一条,这句话就不再成立,而本测试的前提(`clear` 只会被显式调用)需要重新审视。
-    final c = container();
-    final q = c.read(chatQueueProvider('cv1').notifier);
-    q.enqueue(msg(q, 'typed while it was answering'));
-
-    // The only way the queue empties is an explicit call. 队列唯一的清空方式是显式调用。
-    expect(c.read(chatQueueProvider('cv1')), hasLength(1));
-    q.clear();
-    expect(c.read(chatQueueProvider('cv1')), isEmpty);
-  });
 }

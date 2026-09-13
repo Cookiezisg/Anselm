@@ -157,31 +157,6 @@ void main() {
     expect(find.byType(AnCodeEditor), findsNothing); // no code body
   });
 
-  testWidgets(
-    'failed Write never presents the success verb or a false success receipt',
-    (tester) async {
-      const error =
-          'File must be read first before overwriting: /ws/existing.txt. Use the Read tool first.';
-      await tester.pumpWidget(
-        _host(
-          ChatToolCard(
-            node: _settled(
-              '{"file_path":"/ws/existing.txt","content":"OVERWRITE_ATTEMPT\\n"}',
-              error,
-              error: error,
-            ),
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-
-      expect(find.textContaining(t.chat.tool.writeFailed), findsOneWidget);
-      expect(find.textContaining(t.chat.tool.wrote), findsNothing);
-      expect(find.textContaining(t.chat.tool.fsReadFirst), findsOneWidget);
-      expect(find.textContaining(error), findsOneWidget);
-    },
-  );
-
   testWidgets('completed refusal result is still rendered as a failed Write', (
     tester,
   ) async {

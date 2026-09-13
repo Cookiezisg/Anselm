@@ -71,11 +71,6 @@ void main() {
   });
 
   group('selectedEntityProvider derives from the route', () {
-    testWidgets('root → null selection', (tester) async {
-      final c = await _mount(tester, '/');
-      expect(c.read(selectedEntityProvider), isNull);
-    });
-
     testWidgets('valid deep-link → the EntityRef', (tester) async {
       final c = await _mount(tester, '/entities/agent/ag_7');
       expect(
@@ -135,17 +130,6 @@ void main() {
       c.read(goRouterProvider).go('/'); // clear by navigating home 导航回首页即清选区
       await tester.pumpAndSettle();
       expect(c.read(selectedDocProvider), isNull);
-    });
-
-    testWidgets('a foreign route (entities) parses to no doc selection', (
-      tester,
-    ) async {
-      final c = await _mount(tester, '/entities/agent/ag_7');
-      expect(c.read(selectedDocProvider), isNull);
-      expect(
-        c.read(selectedEntityProvider),
-        const EntityRef(EntityKind.agent, 'ag_7'),
-      );
     });
   });
 

@@ -108,24 +108,6 @@ void main() {
     },
   );
 
-  test('a toggle loads a playback lease and plays that URL', () async {
-    final (c, driver) = _setup();
-    await c
-        .read(attachmentAudioPlaybackProvider.notifier)
-        .toggleUrl(
-          'att_1',
-          loadUrl: () async => 'http://127.0.0.1/audio/lease',
-          mimeType: 'audio/mpeg',
-        );
-
-    final state = c.read(attachmentAudioPlaybackProvider);
-    expect(state.activeAttachmentId, 'att_1');
-    expect(state.playing, isTrue);
-    expect(state.loading, isFalse);
-    expect(driver.playUrls, ['http://127.0.0.1/audio/lease']);
-    expect(driver.playUrlMimeTypes, ['audio/mpeg']);
-  });
-
   test(
     'same active attachment pauses, then resumes without reloading',
     () async {

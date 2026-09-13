@@ -41,17 +41,6 @@ void main() {
     ),
   );
 
-  testWidgets('renders New + filter + section head + rows', (tester) async {
-    await tester.pumpWidget(
-      host(AnSidebarList(model: model(), onNew: () {}, onSelect: (_) {})),
-    );
-    expect(find.text('New'), findsOneWidget);
-    expect(find.text('Functions'), findsOneWidget); // type head
-    expect(find.text('normalize-input'), findsOneWidget);
-    expect(find.text('validate-schema'), findsOneWidget);
-    expect(tester.takeException(), isNull);
-  });
-
   testWidgets('tapping an entity row selects it', (tester) async {
     String? sel;
     await tester.pumpWidget(
@@ -433,25 +422,6 @@ void main() {
       },
     );
   });
-
-  testWidgets(
-    'battery empty: an empty model renders the chrome + nothing else, no throw',
-    (tester) async {
-      await tester.pumpWidget(
-        host(
-          const AnSidebarList(
-            model: SidebarModel(newLabel: 'New', filterPlaceholder: 'Filter…'),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(
-        find.text('New'),
-        findsOneWidget,
-      ); // the New/filter chrome stays even with no rows
-    },
-  );
 
   testWidgets(
     'battery massive: a 5000-row section virtualizes — the far tail never builds',

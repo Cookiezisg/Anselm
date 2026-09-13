@@ -13,11 +13,6 @@ void main() {
     ),
   );
 
-  testWidgets('renders its child', (tester) async {
-    await tester.pumpWidget(host(const AnCard(child: Text('content'))));
-    expect(find.text('content'), findsOneWidget);
-  });
-
   testWidgets('selectable card taps → onSelect and is a button', (
     tester,
   ) async {

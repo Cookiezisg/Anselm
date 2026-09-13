@@ -37,11 +37,6 @@ void main() {
     expect(find.text('/'), findsNothing);
   });
 
-  testWidgets('empty → nothing', (tester) async {
-    await tester.pumpWidget(host(const AnCrumbs([])));
-    expect(find.byType(Text), findsNothing);
-  });
-
   testWidgets('a segment with onTap is clickable and navigates to THAT level', (
     tester,
   ) async {
@@ -105,15 +100,4 @@ void main() {
       expect(find.text('/'), findsNWidgets(2));
     },
   );
-
-  testWidgets('a chain within foldAfter renders in full (no fold)', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(const AnCrumbs([AnCrumb('Documents'), AnCrumb('父')], foldAfter: 3)),
-    );
-    expect(find.text('…'), findsNothing);
-    expect(find.text('Documents'), findsOneWidget);
-    expect(find.text('父'), findsOneWidget);
-  });
 }

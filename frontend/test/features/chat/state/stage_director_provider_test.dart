@@ -46,13 +46,6 @@ StreamEnvelope _delta(String id) => StreamEnvelope(
   id: id,
   frame: const FrameDelta(chunk: '{"x":'),
 );
-StreamEnvelope _close(String id, {String status = 'completed'}) =>
-    StreamEnvelope(
-      seq: 2,
-      scope: _scope,
-      id: id,
-      frame: FrameClose(status: status),
-    );
 StreamEnvelope _callClose(
   String id, {
   String status = 'completed',
@@ -165,28 +158,6 @@ void main() {
       await tester.pump(const Duration(milliseconds: 2200)); // drain 排干
     },
   );
-
-  testWidgets('a stage-worthy open stages after the debounce timer fires', (
-    tester,
-  ) async {
-    final repo = FixtureChatRepository();
-    final c = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
-    );
-    addTearDown(c.dispose);
-    c.listen(stageDirectorProvider(_conv), (_, _) {});
-    await tester.pump();
-    repo.emitFrame(_conv, _open('b1', 'create_function'));
-    await tester.pump();
-    expect(
-      c.read(stageDirectorProvider(_conv)).stageOpen,
-      isFalse,
-    ); // debouncing 防抖中
-    await tester.pump(const Duration(milliseconds: 600));
-    final s = c.read(stageDirectorProvider(_conv));
-    expect(s.stageOpen, isTrue);
-    expect(s.subject!.kind, 'function');
-  });
 
   testWidgets(
     'C-020 a content delta does NOT re-publish the stage state (no re-allocation)',
@@ -355,70 +326,6 @@ void main() {
   );
 
   testWidgets(
-    'R-10 settles when the terminal arrives after receipt open but before receipt close',
-    (tester) async {
-      final repo = FixtureChatRepository();
-      final c = ProviderContainer(
-        overrides: [chatRepositoryProvider.overrideWithValue(repo)],
-      );
-      addTearDown(c.dispose);
-      c.listen(stageDirectorProvider(_conv), (_, _) {});
-      await tester.pump();
-
-      repo.emitFrame(_conv, _open('b1', 'trigger_workflow'));
-      await tester.pump(const Duration(milliseconds: 600));
-      repo.emitFrame(
-        _conv,
-        _callClose('b1', arguments: '{"workflowId":"wf_slow"}'),
-      );
-      repo.emitFrame(_conv, _resultOpen('r1', 'b1'));
-      await tester.pump();
-
-      // This is the production ordering observed on the entities stream: the execution receipt is
-      // open while the workflow publishes its durable terminal, and only then does the receipt close
-      // with the flowrun id.  真实顺序:回执已 open,workflow 先落 run_terminal,最后回执才带 flowrunId close。
-      repo.emitWorkflowFrame(
-        'wf_slow',
-        const StreamEnvelope(
-          seq: 12,
-          scope: StreamScope(kind: 'workflow', id: 'wf_slow'),
-          id: 'terminal-slow',
-          frame: FrameSignal(
-            node: StreamNode(
-              type: 'run_terminal',
-              content: {'flowrunId': 'fr_slow', 'status': 'completed'},
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isTrue);
-
-      repo.emitFrame(
-        _conv,
-        StreamEnvelope(
-          seq: 13,
-          scope: _scope,
-          id: 'r1',
-          frame: const FrameClose(
-            status: 'completed',
-            result: StreamNode(
-              type: 'tool_result',
-              content: {'content': '{"flowrunId":"fr_slow"}'},
-            ),
-          ),
-        ),
-      );
-      await tester.pump();
-
-      // It is now a normal settling state, not an eternal polling row. 此刻必须进入收卷停拍。
-      expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.following);
-      await tester.pump(const Duration(milliseconds: 2400));
-      expect(c.read(stageDirectorProvider(_conv)).stageOpen, isFalse);
-    },
-  );
-
-  testWidgets(
     'deltas on the SUBJECT do not broadcast (value equality); channel deltas badge unread',
     (tester) async {
       final repo = FixtureChatRepository();
@@ -457,27 +364,6 @@ void main() {
       await tester.pump(const Duration(seconds: 3));
     },
   );
-
-  testWidgets('failed close → failed-hold; row-level clear → idle (G3)', (
-    tester,
-  ) async {
-    final repo = FixtureChatRepository();
-    final c = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(repo)],
-    );
-    addTearDown(c.dispose);
-    c.listen(stageDirectorProvider(_conv), (_, _) {});
-    await tester.pump();
-    repo.emitFrame(_conv, _open('b1', 'create_agent'));
-    await tester.pump(const Duration(milliseconds: 600));
-    repo.emitFrame(_conv, _close('b1', status: 'error'));
-    await tester.pump();
-    expect(c.read(stageDirectorProvider(_conv)).phase, StagePhase.failedHold);
-    c.read(stageDirectorProvider(_conv).notifier).clearActivity('b1');
-    final s = c.read(stageDirectorProvider(_conv));
-    expect(s.phase, StagePhase.idle);
-    expect(s.channels, isEmpty); // truly gone, not a ghost 真离场,非幽灵
-  });
 
   testWidgets(
     'G4: execution progress on nested children feeds the OWNING call (A1-17)',

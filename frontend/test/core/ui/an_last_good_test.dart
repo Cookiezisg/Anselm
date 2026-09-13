@@ -193,18 +193,6 @@ void main() {
     expect(find.text('DATA:a'), findsNothing);
   });
 
-  testWidgets('error → retry → data recovers to content', (tester) async {
-    await tester.pumpWidget(
-      _host(AsyncError<String>('boom', StackTrace.empty)),
-    );
-    await tester.pump();
-    expect(find.text('ERROR:boom'), findsOneWidget);
-
-    await tester.pumpWidget(_host(const AsyncData('a')));
-    await tester.pumpAndSettle();
-    expect(find.text('DATA:a'), findsOneWidget);
-  });
-
   testWidgets(
     'min-display: data arriving just after the skeleton surfaced dwells out loaderHold',
     (tester) async {

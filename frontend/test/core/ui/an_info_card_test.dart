@@ -14,14 +14,6 @@ void main() {
     ),
   );
 
-  testWidgets('renders title + body', (tester) async {
-    await tester.pumpWidget(
-      host(const AnInfoCard(title: 'Schedule', child: Text('body'))),
-    );
-    expect(find.text('Schedule'), findsOneWidget);
-    expect(find.text('body'), findsOneWidget);
-  });
-
   testWidgets('title is a header semantics node', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(

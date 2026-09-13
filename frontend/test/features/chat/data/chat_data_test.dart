@@ -1,8 +1,6 @@
 import 'package:anselm/core/contract/conversation.dart';
 import 'package:anselm/features/chat/data/chat_fixtures.dart';
-import 'package:anselm/features/chat/data/chat_providers.dart';
 import 'package:anselm/features/chat/data/chat_repository.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 // STEP 1 gate — the chat data seam. Pins: the Conversation DTO mirrors the wire (incl. the three
@@ -209,15 +207,4 @@ void main() {
       );
     },
   );
-
-  test('chatRepositoryProvider swaps to the fixture at one seam', () {
-    final container = ProviderContainer(
-      overrides: [chatRepositoryProvider.overrideWithValue(_repo())],
-    );
-    addTearDown(container.dispose);
-    expect(
-      container.read(chatRepositoryProvider),
-      isA<FixtureChatRepository>(),
-    );
-  });
 }

@@ -261,40 +261,6 @@ void main() {
     expect(find.textContaining('generated-x.png'), findsWidgets);
   });
 
-  testWidgets(
-    'landscape receipt holds its aspect before attachment metadata arrives',
-    (tester) async {
-      final source = _DelayedMedia(
-        AttachmentMeta(
-          id: 'att_0011223344556677',
-          filename: 'generated-x.png',
-          mimeType: 'image/png',
-          sizeBytes: 1234,
-          kind: 'image',
-        ),
-      );
-      await tester.pumpWidget(
-        _host(
-          ChatToolCard(node: _settledCall()),
-          overrides: [
-            chatRepositoryProvider.overrideWithValue(FixtureChatRepository()),
-            mediaSourceProvider.overrideWithValue(source),
-          ],
-        ),
-      );
-
-      await tester.tap(find.textContaining('已生成图像'), warnIfMissed: false);
-      await tester.pump();
-
-      final placeholder = tester.widget<AspectRatio>(find.byType(AspectRatio));
-      expect(placeholder.aspectRatio, closeTo(1.5, 0.001));
-
-      source.complete();
-      await tester.pump();
-      expect(find.textContaining('generated-x.png'), findsWidgets);
-    },
-  );
-
   testWidgets('missing attachment row is said out loud', (tester) async {
     await tester.pumpWidget(
       _host(

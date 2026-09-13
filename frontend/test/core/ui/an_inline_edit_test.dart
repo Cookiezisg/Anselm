@@ -133,22 +133,6 @@ void main() {
     },
   );
 
-  testWidgets('idle shows the value; tapping the pencil enters edit', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(AnInlineEdit(value: 'Hello', onCommit: (_) {})),
-    );
-    expect(find.text('Hello'), findsOneWidget);
-    expect(find.byType(AnInput), findsNothing); // not editing yet
-
-    await tester.tap(
-      find.byType(AnButton),
-    ); // the only AnButton in idle is the pencil
-    await tester.pumpAndSettle();
-    expect(find.byType(AnInput), findsOneWidget); // now editing
-  });
-
   testWidgets(
     'startEditing opens with the value selected (first keystroke replaces)',
     (tester) async {

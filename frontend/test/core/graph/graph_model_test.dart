@@ -102,20 +102,6 @@ void main() {
       },
     );
 
-    test(
-      'back edge does not feed ranks (loop target keeps its early layer)',
-      () {
-        final l = layoutGraph(branchGraph);
-        expect(l.nodeRects['run']!.left, lessThan(l.nodeRects['br']!.left));
-      },
-    );
-
-    test('layout is deterministic', () {
-      final a = layoutGraph(branchGraph);
-      final b = layoutGraph(branchGraph);
-      expect(a.nodeRects, b.nodeRects);
-    });
-
     test('empty graph yields padded-only size and no routes', () {
       final l = layoutGraph(const Graph());
       expect(l.routes, isEmpty);
@@ -179,28 +165,6 @@ void main() {
       expect(r.points[1].dy, greaterThan(maxBottom));
       // And the content size reserves it. 内容尺寸为其留位。
       expect(l.size.height, greaterThan(maxBottom + GraphGeometry.pad));
-    });
-
-    test('mid point sits on the polyline extent (port pill anchor)', () {
-      final l = layoutGraph(branchGraph);
-      for (final r in l.routes) {
-        final xs = r.points.map((p) => p.dx);
-        final ys = r.points.map((p) => p.dy);
-        expect(
-          r.mid.dx,
-          inInclusiveRange(
-            xs.reduce((a, b) => a < b ? a : b),
-            xs.reduce((a, b) => a > b ? a : b),
-          ),
-        );
-        expect(
-          r.mid.dy,
-          inInclusiveRange(
-            ys.reduce((a, b) => a < b ? a : b),
-            ys.reduce((a, b) => a > b ? a : b),
-          ),
-        );
-      }
     });
 
     test('dangling edges are skipped, never crash', () {

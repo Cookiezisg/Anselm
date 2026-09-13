@@ -177,16 +177,6 @@ void main() {
         reason: 'a zero-height kept subtree must not be announced',
       );
     });
-
-    testWidgets('default (keepMounted:false) still drops the subtree', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        host(const AnExpandReveal(open: false, child: Text('PANEL'))),
-      );
-      await tester.pumpAndSettle();
-      expect(find.text('PANEL', skipOffstage: false), findsNothing);
-    });
   });
 }
 

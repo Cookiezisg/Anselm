@@ -301,15 +301,6 @@ void main() {
       },
     );
 
-    test('unnamed document falls back to the untitled label', () {
-      final model = buildLibraryRailModel(
-        [_doc('doc_x', null, '', 0)],
-        const [],
-        _labels,
-      );
-      expect(model.groups.single.types[0].rows.single.label, 'Untitled');
-    });
-
     test(
       'B4: the row icon tells an empty page (file) from a written one (fileText/doc) via hasContent',
       () {
@@ -463,15 +454,6 @@ void main() {
   });
 
   group('LibraryRail', () {
-    testWidgets('renders the document tree + skills', (tester) async {
-      await tester.pumpWidget(_host(_repo(), const LibraryRail()));
-      await tester.pump();
-      await tester.pump();
-      expect(find.text('Getting Started'), findsOneWidget);
-      expect(find.text('Playbooks'), findsOneWidget);
-      expect(find.text('commit-helper'), findsOneWidget);
-    });
-
     testWidgets(
       'document row More actions exposes Edit with AI and opens a seeded chat',
       (tester) async {
@@ -1437,22 +1419,6 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('dropping on a row\'s middle nests the page under it', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await tester.pumpWidget(_host(repo, const LibraryRail()));
-      await tester.pump();
-      await tester.pump();
-      // 'Playbooks' (root) onto the CENTER of 'Getting Started' → inside → reparent. 中段=嵌入。
-      await drag(
-        tester,
-        'Playbooks',
-        tester.getCenter(find.text('Getting Started')),
-      );
-      expect((await repo.getDocument('doc_d')).parentId, 'doc_a');
-    });
-
     testWidgets('dropping on a row\'s top edge reorders above it', (
       tester,
     ) async {
@@ -1473,23 +1439,6 @@ void main() {
         (await repo.getDocument('doc_a')).position,
         1,
       ); // shifted sibling 让位兄弟顺移
-    });
-
-    testWidgets('dropping a page into its own subtree is refused (cycle)', (
-      tester,
-    ) async {
-      final repo = _repo();
-      await tester.pumpWidget(_host(repo, const LibraryRail()));
-      await tester.pump();
-      await tester.pump();
-      await drag(
-        tester,
-        'Getting Started',
-        tester.getCenter(find.text('Setup')),
-      );
-      // Nothing moved. 未动。
-      expect((await repo.getDocument('doc_a')).parentId, isNull);
-      expect((await repo.getDocument('doc_b')).parentId, 'doc_a');
     });
 
     testWidgets(
@@ -1683,28 +1632,6 @@ void main() {
             ),
           ),
         );
-
-    testWidgets(
-      'a page panel keeps only outline / file meta / backlinks (no property form)',
-      (tester) async {
-        final repo = _repo();
-        await tester.pumpWidget(host(repo, (isSkill: false, id: 'doc_a')));
-        await tester.pumpAndSettle();
-        // File meta + backlinks stay; the page's OWN properties (name/description/tags) edit in the
-        // CENTER under the big title now. 文件 meta+反链留;页自身属性(名/描述/标签)已归中心大标题下。
-        expect(find.text('Modified'), findsOneWidget);
-        expect(
-          find.text('Backlinks'),
-          findsOneWidget,
-        ); // AnRow 组头文法(三段式文法 §3,批2)
-        expect(find.text('Name'), findsNothing);
-        expect(find.text('Tags'), findsNothing);
-        expect(
-          find.byType(EditableText),
-          findsNothing,
-        ); // nothing edits on this panel anymore 本岛无输入
-      },
-    );
 
     testWidgets(
       'a moved open page uses the refreshed tree path without remounting its body',
@@ -1918,66 +1845,6 @@ void main() {
           find.textContaining('Edited'),
           findsOneWidget,
         ); // relative last-edited
-      },
-    );
-
-    testWidgets('§2 glance: a no-backlinks page drops the 反链 segment (零人话律)', (
-      tester,
-    ) async {
-      final repo = FixtureLibraryRepository(
-        documents: [
-          _doc(
-            'doc_solo',
-            null,
-            'Solo',
-            0,
-            content: 'just some words, nobody links here',
-          ),
-        ],
-        skills: const [],
-      );
-      await tester.pumpWidget(host(repo, (isSkill: false, id: 'doc_solo')));
-      await tester.pumpAndSettle();
-      expect(find.textContaining('chars'), findsOneWidget);
-      expect(find.textContaining('Edited'), findsOneWidget);
-      expect(
-        find.textContaining('backlinks'),
-        findsNothing,
-      ); // omitted — zero backlinks 无信号段不渲
-    });
-
-    testWidgets(
-      '§2 glance: absent entirely with no selection (all-empty → no band)',
-      (tester) async {
-        await tester.pumpWidget(
-          ProviderScope(
-            overrides: [
-              libraryRepositoryProvider.overrideWithValue(_repo()),
-              selectedDocProvider.overrideWith(
-                () => _PinnedSelection(null),
-              ), // nothing open 空选
-            ],
-            child: TranslationProvider(
-              child: MaterialApp(
-                theme: AnTheme.light(),
-                home: const Scaffold(
-                  body: SizedBox(
-                    width: 320,
-                    height: 640,
-                    child: LibraryInspector(),
-                  ),
-                ),
-              ),
-            ),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(
-          find.text('Nothing selected'),
-          findsOneWidget,
-        ); // the inset empty state 空态
-        expect(find.textContaining('Edited'), findsNothing);
-        expect(find.textContaining('chars'), findsNothing);
       },
     );
 

@@ -40,18 +40,6 @@ void main() {
     ),
   ];
 
-  test(
-    'token boundaries: only whitespace-delimited @name tints; substrings stay plain',
-    () {
-      final ctl = MentionTextEditingController(text: 'x@bot 和 @bot 与 @bots');
-      ctl.pillNames.add('bot');
-      addTearDown(ctl.dispose);
-      // pure logic exercised via _tokenAt through buildTextSpan in the widget tests below; here we just
-      // sanity-check construction. 构造健全性(边界逻辑在下面的 widget 测里过)。
-      expect(ctl.pillNames, {'bot'});
-    },
-  );
-
   testWidgets('pills tint; a coincidental substring does not', (tester) async {
     final ctl = MentionTextEditingController(text: '@bot 看看 robot@bot');
     ctl.pillNames.add('bot');

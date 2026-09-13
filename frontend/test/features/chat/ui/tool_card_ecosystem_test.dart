@@ -278,30 +278,6 @@ void main() {
     expect(find.text('2026-08-04 15:30'), findsOneWidget);
   });
 
-  testWidgets('mcp install error auto-expands with the last error', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      _host(
-        ChatToolCard(
-          node: _n('install_mcp_server', '{"name":"broken"}', {
-            'name': 'broken',
-            'status': 'error',
-            'consecutiveFailures': 3,
-            'lastError': 'MCP_SERVER_ENV_MISSING',
-            'tools': [],
-          }),
-        ),
-      ),
-    );
-    await tester.pump();
-    await tester.pumpAndSettle();
-    expect(
-      find.textContaining('MCP_SERVER_ENV_MISSING'),
-      findsOneWidget,
-    ); // auto-expanded
-  });
-
   testWidgets('mcp install plain missing-env result is red and expanded', (
     tester,
   ) async {

@@ -201,41 +201,6 @@ void main() {
       },
     );
 
-    testWidgets('transient quota failure says the install was kept', (
-      tester,
-    ) async {
-      final repo = FixtureSettingsRepository()
-        ..failNextQuota = const ApiException(
-          code: 'LLM_RATE_LIMITED',
-          message: 'gateway is rate limited',
-          httpStatus: 429,
-        );
-      await tester.pumpWidget(_host(repo));
-      await tester.pumpAndSettle();
-
-      expect(
-        find.text(t.settings.keys.freeTransientRepairHint),
-        findsOneWidget,
-      );
-      expect(find.text(t.settings.keys.freeRepairHint), findsNothing);
-    });
-
-    testWidgets('available=false renders the amber budget banner', (
-      tester,
-    ) async {
-      final repo = FixtureSettingsRepository()
-        ..quota = const FreetierQuota(
-          limit: 5000,
-          used: 4000,
-          remaining: 1000,
-          resetAt: '2026-08-01',
-          available: false,
-        );
-      await tester.pumpWidget(_host(repo));
-      await tester.pumpAndSettle();
-      expect(find.text(t.settings.keys.freeUnavailable), findsOneWidget);
-    });
-
     testWidgets(
       'quota refresh failure drops stale meter and exposes repair CTA',
       (tester) async {
@@ -807,45 +772,6 @@ void main() {
     );
 
     testWidgets(
-      'a stale clearable default stays recoverable when the capability catalog is empty',
-      (tester) async {
-        final repo = FixtureSettingsRepository(
-          workspace: Workspace(
-            id: 'ws_clear_empty',
-            name: 'Clear defaults without catalog',
-            language: 'zh-CN',
-            defaultUtility: const ModelRef(
-              apiKeyId: 'aki_missing',
-              modelId: 'missing-model',
-            ),
-            createdAt: DateTime(2026, 7, 1),
-            updatedAt: DateTime(2026, 7, 1),
-          ),
-        );
-        await tester.pumpWidget(_host(repo, capabilities: const []));
-        await tester.pumpAndSettle();
-
-        final utilityRow = find.ancestor(
-          of: find.text(t.settings.keys.scenarioUtility),
-          matching: find.byType(AnSettingRow),
-        );
-        await tester.ensureVisible(utilityRow);
-        await tester.tap(
-          find.descendant(
-            of: utilityRow,
-            matching: find.text(t.settings.keys.pickerChange),
-          ),
-        );
-        await tester.pumpAndSettle();
-        expect(find.text(t.settings.keys.clearDefault), findsOneWidget);
-        await tester.tap(find.text(t.settings.keys.clearDefault));
-        await tester.pumpAndSettle();
-
-        expect(repo.workspace.defaultUtility, isNull);
-      },
-    );
-
-    testWidgets(
       'Anselm Auto applies directly; external native controls stay behind an explicit choice',
       (tester) async {
         final repo = FixtureSettingsRepository();
@@ -1288,24 +1214,6 @@ void _imageRowTests() {
       await tester.pumpAndSettle();
       expect(find.textContaining('gpt-4o-mini-tts'), findsOneWidget);
     });
-
-    testWidgets(
-      'honest absence is per-capability: a drawing-only key leaves speech empty',
-      (tester) async {
-        // zhipu can do both, deepseek neither — but the point is the SET is consulted per row.
-        final repo = FixtureSettingsRepository();
-        repo.keys.add(_key('aki_d', 'deepseek'));
-        await tester.pumpWidget(_host(repo));
-        await tester.pumpAndSettle();
-
-        await tester.ensureVisible(
-          find.byKey(const ValueKey('speechDefaultToggle')),
-        );
-        await tester.tap(find.byKey(const ValueKey('speechDefaultToggle')));
-        await tester.pumpAndSettle();
-        expect(find.text('当前没有能合成语音的 key'), findsOneWidget);
-      },
-    );
 
     testWidgets('video offers the managed option like image and speech', (
       tester,

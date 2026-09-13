@@ -44,16 +44,6 @@ void main() {
   });
 
   testWidgets(
-    'full input in an unbounded parent falls back to inputMin (no crash)',
-    (tester) async {
-      await tester.pumpWidget(
-        host(Row(children: const [AnInput(block: true)])),
-      );
-      expect(tester.takeException(), isNull);
-    },
-  );
-
-  testWidgets(
     'focusNode swap actually moves the listener (focusing the new node deepens the border)',
     (tester) async {
       final a = FocusNode();

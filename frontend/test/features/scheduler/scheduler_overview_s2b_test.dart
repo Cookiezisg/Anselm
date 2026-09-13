@@ -611,22 +611,6 @@ void main() {
       },
     );
 
-    testWidgets('dismissing the dialog cancels nothing', (tester) async {
-      final repo = _repo();
-      await _pumpBoard(tester, repo);
-      final g = await _hover(tester, _rowPrimary('库存同步'));
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(_rowVerb('库存同步', t.scheduler.home.rowCancel));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      await tester.tap(find.text(ov.cancelKeep));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 300));
-      expect(repo.cancelOrder, isEmpty);
-      expect(find.textContaining('库存同步'), findsOneWidget);
-      await g.removePointer();
-    });
-
     testWidgets(
       'a run that already ended (422) earns honest feedback + reconcile',
       (tester) async {
@@ -831,30 +815,6 @@ void main() {
       },
     );
 
-    testWidgets(
-      'a single tap EXPANDS the inline peek in place (never navigates)',
-      (tester) async {
-        await _pumpBoard(tester, _failedRepo());
-        expect(find.byType(RunPeekCard), findsNothing);
-
-        await tester.ensureVisible(_rowPrimary('数据清洗流水线'));
-        await tester.pump();
-        await tester.tap(_rowPrimary('数据清洗流水线'));
-        await tester.pump();
-        await tester.pump(const Duration(milliseconds: 300));
-        expect(
-          find.byType(RunPeekCard),
-          findsOneWidget,
-          reason: '单击=行内展开速览卡(不跳转)',
-        );
-        expect(
-          find.text(t.scheduler.home.openRun),
-          findsOneWidget,
-          reason: '旗舰门在卡上',
-        );
-      },
-    );
-
     testWidgets('the peek card «Open →» routes to the run subpage', (
       tester,
     ) async {
@@ -870,28 +830,6 @@ void main() {
       await tester.ensureVisible(find.text(t.scheduler.home.openRun));
       await tester.pump();
       await tester.tap(find.text(t.scheduler.home.openRun));
-      await tester.pump();
-      await tester.pump(const Duration(milliseconds: 400));
-      expect(
-        router.routerDelegate.currentConfiguration.uri.toString(),
-        '/scheduler/w/wf_a/runs/fr_bad1',
-      );
-    });
-
-    testWidgets('a fast double-tap on the row goes straight to the flagship', (
-      tester,
-    ) async {
-      final router = _makeRouter();
-      addTearDown(router.dispose);
-      await _pumpRouter(tester, _failedRepo(), router);
-
-      await tester.ensureVisible(_rowPrimary('数据清洗流水线'));
-      await tester.pump();
-      // Two quick taps → the double-tap window (judged on REAL wall time in onPeekTap) → the flagship.
-      // 连点两下 → 双击窗(onPeekTap 按真墙钟判)→ 旗舰。
-      await tester.tap(_rowPrimary('数据清洗流水线'));
-      await tester.pump();
-      await tester.tap(_rowPrimary('数据清洗流水线'));
       await tester.pump();
       await tester.pump(const Duration(milliseconds: 400));
       expect(

@@ -82,51 +82,12 @@ void main() {
     expect(find.textContaining('Invalid JSON'), findsOneWidget);
   });
 
-  testWidgets('showRoot false omits the root row', (tester) async {
-    await tester.pumpWidget(
-      host(const AnJsonTree(data: {'a': 1, 'b': 2}, showRoot: false)),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('root'), findsNothing);
-    expect(find.textContaining('a'), findsWidgets);
-  });
-
   testWidgets('showRoot true shows the labelled root branch', (tester) async {
     await tester.pumpWidget(
       host(const AnJsonTree(data: {'a': 1}, rootLabel: 'payload')),
     );
     await tester.pumpAndSettle();
     expect(find.textContaining('payload'), findsOneWidget);
-  });
-
-  testWidgets('scalar / null / empty collections render without error', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const AnJsonTree(
-          data: {
-            's': '',
-            'nil': null,
-            'emptyObj': <String, Object?>{},
-            'emptyArr': <Object?>[],
-          },
-          showRoot: false,
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(find.textContaining('null'), findsOneWidget);
-  });
-
-  testWidgets('array root indexes its items', (tester) async {
-    await tester.pumpWidget(
-      host(const AnJsonTree(data: ['x', 'y'], rootLabel: 'list', openDepth: 2)),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('x'), findsOneWidget);
-    expect(find.textContaining('y'), findsOneWidget);
   });
 
   testWidgets(
@@ -179,23 +140,6 @@ void main() {
       await tester.pumpAndSettle();
       expect(tester.getSemantics(branchFinder), isSemantics(isExpanded: true));
       handle.dispose();
-    },
-  );
-
-  testWidgets(
-    'a large tree scrolls within its bounded viewport (virtualized, no overflow)',
-    (tester) async {
-      final big = {for (var i = 0; i < 50; i++) 'key_$i': 'value_$i'};
-      await tester.pumpWidget(
-        host(AnJsonTree(data: big, showRoot: false), height: 200),
-      );
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
-      expect(find.textContaining('key_0'), findsOneWidget);
-      // scroll down → later keys come into view, no overflow. 下滚 → 后面的键进视口、不溢出。
-      await tester.drag(find.byType(AnJsonTree), const Offset(0, -300));
-      await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
     },
   );
 

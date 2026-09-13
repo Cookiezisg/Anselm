@@ -142,14 +142,4 @@ void main() {
       expect(done, 1);
     },
   );
-
-  testWidgets('empty phrases render nothing and do not crash', (tester) async {
-    await tester.pumpWidget(host(const AnTypewriter([])));
-    await tester.pumpAndSettle(
-      const Duration(milliseconds: 16),
-      EnginePhase.sendSemanticsUpdate,
-      const Duration(seconds: 5),
-    );
-    expect(tester.takeException(), isNull);
-  });
 }

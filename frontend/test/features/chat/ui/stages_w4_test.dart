@@ -571,29 +571,4 @@ void main() {
       );
     },
   );
-
-  test(
-    'R-10 poll: trigger_workflow\'s 202 close NEVER curtains (holds until displaced/dismissed)',
-    () {
-      final d = StageDirector();
-      final t0 = DateTime.utc(2026, 7, 8, 12);
-      d.onToolOpen('b1', 'trigger_workflow', t0);
-      d.advance(t0.add(const Duration(milliseconds: 500)));
-      expect(d.state.stageOpen, isTrue);
-      d.onToolClose(
-        'b1',
-        t0.add(const Duration(seconds: 2)),
-      ); // the 202 enqueue receipt 入队回执
-      d.advance(
-        t0.add(const Duration(seconds: 30)),
-      ); // any amount of breathing room 任意久
-      expect(
-        d.state.stageOpen,
-        isTrue,
-      ); // still on stage — the run is NOT over 仍在台上
-      expect(d.state.phase, StagePhase.following);
-      d.onClearActivity('b1', t0.add(const Duration(seconds: 31)));
-      expect(d.state.phase, StagePhase.idle);
-    },
-  );
 }

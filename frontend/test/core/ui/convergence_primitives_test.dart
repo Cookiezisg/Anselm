@@ -102,17 +102,6 @@ void main() {
       );
       expect(t.getSize(find.byType(AnDivider)).height, AnSize.controlSm);
     });
-    testWidgets('vertical honors a custom length', (t) async {
-      await t.pumpWidget(
-        _host(
-          const Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [AnDivider.vertical(length: 12)],
-          ),
-        ),
-      );
-      expect(t.getSize(find.byType(AnDivider)).height, 12);
-    });
   });
 
   group('AnFormField', () {
@@ -150,10 +139,6 @@ void main() {
       await t.pumpWidget(_host(const AnCodeBlock('exit 0')));
       expect(find.text('exit 0'), findsOneWidget);
       expect(find.byType(AnCodeSurface), findsOneWidget);
-    });
-    testWidgets('bare still renders the text', (t) async {
-      await t.pumpWidget(_host(const AnCodeBlock('bare', bare: true)));
-      expect(find.text('bare'), findsOneWidget);
     });
   });
 

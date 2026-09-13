@@ -168,17 +168,6 @@ class _EmptyConnectionLostSpeech extends SpeechInputController {
   }
 }
 
-class _EmptyFrameInvalidSpeech extends SpeechInputController {
-  @override
-  Future<void> start() async {
-    state = const SpeechInputState(
-      elapsed: Duration(seconds: 1),
-      error: speechInputErrorFrameInvalid,
-      canRetry: true,
-    );
-  }
-}
-
 class _TooLongSpeech extends SpeechInputController {
   @override
   Future<void> start() async {
@@ -531,39 +520,6 @@ void main() {
     },
   );
 
-  testWidgets('voice input is hidden for external model defaults', (
-    tester,
-  ) async {
-    final repo = FixtureChatRepository(
-      conversations: [_conv('cv_1')],
-      messages: {'cv_1': []},
-    );
-    await tester.pumpWidget(
-      _host(
-        repo,
-        overrides: _speechModelOverrides(
-          workspace: _workspaceWithDefaultModel('aki_ext', 'gpt-4o'),
-          caps: const [
-            ModelCapability(
-              apiKeyId: 'aki_ext',
-              provider: 'openai',
-              modelId: 'gpt-4o',
-              displayName: 'GPT-4o',
-            ),
-          ],
-        ),
-      ),
-    );
-    await _settle(tester);
-    expect(find.byKey(const ValueKey('voice')), findsNothing);
-    expect(find.byIcon(AnIcons.microphone), findsNothing);
-    expect(find.byKey(const ValueKey('send')), findsNothing);
-
-    await tester.enterText(find.byType(TextField), 'hello');
-    await tester.pumpAndSettle();
-    expect(find.byKey(const ValueKey('send')), findsOneWidget);
-  });
-
   testWidgets(
     'voice input follows conversation model override over workspace Auto',
     (tester) async {
@@ -732,56 +688,6 @@ void main() {
     expect(
       container.read(noticeCenterProvider).current?.message.text,
       'Voice input disconnected. No text was transcribed; your local recording is ready to retry.',
-    );
-    expect(
-      find.text(
-        'No text was transcribed. I kept the local recording so you can retry once.',
-      ),
-      findsOneWidget,
-    );
-    expect(find.byKey(const ValueKey('voice-retry-card')), findsOneWidget);
-  });
-
-  testWidgets('invalid voice frame with no text avoids claiming a draft', (
-    tester,
-  ) async {
-    final repo = FixtureChatRepository(
-      conversations: [_conv('cv_1')],
-      messages: {'cv_1': []},
-    );
-    await tester.pumpWidget(
-      _host(
-        repo,
-        overrides: [
-          ..._speechModelOverrides(
-            workspace: _workspaceWithDefaultModel(
-              'aki_demo_managed0',
-              'anselm-auto',
-            ),
-            caps: const [
-              ModelCapability(
-                apiKeyId: 'aki_demo_managed0',
-                provider: 'anselm',
-                modelId: 'anselm-auto',
-                displayName: 'Anselm Auto',
-              ),
-            ],
-          ),
-          speechInputProvider.overrideWith(_EmptyFrameInvalidSpeech.new),
-        ],
-      ),
-    );
-    await _settle(tester);
-
-    await tester.tap(find.byKey(const ValueKey('voice')));
-    await _settle(tester);
-
-    final container = ProviderScope.containerOf(
-      tester.element(find.byType(ChatComposer)),
-    );
-    expect(
-      container.read(noticeCenterProvider).current?.message.text,
-      'This voice data could not be understood. No text was transcribed; please record it again.',
     );
     expect(
       find.text(

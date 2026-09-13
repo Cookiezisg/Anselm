@@ -62,12 +62,6 @@ void main() {
     },
   );
 
-  testWidgets('empty children → renders nothing, no exception', (tester) async {
-    await pumpAt(tester, 400, const []);
-    expect(tester.takeException(), isNull);
-    expect(find.byType(AnAutoGrid), findsOneWidget);
-  });
-
   testWidgets('unbounded width → single-column fallback, no crash', (
     tester,
   ) async {

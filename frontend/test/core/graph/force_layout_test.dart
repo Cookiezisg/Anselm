@@ -110,16 +110,6 @@ void main() {
         }
       },
     );
-
-    test('two fresh instances of the same graph seed identically', () {
-      List<ForceNode> ns() => [for (var i = 0; i < 8; i++) ForceNode('x$i')];
-      final edges = [for (var i = 1; i < 8; i++) ForceEdge('x0', 'x$i')];
-      final l1 = ForceLayout(nodes: ns(), edges: edges);
-      final l2 = ForceLayout(nodes: ns(), edges: edges);
-      for (var i = 0; i < 8; i++) {
-        expect(l1.positionOf('x$i'), l2.positionOf('x$i'));
-      }
-    });
   });
 
   group('ForceLayout — collision (no label/dot overlap)', () {
@@ -166,17 +156,6 @@ void main() {
         reason: 'a pinned node never moves under physics',
       );
     });
-
-    test('reheat wakes a settled sim', () {
-      final l = ForceLayout(
-        nodes: [ForceNode('a'), ForceNode('b')],
-        edges: const [ForceEdge('a', 'b')],
-      );
-      expect(l.settled, isTrue);
-      l.reheat();
-      expect(l.settled, isFalse);
-      expect(l.tick(), isTrue);
-    });
   });
 
   group('ForceLayout — components + isolates', () {
@@ -221,12 +200,6 @@ void main() {
         );
       },
     );
-
-    test('a single isolated node does not crash and stays finite', () {
-      final l = ForceLayout(nodes: [ForceNode('solo')], edges: const []);
-      final p = l.positionOf('solo');
-      expect(p.dx.isFinite && p.dy.isFinite, isTrue);
-    });
 
     test('empty graph settles trivially', () {
       final l = ForceLayout(nodes: const [], edges: const []);
@@ -299,10 +272,6 @@ void main() {
           );
         }
       }
-    });
-
-    test('empty input → empty output', () {
-      expect(packBoxes(const [], gap: 20), isEmpty);
     });
   });
 

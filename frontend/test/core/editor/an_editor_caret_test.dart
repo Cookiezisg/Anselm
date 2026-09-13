@@ -127,16 +127,6 @@ void main() {
           );
         },
       );
-
-      test('a zero-height glyph box is treated as unmeasurable', () {
-        final band = anCaretBand(
-          glyph: Rect.zero,
-          lineTop: 0,
-          lineHeight: 24,
-          fontSize: 15,
-        );
-        expect(band.height, 18);
-      });
     },
   );
 

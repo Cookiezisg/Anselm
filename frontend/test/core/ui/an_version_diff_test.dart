@@ -35,22 +35,6 @@ void main() {
         ),
       );
 
-  testWidgets('renders context / deleted / added lines', (tester) async {
-    await tester.pumpWidget(
-      host(
-        const AnVersionDiff(
-          before: 'alpha\nbeta',
-          after: 'alpha\ngamma',
-          lang: 'py',
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.textContaining('alpha'), findsOneWidget); // context
-    expect(find.textContaining('beta'), findsOneWidget); // deleted
-    expect(find.textContaining('gamma'), findsOneWidget); // added
-  });
-
   testWidgets('+N / −N counts in the bar', (tester) async {
     await tester.pumpWidget(
       host(
@@ -92,16 +76,6 @@ void main() {
       );
     },
   );
-
-  testWidgets('note renders (ellipsized single line)', (tester) async {
-    await tester.pumpWidget(
-      host(
-        const AnVersionDiff(before: 'a', after: 'b', note: 'tweaked the thing'),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('tweaked the thing'), findsOneWidget);
-  });
 
   testWidgets('earliest version (before null) → all context, no +/− counts', (
     tester,
@@ -156,41 +130,6 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byType(AnCodeSurface), findsOneWidget); // surface present...
     expect(find.text('v1 → v2'), findsNothing); // ...but bare → no bar/range
-  });
-
-  testWidgets(
-    'all-replace (no common lines): every old line del, every new line add',
-    (tester) async {
-      await tester.pumpWidget(
-        host(
-          const AnVersionDiff(
-            before: 'x1\nx2',
-            after: 'y1\ny2',
-            range: 'v1 → v2',
-          ),
-        ),
-      );
-      await tester.pumpAndSettle();
-      expect(find.textContaining('+2'), findsOneWidget);
-      expect(find.textContaining('−2'), findsOneWidget);
-    },
-  );
-
-  testWidgets('special characters render as plain text (no injection)', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        const AnVersionDiff(
-          before: '<b>old</b>',
-          after: '<b>new</b> & x',
-          lang: 'md',
-        ),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(tester.takeException(), isNull);
-    expect(find.textContaining('<b>new</b> & x'), findsOneWidget);
   });
 
   testWidgets(

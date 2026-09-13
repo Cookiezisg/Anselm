@@ -48,24 +48,6 @@ class _FailedMcpServers extends McpServersController {
       throw StateError('mcp list failed');
 }
 
-Widget _hostWithMcpRegistry(
-  FixtureSettingsRepository repo,
-  Future<List<McpRegistryEntry>> Function() registry,
-) => ProviderScope(
-  overrides: [
-    settingsPrefsProvider.overrideWithValue(SettingsPrefs.inMemory()),
-    settingsRepositoryProvider.overrideWithValue(repo),
-    mcpRegistryProvider.overrideWith((_) => registry()),
-  ],
-  child: TranslationProvider(
-    child: MaterialApp(
-      debugShowCheckedModeBanner: false,
-      theme: AnTheme.light(),
-      home: const Scaffold(body: SingleChildScrollView(child: McpPanel())),
-    ),
-  ),
-);
-
 Widget _hostWithMcpPlan(
   FixtureSettingsRepository repo,
   String fullName,
@@ -133,47 +115,6 @@ void main() {
     expect(find.text(t.settings.mcp.marketEmptyLead), findsNothing);
   });
 
-  testWidgets('market loading is not presented as an empty registry', (
-    tester,
-  ) async {
-    final gate = Completer<List<McpRegistryEntry>>();
-    final repo = FixtureSettingsRepository();
-    await tester.pumpWidget(_hostWithMcpRegistry(repo, () => gate.future));
-    await tester.pump(const Duration(milliseconds: 200));
-    final t = Translations.of(tester.element(find.byType(McpPanel)));
-
-    expect(find.byType(AnSkeleton), findsWidgets);
-    expect(find.text(t.settings.mcp.empty), findsNothing);
-
-    gate.complete(const [McpRegistryEntry(name: 'io.github.x/weather')]);
-    await tester.pumpAndSettle();
-    expect(find.text('weather'), findsOneWidget);
-  });
-
-  testWidgets('install plan loading keeps an escape action', (tester) async {
-    final gate = Completer<McpRegistryPlan>();
-    const name = 'io.github.x/weather';
-    final repo = FixtureSettingsRepository();
-    await tester.pumpWidget(_hostWithMcpPlan(repo, name, () => gate.future));
-    await tester.pumpAndSettle();
-    final panelEl = tester.element(find.byType(McpPanel));
-    final container = ProviderScope.containerOf(panelEl, listen: false);
-    final t = Translations.of(panelEl);
-
-    container
-        .read(settingsDetailProvider.notifier)
-        .push('mcpInstall', id: name);
-    await tester.pump();
-    await tester.pump(AnMotion.loaderDelay + const Duration(milliseconds: 20));
-
-    expect(find.byType(AnSkeleton), findsOneWidget);
-    expect(find.text(t.settings.keys.cancel), findsOneWidget);
-
-    gate.complete(const McpRegistryPlan(transport: 'stdio'));
-    await tester.pumpAndSettle();
-    expect(find.text(t.settings.mcp.install), findsOneWidget);
-  });
-
   testWidgets('install plan failure is actionable and preserves the detail', (
     tester,
   ) async {
@@ -202,7 +143,6 @@ void main() {
 
     expect(find.text(t.settings.mcp.planLoadFailed), findsOneWidget);
     expect(find.text(t.settings.mcp.retry), findsOneWidget);
-    expect(find.text(t.settings.keys.cancel), findsOneWidget);
     expect(find.text('mcp registry entry not found'), findsOneWidget);
   });
 

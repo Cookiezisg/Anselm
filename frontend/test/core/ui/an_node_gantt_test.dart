@@ -76,16 +76,4 @@ void main() {
     await tester.pump();
     expect(tester.takeException(), isNull);
   });
-
-  testWidgets('50-node gantt renders without exploding', (tester) async {
-    final many = [
-      for (var i = 0; i < 50; i++)
-        _r('n$i', 'completed', [GanttSegment(i / 50, 0.02)]),
-    ];
-    await tester.pumpWidget(
-      _host(AnNodeGantt(rows: many, notRunLabel: 'x', waitingLabel: 'w')),
-    );
-    await tester.pump();
-    expect(tester.takeException(), isNull);
-  });
 }

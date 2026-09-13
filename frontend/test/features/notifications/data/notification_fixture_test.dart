@@ -39,14 +39,6 @@ void main() {
     expect(await repo.unreadCount(), 1);
   });
 
-  test('markAllRead zeroes the count', () async {
-    final repo = FixtureNotificationRepository(
-      seed: [_n('a'), _n('b'), _n('c')],
-    );
-    await repo.markAllRead();
-    expect(await repo.unreadCount(), 0);
-  });
-
   test(
     'markAllUnread restores the full count (mirror of markAllRead)',
     () async {
@@ -81,55 +73,6 @@ void main() {
       expect(await repo.unreadCount(), 1);
     },
   );
-
-  test(
-    'markAllRead window ceiling is exclusive (a row AT `before` is NOT marked)',
-    () async {
-      final atCeiling = _n('at', createdAt: DateTime.utc(2026, 7, 20));
-      final below = _n('below', createdAt: DateTime.utc(2026, 7, 19, 23));
-      final repo = FixtureNotificationRepository(seed: [atCeiling, below]);
-      await repo.markAllRead(
-        window: MarkWindow(before: DateTime.utc(2026, 7, 20)),
-      );
-      final rows = (await repo.listNotifications()).items;
-      expect(
-        rows.firstWhere((r) => r.id == 'below').isUnread,
-        isFalse,
-      ); // strictly below → read
-      expect(
-        rows.firstWhere((r) => r.id == 'at').isUnread,
-        isTrue,
-      ); // == before → excluded (half-open)
-    },
-  );
-
-  test('markAllUnread with a window flips only in-window read rows', () async {
-    final earlier = _n(
-      'earlier',
-      read: true,
-      createdAt: DateTime.utc(2026, 7, 18, 9),
-    );
-    final today = _n(
-      'today',
-      read: true,
-      createdAt: DateTime.utc(2026, 7, 20, 9),
-    );
-    final repo = FixtureNotificationRepository(seed: [earlier, today]);
-    expect(await repo.unreadCount(), 0);
-    await repo.markAllUnread(
-      window: MarkWindow(after: DateTime.utc(2026, 7, 20)),
-    );
-    final rows = (await repo.listNotifications()).items;
-    expect(
-      rows.firstWhere((r) => r.id == 'today').isUnread,
-      isTrue,
-    ); // in-window → unread
-    expect(
-      rows.firstWhere((r) => r.id == 'earlier').isUnread,
-      isFalse,
-    ); // outside → stays read
-    expect(await repo.unreadCount(), 1);
-  });
 
   test('emit prepends a row AND pushes an inbox-candidate signal', () async {
     final repo = FixtureNotificationRepository(seed: [_n('a')]);

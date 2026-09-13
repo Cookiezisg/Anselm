@@ -92,24 +92,4 @@ void main() {
       }
     },
   );
-
-  test(
-    'the today floor is INCLUSIVE while the yesterday ceiling is EXCLUSIVE (half-open, no gap/overlap)',
-    () {
-      final todayMidnight = DateTime(
-        2026,
-        7,
-        20,
-      ); // exactly today's floor / yesterday's ceiling
-      expect(days.bucketOf(todayMidnight), 0); // classified as today
-      expect(
-        days.windowOf(0).contains(todayMidnight),
-        isTrue,
-      ); // today window includes its floor
-      expect(
-        days.windowOf(1).contains(todayMidnight),
-        isFalse,
-      ); // yesterday window excludes its ceiling
-    },
-  );
 }

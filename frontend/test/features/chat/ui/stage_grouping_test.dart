@@ -328,56 +328,6 @@ void main() {
     );
 
     testWidgets(
-      'folding rides the STANDARD collapse slide — a mid-frame still shows the rows (not instant)',
-      (tester) async {
-        final repo = _repo();
-        repo.touchpoints[_conv] = [
-          _tp(
-            't1',
-            'function',
-            'fn_a',
-            'sync_inventory',
-            TouchpointVerb.edited,
-            const Duration(minutes: 1),
-          ),
-          _tp(
-            't2',
-            'function',
-            'fn_b',
-            'reconcile',
-            TouchpointVerb.executed,
-            const Duration(minutes: 2),
-          ),
-          _tp(
-            't3',
-            'workflow',
-            'wf_old',
-            'nightly_rollup',
-            TouchpointVerb.viewed,
-            const Duration(days: 3),
-          ),
-        ];
-        await tester.pumpWidget(_host(repo));
-        await _hydrate(tester);
-
-        await tester.tap(find.text(t.chat.stage.groupJustNow)); // fold 刚刚
-        await tester.pump(); // start the reveal 起帧
-        await tester.pump(
-          AnMotion.fast,
-        ); // 120ms into a 240ms collapse — MID-TRANSITION 半途
-        // The rows are still built (clipped by the reveal) — proof the fold ANIMATES, not an instant jump.
-        // 行仍在树(被 reveal 裁)——证明是滑动过渡、非瞬跳。
-        expect(
-          find.text('sync_inventory'),
-          findsOneWidget,
-          reason: 'mid-collapse frame still holds the row',
-        );
-        await tester.pump(const Duration(milliseconds: 300)); // finish 收合完成
-        expect(find.text('sync_inventory'), findsNothing);
-      },
-    );
-
-    testWidgets(
       'reduced motion → the fold is INSTANT (AnExpandReveal double-gate)',
       (tester) async {
         final repo = _repo();

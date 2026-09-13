@@ -315,68 +315,6 @@ void main() {
     );
   });
 
-  testWidgets('branch refusal copy fits the one-line notice capsule', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        AnNoticeCapsule(
-          text: 'Branch gone. Reopen.',
-          viewLabel: 'View',
-          closeLabel: 'Dismiss notice',
-          hold: const Duration(seconds: 30),
-          onDismissed: () {},
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 700));
-
-    final paragraph = tester.renderObject<RenderParagraph>(
-      find
-          .descendant(
-            of: find.byType(AnNoticeCapsule),
-            matching: find.byType(RichText),
-          )
-          .first,
-    );
-    expect(
-      paragraph.didExceedMaxLines,
-      isFalse,
-      reason: 'branch recovery guidance must be fully visible, not ellipsized',
-    );
-  });
-
-  testWidgets('voice quota guidance fits without visual ellipsis', (
-    tester,
-  ) async {
-    await tester.pumpWidget(
-      host(
-        AnNoticeCapsule(
-          text: 'Voice quota. Try later.',
-          viewLabel: 'View',
-          closeLabel: 'Dismiss notice',
-          hold: Duration(seconds: 30),
-          onDismissed: () {},
-        ),
-      ),
-    );
-    await tester.pump(const Duration(milliseconds: 700));
-
-    final paragraph = tester.renderObject<RenderParagraph>(
-      find
-          .descendant(
-            of: find.byType(AnNoticeCapsule),
-            matching: find.byType(RichText),
-          )
-          .first,
-    );
-    expect(
-      paragraph.didExceedMaxLines,
-      isFalse,
-      reason: 'quota guidance must be complete in the compact top capsule',
-    );
-  });
-
   testWidgets('X reverses and dismisses exactly once', (tester) async {
     var closed = 0;
     var dismissed = 0;

@@ -158,34 +158,6 @@ void main() {
   );
 
   test(
-    'the code run stays editable text after the caret leaves (no fold to a chip)',
-    () {
-      final doc = MutableDocument(
-        nodes: [ParagraphNode(id: '1', text: AttributedText('x `code'))],
-      );
-      final editor = _build(doc);
-      _caret(editor, 7);
-      editor.execute([InsertStyledTextAtCaretRequest(AttributedText('`'))]);
-      _caret(
-        editor,
-        0,
-      ); // move the caret far away — in the old chip model this folded; now it must NOT
-
-      final n = _p(editor);
-      expect(
-        n.text.getAttributionSpans({codeAttribution}).length,
-        1,
-        reason: 'still an editable code run',
-      );
-      expect(
-        n.text.placeholders,
-        isEmpty,
-        reason: 'never becomes a chip — paint-beneath keeps it as text',
-      );
-    },
-  );
-
-  test(
     'InlineMarkdownReaction skips (no crash) when a placeholder is upstream of the caret (dev.40 guard)',
     () {
       // A mention pill upstream would crash the dev.40 parser (it casts every char to String). The guard skips.

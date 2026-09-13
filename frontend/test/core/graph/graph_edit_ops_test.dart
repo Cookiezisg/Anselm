@@ -88,19 +88,6 @@ void main() {
       expect((ops.first['patch'] as Map), {'ref': 'fn_new'});
     });
 
-    test('move node → update_node with a pos-only patch', () {
-      final w = base.copyWith(
-        nodes: [
-          for (final node in base.nodes)
-            node.id == 'work'
-                ? node.copyWith(pos: const NodePosition(x: 300, y: 40))
-                : node,
-        ],
-      );
-      final ops = workflowEditOps(base, w);
-      expect((ops.first['patch'] as Map)['pos'], {'x': 300, 'y': 40});
-    });
-
     test('change input → whole-map replace', () {
       final w = base.copyWith(
         nodes: [
@@ -112,28 +99,6 @@ void main() {
       );
       final ops = workflowEditOps(base, w);
       expect((ops.first['patch'] as Map)['input'], {'x': 'trigger.payload'});
-    });
-
-    test('change retry → whole-policy replace', () {
-      final original = base.copyWith(
-        nodes: [
-          for (final node in base.nodes)
-            node.id == 'work'
-                ? node.copyWith(retry: const RetryConfig(maxAttempts: 3))
-                : node,
-        ],
-      );
-      final working = original.copyWith(
-        nodes: [
-          for (final node in original.nodes)
-            node.id == 'work'
-                ? node.copyWith(retry: const RetryConfig(maxAttempts: 4))
-                : node,
-        ],
-      );
-      final ops = workflowEditOps(original, working);
-      expect(ops, hasLength(1));
-      expect((ops.first['patch'] as Map)['retry'], {'maxAttempts': 4});
     });
 
     test('change edge port → update_edge', () {

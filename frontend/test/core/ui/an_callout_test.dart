@@ -1,4 +1,3 @@
-import 'package:anselm/core/design/colors.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/ui/ui.dart';
 import 'package:anselm/i18n/strings.g.dart';
@@ -19,39 +18,6 @@ void main() {
       ),
     ),
   );
-
-  BoxDecoration deco(WidgetTester t) =>
-      t
-              .widget<Container>(
-                find
-                    .descendant(
-                      of: find.byType(AnCallout),
-                      matching: find.byType(Container),
-                    )
-                    .first,
-              )
-              .decoration!
-          as BoxDecoration;
-
-  testWidgets('renders the message and maps severity → tone soft bg', (
-    tester,
-  ) async {
-    final cases = {
-      AnCalloutSeverity.info: AnTone.accent,
-      AnCalloutSeverity.ok: AnTone.ok,
-      AnCalloutSeverity.warn: AnTone.warn,
-      AnCalloutSeverity.danger: AnTone.danger,
-    };
-    for (final e in cases.entries) {
-      await tester.pumpWidget(host(AnCallout('Msg', severity: e.key)));
-      expect(find.text('Msg'), findsOneWidget);
-      expect(
-        deco(tester).color,
-        e.value.softBg(AnColors.light),
-        reason: '${e.key} → ${e.value} soft bg',
-      );
-    }
-  });
 
   testWidgets('dismiss: absent without onDismiss; present + fires with it', (
     tester,

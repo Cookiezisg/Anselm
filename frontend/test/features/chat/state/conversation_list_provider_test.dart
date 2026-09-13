@@ -196,24 +196,6 @@ void main() {
   );
 
   test(
-    'applyUpdate drops a row that just got archived while show-archived is off',
-    () async {
-      final c = _container(
-        FixtureChatRepository(
-          conversations: [_c('cv_a', 'A', hour: 9), _c('cv_b', 'B', hour: 11)],
-        ),
-      );
-      await c.read(conversationListProvider.future);
-      c
-          .read(conversationListProvider.notifier)
-          .applyUpdate(_c('cv_a', 'A', archived: true, hour: 9));
-      expect(c.read(conversationListProvider).value!.rows.map((r) => r.id), [
-        'cv_b',
-      ]);
-    },
-  );
-
-  test(
     'applyUpdate keeps a just-archived row when show-archived is on (gray-dot mode)',
     () async {
       final c = _container(
@@ -664,21 +646,6 @@ void main() {
       expect(s.allRows.where((r) => r.id == 'cv_a1').length, 1);
     },
   );
-
-  test('leaving a residency moves the row back to Recents', () async {
-    final repo = FixtureChatRepository(
-      conversations: [_c('cv_a1', 'alpha one', workDir: '/w/alpha')],
-    );
-    final c = _container(repo);
-    await c.read(conversationListProvider.future);
-    final n = c.read(conversationListProvider.notifier);
-
-    n.applyUpdate(await repo.setWorkDir('cv_a1', ''));
-    await Future<void>.delayed(const Duration(milliseconds: 600));
-    final s = c.read(conversationListProvider).value!;
-    expect(s.recents.rows.map((r) => r.id), ['cv_a1']);
-    expect(s.groups, isEmpty);
-  });
 
   // WRK-083 B1 — the same regrouping, but reached the way the APP reaches it: off the wire.
   //

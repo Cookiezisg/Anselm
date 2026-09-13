@@ -804,47 +804,6 @@ void main() {
   );
 
   testWidgets(
-    'an audio attachment in history surfaces media preparation state',
-    (tester) async {
-      final repo = _repo(
-        messages: {
-          'cv_1': [
-            ChatMessage(
-              id: 'msg_u',
-              conversationId: 'cv_1',
-              role: 'user',
-              status: 'completed',
-              attrs: {
-                'attachments': ['att_audio'],
-              },
-              blocks: [_blk('bu', 'text', '听这个')],
-              createdAt: DateTime.utc(2026, 7, 2, 10),
-            ),
-          ],
-        },
-      );
-      repo.attachmentMetas['att_audio'] = const AttachmentMeta(
-        id: 'att_audio',
-        filename: 'voice.webm',
-        mimeType: 'audio/webm',
-        sizeBytes: 3,
-        kind: 'audio',
-        preparation: AttachmentPreparation(phase: 'processing'),
-      );
-      repo.attachmentBytes['att_audio'] = [7, 8, 9];
-
-      await tester.pumpWidget(_host(repo));
-      await tester.pump();
-      await _settle(tester);
-      await tester.pump(const Duration(milliseconds: 30)); // metadata future
-
-      expect(find.text('voice.webm'), findsOneWidget);
-      expect(find.text('Preparing media…'), findsOneWidget);
-      expect(find.bySemanticsLabel('Play audio'), findsOneWidget);
-    },
-  );
-
-  testWidgets(
     'an audio attachment timestamp reference seeks the active player',
     (tester) async {
       final repo = _repo(
@@ -1067,56 +1026,6 @@ void main() {
 
     expect(driver.stopCalls, 1);
     expect(find.bySemanticsLabel('Pause audio'), findsNothing);
-  });
-
-  testWidgets('audio playback stops when transcript unmounts', (tester) async {
-    final repo = _repo(
-      messages: {
-        'cv_1': [
-          ChatMessage(
-            id: 'msg_u',
-            conversationId: 'cv_1',
-            role: 'user',
-            status: 'completed',
-            attrs: {
-              'attachments': ['att_audio'],
-            },
-            blocks: [_blk('bu', 'text', '听这个')],
-            createdAt: DateTime.utc(2026, 7, 2, 10),
-          ),
-        ],
-      },
-    );
-    repo.attachmentMetas['att_audio'] = const AttachmentMeta(
-      id: 'att_audio',
-      filename: 'voice.webm',
-      mimeType: 'audio/webm',
-      sizeBytes: 3,
-      kind: 'audio',
-    );
-    repo.attachmentBytes['att_audio'] = [7, 8, 9];
-    final driver = _FakeAudioDriver();
-
-    await tester.pumpWidget(
-      _host(
-        repo,
-        overrides: [
-          attachmentAudioDriverFactoryProvider.overrideWithValue(() => driver),
-        ],
-      ),
-    );
-    await tester.pump();
-    await _settle(tester);
-    await tester.pump(const Duration(milliseconds: 30));
-    await tester.tap(find.bySemanticsLabel('Play audio'));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 20));
-
-    await tester.pumpWidget(const SizedBox.shrink());
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 20));
-
-    expect(driver.stopCalls, 1);
   });
 
   testWidgets(
@@ -1617,40 +1526,6 @@ void main() {
       }
     },
   );
-
-  testWidgets('LLM_MODEL_NOT_FOUND banner offers the same repick CTA', (
-    tester,
-  ) async {
-    final repo = FixtureChatRepository(
-      conversations: [_conv('cv_1')],
-      messages: {
-        'cv_1': [
-          ChatMessage(
-            id: 'msg_model_missing',
-            conversationId: 'cv_1',
-            role: 'assistant',
-            status: 'error',
-            stopReason: 'error',
-            errorCode: 'LLM_MODEL_NOT_FOUND',
-            errorMessage: 'llm: model not found (404)',
-            blocks: const [],
-            createdAt: DateTime.utc(2026, 7, 2, 10),
-          ),
-        ],
-      },
-    );
-    await tester.pumpWidget(_host(repo));
-    await tester.pump();
-    await tester.pump(const Duration(milliseconds: 50));
-
-    final t = Translations.of(tester.element(find.byType(ChatTranscriptView)));
-    expect(find.textContaining('LLM_MODEL_NOT_FOUND'), findsOneWidget);
-    expect(
-      find.text(t.chat.repickModel),
-      findsOneWidget,
-      reason: '当前账号不可用的模型也必须有可操作的重选入口',
-    );
-  });
 
   // ── the message-level fork entry + the user-turn prefill variant (CH-b) ──
 

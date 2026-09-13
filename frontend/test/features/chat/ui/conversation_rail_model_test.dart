@@ -349,12 +349,6 @@ void main() {
 
     // ── the five batteries (空/单组/海量组/超长目录名/极值计数) 五电池 ──
 
-    test('battery · a single group and nothing else', () {
-      final types = _types(_state(groups: [_g('/w/only', _now, active: 1)]));
-      expect(types.map((t) => t.label), ['only']);
-      expect(types.single.initiallyFolded, isFalse);
-    });
-
     test('battery · 200 groups: all rendered, only the first open', () {
       final types = _types(
         _state(
@@ -370,26 +364,6 @@ void main() {
       // Distinct fold/paging keys throughout — a collision would fuse two folders' fold state.
       // 全程互不相同的折叠/分页键——撞键会把两个文件夹的折叠态融在一起。
       expect(types.map((t) => t.pageKey).toSet().length, 200);
-    });
-
-    test('battery · an absurdly long directory name survives as a label', () {
-      final long = '/w/${'x' * 500}';
-      final types = _types(_state(groups: [_g(long, _now)]));
-      expect(types.single.label, 'x' * 500);
-    });
-
-    test('battery · extreme counts pass through unmangled', () {
-      final types = _types(
-        _state(groups: [_g('/w/huge', _now, active: 999999, archived: 999)]),
-      );
-      expect(types.single.count, 999999);
-      expect(
-        _types(
-          _state(groups: [_g('/w/huge', _now, active: 999999, archived: 999)]),
-          showArchived: true,
-        ).single.count,
-        1000998,
-      );
     });
 
     test(

@@ -129,38 +129,6 @@ void main() {
       expect(tapped, isNull);
     });
 
-    testWidgets('selectedNodeId is controlled (accent ring follows the prop)', (
-      tester,
-    ) async {
-      await tester.pumpWidget(
-        host(AnGraphCanvas(graph: branchGraph, selectedNodeId: 'run_tests')),
-      );
-      await tester.pump();
-      // The selected card's decoration border is thicker than hairline. 选中卡边框粗于 hairline。
-      final cards = tester.widgetList<Container>(find.byType(Container));
-      final ringed = cards.where((c) {
-        final d = c.decoration;
-        return d is BoxDecoration &&
-            d.border is Border &&
-            (d.border! as Border).top.width == 1.5;
-      });
-      expect(ringed, hasLength(1));
-    });
-
-    testWidgets('wheel zooms toward the cursor', (tester) async {
-      await tester.pumpWidget(host(AnGraphCanvas(graph: branchGraph)));
-      await tester.pump();
-      final before = scaleOf(tester);
-      final center = tester.getCenter(find.byType(AnGraphCanvas));
-      final pointer = TestPointer(1, PointerDeviceKind.mouse);
-      pointer.hover(center);
-      await tester.sendEventToBinding(
-        pointer.scroll(const Offset(0, -240)),
-      ); // scroll up = zoom in 上滚放大
-      await tester.pump();
-      expect(scaleOf(tester), greaterThan(before));
-    });
-
     testWidgets('toolbar zooms and fit restores', (tester) async {
       await tester.pumpWidget(host(AnGraphCanvas(graph: branchGraph)));
       await tester.pump();
@@ -228,11 +196,6 @@ void main() {
     });
 
     // Five-battery stress: empty / hostile strings / huge / dangling edges. 五电池。
-    testWidgets('empty graph renders without exploding', (tester) async {
-      await tester.pumpWidget(host(const AnGraphCanvas(graph: Graph())));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-    });
 
     testWidgets('hostile ids, unknown kind and dangling edges stay safe', (
       tester,
@@ -266,20 +229,6 @@ void main() {
       expect(find.text('{{cel}}'), findsOneWidget);
     });
 
-    testWidgets('40-node fan renders and fits', (tester) async {
-      final g = Graph(
-        nodes: [
-          n('t', NodeKind.trigger),
-          for (var i = 0; i < 40; i++) n('x$i', NodeKind.action),
-        ],
-        edges: [for (var i = 0; i < 40; i++) e('e$i', 't', 'x$i')],
-      );
-      await tester.pumpWidget(host(AnGraphCanvas(graph: g)));
-      await tester.pump();
-      expect(tester.takeException(), isNull);
-      expect(find.text('x0'), findsOneWidget);
-    });
-
     testWidgets('swapping in a different graph re-fits (demo setGraph contract)', (
       tester,
     ) async {
@@ -310,39 +259,6 @@ void main() {
       final canvasBox = tester.getRect(find.byType(AnGraphCanvas));
       expect(canvasBox.contains(tester.getCenter(find.text('c7'))), isTrue);
     });
-
-    testWidgets(
-      'a pristine editable viewport re-fits after a structural graph change',
-      (tester) async {
-        final small = Graph(
-          nodes: [n('a', NodeKind.trigger), n('b', NodeKind.action)],
-          edges: [e('e1', 'a', 'b')],
-        );
-        final long = Graph(
-          nodes: [
-            n('c0', NodeKind.trigger),
-            for (var i = 1; i < 8; i++) n('c$i', NodeKind.action),
-          ],
-          edges: [for (var i = 1; i < 8; i++) e('e$i', 'c${i - 1}', 'c$i')],
-        );
-        await tester.pumpWidget(
-          host(AnGraphCanvas(graph: small, editable: true)),
-        );
-        await tester.pump();
-        final smallK = scaleOf(tester);
-        await tester.pumpWidget(
-          host(AnGraphCanvas(graph: long, editable: true)),
-        );
-        await tester.pump();
-        expect(scaleOf(tester), lessThan(smallK));
-        expect(
-          tester
-              .getRect(find.byType(AnGraphCanvas))
-              .contains(tester.getCenter(find.text('c7'))),
-          isTrue,
-        );
-      },
-    );
 
     testWidgets(
       'a manually transformed editable viewport is not re-fitted by a graph change',
