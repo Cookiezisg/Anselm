@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="106 106 300 300" fill="currentColor" role="img" aria-label="Anselm mark">
+  <!-- Anselm 品牌 mark — 裸 6 方块(上排 3 · 中排 2 · 底 1),无白底无边框,cropped 到方块包围盒(106..406)、单色 currentColor。
+       与 anselm-icon.svg(带白 squircle 的 app 图标)区分:此件专供侧栏行内、和 nav 描边图标同列同视觉大小。 -->
+  <rect x="106" y="106" width="88" height="88"/>
+  <rect x="212" y="106" width="88" height="88"/>
+  <rect x="318" y="106" width="88" height="88"/>
+  <rect x="106" y="212" width="88" height="88"/>
+  <rect x="212" y="212" width="88" height="88"/>
+  <rect x="106" y="318" width="88" height="88"/>
+</svg>
