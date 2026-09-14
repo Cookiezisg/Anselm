@@ -75,11 +75,13 @@ Flutter release app，把 sidecar 放到可执行文件旁（`BackendController`
 `Anselm-<v>-windows-x64-setup.exe`（`windows/installer/anselm.iss`，装到 `%LocalAppData%\Programs`）
 和便携 `Anselm-<v>-windows-x64.zip`；连同 `SHA256SUMS.txt` 发布到 GitHub Release；任一平台失败则不发布。
 
-macOS bundle 为 ad-hoc 签名：sidecar 以 `Sidecar.entitlements`（app-sandbox + inherit）签名，
-bundle 以 `Release.entitlements` 重新封印。DMG 由 appdmg 出图：背景 `macos/dmg/background.png`
+macOS 签名分两档：仓库 secrets 里有 `MACOS_CERT_P12`/`MACOS_CERT_PASSWORD`（Developer ID
+Application 证书）时，嵌套框架、sidecar（`Sidecar.entitlements`：app-sandbox + inherit）和 bundle
+（`Release.entitlements`）依次以 hardened runtime + 时间戳签名，DMG 再签名；再有
+`NOTARY_KEY_P8`/`NOTARY_KEY_ID`/`NOTARY_ISSUER_ID`（App Store Connect API key）时经 notarytool 公证并
+staple。没有这些 secrets 则退回 ad-hoc 签名，用户首次打开需手动放行。证书只进 job 内的一次性钥匙串。DMG 由 appdmg 出图：背景 `macos/dmg/background.png`
 由 `tool/dmg_background.py` 渲染（800×500 窗口、176 图标，app 与 Applications 的坐标两处必须一致）；
-三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑。没有 Developer ID、公证与 Windows 签名，用户首次打开
-需手动放行；官网下载页读取 Releases 的最新资产。可信签名链、安装器与安装型自动更新仍是
+三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑。Windows 与 Linux 产物尚未签名；官网下载页读取 Releases 的最新资产。可信签名链、安装器与安装型自动更新仍是
 [`working/platform-foundation/`](../../working/platform-foundation/) 的未完成合同。Settings 的
 更新检查只查询 Releases 并提示，不下载不安装。
 

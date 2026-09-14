@@ -20,14 +20,23 @@ case "$(uname -s)" in
     APP="build/macos/Build/Products/Release/anselm.app"
     [[ -d "$APP" ]] || { echo "✗ $APP missing — run: flutter build macos --release --no-tree-shake-icons" >&2; exit 1; }
     install -m 0755 "$SIDECAR" "$APP/Contents/MacOS/anselm-server"
-    # Ad-hoc signatures only: there is no Developer ID in the pipeline yet, so Gatekeeper will ask
-    # the user to open the app explicitly the first time. The sidecar is signed first with the
-    # inherit entitlements, then the bundle is re-sealed with the app's own entitlements (adding a
-    # file invalidated the seal Flutter produced).
-    # 目前只有 ad-hoc 签名(流水线里没有 Developer ID),首次打开要用户手动放行。先给 sidecar 签继承
-    # entitlements,再用 app 自己的 entitlements 重新封印 bundle(塞进一个文件已使 Flutter 的签名失效)。
-    codesign --force --sign - --entitlements macos/Runner/Sidecar.entitlements "$APP/Contents/MacOS/anselm-server"
-    codesign --force --sign - --entitlements macos/Runner/Release.entitlements "$APP"
+    # Signing. With MACOS_SIGN_IDENTITY set (a "Developer ID Application: …" identity present in
+    # the keychain) every nested binary is signed with the hardened runtime and a timestamp, which is
+    # what notarization requires; without it the bundle is ad-hoc signed and Gatekeeper asks the user
+    # to allow the app once. Order matters: nested code first, the sidecar with its inherit
+    # entitlements, the app last with its own entitlements (adding a file invalidated Flutter's seal).
+    # 签名。设了 MACOS_SIGN_IDENTITY(钥匙串里的 Developer ID Application 身份)时,每个嵌套二进制都以
+    # hardened runtime + 时间戳签名,这是公证的前提;没设则 ad-hoc,Gatekeeper 会让用户放行一次。顺序有讲究:
+    # 先嵌套代码,再带继承 entitlements 的 sidecar,最后带自身 entitlements 的 app。
+    IDENTITY="${MACOS_SIGN_IDENTITY:--}"
+    SIGN_FLAGS=(--force --sign "$IDENTITY")
+    if [[ "$IDENTITY" != "-" ]]; then
+      SIGN_FLAGS+=(--options runtime --timestamp)
+      find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' -o -name '*.bundle' \) -print0 2>/dev/null \
+        | while IFS= read -r -d '' nested; do codesign "${SIGN_FLAGS[@]}" "$nested"; done
+    fi
+    codesign "${SIGN_FLAGS[@]}" --entitlements macos/Runner/Sidecar.entitlements "$APP/Contents/MacOS/anselm-server"
+    codesign "${SIGN_FLAGS[@]}" --entitlements macos/Runner/Release.entitlements "$APP"
     codesign --verify --deep --strict "$APP"
     DMG="$OUT/Anselm-$VERSION-macos.dmg"
     rm -f "$DMG"
@@ -57,6 +66,16 @@ case "$(uname -s)" in
 }
 JSON
     appdmg "$STAGE/appdmg.json" "$DMG" >/dev/null
+    if [[ "$IDENTITY" != "-" ]]; then
+      codesign --force --sign "$IDENTITY" --timestamp "$DMG"
+      # Notarize when the App Store Connect API key is present; staple so the ticket travels with
+      # the file and Gatekeeper passes offline. 有 App Store Connect API key 就公证,并把票据钉进文件。
+      if [[ -n "${NOTARY_KEY_PATH:-}" && -n "${NOTARY_KEY_ID:-}" && -n "${NOTARY_ISSUER_ID:-}" ]]; then
+        xcrun notarytool submit "$DMG" --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+        xcrun stapler staple "$DMG"
+        spctl --assess --type open --context context:primary-signature -v "$DMG"
+      fi
+    fi
     rm -rf "$STAGE"
     echo "✓ $DMG"
     ;;
