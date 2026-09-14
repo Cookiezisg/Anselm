@@ -74,7 +74,9 @@ Flutter release app，把 sidecar 放到可执行文件旁（`BackendController`
 发布到 GitHub Release；任一平台失败则不发布。
 
 macOS bundle 为 ad-hoc 签名：sidecar 以 `Sidecar.entitlements`（app-sandbox + inherit）签名，
-bundle 以 `Release.entitlements` 重新封印。没有 Developer ID、公证与 Windows 签名，用户首次打开
+bundle 以 `Release.entitlements` 重新封印。DMG 由 appdmg 出图：背景 `macos/dmg/background.png`
+由 `tool/dmg_background.py` 渲染（800×500 窗口、176 图标，app 与 Applications 的坐标两处必须一致）；
+三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑。没有 Developer ID、公证与 Windows 签名，用户首次打开
 需手动放行；官网下载页读取 Releases 的最新资产。可信签名链、安装器与安装型自动更新仍是
 [`working/platform-foundation/`](../../working/platform-foundation/) 的未完成合同。Settings 的
 更新检查只查询 Releases 并提示，不下载不安装。

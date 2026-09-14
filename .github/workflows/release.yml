@@ -69,7 +69,9 @@ jobs:
           flutter build macos --release --no-tree-shake-icons
       - name: Package
         working-directory: frontend
-        run: bash tool/package.sh "${{ needs.version.outputs.version }}" ../build/sidecar/anselm-server dist
+        run: |
+          npm install -g appdmg
+          bash tool/package.sh "${{ needs.version.outputs.version }}" ../build/sidecar/anselm-server dist
       - uses: actions/upload-artifact@v4
         with:
           name: macos

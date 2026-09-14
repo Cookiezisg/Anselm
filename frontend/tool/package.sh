@@ -33,8 +33,30 @@ case "$(uname -s)" in
     rm -f "$DMG"
     STAGE="$(mktemp -d)"
     cp -R "$APP" "$STAGE/Anselm.app"
-    ln -s /Applications "$STAGE/Applications"
-    hdiutil create -volname "Anselm $VERSION" -srcfolder "$STAGE" -ov -format UDZO "$DMG" >/dev/null
+    # A designed installer window: brand backdrop, large icons, app on the left, Applications on
+    # the right. appdmg writes the Finder view state into .DS_Store itself (no Finder, no
+    # AppleScript, works on a headless runner) and keeps the picture in `.background/`, which is
+    # the layout Finder on macOS 26 still resolves; dmgbuild's root-level `.background.png` renders
+    # blank there. Slot coordinates must match tool/dmg_background.py. `npm install -g appdmg`.
+    # 设计过的安装窗口:品牌底、大图标、app 在左、Applications 在右。appdmg 自己把 Finder 视图状态写进
+    # .DS_Store(不经 Finder/AppleScript,无头 runner 可用),且把图放在 .background/ 里——macOS 26 的
+    # Finder 仍能解析这个布局;dmgbuild 放在卷根的 .background.png 在那里显示为空白。坐标须与背景脚本一致。
+    command -v appdmg >/dev/null || { echo "✗ appdmg missing — npm install -g appdmg" >&2; exit 1; }
+    cp macos/dmg/background.png "$STAGE/background.png"
+    cat >"$STAGE/appdmg.json" <<JSON
+{
+  "title": "Anselm $VERSION",
+  "icon": "$PWD/$APP/Contents/Resources/AppIcon.icns",
+  "background": "$STAGE/background.png",
+  "icon-size": 176,
+  "window": { "position": { "x": 200, "y": 140 }, "size": { "width": 800, "height": 500 } },
+  "contents": [
+    { "x": 230, "y": 235, "type": "file", "path": "$STAGE/Anselm.app" },
+    { "x": 570, "y": 235, "type": "link", "path": "/Applications" }
+  ]
+}
+JSON
+    appdmg "$STAGE/appdmg.json" "$DMG" >/dev/null
     rm -rf "$STAGE"
     echo "✓ $DMG"
     ;;
