@@ -134,10 +134,10 @@ Download the latest build for your platform from [Releases](https://github.com/C
 | Platform | Artifact |
 |---|---|
 | macOS (Apple silicon and Intel) | `Anselm-<version>-macos.dmg` |
-| Linux x64 | `Anselm-<version>-linux-x64.tar.gz` |
-| Windows x64 | `Anselm-<version>-windows-x64.zip` |
+| Linux x64 | `Anselm-<version>-linux-x86_64.AppImage` · `anselm_<version>_amd64.deb` · `Anselm-<version>-linux-x64.tar.gz` |
+| Windows x64 | `Anselm-<version>-windows-x64-setup.exe` · `Anselm-<version>-windows-x64.zip` (portable) |
 
-Each archive bundles the desktop app and the Go sidecar; nothing else is required. On first launch the app creates its data directory and a default workspace, and the managed model route works without any key setup.
+Every package bundles the desktop app and the Go sidecar; nothing else is required. The macOS DMG and the Windows setup are the recommended installs; the archives are portable builds. On first launch the app creates its data directory and a default workspace, and the managed model route works without any key setup.
 
 > **Builds are not yet signed.** macOS will ask you to allow the app in *System Settings → Privacy & Security* the first time; Windows SmartScreen will show a warning. A trusted signing chain is on the roadmap.
 
@@ -205,10 +205,9 @@ Engineering rules live in [`CLAUDE.md`](CLAUDE.md): contract-first APIs, strict 
 
 ## Status
 
-Anselm is at **0.1.0**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
+Anselm is at **0.1.1**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
 
 - Signed and notarized builds, installers, and in-app updates (the app checks Releases and points you to the download page)
-- A Linux package beyond the tarball
 - Multi-user or hosted deployments; Anselm is single-user and local by design
 
 ## Contributing

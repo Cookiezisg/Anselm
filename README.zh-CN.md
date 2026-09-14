@@ -134,10 +134,10 @@
 | 平台 | 文件 |
 |---|---|
 | macOS（Apple 芯片与 Intel） | `Anselm-<version>-macos.dmg` |
-| Linux x64 | `Anselm-<version>-linux-x64.tar.gz` |
-| Windows x64 | `Anselm-<version>-windows-x64.zip` |
+| Linux x64 | `Anselm-<version>-linux-x86_64.AppImage` · `anselm_<version>_amd64.deb` · `Anselm-<version>-linux-x64.tar.gz` |
+| Windows x64 | `Anselm-<version>-windows-x64-setup.exe` · `Anselm-<version>-windows-x64.zip`（便携版） |
 
-每个包都自带桌面应用和 Go sidecar，不需要别的。首次启动时应用会创建数据目录和默认工作区，受管模型路径无需配置任何密钥。
+每个包都自带桌面应用和 Go sidecar，不需要别的。macOS 用 DMG、Windows 用 setup 安装器；归档是便携版。首次启动时应用会创建数据目录和默认工作区，受管模型路径无需配置任何密钥。
 
 > **构建尚未签名。** macOS 首次打开需在"系统设置 → 隐私与安全性"里放行；Windows SmartScreen 会提示。可信签名链在路线图上。
 
@@ -205,10 +205,9 @@ make -C frontend gallery    # 设计系统原语目录
 
 ## 现状
 
-Anselm 当前 **0.1.0**。上述产品路径均已实现，并由单元、集成与黑盒验收套件覆盖。尚未完成：
+Anselm 当前 **0.1.1**。上述产品路径均已实现，并由单元、集成与黑盒验收套件覆盖。尚未完成：
 
 - 签名与公证的构建、安装器、应用内更新（应用会检查 Releases 并引导到下载页）
-- tar 包之外的 Linux 打包
 - 多用户或托管部署；Anselm 按单用户、本地设计
 
 ## 贡献

@@ -62,14 +62,69 @@ JSON
     ;;
   Linux)
     BUNDLE="build/linux/x64/release/bundle"
-    [[ -x "$BUNDLE/anselm" ]] || { echo "✗ $BUNDLE missing — run: flutter build linux --release" >&2; exit 1; }
+    [[ -x "$BUNDLE/anselm" ]] || { echo "✗ $BUNDLE missing — run: flutter build linux --release --no-tree-shake-icons" >&2; exit 1; }
     install -m 0755 "$SIDECAR" "$BUNDLE/anselm-server"
     STAGE="$(mktemp -d)"
     cp -R "$BUNDLE" "$STAGE/Anselm-$VERSION"
     TAR="$OUT/Anselm-$VERSION-linux-x64.tar.gz"
     tar -C "$STAGE" -czf "$TAR" "Anselm-$VERSION"
-    rm -rf "$STAGE"
     echo "✓ $TAR"
+
+    # AppImage: one double-clickable file. The bundle goes under usr/bin so relative lookups
+    # (lib/, data/, the sidecar next to the executable) keep working; AppRun execs the binary.
+    # appimagetool is fetched by the release workflow; locally it is optional.
+    # AppImage:一个双击即用的文件。bundle 放在 usr/bin 下,相对查找(lib/、data/、旁边的 sidecar)不变;
+    # AppRun 直接 exec 主程序。appimagetool 由发行工作流下载,本机可选。
+    if command -v appimagetool >/dev/null; then
+      APPDIR="$STAGE/Anselm.AppDir"
+      mkdir -p "$APPDIR/usr/bin" "$APPDIR/usr/share/applications" "$APPDIR/usr/share/icons/hicolor/512x512/apps"
+      cp -R "$BUNDLE"/. "$APPDIR/usr/bin/"
+      install -m 0644 linux/packaging/anselm.desktop "$APPDIR/usr/share/applications/anselm.desktop"
+      install -m 0644 linux/packaging/anselm.desktop "$APPDIR/anselm.desktop"
+      install -m 0644 linux/packaging/anselm.png "$APPDIR/usr/share/icons/hicolor/512x512/apps/anselm.png"
+      install -m 0644 linux/packaging/anselm.png "$APPDIR/anselm.png"
+      printf '#!/bin/sh\nHERE="$(dirname "$(readlink -f "$0")")"\nexec "$HERE/usr/bin/anselm" "$@"\n' >"$APPDIR/AppRun"
+      chmod 0755 "$APPDIR/AppRun"
+      APPIMAGE="$OUT/Anselm-$VERSION-linux-x86_64.AppImage"
+      ARCH=x86_64 appimagetool --appimage-extract-and-run "$APPDIR" "$APPIMAGE" >/dev/null 2>&1 \
+        || ARCH=x86_64 appimagetool "$APPDIR" "$APPIMAGE" >/dev/null
+      echo "✓ $APPIMAGE"
+    else
+      echo "· appimagetool not found, skipping AppImage"
+    fi
+
+    # .deb: installs to /opt/anselm with a launcher symlink, desktop entry and icon; apt handles
+    # removal. Only the GTK runtime is declared — media libraries ship inside the bundle.
+    # .deb:装到 /opt/anselm,加启动器软链、桌面项和图标;apt 负责卸载。只声明 GTK 运行时,媒体库随包自带。
+    if command -v dpkg-deb >/dev/null; then
+      DEB="$STAGE/deb"
+      mkdir -p "$DEB/DEBIAN" "$DEB/opt/anselm" "$DEB/usr/bin" "$DEB/usr/share/applications" "$DEB/usr/share/icons/hicolor/512x512/apps"
+      cp -R "$BUNDLE"/. "$DEB/opt/anselm/"
+      ln -s /opt/anselm/anselm "$DEB/usr/bin/anselm"
+      install -m 0644 linux/packaging/anselm.desktop "$DEB/usr/share/applications/anselm.desktop"
+      install -m 0644 linux/packaging/anselm.png "$DEB/usr/share/icons/hicolor/512x512/apps/anselm.png"
+      SIZE_KB="$(du -sk "$DEB/opt/anselm" | cut -f1)"
+      cat >"$DEB/DEBIAN/control" <<CONTROL
+Package: anselm
+Version: $VERSION
+Section: devel
+Priority: optional
+Architecture: amd64
+Depends: libgtk-3-0, libglib2.0-0
+Installed-Size: $SIZE_KB
+Maintainer: Anselm <noreply@anselm.website>
+Homepage: https://anselm.website
+Description: The agentic workflow platform that builds itself
+ Describe what you need; Anselm creates the functions, agents and workflows,
+ schedules them, and runs them durably on this machine.
+CONTROL
+      DEBFILE="$OUT/anselm_${VERSION}_amd64.deb"
+      dpkg-deb --build --root-owner-group "$DEB" "$DEBFILE" >/dev/null
+      echo "✓ $DEBFILE"
+    else
+      echo "· dpkg-deb not found, skipping .deb"
+    fi
+    rm -rf "$STAGE"
     ;;
   *)
     echo "✗ unsupported host $(uname -s); Windows packaging lives in the release workflow" >&2

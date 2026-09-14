@@ -69,9 +69,11 @@ audience: [human, ai]
 `.github/workflows/release.yml` 由 `v<version>` tag 触发，版本必须等于 `frontend/pubspec.yaml`
 的 `version`；同一个数字盖进 Go sidecar（`-X main.version`）与产物名。三平台各自构建
 Flutter release app，把 sidecar 放到可执行文件旁（`BackendController` 从那里解析），经
-`frontend/tool/package.sh` 归档：macOS 为通用二进制 `Anselm-<v>-macos.dmg`，Linux 为
-`Anselm-<v>-linux-x64.tar.gz`，Windows 为 `Anselm-<v>-windows-x64.zip`，连同 `SHA256SUMS.txt`
-发布到 GitHub Release；任一平台失败则不发布。
+`frontend/tool/package.sh` 归档：macOS 为通用二进制 `Anselm-<v>-macos.dmg`；Linux 为
+`Anselm-<v>-linux-x86_64.AppImage`、`anselm_<v>_amd64.deb`（装到 `/opt/anselm`，`linux/packaging/`
+提供桌面项与图标）和便携 `Anselm-<v>-linux-x64.tar.gz`；Windows 为 Inno Setup 按用户安装器
+`Anselm-<v>-windows-x64-setup.exe`（`windows/installer/anselm.iss`，装到 `%LocalAppData%\Programs`）
+和便携 `Anselm-<v>-windows-x64.zip`；连同 `SHA256SUMS.txt` 发布到 GitHub Release；任一平台失败则不发布。
 
 macOS bundle 为 ad-hoc 签名：sidecar 以 `Sidecar.entitlements`（app-sandbox + inherit）签名，
 bundle 以 `Release.entitlements` 重新封印。DMG 由 appdmg 出图：背景 `macos/dmg/background.png`

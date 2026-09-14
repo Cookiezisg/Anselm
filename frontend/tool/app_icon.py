@@ -9,6 +9,7 @@ tool in the pipeline:
   • macOS  — Apple's template: a 1024 canvas with the 824-point rounded square centred and a
              soft shadow, exported at every size Assets.xcassets/AppIcon.appiconset lists.
   • Windows — full-bleed rounded square packed into app_icon.ico (16/32/48/256).
+  • Linux   — the same full-bleed tile as a 512 PNG for the .desktop entry, AppImage and .deb.
 
 从品牌几何生成桌面图标。品牌图标=白色圆角方 + 近黑六方块(3·2·1):512 画布上方块宽 88、网格 106、四周
 内缩 106。这里按几何直接高分辨率绘制而不是栅格化 SVG,流水线不多带工具:macOS 按 Apple 模板(1024 画布
@@ -21,6 +22,7 @@ from PIL import Image, ImageDraw, ImageFilter
 HERE = Path(__file__).resolve().parent.parent  # frontend/
 MAC = HERE / "macos/Runner/Assets.xcassets/AppIcon.appiconset"
 WIN = HERE / "windows/runner/resources/app_icon.ico"
+LINUX = HERE / "linux/packaging/anselm.png"
 
 WHITE, INK = (255, 255, 255, 255), (20, 20, 20, 255)
 
@@ -68,6 +70,9 @@ def main() -> None:
     win = tile(256, 114 / 512)
     win.save(WIN, sizes=[(16, 16), (32, 32), (48, 48), (256, 256)])
     print(f"✓ {WIN.relative_to(HERE)}")
+    LINUX.parent.mkdir(parents=True, exist_ok=True)
+    tile(512, 114 / 512).save(LINUX)
+    print(f"✓ {LINUX.relative_to(HERE)}")
 
 
 if __name__ == "__main__":

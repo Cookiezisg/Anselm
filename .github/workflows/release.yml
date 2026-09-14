@@ -107,13 +107,22 @@ jobs:
         run: |
           flutter pub get
           flutter build linux --release --no-tree-shake-icons
+      # appimagetool is itself an AppImage; --appimage-extract-and-run inside package.sh avoids FUSE.
+      - name: appimagetool
+        run: |
+          curl -fsSL -o /usr/local/bin/appimagetool \
+            https://github.com/AppImage/appimagetool/releases/download/continuous/appimagetool-x86_64.AppImage
+          chmod +x /usr/local/bin/appimagetool
       - name: Package
         working-directory: frontend
         run: bash tool/package.sh "${{ needs.version.outputs.version }}" ../build/sidecar/anselm-server dist
       - uses: actions/upload-artifact@v4
         with:
           name: linux
-          path: frontend/dist/*.tar.gz
+          path: |
+            frontend/dist/*.tar.gz
+            frontend/dist/*.AppImage
+            frontend/dist/*.deb
           if-no-files-found: error
 
   windows:
@@ -154,10 +163,20 @@ jobs:
           $stage = Join-Path $env:RUNNER_TEMP "Anselm-$v"
           Copy-Item $rel $stage -Recurse
           Compress-Archive -Path $stage -DestinationPath "dist\Anselm-$v-windows-x64.zip" -Force
+      # Inno Setup ships on the Windows runner image; install it if a future image drops it.
+      - name: Installer
+        working-directory: frontend
+        shell: pwsh
+        run: |
+          $iscc = "${env:ProgramFiles(x86)}\Inno Setup 6\ISCC.exe"
+          if (-not (Test-Path $iscc)) { choco install innosetup --no-progress -y | Out-Null }
+          & $iscc "/DAppVersion=${{ needs.version.outputs.version }}" "/DSourceDir=$PWD\build\windows\x64\runner\Release" "/DOutputDir=$PWD\dist" windows\installer\anselm.iss
       - uses: actions/upload-artifact@v4
         with:
           name: windows
-          path: frontend/dist/*.zip
+          path: |
+            frontend/dist/*.zip
+            frontend/dist/*-setup.exe
           if-no-files-found: error
 
   publish:

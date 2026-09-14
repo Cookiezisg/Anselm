@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=Anselm
+Comment=The agentic workflow platform that builds itself
+Exec=anselm %U
+Icon=anselm
+Terminal=false
+Categories=Development;Utility;
+StartupWMClass=anselm
