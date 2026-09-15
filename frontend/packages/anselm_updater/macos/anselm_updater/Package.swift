@@ -10,7 +10,7 @@ import PackageDescription
 let package = Package(
     name: "anselm_updater",
     platforms: [
-        .macOS("10.15")
+        .macOS("12.0")
     ],
     products: [
         .library(name: "anselm-updater", targets: ["anselm_updater"])
