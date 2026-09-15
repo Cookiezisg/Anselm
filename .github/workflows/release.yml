@@ -233,10 +233,20 @@ jobs:
         working-directory: artifacts
         run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
       # One release with every platform, or none: a failed platform job stops this job from running.
+      # Create the release first, then upload assets one at a time with retries: a single
+      # transient 400 from the upload endpoint must not leave a half-populated release behind.
+      # 先建 release,再逐个带重试上传资产:上传接口偶发 400 不能留下半个 release。
       - name: Publish
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create "$GITHUB_REF_NAME" artifacts/* \
+          gh release create "$GITHUB_REF_NAME" \
             --title "Anselm ${{ needs.version.outputs.version }}" \
-            --generate-notes
+            --generate-notes --verify-tag
+          for f in artifacts/*; do
+            for attempt in 1 2 3 4 5; do
+              gh release upload "$GITHUB_REF_NAME" "$f" --clobber && break
+              echo "upload of $f failed (attempt $attempt), retrying"; sleep $((attempt * 15))
+              [[ $attempt -lt 5 ]] || exit 1
+            done
+          done
