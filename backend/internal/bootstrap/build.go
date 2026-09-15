@@ -152,6 +152,10 @@ func Build(cfg Config) (*App, error) {
 	if err != nil {
 		return nil, fmt.Errorf("bootstrap: device proof: %w", err)
 	}
+	if retired := proofSigner.RetiredKeyFile(); retired != "" {
+		log.Warn("bootstrap: device proof key did not decrypt under the current master key; new install identity minted",
+			zap.String("retired", retired))
+	}
 	proofHTTP := llminfra.NewHTTPClient()
 	proofTransport := deviceproofinfra.NewTransport(proofHTTP.Transport, proofSigner)
 	proofHTTP.Transport = proofTransport

@@ -102,6 +102,44 @@ void main() {
   );
 
   test(
+    'an existing install retries a timed-out read before switching keys',
+    () async {
+      var reads = 0;
+      final mk = MasterKey(
+        read: (_) {
+          reads++;
+          return reads < 3
+              ? Completer<String?>().future
+              : Future.value('k-from-keychain');
+        },
+        write: (_, _) async {},
+        hasExistingDatabase: () => true,
+        keychainTimeout: const Duration(milliseconds: 10),
+      );
+      expect(await mk.resolve(), 'k-from-keychain');
+      expect(reads, 3);
+    },
+  );
+
+  test(
+    'a fresh install takes the first read outcome without retrying',
+    () async {
+      var reads = 0;
+      final mk = MasterKey(
+        read: (_) {
+          reads++;
+          return Completer<String?>().future;
+        },
+        write: (_, _) async {},
+        hasExistingDatabase: () => false,
+        keychainTimeout: const Duration(milliseconds: 10),
+      );
+      expect(await mk.resolve(), isNull);
+      expect(reads, 1);
+    },
+  );
+
+  test(
     'a hanging keychain write is bounded — fresh install still degrades',
     () async {
       var reads = 0;

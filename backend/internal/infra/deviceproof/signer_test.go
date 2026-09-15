@@ -75,3 +75,39 @@ func TestLoadRepairsExistingKeyPermissions(t *testing.T) {
 		t.Fatalf("repaired key mode = %o, want 600", info.Mode().Perm())
 	}
 }
+
+// A key sealed under a different master key must not brick boot: it is set aside
+// and a new identity is minted. 换了主密钥的旧钥匙不能让启动砖掉:挪开、铸新身份。
+func TestLoadRegeneratesWhenStoredKeyDoesNotDecrypt(t *testing.T) {
+	dir := t.TempDir()
+	a, err := LoadOrCreate(context.Background(), dir, testEncryptor{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.RetiredKeyFile() != "" {
+		t.Fatal("fresh identity reported a retired key")
+	}
+	if err := os.WriteFile(filepath.Join(dir, keyFile), []byte("sealed-by-someone-else"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	b, err := LoadOrCreate(context.Background(), dir, testEncryptor{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if b.RetiredKeyFile() == "" {
+		t.Fatal("regenerated identity did not report the retired key")
+	}
+	if _, err := os.Stat(b.RetiredKeyFile()); err != nil {
+		t.Fatalf("retired key was not kept: %v", err)
+	}
+	if a.PublicKey() == b.PublicKey() {
+		t.Fatal("identity was not regenerated")
+	}
+	c, err := LoadOrCreate(context.Background(), dir, testEncryptor{})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c.PublicKey() != b.PublicKey() || c.RetiredKeyFile() != "" {
+		t.Fatal("regenerated identity did not persist cleanly")
+	}
+}

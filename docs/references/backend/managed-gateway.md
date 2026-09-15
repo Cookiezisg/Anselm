@@ -28,7 +28,7 @@ Anselm 桌面端默认使用受管 `anselm` provider 与逻辑模型 `anselm-aut
 
 | 责任 | 物理位置 |
 |---|---|
-| 机器级 Ed25519 device-proof 私钥的创建、加密落盘与逐请求签名 | `backend/internal/infra/deviceproof/` |
+| 机器级 Ed25519 device-proof 私钥的创建、加密落盘与逐请求签名；存盘 seed 在当前 master key 下解不开时挪成 `device-proof.key.undecryptable-<unix>` 并铸新身份（bootstrap 记 warn） | `backend/internal/infra/deviceproof/` |
 | install 登记、managed 行创建/修复、scenario 默认播种 | `backend/internal/app/freetier/` |
 | managed provider 适配、公开模型能力读取与错误归一 | `backend/internal/infra/llm/anselm.go` |
 | workspace、对话、附件、MediaRef、工具、flowrun 等本地业务真相 | 本仓 backend 各 domain/app/store |

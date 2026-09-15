@@ -38,7 +38,7 @@ audience: [human, ai]
 ## 4. 本地持久化与安全
 
 - 机器级偏好进入 `SharedPreferences`；workspace 业务设置进入后端。两条轴不混。
-- master key 由系统 keychain 铸造和保存，见 [`ADR 0008`](../../decisions/0008-master-key-keychain.md)。读写有单步超时；授权 UI 或 keychain daemon 挂起时，应用必须在有界等待后降级到 legacy fingerprint，而不是冻结启动。
+- master key 由系统 keychain 铸造和保存，见 [`ADR 0008`](../../decisions/0008-master-key-keychain.md)。读写有单步超时；授权 UI 或 keychain daemon 挂起时，应用必须在有界等待后降级到 legacy fingerprint，而不是冻结启动。已有数据库的装机对读超时最多重试 3 次再降级，避免一次慢读把全部密文无声换钥。
 - launch-at-login 经平台 adapter 注册，设置偏好与 OS 注册表分别承担 UI/系统事实；
   close 后后台运行与 tray 尚未形成产品合同。
 - loopback 安全由后端默认 `127.0.0.1`、bearer 与 Host 校验三层完成；前端不复制鉴权规则。

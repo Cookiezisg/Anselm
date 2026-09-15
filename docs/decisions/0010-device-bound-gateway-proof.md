@@ -23,4 +23,4 @@ Go sidecar 为每次安装创建一对 Ed25519 密钥。它用现有 master-key 
 
 ## 后果 / Consequences
 
-复制数据库行或捕获单次请求不能获得可复用的免费档访问权。加密 seed 丢失会产生新的安装身份，Gateway 按设计无法恢复私钥。这是 possession proof，不是 platform attestation：能够控制并修改开源客户端的攻击者仍可注册另一把密钥，因此 Gateway 的 issuance PoW/rate gate 继续承担批量滥用成本层。
+复制数据库行或捕获单次请求不能获得可复用的免费档访问权。加密 seed 丢失会产生新的安装身份，Gateway 按设计无法恢复私钥。2026-09-16 补记：seed 文件在当前 master key 下解不开（钥匙串某次不可用而走了指纹、开发版共用数据目录）时，sidecar 把旧文件挪成 `device-proof.key.undecryptable-<unix>`、铸新身份并记 warn，而不是拒绝启动——安装身份可重新注册，用户数据不受影响。这是 possession proof，不是 platform attestation：能够控制并修改开源客户端的攻击者仍可注册另一把密钥，因此 Gateway 的 issuance PoW/rate gate 继续承担批量滥用成本层。

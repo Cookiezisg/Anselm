@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -22,11 +23,13 @@ class MasterKey {
     bool Function()? hasExistingDatabase,
     Random? random,
     Duration keychainTimeout = const Duration(seconds: 3),
+    int keychainReadAttempts = 3,
   }) : _read = read ?? _storageRead,
        _write = write ?? _storageWrite,
        _hasExistingDatabase = hasExistingDatabase ?? _defaultHasDatabase,
        _random = random ?? Random.secure(),
-       _keychainTimeout = keychainTimeout;
+       _keychainTimeout = keychainTimeout,
+       _keychainReadAttempts = keychainReadAttempts;
 
   // macOS: the legacy login keychain (NOT the data-protection keychain) — the latter requires a
   // development-certificate signature + keychain-access-groups entitlement, which local ad-hoc
@@ -43,6 +46,7 @@ class MasterKey {
   final bool Function() _hasExistingDatabase;
   final Random _random;
   final Duration _keychainTimeout;
+  final int _keychainReadAttempts;
 
   static Future<String?> _storageRead(String key) => _storage.read(key: key);
   static Future<void> _storageWrite(String key, String value) =>
@@ -72,7 +76,7 @@ class MasterKey {
       // A native keychain prompt or daemon can leave its future pending indefinitely. Startup must
       // not become hostage to that UI: time out each operation and keep the documented legacy path.
       // 原生钥匙串弹窗或 daemon 可能让 future 永久 pending。启动不能被它绑架:每步有界,超时走旧径。
-      final existing = await _read(storageKey).timeout(_keychainTimeout);
+      final existing = await _readWithRetry();
       if (existing != null && existing.isNotEmpty) return existing;
       if (_hasExistingDatabase()) return null; // pre-keychain install 旧装机
       final minted = _mint();
@@ -87,6 +91,29 @@ class MasterKey {
         '[master-key] keychain unavailable — legacy fingerprint path: $e',
       );
       return null;
+    }
+  }
+
+  /// One slow read must not silently switch an existing install from its keychain key to the
+  /// fingerprint: every ciphertext on disk (device proof, stored provider keys) is sealed under
+  /// whichever key the sidecar last saw, and the switch is invisible until decryption fails. When a
+  /// database already exists a timed-out read is retried a bounded number of times, which covers a
+  /// keychain that is merely slow (just unlocked, a daemon restarting, a prompt the user is answering).
+  /// A fresh install has nothing to protect and takes the first answer.
+  /// 一次慢读不能把已装机从钥匙串钥无声切到指纹:盘上所有密文(device proof、存的 provider key)都封在
+  /// sidecar 上次看到的那把钥下,切换要到解密失败才暴露。已有数据库时对超时的读做有界重试,覆盖钥匙串
+  /// 只是慢(刚解锁、daemon 重启、用户正在答弹窗)的情况;全新安装无物可护,取第一次结果。
+  Future<String?> _readWithRetry() async {
+    for (var attempt = 1; ; attempt++) {
+      try {
+        return await _read(storageKey).timeout(_keychainTimeout);
+      } on TimeoutException {
+        final attempts = _hasExistingDatabase() ? _keychainReadAttempts : 1;
+        if (attempt >= attempts) rethrow;
+        debugPrint(
+          '[master-key] keychain read timed out (attempt $attempt/$attempts), retrying',
+        );
+      }
     }
   }
 
