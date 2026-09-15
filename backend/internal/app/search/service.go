@@ -143,10 +143,6 @@ func (s *Service) Start(workspaceIDs []string) {
 	s.indexer.start()
 	s.embedWG.Add(1)
 	go func() {
-		defer s.embedWG.Done()
-		s.embedWorker()
-	}()
-	go func() {
 		ctx := reqctxpkg.Detached("")
 		v, err := s.repo.GetMeta(ctx, metaSchemaKey)
 		if err != nil {
@@ -155,12 +151,22 @@ func (s *Service) Start(workspaceIDs []string) {
 		if v != schemaVersion {
 			if err := s.repo.DropAll(ctx); err != nil {
 				s.log.Warn("search: drop-all failed", zap.Error(err))
+				s.embedWG.Done()
 				return
 			}
 			if err := s.repo.SetMeta(ctx, metaSchemaKey, schemaVersion); err != nil {
 				s.log.Warn("search: schema version write failed", zap.Error(err))
 			}
 		}
+		// The embed worker starts only after the schema check: a backfill that runs while DropAll
+		// wipes the index has its vectors erased and, with no later kick for that workspace, never
+		// redone. Kicks arriving meanwhile wait in the buffered channel.
+		// embed worker 在 schema 检查之后才启动:补算若与 DropAll 清索引并行,写下的向量会被抹掉,
+		// 且该 workspace 之后没有再 kick 就永远不补。期间到达的 kick 在带缓冲的 channel 里等。
+		go func() {
+			defer s.embedWG.Done()
+			s.embedWorker()
+		}()
 		for _, ws := range workspaceIDs {
 			s.rememberWorkspace(ws)
 			s.indexer.reconcile(reqctxpkg.Detached(ws), ws, false) // incremental: DropAll above already forced a full rebuild on a schema bump

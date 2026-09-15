@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:anselm/core/contract/messages/block_content.dart';
 import 'package:anselm/core/design/theme.dart';
 import 'package:anselm/core/messages/block_tree_reducer.dart';
+import 'package:anselm/core/model/time_format.dart';
 import 'package:anselm/features/chat/ui/chat_tool_card.dart';
 import 'package:anselm/features/chat/ui/tool_card_ecosystem.dart';
 import 'package:anselm/features/chat/ui/tool_hit_list.dart';
@@ -275,7 +276,9 @@ void main() {
     expect(find.text(t.chat.tool.mcpDisconnected), findsNothing);
     expect(find.text('search_docs'), findsOneWidget);
     expect(find.text(t.chat.tool.mcpConnectedAt), findsOneWidget);
-    expect(find.text('2026-08-04 15:30'), findsOneWidget);
+    // Rendered in the host's local zone — assert through the same formatter, not a literal that
+    // only holds in UTC+8. 按本机时区渲染:用同一个格式化函数断言,不写只在 UTC+8 成立的字面量。
+    expect(find.text(fmtStamp('2026-08-04T07:30:18Z')), findsOneWidget);
   });
 
   testWidgets('mcp install plain missing-env result is red and expanded', (

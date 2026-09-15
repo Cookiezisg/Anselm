@@ -40,7 +40,10 @@ void main() {
     }
     // The resting face is PER-KEY caps (0719 紧凑档): every command shows a ⌘ cap plus its key
     // fragment — no single whole-chord text anymore. 静息=逐键帽:每命令一枚 ⌘ 帽+键片段帽。
-    expect(find.text('⌘'), findsNWidgets(ShortcutCommand.values.length));
+    // The modifier cap is ⌘ on macOS and Ctrl elsewhere; read it from the catalog so the test
+    // holds on Linux CI. 修饰键帽 mac 为 ⌘、其余为 Ctrl;从目录读,让 Linux CI 也成立。
+    final cmdCap = kShortcutDefaults[ShortcutCommand.openSettings]!.parts.first;
+    expect(find.text(cmdCap), findsNWidgets(ShortcutCommand.values.length));
     expect(find.text(','), findsOneWidget, reason: '⌘, (打开设置) 的键片段帽');
     expect(
       find.text(kShortcutDefaults[ShortcutCommand.openSettings]!.display),
