@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/Cookiezisg/Anselm/releases/latest"><img src="https://img.shields.io/github/v/release/Cookiezisg/Anselm?label=release&color=0071e3" alt="Latest release"></a>
-  <a href="https://github.com/Cookiezisg/Anselm/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/Cookiezisg/Anselm/release.yml?label=build" alt="Build"></a>
+  <a href="https://github.com/Cookiezisg/Anselm/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Cookiezisg/Anselm/ci.yml?label=ci" alt="Build"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="License"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="Platforms">
   <a href="https://anselm.website"><img src="https://img.shields.io/badge/website-anselm.website-black" alt="Website"></a>
@@ -137,9 +137,15 @@ Download the latest build for your platform from [Releases](https://github.com/C
 | Linux x64 | `Anselm-<version>-linux-x86_64.AppImage` · `anselm_<version>_amd64.deb` · `Anselm-<version>-linux-x64.tar.gz` |
 | Windows x64 | `Anselm-<version>-windows-x64-setup.exe` · `Anselm-<version>-windows-x64.zip` (portable) |
 
+On macOS you can also use Homebrew:
+
+```bash
+brew install --cask Cookiezisg/tap/anselm
+```
+
 Every package bundles the desktop app and the Go sidecar; nothing else is required. The macOS DMG and the Windows setup are the recommended installs; the archives are portable builds. On first launch the app creates its data directory and a default workspace, and the managed model route works without any key setup.
 
-> The macOS build is signed with a Developer ID and notarized by Apple, so it opens like any other app. Windows and Linux builds are not yet signed; Windows SmartScreen will show a warning the first time.
+> The macOS build is signed with a Developer ID and notarized by Apple, so it opens like any other app. Windows and Linux builds are not yet signed; Windows SmartScreen will show a warning the first time. See the [code signing policy](SECURITY.md#code-signing-policy).
 
 ### Build from source
 
@@ -205,9 +211,9 @@ Engineering rules live in [`CLAUDE.md`](CLAUDE.md): contract-first APIs, strict 
 
 ## Status
 
-Anselm is at **0.1.2**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
+Anselm is at **0.1.3**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
 
-- Windows code signing and in-app updates (the app checks Releases and points you to the download page)
+- Windows code signing (installer is unsigned; SmartScreen warns on first run)
 - Multi-user or hosted deployments; Anselm is single-user and local by design
 
 ## Contributing

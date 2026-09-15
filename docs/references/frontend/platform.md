@@ -64,16 +64,24 @@ audience: [human, ai]
 | `make -C frontend package` | 本机发行包：sidecar 装进 release app，归档到 `frontend/dist/` |
 | `make doctor` | 原生桌面工具链诊断 |
 
+`.github/workflows/ci.yml` 在 push 到 main 与每个 PR 上以 `jdx/mise-action` 按 `mise.toml` 装工具链，
+分 backend、frontend、docs、demo 四个 job 跑与本地同名的 `make -C <gate> verify`；backend job 另跑
+govulncheck，`codeql.yml` 对 Go 做静态安全分析。Dependabot（`.github/dependabot.yml`）按周分生态成组提
+依赖 PR；Sparkle 由 Swift Package 精确钉版，不走 Dependabot。main 分支与 `v*` tag 有 ruleset 禁止删除与
+强推。
+
 ## 7. 发行
 
 `.github/workflows/release.yml` 由 `v<version>` tag 触发，版本必须等于 `frontend/pubspec.yaml`
 的 `version`；同一个数字盖进 Go sidecar（`-X main.version`）与产物名。三平台各自构建
 Flutter release app，把 sidecar 放到可执行文件旁（`BackendController` 从那里解析），经
-`frontend/tool/package.sh` 归档：macOS 为通用二进制 `Anselm-<v>-macos.dmg`；Linux 为
+`frontend/tool/package.sh` 归档（macOS 的 bundle 名由 `PRODUCT_NAME = Anselm` 决定，构建产物是
+`Anselm.app`）：macOS 为通用二进制 `Anselm-<v>-macos.dmg`；Linux 为
 `Anselm-<v>-linux-x86_64.AppImage`、`anselm_<v>_amd64.deb`（装到 `/opt/anselm`，`linux/packaging/`
 提供桌面项与图标）和便携 `Anselm-<v>-linux-x64.tar.gz`；Windows 为 Inno Setup 按用户安装器
 `Anselm-<v>-windows-x64-setup.exe`（`windows/installer/anselm.iss`，装到 `%LocalAppData%\Programs`）
-和便携 `Anselm-<v>-windows-x64.zip`；连同 `SHA256SUMS.txt` 发布到 GitHub Release；任一平台失败则不发布。
+和便携 `Anselm-<v>-windows-x64.zip`；连同 `SHA256SUMS.txt` 发布到 GitHub Release；任一平台失败则不发布。Release 正文由 git-cliff 按
+`cliff.toml` 从上一个 tag 以来的 conventional commits 生成（`git cliff --latest` 可本地复现）。
 
 macOS 签名分两档：仓库 secrets 里有 `MACOS_CERT_P12`/`MACOS_CERT_PASSWORD`（Developer ID
 Application 证书）时，嵌套框架、sidecar（`Sidecar.entitlements`：app-sandbox + inherit）和 bundle

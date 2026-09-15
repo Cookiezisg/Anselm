@@ -8,7 +8,7 @@
 # W0 性能门禁真跑截图(profile;按窗口 ID 截,被遮挡也准、全程不抢焦点;三床错峰各截流中+终局)。
 set -euo pipefail
 cd "$(dirname "$0")/../.."   # frontend/
-APP="build/macos/Build/Products/Profile/anselm.app"
+APP="build/macos/Build/Products/Profile/Anselm.app"
 OUT="test/dev/out"; mkdir -p "$OUT"
 [ -d "$APP" ] || { echo "✗ build the PROFILE gallery first"; exit 1; }
 

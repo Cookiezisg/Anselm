@@ -1,0 +1,77 @@
+# Continuous integration: the same gates `make verify` runs locally, one job per subproject so a
+# failure names its area. Toolchain versions come from mise.toml through mise itself, which is
+# what the Makefiles call. Push to main and every pull request; the release workflow is separate.
+# 持续集成:与本地 `make verify` 同一套门禁,按子项目分 job 便于定位。工具链版本经 mise 读 mise.toml,
+# 与 Makefile 的调用方式一致。push 到 main 与所有 PR 触发;发行流水线独立。
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: go
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: go-${{ runner.os }}-${{ hashFiles('backend/go.sum', 'testend/go.sum') }}
+      - run: make -C backend verify
+      - name: govulncheck
+        working-directory: backend
+        run: mise exec -- go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+
+  frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: flutter
+      - name: Desktop build dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y clang cmake ninja-build pkg-config libgtk-3-dev liblzma-dev libmpv-dev
+      - uses: actions/cache@v4
+        with:
+          path: ~/.pub-cache
+          key: pub-${{ runner.os }}-${{ hashFiles('frontend/pubspec.lock') }}
+      - run: make -C frontend verify
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: go
+      - run: make -C docs verify
+
+  demo:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: jdx/mise-action@v2
+        with:
+          install_args: node
+      - name: Playwright browser
+        working-directory: demo
+        run: |
+          mise exec -- npm ci
+          mise exec -- npx playwright install --with-deps chromium
+      - run: make -C demo verify

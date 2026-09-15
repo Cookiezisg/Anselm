@@ -13,8 +13,8 @@ PORT="${PORT:-8742}"
 URL="http://127.0.0.1:$PORT"
 OUT="test/dev/out"; mkdir -p "$OUT"
 DATA="/tmp/anselm-shot-app"
-APP="build/macos/Build/Products/Debug/anselm.app"
-BIN="$APP/Contents/MacOS/anselm"
+APP="build/macos/Build/Products/Debug/Anselm.app"
+BIN="$APP/Contents/MacOS/Anselm"
 
 BACK=""; APPPID=""
 cleanup() {

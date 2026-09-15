@@ -1,0 +1,30 @@
+# Weekly dependency PRs, grouped per ecosystem so one review covers a batch. Sparkle is pinned by
+# an exact Swift Package version and is bumped by hand after the signing chain is re-checked.
+# 每周依赖 PR,按生态分组,一次审一批。Sparkle 由 Swift Package 精确钉版,复核签名链后手动升。
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule: {interval: weekly}
+    groups:
+      go: {patterns: ['*']}
+  - package-ecosystem: gomod
+    directory: /testend
+    schedule: {interval: weekly}
+    groups:
+      go: {patterns: ['*']}
+  - package-ecosystem: pub
+    directory: /frontend
+    schedule: {interval: weekly}
+    groups:
+      dart: {patterns: ['*']}
+  - package-ecosystem: npm
+    directory: /demo
+    schedule: {interval: weekly}
+    groups:
+      node: {patterns: ['*']}
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: {interval: weekly}
+    groups:
+      actions: {patterns: ['*']}

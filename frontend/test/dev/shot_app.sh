@@ -3,7 +3,7 @@
 # shadows/blur) which the headless Skia path (`make shots`) can't reproduce. Builds the gallery as a
 # macOS .app, launches it, resolves its window rect via System Events (not a fixed guess), captures
 # that rect with screencapture → test/dev/out/app.png, then quits the app.
-#   BUILD=0 reuses an already-built anselm.app (fast); default builds fresh (correct for a final check).
+#   BUILD=0 reuses an already-built Anselm.app (fast); default builds fresh (correct for a final check).
 #   TARGET overrides the entrypoint (default the gallery; pass lib/main.dart for the real shell).
 # 真跑终检:截运行中 app 的 Impeller 真渲染(红绿灯/真阴影,headless 还原不了)。免前台 sleep——等窗口用
 # osascript 内的 delay 轮询。BUILD=0 复用已构建 app(快);默认重构(终检要新)。
@@ -11,7 +11,7 @@ set -euo pipefail
 cd "$(dirname "$0")/../.."   # frontend/
 RUN="mise exec --"
 TARGET="${TARGET:-lib/dev/gallery_main.dart}"
-APP="build/macos/Build/Products/Debug/anselm.app"
+APP="build/macos/Build/Products/Debug/Anselm.app"
 OUT="test/dev/out"; mkdir -p "$OUT"
 
 if [ "${BUILD:-1}" = "1" ] || [ ! -d "$APP" ]; then

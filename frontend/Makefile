@@ -122,13 +122,13 @@ onboard: deps
 # `make demo` 是 debug(JIT+断言,慢 3-5 倍),拿 debug 手感判卡顿全是幻觉(0716 教训:用户报「滚动
 # 粘滞」,profile 实测满 120fps 零掉帧)。PERF_HUD=true 装帧探针(stdout 报 build/raster/fps,
 # 见 lib/dev/perf_probe.dart)+ 种 STRESS 压力文档;要看探针数字,直接跑二进制而非 open:
-#   ./build/macos/Build/Products/Profile/anselm.app/Contents/MacOS/anselm
+#   ./build/macos/Build/Products/Profile/Anselm.app/Contents/MacOS/Anselm
 # --no-tree-shake-icons: 图标按语义键动态路由(AnIcons.byKey 等)静态摇树不掉,profile/release 必带
 # (debug 不摇树故 make demo 无感;发行链同此,WRK-043)。
 perf: deps
 	@LANG=en_US.UTF-8 $(RUN) flutter build macos --profile --no-tree-shake-icons \
 		--dart-define=PERF_HUD=true -t lib/dev/demo_main.dart
-	@open build/macos/Build/Products/Profile/anselm.app
+	@open build/macos/Build/Products/Profile/Anselm.app
 	@echo "" && echo "✓ profile demo 已启动(帧探针开;数字看法见 Makefile 本目标注释)"
 
 # gallery — 组件画廊（dev/gallery_main.dart）：双栏目录看每个 An* 组件全态（视觉，与 app/demo 正交）。

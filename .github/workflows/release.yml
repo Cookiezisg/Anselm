@@ -1,12 +1,12 @@
 # Release: build the desktop app with its Go sidecar for macOS, Linux, and Windows, and publish
 # the archives plus checksums to a GitHub Release. Triggered by a `v<version>` tag whose version
 # must equal `frontend/pubspec.yaml`, so one number drives the app, the sidecar, and the artifact
-# names. Artifacts are ad-hoc signed on macOS and unsigned elsewhere; a trusted signing chain is a
-# separate step (docs/working/platform-foundation/release-distribution-playbook.md).
+# names. macOS artifacts are Developer ID signed and notarized when the secrets are present, and
+# the Sparkle appcast ships as a release asset; Windows and Linux artifacts are unsigned.
 #
 # 发行:为 macOS、Linux、Windows 构建带 Go sidecar 的桌面 app,把归档和校验和发布到 GitHub Release。由
 # `v<version>` tag 触发,版本必须等于 frontend/pubspec.yaml,这样一个数字驱动 app、sidecar 和产物名。
-# macOS 为 ad-hoc 签名,其它平台未签名;可信签名链是独立的一步(见发行合同)。
+# macOS 在 secrets 齐备时做 Developer ID 签名与公证,Sparkle appcast 随 release 发布;Windows 与 Linux 未签名。
 name: release
 
 on:
@@ -239,10 +239,23 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
       - uses: actions/download-artifact@v4
         with:
           path: artifacts
           merge-multiple: true
+      # Release notes come from the conventional commits since the previous tag (cliff.toml);
+      # commits land on main directly, so GitHub's PR-based notes would be empty.
+      # Release notes 由上一个 tag 以来的 conventional commits 生成(cliff.toml);提交直推 main,
+      # GitHub 按 PR 生成的 notes 会是空的。
+      - uses: orhun/git-cliff-action@v4
+        id: notes
+        with:
+          config: cliff.toml
+          args: --latest --strip all
+        env:
+          OUTPUT: release-notes.md
       - name: Checksums
         working-directory: artifacts
         run: sha256sum * > SHA256SUMS.txt && cat SHA256SUMS.txt
@@ -256,7 +269,7 @@ jobs:
         run: |
           gh release create "$GITHUB_REF_NAME" \
             --title "Anselm ${{ needs.version.outputs.version }}" \
-            --generate-notes --verify-tag
+            --notes-file release-notes.md --verify-tag
           for f in artifacts/*; do
             for attempt in 1 2 3 4 5; do
               gh release upload "$GITHUB_REF_NAME" "$f" --clobber && break

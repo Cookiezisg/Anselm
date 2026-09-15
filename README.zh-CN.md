@@ -15,7 +15,7 @@
 
 <p align="center">
   <a href="https://github.com/Cookiezisg/Anselm/releases/latest"><img src="https://img.shields.io/github/v/release/Cookiezisg/Anselm?label=release&color=0071e3" alt="最新版本"></a>
-  <a href="https://github.com/Cookiezisg/Anselm/actions/workflows/release.yml"><img src="https://img.shields.io/github/actions/workflow/status/Cookiezisg/Anselm/release.yml?label=build" alt="构建"></a>
+  <a href="https://github.com/Cookiezisg/Anselm/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Cookiezisg/Anselm/ci.yml?label=ci" alt="构建"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-Apache--2.0-blue" alt="许可证"></a>
   <img src="https://img.shields.io/badge/platform-macOS%20%7C%20Linux%20%7C%20Windows-lightgrey" alt="平台">
   <a href="https://anselm.website/zh/"><img src="https://img.shields.io/badge/website-anselm.website-black" alt="官网"></a>
@@ -137,9 +137,15 @@
 | Linux x64 | `Anselm-<version>-linux-x86_64.AppImage` · `anselm_<version>_amd64.deb` · `Anselm-<version>-linux-x64.tar.gz` |
 | Windows x64 | `Anselm-<version>-windows-x64-setup.exe` · `Anselm-<version>-windows-x64.zip`（便携版） |
 
+macOS 也可以用 Homebrew：
+
+```bash
+brew install --cask Cookiezisg/tap/anselm
+```
+
 每个包都自带桌面应用和 Go sidecar，不需要别的。macOS 用 DMG、Windows 用 setup 安装器；归档是便携版。首次启动时应用会创建数据目录和默认工作区，受管模型路径无需配置任何密钥。
 
-> macOS 构建已用 Developer ID 签名并经 Apple 公证，像其他应用一样直接打开。Windows 与 Linux 构建尚未签名；Windows SmartScreen 首次会提示。
+> macOS 构建已用 Developer ID 签名并经 Apple 公证，像其他应用一样直接打开。Windows 与 Linux 构建尚未签名；Windows SmartScreen 首次会提示。签名政策见 [SECURITY.md](SECURITY.md#code-signing-policy)。
 
 ### 从源码构建
 
@@ -205,9 +211,9 @@ make -C frontend gallery    # 设计系统原语目录
 
 ## 现状
 
-Anselm 当前 **0.1.2**。上述产品路径均已实现，并由单元、集成与黑盒验收套件覆盖。尚未完成：
+Anselm 当前 **0.1.3**。上述产品路径均已实现，并由单元、集成与黑盒验收套件覆盖。尚未完成：
 
-- Windows 签名与应用内更新（应用会检查 Releases 并引导到下载页）
+- Windows 签名（安装器未签名，首次运行 SmartScreen 会提示）
 - 多用户或托管部署；Anselm 按单用户、本地设计
 
 ## 贡献

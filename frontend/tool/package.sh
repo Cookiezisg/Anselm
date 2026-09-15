@@ -17,7 +17,7 @@ mkdir -p "$OUT"
 
 case "$(uname -s)" in
   Darwin)
-    APP="build/macos/Build/Products/Release/anselm.app"
+    APP="build/macos/Build/Products/Release/Anselm.app"
     [[ -d "$APP" ]] || { echo "✗ $APP missing — run: flutter build macos --release --no-tree-shake-icons" >&2; exit 1; }
     install -m 0755 "$SIDECAR" "$APP/Contents/MacOS/anselm-server"
     # Signing. With MACOS_SIGN_IDENTITY set (a "Developer ID Application: …" identity present in
