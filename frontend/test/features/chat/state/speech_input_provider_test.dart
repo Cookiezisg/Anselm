@@ -188,6 +188,17 @@ Future<void> _flushAsync() async {
   await Future<void>.delayed(const Duration(milliseconds: 20));
 }
 
+/// Poll until [done] holds, bounded. Teardown after an error frame awaits the recorder, which is
+/// slower on a loaded CI runner than one fixed flush. 有界轮询直到条件成立:错误帧后的收尾要等录音器,
+/// 在忙碌的 CI 机器上比一次固定 flush 慢。
+Future<void> _until(bool Function() done) async {
+  final deadline = DateTime.now().add(const Duration(seconds: 3));
+  while (!done()) {
+    if (DateTime.now().isAfter(deadline)) return;
+    await Future<void>.delayed(const Duration(milliseconds: 5));
+  }
+}
+
 void main() {
   test('speech input stays unavailable while capabilities are loading', () {
     final pending = Completer<List<ModelCapability>>();
@@ -457,7 +468,7 @@ void main() {
     expect(sockets, hasLength(2));
 
     sockets.last.failFromServer();
-    await _flushAsync();
+    await _until(() => !container.read(speechInputProvider).recording);
 
     final state = container.read(speechInputProvider);
     expect(state.recording, isFalse);
@@ -493,7 +504,7 @@ void main() {
     sockets.single.incoming.add(
       '{"type":"error","code":"SPEECH_AUDIO_TOO_LONG"}',
     );
-    await _flushAsync();
+    await _until(() => !container.read(speechInputProvider).recording);
 
     final state = container.read(speechInputProvider);
     expect(state.recording, isFalse);
