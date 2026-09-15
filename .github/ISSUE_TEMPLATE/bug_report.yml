@@ -1,0 +1,32 @@
+name: Bug report
+description: Something in the desktop app or the local sidecar does not behave as documented.
+labels: [bug]
+body:
+  - type: input
+    id: version
+    attributes:
+      label: Anselm version
+      description: Settings → About, or the release you installed.
+      placeholder: 0.1.3
+    validations:
+      required: true
+  - type: dropdown
+    id: platform
+    attributes:
+      label: Platform
+      options: [macOS, Windows, Linux]
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What happened
+      description: What you did, what you expected, what you saw instead.
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Sidecar log
+      description: The tail of `logs/anselm.log` in the data directory, with any keys removed.
+      render: text

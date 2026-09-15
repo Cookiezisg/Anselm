@@ -1,0 +1,16 @@
+name: Feature request
+description: A capability the platform should have.
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: What you are trying to do
+      description: The outcome you want, in product terms, before any proposed solution.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed behaviour
+      description: Optional. How you imagine it working in the app.
