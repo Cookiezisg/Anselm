@@ -71,7 +71,7 @@ JSON
       # Notarize when the App Store Connect API key is present; staple so the ticket travels with
       # the file and Gatekeeper passes offline. 有 App Store Connect API key 就公证,并把票据钉进文件。
       if [[ -n "${NOTARY_KEY_PATH:-}" && -n "${NOTARY_KEY_ID:-}" && -n "${NOTARY_ISSUER_ID:-}" ]]; then
-        xcrun notarytool submit "$DMG" --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait
+        xcrun notarytool submit "$DMG" --key "$NOTARY_KEY_PATH" --key-id "$NOTARY_KEY_ID" --issuer "$NOTARY_ISSUER_ID" --wait --timeout 45m
         xcrun stapler staple "$DMG"
         spctl --assess --type open --context context:primary-signature -v "$DMG"
       fi

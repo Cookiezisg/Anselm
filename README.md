@@ -139,7 +139,7 @@ Download the latest build for your platform from [Releases](https://github.com/C
 
 Every package bundles the desktop app and the Go sidecar; nothing else is required. The macOS DMG and the Windows setup are the recommended installs; the archives are portable builds. On first launch the app creates its data directory and a default workspace, and the managed model route works without any key setup.
 
-> **Builds are not yet signed.** macOS will ask you to allow the app in *System Settings → Privacy & Security* the first time; Windows SmartScreen will show a warning. A trusted signing chain is on the roadmap.
+> The macOS build is signed with a Developer ID and notarized by Apple, so it opens like any other app. Windows and Linux builds are not yet signed; Windows SmartScreen will show a warning the first time.
 
 ### Build from source
 
@@ -205,9 +205,9 @@ Engineering rules live in [`CLAUDE.md`](CLAUDE.md): contract-first APIs, strict 
 
 ## Status
 
-Anselm is at **0.1.1**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
+Anselm is at **0.1.2**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
 
-- Signed and notarized builds, installers, and in-app updates (the app checks Releases and points you to the download page)
+- Windows code signing and in-app updates (the app checks Releases and points you to the download page)
 - Multi-user or hosted deployments; Anselm is single-user and local by design
 
 ## Contributing
