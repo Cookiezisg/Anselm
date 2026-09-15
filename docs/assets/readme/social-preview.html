@@ -1,0 +1,52 @@
+<!doctype html>
+<!-- GitHub social preview (1280×640) for both repos. Render at 2x with headless Chrome:
+     chrome --headless=new --force-device-scale-factor=2 --window-size=1280,640 --screenshot=social-preview.png social-preview.html
+     Inter is read from the sibling Anselm-Website checkout. 两个仓库共用的 social preview,用 headless Chrome 2x 出图。 -->
+<html><head><meta charset="utf-8">
+<style>
+@font-face{font-family:Inter;src:url(../../../../Anselm-Website/public/fonts/InterVariable-latin.woff2) format("woff2");font-weight:100 900;font-display:block}
+html,body{margin:0;width:1280px;height:640px;overflow:hidden;background:#0b0b0f}
+body{font-family:Inter,-apple-system,system-ui,sans-serif;color:#f5f5f7;position:relative;-webkit-font-smoothing:antialiased}
+.glow{position:absolute;left:-180px;top:-260px;width:900px;height:900px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(10,132,255,.32),rgba(10,132,255,0));}
+.glow2{position:absolute;right:-260px;bottom:-420px;width:900px;height:900px;border-radius:50%;
+  background:radial-gradient(closest-side,rgba(10,132,255,.14),rgba(10,132,255,0));}
+.grid{position:absolute;inset:0;background-image:linear-gradient(rgba(255,255,255,.035) 1px,transparent 1px),linear-gradient(90deg,rgba(255,255,255,.035) 1px,transparent 1px);background-size:64px 64px;
+  -webkit-mask-image:radial-gradient(ellipse at 30% 40%,#000 20%,transparent 75%)}
+.wrap{position:absolute;left:96px;top:0;bottom:0;display:flex;flex-direction:column;justify-content:center;width:760px}
+.brand{display:flex;align-items:center;gap:22px;margin-bottom:36px}
+.mark{width:56px;height:56px}
+.name{font-size:38px;font-weight:600;letter-spacing:-.02em}
+h1{margin:0 0 22px;font-size:58px;line-height:1.08;font-weight:650;letter-spacing:-.035em}
+h1 em{font-style:normal;color:#409cff}
+p{margin:0;font-size:24px;line-height:1.4;color:#a1a1a6;font-weight:400;max-width:640px;letter-spacing:-.01em}
+.foot{position:absolute;left:96px;bottom:60px;display:flex;align-items:center;gap:28px;font-size:19px;color:#6e6e73;font-weight:500;letter-spacing:.01em}
+.foot .dot{width:5px;height:5px;border-radius:50%;background:#3a3a3f}
+.foot b{color:#a1a1a6;font-weight:500}
+.big{position:absolute;right:96px;top:50%;transform:translateY(-50%);width:380px;height:380px}
+.big rect{fill:#f5f5f7}
+.big .a{fill:#0a84ff}
+.big .dim{fill:rgba(245,245,247,.10)}
+</style></head><body>
+<div class="glow"></div><div class="glow2"></div><div class="grid"></div>
+<div class="wrap">
+  <div class="brand">
+    <svg class="mark" viewBox="106 106 300 300" fill="#f5f5f7"><rect x="106" y="106" width="88" height="88"/><rect x="212" y="106" width="88" height="88"/><rect x="318" y="106" width="88" height="88"/><rect x="106" y="212" width="88" height="88"/><rect x="212" y="212" width="88" height="88"/><rect x="106" y="318" width="88" height="88"/></svg>
+    <div class="name">Anselm</div>
+  </div>
+  <h1>The agentic<br>workflow platform<br>that <em>builds itself</em>.</h1>
+  <p>Describe what you need. The AI creates functions, agents and workflows, schedules them, and runs them durably on your own machine.</p>
+</div>
+<div class="foot"><span>anselm.website</span><span class="dot"></span><span>macOS<b> · </b>Windows<b> · </b>Linux</span><span class="dot"></span><span>Apache 2.0</span></div>
+<svg class="big" viewBox="106 106 300 300">
+  <rect class="dim" x="212" y="318" width="88" height="88" rx="6"/>
+  <rect class="dim" x="318" y="212" width="88" height="88" rx="6"/>
+  <rect class="dim" x="318" y="318" width="88" height="88" rx="6"/>
+  <rect x="106" y="106" width="88" height="88" rx="6"/>
+  <rect x="212" y="106" width="88" height="88" rx="6"/>
+  <rect x="318" y="106" width="88" height="88" rx="6"/>
+  <rect x="106" y="212" width="88" height="88" rx="6"/>
+  <rect class="a" x="212" y="212" width="88" height="88" rx="6"/>
+  <rect x="106" y="318" width="88" height="88" rx="6"/>
+</svg>
+</body></html>
