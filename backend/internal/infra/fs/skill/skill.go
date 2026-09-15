@@ -566,9 +566,15 @@ func (s *Store) WriteFile(ctx context.Context, name, rel string, data []byte) er
 	if parent := filepath.Dir(filepath.FromSlash(c)); parent != "." {
 		if mkErr := root.MkdirAll(parent, 0o755); mkErr != nil {
 			// An existing symlink/file in the parent is a rejected path, not an
-			// internal server failure. os.Root reports both physical escape forms
-			// through the filesystem's existence/not-a-directory errors.
-			if errors.Is(mkErr, fs.ErrExist) || errors.Is(mkErr, syscall.ENOTDIR) {
+			// internal server failure. os.Root reports a physical escape through the
+			// filesystem's existence/not-a-directory errors on macOS and through its own
+			// unexported "path escapes from parent" error on Linux; the message is the
+			// only handle Go exposes for the latter.
+			// 父目录里已有的符号链接/文件是被拒绝的路径,不是服务端内部错误。os.Root 在 macOS 上以
+			// 存在/非目录错误报告物理逃逸,在 Linux 上以它自己未导出的 "path escapes from parent"
+			// 报告;后者 Go 只暴露了消息文本这一个把手。
+			if errors.Is(mkErr, fs.ErrExist) || errors.Is(mkErr, syscall.ENOTDIR) ||
+				strings.Contains(mkErr.Error(), "path escapes from parent") {
 				return skilldomain.ErrFilePathInvalid
 			}
 			return fmt.Errorf("skillfs.WriteFile mkdir: %w", mkErr)
