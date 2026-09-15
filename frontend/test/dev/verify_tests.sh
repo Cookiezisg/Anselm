@@ -37,7 +37,14 @@ for i in 0 1 2 3; do
 		fail=1
     echo ""
     echo "✗ test group $i (${groups[$i]}) FAILED — failure blocks:"
-    grep -B1 -A30 "\[E\]$" "$LOGDIR/group$i.log" | head -160
+    # A run that died before any test reported (compile error, missing native library,
+    # loader crash) has no [E] block; show the tail so CI logs still say why.
+    # 没跑到任何用例就死掉的运行(编译错误、缺原生库、loader 崩溃)没有 [E] 块;打尾巴让 CI 日志也能说明原因。
+    if grep -q "\[E\]$" "$LOGDIR/group$i.log"; then
+      grep -B1 -A30 "\[E\]$" "$LOGDIR/group$i.log" | head -160
+    else
+      tail -n 80 "$LOGDIR/group$i.log"
+    fi
     echo "  (full log: $LOGDIR/group$i.log)"
   fi
 done

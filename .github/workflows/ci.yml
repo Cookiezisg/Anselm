@@ -52,6 +52,12 @@ jobs:
           path: ~/.pub-cache
           key: pub-${{ runner.os }}-${{ hashFiles('frontend/pubspec.lock') }}
       - run: make -C frontend verify
+      - uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: frontend-test-logs
+          path: /tmp/anselm-verify-*/
+          if-no-files-found: ignore
 
   docs:
     runs-on: ubuntu-latest
