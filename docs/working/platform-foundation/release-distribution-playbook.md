@@ -24,9 +24,11 @@ landed-into:
 - 2026-09-15 起 macOS 为 Developer ID 签名 + hardened runtime + Apple 公证 + staple（凭据经仓库
   secrets 注入一次性钥匙串），Gatekeeper 判定 Notarized Developer ID；Windows 出 Inno Setup 安装器、
   Linux 出 AppImage 与 .deb，两者均未签名。
-- 尚未落地：Windows 签名、clean-machine 验收记录与安装型更新。
+- 2026-09-15 起安装型更新落地：macOS 经 Sparkle 2（EdDSA 签名 appcast 随 Release 发布，沙箱内经
+  Installer.xpc 安装），本机已验证 0.1.2 → 0.1.3 自动升级；Windows 下载安装器、校验 SHA256 后静默
+  安装重启；Linux 仍只提示。
+- 尚未落地：Windows 签名、clean-machine 验收记录。
 - macOS/Linux application ID 已使用 `website.anselm.app`；Windows metadata 仍需发行级复核。
-- 当前仓库没有可声明为已验证的三平台签名、公证、installer、发布 CI 或安装型自动更新链。
 - 开发/测试命令与 current host 能力见
   [`references/frontend/platform.md`](../../references/frontend/platform.md)。
 
@@ -90,8 +92,8 @@ tag/approved manual trigger
 
 ### 6. 更新
 
-首个发行可以只提供“检查新版本并打开下载页”。自动安装只有在 artifact trust chain
-稳定后才进入范围，且必须验证：
+macOS 与 Windows 已提供安装型更新（细节见 platform reference §7），Linux 仍只“检查并打开下载页”。
+任何平台的自动安装都必须满足：
 
 - manifest authenticity；
 - artifact checksum/signature；

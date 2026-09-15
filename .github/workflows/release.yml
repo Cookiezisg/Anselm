@@ -40,6 +40,7 @@ jobs:
     env:
       MACOS_CERT_P12: ${{ secrets.MACOS_CERT_P12 }}
       NOTARY_KEY_P8: ${{ secrets.NOTARY_KEY_P8 }}
+      SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-go@v5
@@ -102,6 +103,17 @@ jobs:
         run: |
           echo "$NOTARY_KEY_P8" | base64 --decode > "$RUNNER_TEMP/AuthKey.p8"
           echo "NOTARY_KEY_PATH=$RUNNER_TEMP/AuthKey.p8" >> "$GITHUB_ENV"
+      # Sparkle's command-line tools generate the appcast; pinned to the same release the app links.
+      - name: Sparkle tools and feed key
+        if: env.SPARKLE_PRIVATE_KEY != ''
+        env:
+          SPARKLE_PRIVATE_KEY: ${{ secrets.SPARKLE_PRIVATE_KEY }}
+        run: |
+          curl -fsSL -o "$RUNNER_TEMP/sparkle.tar.xz" https://github.com/sparkle-project/Sparkle/releases/download/2.10.0/Sparkle-2.10.0.tar.xz
+          mkdir -p "$RUNNER_TEMP/sparkle" && tar -xf "$RUNNER_TEMP/sparkle.tar.xz" -C "$RUNNER_TEMP/sparkle"
+          printf '%s' "$SPARKLE_PRIVATE_KEY" > "$RUNNER_TEMP/sparkle.key"
+          echo "SPARKLE_BIN=$RUNNER_TEMP/sparkle/bin" >> "$GITHUB_ENV"
+          echo "SPARKLE_PRIVATE_KEY_PATH=$RUNNER_TEMP/sparkle.key" >> "$GITHUB_ENV"
       - name: Package
         working-directory: frontend
         env:
@@ -112,11 +124,13 @@ jobs:
           bash tool/package.sh "${{ needs.version.outputs.version }}" ../build/sidecar/anselm-server dist
       - name: Remove signing identity
         if: always() && env.SIGNING_KEYCHAIN != ''
-        run: security delete-keychain "$SIGNING_KEYCHAIN"; rm -f "$RUNNER_TEMP/AuthKey.p8"
+        run: security delete-keychain "$SIGNING_KEYCHAIN"; rm -f "$RUNNER_TEMP/AuthKey.p8" "$RUNNER_TEMP/sparkle.key"
       - uses: actions/upload-artifact@v4
         with:
           name: macos
-          path: frontend/dist/*.dmg
+          path: |
+            frontend/dist/*.dmg
+            frontend/dist/appcast.xml
           if-no-files-found: error
 
   linux:

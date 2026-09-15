@@ -17,5 +17,15 @@
 	<true/>
 	<key>com.apple.security.network.server</key>
 	<true/>
+	<!-- Sparkle's XPC services (Installer + Installer launcher) are looked up by these mach names;
+	     the sandbox needs an explicit exception for each. Literal bundle id on purpose: the release
+	     script re-signs with this file directly, where Xcode's $(PRODUCT_BUNDLE_IDENTIFIER) is not expanded.
+	     Sparkle 的 XPC 服务按这两个 mach 名查找,沙箱须逐个放行。故意写死 bundle id:发行脚本直接拿本文件
+	     重签,那里不会展开 Xcode 变量。 -->
+	<key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+	<array>
+		<string>website.anselm.app-spks</string>
+		<string>website.anselm.app-spki</string>
+	</array>
 </dict>
 </plist>

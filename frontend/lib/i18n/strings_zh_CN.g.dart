@@ -2339,6 +2339,9 @@ class _Translations$settings$about$zh_CN extends Translations$settings$about$en 
 	@override String upToDate({required Object v}) => '已是最新(${v})';
 	@override String updateAvailable({required Object v}) => '新版本 ${v} 可用';
 	@override String get download => '前往下载';
+	@override String get installUpdate => '安装更新';
+	@override String get installing => '正在安装…';
+	@override String get installFailed => '更新安装失败，请到发布页手动下载。';
 	@override String get cantCheck => '无法检查更新(离线或尚未发布)';
 	@override String get diagnostics => '诊断';
 	@override String get copyDiagnostics => '复制诊断信息';
@@ -5230,6 +5233,9 @@ extension on TranslationsZhCn {
 			'settings.about.upToDate' => ({required Object v}) => '已是最新(${v})',
 			'settings.about.updateAvailable' => ({required Object v}) => '新版本 ${v} 可用',
 			'settings.about.download' => '前往下载',
+			'settings.about.installUpdate' => '安装更新',
+			'settings.about.installing' => '正在安装…',
+			'settings.about.installFailed' => '更新安装失败，请到发布页手动下载。',
 			'settings.about.cantCheck' => '无法检查更新(离线或尚未发布)',
 			'settings.about.diagnostics' => '诊断',
 			'settings.about.copyDiagnostics' => '复制诊断信息',
@@ -5272,11 +5278,11 @@ extension on TranslationsZhCn {
 			'settings.mem.sourceUser' => '用户',
 			'settings.mem.sourceAi' => 'AI',
 			'settings.mem.searchHint' => '搜索记忆…',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.browse' => '浏览市场',
 			'settings.mcp.manualAdd' => '手动添加',
 			'settings.mcp.importJson' => '导入 mcp.json',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.empty' => '还没有 MCP 服务器',
 			'settings.mcp.loading' => '正在加载 MCP 服务器…',
 			'settings.mcp.loadFailed' => 'MCP 服务器加载失败',

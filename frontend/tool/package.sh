@@ -32,8 +32,13 @@ case "$(uname -s)" in
     SIGN_FLAGS=(--force --sign "$IDENTITY")
     if [[ "$IDENTITY" != "-" ]]; then
       SIGN_FLAGS+=(--options runtime --timestamp)
-      find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' -o -name '*.bundle' \) -print0 2>/dev/null \
-        | while IFS= read -r -d '' nested; do codesign "${SIGN_FLAGS[@]}" "$nested"; done
+      # -depth signs leaves before their containers, which is what Sparkle's layout needs: its XPC
+      # services, the Autoupdate tool and Updater.app must be signed before Sparkle.framework, and
+      # never with --deep. Their entitlements are preserved (the installer service relies on them).
+      # -depth 先签叶子再签容器,正合 Sparkle 的布局:XPC 服务、Autoupdate、Updater.app 须先于
+      # Sparkle.framework 签,且绝不 --deep;保留它们自带的 entitlements(installer 服务依赖)。
+      find "$APP/Contents/Frameworks" -depth \( -name '*.framework' -o -name '*.dylib' -o -name '*.bundle' -o -name '*.xpc' -o -name '*.app' -o -name Autoupdate \) -print0 2>/dev/null \
+        | while IFS= read -r -d '' nested; do codesign "${SIGN_FLAGS[@]}" --preserve-metadata=entitlements "$nested"; done
     fi
     codesign "${SIGN_FLAGS[@]}" --entitlements macos/Runner/Sidecar.entitlements "$APP/Contents/MacOS/anselm-server"
     codesign "${SIGN_FLAGS[@]}" --entitlements macos/Runner/Release.entitlements "$APP"
@@ -75,6 +80,21 @@ JSON
         xcrun stapler staple "$DMG"
         spctl --assess --type open --context context:primary-signature -v "$DMG"
       fi
+    fi
+    # Sparkle appcast: the feed the installed app polls. Built from the finished DMG so the EdDSA
+    # signature covers exactly the bytes users download; the release workflow attaches it to the
+    # release and the app reads it via the releases/latest/download redirect.
+    # Sparkle appcast:已装 app 轮询的 feed。基于最终 DMG 生成,EdDSA 签名覆盖用户下载的那份字节;
+    # 发行工作流把它挂到 release,app 经 releases/latest/download 跳转读取。
+    if [[ -n "${SPARKLE_PRIVATE_KEY_PATH:-}" && -n "${SPARKLE_BIN:-}" ]]; then
+      FEED_DIR="$(mktemp -d)"
+      cp "$DMG" "$FEED_DIR/"
+      "$SPARKLE_BIN/generate_appcast" --ed-key-file "$SPARKLE_PRIVATE_KEY_PATH" \
+        --download-url-prefix "https://github.com/Cookiezisg/Anselm/releases/download/v$VERSION/" \
+        --link "https://anselm.website/download/" \
+        -o "$OUT/appcast.xml" "$FEED_DIR" >/dev/null
+      rm -rf "$FEED_DIR"
+      echo "✓ $OUT/appcast.xml"
     fi
     rm -rf "$STAGE"
     echo "✓ $DMG"

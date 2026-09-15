@@ -1,3 +1,7 @@
+import 'dart:io';
+
+import 'package:anselm_updater/anselm_updater.dart';
+import 'package:crypto/crypto.dart';
 import 'package:dio/dio.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
@@ -14,7 +18,24 @@ import 'package:package_info_plus/package_info_plus.dart';
 /// 失败(离线/私库/尚无 release)收敛为 unknown——诚实「查不了」,绝不假「已最新」。
 enum UpdateOutcome { upToDate, available, unknown }
 
-typedef UpdateStatus = ({UpdateOutcome outcome, String latest, String url});
+/// The native in-app updater (Sparkle on macOS). Where it is supported it OWNS checking and
+/// installing — the GitHub Releases check below stays the path for the other platforms.
+/// 原生应用内更新器(macOS 走 Sparkle)。支持的平台上由它负责检查与安装;下面的 GitHub Releases 检查
+/// 留给其它平台。
+final nativeUpdaterProvider = Provider<AnselmUpdater>(
+  (_) => const AnselmUpdater(),
+);
+
+/// [installerUrl] and [sumsUrl] are set only on Windows when the latest release carries a setup
+/// executable and a checksum file — the inputs of [UpdateCheckController.installUpdate].
+/// 仅 Windows 且最新 release 带安装器与校验文件时才有 installerUrl/sumsUrl,供 installUpdate 使用。
+typedef UpdateStatus = ({
+  UpdateOutcome outcome,
+  String latest,
+  String url,
+  String? installerUrl,
+  String? sumsUrl,
+});
 
 /// The release feed of this product. 本产品的发行源。
 const kReleasesApi =
@@ -41,20 +62,79 @@ class UpdateCheckController extends AsyncNotifier<UpdateStatus?> {
       );
       final tag = (r.data?['tag_name'] as String?) ?? '';
       final url = (r.data?['html_url'] as String?) ?? kReleasesPage;
-      if (tag.isEmpty) {
-        return (outcome: UpdateOutcome.unknown, latest: '', url: kReleasesPage);
-      }
+      if (tag.isEmpty) return _unknown;
       final local = (await PackageInfo.fromPlatform()).version;
+      final assets = (r.data?['assets'] as List?) ?? const [];
+      String? assetUrl(bool Function(String name) pick) {
+        for (final a in assets) {
+          if (a is Map && pick(a['name'] as String? ?? '')) {
+            return a['browser_download_url'] as String?;
+          }
+        }
+        return null;
+      }
+
       return (
         outcome: isNewerVersion(tag, local)
             ? UpdateOutcome.available
             : UpdateOutcome.upToDate,
         latest: tag,
         url: url,
+        installerUrl: Platform.isWindows
+            ? assetUrl((n) => n.endsWith('-windows-x64-setup.exe'))
+            : null,
+        sumsUrl: assetUrl((n) => n == 'SHA256SUMS.txt'),
       );
     } catch (_) {
-      return (outcome: UpdateOutcome.unknown, latest: '', url: kReleasesPage);
+      return _unknown;
     }
+  }
+
+  static const UpdateStatus _unknown = (
+    outcome: UpdateOutcome.unknown,
+    latest: '',
+    url: kReleasesPage,
+    installerUrl: null,
+    sumsUrl: null,
+  );
+
+  /// Windows: download the setup executable, verify its SHA-256 against the release's checksum
+  /// file, hand off to the installer silently (Inno Setup closes the running app itself), and
+  /// exit. Throws on any mismatch or failure — the caller shows the fallback copy.
+  /// Windows:下载安装器,对照 release 的校验文件核 SHA-256,静默交给安装器(Inno Setup 自己关掉
+  /// 运行中的 app),然后退出。任何不符或失败都抛出——调用方显示兜底文案。
+  Future<void> installUpdate(UpdateStatus s) async {
+    final installer = s.installerUrl;
+    final sums = s.sumsUrl;
+    if (!Platform.isWindows || installer == null || sums == null) {
+      throw StateError('no installer for this platform');
+    }
+    final dio = ref.read(updateCheckDioProvider);
+    final dir = await Directory(
+      '${Directory.systemTemp.path}${Platform.pathSeparator}anselm-update',
+    ).create(recursive: true);
+    final name = Uri.parse(installer).pathSegments.last;
+    final file = File('${dir.path}${Platform.pathSeparator}$name');
+    await dio.download(installer, file.path);
+    final sumsText = (await dio.get<String>(sums)).data ?? '';
+    final expected = sumsText
+        .split('\n')
+        .map((l) => l.trim().split(RegExp(r'\s+')))
+        .where((p) => p.length == 2 && p[1].replaceFirst('*', '') == name)
+        .map((p) => p[0].toLowerCase())
+        .firstOrNull;
+    if (expected == null) throw StateError('no checksum published for $name');
+    final actual = sha256.convert(await file.readAsBytes()).toString();
+    if (actual != expected) {
+      await file.delete();
+      throw StateError('checksum mismatch for $name');
+    }
+    await Process.start(file.path, const [
+      '/SILENT',
+      '/CLOSEAPPLICATIONS',
+      '/RESTARTAPPLICATIONS',
+    ], mode: ProcessStartMode.detached);
+    exit(0);
   }
 }
 

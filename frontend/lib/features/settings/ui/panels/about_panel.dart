@@ -31,6 +31,10 @@ class AboutPanel extends ConsumerWidget {
     final engine = ref.watch(backendVersionProvider).value ?? '';
     final app = ref.watch(appVersionProvider).value ?? '';
     final check = ref.watch(updateCheckProvider);
+    // With a native updater the button hands off to Sparkle's own UI (progress, update sheet,
+    // "up to date"), so no inline outcome row is rendered on that platform.
+    // 有原生更新器时按钮交给 Sparkle 自己的界面(进度、更新面板、「已是最新」),该平台不渲染行内结果。
+    final native = ref.watch(nativeUpdaterProvider);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -61,6 +65,8 @@ class AboutPanel extends ConsumerWidget {
                       outline: true,
                       onPressed: check.isLoading
                           ? null
+                          : native.isSupported
+                          ? native.checkForUpdates
                           : () =>
                                 ref.read(updateCheckProvider.notifier).check(),
                     ),
@@ -68,7 +74,7 @@ class AboutPanel extends ConsumerWidget {
                 ),
               ),
             ),
-            if (check.value != null)
+            if (!native.isSupported && check.value != null)
               Align(
                 alignment: AlignmentDirectional.centerEnd,
                 child: _CheckOutcome(status: check.value),
@@ -126,16 +132,35 @@ class AboutPanel extends ConsumerWidget {
   }
 }
 
-class _CheckOutcome extends StatelessWidget {
+class _CheckOutcome extends ConsumerStatefulWidget {
   const _CheckOutcome({required this.status});
 
   final UpdateStatus? status;
 
   @override
+  ConsumerState<_CheckOutcome> createState() => _CheckOutcomeState();
+}
+
+class _CheckOutcomeState extends ConsumerState<_CheckOutcome> {
+  bool _installing = false;
+  bool _failed = false;
+
+  Future<void> _install(UpdateStatus s) async {
+    setState(() => _installing = true);
+    try {
+      await ref.read(updateCheckProvider.notifier).installUpdate(s);
+    } catch (_) {
+      if (mounted) setState(() => _failed = true);
+    } finally {
+      if (mounted) setState(() => _installing = false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     final t = Translations.of(context);
     final c = context.colors;
-    final s = status;
+    final s = widget.status;
     if (s == null) return const SizedBox.shrink();
     return switch (s.outcome) {
       UpdateOutcome.upToDate => Text(
@@ -151,18 +176,34 @@ class _CheckOutcome extends StatelessWidget {
         children: [
           Flexible(
             child: Text(
-              t.settings.about.updateAvailable(v: s.latest),
+              _failed
+                  ? t.settings.about.installFailed
+                  : t.settings.about.updateAvailable(v: s.latest),
               overflow: TextOverflow.ellipsis,
-              style: AnText.label.copyWith(color: c.accent),
+              style: AnText.label.copyWith(
+                color: _failed ? c.inkMuted : c.accent,
+              ),
             ),
           ),
           const SizedBox(width: AnSpace.s8),
-          AnButton(
-            label: t.settings.about.download,
-            size: AnButtonSize.sm,
-            variant: AnButtonVariant.primary,
-            onPressed: () => openExternalUrl(s.url),
-          ),
+          // Windows installs in place (download, verify, hand off to the installer); elsewhere the
+          // button opens the release page. 有安装器的 Windows 原地安装,其它平台打开发布页。
+          if (s.installerUrl != null && !_failed)
+            AnButton(
+              label: _installing
+                  ? t.settings.about.installing
+                  : t.settings.about.installUpdate,
+              size: AnButtonSize.sm,
+              variant: AnButtonVariant.primary,
+              onPressed: _installing ? null : () => _install(s),
+            )
+          else
+            AnButton(
+              label: t.settings.about.download,
+              size: AnButtonSize.sm,
+              variant: AnButtonVariant.primary,
+              onPressed: () => openExternalUrl(s.url),
+            ),
         ],
       ),
     };

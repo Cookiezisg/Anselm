@@ -14,6 +14,8 @@
 	<string>6.0</string>
 	<key>CFBundleName</key>
 	<string>$(PRODUCT_NAME)</string>
+	<key>CFBundleDisplayName</key>
+	<string>Anselm</string>
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
@@ -30,5 +32,21 @@
 	<string>MainMenu</string>
 	<key>NSPrincipalClass</key>
 	<string>NSApplication</string>
+	<!-- Sparkle (in-app updates). The feed is the appcast attached to the latest GitHub release; the
+	     public key verifies each enclosure's EdDSA signature; the installer launcher service is what
+	     lets a sandboxed app install outside its container. Automatic checks are on so first launch
+	     does not ask.
+	     Sparkle(应用内更新):feed 是最新 GitHub release 附带的 appcast;公钥校验每个附件的 EdDSA 签名;
+	     installer launcher 服务让沙箱 app 能在容器外安装;自动检查默认开,首启不弹询问。 -->
+	<key>SUFeedURL</key>
+	<string>https://github.com/Cookiezisg/Anselm/releases/latest/download/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>fhBIO0fNKOxkvJ5dvZQ4yNm27bvdDRkSuCg3SsGzKpo=</string>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

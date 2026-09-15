@@ -28,10 +28,17 @@ class _StartupUpdateCheckState extends ConsumerState<StartupUpdateCheck> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) async {
-      if (!mounted ||
-          !ref.read(boolSettingProvider(SettingsKeys.updateCheck))) {
+      if (!mounted) return;
+      final on = ref.read(boolSettingProvider(SettingsKeys.updateCheck));
+      final native = ref.read(nativeUpdaterProvider);
+      if (native.isSupported) {
+        // Sparkle schedules its own background checks; the General-panel switch just drives its
+        // automatic-check flag (mirrored again in build() when the switch flips).
+        // Sparkle 自己安排后台检查;通用面板的开关只驱动它的自动检查标志(build() 里再镜像一次开关翻转)。
+        await native.setAutomaticallyChecksForUpdates(on);
         return;
       }
+      if (!on) return;
       final s = await ref.read(updateCheckProvider.notifier).check();
       if (!mounted || s.outcome != UpdateOutcome.available) return;
       ref
@@ -44,5 +51,11 @@ class _StartupUpdateCheckState extends ConsumerState<StartupUpdateCheck> {
   }
 
   @override
-  Widget build(BuildContext context) => widget.child;
+  Widget build(BuildContext context) {
+    ref.listen(boolSettingProvider(SettingsKeys.updateCheck), (_, on) {
+      final native = ref.read(nativeUpdaterProvider);
+      if (native.isSupported) native.setAutomaticallyChecksForUpdates(on);
+    });
+    return widget.child;
+  }
 }

@@ -5817,6 +5817,15 @@ class Translations$settings$about$en {
 	/// en: 'Download'
 	String get download => 'Download';
 
+	/// en: 'Install update'
+	String get installUpdate => 'Install update';
+
+	/// en: 'Installing…'
+	String get installing => 'Installing…';
+
+	/// en: 'The update could not be installed. Download it from the releases page instead.'
+	String get installFailed => 'The update could not be installed. Download it from the releases page instead.';
+
 	/// en: 'Couldn't check for updates (offline or nothing published yet)'
 	String get cantCheck => 'Couldn\'t check for updates (offline or nothing published yet)';
 
@@ -9821,6 +9830,9 @@ extension on Translations {
 			'settings.about.upToDate' => ({required Object v}) => 'Up to date (${v})',
 			'settings.about.updateAvailable' => ({required Object v}) => 'Version ${v} available',
 			'settings.about.download' => 'Download',
+			'settings.about.installUpdate' => 'Install update',
+			'settings.about.installing' => 'Installing…',
+			'settings.about.installFailed' => 'The update could not be installed. Download it from the releases page instead.',
 			'settings.about.cantCheck' => 'Couldn\'t check for updates (offline or nothing published yet)',
 			'settings.about.diagnostics' => 'Diagnostics',
 			'settings.about.copyDiagnostics' => 'Copy diagnostics',
@@ -9863,11 +9875,11 @@ extension on Translations {
 			'settings.mem.sourceUser' => 'user',
 			'settings.mem.sourceAi' => 'AI',
 			'settings.mem.searchHint' => 'Search memories…',
+			_ => null,
+		} ?? switch (path) {
 			'settings.mcp.browse' => 'Browse marketplace',
 			'settings.mcp.manualAdd' => 'Add manually',
 			'settings.mcp.importJson' => 'Import mcp.json',
-			_ => null,
-		} ?? switch (path) {
 			'settings.mcp.empty' => 'No MCP servers yet',
 			'settings.mcp.loading' => 'Loading MCP servers…',
 			'settings.mcp.loadFailed' => 'Couldn\'t load MCP servers',

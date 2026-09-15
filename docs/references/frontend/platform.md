@@ -81,9 +81,21 @@ Application 证书）时，嵌套框架、sidecar（`Sidecar.entitlements`：app
 `NOTARY_KEY_P8`/`NOTARY_KEY_ID`/`NOTARY_ISSUER_ID`（App Store Connect API key）时经 notarytool 公证并
 staple。没有这些 secrets 则退回 ad-hoc 签名，用户首次打开需手动放行。证书只进 job 内的一次性钥匙串。DMG 由 appdmg 出图：背景 `macos/dmg/background.png`
 由 `tool/dmg_background.py` 渲染（800×500 窗口、176 图标，app 与 Applications 的坐标两处必须一致）；
-三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑。Windows 与 Linux 产物尚未签名；官网下载页读取 Releases 的最新资产。可信签名链、安装器与安装型自动更新仍是
-[`working/platform-foundation/`](../../working/platform-foundation/) 的未完成合同。Settings 的
-更新检查只查询 Releases 并提示，不下载不安装。
+三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑。Windows 与 Linux 产物尚未签名；官网下载页读取 Releases 的最新资产。Windows 签名与 clean-machine 验收记录仍是
+[`working/platform-foundation/`](../../working/platform-foundation/) 的未完成合同。
+
+应用内更新按平台分三档。macOS 走 Sparkle 2（本地插件 `packages/anselm_updater`，Swift Package 固定
+2.10.0）：插件注册时创建 `SPUStandardUpdaterController`，后台按 `Info.plist` 的
+`SUScheduledCheckInterval`（一天）静默检查 `SUFeedURL`（最新 Release 附带的 `appcast.xml`），
+用 `SUPublicEDKey` 校验附件的 EdDSA 签名，经 `SUEnableInstallerLauncherService` 在沙箱外安装并重启；
+两个 entitlements 文件为此放行 `website.anselm.app-spks`/`-spki` 两个 mach 服务名。`package.sh` 在
+`SPARKLE_PRIVATE_KEY_PATH` 与 `SPARKLE_BIN` 齐备时用 `generate_appcast` 产出 appcast，CI 从
+`SPARKLE_PRIVATE_KEY` secret 注入。Dart 侧 `AnselmUpdater` 只做三件事：About 面板的手动检查、把
+Settings 的“自动检查更新”开关镜像到 Sparkle、读 feed URL；Sparkle 的标准对话框负责其余交互。
+Windows 仍由 `update_check_provider` 查询 Releases，About 面板的“安装更新”把 `-setup.exe` 下载到临时目录、
+按 `SHA256SUMS.txt` 校验后以 `/SILENT /CLOSEAPPLICATIONS /RESTARTAPPLICATIONS` 启动安装器并退出
+当前进程；Linux 只提示并打开 Release 页。本地验证 Sparkle 链路时可用
+`defaults write website.anselm.app SUFeedURL <本地 appcast>` 临时改 feed，验完 `defaults delete`。
 
 当前 macOS 关闭最后一个窗口后会退出，Windows close 同样退出；历史研究中的“关闭后驻留后台”
 尚未落地，也仍需按当前三平台约束复核。

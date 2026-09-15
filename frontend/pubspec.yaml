@@ -1,7 +1,7 @@
 name: anselm
 description: "Anselm — local-first agentic workflow platform · Flutter desktop client."
 publish_to: 'none'
-version: 0.1.2+3
+version: 0.1.3+4
 
 environment:
   sdk: ^3.11.5
@@ -49,6 +49,8 @@ dependencies:
   # HTTP transport (REST ApiClient) + the long-lived SSE GET (ResponseType.stream). The one
   # runtime dep the net + sse layers need. 网络传输:REST + 长连 SSE(均走 dio 流)。
   dio: ^5.9.2
+  # SHA-256 of a downloaded Windows installer against the release's SHA256SUMS. 校验下载的安装器。
+  crypto: ^3.0.6
   # Contract DTO codegen runtime annotations (@freezed / @Default / @JsonKey unknownEnumValue).
   # 契约 DTO codegen 运行时注解(freezed 3.x + json 联合体 unknown 兜底)。
   freezed_annotation: ^3.1.0
@@ -86,6 +88,10 @@ dependencies:
   url_launcher: ^6.3.2
   launch_at_startup: ^0.5.1
   package_info_plus: ^9.0.1
+  # In-app updater (Sparkle on macOS). Local plugin so the host stays SPM-only.
+  # 应用内更新(macOS 走 Sparkle)。本地插件,宿主继续纯 SPM。
+  anselm_updater:
+    path: packages/anselm_updater
   screen_retriever: ^0.2.2
   flutter_secure_storage: ^10.3.1
   record: ^6.2.1
