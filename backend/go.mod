@@ -13,9 +13,9 @@ require (
 	github.com/robfig/cron/v3 v3.0.1
 	go.uber.org/zap v1.28.0
 	go.yaml.in/yaml/v3 v3.0.4
-	golang.org/x/image v0.44.0
+	golang.org/x/image v0.45.0
 	golang.org/x/oauth2 v0.35.0
-	golang.org/x/sys v0.41.0
+	golang.org/x/sys v0.47.0
 	gopkg.in/natefinch/lumberjack.v2 v2.2.1
 )
 
