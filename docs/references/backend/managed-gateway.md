@@ -127,7 +127,7 @@ deploy run `31029785594` 均成功，部署器和独立公网请求均确认 `/h
 
 - 后端自动 hook 的开通是 best-effort：网关不可达不能阻塞本地启动或 API workspace 创建；桌面首启会在 Chat 壳内显示「正在准备工作区…」，等待前台检查返回，最多 20 秒，降级后仍释放本地壳供 BYOK/设置恢复。
 - workspace 删除先停止并等待该 workspace 的异步 provision flight；取消属于生命周期收束，不作为免费档故障 WARN，也不允许在删除行之后写入 managed key。
-- 已有 managed 行只有在网关明确返回 `INVALID_INSTALL` 时才重新登记并原位轮换 install id；网络闪断、限流或临时 5xx 不得毁掉有效 install。
+- 已有 managed 行只有在网关明确返回 `INVALID_INSTALL`，或行内凭证在当前 master key 下解不开（`CRYPTO_DECRYPT_FAILED`，钥匙串某次不可用或开发版共用数据目录）时才重新登记并原位轮换 install id；网络闪断、限流或临时 5xx 不得毁掉有效 install。解不开的情况在每次 boot 的 `EnsureForWorkspace` 就地修复（本地解密检查，健康路径不敲网关）；`INVALID_INSTALL` 只在显式 `:provision` 时探测。
 - managed 行对用户不可编辑/删除；quota 与能力由 sidecar 代理读取。
 - 默认 live/evals 通过部署网关验证受管路径；BYOK 对照必须显式开启并自行提供测试 key，不能由 managed fallback 代跑。
 - 任何测试、日志与文档都不得输出或提交用户 key、device-proof 私钥或网关 secret。

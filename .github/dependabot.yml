@@ -13,11 +13,18 @@ updates:
     schedule: {interval: weekly}
     groups:
       go: {patterns: ['*']}
+  # Major Dart package bumps (freezed 4, go_router 18, …) are migrations, not merges, and some
+  # need a newer Dart SDK than the pinned Flutter ships; only minor/patch arrive as a group.
+  # Dart 包的大版本(freezed 4、go_router 18 等)是迁移不是合并,有的还要求比钉住的 Flutter 更新的 SDK;
+  # 只成组提 minor/patch。
   - package-ecosystem: pub
     directory: /frontend
     schedule: {interval: weekly}
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
     groups:
-      dart: {patterns: ['*']}
+      dart: {patterns: ['*'], update-types: ['minor', 'patch']}
   - package-ecosystem: npm
     directory: /demo
     schedule: {interval: weekly}

@@ -38,7 +38,7 @@ API key 以 AES-GCM 加密存储，普通读形态只返回掩码元数据。Cre
 Provisioner 在 boot 与 workspace 创建后 best-effort 确保 managed 行和未配置 scenario 默认。机器级 Ed25519 私钥加密落盘，只由 sidecar 使用。
 
 - 没有 managed 行时登记 install 并创建；
-- 已有行只在网关明确 `INVALID_INSTALL` 时原位修复；
+- 已有行只在网关明确 `INVALID_INSTALL`（显式 provision 时探测）或凭证解不开 `CRYPTO_DECRYPT_FAILED`（boot 即修）时原位修复；
 - 瞬时网络/限流/5xx 不轮换身份；
 - quota 由 sidecar 带 proof 代理；
 - 失败不阻塞本地启动/onboarding。

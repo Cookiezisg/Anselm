@@ -8,6 +8,8 @@ import 'package:flutter_test/flutter_test.dart';
 import '../../support/announce_probe.dart';
 
 void main() {
+  _rowTests();
+
   // No fixed height — AnState centers within its bounds and shrink-wraps when height is unbounded (its
   // real usage is inside a scrollable/flex parent). 不固定高:AnState 在界内居中、无界时收缩包裹。
   Widget host(Widget child, {double width = 360, bool reduced = false}) =>
@@ -176,5 +178,40 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
+  });
+}
+
+// The row register is a single left-aligned line the height of an ordinary row: glyph, title and
+// hint side by side, no centered column. 一行制式:字形、标题、提示同排左对齐,不是居中列。
+Widget _rowHost(Widget child) => MaterialApp(
+  theme: AnTheme.light(),
+  home: Scaffold(
+    body: SizedBox(width: 480, child: Center(child: child)),
+  ),
+);
+
+void _rowTests() {
+  testWidgets('row size lays out as one line and keeps the a11y sentence', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _rowHost(
+        const AnState(
+          kind: AnStateKind.empty,
+          size: AnStateSize.row,
+          title: 'No keys yet',
+          hint: 'Add one to start.',
+        ),
+      ),
+    );
+    final row = tester.getSize(find.byType(AnState));
+    expect(row.height, lessThan(48), reason: 'a row, not a block');
+    expect(find.byType(Row), findsOneWidget);
+    expect(find.textContaining('No keys yet'), findsOneWidget);
+    expect(find.textContaining('Add one to start.'), findsOneWidget);
+    expect(
+      find.bySemanticsLabel(RegExp('No keys yet.*Add one to start')),
+      findsOneWidget,
+    );
   });
 }

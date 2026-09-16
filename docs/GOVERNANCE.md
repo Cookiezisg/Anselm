@@ -57,7 +57,7 @@ audience: [human, ai]
 | `how-to` | 分步操作手册 | 流程变更时更新 | 半年 | `how-to/` |
 | `decision` | ADR——为何选 X 不选 Y | **不可变**（只新建 supersede、绝不编辑） | 永不 | `decisions/` |
 | `log` | 时间序进度/决策日志 | **仅追加** | 永不 | `references/changelog.md` 等 |
-| `working` | 在研、临时、过程性 | 落地前活跃 | **90 天上限** | `working/` |
+| `working` | 在研、临时、过程性 | 落地前活跃 | **自上次审阅 90 天上限** | `working/` |
 
 ---
 
@@ -179,14 +179,15 @@ draft → active → superseded → archived
 
 ## 9. working 文档协议
 
-`working/` 文档**最长 90 天**。落地时：
+`working/` 文档自上次审阅（`reviewed`）起**最长 90 天**：按周期复审的长期循环（如 backend-evolution）
+保持活跃，一个季度无人复审的战役即视为僵尸。落地时：
 
 1. 把结论提取进对应的 `concepts/` 或 `references/` 文档（那才是权威源）。
 2. frontmatter 填 `landed-into:` = 目标文档路径。
 3. `git mv` 该文件到 `archive/`。
 4. 若 `INDEX.md` 引用过它，更新 `INDEX.md`。
 
-超过 90 天且 `landed-into` 为空的 working 文档由 `make -C docs verify` 标记为错误。
+`reviewed` 距今超过 90 天且 `landed-into` 为空的 working 文档由 `make -C docs verify` 标记为错误。
 
 ---
 

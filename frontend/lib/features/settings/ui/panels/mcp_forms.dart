@@ -381,7 +381,7 @@ class _McpMarketState extends ConsumerState<McpMarket> {
             if (rows.isEmpty)
               AnState(
                 kind: AnStateKind.empty,
-                size: AnStateSize.inset,
+                size: AnStateSize.row,
                 title: t.settings.mcp.empty,
               ),
           ],

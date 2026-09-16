@@ -78,7 +78,7 @@ class SandboxPanel extends ConsumerWidget {
                   return AnState(
                     kind: AnStateKind.empty,
                     title: t.settings.sandbox.noRuntimes,
-                    size: AnStateSize.inset,
+                    size: AnStateSize.row,
                   );
                 }
                 return Column(
@@ -466,7 +466,7 @@ class _EnvList extends ConsumerWidget {
           // Only a settled empty response may say there are no environments. 仅服务端落定空数组才能进入空态。
           return AnState(
             kind: AnStateKind.empty,
-            size: AnStateSize.inset,
+            size: AnStateSize.row,
             title: t.settings.sandbox.noEnvs,
           );
         }

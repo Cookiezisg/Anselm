@@ -26,6 +26,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/anselm/backend/internal/app/apikey"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -68,6 +69,10 @@ type Keys interface {
 	// RotateManagedCredential 就地更换受管行的秘密(行 id 不变)——网关不再认该 install 时的修复缝。
 	// 见 ProvisionNow。
 	RotateManagedCredential(ctx context.Context, id, newKey, testResponse string) error
+	// ResolveCredentialsByID decrypts the row's secret; the boot path uses it as the local
+	// "does this credential still open" check before deciding to heal.
+	// ResolveCredentialsByID 解密该行秘密;boot 路径用它做「这把凭证还打得开吗」的本地检查。
+	ResolveCredentialsByID(ctx context.Context, id string) (apikeydomain.Credentials, error)
 }
 
 // Defaults is the workspace port for seeding scenario defaults (a subset of *workspaceapp.Service),
@@ -277,10 +282,19 @@ func (p *Provisioner) withFlight(ctx context.Context, work func(context.Context)
 // 与本包其余一切同为 best-effort:自愈失败只留日志、行保持原样——下次显式 provision 再试。
 func (p *Provisioner) healIfInstallDead(ctx context.Context, keyID string) {
 	res, err := p.keys.Test(ctx, keyID)
-	if err != nil || res == nil || res.OK {
+	switch {
+	case errors.Is(err, cryptodomain.ErrDecrypt):
+		// The stored install id no longer opens under the current master key (the keychain was
+		// unavailable for one launch and the sidecar ran on the fingerprint; a dev build shared the
+		// data directory). The credential is unreadable forever and the row is immutable to the
+		// user, so this is the same dead end as INVALID_INSTALL with a local cause: re-register.
+		// 存的 install id 在当前主密钥下打不开(某次启动钥匙串不可用、sidecar 走了指纹;开发版共用数据
+		// 目录)。凭证永久不可读、行对用户不可变——与 INVALID_INSTALL 同一种死结,只是原因在本地:重新登记。
+		p.log.Warn("free-tier heal: managed credential does not decrypt under the current master key; re-registering",
+			zap.String("key_id", keyID))
+	case err != nil, res == nil, res.OK:
 		return // healthy, or a failure with no verdict — never rotate on those 健康,或无结论的失败——都不轮换
-	}
-	if !strings.Contains(res.Message, "INVALID_INSTALL") {
+	case !strings.Contains(res.Message, "INVALID_INSTALL"):
 		return
 	}
 	raw, err := p.fp()
@@ -322,6 +336,15 @@ func (p *Provisioner) ensureForWorkspace(ctx context.Context) (bool, error) {
 		// Already provisioned — still seed defaults (self-heal a workspace whose key predates the
 		// seeding, or whose defaults were cleared). SeedDefaultsIfUnset is a no-op when all three are set.
 		p.seedDefaults(ctx, existing[0].ID)
+		// A credential that no longer decrypts is repaired at boot, without waiting for the user to
+		// find the repair button: the check is local (no gateway round-trip unless it fails), so it
+		// costs nothing on the healthy path. Gateway-side death (INVALID_INSTALL) still waits for an
+		// explicit provision — probing the gateway on every boot is the double knock ProvisionNow avoids.
+		// 解不开的凭证在 boot 就修,不等用户去找修复按钮:检查是本地的(不失败就不敲网关),健康路径零成本。
+		// 网关侧的死结(INVALID_INSTALL)仍等显式 provision——每次 boot 探网关正是 ProvisionNow 避免的双敲。
+		if _, err := p.keys.ResolveCredentialsByID(ctx, existing[0].ID); errors.Is(err, cryptodomain.ErrDecrypt) {
+			p.healIfInstallDead(ctx, existing[0].ID)
+		}
 		return true, nil
 	}
 

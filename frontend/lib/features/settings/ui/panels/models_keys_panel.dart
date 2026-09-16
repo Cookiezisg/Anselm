@@ -165,21 +165,18 @@ class _ModelKeysSection extends ConsumerWidget {
         switch (keys) {
           AsyncData(:final value)
               when value.every((k) => searchNames.contains(k.provider)) =>
-            Padding(
-              padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
-              child: AnState(
-                kind: AnStateKind.empty,
-                // NOT the section title (WRK-083 墓碑): an empty state that repeats the heading right
-                // above it is a gravestone — an icon, a word you already read, and no way forward.
-                // Every other empty state in settings names the EMPTINESS (`noTools` / `noEnvs` /
-                // `noMatches`) and says what to do next; these two borrowed a `*Section` key instead.
-                // **不用分区标题**(WRK-083 墓碑):一个复读它正上方标题的空态就是块墓碑——一个图标、一个你刚
-                // 读过的词、以及无路可走。设置里其余每一处空态都点名**空本身**(noTools/noEnvs/noMatches)并说下一步
-                // 该做什么;唯独这两处借了 `*Section` 的 key。
-                title: t.settings.keys.noModelKeys,
-                hint: t.settings.keys.noModelKeysHint,
-                size: AnStateSize.inset,
-              ),
+            AnState(
+              kind: AnStateKind.empty,
+              // NOT the section title (WRK-083 墓碑): an empty state that repeats the heading right
+              // above it is a gravestone — an icon, a word you already read, and no way forward.
+              // Every other empty state in settings names the EMPTINESS (`noTools` / `noEnvs` /
+              // `noMatches`) and says what to do next; these two borrowed a `*Section` key instead.
+              // **不用分区标题**(WRK-083 墓碑):一个复读它正上方标题的空态就是块墓碑——一个图标、一个你刚
+              // 读过的词、以及无路可走。设置里其余每一处空态都点名**空本身**(noTools/noEnvs/noMatches)并说下一步
+              // 该做什么;唯独这两处借了 `*Section` 的 key。
+              title: t.settings.keys.noModelKeys,
+              hint: t.settings.keys.noModelKeysHint,
+              size: AnStateSize.row,
             ),
           AsyncData(:final value) => Column(
             children: [
@@ -1845,15 +1842,12 @@ class _SearchKeysSection extends ConsumerWidget {
           ),
         ),
         switch (keysAsync) {
-          AsyncData() when searchKeys.isEmpty => Padding(
-            padding: const EdgeInsets.symmetric(vertical: AnSpace.s16),
-            child: AnState(
-              kind: AnStateKind.empty,
-              // Same rule as the model-keys empty above (WRK-083 墓碑). 同上,见模型密钥空态。
-              title: t.settings.keys.noSearchKeys,
-              hint: t.settings.keys.noSearchKeysHint,
-              size: AnStateSize.inset,
-            ),
+          AsyncData() when searchKeys.isEmpty => AnState(
+            kind: AnStateKind.empty,
+            // Same rule as the model-keys empty above (WRK-083 墓碑). 同上,见模型密钥空态。
+            title: t.settings.keys.noSearchKeys,
+            hint: t.settings.keys.noSearchKeysHint,
+            size: AnStateSize.row,
           ),
           AsyncData() => Column(
             children: [
@@ -2300,7 +2294,7 @@ class _ProviderMarketState extends ConsumerState<_ProviderMarket> {
         if (rows.isEmpty)
           AnState(
             kind: AnStateKind.empty,
-            size: AnStateSize.inset,
+            size: AnStateSize.row,
             title: t.settings.keys.noProviderMatch,
           ),
         const SizedBox(height: AnSpace.s16),

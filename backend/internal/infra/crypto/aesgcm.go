@@ -9,6 +9,7 @@ import (
 	"crypto/sha256"
 	"encoding/base64"
 	"fmt"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 	errorspkg "github.com/sunweilin/anselm/backend/internal/pkg/errors"
 	"io"
 )
@@ -80,7 +81,7 @@ func (e *AESGCMEncryptor) Decrypt(_ context.Context, ciphertext []byte) ([]byte,
 	}
 	plaintext, err := e.gcm.Open(nil, sealed[:nonceSize], sealed[nonceSize:], nil)
 	if err != nil {
-		return nil, fmt.Errorf("aesgcm: open: %w", err)
+		return nil, fmt.Errorf("aesgcm: open: %w: %v", cryptodomain.ErrDecrypt, err)
 	}
 	return plaintext, nil
 }
