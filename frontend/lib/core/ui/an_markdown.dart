@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:gpt_markdown/custom_widgets/indent_widget.dart'
     show BlockQuoteWidget;
-import 'package:gpt_markdown/custom_widgets/markdown_config.dart'
-    show GptMarkdownConfig;
 import 'package:gpt_markdown/gpt_markdown.dart';
 
 import '../../i18n/strings.g.dart';
@@ -224,7 +222,7 @@ class AnMarkdown extends StatelessWidget {
         style: body,
         onLinkTap: _guardedLinkTap,
         codeBuilder: _fencedCode,
-        highlightBuilder: _inlineCode,
+        inlineCodeBuilder: _inlineCode,
         imageBuilder: _imagePlaceholder,
         tableBuilder: _table,
         orderedListBuilder: _orderedItem,
@@ -275,8 +273,15 @@ class AnMarkdown extends StatelessWidget {
   // `dense` in embedded → the 12 codeInline face (a rung under the shared mono 13); the DEFAULT chip stays
   // mono 13 so the editor's rest-state chip + the chat reading chip remain pixel-identical. 嵌入=12 小码档;
   // 默认仍 mono 13,保编辑器静置 chip 与 chat 阅读 chip 逐像素一致。
-  Widget _inlineCode(BuildContext context, String text, TextStyle style) =>
-      AnCodeChip(text, dense: _embedded);
+  // gpt_markdown 1.2 builds inline code as a span so it wraps and selects like text; the chip is
+  // still a widget, so it rides the library's baseline-aligned span (the same wrapper the legacy
+  // hook used). 1.2 起行内代码以 span 构建,能换行、能选中;chip 仍是 widget,走库自带的基线对齐 span。
+  InlineSpan _inlineCode(
+    BuildContext context,
+    String text,
+    TextStyle style,
+    InlineCodeStyle codeStyle,
+  ) => baselineWidgetSpan(AnCodeChip(text, dense: _embedded));
 
   // Images: an inert chip, NEVER a network fetch (no NetworkImage anywhere) — remote images from model/tool
   // output are an exfiltration + local-SSRF channel. 图片:惰性 chip,绝不取网(渗出/SSRF 通道封死)。
