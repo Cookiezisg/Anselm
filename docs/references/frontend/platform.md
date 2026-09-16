@@ -89,7 +89,9 @@ Application 证书）时，嵌套框架、sidecar（`Sidecar.entitlements`：app
 `NOTARY_KEY_P8`/`NOTARY_KEY_ID`/`NOTARY_ISSUER_ID`（App Store Connect API key）时经 notarytool 公证并
 staple。没有这些 secrets 则退回 ad-hoc 签名，用户首次打开需手动放行。证书只进 job 内的一次性钥匙串。DMG 由 appdmg 出图：背景 `macos/dmg/background.png`
 由 `tool/dmg_background.py` 渲染（800×500 窗口、176 图标，app 与 Applications 的坐标两处必须一致）；
-三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑。Windows 与 Linux 产物尚未签名；官网下载页读取 Releases 的最新资产。Windows 签名与 clean-machine 验收记录仍是
+三平台图标由 `tool/app_icon.py` 从品牌几何生成，改图标只改脚本再重跑；macOS 26 起系统改用 Icon Composer
+文档 `macos/Runner/AppIcon.icon`（白底 + 标志一层 SVG，registered 在 Xcode 工程里，需 Xcode 26 编译，故 macOS
+job 跑在 `macos-26`），旧模板 appiconset 只服务 macOS 12–15。Windows 与 Linux 产物尚未签名；官网下载页读取 Releases 的最新资产。Windows 签名与 clean-machine 验收记录仍是
 [`working/platform-foundation/`](../../working/platform-foundation/) 的未完成合同。
 
 应用内更新按平台分三档。macOS 走 Sparkle 2（本地插件 `packages/anselm_updater`，Swift Package 固定

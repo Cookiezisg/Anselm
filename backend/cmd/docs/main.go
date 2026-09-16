@@ -172,14 +172,18 @@ func (l *linter) checkFile(path string) {
 	if due, err := time.Parse(frontmatterDate, fm["review-due"]); err == nil && due.Before(l.now) {
 		l.warnf("%s: review-due %s is past (re-review)", rel, fm["review-due"])
 	}
-	// working doc > 90 days with empty landed-into → fail.
+	// working doc not reviewed for 90 days with empty landed-into → fail. The clock runs from
+	// the last review, not creation: a standing loop that is re-reviewed on its cycle stays
+	// alive, one nobody has touched for a quarter is the stale campaign the rule targets.
+	// 90 天从上次审阅算,不从创建算:按周期复审的长期循环仍然活着;一个季度没人碰的才是这条规则
+	// 要抓的僵尸战役。
 	if fm["type"] == "working" {
 		if _, exists := fm["landed-into"]; !exists {
 			l.errf("%s: working frontmatter missing field %q (GOVERNANCE §3/§9)", rel, "landed-into")
 		}
-		if created, err := time.Parse(frontmatterDate, fm["created"]); err == nil {
-			if l.now.Sub(created) > time.Duration(workingMaxDays)*24*time.Hour && strings.TrimSpace(fm["landed-into"]) == "" {
-				l.errf("%s: working doc older than %dd with empty landed-into (GOVERNANCE §9)", rel, workingMaxDays)
+		if reviewed, err := time.Parse(frontmatterDate, fm["reviewed"]); err == nil {
+			if l.now.Sub(reviewed) > time.Duration(workingMaxDays)*24*time.Hour && strings.TrimSpace(fm["landed-into"]) == "" {
+				l.errf("%s: working doc not reviewed for %dd with empty landed-into (GOVERNANCE §9)", rel, workingMaxDays)
 			}
 		}
 	}

@@ -6,14 +6,18 @@ in a 512 canvas the squares are 88 wide on a 106 grid, inset 106 on every side. 
 draws that geometry at full resolution instead of rasterising the SVG, so there is no extra
 tool in the pipeline:
 
-  • macOS  — Apple's template: a 1024 canvas with the 824-point rounded square centred and a
-             soft shadow, exported at every size Assets.xcassets/AppIcon.appiconset lists.
+  • macOS 12–15 — Apple's pre-Tahoe template: a 1024 canvas with the 824-point rounded square
+             centred and a soft shadow, exported at every size Assets.xcassets/AppIcon.appiconset
+             lists. macOS 26+ ignores these and renders macos/Runner/AppIcon.icon (Icon Composer
+             document: white fill + the mark as one SVG layer), which is hand-written, not
+             generated here.
   • Windows — full-bleed rounded square packed into app_icon.ico (16/32/48/256).
   • Linux   — the same full-bleed tile as a 512 PNG for the .desktop entry, AppImage and .deb.
 
 从品牌几何生成桌面图标。品牌图标=白色圆角方 + 近黑六方块(3·2·1):512 画布上方块宽 88、网格 106、四周
-内缩 106。这里按几何直接高分辨率绘制而不是栅格化 SVG,流水线不多带工具:macOS 按 Apple 模板(1024 画布
-居中 824 圆角方 + 柔和阴影,导出 AppIcon.appiconset 列出的每个尺寸);Windows 为满幅圆角方打进 .ico。
+内缩 106。这里按几何直接高分辨率绘制而不是栅格化 SVG,流水线不多带工具:macOS 12–15 按 Apple 旧模板(1024
+画布居中 824 圆角方 + 柔和阴影,导出 AppIcon.appiconset 列出的每个尺寸);macOS 26+ 不看这些,渲染手写的
+macos/Runner/AppIcon.icon(Icon Composer 文档:白底 + 标志一层 SVG);Windows 为满幅圆角方打进 .ico。
 """
 from pathlib import Path
 
