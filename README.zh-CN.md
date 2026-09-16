@@ -145,7 +145,7 @@ brew install --cask Cookiezisg/tap/anselm
 
 每个包都自带桌面应用和 Go sidecar，不需要别的。macOS 用 DMG、Windows 用 setup 安装器；归档是便携版。首次启动时应用会创建数据目录和默认工作区，受管模型路径无需配置任何密钥。
 
-> macOS 构建已用 Developer ID 签名并经 Apple 公证，像其他应用一样直接打开。Windows 与 Linux 构建尚未签名；Windows SmartScreen 首次会提示。签名政策见 [SECURITY.md](SECURITY.md#code-signing-policy)。
+> macOS 构建已用 Developer ID 签名并经 Apple 公证，像其他应用一样直接打开。Windows 与 Linux 构建尚未签名；Windows SmartScreen 首次会提示。Windows 构建已向 [SignPath Foundation](https://signpath.org) 申请面向开源项目的免费代码签名。签名政策见 [SECURITY.md](SECURITY.md#code-signing-policy)。
 
 ### 从源码构建
 
