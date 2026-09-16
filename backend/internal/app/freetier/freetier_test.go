@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"errors"
+	"fmt"
 	"testing"
 	"time"
 
@@ -12,6 +13,7 @@ import (
 
 	apikeyapp "github.com/sunweilin/anselm/backend/internal/app/apikey"
 	apikeydomain "github.com/sunweilin/anselm/backend/internal/domain/apikey"
+	cryptodomain "github.com/sunweilin/anselm/backend/internal/domain/crypto"
 	modeldomain "github.com/sunweilin/anselm/backend/internal/domain/model"
 	llminfra "github.com/sunweilin/anselm/backend/internal/infra/llm"
 	reqctxpkg "github.com/sunweilin/anselm/backend/internal/pkg/reqctx"
@@ -31,6 +33,14 @@ type fakeKeys struct {
 	rotated    []rotation
 	rotateErr  error
 	onTest     func()
+	resolveErr error // scripted decrypt verdict for ResolveCredentialsByID 脚本化解密结论
+}
+
+func (f *fakeKeys) ResolveCredentialsByID(_ context.Context, id string) (apikeydomain.Credentials, error) {
+	if f.resolveErr != nil {
+		return apikeydomain.Credentials{}, f.resolveErr
+	}
+	return apikeydomain.Credentials{Key: "ins_" + id}, nil
 }
 
 // Test records the live-capability refresh the provisioner performs after minting the managed key,
@@ -483,5 +493,45 @@ func TestProvisionRefreshesCapabilitiesFromTheGateway(t *testing.T) {
 	}
 	if len(keys2.created) != 1 {
 		t.Fatalf("the managed key must still exist after a failed probe, got %d", len(keys2.created))
+	}
+}
+
+// A managed credential sealed under a previous master key is repaired at boot (EnsureForWorkspace)
+// and on explicit provision, without the user finding the repair button. The decrypt sentinel is
+// the trigger; a transient probe error still never rotates.
+// 封在旧主密钥下的受管凭证在 boot 与显式 provision 都自愈,不用用户找修复按钮。触发是解密哨兵;瞬时探测
+// 错误仍不轮换。
+func TestHeal_UndecryptableCredentialRotatesAtBootAndOnProvision(t *testing.T) {
+	decryptErr := fmt.Errorf("apikey.Service.ResolveCredentialsByID: decrypt: %w", cryptodomain.ErrDecrypt)
+	for _, run := range []struct {
+		name string
+		call func(p *Provisioner) error
+	}{
+		{"boot", func(p *Provisioner) error { return p.EnsureForWorkspace(context.Background()) }},
+		{"provision", func(p *Provisioner) error { _, err := p.ProvisionNow(context.Background()); return err }},
+	} {
+		keys := &fakeKeys{
+			rows:       []*apikeydomain.APIKey{{ID: "aki_sealed", Provider: "anselm"}},
+			resolveErr: decryptErr,
+			testErr:    decryptErr,
+		}
+		inst := &fakeInstaller{installID: "ins_reborn"}
+		if err := run.call(newProv(keys, inst, okFP)); err != nil {
+			t.Fatalf("%s: %v", run.name, err)
+		}
+		if len(keys.rotated) != 1 || keys.rotated[0].id != "aki_sealed" || keys.rotated[0].newKey != "ins_reborn" {
+			t.Fatalf("%s: rotations = %+v; want one in-place rotation to the fresh install id", run.name, keys.rotated)
+		}
+		if len(keys.created) != 0 {
+			t.Errorf("%s: heal must rotate in place, never mint a second row", run.name)
+		}
+	}
+	// Boot with a readable credential never probes the gateway. 凭证可读时 boot 不探网关。
+	keys := &fakeKeys{rows: []*apikeydomain.APIKey{{ID: "aki_fine", Provider: "anselm"}}}
+	if err := newProv(keys, &fakeInstaller{installID: "x"}, okFP).EnsureForWorkspace(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if len(keys.tested) != 0 || len(keys.rotated) != 0 {
+		t.Errorf("healthy boot must not probe or rotate: tested=%v rotated=%v", keys.tested, keys.rotated)
 	}
 }

@@ -710,6 +710,7 @@ audience: [human, ai]
 
 | code | HTTP | message |
 |---|---|---|
+| `CRYPTO_DECRYPT_FAILED` | 500 | ciphertext does not open under the current master key（包在每个 AES-GCM open 失败里；持有可重建秘密的调用方据此重建） |
 | `CRYPTO_NO_FINGERPRINT` | 500 | cannot determine machine fingerprint |
 | `CRYPTO_UNSUPPORTED_VERSION` | 500 | aesgcm: unsupported ciphertext version |
 
