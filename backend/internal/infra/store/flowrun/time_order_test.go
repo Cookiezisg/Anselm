@@ -157,9 +157,27 @@ func TestTimeText_OrdersChronologically(t *testing.T) {
 	if bare != 0 {
 		t.Fatalf("a run 400µs BEFORE the bound is outside the window; bare comparison said inside")
 	}
-	if jd != 1 {
-		t.Fatalf("this test's reason to exist is that julianday() rounds this row INTO the window "+
-			"(got %d). If that stopped being true, the repeal's counter-example needs re-measuring, "+
-			"not deleting", jd)
+	// Re-measured 2026-09 (SQLite 3.53 via modernc 1.55): this engine truncates sub-millisecond
+	// digits instead of rounding, so it now sorts the 400µs-early row OUT of the window. The repeal
+	// stands either way — the bare text comparison is exact on every engine, julianday() depends
+	// on how the engine folds sub-ms digits — so the expectation follows what THIS engine's
+	// julianday() makes of the two stamps instead of pinning one engine's rounding.
+	// 2026-09 重测(SQLite 3.53,modernc 1.55):本引擎对亚毫秒位截断而非舍入,于是把早 400µs 的行排在窗外。
+	// 拆掉它的结论不变——裸文本比较在任何引擎上都精确,julianday() 取决于引擎怎么折叠亚毫秒位——所以期望
+	// 跟着本引擎 julianday() 对这两枚时间戳的判断走,而不是钉死某一版的舍入。
+	var jdSeesEarlier bool
+	if err := db.QueryRow(
+		`SELECT julianday(completed_at) < julianday(?) FROM flowruns WHERE id='fr_negms'`, base,
+	).Scan(&jdSeesEarlier); err != nil {
+		t.Fatalf("julianday probe: %v", err)
+	}
+	wantJD := 1
+	if jdSeesEarlier {
+		wantJD = 0
+	}
+	if jd != wantJD {
+		t.Fatalf("julianday() counter-example: engine sees the 400µs-early row as earlier=%v, so it "+
+			"should count %d, got %d. If the engine's date folding changed again, re-measure — the "+
+			"repeal's premise is documented here, not deleted", jdSeesEarlier, wantJD, jd)
 	}
 }
