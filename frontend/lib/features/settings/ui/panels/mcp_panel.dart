@@ -535,7 +535,7 @@ class _ToolsPane extends StatelessWidget {
     if (tools.isEmpty) {
       return AnState(
         kind: AnStateKind.empty,
-        size: AnStateSize.inset,
+        size: AnStateSize.row,
         title: t.settings.mcp.noTools,
       );
     }
@@ -569,7 +569,7 @@ class _CallsPane extends ConsumerWidget {
     if (page == null || page.calls.isEmpty) {
       return AnState(
         kind: AnStateKind.empty,
-        size: AnStateSize.inset,
+        size: AnStateSize.row,
         title: t.settings.mcp.noCalls,
       );
     }
@@ -609,7 +609,7 @@ class _StderrPane extends ConsumerWidget {
     if (text.isEmpty) {
       return AnState(
         kind: AnStateKind.empty,
-        size: AnStateSize.inset,
+        size: AnStateSize.row,
         title: t.settings.mcp.noStderr,
       );
     }

@@ -191,7 +191,7 @@ class _RosterState extends ConsumerState<_Roster> {
           AnState(
             kind: AnStateKind.empty,
             title: t.settings.mem.noMatches,
-            size: AnStateSize.inset,
+            size: AnStateSize.row,
           )
         else
           for (final m in rows) _MemoryRow(key: ValueKey(m.name), m: m),

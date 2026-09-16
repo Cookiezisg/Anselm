@@ -158,7 +158,7 @@ class _VoicesCardState extends ConsumerState<VoicesCard> {
         children: [
           AnState(
             kind: AnStateKind.empty,
-            size: AnStateSize.inset,
+            size: AnStateSize.row,
             title: t.settings.keys.voicesEmpty,
           ),
           const SizedBox(height: AnSpace.s8),

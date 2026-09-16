@@ -30,7 +30,13 @@ import 'icons.dart';
 /// polite),empty 永不推(初始内容、非新闻)。此处原是 liveRegion=沉默,见 AnA11y。
 enum AnStateKind { empty, loading, error }
 
-enum AnStateSize { page, inset }
+/// [page] fills a screen; [inset] sits inside a panel; [row] is the one-line register for an empty
+/// slot inside a settings card, where a centered glyph + strong title reads as a tombstone in a
+/// space meant for a list row: small glyph, muted title and hint on one left-aligned line, the
+/// height of an ordinary row.
+/// page 占整屏;inset 嵌在面板里;row 是设置卡片里空槽位的一行制式——那里居中大字形加粗标题像块墓碑,
+/// 本该是一行列表项的位置:小字形、弱化的标题与提示同排左对齐,高度就是一行普通条目。
+enum AnStateSize { page, inset, row }
 
 class AnState extends StatefulWidget {
   const AnState({
@@ -111,6 +117,7 @@ class _AnStateState extends State<AnState> {
   @override
   Widget build(BuildContext context) {
     final c = context.colors;
+    if (widget.size == AnStateSize.row) return _buildRow(context, c);
     final inset = widget.size == AnStateSize.inset;
     final glyphSize = inset ? AnSize.iconLg : AnSize.stateIcon;
 
@@ -188,6 +195,53 @@ class _AnStateState extends State<AnState> {
             padding: EdgeInsets.all(inset ? AnSpace.s16 : AnSpace.s24),
             child: column,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildRow(BuildContext context, AnColors c) {
+    final Widget leading = widget.kind == AnStateKind.loading
+        ? const AnSpinner(size: AnSize.icon)
+        : Icon(
+            widget.icon ??
+                (widget.kind == AnStateKind.empty
+                    ? AnIcons.empty
+                    : AnIcons.error),
+            size: AnSize.icon,
+            color: (widget.kind == AnStateKind.error && widget.fatal)
+                ? c.danger
+                : c.inkFaint,
+          );
+    final text = Text.rich(
+      TextSpan(
+        text: widget.title,
+        style: AnText.body.copyWith(color: c.inkMuted),
+        children: [
+          if (widget.hint != null)
+            TextSpan(
+              text: '  ${widget.hint!}',
+              style: AnText.meta.copyWith(color: c.inkFaint),
+            ),
+        ],
+      ),
+    );
+    return Semantics(
+      container: true,
+      label: widget._sentence,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: AnSpace.s8),
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.center,
+          children: [
+            ExcludeSemantics(child: leading),
+            const SizedBox(width: AnSpace.s8),
+            Expanded(child: ExcludeSemantics(child: text)),
+            if (widget.action != null) ...[
+              const SizedBox(width: AnSpace.s12),
+              widget.action!,
+            ],
+          ],
         ),
       ),
     );
