@@ -58,7 +58,7 @@ AppShell
 | 普通/危险/图标动作 | `AnButton`，组合动作使用 `AnActionGroup` |
 | 左岛或台账可选行 | `AnRow` / `AnLedgerRow` |
 | 设置行与纵向字段 | `AnSettingRow` / `AnFormField` |
-| 状态、空、错、加载 | `AnStatusDot`、`AnState`、`AnSkeleton`、`AnSpinner` |
+| 状态、空、错、加载 | `AnStatusDot`、`AnState`（`page` 整屏 / `inset` 面板内 / `row` 设置卡片里一行制式的空槽位）、`AnSkeleton`、`AnSpinner` |
 | 内容容器 | `AnWindow`、`AnCard`、`AnInfoCard`；避免窗套窗 |
 | 内联元数据 | `AnChip`、`AnRefPill`、`AnPathChip`、`AnKeycap` |
 | 编辑 | `AnInput`、`AnInlineEdit`、`AnEditableValue`、`AnCodeEditor`、`AnEditor` |

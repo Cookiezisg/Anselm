@@ -1611,6 +1611,16 @@ _g2Feedback = GalleryCategory('反馈态 Feedback', AnIcons.info, [
       span: true,
     ),
     GallerySpecimen(
+      'row (设置卡片一行)',
+      (_) => const AnState(
+        kind: AnStateKind.empty,
+        size: AnStateSize.row,
+        title: 'No search keys yet',
+        hint: 'WebSearch needs one; only keys that pass the probe are offered.',
+      ),
+      span: true,
+    ),
+    GallerySpecimen(
       '超长换行',
       (_) => const AnCallout(
         'A deliberately very long callout message that must wrap onto multiple lines while the leading icon stays pinned to the top of the first line and the bar grows in height instead of overflowing or truncating the text.',
