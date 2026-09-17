@@ -629,11 +629,14 @@ func extractTarGzTree(srcPath, dst string, strip int) error {
 				return err
 			}
 		case tar.TypeSymlink:
-			if err := writeSymlink(hdr.Linkname, target); err != nil {
+			if err := writeSymlink(dst, hdr.Linkname, target); err != nil {
 				return err
 			}
 		case tar.TypeLink:
 			source := filepath.Join(dst, stripComponents(hdr.Linkname, strip))
+			if !within(dst, source) {
+				return fmt.Errorf("tar hardlink escapes dst: %q -> %q", hdr.Name, hdr.Linkname)
+			}
 			if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 				return fmt.Errorf("mkdir for hardlink %s: %w", target, err)
 			}
@@ -681,7 +684,7 @@ func extractZipTree(srcPath, dst string, strip int) error {
 			if readErr != nil {
 				return fmt.Errorf("read zip symlink %s: %w", zf.Name, readErr)
 			}
-			if err := writeSymlink(string(linkTarget), target); err != nil {
+			if err := writeSymlink(dst, string(linkTarget), target); err != nil {
 				return err
 			}
 			continue
@@ -719,7 +722,18 @@ func writeStreamFile(r io.Reader, target string, perm os.FileMode) error {
 	return nil
 }
 
-func writeSymlink(linkname, target string) error {
+// writeSymlink creates target -> linkname, refusing any link that resolves outside dst. Runtime
+// archives only carry relative intra-tree links (bin/python3 -> python3.12, bin/npm ->
+// ../lib/node_modules/...); an absolute or escaping target is never legitimate, and a planted one
+// would let a later entry written through it land outside the sandbox root.
+// writeSymlink 建 target -> linkname,拒绝任何解析到 dst 之外的链接。运行时归档只带树内相对链接
+// (bin/python3 -> python3.12、bin/npm -> ../lib/node_modules/...),绝对或越界目标从不合法;被植入的一条
+// 会让之后经它写入的条目落到 sandbox 根之外。
+func writeSymlink(dst, linkname, target string) error {
+	if linkname == "" || filepath.IsAbs(linkname) || filepath.VolumeName(linkname) != "" ||
+		!within(dst, filepath.Join(filepath.Dir(target), filepath.FromSlash(linkname))) {
+		return fmt.Errorf("symlink %s -> %q escapes dst", target, linkname)
+	}
 	if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
 		return fmt.Errorf("mkdir for symlink %s: %w", target, err)
 	}
@@ -868,4 +882,15 @@ func EngineInstallers() []sandboxdomain.RuntimeInstaller {
 		&directInstaller{r: llamasrvRecipe()},
 		&directInstaller{r: embedmodelRecipe()},
 	}
+}
+
+// rejectFlagLikeDeps refuses dependency specs that a package manager would parse as options.
+// rejectFlagLikeDeps 拒绝会被包管理器当成选项解析的依赖规格。
+func rejectFlagLikeDeps(deps []string) error {
+	for _, d := range deps {
+		if strings.HasPrefix(strings.TrimSpace(d), "-") {
+			return fmt.Errorf("sandbox: dependency %q looks like a command-line flag: %w", d, sandboxdomain.ErrDepInstallFailed)
+		}
+	}
+	return nil
 }

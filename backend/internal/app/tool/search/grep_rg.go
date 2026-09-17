@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -72,7 +73,7 @@ func (t *Grep) execRg(ctx context.Context, args grepArgs) (string, error) {
 		return "", fmt.Errorf("Grep.execRg: %w", err)
 	}
 
-	text := string(out.buf)
+	text := filterRgOutput(string(out.buf), args.OutputMode, t.pathGuard)
 	if strings.TrimSpace(text) == "" {
 		return noMatchesMessage(args), nil
 	}
@@ -90,7 +91,10 @@ func (t *Grep) execRg(ctx context.Context, args grepArgs) (string, error) {
 //
 // buildRgArgs 把 grepArgs 翻译成 rg CLI flag。
 func buildRgArgs(args grepArgs) []string {
-	out := []string{"--color=never", "--no-heading"}
+	// --null terminates every path with NUL so filterRgOutput can apply the deny list per file
+	// without guessing where a path that itself contains ':' ends.
+	// --null 让每条路径以 NUL 结尾,filterRgOutput 据此逐文件套拒绝名单,不必猜含 ':' 的路径在哪结束。
+	out := []string{"--color=never", "--no-heading", "--null"}
 
 	switch args.OutputMode {
 	case OutputModeFilesWithMatches:
@@ -161,4 +165,45 @@ func capLines(text string, n int) string {
 		}
 	}
 	return text
+}
+
+// filterRgOutput drops every record whose file the deny list refuses and restores rg's plain
+// `path:` framing. With --null, files-with-matches prints `path\0` per file and the other modes
+// print `path\0rest\n` per record; context separators (`--`) carry no path and pass through.
+// filterRgOutput 丢掉拒绝名单不放行的文件的记录,并还原 rg 的 `path:` 框架。--null 下 files-with-matches
+// 每文件打 `path\0`,其余模式每条记录打 `path\0rest\n`;上下文分隔行(`--`)不带路径,原样通过。
+func filterRgOutput(text string, mode string, guard pathguardpkg.PathGuard) string {
+	if mode == OutputModeFilesWithMatches {
+		var b strings.Builder
+		for _, p := range strings.Split(text, "\x00") {
+			p = strings.TrimSuffix(p, "\n")
+			if p == "" {
+				continue
+			}
+			if ok, _ := guard.Allow(p); !ok {
+				continue
+			}
+			b.WriteString(p)
+			b.WriteByte('\n')
+		}
+		return b.String()
+	}
+	var b strings.Builder
+	for _, line := range strings.SplitAfter(text, "\n") {
+		if line == "" {
+			continue
+		}
+		p, rest, found := strings.Cut(line, "\x00")
+		if !found {
+			b.WriteString(line) // context separator or trailer 上下文分隔或尾注
+			continue
+		}
+		if ok, _ := guard.Allow(p); !ok {
+			continue
+		}
+		b.WriteString(p)
+		b.WriteByte(':')
+		b.WriteString(rest)
+	}
+	return b.String()
 }

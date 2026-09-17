@@ -462,7 +462,11 @@ func (s *Service) EnsureEnv(ctx context.Context, owner sandboxdomain.Owner, spec
 	}
 	// owner.ID becomes a directory name and joins PATH at exec time; reject separators / shell metachars.
 	// owner.ID 进 PATH 段，含分隔符 / shell 元字符则提前 reject。
-	if strings.ContainsAny(owner.ID, ":;= \t\n\r\x00") {
+	// It is also one path segment under envs/<kind>/: no separators, no `..`, nothing absolute —
+	// today every caller passes an idgen id or a slug-validated name, this keeps the invariant here.
+	// 它也是 envs/<kind>/ 下的一个路径段:无分隔符、无 `..`、非绝对——当前每个调用方传的都是 idgen id 或
+	// 校验过的 slug,这里把不变量钉在本地。
+	if strings.ContainsAny(owner.ID, ":;= \t\n\r\x00/\\") || !filepath.IsLocal(owner.ID) || owner.ID == "." {
 		return nil, fmt.Errorf("sandboxapp.EnsureEnv: %w: %q", sandboxdomain.ErrInvalidOwnerID, owner.ID)
 	}
 

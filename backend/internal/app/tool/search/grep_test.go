@@ -3,6 +3,7 @@ package search
 import (
 	"context"
 	"errors"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -293,5 +294,44 @@ func TestGrep_Rg_SkipsNoiseDirs(t *testing.T) {
 	}
 	if !strings.Contains(out, real) || strings.Contains(out, "node_modules") {
 		t.Fatalf("rg noise policy mismatch:\n%s", out)
+	}
+}
+
+// The deny list is per entry, not per root: a search rooted at an allowed directory must not
+// surface files under a denied subdirectory, on either backend and in every output mode.
+// 拒绝名单按条目生效而非按根:以放行目录为根的搜索,不能翻出被拒子目录下的文件——两个后端、每种输出模式。
+func TestGrep_DenyListAppliesPerEntry(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(secret, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(secret, "id_rsa"), []byte("BEGIN PRIVATE KEY\n"), 0o600); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "notes.txt"), []byte("BEGIN PRIVATE KEY reminder\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	guard := pathguardpkg.New([]string{secret + "/"})
+	backends := map[string]string{"stdlib": ""}
+	if rg, err := exec.LookPath("rg"); err == nil {
+		backends["rg"] = rg
+	}
+	for name, rgPath := range backends {
+		for _, mode := range []string{OutputModeFilesWithMatches, OutputModeContent, OutputModeCount} {
+			t.Run(name+"/"+mode, func(t *testing.T) {
+				g := &Grep{pathGuard: guard, rgPath: rgPath, log: zap.NewNop()}
+				out, err := g.Execute(context.Background(), fmt.Sprintf(`{"pattern":"PRIVATE KEY","path":%q,"output_mode":%q}`, dir, mode))
+				if err != nil {
+					t.Fatal(err)
+				}
+				if strings.Contains(out, "id_rsa") {
+					t.Fatalf("denied file leaked:\n%s", out)
+				}
+				if !strings.Contains(out, "notes.txt") {
+					t.Fatalf("allowed file missing:\n%s", out)
+				}
+			})
+		}
 	}
 }

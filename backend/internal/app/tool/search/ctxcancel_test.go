@@ -45,7 +45,7 @@ func TestGrep_collectCandidates_RespectsCtxCancel(t *testing.T) {
 	cancel()
 	done := make(chan []string, 1)
 	go func() {
-		got, _ := collectCandidates(ctx, grepArgs{Path: dir}, true)
+		got, _ := collectCandidates(ctx, grepArgs{Path: dir}, true, nil)
 		done <- got
 	}()
 	select {

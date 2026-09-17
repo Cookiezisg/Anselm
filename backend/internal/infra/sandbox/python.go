@@ -60,6 +60,13 @@ func (p *PythonEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath
 	if len(deps) == 0 {
 		return nil
 	}
+	// A dep is a package spec, never a flag: `--prefix=..` or `--global` would redirect the package
+	// manager's writes outside envPath. Deps come from Function/Handler definitions (user- or
+	// LLM-authored). dep 是包规格、绝不是选项:`--prefix=..`/`--global` 会把包管理器的写入引到 envPath
+	// 之外。deps 来自 Function/Handler 定义(用户或 LLM 所写)。
+	if err := rejectFlagLikeDeps(deps); err != nil {
+		return err
+	}
 	uvBin, err := p.tools.EnsureTool(ctx, "uv", "")
 	if err != nil {
 		return fmt.Errorf("sandbox.PythonEnvManager.InstallDeps: locate uv: %w", err)

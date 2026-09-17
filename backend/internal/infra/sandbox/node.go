@@ -61,6 +61,13 @@ func (n *NodeEnvManager) InstallDeps(ctx context.Context, runtimePath, envPath s
 	if len(deps) == 0 {
 		return nil
 	}
+	// A dep is a package spec, never a flag: `--prefix=..` or `--global` would redirect the package
+	// manager's writes outside envPath. Deps come from Function/Handler definitions (user- or
+	// LLM-authored). dep 是包规格、绝不是选项:`--prefix=..`/`--global` 会把包管理器的写入引到 envPath
+	// 之外。deps 来自 Function/Handler 定义(用户或 LLM 所写)。
+	if err := rejectFlagLikeDeps(deps); err != nil {
+		return err
+	}
 	npmBin := filepath.Join(runtimePath, "bin", "npm")
 	if runtime.GOOS == "windows" {
 		npmBin = filepath.Join(runtimePath, "npm.cmd")

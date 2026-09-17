@@ -111,7 +111,8 @@ Retention section 使用指针区分“段缺席”和“显式 0”。回调在
 Inside fail-closed：不存在目标在首个 missing component 停止，symlink escape
 返回 false。它服务 Workdir 外写确认与媒体 artifact path guard。
 
-`pkg/pathguard` 是 filesystem tools 的 deny list。精确 allow predicate 可为
+`pkg/pathguard` 是 filesystem tools 的 deny list，Grep/Glob 对遍历到的每个条目生效而不只对搜索根
+（以 `~` 为根搜索不会读到 `~/.ssh/*`；rg 后端以 `--null` 分帧后逐文件过滤）。精确 allow predicate 可为
 workspace Skill subtree 开洞；predicate 先解析 symlink，不能用链接把允许路径
 转出 subtree。
 

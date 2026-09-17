@@ -183,3 +183,29 @@ func TestGlob_Execute_PathGuardDeny(t *testing.T) {
 		t.Fatalf("got %q", out)
 	}
 }
+
+// Same per-entry rule as Grep: matches under a denied directory never surface.
+// 与 Grep 同一按条目规则:被拒目录下的匹配绝不出现。
+func TestGlob_DenyListAppliesPerMatch(t *testing.T) {
+	dir := t.TempDir()
+	secret := filepath.Join(dir, ".ssh")
+	if err := os.MkdirAll(secret, 0o700); err != nil {
+		t.Fatal(err)
+	}
+	for _, f := range []string{filepath.Join(secret, "id_rsa.pub"), filepath.Join(dir, "readme.pub")} {
+		if err := os.WriteFile(f, []byte("x"), 0o644); err != nil {
+			t.Fatal(err)
+		}
+	}
+	g := &Glob{pathGuard: pathguardpkg.New([]string{secret + "/"})}
+	out, err := g.Execute(context.Background(), `{"pattern":"**/*.pub","path":"`+dir+`"}`)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(out, "id_rsa.pub") {
+		t.Fatalf("denied match leaked:\n%s", out)
+	}
+	if !strings.Contains(out, "readme.pub") {
+		t.Fatalf("allowed match missing:\n%s", out)
+	}
+}

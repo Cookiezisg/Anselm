@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	pathguardpkg "github.com/sunweilin/anselm/backend/internal/pkg/pathguard"
 	"io/fs"
 	"os"
 	"path/filepath"
@@ -85,7 +86,7 @@ func (t *Grep) execStdlib(ctx context.Context, args grepArgs, isDir bool) (strin
 		return fmt.Sprintf("Invalid regex pattern: %v", err), nil
 	}
 
-	candidates, err := collectCandidates(ctx, args, isDir)
+	candidates, err := collectCandidates(ctx, args, isDir, t.pathGuard)
 	if err != nil {
 		return "", fmt.Errorf("Grep.execStdlib: %w", err)
 	}
@@ -118,7 +119,11 @@ func compileGrepRegex(args grepArgs) (*regexp.Regexp, error) {
 // collectCandidates returns absolute paths to scan; walks dir or scans single file, skipping noiseDirs.
 //
 // collectCandidates 返回扫描路径列表；目录走 WalkDir 单文件直接扫，跳过 noiseDirs。
-func collectCandidates(ctx context.Context, args grepArgs, isDir bool) ([]string, error) {
+// The deny list applies to every entry the walk visits, not only the root: a search rooted at
+// `~` must not read `~/.ssh/*` just because the root itself is allowed. A nil guard allows all.
+// 拒绝名单对遍历到的每个条目生效,不只对根:以 `~` 为根的搜索不能因为根本身被放行就读到 `~/.ssh/*`。
+// guard 为 nil 即全部放行。
+func collectCandidates(ctx context.Context, args grepArgs, isDir bool, guard pathguardpkg.PathGuard) ([]string, error) {
 	if !isDir {
 		// Single-file search: type/glob filter still applies — empty result
 		// is a legitimate "no files matched filter" outcome.
@@ -149,10 +154,20 @@ func collectCandidates(ctx context.Context, args grepArgs, isDir bool) ([]string
 			if _, skip := noiseDirs[d.Name()]; skip && path != args.Path {
 				return filepath.SkipDir
 			}
+			if guard != nil && path != args.Path {
+				if ok, _ := guard.Allow(path); !ok {
+					return filepath.SkipDir
+				}
+			}
 			return nil
 		}
 		if !d.Type().IsRegular() {
 			return nil
+		}
+		if guard != nil {
+			if ok, _ := guard.Allow(path); !ok {
+				return nil
+			}
 		}
 		if fileMatchesFilters(path, args) {
 			out = append(out, path)

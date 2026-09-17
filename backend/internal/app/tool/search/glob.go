@@ -192,6 +192,11 @@ func (t *Glob) Execute(ctx context.Context, argsJSON string) (string, error) {
 			continue
 		}
 		full := filepath.Join(root, rel)
+		// The deny list applies to each match, not only the root (same rule as Grep's walk).
+		// 拒绝名单对每个匹配生效,不只对根(与 Grep 遍历同一规则)。
+		if ok, _ := t.pathGuard.Allow(full); !ok {
+			continue
+		}
 		st, err := os.Lstat(full)
 		if err != nil {
 			continue

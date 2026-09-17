@@ -33,7 +33,8 @@ Runtime 首用安装，不要求宿主预装。Direct installer：
 
 - 下载平台匹配且钉版本的 archive/image；
 - 校验 SHA；
-- 在 staging 解包；
+- 在 staging 解包（条目名剥 `..`、必须落在目标内；符号链接目标与硬链接源同样必须在目标内，绝对或越界
+  链接整包拒绝——校验和与归档同源，镜像被攻破时这是最后一道）；
 - 原子 rename 到正式目录；
 - 写 runtime manifest。
 
@@ -88,7 +89,8 @@ Env manifest 保存 running PID。Boot 的 `RestoreOrCleanupOnBoot` 验证并回
 
 `Provision(owner,runtime,deps)`：
 
-1. 尝试创建/同步 env；
+1. 尝试创建/同步 env（deps 以 `-` 开头者视为选项而非包规格，直接 `SANDBOX_DEP_INSTALL_FAILED`：
+   `--prefix=..`/`--global` 会把 npm/uv 的写入引到 env 之外）；
 2. 失败时可把安装错误交给 utility model 修正 dependency list；托管模型即使附带散文、
    Markdown JSON fence 或尾逗号，envfix 也会先提取结构化对象再重试，无法提取时才诚实结束；
 3. 有界重试；
