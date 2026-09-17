@@ -145,7 +145,7 @@ brew install --cask Cookiezisg/tap/anselm
 
 Every package bundles the desktop app and the Go sidecar; nothing else is required. The macOS DMG and the Windows setup are the recommended installs; the archives are portable builds. On first launch the app creates its data directory and a default workspace, and the managed model route works without any key setup.
 
-> The macOS build is signed with a Developer ID and notarized by Apple, so it opens like any other app. Windows and Linux builds are not yet signed; Windows SmartScreen will show a warning the first time. Anselm has applied to the [SignPath Foundation](https://signpath.org) for free open-source code signing of the Windows builds. See the [code signing policy](SECURITY.md#code-signing-policy).
+> The macOS build is signed with a Developer ID and notarized by Apple, so it opens like any other app. Windows and Linux builds are not yet signed; Windows SmartScreen will show a warning the first time. See the [code signing policy](SECURITY.md#code-signing-policy).
 
 ### Build from source
 

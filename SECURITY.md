@@ -34,9 +34,9 @@ on `main`; nothing is built or signed on a developer machine.
 - **macOS**: the app, its sidecar and the DMG are signed with the maintainer's Apple Developer ID
   (team `YCYFFXR57C`) with the hardened runtime, notarized by Apple and stapled. In-app updates
   are additionally signed with an EdDSA key whose public half is embedded in the app.
-- **Windows**: the installer and portable build are currently unsigned. We are applying to
-  SignPath Foundation's free open-source signing; once granted, Windows binaries will be signed
-  through SignPath from the same CI build and this section will say so.
+- **Windows**: the installer and portable build are currently unsigned, so SmartScreen warns on
+  first run. Verify downloads against `SHA256SUMS.txt` on the release. Signing will come with a
+  commercial certificate once the project justifies the cost; this section will say so.
 - **Linux**: artifacts are unsigned; verify them against `SHA256SUMS.txt` on the release.
 
 Team roles for signing decisions:
