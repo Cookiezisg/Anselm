@@ -213,7 +213,7 @@ Engineering rules live in [`CLAUDE.md`](CLAUDE.md): contract-first APIs, strict 
 
 ## Status
 
-Anselm is at **0.1.3**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
+Anselm is at **0.1.4**. The product paths above are implemented and covered by unit, integration, and black-box acceptance suites. What is not there yet:
 
 - Windows code signing (installer is unsigned; SmartScreen warns on first run)
 - Multi-user or hosted deployments; Anselm is single-user and local by design
