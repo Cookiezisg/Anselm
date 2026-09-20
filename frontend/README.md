@@ -35,7 +35,7 @@ make setup       # 拉取锁定依赖
 make quick       # diff 驱动的开发内环
 make verify      # codegen + analyze + 分组测试
 make gallery     # 原语目录
-make demo        # 真壳 + fixtures（DATASET=story LOCALE=zh|en 切到双语产品故事数据集）
+make demo        # 真壳 + fixtures（DATASET=story LOCALE=zh|en 切到双语产品故事数据集；AUTOPLAY=promo 启动即播宣传片，供录屏）
 make onboard     # fixture 首启流程
 make perf        # macOS profile demo + 帧探针
 make app         # 真壳 + sidecar

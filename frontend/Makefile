@@ -97,12 +97,16 @@ verify: deps
 # DATASET=story swaps the seeds for the bilingual product story (lib/dev/story/, screenshots for the
 # website); LOCALE=zh|en pins the UI language for that run. Same entry, same shell — only the data.
 # DATASET=story 换成双语产品故事种子(lib/dev/story/,官网截图用);LOCALE=zh|en 钉住界面语言。同入口同壳,只换数据。
+# AUTOPLAY=promo (story only) plays the product reel on launch for recording. AUTOPLAY=promo(仅 story)
+# 启动即播宣传片,供录屏。
 DATASET ?=
 LOCALE ?=
+AUTOPLAY ?=
 demo: deps
 	@LANG=en_US.UTF-8 $(RUN) flutter run -d $(DEVICE) \
 		$(if $(DATASET),--dart-define=ANSELM_DEMO_DATASET=$(DATASET)) \
 		$(if $(LOCALE),--dart-define=ANSELM_DEMO_LOCALE=$(LOCALE)) \
+		$(if $(AUTOPLAY),--dart-define=ANSELM_DEMO_AUTOPLAY=$(AUTOPLAY)) \
 		-t lib/dev/demo_main.dart
 
 # package — 本机发行包:构建 Go sidecar(版本取 pubspec)+ release app,经 tool/package.sh 装进 app 并归档到

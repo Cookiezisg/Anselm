@@ -1257,6 +1257,17 @@ class FixtureChatRepository implements ChatRepository {
   }
 
   /// Synchronous row peek for scripts (null when absent — no throw). 脚本用同步查行(缺=null,不抛)。
+  /// The id of the newest stored user row — the id a scripted echo must reuse, or the transcript
+  /// shows the row twice (once from the head list, once from the echo).
+  /// 最新一条已存 user 行的 id——脚本回声必须复用它,否则文稿里出现两行(头列表一份、回声一份)。
+  String? lastUserMessageId(String conversationId) {
+    for (final m
+        in (_messages[conversationId] ?? const <ChatMessage>[]).reversed) {
+      if (m.role == 'user') return m.id;
+    }
+    return null;
+  }
+
   Conversation? conversationOrNull(String id) {
     final i = _all.indexWhere((r) => r.id == id);
     return i < 0 ? null : _all[i];

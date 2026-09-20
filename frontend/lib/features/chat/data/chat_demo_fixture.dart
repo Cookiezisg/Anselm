@@ -47,11 +47,33 @@ String _demoTitle(String text) {
 /// (markdown+代码 / thinking / 取消回合诚实横幅 / @提及快照)+ 未读 markdown/表格对话 + 一个归档例;空 rail
 /// 填充对话已清(#1)。信号仍覆盖:置顶 / 未读绿 / 归档灰,生成蓝随**发送时**脚本流式回放(用户回声→thinking
 /// →text→close 约 4s、定格持久行),流中 Stop 落诚实 cancelled。
+/// A scripted turn supplied from outside the fixture (the product story's promo reel, a screenshot
+/// session). Return true to claim the turn; false falls through to the built-in reply.
+/// 从 fixture 外部提供的脚本回合(产品故事的宣传片、截图会话)。返回 true 表示接管本回合,false 走内置回复。
+typedef DemoTurnScript =
+    bool Function(
+      DemoChatRepository repo,
+      String conversationId,
+      String assistantId,
+      String userText,
+    );
+
 class DemoChatRepository extends FixtureChatRepository {
-  DemoChatRepository({super.conversations, super.messages});
+  DemoChatRepository({super.conversations, super.messages, this.turnScript});
+
+  /// Optional override for the whole reply; see [DemoTurnScript]. 整段回复的可选接管。
+  DemoTurnScript? turnScript;
 
   final List<Timer> _timers = [];
   int _demoSeq = 0;
+
+  /// Schedule a beat on the fixture's clock so a dispose cancels it with the rest.
+  /// 把一拍挂到 fixture 的时钟上,dispose 时随其余计时器一起取消。
+  void schedule(Duration at, void Function() beat) =>
+      _timers.add(Timer(at, beat));
+
+  /// A fresh id suffix for scripted blocks. 脚本块的新 id 后缀。
+  int nextSeq() => _demoSeq++;
 
   static const _thinkingScript =
       '用户在问一个执行类问题。先确认涉及哪个实体,再决定是直接答还是需要查一下最近的执行记录;这里上下文足够,直接组织答案。';
@@ -113,7 +135,10 @@ class DemoChatRepository extends FixtureChatRepository {
       upsert(conv.copyWith(isGenerating: true, hasUnread: false));
     }
     emitTurnSignal(conversationId, TurnSignalKind.turnOpen);
-    _playReply(conversationId, assistantId, userText: content);
+    final script = turnScript;
+    if (script == null || !script(this, conversationId, assistantId, content)) {
+      _playReply(conversationId, assistantId, userText: content);
+    }
     return assistantId;
   }
 

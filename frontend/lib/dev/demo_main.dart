@@ -19,6 +19,12 @@ import '../core/settings/settings_prefs.dart';
 import '../core/shortcuts/global_shortcuts.dart';
 import '../core/model/model_capabilities.dart';
 import '../core/notice/notice_center.dart';
+import 'story/story_bible.dart';
+import '../features/entities/state/flowrun_inbox_provider.dart';
+import '../features/chat/state/new_conversation.dart';
+import '../features/chat/state/selected_conversation.dart';
+import '../core/ui/icons.dart';
+import '../core/model/status_state.dart';
 import '../features/scheduler/data/scheduler_demo_fixture.dart';
 import '../features/scheduler/data/scheduler_repository.dart';
 import '../features/settings/data/settings_demo_fixture.dart';
@@ -83,6 +89,12 @@ const String kDemoDataset = String.fromEnvironment('ANSELM_DEMO_DATASET');
 /// 截图时可钉住界面语言；空=跟随设备。
 const String kDemoLocale = String.fromEnvironment('ANSELM_DEMO_LOCALE');
 
+/// `promo` plays the product reel on launch: a fresh thread, the opening sentence sent for you, the
+/// story's scripted build-and-run turn, the approval capsule and its decision — for recording, with
+/// the top-band tour muted so nothing else moves. 启动即播产品宣传片:新线程、代你发出开场句、故事的脚本化
+/// 建造与运行回合、审批胶囊及其决定——供录屏,顶带巡演静音,画面里不再有别的动静。
+const String kDemoAutoplay = String.fromEnvironment('ANSELM_DEMO_AUTOPLAY');
+
 Future<void> main() async {
   // The SCALED binding, byte-for-byte as main.dart creates it. Zoom is neither a data source nor a
   // gate, so the 铁律「app 与 demo 只差两点」 forbids it diverging here — and it is not decorative:
@@ -140,13 +152,19 @@ Future<void> main() async {
   final notifRepo = story
       ? storyNotificationRepository(storyLocale)
       : demoNotificationRepository();
+  final promo = story && kDemoAutoplay == 'promo' ? PromoHooks() : null;
   runApp(
     ProviderScope(
       overrides: story
-          ? storyOverrides(prefs, notifRepo, storyLocale)
+          ? storyOverrides(
+              prefs,
+              notifRepo,
+              storyLocale,
+              turnScript: promo == null ? null : promoTurn(storyLocale, promo),
+            )
           : demoOverrides(prefs, notifRepo),
       child: TranslationProvider(
-        child: const DemoRoot(showcaseNotifications: true),
+        child: DemoRoot(showcaseNotifications: true, promo: promo),
       ),
     ),
   );
@@ -156,7 +174,10 @@ Future<void> main() async {
 /// minus AppStartupGate/WorkspaceGate. Public so the P5 perf harness mounts the exact same tree.
 /// demo 根:MaterialApp.router + 浮层宿主,无门控;公开供 P5 perf harness 挂同一棵树。
 class DemoRoot extends ConsumerWidget {
-  const DemoRoot({this.showcaseNotifications = false, super.key});
+  const DemoRoot({this.showcaseNotifications = false, this.promo, super.key});
+
+  /// Non-null only for the promo reel (see [kDemoAutoplay]). 仅宣传片非空。
+  final PromoHooks? promo;
 
   /// Only `make demo` turns this on. Test and perf mounts keep their timeline deterministic unless they
   /// explicitly opt in. 仅 make demo 开启;测试/perf 默认不启,时间线保持确定。
@@ -182,6 +203,7 @@ class DemoRoot extends ConsumerWidget {
         navigatorKey: navigatorKey,
         child: _DemoNoticeShowcase(
           enabled: showcaseNotifications,
+          promo: promo,
           child: GlobalShortcuts(child: Focus(autofocus: true, child: child!)),
         ),
       ),
@@ -194,10 +216,15 @@ class DemoRoot extends ConsumerWidget {
 /// test-facing [DemoRoot] leaves it off by default. demo 专用、有限的顶带巡演:置于 TranslationProvider/ProviderScope
 /// 之下,随当前语言进真正共享中心;测试用 DemoRoot 默认关闭。
 class _DemoNoticeShowcase extends ConsumerStatefulWidget {
-  const _DemoNoticeShowcase({required this.enabled, required this.child});
+  const _DemoNoticeShowcase({
+    required this.enabled,
+    required this.child,
+    this.promo,
+  });
 
   final bool enabled;
   final Widget child;
+  final PromoHooks? promo;
 
   @override
   ConsumerState<_DemoNoticeShowcase> createState() =>
@@ -213,6 +240,11 @@ class _DemoNoticeShowcaseState extends ConsumerState<_DemoNoticeShowcase> {
     super.didChangeDependencies();
     if (!widget.enabled || _scheduled) return;
     _scheduled = true;
+    final promo = widget.promo;
+    if (promo != null) {
+      _armPromo(promo);
+      return;
+    }
     final beats = kDemoDataset == 'story'
         ? storyTopBandShowcase(context.t)
         : demoTopBandShowcase(context.t);
@@ -226,6 +258,59 @@ class _DemoNoticeShowcaseState extends ConsumerState<_DemoNoticeShowcase> {
         }),
       );
     }
+  }
+
+  // The two beats the reel cannot play from inside the chat repository: raise the approval capsule
+  // (notice center) and decide it (entity repository), exactly as the capsule's own button would.
+  // 宣传片在聊天仓库内放不了的两拍:升起审批胶囊(通知中心)、作出决定(实体仓库),与胶囊按钮本身的路径一致。
+  void _armPromo(PromoHooks promo) {
+    final t = context.t;
+    promo.showApproval = () {
+      if (!mounted) return;
+      ref
+          .read(noticeCenterProvider.notifier)
+          .push(
+            NoticeMessage(
+              text:
+                  '${t.ref.workflow} ${t.notifications.nameQuoted(name: wfDigestName)} ${t.notifications.verb.waitingApproval}',
+              icon: AnIcons.approval,
+              tone: AnTone.warn,
+              kind: NoticeKind.approval,
+              origin: NoticeOrigin.event,
+              title: apfDigestName,
+              flowrunId: frDigestParked,
+              nodeId: 'review',
+              location: '/scheduler/w/$wfDigest/runs/$frDigestParked',
+            ),
+            priority: NoticePriority.priority,
+          );
+    };
+    promo.approve = () async {
+      if (!mounted) return;
+      // No local-decision mark: that is what keeps a capsule on screen to show its verdict after
+      // the button press; here the decision is authoritative and the capsule simply retires.
+      // 不打本地决定标记:那是让胶囊在按钮按下后留屏展示判词用的;这里决定即权威,胶囊直接退场。
+      await ref
+          .read(entityRepositoryProvider)
+          .decideApproval(frDigestParked, 'review', decision: 'yes');
+      if (!mounted) return;
+      ref.invalidate(flowrunInboxProvider);
+      ref
+          .read(noticeCenterProvider.notifier)
+          .resolveApprovalsForRun(frDigestParked);
+    };
+    _timers.add(
+      Timer(const Duration(milliseconds: 1600), () async {
+        if (!mounted) return;
+        // The landing composer's exact path: start the thread, then navigate to it.
+        // 与落地 composer 同一条路:先起线程,再导航过去。
+        final id = await ref.read(startConversationProvider)(promoPrompt);
+        if (!mounted) return;
+        // This widget sits in MaterialApp.router's builder, above the Navigator, so the router
+        // comes from the provider rather than the context. 本件在 builder 里、Navigator 之上,router 取自 provider。
+        ref.read(goRouterProvider).go(conversationLocation(id));
+      }),
+    );
   }
 
   @override

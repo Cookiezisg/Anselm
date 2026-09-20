@@ -29,10 +29,11 @@
   <a href="README.md">English</a>
 </p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/chat-dark.png">
-  <img src="docs/assets/readme/chat-light.png" alt="Anselm 桌面端：一段对话建出了每周 GitHub 周报工作流，运行停在审批节点">
-</picture>
+<p align="center">
+  <img src="docs/assets/readme/demo.gif" width="1200" alt="一句话进去，Anselm 建出 function、agent、周一 trigger 和 workflow，跑一次，停下等你审批，再归档周报。">
+</p>
+
+<p align="center"><sub>一句话进去。Anselm 写出 function、agent、trigger 和 workflow，跑一次，归档前停下等你审批。画面里全是真实的应用；模型回复是脚本化的，所以这段片子可复现（<code>make -C frontend demo DATASET=story LOCALE=en AUTOPLAY=promo</code>）。</sub></p>
 
 ---
 

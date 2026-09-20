@@ -18,6 +18,7 @@ import '../../core/contract/entities/agent.dart';
 import '../../core/contract/entities/control.dart';
 import '../../core/contract/entities/document.dart';
 import '../../core/contract/entities/function.dart';
+import '../../core/contract/entities/trigger.dart';
 import '../../core/contract/entities/values.dart';
 import '../../core/contract/entities/workflow.dart';
 import '../../core/contract/interaction.dart';
@@ -34,7 +35,10 @@ import 'story_locale.dart';
 /// thread still plays a scripted streaming reply — a screenshot session must be able to show "generating".
 /// story chat 仓库。用 DemoChatRepository 而非裸夹具,使任一线程里敲字仍能回放脚本流式回复——截图
 /// 现场必须能演出「生成中」。
-ChatRepository storyChatRepository(StoryLocale l) {
+ChatRepository storyChatRepository(
+  StoryLocale l, {
+  DemoTurnScript? turnScript,
+}) {
   final digest = _digest(l);
   final triage = _triage(l);
   final refund = _refund(l);
@@ -54,9 +58,16 @@ ChatRepository storyChatRepository(StoryLocale l) {
     durable,
   ];
 
+  // A scripted reel opens on an empty rail so the thread it builds is the only thing moving; the
+  // entity truth below is still seeded, which is what its settled rows open onto.
+  // 脚本宣传片从空 rail 开始,画面里只有它建的那条线程在动;下方实体真身照常播种,落定行打开的就是它们。
+  final reel = turnScript != null;
   final repo = DemoChatRepository(
-    conversations: [for (final t in threads) t.conv],
-    messages: {for (final t in threads) t.conv.id: t.messages},
+    conversations: reel ? const [] : [for (final t in threads) t.conv],
+    messages: reel
+        ? const {}
+        : {for (final t in threads) t.conv.id: t.messages},
+    turnScript: turnScript,
   );
   _seedResidencies(repo);
   _seedInteractions(repo, l);
@@ -425,7 +436,7 @@ Graph _digestGraph(StoryLocale l) {
 /// The create_workflow `ops` for the canonical graph — the wire shape (add_node `node{…}` with `input`
 /// and `pos`, add_edge `edge{…}` with `fromPort`), derived from [_digestGraph] so the card and the
 /// snapshot agree node for node. 规范图的 create_workflow ops(线缆形),从 [_digestGraph] 派生。
-List<Map<String, Object?>> _digestOps(StoryLocale l) {
+List<Map<String, Object?>> digestOps(StoryLocale l) {
   final g = _digestGraph(l);
   return [
     for (final n in g.nodes)
@@ -925,7 +936,7 @@ _Thread _digest(StoryLocale l) {
               'Monday GitHub digest: three parallel fetches → write → check activity → review → file → Slack.',
               '周一 GitHub 周报:三路并行拉取 → 写作 → 活动判断 → 审阅 → 归档 → Slack。',
             ),
-            'ops': _digestOps(l),
+            'ops': digestOps(l),
             'concurrency': 'skip',
             'changeReason': l.t(
               'New: weekly GitHub digest pipeline',
@@ -2475,6 +2486,20 @@ void _seedTruth(DemoChatRepository repo, StoryLocale l) {
       createdAt: buildAt,
       updatedAt: buildAt,
     ),
+    createdAt: buildAt,
+    updatedAt: buildAt,
+  );
+  repo.triggers[trgMonday] = TriggerEntity(
+    id: trgMonday,
+    name: trgMondayName,
+    description: l.t('Every Monday 09:00 local time.', '每周一 09:00(本地时间)。'),
+    kind: TriggerSource.cron,
+    config: const {'expression': '0 9 * * 1', 'timezone': 'Asia/Shanghai'},
+    outputs: const [Field(name: 'firedAt', type: 'string')],
+    refCount: 1,
+    listening: true,
+    lastFiredAt: ago(days: 1),
+    nextFireAt: ago(days: -6),
     createdAt: buildAt,
     updatedAt: buildAt,
   );

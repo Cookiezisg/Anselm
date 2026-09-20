@@ -17,7 +17,7 @@ audience: [human, ai]
 
 - `main.dart` 安装 Flutter/Dart 错误入口、窗口与缩放 binding，再挂 `ProviderScope`。
 - Flutter framework 错误由 `installErrorHandlers` 以可恢复 ErrorWidget 收口；真实 App console 同时记录压缩异常行和堆栈，供台架定位构建/布局红线。
-- `AppStartupGate` 托管 Go sidecar：Dart 选择端口，以 `ANSELM_ADDR` 启动，等待 `/api/v1/health` 后放行；开发时 `ANSELM_BACKEND_URL` 可连接已运行后端，且就绪后仍由连续健康探测监督，外接 backend 失联达到阈值会回到全 App 可重试错误门。
+- `AppStartupGate` 托管 Go sidecar：Dart 选择端口，以 `ANSELM_ADDR` 启动，等待 `/api/v1/health` 后放行；开发时 `ANSELM_BACKEND_URL` 可连接已运行后端（同类逃生口 `ANSELM_START_ROUTE` 让启动直接落在某个路由，供脚本化截图/录屏），且就绪后仍由连续健康探测监督，外接 backend 失联达到阈值会回到全 App 可重试错误门。
 - 正常退出先优雅停止 sidecar；崩溃路径由 `ANSELM_PARENT_WATCH=1` 的 stdin EOF 死人开关收口。
 - `WorkspaceGate` 以服务端 workspace 名册为准；无行进入创建旅程，有行激活并进入唯一 `AppShell`。
 
@@ -59,7 +59,7 @@ audience: [human, ai]
 | `make -C frontend quick` | diff 驱动的提交内环 |
 | `make -C frontend verify` | codegen、analyze、分组测试的 pre-push 门禁 |
 | `make -C frontend gallery` | 原语与状态目录 |
-| `make -C frontend demo` | 真壳 + fixtures |
+| `make -C frontend demo` | 真壳 + fixtures；`DATASET=story LOCALE=zh\|en` 换产品故事种子，`AUTOPLAY=promo`（仅 story）启动即在空 rail 上播放脚本化的「一句话建出周报」回合，`docs/assets/readme/demo.gif` 由它录制 |
 | `make -C frontend app` | 真壳 + sidecar |
 | `make -C frontend package` | 本机发行包：sidecar 装进 release app，归档到 `frontend/dist/` |
 | `make doctor` | 原生桌面工具链诊断 |

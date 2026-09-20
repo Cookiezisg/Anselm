@@ -29,10 +29,11 @@
   <a href="README.zh-CN.md">中文</a>
 </p>
 
-<picture>
-  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/readme/chat-dark.png">
-  <img src="docs/assets/readme/chat-light.png" alt="Anselm desktop app: a conversation that built a weekly GitHub digest workflow, with the run parked at an approval step">
-</picture>
+<p align="center">
+  <img src="docs/assets/readme/demo.gif" width="1200" alt="One sentence in, and Anselm creates the function, the agent, the Monday trigger and the workflow, runs it once, waits for your approval, and files the digest.">
+</p>
+
+<p align="center"><sub>One sentence in. Anselm writes the function, the agent, the trigger and the workflow, runs it once, and waits for your approval before filing. Everything on screen is the real app; the model's replies are scripted so the reel is reproducible (<code>make -C frontend demo DATASET=story LOCALE=en AUTOPLAY=promo</code>).</sub></p>
 
 ---
 

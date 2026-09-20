@@ -27,6 +27,7 @@ import '../../features/notifications/data/notification_providers.dart';
 import '../../features/scheduler/data/scheduler_repository.dart';
 import '../../features/settings/data/settings_repository.dart';
 import 'story_chat.dart';
+import '../../features/chat/data/chat_demo_fixture.dart';
 import 'story_entities.dart';
 import 'story_library.dart';
 import 'story_bible.dart';
@@ -36,6 +37,7 @@ import 'story_scheduler.dart';
 import 'story_settings.dart';
 
 export 'story_locale.dart';
+export 'story_promo.dart' show PromoHooks, promoPrompt, promoTurn;
 export 'story_notifications.dart' show storyNotificationRepository;
 
 /// Mirrors `demoOverrides` one-for-one; only the seeds differ (the parity law: app and demo differ in
@@ -43,12 +45,15 @@ export 'story_notifications.dart' show storyNotificationRepository;
 List<Override> storyOverrides(
   SettingsPrefs prefs,
   FixtureNotificationRepository notifications,
-  StoryLocale l,
-) => [
+  StoryLocale l, {
+  DemoTurnScript? turnScript,
+}) => [
   settingsPrefsProvider.overrideWithValue(prefs),
   goRouterProvider.overrideWith(buildAppRouter),
   entityRepositoryProvider.overrideWithValue(storyEntityRepository(l)),
-  chatRepositoryProvider.overrideWithValue(storyChatRepository(l)),
+  chatRepositoryProvider.overrideWithValue(
+    storyChatRepository(l, turnScript: turnScript),
+  ),
   libraryRepositoryProvider.overrideWithValue(storyLibraryRepository(l)),
   notificationRepositoryProvider.overrideWithValue(notifications),
   settingsRepositoryProvider.overrideWithValue(storySettingsRepository(l)),

@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:flutter/widgets.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -35,7 +37,12 @@ GoRouter buildAppRouter(Ref ref) {
   final navKey = ref.watch(rootNavigatorKeyProvider);
   final router = GoRouter(
     navigatorKey: navKey,
-    initialLocation: '/',
+    // `ANSELM_START_ROUTE` is a dev escape hatch like `ANSELM_BACKEND_URL`: open the app straight on a
+    // route (a conversation, an entity) so a scripted session — screenshots, a recorded demo driven
+    // through the sidecar API — needs no click to get there. Unset in every normal launch.
+    // `ANSELM_START_ROUTE` 是与 `ANSELM_BACKEND_URL` 同类的开发逃生口:启动直接落在某个路由(一段对话、一个实体),
+    // 让脚本化会话(截图、经 sidecar API 驱动的录屏)不需要点击就到位。正常启动从不设置。
+    initialLocation: Platform.environment['ANSELM_START_ROUTE'] ?? '/',
     // An UNMATCHED path (a typo, an extra segment, a trailing slash) must NOT fall through to go_router's
     // default error screen — that is a DIFFERENT page and would remount the shell (losing keepAlive +
     // scroll). Render the same constant-key shell page instead; the URL parses to no selection → the ocean
