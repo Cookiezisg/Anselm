@@ -285,13 +285,24 @@ class _DemoNoticeShowcaseState extends ConsumerState<_DemoNoticeShowcase> {
             priority: NoticePriority.priority,
           );
     };
+    promo.navigate = (location) {
+      if (!mounted) return;
+      ref.read(goRouterProvider).go(location);
+    };
     promo.approve = () async {
       if (!mounted) return;
       // No local-decision mark: that is what keeps a capsule on screen to show its verdict after
       // the button press; here the decision is authoritative and the capsule simply retires.
       // 不打本地决定标记:那是让胶囊在按钮按下后留屏展示判词用的;这里决定即权威,胶囊直接退场。
+      // Both fixtures hold a copy of the parked run (entities for the capsule, scheduler for the
+      // overview's "waiting on you"); decide in both so every surface the tour visits agrees.
+      // 两个 fixture 各持一份停车 run(实体仓库供胶囊,调度器仓库供总览的「等你处理」);两边都决,巡游到的
+      // 每个面才一致。
       await ref
           .read(entityRepositoryProvider)
+          .decideApproval(frDigestParked, 'review', decision: 'yes');
+      await ref
+          .read(schedulerRepositoryProvider)
           .decideApproval(frDigestParked, 'review', decision: 'yes');
       if (!mounted) return;
       ref.invalidate(flowrunInboxProvider);

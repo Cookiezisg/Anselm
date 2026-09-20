@@ -30,10 +30,10 @@
 </p>
 
 <p align="center">
-  <img src="docs/assets/readme/demo.gif" width="1200" alt="One sentence in, and Anselm creates the function, the agent, the Monday trigger and the workflow, runs it once, waits for your approval, and files the digest.">
+  <img src="docs/assets/readme/demo.gif" width="1200" alt="One sentence in, and Anselm creates the function, the agent, the Monday trigger and the workflow, runs it once, waits for your approval, files the digest, and the reel ends on the scheduler, the document and the workflow it built.">
 </p>
 
-<p align="center"><sub>One sentence in. Anselm writes the function, the agent, the trigger and the workflow, runs it once, and waits for your approval before filing. Everything on screen is the real app; the model's replies are scripted so the reel is reproducible (<code>make -C frontend demo DATASET=story LOCALE=en AUTOPLAY=promo</code>).</sub></p>
+<p align="center"><sub>One sentence in. Anselm writes the function, the agent, the trigger and the workflow, runs it once, and waits for your approval before filing; then the scheduler, the filed digest and the workflow page show what now exists. Everything on screen is the real app; the model's replies are scripted so the reel is reproducible (<code>make -C frontend demo DATASET=story LOCALE=en AUTOPLAY=promo</code>).</sub></p>
 
 ---
 

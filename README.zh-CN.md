@@ -33,7 +33,7 @@
   <img src="docs/assets/readme/demo.gif" width="1200" alt="一句话进去，Anselm 建出 function、agent、周一 trigger 和 workflow，跑一次，停下等你审批，再归档周报。">
 </p>
 
-<p align="center"><sub>一句话进去。Anselm 写出 function、agent、trigger 和 workflow，跑一次，归档前停下等你审批。画面里全是真实的应用；模型回复是脚本化的，所以这段片子可复现（<code>make -C frontend demo DATASET=story LOCALE=en AUTOPLAY=promo</code>）。</sub></p>
+<p align="center"><sub>一句话进去。Anselm 写出 function、agent、trigger 和 workflow，跑一次，归档前停下等你审批；然后调度器、归档的周报和 workflow 页面展示这一切已经存在。画面里全是真实的应用；模型回复是脚本化的，所以这段片子可复现（<code>make -C frontend demo DATASET=story LOCALE=en AUTOPLAY=promo</code>）。</sub></p>
 
 ---
 

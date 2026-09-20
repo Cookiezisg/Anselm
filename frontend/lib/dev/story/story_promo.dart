@@ -31,7 +31,18 @@ const promoPrompt =
 class PromoHooks {
   void Function()? showApproval;
   Future<void> Function()? approve;
+  void Function(String location)? navigate;
 }
+
+/// Where the reel goes after the reply: the scheduler overview, the filed digest, the
+/// workflow's own page. Each stop is the story's seeded truth for what the turn just built.
+/// 回复之后宣传片去的地方:workflow 的运行历史、归档的周报、workflow 自己的页面。每一站都是故事里为刚建
+/// 出来的东西播种的真身。
+const promoTour = <({int holdMs, String location})>[
+  (holdMs: 1400, location: '/scheduler'),
+  (holdMs: 5200, location: '/library/$docDigestLatest'),
+  (holdMs: 5200, location: '/entities/workflow/$wfDigest'),
+];
 
 const _fetchCode =
     'import requests\\n'
@@ -545,6 +556,16 @@ void _play(
     ),
     step: 80,
   );
+
+  var tourAt = at + 40;
+  for (final stop in promoTour) {
+    tourAt += stop.holdMs;
+    final location = stop.location;
+    repo.schedule(
+      Duration(milliseconds: tourAt),
+      () => hooks.navigate?.call(location),
+    );
+  }
 
   repo.schedule(Duration(milliseconds: at + 40), () {
     repo.replaceMessage(
