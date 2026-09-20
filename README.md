@@ -10,7 +10,8 @@
 
 <p align="center">
   Describe what you need in plain language. Anselm creates the functions, agents, and workflows,<br>
-  schedules them, and runs them durably on your own machine. No orchestration code, no infrastructure to manage.
+  schedules them, and runs them durably on your own machine. No orchestration code, no infrastructure to manage.<br>
+  <b>Download, open, ask.</b> No API key, no Docker, no config to start.
 </p>
 
 <p align="center">
@@ -45,7 +46,7 @@ Most agent frameworks give you a library and leave the orchestration to you: you
 - **Four kinds of executable, one graph.** Functions (stateless code), Handlers (stateful classes), Agents (LLM workers with tools), and Workflows (the graph that composes them). Triggers, controls, and approvals are the nodes in between.
 - **Durable by design.** Every node result is written to SQLite as it completes. After a crash or restart the interpreter re-walks the graph, reuses what finished, and runs only what did not. Side effects are never repeated.
 - **Human in the loop.** Approval nodes park a run as a persistent state. Decide from the notification ledger or the Scheduler, or let a timeout policy decide. The run continues from that node.
-- **Local-first.** One desktop app, one Go sidecar, one SQLite file. Your workflows, run history, documents, and keys stay on your machine. Managed models work out of the box; bring your own OpenAI, Gemini, DeepSeek, or Qwen keys when you want to.
+- **Local-first.** One desktop app, one Go sidecar, one SQLite file. Your workflows, run history, documents, and keys stay on your machine. Managed models work out of the box; or point it at Ollama or any OpenAI- or Anthropic-compatible endpoint, or bring your own OpenAI, Gemini, DeepSeek, or Qwen keys. With Ollama, nothing leaves the machine.
 - **Observable.** Every run has a matrix column, a Gantt, a dossier with its entry payload and pinned references, and an activity log of what each Function, Handler, and Agent did.
 
 ## What it looks like
