@@ -28,7 +28,7 @@ dependencies:
   # UI glyphs — the whole Lucide set as IconData. The demo vendors the same set; we use the
   # maintained package rather than re-vendoring (原则 #8). Semantic alias map = core/ui/icons.dart.
   # UI 图标=整组 Lucide;用成熟包而非重新 vendored,语义别名表在 core/ui/icons.dart。
-  lucide_icons_flutter: ^3.1.14+2
+  lucide_icons_flutter: ^3.1.20
   # LLM-output markdown renderer with the richest builder surface (codeBuilder / highlightBuilder /
   # imageBuilder / tableBuilder / onLinkTap / swappable components) — used ONLY through the AnMarkdown
   # facade (core/ui), never raw. PINNED EXACT: upstream has broken builder signatures within a minor
@@ -45,7 +45,7 @@ dependencies:
   slang: ^4.19.2
   slang_flutter: ^4.16.0
   # Locale-aware human numbers for quota and other user-facing counters. 配额等用户数字的 locale 格式化。
-  intl: ^0.20.2
+  intl: ^0.20.3
   # HTTP transport (REST ApiClient) + the long-lived SSE GET (ResponseType.stream). The one
   # runtime dep the net + sse layers need. 网络传输:REST + 长连 SSE(均走 dio 流)。
   dio: ^5.11.1
@@ -77,7 +77,7 @@ dependencies:
   # 原生编辑器,钉死 dev 版;markdown 编解码随包内置;仅经 core/editor 门面用。**钉值现在由 vendor 补丁扛着、
   # 不再是 Flutter API 缺口**:dev.41+ 需要的 TextInputConnection.updateStyle,Flutter 3.44 已提供(vendored
   # IME 装饰器已转发),故上移不再被 SDK 挡,而是被 ADR 0009 的 presenter 补丁挡(须重放)。解钉前先读 ADR 0009。
-  super_editor: 0.3.0-dev.40
+  super_editor: 0.3.0-dev.52
   # super_editor's text-layout companion (transitively resolved by super_editor) — pinned EXPLICIT because the
   # facade uses it directly: the vendored AnTextComponent (lib/core/editor/an_editor_text_component.dart) rebuilds
   # TextComponent's SuperText/ProseText/highlight layers to paint the paint-beneath inline-code background, and
@@ -109,7 +109,7 @@ dependencies:
   # codecs). Its pubspec declares windows and nothing else, so macOS links not one byte of it.
   # Windows:走系统自带的 Media Foundation,经一个**只声明 windows** 的包(~130KB DLL、不带编解码器)。
   # 它的 pubspec 只声明 windows,故 macOS **一个字节都不链**。
-  video_player_win: ^3.2.2
+  video_player_win: ^3.3.0
   # Linux: media_kit behind the video_player interface. The bridge is opt-in per platform and the
   # HEAVY native half lives in a separate, Linux-ONLY libs package — that split is the whole reason
   # this combination is used instead of one all-platforms package.
@@ -171,8 +171,8 @@ dev_dependencies:
   video_player_platform_interface: ^6.9.0
   # Codegen for contract DTOs (NOT slang — slang stays on its own `dart run slang`, see build.yaml).
   # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
-  build_runner: ^2.15.1
-  freezed: ^3.2.5
+  build_runner: ^2.16.1
+  freezed: ^4.0.1
   json_serializable: ^6.14.1
   # WidgetTester extensions from Flutter Bounty Hunters (same authors as super_editor) — ime.typeText,
   # pressEnter/pressBackspace, doubleTapInParagraph/tripleTapInParagraph — for the editor interaction
