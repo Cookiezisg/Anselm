@@ -3,7 +3,7 @@ module github.com/sunweilin/anselm/backend
 go 1.26.8
 
 require (
-	github.com/bmatcuk/doublestar/v4 v4.10.0
+	github.com/bmatcuk/doublestar/v4 v4.10.2
 	github.com/disintegration/imaging v1.6.2
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/glebarez/go-sqlite v1.23.0
