@@ -24,7 +24,7 @@ dependencies:
   # the binding's view config — not Transform.scale / textScaler. 应内 UI 缩放(整体重排式)。
   scaled_app: ^2.3.2
   # Lightweight key/value persistence (zoom level, window prefs). 轻量持久化(缩放档/窗口偏好)。
-  shared_preferences: ^2.5.0
+  shared_preferences: ^2.5.6
   # UI glyphs — the whole Lucide set as IconData. The demo vendors the same set; we use the
   # maintained package rather than re-vendoring (原则 #8). Semantic alias map = core/ui/icons.dart.
   # UI 图标=整组 Lucide;用成熟包而非重新 vendored,语义别名表在 core/ui/icons.dart。
@@ -34,7 +34,7 @@ dependencies:
   # facade (core/ui), never raw. PINNED EXACT: upstream has broken builder signatures within a minor
   # before; the facade keeps us vendorable if it stalls. LLM 输出 markdown 渲染器,builder 钩子面最全;
   # 仅经 AnMarkdown 门面用、绝不裸用。钉死精确版本(上游曾在小版本内破坏 builder 签名;门面保可 vendor)。
-  gpt_markdown: 1.2.1
+  gpt_markdown: 1.3.4
   # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
   # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
   csv: ^6.0.0
@@ -85,7 +85,7 @@ dependencies:
   # BlinkController.indeterminateAnimationsEnabled to halt the caret ticker (else pumpAndSettle hangs on the
   # infinite blink). 编辑器门面直接用它(vendored AnTextComponent 重建 SuperText/高亮层画行内代码背景);barrel show 排除了这些符号。
   super_text_layout: 0.1.22
-  url_launcher: ^6.3.2
+  url_launcher: ^6.3.3
   launch_at_startup: ^0.5.1
   package_info_plus: ^9.0.1
   # In-app updater (Sparkle on macOS). Local plugin so the host stays SPM-only.
@@ -104,7 +104,7 @@ dependencies:
   # 内联媒体播放——**一套**上层 API,实现**按平台选**(ADR 0018)。macOS 走官方背书的 AVFoundation
   # 实现:系统解码、Swift Package Manager、**零 vendored framework**。Windows/Linux 注册下面的 `fvp`,
   # 因为那两个平台没有可用的系统解码器、**必须**自带一个——这是平台现实,不是哪个包的错。
-  video_player: ^2.14.0
+  video_player: ^2.14.1
   # Windows: the OS's own Media Foundation, via a Windows-ONLY package (~130KB DLL, no bundled
   # codecs). Its pubspec declares windows and nothing else, so macOS links not one byte of it.
   # Windows:走系统自带的 Media Foundation,经一个**只声明 windows** 的包(~130KB DLL、不带编解码器)。
