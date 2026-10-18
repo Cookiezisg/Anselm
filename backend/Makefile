@@ -21,6 +21,8 @@ help:
 	@echo "  make testend   run black-box acceptance tests (slow)"
 	@echo "  make evals     run real-model golden journeys (costs tokens)"
 	@echo "  make qwen-evals run opt-in Qwen image/video/audio + tool golden (costs tokens)"
+	@echo "  make evalbench run the measured build/repair lanes (costs tokens; EVALBENCH_TASKS=T1 to narrow)"
+	@echo "  make evalbench-score fold evalbench results into the Pass@k / repair summary"
 	@echo "  make build     build ../bin/anselm-server"
 	@echo "  make verify    check format, vet, build, and tests"
 	@echo "  make clean     remove backend build output and dev data"
@@ -95,6 +97,16 @@ qwen-evals: deps
 	cd $(ROOT)/testend && EVALS=1 EVALS_QWEN_MULTIMODAL=1 EVALS_PROVIDER=qwen \
 	$(RUN) go test -count=1 -timeout 30m -run '^TestGolden_C2_QwenMultimodalInputAndToolContinuation$$' ./golden/...
 
+# Measured lanes behind the Pass@1/Pass@3 and repair claims (docs/working/eval-benchmark/README.md).
+# Same real-model gate as evals; rows append to testend/evalbench/out/results.jsonl (gitignored).
+# 支撑 Pass@1/Pass@3 与修复结论的测量车道；与 evals 同一真模型门控；行追加到 gitignored 的 results.jsonl。
+evalbench: deps
+	@set -a; [ -f $(ROOT)/.env ] && source $(ROOT)/.env; set +a; \
+	cd $(ROOT)/testend && EVALS=1 $(RUN) go test -count=1 -timeout 12h -run '^TestEvalbench_' ./evalbench/...
+
+evalbench-score:
+	@cd $(ROOT)/testend && $(RUN) go run ./cmd/evalscore -in evalbench/out/results.jsonl
+
 build: deps
 	@mkdir -p $(ROOT)/bin
 	@$(RUN) go build -o $(ROOT)/bin/anselm-server ./cmd/server
@@ -116,4 +128,4 @@ clean: stop
 	@rm -rf $(DATA) $(ROOT)/bin/anselm-server
 	@echo "✓ backend cleaned"
 
-.PHONY: help toolchain setup deps run seed stop format test testend evals qwen-evals build verify clean
+.PHONY: help toolchain setup deps run seed stop format test testend evals qwen-evals evalbench evalbench-score build verify clean

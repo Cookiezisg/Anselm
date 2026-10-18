@@ -239,3 +239,6 @@ backend/sandbox/
 # ============================================================
 # 量尺脚本 + 快照产物（机器指纹/进程表/diff）。纯本机量测数据，不入库。
 .leak-lab/
+
+# evalbench real-model results (make -C backend evalbench); the summary goes into docs, never the raw rows.
+testend/evalbench/out/

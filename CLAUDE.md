@@ -121,7 +121,9 @@ Anselm 是本地优先的 Agentic Workflow Platform：
 
 - **T5 双层验收**：包内单元/集成测试覆盖局部行为；`testend/` 是独立
   module，以真实二进制和纯 HTTP/SSE 做黑盒验收。`make -C backend testend`
-  默认使用 llmmock；`make -C backend evals` 只在显式开启时调用真实模型。
+  默认使用 llmmock；`make -C backend evals` 与 `make -C backend evalbench`
+  只在显式开启时调用真实模型，后者是 Pass@k / 修复率的计数车道
+  （`docs/working/eval-benchmark/README.md`）。
 - **T5.1 契约改动查 testend**：修改端点、表、事件或错误码时，按事件或
   错误码的**域前缀**搜索并同步 `testend/`，再运行相关黑盒场景。只搜索完整
   事件名会漏掉集合断言。

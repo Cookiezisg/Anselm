@@ -120,7 +120,7 @@ Edges carry payloads. Back-edges start the next iteration; the persisted choice 
 
 ### Durable execution
 
-Node results are memoized in the database as the source of truth. Recovery is an idempotent re-walk of the graph, not a replay of an event log. Failed runs can be replayed from the failed node without re-running what already succeeded. Triggers deduplicate firings and apply an overlap policy (serial, skip, or allow) before a run is even created.
+Node results are memoized in the database as the source of truth. Recovery is an idempotent re-walk of the graph, not a replay of an event log. Failed runs can be replayed from the failed node without re-running what already succeeded. Triggers deduplicate firings and apply an overlap policy (`serial`, `skip`, `buffer_one`, `replace` or `allow_all`) before a run is even created.
 
 ### Everything else the AI can use
 
