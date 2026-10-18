@@ -1,0 +1,35 @@
+{
+  "version": 1,
+  "description": "Fault catalog for the repair lane. Transient faults (http_502, timeout) fire on the first sink call after arming and then clear, so a retry is a valid repair; header-gated faults (schema_change, http_401) keep firing until the request carries the required header, so only a code change repairs them. 'model_bad_output' is injected by the harness, not the sink: the function the model wrote is edited to return a non-dict, which the engine rejects. In every case 'stop calling the sink' is a failed repair because the task assertion still requires the delivery.",
+  "faults": [
+    {
+      "id": "http_502",
+      "kind": "sink",
+      "sink": { "status": 502, "body": "{\"error\":\"bad gateway\"}" },
+      "expectRepair": "function retries or surfaces a clear error; rerun must deliver the original payload exactly once"
+    },
+    {
+      "id": "timeout",
+      "kind": "sink",
+      "sink": { "stallMs": 20000 },
+      "expectRepair": "function sets a request timeout and retries; rerun must deliver the payload exactly once"
+    },
+    {
+      "id": "schema_change",
+      "kind": "sink",
+      "sink": { "status": 400, "body": "{\"error\":\"schema v2 required\",\"hint\":\"send header X-Eb-Schema: v2\"}", "requireHeader": "X-Eb-Schema: v2" },
+      "expectRepair": "function sends the X-Eb-Schema: v2 header (stated in the sink's error body) on the rerun; a plain retry keeps failing"
+    },
+    {
+      "id": "http_401",
+      "kind": "sink",
+      "sink": { "status": 401, "body": "{\"error\":\"unauthorized\"}", "requireHeader": "Authorization: Bearer eb-token" },
+      "expectRepair": "function sends the documented bearer token (the harness states it in the repair turn) on the rerun"
+    },
+    {
+      "id": "model_bad_output",
+      "kind": "harness",
+      "expectRepair": "a new function version that returns a dict again; rerun passes the task assertion"
+    }
+  ]
+}
