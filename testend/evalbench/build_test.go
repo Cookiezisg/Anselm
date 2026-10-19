@@ -80,6 +80,7 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 			row.PassAttempt = attempt
 			return
 		}
+		dumpConversation(t, wc, conv, task.ID, rep, attempt)
 		// The repair turn carries only what a user would paste: the observed failure. No code, no
 		// hint about the fix. 修复追问只带用户会粘贴的东西：观测到的失败。不给代码、不提示修法。
 		turn = "The workflow did not produce the expected result. Observed: " + row.Reasons +

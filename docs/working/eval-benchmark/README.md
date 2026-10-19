@@ -98,6 +98,7 @@ make -C backend evalbench                      # 全部 60 条 × 3 次，先 Bu
 EVALBENCH_TASKS=T1 make -C backend evalbench   # 只跑一档；或 EVALBENCH_TASKS=T1-03,T4-07
 EVALBENCH_REPS=1 make -C backend evalbench     # 调试用单次
 EVALS_PROVIDER=deepseek make -C backend evalbench   # 便宜模型对照（需 .env 里的 key）
+EVALBENCH_DUMP=1 ... make -C backend evalbench # 失败 attempt 转存整段建图对话，供归因
 make -C backend evalbench-score                # 折叠 results.jsonl → Markdown 表
 ```
 
@@ -105,6 +106,9 @@ make -C backend evalbench-score                # 折叠 results.jsonl → Markdo
   每条车道只起一个 server：每个 server 都是一次新的受管 install，网关对 install 登记限流（429）。
 - 建图对话里的自报危险门与 ask_user 由 harness 自动放行（与 golden 同策略）；workflow 审批节点按任务
   的 `approvalDecision` 立即裁决。
+- `EVALBENCH_DUMP` 非空时，每个未通过的 attempt 把整段建图对话（含 tool_call 参数与 tool_result 正文）
+  转存为 `out/dumps/<task>-rep<N>-attempt<M>.json`（gitignored）。行里的 `firstTools` 只有调用名序列，
+  诊断真正要看的参数与工具报错在这里。
 - 结果追加到 `testend/evalbench/out/results.jsonl`（gitignored）；`evalscore` 的 Markdown 表连同环境
   （模型、日期、commit）贴到本文件 §5，Repair 车道在存在结果文件时只取稳定任务。
 - 受管路由默认模型与一个便宜模型各跑一遍，两组数一起报。
@@ -138,6 +142,36 @@ make -C backend evalbench-score                # 折叠 results.jsonl → Markdo
 
 Repair 车道尚未运行（`injections=0`）。
 
+### 三条无效任务与复算
+
+转存（`EVALBENCH_DUMP=1`）证实 `T4-13..T4-15` **题目无解**，非产品缺陷：
+
+- Agent 的工具宇宙恰是其挂载，合法 ToolRef 只有 `fn_` / `hd_…method` / `mcp:server/tool` / `sys:<name>`；
+  `create_agent` 的 schema 只列前三种。而 `sys:` 注册表由 `generate.GenerateTools()` 填充，内容是
+  `generate_image`、`generate_speech`、`generate_video`、`edit_image`、`animate_image`、`enroll_voice`
+  ——**不含任何 document 工具**。因此"给 Agent 挂 document 工具"在当前产品里无法表达。
+- 该形状 6/9 的"三轮内通过"同样不可信：`documents` 断言走 `docNames`，查的是**整个 workspace** 有无
+  同名文档，不校验它由 flowrun 产生；而主对话助手自己持有 `create_document`。断言可被"助手在聊天里
+  手工建档"满足，不是执行式的。
+
+剔除这三条（9 次运行）后的复算，口径与上表相同：
+
+| Metric | Value |
+|---|---|
+| tasks / shapes / runs | 57 / 29 / 170 |
+| Pass@1 | 89.4% (152/170) |
+| Pass@3 | 100.0% (170/170) |
+| T1 / T2 / T3 / T4 Pass@1 | 90.9% (40/44) / 91.1% (41/45) / 82.2% (37/45) / 94.4% (34/36) |
+
+对外引用以**这一组**为准，并须同时说明剔除了三条无效任务及其理由。
+
+### 隔离性缺陷（未修）
+
+同一份转存显示模型通过 `Bash` / `Grep` 读了 `testend/evalbench/tasks.json`（拿到 `expect` 与
+`assert` 全文）与本文件 §5。这不是越权：`workDirSection` 明确告知模型"可用绝对路径读机器上任何地方"，
+文件系统读取是产品的设计意图，无开关可关。后果是 evalbench **不是密闭基准**——任何一次通过都不能排除
+读过答案。S3 的 170 次运行据此只能作内部回归信号，不能作对外数字，直到隔离修复并重跑。
+
 ### 对外引用口径
 
 §3 的 `Pass@3` 是**历史命名**，量的是"≤3 个 attempt 内通过"，即 Chen et al. 2023 式的
@@ -153,6 +187,12 @@ execution-feedback self-repair（顺序修复、每轮回引失败），**不是
 - T4 的 `eb_digest` 依赖 Agent 节点挂 document 工具；若模型不给 Agent 挂工具，归因为 structure。
 - `timeout` 故障依赖沙箱对挂起请求的超时；若沙箱超时长于 `EVALBENCH_RUN_MS`，该注入会被判作废而非失败。
 - Durable 与 Guard 的计数脚本尚未落地，本文件 §1 的"待补"即收口条件。
+- **不密闭（最高优先级）**：模型持有 `Bash` / `Grep` / `Read` 且可读机器任意绝对路径，`tasks.json` 与
+  本文件就在同一仓库内，已实测被读取。修复方向：建图对话的 workdir 指向空临时目录（不再从仓库起步），
+  并在转存里检测触及 `tasks.json` / `evalbench` / 本文件的调用，命中即作废该次运行。两者都落地前，
+  任何数字不得对外引用。
+- **`documents` 断言非执行式**：`docNames` 查整个 workspace，主对话助手自己能建档，断言可被绕过。
+  需要把文档存在性绑定到 flowrun 产物，或改由只有工作流能触达的 sink 代替。
 - **任务多样性不足**：60 条任务按归一化提示词只有 31 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高
   重复测量的稳定性，但不增加独立信息；分档比率的有效样本量远小于 15 × reps。扩充前，分档数字只能
   作内部回归信号，不能作对外规模陈述。

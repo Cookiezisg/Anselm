@@ -417,6 +417,36 @@ func settleRun(t *testing.T, wc *harness.Client, runID, decision string, timeout
 	return last
 }
 
+// dumpConversation writes the whole build conversation (every block: tool_call args, tool_result
+// bodies, reasoning) next to the results file when EVALBENCH_DUMP is set. firstTools gives the
+// call sequence but not the arguments or the errors the tools returned, and those are what a
+// failure diagnosis actually turns on.
+//
+// dumpConversation 在设置 EVALBENCH_DUMP 时把整个建图对话（每个块：tool_call 参数、tool_result 正文、
+// reasoning）写到结果文件旁边。firstTools 只给调用序列，不给参数和工具返回的错误，而失败诊断恰恰靠后者。
+func dumpConversation(t *testing.T, wc *harness.Client, convID, taskID string, rep, attempt int) {
+	t.Helper()
+	if os.Getenv("EVALBENCH_DUMP") == "" {
+		return
+	}
+	r, err := wc.Try("GET", "/api/v1/conversations/"+convID+"/messages?limit=200", nil)
+	if err != nil || r.Status != 200 {
+		t.Logf("dump %s rep%d attempt%d: messages fetch failed (err=%v)", taskID, rep, attempt, err)
+		return
+	}
+	dir := filepath.Join(filepath.Dir(resultsPath(t)), "dumps")
+	if err := os.MkdirAll(dir, 0o755); err != nil {
+		t.Logf("dump %s: mkdir: %v", taskID, err)
+		return
+	}
+	path := filepath.Join(dir, fmt.Sprintf("%s-rep%d-attempt%d.json", taskID, rep, attempt))
+	if err := os.WriteFile(path, r.Data, 0o644); err != nil {
+		t.Logf("dump %s: write: %v", taskID, err)
+		return
+	}
+	t.Logf("dump %s rep%d attempt%d -> %s", taskID, rep, attempt, path)
+}
+
 func docNames(wc *harness.Client) []string {
 	r, err := wc.Try("GET", "/api/v1/documents/tree", nil)
 	if err != nil || r.Status != 200 {
