@@ -219,6 +219,8 @@ Skill 激活的普通文本字段也遵守同一条规则：`Session:`/`Session 
 
 该规则同样覆盖激活摘要的二列表格：表中 `Session`/`Session ID` 行若值不可用，统一指向相邻激活卡；`Directory`/`Path`/`CWD`/`CLAUDE_SKILL_DIR` 行统一指向精确路径 tool card，不保留 `the requested item` 或嵌入占位符的伪路径。若助手随后声称“所有值均原样/逐字引用、未做替换或臆造”，而表中已有字段被安全重定向，服务端会将整句改写为诚实的人话，避免最终正文与画面事实冲突。若技能已完成显式指令且用户没有后续任务，prompt 也要求助手停下，不得为了“继续”而无谓检查技能目录或发起额外工具调用。
 
+与之相对的另一侧边界：当用户一次请求里点名了多个步骤（建出某物 → 运行它 → 回报某个具体事实），prompt 要求每一步都在本回合兑现，且只有对应 tool result 返回后才算完成——实体以 create 工具返回为准，run 以 trigger 工具返回为准。不得在某个被点名的步骤被静默跳过的情况下结束回合；用户给出次数约束（如 `exactly one run`）时按该次数执行，不得重复触发。该规则位于殿后的 critical rules 段，与「技能完成即停」各管一侧：前者禁止漏做，后者禁止加戏。
+
 二列表格把 `ID`/`Identifier` 作为字段行时遵守同一规则：当值不可用时，流式出口和 durable close 都必须物理移除整行，不能留下空行或 `ID | -`。空行会切断 Markdown 表格并可能让后续真实字段从渲染结果中消失；精确值仍只在相邻 tool card 与审计线缆中保留。
 
 搜索积木的正文是同一条规则的可操作特例：若模型在“这些 ref 可以用于 workflow”之类的句子中重复 opaque ref，通用脱敏后不得留下 `the requested item` 或 `the requested item.method`，也不得留下 `hd_…` / `hd_….place`、`hd_<id>.<method>` 这类缩写或模板值。服务端只替换含坏占位的那一句为“精确值见相邻 `search_blocks` 结果卡，可直接复制到 workflow 节点”（英文同义句），保留后续提示语；即使模型没有写出 `ref` 一词，只要同句明确谈到 `workflow node(s)`/`workflow 节点` 并含上述坏值，也执行同一改写。若结果被模型整理成同时含 `ref`、`kind`、`name`、`snippet`/`description` 的 Markdown 表，按表头识别为 search_blocks 表，所有 ref 单元格统一改为“精确 ref 见相邻 search_blocks 结果卡”，不误套 flowrun 的 `See the run card`，也清理 `the requested item.method` 这类带方法后缀的坏值。表格行仍由结构化表格规则处理。精确 `ag_`、`hd_`、`mcp:` ref 只在相邻 tool card 和审计线缆中显示。
