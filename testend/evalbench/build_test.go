@@ -62,14 +62,20 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		row.Attempts = attempt
 		sink.Reset()
-		_, tools := say(t, wc, conv, turn, turnMS)
+		_, tools, toolNames := say(t, wc, conv, turn, turnMS)
 		row.ModelCalls += tools
+		if attempt == 1 {
+			row.FirstTools = toolNames
+		}
 
 		verdict, g := observeAndJudge(t, wc, sink, task, runMS)
 		row.Structure = StructureScore(task.Expect.Nodes, g.Nodes)
 		kind, _, _ := triggerKind(wc, g)
 		row.TriggerOK = TriggerMatches(task.Expect.Trigger, kind)
 		row.Reasons = strings.Join(verdict.Reasons, "; ")
+		if attempt == 1 {
+			row.FirstReasons = row.Reasons
+		}
 		if verdict.Pass {
 			row.PassAttempt = attempt
 			return

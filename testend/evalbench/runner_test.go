@@ -164,8 +164,9 @@ type evalMsg struct {
 	Role   string `json:"role"`
 	Status string `json:"status"`
 	Blocks []struct {
-		Type    string `json:"type"`
-		Content string `json:"content"`
+		Type    string         `json:"type"`
+		Content string         `json:"content"`
+		Attrs   map[string]any `json:"attrs,omitempty"`
 	} `json:"blocks"`
 }
 
@@ -197,11 +198,12 @@ func drainInteractions(wc *harness.Client, convID string) {
 
 // say sends one user turn and returns (final text, number of tool blocks the turn produced).
 // say 发送一轮用户消息，返回（终答文本，该轮产生的工具块数）。
-func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) (string, int) {
+func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) (string, int, []string) {
 	t.Helper()
 	msgID := wc.POST("/api/v1/conversations/"+convID+"/messages", map[string]any{"content": content}).Field(t, "id")
 	var text string
 	tools := 0
+	var names []string
 	harness.Eventually(t, timeoutMS, "assistant turn reaches terminal", func() bool {
 		drainInteractions(wc, convID)
 		var msgs []evalMsg
@@ -215,11 +217,26 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 			}
 			var b strings.Builder
 			tools = 0
+			names = names[:0]
 			for _, blk := range m.Blocks {
 				if blk.Type == "text" {
 					b.WriteString(blk.Content)
-				} else if strings.Contains(blk.Type, "tool") {
-					tools++
+					continue
+				}
+				if !strings.Contains(blk.Type, "tool") {
+					continue
+				}
+				tools++
+				// The tool name lives in the block's attrs (loop sets attrs["tool"]); recording the
+				// call sequence is the only way a failed attempt can be attributed, since Anselm
+				// tools execute in-process and never appear in the HTTP log.
+				//
+				// 工具名在块 attrs（loop 写 attrs["tool"]）；记下调用序列是失败 attempt 唯一可归因的途径——
+				// Anselm 工具是进程内执行，不出现在 HTTP 日志里。
+				if blk.Type == "tool_call" {
+					if n, ok := blk.Attrs["tool"].(string); ok && n != "" {
+						names = append(names, n)
+					}
 				}
 			}
 			text = b.String()
@@ -227,7 +244,7 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 		}
 		return false
 	})
-	return text, tools
+	return text, tools, names
 }
 
 // ── workflow / run observation ────────────────────────────────────────────────

@@ -31,8 +31,19 @@ type BuildRow struct {
 	Structure   float64 `json:"structure"` // StructureScore of the final active version
 	TriggerOK   bool    `json:"triggerOk"`
 	Reasons     string  `json:"reasons,omitempty"` // last verdict's reasons, joined
-	ModelCalls  int     `json:"modelCalls"`
-	WallMS      int64   `json:"wallMs"`
+	// FirstReasons keeps attempt 1's verdict so a pass@1 failure stays attributable after a later
+	// attempt succeeds and overwrites Reasons.
+	//
+	// FirstReasons 保留 attempt 1 的裁决，使首轮失败在后续 attempt 通过并覆盖 Reasons 后仍可归因。
+	FirstReasons string `json:"firstReasons,omitempty"`
+	// FirstTools is attempt 1's tool-call name sequence, the only record of what the model actually
+	// did: Anselm tools execute in-process, so they never show up in the server's HTTP log.
+	//
+	// FirstTools 是 attempt 1 的工具调用名序列，也是模型实际行为的唯一记录——Anselm 工具进程内执行，
+	// 不会出现在服务端 HTTP 日志中。
+	FirstTools []string `json:"firstTools,omitempty"`
+	ModelCalls int      `json:"modelCalls"`
+	WallMS     int64    `json:"wallMs"`
 }
 
 // RepairRow is one (task, fault) outcome of the repair lane. RepairRow 是修复车道的一条 (task, fault)。

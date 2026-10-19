@@ -61,6 +61,11 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 - **结构 Jaccard**：期望与实际节点类型多重集的 Σmin/Σmax，只报告不门控——形状不同但跑通仍算通过。
 - **稳定任务**：每次重复都在 attempt ≤ 3 通过的任务集合，作为 Repair 车道的分母来源。
 - **失败归因**：Pass@3 未通过的 run 按裁决文本归入 structure / code / wiring / mapping / other。
+- **首轮留存**：`reasons` 只保留最后一个 attempt 的裁决，所以 `firstReasons` 与 `firstTools` 额外留存
+  attempt 1 的裁决文本与工具调用名序列。Anselm 的工具是进程内执行、不经 HTTP，服务端访问日志里看不到
+  模型调了什么；`firstTools` 是首轮失败唯一可归因的记录。
+- **`modelCalls` 的口径**：数的是该 (task, rep) 全部 attempt 的 **tool_call 块总数**，不是 LLM 往返
+  次数——一个 assistant 回合可并发多个工具调用。字段名是历史遗留，读数时按"工具调用次数"理解。
 
 分母是 run 数而不是任务数：三次重复过一次只贡献 1/3。
 
@@ -106,7 +111,41 @@ make -C backend evalbench-score                # 折叠 results.jsonl → Markdo
 
 ## 5. 结果
 
-尚未运行。首次结果落在这里，格式即 `evalscore` 输出；写进 README 或对外介绍的数字必须能在此找到分子分母。
+### S3 · 2026-10-20 · `deepseek-v4-flash` · commit `493a9ed9d`
+
+`EVALS_PROVIDER=deepseek EVALBENCH_REPS=3`，ATTEMPTS=3。计划 180 次运行，实得 **179**：
+`T1-01/rep3` 在 BYOK key probe 阶段遇 `api.deepseek.com` 连接超时（`API_KEY_TEST_FAILED`），
+模型未被调用，按缺测处理而非失败。
+
+| Lane | Metric | Value |
+|---|---|---|
+| build | tasks / runs | 60 / 179 |
+| build | Pass@1 | 84.9% (152/179) |
+| build | Pass@3 | 98.3% (176/179) |
+| build | T1 Pass@1 / Pass@3 | 90.9% (40/44) / 100.0% (44/44) |
+| build | T2 Pass@1 / Pass@3 | 91.1% (41/45) / 100.0% (45/45) |
+| build | T3 Pass@1 / Pass@3 | 82.2% (37/45) / 100.0% (45/45) |
+| build | T4 Pass@1 / Pass@3 | 75.6% (34/45) / 93.3% (42/45) |
+| build | mean structure Jaccard | 0.99 |
+| build | stable tasks | 58 / 60 |
+
+自修复分布：27 次首轮失败中 19 次在 attempt 2 通过、5 次在 attempt 3 通过、3 次耗尽预算。
+
+**结论集中在一个任务形状。** 按归一化提示词聚类，60 条任务只有 31 个不同形状；三次永久失败全部落在
+`T4-13..T4-15`（同一形状的三份拷贝）。该形状 **Pass@1 = 0/9**、三轮内 6/9、中位 154 次工具调用；
+其余 30 个形状三轮内全部 100%。剔除该形状后 T4 Pass@1 = 94.4% (34/36)，T4 中最复杂的 webhook 形状
+（`T4-01..T4-05`）为 15/15。因此"T4 档偏弱"的正确表述是"`eb_digest` 形状有缺陷"，不是"多步副作用难"。
+
+Repair 车道尚未运行（`injections=0`）。
+
+### 对外引用口径
+
+§3 的 `Pass@3` 是**历史命名**，量的是"≤3 个 attempt 内通过"，即 Chen et al. 2023 式的
+execution-feedback self-repair（顺序修复、每轮回引失败），**不是** Chen et al. 2021 的 pass@k
+（k 次独立采样取并）。对外写作必须用后者的术语区分，不可直接写 "pass@3"。
+
+同理，分母的独立性有限：60 条任务 31 个形状（T2 仅 3 个形状各 5 份拷贝），拷贝之间高度相关，
+按 179 次运行算二项置信区间会低估真实不确定度。对外引用须按**形状数**而非任务数陈述规模。
 
 ## 6. 已知边界
 
@@ -114,3 +153,6 @@ make -C backend evalbench-score                # 折叠 results.jsonl → Markdo
 - T4 的 `eb_digest` 依赖 Agent 节点挂 document 工具；若模型不给 Agent 挂工具，归因为 structure。
 - `timeout` 故障依赖沙箱对挂起请求的超时；若沙箱超时长于 `EVALBENCH_RUN_MS`，该注入会被判作废而非失败。
 - Durable 与 Guard 的计数脚本尚未落地，本文件 §1 的"待补"即收口条件。
+- **任务多样性不足**：60 条任务按归一化提示词只有 31 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高
+  重复测量的稳定性，但不增加独立信息；分档比率的有效样本量远小于 15 × reps。扩充前，分档数字只能
+  作内部回归信号，不能作对外规模陈述。
