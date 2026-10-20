@@ -2556,7 +2556,7 @@
    "id": "T3-23",
    "tier": 3,
    "name": "eb_hd23",
-   "prompt": "Create a Handler named Count23 with a method 'bump' that increments an in-memory counter starting at 0 and returns {\"count\": <the new count>}. Create a workflow named eb_hd23 with an entry trigger I fire by hand (never on a schedule). Add action nodes that call Count23's 'bump' method TWICE in sequence, then a Python function that POSTs {\"first\": <the first bump's count>, \"second\": <the second bump's count>} to {{SINK}}/t3-23 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+   "prompt": "Create a Handler named Count23 with a method 'bump' that increments an in-memory counter starting at 0 and returns {\"count\": <the new count>}. Create a workflow named eb_hd23 with an entry trigger I fire by hand (never on a schedule). Add action nodes that call Count23's 'bump' method TWICE in sequence, then a Python function that POSTs {\"delta\": <the second bump's count minus the first bump's count>} to {{SINK}}/t3-23 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
    "expect": {
     "nodes": {
      "trigger": 1,
@@ -2572,8 +2572,7 @@
       "method": "POST",
       "count": 1,
       "bodyContains": [
-       "\"first\": 1",
-       "\"second\": 2"
+       "\"delta\": 1"
       ]
      }
     ]
