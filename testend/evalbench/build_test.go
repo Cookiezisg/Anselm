@@ -71,10 +71,21 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		row.Attempts = attempt
 		sink.Reset()
-		_, tools, toolNames, hit := say(t, wc, conv, turn, turnMS)
+		_, tools, toolNames, hit, llmErr := say(t, wc, conv, turn, turnMS)
 		row.ModelCalls += tools
 		if attempt == 1 {
 			row.FirstTools = toolNames
+		}
+		// A provider refusal is not a product verdict: the model never got to act, so the run is
+		// NOT MEASURED and leaves every rate alone. Fail loudly too — a lane that reports ok while
+		// the key is out of credit is worse than no lane at all.
+		//
+		// 供方拒绝不是产品裁决：模型根本没机会动手，故该次运行**未测量**，不进任何比率。同时显式失败——
+		// 一条在余额耗尽时仍报 ok 的车道比没有车道更坏。
+		if llmErr != "" {
+			row.NotMeasured = llmErr
+			t.Errorf("%s rep%d attempt%d: provider aborted the turn (%s); run NOT MEASURED", task.ID, rep, attempt, llmErr)
+			return
 		}
 		// Sticky: once a run has read the benchmark, nothing later in it is attributable.
 		// 粘滞：一旦该次运行读过基准，其后一切都不可归因。

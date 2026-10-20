@@ -50,6 +50,13 @@ type BuildRow struct {
 	// Contaminated 记下工具调用触及的基准产物（任务定义、评分文档、仓库本身）。此类运行**作废**：
 	// 打分从一切分子分母中剔除，而不是把一次可能读了答案的通过计进去。
 	Contaminated string `json:"contaminated,omitempty"`
+	// NotMeasured names the provider-side abort that ended the turn before the model could act
+	// (LLM_QUOTA_EXHAUSTED, a rate limit, an upstream 5xx). Such a run is dropped from every ratio
+	// like a contaminated one, but for the opposite reason: there is no attempt to judge at all.
+	//
+	// NotMeasured 记下在模型动手前中止回合的供方故障（配额耗尽、限流、上游 5xx）。此类运行与污染运行
+	// 一样从所有比率剔除，但理由相反：根本不存在可裁决的 attempt。
+	NotMeasured string `json:"notMeasured,omitempty"`
 	// ModelCalls counts tool_call BLOCKS across every attempt, not LLM round trips: one assistant
 	// turn may emit several tool calls at once. The field name is historical; read it as "tool calls".
 	//
@@ -73,6 +80,8 @@ type RepairRow struct {
 	FalseRepair bool   `json:"falseRepair"` // new version + rerun completed, but the assertion failed
 	RepairTurns int    `json:"repairTurns"`
 	Reasons     string `json:"reasons,omitempty"`
+	NotMeasured string `json:"notMeasured,omitempty"` // provider aborted a turn; see BuildRow.NotMeasured
+
 }
 
 // Summary is what any published number is built from. Every ratio carries its numerator/denominator
@@ -80,15 +89,16 @@ type RepairRow struct {
 type Summary struct {
 	Model string `json:"model"`
 	Build struct {
-		Tasks      int             `json:"tasks"`
-		Runs       int             `json:"runs"`
-		Void       int             `json:"void"` // contaminated runs, dropped from every ratio
-		Pass1      Ratio           `json:"pass@1"`
-		Pass3      Ratio           `json:"pass@3"`
-		ByTier     map[string]Tier `json:"byTier"`
-		StableTask []string        `json:"stableTasks"` // passed within 3 attempts on EVERY rep
-		Structure  float64         `json:"meanStructure"`
-		FailTags   map[string]int  `json:"failTags"`
+		Tasks       int             `json:"tasks"`
+		Runs        int             `json:"runs"`
+		Void        int             `json:"void"`        // contaminated runs, dropped from every ratio
+		NotMeasured int             `json:"notMeasured"` // provider-aborted runs, dropped from every ratio
+		Pass1       Ratio           `json:"pass@1"`
+		Pass3       Ratio           `json:"pass@3"`
+		ByTier      map[string]Tier `json:"byTier"`
+		StableTask  []string        `json:"stableTasks"` // passed within 3 attempts on EVERY rep
+		Structure   float64         `json:"meanStructure"`
+		FailTags    map[string]int  `json:"failTags"`
 	} `json:"build"`
 	Repair struct {
 		Injections   int              `json:"injections"`
@@ -197,6 +207,10 @@ func Score(model string, builds []BuildRow, repairs []RepairRow) Summary {
 		//
 		// 污染运行是**作废**而非失败：从所有比率中剔除、单独报出——无论计作通过还是失败，都是证据
 		// 支撑不了的断言。
+		if b.NotMeasured != "" {
+			s.Build.NotMeasured++
+			continue
+		}
 		if b.Contaminated != "" {
 			s.Build.Void++
 			continue
@@ -244,6 +258,9 @@ func Score(model string, builds []BuildRow, repairs []RepairRow) Summary {
 	for _, r := range repairs {
 		if r.Model != "" && model != "" && r.Model != model {
 			continue
+		}
+		if r.NotMeasured != "" {
+			continue // the provider aborted a turn; there is no repair attempt to judge
 		}
 		if !r.Failed {
 			continue // the fault never bit; the injection is void, not a success
@@ -310,6 +327,9 @@ func Markdown(s Summary) string {
 	fmt.Fprintf(&b, "| build | stable tasks (repair@3 on every rep) | %d |\n", len(s.Build.StableTask))
 	if s.Build.Void > 0 {
 		fmt.Fprintf(&b, "| build | VOID (contaminated, excluded) | %d |\n", s.Build.Void)
+	}
+	if s.Build.NotMeasured > 0 {
+		fmt.Fprintf(&b, "| build | NOT MEASURED (provider aborted, excluded) | %d |\n", s.Build.NotMeasured)
 	}
 	fmt.Fprintf(&b, "| repair | injections | %d |\n", s.Repair.Injections)
 	fmt.Fprintf(&b, "| repair | success | %s |\n", fmtRatio(s.Repair.Success))

@@ -72,6 +72,10 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 - **台账切窗**：裁决只看 flowrun `startedAt` 之后到达的 sink 调用。台账按 attempt 重置，但一个 attempt
   还含模型接线前自己做的事——用 `run_function` 试跑函数的模型会 POST 一次 sink，把它算进"恰好一次调用"
   等于惩罚"先验证再交付"。被排除的调用数会写进裁决理由，不静默丢弃。
+- **未测量（notMeasured）**：供方在模型动手前中止回合（`stopReason=error`，如
+  `LLM_QUOTA_EXHAUSTED`、限流、上游 5xx）的运行记 `notMeasured`，与作废一样**从一切分子分母中剔除**，
+  在表里单独报 `NOT MEASURED` 一行。理由与作废相反：不是"可能读过答案"，而是"根本不存在可裁决的
+  attempt"。该行同时让子测试显式失败——一条在余额耗尽时仍报 `ok` 的车道比没有车道更坏。
 - **作废（void）**：工具调用参数触及基准产物（`tasks.json`、`evalbench`、`eval-benchmark`、仓库根绝对
   路径）的运行记 `contaminated`，**从一切分子分母中剔除**，在表里单独报 `VOID` 一行。既不计通过（可能
   读了答案），也不计失败（从未被公平尝试）。标记在一次运行内粘滞：读过之后其后一切不可归因。
@@ -191,6 +195,30 @@ active workflow 引用它时运行，所以它不会自己 fire，而 `:trigger`
 措辞缺陷叠加三处产品告知缺口（`TRIGGER_INVALID_KIND` 不列合法值、`create_trigger` 与 `create_workflow`
 的描述没讲"手动跑怎么建"）。影响方向是**压低**数字：浪费的调用、13 次作废和 3 次墙钟超时都来自这里。
 因此 S7 偏保守，可以安全对外引用。
+
+### S8 · 2026-10-20 · 作废（供方余额耗尽）
+
+在 `f74cff9f5` 上重跑，意在测量三处产品告知修正的效果。**该轮无效**：DeepSeek 账户余额在第 46 次运行
+后耗尽（`/user/balance` 返 `is_available:false`、CNY `-0.18`，`/chat/completions` 返 402
+`Insufficient Balance`），其后 131 次运行的回合全部以 `stopReason=error` /
+`errorCode=LLM_QUOTA_EXHAUSTED` 结束，`modelCalls=0`，裁决记成"no workflow was built"。修复车道 20 行
+同因全废。
+
+当时的 harness 把这些记作**失败**并让整条车道报 `ok`——即把一次死跑谎报成产品弱点。已修：
+`say` 读回合的 `stopReason` / `errorCode`，此类运行记 `notMeasured`、从一切比率剔除，并让子测试显式
+失败（见 §3「未测量」）。
+
+余额耗尽前的 45 次有效运行（几乎全是 T1）只能作方向性信号，不可引用：
+
+| 口径（同 (task, rep) 配对） | S7 | S8 前缀 |
+|---|---|---|
+| 有效运行 | 42 | 45 |
+| attempt-1 | 100.0% (42/42) | 95.6% (43/45) |
+| 作废 | 3 | 1 |
+| 工具调用中位 / 最大 | 26 / 54 | **22 / 36** |
+
+通过率的 2 次之差在 n=45 下无意义；**工具调用中位 26 → 22、最大 54 → 36，作废 3 → 1** 与"模型不再
+为找 `manual` kind 翻源码"一致，但样本只覆盖 T1，不足以结论。要拿到完整对比必须在有余额的账户上重跑。
 
 ### 形状相关性
 

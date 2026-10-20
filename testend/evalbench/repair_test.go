@@ -100,7 +100,11 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 
 	// 1. Clean build + clean first run must pass, else the injection is void.
 	// 1. 干净建图 + 干净首跑必须通过，否则注入作废。
-	say(t, wc, conv, strings.ReplaceAll(task.Prompt, SinkPlaceholder, sink.URL()), turnMS)
+	if _, _, _, _, llmErr := say(t, wc, conv, strings.ReplaceAll(task.Prompt, SinkPlaceholder, sink.URL()), turnMS); llmErr != "" {
+		row.NotMeasured = llmErr
+		t.Errorf("%s/%s: provider aborted the turn (%s); run NOT MEASURED", task.ID, fault.ID, llmErr)
+		return
+	}
 	v0, g := observeAndJudge(t, wc, sink, task, runMS)
 	if !v0.Pass {
 		row.Reasons = "void: clean build did not pass: " + strings.Join(v0.Reasons, "; ")
@@ -142,7 +146,11 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 		if fault.Kind == "sink" {
 			sink.Arm(&fault) // header-gated faults keep biting; transient ones clear on first retry
 		}
-		say(t, wc, conv, msg, turnMS)
+		if _, _, _, _, llmErr := say(t, wc, conv, msg, turnMS); llmErr != "" {
+			row.NotMeasured = llmErr
+			t.Errorf("%s/%s: provider aborted a repair turn (%s); run NOT MEASURED", task.ID, fault.ID, llmErr)
+			return
+		}
 		g = readGraph(t, wc, wf.ID)
 		row.NewVersion = maxFunctionVersion(wc, g) > baseVersion
 		rerun, ok := latestRun(wc, wf.ID)

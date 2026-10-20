@@ -168,6 +168,16 @@ type evalMsg struct {
 		Content string         `json:"content"`
 		Attrs   map[string]any `json:"attrs,omitempty"`
 	} `json:"blocks"`
+	// StopReason / ErrorCode carry the turn's own abort reason. A provider refusal
+	// (LLM_QUOTA_EXHAUSTED, rate limit, upstream 5xx) ends the turn with zero tool calls, which is
+	// indistinguishable from "the model answered without building" unless we read it — and scoring
+	// it as a failure would silently report a dead run as product weakness.
+	//
+	// StopReason / ErrorCode 带着本回合自己的中止原因。供方拒绝（配额耗尽、限流、上游 5xx）会让回合
+	// 零工具调用结束，不读这两个字段就与"模型没建图"无从区分——把它算作失败等于把一次死跑谎报成产品弱点。
+	StopReason   string `json:"stopReason,omitempty"`
+	ErrorCode    string `json:"errorCode,omitempty"`
+	ErrorMessage string `json:"errorMessage,omitempty"`
 }
 
 // drainInteractions auto-resolves the BUILD conversation's human-in-the-loop gates (a self-reported
@@ -198,7 +208,7 @@ func drainInteractions(wc *harness.Client, convID string) {
 
 // say sends one user turn and returns (final text, number of tool blocks the turn produced).
 // say 发送一轮用户消息，返回（终答文本，该轮产生的工具块数）。
-func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) (string, int, []string, string) {
+func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) (string, int, []string, string, string) {
 	t.Helper()
 	msgID := wc.POST("/api/v1/conversations/"+convID+"/messages", map[string]any{"content": content}).Field(t, "id")
 	needles := contaminationNeedles(t)
@@ -206,6 +216,7 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 	tools := 0
 	var names []string
 	hit := ""
+	llmErr := ""
 	harness.Eventually(t, timeoutMS, "assistant turn reaches terminal", func() bool {
 		drainInteractions(wc, convID)
 		var msgs []evalMsg
@@ -221,6 +232,16 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 			tools = 0
 			names = names[:0]
 			hit = ""
+			llmErr = ""
+			if m.StopReason == "error" || m.ErrorCode != "" {
+				llmErr = m.ErrorCode
+				if llmErr == "" {
+					llmErr = "LLM_ERROR"
+				}
+				if m.ErrorMessage != "" {
+					llmErr += ": " + m.ErrorMessage
+				}
+			}
 			for _, blk := range m.Blocks {
 				if blk.Type == "text" {
 					b.WriteString(blk.Content)
@@ -250,7 +271,7 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 		}
 		return false
 	})
-	return text, tools, names, hit
+	return text, tools, names, hit, llmErr
 }
 
 // ── workflow / run observation ────────────────────────────────────────────────

@@ -297,3 +297,32 @@ func TestLedgerSinceExcludesPreRunProbes(t *testing.T) {
 		t.Fatalf("scoped ledger should pass: %v", v.Reasons)
 	}
 }
+
+// TestScoreDropsProviderAbortedRuns pins the asymmetry that matters: a run the provider refused is
+// neither a pass nor a failure, so it must leave every ratio untouched and surface on its own line.
+//
+// TestScoreDropsProviderAbortedRuns 锁住要紧的那条不对称：被供方拒绝的运行既非通过也非失败，必须不
+// 动任何比率、并单独报出。
+func TestScoreDropsProviderAbortedRuns(t *testing.T) {
+	rows := []BuildRow{
+		{Lane: "build", TaskID: "T1-01", Tier: 1, Rep: 1, PassAttempt: 1, Structure: 1},
+		{Lane: "build", TaskID: "T1-01", Tier: 1, Rep: 2, NotMeasured: "LLM_QUOTA_EXHAUSTED: 402"},
+		{Lane: "build", TaskID: "T1-02", Tier: 1, Rep: 1, Contaminated: "tasks.json"},
+	}
+	s := Score("", rows, nil)
+	if s.Build.NotMeasured != 1 {
+		t.Fatalf("notMeasured = %d, want 1", s.Build.NotMeasured)
+	}
+	if s.Build.Void != 1 {
+		t.Fatalf("void = %d, want 1", s.Build.Void)
+	}
+	if s.Build.Pass1.Den != 1 || s.Build.Pass1.Num != 1 {
+		t.Fatalf("pass@1 = %d/%d, want 1/1 (only the measured run counts)", s.Build.Pass1.Num, s.Build.Pass1.Den)
+	}
+	rs := Score("", nil, []RepairRow{
+		{Lane: "repair", TaskID: "T1-01", FaultID: "http_502", Failed: true, NotMeasured: "LLM_QUOTA_EXHAUSTED: 402"},
+	})
+	if rs.Repair.Injections != 0 {
+		t.Fatalf("injections = %d, want 0 (the aborted row is not an injection)", rs.Repair.Injections)
+	}
+}
