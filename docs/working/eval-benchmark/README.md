@@ -177,15 +177,20 @@ assistant 回合在 `EVALBENCH_TURN_MS=420000` 内未到终态，`modelCalls=0`�
 **13 次作废有同一个诱因。** 转存显示它们都走同一条路：任务要求"manual trigger"，模型调
 `create_trigger(kind:"manual")` 得 `TRIGGER_INVALID_KIND`（消息只有 "unknown trigger kind"，不列合法
 值），接着猜 `on-demand` / `on_demand` / `api` / `manual_fire`，再 `search_tools`、`search_documents`，
-全部落空后开始 `Bash` / `Grep` 读 Anselm 源码找 kind 常量。**产品没有 `manual` 这个 trigger 种类**
-——合法 kind 只有 `cron` / `webhook` / `fsnotify` / `sensor`，手动跑是 workflow 自身的 `:trigger` 能力，
-纯手动图根本不需要 trigger 节点（见 `workflow.ErrNoTriggerEntry` 的注释）。
+全部落空后开始 `Bash` / `Grep` 读 Anselm 源码找 kind 常量。**产品没有 `manual` 这个 trigger 种类**——合法 kind 只有 `cron` / `webhook` / `fsnotify` / `sensor`。
+但手动跑的 workflow **仍然需要 trigger 节点**：`graph.go` 强制 `triggerCount >= 1`，
+`scheduler.resolveEntry` 把入口 trigger 节点 seed 成 run 的根节点，零 trigger 节点的图既建不出来也跑不
+起来。正确做法是建任意 kind（惯例 cron）挂成入口节点、workflow 保持 deactivated——listener 只在 ≥1 个
+active workflow 引用它时运行，所以它不会自己 fire，而 `:trigger` 照常按需跑。
+（`workflow.ErrNoTriggerEntry` 的注释曾声称"纯手动图没有 trigger 节点"，与 `graph.go` 矛盾，已按
+`[doc-fix]` 更正。）
 
-60 条任务里 **56 条**的提示词都写着 "a manual trigger"，而 `expect.nodes.trigger: 1` 又要求图上有
-trigger 节点，于是通过的运行实际是"建一个从不 arm 的 cron trigger"——`TriggerMatches` 对 `manual`
-放行任意 trigger，所以判分看不出来。这是题集缺陷（词汇不在产品里）叠加一个产品缺口（错误消息不列合法
-值、没有任何工具告诉模型"手动跑不需要 trigger"）。影响方向是**压低**数字：浪费的调用、作废和墙钟超时
-都来自这里。因此 S7 偏保守，可以安全对外引用；下一轮优化应先改这 56 条提示词与 `expect`。
+60 条任务里 **56 条**的提示词写着 "a manual trigger"——这个词不在产品词汇里，模型要么猜 kind 拼写、
+要么读源码找常量。通过的运行实际做的是"建一个从不 activate 的 cron trigger"，也就是**正确用法**；
+`TriggerMatches` 对 `manual` 放行任意 trigger，所以判分看不出模型为此烧了多少调用。因此这是题集的
+措辞缺陷叠加三处产品告知缺口（`TRIGGER_INVALID_KIND` 不列合法值、`create_trigger` 与 `create_workflow`
+的描述没讲"手动跑怎么建"）。影响方向是**压低**数字：浪费的调用、13 次作废和 3 次墙钟超时都来自这里。
+因此 S7 偏保守，可以安全对外引用。
 
 ### 形状相关性
 
@@ -227,10 +232,13 @@ tool_call 块数，不是模型往返次数。
   挂空临时驻地（Bash 不再从仓库起步），且任何触及基准产物的工具调用令该次运行作废。残余风险是模型用
   未被 needle 命中的路径拼接读到仓库；needle 清单是唯一的真相面，扩任务集或移动文件时必须同步。
   S7 实测作废率 7.2%（13/180）——检测会命中，代价是分母变小。
-- **题集 56 条提示词写着产品不存在的 "manual trigger"**，`expect.nodes.trigger: 1` 又要求 trigger
-  节点，判分靠 `TriggerMatches` 对 `manual` 放行任意 trigger 掩盖。它是 S7 全部 13 次作废与 3 次墙钟
-  超时的共同诱因，方向是压低数字。修法是把提示词改成"我能手动跑的 workflow"并把 `expect` 改为零
-  trigger 节点；顺带值得补的产品缺口是 `TRIGGER_INVALID_KIND` 的消息不列合法值。
+- **`expect.trigger: "manual"` 是目录词汇而非产品词汇**：它的语义是"图上任意 trigger 均可"
+  （`TriggerMatches`，见 §3）。产品没有 `manual` kind，但每个图都必须有 trigger 节点，所以
+  `expect.nodes.trigger: 1` 是对的、不需要改。该目录词沿用历史命名，读表时按"不限 kind"理解。
+- **提示词与产品告知已在 S8 前修正**（见 §5「S8」）：50 条提示词的 "a manual trigger" 改为
+  "an entry trigger I fire by hand (never on a schedule)"，六条 T4 webhook 任务的
+  "(no manual trigger)" 改为 "(not fired by hand)"；产品侧补了
+  `TRIGGER_INVALID_KIND` 的合法值与 `create_trigger` / `create_workflow` 描述里"手动跑怎么建"。
 - **任务多样性不足**：60 条任务按归一化提示词只有 33 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高
   重复测量的稳定性，但不增加独立信息；分档比率的有效样本量远小于 15 × reps。扩充前，分档数字只能
   作内部回归信号，不能作对外规模陈述。

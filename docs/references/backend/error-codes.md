@@ -666,7 +666,7 @@ audience: [human, ai]
 | `TRIGGER_INVALID_CONFIG` | 422 | invalid trigger config |
 | `TRIGGER_INVALID_CRON` | 422 | invalid cron expression — use a 5-field expression (minute granularity); @every and seconds are not supported |
 | `TRIGGER_INVALID_INTERVAL` | 422 | sensor interval below minimum |
-| `TRIGGER_INVALID_KIND` | 422 | unknown trigger kind |
+| `TRIGGER_INVALID_KIND` | 422 | unknown trigger kind; valid kinds are cron, webhook, fsnotify, sensor. There is no manual kind: a graph still needs a trigger node as its entry, so for a hand-run workflow create any kind (cron is conventional) and leave the workflow deactivated — an inactive workflow's listener never runs |
 | `TRIGGER_INVALID_MISFIRE_POLICY` | 422 | misfirePolicy must be one of: skip, catchup_one；create/edit 时校验 |
 | `TRIGGER_LISTENER_UNAVAILABLE` | 503 | trigger listener not available |
 | `TRIGGER_NAME_DUPLICATE` | 409 | trigger name already exists |

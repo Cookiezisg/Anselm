@@ -12,7 +12,7 @@
       "id": "T1-01",
       "tier": 1,
       "name": "eb_ping",
-      "prompt": "Create a workflow named eb_ping with a manual trigger and a Python function that POSTs the JSON {\"ping\": true} to {{SINK}}/t1-01 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_ping with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"ping\": true} to {{SINK}}/t1-01 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -38,7 +38,7 @@
       "id": "T1-02",
       "tier": 1,
       "name": "eb_hello",
-      "prompt": "Create a workflow named eb_hello with a manual trigger and a Python function that POSTs the JSON {\"msg\": \"hello\"} to {{SINK}}/t1-02 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_hello with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"msg\": \"hello\"} to {{SINK}}/t1-02 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -64,7 +64,7 @@
       "id": "T1-03",
       "tier": 1,
       "name": "eb_sum",
-      "prompt": "Create a workflow named eb_sum with a manual trigger and a Python function that POSTs the JSON {\"sum\": 7} where sum is 3+4 computed in code to {{SINK}}/t1-03 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_sum with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"sum\": 7} where sum is 3+4 computed in code to {{SINK}}/t1-03 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -90,7 +90,7 @@
       "id": "T1-04",
       "tier": 1,
       "name": "eb_stamp",
-      "prompt": "Create a workflow named eb_stamp with a manual trigger and a Python function that POSTs the JSON {\"source\": \"anselm\"} to {{SINK}}/t1-04 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_stamp with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"source\": \"anselm\"} to {{SINK}}/t1-04 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -116,7 +116,7 @@
       "id": "T1-05",
       "tier": 1,
       "name": "eb_count",
-      "prompt": "Create a workflow named eb_count with a manual trigger and a Python function that POSTs the JSON {\"items\": [1,2,3], \"n\": 3} to {{SINK}}/t1-05 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_count with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"items\": [1,2,3], \"n\": 3} to {{SINK}}/t1-05 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -143,7 +143,7 @@
       "id": "T1-06",
       "tier": 1,
       "name": "eb_upper",
-      "prompt": "Create a workflow named eb_upper with a manual trigger and a Python function that POSTs the JSON {\"text\": \"SHOUT\"} where the text is \"shout\".upper() to {{SINK}}/t1-06 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_upper with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"text\": \"SHOUT\"} where the text is \"shout\".upper() to {{SINK}}/t1-06 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -247,7 +247,7 @@
       "id": "T1-10",
       "tier": 1,
       "name": "eb_get",
-      "prompt": "Create a workflow named eb_get with a manual trigger and a Python function that GETs {{SINK}}/t1-10 and returns {\"status\": <http status>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_get with an entry trigger I fire by hand (never on a schedule) and a Python function that GETs {{SINK}}/t1-10 and returns {\"status\": <http status>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -270,7 +270,7 @@
       "id": "T1-11",
       "tier": 1,
       "name": "eb_twice",
-      "prompt": "Create a workflow named eb_twice with a manual trigger and a Python function that POSTs the JSON {\"seq\": 1} and then {\"seq\": 2} as two separate POSTs in the same function to {{SINK}}/t1-11 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_twice with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"seq\": 1} and then {\"seq\": 2} as two separate POSTs in the same function to {{SINK}}/t1-11 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -296,7 +296,7 @@
       "id": "T1-12",
       "tier": 1,
       "name": "eb_fields",
-      "prompt": "Create a workflow named eb_fields with a manual trigger and a Python function that POSTs the JSON {\"a\": 1, \"b\": \"two\", \"c\": [3]} to {{SINK}}/t1-12 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_fields with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"a\": 1, \"b\": \"two\", \"c\": [3]} to {{SINK}}/t1-12 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -324,7 +324,7 @@
       "id": "T1-13",
       "tier": 1,
       "name": "eb_env",
-      "prompt": "Create a workflow named eb_env with a manual trigger and a Python function that POSTs the JSON {\"lang\": \"python\"} to {{SINK}}/t1-13 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_env with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"lang\": \"python\"} to {{SINK}}/t1-13 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -350,7 +350,7 @@
       "id": "T1-14",
       "tier": 1,
       "name": "eb_json",
-      "prompt": "Create a workflow named eb_json with a manual trigger and a Python function that POSTs the JSON {\"nested\": {\"ok\": true}} to {{SINK}}/t1-14 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_json with an entry trigger I fire by hand (never on a schedule) and a Python function that POSTs the JSON {\"nested\": {\"ok\": true}} to {{SINK}}/t1-14 and returns the HTTP status as {\"status\": <int>}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -403,7 +403,7 @@
       "id": "T2-01",
       "tier": 2,
       "name": "eb_route1",
-      "prompt": "Create a workflow named eb_route1 with a manual trigger whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-01/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-01/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_route1 with an entry trigger I fire by hand (never on a schedule) whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-01/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-01/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -433,7 +433,7 @@
       "id": "T2-02",
       "tier": 2,
       "name": "eb_route2",
-      "prompt": "Create a workflow named eb_route2 with a manual trigger whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-02/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-02/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_route2 with an entry trigger I fire by hand (never on a schedule) whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-02/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-02/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -463,7 +463,7 @@
       "id": "T2-03",
       "tier": 2,
       "name": "eb_route3",
-      "prompt": "Create a workflow named eb_route3 with a manual trigger whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-03/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-03/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_route3 with an entry trigger I fire by hand (never on a schedule) whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-03/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-03/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -493,7 +493,7 @@
       "id": "T2-04",
       "tier": 2,
       "name": "eb_route4",
-      "prompt": "Create a workflow named eb_route4 with a manual trigger whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-04/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-04/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_route4 with an entry trigger I fire by hand (never on a schedule) whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-04/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-04/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -523,7 +523,7 @@
       "id": "T2-05",
       "tier": 2,
       "name": "eb_route5",
-      "prompt": "Create a workflow named eb_route5 with a manual trigger whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-05/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-05/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_route5 with an entry trigger I fire by hand (never on a schedule) whose payload has a field 'level' (string). Add a control node that routes to branch 'high' when level == \"high\" and to branch 'low' otherwise. Branch high calls a Python function that POSTs the JSON {\"level\": \"high\"} to {{SINK}}/t2-05/high and returns the HTTP status as {\"status\": <int>}; branch low calls a Python function that POSTs the JSON {\"level\": \"low\"} to {{SINK}}/t2-05/low and returns the HTTP status as {\"status\": <int>}. Start the single run with payload {\"level\": \"high\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -553,7 +553,7 @@
       "id": "T2-06",
       "tier": 2,
       "name": "eb_fanin6",
-      "prompt": "Create a workflow named eb_fanin6 with a manual trigger, three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-06. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_fanin6 with an entry trigger I fire by hand (never on a schedule), three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-06. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -579,7 +579,7 @@
       "id": "T2-07",
       "tier": 2,
       "name": "eb_fanin7",
-      "prompt": "Create a workflow named eb_fanin7 with a manual trigger, three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-07. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_fanin7 with an entry trigger I fire by hand (never on a schedule), three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-07. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -605,7 +605,7 @@
       "id": "T2-08",
       "tier": 2,
       "name": "eb_fanin8",
-      "prompt": "Create a workflow named eb_fanin8 with a manual trigger, three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-08. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_fanin8 with an entry trigger I fire by hand (never on a schedule), three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-08. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -631,7 +631,7 @@
       "id": "T2-09",
       "tier": 2,
       "name": "eb_fanin9",
-      "prompt": "Create a workflow named eb_fanin9 with a manual trigger, three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-09. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_fanin9 with an entry trigger I fire by hand (never on a schedule), three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-09. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -657,7 +657,7 @@
       "id": "T2-10",
       "tier": 2,
       "name": "eb_fanin10",
-      "prompt": "Create a workflow named eb_fanin10 with a manual trigger, three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-10. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_fanin10 with an entry trigger I fire by hand (never on a schedule), three Python functions that each compute one number (fa returns {\"v\": 1}, fb returns {\"v\": 2}, fc returns {\"v\": 3}) running in parallel from the trigger, and a fourth function that reads all three results and POSTs {\"total\": 6} to {{SINK}}/t2-10. Only the fourth function calls the sink. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -683,7 +683,7 @@
       "id": "T2-11",
       "tier": 2,
       "name": "eb_chain11",
-      "prompt": "Create a workflow named eb_chain11 with a manual trigger, a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-11, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-11 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_chain11 with an entry trigger I fire by hand (never on a schedule), a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-11, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-11 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -711,7 +711,7 @@
       "id": "T2-12",
       "tier": 2,
       "name": "eb_chain12",
-      "prompt": "Create a workflow named eb_chain12 with a manual trigger, a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-12, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-12 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_chain12 with an entry trigger I fire by hand (never on a schedule), a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-12, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-12 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -739,7 +739,7 @@
       "id": "T2-13",
       "tier": 2,
       "name": "eb_chain13",
-      "prompt": "Create a workflow named eb_chain13 with a manual trigger, a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-13, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-13 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_chain13 with an entry trigger I fire by hand (never on a schedule), a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-13, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-13 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -767,7 +767,7 @@
       "id": "T2-14",
       "tier": 2,
       "name": "eb_chain14",
-      "prompt": "Create a workflow named eb_chain14 with a manual trigger, a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-14, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-14 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_chain14 with an entry trigger I fire by hand (never on a schedule), a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-14, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-14 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -795,7 +795,7 @@
       "id": "T2-15",
       "tier": 2,
       "name": "eb_chain15",
-      "prompt": "Create a workflow named eb_chain15 with a manual trigger, a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-15, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-15 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_chain15 with an entry trigger I fire by hand (never on a schedule), a function 'fetch' that returns {\"items\": [\"x\",\"y\"]}, a control node that continues only when items is non-empty (otherwise stops), a function 'first' that POSTs {\"step\": \"first\"} to {{SINK}}/t2-15, then a function 'second' that POSTs {\"step\": \"second\"} to {{SINK}}/t2-15 after first completes. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -823,7 +823,7 @@
       "id": "T3-01",
       "tier": 3,
       "name": "eb_gate1",
-      "prompt": "Create a workflow named eb_gate1: a manual trigger, an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-01. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_gate1: an entry trigger I fire by hand (never on a schedule), an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-01. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -852,7 +852,7 @@
       "id": "T3-02",
       "tier": 3,
       "name": "eb_gate2",
-      "prompt": "Create a workflow named eb_gate2: a manual trigger, an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-02. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_gate2: an entry trigger I fire by hand (never on a schedule), an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-02. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -881,7 +881,7 @@
       "id": "T3-03",
       "tier": 3,
       "name": "eb_gate3",
-      "prompt": "Create a workflow named eb_gate3: a manual trigger, an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-03. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_gate3: an entry trigger I fire by hand (never on a schedule), an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-03. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -910,7 +910,7 @@
       "id": "T3-04",
       "tier": 3,
       "name": "eb_gate4",
-      "prompt": "Create a workflow named eb_gate4: a manual trigger, an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-04. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_gate4: an entry trigger I fire by hand (never on a schedule), an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-04. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -939,7 +939,7 @@
       "id": "T3-05",
       "tier": 3,
       "name": "eb_gate5",
-      "prompt": "Create a workflow named eb_gate5: a manual trigger, an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-05. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_gate5: an entry trigger I fire by hand (never on a schedule), an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-05. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -968,7 +968,7 @@
       "id": "T3-06",
       "tier": 3,
       "name": "eb_gate6",
-      "prompt": "Create a workflow named eb_gate6: a manual trigger, an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-06. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_gate6: an entry trigger I fire by hand (never on a schedule), an Agent node whose instructions are to write a one-sentence summary of the trigger payload field 'topic', then an approval node asking a human to approve publishing that summary, and on 'yes' a Python function that POSTs {\"summary\": <the agent text>} to {{SINK}}/t3-06. Start the run with payload {\"topic\": \"durable execution\"}. The run will park at the approval; do not try to decide it yourself. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -997,7 +997,7 @@
       "id": "T3-07",
       "tier": 3,
       "name": "eb_reject7",
-      "prompt": "Create a workflow named eb_reject7: a manual trigger, an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-07. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_reject7: an entry trigger I fire by hand (never on a schedule), an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-07. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1019,7 +1019,7 @@
       "id": "T3-08",
       "tier": 3,
       "name": "eb_reject8",
-      "prompt": "Create a workflow named eb_reject8: a manual trigger, an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-08. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_reject8: an entry trigger I fire by hand (never on a schedule), an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-08. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1041,7 +1041,7 @@
       "id": "T3-09",
       "tier": 3,
       "name": "eb_reject9",
-      "prompt": "Create a workflow named eb_reject9: a manual trigger, an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-09. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_reject9: an entry trigger I fire by hand (never on a schedule), an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-09. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1063,7 +1063,7 @@
       "id": "T3-10",
       "tier": 3,
       "name": "eb_reject10",
-      "prompt": "Create a workflow named eb_reject10: a manual trigger, an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-10. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_reject10: an entry trigger I fire by hand (never on a schedule), an Agent node that drafts a short message from payload field 'topic', an approval node gating the send, and on 'yes' a function that POSTs {\"sent\": true} to {{SINK}}/t3-10. On 'no' nothing else runs. Start the run with payload {\"topic\": \"release notes\"}; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1085,7 +1085,7 @@
       "id": "T3-11",
       "tier": 3,
       "name": "eb_counter11",
-      "prompt": "Create a workflow named eb_counter11: a manual trigger, a Handler named Counter11 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-11. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_counter11: an entry trigger I fire by hand (never on a schedule), a Handler named Counter11 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-11. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1113,7 +1113,7 @@
       "id": "T3-12",
       "tier": 3,
       "name": "eb_counter12",
-      "prompt": "Create a workflow named eb_counter12: a manual trigger, a Handler named Counter12 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-12. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_counter12: an entry trigger I fire by hand (never on a schedule), a Handler named Counter12 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-12. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1141,7 +1141,7 @@
       "id": "T3-13",
       "tier": 3,
       "name": "eb_counter13",
-      "prompt": "Create a workflow named eb_counter13: a manual trigger, a Handler named Counter13 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-13. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_counter13: an entry trigger I fire by hand (never on a schedule), a Handler named Counter13 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-13. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1169,7 +1169,7 @@
       "id": "T3-14",
       "tier": 3,
       "name": "eb_counter14",
-      "prompt": "Create a workflow named eb_counter14: a manual trigger, a Handler named Counter14 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-14. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_counter14: an entry trigger I fire by hand (never on a schedule), a Handler named Counter14 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-14. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1197,7 +1197,7 @@
       "id": "T3-15",
       "tier": 3,
       "name": "eb_counter15",
-      "prompt": "Create a workflow named eb_counter15: a manual trigger, a Handler named Counter15 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-15. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_counter15: an entry trigger I fire by hand (never on a schedule), a Handler named Counter15 with a method 'bump' that increments an in-memory counter and returns {\"n\": <count>}, an approval node, and on 'yes' a function that POSTs {\"n\": <the handler result n>} to {{SINK}}/t3-15. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1225,7 +1225,7 @@
       "id": "T4-01",
       "tier": 4,
       "name": "eb_hook1",
-      "prompt": "Create a workflow named eb_hook1 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-01. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
+      "prompt": "Create a workflow named eb_hook1 with a WEBHOOK trigger (not fired by hand). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-01. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1255,7 +1255,7 @@
       "id": "T4-02",
       "tier": 4,
       "name": "eb_hook2",
-      "prompt": "Create a workflow named eb_hook2 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-02. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
+      "prompt": "Create a workflow named eb_hook2 with a WEBHOOK trigger (not fired by hand). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-02. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1285,7 +1285,7 @@
       "id": "T4-03",
       "tier": 4,
       "name": "eb_hook3",
-      "prompt": "Create a workflow named eb_hook3 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-03. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
+      "prompt": "Create a workflow named eb_hook3 with a WEBHOOK trigger (not fired by hand). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-03. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1315,7 +1315,7 @@
       "id": "T4-04",
       "tier": 4,
       "name": "eb_hook4",
-      "prompt": "Create a workflow named eb_hook4 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-04. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
+      "prompt": "Create a workflow named eb_hook4 with a WEBHOOK trigger (not fired by hand). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-04. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1345,7 +1345,7 @@
       "id": "T4-05",
       "tier": 4,
       "name": "eb_hook5",
-      "prompt": "Create a workflow named eb_hook5 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-05. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
+      "prompt": "Create a workflow named eb_hook5 with a WEBHOOK trigger (not fired by hand). When the webhook receives JSON with field 'order', a function POSTs {\"order\": <that value>, \"ack\": true} to {{SINK}}/t4-05. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library and return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1375,7 +1375,7 @@
       "id": "T4-06",
       "tier": 4,
       "name": "eb_mcp6",
-      "prompt": "An MCP server named evalecho is installed with one tool 'echo'. Create a workflow named eb_mcp6: a manual trigger, an action node that calls evalecho's echo tool with text \"MCP-6\", then a function that POSTs {\"echo\": <the echo result>} to {{SINK}}/t4-06. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "An MCP server named evalecho is installed with one tool 'echo'. Create a workflow named eb_mcp6: an entry trigger I fire by hand (never on a schedule), an action node that calls evalecho's echo tool with text \"MCP-6\", then a function that POSTs {\"echo\": <the echo result>} to {{SINK}}/t4-06. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1410,7 +1410,7 @@
       "id": "T4-07",
       "tier": 4,
       "name": "eb_mcp7",
-      "prompt": "An MCP server named evalecho is installed with one tool 'echo'. Create a workflow named eb_mcp7: a manual trigger, an action node that calls evalecho's echo tool with text \"MCP-7\", then a function that POSTs {\"echo\": <the echo result>} to {{SINK}}/t4-07. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "An MCP server named evalecho is installed with one tool 'echo'. Create a workflow named eb_mcp7: an entry trigger I fire by hand (never on a schedule), an action node that calls evalecho's echo tool with text \"MCP-7\", then a function that POSTs {\"echo\": <the echo result>} to {{SINK}}/t4-07. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1445,7 +1445,7 @@
       "id": "T4-08",
       "tier": 4,
       "name": "eb_mcp8",
-      "prompt": "An MCP server named evalecho is installed with one tool 'echo'. Create a workflow named eb_mcp8: a manual trigger, an action node that calls evalecho's echo tool with text \"MCP-8\", then a function that POSTs {\"echo\": <the echo result>} to {{SINK}}/t4-08. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "An MCP server named evalecho is installed with one tool 'echo'. Create a workflow named eb_mcp8: an entry trigger I fire by hand (never on a schedule), an action node that calls evalecho's echo tool with text \"MCP-8\", then a function that POSTs {\"echo\": <the echo result>} to {{SINK}}/t4-08. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1480,7 +1480,7 @@
       "id": "T4-09",
       "tier": 4,
       "name": "eb_release9",
-      "prompt": "Create a workflow named eb_release9: a manual trigger, a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-09, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-09, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-09. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_release9: an entry trigger I fire by hand (never on a schedule), a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-09, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-09, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-09. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1510,7 +1510,7 @@
       "id": "T4-10",
       "tier": 4,
       "name": "eb_release10",
-      "prompt": "Create a workflow named eb_release10: a manual trigger, a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-10, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-10, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-10. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_release10: an entry trigger I fire by hand (never on a schedule), a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-10, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-10, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-10. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1540,7 +1540,7 @@
       "id": "T4-11",
       "tier": 4,
       "name": "eb_release11",
-      "prompt": "Create a workflow named eb_release11: a manual trigger, a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-11, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-11, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-11. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_release11: an entry trigger I fire by hand (never on a schedule), a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-11, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-11, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-11. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1570,7 +1570,7 @@
       "id": "T4-12",
       "tier": 4,
       "name": "eb_release12",
-      "prompt": "Create a workflow named eb_release12: a manual trigger, a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-12, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-12, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-12. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_release12: an entry trigger I fire by hand (never on a schedule), a function 'build' that POSTs {\"step\": \"build\"} to {{SINK}}/t4-12, then a function 'upload' that POSTs {\"step\": \"upload\"} to {{SINK}}/t4-12, then an approval node, and on 'yes' a function 'publish' that POSTs {\"step\": \"publish\"} to {{SINK}}/t4-12. Start one run; it will park at the approval, leave it parked. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1600,7 +1600,7 @@
       "id": "T4-13",
       "tier": 4,
       "name": "eb_digest13",
-      "prompt": "Create a workflow named eb_digest13: a manual trigger, an Agent node that reads the payload field 'topic' and returns two output fields — 'slug', the topic upper-cased with spaces replaced by hyphens, and 'digest', a three-bullet summary of the topic — then a function that POSTs {\"slug\": <the agent's slug>, \"digest\": <the agent's digest>} to {{SINK}}/t4-13. Start the run with payload {\"topic\": \"local-first agents\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_digest13: an entry trigger I fire by hand (never on a schedule), an Agent node that reads the payload field 'topic' and returns two output fields — 'slug', the topic upper-cased with spaces replaced by hyphens, and 'digest', a three-bullet summary of the topic — then a function that POSTs {\"slug\": <the agent's slug>, \"digest\": <the agent's digest>} to {{SINK}}/t4-13. Start the run with payload {\"topic\": \"local-first agents\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1628,7 +1628,7 @@
       "id": "T4-14",
       "tier": 4,
       "name": "eb_digest14",
-      "prompt": "Create a workflow named eb_digest14 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'topic', an Agent node returns output field 'slug' — that topic upper-cased with spaces replaced by hyphens — and then a function POSTs {\"slug\": <the agent's slug>} to {{SINK}}/t4-14. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}.",
+      "prompt": "Create a workflow named eb_digest14 with a WEBHOOK trigger (not fired by hand). When the webhook receives JSON with field 'topic', an Agent node returns output field 'slug' — that topic upper-cased with spaces replaced by hyphens — and then a function POSTs {\"slug\": <the agent's slug>} to {{SINK}}/t4-14. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1658,7 +1658,7 @@
       "id": "T4-15",
       "tier": 4,
       "name": "eb_digest15",
-      "prompt": "Create a workflow named eb_digest15: a manual trigger, an Agent node that reads the payload field 'topic' and returns output field 'slug' — the topic upper-cased with spaces replaced by hyphens — then a function 'notify' that POSTs {\"step\": \"notify\", \"slug\": <the agent's slug>} to {{SINK}}/t4-15, then a function 'archive' that POSTs {\"step\": \"archive\", \"slug\": <the agent's slug>} to {{SINK}}/t4-15. Start the run with payload {\"topic\": \"node memoization\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_digest15: an entry trigger I fire by hand (never on a schedule), an Agent node that reads the payload field 'topic' and returns output field 'slug' — the topic upper-cased with spaces replaced by hyphens — then a function 'notify' that POSTs {\"step\": \"notify\", \"slug\": <the agent's slug>} to {{SINK}}/t4-15, then a function 'archive' that POSTs {\"step\": \"archive\", \"slug\": <the agent's slug>} to {{SINK}}/t4-15. Start the run with payload {\"topic\": \"node memoization\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,

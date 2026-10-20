@@ -285,10 +285,12 @@ var (
 	ErrInvalidLifecycle = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_INVALID_LIFECYCLE", "invalid workflow lifecycle state or transition")
 
 	// ErrNoTriggerEntry: an execution-lifecycle action (activate / stage) needs the workflow's entry
-	// trigger node(s) to bind a listener, but the active graph has none (a manual-only graph can only
-	// be :trigger-ed by hand, never armed to listen).
+	// trigger node(s) to bind a listener, but the active graph has none. Graph validation already
+	// requires triggerCount >= 1 (graph.go), so this is a defence-in-depth residue, not a reachable
+	// shape: a hand-run workflow still carries a trigger node and simply stays deactivated.
 	// ErrNoTriggerEntry：执行生命周期动作（activate / stage）要靠 workflow 的入口 trigger 节点挂监听，但
-	// active 图里没有（纯手动图只能手动 :trigger、无从挂监听）。
+	// active 图里没有。图校验已强制 triggerCount >= 1（graph.go），故这是纵深防御残留而非可达形状：
+	// 纯手动 workflow 同样带 trigger 节点，只是保持 deactivated。
 	ErrNoTriggerEntry = errorspkg.New(errorspkg.KindUnprocessable, "WORKFLOW_NO_TRIGGER_ENTRY", "workflow has no entry trigger node to listen on")
 
 	// ErrAlreadyActive: stage (one-shot arm) was called on a workflow that is already active — it is

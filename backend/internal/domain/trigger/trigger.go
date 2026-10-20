@@ -152,7 +152,7 @@ type ListFilter struct {
 var (
 	ErrNotFound              = errorspkg.New(errorspkg.KindNotFound, "TRIGGER_NOT_FOUND", "trigger not found")
 	ErrDuplicateName         = errorspkg.New(errorspkg.KindConflict, "TRIGGER_NAME_DUPLICATE", "trigger name already exists")
-	ErrInvalidKind           = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_KIND", "unknown trigger kind")
+	ErrInvalidKind           = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_KIND", "unknown trigger kind; valid kinds are cron, webhook, fsnotify, sensor. There is no manual kind: a graph still needs a trigger node as its entry, so for a hand-run workflow create any kind (cron is conventional) and leave the workflow deactivated — an inactive workflow's listener never runs")
 	ErrInvalidConfig         = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CONFIG", "invalid trigger config")
 	ErrInvalidCron           = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CRON", "invalid cron expression — use a 5-field expression (minute granularity); @every and seconds are not supported")
 	ErrInvalidCEL            = errorspkg.New(errorspkg.KindUnprocessable, "TRIGGER_INVALID_CEL", "invalid CEL expression")

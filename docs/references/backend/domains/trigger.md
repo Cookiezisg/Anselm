@@ -17,6 +17,13 @@ Trigger 是无版本的信号源配置实体。cron、webhook、fsnotify、senso
 后，把事件扇出给所有引用它的 active workflow。手动运行属于 Workflow
 `:trigger`，不是 Trigger source。
 
+**没有 `manual` kind，但手动跑的 workflow 仍需要 trigger 节点。** 图校验强制
+`triggerCount >= 1`（`domain/workflow/graph.go`），`scheduler.resolveEntry` 也把入口 trigger
+节点 seed 成 run 的根节点；零 trigger 节点的图既建不出来也跑不起来。因此"只手动跑"的正确做法
+是：建任意 kind 的 trigger（惯例用 cron）挂成入口节点，并让 workflow 保持 deactivated——
+listener 只在 ≥1 个 active workflow 引用它时运行，所以它不会自己 fire，而 `:trigger` 照常按需跑。
+`TRIGGER_INVALID_KIND` 的消息直接讲这件事，`create_trigger` / `create_workflow` 的工具描述同步。
+
 ```text
 infra listener
 → ReportFunc(triggerID, Activity) error

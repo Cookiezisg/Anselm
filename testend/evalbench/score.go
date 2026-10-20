@@ -13,13 +13,14 @@ import (
 //
 // Attempt semantics: attempt 1 is the model's first build + first run with ZERO follow-up turns.
 // Each later attempt is one harness "fix it" turn containing no human edit (the run's failure is
-// quoted back; the model inspects and republishes). Pass@1 counts attempt 1 only; Pass@3 counts a
+// quoted back; the model inspects and republishes). Pass1 counts attempt 1 only (printed as "attempt-1 pass"); Pass3 counts a
 // pass on attempt ≤ 3, i.e. ≤ 2 repair turns after the first run — the catalog's "three rounds"
 // are attempts, so the number is conservative, never generous.
 //
 // BuildRow 是建图车道的一条 (task, rep) 结果，runner 以 JSONL 追加。attempt 1 = 模型首次建图 + 首跑、
 // 零追问；此后每个 attempt 是 harness 一轮不含人工编辑的"修一下"追问。Pass@1 只看 attempt 1；
-// Pass@3 看 attempt ≤ 3，口径保守不宽松。
+// Pass3 看 attempt ≤ 3（打印为 repair@3），口径保守不宽松。它不是 Chen et al. 2021 的 pass@k
+// （k 次独立采样取并），而是 Chen et al. 2023 式的顺序执行反馈自修复；对外写作必须用后者的术语。
 type BuildRow struct {
 	Lane        string  `json:"lane"` // "build"
 	Model       string  `json:"model"`
@@ -49,8 +50,13 @@ type BuildRow struct {
 	// Contaminated 记下工具调用触及的基准产物（任务定义、评分文档、仓库本身）。此类运行**作废**：
 	// 打分从一切分子分母中剔除，而不是把一次可能读了答案的通过计进去。
 	Contaminated string `json:"contaminated,omitempty"`
-	ModelCalls   int    `json:"modelCalls"`
-	WallMS       int64  `json:"wallMs"`
+	// ModelCalls counts tool_call BLOCKS across every attempt, not LLM round trips: one assistant
+	// turn may emit several tool calls at once. The field name is historical; read it as "tool calls".
+	//
+	// ModelCalls 数的是全部 attempt 的 tool_call **块数**，不是 LLM 往返次数——一个 assistant 回合可
+	// 并发多个工具调用。字段名是历史遗留，按"工具调用次数"理解。
+	ModelCalls int   `json:"modelCalls"`
+	WallMS     int64 `json:"wallMs"`
 }
 
 // RepairRow is one (task, fault) outcome of the repair lane. RepairRow 是修复车道的一条 (task, fault)。
@@ -293,15 +299,15 @@ func Markdown(s Summary) string {
 	fmt.Fprintf(&b, "## evalbench · model `%s`\n\n", s.Model)
 	fmt.Fprintf(&b, "| Lane | Metric | Value |\n|---|---|---|\n")
 	fmt.Fprintf(&b, "| build | tasks / runs | %d / %d |\n", s.Build.Tasks, s.Build.Runs)
-	fmt.Fprintf(&b, "| build | Pass@1 | %s |\n", fmtRatio(s.Build.Pass1))
-	fmt.Fprintf(&b, "| build | Pass@3 | %s |\n", fmtRatio(s.Build.Pass3))
+	fmt.Fprintf(&b, "| build | attempt-1 pass | %s |\n", fmtRatio(s.Build.Pass1))
+	fmt.Fprintf(&b, "| build | repair@3 (≤3 attempts, execution feedback) | %s |\n", fmtRatio(s.Build.Pass3))
 	for _, tier := range []string{"T1", "T2", "T3", "T4"} {
 		if t, ok := s.Build.ByTier[tier]; ok {
-			fmt.Fprintf(&b, "| build | %s Pass@1 / Pass@3 | %s / %s |\n", tier, fmtRatio(t.Pass1), fmtRatio(t.Pass3))
+			fmt.Fprintf(&b, "| build | %s attempt-1 / repair@3 | %s / %s |\n", tier, fmtRatio(t.Pass1), fmtRatio(t.Pass3))
 		}
 	}
 	fmt.Fprintf(&b, "| build | mean structure Jaccard | %.2f |\n", s.Build.Structure)
-	fmt.Fprintf(&b, "| build | stable tasks (Pass@3 on every rep) | %d |\n", len(s.Build.StableTask))
+	fmt.Fprintf(&b, "| build | stable tasks (repair@3 on every rep) | %d |\n", len(s.Build.StableTask))
 	if s.Build.Void > 0 {
 		fmt.Fprintf(&b, "| build | VOID (contaminated, excluded) | %d |\n", s.Build.Void)
 	}
@@ -318,7 +324,7 @@ func Markdown(s Summary) string {
 		fmt.Fprintf(&b, "| repair | %s | %s |\n", f, fmtRatio(s.Repair.ByFault[f]))
 	}
 	if len(s.Build.FailTags) > 0 {
-		b.WriteString("\n失败归因（Pass@3 未通过的 run）：\n\n| tag | runs |\n|---|---|\n")
+		b.WriteString("\n失败归因（repair@3 未通过的 run）：\n\n| tag | runs |\n|---|---|\n")
 		tags := make([]string, 0, len(s.Build.FailTags))
 		for t := range s.Build.FailTags {
 			tags = append(tags, t)
