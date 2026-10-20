@@ -48,6 +48,15 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 		installEchoMCP(t, wc)
 	}
 	conv := wc.POST("/api/v1/conversations", map[string]any{"title": "evalbench " + task.ID}).Field(t, "id")
+	// Mount an EMPTY residency so Bash starts somewhere with nothing in it. Unmounted means "the whole
+	// machine", which in practice meant the server's cwd inside this repo — one `ls` from the task
+	// definitions and the grading doc. This narrows the default; it is not a jail (the prompt still
+	// tells the model it may read any absolute path), so contamination is also detected per run.
+	//
+	// 挂一个**空**驻地，使 Bash 从一个空目录起步。未挂等于「整台机器」，实际是 server 在本仓库内的 cwd
+	// ——离任务定义与评分文档只有一个 `ls`。这是收窄默认值、不是牢（提示词仍告知模型可读任意绝对路径），
+	// 故同时按运行检测污染。
+	wc.PATCH("/api/v1/conversations/"+conv, map[string]any{"workDir": t.TempDir()})
 	prompt := strings.ReplaceAll(task.Prompt, SinkPlaceholder, sink.URL())
 
 	row := BuildRow{Lane: "build", Model: model, TaskID: task.ID, Tier: task.Tier, Rep: rep}
@@ -62,10 +71,16 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 	for attempt := 1; attempt <= maxAttempts; attempt++ {
 		row.Attempts = attempt
 		sink.Reset()
-		_, tools, toolNames := say(t, wc, conv, turn, turnMS)
+		_, tools, toolNames, hit := say(t, wc, conv, turn, turnMS)
 		row.ModelCalls += tools
 		if attempt == 1 {
 			row.FirstTools = toolNames
+		}
+		// Sticky: once a run has read the benchmark, nothing later in it is attributable.
+		// 粘滞：一旦该次运行读过基准，其后一切都不可归因。
+		if hit != "" && row.Contaminated == "" {
+			row.Contaminated = hit
+			t.Logf("%s rep%d attempt%d: VOID, tool args touched %q", task.ID, rep, attempt, hit)
 		}
 
 		verdict, g := observeAndJudge(t, wc, sink, task, runMS)

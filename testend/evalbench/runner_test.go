@@ -198,12 +198,14 @@ func drainInteractions(wc *harness.Client, convID string) {
 
 // say sends one user turn and returns (final text, number of tool blocks the turn produced).
 // say 发送一轮用户消息，返回（终答文本，该轮产生的工具块数）。
-func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) (string, int, []string) {
+func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int) (string, int, []string, string) {
 	t.Helper()
 	msgID := wc.POST("/api/v1/conversations/"+convID+"/messages", map[string]any{"content": content}).Field(t, "id")
+	needles := contaminationNeedles(t)
 	var text string
 	tools := 0
 	var names []string
+	hit := ""
 	harness.Eventually(t, timeoutMS, "assistant turn reaches terminal", func() bool {
 		drainInteractions(wc, convID)
 		var msgs []evalMsg
@@ -218,6 +220,7 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 			var b strings.Builder
 			tools = 0
 			names = names[:0]
+			hit = ""
 			for _, blk := range m.Blocks {
 				if blk.Type == "text" {
 					b.WriteString(blk.Content)
@@ -237,6 +240,9 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 					if n, ok := blk.Attrs["tool"].(string); ok && n != "" {
 						names = append(names, n)
 					}
+					if hit == "" {
+						hit = looksContaminated(blk.Content, needles)
+					}
 				}
 			}
 			text = b.String()
@@ -244,7 +250,7 @@ func say(t *testing.T, wc *harness.Client, convID, content string, timeoutMS int
 		}
 		return false
 	})
-	return text, tools, names
+	return text, tools, names, hit
 }
 
 // ── workflow / run observation ────────────────────────────────────────────────
@@ -415,6 +421,35 @@ func settleRun(t *testing.T, wc *harness.Client, runID, decision string, timeout
 		return d.Flowrun.Status != "running" && d.Flowrun.Status != ""
 	})
 	return last
+}
+
+// contaminationNeedles are the substrings whose appearance in a tool call's arguments proves the run
+// read the benchmark itself. The model holds Bash/Grep/Read and the prompt tells it it may read any
+// absolute path on the machine, so the task definitions and the grading doc are reachable: a run that
+// touched them cannot be counted, because its pass is unattributable.
+//
+// The repo root is derived from the test's own working directory (go test runs in the package dir) so
+// the check keeps working on another checkout.
+//
+// contaminationNeedles 是一组子串：出现在工具调用参数里即证明该次运行读了基准自身。模型持有
+// Bash/Grep/Read，且提示词告知它可读机器上任意绝对路径，故任务定义与评分文档对它可达；碰到它们的运行
+// 不能计数，因为通过与否无从归因。仓库根由测试自身工作目录推出（go test 在包目录运行），换检出仍有效。
+func contaminationNeedles(t *testing.T) []string {
+	t.Helper()
+	needles := []string{"tasks.json", "evalbench", "eval-benchmark"}
+	if root, err := filepath.Abs("../.."); err == nil {
+		needles = append(needles, root)
+	}
+	return needles
+}
+
+func looksContaminated(args string, needles []string) string {
+	for _, n := range needles {
+		if n != "" && strings.Contains(args, n) {
+			return n
+		}
+	}
+	return ""
 }
 
 // dumpConversation writes the whole build conversation (every block: tool_call args, tool_result

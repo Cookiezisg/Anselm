@@ -64,6 +64,9 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 - **首轮留存**：`reasons` 只保留最后一个 attempt 的裁决，所以 `firstReasons` 与 `firstTools` 额外留存
   attempt 1 的裁决文本与工具调用名序列。Anselm 的工具是进程内执行、不经 HTTP，服务端访问日志里看不到
   模型调了什么；`firstTools` 是首轮失败唯一可归因的记录。
+- **作废（void）**：工具调用参数触及基准产物（`tasks.json`、`evalbench`、`eval-benchmark`、仓库根绝对
+  路径）的运行记 `contaminated`，**从一切分子分母中剔除**，在表里单独报 `VOID` 一行。既不计通过（可能
+  读了答案），也不计失败（从未被公平尝试）。标记在一次运行内粘滞：读过之后其后一切不可归因。
 - **`modelCalls` 的口径**：数的是该 (task, rep) 全部 attempt 的 **tool_call 块总数**，不是 LLM 往返
   次数——一个 assistant 回合可并发多个工具调用。字段名是历史遗留，读数时按"工具调用次数"理解。
 
@@ -106,6 +109,9 @@ make -C backend evalbench-score                # 折叠 results.jsonl → Markdo
   每条车道只起一个 server：每个 server 都是一次新的受管 install，网关对 install 登记限流（429）。
 - 建图对话里的自报危险门与 ask_user 由 harness 自动放行（与 golden 同策略）；workflow 审批节点按任务
   的 `approvalDecision` 立即裁决。
+- 每个 (task, rep) 的建图对话挂一个**空临时目录**作驻地（`PATCH /conversations/{id}` 的 `workDir`），
+  使 Bash 从空目录起步。未挂等于「整台机器」，实际是 server 在本仓库内的 cwd——离任务定义只有一个 `ls`。
+  这是收窄默认值而非禁闭：提示词仍告知模型可读任意绝对路径，故污染同时按运行检测并作废。
 - `EVALBENCH_DUMP` 非空时，每个未通过的 attempt 把整段建图对话（含 tool_call 参数与 tool_result 正文）
   转存为 `out/dumps/<task>-rep<N>-attempt<M>.json`（gitignored）。行里的 `firstTools` 只有调用名序列，
   诊断真正要看的参数与工具报错在这里。
@@ -170,7 +176,10 @@ Repair 车道尚未运行（`injections=0`）。
 同一份转存显示模型通过 `Bash` / `Grep` 读了 `testend/evalbench/tasks.json`（拿到 `expect` 与
 `assert` 全文）与本文件 §5。这不是越权：`workDirSection` 明确告知模型"可用绝对路径读机器上任何地方"，
 文件系统读取是产品的设计意图，无开关可关。后果是 evalbench **不是密闭基准**——任何一次通过都不能排除
-读过答案。S3 的 170 次运行据此只能作内部回归信号，不能作对外数字，直到隔离修复并重跑。
+读过答案。S3 的 170 次运行据此只能作内部回归信号，不能作对外数字。
+
+防线已落地（空临时驻地 + 按运行的污染检测与作废，见 §3「作废」与 §4），但 **S3 是在防线之前跑的**，
+其行没有 `contaminated` 字段，无法追溯判定。对外数字须等防线生效后重跑一轮取得。
 
 ### 对外引用口径
 
@@ -187,10 +196,10 @@ execution-feedback self-repair（顺序修复、每轮回引失败），**不是
 - T4 的 `eb_digest` 依赖 Agent 节点挂 document 工具；若模型不给 Agent 挂工具，归因为 structure。
 - `timeout` 故障依赖沙箱对挂起请求的超时；若沙箱超时长于 `EVALBENCH_RUN_MS`，该注入会被判作废而非失败。
 - Durable 与 Guard 的计数脚本尚未落地，本文件 §1 的"待补"即收口条件。
-- **不密闭（最高优先级）**：模型持有 `Bash` / `Grep` / `Read` 且可读机器任意绝对路径，`tasks.json` 与
-  本文件就在同一仓库内，已实测被读取。修复方向：建图对话的 workdir 指向空临时目录（不再从仓库起步），
-  并在转存里检测触及 `tasks.json` / `evalbench` / 本文件的调用，命中即作废该次运行。两者都落地前，
-  任何数字不得对外引用。
+- **密闭性靠检测而非隔离**：模型持有 `Bash` / `Grep` / `Read`，且 `workDirSection` 明确告知它可读机器
+  上任意绝对路径——这是产品的设计意图，没有开关。因此基准无法真正密闭。现行防线是收窄 + 检测：建图对话
+  挂空临时驻地（Bash 不再从仓库起步），且任何触及基准产物的工具调用令该次运行作废。残余风险是模型用
+  未被 needle 命中的路径拼接读到仓库；needle 清单是唯一的真相面，扩任务集或移动文件时必须同步。
 - **`documents` 断言非执行式**：`docNames` 查整个 workspace，主对话助手自己能建档，断言可被绕过。
   需要把文档存在性绑定到 flowrun 产物，或改由只有工作流能触达的 sink 代替。
 - **任务多样性不足**：60 条任务按归一化提示词只有 31 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高

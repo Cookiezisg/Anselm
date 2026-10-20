@@ -214,3 +214,52 @@ func TestTriggerMatches(t *testing.T) {
 		}
 	}
 }
+
+// Contamination voids a run instead of scoring it: a run that read the task definitions cannot be
+// counted as a pass (it may have read the answer) nor as a failure (it was never fairly attempted).
+//
+// 污染令该次运行**作废**而非计分：读过任务定义的运行不能算通过（可能读了答案），也不能算失败
+// （它从未被公平地尝试）。
+func TestScoreVoidsContaminatedRuns(t *testing.T) {
+	builds := []BuildRow{
+		{Lane: "build", Model: "m", TaskID: "T1-01", Tier: 1, Rep: 1, PassAttempt: 1, Structure: 1},
+		{Lane: "build", Model: "m", TaskID: "T1-02", Tier: 1, Rep: 1, PassAttempt: 1, Structure: 1, Contaminated: "tasks.json"},
+		{Lane: "build", Model: "m", TaskID: "T1-03", Tier: 1, Rep: 1, PassAttempt: 0, Structure: 0, Contaminated: "eval-benchmark"},
+	}
+	s := Score("m", builds, nil)
+	if s.Build.Runs != 1 {
+		t.Fatalf("runs = %d, want 1 (two of three voided)", s.Build.Runs)
+	}
+	if s.Build.Void != 2 {
+		t.Fatalf("void = %d, want 2", s.Build.Void)
+	}
+	if s.Build.Pass1.Num != 1 || s.Build.Pass1.Den != 1 {
+		t.Fatalf("pass@1 = %d/%d, want 1/1", s.Build.Pass1.Num, s.Build.Pass1.Den)
+	}
+	// The voided failure must not land in the failure histogram either.
+	// 作废的失败也不得进入归因直方图。
+	if n := len(s.Build.FailTags); n != 0 {
+		t.Fatalf("failTags = %v, want empty", s.Build.FailTags)
+	}
+}
+
+func TestLooksContaminated(t *testing.T) {
+	needles := []string{"tasks.json", "evalbench", "eval-benchmark", "/repo/root"}
+	for _, tc := range []struct {
+		name string
+		args string
+		want string
+	}{
+		{"clean create", `{"name":"eb_digest13","nodes":[{"kind":"trigger"}]}`, ""},
+		{"reads task file", `{"command":"cat tasks.json"}`, "tasks.json"},
+		{"greps the suite", `{"pattern":"eb_digest","path":"/x/evalbench"}`, "evalbench"},
+		{"reads grading doc", `{"command":"sed -n 1,50p docs/working/eval-benchmark/README.md"}`, "eval-benchmark"},
+		{"cds into the repo", `{"command":"cd /repo/root && ls"}`, "/repo/root"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			if got := looksContaminated(tc.args, needles); got != tc.want {
+				t.Fatalf("looksContaminated(%s) = %q, want %q", tc.args, got, tc.want)
+			}
+		})
+	}
+}

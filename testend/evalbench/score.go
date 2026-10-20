@@ -42,8 +42,15 @@ type BuildRow struct {
 	// FirstTools 是 attempt 1 的工具调用名序列，也是模型实际行为的唯一记录——Anselm 工具进程内执行，
 	// 不会出现在服务端 HTTP 日志中。
 	FirstTools []string `json:"firstTools,omitempty"`
-	ModelCalls int      `json:"modelCalls"`
-	WallMS     int64    `json:"wallMs"`
+	// Contaminated names the benchmark artifact a tool call reached (task definitions, grading doc,
+	// the repo itself). Such a run is VOID: scoring drops it from every numerator and denominator
+	// rather than counting a pass it may have read the answer for.
+	//
+	// Contaminated 记下工具调用触及的基准产物（任务定义、评分文档、仓库本身）。此类运行**作废**：
+	// 打分从一切分子分母中剔除，而不是把一次可能读了答案的通过计进去。
+	Contaminated string `json:"contaminated,omitempty"`
+	ModelCalls   int    `json:"modelCalls"`
+	WallMS       int64  `json:"wallMs"`
 }
 
 // RepairRow is one (task, fault) outcome of the repair lane. RepairRow 是修复车道的一条 (task, fault)。
@@ -69,6 +76,7 @@ type Summary struct {
 	Build struct {
 		Tasks      int             `json:"tasks"`
 		Runs       int             `json:"runs"`
+		Void       int             `json:"void"` // contaminated runs, dropped from every ratio
 		Pass1      Ratio           `json:"pass@1"`
 		Pass3      Ratio           `json:"pass@3"`
 		ByTier     map[string]Tier `json:"byTier"`
@@ -178,6 +186,15 @@ func Score(model string, builds []BuildRow, repairs []RepairRow) Summary {
 		if b.Model != "" && model != "" && b.Model != model {
 			continue
 		}
+		// A contaminated run is void, not a failure: it is dropped from every ratio and reported
+		// separately, because counting it either way would be a claim the evidence cannot support.
+		//
+		// 污染运行是**作废**而非失败：从所有比率中剔除、单独报出——无论计作通过还是失败，都是证据
+		// 支撑不了的断言。
+		if b.Contaminated != "" {
+			s.Build.Void++
+			continue
+		}
 		runs++
 		tasks[b.TaskID] = true
 		tierRuns[b.Tier]++
@@ -285,6 +302,9 @@ func Markdown(s Summary) string {
 	}
 	fmt.Fprintf(&b, "| build | mean structure Jaccard | %.2f |\n", s.Build.Structure)
 	fmt.Fprintf(&b, "| build | stable tasks (Pass@3 on every rep) | %d |\n", len(s.Build.StableTask))
+	if s.Build.Void > 0 {
+		fmt.Fprintf(&b, "| build | VOID (contaminated, excluded) | %d |\n", s.Build.Void)
+	}
 	fmt.Fprintf(&b, "| repair | injections | %d |\n", s.Repair.Injections)
 	fmt.Fprintf(&b, "| repair | success | %s |\n", fmtRatio(s.Repair.Success))
 	fmt.Fprintf(&b, "| repair | no-regression (of successes) | %s |\n", fmtRatio(s.Repair.NoRegression))
