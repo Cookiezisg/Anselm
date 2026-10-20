@@ -352,6 +352,9 @@ type runDetail struct {
 		ID     string `json:"id"`
 		Status string `json:"status"`
 		Error  string `json:"error"`
+		// StartedAt scopes the sink ledger to this run, so the model's own pre-wiring probes are
+		// not judged. StartedAt 把 sink 台账切到本次 run，使模型接线前自己的试探不被裁决。
+		StartedAt time.Time `json:"startedAt"`
 	} `json:"flowrun"`
 	Nodes []struct {
 		NodeID string `json:"nodeId"`
@@ -480,22 +483,6 @@ func dumpConversation(t *testing.T, wc *harness.Client, convID, taskID string, r
 		return
 	}
 	t.Logf("dump %s rep%d attempt%d -> %s", taskID, rep, attempt, path)
-}
-
-func docNames(wc *harness.Client) []string {
-	r, err := wc.Try("GET", "/api/v1/documents/tree", nil)
-	if err != nil || r.Status != 200 {
-		return nil
-	}
-	var docs []struct {
-		Name string `json:"name"`
-	}
-	_ = json.Unmarshal(r.Data, &docs)
-	out := make([]string, 0, len(docs))
-	for _, d := range docs {
-		out = append(out, d.Name)
-	}
-	return out
 }
 
 func mcpLedger(wc *harness.Client) []MCPLedgerRow {

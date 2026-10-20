@@ -3,6 +3,7 @@ package evalbench
 import (
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestLoadTasksInvariants(t *testing.T) {
@@ -17,7 +18,7 @@ func TestLoadTasksInvariants(t *testing.T) {
 		if task.Run == "webhook" && task.Expect.Trigger != "webhook" {
 			t.Errorf("%s: webhook run must expect a webhook trigger", task.ID)
 		}
-		if len(task.Assert.Calls)+len(task.Assert.Absent)+len(task.Assert.Documents)+len(task.Assert.MCPCalls) == 0 {
+		if len(task.Assert.Calls)+len(task.Assert.Absent)+len(task.Assert.MCPCalls) == 0 {
 			t.Errorf("%s: no assertion — the task could never fail", task.ID)
 		}
 		if task.Expect.Nodes["trigger"] != 1 {
@@ -59,33 +60,30 @@ func TestJudgeRules(t *testing.T) {
 	task.Assert.Calls = []CallAssert{{Path: "/a", Method: "POST", Count: 2, BodyContains: []string{"\"seq\""}}}
 	task.Assert.Absent = []string{"/never"}
 	task.Assert.Ordered = []string{"/a#first", "/a#second"}
-	task.Assert.Documents = []DocAssert{{NameContains: "Digest"}}
 	task.Assert.MCPCalls = []MCPAssert{{Tool: "echo", Status: "ok"}}
 
 	good := []SinkCall{
 		{Method: "POST", Path: "/a", Body: `{"seq":1,"step":"first"}`},
 		{Method: "POST", Path: "/a", Body: `{"seq":2,"step":"second"}`},
 	}
-	if v := Judge(task, good, []string{"Digest T4-13"}, []MCPLedgerRow{{Tool: "echo", Status: "ok"}}); !v.Pass {
+	if v := Judge(task, good, []MCPLedgerRow{{Tool: "echo", Status: "ok"}}); !v.Pass {
 		t.Fatalf("good ledger must pass: %v", v.Reasons)
 	}
 
 	cases := map[string]struct {
 		ledger []SinkCall
-		docs   []string
 		mcp    []MCPLedgerRow
 		want   string
 	}{
-		"count":  {good[:1], []string{"Digest"}, []MCPLedgerRow{{"echo", "ok"}}, "want 2 call(s), got 1"},
-		"method": {[]SinkCall{{Method: "GET", Path: "/a", Body: "first seq"}, {Method: "GET", Path: "/a", Body: "second seq"}}, []string{"Digest"}, []MCPLedgerRow{{"echo", "ok"}}, "want 2 call(s), got 0"},
-		"absent": {append(append([]SinkCall{}, good...), SinkCall{Method: "POST", Path: "/never"}), []string{"Digest"}, []MCPLedgerRow{{"echo", "ok"}}, "must not be called"},
-		"order":  {[]SinkCall{good[1], good[0]}, []string{"Digest"}, []MCPLedgerRow{{"echo", "ok"}}, "expected order"},
-		"body":   {[]SinkCall{{Method: "POST", Path: "/a", Body: "first"}, {Method: "POST", Path: "/a", Body: "second"}}, []string{"Digest"}, []MCPLedgerRow{{"echo", "ok"}}, "body lacks"},
-		"doc":    {good, nil, []MCPLedgerRow{{"echo", "ok"}}, "no Library document"},
-		"mcp":    {good, []string{"Digest"}, []MCPLedgerRow{{"echo", "error"}}, "no MCP call"},
+		"count":  {good[:1], []MCPLedgerRow{{"echo", "ok"}}, "want 2 call(s), got 1"},
+		"method": {[]SinkCall{{Method: "GET", Path: "/a", Body: "first seq"}, {Method: "GET", Path: "/a", Body: "second seq"}}, []MCPLedgerRow{{"echo", "ok"}}, "want 2 call(s), got 0"},
+		"absent": {append(append([]SinkCall{}, good...), SinkCall{Method: "POST", Path: "/never"}), []MCPLedgerRow{{"echo", "ok"}}, "must not be called"},
+		"order":  {[]SinkCall{good[1], good[0]}, []MCPLedgerRow{{"echo", "ok"}}, "expected order"},
+		"body":   {[]SinkCall{{Method: "POST", Path: "/a", Body: "first"}, {Method: "POST", Path: "/a", Body: "second"}}, []MCPLedgerRow{{"echo", "ok"}}, "body lacks"},
+		"mcp":    {good, []MCPLedgerRow{{"echo", "error"}}, "no MCP call"},
 	}
 	for name, c := range cases {
-		v := Judge(task, c.ledger, c.docs, c.mcp)
+		v := Judge(task, c.ledger, c.mcp)
 		if v.Pass {
 			t.Errorf("%s: must fail", name)
 			continue
@@ -167,13 +165,13 @@ func TestJudgeFaultedCallsAreNotDeliveries(t *testing.T) {
 		{Method: "POST", Path: "/a", Body: "", Faulted: true},
 		{Method: "POST", Path: "/a", Body: "x"},
 	}
-	if v := Judge(task, retried, nil, nil); !v.Pass {
+	if v := Judge(task, retried, nil); !v.Pass {
 		t.Fatalf("a faulted attempt followed by one delivery must pass: %v", v.Reasons)
 	}
-	if v := Judge(task, retried[:1], nil, nil); v.Pass {
+	if v := Judge(task, retried[:1], nil); v.Pass {
 		t.Fatal("a faulted attempt alone is not a delivery")
 	}
-	if v := Judge(task, append(retried, SinkCall{Method: "POST", Path: "/never", Faulted: true}), nil, nil); v.Pass {
+	if v := Judge(task, append(retried, SinkCall{Method: "POST", Path: "/never", Faulted: true}), nil); v.Pass {
 		t.Fatal("absent counts faulted attempts too")
 	}
 }
@@ -261,5 +259,41 @@ func TestLooksContaminated(t *testing.T) {
 				t.Fatalf("looksContaminated(%s) = %q, want %q", tc.args, got, tc.want)
 			}
 		})
+	}
+}
+
+// The sink ledger must be scoped to the run: a model that smoke-tests its function before wiring it
+// POSTs to the sink, and judging that probe turns "exactly one call" into a penalty for verifying
+// your work. 台账必须切到 run 窗口：接线前试跑函数的模型会 POST 一次 sink，裁决那次试探会把"恰好一次
+// 调用"变成对"先验证再交付"的惩罚。
+func TestLedgerSinceExcludesPreRunProbes(t *testing.T) {
+	s := NewSink()
+	defer s.Close()
+	base := time.Now()
+	s.calls = []SinkCall{
+		{Seq: 1, Path: "/t1-02", Method: "POST", At: base},                      // model's run_function probe
+		{Seq: 2, Path: "/t1-02", Method: "POST", At: base.Add(2 * time.Second)}, // the flowrun itself
+	}
+	runStart := base.Add(1 * time.Second)
+
+	if all := s.Ledger(); len(all) != 2 {
+		t.Fatalf("unscoped ledger = %d calls, want 2", len(all))
+	}
+	scoped := s.LedgerSince(runStart)
+	if len(scoped) != 1 || scoped[0].Seq != 2 {
+		t.Fatalf("scoped ledger = %+v, want only seq 2", scoped)
+	}
+	// A zero `since` means "no run to scope to" and must not silently drop observations.
+	// since 为零值意为「没有可切窗的 run」，不得静默丢弃观测。
+	if len(s.LedgerSince(time.Time{})) != 2 {
+		t.Fatal("zero since must return the whole ledger")
+	}
+
+	task := Task{Assert: TaskAssert{Calls: []CallAssert{{Path: "/t1-02", Method: "POST", Count: 1}}}}
+	if v := Judge(task, s.Ledger(), nil); v.Pass {
+		t.Fatal("unscoped ledger should fail the exactly-one assertion (got 2)")
+	}
+	if v := Judge(task, scoped, nil); !v.Pass {
+		t.Fatalf("scoped ledger should pass: %v", v.Reasons)
 	}
 }

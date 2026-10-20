@@ -1600,7 +1600,7 @@
       "id": "T4-13",
       "tier": 4,
       "name": "eb_digest13",
-      "prompt": "Create a workflow named eb_digest13: a manual trigger, an Agent node (give it the document tools) whose instructions are to write a three-bullet digest about the payload field 'topic' and file it as a Library document named exactly \"Digest T4-13\", then a function that POSTs {\"filed\": \"Digest T4-13\"} to {{SINK}}/t4-13. Start the run with payload {\"topic\": \"local-first agents\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_digest13: a manual trigger, an Agent node that reads the payload field 'topic' and returns two output fields — 'slug', the topic upper-cased with spaces replaced by hyphens, and 'digest', a three-bullet summary of the topic — then a function that POSTs {\"slug\": <the agent's slug>, \"digest\": <the agent's digest>} to {{SINK}}/t4-13. Start the run with payload {\"topic\": \"local-first agents\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
@@ -1617,13 +1617,9 @@
             "method": "POST",
             "count": 1,
             "bodyContains": [
-              "Digest T4-13"
+              "LOCAL-FIRST-AGENTS",
+              "digest"
             ]
-          }
-        ],
-        "documents": [
-          {
-            "nameContains": "Digest T4-13"
           }
         ]
       }
@@ -1632,16 +1628,19 @@
       "id": "T4-14",
       "tier": 4,
       "name": "eb_digest14",
-      "prompt": "Create a workflow named eb_digest14: a manual trigger, an Agent node (give it the document tools) whose instructions are to write a three-bullet digest about the payload field 'topic' and file it as a Library document named exactly \"Digest T4-14\", then a function that POSTs {\"filed\": \"Digest T4-14\"} to {{SINK}}/t4-14. Start the run with payload {\"topic\": \"local-first agents\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_digest14 with a WEBHOOK trigger (no manual trigger). When the webhook receives JSON with field 'topic', an Agent node returns output field 'slug' — that topic upper-cased with spaces replaced by hyphens — and then a function POSTs {\"slug\": <the agent's slug>} to {{SINK}}/t4-14. Activate the workflow so the webhook is listening and tell me the webhook URL. Do NOT start a run yourself; I will post to the webhook. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}.",
       "expect": {
         "nodes": {
           "trigger": 1,
           "agent": 1,
           "action": 1
         },
-        "trigger": "manual"
+        "trigger": "webhook"
       },
-      "run": "model",
+      "run": "webhook",
+      "webhookPayload": {
+        "topic": "durable execution"
+      },
       "assert": {
         "calls": [
           {
@@ -1649,13 +1648,8 @@
             "method": "POST",
             "count": 1,
             "bodyContains": [
-              "Digest T4-14"
+              "DURABLE-EXECUTION"
             ]
-          }
-        ],
-        "documents": [
-          {
-            "nameContains": "Digest T4-14"
           }
         ]
       }
@@ -1664,12 +1658,12 @@
       "id": "T4-15",
       "tier": 4,
       "name": "eb_digest15",
-      "prompt": "Create a workflow named eb_digest15: a manual trigger, an Agent node (give it the document tools) whose instructions are to write a three-bullet digest about the payload field 'topic' and file it as a Library document named exactly \"Digest T4-15\", then a function that POSTs {\"filed\": \"Digest T4-15\"} to {{SINK}}/t4-15. Start the run with payload {\"topic\": \"local-first agents\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
+      "prompt": "Create a workflow named eb_digest15: a manual trigger, an Agent node that reads the payload field 'topic' and returns output field 'slug' — the topic upper-cased with spaces replaced by hyphens — then a function 'notify' that POSTs {\"step\": \"notify\", \"slug\": <the agent's slug>} to {{SINK}}/t4-15, then a function 'archive' that POSTs {\"step\": \"archive\", \"slug\": <the agent's slug>} to {{SINK}}/t4-15. Start the run with payload {\"topic\": \"node memoization\"}. Functions must use only the Python standard library (urllib.request, json) and must return a dict. The sink base URL is {{SINK}}. After building, use trigger_workflow to start exactly one run, then tell me the flowrun id.",
       "expect": {
         "nodes": {
           "trigger": 1,
           "agent": 1,
-          "action": 1
+          "action": 2
         },
         "trigger": "manual"
       },
@@ -1679,16 +1673,15 @@
           {
             "path": "/t4-15",
             "method": "POST",
-            "count": 1,
+            "count": 2,
             "bodyContains": [
-              "Digest T4-15"
+              "NODE-MEMOIZATION"
             ]
           }
         ],
-        "documents": [
-          {
-            "nameContains": "Digest T4-15"
-          }
+        "ordered": [
+          "/t4-15#notify",
+          "/t4-15#archive"
         ]
       }
     }

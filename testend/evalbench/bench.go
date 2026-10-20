@@ -60,16 +60,24 @@ type TaskSetup struct {
 //     approval that said no).
 //   - Ordered: "path#substr" entries; the bodies received on path, in arrival order, must contain
 //     the substrings in this order.
-//   - Documents: a Library document whose name contains the substring must exist.
+//
+// There is deliberately NO document assertion. Nothing inside a workflow can create a Library
+// document: an agent's tool universe is exactly its mounts, and the sys: mount registry holds only
+// the generate/edit media tools. An assertion no workflow can satisfy only invites unsatisfiable
+// tasks, and the one that existed was satisfiable instead by the CHAT assistant filing the document
+// by hand — a workspace-wide name check, not an execution verdict.
+//
+// **刻意没有**文档断言。工作流内部无法创建 Library 文档：agent 的工具宇宙恰是其挂载，而 sys: 挂载表只有
+// 生成/编辑类媒体工具。没有工作流能满足的断言只会招来无解任务；而曾存在的那条反而可由**主对话助手**手工
+// 建档满足——那是全 workspace 的名字检查，不是执行裁决。
 //   - MCPCalls: the MCP ledger must hold a call with this tool/status.
 //
 // TaskAssert 是结果裁决；每一项都是精确、机器可判的规则（见英文注释逐条）。
 type TaskAssert struct {
-	Calls     []CallAssert `json:"calls,omitempty"`
-	Absent    []string     `json:"absent,omitempty"`
-	Ordered   []string     `json:"ordered,omitempty"`
-	Documents []DocAssert  `json:"documents,omitempty"`
-	MCPCalls  []MCPAssert  `json:"mcpCalls,omitempty"`
+	Calls    []CallAssert `json:"calls,omitempty"`
+	Absent   []string     `json:"absent,omitempty"`
+	Ordered  []string     `json:"ordered,omitempty"`
+	MCPCalls []MCPAssert  `json:"mcpCalls,omitempty"`
 }
 
 type CallAssert struct {
@@ -77,10 +85,6 @@ type CallAssert struct {
 	Method       string   `json:"method"`
 	Count        int      `json:"count"`
 	BodyContains []string `json:"bodyContains,omitempty"`
-}
-
-type DocAssert struct {
-	NameContains string `json:"nameContains"`
 }
 
 type MCPAssert struct {
@@ -238,7 +242,7 @@ type Verdict struct {
 // pure so the scorer's unit tests can exercise every rule without a server.
 //
 // Judge 对照任务断言检查 sink 台账、Library 名称和 MCP 台账。纯函数，便于无 server 单测每条规则。
-func Judge(task Task, ledger []SinkCall, docNames []string, mcp []MCPLedgerRow) Verdict {
+func Judge(task Task, ledger []SinkCall, mcp []MCPLedgerRow) Verdict {
 	var v Verdict
 	// Calls/Ordered judge deliveries, so requests the armed fault answered are left out; Absent judges
 	// any attempt, faulted or not. Calls/Ordered 裁决送达，被故障应答的请求不计；Absent 裁决任何尝试。
@@ -286,17 +290,6 @@ func Judge(task Task, ledger []SinkCall, docNames []string, mcp []MCPLedgerRow) 
 		}
 		if i != len(task.Assert.Ordered) {
 			v.Reasons = append(v.Reasons, fmt.Sprintf("%s: expected order %v, matched %d of %d", path, task.Assert.Ordered, i, len(task.Assert.Ordered)))
-		}
-	}
-	for _, d := range task.Assert.Documents {
-		found := false
-		for _, n := range docNames {
-			if strings.Contains(n, d.NameContains) {
-				found = true
-			}
-		}
-		if !found {
-			v.Reasons = append(v.Reasons, fmt.Sprintf("no Library document containing %q", d.NameContains))
 		}
 	}
 	for _, m := range task.Assert.MCPCalls {

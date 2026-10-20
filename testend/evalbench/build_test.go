@@ -135,7 +135,13 @@ func observeAndJudge(t *testing.T, wc *harness.Client, sink *Sink, task Task, ru
 		return Verdict{Reasons: []string{"no run was started for the workflow"}}, g
 	}
 	d := settleRun(t, wc, runID, task.ApprovalDecision, runMS)
-	v := Judge(task, sink.Ledger(), docNames(wc), mcpLedger(wc))
+	scoped := sink.LedgerSince(d.Flowrun.StartedAt)
+	v := Judge(task, scoped, mcpLedger(wc))
+	// Say so when probes were excluded: a verdict that silently drops observations is not auditable.
+	// 排除了试探就说出来：静默丢弃观测的裁决不可审计。
+	if n := len(sink.Ledger()) - len(scoped); n > 0 {
+		v.Reasons = append(v.Reasons, fmt.Sprintf("(%d pre-run call(s) excluded from the verdict)", n))
+	}
 	if d.Flowrun.Status != "completed" && d.Flowrun.Status != "cancelled" {
 		v.Pass = false
 		v.Reasons = append(v.Reasons, fmt.Sprintf("run %s ended %s: %s", runID, d.Flowrun.Status, truncate(d.Flowrun.Error, 200)))

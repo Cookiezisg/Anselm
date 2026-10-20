@@ -39,10 +39,15 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 | T1 | 单 trigger + 单 Function，无分支 | sink 收到 1 次指定 method/path/body |
 | T2 | ≥3 节点，Control 分支、fan-in 或严格顺序 | 分支互斥（`absent`）、fan-in 汇总值、调用顺序（`ordered`） |
 | T3 | Agent 节点 + 审批节点 + 有状态 Handler | 审批 yes → 送达；审批 no → `absent`；Handler 计数进 body |
-| T4 | Webhook trigger、MCP 工具、多步外部副作用、Library 文档 | harness 投递 webhook、MCP 调用台账、文档存在 |
+| T4 | Webhook trigger、MCP 工具、Agent 输出驱动的多步外部副作用 | harness 投递 webhook、MCP 调用台账、调用次数/顺序/body |
 
 断言规则全部机器可判（`Judge`，有单测）：`calls` 精确次数 + body 子串；`absent` 零调用；`ordered`
-同一 path 的 body 按序出现；`documents` 按名；`mcpCalls` 按工具/状态。模型的叙述永不进入裁决。
+同一 path 的 body 按序出现；`mcpCalls` 按工具/状态。模型的叙述永不进入裁决。
+
+**刻意没有文档断言。** 工作流内部无法创建 Library 文档：agent 的工具宇宙恰是其挂载，而 `sys:` 挂载表只有
+生成/编辑类媒体工具。曾存在的那条反而可由**主对话助手**手工建档满足（全 workspace 名字检查，不是执行
+裁决），已随三条无解任务一并移除。涉及 Agent 的 T4 任务改为让 Agent 做一个**确定性变换**（topic 转大写
+连字符），其产物只能经 Agent 产生，再由下游函数 POST 到 sink——断言因此既机器可判、又真正依赖 Agent。
 
 外部依赖只有一个：进程内 `httptest` 回环 sink（`sink.go`）。沙箱函数直连网络，无需代理；提示词里的
 `{{SINK}}` 发送前替换为真实基址。
@@ -64,6 +69,9 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 - **首轮留存**：`reasons` 只保留最后一个 attempt 的裁决，所以 `firstReasons` 与 `firstTools` 额外留存
   attempt 1 的裁决文本与工具调用名序列。Anselm 的工具是进程内执行、不经 HTTP，服务端访问日志里看不到
   模型调了什么；`firstTools` 是首轮失败唯一可归因的记录。
+- **台账切窗**：裁决只看 flowrun `startedAt` 之后到达的 sink 调用。台账按 attempt 重置，但一个 attempt
+  还含模型接线前自己做的事——用 `run_function` 试跑函数的模型会 POST 一次 sink，把它算进"恰好一次调用"
+  等于惩罚"先验证再交付"。被排除的调用数会写进裁决理由，不静默丢弃。
 - **作废（void）**：工具调用参数触及基准产物（`tasks.json`、`evalbench`、`eval-benchmark`、仓库根绝对
   路径）的运行记 `contaminated`，**从一切分子分母中剔除**，在表里单独报 `VOID` 一行。既不计通过（可能
   读了答案），也不计失败（从未被公平尝试）。标记在一次运行内粘滞：读过之后其后一切不可归因。
@@ -171,6 +179,10 @@ Repair 车道尚未运行（`injections=0`）。
 
 对外引用以**这一组**为准，并须同时说明剔除了三条无效任务及其理由。
 
+三条无效任务其后已重写为**三个不同形状**（Agent 做确定性变换、产物经下游函数 POST 到 sink：manual+Agent、
+webhook+Agent、Agent+双步有序副作用），形状数 31 → 33。因此 S3 的 T4 行**不再对应当前题集**，S3 整体只
+作历史记录。
+
 ### 隔离性缺陷（未修）
 
 同一份转存显示模型通过 `Bash` / `Grep` 读了 `testend/evalbench/tasks.json`（拿到 `expect` 与
@@ -193,7 +205,6 @@ execution-feedback self-repair（顺序修复、每轮回引失败），**不是
 ## 6. 已知边界
 
 - Build 车道的"修一下"追问计入 attempt，不是人工编辑；因此 Pass@3 口径偏保守。
-- T4 的 `eb_digest` 依赖 Agent 节点挂 document 工具；若模型不给 Agent 挂工具，归因为 structure。
 - `timeout` 故障依赖沙箱对挂起请求的超时；若沙箱超时长于 `EVALBENCH_RUN_MS`，该注入会被判作废而非失败。
 - Durable 与 Guard 的计数脚本尚未落地，本文件 §1 的"待补"即收口条件。
 - **密闭性靠检测而非隔离**：模型持有 `Bash` / `Grep` / `Read`，且 `workDirSection` 明确告知它可读机器
@@ -202,6 +213,6 @@ execution-feedback self-repair（顺序修复、每轮回引失败），**不是
   未被 needle 命中的路径拼接读到仓库；needle 清单是唯一的真相面，扩任务集或移动文件时必须同步。
 - **`documents` 断言非执行式**：`docNames` 查整个 workspace，主对话助手自己能建档，断言可被绕过。
   需要把文档存在性绑定到 flowrun 产物，或改由只有工作流能触达的 sink 代替。
-- **任务多样性不足**：60 条任务按归一化提示词只有 31 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高
+- **任务多样性不足**：60 条任务按归一化提示词只有 33 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高
   重复测量的稳定性，但不增加独立信息；分档比率的有效样本量远小于 15 × reps。扩充前，分档数字只能
   作内部回归信号，不能作对外规模陈述。

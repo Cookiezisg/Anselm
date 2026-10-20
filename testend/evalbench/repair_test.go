@@ -120,7 +120,7 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 	runID := startRun(t, wc, wf.ID, firstPayload(task))
 	d := settleRun(t, wc, runID, task.ApprovalDecision, runMS)
 	if d.Flowrun.Status != "failed" {
-		v := Judge(task, sink.Ledger(), docNames(wc), mcpLedger(wc))
+		v := Judge(task, sink.LedgerSince(d.Flowrun.StartedAt), mcpLedger(wc))
 		if v.Pass {
 			row.Reasons = "void: fault did not bite (run " + d.Flowrun.Status + ", assertion passed)"
 			return
@@ -153,7 +153,7 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 			continue
 		}
 		d = settleRun(t, wc, rerun, task.ApprovalDecision, runMS)
-		v := Judge(task, sink.Ledger(), docNames(wc), mcpLedger(wc))
+		v := Judge(task, sink.LedgerSince(d.Flowrun.StartedAt), mcpLedger(wc))
 		row.RerunPass = v.Pass && d.Flowrun.Status == "completed"
 		row.FalseRepair = row.NewVersion && d.Flowrun.Status == "completed" && !v.Pass
 		row.Reasons = strings.Join(v.Reasons, "; ")
@@ -171,7 +171,7 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 	sink.Reset()
 	clean := startRun(t, wc, wf.ID, firstPayload(task))
 	d = settleRun(t, wc, clean, task.ApprovalDecision, runMS)
-	v := Judge(task, sink.Ledger(), docNames(wc), mcpLedger(wc))
+	v := Judge(task, sink.LedgerSince(d.Flowrun.StartedAt), mcpLedger(wc))
 	row.Regression = !(v.Pass && d.Flowrun.Status == "completed")
 	if row.Regression {
 		row.Reasons = "regression: " + strings.Join(v.Reasons, "; ")

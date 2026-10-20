@@ -71,6 +71,29 @@ func (s *Sink) Ledger() []SinkCall {
 	return out
 }
 
+// LedgerSince returns only the calls that arrived at or after since — the flowrun's own window.
+// The ledger is reset per attempt, but an attempt also contains what the MODEL did before wiring:
+// a model that smoke-tests its function with run_function POSTs to the sink, and counting that
+// against "exactly one call" penalises verifying your work before shipping it. A zero `since`
+// returns everything (callers with no run to scope to).
+//
+// LedgerSince 只返回 since 之后到达的调用——即 flowrun 自己的窗口。台账按 attempt 重置，但一个 attempt
+// 还包含**模型接线前自己做的事**：用 run_function 试跑函数的模型会 POST 一次 sink，把它算进"恰好一次
+// 调用"等于惩罚"先验证再交付"。since 为零值时返回全部（调用方没有可切窗的 run）。
+func (s *Sink) LedgerSince(since time.Time) []SinkCall {
+	all := s.Ledger()
+	if since.IsZero() {
+		return all
+	}
+	out := make([]SinkCall, 0, len(all))
+	for _, c := range all {
+		if !c.At.Before(since) {
+			out = append(out, c)
+		}
+	}
+	return out
+}
+
 func (s *Sink) handle(w http.ResponseWriter, r *http.Request) {
 	body, _ := io.ReadAll(io.LimitReader(r.Body, 1<<20))
 	hdr := map[string]string{}
