@@ -28,11 +28,13 @@ func TestEvalbench_Build(t *testing.T) {
 	turnMS := envInt("EVALBENCH_TURN_MS", 420000)
 	runMS := envInt("EVALBENCH_RUN_MS", 240000)
 	srv := evalServer(t)
+	slots := laneSlots()
 
 	for _, task := range tasks {
 		for rep := 1; rep <= reps; rep++ {
 			task, rep := task, rep
 			t.Run(fmt.Sprintf("%s/rep%d", task.ID, rep), func(t *testing.T) {
+				parallelCase(t, slots)
 				runBuildOnce(t, srv, task, rep, maxAttempts, turnMS, runMS)
 			})
 		}

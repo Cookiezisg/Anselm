@@ -17,6 +17,7 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -78,6 +79,48 @@ func envInt(key string, def int) int {
 	}
 	return def
 }
+
+// laneSlots caps how many (task, rep) cases a lane runs at once. The isolation unit is already the
+// workspace (evalWS), and the lane deliberately shares ONE sidecar, so concurrency needs no new
+// isolation — only a ceiling, because every concurrent case holds a Python sandbox and a model
+// stream. Default 1 keeps the serial behaviour byte for byte, so a measured run stays comparable to
+// an earlier serial one until a control run proves concurrency does not move the numbers. The
+// returned acquire/release pair is a semaphore; nil means serial.
+//
+// laneSlots 限定一条车道同时跑多少个 (task, rep)。隔离单元本就是 workspace（evalWS），且车道**有意**
+// 共享唯一 sidecar，故并发不需要新隔离、只需要上限——每个并发例都占一个 Python 沙箱和一条模型流。
+// 默认 1 使串行行为逐字节不变，故在对照运行证明并发不挪动数字之前，测得的结果仍与早先的串行轮次可比。
+// 返回的 acquire/release 是信号量；nil 表示串行。
+func laneSlots() chan struct{} {
+	n := envInt("EVALBENCH_PARALLEL", 1)
+	if n <= 1 {
+		return nil
+	}
+	return make(chan struct{}, n)
+}
+
+// parallelCase opts the subtest into Go's parallel scheduler and takes one lane slot, releasing it
+// when the subtest ends. Call it first inside the subtest, before any workspace is created.
+// NOTE: Go caps parallel subtests at -parallel (default GOMAXPROCS), so a slot count above that
+// needs `-parallel N` on the command line to take effect.
+//
+// parallelCase 让子测试加入 Go 的并行调度并占用一个车道槽位，子测试结束时释放。必须在子测试内最先调用、
+// 早于任何 workspace 创建。注意：Go 以 -parallel（默认 GOMAXPROCS）为并行子测试上限，槽位数超过它时
+// 需在命令行加 `-parallel N` 才生效。
+func parallelCase(t *testing.T, slots chan struct{}) {
+	if slots == nil {
+		return
+	}
+	t.Parallel()
+	slots <- struct{}{}
+	t.Cleanup(func() { <-slots })
+}
+
+// rowMu serializes the JSONL appends. Each row is one short line and O_APPEND would almost always
+// be atomic anyway, but "almost" is not a property a results file may rest on.
+//
+// rowMu 串行化 JSONL 追加。每行很短、O_APPEND 几乎总是原子的，但结果文件不能建立在「几乎」上。
+var rowMu sync.Mutex
 
 // evalServer boots the one server a lane shares. Every server is a fresh managed install, and the
 // gateway rate-limits install registration (429), so a server per case starves a long lane; the
@@ -560,6 +603,8 @@ func resultsPath(t *testing.T) string {
 
 func appendRow(t *testing.T, row any) {
 	t.Helper()
+	rowMu.Lock()
+	defer rowMu.Unlock()
 	f, err := os.OpenFile(resultsPath(t), os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0o644)
 	if err != nil {
 		t.Fatalf("open results: %v", err)

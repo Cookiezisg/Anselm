@@ -36,6 +36,7 @@ func TestEvalbench_Repair(t *testing.T) {
 	turnMS := envInt("EVALBENCH_TURN_MS", 420000)
 	runMS := envInt("EVALBENCH_RUN_MS", 240000)
 	srv := evalServer(t)
+	slots := laneSlots()
 
 	for _, task := range tasks {
 		if task.Run != "model" || len(task.Assert.Calls) == 0 {
@@ -44,6 +45,7 @@ func TestEvalbench_Repair(t *testing.T) {
 		for _, fault := range faults {
 			task, fault := task, fault
 			t.Run(task.ID+"/"+fault.ID, func(t *testing.T) {
+				parallelCase(t, slots)
 				runRepairOnce(t, srv, task, fault, turnMS, runMS)
 			})
 		}

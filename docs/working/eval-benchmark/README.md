@@ -114,11 +114,19 @@ EVALBENCH_TASKS=T1 make -C backend evalbench   # 只跑一档；或 EVALBENCH_TA
 EVALBENCH_REPS=1 make -C backend evalbench     # 调试用单次
 EVALS_PROVIDER=deepseek make -C backend evalbench   # 便宜模型对照（需 .env 里的 key）
 EVALBENCH_DUMP=1 ... make -C backend evalbench # 失败 attempt 转存整段建图对话，供归因
+EVALBENCH_PARALLEL=8 ... -parallel 8           # 并发跑 8 个 (task, rep)（默认 1 = 串行）
 make -C backend evalbench-score                # 折叠 results.jsonl → Markdown 表
 ```
 
 - 模型固定、每任务 3 次（`EVALBENCH_REPS`），每个 (task, rep) 独立 workspace，模型看不到其它 run 的实体。
   每条车道只起一个 server：每个 server 都是一次新的受管 install，网关对 install 登记限流（429）。
+- `EVALBENCH_PARALLEL=N`（默认 1）让一条车道同时跑 N 个 (task, rep)。隔离单元本就是 workspace、车道本就
+  共享唯一 sidecar，故并发不需要新隔离，只需要上限——每个并发例都占一个 Python 沙箱和一条模型流。Go 以
+  `-parallel`（默认 GOMAXPROCS）为并行子测试上限，N 超过它时须在命令行加 `-parallel N`。默认 1 使串行
+  行为逐字节不变，故在对照运行证明并发不挪动数字之前，并发轮次与早先的串行轮次仍可比。
+  实测（deepseek-v4-flash，本机）：并发 6 时单次 15–28s、吞吐 5.5s/run；并发 12 时单次 17–68s、吞吐
+  6.2s/run——**吞吐在 6 之后基本持平，瓶颈在供方侧而非本机**（CPU 占用全程 ~42%）。并发会拉长单次耗时，
+  故 `EVALBENCH_TURN_MS` 的墙钟预算在高并发下更容易触顶，报数时须一并看 `wallMs` 分布。
 - 建图对话里的自报危险门与 ask_user 由 harness 自动放行（与 golden 同策略）；workflow 审批节点按任务
   的 `approvalDecision` 立即裁决。
 - 每个 (task, rep) 的建图对话挂一个**空临时目录**作驻地（`PATCH /conversations/{id}` 的 `workDir`），
