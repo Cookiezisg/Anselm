@@ -129,78 +129,93 @@ make -C backend evalbench-score                # 折叠 results.jsonl → Markdo
 
 ## 5. 结果
 
-### S3 · 2026-10-20 · `deepseek-v4-flash` · commit `493a9ed9d`
+### S7 · 2026-10-20 · `deepseek-v4-flash` · commit `41be3a23c`（对外口径）
 
-`EVALS_PROVIDER=deepseek EVALBENCH_REPS=3`，ATTEMPTS=3。计划 180 次运行，实得 **179**：
-`T1-01/rep3` 在 BYOK key probe 阶段遇 `api.deepseek.com` 连接超时（`API_KEY_TEST_FAILED`），
-模型未被调用，按缺测处理而非失败。
+`EVALS_PROVIDER=deepseek EVALBENCH_REPS=3 EVALBENCH_DUMP=1`，ATTEMPTS=3。180 次运行全部发出，
+**13 次被污染检测判作废**（见下），有效分母 167。这是防线生效后的第一轮全量，也是唯一可对外引用的一组。
 
 | Lane | Metric | Value |
 |---|---|---|
-| build | tasks / runs | 60 / 179 |
-| build | Pass@1 | 84.9% (152/179) |
-| build | Pass@3 | 98.3% (176/179) |
-| build | T1 Pass@1 / Pass@3 | 90.9% (40/44) / 100.0% (44/44) |
-| build | T2 Pass@1 / Pass@3 | 91.1% (41/45) / 100.0% (45/45) |
-| build | T3 Pass@1 / Pass@3 | 82.2% (37/45) / 100.0% (45/45) |
-| build | T4 Pass@1 / Pass@3 | 75.6% (34/45) / 93.3% (42/45) |
-| build | mean structure Jaccard | 0.99 |
-| build | stable tasks | 58 / 60 |
+| build | tasks / shapes / runs | 60 / 29 / 167 |
+| build | Pass@1 | 92.2% (154/167) |
+| build | Pass@3 | 98.2% (164/167) |
+| build | T1 Pass@1 / Pass@3 | 100.0% (41/41) / 100.0% (41/41) |
+| build | T2 Pass@1 / Pass@3 | 86.7% (39/45) / 95.6% (43/45) |
+| build | T3 Pass@1 / Pass@3 | 93.0% (40/43) / 100.0% (43/43) |
+| build | T4 Pass@1 / Pass@3 | 89.5% (34/38) / 97.4% (37/38) |
+| build | mean structure Jaccard | 0.98 |
+| build | stable tasks | 57 / 60 |
+| build | VOID (contaminated, excluded) | 13 |
+| repair | injections | 0 |
 
-自修复分布：27 次首轮失败中 19 次在 attempt 2 通过、5 次在 attempt 3 通过、3 次耗尽预算。
+Wilson 95% 置信区间（按 run 数算，**低估**真实不确定度，见下"形状相关性"）：
 
-**结论集中在一个任务形状。** 按归一化提示词聚类，60 条任务只有 31 个不同形状；三次永久失败全部落在
-`T4-13..T4-15`（同一形状的三份拷贝）。该形状 **Pass@1 = 0/9**、三轮内 6/9、中位 154 次工具调用；
-其余 30 个形状三轮内全部 100%。剔除该形状后 T4 Pass@1 = 94.4% (34/36)，T4 中最复杂的 webhook 形状
-（`T4-01..T4-05`）为 15/15。因此"T4 档偏弱"的正确表述是"`eb_digest` 形状有缺陷"，不是"多步副作用难"。
+| 分组 | attempt-1 | 三轮内 |
+|---|---|---|
+| 总体 | 92.2% [87.1, 95.4] | 98.2% [94.9, 99.4] |
+| T1 | 100.0% [91.4, 100.0] | 100.0% [91.4, 100.0] |
+| T2 | 86.7% [73.8, 93.7] | 95.6% [85.2, 98.8] |
+| T3 | 93.0% [81.4, 97.6] | 100.0% [91.8, 100.0] |
+| T4 | 89.5% [75.9, 95.8] | 97.4% [86.5, 99.5] |
 
-Repair 车道尚未运行（`injections=0`）。
+工具调用次数（`modelCalls` 口径，全 attempt 合计）：中位 32、p90 54、最大 118。
 
-### 三条无效任务与复算
+**三次残余失败全部是 harness 墙钟超时**，不是裁决失败：`T2-08/rep2`、`T2-15/rep1`、`T4-08/rep1` 的
+assistant 回合在 `EVALBENCH_TURN_MS=420000` 内未到终态，`modelCalls=0`、`reasons` 为空。按保守口径
+计作失败。无法证明它们在更长的墙钟下会不会通过；转存显示同期有多次 60–72 调用的运行，所以更可能是
+"还在干活就被掐断"而非挂死。
 
-转存（`EVALBENCH_DUMP=1`）证实 `T4-13..T4-15` **题目无解**，非产品缺陷：
+### 作废的 13 次：污染检测的首次全量实测
 
-- Agent 的工具宇宙恰是其挂载，合法 ToolRef 只有 `fn_` / `hd_…method` / `mcp:server/tool` / `sys:<name>`；
-  `create_agent` 的 schema 只列前三种。而 `sys:` 注册表由 `generate.GenerateTools()` 填充，内容是
-  `generate_image`、`generate_speech`、`generate_video`、`edit_image`、`animate_image`、`enroll_voice`
-  ——**不含任何 document 工具**。因此"给 Agent 挂 document 工具"在当前产品里无法表达。
-- 该形状 6/9 的"三轮内通过"同样不可信：`documents` 断言走 `docNames`，查的是**整个 workspace** 有无
-  同名文档，不校验它由 flowrun 产生；而主对话助手自己持有 `create_document`。断言可被"助手在聊天里
-  手工建档"满足，不是执行式的。
+| 触及的产物 | 次数 | 任务 |
+|---|---|---|
+| 仓库根绝对路径 | 5 | T1-06/1、T1-10/3、T3-10/3、T4-04/3、T4-14/2 |
+| `evalbench` | 8 | T1-10/2、T1-13/3、T3-01/3、T4-01/2、T4-03/1、T4-06/2、T4-07/1、T4-07/2 |
 
-剔除这三条（9 次运行）后的复算，口径与上表相同：
+作废率 7.2%（13/180）。防线按设计工作：作废行既不计通过也不计失败，`Score` 单独报 `VOID`。
 
-| Metric | Value |
-|---|---|
-| tasks / shapes / runs | 57 / 29 / 170 |
-| Pass@1 | 89.4% (152/170) |
-| Pass@3 | 100.0% (170/170) |
-| T1 / T2 / T3 / T4 Pass@1 | 90.9% (40/44) / 91.1% (41/45) / 82.2% (37/45) / 94.4% (34/36) |
+**13 次作废有同一个诱因。** 转存显示它们都走同一条路：任务要求"manual trigger"，模型调
+`create_trigger(kind:"manual")` 得 `TRIGGER_INVALID_KIND`（消息只有 "unknown trigger kind"，不列合法
+值），接着猜 `on-demand` / `on_demand` / `api` / `manual_fire`，再 `search_tools`、`search_documents`，
+全部落空后开始 `Bash` / `Grep` 读 Anselm 源码找 kind 常量。**产品没有 `manual` 这个 trigger 种类**
+——合法 kind 只有 `cron` / `webhook` / `fsnotify` / `sensor`，手动跑是 workflow 自身的 `:trigger` 能力，
+纯手动图根本不需要 trigger 节点（见 `workflow.ErrNoTriggerEntry` 的注释）。
 
-对外引用以**这一组**为准，并须同时说明剔除了三条无效任务及其理由。
+60 条任务里 **56 条**的提示词都写着 "a manual trigger"，而 `expect.nodes.trigger: 1` 又要求图上有
+trigger 节点，于是通过的运行实际是"建一个从不 arm 的 cron trigger"——`TriggerMatches` 对 `manual`
+放行任意 trigger，所以判分看不出来。这是题集缺陷（词汇不在产品里）叠加一个产品缺口（错误消息不列合法
+值、没有任何工具告诉模型"手动跑不需要 trigger"）。影响方向是**压低**数字：浪费的调用、作废和墙钟超时
+都来自这里。因此 S7 偏保守，可以安全对外引用；下一轮优化应先改这 56 条提示词与 `expect`。
 
-三条无效任务其后已重写为**三个不同形状**（Agent 做确定性变换、产物经下游函数 POST 到 sink：manual+Agent、
-webhook+Agent、Agent+双步有序副作用），形状数 31 → 33。因此 S3 的 T4 行**不再对应当前题集**，S3 整体只
-作历史记录。
+### 形状相关性
 
-### 隔离性缺陷（未修）
+按归一化提示词聚类，60 条任务只有 **29 个不同形状**（归一化规则：`eb_*` 名 → `NAME`、`/tN-NN*` 路径
+→ `PATH`、双引号字面量 → `STR`、整数 → `N`、压缩空白）。T2 的 15 条只有 3 个形状各 5 份拷贝。拷贝之间
+高度相关，按 167 次运行算二项置信区间会低估真实不确定度。**对外陈述规模必须用形状数，不是任务数。**
 
-同一份转存显示模型通过 `Bash` / `Grep` 读了 `testend/evalbench/tasks.json`（拿到 `expect` 与
-`assert` 全文）与本文件 §5。这不是越权：`workDirSection` 明确告知模型"可用绝对路径读机器上任何地方"，
-文件系统读取是产品的设计意图，无开关可关。后果是 evalbench **不是密闭基准**——任何一次通过都不能排除
-读过答案。S3 的 170 次运行据此只能作内部回归信号，不能作对外数字。
-
-防线已落地（空临时驻地 + 按运行的污染检测与作废，见 §3「作废」与 §4），但 **S3 是在防线之前跑的**，
-其行没有 `contaminated` 字段，无法追溯判定。对外数字须等防线生效后重跑一轮取得。
+形状级口径（一个形状的全部有效重复都通过才算通过）：29 个形状中 **20 个** attempt-1 全通，
+**26 个** 三轮内全通。
 
 ### 对外引用口径
 
 §3 的 `Pass@3` 是**历史命名**，量的是"≤3 个 attempt 内通过"，即 Chen et al. 2023 式的
-execution-feedback self-repair（顺序修复、每轮回引失败），**不是** Chen et al. 2021 的 pass@k
-（k 次独立采样取并）。对外写作必须用后者的术语区分，不可直接写 "pass@3"。
+execution-feedback self-repair（顺序修复、每轮回引失败断言），**不是** Chen et al. 2021 的 pass@k
+（k 次独立采样取并）。对外写作必须用前者的术语，不可直接写 "pass@3"。同理 `modelCalls` 数的是
+tool_call 块数，不是模型往返次数。
 
-同理，分母的独立性有限：60 条任务 31 个形状（T2 仅 3 个形状各 5 份拷贝），拷贝之间高度相关，
-按 179 次运行算二项置信区间会低估真实不确定度。对外引用须按**形状数**而非任务数陈述规模。
+### S3 · 2026-10-20 · commit `493a9ed9d`（历史，不可引用）
+
+防线之前的一轮：179 次运行、Pass@1 84.9%、三轮内 98.3%。该轮**不可对外引用**，原因有三：
+
+- 不密闭：转存证实模型用 `Bash` / `Grep` 读了 `tasks.json`（`expect` 与 `assert` 全文）与本文件 §5；
+  该轮的行没有 `contaminated` 字段，无法追溯判定哪些通过读过答案。
+- 判分未切窗：模型接线前用 `run_function` 试跑会 POST 一次 sink，被算进"恰好一次调用"，惩罚"先验证
+  再交付"。
+- 题集含三条无解任务：`T4-13..T4-15` 要求"给 Agent 挂 document 工具"，而 `sys:` 注册表由
+  `generate.GenerateTools()` 填充、只含六个媒体工具，**不含任何 document 工具**；其 `documents` 断言
+  又查整个 workspace 的同名文档、可被主对话助手自己建档满足。该形状 Pass@1 = 0/9、中位 154 次工具调用。
+  三条已重写为三个不同形状（manual+Agent、webhook+Agent、Agent+双步有序副作用），`documents` 断言与
+  其全部管线已删除。S7 的 3/3 首轮通过证明问题在题目，不在产品。
 
 ## 6. 已知边界
 
@@ -211,8 +226,11 @@ execution-feedback self-repair（顺序修复、每轮回引失败），**不是
   上任意绝对路径——这是产品的设计意图，没有开关。因此基准无法真正密闭。现行防线是收窄 + 检测：建图对话
   挂空临时驻地（Bash 不再从仓库起步），且任何触及基准产物的工具调用令该次运行作废。残余风险是模型用
   未被 needle 命中的路径拼接读到仓库；needle 清单是唯一的真相面，扩任务集或移动文件时必须同步。
-- **`documents` 断言非执行式**：`docNames` 查整个 workspace，主对话助手自己能建档，断言可被绕过。
-  需要把文档存在性绑定到 flowrun 产物，或改由只有工作流能触达的 sink 代替。
+  S7 实测作废率 7.2%（13/180）——检测会命中，代价是分母变小。
+- **题集 56 条提示词写着产品不存在的 "manual trigger"**，`expect.nodes.trigger: 1` 又要求 trigger
+  节点，判分靠 `TriggerMatches` 对 `manual` 放行任意 trigger 掩盖。它是 S7 全部 13 次作废与 3 次墙钟
+  超时的共同诱因，方向是压低数字。修法是把提示词改成"我能手动跑的 workflow"并把 `expect` 改为零
+  trigger 节点；顺带值得补的产品缺口是 `TRIGGER_INVALID_KIND` 的消息不列合法值。
 - **任务多样性不足**：60 条任务按归一化提示词只有 33 个不同形状，T2 的 15 条仅 3 个形状。拷贝提高
   重复测量的稳定性，但不增加独立信息；分档比率的有效样本量远小于 15 × reps。扩充前，分档数字只能
   作内部回归信号，不能作对外规模陈述。
