@@ -372,3 +372,30 @@ func TestJudgeAtLeastFloor(t *testing.T) {
 		t.Fatal("two calls must not satisfy a floor of three")
 	}
 }
+
+// TestTriggerKindOfSpeaksTheProduct pins the benchmark to the trigger domain's own vocabulary: every
+// kind in domain/trigger must round-trip to itself, so expect.trigger can be written with the word
+// the product uses. fsnotify once mapped to "file" and silently failed the check on every task that
+// used it.
+//
+// TestTriggerKindOfSpeaksTheProduct 把基准钉在 trigger 域自己的词汇上：domain/trigger 的每种 kind 都
+// 必须原样往返，使 expect.trigger 能直接写产品用的那个词。fsnotify 曾被映射成 "file"，静默地让所有用到
+// 它的任务都判不过。
+func TestTriggerKindOfSpeaksTheProduct(t *testing.T) {
+	for _, kind := range []string{"cron", "webhook", "fsnotify", "sensor"} {
+		if got := TriggerKindOf(kind); got != kind {
+			t.Errorf("TriggerKindOf(%q) = %q, want the product's own word", kind, got)
+		}
+		if !TriggerMatches(kind, TriggerKindOf(kind)) {
+			t.Errorf("a task expecting %q cannot be satisfied by an actual %q trigger", kind, kind)
+		}
+	}
+	// An unreadable trigger still has to satisfy a hand-run task, and must not satisfy a named kind.
+	// 读不到的 trigger 仍须满足手动跑的任务，且不得满足某个具名 kind。
+	if !TriggerMatches("manual", TriggerKindOf("")) {
+		t.Error(`a hand-run task must accept an unreadable trigger`)
+	}
+	if TriggerMatches("cron", TriggerKindOf("")) {
+		t.Error(`an unreadable trigger must not pass as cron`)
+	}
+}

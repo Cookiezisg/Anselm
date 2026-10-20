@@ -104,7 +104,10 @@ payload 字面量的变体，走的是同一条产品路径；按"考的是哪�
 - **Pass@3** = attempt ≤ 3 通过的 run 数 / 总 run 数。恒有 Pass@3 ≥ Pass@1。
 - **分档 Pass@k**：同口径，分母为该档任务数 × reps。
 - **trigger 匹配**：trigger 域没有 `manual` 种类（手动跑是 workflow 自身能力），而图必须有一个 trigger
-  节点，所以期望 `manual` 由图上任意 trigger 满足；其余种类须精确相等。只报告不门控。
+  节点，所以期望 `manual` 由图上任意 trigger 满足；其余种类须精确相等，且**用产品自己的词**
+  （`cron` / `webhook` / `fsnotify` / `sensor`，单测 `TestTriggerKindOfSpeaksTheProduct` 钉住原样往返）。
+  只报告不门控——曾因 `fsnotify` 被私自映射成 `"file"`，所有 fsnotify 任务在任务本身通过的同时都报
+  `triggerOk=false`。
 - **结构 Jaccard**：期望与实际节点类型多重集的 Σmin/Σmax，只报告不门控——形状不同但跑通仍算通过。
 - **稳定任务**：每次重复都在 attempt ≤ 3 通过的任务集合，作为 Repair 车道的分母来源。
 - **失败归因**：Pass@3 未通过的 run 按裁决文本归入 structure / code / wiring / mapping / other。

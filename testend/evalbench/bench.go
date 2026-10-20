@@ -46,7 +46,7 @@ type Task struct {
 	Prompt string `json:"prompt"`
 	Expect struct {
 		Nodes   map[string]int `json:"nodes"`   // kind → count on the active version
-		Trigger string         `json:"trigger"` // manual | cron | webhook
+		Trigger string         `json:"trigger"` // manual | cron | webhook | fsnotify | sensor
 	} `json:"expect"`
 	// Run selects who starts the run: model (the prompt asks the model to call trigger_workflow),
 	// webhook (the harness posts to the mounted inbound URL), fsnotify (the harness creates a file
@@ -236,6 +236,16 @@ func StructureScore(expected map[string]int, nodes []GraphNode) float64 {
 
 // TriggerKindOf maps a trigger entity's kind (cron | webhook | fsnotify | sensor) to the catalog's vocabulary.
 // TriggerKindOf 把 trigger 实体的 source 映射到目录词汇。
+// Every known kind maps to ITS OWN name — the benchmark speaks the product's vocabulary, never a
+// private one. fsnotify used to map to "file", a word that exists nowhere in the product, which made
+// every fsnotify task report triggerOk=false while the task itself passed (the run could only have
+// happened because the watcher fired). The switch survives for its default: an unreadable or absent
+// trigger reads as "manual", which TriggerMatches treats as "any trigger will do".
+//
+// 每种已知 kind 映射到**自己的名字**——基准说产品的词汇，绝不自造。fsnotify 曾被映射成 "file"，一个
+// 产品里根本不存在的词，于是每条 fsnotify 任务都报 triggerOk=false 而任务本身却通过（那次 run 只可能
+// 是 watcher 真的 fire 才发生）。switch 保留是为了 default：读不到或没有 trigger 读作 "manual"，
+// 由 TriggerMatches 当作「有任意 trigger 即可」。
 func TriggerKindOf(source string) string {
 	switch strings.ToLower(source) {
 	case "cron":
@@ -243,7 +253,7 @@ func TriggerKindOf(source string) string {
 	case "webhook":
 		return "webhook"
 	case "fsnotify":
-		return "file"
+		return "fsnotify"
 	case "sensor":
 		return "sensor"
 	default:
