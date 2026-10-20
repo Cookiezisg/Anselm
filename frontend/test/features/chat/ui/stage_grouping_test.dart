@@ -66,17 +66,25 @@ Widget _host(
   ),
 );
 
-// [ago] BEFORE now (wall-clock) so the tier is deterministic regardless of run time: <10min → 刚刚, days → 更早.
-// 相对 now 定档:<10min=刚刚、跨天=更早。
+// [ago] BEFORE [base] (the wall clock unless a test injects one). Only the OUTER tiers are
+// deterministic at any run time: <10min is always 刚刚 and whole days are always 更早. The MIDDLE
+// tier is NOT — sidestageTierKey splits 早些时候 from 更早 by LOCAL CALENDAR DAY, so a fixture like
+// "11 minutes ago" lands in 更早 when the suite happens to run just after midnight. A test that
+// needs the middle tier must pass a fixed [base] AND the same instant as the panel's clock.
+//
+// [ago] 相对 [base]（未注入时取墙上时钟）。只有两头的档位任何时刻都确定：<10min 恒为刚刚、整天恒为更早。
+// 中间档**不确定**——sidestageTierKey 按**本地日历天**区分早些时候与更早，故「11 分钟前」这类夹具在刚过
+// 午夜时会落进更早。需要中间档的测试必须传固定 [base]，并把同一时刻作为面板的 clock。
 Touchpoint _tp(
   String id,
   String kind,
   String itemId,
   String name,
   TouchpointVerb verb,
-  Duration ago,
-) {
-  final at = DateTime.now().toUtc().subtract(ago);
+  Duration ago, {
+  DateTime? base,
+}) {
+  final at = (base ?? DateTime.now()).toUtc().subtract(ago);
   return Touchpoint(
     id: id,
     conversationId: _conv,
@@ -236,7 +244,10 @@ void main() {
     testWidgets(
       'passive minute tick merges tiers without dropping rows or jumping',
       (tester) async {
-        var now = DateTime.now();
+        // Fixed mid-day instant, shared by the fixtures and the panel's clock: this is the one
+        // test that needs the middle tier, which is calendar-day dependent (see _tp).
+        // 固定在日中的时刻，夹具与面板 clock 共用：本测试是唯一需要中间档的，而中间档依赖日历天。
+        var now = DateTime(2026, 1, 15, 12);
         final repo = _repo();
         repo.touchpoints[_conv] = [
           _tp(
@@ -246,6 +257,7 @@ void main() {
             'sync_inventory',
             TouchpointVerb.edited,
             const Duration(minutes: 9),
+            base: now,
           ),
           _tp(
             't2',
@@ -254,6 +266,7 @@ void main() {
             'reconcile',
             TouchpointVerb.executed,
             const Duration(minutes: 11),
+            base: now,
           ),
         ];
         await tester.pumpWidget(_host(repo, clock: () => now));
