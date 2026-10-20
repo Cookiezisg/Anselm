@@ -11,12 +11,38 @@ func TestLoadTasksInvariants(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// Every run mode but "model" is started by the harness, so each one must line up with the
+	// trigger kind the task expects — a webhook task that expects a cron trigger would be fired by
+	// the harness and judged against the wrong graph. fsnotify additionally needs the watch
+	// placeholder, or the harness has no directory to drop a file into.
+	//
+	// 除 "model" 外每种 run 模式都由 harness 起跑，故必须与任务期望的 trigger kind 对齐——一条期望 cron
+	// 的 webhook 任务会被 harness 投递、却按错误的图裁决。fsnotify 另需 watch 占位符，否则 harness 没有
+	// 目录可投文件。
+	runKind := map[string]string{"webhook": "webhook", "fsnotify": "fsnotify", "sensor": "sensor"}
 	for _, task := range tasks {
-		if task.Run != "model" && task.Run != "webhook" {
+		switch task.Run {
+		case "model", "webhook", "fsnotify", "sensor":
+		default:
 			t.Errorf("%s: run=%q", task.ID, task.Run)
 		}
-		if task.Run == "webhook" && task.Expect.Trigger != "webhook" {
-			t.Errorf("%s: webhook run must expect a webhook trigger", task.ID)
+		if want, ok := runKind[task.Run]; ok && task.Expect.Trigger != want {
+			t.Errorf("%s: run=%s must expect a %s trigger, got %q", task.ID, task.Run, want, task.Expect.Trigger)
+		}
+		if (task.Run == "fsnotify") != strings.Contains(task.Prompt, WatchPlaceholder) {
+			t.Errorf("%s: run=%s and %s in prompt must agree", task.ID, task.Run, WatchPlaceholder)
+		}
+		// A harness-started task must not also order the model to run the workflow. Both runs would
+		// exist, the verdict would judge whichever the harness saw first, and the task would measure
+		// a race instead of the product. This is a real bug that shipped once: five webhook tasks
+		// kept the hand-run tail, so the model ran them with its own sample payload and the
+		// assertions failed against the wrong run.
+		//
+		// 由 harness 起跑的任务不得同时命令模型自己跑。两个 run 都会存在，裁决取 harness 先看到的那个，
+		// 任务便测的是竞争而非产品。这是真发生过的 bug：五条 webhook 题留着手动跑的收尾，模型用自己的
+		// 样例 payload 跑了一遍，断言便对着错误的 run 失败。
+		if task.Run != "model" && strings.Contains(task.Prompt, "trigger_workflow") && !strings.Contains(task.Prompt, "Do NOT start a run") {
+			t.Errorf("%s: run=%s but the prompt tells the model to trigger_workflow", task.ID, task.Run)
 		}
 		if len(task.Assert.Calls)+len(task.Assert.Absent)+len(task.Assert.MCPCalls) == 0 {
 			t.Errorf("%s: no assertion — the task could never fail", task.ID)
@@ -324,5 +350,25 @@ func TestScoreDropsProviderAbortedRuns(t *testing.T) {
 	})
 	if rs.Repair.Injections != 0 {
 		t.Fatalf("injections = %d, want 0 (the aborted row is not an injection)", rs.Repair.Injections)
+	}
+}
+
+// TestJudgeAtLeastFloor pins the one relaxation: an autonomous trigger may fire more than once in
+// the window, so AtLeast judges a floor while every other assertion stays exact.
+// TestJudgeAtLeastFloor 锁定唯一的放宽：自主型触发器可能在窗口内多次 fire，故 AtLeast 判下限，
+// 其余断言仍精确。
+func TestJudgeAtLeastFloor(t *testing.T) {
+	ledger := []SinkCall{{Path: "/auto", Method: "POST", Body: `{"fired":true}`}, {Path: "/auto", Method: "POST", Body: `{"fired":true}`}}
+	floor := Task{Assert: TaskAssert{Calls: []CallAssert{{Path: "/auto", Method: "POST", Count: 1, AtLeast: true}}}}
+	if v := Judge(floor, ledger, nil); !v.Pass {
+		t.Fatalf("two calls must satisfy a floor of one: %v", v.Reasons)
+	}
+	exact := Task{Assert: TaskAssert{Calls: []CallAssert{{Path: "/auto", Method: "POST", Count: 1}}}}
+	if v := Judge(exact, ledger, nil); v.Pass {
+		t.Fatal("two calls must NOT satisfy an exact count of one")
+	}
+	short := Task{Assert: TaskAssert{Calls: []CallAssert{{Path: "/auto", Method: "POST", Count: 3, AtLeast: true}}}}
+	if v := Judge(short, ledger, nil); v.Pass {
+		t.Fatal("two calls must not satisfy a floor of three")
 	}
 }

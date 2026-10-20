@@ -31,8 +31,31 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 
 ## 2. 任务集（Build / Repair 共用）
 
-[`tasks.json`](../../../testend/evalbench/tasks.json)：60 条，四档各 15 条。每条三件套：自然语言输入、
-期望结构（节点类型计数 + trigger 类型）、可执行断言。
+[`tasks.json`](../../../testend/evalbench/tasks.json)：125 条。每条三件套：自然语言输入、期望结构
+（节点类型计数 + trigger 类型）、可执行断言。
+
+**原 60 条（`T?-01..15`）的 id、提示词与断言一字不动**，使任何扩充后的轮次仍能按原 60 条子集与早先的
+轮次直接对照；新题一律从 `T?-16` 往后编号。档位分布不再强制每档相等（`LoadTasks` 只校验 id 唯一、每档
+非空、总数不低于原 60 条）——按产品面整块增长时，写死的条数校验每批都要改，等于什么也没校验。
+
+扩充的依据不是"条数太少"，而是**按产品面覆盖**。按机械归一化规则数出的 29 种形态里，相当一部分只是
+payload 字面量的变体，走的是同一条产品路径；按"考的是哪条产品能力"数，原 60 条只有十几种。下面这些
+在原题集里是**零覆盖**，是本次扩充的目标：
+
+| 产品面 | 原覆盖 | 现覆盖 |
+|---|---|---|
+| trigger 种类 | cron、webhook（2/4） | 加 `fsnotify`、`sensor`（4/4） |
+| Agent 工具挂载（`fn_` / `hd_…method` / `mcp:`） | 无——Agent 只被当作"产出一段文字"的节点 | 5 条专测，断言落在**被挂载工具自己打出的 sink 调用**上 |
+| CEL（sensor 的 condition / output） | 无 | 随 sensor 题覆盖 |
+| Handler 多方法 / 跨调用状态 | 1 个 `bump` 计数器复制 5 份 | 加两方法、两次调用计数递增 |
+| HTTP 动词与请求头 | 只有 POST / GET | 加 PUT、DELETE、自定义头、query string |
+| 控制流形态 | 条件路由、并行汇聚、守卫继续（3 种） | 加三路分支、数值比较、嵌套字段、或条件、四路汇聚、部分汇聚、双分支汇到同一节点、分支内多步 |
+| 审批形态 | yes / no 单审批 | 加双审批串联、拒绝走另一分支、审批前已产生副作用 |
+
+`sys:` 媒体工具（`generate_image` 等六个）仍**刻意零覆盖**：它们只在 workspace 的供方真正路由该模态时
+可用，拿不到该模态的模型上这类题无解，而无解的题只会污染数字（S3 的教训）。
+
+`:replay` / Durable 记忆化仍待补（见 §7），需要再加一种 run 模式。
 
 | 档 | 定义 | 断言面 |
 |---|---|---|
@@ -41,8 +64,27 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 | T3 | Agent 节点 + 审批节点 + 有状态 Handler | 审批 yes → 送达；审批 no → `absent`；Handler 计数进 body |
 | T4 | Webhook trigger、MCP 工具、Agent 输出驱动的多步外部副作用 | harness 投递 webhook、MCP 调用台账、调用次数/顺序/body |
 
+**谁起跑**由 `run` 字段决定，它必须与 `expect.trigger` 对齐（单测 `TestLoadTasksInvariants` 门控）：
+
+| `run` | 谁起跑 | 任务通过的前提 |
+|---|---|---|
+| `model` | 模型自己调 `trigger_workflow` | — |
+| `webhook` | harness 投递到挂载的入站 URL | 模型**激活**了工作流 |
+| `fsnotify` | harness 在 `{{WATCHDIR}}` 目录内建一个文件 | 同上；listener 真的在跑 |
+| `sensor` | 无人——由触发器自己的周期探测 fire | 同上；CEL condition 真的成立 |
+
+后三种是 harness 起跑的，提示词**不得**同时命令模型自己跑：两个 run 都会存在，裁决取 harness 先看到的
+那个，任务便测的是竞争而非产品。这是真发生过的 bug——五条新 webhook 题留着手动跑的收尾，模型用自己编的
+样例 payload 跑了一遍，断言便对着错误的 run 失败。单测已就此设门。
+
+`{{WATCHDIR}}` 与 `{{SINK}}` 同样在发送前替换，替换为该次运行独占的空临时目录。
+
 断言规则全部机器可判（`Judge`，有单测）：`calls` 精确次数 + body 子串；`absent` 零调用；`ordered`
 同一 path 的 body 按序出现；`mcpCalls` 按工具/状态。模型的叙述永不进入裁决。
+
+唯一的放宽是 `calls.atLeast`，把精确次数改判为下限，**只设在自主型触发器的题上**：sensor 在 CEL 条件
+成立期间按节拍持续探测，一次写文件也可能呈现为 create+modify，两者都可能在观测窗口内合法地多次 fire。
+精确性在一切有意义处仍然保留。
 
 **刻意没有文档断言。** 工作流内部无法创建 Library 文档：agent 的工具宇宙恰是其挂载，而 `sys:` 挂载表只有
 生成/编辑类媒体工具。曾存在的那条反而可由**主对话助手**手工建档满足（全 workspace 名字检查，不是执行
@@ -58,9 +100,9 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 
 - **attempt**：attempt 1 = 模型首次建图 + 任务规定的首跑，零追问；之后每个 attempt 是 harness 一轮
   "修一下"追问——只回引观测到的失败文本，不含代码、不提示修法，不是人工编辑。
-- **Pass@1** = attempt 1 通过的 run 数 / 总 run 数（60 × reps）。
+- **Pass@1** = attempt 1 通过的 run 数 / 总 run 数（任务数 × reps，再剔除作废与未测量）。
 - **Pass@3** = attempt ≤ 3 通过的 run 数 / 总 run 数。恒有 Pass@3 ≥ Pass@1。
-- **分档 Pass@k**：同口径，分母为该档 15 × reps。
+- **分档 Pass@k**：同口径，分母为该档任务数 × reps。
 - **trigger 匹配**：trigger 域没有 `manual` 种类（手动跑是 workflow 自身能力），而图必须有一个 trigger
   节点，所以期望 `manual` 由图上任意 trigger 满足；其余种类须精确相等。只报告不门控。
 - **结构 Jaccard**：期望与实际节点类型多重集的 Σmin/Σmax，只报告不门控——形状不同但跑通仍算通过。
@@ -72,10 +114,21 @@ Build 与 Repair 是本战役新增的测量；Durable 与 Guard 的行为已有
 - **台账切窗**：裁决只看 flowrun `startedAt` 之后到达的 sink 调用。台账按 attempt 重置，但一个 attempt
   还含模型接线前自己做的事——用 `run_function` 试跑函数的模型会 POST 一次 sink，把它算进"恰好一次调用"
   等于惩罚"先验证再交付"。被排除的调用数会写进裁决理由，不静默丢弃。
-- **未测量（notMeasured）**：供方在模型动手前中止回合（`stopReason=error`，如
-  `LLM_QUOTA_EXHAUSTED`、限流、上游 5xx）的运行记 `notMeasured`，与作废一样**从一切分子分母中剔除**，
-  在表里单独报 `NOT MEASURED` 一行。理由与作废相反：不是"可能读过答案"，而是"根本不存在可裁决的
-  attempt"。该行同时让子测试显式失败——一条在余额耗尽时仍报 `ok` 的车道比没有车道更坏。
+- **未测量（notMeasured）** vs **产品熔断**：回合以 `stopReason=error` 结束有两种完全不同的原因，
+  **不可同样计分**，判据是错误码的来源边界（`ProviderAborted`）：
+  - **`LLM_` 前缀**（`LLM_QUOTA_EXHAUSTED`、`LLM_RATE_LIMITED`、`LLM_AUTH_FAILED`、`LLM_STREAM_ERROR`
+    …）产生在**供方边界**，模型根本没机会动手 → 记 `notMeasured`，与作废一样**从一切分子分母中剔除**，
+    在表里单独报 `NOT MEASURED` 一行，并让子测试显式失败——一条在余额耗尽时仍报 `ok` 的车道比没有车道
+    更坏。理由与作废相反：不是"可能读过答案"，而是"根本不存在可裁决的 attempt"。
+  - **其余错误码**（`TOOL_ERROR_STORM` = 连续三轮全员工具调用失败后熔断，见
+    `backend/internal/app/loop/loop.go`；`MAX_STEPS_REACHED` = 步数预算耗尽）是**产品自己的熔断在回应
+    模型的真实行为** → 计为**失败**，错误码写进裁决理由作归因。这恰是本基准存在的目的。
+
+  这条边界是被真实数据纠正过的：最初的判据是"有 `errorCode` 就剔除"，于是三次 `TOOL_ERROR_STORM`——
+  模型动了手且动到产品不得不拉闸——被当作供方拒绝扔掉了。把两者混为一谈会把「模型卡死」藏成「缺数据」，
+  方向正好与 S8 那次事故相反（那次是把死跑错记为产品失败）。
+  修复车道再细分一层：熔断发生在**干净建图**上使注入作废（故障根本没被触及）；发生在**修复追问**中
+  即这次修复没成，照常裁决。
 - **作废（void）**：工具调用参数触及基准产物（`tasks.json`、`evalbench`、`eval-benchmark`、仓库根绝对
   路径）的运行记 `contaminated`，**从一切分子分母中剔除**，在表里单独报 `VOID` 一行。既不计通过（可能
   读了答案），也不计失败（从未被公平尝试）。标记在一次运行内粘滞：读过之后其后一切不可归因。

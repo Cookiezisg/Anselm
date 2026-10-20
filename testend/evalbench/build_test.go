@@ -2,6 +2,8 @@ package evalbench
 
 import (
 	"fmt"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -60,6 +62,15 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 	// 故同时按运行检测污染。
 	wc.PATCH("/api/v1/conversations/"+conv, map[string]any{"workDir": t.TempDir()})
 	prompt := strings.ReplaceAll(task.Prompt, SinkPlaceholder, sink.URL())
+	// An fsnotify task needs a real directory only this run owns; the harness creates the file in it
+	// later. Substituted here so the model sees an absolute path it can actually watch.
+	// fsnotify 任务需要一个本次运行独占的真实目录，harness 稍后在其中建文件。在此替换，使模型看到一个
+	// 真能监听的绝对路径。
+	watchDir := ""
+	if strings.Contains(prompt, WatchPlaceholder) {
+		watchDir = t.TempDir()
+		prompt = strings.ReplaceAll(prompt, WatchPlaceholder, watchDir)
+	}
 
 	row := BuildRow{Lane: "build", Model: model, TaskID: task.ID, Tier: task.Tier, Rep: rep}
 	start := time.Now()
@@ -84,10 +95,17 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 		//
 		// 供方拒绝不是产品裁决：模型根本没机会动手，故该次运行**未测量**，不进任何比率。同时显式失败——
 		// 一条在余额耗尽时仍报 ok 的车道比没有车道更坏。
+		guard := ""
 		if llmErr != "" {
-			row.NotMeasured = llmErr
-			t.Errorf("%s rep%d attempt%d: provider aborted the turn (%s); run NOT MEASURED", task.ID, rep, attempt, llmErr)
-			return
+			if ProviderAborted(llmErr) {
+				row.NotMeasured = llmErr
+				t.Errorf("%s rep%d attempt%d: provider aborted the turn (%s); run NOT MEASURED", task.ID, rep, attempt, llmErr)
+				return
+			}
+			// The product's own breaker tripped on what the model did — a failure to attribute, not
+			// missing data. 产品自身熔断被模型的行为触发——是可归因的失败，不是缺数据。
+			guard = llmErr
+			t.Logf("%s rep%d attempt%d: turn aborted by a product guard (%s); scored as a FAILURE", task.ID, rep, attempt, guard)
 		}
 		// Sticky: once a run has read the benchmark, nothing later in it is attributable.
 		// 粘滞：一旦该次运行读过基准，其后一切都不可归因。
@@ -96,7 +114,11 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 			t.Logf("%s rep%d attempt%d: VOID, tool args touched %q", task.ID, rep, attempt, hit)
 		}
 
-		verdict, g := observeAndJudge(t, wc, sink, task, runMS)
+		verdict, g := observeAndJudge(t, wc, sink, task, runMS, watchDir)
+		if guard != "" {
+			verdict.Pass = false
+			verdict.Reasons = append(verdict.Reasons, "turn aborted by a product guard: "+guard)
+		}
 		row.Structure = StructureScore(task.Expect.Nodes, g.Nodes)
 		kind, _, _ := triggerKind(wc, g)
 		row.TriggerOK = TriggerMatches(task.Expect.Trigger, kind)
@@ -121,23 +143,39 @@ func runBuildOnce(t *testing.T, srv *harness.Server, task Task, rep, maxAttempts
 // newest run (deciding approvals), then judges the sink/Library/MCP state.
 // observeAndJudge 找到任务 workflow、按任务投递 webhook、等最新 run 落定（裁决审批），再裁决
 // sink/Library/MCP 状态。
-func observeAndJudge(t *testing.T, wc *harness.Client, sink *Sink, task Task, runMS int) (Verdict, activeGraph) {
+func observeAndJudge(t *testing.T, wc *harness.Client, sink *Sink, task Task, runMS int, watchDir string) (Verdict, activeGraph) {
 	t.Helper()
 	wf, ok := findWorkflow(wc, task.Name)
 	if !ok {
 		return Verdict{Reasons: []string{"no workflow was built"}}, activeGraph{}
 	}
 	g := readGraph(t, wc, wf.ID)
-	if task.Run == "webhook" {
+	// Autonomous kinds get a longer window: a sensor probes on its own cadence (floor 5s) and an
+	// fsnotify event has to cross the watcher, the firing row and the scheduler fan-out.
+	// 自主型给更长的窗口：sensor 按自己的节拍探测（下限 5s），fsnotify 事件要穿过 watcher、firing 行
+	// 与 scheduler 扇出。
+	wait := 60 * time.Second
+	switch task.Run {
+	case "webhook":
 		_, trgID, hookPath := triggerKind(wc, g)
 		if trgID == "" {
 			return Verdict{Reasons: []string{"no run: workflow has no trigger node"}}, g
 		}
 		fireWebhook(t, wc, trgID, hookPath, task.WebhookPayload)
+	case "fsnotify":
+		if watchDir == "" {
+			return Verdict{Reasons: []string{"task bug: run=fsnotify without " + WatchPlaceholder + " in the prompt"}}, g
+		}
+		if err := os.WriteFile(filepath.Join(watchDir, "eb-drop.txt"), []byte("eb\n"), 0o644); err != nil {
+			t.Fatalf("fsnotify drop: %v", err)
+		}
+		wait = 150 * time.Second
+	case "sensor":
+		wait = 150 * time.Second
 	}
 	var runID string
 	found := false
-	deadline := time.Now().Add(60 * time.Second)
+	deadline := time.Now().Add(wait)
 	for time.Now().Before(deadline) {
 		if runID, found = latestRun(wc, wf.ID); found {
 			break

@@ -29,6 +29,14 @@ var faultsJSON []byte
 // sent; the model never sees a placeholder. SinkPlaceholder 在发送前替换为 sink 真实基址。
 const SinkPlaceholder = "{{SINK}}"
 
+// WatchPlaceholder is replaced with a per-run empty temp directory before the prompt is sent, so an
+// fsnotify task can name a real watchable path that only this run owns. The harness then creates a
+// file inside it to make the trigger fire — the model never runs the workflow itself.
+//
+// WatchPlaceholder 在发出提示词前被替换为该次运行独占的空临时目录，使 fsnotify 任务能给出一个真实可监听
+// 的路径。随后由 harness 在其中建文件令触发器 fire——模型自己不跑这个工作流。
+const WatchPlaceholder = "{{WATCHDIR}}"
+
 // Task is one benchmark item: a natural-language build request plus the deterministic verdict.
 // Task 是一条基准项：自然语言建图请求 + 确定性裁决。
 type Task struct {
@@ -40,7 +48,16 @@ type Task struct {
 		Nodes   map[string]int `json:"nodes"`   // kind → count on the active version
 		Trigger string         `json:"trigger"` // manual | cron | webhook
 	} `json:"expect"`
-	Run              string          `json:"run"` // model: the prompt asks the model to run once; webhook: harness posts
+	// Run selects who starts the run: model (the prompt asks the model to call trigger_workflow),
+	// webhook (the harness posts to the mounted inbound URL), fsnotify (the harness creates a file
+	// under WatchPlaceholder's directory), sensor (nobody — the trigger's own probe must fire it).
+	// The last two are the autonomous kinds: they pass only if the trigger listener really runs,
+	// which in turn requires the model to have ACTIVATED the workflow.
+	//
+	// Run 选择谁起 run：model（提示词要求模型调 trigger_workflow）、webhook（harness 投递入站 URL）、
+	// fsnotify（harness 在 WatchPlaceholder 目录内建文件）、sensor（无人——须由触发器自己的探测 fire）。
+	// 后两种是自主型：只有 listener 真的在跑才可能通过，而那又要求模型**激活**了工作流。
+	Run              string          `json:"run"`
 	WebhookPayload   map[string]any  `json:"webhookPayload,omitempty"`
 	ApprovalDecision string          `json:"approvalDecision,omitempty"` // yes | no; harness decides every parked node
 	Setup            *TaskSetup      `json:"setup,omitempty"`
@@ -81,9 +98,18 @@ type TaskAssert struct {
 }
 
 type CallAssert struct {
-	Path         string   `json:"path"`
-	Method       string   `json:"method"`
-	Count        int      `json:"count"`
+	Path   string `json:"path"`
+	Method string `json:"method"`
+	Count  int    `json:"count"`
+	// AtLeast relaxes Count to a floor. An autonomous trigger cannot be asserted with an exact
+	// count: a sensor keeps probing on its cadence while its condition holds, and one file write can
+	// surface as create+modify, so either may legitimately fire more than once inside the window.
+	// Exactness still applies everywhere it is meaningful — AtLeast is only set on those tasks.
+	//
+	// AtLeast 把 Count 放宽为下限。自主型触发器无法用精确次数断言：sensor 在条件成立期间按节拍持续探测，
+	// 而一次写文件可能呈现为 create+modify，两者都可能在窗口内合法地多次 fire。精确性在一切有意义处仍然
+	// 保留——AtLeast 只设在这类任务上。
+	AtLeast      bool     `json:"atLeast,omitempty"`
 	BodyContains []string `json:"bodyContains,omitempty"`
 }
 
@@ -133,13 +159,20 @@ func LoadTasks() ([]Task, error) {
 		}
 		tasks = append(tasks, t)
 	}
-	if len(tasks) != 60 {
-		return nil, fmt.Errorf("tasks.json: want 60 tasks, got %d", len(tasks))
-	}
+	// The set grows by whole product surfaces, so a fixed total and a fixed per-tier count would
+	// have to be edited on every batch — a check that moves with the data checks nothing. What the
+	// scorer actually relies on is: unique IDs (above), every tier populated (it reports per-tier
+	// rates), and a floor that catches a truncated or half-written file.
+	//
+	// 题集按整块产品面增长，故写死总数与每档条数只会每批都要改——跟着数据走的校验什么也没校验。计分器
+	// 真正依赖的是：ID 唯一（上方）、每档非空（它按档报率）、以及一个能抓住文件被截断/写坏的下限。
 	for tier := 1; tier <= 4; tier++ {
-		if perTier[tier] != 15 {
-			return nil, fmt.Errorf("tasks.json: tier %d has %d tasks, want 15", tier, perTier[tier])
+		if perTier[tier] == 0 {
+			return nil, fmt.Errorf("tasks.json: tier %d is empty", tier)
 		}
+	}
+	if len(tasks) < 60 {
+		return nil, fmt.Errorf("tasks.json: want at least the original 60 tasks, got %d", len(tasks))
 	}
 	return tasks, nil
 }
@@ -267,8 +300,12 @@ func Judge(task Task, ledger []SinkCall, mcp []MCPLedgerRow) Verdict {
 				}
 			}
 		}
-		if got != a.Count {
-			v.Reasons = append(v.Reasons, fmt.Sprintf("%s %s: want %d call(s), got %d", a.Method, a.Path, a.Count, got))
+		if (a.AtLeast && got < a.Count) || (!a.AtLeast && got != a.Count) {
+			want := "want %d call(s), got %d"
+			if a.AtLeast {
+				want = "want at least %d call(s), got %d"
+			}
+			v.Reasons = append(v.Reasons, fmt.Sprintf("%s %s: "+want, a.Method, a.Path, a.Count, got))
 		}
 	}
 	for _, p := range task.Assert.Absent {

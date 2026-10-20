@@ -122,6 +122,23 @@ func parallelCase(t *testing.T, slots chan struct{}) {
 // rowMu 串行化 JSONL 追加。每行很短、O_APPEND 几乎总是原子的，但结果文件不能建立在「几乎」上。
 var rowMu sync.Mutex
 
+// ProviderAborted splits the two reasons an assistant turn can end in error, which must NOT be
+// scored the same way. An LLM_ code is raised at the provider boundary — quota, auth, rate limit, a
+// dead stream — so the model never got to act and the run is NOT MEASURED. Every other code is the
+// product's own circuit breaker reacting to what the model actually did (TOOL_ERROR_STORM = three
+// consecutive turns where every tool call failed; MAX_STEPS_REACHED = the step budget ran out), and
+// that is exactly what the benchmark exists to measure: it counts as a FAILURE, with the code kept
+// as the attribution. Conflating the two would have hidden a stuck model as missing data.
+//
+// ProviderAborted 区分 assistant 回合以错误结束的两种原因，二者**不可同样计分**。LLM_ 前缀的 code 产生
+// 在供方边界——额度、鉴权、限流、流断——模型根本没机会动手，该次运行**未测量**。其余 code 都是产品自己的
+// 熔断在回应模型的真实行为（TOOL_ERROR_STORM = 连续三轮全员工具失败；MAX_STEPS_REACHED = 步数预算耗尽），
+// 而那恰是本基准存在的目的：计为**失败**，并保留 code 作归因。把两者混为一谈会把「模型卡死」藏成「缺数据」。
+func ProviderAborted(turnErr string) bool {
+	code, _, _ := strings.Cut(turnErr, ":")
+	return strings.HasPrefix(strings.TrimSpace(code), "LLM_")
+}
+
 // evalServer boots the one server a lane shares. Every server is a fresh managed install, and the
 // gateway rate-limits install registration (429), so a server per case starves a long lane; the
 // workspace, not the process, is the isolation unit. evalServer 拉起一条车道共享的唯一 server：每个

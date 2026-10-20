@@ -103,11 +103,17 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 	// 1. Clean build + clean first run must pass, else the injection is void.
 	// 1. 干净建图 + 干净首跑必须通过，否则注入作废。
 	if _, _, _, _, llmErr := say(t, wc, conv, strings.ReplaceAll(task.Prompt, SinkPlaceholder, sink.URL()), turnMS); llmErr != "" {
-		row.NotMeasured = llmErr
-		t.Errorf("%s/%s: provider aborted the turn (%s); run NOT MEASURED", task.ID, fault.ID, llmErr)
+		if ProviderAborted(llmErr) {
+			row.NotMeasured = llmErr
+			t.Errorf("%s/%s: provider aborted the turn (%s); run NOT MEASURED", task.ID, fault.ID, llmErr)
+			return
+		}
+		// A guard tripping on the CLEAN build makes the injection void, not a failed repair: the
+		// fault was never reached. 熔断发生在**干净建图**上使注入作废而非修复失败：故障根本没被触及。
+		row.Reasons = "void: clean build aborted by a product guard: " + llmErr
 		return
 	}
-	v0, g := observeAndJudge(t, wc, sink, task, runMS)
+	v0, g := observeAndJudge(t, wc, sink, task, runMS, "")
 	if !v0.Pass {
 		row.Reasons = "void: clean build did not pass: " + strings.Join(v0.Reasons, "; ")
 		return
@@ -149,9 +155,15 @@ func runRepairOnce(t *testing.T, srv *harness.Server, task Task, fault Fault, tu
 			sink.Arm(&fault) // header-gated faults keep biting; transient ones clear on first retry
 		}
 		if _, _, _, _, llmErr := say(t, wc, conv, msg, turnMS); llmErr != "" {
-			row.NotMeasured = llmErr
-			t.Errorf("%s/%s: provider aborted a repair turn (%s); run NOT MEASURED", task.ID, fault.ID, llmErr)
-			return
+			if ProviderAborted(llmErr) {
+				row.NotMeasured = llmErr
+				t.Errorf("%s/%s: provider aborted a repair turn (%s); run NOT MEASURED", task.ID, fault.ID, llmErr)
+				return
+			}
+			// A guard tripping DURING repair is a repair that did not land — judged as usual below.
+			// 熔断发生在**修复中**＝这次修复没成——照常由下方裁决。
+			row.Reasons = "repair turn aborted by a product guard: " + llmErr
+			break
 		}
 		g = readGraph(t, wc, wf.ID)
 		row.NewVersion = maxFunctionVersion(wc, g) > baseVersion
