@@ -590,9 +590,15 @@ void main() {
       (tester) async {
         await _pump(tester, _repo());
         // Every origin now carries its start instant (the one phrase grammar). 每来源都带开始时刻。
-        final cronAt = _now.subtract(const Duration(minutes: 3)).toLocal();
-        final hhmm =
-            '${cronAt.hour.toString().padLeft(2, '0')}:${cronAt.minute.toString().padLeft(2, '0')}';
+        // Ask the row's OWN formatter for the time word instead of re-deriving HH:mm here: a
+        // hand-rolled copy drops fmtDayTime's cross-day branch, so between local midnight and
+        // 00:03 the fixture's "3 minutes ago" is yesterday, the row correctly renders
+        // «M/D HH:mm», and only the test is wrong.
+        //
+        // 时刻词向行自己的格式化函数要,不在此重算 HH:mm:手搓的副本丢了 fmtDayTime 的跨天分支,于是在本地
+        // 午夜到 00:03 之间,夹具的「3 分钟前」属于昨天、行正确渲染成「M/D HH:mm」,错的只有测试。
+        final cronAt = _now.subtract(const Duration(minutes: 3));
+        final hhmm = fmtDayTime(cronAt, _now);
         expect(find.text('${h.srcCronBare} · $hhmm'), findsOneWidget);
         expect(
           find.textContaining(
