@@ -15,9 +15,11 @@
 //     conversation scratch env needs the conversation lifecycle; this package runs the
 //     plain system shell and takes no sandbox dependency.
 //
-// Danger is the LLM's per-call self-report (framework-injected); there is no central
-// gate. danger.go adds only a handful of hard blocks for catastrophic unattended
-// accidents (rm -rf /, sudo, mkfs, …) — a backstop, not an allow/deny config system.
+// Danger is the LLM's per-call self-report (framework-injected); there is no allow/deny
+// list. Two small nets sit under it: danger.go hard-blocks a handful of catastrophic unattended
+// accidents (rm -rf /, sudo, mkfs, …), and callfloor.go forces the human gate for an HTTP DELETE or
+// a destructive file operation aimed outside the residency, because the self-report alone was
+// measured to be bypassable (docs/working/eval-benchmark, S11).
 //
 // Package shell 提供 shell 执行系统工具——Bash / BashOutput / KillShell——共享一个
 // ProcessManager 管理后台任务。它们是叶子工具适配器（无 domain/store/handler/DDL/HTTP），
@@ -31,8 +33,9 @@
 // ② 此处不做 per-conversation sandbox auto-route——把 python/node 路由进对话 scratch env
 // 需 conversation 生命周期，本包跑 plain 系统 shell、不依赖 sandbox。
 //
-// danger 由 LLM 每次自报（framework 注入），无中央门控；danger.go 只加极少数灾难命令硬拦截
-// （rm -rf /、sudo、mkfs…）作为无人值守兜底，非 allow/deny 配置系统。
+// danger 由 LLM 每次自报（framework 注入），没有 allow/deny 名单。自报之下垫两张小网：danger.go 硬拦截
+// 极少数灾难命令（rm -rf /、sudo、mkfs…）；callfloor.go 对 HTTP DELETE 与指向驻地之外的破坏性文件操作
+// 强制开人闸——因为单靠自报被实测证明可绕过（docs/working/eval-benchmark，S11）。
 package shell
 
 import (

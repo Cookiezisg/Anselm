@@ -335,3 +335,46 @@ func TestRunOneTool_ApprovedGateFactReachesModelOnly(t *testing.T) {
 		t.Fatalf("LLM tool result = %#v, want explicit approval fact", llm)
 	}
 }
+
+// callFloorTool is a writer-less tool whose per-call floor depends on its args, standing in for Bash.
+// callFloorTool 是个没有写目标的工具，其逐调用下限取决于 args，代指 Bash。
+type callFloorTool struct{ fakeTool }
+
+func (callFloorTool) CallDangerFloor(args json.RawMessage, _ string) toolapp.DangerLevel {
+	if strings.Contains(string(args), "destroy") {
+		return toolapp.DangerDangerous
+	}
+	return toolapp.DangerSafe
+}
+
+// TestDispatchWithGate_CallFloorGatesWhatTheModelCalledSafeAndSurvivesApproveAlways: the measured
+// bypass. The model reports `safe`; the call's own arguments are destructive. The human gate must open,
+// and a standing approve_always for the tool (earned by an earlier harmless call) must not skip it.
+//
+// TestDispatchWithGate_CallFloorGatesWhatTheModelCalledSafeAndSurvivesApproveAlways：实测的那条绕过。
+// 模型自报 `safe`，而调用自己的参数是破坏性的。人闸必须开；此前一次无害调用换来的、对该工具的
+// approve_always 也不得跳过它。
+func TestDispatchWithGate_CallFloorGatesWhatTheModelCalledSafeAndSurvivesApproveAlways(t *testing.T) {
+	surfaced := 0
+	var broker *humanloopapp.Broker
+	broker = humanloopapp.New(func(_ context.Context, req humanloopapp.Request) {
+		surfaced++
+		go broker.Resolve(req.ToolCallID, humanloopapp.Response{Action: humanloopapp.DecisionDeny})
+	})
+	ctx := reqctxpkg.SetConversationID(humanloopapp.WithBroker(context.Background(), broker), "cv1")
+	broker.Allow("cv1", "shellish") // the standing approve_always. 既有的 approve_always。
+
+	harmless := messagesdomain.ToolCallData{ID: "tc_ok", Name: "shellish", Danger: string(toolapp.DangerSafe)}
+	if _, _, _, executed, _ := dispatchWithGate(ctx, callFloorTool{fakeTool{name: "shellish", result: "ran"}}, harmless, []byte(`{"command":"ls"}`), zap.NewNop()); !executed || surfaced != 0 {
+		t.Fatalf("a harmless call must run ungated: executed=%v surfaced=%d", executed, surfaced)
+	}
+
+	hostile := messagesdomain.ToolCallData{ID: "tc_bad", Name: "shellish", Danger: string(toolapp.DangerSafe)}
+	_, _, _, executed, _ := dispatchWithGate(ctx, callFloorTool{fakeTool{name: "shellish", result: "ran"}}, hostile, []byte(`{"command":"destroy"}`), zap.NewNop())
+	if surfaced != 1 {
+		t.Fatalf("a destructive call self-reported safe must open the human gate despite approve_always, surfaced=%d", surfaced)
+	}
+	if executed {
+		t.Fatal("a denied destructive call must not execute")
+	}
+}

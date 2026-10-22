@@ -131,13 +131,20 @@ tool 的名称和 `tool_call_id`，并明确声明只指向该前一调用、不
 preceding tool call 的 JSON 中。否则模型在收到结果后会误以为自己没有发出风险声明，产生与 wire/审计
 不一致的用户可见解释；恢复只影响 LLM history，不改变工具收到的业务参数。
 
-两类 gate：
+三类 gate：
 
 - 模型自报 `dangerous`：允许 conversation/tool 的 approve-always 与 active
   Skill allowed-tools 预授权；工具若实现 `DangerFloorer`，其静态下限会覆盖较低的模型自报，且
   不受这两种预授权绕过；
 - Workdir 外写入：由 `FileWriteTool.WriteTarget`、`fspath.ExpandIn` 与
-  `fspath.Inside` 计算，任何预授权都不能绕过。
+  `fspath.Inside` 计算，任何预授权都不能绕过；
+- 逐调用下限：工具若实现 `CallDangerFloorer`，loop 用本次 args 与 workdir 算出下限，返回 `dangerous`
+  即开闸，同样不吃 approve-always 与 skill 预授权（用户批准的是一条命令，不是这个工具），并把展示
+  等级抬到 `dangerous`。目前只有 Bash 实现（`shell/callfloor.go`）：HTTP DELETE（curl `-X DELETE`、
+  `method="DELETE"`、`requests.delete`）、目标解析后落在驻地之外（或解不出）的 `rm`/`mv`/重定向/`tee`/
+  `cp`/`dd of=`/`sed -i`/`find -delete`/代码里的 `os.remove` 等，以及驻地内被点名的小型脚本文件里含上述
+  任一项。它是垫在模型自报之下的保守静态分析、**不是沙箱**：`eval`、`xargs rm`、自带删除行为的二进制
+  看不见；未挂驻地时路径规则关闭（沿用「整台机器无闸」的现状），仅 HTTP DELETE 仍生效。
 
 不可逆工具必须通过静态下限把有效等级固定为 `dangerous`；例如 `delete_workflow` 即使模型自报
 `safe` 也必须先出现真实 HumanLoop approval，再允许副作用发生。tool-call 的 durable/SSE

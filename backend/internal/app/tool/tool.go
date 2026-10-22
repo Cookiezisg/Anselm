@@ -53,6 +53,39 @@ type DangerFloorer interface {
 	MinimumDanger() DangerLevel
 }
 
+// CallDangerFloorer is the per-CALL counterpart of DangerFloorer, for a tool whose danger is a fact of
+// what THIS call's arguments do rather than of the tool as a whole (Bash: `ls` and `rm ../x` are the same
+// tool). workDir is the conversation's mounted residency ("" = none). Returning DangerDangerous means
+// the call opens the human gate and, like an out-of-residency write, no approve_always or skill
+// allowed-tools pre-authorization can skip it: the user approved a command, not the tool.
+//
+// It is a floor from static analysis and says nothing when it returns DangerSafe: the model's own
+// self-report still applies. It cannot be complete (a command can hide its effect), so it is a net under
+// the self-report, not a replacement for it.
+//
+// CallDangerFloorer 是 DangerFloorer 的**逐调用**对应物，给那些危险由**这次**调用的参数所做的事、
+// 而非工具整体决定的工具（Bash：`ls` 与 `rm ../x` 是同一个工具）。workDir 是对话挂载的驻地（"" = 未挂）。
+// 返回 DangerDangerous 即该调用要开人闸，且与越界写一样，任何 approve_always 或 skill allowed-tools
+// 预授权都跳不过：用户批准的是一条命令、不是这个工具。
+//
+// 它是静态分析给的下限，返回 DangerSafe 时什么也没说：模型自己的自报照旧生效。它不可能完备（命令能藏起
+// 自己的效果），所以是自报之下的一张网、不是替代品。
+type CallDangerFloorer interface {
+	CallDangerFloor(argsJSON json.RawMessage, workDir string) DangerLevel
+}
+
+// CallDangerFloor returns the tool's per-call floor, or DangerSafe when the tool declares none.
+//
+// CallDangerFloor 返回工具的逐调用下限；工具未声明则为 DangerSafe。
+func CallDangerFloor(t Tool, argsJSON json.RawMessage, workDir string) DangerLevel {
+	if f, ok := t.(CallDangerFloorer); ok {
+		if level := f.CallDangerFloor(argsJSON, workDir); IsValidDanger(string(level)) {
+			return level
+		}
+	}
+	return DangerSafe
+}
+
 // CallIdentityer is an optional contract for tools whose business identity is narrower than their
 // full JSON shape. The loop uses it to suppress a repeated guarded mutation even when a model changes
 // irrelevant or invalid fields between attempts (for example delete_workflow + file_path).

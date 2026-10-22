@@ -82,7 +82,7 @@ func runToolsWithLedger(
 		return nil, false
 	}
 	for i := range calls {
-		calls[i].Danger = string(toolapp.EffectiveDanger(byName[calls[i].Name], toolapp.DangerLevel(calls[i].Danger)))
+		calls[i].Danger = string(callDanger(ctx, byName[calls[i].Name], calls[i]))
 	}
 	if handled == nil {
 		handled = make(map[string]handledCall)
@@ -217,7 +217,7 @@ func canonicalToolCallKey(tc messagesdomain.ToolCallData, t toolapp.Tool) (strin
 // repeatGuardedCall 只把跨步台账用于已有用户安全边界的调用：LLM 自报 dangerous，或实际写出驻地根的
 // 调用。读/重试工具在执行报错后仍可重复，否则一次临时读失败会被静默压制，破坏原有恢复路径。
 func repeatGuardedCall(ctx context.Context, tc messagesdomain.ToolCallData, byName map[string]toolapp.Tool) bool {
-	if toolapp.EffectiveDanger(byName[tc.Name], toolapp.DangerLevel(tc.Danger)) == toolapp.DangerDangerous {
+	if callDanger(ctx, byName[tc.Name], tc) == toolapp.DangerDangerous {
 		return true
 	}
 	t := byName[tc.Name]
@@ -485,6 +485,15 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 	}
 	effectiveDanger := toolapp.EffectiveDanger(t, toolapp.DangerLevel(tc.Danger))
 	staticDanger := toolapp.MinimumDanger(t)
+	// A per-call floor (Bash reading its own command) is a fact about THIS call's arguments, so like an
+	// out-of-residency write it skips approve_always and skill pre-authorization below: those were given
+	// for a tool, not for `rm ../x`.
+	// 逐调用下限（Bash 读自己的命令）是关于**这次**调用参数的事实，故与越界写一样跳过下面的 approve_always
+	// 与 skill 预授权：那些是为一个工具给的，不是为 `rm ../x` 给的。
+	callFloor := toolapp.CallDangerFloor(t, argsJSON, reqctxpkg.GetWorkDir(ctx)) == toolapp.DangerDangerous
+	if callFloor {
+		effectiveDanger = toolapp.DangerDangerous
+	}
 	if b := humanloopapp.From(ctx); b != nil && (effectiveDanger == toolapp.DangerDangerous || workDirGate) {
 		convID, _ := reqctxpkg.GetConversationID(ctx)
 		// An out-of-root write skips BOTH bypasses on purpose. approve_always is per (conversation, tool),
@@ -497,7 +506,7 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 		// 那边那个文件」变成此后**任何**位置每次 Write 的长期许可——用户回答的是一个**路径**、不是一个工具。
 		// active skill 的 allowed-tools 是同一形状的承诺（「本 skill 会用 Write」）,而它是在谁都还不知道
 		// 它要写到哪里之前作出的。两者都从未授权「离开驻地」。
-		if workDirGate || staticDanger == toolapp.DangerDangerous || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
+		if workDirGate || callFloor || staticDanger == toolapp.DangerDangerous || (!b.IsAllowed(convID, tc.Name) && !skillPreApproves(ctx, tc.Name)) {
 			// The reason rides the prompt only when it IS the reason, so an ordinary danger confirmation's
 			// payload stays byte-identical to what every existing client already parses. Without this key
 			// the user would face an approval dialog for a write the model called `safe` and have no way to
@@ -552,6 +561,22 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 	}
 	output, errMsg, ok = executeTool(ctx, t, tc.Name, argsJSON, log)
 	return output, errMsg, ok, true, humanApproved
+}
+
+// callDanger is the level a call is presented and gated at: the model's report raised by the tool's
+// static floor and by its per-call floor.
+//
+// callDanger 是一次调用被展示与设闸的等级：模型自报，被工具静态下限与逐调用下限抬高。
+func callDanger(ctx context.Context, t toolapp.Tool, tc messagesdomain.ToolCallData) toolapp.DangerLevel {
+	level := toolapp.EffectiveDanger(t, toolapp.DangerLevel(tc.Danger))
+	if level == toolapp.DangerDangerous || t == nil {
+		return level
+	}
+	argsJSON, err := json.Marshal(tc.Arguments)
+	if err != nil {
+		return level
+	}
+	return toolapp.RaiseDanger(level, toolapp.CallDangerFloor(t, argsJSON, reqctxpkg.GetWorkDir(ctx)))
 }
 
 // resolvedToolName is the name the executor actually resolved. It is kept separate from the
