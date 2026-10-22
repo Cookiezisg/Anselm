@@ -22,18 +22,22 @@ import (
 type crashSink struct {
 	mu   sync.Mutex
 	hits map[string]int
+	skip map[string]int // node → leading hits that must NOT stall (aim at the k-th iteration of a loop). 开头不卡的命中数（瞄准循环的第 k 次迭代）。
 	hang map[string]int // node → how many of its next hits should stall (the kill window). 接下来多少次命中要卡住（杀进程窗口）。
 	srv  *httptest.Server
 }
 
 func newCrashSink() *crashSink {
-	s := &crashSink{hits: map[string]int{}, hang: map[string]int{}}
+	s := &crashSink{hits: map[string]int{}, hang: map[string]int{}, skip: map[string]int{}}
 	s.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		node := r.URL.Query().Get("node")
 		s.mu.Lock()
 		s.hits[node]++
-		stall := s.hang[node] > 0
-		if stall {
+		stall := false
+		if s.skip[node] > 0 {
+			s.skip[node]--
+		} else if s.hang[node] > 0 {
+			stall = true
 			s.hang[node]--
 		}
 		s.mu.Unlock()
@@ -89,6 +93,7 @@ type crashRow struct {
 	Status    string         `json:"status"`
 	Iteration int            `json:"iteration"`
 	Result    map[string]any `json:"result"`
+	Error     string         `json:"error,omitempty"`
 }
 
 type crashRun struct {
