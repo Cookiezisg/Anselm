@@ -35,3 +35,26 @@ func GetWorkDir(ctx context.Context) string {
 	dir, _ := ctx.Value(workDirKey{}).(string)
 	return dir
 }
+
+type confinementWaivedKey struct{}
+
+// WaiveConfinement marks the call in ctx as one a human explicitly approved, command and arguments in
+// front of them. A tool that confines itself (Bash under the residency's write sandbox) lifts the
+// confinement for that one call: the user said yes to exactly this, so refusing it at the OS layer would
+// make the approval prompt a lie. It is never set for an approve_always / skill pre-authorized call —
+// those were given for a tool, not for this command.
+//
+// WaiveConfinement 把 ctx 里的这次调用标为「人在看着命令与参数的情况下明确批准过」。自我约束的工具
+// （驻地写沙箱下的 Bash）对这一次调用解除约束：用户对的正是这条说了行，在 OS 层再拒绝它会让批准弹窗成了
+// 谎话。approve_always / skill 预授权的调用**绝不**设它——那些是为一个工具给的、不是为这条命令给的。
+func WaiveConfinement(ctx context.Context) context.Context {
+	return context.WithValue(ctx, confinementWaivedKey{}, true)
+}
+
+// ConfinementWaived reports whether this call was explicitly human-approved.
+//
+// ConfinementWaived 报告这次调用是否被人明确批准过。
+func ConfinementWaived(ctx context.Context) bool {
+	v, _ := ctx.Value(confinementWaivedKey{}).(bool)
+	return v
+}

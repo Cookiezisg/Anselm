@@ -65,7 +65,7 @@ var (
 	ErrInvalidTimeout = errorspkg.New(errorspkg.KindInvalid, "SHELL_INVALID_TIMEOUT", fmt.Sprintf("timeout must be between 0 and %d ms", maxTimeoutMS))
 )
 
-const bashDescription = `Run a shell command (POSIX sh on Unix, cmd.exe /c on Windows). Output is combined stdout+stderr, capped at 256KB, with an exit-code footer. Runs in the conversation's working directory when one is mounted (the system prompt names it), otherwise in no particular directory — then pass absolute paths. Either way cd does NOT carry across calls: prefix a single command with "cd /abs/dir && ..." to run it elsewhere. Set run_in_background for long-running commands, then poll with BashOutput and stop with KillShell.`
+const bashDescription = `Run a shell command (POSIX sh on Unix, cmd.exe /c on Windows). Output is combined stdout+stderr, capped at 256KB, with an exit-code footer. Runs in the conversation's working directory when one is mounted (the system prompt names it); on macOS a mounted directory also confines what the command may WRITE to that directory plus temp/cache dirs (reads are unrestricted; to write elsewhere use Write/Edit, which ask the user). Otherwise in no particular directory — then pass absolute paths. Either way cd does NOT carry across calls: prefix a single command with "cd /abs/dir && ..." to run it elsewhere. Set run_in_background for long-running commands, then poll with BashOutput and stop with KillShell.`
 
 var bashSchema = json.RawMessage(`{
 	"type": "object",
@@ -96,7 +96,12 @@ type bashArgs struct {
 // Bash implements the Bash system tool; mgr is shared with BashOutput + KillShell.
 //
 // Bash 是 Bash 系统工具的实现；mgr 与 BashOutput + KillShell 共享。
-type Bash struct{ mgr *ProcessManager }
+type Bash struct {
+	mgr *ProcessManager
+	// selfPort is the sidecar's own port, closed to confined children (see NewShellTools).
+	// selfPort 是 sidecar 自己的端口，对受约束子进程关闭（见 NewShellTools）。
+	selfPort string
+}
 
 func (t *Bash) Name() string                { return "Bash" }
 func (t *Bash) Description() string         { return bashDescription }
@@ -158,15 +163,20 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 		}
 	}
 
+	// With a residency mounted the shell runs write-confined (where the platform supports it), unless a
+	// human just approved this very command — then the approval is honoured, not contradicted by the OS.
+	// 挂了驻地时 shell 带写约束运行（平台支持的话），除非人刚刚批准了**这条**命令——此时批准被兑现、而非被
+	// OS 反驳。
+	confine := workDir != "" && !reqctxpkg.ConfinementWaived(ctx)
 	if args.Background {
-		return t.runBackground(cmdText, workDir)
+		return t.runBackground(cmdText, workDir, confine)
 	}
 
 	timeoutMS := args.Timeout
 	if timeoutMS == 0 {
 		timeoutMS = limitspkg.Current().Timeout.BashDefaultTimeoutSec * 1000
 	}
-	return t.runForeground(ctx, cmdText, time.Duration(timeoutMS)*time.Millisecond, workDir)
+	return t.runForeground(ctx, cmdText, time.Duration(timeoutMS)*time.Millisecond, workDir, confine)
 }
 
 // runForeground execs command with a wall-clock timeout and returns formatted combined
@@ -175,11 +185,12 @@ func (t *Bash) Execute(ctx context.Context, argsJSON string) (string, error) {
 //
 // runForeground 带墙钟超时执行 command，返合并 stdout+stderr（截断）。workDir 是对话驻地（Execute
 // 已验其可用）；空表示无 cwd——子进程继承后端进程的目录。
-func (t *Bash) runForeground(ctx context.Context, command string, timeout time.Duration, workDir string) (string, error) {
+func (t *Bash) runForeground(ctx context.Context, command string, timeout time.Duration, workDir string, confine bool) (string, error) {
 	runCtx, cancel := context.WithTimeout(ctx, timeout)
 	defer cancel()
 
 	cmd := buildShellCmd(runCtx, command, workDir)
+	confined := confine && confineWrites(cmd, workDir, t.selfPort)
 	// Timeout / cancel must kill the whole process group, not just sh — and WaitDelay force-closes
 	// the pipes so Run returns even if something survives holding them (see WaitDelay).
 	//
@@ -205,6 +216,9 @@ func (t *Bash) runForeground(ctx context.Context, command string, timeout time.D
 
 	err := cmd.Run()
 	output := capOutput(buf.Bytes())
+	if confinementHint(confined, err != nil, buf.String(), command, workDir, t.selfPort) {
+		output += confineNote
+	}
 
 	switch {
 	case errors.Is(runCtx.Err(), context.DeadlineExceeded):
@@ -259,8 +273,11 @@ func capOutput(b []byte) string {
 // runBackground 用 detached ctx 启动，让子进程 outlive 单次 chat turn；清理走 KillShell 或
 // 关停 Stop()。workDir **显式**传入、而非从某个 ctx 读，因为 detached 子进程刻意拿到的是
 // context.Background()——驻地必须像进程本身一样活过启动它的那个回合。
-func (t *Bash) runBackground(command, workDir string) (string, error) {
+func (t *Bash) runBackground(command, workDir string, confine bool) (string, error) {
 	cmd := buildShellCmd(context.Background(), command, workDir)
+	if confine {
+		confineWrites(cmd, workDir, t.selfPort)
+	}
 
 	stdout, err := cmd.StdoutPipe()
 	if err != nil {

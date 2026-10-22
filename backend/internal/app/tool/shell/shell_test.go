@@ -8,7 +8,7 @@ import (
 )
 
 func TestShellTools_NamesAndCount(t *testing.T) {
-	st := NewShellTools("")
+	st := NewShellTools("", "")
 	if len(st.Tools) != 3 {
 		t.Fatalf("want 3 tools, got %d", len(st.Tools))
 	}

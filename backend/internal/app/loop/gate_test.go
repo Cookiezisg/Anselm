@@ -378,3 +378,38 @@ func TestDispatchWithGate_CallFloorGatesWhatTheModelCalledSafeAndSurvivesApprove
 		t.Fatal("a denied destructive call must not execute")
 	}
 }
+
+// waiverProbe records whether the context it executed under carried the human-approval waiver.
+// waiverProbe 记录它执行时所在的 ctx 是否带人工批准豁免。
+type waiverProbe struct {
+	fakeTool
+	waived *bool
+}
+
+func (p waiverProbe) Execute(ctx context.Context, _ string) (string, error) {
+	*p.waived = reqctxpkg.ConfinementWaived(ctx)
+	return "ran", nil
+}
+
+// TestDispatchWithGate_ApprovalWaivesConfinementOnlyForThatCall: a fresh human "approve" lifts the OS
+// write confinement for exactly that call; an approve_always-whitelisted repeat does NOT inherit it.
+//
+// TestDispatchWithGate_ApprovalWaivesConfinementOnlyForThatCall：一次新的人工「批准」恰为那一次调用解除 OS
+// 写约束；approve_always 白名单下的重复调用**不**继承它。
+func TestDispatchWithGate_ApprovalWaivesConfinementOnlyForThatCall(t *testing.T) {
+	var broker *humanloopapp.Broker
+	broker = humanloopapp.New(func(_ context.Context, req humanloopapp.Request) {
+		go broker.Resolve(req.ToolCallID, humanloopapp.Response{Action: humanloopapp.DecisionApproveAlways})
+	})
+	ctx := reqctxpkg.SetConversationID(humanloopapp.WithBroker(context.Background(), broker), "cv1")
+	waived := false
+	tool := waiverProbe{fakeTool{name: "deploy", result: "ran"}, &waived}
+
+	if _, _, _, _, approved := dispatchWithGate(ctx, tool, dangerTC("deploy"), []byte(`{}`), zap.NewNop()); !approved || !waived {
+		t.Fatalf("a fresh human approval must waive confinement: approved=%v waived=%v", approved, waived)
+	}
+	waived = false
+	if _, _, _, _, approved := dispatchWithGate(ctx, tool, dangerTC("deploy"), []byte(`{}`), zap.NewNop()); approved || waived {
+		t.Fatalf("an approve_always repeat is not a fresh approval and must stay confined: approved=%v waived=%v", approved, waived)
+	}
+}

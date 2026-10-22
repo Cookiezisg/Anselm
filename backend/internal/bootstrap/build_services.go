@@ -160,7 +160,7 @@ func (h *toolsetHolder) Tools() []toolapp.Tool { return h.tools }
 //
 // buildServices 按依赖序构造全部 28 个 app Service，接好每个跨 Service 适配器、工具集，
 // 以及所有装配后注入。mux 是 trigger 注册 webhook 路由的共享 mux；dataDir 是文件式 store + sandbox 的根。
-func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir string, log *zap.Logger) *services {
+func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir, selfAddr string, log *zap.Logger) *services {
 	// --- Tier 0: leaves (no app-Service dependencies) ---
 	notif := notificationapp.NewService(st.notification, bus.notifications, log)
 	ws := workspaceapp.NewService(st.workspace, log)
@@ -317,7 +317,7 @@ func buildServices(st *stores, inf infra, bus buses, mux *http.ServeMux, dataDir
 	if dataDir != "" {
 		shellPidDir = filepath.Join(dataDir, "shellpids")
 	}
-	shellTools := shelltool.NewShellTools(shellPidDir)
+	shellTools := shelltool.NewShellTools(shellPidDir, selfAddr)
 	toolset := toolapp.Toolset{
 		Resident: concat(
 			filesystemtool.FilesystemTools(guard),

@@ -559,6 +559,9 @@ func dispatchWithGate(ctx context.Context, t toolapp.Tool, tc messagesdomain.Too
 			// approve / approve_always → fall through and execute
 		}
 	}
+	if humanApproved {
+		ctx = reqctxpkg.WaiveConfinement(ctx) // the user said yes to exactly this call. 用户对的正是这次调用说了行。
+	}
 	output, errMsg, ok = executeTool(ctx, t, tc.Name, argsJSON, log)
 	return output, errMsg, ok, true, humanApproved
 }

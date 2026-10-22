@@ -178,16 +178,16 @@ func Build(cfg Config) (*App, error) {
 	// One mux: trigger registers webhook routes on it; the 28 resource handlers register theirs;
 	// then Chain wraps it with the middleware stack (workspace identify/require, locale, cors…).
 	mux := http.NewServeMux()
-	svc := buildServices(st, inf, bus, mux, cfg.DataDir, log)
+	addr := cfg.Addr
+	if addr == "" {
+		addr = "127.0.0.1:8080" // loopback-only default (was :8080/all-interfaces) — loopback hardening
+	}
+	svc := buildServices(st, inf, bus, mux, cfg.DataDir, addr, log)
 	svc.settings = settingsSvc
 	svc.storage = storageapp.New(database) // storage-file ops (size / dead space / compact) over the shared DB. 共享 DB 上的存储文件操作。
 	registerHandlers(mux, svc, bus, cfg, inf.proofHeaders, log)
 	registerDebug(mux, cfg.Dev, log) // dev-only /debug/pprof + /debug/stats (observability)
 
-	addr := cfg.Addr
-	if addr == "" {
-		addr = "127.0.0.1:8080" // loopback-only default (was :8080/all-interfaces) — loopback hardening
-	}
 	// Direct-connection capability catalog: apply a previously cached models.dev trim NOW (local
 	// read, load priority cache > vendored, P11); the background refresh itself starts in Boot.
 	// In-memory builds (DataDir "") skip both — tests run on the vendored snapshot.

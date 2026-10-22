@@ -116,9 +116,16 @@ Workdir 是 Conversation 的可选绝对目录焦点：
 - 相对路径以它解析；
 - Bash 从它启动；
 - system prompt 明示当前位置；
-- 目录外读取仍允许，目录外写入升级 HumanLoop 确认。
+- 目录外读取仍允许，目录外写入升级 HumanLoop 确认（`Write`/`Edit` 由 `FileWriteTool` 判定；Bash 见下）。
 
-它不是 sandbox 或权限模型。修改 workdir 在下一 Chat turn 生效，并写
+对 Bash，挂了 workdir 时（macOS）子进程在 Seatbelt 写沙箱下运行：只能写 workdir 子树、系统临时目录与
+少数构建缓存目录，**不能连 sidecar 自己的监听端口**（本地 API 与实体工具同权限、却没有它们的人闸）。
+读不受限。被拒时命令得到 `Operation not permitted`，结果末尾附 `[sandbox]` 说明，引导模型改用
+`Write`/`Edit` 或实体工具（它们会问用户）。某次调用若被用户在人闸里**新批准**，则仅该次解除约束
+（approve-always / skill 预授权的调用不解除）。Linux 与 Windows 尚未接 OS 写沙箱，那里只有
+`CallDangerFloorer` 的静态下限。未挂 workdir 时不约束，保持整台机器的现状。
+
+除此之外它不是权限模型。修改 workdir 在下一 Chat turn 生效，并写
 `marker{kind:"workdir",from,to}`；仅在同一目录切 branch 不写 marker。
 
 `GET /conversations/{id}/workdir` 每次从文件系统/git 计算：

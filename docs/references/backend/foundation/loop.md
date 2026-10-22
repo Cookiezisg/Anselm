@@ -146,6 +146,12 @@ preceding tool call 的 JSON 中。否则模型在收到结果后会误以为自
   任一项。它是垫在模型自报之下的保守静态分析、**不是沙箱**：`eval`、`xargs rm`、自带删除行为的二进制
   看不见；未挂驻地时路径规则关闭（沿用「整台机器无闸」的现状），仅 HTTP DELETE 仍生效。
 
+静态下限之下还有一层不依赖「认出命令」的 OS 约束：挂了驻地时 Bash 子进程在写沙箱下运行（macOS
+Seatbelt，`shell/confine_darwin.go`；其他平台未接，只剩静态下限），内核拒绝任何语言或工具对驻地、
+临时与缓存目录之外的写入，并拒绝连 sidecar 自己的端口。人在闸门里**新批准**的调用由 loop 在 ctx 上
+设 `reqctx.WaiveConfinement`，只对这一次调用解除约束（用户对的正是这条命令说了行，OS 不应反驳）；
+approve-always 与 skill 预授权的重复调用不继承。
+
 不可逆工具必须通过静态下限把有效等级固定为 `dangerous`；例如 `delete_workflow` 即使模型自报
 `safe` 也必须先出现真实 HumanLoop approval，再允许副作用发生。tool-call 的 durable/SSE
 快照同样展示提升后的有效等级，不能出现“看起来 safe、实际上要批准”的错觉。

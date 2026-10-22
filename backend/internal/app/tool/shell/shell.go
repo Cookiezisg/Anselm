@@ -40,6 +40,7 @@ package shell
 
 import (
 	toolapp "github.com/sunweilin/anselm/backend/internal/app/tool"
+	"net"
 )
 
 // ShellTools bundles the shell system tools sharing one ProcessManager. The caller (host
@@ -59,12 +60,20 @@ type ShellTools struct {
 //
 // NewShellTools 在一个新 ProcessManager 上装配 Bash + BashOutput + KillShell；崩溃恢复
 // pid 清单落在 pidDir（"" 关闭持久化）。
-func NewShellTools(pidDir string) *ShellTools {
+//
+// selfAddr is this sidecar's own listen address. A confined Bash may not connect to that one port: the
+// local HTTP API is the same authority as the entity tools, minus their human gate, so a shell that can
+// `curl -X DELETE` it has walked around the gate. "" disables the port rule (tests).
+//
+// selfAddr 是本 sidecar 自己的监听地址。受约束的 Bash 不得连这一个端口：本地 HTTP API 与实体工具是同一份
+// 权限、只是没有它们的人闸，能 `curl -X DELETE` 它的 shell 就绕过了闸。"" 关闭端口规则（测试用）。
+func NewShellTools(pidDir, selfAddr string) *ShellTools {
 	mgr := NewProcessManager(pidDir)
+	_, selfPort, _ := net.SplitHostPort(selfAddr)
 	return &ShellTools{
 		Manager: mgr,
 		Tools: []toolapp.Tool{
-			&Bash{mgr: mgr},
+			&Bash{mgr: mgr, selfPort: selfPort},
 			&BashOutput{mgr: mgr},
 			&KillShell{mgr: mgr},
 		},
