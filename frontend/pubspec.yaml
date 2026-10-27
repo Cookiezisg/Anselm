@@ -34,7 +34,7 @@ dependencies:
   # facade (core/ui), never raw. PINNED EXACT: upstream has broken builder signatures within a minor
   # before; the facade keeps us vendorable if it stalls. LLM 输出 markdown 渲染器,builder 钩子面最全;
   # 仅经 AnMarkdown 门面用、绝不裸用。钉死精确版本(上游曾在小版本内破坏 builder 签名;门面保可 vendor)。
-  gpt_markdown: 1.2.1
+  gpt_markdown: 1.4.0
   # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
   # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
   csv: ^6.0.0
@@ -59,7 +59,7 @@ dependencies:
   go_router: ^17.3.0
   characters: ^1.4.1
   file_selector: ^1.1.0
-  pasteboard: ^0.5.0
+  pasteboard: ^0.6.0
   desktop_drop: ^0.8.4
   mime: ^2.1.0
   flutter_local_notifications: ^22.3.2
@@ -173,7 +173,7 @@ dev_dependencies:
   # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
   build_runner: ^2.15.1
   freezed: ^3.2.5
-  json_serializable: ^6.14.1
+  json_serializable: ^6.15.2
   # WidgetTester extensions from Flutter Bounty Hunters (same authors as super_editor) — ime.typeText,
   # pressEnter/pressBackspace, doubleTapInParagraph/tripleTapInParagraph — for the editor interaction
   # test matrix (Layer 1). Real IME/CJK composition still can't be automated (Flutter #131510 → manual).
