@@ -12,10 +12,10 @@ dependencies:
   flutter_localizations:
     sdk: flutter
   # Assembly-root state container (classic Riverpod, not codegen — see ADR 0004).
-  flutter_riverpod: ^3.4.3
+  flutter_riverpod: ^3.5.0
   # Window GEOMETRY (size / min / center / resize) — the purpose-built desktop package; handles
   # the Retina scale factor + live resize correctly. 窗口尺寸/最小/居中/缩放(scale 正确)。
-  window_manager: ^0.5.2
+  window_manager: ^0.6.0
   # macOS window CHROME only — frameless titlebar + taller titlebar (clickable centered traffic
   # lights). Best-practice package, NOT hand-rolled (原则 #8). Sizing is window_manager's job.
   # 仅 macOS 窗口外观:无边框 + 加高标题栏(灯居中可点)。尺寸归 window_manager。
@@ -34,11 +34,11 @@ dependencies:
   # facade (core/ui), never raw. PINNED EXACT: upstream has broken builder signatures within a minor
   # before; the facade keeps us vendorable if it stalls. LLM 输出 markdown 渲染器,builder 钩子面最全;
   # 仅经 AnMarkdown 门面用、绝不裸用。钉死精确版本(上游曾在小版本内破坏 builder 签名;门面保可 vendor)。
-  gpt_markdown: 1.2.1
+  gpt_markdown: 1.4.1
   # Vector rendering for the bundled brand mark (assets/brand) + inline provider SVGs (currentColor).
   # 矢量渲染:品牌标 + 内联 provider SVG(随 ink 着色)。
   csv: ^6.0.0
-  flutter_svg: ^2.3.0
+  flutter_svg: ^2.3.2
   # i18n — slang: type-safe `context.t.<key>` from lib/i18n/*.i18n.json. NO hardcoded CN/EN in code
   # (CLAUDE.md 前端守则). Generated via `dart run slang` (NOT build_runner — avoids the asset clash).
   # i18n=slang:类型安全 t.<key>,严禁硬编码中英文;`dart run slang` 生成(不走 build_runner)。
@@ -50,7 +50,7 @@ dependencies:
   # runtime dep the net + sse layers need. 网络传输:REST + 长连 SSE(均走 dio 流)。
   dio: ^5.11.1
   # SHA-256 of a downloaded Windows installer against the release's SHA256SUMS. 校验下载的安装器。
-  crypto: ^3.0.6
+  crypto: ^3.0.8
   # Contract DTO codegen runtime annotations (@freezed / @Default / @JsonKey unknownEnumValue).
   # 契约 DTO codegen 运行时注解(freezed 3.x + json 联合体 unknown 兜底)。
   freezed_annotation: ^3.1.0
@@ -59,7 +59,7 @@ dependencies:
   go_router: ^17.3.0
   characters: ^1.4.1
   file_selector: ^1.1.0
-  pasteboard: ^0.5.0
+  pasteboard: ^0.6.0
   desktop_drop: ^0.8.4
   mime: ^2.1.0
   flutter_local_notifications: ^22.3.2
@@ -77,7 +77,7 @@ dependencies:
   # 原生编辑器,钉死 dev 版;markdown 编解码随包内置;仅经 core/editor 门面用。**钉值现在由 vendor 补丁扛着、
   # 不再是 Flutter API 缺口**:dev.41+ 需要的 TextInputConnection.updateStyle,Flutter 3.44 已提供(vendored
   # IME 装饰器已转发),故上移不再被 SDK 挡,而是被 ADR 0009 的 presenter 补丁挡(须重放)。解钉前先读 ADR 0009。
-  super_editor: 0.3.0-dev.40
+  super_editor: 0.3.0-dev.52
   # super_editor's text-layout companion (transitively resolved by super_editor) — pinned EXPLICIT because the
   # facade uses it directly: the vendored AnTextComponent (lib/core/editor/an_editor_text_component.dart) rebuilds
   # TextComponent's SuperText/ProseText/highlight layers to paint the paint-beneath inline-code background, and
@@ -92,7 +92,7 @@ dependencies:
   # 应用内更新(macOS 走 Sparkle)。本地插件,宿主继续纯 SPM。
   anselm_updater:
     path: packages/anselm_updater
-  screen_retriever: ^0.2.2
+  screen_retriever: ^0.3.1
   flutter_secure_storage: ^10.3.1
   record: ^6.2.1
   web_socket_channel: ^3.0.3
@@ -173,7 +173,7 @@ dev_dependencies:
   # 契约 DTO 代码生成(不含 slang——slang 自走 dart run slang,见 build.yaml)。
   build_runner: ^2.15.1
   freezed: ^3.2.5
-  json_serializable: ^6.14.1
+  json_serializable: ^6.15.2
   # WidgetTester extensions from Flutter Bounty Hunters (same authors as super_editor) — ime.typeText,
   # pressEnter/pressBackspace, doubleTapInParagraph/tripleTapInParagraph — for the editor interaction
   # test matrix (Layer 1). Real IME/CJK composition still can't be automated (Flutter #131510 → manual).
